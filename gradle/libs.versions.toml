@@ -23,7 +23,7 @@ webpack-htmlInlineScript = "3.2.1"
 webview = "1.9.40"
 
 gradle-android = "8.7.3"
-gradle-compose = "1.8.0"
+gradle-compose = "1.8.1"
 gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
 gradle-kotlin = "2.1.21"
