@@ -27,7 +27,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -103,14 +102,9 @@ public fun AttributionButton(
 
   val expanded = remember { MutableTransitionState(true) }
 
-  var collapsedOnce by remember { mutableStateOf(false) }
-
-  if (!collapsedOnce) {
-    LaunchedEffect(cameraState.isCameraMoving, cameraState.moveReason) {
-      if (cameraState.isCameraMoving && cameraState.moveReason == CameraMoveReason.GESTURE) {
-        expanded.targetState = false
-        collapsedOnce = true
-      }
+  LaunchedEffect(cameraState.isCameraMoving, cameraState.moveReason) {
+    if (cameraState.isCameraMoving && cameraState.moveReason == CameraMoveReason.GESTURE) {
+      expanded.targetState = false
     }
   }
 
