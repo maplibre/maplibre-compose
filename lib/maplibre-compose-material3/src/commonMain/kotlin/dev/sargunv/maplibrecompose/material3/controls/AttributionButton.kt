@@ -59,10 +59,17 @@ import org.jetbrains.compose.resources.vectorResource
  *
  * @param cameraState Used to dismiss the attribution when the user interacts with the map.
  * @param styleState Used to get the attribution links to display.
- * @param modifier the Modifier to be applied to this layout node
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
- * @param collapsedStyle Style of the attribution [Surface] when it is expanded
- * @param expandedStyle Style of the attribution [Surface] when it is collapsed
+ * @param toggleButton Composable lambda that defines the button used to toggle the attribution
+ *   display. Takes a toggle function parameter that should be called to switch states.
+ * @param expandedContent Composable lambda that defines how the attribution content is displayed
+ *   when expanded. Takes a list of AttributionLink as parameter.
+ * @param expandedStyle Style of the attribution [Surface] when it is expanded
+ * @param collapsedStyle Style of the attribution [Surface] when it is collapsed
+ * @param expand Function that returns an [EnterTransition] for the expanding animation based on the
+ *   given alignment
+ * @param collapse Function that returns an [ExitTransition] for the collapsing animation based on
+ *   the given alignment
  */
 @Composable
 public fun AttributionButton(
