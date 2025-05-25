@@ -49,9 +49,9 @@ import dev.sargunv.maplibrecompose.demoapp.demos.platformDemos
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.demoapp.generated.arrow_back
 import dev.sargunv.maplibrecompose.demoapp.generated.info
-import dev.sargunv.maplibrecompose.material3.controls.AttributionButton
 import dev.sargunv.maplibrecompose.material3.controls.DisappearingCompassButton
 import dev.sargunv.maplibrecompose.material3.controls.DisappearingScaleBar
+import dev.sargunv.maplibrecompose.material3.controls.ExpandingAttributionButton
 import dev.sargunv.maplibrecompose.material3.controls.ScaleBarMeasures
 import dev.sargunv.maplibrecompose.material3.defaultScaleBarMeasures
 import org.jetbrains.compose.resources.vectorResource
@@ -175,7 +175,12 @@ fun DemoMapControls(
         modifier = Modifier.align(Alignment.TopEnd),
         onClick = onCompassClick,
       )
-      AttributionButton(styleState, modifier = Modifier.align(Alignment.BottomEnd))
+      ExpandingAttributionButton(
+        cameraState = cameraState,
+        styleState = styleState,
+        modifier = Modifier.align(Alignment.BottomEnd),
+        contentAlignment = Alignment.BottomEnd,
+      )
     }
   }
 }
