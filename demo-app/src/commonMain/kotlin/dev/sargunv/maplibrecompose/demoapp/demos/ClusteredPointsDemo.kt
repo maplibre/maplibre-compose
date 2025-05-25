@@ -180,7 +180,7 @@ private suspend fun readGbfsData(gbfsFilePath: String): FeatureCollection {
             "vehicle_type" to (bike["vehicle_type"] ?: JsonNull),
             "vehicle_type_id" to (bike["vehicle_type_id"] ?: JsonNull),
             "last_reported" to (bike["last_reported"] ?: JsonNull),
-            "vehicle_range_meters" to (bike["vehicle_range_meters"] ?: JsonNull),
+            "current_range_meters" to (bike["current_range_meters"] ?: JsonNull),
             "is_reserved" to (bike["is_reserved"] ?: JsonNull),
             "is_disabled" to (bike["is_disabled"] ?: JsonNull),
           ),

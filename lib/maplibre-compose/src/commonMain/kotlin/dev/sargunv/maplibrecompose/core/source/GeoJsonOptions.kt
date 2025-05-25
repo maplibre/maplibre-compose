@@ -1,7 +1,6 @@
 package dev.sargunv.maplibrecompose.core.source
 
 import androidx.compose.runtime.Immutable
-import dev.sargunv.maplibrecompose.expressions.ast.Expression
 
 /**
  * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view
@@ -16,11 +15,12 @@ import dev.sargunv.maplibrecompose.expressions.ast.Expression
  * @param cluster If the data is a collection of point features, setting this to `true` clusters the
  *   points by radius into groups. Cluster groups become new `Point` features in the source with
  *   additional properties:
- *     * `cluster`: Is `true` if the point is a cluster
- *     * `cluster_id`: A unique id for the cluster to be used in conjunction with the cluster
- *       inspection methods. (TODO which are not implemented yet on [GeoJsonSource] - #80)
- *     * `point_count`: Number of original points grouped into this cluster
- *     * `point_count_abbreviated`: An abbreviated point count
+ *
+ *   - `cluster`: Is `true` if the point is a cluster
+ *   - `cluster_id`: A unique id for the cluster to be used in conjunction with the cluster
+ *     inspection methods.
+ *   - `point_count`: Number of original points grouped into this cluster
+ *   - `point_count_abbreviated`: An abbreviated point count
  *
  * @param clusterRadius Radius of each cluster when clustering points, measured in 1/512ths of a
  *   tile. I.e. a value of 512 indicates a radius equal to the width of a tile.
@@ -33,10 +33,19 @@ import dev.sargunv.maplibrecompose.expressions.ast.Expression
  *   Minimum number of points necessary to form a cluster if clustering is enabled.
  *
  * @param clusterProperties A map defining custom properties on the generated clusters if clustering
- *   is enabled, aggregating values from clustered points. The keys are the property names, the
- *   values are expressions.
+ *   is enabled, aggregating values from clustered features. The keys are the property names, the
+ *   values define how the value should be aggregated from the features within one cluster.
  *
- *   TODO examples missing, see https://maplibre.org/maplibre-style-spec/sources/#clusterproperties
+ * Example:
+ * ```kt
+ * mapOf(
+ *   "totalCapacity" to ClusterAggregation("+", "capacity")
+ * )
+ * ```
+ *
+ * Let's assume a geojson source consisting of points for parking lots in which each parking lot has
+ * a `capacity` property. The code above adds the `capacity` values of all parking lots within one
+ * cluster together into a property named `totalCapacity` of the cluster point.
  *
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][dev.sargunv.maplibrecompose.compose.layer.LineLayer]s that specify a `gradient`.
@@ -54,6 +63,16 @@ public data class GeoJsonOptions(
   val clusterProperties: Map<String, ClusterProperty> = emptyMap(),
   val lineMetrics: Boolean = false,
 ) {
-  // TODO seems to contradict https://maplibre.org/maplibre-style-spec/sources/#clusterproperties
-  public data class ClusterProperty(val operator: String, val mapper: Expression<*>)
+  /**
+   * Defines how the values from the features within a cluster should be aggregated into a cluster
+   * property.
+   *
+   * @param operator Expression name to aggregate the values from the feature properties. This can
+   *   be any expression function that accepts at least 2 operands but typically is a math function
+   *   like `"+"` or `"max"`. See
+   *   [MapLibre Style Spec][https://maplibre.org/maplibre-style-spec/expressions/#math] for valid
+   *   names for the operator.
+   * @param property name of the feature property whose value should be aggregated.
+   */
+  public data class ClusterProperty(val operator: String, val property: String)
 }
