@@ -10,6 +10,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonColors
@@ -53,7 +54,7 @@ public fun CompassButton(
 ) {
   val coroutineScope = rememberCoroutineScope()
   ElevatedButton(
-    modifier = modifier.size(size).aspectRatio(1f),
+    modifier = modifier.requiredSize(size).aspectRatio(1f),
     onClick = {
       coroutineScope.launch {
         cameraState.animateTo(cameraState.position.copy(bearing = 0.0, tilt = 0.0))

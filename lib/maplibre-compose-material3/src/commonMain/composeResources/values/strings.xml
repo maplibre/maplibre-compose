@@ -1,6 +1,6 @@
 <resources>
   <string name="library_name">MapLibre Compose</string>
-  <string name="attribution">Attribution</string>
+  <string name="attribution">Map Attribution</string>
   <string name="compass">Compass</string>
   <string name="meters_symbol">m</string>
   <string name="kilometers_symbol">km</string>
