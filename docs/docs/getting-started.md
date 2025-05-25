@@ -70,6 +70,10 @@ cocoapods {
 
 ## Set up Vulkan on Android (Optional)
 
+!!! warning
+
+    The Vulkan renderer is not yet as stable as the OpenGL renderer. Check the [MapLibre Native issues](https://github.com/maplibre/maplibre-native/issues?q=sort%3Aupdated-desc%20state%3Aopen%20label%3A%22Vulkan%22%20type%3ABug) for more info.
+
 By default, we ship with the standard version of MapLibre for Android, which
 uses the OpenGL backend. If you'd prefer to use the Vulkan backend, you can
 update your build.
