@@ -175,7 +175,11 @@ fun DemoMapControls(
         modifier = Modifier.align(Alignment.TopEnd),
         onClick = onCompassClick,
       )
-      AttributionButton(styleState, modifier = Modifier.align(Alignment.BottomEnd))
+      AttributionButton(
+        lastCameraMoveReason = cameraState.moveReason,
+        attributions = styleState.sources.flatMap { it.attributionLinks },
+        modifier = Modifier.align(Alignment.BottomEnd),
+      )
     }
   }
 }
