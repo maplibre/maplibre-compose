@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.viewinterop.AndroidView
 import co.touchlab.kermit.Logger
 import dev.sargunv.maplibrecompose.core.AndroidMap
+import dev.sargunv.maplibrecompose.core.AndroidMapSnapshotter
 import dev.sargunv.maplibrecompose.core.AndroidScaleBar
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
@@ -79,6 +80,7 @@ internal fun AndroidMapView(
                 mapView = mapView,
                 map = map,
                 scaleBar = AndroidScaleBar(context, mapView, map),
+                mapSnapshotter = AndroidMapSnapshotter(context, layoutDir, density),
                 layoutDir = layoutDir,
                 density = density,
                 callbacks = callbacks,
@@ -92,6 +94,8 @@ internal fun AndroidMapView(
     },
     update = { _ ->
       val map = currentMap ?: return@AndroidView
+      map.getMapSnapshotter().density = density
+      map.getMapSnapshotter().layoutDir = layoutDir
       map.layoutDir = layoutDir
       map.density = density
       map.callbacks = callbacks

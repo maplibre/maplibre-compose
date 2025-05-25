@@ -20,6 +20,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 import co.touchlab.kermit.Logger
 import cocoapods.MapLibre.MLNMapView
 import dev.sargunv.maplibrecompose.core.IosMap
+import dev.sargunv.maplibrecompose.core.IosMapSnapshotter
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
 import dev.sargunv.maplibrecompose.core.SafeStyle
@@ -86,6 +87,7 @@ internal fun IosMapView(
               IosMap(
                 mapView = mapView,
                 size = CGSizeMake(width.value.toDouble(), height.value.toDouble()),
+                mapSnapshotter = IosMapSnapshotter(),
                 layoutDir = layoutDir,
                 density = density,
                 insetPadding = insetPadding,

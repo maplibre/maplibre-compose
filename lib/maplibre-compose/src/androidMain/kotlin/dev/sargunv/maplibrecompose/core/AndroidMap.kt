@@ -12,9 +12,11 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import dev.sargunv.maplibrecompose.core.util.correctedAndroidUri
 import dev.sargunv.maplibrecompose.core.util.toBoundingBox
+import dev.sargunv.maplibrecompose.core.util.toCameraPosition
 import dev.sargunv.maplibrecompose.core.util.toGravity
 import dev.sargunv.maplibrecompose.core.util.toLatLng
 import dev.sargunv.maplibrecompose.core.util.toLatLngBounds
+import dev.sargunv.maplibrecompose.core.util.toMLNCameraPosition
 import dev.sargunv.maplibrecompose.core.util.toMLNExpression
 import dev.sargunv.maplibrecompose.core.util.toOffset
 import dev.sargunv.maplibrecompose.core.util.toPointF
@@ -30,7 +32,6 @@ import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
-import org.maplibre.android.camera.CameraPosition as MLNCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.VisibleRegion as MLNVisibleRegion
 import org.maplibre.android.gestures.MoveGestureDetector
@@ -52,6 +53,7 @@ internal class AndroidMap(
   private val mapView: MapView,
   private val map: MapLibreMap,
   private val scaleBar: AndroidScaleBar,
+  private val mapSnapshotter: AndroidMapSnapshotter,
   layoutDir: LayoutDirection,
   density: Density,
   internal var callbacks: MaplibreMap.Callbacks,
@@ -258,47 +260,14 @@ internal class AndroidMap(
     }
   }
 
-  private fun MLNCameraPosition.toCameraPosition(): CameraPosition =
-    with(density) {
-      CameraPosition(
-        target = target?.toPosition() ?: Position(0.0, 0.0),
-        zoom = zoom,
-        bearing = bearing,
-        tilt = tilt,
-        padding =
-          padding?.let {
-            PaddingValues.Absolute(
-              left = it[0].toInt().toDp(),
-              top = it[1].toInt().toDp(),
-              right = it[2].toInt().toDp(),
-              bottom = it[3].toInt().toDp(),
-            )
-          } ?: PaddingValues.Absolute(0.dp),
-      )
-    }
-
-  private fun CameraPosition.toMLNCameraPosition(): MLNCameraPosition =
-    with(density) {
-      MLNCameraPosition.Builder()
-        .target(target.toLatLng())
-        .zoom(zoom)
-        .tilt(tilt)
-        .bearing(bearing)
-        .padding(
-          left = padding.calculateLeftPadding(layoutDir).toPx().toDouble(),
-          top = padding.calculateTopPadding().toPx().toDouble(),
-          right = padding.calculateRightPadding(layoutDir).toPx().toDouble(),
-          bottom = padding.calculateBottomPadding().toPx().toDouble(),
-        )
-        .build()
-    }
-
   override fun getCameraPosition(): CameraPosition {
-    return map.cameraPosition.toCameraPosition()
+    return map.cameraPosition.toCameraPosition(density)
   }
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
-    map.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition.toMLNCameraPosition()))
+    map.moveCamera(
+      CameraUpdateFactory.newCameraPosition(cameraPosition.toMLNCameraPosition(density, layoutDir))
+    )
   }
 
   private class CancelableCoroutineCallback(private val cont: Continuation<Unit>) :
@@ -308,10 +277,14 @@ internal class AndroidMap(
     override fun onFinish() = cont.resume(Unit)
   }
 
+  override fun getStyleUri() = lastStyleUri
+
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) =
     suspendCoroutine { cont ->
       map.animateCamera(
-        CameraUpdateFactory.newCameraPosition(finalPosition.toMLNCameraPosition()),
+        CameraUpdateFactory.newCameraPosition(
+          finalPosition.toMLNCameraPosition(density, layoutDir)
+        ),
         duration.toInt(DurationUnit.MILLISECONDS),
         CancelableCoroutineCallback(cont),
       )
@@ -373,6 +346,8 @@ internal class AndroidMap(
 
   override fun metersPerDpAtLatitude(latitude: Double) =
     map.projection.getMetersPerPixelAtLatitude(latitude)
+
+  override fun getMapSnapshotter() = mapSnapshotter
 }
 
 private fun MLNVisibleRegion.toVisibleRegion() =

@@ -3,15 +3,18 @@ package dev.sargunv.maplibrecompose.core.util
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import cocoapods.MapLibre.MLNAltitudeForZoomLevel
 import cocoapods.MapLibre.MLNCoordinateBounds
 import cocoapods.MapLibre.MLNCoordinateBoundsMake
 import cocoapods.MapLibre.MLNFeatureProtocol
+import cocoapods.MapLibre.MLNMapCamera
 import cocoapods.MapLibre.MLNOrnamentPosition
 import cocoapods.MapLibre.MLNOrnamentPositionBottomLeft
 import cocoapods.MapLibre.MLNOrnamentPositionBottomRight
@@ -20,6 +23,7 @@ import cocoapods.MapLibre.MLNOrnamentPositionTopRight
 import cocoapods.MapLibre.MLNShape
 import cocoapods.MapLibre.expressionWithMLNJSONObject
 import cocoapods.MapLibre.predicateWithMLNJSONObject
+import dev.sargunv.maplibrecompose.core.CameraPosition
 import dev.sargunv.maplibrecompose.expressions.ast.BooleanLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.ColorLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.CompiledExpression
@@ -39,6 +43,7 @@ import io.github.dellisd.spatialk.geojson.GeoJson
 import io.github.dellisd.spatialk.geojson.Position
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.addressOf
+import kotlinx.cinterop.get
 import kotlinx.cinterop.useContents
 import kotlinx.cinterop.usePinned
 import kotlinx.serialization.json.JsonArray
@@ -46,11 +51,28 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorSpace
+import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.Image
+import org.jetbrains.skia.ImageInfo
+import platform.CoreFoundation.CFDataGetBytePtr
+import platform.CoreFoundation.CFDataGetLength
+import platform.CoreFoundation.CFRelease
+import platform.CoreGraphics.CGColorSpaceCreateDeviceRGB
+import platform.CoreGraphics.CGDataProviderCopyData
+import platform.CoreGraphics.CGImageAlphaInfo
+import platform.CoreGraphics.CGImageCreateCopyWithColorSpace
+import platform.CoreGraphics.CGImageGetAlphaInfo
+import platform.CoreGraphics.CGImageGetBytesPerRow
+import platform.CoreGraphics.CGImageGetDataProvider
+import platform.CoreGraphics.CGImageGetHeight
+import platform.CoreGraphics.CGImageGetWidth
 import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGPointMake
 import platform.CoreGraphics.CGRect
 import platform.CoreGraphics.CGRectMake
+import platform.CoreGraphics.CGSize
 import platform.CoreGraphics.CGVectorMake
 import platform.CoreLocation.CLLocationCoordinate2D
 import platform.CoreLocation.CLLocationCoordinate2DMake
@@ -117,6 +139,22 @@ internal fun BoundingBox.toMLNCoordinateBounds(): CValue<MLNCoordinateBounds> =
     ne = northeast.toCLLocationCoordinate2D(),
     sw = southwest.toCLLocationCoordinate2D(),
   )
+
+internal fun CameraPosition.toMLNMapCamera(size: CValue<CGSize>): MLNMapCamera {
+  return MLNMapCamera().let {
+    it.centerCoordinate = target.toCLLocationCoordinate2D()
+    it.pitch = tilt
+    it.heading = bearing
+    it.altitude =
+      MLNAltitudeForZoomLevel(
+        zoomLevel = zoom,
+        pitch = tilt,
+        latitude = target.latitude,
+        size = size,
+      )
+    it
+  }
+}
 
 internal fun GeoJson.toMLNShape(): MLNShape {
   return MLNShape.shapeWithData(
@@ -218,3 +256,66 @@ internal fun ImageBitmap.toUIImage(scale: Float, sdf: Boolean) =
       if (sdf) UIImageRenderingMode.UIImageRenderingModeAlwaysTemplate
       else UIImageRenderingMode.UIImageRenderingModeAutomatic
     )
+
+internal fun UIImage.toImageBitmap(): ImageBitmap {
+  val skiaImage = this.toSkiaImage() ?: return ImageBitmap(1, 1)
+  return skiaImage.toComposeImageBitmap()
+}
+
+private fun UIImage.toSkiaImage(): Image? {
+  val imageRef =
+    CGImageCreateCopyWithColorSpace(this.CGImage, CGColorSpaceCreateDeviceRGB()) ?: return null
+
+  val width = CGImageGetWidth(imageRef).toInt()
+  val height = CGImageGetHeight(imageRef).toInt()
+
+  val bytesPerRow = CGImageGetBytesPerRow(imageRef)
+  val data = CGDataProviderCopyData(CGImageGetDataProvider(imageRef))
+  val bytePointer = CFDataGetBytePtr(data)
+  val length = CFDataGetLength(data)
+  val alphaInfo = CGImageGetAlphaInfo(imageRef)
+
+  val alphaType =
+    when (alphaInfo) {
+      CGImageAlphaInfo.kCGImageAlphaPremultipliedFirst,
+      CGImageAlphaInfo.kCGImageAlphaPremultipliedLast -> ColorAlphaType.PREMUL
+      CGImageAlphaInfo.kCGImageAlphaFirst,
+      CGImageAlphaInfo.kCGImageAlphaLast -> ColorAlphaType.UNPREMUL
+      CGImageAlphaInfo.kCGImageAlphaNone,
+      CGImageAlphaInfo.kCGImageAlphaNoneSkipFirst,
+      CGImageAlphaInfo.kCGImageAlphaNoneSkipLast -> ColorAlphaType.OPAQUE
+      else -> ColorAlphaType.UNKNOWN
+    }
+
+  val byteArray = ByteArray(length.toInt()) { index -> bytePointer!![index].toByte() }
+
+  CFRelease(data)
+  CFRelease(imageRef)
+
+  val skiaColorSpace = ColorSpace.sRGB
+  val colorType = ColorType.RGBA_8888
+
+  // Convert RGBA to BGRA
+  for (i in byteArray.indices step 4) {
+    val r = byteArray[i]
+    val g = byteArray[i + 1]
+    val b = byteArray[i + 2]
+    val a = byteArray[i + 3]
+
+    byteArray[i] = b
+    byteArray[i + 2] = r
+  }
+
+  return Image.makeRaster(
+    imageInfo =
+      ImageInfo(
+        width = width,
+        height = height,
+        colorType = colorType,
+        alphaType = alphaType,
+        colorSpace = skiaColorSpace,
+      ),
+    bytes = byteArray,
+    rowBytes = bytesPerRow.toInt(),
+  )
+}

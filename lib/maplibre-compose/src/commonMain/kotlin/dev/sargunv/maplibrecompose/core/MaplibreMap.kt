@@ -11,6 +11,8 @@ import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration
 
 internal interface MaplibreMap {
+  fun getStyleUri(): String
+
   suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration)
 
   suspend fun animateCameraPosition(
@@ -177,4 +179,6 @@ internal interface StandardMaplibreMap : MaplibreMap {
   ): List<Feature>
 
   fun metersPerDpAtLatitude(latitude: Double): Double
+
+  fun getMapSnapshotter(): MapSnapshotter
 }

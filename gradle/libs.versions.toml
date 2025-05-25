@@ -32,6 +32,7 @@ gradle-mkdocs = "4.0.1"
 gradle-spotless = "7.0.3"
 
 tool-prettier = "3.5.3"
+lifecycle = "2.9.0"
 
 [libraries]
 alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.ref = "alchemist" }
@@ -52,6 +53,7 @@ ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
 maplibre-android-scalebar = { module = "org.maplibre.gl:android-plugin-scalebar-v9", version.ref = "maplibre-android-plugins" }
 spatialk-geojson = { group = "io.github.dellisd.spatialk", name = "geojson", version.ref = "spatialk" }
+lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref="lifecycle" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle-android" }

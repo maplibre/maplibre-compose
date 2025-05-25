@@ -242,6 +242,8 @@ internal class JsMap(
     )
   }
 
+  override fun getStyleUri() = lastStyleUri
+
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
     impl.easeTo(
       EaseToOptions(
@@ -322,4 +324,6 @@ internal class JsMap(
     val point = impl.project(LngLat(impl.getCenter().lng, latitude))
     return impl.unproject(point).distanceTo(impl.unproject(Point(point.x + 1, point.y)))
   }
+
+  override fun getMapSnapshotter() = JsMapSnapshotter()
 }

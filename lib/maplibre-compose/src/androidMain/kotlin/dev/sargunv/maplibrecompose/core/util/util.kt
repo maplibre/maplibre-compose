@@ -3,6 +3,7 @@ package dev.sargunv.maplibrecompose.core.util
 import android.graphics.PointF
 import android.graphics.RectF
 import android.view.Gravity
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.unit.Density
@@ -10,11 +11,13 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
+import dev.sargunv.maplibrecompose.core.CameraPosition
 import dev.sargunv.maplibrecompose.expressions.ast.BooleanLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.ColorLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.CompiledExpression
@@ -31,6 +34,7 @@ import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Position
 import java.net.URI
 import java.net.URISyntaxException
+import org.maplibre.android.camera.CameraPosition as MLNCameraPosition
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.style.expressions.Expression as MLNExpression
@@ -75,6 +79,44 @@ internal fun BoundingBox.toLatLngBounds(): LatLngBounds =
     latSouth = southwest.latitude,
     lonWest = southwest.longitude,
   )
+
+internal fun MLNCameraPosition.toCameraPosition(density: Density): CameraPosition =
+  with(density) {
+    CameraPosition(
+      target = target?.toPosition() ?: Position(0.0, 0.0),
+      zoom = zoom,
+      bearing = bearing,
+      tilt = tilt,
+      padding =
+        padding?.let {
+          PaddingValues.Absolute(
+            left = it[0].toInt().toDp(),
+            top = it[1].toInt().toDp(),
+            right = it[2].toInt().toDp(),
+            bottom = it[3].toInt().toDp(),
+          )
+        } ?: PaddingValues.Absolute(0.dp),
+    )
+  }
+
+internal fun CameraPosition.toMLNCameraPosition(
+  density: Density,
+  layoutDir: LayoutDirection,
+): MLNCameraPosition =
+  with(density) {
+    MLNCameraPosition.Builder()
+      .target(target.toLatLng())
+      .zoom(zoom)
+      .tilt(tilt)
+      .bearing(bearing)
+      .padding(
+        left = padding.calculateLeftPadding(layoutDir).toPx().toDouble(),
+        top = padding.calculateTopPadding().toPx().toDouble(),
+        right = padding.calculateRightPadding(layoutDir).toPx().toDouble(),
+        bottom = padding.calculateBottomPadding().toPx().toDouble(),
+      )
+      .build()
+  }
 
 internal fun CompiledExpression<*>.toMLNExpression(): MLNExpression? =
   if (this == NullLiteral) null else MLNExpression.Converter.convert(normalizeJsonLike(false))

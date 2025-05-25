@@ -91,5 +91,8 @@ val Platform.supportsLayers: Boolean
 val Platform.supportsBlending: Boolean
   get() = isAndroid || isIos
 
+val Platform.supportsSnapshotter: Boolean
+  get() = isAndroid || isIos
+
 val Platform.usesMaplibreNative: Boolean
   get() = isAndroid || isIos
