@@ -86,7 +86,8 @@ Vulkan build to your Android dependencies:
 
 ```kotlin title="build.gradle.kts"
 commonMain.dependencies {
-  implementation(libs.maplibre.compose) {
+  // Note the .get().toString()! This is needed to work around a limitation in the Kotlin Gradle plugin.
+  implementation(libs.maplibre.compose.get().toString()) {
     exclude(group = "org.maplibre.gl", module = "android-sdk")
   }
 }
