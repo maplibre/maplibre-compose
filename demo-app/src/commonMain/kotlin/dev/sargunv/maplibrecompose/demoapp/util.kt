@@ -86,7 +86,7 @@ expect object Platform {
 }
 
 val Platform.supportsLayers: Boolean
-  get() = isAndroid || isIos
+  get() = isAndroid || isIos || isWeb
 
 val Platform.supportsBlending: Boolean
   get() = isAndroid || isIos

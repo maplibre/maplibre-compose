@@ -156,4 +156,107 @@ public fun QueryRenderedFeaturesOptions(
   validate?.let { this.validate = it }
 }
 
+public fun LayerSpecification(
+  id: String,
+  type: String,
+  source: String? = null,
+  sourceLayer: String? = null,
+  minzoom: Int? = null,
+  maxzoom: Int? = null,
+  filter: Expression? = null,
+  layout: Any,
+  paint: Any,
+): LayerSpecification = jso {
+  this.id = id
+  this.type = type
+  source?.let { this.source = it }
+  sourceLayer?.let { this.sourceLayer = it }
+  minzoom?.let { this.minzoom = it }
+  maxzoom?.let { this.maxzoom = it }
+  filter?.let { this.filter = it }
+  this.layout = layout
+  this.paint = paint
+}
+
+public fun VectorSourceSpecification(
+  url: String? = null,
+  tiles: Array<String>? = null,
+  bounds: Array<Double>? = null,
+  scheme: String? = null,
+  minzoom: Int? = null,
+  maxzoom: Int? = null,
+  attribution: String? = null,
+  promoteId: Any? = null, // string or object
+  volatile: Boolean? = null,
+): VectorSourceSpecification = jso {
+  this.type = "vector"
+  url?.let { this.url = it }
+  tiles?.let { this.tiles = it }
+  bounds?.let { this.bounds = it }
+  scheme?.let { this.scheme = it }
+  minzoom?.let { this.minzoom = it }
+  maxzoom?.let { this.maxzoom = it }
+  attribution?.let { this.attribution = it }
+  promoteId?.let { this.promoteId = it }
+  volatile?.let { this.volatile = it }
+}
+
+public fun RasterSourceSpecification(
+  url: String? = null,
+  tiles: Array<String>? = null,
+  bounds: Array<Double>? = null,
+  minzoom: Int? = null,
+  maxzoom: Int? = null,
+  tileSize: Int? = null,
+  scheme: String? = null,
+  attribution: String? = null,
+  volatile: Boolean? = null,
+): RasterSourceSpecification = jso {
+  this.type = "raster"
+  url?.let { this.url = it }
+  tiles?.let { this.tiles = it }
+  bounds?.let { this.bounds = it }
+  minzoom?.let { this.minzoom = it }
+  maxzoom?.let { this.maxzoom = it }
+  tileSize?.let { this.tileSize = it }
+  scheme?.let { this.scheme = it }
+  attribution?.let { this.attribution = it }
+  volatile?.let { this.volatile = it }
+}
+
+public fun GeoJsonSourceSpecification(
+  data: Any?, // string URL or GeoJSON object
+  maxzoom: Int? = null,
+  attribution: String? = null,
+  buffer: Int? = null,
+  filter: Expression? = null,
+  tolerance: Double? = null,
+  cluster: Boolean? = null,
+  clusterRadius: Int? = null,
+  clusterMaxZoom: Int? = null,
+  clusterMinPoints: Int? = null,
+  clusterProperties: Any? = null,
+  lineMetrics: Boolean? = null,
+  generateId: Boolean? = null,
+  progression: Any? = null, // string or object
+  volatile: Boolean? = null,
+): GeoJsonSourceSpecification = jso {
+  this.type = "geojson"
+  data?.let { this.data = it }
+  maxzoom?.let { this.maxzoom = it }
+  attribution?.let { this.attribution = it }
+  buffer?.let { this.buffer = it }
+  filter?.let { this.filter = it }
+  tolerance?.let { this.tolerance = it }
+  cluster?.let { this.cluster = it }
+  clusterRadius?.let { this.clusterRadius = it }
+  clusterMaxZoom?.let { this.clusterMaxZoom = it }
+  clusterMinPoints?.let { this.clusterMinPoints = it }
+  clusterProperties?.let { this.clusterProperties = it }
+  lineMetrics?.let { this.lineMetrics = it }
+  generateId?.let { this.generateId = it }
+  progression?.let { this.progression = it }
+  volatile?.let { this.volatile = it }
+}
+
 public typealias Expression = Array<*>
