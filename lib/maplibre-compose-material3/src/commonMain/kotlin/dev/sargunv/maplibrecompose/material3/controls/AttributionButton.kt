@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
@@ -72,110 +73,88 @@ import org.jetbrains.compose.resources.vectorResource
  *   the given alignment
  */
 @Composable
-public fun AttributionButton(
+public fun ExpandingAttributionButton(
   cameraState: CameraState,
   styleState: StyleState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
-  toggleButton: @Composable (toggle: () -> Unit) -> Unit = { toggle ->
-    IconButton(onClick = toggle) {
-      Icon(
-        imageVector = vectorResource(Res.drawable.info),
-        contentDescription = stringResource(Res.string.attribution),
-      )
-    }
-  },
-  expandedContent: @Composable (List<AttributionLink>) -> Unit = {
-    ProvideTextStyle(MaterialTheme.typography.bodyMedium) {
-      AttributionLinks(
-        it,
-        modifier = Modifier.padding(start = 0.dp, end = 16.dp, top = 8.dp, bottom = 8.dp),
-      )
-    }
-  },
-  expandedStyle: AttributionButtonStyle =
-    AttributionButtonStyle(
-      containerColor = MaterialTheme.colorScheme.surface,
-      contentColor = contentColorFor(MaterialTheme.colorScheme.surface),
-    ),
-  collapsedStyle: AttributionButtonStyle =
-    AttributionButtonStyle(
-      containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0f),
-      contentColor = contentColorFor(MaterialTheme.colorScheme.surface).copy(alpha = 0f),
-    ),
-  expand: (Alignment) -> EnterTransition = { expandIn(expandFrom = it) },
-  collapse: (Alignment) -> ExitTransition = { shrinkOut(shrinkTowards = it) },
+  toggleButton: @Composable (toggle: () -> Unit) -> Unit = AttributionButtonDefaults.button,
+  expandedContent: @Composable (List<AttributionLink>) -> Unit = AttributionButtonDefaults.content,
+  expandedStyle: AttributionButtonStyle = AttributionButtonDefaults.expandedStyle(),
+  collapsedStyle: AttributionButtonStyle = AttributionButtonDefaults.collapsedStyle(),
+  expand: (Alignment) -> EnterTransition = AttributionButtonDefaults.expand,
+  collapse: (Alignment) -> ExitTransition = AttributionButtonDefaults.collapse,
 ) {
   val attributions = styleState.sources.flatMap { it.attributionLinks }.distinct()
   if (attributions.isEmpty()) return
 
   val expanded = remember { MutableTransitionState(true) }
+  OnCameraMoveEffect(cameraState) { expanded.targetState = false }
 
-  LaunchedEffect(cameraState.isCameraMoving, cameraState.moveReason) {
-    if (cameraState.isCameraMoving && cameraState.moveReason == CameraMoveReason.GESTURE) {
-      expanded.targetState = false
-    }
-  }
+  Surface(
+    modifier = modifier,
+    shape = if (expanded.targetState) expandedStyle.shape else collapsedStyle.shape,
+    border = if (expanded.targetState) expandedStyle.border else collapsedStyle.border,
+    color =
+      animateColorAsState(
+          if (expanded.targetState) expandedStyle.containerColor else collapsedStyle.containerColor
+        )
+        .value,
+    contentColor =
+      animateColorAsState(
+          if (expanded.targetState) expandedStyle.contentColor else collapsedStyle.contentColor
+        )
+        .value,
+    tonalElevation =
+      animateDpAsState(
+          if (expanded.targetState) expandedStyle.tonalElevation else collapsedStyle.tonalElevation
+        )
+        .value,
+    shadowElevation =
+      animateDpAsState(
+          if (expanded.targetState) expandedStyle.shadowElevation
+          else collapsedStyle.shadowElevation
+        )
+        .value,
+  ) {
+    val layoutDir = LocalLayoutDirection.current
 
-  Box(modifier) {
-    Surface(
-      shape = if (expanded.targetState) expandedStyle.shape else collapsedStyle.shape,
-      border = if (expanded.targetState) expandedStyle.border else collapsedStyle.border,
-      color =
-        animateColorAsState(
-            if (expanded.targetState) expandedStyle.containerColor
-            else collapsedStyle.containerColor
-          )
-          .value,
-      contentColor =
-        animateColorAsState(
-            if (expanded.targetState) expandedStyle.contentColor else collapsedStyle.contentColor
-          )
-          .value,
-      tonalElevation =
-        animateDpAsState(
-            if (expanded.targetState) expandedStyle.tonalElevation
-            else collapsedStyle.tonalElevation
-          )
-          .value,
-      shadowElevation =
-        animateDpAsState(
-            if (expanded.targetState) expandedStyle.shadowElevation
-            else collapsedStyle.shadowElevation
-          )
-          .value,
+    val animationAlignment =
+      Alignment.CenterVertically +
+        (if (layoutDir == LayoutDirection.Rtl) contentAlignment else contentAlignment.reverse())
+          .horizontal
+
+    val rowArrangement = contentAlignment.horizontal.toArrangement()
+
+    CompositionLocalProvider(
+      LocalLayoutDirection provides
+        if (rowArrangement == Arrangement.End) layoutDir.reverse() else layoutDir
     ) {
-      val layoutDir = LocalLayoutDirection.current
+      Row(horizontalArrangement = rowArrangement, verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.align(contentAlignment.vertical)) {
+          toggleButton { expanded.targetState = !expanded.targetState }
+        }
 
-      val animationAlignment =
-        Alignment.CenterVertically +
-          (if (layoutDir == LayoutDirection.Rtl) contentAlignment else contentAlignment.reverse())
-            .horizontal
-
-      val rowArrangement = contentAlignment.horizontal.toArrangement()
-
-      CompositionLocalProvider(
-        LocalLayoutDirection provides
-          if (rowArrangement == Arrangement.End) layoutDir.reverse() else layoutDir
-      ) {
-        Row(
-          horizontalArrangement = rowArrangement,
-          verticalAlignment = Alignment.CenterVertically,
+        AnimatedVisibility(
+          visibleState = expanded,
+          modifier = Modifier.align(Alignment.CenterVertically),
+          enter = expand(animationAlignment),
+          exit = collapse(animationAlignment),
         ) {
-          Box(Modifier.align(contentAlignment.vertical)) {
-            toggleButton { expanded.targetState = !expanded.targetState }
-          }
-
-          AnimatedVisibility(
-            visibleState = expanded,
-            modifier = Modifier.align(Alignment.CenterVertically),
-            enter = expand(animationAlignment),
-            exit = collapse(animationAlignment),
-          ) {
+          Box(Modifier.padding(start = 0.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
             expandedContent(attributions)
           }
         }
       }
+    }
+  }
+}
+
+@Composable
+private fun OnCameraMoveEffect(cameraState: CameraState, onCameraMove: () -> Unit) {
+  LaunchedEffect(cameraState.isCameraMoving, cameraState.moveReason) {
+    if (cameraState.isCameraMoving && cameraState.moveReason == CameraMoveReason.GESTURE) {
+      onCameraMove()
     }
   }
 }
@@ -196,6 +175,44 @@ public fun AttributionLinks(
       Text(attributionString)
     }
   }
+}
+
+public object AttributionButtonDefaults {
+  public val button: @Composable (toggle: () -> Unit) -> Unit = { toggle ->
+    IconButton(
+      onClick = toggle,
+      colors =
+        IconButtonDefaults.iconButtonColors()
+          .copy(contentColor = contentColorFor(MaterialTheme.colorScheme.surface)),
+    ) {
+      Icon(
+        imageVector = vectorResource(Res.drawable.info),
+        contentDescription = stringResource(Res.string.attribution),
+      )
+    }
+  }
+
+  public val content: @Composable (List<AttributionLink>) -> Unit = {
+    ProvideTextStyle(MaterialTheme.typography.bodyMedium) { AttributionLinks(it) }
+  }
+
+  @Composable
+  public fun expandedStyle(): AttributionButtonStyle =
+    AttributionButtonStyle(
+      containerColor = MaterialTheme.colorScheme.surface,
+      contentColor = contentColorFor(MaterialTheme.colorScheme.surface),
+    )
+
+  @Composable
+  public fun collapsedStyle(): AttributionButtonStyle =
+    AttributionButtonStyle(
+      containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0f),
+      contentColor = contentColorFor(MaterialTheme.colorScheme.surface).copy(alpha = 0f),
+    )
+
+  public val expand: (Alignment) -> EnterTransition = { expandIn(expandFrom = it) }
+
+  public val collapse: (Alignment) -> ExitTransition = { shrinkOut(shrinkTowards = it) }
 }
 
 @Immutable
