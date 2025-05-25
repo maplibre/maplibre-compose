@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -118,11 +119,11 @@ public fun AttributionButton(
       val density = LocalDensity.current
       var alignLeft by remember { mutableStateOf(false) }
       var alignTop by remember { mutableStateOf(false) }
-      var popupWidth by remember { mutableStateOf(Dp.Unspecified) }
-      val popupPositionProvider = SuperimposingPopupPositionProvider { left, top, width ->
+      var maxPopupWidth by remember { mutableStateOf(Dp.Unspecified) }
+      val popupPositionProvider = SuperimposingPopupPositionProvider { left, top, maxWidth ->
         alignLeft = left
         alignTop = top
-        popupWidth = with(density) { width.toDp() }
+        maxPopupWidth = with(density) { maxWidth.toDp() }
       }
       val verticalAlignment = if (alignTop) Alignment.Top else Alignment.Bottom
       val horizontalArrangement =
@@ -137,7 +138,7 @@ public fun AttributionButton(
       ) {
         AnimatedVisibility(
           modifier =
-            Modifier.widthIfSpecified(popupWidth).paddingEndOfPopup(popupEndPadding, alignLeft),
+            Modifier.widthIn(max = maxPopupWidth).paddingEndOfPopup(popupEndPadding, alignLeft),
           visibleState = expanded,
           enter = fadeIn(),
           exit = fadeOut(),
@@ -184,9 +185,6 @@ public fun AttributionButton(
 
 private fun Modifier.paddingEndOfPopup(padding: Dp, alignLeft: Boolean) =
   if (alignLeft) absolutePadding(right = padding) else absolutePadding(left = padding)
-
-private fun Modifier.widthIfSpecified(width: Dp) =
-  if (width != Dp.Unspecified) width(width) else this
 
 @Composable
 private fun InfoIcon(modifier: Modifier = Modifier) {
