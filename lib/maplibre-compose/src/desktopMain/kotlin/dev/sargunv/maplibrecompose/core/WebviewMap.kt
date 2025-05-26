@@ -114,6 +114,8 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
     bridge.callVoid("setKeyboardGesturesEnabled", value.isKeyboardGesturesEnabled)
   }
 
+  override fun getStyleUri() = "" // todo
+
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {}
 
   override suspend fun animateCameraPosition(

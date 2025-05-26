@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -197,4 +198,30 @@ public class CameraState(firstPosition: CameraPosition) {
     // TODO at some point, this should be refactored to State, just like the camera position
     return mapOrNull()?.getVisibleRegion()
   }
+
+  /**
+   * Takes a snapshot of the map with the specified parameters. Functional on Android and iOS only.
+   *
+   * @param width The width of the snapshot in px.
+   * @param height The height of the snapshot in px.
+   * @param styleUri The URI of the style to use for the snapshot.
+   * @param region The bounding box of the region to capture in the snapshot.
+   * @param cameraPosition The camera position to use for the snapshot. The `CameraPosition.target`
+   *   is overridden by `region` if set in conjunction.
+   * @param showLogo Whether to show the logo in the snapshot. Defaults to true.
+   * @return The resulting ImageBitmap of the snapshot.
+   * @throws IllegalStateException if the map is not initialized yet. See [awaitInitialized].
+   * @throws SnapshotException if an error occurs during snapshot generation.
+   */
+  public suspend fun snapshot(
+    width: Int,
+    height: Int,
+    styleUri: String = requireMap().getStyleUri(),
+    region: BoundingBox? = null,
+    cameraPosition: CameraPosition? = null,
+    showLogo: Boolean = true,
+  ): ImageBitmap =
+    requireMap()
+      .getMapSnapshotter()
+      .snapshot(width, height, styleUri, region, cameraPosition, showLogo)
 }

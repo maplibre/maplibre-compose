@@ -79,6 +79,7 @@ kotlin {
       implementation(compose.material3)
       implementation(compose.runtime)
       implementation(compose.ui)
+      implementation(libs.lifecycle.runtime.compose)
       implementation(libs.androidx.navigation.compose)
       implementation(libs.ktor.client.core)
       implementation(libs.ktor.client.contentNegotiation)

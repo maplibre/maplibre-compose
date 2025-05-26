@@ -38,8 +38,8 @@ We don't yet support Wasm because one of our dependencies,
 | Add data sources by URI or GeoJSON                |   :white_check_mark:   |   :white_check_mark:   |                 :x:                 |         :x:         |    :x:     |
 | Add images to the style                           |   :white_check_mark:   |   :white_check_mark:   |                 :x:                 |         :x:         |    :x:     |
 | Add Material 3 controls                           |   :white_check_mark:   |   :white_check_mark:   |                 :x:                 |         :x:         |    :x:     |
+| Snapshot the map as an image                      |   :white_check_mark:   |   :white_check_mark:   |                 :x:                 |         :x:         |    :x:     |
 | Add Compose UI annotations                        |          :x:           |          :x:           |                 :x:                 |         :x:         |    :x:     |
-| Snapshot the map as an image                      |          :x:           |          :x:           |                 :x:                 |         :x:         |    :x:     |
 | Configure the offline cache                       |          :x:           |          :x:           |                 :x:                 |         :x:         |    :x:     |
 | Configure layer transitions                       |          :x:           |          :x:           |                 :x:                 |         :x:         |    :x:     |
 
