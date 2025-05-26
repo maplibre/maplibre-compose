@@ -86,7 +86,8 @@ public fun PointerPinButton(
   interactionSource: MutableInteractionSource? = null,
   content: @Composable (BoxScope.() -> Unit),
 ) {
-  val target = cameraState.screenLocationFromPosition(targetPosition)?.toOffset() ?: return
+  val target =
+    cameraState.projection?.screenLocationFromPosition(targetPosition)?.toOffset() ?: return
   var area by remember { mutableStateOf<Rect?>(null) }
 
   Box(modifier = modifier.fillMaxSize().onGloballyPositioned { area = it.boundsInParent() }) {
