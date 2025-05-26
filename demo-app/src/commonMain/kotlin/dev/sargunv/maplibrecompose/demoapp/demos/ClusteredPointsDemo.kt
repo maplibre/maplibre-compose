@@ -29,8 +29,8 @@ import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.expressions.dsl.asNumber
+import dev.sargunv.maplibrecompose.expressions.dsl.asString
 import dev.sargunv.maplibrecompose.expressions.dsl.const
-import dev.sargunv.maplibrecompose.expressions.dsl.convertToString
 import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import dev.sargunv.maplibrecompose.expressions.dsl.not
 import dev.sargunv.maplibrecompose.expressions.dsl.offset
@@ -120,7 +120,7 @@ object ClusteredPointsDemo : Demo {
             id = "clustered-bikes-count",
             source = bikeSource,
             filter = feature.has("point_count"),
-            textField = feature.get("total_range").convertToString(),
+            textField = feature.get("point_count_abbreviated").asString(),
             textFont = const(listOf("Noto Sans Regular")),
             textColor = const(MaterialTheme.colorScheme.onBackground),
           )
