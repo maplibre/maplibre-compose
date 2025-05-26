@@ -53,7 +53,7 @@ public class CameraState(firstPosition: CameraPosition) {
   public var position: CameraPosition
     get() = positionState.value
     set(value) {
-      maybeMap { it.setCameraPosition(value) }
+      mapOrNull()?.setCameraPosition(value)
       positionState.value = value
     }
 
@@ -111,28 +111,26 @@ public class CameraState(firstPosition: CameraPosition) {
     return map as? StandardMaplibreMap ?: error("Desktop not supported yet")
   }
 
-  private fun <T> maybeMap(block: (StandardMaplibreMap) -> T): T? {
-    return map?.let { block(it as? StandardMaplibreMap ?: error("Desktop not supported yet")) }
+  private fun mapOrNull(): StandardMaplibreMap? {
+    if (map == null) return null
+    return requireMap()
   }
 
   /**
    * Returns an offset from the top-left corner of the map composable that corresponds to the given
-   * [position]. This works for positions that are off-screen, too.
-   *
-   * @throws IllegalStateException if the map is not initialized yet. See [awaitInitialized].
+   * [position]. This works for positions that are off-screen, too. Returns `null` if the map is not
+   * initialized yet.
    */
-  public fun screenLocationFromPosition(position: Position): DpOffset {
-    return requireMap().screenLocationFromPosition(position)
+  public fun screenLocationFromPosition(position: Position): DpOffset? {
+    return mapOrNull()?.screenLocationFromPosition(position)
   }
 
   /**
    * Returns a position that corresponds to the given [offset] from the top-left corner of the map
-   * composable.
-   *
-   * @throws IllegalStateException if the map is not initialized yet. See [awaitInitialized].
+   * composable. Returns `null` if the map is not initialized yet.
    */
-  public fun positionFromScreenLocation(offset: DpOffset): Position {
-    return requireMap().positionFromScreenLocation(offset)
+  public fun positionFromScreenLocation(offset: DpOffset): Position? {
+    return mapOrNull()?.positionFromScreenLocation(offset)
   }
 
   /**
@@ -154,7 +152,7 @@ public class CameraState(firstPosition: CameraPosition) {
   ): List<Feature> {
     val predicateOrNull =
       predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
-    return maybeMap { it.queryRenderedFeatures(offset, layerIds, predicateOrNull) } ?: emptyList()
+    return mapOrNull()?.queryRenderedFeatures(offset, layerIds, predicateOrNull) ?: emptyList()
   }
 
   /**
@@ -175,7 +173,7 @@ public class CameraState(firstPosition: CameraPosition) {
   ): List<Feature> {
     val predicateOrNull =
       predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
-    return maybeMap { it.queryRenderedFeatures(rect, layerIds, predicateOrNull) } ?: emptyList()
+    return mapOrNull()?.queryRenderedFeatures(rect, layerIds, predicateOrNull) ?: emptyList()
   }
 
   /**
@@ -183,24 +181,20 @@ public class CameraState(firstPosition: CameraPosition) {
    *
    * Note that the bounding box is always a north-aligned rectangle. I.e. if the map is rotated or
    * tilted, the returned bounding box will always be larger than the actually visible area. See
-   * [queryVisibleRegion]
-   *
-   * @throws IllegalStateException if the map is not initialized yet. See [awaitInitialized].
+   * [queryVisibleRegion]. Returns `null` if the map is not initialized yet.
    */
-  public fun queryVisibleBoundingBox(): BoundingBox {
+  public fun queryVisibleBoundingBox(): BoundingBox? {
     // TODO at some point, this should be refactored to State, just like the camera position
-    return requireMap().getVisibleBoundingBox()
+    return mapOrNull()?.getVisibleBoundingBox()
   }
 
   /**
    * Returns the currently visible area, which is a four-sided polygon spanned by the four points
    * each at one corner of the map composable. If the camera has tilt (pitch), this polygon is a
-   * trapezoid instead of a rectangle.
-   *
-   * @throws IllegalStateException if the map is not initialized yet. See [awaitInitialized].
+   * trapezoid instead of a rectangle. Returns `null` if the map is not initialized yet.
    */
-  public fun queryVisibleRegion(): VisibleRegion {
+  public fun queryVisibleRegion(): VisibleRegion? {
     // TODO at some point, this should be refactored to State, just like the camera position
-    return requireMap().getVisibleRegion()
+    return mapOrNull()?.getVisibleRegion()
   }
 }

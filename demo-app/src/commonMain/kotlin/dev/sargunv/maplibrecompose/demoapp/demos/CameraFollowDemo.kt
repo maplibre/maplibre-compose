@@ -95,20 +95,13 @@ object CameraFollowDemo : Demo {
               )
             }
           }
-          // TODO, urgh, this is ugly... why can't this just return null if the map is not available
-          //  yet?? awaitInitialized() doesn't really help, I'm in the middle of the composition
-          //  here after all...
-          val targetPosition =
-            try {
-              cameraState.screenLocationFromPosition(animatedPosition)
-            } catch (_: Exception) {
-              null
-            }
 
-          if (targetPosition != null) {
-            PointerPinButton(onClick = { isFollowing = true }, targetPosition = targetPosition) {
-              Text("🚊", fontSize = 28.sp)
-            }
+          PointerPinButton(
+            cameraState = cameraState,
+            targetPosition = animatedPosition,
+            onClick = { isFollowing = true },
+          ) {
+            Text("🚊", fontSize = 28.sp)
           }
 
           DemoMapControls(

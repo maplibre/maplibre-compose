@@ -30,14 +30,15 @@ import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.material3.findEllipsisIntersection
 import dev.sargunv.maplibrecompose.material3.proportionalAbsoluteOffset
 import dev.sargunv.maplibrecompose.material3.proportionalPadding
 import dev.sargunv.maplibrecompose.material3.toDpOffset
 import dev.sargunv.maplibrecompose.material3.toOffset
+import io.github.dellisd.spatialk.geojson.Position
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
@@ -51,6 +52,7 @@ import kotlin.math.sin
  * **placed**, i.e. usually the whole map screen.
  *
  * @param onClick called when this button is clicked
+ * @param cameraState used to calculate where the given [targetPosition] is in screen coordinates
  * @param targetPosition position (off-screen) the pin should point at
  * @param modifier the [Modifier] to be applied to this button
  * @param enabled controls the enabled state of this button. When `false`, this component will not
@@ -72,18 +74,19 @@ import kotlin.math.sin
  */
 @Composable
 public fun PointerPinButton(
-  onClick: () -> Unit,
-  targetPosition: DpOffset,
+  cameraState: CameraState,
+  targetPosition: Position,
   modifier: Modifier = Modifier,
+  onClick: () -> Unit = {},
   enabled: Boolean = true,
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),
   elevation: ButtonElevation? = ButtonDefaults.elevatedButtonElevation(),
   border: BorderStroke? = null,
-  contentPadding: PaddingValues = PaddingValues(12.dp),
+  contentPadding: PaddingValues = PaddingValues(12.dp), // good padding for a 24x24 icon
   interactionSource: MutableInteractionSource? = null,
   content: @Composable (BoxScope.() -> Unit),
 ) {
-  val target = targetPosition.toOffset()
+  val target = cameraState.screenLocationFromPosition(targetPosition)?.toOffset() ?: return
   var area by remember { mutableStateOf<Rect?>(null) }
 
   Box(modifier = modifier.fillMaxSize().onGloballyPositioned { area = it.boundsInParent() }) {
@@ -151,8 +154,8 @@ private class PointerPinShape(val rotation: Float = 0f) : Shape {
   }
 
   companion object {
-    val PATH_SIZE = 76f
-    val POINTY_SIZE = 14f / 76f
+    const val PATH_SIZE = 76f
+    const val POINTY_SIZE = 14f / 76f
     val PATH =
       PathParser()
         .parsePathString(
