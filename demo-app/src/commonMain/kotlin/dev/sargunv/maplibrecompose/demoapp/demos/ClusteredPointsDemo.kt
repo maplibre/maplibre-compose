@@ -95,7 +95,7 @@ object ClusteredPointsDemo : Demo {
                 //         mapper = feature.get("current_range_meters").asNumber(),
                 //         reducer =
                 //           feature.accumulated().asNumber() +
-                //             feature.get("current_range_meters").asNumber(),
+                //             feature.get("total_range").asNumber(),
                 //       )
                 //   ),
               ),
