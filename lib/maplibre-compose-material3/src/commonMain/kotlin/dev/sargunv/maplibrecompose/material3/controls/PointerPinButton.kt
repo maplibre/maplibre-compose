@@ -100,8 +100,7 @@ public fun PointerPinButton(
         modifier =
           modifier
             // offsetting it to account for the pointy side of the pin depending on the rotation.
-            // (The
-            // tip of the pin should be exactly on the ellipsis outline)
+            // (The tip of the pin should be exactly on the ellipsis outline)
             .proportionalAbsoluteOffset(
               x = (-sin(angle) / 2.0 - 0.5).toFloat(),
               y = (cos(angle) / 2.0 - 0.5).toFloat(),
