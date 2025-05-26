@@ -38,7 +38,7 @@ public actual class GeoJsonSource : Source {
           name,
           aggregator.reducer.compile(ExpressionContext.None).toMLNExpression()!!,
           // TODO the app segfaults when the mapper is anything but a constant
-          // See https://github.com/maplibre/maplibre-compose/issues/236
+          // See https://github.com/maplibre/maplibre-native/issues/3493
           aggregator.mapper.compile(ExpressionContext.None).toMLNExpression()!!,
         )
       }
