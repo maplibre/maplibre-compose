@@ -86,11 +86,7 @@ public fun PointerPinButton(
   val target = targetPosition.toOffset()
   var area by remember { mutableStateOf<Rect?>(null) }
 
-  Box(
-    modifier = modifier
-      .fillMaxSize()
-      .onGloballyPositioned { area = it.boundsInParent() },
-  ) {
+  Box(modifier = modifier.fillMaxSize().onGloballyPositioned { area = it.boundsInParent() }) {
     val intersection = remember(target, area) { area?.let { findEllipsisIntersection(it, target) } }
 
     intersection?.let { (offset, angle) ->
@@ -101,29 +97,34 @@ public fun PointerPinButton(
 
       ElevatedButton(
         onClick = onClick,
-        modifier = modifier
-          // offsetting it to account for the pointy side of the pin depending on the rotation. (The
-          // tip of the pin should be exactly on the ellipsis outline)
-          .proportionalAbsoluteOffset(
-            x = (-sin(angle) / 2.0 - 0.5).toFloat(),
-            y = (cos(angle) / 2.0 - 0.5).toFloat(),
-          )
-          // offsetting the whole pin to place it correctly within the parent layout
-          .absoluteOffset(dpOffset.x, dpOffset.y),
+        modifier =
+          modifier
+            // offsetting it to account for the pointy side of the pin depending on the rotation.
+            // (The
+            // tip of the pin should be exactly on the ellipsis outline)
+            .proportionalAbsoluteOffset(
+              x = (-sin(angle) / 2.0 - 0.5).toFloat(),
+              y = (cos(angle) / 2.0 - 0.5).toFloat(),
+            )
+            // offsetting the whole pin to place it correctly within the parent layout
+            .absoluteOffset(dpOffset.x, dpOffset.y),
         enabled = enabled,
         shape = pointerPinShape,
         colors = colors,
         elevation = elevation,
         border = border,
         contentPadding = PaddingValues(0.dp),
-        interactionSource = interactionSource
+        interactionSource = interactionSource,
       ) {
-        Box(modifier = Modifier
-          // padding to place the content within the pin correctly, taking into account that the
-          // center of the pointer shape is not the center of to-be-placed icon (due to the pointy
-          // side)
-          .proportionalPadding(PointerPinShape.POINTY_SIZE)
-          .padding(contentPadding)
+        Box(
+          modifier =
+            Modifier
+              // padding to place the content within the pin correctly, taking into account that the
+              // center of the pointer shape is not the center of to-be-placed icon (due to the
+              // pointy
+              // side)
+              .proportionalPadding(PointerPinShape.POINTY_SIZE)
+              .padding(contentPadding)
         ) {
           content()
         }
@@ -137,7 +138,7 @@ private class PointerPinShape(val rotation: Float = 0f) : Shape {
   override fun createOutline(
     size: Size,
     layoutDirection: LayoutDirection,
-    density: Density
+    density: Density,
   ): Outline {
     val m = Matrix()
     val halfWidth = size.width / 2
@@ -154,6 +155,11 @@ private class PointerPinShape(val rotation: Float = 0f) : Shape {
   companion object {
     val PATH_SIZE = 76f
     val POINTY_SIZE = 14f / 76f
-    val PATH = PathParser().parsePathString("M 38,62 C 24.745,62 14,51.255 14,38 14.003,32.6405 15.7995,27.4365 19.1035,23.217 L 38,0 56.914,23.2715 C 60.2005,27.4785 61.99,32.6615 62,38 62,51.255 51.255,62 38,62 Z").toNodes()
+    val PATH =
+      PathParser()
+        .parsePathString(
+          "M 38,62 C 24.745,62 14,51.255 14,38 14.003,32.6405 15.7995,27.4365 19.1035,23.217 L 38,0 56.914,23.2715 C 60.2005,27.4785 61.99,32.6615 62,38 62,51.255 51.255,62 38,62 Z"
+        )
+        .toNodes()
   }
 }

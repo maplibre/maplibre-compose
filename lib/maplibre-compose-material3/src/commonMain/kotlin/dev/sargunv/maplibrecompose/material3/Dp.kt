@@ -13,5 +13,4 @@ internal fun Offset.toDpOffset(): DpOffset =
 
 @Composable
 @ReadOnlyComposable
-internal fun DpOffset.toOffset(): Offset =
-  with(LocalDensity.current) { Offset(x.toPx(), y.toPx()) }
+internal fun DpOffset.toOffset(): Offset = with(LocalDensity.current) { Offset(x.toPx(), y.toPx()) }
