@@ -82,7 +82,23 @@ object ClusteredPointsDemo : Demo {
             rememberGeoJsonSource(
               "bikes",
               gbfsData,
-              GeoJsonOptions(cluster = true, clusterRadius = 32, clusterMaxZoom = 16),
+              GeoJsonOptions(
+                cluster = true,
+                clusterRadius = 32,
+                clusterMaxZoom = 16,
+                // TODO on Android, this segfaults when the mapper is anything but a constant
+                // See https://github.com/maplibre/maplibre-native/issues/3493
+                // clusterProperties =
+                //   mapOf(
+                //     "total_range" to
+                //       GeoJsonOptions.ClusterPropertyAggregator(
+                //         mapper = feature.get("current_range_meters").asNumber(),
+                //         reducer =
+                //           feature.accumulated().asNumber() +
+                //             feature.get("current_range_meters").asNumber(),
+                //       )
+                //   ),
+              ),
             )
 
           CircleLayer(
