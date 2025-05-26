@@ -9,17 +9,17 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Given an imaginary line drawn from the center of [screen] to [target], returns the point and
- * angle at which the line intersects with an ellipsis filling the [screen].
+ * Given an imaginary line drawn from the center of [area] to [target], returns the point and angle
+ * at which the line intersects with an ellipsis filling the [area].
  */
-internal fun findEllipsisIntersection(screen: Rect, target: Offset): Intersection? {
-  val delta = target - screen.center
+internal fun findEllipsisIntersection(area: Rect, target: Offset): Intersection? {
+  val delta = target - area.center
   val theta = atan2(delta.y, delta.x) + PI / 2
-  val radius = ellipsisRadius(screen.height / 2.0, screen.width / 2.0, theta)
+  val radius = ellipsisRadius(area.height / 2.0, area.width / 2.0, theta)
   val ellipsisDelta = Offset((sin(theta) * radius).toFloat(), (-cos(theta) * radius).toFloat())
   if (delta.getDistanceSquared() < ellipsisDelta.getDistanceSquared()) return null
 
-  return Intersection(ellipsisDelta + screen.center, theta)
+  return Intersection(ellipsisDelta + area.center, theta)
 }
 
 private fun ellipsisRadius(a: Double, b: Double, angle: Double): Double {
