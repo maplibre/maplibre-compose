@@ -34,6 +34,7 @@ import dev.sargunv.maplibrecompose.expressions.dsl.convertToString
 import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import dev.sargunv.maplibrecompose.expressions.dsl.not
 import dev.sargunv.maplibrecompose.expressions.dsl.offset
+import dev.sargunv.maplibrecompose.expressions.dsl.plus
 import dev.sargunv.maplibrecompose.expressions.dsl.step
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.FeatureCollection
@@ -81,19 +82,7 @@ object ClusteredPointsDemo : Demo {
             rememberGeoJsonSource(
               "bikes",
               gbfsData,
-              GeoJsonOptions(
-                cluster = true,
-                clusterRadius = 32,
-                clusterMaxZoom = 16,
-                clusterProperties =
-                  mapOf(
-                    "total_range" to
-                      GeoJsonOptions.ClusterPropertyAggregator(
-                        reducer = "+",
-                        mapper = feature.get("current_range_meters"),
-                      )
-                  ),
-              ),
+              GeoJsonOptions(cluster = true, clusterRadius = 32, clusterMaxZoom = 16),
             )
 
           CircleLayer(

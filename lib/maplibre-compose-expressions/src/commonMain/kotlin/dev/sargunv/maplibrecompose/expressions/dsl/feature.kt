@@ -97,15 +97,7 @@ public object Feature {
    * `clusterProperties` option of a clustered GeoJSON source, see
    * [GeoJsonOptions][dev.sargunv.maplibrecompose.core.source.GeoJsonOptions].
    */
-  public fun accumulated(key: Expression<StringValue>): Expression<*> =
-    FunctionCall.of("accumulated", key)
-
-  /**
-   * Gets the value of a cluster property accumulated so far. Can only be used in the
-   * `clusterProperties` option of a clustered GeoJSON source, see
-   * [GeoJsonOptions][dev.sargunv.maplibrecompose.core.source.GeoJsonOptions].
-   */
-  public fun accumulated(key: String): Expression<*> = accumulated(const(key))
+  public fun accumulated(): Expression<*> = FunctionCall.of("accumulated")
 }
 
 /** Accesses to feature-related data */

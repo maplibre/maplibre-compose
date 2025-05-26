@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.core.source
 
 import androidx.compose.runtime.Immutable
 import dev.sargunv.maplibrecompose.expressions.ast.Expression
+import dev.sargunv.maplibrecompose.expressions.value.ExpressionValue
 
 /**
  * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view
@@ -32,9 +33,9 @@ import dev.sargunv.maplibrecompose.expressions.ast.Expression
  *
  * @param clusterProperties A map defining custom properties on the generated clusters if clustering
  *   is enabled, aggregating values from clustered points. The keys are the property names, the
- *   values are aggregation operators and expressions.
+ *   values are an aggregation mapper and reducer.
  *
- *   TODO examples missing, see https://maplibre.org/maplibre-style-spec/sources/#clusterproperties
+ *   See [ClusterPropertyAggregator.reducer] for an example.
  *
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][dev.sargunv.maplibrecompose.compose.layer.LineLayer]s that specify a `gradient`.
@@ -49,23 +50,27 @@ public data class GeoJsonOptions(
   val clusterRadius: Int = 50,
   val clusterMinPoints: Int = 2,
   val clusterMaxZoom: Int = maxZoom - 1,
-  val clusterProperties: Map<String, ClusterPropertyAggregator> = emptyMap(),
+  val clusterProperties: Map<String, ClusterPropertyAggregator<*>> = emptyMap(),
   val lineMetrics: Boolean = false,
 ) {
-  // TODO support expressions referencing ["accumulated"] instead of just operators
-  // TODO provide an enum or sealed type of valid operators?
-
-  public data class ClusterPropertyAggregator(
+  public data class ClusterPropertyAggregator<T : ExpressionValue>(
     /** Produces the value of a single point, passed to the accumulation operator. */
-    val mapper: Expression<*>,
+    val mapper: Expression<T>,
 
     /**
-     * Any expression operator that accepts at least 2 operands (e.g. `"+"` or `"max"`) — it
-     * accumulates the property value from clusters/points the cluster contains.
+     * An expression that aggregates values produced by the [mapper]. The special function
+     * [dev.sargunv.maplibrecompose.expressions.dsl.Feature.accumulated] will return the value
+     * accumulated so far, and the feature property with the name of the property will return the
+     * next value to aggregate.
      *
-     * For a list of operators, see the
-     * [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/expressions/).
+     * Example:
+     * ```kt
+     * GeoJsonOptions.ClusterPropertyAggregator(
+     *   mapper = feature.get("current_range_meters").asNumber(),
+     *   reducer = feature.get("total_range").asNumber() + feature.accumulated().asNumber(),
+     * )
+     * ```
      */
-    val reducer: String,
+    val reducer: Expression<T>,
   )
 }

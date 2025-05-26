@@ -3,8 +3,6 @@ package dev.sargunv.maplibrecompose.core.source
 import dev.sargunv.maplibrecompose.core.util.correctedAndroidUri
 import dev.sargunv.maplibrecompose.core.util.toMLNExpression
 import dev.sargunv.maplibrecompose.expressions.ExpressionContext
-import dev.sargunv.maplibrecompose.expressions.ast.FunctionCall
-import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import io.github.dellisd.spatialk.geojson.GeoJson
 import java.net.URI
 import org.maplibre.android.style.sources.GeoJsonOptions as MLNGeoJsonOptions
@@ -38,9 +36,7 @@ public actual class GeoJsonSource : Source {
       options.clusterProperties.forEach { (name, aggregator) ->
         withClusterProperty(
           name,
-          FunctionCall.of(aggregator.reducer, FunctionCall.of("accumulated"), feature.get(name))
-            .compile(ExpressionContext.None)
-            .toMLNExpression()!!,
+          aggregator.reducer.compile(ExpressionContext.None).toMLNExpression()!!,
           aggregator.mapper.compile(ExpressionContext.None).toMLNExpression()!!,
         )
       }
