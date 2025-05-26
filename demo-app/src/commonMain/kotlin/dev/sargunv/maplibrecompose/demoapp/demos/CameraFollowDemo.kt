@@ -5,6 +5,7 @@ import androidx.compose.animation.core.animateValue
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -25,6 +26,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.layer.CircleLayer
@@ -41,11 +43,15 @@ import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.Platform
 import dev.sargunv.maplibrecompose.demoapp.PositionVectorConverter
+import dev.sargunv.maplibrecompose.demoapp.generated.Res
+import dev.sargunv.maplibrecompose.demoapp.generated.info
 import dev.sargunv.maplibrecompose.demoapp.supportsLayers
 import dev.sargunv.maplibrecompose.expressions.dsl.const
 import dev.sargunv.maplibrecompose.expressions.dsl.offset
+import dev.sargunv.maplibrecompose.material3.controls.PointerPinButton
 import io.github.dellisd.spatialk.geojson.Point
 import io.github.dellisd.spatialk.geojson.Position
+import org.jetbrains.compose.resources.painterResource
 import kotlin.math.roundToInt
 
 private val START_POINT = Position(longitude = -122.4194, latitude = 37.7749)
@@ -93,6 +99,22 @@ object CameraFollowDemo : Demo {
               )
             }
           }
+          // TODO, urgh, this is ugly... why can't this just return null if the map is not available
+          //  yet?? awaitInitialized() doesn't really help, I'm in the middle of the composition
+          //  here after all...
+          val targetPosition = try {
+            cameraState.screenLocationFromPosition(animatedPosition)
+          } catch (_: Exception) { null }
+
+          if (targetPosition != null) {
+            PointerPinButton(
+              onClick = { isFollowing = true },
+              targetPosition = targetPosition,
+            ) {
+              Text("🚊", fontSize = 28.sp)
+            }
+          }
+
           DemoMapControls(
             cameraState,
             styleState,
