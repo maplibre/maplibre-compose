@@ -14,6 +14,7 @@ import dev.sargunv.maplibrecompose.core.util.toMLNShape
 import dev.sargunv.maplibrecompose.core.util.toNSExpression
 import dev.sargunv.maplibrecompose.expressions.ExpressionContext
 import dev.sargunv.maplibrecompose.expressions.ast.FunctionCall
+import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import io.github.dellisd.spatialk.geojson.GeoJson
 import platform.Foundation.NSNumber
 import platform.Foundation.NSURL
@@ -47,8 +48,13 @@ public actual class GeoJsonSource : Source {
       put(MLNShapeSourceOptionClusterRadius, NSNumber(options.clusterRadius))
       put(
         MLNShapeSourceOptionClusterProperties,
-        options.clusterProperties.mapValues { (_, p) ->
-          FunctionCall.of(p.operator, p.mapper).compile(ExpressionContext.None).toNSExpression()
+        options.clusterProperties.mapValues { (name, aggregator) ->
+          listOf(
+            FunctionCall.of(aggregator.reducer, FunctionCall.of("accumulated"), feature.get(name))
+              .compile(ExpressionContext.None)
+              .toNSExpression(),
+            aggregator.mapper.compile(ExpressionContext.None).toNSExpression(),
+          )
         },
       )
     }

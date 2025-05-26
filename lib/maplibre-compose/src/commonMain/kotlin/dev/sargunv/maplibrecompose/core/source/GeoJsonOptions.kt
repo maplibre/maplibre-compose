@@ -15,12 +15,10 @@ import dev.sargunv.maplibrecompose.expressions.ast.Expression
  *   faster performance).
  * @param cluster If the data is a collection of point features, setting this to `true` clusters the
  *   points by radius into groups. Cluster groups become new `Point` features in the source with
- *   additional properties:
- *     * `cluster`: Is `true` if the point is a cluster
- *     * `cluster_id`: A unique id for the cluster to be used in conjunction with the cluster
- *       inspection methods. (TODO which are not implemented yet on [GeoJsonSource] - #80)
- *     * `point_count`: Number of original points grouped into this cluster
- *     * `point_count_abbreviated`: An abbreviated point count
+ *   additional properties: `cluster`, `cluster_id`, `point_count`, and `point_count_abbreviated`.
+ *
+ *   See the [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/sources/#cluster) for
+ *   details.
  *
  * @param clusterRadius Radius of each cluster when clustering points, measured in 1/512ths of a
  *   tile. I.e. a value of 512 indicates a radius equal to the width of a tile.
@@ -34,7 +32,7 @@ import dev.sargunv.maplibrecompose.expressions.ast.Expression
  *
  * @param clusterProperties A map defining custom properties on the generated clusters if clustering
  *   is enabled, aggregating values from clustered points. The keys are the property names, the
- *   values are expressions.
+ *   values are aggregation operators and expressions.
  *
  *   TODO examples missing, see https://maplibre.org/maplibre-style-spec/sources/#clusterproperties
  *
@@ -51,9 +49,23 @@ public data class GeoJsonOptions(
   val clusterRadius: Int = 50,
   val clusterMinPoints: Int = 2,
   val clusterMaxZoom: Int = maxZoom - 1,
-  val clusterProperties: Map<String, ClusterProperty> = emptyMap(),
+  val clusterProperties: Map<String, ClusterPropertyAggregator> = emptyMap(),
   val lineMetrics: Boolean = false,
 ) {
-  // TODO seems to contradict https://maplibre.org/maplibre-style-spec/sources/#clusterproperties
-  public data class ClusterProperty(val operator: String, val mapper: Expression<*>)
+  // TODO support expressions referencing ["accumulated"] instead of just operators
+  // TODO provide an enum or sealed type of valid operators?
+
+  public data class ClusterPropertyAggregator(
+    /** Produces the value of a single point, passed to the accumulation operator. */
+    val mapper: Expression<*>,
+
+    /**
+     * Any expression operator that accepts at least 2 operands (e.g. `"+"` or `"max"`) — it
+     * accumulates the property value from clusters/points the cluster contains.
+     *
+     * For a list of operators, see the
+     * [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/expressions/).
+     */
+    val reducer: String,
+  )
 }

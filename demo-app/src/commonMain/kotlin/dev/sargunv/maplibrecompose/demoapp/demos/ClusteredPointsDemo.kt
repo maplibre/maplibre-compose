@@ -29,8 +29,8 @@ import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.expressions.dsl.asNumber
-import dev.sargunv.maplibrecompose.expressions.dsl.asString
 import dev.sargunv.maplibrecompose.expressions.dsl.const
+import dev.sargunv.maplibrecompose.expressions.dsl.convertToString
 import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import dev.sargunv.maplibrecompose.expressions.dsl.not
 import dev.sargunv.maplibrecompose.expressions.dsl.offset
@@ -42,6 +42,7 @@ import io.github.dellisd.spatialk.geojson.Position
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
@@ -80,7 +81,19 @@ object ClusteredPointsDemo : Demo {
             rememberGeoJsonSource(
               "bikes",
               gbfsData,
-              GeoJsonOptions(cluster = true, clusterRadius = 32, clusterMaxZoom = 16),
+              GeoJsonOptions(
+                cluster = true,
+                clusterRadius = 32,
+                clusterMaxZoom = 16,
+                clusterProperties =
+                  mapOf(
+                    "total_range" to
+                      GeoJsonOptions.ClusterPropertyAggregator(
+                        reducer = "+",
+                        mapper = feature.get("current_range_meters"),
+                      )
+                  ),
+              ),
             )
 
           CircleLayer(
@@ -118,7 +131,7 @@ object ClusteredPointsDemo : Demo {
             id = "clustered-bikes-count",
             source = bikeSource,
             filter = feature.has("point_count"),
-            textField = feature.get("point_count_abbreviated").asString(),
+            textField = feature.get("total_range").convertToString(),
             textFont = const(listOf("Noto Sans Regular")),
             textColor = const(MaterialTheme.colorScheme.onBackground),
           )
@@ -180,7 +193,7 @@ private suspend fun readGbfsData(gbfsFilePath: String): FeatureCollection {
             "vehicle_type" to (bike["vehicle_type"] ?: JsonNull),
             "vehicle_type_id" to (bike["vehicle_type_id"] ?: JsonNull),
             "last_reported" to (bike["last_reported"] ?: JsonNull),
-            "vehicle_range_meters" to (bike["vehicle_range_meters"] ?: JsonNull),
+            "current_range_meters" to (bike["current_range_meters"] ?: JsonPrimitive(0)),
             "is_reserved" to (bike["is_reserved"] ?: JsonNull),
             "is_disabled" to (bike["is_disabled"] ?: JsonNull),
           ),
