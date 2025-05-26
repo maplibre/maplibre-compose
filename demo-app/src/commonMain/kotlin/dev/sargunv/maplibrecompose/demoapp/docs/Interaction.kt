@@ -70,8 +70,8 @@ fun Interaction() {
   MaplibreMap(
     cameraState = camera,
     onMapClick = { pos, offset ->
-      val features = camera.projection!!.queryRenderedFeatures(offset)
-      if (features.isNotEmpty()) {
+      val features = camera.projection?.queryRenderedFeatures(offset)
+      if (!features.isNullOrEmpty()) {
         println("Clicked on ${features[0].json()}")
         ClickResult.Consume // (1)!
       } else {
