@@ -32,11 +32,11 @@ androidx-composeUi = "1.8.1"
 androidx-navigation = "2.9.0-beta01" # should be beta02 but the linter doesn't like it
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
-# Also note the Gradle version in the matrix!
-# https://kotlinlang.org/docs/gradle-configure-project.html#apply-the-plugin
+# Also note the Gradle and XCode versions in the matrix!
+# https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
 gradle-kotlin = "2.1.21"
-#noinspection GradleDependency: follow version matrix above
-gradle-android = "8.7.3" # best guess; version matrix is missing the row
+#noinspection AndroidGradlePluginVersion: follow version matrix above
+gradle-android = "8.7.2"
 
 [libraries]
 alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.ref = "alchemist" }
