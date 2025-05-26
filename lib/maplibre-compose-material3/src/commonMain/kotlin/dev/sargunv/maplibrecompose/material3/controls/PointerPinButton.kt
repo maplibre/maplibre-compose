@@ -120,8 +120,7 @@ public fun PointerPinButton(
             Modifier
               // padding to place the content within the pin correctly, taking into account that the
               // center of the pointer shape is not the center of to-be-placed icon (due to the
-              // pointy
-              // side)
+              // pointy side)
               .proportionalPadding(PointerPinShape.POINTY_SIZE)
               .padding(contentPadding)
         ) {
