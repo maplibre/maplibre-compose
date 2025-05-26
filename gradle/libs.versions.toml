@@ -1,14 +1,7 @@
-# Version matrix for Gradle, Kotlin, and AGP:
-# https://kotlinlang.org/docs/gradle-configure-project.html#apply-the-plugin
-
-# Version matrix for Compose:
-# https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-
 [versions]
+# Regular libraries: keep as up to date as possible.
 alchemist = "0.2.0"
 androidx-activity = "1.10.1"
-androidx-composeUi = "1.8.1"
-androidx-navigation = "2.9.0-beta01"
 kermit = "2.0.5"
 kotlinx-browser = "0.3"
 kotlinx-coroutines = "1.10.2"
@@ -22,16 +15,28 @@ webpack-html = "5.6.3"
 webpack-htmlInlineScript = "3.2.1"
 webview = "1.9.40"
 
-gradle-android = "8.7.3"
-gradle-compose = "1.8.1"
+# Regular tools: keep as up to date as possible
 gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
-gradle-kotlin = "2.1.21"
 gradle-mavenPublish = "0.32.0"
 gradle-mkdocs = "4.0.1"
 gradle-spotless = "7.0.3"
-
 tool-prettier = "3.5.3"
+
+# Libraries coupled to Compose: keep Compose up to date and set others accordingly.
+# https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
+gradle-compose = "1.8.1"
+#noinspection GradleDependency: follow version matrix above
+androidx-composeUi = "1.8.1"
+#noinspection GradleDependency: follow version matrix above
+androidx-navigation = "2.9.0-beta01" # should be beta02 but the linter doesn't like it
+
+# Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
+# Also note the Gradle version in the matrix!
+# https://kotlinlang.org/docs/gradle-configure-project.html#apply-the-plugin
+gradle-kotlin = "2.1.21"
+#noinspection GradleDependency: follow version matrix above
+gradle-android = "8.7.3" # best guess; version matrix is missing the row
 
 [libraries]
 alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.ref = "alchemist" }
