@@ -16,10 +16,10 @@ public fun rememberStyleState(): StyleState {
 public class StyleState internal constructor() {
   private var styleNode: StyleNode? = null
 
-  public val sources: List<Source>
+  public val sources: Map<String, Source>
     get() = sourcesState.value
 
-  private val sourcesState = mutableStateOf(emptyList<Source>())
+  private val sourcesState = mutableStateOf(emptyMap<String, Source>())
 
   internal fun attach(styleNode: StyleNode?) {
     if (this.styleNode != styleNode) {
@@ -30,15 +30,6 @@ public class StyleState internal constructor() {
   }
 
   internal fun reloadSources() {
-    this.sourcesState.value = styleNode?.style?.getSources().orEmpty()
+    this.sourcesState.value = styleNode?.style?.getSources().orEmpty().associateBy { it.id }
   }
-
-  // TODO: we can remove the below if we update the `sources` state to a Map
-  /**
-   * Retrieves a source by its [id].
-   *
-   * @param id The ID of the source to retrieve.
-   * @return The source with the specified ID, or null if no such source exists.
-   */
-  public fun getSource(id: String): Source? = styleNode?.style?.getSource(id)
 }

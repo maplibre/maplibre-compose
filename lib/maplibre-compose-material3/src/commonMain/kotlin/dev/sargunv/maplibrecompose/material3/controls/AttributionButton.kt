@@ -141,7 +141,7 @@ public fun ExpandingAttributionButton(
   expand: (Alignment) -> EnterTransition = AttributionButtonDefaults.expand,
   collapse: (Alignment) -> ExitTransition = AttributionButtonDefaults.collapse,
 ) {
-  val attributions = styleState.sources.flatMap { it.attributionLinks }.distinct()
+  val attributions = styleState.sources.values.flatMap { it.attributionLinks }.distinct()
   if (attributions.isEmpty()) return
 
   Surface(
