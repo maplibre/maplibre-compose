@@ -55,6 +55,9 @@ public fun image(value: String): Expression<ImageValue> = image(const(value))
  * The [ImageBitmap] will be registered with the style when it's referenced by a layer, and
  * unregistered from the style if it's no longer referenced by any layer. An ID referencing the
  * bitmap will be generated automatically and inserted into the expression.
+ *
+ * @param isSdf Should be set to true if the bitmap is a
+ *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/)
  */
 public fun image(value: ImageBitmap, isSdf: Boolean = false): Expression<ImageValue> =
   FunctionCall.of("image", BitmapLiteral.of(value, isSdf)).cast()
@@ -74,6 +77,10 @@ public fun image(value: ImageBitmap, isSdf: Boolean = false): Expression<ImageVa
  *
  * The bitmap will be created with the provided [size], or the intrinsic size of the painter if not
  * provided, or 16x16 DP if the painter has no intrinsic size.
+ *
+ * @param drawAsSdf If true, will draw the image to a bitmap as a
+ *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
+ *   Ideal for monochrome vector icons.
  */
 public fun image(
   value: Painter,

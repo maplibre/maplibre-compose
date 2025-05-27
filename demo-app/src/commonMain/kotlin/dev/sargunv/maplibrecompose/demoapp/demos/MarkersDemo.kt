@@ -12,6 +12,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.em
 import dev.sargunv.maplibrecompose.compose.ClickResult
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
@@ -73,7 +74,9 @@ object MarkersDemo : Demo {
               selectedFeature = features.firstOrNull()
               ClickResult.Consume
             },
-            iconImage = image(marker),
+            iconImage = image(marker, drawAsSdf = true),
+            iconColor = const(Color.Red),
+            iconSize = const(10f),
             textField =
               format(
                 span(image("railway")),
