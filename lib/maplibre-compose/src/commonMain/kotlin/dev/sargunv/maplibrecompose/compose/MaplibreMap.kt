@@ -125,10 +125,6 @@ public fun MaplibreMap(
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
         }
 
-        override fun onSourceChanged(map: MaplibreMap, id: String) {
-          styleState.updateSources()
-        }
-
         override fun onCameraMoveStarted(map: MaplibreMap, reason: CameraMoveReason) {
           cameraState.moveReasonState.value = reason
           cameraState.isCameraMovingState.value = true

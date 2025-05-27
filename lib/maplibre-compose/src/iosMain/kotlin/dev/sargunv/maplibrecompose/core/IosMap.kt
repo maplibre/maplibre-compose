@@ -39,7 +39,6 @@ import cocoapods.MapLibre.MLNOrnamentPositionBottomLeft
 import cocoapods.MapLibre.MLNOrnamentPositionBottomRight
 import cocoapods.MapLibre.MLNOrnamentPositionTopLeft
 import cocoapods.MapLibre.MLNOrnamentPositionTopRight
-import cocoapods.MapLibre.MLNSource
 import cocoapods.MapLibre.MLNStyle
 import cocoapods.MapLibre.allowsTilting
 import dev.sargunv.maplibrecompose.core.util.toBoundingBox
@@ -158,12 +157,6 @@ internal class IosMap(
         map = map,
         style = IosStyle(style = didFinishLoadingStyle, getScale = { map.density.density }),
       )
-    }
-
-    override fun mapView(mapView: MLNMapView, sourceDidChange: MLNSource) {
-      val sourceId = sourceDidChange.identifier
-      map.logger?.i { "Source $sourceId changed" }
-      map.callbacks.onSourceChanged(map, sourceId)
     }
 
     private val anyGesture =
