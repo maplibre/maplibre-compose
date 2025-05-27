@@ -56,8 +56,8 @@ public fun image(value: String): Expression<ImageValue> = image(const(value))
  * unregistered from the style if it's no longer referenced by any layer. An ID referencing the
  * bitmap will be generated automatically and inserted into the expression.
  */
-public fun image(value: ImageBitmap, sdf: Boolean = false): Expression<ImageValue> =
-  FunctionCall.of("image", BitmapLiteral.of(value, sdf)).cast()
+public fun image(value: ImageBitmap, isSdf: Boolean = false): Expression<ImageValue> =
+  FunctionCall.of("image", BitmapLiteral.of(value, isSdf)).cast()
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -78,5 +78,6 @@ public fun image(value: ImageBitmap, sdf: Boolean = false): Expression<ImageValu
 public fun image(
   value: Painter,
   size: DpSize? = null,
-  sdf: Boolean = false,
-): Expression<ImageValue> = FunctionCall.of("image", PainterLiteral.of(value, size, sdf)).cast()
+  drawAsSdf: Boolean = false,
+): Expression<ImageValue> =
+  FunctionCall.of("image", PainterLiteral.of(value, size, drawAsSdf)).cast()

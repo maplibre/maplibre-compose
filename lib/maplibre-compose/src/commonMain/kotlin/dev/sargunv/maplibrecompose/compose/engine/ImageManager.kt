@@ -10,6 +10,8 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import dev.sargunv.maplibrecompose.core.util.toImageBitmap
+import kotlin.math.ceil
 
 internal class ImageManager(private val node: StyleNode) {
   private val bitmapIds = IncrementingIdMap<BitmapKey>("bitmap")
@@ -23,7 +25,7 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.increment(key) {
       val id = bitmapIds.addId(key)
       node.logger?.i { "Adding bitmap $id" }
-      node.style.addImage(id, key.bitmap, key.sdf)
+      node.style.addImage(id, key.bitmap, key.isSdf)
     }
     return bitmapIds.getId(key)
   }
@@ -49,13 +51,23 @@ internal class ImageManager(private val node: StyleNode) {
     return bitmap
   }
 
+  private fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap {
+    val buffer = ceil(radius * (1.0 - cutoff)).toInt()
+    val w = width + 2 * buffer
+    val h = height + 2 * buffer
+    val pixels = IntArray(w * h)
+    readPixels(pixels, bufferOffset = w * buffer + buffer, stride = w)
+    convertToSdf(pixels, w, radius, cutoff)
+    return pixels.toImageBitmap(w, pixels.size / w)
+  }
+
   internal fun acquirePainter(key: PainterKey): String {
     painterCounter.increment(key) {
       val id = painterIds.addId(key)
       node.logger?.i { "Adding painter $id" }
       key.drawToBitmap().let { bitmap ->
-        painterBitmaps[key] = bitmap
-        node.style.addImage(id, bitmap, key.sdf)
+        painterBitmaps[key] = if (key.drawAsSdf) bitmap.toSdf() else bitmap
+        node.style.addImage(id, bitmap, key.drawAsSdf)
       }
     }
     return painterIds.getId(key)
@@ -70,13 +82,13 @@ internal class ImageManager(private val node: StyleNode) {
     }
   }
 
-  internal data class BitmapKey(val bitmap: ImageBitmap, val sdf: Boolean)
+  internal data class BitmapKey(val bitmap: ImageBitmap, val isSdf: Boolean)
 
   internal data class PainterKey(
     val painter: Painter,
     val density: Density,
     val layoutDirection: LayoutDirection,
     val size: DpSize?,
-    val sdf: Boolean,
+    val drawAsSdf: Boolean,
   )
 }

@@ -18,7 +18,7 @@ private constructor(override val value: Painter, val size: DpSize?, val sdf: Boo
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
   public companion object {
-    public fun of(value: Painter, size: DpSize?, sdf: Boolean): PainterLiteral =
-      PainterLiteral(value, size, sdf)
+    public fun of(value: Painter, size: DpSize?, drawAsSdf: Boolean): PainterLiteral =
+      PainterLiteral(value, size, drawAsSdf)
   }
 }

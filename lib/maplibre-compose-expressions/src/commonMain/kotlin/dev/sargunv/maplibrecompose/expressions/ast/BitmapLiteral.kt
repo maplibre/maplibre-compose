@@ -17,6 +17,6 @@ private constructor(override val value: ImageBitmap, val sdf: Boolean) :
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
   public companion object {
-    public fun of(value: ImageBitmap, sdf: Boolean): BitmapLiteral = BitmapLiteral(value, sdf)
+    public fun of(value: ImageBitmap, isSdf: Boolean): BitmapLiteral = BitmapLiteral(value, isSdf)
   }
 }
