@@ -26,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -141,7 +142,9 @@ public fun ExpandingAttributionButton(
   expand: (Alignment) -> EnterTransition = AttributionButtonDefaults.expand,
   collapse: (Alignment) -> ExitTransition = AttributionButtonDefaults.collapse,
 ) {
-  val attributions = styleState.sources.values.flatMap { it.attributionLinks }.distinct()
+  val attributions by remember {
+    derivedStateOf { styleState.sources.values.flatMap { it.attributionLinks }.distinct() }
+  }
   if (attributions.isEmpty()) return
 
   Surface(
