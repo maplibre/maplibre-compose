@@ -32,4 +32,13 @@ public class StyleState internal constructor() {
   internal fun reloadSources() {
     this.sourcesState.value = styleNode?.style?.getSources().orEmpty()
   }
+
+  // TODO: we can remove the below if we update the `sources` state to a Map
+  /**
+   * Retrieves a source by its [id].
+   *
+   * @param id The ID of the source to retrieve.
+   * @return The source with the specified ID, or null if no such source exists.
+   */
+  public fun getSource(id: String): Source? = styleNode?.style?.getSource(id)
 }
