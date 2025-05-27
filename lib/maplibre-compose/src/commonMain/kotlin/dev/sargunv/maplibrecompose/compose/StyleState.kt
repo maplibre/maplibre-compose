@@ -3,7 +3,7 @@ package dev.sargunv.maplibrecompose.compose
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import dev.sargunv.maplibrecompose.compose.engine.StyleNode
+import dev.sargunv.maplibrecompose.core.Style
 import dev.sargunv.maplibrecompose.core.source.Source
 
 /** Remember a new [StyleState]. */
@@ -14,24 +14,22 @@ public fun rememberStyleState(): StyleState {
 
 /** Use this class to access information about the style, such as sources and layers. */
 public class StyleState internal constructor() {
-  private var styleNode: StyleNode? = null
+  private var style: Style? = null
 
   public val sources: List<Source>
     get() = sourcesState.value
 
   private val sourcesState = mutableStateOf(emptyList<Source>())
 
-  internal fun attach(styleNode: StyleNode?) {
-    if (this.styleNode != styleNode) {
-      this.styleNode?.onEndChangesCallback = null
-      this.styleNode = styleNode
-      this.styleNode?.onEndChangesCallback = { updateSources() }
+  internal fun attach(style: Style?) {
+    if (this.style != style) {
+      this.style = style
       updateSources()
     }
   }
 
   internal fun updateSources() {
-    sourcesState.value = styleNode?.style?.getSources().orEmpty()
+    sourcesState.value = style?.getSources().orEmpty()
   }
 
   /**
@@ -40,5 +38,5 @@ public class StyleState internal constructor() {
    * @param id The ID of the source to retrieve.
    * @return The source with the specified ID, or null if no such source exists.
    */
-  public fun getSource(id: String): Source? = styleNode?.style?.getSource(id)
+  public fun getSource(id: String): Source? = style?.getSource(id)
 }

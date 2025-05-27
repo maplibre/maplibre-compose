@@ -9,8 +9,6 @@ internal class StyleNode(var style: SafeStyle, internal var logger: Logger?) : M
   internal val layerManager = LayerManager(this)
   internal val imageManager = ImageManager(this)
 
-  internal var onEndChangesCallback: (() -> Unit)? = null
-
   override fun allowsChild(node: MapNode) = node is LayerNode<*>
 
   override fun onChildRemoved(oldIndex: Int, node: MapNode) {
@@ -31,6 +29,5 @@ internal class StyleNode(var style: SafeStyle, internal var logger: Logger?) : M
   override fun onEndChanges() {
     sourceManager.applyChanges()
     layerManager.applyChanges()
-    onEndChangesCallback?.invoke()
   }
 }
