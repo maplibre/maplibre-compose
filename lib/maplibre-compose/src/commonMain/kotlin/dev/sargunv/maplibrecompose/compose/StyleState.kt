@@ -16,10 +16,10 @@ public fun rememberStyleState(): StyleState {
 public class StyleState internal constructor() {
   private var styleNode: StyleNode? = null
 
-  public val sources: Map<String, Source>
+  public val sources: List<Source>
     get() = sourcesState.value
 
-  private val sourcesState = mutableStateOf(emptyMap<String, Source>())
+  private val sourcesState = mutableStateOf(emptyList<Source>())
 
   internal fun attach(styleNode: StyleNode?) {
     if (this.styleNode != styleNode) {
@@ -30,17 +30,6 @@ public class StyleState internal constructor() {
   }
 
   internal fun reloadSources() {
-    this.sourcesState.value = styleNode?.style?.getSources().orEmpty().associateBy { it.id }
-    println("reloadSources: " + sources.values.map { it.attributionLinks })
-  }
-
-  internal fun onSourceAdded(source: Source) {
-    sourcesState.value = sourcesState.value + (source.id to source)
-    println("onSourceAdded: " + sources.values.map { it.attributionLinks })
-  }
-
-  internal fun onSourceRemoved(source: Source) {
-    sourcesState.value = sourcesState.value - source.id
-    println("onSourceRemoved: " + sources.values.map { it.attributionLinks })
+    this.sourcesState.value = styleNode?.style?.getSources().orEmpty()
   }
 }

@@ -31,7 +31,7 @@ internal class SourceManager(private val node: StyleNode) {
     counter.decrement(source) {
       node.logger?.i { "Removing source ${source.id}" }
       node.style.removeSource(source)
-      state?.onSourceRemoved(source)
+      state?.reloadSources()
     }
   }
 
@@ -40,7 +40,7 @@ internal class SourceManager(private val node: StyleNode) {
       .onEach {
         node.logger?.i { "Adding source ${it.id}" }
         node.style.addSource(it)
-        state?.onSourceAdded(it)
+        state?.reloadSources()
       }
       .clear()
   }
