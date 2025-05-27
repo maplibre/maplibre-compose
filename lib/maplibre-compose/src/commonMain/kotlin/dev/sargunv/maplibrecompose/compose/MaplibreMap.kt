@@ -110,7 +110,7 @@ public fun MaplibreMap(
   content: @Composable @MaplibreComposable () -> Unit = {},
 ) {
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
-  val styleComposition by rememberStyleComposition(rememberedStyle, logger, content)
+  val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
 
   val callbacks =
     remember(cameraState, styleState, styleComposition) {
@@ -119,10 +119,14 @@ public fun MaplibreMap(
           map as StandardMaplibreMap
           rememberedStyle?.unload()
           val safeStyle = style?.let { SafeStyle(it) }
-          styleState.attach(safeStyle)
           rememberedStyle = safeStyle
           cameraState.metersPerDpAtTargetState.value =
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
+        }
+
+        override fun onMapFinishedLoading(map: MaplibreMap) {
+          map as StandardMaplibreMap
+          styleState.reloadSources()
         }
 
         override fun onCameraMoveStarted(map: MaplibreMap, reason: CameraMoveReason) {

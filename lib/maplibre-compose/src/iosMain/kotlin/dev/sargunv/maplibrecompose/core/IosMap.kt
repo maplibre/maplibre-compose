@@ -149,6 +149,7 @@ internal class IosMap(
 
     override fun mapViewDidFinishLoadingMap(mapView: MLNMapView) {
       map.logger?.i { "Map finished loading" }
+      map.callbacks.onMapFinishedLoading(map)
     }
 
     override fun mapView(mapView: MLNMapView, didFinishLoadingStyle: MLNStyle) {

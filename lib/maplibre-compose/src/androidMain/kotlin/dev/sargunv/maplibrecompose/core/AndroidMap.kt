@@ -96,6 +96,8 @@ internal class AndroidMap(
   }
 
   init {
+    mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
+
     map.addOnCameraMoveStartedListener { reason ->
       // MapLibre doesn't have docs on these reasons, and even though they're named like Google's:
       // https://developers.google.com/android/reference/com/google/android/gms/maps/GoogleMap.OnCameraMoveStartedListener#constants

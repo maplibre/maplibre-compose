@@ -68,6 +68,8 @@ internal interface MaplibreMap {
   interface Callbacks {
     fun onStyleChanged(map: MaplibreMap, style: Style?)
 
+    fun onMapFinishedLoading(map: MaplibreMap)
+
     fun onCameraMoveStarted(map: MaplibreMap, reason: CameraMoveReason)
 
     fun onCameraMoved(map: MaplibreMap)

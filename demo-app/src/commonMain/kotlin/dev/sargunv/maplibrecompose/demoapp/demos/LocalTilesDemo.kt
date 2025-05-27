@@ -48,7 +48,13 @@ object LocalTilesDemo : Demo {
                     Res.getUri("files/data/fantasy-map/0/0-0-fs8.png")
                       .replace("0/0-0", "{z}/{x}-{y}")
                   ),
-                options = TileSetOptions(minZoom = 0, maxZoom = 4),
+                options =
+                  TileSetOptions(
+                    minZoom = 0,
+                    maxZoom = 4,
+                    attributionHtml =
+                      """<a href="https://watabou.github.io/realm.html">Procgen Arena</a>""",
+                  ),
               )
 
             RasterLayer(id = "fantasy-map", source = tiles)

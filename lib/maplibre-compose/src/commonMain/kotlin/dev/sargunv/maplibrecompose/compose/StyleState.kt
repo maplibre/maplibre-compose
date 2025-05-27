@@ -3,7 +3,7 @@ package dev.sargunv.maplibrecompose.compose
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import dev.sargunv.maplibrecompose.core.Style
+import dev.sargunv.maplibrecompose.compose.engine.StyleNode
 import dev.sargunv.maplibrecompose.core.source.Source
 
 /** Remember a new [StyleState]. */
@@ -14,29 +14,33 @@ public fun rememberStyleState(): StyleState {
 
 /** Use this class to access information about the style, such as sources and layers. */
 public class StyleState internal constructor() {
-  private var style: Style? = null
+  private var styleNode: StyleNode? = null
 
-  public val sources: List<Source>
+  public val sources: Map<String, Source>
     get() = sourcesState.value
 
-  private val sourcesState = mutableStateOf(emptyList<Source>())
+  private val sourcesState = mutableStateOf(emptyMap<String, Source>())
 
-  internal fun attach(style: Style?) {
-    if (this.style != style) {
-      this.style = style
-      updateSources()
+  internal fun attach(styleNode: StyleNode?) {
+    if (this.styleNode != styleNode) {
+      this.styleNode = styleNode
+      styleNode?.sourceManager?.state = this
+      reloadSources()
     }
   }
 
-  internal fun updateSources() {
-    sourcesState.value = style?.getSources().orEmpty()
+  internal fun reloadSources() {
+    this.sourcesState.value = styleNode?.style?.getSources().orEmpty().associateBy { it.id }
+    println("reloadSources: " + sources.values.map { it.attributionLinks })
   }
 
-  /**
-   * Retrieves a source by its [id].
-   *
-   * @param id The ID of the source to retrieve.
-   * @return The source with the specified ID, or null if no such source exists.
-   */
-  public fun getSource(id: String): Source? = style?.getSource(id)
+  internal fun onSourceAdded(source: Source) {
+    sourcesState.value = sourcesState.value + (source.id to source)
+    println("onSourceAdded: " + sources.values.map { it.attributionLinks })
+  }
+
+  internal fun onSourceRemoved(source: Source) {
+    sourcesState.value = sourcesState.value - source.id
+    println("onSourceRemoved: " + sources.values.map { it.attributionLinks })
+  }
 }
