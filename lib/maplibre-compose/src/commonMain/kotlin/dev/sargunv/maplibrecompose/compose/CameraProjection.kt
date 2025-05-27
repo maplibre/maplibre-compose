@@ -22,7 +22,7 @@ public class CameraProjection internal constructor(internal val map: StandardMap
    * [position]. This works for positions that are off-screen, too. Returns `null` if the map is not
    * initialized yet.
    */
-  public fun screenLocationFromPosition(position: Position): DpOffset? {
+  public fun screenLocationFromPosition(position: Position): DpOffset {
     return map.screenLocationFromPosition(position)
   }
 
@@ -30,7 +30,7 @@ public class CameraProjection internal constructor(internal val map: StandardMap
    * Returns a position that corresponds to the given [offset] from the top-left corner of the map
    * composable. Returns `null` if the map is not initialized yet.
    */
-  public fun positionFromScreenLocation(offset: DpOffset): Position? {
+  public fun positionFromScreenLocation(offset: DpOffset): Position {
     return map.positionFromScreenLocation(offset)
   }
 
@@ -53,7 +53,7 @@ public class CameraProjection internal constructor(internal val map: StandardMap
   ): List<Feature> {
     val predicateOrNull =
       predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
-    return map.queryRenderedFeatures(offset, layerIds, predicateOrNull) ?: emptyList()
+    return map.queryRenderedFeatures(offset, layerIds, predicateOrNull)
   }
 
   /**
@@ -74,7 +74,7 @@ public class CameraProjection internal constructor(internal val map: StandardMap
   ): List<Feature> {
     val predicateOrNull =
       predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
-    return map.queryRenderedFeatures(rect, layerIds, predicateOrNull) ?: emptyList()
+    return map.queryRenderedFeatures(rect, layerIds, predicateOrNull)
   }
 
   /**
@@ -84,7 +84,7 @@ public class CameraProjection internal constructor(internal val map: StandardMap
    * tilted, the returned bounding box will always be larger than the actually visible area. See
    * [queryVisibleRegion]. Returns `null` if the map is not initialized yet.
    */
-  public fun queryVisibleBoundingBox(): BoundingBox? {
+  public fun queryVisibleBoundingBox(): BoundingBox {
     // TODO at some point, this should be refactored to State, just like the camera position
     return map.getVisibleBoundingBox()
   }
@@ -94,7 +94,7 @@ public class CameraProjection internal constructor(internal val map: StandardMap
    * each at one corner of the map composable. If the camera has tilt (pitch), this polygon is a
    * trapezoid instead of a rectangle. Returns `null` if the map is not initialized yet.
    */
-  public fun queryVisibleRegion(): VisibleRegion? {
+  public fun queryVisibleRegion(): VisibleRegion {
     // TODO at some point, this should be refactored to State, just like the camera position
     return map.getVisibleRegion()
   }
