@@ -56,6 +56,8 @@ kotlin {
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
   js(IR) { browser() }
 
+  applyDefaultHierarchyTemplate()
+
   cocoapods {
     noPodspec()
     ios.deploymentTarget = project.properties["iosDeploymentTarget"]!!.toString()
@@ -77,20 +79,33 @@ kotlin {
       api(project(":lib:maplibre-compose-expressions"))
     }
 
-    androidMain.dependencies {
-      api(libs.maplibre.android)
-      implementation(libs.maplibre.android.scalebar)
+    val skiaMain by creating { dependsOn(commonMain.get()) }
+
+    iosMain { dependsOn(skiaMain) }
+
+    androidMain {
+      dependencies {
+        api(libs.maplibre.android)
+        implementation(libs.maplibre.android.scalebar)
+      }
     }
 
-    desktopMain.dependencies {
-      implementation(compose.desktop.common)
-      implementation(libs.kotlinx.coroutines.swing)
-      implementation(libs.webview)
+    // no idea why this is differently typed from the others
+    desktopMain.apply {
+      dependsOn(skiaMain)
+      dependencies {
+        implementation(compose.desktop.currentOs)
+        implementation(libs.kotlinx.coroutines.swing)
+        implementation(libs.webview)
+      }
     }
 
-    jsMain.dependencies {
-      implementation(project(":lib:kotlin-maplibre-js"))
-      implementation(project(":lib:compose-html-interop"))
+    jsMain {
+      dependsOn(skiaMain)
+      dependencies {
+        implementation(project(":lib:kotlin-maplibre-js"))
+        implementation(project(":lib:compose-html-interop"))
+      }
     }
 
     commonTest.dependencies {
