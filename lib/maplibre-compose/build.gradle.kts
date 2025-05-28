@@ -79,11 +79,21 @@ kotlin {
       api(project(":lib:maplibre-compose-expressions"))
     }
 
+    // used to share some implementation on platforms where Compose UI is backed by Skia directly
+    // (e.g. all but Android, which is backed by the Android Canvas API)
     val skiaMain by creating { dependsOn(commonMain.get()) }
 
-    iosMain { dependsOn(skiaMain) }
+    // used to expose APIs only available on platforms backed by MapLibre Native
+    // (e.g. Android and iOS, and maybe someday Desktop)
+    val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
+
+    iosMain {
+      dependsOn(skiaMain)
+      dependsOn(maplibreNativeMain)
+    }
 
     androidMain {
+      dependsOn(maplibreNativeMain)
       dependencies {
         api(libs.maplibre.android)
         implementation(libs.maplibre.android.scalebar)

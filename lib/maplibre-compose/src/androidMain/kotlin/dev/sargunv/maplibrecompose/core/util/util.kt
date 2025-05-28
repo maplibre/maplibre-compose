@@ -28,6 +28,14 @@ import dev.sargunv.maplibrecompose.expressions.ast.NullLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.OffsetLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.StringLiteral
 import io.github.dellisd.spatialk.geojson.BoundingBox
+import io.github.dellisd.spatialk.geojson.Geometry
+import io.github.dellisd.spatialk.geojson.GeometryCollection
+import io.github.dellisd.spatialk.geojson.LineString
+import io.github.dellisd.spatialk.geojson.MultiLineString
+import io.github.dellisd.spatialk.geojson.MultiPoint
+import io.github.dellisd.spatialk.geojson.MultiPolygon
+import io.github.dellisd.spatialk.geojson.Point
+import io.github.dellisd.spatialk.geojson.Polygon
 import io.github.dellisd.spatialk.geojson.Position
 import java.net.URI
 import java.net.URISyntaxException
@@ -160,4 +168,16 @@ internal fun Alignment.toGravity(layoutDir: LayoutDirection): Int {
       else -> error("Invalid alignment")
     }
   return h or v
+}
+
+internal fun Geometry.toMlnGeometry(): org.maplibre.geojson.Geometry {
+  return when (this) {
+    is Point -> org.maplibre.geojson.Point.fromJson(json())
+    is GeometryCollection -> org.maplibre.geojson.GeometryCollection.fromJson(json())
+    is LineString -> org.maplibre.geojson.LineString.fromJson(json())
+    is MultiLineString -> org.maplibre.geojson.MultiLineString.fromJson(json())
+    is MultiPoint -> org.maplibre.geojson.MultiPoint.fromJson(json())
+    is MultiPolygon -> org.maplibre.geojson.MultiPolygon.fromJson(json())
+    is Polygon -> org.maplibre.geojson.Polygon.fromJson(json())
+  }
 }
