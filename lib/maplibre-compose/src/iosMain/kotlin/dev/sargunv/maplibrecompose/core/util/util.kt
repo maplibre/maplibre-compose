@@ -66,9 +66,16 @@ import platform.UIKit.UIImage
 import platform.UIKit.UIImageRenderingMode
 import platform.UIKit.valueWithCGVector
 import platform.UIKit.valueWithUIEdgeInsets
+import platform.posix.memcpy
 
 internal fun ByteArray.toNSData(): NSData {
-  return usePinned { NSData.dataWithBytes(it.addressOf(0), it.get().size.toULong()) }
+  return if (isEmpty()) NSData()
+  else usePinned { NSData.dataWithBytes(it.addressOf(0), it.get().size.toULong()) }
+}
+
+internal fun NSData.toByteArray(): ByteArray {
+  return if (length.toInt() == 0) ByteArray(0)
+  else ByteArray(length.toInt()).apply { usePinned { memcpy(it.addressOf(0), bytes, length) } }
 }
 
 internal fun MLNFeatureProtocol.toFeature(): Feature {

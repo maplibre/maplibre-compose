@@ -1,0 +1,182 @@
+package dev.sargunv.maplibrecompose.compose.offline
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import cocoapods.MapLibre.MLNOfflinePack
+import cocoapods.MapLibre.MLNOfflinePackErrorNotification
+import cocoapods.MapLibre.MLNOfflinePackMaximumMapboxTilesReachedNotification
+import cocoapods.MapLibre.MLNOfflinePackProgressChangedNotification
+import cocoapods.MapLibre.MLNOfflinePackUserInfoKeyMaximumCount
+import cocoapods.MapLibre.MLNOfflineStorage
+import dev.sargunv.maplibrecompose.core.util.KVObserverProtocol
+import dev.sargunv.maplibrecompose.core.util.toNSData
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
+import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ObjCAction
+import kotlinx.cinterop.StableRef
+import kotlinx.cinterop.useContents
+import platform.Foundation.NSError
+import platform.Foundation.NSKeyValueObservingOptionInitial
+import platform.Foundation.NSKeyValueObservingOptionNew
+import platform.Foundation.NSNotification
+import platform.Foundation.NSNotificationCenter
+import platform.Foundation.addObserver
+import platform.darwin.NSObject
+import platform.darwin.sel_registerName
+
+@Composable
+public actual fun rememberOfflineRegionManager(): OfflineRegionManager {
+  return IosOfflineRegionManager
+}
+
+internal object IosOfflineRegionManager : OfflineRegionManager {
+
+  private val impl = MLNOfflineStorage.sharedOfflineStorage
+
+  private val regionsState = mutableStateOf(emptySet<OfflineRegion>())
+
+  override val regions
+    get() = regionsState.value
+
+  // hold on to the objects to prevent ObjC weak references from losing them
+  private val progressObserver = OfflinePackProgressObserver()
+  @Suppress("unused") private val packsListObserver = PacksListObserver()
+
+  private class PacksListObserver() : NSObject(), KVObserverProtocol {
+    private val packsContext = StableRef.create(Any()).asCPointer()
+
+    init {
+      impl.addObserver(
+        this,
+        "packs",
+        NSKeyValueObservingOptionNew or NSKeyValueObservingOptionInitial,
+        this.packsContext,
+      )
+    }
+
+    override fun observeValueForKeyPath(
+      keyPath: String?,
+      ofObject: Any?,
+      change: Map<Any?, *>?,
+      context: kotlinx.cinterop.CPointer<out kotlinx.cinterop.CPointed>?,
+    ) {
+      when (context) {
+        packsContext ->
+          regionsState.value =
+            impl.packs.orEmpty().map { (it as MLNOfflinePack).toOfflineRegion() }.toSet()
+      }
+      // ignore other contexts
+    }
+  }
+
+  private class OfflinePackProgressObserver : NSObject() {
+    val packToProgress by derivedStateOf { regions.associate { it.impl to it.progressState } }
+
+    init {
+      val nc = NSNotificationCenter.defaultCenter
+      nc.addObserver(
+        observer = this,
+        selector = sel_registerName(::offlinePackProgressDidChange.name + ":"),
+        name = MLNOfflinePackProgressChangedNotification,
+        `object` = null,
+      )
+      nc.addObserver(
+        observer = this,
+        selector = sel_registerName(::offlinePackDidReceiveError.name + ":"),
+        name = MLNOfflinePackErrorNotification,
+        `object` = null,
+      )
+      nc.addObserver(
+        observer = this,
+        selector = sel_registerName(::offlinePackDidReceiveMaximumAllowedMapboxTiles.name + ":"),
+        name = MLNOfflinePackMaximumMapboxTilesReachedNotification,
+        `object` = null,
+      )
+    }
+
+    @OptIn(BetaInteropApi::class)
+    @ObjCAction
+    fun offlinePackProgressDidChange(notification: NSNotification) {
+      val pack = notification.`object` as MLNOfflinePack
+      packToProgress[pack]?.value = pack.progress.useContents { toDownloadProgress(pack.state) }
+    }
+
+    @OptIn(BetaInteropApi::class)
+    @ObjCAction
+    fun offlinePackDidReceiveError(notification: NSNotification) {
+      val pack = notification.`object` as MLNOfflinePack
+      val error = notification.userInfo!![MLNOfflinePackErrorNotification] as NSError
+      packToProgress[pack]?.value =
+        DownloadProgress.Error(
+          error.localizedFailureReason ?: "Unknown",
+          error.localizedDescription,
+        )
+    }
+
+    @OptIn(BetaInteropApi::class)
+    @ObjCAction
+    fun offlinePackDidReceiveMaximumAllowedMapboxTiles(notification: NSNotification) {
+      val pack = notification.`object` as MLNOfflinePack
+      val limit = notification.userInfo!![MLNOfflinePackUserInfoKeyMaximumCount] as ULong
+      packToProgress[pack]?.value = DownloadProgress.TileLimitExceeded(limit.toLong())
+    }
+  }
+
+  override suspend fun create(
+    definition: OfflineRegionDefinition,
+    metadata: ByteArray,
+  ): OfflineRegion = suspendCoroutine { continuation ->
+    impl.addPackForRegion(
+      region = definition.toMLNOfflineRegion(),
+      withContext = metadata.toNSData(),
+      completionHandler = { pack, error ->
+        if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+        else if (pack != null) continuation.resume(pack.toOfflineRegion())
+        else continuation.resumeWithException(IllegalStateException("Offline pack is null"))
+      },
+    )
+  }
+
+  override suspend fun delete(region: OfflineRegion) = suspendCoroutine { continuation ->
+    impl.removePack(region.impl) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
+  }
+
+  override suspend fun invalidate(region: OfflineRegion) = suspendCoroutine { continuation ->
+    impl.invalidatePack(region.impl) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
+  }
+
+  override suspend fun invalidateAmbientCache() = suspendCoroutine { continuation ->
+    impl.invalidateAmbientCacheWithCompletionHandler { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
+  }
+
+  override suspend fun clearAmbientCache() = suspendCoroutine { continuation ->
+    impl.clearAmbientCacheWithCompletionHandler { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
+  }
+
+  override suspend fun setMaximumAmbientCacheSize(size: Long) = suspendCoroutine { continuation ->
+    impl.setMaximumAmbientCacheSize(size.toULong()) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
+  }
+
+  override fun setOfflineMapboxTileCountLimit(limit: Long) {
+    impl.setMaximumAllowedMapboxTiles(limit.toULong())
+  }
+}

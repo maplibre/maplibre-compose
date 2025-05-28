@@ -3,6 +3,7 @@
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
   id("library-conventions")
@@ -50,9 +51,22 @@ kotlin {
     instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
     publishLibraryVariants("release", "debug")
   }
-  iosArm64()
-  iosSimulatorArm64()
-  iosX64()
+
+  fun KotlinNativeTarget.configureIos() {
+    compilations.getByName("main") {
+      cinterops {
+        val observer by creating {
+          defFile(project.file("src/nativeInterop/cinterop/observer.def"))
+          packageName("dev.sargunv.maplibrecompose.core.util")
+        }
+      }
+    }
+  }
+
+  iosArm64 { configureIos() }
+  iosSimulatorArm64 { configureIos() }
+  iosX64 { configureIos() }
+
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
   js(IR) { browser() }
 
@@ -79,11 +93,21 @@ kotlin {
       api(project(":lib:maplibre-compose-expressions"))
     }
 
+    // used to share some implementation on platforms where Compose UI is backed by Skia directly
+    // (e.g. all but Android, which is backed by the Android Canvas API)
     val skiaMain by creating { dependsOn(commonMain.get()) }
 
-    iosMain { dependsOn(skiaMain) }
+    // used to expose APIs only available on platforms backed by MapLibre Native
+    // (e.g. Android and iOS, and maybe someday Desktop)
+    val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
+
+    iosMain {
+      dependsOn(skiaMain)
+      dependsOn(maplibreNativeMain)
+    }
 
     androidMain {
+      dependsOn(maplibreNativeMain)
       dependencies {
         api(libs.maplibre.android)
         implementation(libs.maplibre.android.scalebar)

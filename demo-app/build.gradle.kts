@@ -51,6 +51,8 @@ kotlin {
     binaries.executable()
   }
 
+  applyDefaultHierarchyTemplate()
+
   cocoapods {
     summary = "MapLibre Compose demo app"
     homepage = "https://github.com/maplibre/maplibre-compose"
@@ -87,13 +89,21 @@ kotlin {
       implementation(project(":lib:maplibre-compose-material3"))
     }
 
-    androidMain.dependencies {
-      implementation(libs.androidx.activity.compose)
-      implementation(libs.kotlinx.coroutines.android)
-      implementation(libs.ktor.client.okhttp)
+    val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
+
+    androidMain {
+      dependsOn(maplibreNativeMain)
+      dependencies {
+        implementation(libs.androidx.activity.compose)
+        implementation(libs.kotlinx.coroutines.android)
+        implementation(libs.ktor.client.okhttp)
+      }
     }
 
-    iosMain.dependencies { implementation(libs.ktor.client.darwin) }
+    iosMain {
+      dependsOn(maplibreNativeMain)
+      dependencies { implementation(libs.ktor.client.darwin) }
+    }
 
     desktopMain.dependencies {
       implementation(compose.desktop.currentOs)
