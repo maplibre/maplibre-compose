@@ -3,6 +3,9 @@ package dev.sargunv.maplibrecompose.compose.offline
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import cocoapods.MapLibre.MLNOfflineStorage
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 @Composable
 public actual fun rememberOfflineRegionManager(): OfflineRegionManager {
@@ -27,6 +30,8 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
   // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepackmaximummapboxtilesreachednotification
   // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepackerrornotification
 
+  init {}
+
   override suspend fun create(
     definition: OfflineRegionDefinition,
     metadata: ByteArray,
@@ -45,23 +50,28 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
     TODO("Not yet implemented")
   }
 
-  override suspend fun invalidateAmbientCache() {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/invalidateambientcachewithcompletionhandler:
-    TODO("Not yet implemented")
+  override suspend fun invalidateAmbientCache() = suspendCoroutine { continuation ->
+    impl.invalidateAmbientCacheWithCompletionHandler { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
   }
 
-  override suspend fun clearAmbientCache() {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/clearambientcachewithcompletionhandler:
-    TODO("Not yet implemented")
+  override suspend fun clearAmbientCache() = suspendCoroutine { continuation ->
+    impl.clearAmbientCacheWithCompletionHandler { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
   }
 
-  override suspend fun setMaximumAmbientCacheSize(size: Long) {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/setmaximumambientcachesize:withcompletionhandler:
-    TODO("Not yet implemented")
+  override suspend fun setMaximumAmbientCacheSize(size: Long) = suspendCoroutine { continuation ->
+    impl.setMaximumAmbientCacheSize(size.toULong()) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
   }
 
   override fun setOfflineMapboxTileCountLimit(limit: Long) {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/setmaximumallowedmapboxtiles:
-    TODO("Not yet implemented")
+    impl.setMaximumAllowedMapboxTiles(limit.toULong())
   }
 }
