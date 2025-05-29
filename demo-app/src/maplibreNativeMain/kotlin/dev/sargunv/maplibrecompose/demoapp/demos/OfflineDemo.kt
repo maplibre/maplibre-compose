@@ -8,17 +8,13 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.offline.DownloadState
-import dev.sargunv.maplibrecompose.compose.offline.OfflineRegion
 import dev.sargunv.maplibrecompose.compose.offline.OfflineRegionDefinition
 import dev.sargunv.maplibrecompose.compose.offline.OfflineRegionStatus
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineRegionManager
@@ -61,22 +57,18 @@ object OfflineDemo : Demo {
           val offlineManager = rememberOfflineRegionManager()
           val density = LocalDensity.current
 
-          var offlineRegions by remember { mutableStateOf(emptyList<OfflineRegion>()) }
-          LaunchedEffect(offlineManager) { offlineRegions = offlineManager.listOfflineRegions() }
-
           Button(
             onClick = {
               coroutineScope.launch {
-                val region =
-                  offlineManager.createOfflineRegion(
+                offlineManager
+                  .create(
                     OfflineRegionDefinition.TilePyramid(
                       styleUrl = DEFAULT_STYLE,
                       bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
                       pixelRatio = density.density,
                     )
                   )
-                region.setDownloadState(DownloadState.Active)
-                offlineRegions = offlineManager.listOfflineRegions()
+                  .setDownloadState(DownloadState.Active)
               }
             },
             enabled = cameraState.position.zoom >= 10.0,
@@ -85,7 +77,7 @@ object OfflineDemo : Demo {
           }
 
           Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            offlineRegions.forEachIndexed { i, region ->
+            offlineManager.regions.forEachIndexed { i, region ->
               ListItem(
                 headlineContent = { Text("Region ${region.id}") },
                 supportingContent = {
@@ -93,7 +85,7 @@ object OfflineDemo : Demo {
                   Text(
                     when (status) {
                       is OfflineRegionStatus.Normal ->
-                        "${status.completedResourceCount} downloaded of ${status.requiredResourceCount} required"
+                        "${status.completedResourceCount} downloaded of ${status.requiredResourceCount}"
                       is OfflineRegionStatus.Error -> "Error: " + status.message
                       is OfflineRegionStatus.TileLimitExceeded ->
                         "Tile limit exceeded: " + status.limit
@@ -102,14 +94,7 @@ object OfflineDemo : Demo {
                   )
                 },
                 trailingContent = {
-                  Button(
-                    onClick = {
-                      coroutineScope.launch {
-                        region.delete()
-                        offlineRegions = offlineManager.listOfflineRegions()
-                      }
-                    }
-                  ) {
+                  Button(onClick = { coroutineScope.launch { offlineManager.delete(region) } }) {
                     Text("Delete")
                   }
                 },

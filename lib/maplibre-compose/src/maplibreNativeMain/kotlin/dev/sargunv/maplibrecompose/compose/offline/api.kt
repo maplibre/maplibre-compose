@@ -7,13 +7,14 @@ import io.github.dellisd.spatialk.geojson.Geometry
 @Composable public expect fun rememberOfflineRegionManager(): OfflineRegionManager
 
 public interface OfflineRegionManager {
-  public suspend fun createOfflineRegion(
+  public val regions: Set<OfflineRegion>
+
+  public suspend fun create(
     definition: OfflineRegionDefinition,
     metadata: ByteArray = ByteArray(0),
   ): OfflineRegion
 
-  // TODO refactor as State?
-  public suspend fun listOfflineRegions(): List<OfflineRegion>
+  public suspend fun delete(region: OfflineRegion)
 }
 
 public sealed interface OfflineRegionDefinition {
@@ -49,8 +50,6 @@ public expect class OfflineRegion {
   public val status: OfflineRegionStatus?
 
   public fun setDownloadState(downloadState: DownloadState)
-
-  public suspend fun delete()
 
   public suspend fun invalidate()
 

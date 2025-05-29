@@ -8,7 +8,8 @@ import org.maplibre.android.offline.OfflineRegion as MlnOfflineRegion
 import org.maplibre.android.offline.OfflineRegionError as MlnOfflineRegionError
 import org.maplibre.android.offline.OfflineRegionStatus as MlnOfflineRegionStatus
 
-public actual class OfflineRegion internal constructor(private val impl: MlnOfflineRegion) {
+public actual class OfflineRegion internal constructor(internal val impl: MlnOfflineRegion) :
+  MlnOfflineRegion.OfflineRegionObserver {
   public actual val id: Long
     get() = impl.id
 
@@ -26,24 +27,20 @@ public actual class OfflineRegion internal constructor(private val impl: MlnOffl
     get() = statusState.value
 
   init {
-    impl.setObserver(
-      object : MlnOfflineRegion.OfflineRegionObserver {
-        override fun onStatusChanged(status: MlnOfflineRegionStatus) {
-          statusState.value = status.toOfflineRegionStatus()
-          println("onStatusChanged: ${this@OfflineRegion.status}")
-        }
+    impl.setDeliverInactiveMessages(true)
+    impl.setObserver(this)
+  }
 
-        override fun onError(error: MlnOfflineRegionError) {
-          println("onError: $error")
-          statusState.value = OfflineRegionStatus.Error(error.reason, error.message)
-        }
+  override fun onStatusChanged(status: MlnOfflineRegionStatus) {
+    statusState.value = status.toOfflineRegionStatus()
+  }
 
-        override fun mapboxTileCountLimitExceeded(limit: Long) {
-          println("mapboxTileCountLimitExceeded: $limit")
-          statusState.value = OfflineRegionStatus.TileLimitExceeded(limit)
-        }
-      }
-    )
+  override fun onError(error: MlnOfflineRegionError) {
+    statusState.value = OfflineRegionStatus.Error(error.reason, error.message)
+  }
+
+  override fun mapboxTileCountLimitExceeded(limit: Long) {
+    statusState.value = OfflineRegionStatus.TileLimitExceeded(limit)
   }
 
   public actual fun setDownloadState(downloadState: DownloadState): Unit =
@@ -53,17 +50,6 @@ public actual class OfflineRegion internal constructor(private val impl: MlnOffl
         DownloadState.Inactive -> MlnOfflineRegion.STATE_INACTIVE
       }
     )
-
-  public actual suspend fun delete(): Unit = suspendCoroutine { continuation ->
-    impl.delete(
-      object : MlnOfflineRegion.OfflineRegionDeleteCallback {
-        override fun onDelete() = continuation.resume(Unit)
-
-        override fun onError(error: String) =
-          continuation.resumeWithException(OfflineRegionException(error))
-      }
-    )
-  }
 
   public actual suspend fun invalidate(): Unit = suspendCoroutine { continuation ->
     impl.invalidate(
