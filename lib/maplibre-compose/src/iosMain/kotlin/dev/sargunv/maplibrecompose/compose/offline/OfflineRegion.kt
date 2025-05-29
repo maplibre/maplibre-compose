@@ -35,7 +35,10 @@ public actual class OfflineRegion internal constructor(internal val impl: MLNOff
     suspendCoroutine { continuation ->
       impl.setContext(metadata.toNSData()) { error ->
         if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
-        else continuation.resume(Unit)
+        else {
+          metadataState.value = metadata
+          continuation.resume(Unit)
+        }
       }
     }
 
