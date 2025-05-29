@@ -2,13 +2,18 @@ package dev.sargunv.maplibrecompose.compose.offline
 
 import androidx.compose.runtime.mutableStateOf
 import cocoapods.MapLibre.MLNOfflinePack
+import dev.sargunv.maplibrecompose.core.util.toByteArray
+import dev.sargunv.maplibrecompose.core.util.toNSData
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
+import kotlin.coroutines.suspendCoroutine
 
 public actual class OfflineRegion internal constructor(internal val impl: MLNOfflinePack) {
 
   public actual val definition: OfflineRegionDefinition
     get() = TODO("Not yet implemented")
 
-  private val metadataState = mutableStateOf(ByteArray(0)) // TODO
+  private val metadataState = mutableStateOf(impl.context.toByteArray())
 
   internal val statusState = mutableStateOf<OfflineRegionStatus?>(null)
 
@@ -19,15 +24,19 @@ public actual class OfflineRegion internal constructor(internal val impl: MLNOff
     get() = statusState.value
 
   public actual fun setDownloadState(downloadState: DownloadState) {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepack/suspend
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepack/resume
-    TODO("Not yet implemented")
+    when (downloadState) {
+      DownloadState.Active -> impl.resume()
+      DownloadState.Inactive -> impl.suspend()
+    }
   }
 
-  public actual suspend fun updateMetadata(metadata: ByteArray) {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepack/setcontext:completionhandler:
-    TODO("Not yet implemented")
-  }
+  public actual suspend fun updateMetadata(metadata: ByteArray): Unit =
+    suspendCoroutine { continuation ->
+      impl.setContext(metadata.toNSData()) { error ->
+        if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+        else continuation.resume(Unit)
+      }
+    }
 
   override fun equals(other: Any?): Boolean = other is OfflineRegion && other.impl == impl
 
