@@ -11,7 +11,7 @@ import kotlin.coroutines.suspendCoroutine
 public actual class OfflineRegion internal constructor(internal val impl: MLNOfflinePack) {
 
   public actual val definition: OfflineRegionDefinition
-    get() = TODO("Not yet implemented")
+    get() = impl.region.toRegionDefinition()
 
   private val metadataState = mutableStateOf(impl.context.toByteArray())
 

@@ -11,8 +11,7 @@ internal fun NSError.toOfflineRegionException(): OfflineRegionException {
 
 internal fun MLNOfflineRegionProtocol.toRegionDefinition(): OfflineRegionDefinition = TODO()
 
-internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(): MLNOfflineRegionProtocol =
-  TODO()
+internal fun OfflineRegionDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtocol = TODO()
 
 internal fun MLNOfflinePack.toOfflineRegion(): OfflineRegion = OfflineRegion(this)
 

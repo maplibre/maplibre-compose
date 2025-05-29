@@ -49,13 +49,9 @@ internal object IosOfflineRegionManager : OfflineRegionManager, NSObject(), KVOb
         change != null &&
         change.contains(NSKeyValueChangeSetting)
     ) {
-      updateRegions()
-    }
-  }
-
-  private fun updateRegions() {
-    impl.packs?.let { packs ->
-      regionsState.value = packs.map { (it as MLNOfflinePack).toOfflineRegion() }.toSet()
+      impl.packs?.let { packs ->
+        regionsState.value = packs.map { (it as MLNOfflinePack).toOfflineRegion() }.toSet()
+      }
     }
   }
 
@@ -65,7 +61,7 @@ internal object IosOfflineRegionManager : OfflineRegionManager, NSObject(), KVOb
   ): OfflineRegion =
     suspendCoroutine { continuation ->
         impl.addPackForRegion(
-          region = definition.toMlnOfflineRegionDefinition(),
+          region = definition.toMLNOfflineRegion(),
           withContext = metadata.toNSData(),
           completionHandler = { pack, error ->
             if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
@@ -74,7 +70,7 @@ internal object IosOfflineRegionManager : OfflineRegionManager, NSObject(), KVOb
           },
         )
       }
-      .also { updateRegions() }
+      .also { regionsState.value += it }
 
   override suspend fun delete(region: OfflineRegion) =
     suspendCoroutine { continuation ->
@@ -83,7 +79,7 @@ internal object IosOfflineRegionManager : OfflineRegionManager, NSObject(), KVOb
           else continuation.resume(Unit)
         }
       }
-      .also { updateRegions() }
+      .also { regionsState.value -= region }
 
   override suspend fun invalidate(region: OfflineRegion) = suspendCoroutine { continuation ->
     impl.invalidatePack(region.impl) { error ->

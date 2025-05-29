@@ -45,10 +45,10 @@ internal class AndroidOfflineRegionManager(context: Context, coroutineScope: Cor
     get() = regionsState.value
 
   init {
-    coroutineScope.launch { updateRegions() }
+    coroutineScope.launch { initRegions() }
   }
 
-  private suspend fun updateRegions() = suspendCoroutine { continuation ->
+  private suspend fun initRegions() = suspendCoroutine { continuation ->
     impl.listOfflineRegions(
       object : MlnOfflineManager.ListOfflineRegionsCallback {
         override fun onList(offlineRegions: Array<MlnOfflineRegion>?) {
@@ -81,7 +81,7 @@ internal class AndroidOfflineRegionManager(context: Context, coroutineScope: Cor
             },
         )
       }
-      .also { updateRegions() }
+      .also { regionsState.value += it }
 
   override suspend fun delete(region: OfflineRegion): Unit =
     suspendCoroutine { continuation ->
@@ -96,7 +96,7 @@ internal class AndroidOfflineRegionManager(context: Context, coroutineScope: Cor
           }
         )
       }
-      .also { updateRegions() }
+      .also { regionsState.value -= region }
 
   override suspend fun invalidate(region: OfflineRegion) = suspendCoroutine { continuation ->
     region.impl.invalidate(
