@@ -97,4 +97,15 @@ internal class AndroidOfflineRegionManager(context: Context, coroutineScope: Cor
         )
       }
       .also { updateRegions() }
+
+  override suspend fun invalidate(region: OfflineRegion) = suspendCoroutine { continuation ->
+    region.impl.invalidate(
+      object : MlnOfflineRegion.OfflineRegionInvalidateCallback {
+        override fun onInvalidate() = continuation.resume(Unit)
+
+        override fun onError(error: String) =
+          continuation.resumeWithException(OfflineRegionException(error))
+      }
+    )
+  }
 }

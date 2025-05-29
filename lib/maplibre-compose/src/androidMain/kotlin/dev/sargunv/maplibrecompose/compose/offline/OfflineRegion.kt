@@ -48,17 +48,6 @@ public actual class OfflineRegion internal constructor(internal val impl: MlnOff
       }
     )
 
-  public actual suspend fun invalidate(): Unit = suspendCoroutine { continuation ->
-    impl.invalidate(
-      object : MlnOfflineRegion.OfflineRegionInvalidateCallback {
-        override fun onInvalidate() = continuation.resume(Unit)
-
-        override fun onError(error: String) =
-          continuation.resumeWithException(OfflineRegionException(error))
-      }
-    )
-  }
-
   public actual suspend fun updateMetadata(metadata: ByteArray): Unit =
     suspendCoroutine { continuation ->
       impl.updateMetadata(

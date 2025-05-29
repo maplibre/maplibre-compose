@@ -15,6 +15,8 @@ public interface OfflineRegionManager {
   ): OfflineRegion
 
   public suspend fun delete(region: OfflineRegion)
+
+  public suspend fun invalidate(region: OfflineRegion)
 }
 
 public sealed interface OfflineRegionDefinition {
@@ -49,8 +51,6 @@ public expect class OfflineRegion {
   public val status: OfflineRegionStatus?
 
   public fun setDownloadState(downloadState: DownloadState)
-
-  public suspend fun invalidate()
 
   public suspend fun updateMetadata(metadata: ByteArray)
 }

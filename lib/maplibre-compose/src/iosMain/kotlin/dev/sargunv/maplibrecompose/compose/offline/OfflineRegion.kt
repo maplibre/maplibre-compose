@@ -10,7 +10,7 @@ public actual class OfflineRegion internal constructor(internal val impl: MLNOff
 
   private val metadataState = mutableStateOf(ByteArray(0)) // TODO
 
-  private val statusState = mutableStateOf<OfflineRegionStatus?>(null)
+  internal val statusState = mutableStateOf<OfflineRegionStatus?>(null)
 
   public actual val metadata: ByteArray?
     get() = metadataState.value
@@ -18,11 +18,18 @@ public actual class OfflineRegion internal constructor(internal val impl: MLNOff
   public actual val status: OfflineRegionStatus?
     get() = statusState.value
 
-  init {}
+  public actual fun setDownloadState(downloadState: DownloadState) {
+    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepack/suspend
+    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepack/resume
+    TODO("Not yet implemented")
+  }
 
-  public actual fun setDownloadState(downloadState: DownloadState) {}
+  public actual suspend fun updateMetadata(metadata: ByteArray) {
+    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepack/setcontext:completionhandler:
+    TODO("Not yet implemented")
+  }
 
-  public actual suspend fun invalidate() {}
+  override fun equals(other: Any?): Boolean = other is OfflineRegion && other.impl == impl
 
-  public actual suspend fun updateMetadata(metadata: ByteArray) {}
+  override fun hashCode(): Int = impl.hashCode()
 }
