@@ -20,7 +20,7 @@ public sealed interface OfflineRegionDefinition {
   public val styleUrl: String
   public val minZoom: Int
   public val maxZoom: Int?
-  public val pixelRatio: Float
+  public val pixelRatio: Float // TODO encapsulate this using LocalDensity.current?
   public val includeIdeographs: Boolean
 
   public data class TilePyramid(
