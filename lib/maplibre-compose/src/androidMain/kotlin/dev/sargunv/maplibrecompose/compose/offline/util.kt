@@ -65,12 +65,13 @@ internal fun MlnOfflineRegionStatus.toOfflineRegionStatus() =
     completedTileCount = completedTileCount,
     completedTileSize = completedTileSize,
     downloadState =
-      when (downloadState) {
-        MlnOfflineRegion.STATE_ACTIVE -> DownloadState.Active
-        MlnOfflineRegion.STATE_INACTIVE -> DownloadState.Inactive
-        else -> error("Unknown download state: $downloadState")
-      },
-    isComplete = isComplete,
+      if (isComplete) DownloadState.Complete
+      else
+        when (downloadState) {
+          MlnOfflineRegion.STATE_ACTIVE -> DownloadState.Active
+          MlnOfflineRegion.STATE_INACTIVE -> DownloadState.Inactive
+          else -> error("Unknown download state: $downloadState")
+        },
     isRequiredResourceCountPrecise = isRequiredResourceCountPrecise,
     requiredResourceCount = requiredResourceCount,
   )

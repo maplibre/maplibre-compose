@@ -23,11 +23,12 @@ public actual class OfflineRegion internal constructor(internal val impl: MLNOff
   public actual val status: OfflineRegionStatus?
     get() = statusState.value
 
-  public actual fun setDownloadState(downloadState: DownloadState) {
-    when (downloadState) {
-      DownloadState.Active -> impl.resume()
-      DownloadState.Inactive -> impl.suspend()
-    }
+  public actual fun resume() {
+    impl.resume()
+  }
+
+  public actual fun suspend() {
+    impl.suspend()
   }
 
   public actual suspend fun updateMetadata(metadata: ByteArray): Unit =

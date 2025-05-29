@@ -40,13 +40,13 @@ public actual class OfflineRegion internal constructor(internal val impl: MlnOff
     statusState.value = OfflineRegionStatus.TileLimitExceeded(limit)
   }
 
-  public actual fun setDownloadState(downloadState: DownloadState): Unit =
-    impl.setDownloadState(
-      when (downloadState) {
-        DownloadState.Active -> MlnOfflineRegion.STATE_ACTIVE
-        DownloadState.Inactive -> MlnOfflineRegion.STATE_INACTIVE
-      }
-    )
+  public actual fun suspend() {
+    impl.setDownloadState(MlnOfflineRegion.STATE_INACTIVE)
+  }
+
+  public actual fun resume() {
+    impl.setDownloadState(MlnOfflineRegion.STATE_ACTIVE)
+  }
 
   public actual suspend fun updateMetadata(metadata: ByteArray): Unit =
     suspendCoroutine { continuation ->

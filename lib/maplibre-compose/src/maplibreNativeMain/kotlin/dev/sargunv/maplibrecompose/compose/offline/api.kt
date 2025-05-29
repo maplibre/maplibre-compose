@@ -58,7 +58,9 @@ public expect class OfflineRegion {
   public val metadata: ByteArray?
   public val status: OfflineRegionStatus?
 
-  public fun setDownloadState(downloadState: DownloadState)
+  public fun resume()
+
+  public fun suspend()
 
   public suspend fun updateMetadata(metadata: ByteArray)
 }
@@ -70,7 +72,6 @@ public sealed interface OfflineRegionStatus {
     val completedTileCount: Long,
     val completedTileSize: Long,
     val downloadState: DownloadState,
-    val isComplete: Boolean,
     val isRequiredResourceCountPrecise: Boolean,
     val requiredResourceCount: Long,
   ) : OfflineRegionStatus
@@ -83,6 +84,9 @@ public sealed interface OfflineRegionStatus {
 public enum class DownloadState {
   Active,
   Inactive,
+  Complete,
+  Invalid,
+  Unknown,
 }
 
 public class OfflineRegionException(message: String) : Exception(message)
