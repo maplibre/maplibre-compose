@@ -18,7 +18,20 @@ import org.maplibre.android.offline.OfflineRegion as MlnOfflineRegion
 public actual fun rememberOfflineRegionManager(): OfflineRegionManager {
   val context = LocalContext.current
   val coroutineScope = rememberCoroutineScope()
-  return remember(context) { AndroidOfflineRegionManager(context, coroutineScope) }
+  return remember(context, coroutineScope) {
+    AndroidOfflineRegionManagers.getForContext(context, coroutineScope)
+  }
+}
+
+/** Helper singleton to ensure there's only one manager for a given context. */
+internal object AndroidOfflineRegionManagers {
+  private val managers = mutableMapOf<Context, AndroidOfflineRegionManager>()
+
+  internal fun getForContext(
+    context: Context,
+    coroutineScope: CoroutineScope,
+  ): AndroidOfflineRegionManager =
+    managers.getOrPut(context) { AndroidOfflineRegionManager(context, coroutineScope) }
 }
 
 internal class AndroidOfflineRegionManager(context: Context, coroutineScope: CoroutineScope) :

@@ -10,9 +10,6 @@ import org.maplibre.android.offline.OfflineRegionStatus as MlnOfflineRegionStatu
 
 public actual class OfflineRegion internal constructor(internal val impl: MlnOfflineRegion) :
   MlnOfflineRegion.OfflineRegionObserver {
-  public actual val id: Long
-    get() = impl.id
-
   public actual val definition: OfflineRegionDefinition
     get() = impl.definition.toRegionDefinition()
 

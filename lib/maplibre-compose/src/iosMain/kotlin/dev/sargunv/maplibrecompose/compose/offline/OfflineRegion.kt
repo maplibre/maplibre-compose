@@ -1,21 +1,26 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
-public actual class OfflineRegion {
-  public actual val id: Long
-    get() = TODO("Not yet implemented")
+import androidx.compose.runtime.mutableStateOf
+import cocoapods.MapLibre.MLNOfflinePack
+
+public actual class OfflineRegion internal constructor(internal val impl: MLNOfflinePack) {
 
   public actual val definition: OfflineRegionDefinition
     get() = TODO("Not yet implemented")
 
+  private val metadataState = mutableStateOf(ByteArray(0)) // TODO
+
+  private val statusState = mutableStateOf<OfflineRegionStatus?>(null)
+
   public actual val metadata: ByteArray?
-    get() = TODO("Not yet implemented")
+    get() = metadataState.value
 
   public actual val status: OfflineRegionStatus?
-    get() = TODO("Not yet implemented")
+    get() = statusState.value
+
+  init {}
 
   public actual fun setDownloadState(downloadState: DownloadState) {}
-
-  public actual suspend fun delete() {}
 
   public actual suspend fun invalidate() {}
 

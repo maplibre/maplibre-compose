@@ -79,7 +79,7 @@ object OfflineDemo : Demo {
           Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             offlineManager.regions.forEachIndexed { i, region ->
               ListItem(
-                headlineContent = { Text("Region ${region.id}") },
+                headlineContent = { Text("Region $i") },
                 supportingContent = {
                   val status = region.status
                   Text(

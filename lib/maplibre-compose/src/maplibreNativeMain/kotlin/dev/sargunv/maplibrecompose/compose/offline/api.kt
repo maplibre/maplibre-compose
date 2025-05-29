@@ -44,7 +44,6 @@ public sealed interface OfflineRegionDefinition {
 }
 
 public expect class OfflineRegion {
-  public val id: Long
   public val definition: OfflineRegionDefinition
   public val metadata: ByteArray?
   public val status: OfflineRegionStatus?
