@@ -46,29 +46,33 @@ public expect class OfflineRegion {
   public val id: Long
   public val definition: OfflineRegionDefinition
   public val metadata: ByteArray?
+  public val status: OfflineRegionStatus?
 
   public fun setDownloadState(downloadState: DownloadState)
 
   public suspend fun delete()
-
-  // TODO refactor as State?
-  public suspend fun getStatus(): OfflineRegionStatus?
 
   public suspend fun invalidate()
 
   public suspend fun updateMetadata(metadata: ByteArray)
 }
 
-public data class OfflineRegionStatus(
-  val completedResourceCount: Long,
-  val completedResourceSize: Long,
-  val completedTileCount: Long,
-  val completedTileSize: Long,
-  val downloadState: DownloadState,
-  val isComplete: Boolean,
-  val isRequiredResourceCountPrecise: Boolean,
-  val requiredResourceCount: Long,
-)
+public sealed interface OfflineRegionStatus {
+  public data class Normal(
+    val completedResourceCount: Long,
+    val completedResourceSize: Long,
+    val completedTileCount: Long,
+    val completedTileSize: Long,
+    val downloadState: DownloadState,
+    val isComplete: Boolean,
+    val isRequiredResourceCountPrecise: Boolean,
+    val requiredResourceCount: Long,
+  ) : OfflineRegionStatus
+
+  public data class Error(val reason: String, val message: String) : OfflineRegionStatus
+
+  public data class TileLimitExceeded(val limit: Long) : OfflineRegionStatus
+}
 
 public enum class DownloadState {
   Active,

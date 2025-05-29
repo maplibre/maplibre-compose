@@ -20,6 +20,7 @@ import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.offline.DownloadState
 import dev.sargunv.maplibrecompose.compose.offline.OfflineRegion
 import dev.sargunv.maplibrecompose.compose.offline.OfflineRegionDefinition
+import dev.sargunv.maplibrecompose.compose.offline.OfflineRegionStatus
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineRegionManager
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
@@ -59,10 +60,8 @@ object OfflineDemo : Demo {
           val coroutineScope = rememberCoroutineScope()
           val offlineManager = rememberOfflineRegionManager()
           val density = LocalDensity.current
+
           var offlineRegions by remember { mutableStateOf(emptyList<OfflineRegion>()) }
-
-          // TODO this is a mess, we definitely want some State in the API so we don't have this
-
           LaunchedEffect(offlineManager) { offlineRegions = offlineManager.listOfflineRegions() }
 
           Button(
@@ -89,6 +88,19 @@ object OfflineDemo : Demo {
             offlineRegions.forEachIndexed { i, region ->
               ListItem(
                 headlineContent = { Text("Region ${region.id}") },
+                supportingContent = {
+                  val status = region.status
+                  Text(
+                    when (status) {
+                      is OfflineRegionStatus.Normal ->
+                        "${status.completedResourceCount} downloaded of ${status.requiredResourceCount} required"
+                      is OfflineRegionStatus.Error -> "Error: " + status.message
+                      is OfflineRegionStatus.TileLimitExceeded ->
+                        "Tile limit exceeded: " + status.limit
+                      null -> "Loading..."
+                    }
+                  )
+                },
                 trailingContent = {
                   Button(
                     onClick = {

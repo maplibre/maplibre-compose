@@ -59,7 +59,7 @@ internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(): MlnOfflineR
 internal fun MlnOfflineRegion.toOfflineRegion(): OfflineRegion = OfflineRegion(this)
 
 internal fun MlnOfflineRegionStatus.toOfflineRegionStatus() =
-  OfflineRegionStatus(
+  OfflineRegionStatus.Normal(
     completedResourceCount = completedResourceCount,
     completedResourceSize = completedResourceSize,
     completedTileCount = completedTileCount,

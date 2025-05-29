@@ -1,9 +1,11 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
+import androidx.compose.runtime.mutableStateOf
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import org.maplibre.android.offline.OfflineRegion as MlnOfflineRegion
+import org.maplibre.android.offline.OfflineRegionError as MlnOfflineRegionError
 import org.maplibre.android.offline.OfflineRegionStatus as MlnOfflineRegionStatus
 
 public actual class OfflineRegion internal constructor(private val impl: MlnOfflineRegion) {
@@ -13,8 +15,36 @@ public actual class OfflineRegion internal constructor(private val impl: MlnOffl
   public actual val definition: OfflineRegionDefinition
     get() = impl.definition.toRegionDefinition()
 
+  private val metadataState = mutableStateOf(impl.metadata)
+
+  private val statusState = mutableStateOf<OfflineRegionStatus?>(null)
+
   public actual val metadata: ByteArray?
-    get() = impl.metadata
+    get() = metadataState.value
+
+  public actual val status: OfflineRegionStatus?
+    get() = statusState.value
+
+  init {
+    impl.setObserver(
+      object : MlnOfflineRegion.OfflineRegionObserver {
+        override fun onStatusChanged(status: MlnOfflineRegionStatus) {
+          statusState.value = status.toOfflineRegionStatus()
+          println("onStatusChanged: ${this@OfflineRegion.status}")
+        }
+
+        override fun onError(error: MlnOfflineRegionError) {
+          println("onError: $error")
+          statusState.value = OfflineRegionStatus.Error(error.reason, error.message)
+        }
+
+        override fun mapboxTileCountLimitExceeded(limit: Long) {
+          println("mapboxTileCountLimitExceeded: $limit")
+          statusState.value = OfflineRegionStatus.TileLimitExceeded(limit)
+        }
+      }
+    )
+  }
 
   public actual fun setDownloadState(downloadState: DownloadState): Unit =
     impl.setDownloadState(
@@ -35,18 +65,6 @@ public actual class OfflineRegion internal constructor(private val impl: MlnOffl
     )
   }
 
-  public actual suspend fun getStatus(): OfflineRegionStatus? = suspendCoroutine { continuation ->
-    impl.getStatus(
-      object : MlnOfflineRegion.OfflineRegionStatusCallback {
-        override fun onStatus(status: MlnOfflineRegionStatus?) =
-          continuation.resume(status?.toOfflineRegionStatus())
-
-        override fun onError(error: String?) =
-          continuation.resumeWithException(OfflineRegionException(error ?: "Unknown error"))
-      }
-    )
-  }
-
   public actual suspend fun invalidate(): Unit = suspendCoroutine { continuation ->
     impl.invalidate(
       object : MlnOfflineRegion.OfflineRegionInvalidateCallback {
@@ -63,7 +81,10 @@ public actual class OfflineRegion internal constructor(private val impl: MlnOffl
       impl.updateMetadata(
         metadata,
         object : MlnOfflineRegion.OfflineRegionUpdateMetadataCallback {
-          override fun onUpdate(metadata: ByteArray) = continuation.resume(Unit)
+          override fun onUpdate(metadata: ByteArray) {
+            metadataState.value = metadata
+            continuation.resume(Unit)
+          }
 
           override fun onError(error: String) =
             continuation.resumeWithException(OfflineRegionException(error))
