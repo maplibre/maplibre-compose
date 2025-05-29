@@ -24,6 +24,8 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
 
   // TODO observe progress notifications and update region states:
   // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepackprogresschangednotification
+  // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepackmaximummapboxtilesreachednotification
+  // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinepackerrornotification
 
   override suspend fun create(
     definition: OfflineRegionDefinition,
@@ -40,6 +42,26 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
 
   override suspend fun invalidate(region: OfflineRegion) {
     // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/invalidatepack:withcompletionhandler:
+    TODO("Not yet implemented")
+  }
+
+  override suspend fun invalidateAmbientCache() {
+    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/invalidateambientcachewithcompletionhandler:
+    TODO("Not yet implemented")
+  }
+
+  override suspend fun clearAmbientCache() {
+    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/clearambientcachewithcompletionhandler:
+    TODO("Not yet implemented")
+  }
+
+  override suspend fun setMaximumAmbientCacheSize(size: Long) {
+    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/setmaximumambientcachesize:withcompletionhandler:
+    TODO("Not yet implemented")
+  }
+
+  override fun setOfflineMapboxTileCountLimit(limit: Long) {
+    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/setmaximumallowedmapboxtiles:
     TODO("Not yet implemented")
   }
 }

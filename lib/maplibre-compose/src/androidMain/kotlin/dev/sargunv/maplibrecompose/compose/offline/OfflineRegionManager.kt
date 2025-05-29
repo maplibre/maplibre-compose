@@ -108,4 +108,42 @@ internal class AndroidOfflineRegionManager(context: Context, coroutineScope: Cor
       }
     )
   }
+
+  override suspend fun invalidateAmbientCache() = suspendCoroutine { continuation ->
+    impl.invalidateAmbientCache(
+      object : MlnOfflineManager.FileSourceCallback {
+        override fun onSuccess() = continuation.resume(Unit)
+
+        override fun onError(message: String) =
+          continuation.resumeWithException(OfflineRegionException(message))
+      }
+    )
+  }
+
+  override suspend fun clearAmbientCache() = suspendCoroutine { continuation ->
+    impl.clearAmbientCache(
+      object : MlnOfflineManager.FileSourceCallback {
+        override fun onSuccess() = continuation.resume(Unit)
+
+        override fun onError(message: String) =
+          continuation.resumeWithException(OfflineRegionException(message))
+      }
+    )
+  }
+
+  override suspend fun setMaximumAmbientCacheSize(size: Long) = suspendCoroutine { continuation ->
+    impl.setMaximumAmbientCacheSize(
+      size,
+      object : MlnOfflineManager.FileSourceCallback {
+        override fun onSuccess() = continuation.resume(Unit)
+
+        override fun onError(message: String) =
+          continuation.resumeWithException(OfflineRegionException(message))
+      },
+    )
+  }
+
+  override fun setOfflineMapboxTileCountLimit(limit: Long) {
+    impl.setOfflineMapboxTileCountLimit(limit)
+  }
 }

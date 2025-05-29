@@ -17,6 +17,14 @@ public interface OfflineRegionManager {
   public suspend fun delete(region: OfflineRegion)
 
   public suspend fun invalidate(region: OfflineRegion)
+
+  public suspend fun invalidateAmbientCache()
+
+  public suspend fun clearAmbientCache()
+
+  public suspend fun setMaximumAmbientCacheSize(size: Long)
+
+  public fun setOfflineMapboxTileCountLimit(limit: Long)
 }
 
 public sealed interface OfflineRegionDefinition {
