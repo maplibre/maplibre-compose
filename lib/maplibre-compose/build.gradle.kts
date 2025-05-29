@@ -3,6 +3,7 @@
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
+import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
 plugins {
   id("library-conventions")
@@ -50,9 +51,22 @@ kotlin {
     instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
     publishLibraryVariants("release", "debug")
   }
-  iosArm64()
-  iosSimulatorArm64()
-  iosX64()
+
+  fun KotlinNativeTarget.configureIos() {
+    compilations.getByName("main") {
+      cinterops {
+        val observer by creating {
+          defFile(project.file("src/nativeInterop/cinterop/observer.def"))
+          packageName("dev.sargunv.maplibrecompose.core.util")
+        }
+      }
+    }
+  }
+
+  iosArm64 { configureIos() }
+  iosSimulatorArm64 { configureIos() }
+  iosX64 { configureIos() }
+
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
   js(IR) { browser() }
 
