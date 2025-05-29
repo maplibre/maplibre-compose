@@ -19,7 +19,6 @@ internal fun MlnOfflineRegionDefinition.toRegionDefinition(): OfflineRegionDefin
         bounds = bounds!!.toBoundingBox(),
         minZoom = minZoom.toInt(),
         maxZoom = if (maxZoom.isInfinite()) null else maxZoom.toInt(),
-        pixelRatio = pixelRatio,
         includeIdeographs = includeIdeographs,
       )
     is OfflineGeometryRegionDefinition ->
@@ -28,13 +27,14 @@ internal fun MlnOfflineRegionDefinition.toRegionDefinition(): OfflineRegionDefin
         geometry = Geometry.fromJson(geometry!!.toJson()),
         minZoom = minZoom.toInt(),
         maxZoom = if (maxZoom.isInfinite()) null else maxZoom.toInt(),
-        pixelRatio = pixelRatio,
         includeIdeographs = includeIdeographs,
       )
-    else -> throw IllegalArgumentException("Unknown region definition type: $this")
+    else -> throw IllegalArgumentException("Unknown OfflineRegionDefinition type: $this")
   }
 
-internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(): MlnOfflineRegionDefinition =
+internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(
+  pixelRatio: Float
+): MlnOfflineRegionDefinition =
   when (this) {
     is OfflineRegionDefinition.TilePyramid ->
       OfflineTilePyramidRegionDefinition(

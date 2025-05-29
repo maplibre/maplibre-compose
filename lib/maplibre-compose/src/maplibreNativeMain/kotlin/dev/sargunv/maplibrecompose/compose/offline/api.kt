@@ -31,7 +31,6 @@ public sealed interface OfflineRegionDefinition {
   public val styleUrl: String
   public val minZoom: Int
   public val maxZoom: Int?
-  public val pixelRatio: Float
   public val includeIdeographs: Boolean
 
   public data class TilePyramid(
@@ -39,7 +38,6 @@ public sealed interface OfflineRegionDefinition {
     public val bounds: BoundingBox,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
-    override val pixelRatio: Float,
     override val includeIdeographs: Boolean = true,
   ) : OfflineRegionDefinition
 
@@ -48,7 +46,6 @@ public sealed interface OfflineRegionDefinition {
     public val geometry: Geometry,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
-    override val pixelRatio: Float,
     override val includeIdeographs: Boolean = true,
   ) : OfflineRegionDefinition
 }

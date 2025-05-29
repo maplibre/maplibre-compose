@@ -34,8 +34,10 @@ internal object AndroidOfflineRegionManagers {
     managers.getOrPut(context) { AndroidOfflineRegionManager(context, coroutineScope) }
 }
 
-internal class AndroidOfflineRegionManager(context: Context, coroutineScope: CoroutineScope) :
-  OfflineRegionManager {
+internal class AndroidOfflineRegionManager(
+  private val context: Context,
+  coroutineScope: CoroutineScope,
+) : OfflineRegionManager {
 
   private val impl = MlnOfflineManager.getInstance(context)
 
@@ -68,7 +70,8 @@ internal class AndroidOfflineRegionManager(context: Context, coroutineScope: Cor
   ): OfflineRegion =
     suspendCoroutine { continuation ->
         impl.createOfflineRegion(
-          definition = definition.toMlnOfflineRegionDefinition(),
+          definition =
+            definition.toMlnOfflineRegionDefinition(context.resources.displayMetrics.density),
           metadata = metadata,
           callback =
             object : MlnOfflineManager.CreateOfflineRegionCallback {
