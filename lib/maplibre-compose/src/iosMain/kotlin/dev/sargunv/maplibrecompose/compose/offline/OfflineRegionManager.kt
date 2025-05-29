@@ -38,16 +38,22 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
   ): OfflineRegion {
     // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/addpackforregion:withcontext:completionhandler:
     TODO("Not yet implemented")
+    // TODO also update region state
   }
 
-  override suspend fun delete(region: OfflineRegion) {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/removepack:withcompletionhandler:
-    TODO("Not yet implemented")
+  override suspend fun delete(region: OfflineRegion) = suspendCoroutine { continuation ->
+    impl.removePack(region.impl) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
+    // TODO also update region state
   }
 
-  override suspend fun invalidate(region: OfflineRegion) {
-    // https://maplibre.org/maplibre-native/ios/latest/documentation/maplibre/mlnofflinestorage/invalidatepack:withcompletionhandler:
-    TODO("Not yet implemented")
+  override suspend fun invalidate(region: OfflineRegion) = suspendCoroutine { continuation ->
+    impl.invalidatePack(region.impl) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      else continuation.resume(Unit)
+    }
   }
 
   override suspend fun invalidateAmbientCache() = suspendCoroutine { continuation ->
