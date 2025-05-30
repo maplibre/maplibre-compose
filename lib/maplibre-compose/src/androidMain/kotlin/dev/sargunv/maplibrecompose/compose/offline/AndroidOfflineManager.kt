@@ -1,6 +1,7 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
 import android.content.Context
+import androidx.annotation.MainThread
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -8,6 +9,7 @@ import androidx.compose.ui.platform.LocalContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
+import org.maplibre.android.MapLibre
 import org.maplibre.android.offline.OfflineManager as MLNOfflineManager
 import org.maplibre.android.offline.OfflineRegion
 
@@ -24,15 +26,22 @@ public actual fun rememberOfflineManager(): OfflineManager {
 public fun getOfflineManager(context: Context): OfflineManager =
   AndroidOfflineManager.getInstance(context)
 
-internal class AndroidOfflineManager(private val context: Context) : OfflineManager {
+internal class AndroidOfflineManager @MainThread internal constructor(context: Context) :
+  OfflineManager {
   companion object {
-    private val managers = mutableMapOf<Context, AndroidOfflineManager>()
+    private var manager: AndroidOfflineManager? = null
 
     internal fun getInstance(context: Context): AndroidOfflineManager =
-      managers.getOrPut(context) { AndroidOfflineManager(context) }
+      manager ?: AndroidOfflineManager(context.applicationContext).also { manager = it }
   }
 
-  private val impl = MLNOfflineManager.getInstance(context)
+  private val pixelRatio = context.resources.displayMetrics.density
+
+  private val impl =
+    {
+      MapLibre.getInstance(context) // must be called before getting OfflineManager instance
+      MLNOfflineManager.getInstance(context)
+    }()
 
   private val packsState = mutableStateOf(emptySet<OfflinePack>())
 
@@ -54,8 +63,7 @@ internal class AndroidOfflineManager(private val context: Context) : OfflineMana
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack =
     suspendCoroutine { continuation ->
         impl.createOfflineRegion(
-          definition =
-            definition.toMLNOfflineRegionDefinition(context.resources.displayMetrics.density),
+          definition = definition.toMLNOfflineRegionDefinition(pixelRatio),
           metadata = metadata,
           callback =
             object : MLNOfflineManager.CreateOfflineRegionCallback {
