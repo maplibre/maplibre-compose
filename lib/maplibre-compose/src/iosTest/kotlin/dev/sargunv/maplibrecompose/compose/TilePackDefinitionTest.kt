@@ -2,7 +2,7 @@ package dev.sargunv.maplibrecompose.compose
 
 import dev.sargunv.maplibrecompose.compose.offline.OfflinePackDefinition
 import dev.sargunv.maplibrecompose.compose.offline.toMLNOfflineRegion
-import dev.sargunv.maplibrecompose.compose.offline.toTilePackDefinition
+import dev.sargunv.maplibrecompose.compose.offline.toOfflinePackDefinition
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Polygon
 import io.github.dellisd.spatialk.geojson.Position
@@ -25,7 +25,7 @@ class TilePackDefinitionTest {
         minZoom = 3,
         maxZoom = null, // infinity
       )
-    assert(noMax.toMLNOfflineRegion().toTilePackDefinition() == noMax)
+    assert(noMax.toMLNOfflineRegion().toOfflinePackDefinition() == noMax)
 
     val minMax =
       OfflinePackDefinition.TilePyramid(
@@ -38,7 +38,7 @@ class TilePackDefinitionTest {
         minZoom = 3,
         maxZoom = 10,
       )
-    assert(minMax.toMLNOfflineRegion().toTilePackDefinition() == minMax)
+    assert(minMax.toMLNOfflineRegion().toOfflinePackDefinition() == minMax)
   }
 
   @Test
@@ -58,7 +58,7 @@ class TilePackDefinitionTest {
         minZoom = 3,
         maxZoom = null, // infinity
       )
-    assert(noMax.toMLNOfflineRegion().toTilePackDefinition() == noMax)
+    assert(noMax.toMLNOfflineRegion().toOfflinePackDefinition() == noMax)
 
     val minMax =
       OfflinePackDefinition.Shape(
@@ -75,6 +75,6 @@ class TilePackDefinitionTest {
         minZoom = 3,
         maxZoom = 10,
       )
-    assert(minMax.toMLNOfflineRegion().toTilePackDefinition() == minMax)
+    assert(minMax.toMLNOfflineRegion().toOfflinePackDefinition() == minMax)
   }
 }

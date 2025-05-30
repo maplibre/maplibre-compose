@@ -11,7 +11,7 @@ import org.maplibre.android.offline.OfflineRegionStatus
 public actual class OfflinePack internal constructor(internal val impl: OfflineRegion) :
   OfflineRegion.OfflineRegionObserver {
   public actual val definition: OfflinePackDefinition
-    get() = impl.definition.toTilePackDefinition()
+    get() = impl.definition.toOfflinePackDefinition()
 
   private val metadataState = mutableStateOf(impl.metadata)
 

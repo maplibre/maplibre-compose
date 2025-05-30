@@ -74,9 +74,9 @@ internal class AndroidOfflineManager(private val context: Context) :
       }
       .also { regionsState.value += it }
 
-  override suspend fun delete(region: OfflinePack): Unit =
+  override suspend fun delete(pack: OfflinePack): Unit =
     suspendCoroutine { continuation ->
-        region.impl.delete(
+        pack.impl.delete(
           object : OfflineRegion.OfflineRegionDeleteCallback {
             override fun onDelete() {
               continuation.resume(Unit)
@@ -87,10 +87,10 @@ internal class AndroidOfflineManager(private val context: Context) :
           }
         )
       }
-      .also { regionsState.value -= region }
+      .also { regionsState.value -= pack }
 
-  override suspend fun invalidate(region: OfflinePack) = suspendCoroutine { continuation ->
-    region.impl.invalidate(
+  override suspend fun invalidate(pack: OfflinePack) = suspendCoroutine { continuation ->
+    pack.impl.invalidate(
       object : OfflineRegion.OfflineRegionInvalidateCallback {
         override fun onInvalidate() = continuation.resume(Unit)
 

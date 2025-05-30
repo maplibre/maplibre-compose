@@ -226,7 +226,7 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
                   ),
                 metadata = inputValue.encodeToByteArray(),
               )
-              .resume()
+              .also { offlineManager.resume(it) }
             inputValue = ""
           }
         },
@@ -256,6 +256,7 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
       offlineManager.regions.forEach { pack ->
         PackListItem(
           pack,
+          offlineManager,
           onDelete = { coroutineScope.launch { offlineManager.delete(pack) } },
           onLocate = {
             coroutineScope.launch {
@@ -274,7 +275,12 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
 }
 
 @Composable
-private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -> Unit) {
+private fun PackListItem(
+  pack: OfflinePack,
+  offlineManager: OfflineManager,
+  onDelete: () -> Unit,
+  onLocate: () -> Unit,
+) {
   val packName =
     remember(pack.metadata) {
       pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" }
@@ -307,9 +313,9 @@ private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -
       Row {
         if (progress is DownloadProgress.Healthy) {
           if (progress.status == DownloadStatus.Paused)
-            Button(onClick = { pack.resume() }) { Text("Resume") }
+            Button(onClick = { offlineManager.resume(pack) }) { Text("Resume") }
           else if (progress.status == DownloadStatus.Downloading)
-            Button(onClick = { pack.pause() }) { Text("Pause") }
+            Button(onClick = { offlineManager.pause(pack) }) { Text("Pause") }
         }
         Button(onClick = onLocate, modifier = Modifier.padding(start = 8.dp)) { Text("Locate") }
         Button(onClick = onDelete, modifier = Modifier.padding(start = 8.dp)) { Text("Delete") }

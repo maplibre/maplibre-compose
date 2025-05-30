@@ -12,7 +12,7 @@ import kotlinx.cinterop.useContents
 public actual class OfflinePack internal constructor(internal val impl: MLNOfflinePack) {
 
   public actual val definition: OfflinePackDefinition
-    get() = impl.region.toTilePackDefinition()
+    get() = impl.region.toOfflinePackDefinition()
 
   private val metadataState = mutableStateOf(impl.context.toByteArray())
 
@@ -29,18 +29,10 @@ public actual class OfflinePack internal constructor(internal val impl: MLNOffli
     impl.requestProgress()
   }
 
-  public actual fun resume() {
-    impl.resume()
-  }
-
-  public actual fun pause() {
-    impl.suspend()
-  }
-
   public actual suspend fun setMetadata(metadata: ByteArray): Unit =
     suspendCoroutine { continuation ->
       impl.setContext(metadata.toNSData()) { error ->
-        if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+        if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
         else {
           metadataState.value = metadata
           continuation.resume(Unit)

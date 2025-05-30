@@ -10,7 +10,7 @@ import org.maplibre.android.offline.OfflineRegionDefinition
 import org.maplibre.android.offline.OfflineRegionStatus
 import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
 
-internal fun OfflineRegionDefinition.toTilePackDefinition() =
+internal fun OfflineRegionDefinition.toOfflinePackDefinition() =
   when (this) {
     is OfflineTilePyramidRegionDefinition ->
       OfflinePackDefinition.TilePyramid(

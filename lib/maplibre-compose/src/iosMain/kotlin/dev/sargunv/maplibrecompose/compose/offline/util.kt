@@ -21,10 +21,10 @@ import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.posix.UINT64_MAX
 
-internal fun NSError.toOfflineRegionException() =
+internal fun NSError.toOfflineManagerException() =
   OfflineManagerException(message = localizedDescription)
 
-internal fun MLNOfflineRegionProtocol.toTilePackDefinition() =
+internal fun MLNOfflineRegionProtocol.toOfflinePackDefinition() =
   when (this) {
     is MLNTilePyramidOfflineRegion ->
       OfflinePackDefinition.TilePyramid(

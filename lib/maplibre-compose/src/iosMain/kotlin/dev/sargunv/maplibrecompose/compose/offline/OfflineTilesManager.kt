@@ -138,44 +138,48 @@ internal object IosOfflineManager : OfflineManager {
         region = definition.toMLNOfflineRegion(),
         withContext = metadata.toNSData(),
         completionHandler = { pack, error ->
-          if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+          if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
           else if (pack != null) continuation.resume(pack.toOfflinePack())
           else continuation.resumeWithException(IllegalStateException("Offline pack is null"))
         },
       )
     }
 
-  override suspend fun delete(region: OfflinePack) = suspendCoroutine { continuation ->
-    impl.removePack(region.impl) { error ->
-      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+  override fun resume(pack: OfflinePack) = pack.impl.resume()
+
+  override fun pause(pack: OfflinePack) = pack.impl.suspend()
+
+  override suspend fun delete(pack: OfflinePack) = suspendCoroutine { continuation ->
+    impl.removePack(pack.impl) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
       else continuation.resume(Unit)
     }
   }
 
-  override suspend fun invalidate(region: OfflinePack) = suspendCoroutine { continuation ->
-    impl.invalidatePack(region.impl) { error ->
-      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+  override suspend fun invalidate(pack: OfflinePack) = suspendCoroutine { continuation ->
+    impl.invalidatePack(pack.impl) { error ->
+      if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
       else continuation.resume(Unit)
     }
   }
 
   override suspend fun invalidateAmbientCache() = suspendCoroutine { continuation ->
     impl.invalidateAmbientCacheWithCompletionHandler { error ->
-      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
       else continuation.resume(Unit)
     }
   }
 
   override suspend fun clearAmbientCache() = suspendCoroutine { continuation ->
     impl.clearAmbientCacheWithCompletionHandler { error ->
-      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
       else continuation.resume(Unit)
     }
   }
 
   override suspend fun setMaximumAmbientCacheSize(size: Long) = suspendCoroutine { continuation ->
     impl.setMaximumAmbientCacheSize(size.toULong()) { error ->
-      if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+      if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
       else continuation.resume(Unit)
     }
   }

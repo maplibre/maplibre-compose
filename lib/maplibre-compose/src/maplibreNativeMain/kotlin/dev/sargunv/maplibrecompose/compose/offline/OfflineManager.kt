@@ -24,7 +24,7 @@ public interface OfflineManager {
 
   /**
    * Creates and registers an offline pack that downloads the resources needed to use the given
-   * region offline.
+   * region offline. The pack starts paused; to actually start the download, call [resume].
    *
    * @throws [OfflineManagerException] if the operation failed.
    */
@@ -34,12 +34,20 @@ public interface OfflineManager {
   ): OfflinePack
 
   /**
+   * Resume downloading if the pack is paused. Must be called after [create] to start downloading.
+   */
+  public fun resume(pack: OfflinePack)
+
+  /** Pause downloading if the pack is downloading. */
+  public fun pause(pack: OfflinePack)
+
+  /**
    * Unregisters the given offline pack and allows resources that are no longer required by any
    * remaining packs to be freed.
    *
    * @throws [OfflineManagerException] if the operation failed.
    */
-  public suspend fun delete(region: OfflinePack)
+  public suspend fun delete(pack: OfflinePack)
 
   /**
    * Invalidates the specified offline pack. This method checks that the tiles in the specified pack
@@ -48,7 +56,7 @@ public interface OfflineManager {
    *
    * @throws [OfflineManagerException] if the operation failed.
    */
-  public suspend fun invalidate(region: OfflinePack)
+  public suspend fun invalidate(pack: OfflinePack)
 
   /**
    * Invalidates the ambient cache. This method checks that the tiles in the ambient cache match

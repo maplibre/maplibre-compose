@@ -19,12 +19,6 @@ public expect class OfflinePack {
    */
   public val downloadProgress: DownloadProgress
 
-  /** Resume downloading if the pack is paused. */
-  public fun resume()
-
-  /** Pause downloading if the pack is downloading. */
-  public fun pause()
-
   /**
    * Associates arbitrary [metadata] with the offline pack, replacing any metadata that was
    * previously associated.
