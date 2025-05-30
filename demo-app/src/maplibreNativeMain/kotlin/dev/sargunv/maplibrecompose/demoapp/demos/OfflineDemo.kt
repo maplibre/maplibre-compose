@@ -1,5 +1,6 @@
 package dev.sargunv.maplibrecompose.demoapp.demos
 
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,6 +44,7 @@ import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.MINIMAL_STYLE
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.demoapp.generated.download
+import dev.sargunv.maplibrecompose.demoapp.generated.error_filled
 import dev.sargunv.maplibrecompose.expressions.dsl.asString
 import dev.sargunv.maplibrecompose.expressions.dsl.case
 import dev.sargunv.maplibrecompose.expressions.dsl.const
@@ -55,7 +57,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 
 private val CDMX = Position(latitude = 19.4326, longitude = -99.1332)
-private const val MIN_ZOOM_TO_SAVE = 10.0
 
 object OfflineDemo : Demo {
   override val name: String
@@ -71,7 +72,7 @@ object OfflineDemo : Demo {
     val styleState = rememberStyleState()
     val offlineManager = rememberOfflineManager()
     val scaffoldState = rememberBottomSheetScaffoldState()
-    val sheetPeekHeight = BottomSheetDefaults.SheetPeekHeight + 75.dp
+    val sheetPeekHeight = BottomSheetDefaults.SheetPeekHeight + 72.dp
 
     DemoScaffold(this, navigateUp) {
       BottomSheetScaffold(
@@ -124,7 +125,7 @@ private fun OfflinePacksLayers(offlineManager: OfflineManager) {
 private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: CameraState) {
   var inputValue by remember { mutableStateOf("Example") }
   val coroutineScope = rememberCoroutineScope()
-  val zoomedInEnough = cameraState.position.zoom >= MIN_ZOOM_TO_SAVE
+  val zoomedInEnough = cameraState.position.zoom >= 8.0
   val canSave = inputValue.isNotBlank() && zoomedInEnough
 
   fun downloadPack() =
@@ -148,8 +149,16 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
       supportingText = { AnimatedVisibility(!zoomedInEnough) { Text("Too far; zoom in") } },
       singleLine = true,
       trailingIcon = {
-        IconButton(enabled = canSave, onClick = ::downloadPack) {
-          Icon(vectorResource(Res.drawable.download), contentDescription = "Download")
+        AnimatedContent(zoomedInEnough) { zoomedInEnough ->
+          if (zoomedInEnough)
+            IconButton(enabled = canSave, onClick = ::downloadPack) {
+              Icon(
+                vectorResource(Res.drawable.download),
+                contentDescription = "Download",
+                tint = MaterialTheme.colorScheme.primary,
+              )
+            }
+          else Icon(vectorResource(Res.drawable.error_filled), contentDescription = "Error")
         }
       },
     )
@@ -173,7 +182,7 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
         offlineManager.packs.forEach { pack ->
           OfflinePackListItem(
             pack,
-            onLocate = {
+            onClick = {
               coroutineScope.launch { cameraState.animateToOfflinePack(pack.definition) }
             },
           ) {

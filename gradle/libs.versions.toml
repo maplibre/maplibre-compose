@@ -2,6 +2,7 @@
 # Regular libraries: keep as up to date as possible.
 alchemist = "0.2.0"
 androidx-activity = "1.10.1"
+bytesize = "2.0.0-beta04"
 kermit = "2.0.5"
 kotlinx-browser = "0.3"
 kotlinx-coroutines = "1.10.2"
@@ -43,6 +44,7 @@ alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-composeUi" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
+bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 kotlinx-browser = { module = "org.jetbrains.kotlinx:kotlinx-browser", version.ref = "kotlinx-browser" }
 webview = { module = "io.github.kevinnzou:compose-webview-multiplatform", version.ref = "webview" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }

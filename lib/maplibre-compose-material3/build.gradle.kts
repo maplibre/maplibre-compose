@@ -50,6 +50,7 @@ kotlin {
       api(libs.alchemist)
       implementation(compose.material3)
       implementation(compose.components.resources)
+      implementation(libs.bytesize)
       api(project(":lib:maplibre-compose"))
     }
 
