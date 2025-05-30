@@ -89,19 +89,7 @@ object OfflineDemo : Demo {
           styleState = styleState,
           ornamentSettings = DemoOrnamentSettings(padding = PaddingValues(bottom = sheetPeekHeight)),
         ) {
-          FillLayer(
-            id = "offline-packs",
-            source = rememberOfflinePacksSource("offline-packs", offlineManager.packs),
-            opacity = const(0.5f),
-            color =
-              switch(
-                feature.get("status").asString(),
-                case(label = "Complete", output = const(Color.Green)),
-                case(label = "Downloading", output = const(Color.Blue)),
-                case(label = "Paused", output = const(Color.Yellow)),
-                fallback = const(Color.Red),
-              ),
-          )
+          OfflinePacksLayers(offlineManager)
         }
 
         DemoMapControls(
@@ -116,10 +104,39 @@ object OfflineDemo : Demo {
 }
 
 @Composable
+private fun OfflinePacksLayers(offlineManager: OfflineManager) {
+  FillLayer(
+    id = "offline-packs",
+    source = rememberOfflinePacksSource("offline-packs", offlineManager.packs),
+    opacity = const(0.5f),
+    color =
+      switch(
+        feature.get("status").asString(),
+        case(label = "Complete", output = const(Color.Green)),
+        case(label = "Downloading", output = const(Color.Blue)),
+        case(label = "Paused", output = const(Color.Yellow)),
+        fallback = const(Color.Red),
+      ),
+  )
+}
+
+@Composable
 private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: CameraState) {
   var inputValue by remember { mutableStateOf("Example") }
   val coroutineScope = rememberCoroutineScope()
-  val canSave = cameraState.position.zoom >= MIN_ZOOM_TO_SAVE
+  val zoomedInEnough = cameraState.position.zoom >= MIN_ZOOM_TO_SAVE
+  val canSave = inputValue.isNotBlank() && zoomedInEnough
+
+  fun downloadPack() =
+    coroutineScope.launch {
+      val pack =
+        offlineManager.createNamed(
+          name = inputValue,
+          bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
+        )
+      offlineManager.resume(pack)
+      inputValue = ""
+    }
 
   Column(modifier = Modifier.padding(bottom = 16.dp, start = 16.dp, end = 16.dp)) {
     OutlinedTextField(
@@ -127,24 +144,11 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
       onValueChange = { inputValue = it },
       label = { Text("Name") },
       modifier = Modifier.fillMaxWidth(),
-      isError = !canSave,
-      supportingText = { AnimatedVisibility(!canSave) { Text("Too far; zoom in") } },
+      isError = !zoomedInEnough,
+      supportingText = { AnimatedVisibility(!zoomedInEnough) { Text("Too far; zoom in") } },
       singleLine = true,
       trailingIcon = {
-        IconButton(
-          enabled = inputValue.isNotBlank() && canSave,
-          onClick = {
-            coroutineScope.launch {
-              val pack =
-                offlineManager.createNamed(
-                  name = inputValue,
-                  bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
-                )
-              offlineManager.resume(pack)
-              inputValue = ""
-            }
-          },
-        ) {
+        IconButton(enabled = canSave, onClick = ::downloadPack) {
           Icon(vectorResource(Res.drawable.download), contentDescription = "Download")
         }
       },
