@@ -12,14 +12,14 @@ import io.github.dellisd.spatialk.geojson.dsl.featureCollection
 
 /**
  * Specialization of [rememberGeoJsonSource] that contains the list of [OfflinePack] as features.
- * Each feature has properties corresponding to the [OfflinePack.downloadProgress]. This allows you
- * to implement a UI to manage offline packs directly on the map.
+ * This allows you to implement a UI to manage offline packs directly on the map.
+ *
+ * By default, each feature has properties corresponding to the [OfflinePack.downloadProgress].
  *
  * @param offlinePacks The collection of offline packs to represent in the source.
  * @param putExtraProperties A function that will be called with each [OfflinePack] to allow you to
- *   add additional properties to the feature.
- *
- *   For example, you can use this to add properties based on the [OfflinePack.metadata].
+ *   add additional properties to the feature. For example, you can use this to add properties based
+ *   on the [OfflinePack.metadata].
  */
 @Composable
 public fun rememberOfflinePacksSource(
@@ -59,7 +59,10 @@ private fun PropertiesBuilder.putDownloadProgressProperties(progress: DownloadPr
       put("error_reason", progress.reason)
       put("error_message", progress.message)
     }
-    is DownloadProgress.TileLimitExceeded -> put("status", "TileLimitExceeded")
+    is DownloadProgress.TileLimitExceeded -> {
+      put("status", "TileLimitExceeded")
+      put("tile_limit", progress.limit)
+    }
     DownloadProgress.Unknown -> put("status", "Unknown")
   }
 
