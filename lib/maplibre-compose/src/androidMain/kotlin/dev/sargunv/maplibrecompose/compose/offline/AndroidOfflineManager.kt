@@ -1,7 +1,7 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
 import android.content.Context
-import androidx.annotation.MainThread
+import androidx.annotation.UiThread
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,11 +22,13 @@ public actual fun rememberOfflineManager(): OfflineManager {
 /**
  * Acquire an instance of [OfflineManager] outside a Composition. For use in Composable code, see
  * [rememberOfflineManager].
+ *
+ * The first time, it should be called from the application's UI thread.
  */
 public fun getOfflineManager(context: Context): OfflineManager =
   AndroidOfflineManager.getInstance(context)
 
-internal class AndroidOfflineManager @MainThread internal constructor(context: Context) :
+internal class AndroidOfflineManager @UiThread internal constructor(context: Context) :
   OfflineManager {
   companion object {
     private var manager: AndroidOfflineManager? = null

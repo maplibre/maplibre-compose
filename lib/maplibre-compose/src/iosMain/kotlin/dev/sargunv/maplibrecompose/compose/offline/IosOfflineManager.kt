@@ -30,9 +30,7 @@ import platform.darwin.NSObject
 import platform.darwin.sel_registerName
 
 @Composable
-public actual fun rememberOfflineManager(): OfflineManager {
-  return remember { getOfflineManager() }
-}
+public actual fun rememberOfflineManager(): OfflineManager = remember { getOfflineManager() }
 
 /**
  * Acquire an instance of [OfflineManager] outside a Composition. For use in Composable code, see

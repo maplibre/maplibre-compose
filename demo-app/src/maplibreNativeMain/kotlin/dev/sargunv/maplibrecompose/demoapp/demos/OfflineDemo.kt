@@ -46,11 +46,10 @@ import dev.sargunv.maplibrecompose.compose.offline.OfflineManager
 import dev.sargunv.maplibrecompose.compose.offline.OfflinePack
 import dev.sargunv.maplibrecompose.compose.offline.OfflinePackDefinition
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineManager
+import dev.sargunv.maplibrecompose.compose.offline.rememberOfflinePacksSource
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
-import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
 import dev.sargunv.maplibrecompose.core.CameraPosition
-import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
 import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
@@ -62,8 +61,6 @@ import dev.sargunv.maplibrecompose.expressions.dsl.const
 import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import dev.sargunv.maplibrecompose.expressions.dsl.switch
 import io.github.dellisd.spatialk.geojson.Position
-import io.github.dellisd.spatialk.geojson.dsl.featureCollection
-import io.github.dellisd.spatialk.geojson.dsl.polygon
 import kotlinx.coroutines.launch
 
 private val CDMX = Position(latitude = 19.4326, longitude = -99.1332)
@@ -102,15 +99,13 @@ object OfflineDemo : Demo {
               padding = PaddingValues(bottom = BottomSheetDefaults.SheetPeekHeight)
             ),
         ) {
-          val source = rememberOfflineRegionsSource(offlineManager)
-
           FillLayer(
-            id = "downloaded-regions",
-            source = source,
+            id = "offline-packs",
+            source = rememberOfflinePacksSource("offline-packs", offlineManager.packs),
             opacity = const(0.5f),
             color =
               switch(
-                feature.get("state").asString(),
+                feature.get("status").asString(),
                 case(label = "Complete", output = const(Color.Green)),
                 case(label = "Downloading", output = const(Color.Blue)),
                 case(label = "Paused", output = const(Color.Yellow)),
@@ -147,53 +142,6 @@ object OfflineDemo : Demo {
       }
     }
   }
-}
-
-@Composable
-private fun rememberOfflineRegionsSource(offlineManager: OfflineManager): Source {
-  return rememberGeoJsonSource(
-    id = "downloaded-regions",
-    data =
-      featureCollection {
-        offlineManager.packs.forEach { pack ->
-          val def = pack.definition
-          feature(
-            geometry =
-              when (def) {
-                is OfflinePackDefinition.TilePyramid -> {
-                  val bounds = def.bounds
-                  polygon {
-                    ring {
-                      +bounds.southwest
-                      point(
-                        longitude = bounds.southwest.longitude,
-                        latitude = bounds.northeast.latitude,
-                      )
-                      +bounds.northeast
-                      point(
-                        longitude = bounds.northeast.longitude,
-                        latitude = bounds.southwest.latitude,
-                      )
-                      +bounds.southwest
-                    }
-                  }
-                }
-                is OfflinePackDefinition.Shape -> def.shape
-              }
-          ) {
-            put("name", pack.metadata?.decodeToString().orEmpty())
-            val progress = pack.downloadProgress
-            put(
-              "state",
-              when (progress) {
-                is DownloadProgress.Healthy -> progress.status.name
-                else -> "Unhealthy"
-              },
-            )
-          }
-        }
-      },
-  )
 }
 
 @Composable
