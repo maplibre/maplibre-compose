@@ -23,7 +23,7 @@ public expect class OfflinePack {
   public fun resume()
 
   /** Pause downloading if the pack is downloading. */
-  public fun suspend()
+  public fun pause()
 
   /**
    * Associates arbitrary [metadata] with the offline pack, replacing any metadata that was

@@ -309,7 +309,7 @@ private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -
           if (progress.status == DownloadStatus.Paused)
             Button(onClick = { pack.resume() }) { Text("Resume") }
           else if (progress.status == DownloadStatus.Downloading)
-            Button(onClick = { pack.suspend() }) { Text("Pause") }
+            Button(onClick = { pack.pause() }) { Text("Pause") }
         }
         Button(onClick = onLocate, modifier = Modifier.padding(start = 8.dp)) { Text("Locate") }
         Button(onClick = onDelete, modifier = Modifier.padding(start = 8.dp)) { Text("Delete") }

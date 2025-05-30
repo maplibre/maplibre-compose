@@ -50,7 +50,7 @@ public actual class OfflinePack internal constructor(internal val impl: OfflineR
     progressState.value = DownloadProgress.TileLimitExceeded(limit)
   }
 
-  public actual fun suspend() {
+  public actual fun pause() {
     impl.setDownloadState(OfflineRegion.STATE_INACTIVE)
   }
 

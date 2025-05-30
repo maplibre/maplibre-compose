@@ -33,7 +33,7 @@ public actual class OfflinePack internal constructor(internal val impl: MLNOffli
     impl.resume()
   }
 
-  public actual fun suspend() {
+  public actual fun pause() {
     impl.suspend()
   }
 
