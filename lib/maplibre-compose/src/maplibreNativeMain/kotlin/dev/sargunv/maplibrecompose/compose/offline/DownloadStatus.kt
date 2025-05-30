@@ -1,7 +1,11 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
+/** Represents whether an [OfflineTilePack] is actively downloading or has completed downloading. */
 public enum class DownloadStatus {
-  Inactive,
-  Active,
+  /** The pack is incomplete and is not currently downloading. */
+  Paused,
+  /** The pack is incomplete and is currently downloading. */
+  Downloading,
+  /** The pack has downloaded to completion. */
   Complete,
 }

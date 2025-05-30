@@ -74,7 +74,8 @@ internal fun MLNOfflinePack.toOfflineTilePack() = OfflineTilePack(this)
 internal fun MLNOfflinePackProgress.toDownloadProgress(state: Long) =
   when (state) {
     MLNOfflinePackStateUnknown -> DownloadProgress.Unknown
-    MLNOfflinePackStateInvalid -> DownloadProgress.Error("Invalid", "Invalid state")
+    MLNOfflinePackStateInvalid ->
+      DownloadProgress.Error("Invalid", "The pack has already been removed!")
     MLNOfflinePackStateInactive,
     MLNOfflinePackStateActive,
     MLNOfflinePackStateComplete ->
@@ -85,8 +86,8 @@ internal fun MLNOfflinePackProgress.toDownloadProgress(state: Long) =
         completedTileBytes = countOfTileBytesCompleted.toLong(),
         downloadStatus =
           when (state) {
-            MLNOfflinePackStateInactive -> DownloadStatus.Inactive
-            MLNOfflinePackStateActive -> DownloadStatus.Active
+            MLNOfflinePackStateInactive -> DownloadStatus.Paused
+            MLNOfflinePackStateActive -> DownloadStatus.Downloading
             MLNOfflinePackStateComplete -> DownloadStatus.Complete
             else -> error("impossible")
           },

@@ -62,8 +62,8 @@ internal fun OfflineRegionStatus.toDownloadProgress() =
       if (isComplete) DownloadStatus.Complete
       else
         when (downloadState) {
-          OfflineRegion.STATE_ACTIVE -> DownloadStatus.Active
-          OfflineRegion.STATE_INACTIVE -> DownloadStatus.Inactive
+          OfflineRegion.STATE_ACTIVE -> DownloadStatus.Downloading
+          OfflineRegion.STATE_INACTIVE -> DownloadStatus.Paused
           else -> error("Unknown OfflineRegion state: $downloadState")
         },
     isRequiredResourceCountPrecise = isRequiredResourceCountPrecise,

@@ -58,7 +58,7 @@ public actual class OfflineTilePack internal constructor(internal val impl: Offl
     impl.setDownloadState(OfflineRegion.STATE_ACTIVE)
   }
 
-  public actual suspend fun updateMetadata(metadata: ByteArray): Unit =
+  public actual suspend fun setMetadata(metadata: ByteArray): Unit =
     suspendCoroutine { continuation ->
       impl.updateMetadata(
         metadata,

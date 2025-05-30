@@ -37,7 +37,7 @@ public actual class OfflineTilePack internal constructor(internal val impl: MLNO
     impl.suspend()
   }
 
-  public actual suspend fun updateMetadata(metadata: ByteArray): Unit =
+  public actual suspend fun setMetadata(metadata: ByteArray): Unit =
     suspendCoroutine { continuation ->
       impl.setContext(metadata.toNSData()) { error ->
         if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
