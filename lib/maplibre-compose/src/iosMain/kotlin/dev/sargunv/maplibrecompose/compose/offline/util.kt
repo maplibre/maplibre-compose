@@ -78,16 +78,16 @@ internal fun MLNOfflinePackProgress.toDownloadProgress(state: Long) =
     MLNOfflinePackStateInactive,
     MLNOfflinePackStateActive,
     MLNOfflinePackStateComplete ->
-      DownloadProgress.Normal(
+      DownloadProgress.Healthy(
         completedResourceCount = countOfResourcesCompleted.toLong(),
         completedResourceBytes = countOfBytesCompleted.toLong(),
         completedTileCount = countOfTilesCompleted.toLong(),
         completedTileBytes = countOfTileBytesCompleted.toLong(),
-        downloadState =
+        downloadStatus =
           when (state) {
-            MLNOfflinePackStateInactive -> DownloadState.Inactive
-            MLNOfflinePackStateActive -> DownloadState.Active
-            MLNOfflinePackStateComplete -> DownloadState.Complete
+            MLNOfflinePackStateInactive -> DownloadStatus.Inactive
+            MLNOfflinePackStateActive -> DownloadStatus.Active
+            MLNOfflinePackStateComplete -> DownloadStatus.Complete
             else -> error("impossible")
           },
         // UINT64_MAX when unknown

@@ -53,17 +53,17 @@ internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(pixelRatio: Fl
 internal fun MlnOfflineRegion.toOfflineRegion() = OfflineRegion(this)
 
 internal fun MlnOfflineRegionStatus.toDownloadProgress() =
-  DownloadProgress.Normal(
+  DownloadProgress.Healthy(
     completedResourceCount = completedResourceCount,
     completedResourceBytes = completedResourceSize,
     completedTileCount = completedTileCount,
     completedTileBytes = completedTileSize,
-    downloadState =
-      if (isComplete) DownloadState.Complete
+    downloadStatus =
+      if (isComplete) DownloadStatus.Complete
       else
         when (downloadState) {
-          MlnOfflineRegion.STATE_ACTIVE -> DownloadState.Active
-          MlnOfflineRegion.STATE_INACTIVE -> DownloadState.Inactive
+          MlnOfflineRegion.STATE_ACTIVE -> DownloadStatus.Active
+          MlnOfflineRegion.STATE_INACTIVE -> DownloadStatus.Inactive
           else -> error("Unknown OfflineRegion state: $downloadState")
         },
     isRequiredResourceCountPrecise = isRequiredResourceCountPrecise,

@@ -3,12 +3,12 @@ package dev.sargunv.maplibrecompose.compose.offline
 public sealed interface DownloadProgress {
   public data object Unknown : DownloadProgress
 
-  public data class Normal(
+  public data class Healthy(
     val completedResourceCount: Long,
     val completedResourceBytes: Long,
     val completedTileCount: Long,
     val completedTileBytes: Long,
-    val downloadState: DownloadState,
+    val downloadStatus: DownloadStatus,
     val isRequiredResourceCountPrecise: Boolean,
     val requiredResourceCount: Long,
   ) : DownloadProgress
