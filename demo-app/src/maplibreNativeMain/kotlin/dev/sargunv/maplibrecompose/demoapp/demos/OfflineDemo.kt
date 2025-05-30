@@ -274,20 +274,6 @@ private fun OfflinePackControls(
       }
     }
   }
-
-  val totalBytes =
-    offlineTilesManager.regions.sumOf {
-      when (val progress = it.progress) {
-        is DownloadProgress.Healthy -> progress.completedResourceBytes
-        else -> 0L
-      }
-    }
-
-  Text(
-    text = "Total downloaded: ${formatBytes(totalBytes)}",
-    style = MaterialTheme.typography.bodySmall,
-    modifier = Modifier.padding(16.dp),
-  )
 }
 
 @Composable
@@ -333,14 +319,4 @@ private fun PackListItem(pack: OfflineTilePack, onDelete: () -> Unit, onLocate: 
       }
     },
   )
-}
-
-private fun formatBytes(bytes: Long): String {
-  if (bytes < 1024) return "$bytes B"
-  val kb = bytes / 1024.0
-  if (kb < 1024) return "${(kb * 100).toInt() / 100.0} KB"
-  val mb = kb / 1024.0
-  if (mb < 1024) return "${(mb * 100).toInt() / 100.0} MB"
-  val gb = mb / 1024.0
-  return "${(gb * 100).toInt() / 100.0} GB"
 }
