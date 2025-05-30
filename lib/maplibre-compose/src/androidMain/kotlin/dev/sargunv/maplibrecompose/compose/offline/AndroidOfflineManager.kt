@@ -8,27 +8,23 @@ import androidx.compose.ui.platform.LocalContext
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
-import org.maplibre.android.offline.OfflineManager
+import org.maplibre.android.offline.OfflineManager as MLNOfflineManager
 import org.maplibre.android.offline.OfflineRegion
 
 @Composable
-public actual fun rememberOfflineManager():
-  dev.sargunv.maplibrecompose.compose.offline.OfflineManager {
+public actual fun rememberOfflineManager(): OfflineManager {
   val context = LocalContext.current
-  return remember(context) { AndroidOfflineManager.getInstance(context) }
+  return remember(context) { getOfflineManager(context) }
 }
 
 /**
  * Acquire an instance of [OfflineManager] outside a Composition. For use in Composable code, see
  * [rememberOfflineManager].
  */
-public fun getOfflineManager(
-  context: Context
-): dev.sargunv.maplibrecompose.compose.offline.OfflineManager =
+public fun getOfflineManager(context: Context): OfflineManager =
   AndroidOfflineManager.getInstance(context)
 
-internal class AndroidOfflineManager(private val context: Context) :
-  dev.sargunv.maplibrecompose.compose.offline.OfflineManager {
+internal class AndroidOfflineManager(private val context: Context) : OfflineManager {
   companion object {
     private val managers = mutableMapOf<Context, AndroidOfflineManager>()
 
@@ -36,18 +32,18 @@ internal class AndroidOfflineManager(private val context: Context) :
       managers.getOrPut(context) { AndroidOfflineManager(context) }
   }
 
-  private val impl = OfflineManager.getInstance(context)
+  private val impl = MLNOfflineManager.getInstance(context)
 
-  private val regionsState = mutableStateOf(emptySet<OfflinePack>())
+  private val packsState = mutableStateOf(emptySet<OfflinePack>())
 
-  override val regions
-    get() = regionsState.value
+  override val packs
+    get() = packsState.value
 
   init {
     impl.listOfflineRegions(
-      object : OfflineManager.ListOfflineRegionsCallback {
+      object : MLNOfflineManager.ListOfflineRegionsCallback {
         override fun onList(offlineRegions: Array<OfflineRegion>?) {
-          regionsState.value = offlineRegions.orEmpty().map { it.toOfflinePack() }.toSet()
+          packsState.value = offlineRegions.orEmpty().map { it.toOfflinePack() }.toSet()
         }
 
         override fun onError(error: String) = throw OfflineManagerException(error)
@@ -62,7 +58,7 @@ internal class AndroidOfflineManager(private val context: Context) :
             definition.toMLNOfflineRegionDefinition(context.resources.displayMetrics.density),
           metadata = metadata,
           callback =
-            object : OfflineManager.CreateOfflineRegionCallback {
+            object : MLNOfflineManager.CreateOfflineRegionCallback {
               override fun onCreate(offlineRegion: OfflineRegion) {
                 continuation.resume(offlineRegion.toOfflinePack())
               }
@@ -72,7 +68,11 @@ internal class AndroidOfflineManager(private val context: Context) :
             },
         )
       }
-      .also { regionsState.value += it }
+      .also { packsState.value += it }
+
+  override fun resume(pack: OfflinePack) = pack.impl.setDownloadState(OfflineRegion.STATE_ACTIVE)
+
+  override fun pause(pack: OfflinePack) = pack.impl.setDownloadState(OfflineRegion.STATE_INACTIVE)
 
   override suspend fun delete(pack: OfflinePack): Unit =
     suspendCoroutine { continuation ->
@@ -87,7 +87,7 @@ internal class AndroidOfflineManager(private val context: Context) :
           }
         )
       }
-      .also { regionsState.value -= pack }
+      .also { packsState.value -= pack }
 
   override suspend fun invalidate(pack: OfflinePack) = suspendCoroutine { continuation ->
     pack.impl.invalidate(
@@ -102,7 +102,7 @@ internal class AndroidOfflineManager(private val context: Context) :
 
   override suspend fun invalidateAmbientCache() = suspendCoroutine { continuation ->
     impl.invalidateAmbientCache(
-      object : OfflineManager.FileSourceCallback {
+      object : MLNOfflineManager.FileSourceCallback {
         override fun onSuccess() = continuation.resume(Unit)
 
         override fun onError(message: String) =
@@ -113,7 +113,7 @@ internal class AndroidOfflineManager(private val context: Context) :
 
   override suspend fun clearAmbientCache() = suspendCoroutine { continuation ->
     impl.clearAmbientCache(
-      object : OfflineManager.FileSourceCallback {
+      object : MLNOfflineManager.FileSourceCallback {
         override fun onSuccess() = continuation.resume(Unit)
 
         override fun onError(message: String) =
@@ -125,7 +125,7 @@ internal class AndroidOfflineManager(private val context: Context) :
   override suspend fun setMaximumAmbientCacheSize(size: Long) = suspendCoroutine { continuation ->
     impl.setMaximumAmbientCacheSize(
       size,
-      object : OfflineManager.FileSourceCallback {
+      object : MLNOfflineManager.FileSourceCallback {
         override fun onSuccess() = continuation.resume(Unit)
 
         override fun onError(message: String) =

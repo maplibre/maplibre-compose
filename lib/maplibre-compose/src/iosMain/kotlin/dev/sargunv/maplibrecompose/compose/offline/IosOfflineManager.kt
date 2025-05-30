@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import cocoapods.MapLibre.MLNOfflinePack
 import cocoapods.MapLibre.MLNOfflinePackErrorNotification
 import cocoapods.MapLibre.MLNOfflinePackMaximumMapboxTilesReachedNotification
@@ -30,7 +31,7 @@ import platform.darwin.sel_registerName
 
 @Composable
 public actual fun rememberOfflineManager(): OfflineManager {
-  return IosOfflineManager
+  return remember { getOfflineManager() }
 }
 
 /**
@@ -43,10 +44,10 @@ internal object IosOfflineManager : OfflineManager {
 
   private val impl = MLNOfflineStorage.sharedOfflineStorage
 
-  private val regionsState = mutableStateOf(emptySet<OfflinePack>())
+  private val packsState = mutableStateOf(emptySet<OfflinePack>())
 
-  override val regions
-    get() = regionsState.value
+  override val packs
+    get() = packsState.value
 
   // hold on to the objects to prevent ObjC weak references from losing them
   @Suppress("unused") private val progressObserver = OfflinePackProgressObserver()
@@ -72,7 +73,7 @@ internal object IosOfflineManager : OfflineManager {
     ) {
       when (context) {
         packsContext ->
-          regionsState.value =
+          packsState.value =
             impl.packs.orEmpty().map { (it as MLNOfflinePack).toOfflinePack() }.toSet()
       }
       // ignore other contexts
@@ -80,7 +81,7 @@ internal object IosOfflineManager : OfflineManager {
   }
 
   private class OfflinePackProgressObserver : NSObject() {
-    val packToProgress by derivedStateOf { regions.associate { it.impl to it.progressState } }
+    val packToProgress by derivedStateOf { packs.associate { it.impl to it.progressState } }
 
     init {
       val nc = NSNotificationCenter.defaultCenter

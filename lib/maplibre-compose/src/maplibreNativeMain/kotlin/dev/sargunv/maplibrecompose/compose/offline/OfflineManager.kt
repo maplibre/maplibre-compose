@@ -20,7 +20,7 @@ import androidx.compose.runtime.Composable
 public interface OfflineManager {
 
   /** A list of all known offline packs. Backed by [androidx.compose.runtime.State]. */
-  public val regions: Set<OfflinePack>
+  public val packs: Set<OfflinePack>
 
   /**
    * Creates and registers an offline pack that downloads the resources needed to use the given

@@ -155,7 +155,7 @@ private fun rememberOfflineRegionsSource(offlineManager: OfflineManager): Source
     id = "downloaded-regions",
     data =
       featureCollection {
-        offlineManager.regions.forEach { pack ->
+        offlineManager.packs.forEach { pack ->
           val def = pack.definition
           feature(
             geometry =
@@ -244,7 +244,7 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
       modifier = Modifier.padding(vertical = 8.dp),
     )
 
-    if (offlineManager.regions.isEmpty()) {
+    if (offlineManager.packs.isEmpty()) {
       Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
           text = "No regions saved yet",
@@ -253,7 +253,7 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
         )
       }
     } else {
-      offlineManager.regions.forEach { pack ->
+      offlineManager.packs.forEach { pack ->
         PackListItem(
           pack,
           offlineManager,

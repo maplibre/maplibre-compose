@@ -50,14 +50,6 @@ public actual class OfflinePack internal constructor(internal val impl: OfflineR
     progressState.value = DownloadProgress.TileLimitExceeded(limit)
   }
 
-  public actual fun pause() {
-    impl.setDownloadState(OfflineRegion.STATE_INACTIVE)
-  }
-
-  public actual fun resume() {
-    impl.setDownloadState(OfflineRegion.STATE_ACTIVE)
-  }
-
   public actual suspend fun setMetadata(metadata: ByteArray): Unit =
     suspendCoroutine { continuation ->
       impl.updateMetadata(
