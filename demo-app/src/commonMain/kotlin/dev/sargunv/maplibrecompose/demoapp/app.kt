@@ -3,7 +3,6 @@ package dev.sargunv.maplibrecompose.demoapp
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -172,7 +171,6 @@ fun DemoMapControls(
   scaleBarMeasures: ScaleBarMeasures = defaultScaleBarMeasures(),
   attributionAlignment: Alignment = Alignment.BottomEnd,
   padding: PaddingValues = PaddingValues(8.dp),
-  content: @Composable BoxScope.() -> Unit = {},
 ) {
   if (Platform.supportsBlending) {
     Box(modifier = modifier.fillMaxSize().padding(padding)) {
@@ -193,7 +191,6 @@ fun DemoMapControls(
         modifier = Modifier.align(attributionAlignment),
         contentAlignment = attributionAlignment,
       )
-      content()
     }
   }
 }

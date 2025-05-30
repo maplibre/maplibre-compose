@@ -1,30 +1,19 @@
 package dev.sargunv.maplibrecompose.demoapp.demos
 
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandIn
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkOut
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.ListItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
@@ -33,35 +22,37 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.layer.FillLayer
-import dev.sargunv.maplibrecompose.compose.offline.DownloadProgress
-import dev.sargunv.maplibrecompose.compose.offline.DownloadStatus
 import dev.sargunv.maplibrecompose.compose.offline.OfflineManager
-import dev.sargunv.maplibrecompose.compose.offline.OfflinePack
 import dev.sargunv.maplibrecompose.compose.offline.OfflinePackDefinition
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineManager
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflinePacksSource
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
 import dev.sargunv.maplibrecompose.core.CameraPosition
+import dev.sargunv.maplibrecompose.demoapp.DEFAULT_STYLE
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
 import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.MINIMAL_STYLE
+import dev.sargunv.maplibrecompose.demoapp.generated.Res
+import dev.sargunv.maplibrecompose.demoapp.generated.download
 import dev.sargunv.maplibrecompose.expressions.dsl.asString
 import dev.sargunv.maplibrecompose.expressions.dsl.case
 import dev.sargunv.maplibrecompose.expressions.dsl.const
 import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import dev.sargunv.maplibrecompose.expressions.dsl.switch
+import dev.sargunv.maplibrecompose.material3.offline.OfflinePackListItem
+import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Position
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.vectorResource
 
 private val CDMX = Position(latitude = 19.4326, longitude = -99.1332)
 private const val MIN_ZOOM_TO_SAVE = 10.0
@@ -80,10 +71,12 @@ object OfflineDemo : Demo {
     val styleState = rememberStyleState()
     val offlineManager = rememberOfflineManager()
     val scaffoldState = rememberBottomSheetScaffoldState()
+    val sheetPeekHeight = BottomSheetDefaults.SheetPeekHeight + 75.dp
 
     DemoScaffold(this, navigateUp) {
       BottomSheetScaffold(
         scaffoldState = scaffoldState,
+        sheetPeekHeight = sheetPeekHeight,
         sheetContent = {
           Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
             OfflinePackControls(offlineManager, cameraState)
@@ -94,10 +87,7 @@ object OfflineDemo : Demo {
           styleUri = MINIMAL_STYLE,
           cameraState = cameraState,
           styleState = styleState,
-          ornamentSettings =
-            DemoOrnamentSettings(
-              padding = PaddingValues(bottom = BottomSheetDefaults.SheetPeekHeight)
-            ),
+          ornamentSettings = DemoOrnamentSettings(padding = PaddingValues(bottom = sheetPeekHeight)),
         ) {
           FillLayer(
             id = "offline-packs",
@@ -115,30 +105,11 @@ object OfflineDemo : Demo {
         }
 
         DemoMapControls(
-          cameraState,
-          styleState,
+          cameraState = cameraState,
+          styleState = styleState,
           padding =
-            PaddingValues(
-              start = 8.dp,
-              end = 8.dp,
-              top = 8.dp,
-              bottom = 8.dp + BottomSheetDefaults.SheetPeekHeight,
-            ),
-        ) {
-          AnimatedVisibility(
-            visible = cameraState.position.zoom < MIN_ZOOM_TO_SAVE,
-            modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
-            enter = fadeIn() + expandIn(expandFrom = Alignment.TopCenter),
-            exit = fadeOut() + shrinkOut(shrinkTowards = Alignment.TopCenter),
-          ) {
-            Surface(
-              color = MaterialTheme.colorScheme.surfaceVariant,
-              shape = RoundedCornerShape(24.dp),
-            ) {
-              Text(modifier = Modifier.padding(12.dp), text = "Too far; zoom in")
-            }
-          }
-        }
+            PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp + sheetPeekHeight),
+        )
       }
     }
   }
@@ -146,128 +117,80 @@ object OfflineDemo : Demo {
 
 @Composable
 private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: CameraState) {
-  var inputValue by remember { mutableStateOf("") }
+  var inputValue by remember { mutableStateOf("Example") }
   val coroutineScope = rememberCoroutineScope()
   val canSave = cameraState.position.zoom >= MIN_ZOOM_TO_SAVE
 
-  Column(modifier = Modifier.padding(16.dp)) {
+  Column(modifier = Modifier.padding(bottom = 16.dp, start = 16.dp, end = 16.dp)) {
     OutlinedTextField(
       value = inputValue,
       onValueChange = { inputValue = it },
-      label = { Text("Region Name") },
+      label = { Text("Name") },
       modifier = Modifier.fillMaxWidth(),
+      isError = !canSave,
+      supportingText = { AnimatedVisibility(!canSave) { Text("Too far; zoom in") } },
       singleLine = true,
+      trailingIcon = {
+        IconButton(
+          enabled = inputValue.isNotBlank() && canSave,
+          onClick = {
+            coroutineScope.launch {
+              val pack =
+                offlineManager.createNamed(
+                  name = inputValue,
+                  bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
+                )
+              offlineManager.resume(pack)
+              inputValue = ""
+            }
+          },
+        ) {
+          Icon(vectorResource(Res.drawable.download), contentDescription = "Download")
+        }
+      },
     )
-
-    Spacer(modifier = Modifier.height(8.dp))
-
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-      Button(
-        onClick = {
-          coroutineScope.launch {
-            offlineManager
-              .create(
-                definition =
-                  OfflinePackDefinition.TilePyramid(
-                    styleUrl = MINIMAL_STYLE,
-                    bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
-                  ),
-                metadata = inputValue.encodeToByteArray(),
-              )
-              .also { offlineManager.resume(it) }
-            inputValue = ""
-          }
-        },
-        enabled = inputValue.isNotBlank() && canSave,
-      ) {
-        Text("Save Region")
-      }
-    }
   }
 
   Column(modifier = Modifier.padding(horizontal = 16.dp)) {
     Text(
-      text = "Saved Regions",
+      text = "Offline Packs",
       style = MaterialTheme.typography.titleMedium,
       modifier = Modifier.padding(vertical = 8.dp),
     )
 
-    if (offlineManager.packs.isEmpty()) {
-      Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+      if (offlineManager.packs.isEmpty())
         Text(
           text = "No regions saved yet",
           modifier = Modifier.padding(16.dp),
           style = MaterialTheme.typography.bodyMedium,
         )
-      }
-    } else {
-      offlineManager.packs.forEach { pack ->
-        PackListItem(
-          pack,
-          offlineManager,
-          onDelete = { coroutineScope.launch { offlineManager.delete(pack) } },
-          onLocate = {
-            coroutineScope.launch {
-              val def = pack.definition
-              if (def is OfflinePackDefinition.TilePyramid) {
-                cameraState.animateTo(def.bounds)
-              } else if (def is OfflinePackDefinition.Shape) {
-                def.shape.bbox?.let { cameraState.animateTo(it) }
-              }
-            }
-          },
-        )
-      }
+      else
+        offlineManager.packs.forEach { pack ->
+          OfflinePackListItem(
+            pack,
+            onLocate = {
+              coroutineScope.launch { cameraState.animateToOfflinePack(pack.definition) }
+            },
+          ) {
+            Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
+          }
+        }
     }
   }
 }
 
-@Composable
-private fun PackListItem(
-  pack: OfflinePack,
-  offlineManager: OfflineManager,
-  onDelete: () -> Unit,
-  onLocate: () -> Unit,
-) {
-  val packName =
-    remember(pack.metadata) {
-      pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" }
-    }
-  val progress = pack.downloadProgress
-
-  ListItem(
-    leadingContent = {},
-    headlineContent = { Text(packName) },
-    supportingContent = {
-      when (progress) {
-        is DownloadProgress.Unknown -> Text("Status: Unknown")
-        is DownloadProgress.Healthy -> {
-          if (progress.status == DownloadStatus.Downloading)
-            LinearProgressIndicator(
-              progress = {
-                if (progress.requiredResourceCount == 0L) 0f
-                else progress.completedResourceCount.toFloat() / progress.requiredResourceCount
-              },
-              modifier = Modifier.fillMaxWidth(),
-            )
-          else Text("Status: ${progress.status.name}")
-        }
-        is DownloadProgress.Error -> Text("Status: Error - ${progress.message}")
-        is DownloadProgress.TileLimitExceeded ->
-          Text("Status: Tile Limit Exceeded (${progress.limit})")
-      }
-    },
-    trailingContent = {
-      Row {
-        if (progress is DownloadProgress.Healthy) {
-          if (progress.status == DownloadStatus.Paused)
-            Button(onClick = { offlineManager.resume(pack) }) { Text("Resume") }
-          else if (progress.status == DownloadStatus.Downloading)
-            Button(onClick = { offlineManager.pause(pack) }) { Text("Pause") }
-        }
-        Button(onClick = onLocate, modifier = Modifier.padding(start = 8.dp)) { Text("Locate") }
-        Button(onClick = onDelete, modifier = Modifier.padding(start = 8.dp)) { Text("Delete") }
-      }
-    },
+private suspend fun OfflineManager.createNamed(name: String, bounds: BoundingBox) =
+  create(
+    OfflinePackDefinition.TilePyramid(styleUrl = DEFAULT_STYLE, bounds = bounds),
+    name.encodeToByteArray(),
   )
+
+private suspend fun CameraState.animateToOfflinePack(definition: OfflinePackDefinition) {
+  val targetBounds =
+    when (definition) {
+      is OfflinePackDefinition.TilePyramid -> definition.bounds
+      is OfflinePackDefinition.Shape -> definition.shape.bbox
+    }
+  targetBounds?.let { animateTo(it, padding = PaddingValues(64.dp)) }
 }

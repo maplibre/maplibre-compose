@@ -37,6 +37,8 @@ kotlin {
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
   js(IR) { browser() }
 
+  applyDefaultHierarchyTemplate()
+
   cocoapods {
     noPodspec()
     ios.deploymentTarget = project.properties["iosDeploymentTarget"]!!.toString()
@@ -50,6 +52,12 @@ kotlin {
       implementation(compose.components.resources)
       api(project(":lib:maplibre-compose"))
     }
+
+    val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
+
+    iosMain { dependsOn(maplibreNativeMain) }
+
+    androidMain { dependsOn(maplibreNativeMain) }
 
     commonTest.dependencies {
       implementation(kotlin("test"))
