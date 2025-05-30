@@ -84,7 +84,7 @@ internal fun MLNOfflinePackProgress.toDownloadProgress(state: Long) =
         completedResourceBytes = countOfBytesCompleted.toLong(),
         completedTileCount = countOfTilesCompleted.toLong(),
         completedTileBytes = countOfTileBytesCompleted.toLong(),
-        downloadStatus =
+        status =
           when (state) {
             MLNOfflinePackStateInactive -> DownloadStatus.Paused
             MLNOfflinePackStateActive -> DownloadStatus.Downloading

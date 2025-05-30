@@ -58,7 +58,7 @@ internal fun OfflineRegionStatus.toDownloadProgress() =
     completedResourceBytes = completedResourceSize,
     completedTileCount = completedTileCount,
     completedTileBytes = completedTileSize,
-    downloadStatus =
+    status =
       if (isComplete) DownloadStatus.Complete
       else
         when (downloadState) {

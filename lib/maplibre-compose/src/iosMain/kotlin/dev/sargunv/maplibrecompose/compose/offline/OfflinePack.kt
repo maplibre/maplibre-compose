@@ -22,7 +22,7 @@ public actual class OfflinePack internal constructor(internal val impl: MLNOffli
   public actual val metadata: ByteArray?
     get() = metadataState.value
 
-  public actual val progress: DownloadProgress
+  public actual val downloadProgress: DownloadProgress
     get() = progressState.value
 
   init {

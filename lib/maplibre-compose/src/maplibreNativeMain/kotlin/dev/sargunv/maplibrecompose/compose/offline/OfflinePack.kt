@@ -5,11 +5,19 @@ public expect class OfflinePack {
   /** The area for which this pack manages resources. */
   public val definition: OfflinePackDefinition
 
-  /** Arbitrary data stored alongside the downloaded resources. */
+  /**
+   * Arbitrary data stored alongside the downloaded resources.
+   *
+   * Backed by [androidx.compose.runtime.State].
+   */
   public val metadata: ByteArray?
 
-  /** The pack's current progress. */
-  public val progress: DownloadProgress
+  /**
+   * The pack's current download progress.
+   *
+   * Backed by [androidx.compose.runtime.State].
+   */
+  public val downloadProgress: DownloadProgress
 
   /** Resume downloading if the pack is paused. */
   public fun resume()
@@ -20,6 +28,8 @@ public expect class OfflinePack {
   /**
    * Associates arbitrary [metadata] with the offline pack, replacing any metadata that was
    * previously associated.
+   *
+   * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun setMetadata(metadata: ByteArray)
 }

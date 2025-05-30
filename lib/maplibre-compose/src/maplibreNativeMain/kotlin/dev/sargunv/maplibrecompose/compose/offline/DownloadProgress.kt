@@ -24,7 +24,7 @@ public sealed interface DownloadProgress {
     val completedTileBytes: Long,
 
     /** See [DownloadStatus]. */
-    val downloadStatus: DownloadStatus,
+    val status: DownloadStatus,
 
     /** Whether [requiredResourceCount] is an exact count or a lower bound. */
     val isRequiredResourceCountPrecise: Boolean,

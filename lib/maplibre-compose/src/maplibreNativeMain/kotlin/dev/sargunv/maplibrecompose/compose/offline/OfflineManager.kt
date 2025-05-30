@@ -25,6 +25,8 @@ public interface OfflineManager {
   /**
    * Creates and registers an offline pack that downloads the resources needed to use the given
    * region offline.
+   *
+   * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun create(
     definition: OfflinePackDefinition,
@@ -34,6 +36,8 @@ public interface OfflineManager {
   /**
    * Unregisters the given offline pack and allows resources that are no longer required by any
    * remaining packs to be freed.
+   *
+   * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun delete(region: OfflinePack)
 
@@ -41,6 +45,8 @@ public interface OfflineManager {
    * Invalidates the specified offline pack. This method checks that the tiles in the specified pack
    * match those from the server. Local tiles that do not match the latest version on the server are
    * updated.
+   *
+   * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun invalidate(region: OfflinePack)
 
@@ -48,12 +54,16 @@ public interface OfflineManager {
    * Invalidates the ambient cache. This method checks that the tiles in the ambient cache match
    * those from the server. If the local tiles do not match those on the server, they are
    * re-downloaded.
+   *
+   * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun invalidateAmbientCache()
 
   /**
    * Clears the ambient cache by deleting resources. This method does not affect resources shared
    * with offline regions.
+   *
+   * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun clearAmbientCache()
 
@@ -61,6 +71,8 @@ public interface OfflineManager {
    * Sets the maximum ambient cache size in bytes. The default maximum cache size is 50 MB. To
    * disable ambient caching, set the maximum ambient cache size to 0. Setting the maximum ambient
    * cache size does not impact the maximum size of offline packs.
+   *
+   * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 

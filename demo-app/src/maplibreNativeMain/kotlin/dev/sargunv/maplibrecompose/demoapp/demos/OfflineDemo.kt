@@ -182,11 +182,11 @@ private fun rememberOfflineRegionsSource(offlineManager: OfflineManager): Source
               }
           ) {
             put("name", pack.metadata?.decodeToString().orEmpty())
-            val progress = pack.progress
+            val progress = pack.downloadProgress
             put(
               "state",
               when (progress) {
-                is DownloadProgress.Healthy -> progress.downloadStatus.name
+                is DownloadProgress.Healthy -> progress.status.name
                 else -> "Unhealthy"
               },
             )
@@ -279,7 +279,7 @@ private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -
     remember(pack.metadata) {
       pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" }
     }
-  val progress = pack.progress
+  val progress = pack.downloadProgress
 
   ListItem(
     leadingContent = {},
@@ -288,7 +288,7 @@ private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -
       when (progress) {
         is DownloadProgress.Unknown -> Text("Status: Unknown")
         is DownloadProgress.Healthy -> {
-          if (progress.downloadStatus == DownloadStatus.Downloading)
+          if (progress.status == DownloadStatus.Downloading)
             LinearProgressIndicator(
               progress = {
                 if (progress.requiredResourceCount == 0L) 0f
@@ -296,7 +296,7 @@ private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -
               },
               modifier = Modifier.fillMaxWidth(),
             )
-          else Text("Status: ${progress.downloadStatus.name}")
+          else Text("Status: ${progress.status.name}")
         }
         is DownloadProgress.Error -> Text("Status: Error - ${progress.message}")
         is DownloadProgress.TileLimitExceeded ->
@@ -306,9 +306,9 @@ private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -
     trailingContent = {
       Row {
         if (progress is DownloadProgress.Healthy) {
-          if (progress.downloadStatus == DownloadStatus.Paused)
+          if (progress.status == DownloadStatus.Paused)
             Button(onClick = { pack.resume() }) { Text("Resume") }
-          else if (progress.downloadStatus == DownloadStatus.Downloading)
+          else if (progress.status == DownloadStatus.Downloading)
             Button(onClick = { pack.suspend() }) { Text("Pause") }
         }
         Button(onClick = onLocate, modifier = Modifier.padding(start = 8.dp)) { Text("Locate") }
