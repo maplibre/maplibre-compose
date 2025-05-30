@@ -3,8 +3,8 @@ package dev.sargunv.maplibrecompose.compose.offline
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Geometry
 
-/** An object that defines a region required by an [OfflineTilePack]. */
-public sealed interface TilePackDefinition {
+/** An object that defines a region required by an [OfflinePack]. */
+public sealed interface OfflinePackDefinition {
   public val styleUrl: String
   /** The minimum zoom level for which to download tiles and other resources. */
   public val minZoom: Int
@@ -26,7 +26,7 @@ public sealed interface TilePackDefinition {
     public val bounds: BoundingBox,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
-  ) : TilePackDefinition
+  ) : OfflinePackDefinition
 
   /** An offline region defined by a style URL, geographic shape, and range of zoom levels. */
   public data class Shape(
@@ -35,5 +35,5 @@ public sealed interface TilePackDefinition {
     public val shape: Geometry,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
-  ) : TilePackDefinition
+  ) : OfflinePackDefinition
 }

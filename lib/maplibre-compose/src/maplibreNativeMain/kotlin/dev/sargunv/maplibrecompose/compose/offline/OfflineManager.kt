@@ -2,13 +2,13 @@ package dev.sargunv.maplibrecompose.compose.offline
 
 import androidx.compose.runtime.Composable
 
-/** Acquire an instance of [OfflineTilesManager]. */
-@Composable public expect fun rememberOfflineTilesManager(): OfflineTilesManager
+/** Acquire an instance of [OfflineManager]. */
+@Composable public expect fun rememberOfflineManager(): OfflineManager
 
 /**
  * An instance of this interface is a singleton that manages offline packs and ambient caching.
  *
- * An offline tile pack represents a collection of resources needed to display a region offline,
+ * An offline pack represents a collection of resources needed to display a region offline,
  * including map tiles, styles, and other assets. It allows you to selectively download regions of
  * the map to be made available offline.
  *
@@ -17,32 +17,32 @@ import androidx.compose.runtime.Composable
  * them to be retrieved faster on subsequent map views or when zooming into previously viewed areas.
  * The ambient cache is distinct from offline packs, which are used for persistent offline access.
  */
-public interface OfflineTilesManager {
+public interface OfflineManager {
 
-  /** A list of all known offline tile packs. Backed by [androidx.compose.runtime.State]. */
-  public val regions: Set<OfflineTilePack>
+  /** A list of all known offline packs. Backed by [androidx.compose.runtime.State]. */
+  public val regions: Set<OfflinePack>
 
   /**
-   * Creates and registers an offline tile pack that downloads the resources needed to use the given
+   * Creates and registers an offline pack that downloads the resources needed to use the given
    * region offline.
    */
   public suspend fun create(
-    definition: TilePackDefinition,
+    definition: OfflinePackDefinition,
     metadata: ByteArray = ByteArray(0),
-  ): OfflineTilePack
+  ): OfflinePack
 
   /**
-   * Unregisters the given offline tile pack and allows resources that are no longer required by any
+   * Unregisters the given offline pack and allows resources that are no longer required by any
    * remaining packs to be freed.
    */
-  public suspend fun delete(region: OfflineTilePack)
+  public suspend fun delete(region: OfflinePack)
 
   /**
-   * Invalidates the specified offline tile pack. This method checks that the tiles in the specified
-   * pack match those from the server. Local tiles that do not match the latest version on the
-   * server are updated.
+   * Invalidates the specified offline pack. This method checks that the tiles in the specified pack
+   * match those from the server. Local tiles that do not match the latest version on the server are
+   * updated.
    */
-  public suspend fun invalidate(region: OfflineTilePack)
+  public suspend fun invalidate(region: OfflinePack)
 
   /**
    * Invalidates the ambient cache. This method checks that the tiles in the ambient cache match
@@ -60,7 +60,7 @@ public interface OfflineTilesManager {
   /**
    * Sets the maximum ambient cache size in bytes. The default maximum cache size is 50 MB. To
    * disable ambient caching, set the maximum ambient cache size to 0. Setting the maximum ambient
-   * cache size does not impact the maximum size of offline tile packs.
+   * cache size does not impact the maximum size of offline packs.
    */
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 
@@ -68,5 +68,5 @@ public interface OfflineTilesManager {
    * Sets the maximum number of tiles that may be downloaded and stored on the current device. By
    * default, the limit is set to 6000.
    */
-  public fun setOfflineTileCountLimit(limit: Long)
+  public fun setTileCountLimit(limit: Long)
 }

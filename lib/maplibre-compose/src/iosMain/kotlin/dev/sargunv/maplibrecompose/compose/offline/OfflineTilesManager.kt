@@ -29,21 +29,21 @@ import platform.darwin.NSObject
 import platform.darwin.sel_registerName
 
 @Composable
-public actual fun rememberOfflineTilesManager(): OfflineTilesManager {
-  return IosOfflineTilesManager
+public actual fun rememberOfflineManager(): OfflineManager {
+  return IosOfflineManager
 }
 
 /**
- * Acquire an instance of [OfflineTilesManager] outside a Composition. For use in Composable code,
- * see [rememberOfflineTilesManager].
+ * Acquire an instance of [OfflineManager] outside a Composition. For use in Composable code, see
+ * [rememberOfflineManager].
  */
-public fun getOfflineTilesManager(): OfflineTilesManager = IosOfflineTilesManager
+public fun getOfflineManager(): OfflineManager = IosOfflineManager
 
-internal object IosOfflineTilesManager : OfflineTilesManager {
+internal object IosOfflineManager : OfflineManager {
 
   private val impl = MLNOfflineStorage.sharedOfflineStorage
 
-  private val regionsState = mutableStateOf(emptySet<OfflineTilePack>())
+  private val regionsState = mutableStateOf(emptySet<OfflinePack>())
 
   override val regions
     get() = regionsState.value
@@ -73,7 +73,7 @@ internal object IosOfflineTilesManager : OfflineTilesManager {
       when (context) {
         packsContext ->
           regionsState.value =
-            impl.packs.orEmpty().map { (it as MLNOfflinePack).toOfflineTilePack() }.toSet()
+            impl.packs.orEmpty().map { (it as MLNOfflinePack).toOfflinePack() }.toSet()
       }
       // ignore other contexts
     }
@@ -132,29 +132,27 @@ internal object IosOfflineTilesManager : OfflineTilesManager {
     }
   }
 
-  override suspend fun create(
-    definition: TilePackDefinition,
-    metadata: ByteArray,
-  ): OfflineTilePack = suspendCoroutine { continuation ->
-    impl.addPackForRegion(
-      region = definition.toMLNOfflineRegion(),
-      withContext = metadata.toNSData(),
-      completionHandler = { pack, error ->
-        if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
-        else if (pack != null) continuation.resume(pack.toOfflineTilePack())
-        else continuation.resumeWithException(IllegalStateException("Offline pack is null"))
-      },
-    )
-  }
+  override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack =
+    suspendCoroutine { continuation ->
+      impl.addPackForRegion(
+        region = definition.toMLNOfflineRegion(),
+        withContext = metadata.toNSData(),
+        completionHandler = { pack, error ->
+          if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
+          else if (pack != null) continuation.resume(pack.toOfflinePack())
+          else continuation.resumeWithException(IllegalStateException("Offline pack is null"))
+        },
+      )
+    }
 
-  override suspend fun delete(region: OfflineTilePack) = suspendCoroutine { continuation ->
+  override suspend fun delete(region: OfflinePack) = suspendCoroutine { continuation ->
     impl.removePack(region.impl) { error ->
       if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
       else continuation.resume(Unit)
     }
   }
 
-  override suspend fun invalidate(region: OfflineTilePack) = suspendCoroutine { continuation ->
+  override suspend fun invalidate(region: OfflinePack) = suspendCoroutine { continuation ->
     impl.invalidatePack(region.impl) { error ->
       if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
       else continuation.resume(Unit)
@@ -182,7 +180,7 @@ internal object IosOfflineTilesManager : OfflineTilesManager {
     }
   }
 
-  override fun setOfflineTileCountLimit(limit: Long) {
+  override fun setTileCountLimit(limit: Long) {
     impl.setMaximumAllowedMapboxTiles(limit.toULong())
   }
 }

@@ -22,19 +22,19 @@ import platform.Foundation.NSUTF8StringEncoding
 import platform.posix.UINT64_MAX
 
 internal fun NSError.toOfflineRegionException() =
-  OfflineTilesManagerException(message = localizedDescription)
+  OfflineManagerException(message = localizedDescription)
 
 internal fun MLNOfflineRegionProtocol.toTilePackDefinition() =
   when (this) {
     is MLNTilePyramidOfflineRegion ->
-      TilePackDefinition.TilePyramid(
+      OfflinePackDefinition.TilePyramid(
         styleUrl = styleURL.toString(),
         bounds = bounds.toBoundingBox(),
         minZoom = minimumZoomLevel.toInt(),
         maxZoom = if (maximumZoomLevel.isInfinite()) null else maximumZoomLevel.toInt(),
       )
     is MLNShapeOfflineRegion ->
-      TilePackDefinition.Shape(
+      OfflinePackDefinition.Shape(
         styleUrl = styleURL.toString(),
         shape =
           Geometry.fromJson(
@@ -46,16 +46,16 @@ internal fun MLNOfflineRegionProtocol.toTilePackDefinition() =
     else -> error("Unknown MLNOfflineRegion type: $this")
   }
 
-internal fun TilePackDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtocol =
+internal fun OfflinePackDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtocol =
   when (this) {
-    is TilePackDefinition.TilePyramid ->
+    is OfflinePackDefinition.TilePyramid ->
       MLNTilePyramidOfflineRegion(
         styleURL = NSURL(string = styleUrl),
         bounds = bounds.toMLNCoordinateBounds(),
         fromZoomLevel = minZoom.toDouble(),
         toZoomLevel = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
       )
-    is TilePackDefinition.Shape ->
+    is OfflinePackDefinition.Shape ->
       MLNShapeOfflineRegion(
         styleURL = NSURL(string = styleUrl),
         shape =
@@ -69,7 +69,7 @@ internal fun TilePackDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtocol =
       )
   }
 
-internal fun MLNOfflinePack.toOfflineTilePack() = OfflineTilePack(this)
+internal fun MLNOfflinePack.toOfflinePack() = OfflinePack(this)
 
 internal fun MLNOfflinePackProgress.toDownloadProgress(state: Long) =
   when (state) {

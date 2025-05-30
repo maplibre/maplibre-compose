@@ -13,7 +13,7 @@ import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
 internal fun OfflineRegionDefinition.toTilePackDefinition() =
   when (this) {
     is OfflineTilePyramidRegionDefinition ->
-      TilePackDefinition.TilePyramid(
+      OfflinePackDefinition.TilePyramid(
         // can this ever be null? assuming no until proven otherwise
         styleUrl = styleURL!!,
         bounds = bounds!!.toBoundingBox(),
@@ -21,7 +21,7 @@ internal fun OfflineRegionDefinition.toTilePackDefinition() =
         maxZoom = if (maxZoom.isInfinite()) null else maxZoom.toInt(),
       )
     is OfflineGeometryRegionDefinition ->
-      TilePackDefinition.Shape(
+      OfflinePackDefinition.Shape(
         styleUrl = styleURL!!,
         shape = Geometry.fromJson(geometry!!.toJson()),
         minZoom = minZoom.toInt(),
@@ -30,9 +30,9 @@ internal fun OfflineRegionDefinition.toTilePackDefinition() =
     else -> throw IllegalArgumentException("Unknown OfflineRegionDefinition type: $this")
   }
 
-internal fun TilePackDefinition.toMLNOfflineRegionDefinition(pixelRatio: Float) =
+internal fun OfflinePackDefinition.toMLNOfflineRegionDefinition(pixelRatio: Float) =
   when (this) {
-    is TilePackDefinition.TilePyramid ->
+    is OfflinePackDefinition.TilePyramid ->
       OfflineTilePyramidRegionDefinition(
         styleURL = styleUrl,
         bounds = bounds.toLatLngBounds(),
@@ -40,7 +40,7 @@ internal fun TilePackDefinition.toMLNOfflineRegionDefinition(pixelRatio: Float) 
         maxZoom = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
         pixelRatio = pixelRatio,
       )
-    is TilePackDefinition.Shape ->
+    is OfflinePackDefinition.Shape ->
       OfflineGeometryRegionDefinition(
         styleURL = styleUrl,
         geometry = shape.toMlnGeometry(),
@@ -50,7 +50,7 @@ internal fun TilePackDefinition.toMLNOfflineRegionDefinition(pixelRatio: Float) 
       )
   }
 
-internal fun OfflineRegion.toOfflineTilePack() = OfflineTilePack(this)
+internal fun OfflineRegion.toOfflinePack() = OfflinePack(this)
 
 internal fun OfflineRegionStatus.toDownloadProgress() =
   DownloadProgress.Healthy(

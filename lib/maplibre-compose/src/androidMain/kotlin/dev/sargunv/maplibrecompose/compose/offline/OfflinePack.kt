@@ -8,9 +8,9 @@ import org.maplibre.android.offline.OfflineRegion
 import org.maplibre.android.offline.OfflineRegionError
 import org.maplibre.android.offline.OfflineRegionStatus
 
-public actual class OfflineTilePack internal constructor(internal val impl: OfflineRegion) :
+public actual class OfflinePack internal constructor(internal val impl: OfflineRegion) :
   OfflineRegion.OfflineRegionObserver {
-  public actual val definition: TilePackDefinition
+  public actual val definition: OfflinePackDefinition
     get() = impl.definition.toTilePackDefinition()
 
   private val metadataState = mutableStateOf(impl.metadata)
@@ -33,7 +33,7 @@ public actual class OfflineTilePack internal constructor(internal val impl: Offl
         }
 
         override fun onError(error: String?) =
-          throw OfflineTilesManagerException(error ?: "Unknown error")
+          throw OfflineManagerException(error ?: "Unknown error")
       }
     )
   }
@@ -69,12 +69,12 @@ public actual class OfflineTilePack internal constructor(internal val impl: Offl
           }
 
           override fun onError(error: String) =
-            continuation.resumeWithException(OfflineTilesManagerException(error))
+            continuation.resumeWithException(OfflineManagerException(error))
         },
       )
     }
 
-  override fun equals(other: Any?): Boolean = other is OfflineTilePack && other.impl == impl
+  override fun equals(other: Any?): Boolean = other is OfflinePack && other.impl == impl
 
   override fun hashCode(): Int = impl.hashCode()
 }

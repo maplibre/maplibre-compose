@@ -12,29 +12,33 @@ import org.maplibre.android.offline.OfflineManager
 import org.maplibre.android.offline.OfflineRegion
 
 @Composable
-public actual fun rememberOfflineTilesManager(): OfflineTilesManager {
+public actual fun rememberOfflineManager():
+  dev.sargunv.maplibrecompose.compose.offline.OfflineManager {
   val context = LocalContext.current
-  return remember(context) { AndroidOfflineTilesManager.getInstance(context) }
+  return remember(context) { AndroidOfflineManager.getInstance(context) }
 }
 
 /**
- * Acquire an instance of [OfflineTilesManager] outside a Composition. For use in Composable code,
- * see [rememberOfflineTilesManager].
+ * Acquire an instance of [OfflineManager] outside a Composition. For use in Composable code, see
+ * [rememberOfflineManager].
  */
-public fun getOfflineTilesManager(context: Context): OfflineTilesManager =
-  AndroidOfflineTilesManager.getInstance(context)
+public fun getOfflineManager(
+  context: Context
+): dev.sargunv.maplibrecompose.compose.offline.OfflineManager =
+  AndroidOfflineManager.getInstance(context)
 
-internal class AndroidOfflineTilesManager(private val context: Context) : OfflineTilesManager {
+internal class AndroidOfflineManager(private val context: Context) :
+  dev.sargunv.maplibrecompose.compose.offline.OfflineManager {
   companion object {
-    private val managers = mutableMapOf<Context, AndroidOfflineTilesManager>()
+    private val managers = mutableMapOf<Context, AndroidOfflineManager>()
 
-    internal fun getInstance(context: Context): AndroidOfflineTilesManager =
-      managers.getOrPut(context) { AndroidOfflineTilesManager(context) }
+    internal fun getInstance(context: Context): AndroidOfflineManager =
+      managers.getOrPut(context) { AndroidOfflineManager(context) }
   }
 
   private val impl = OfflineManager.getInstance(context)
 
-  private val regionsState = mutableStateOf(emptySet<OfflineTilePack>())
+  private val regionsState = mutableStateOf(emptySet<OfflinePack>())
 
   override val regions
     get() = regionsState.value
@@ -43,18 +47,15 @@ internal class AndroidOfflineTilesManager(private val context: Context) : Offlin
     impl.listOfflineRegions(
       object : OfflineManager.ListOfflineRegionsCallback {
         override fun onList(offlineRegions: Array<OfflineRegion>?) {
-          regionsState.value = offlineRegions.orEmpty().map { it.toOfflineTilePack() }.toSet()
+          regionsState.value = offlineRegions.orEmpty().map { it.toOfflinePack() }.toSet()
         }
 
-        override fun onError(error: String) = throw OfflineTilesManagerException(error)
+        override fun onError(error: String) = throw OfflineManagerException(error)
       }
     )
   }
 
-  override suspend fun create(
-    definition: TilePackDefinition,
-    metadata: ByteArray,
-  ): OfflineTilePack =
+  override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack =
     suspendCoroutine { continuation ->
         impl.createOfflineRegion(
           definition =
@@ -63,17 +64,17 @@ internal class AndroidOfflineTilesManager(private val context: Context) : Offlin
           callback =
             object : OfflineManager.CreateOfflineRegionCallback {
               override fun onCreate(offlineRegion: OfflineRegion) {
-                continuation.resume(offlineRegion.toOfflineTilePack())
+                continuation.resume(offlineRegion.toOfflinePack())
               }
 
               override fun onError(error: String) =
-                continuation.resumeWithException(OfflineTilesManagerException(error))
+                continuation.resumeWithException(OfflineManagerException(error))
             },
         )
       }
       .also { regionsState.value += it }
 
-  override suspend fun delete(region: OfflineTilePack): Unit =
+  override suspend fun delete(region: OfflinePack): Unit =
     suspendCoroutine { continuation ->
         region.impl.delete(
           object : OfflineRegion.OfflineRegionDeleteCallback {
@@ -82,19 +83,19 @@ internal class AndroidOfflineTilesManager(private val context: Context) : Offlin
             }
 
             override fun onError(error: String) =
-              continuation.resumeWithException(OfflineTilesManagerException(error))
+              continuation.resumeWithException(OfflineManagerException(error))
           }
         )
       }
       .also { regionsState.value -= region }
 
-  override suspend fun invalidate(region: OfflineTilePack) = suspendCoroutine { continuation ->
+  override suspend fun invalidate(region: OfflinePack) = suspendCoroutine { continuation ->
     region.impl.invalidate(
       object : OfflineRegion.OfflineRegionInvalidateCallback {
         override fun onInvalidate() = continuation.resume(Unit)
 
         override fun onError(error: String) =
-          continuation.resumeWithException(OfflineTilesManagerException(error))
+          continuation.resumeWithException(OfflineManagerException(error))
       }
     )
   }
@@ -105,7 +106,7 @@ internal class AndroidOfflineTilesManager(private val context: Context) : Offlin
         override fun onSuccess() = continuation.resume(Unit)
 
         override fun onError(message: String) =
-          continuation.resumeWithException(OfflineTilesManagerException(message))
+          continuation.resumeWithException(OfflineManagerException(message))
       }
     )
   }
@@ -116,7 +117,7 @@ internal class AndroidOfflineTilesManager(private val context: Context) : Offlin
         override fun onSuccess() = continuation.resume(Unit)
 
         override fun onError(message: String) =
-          continuation.resumeWithException(OfflineTilesManagerException(message))
+          continuation.resumeWithException(OfflineManagerException(message))
       }
     )
   }
@@ -128,12 +129,12 @@ internal class AndroidOfflineTilesManager(private val context: Context) : Offlin
         override fun onSuccess() = continuation.resume(Unit)
 
         override fun onError(message: String) =
-          continuation.resumeWithException(OfflineTilesManagerException(message))
+          continuation.resumeWithException(OfflineManagerException(message))
       },
     )
   }
 
-  override fun setOfflineTileCountLimit(limit: Long) {
+  override fun setTileCountLimit(limit: Long) {
     impl.setOfflineMapboxTileCountLimit(limit)
   }
 }

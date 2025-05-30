@@ -9,9 +9,9 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlinx.cinterop.useContents
 
-public actual class OfflineTilePack internal constructor(internal val impl: MLNOfflinePack) {
+public actual class OfflinePack internal constructor(internal val impl: MLNOfflinePack) {
 
-  public actual val definition: TilePackDefinition
+  public actual val definition: OfflinePackDefinition
     get() = impl.region.toTilePackDefinition()
 
   private val metadataState = mutableStateOf(impl.context.toByteArray())
@@ -48,7 +48,7 @@ public actual class OfflineTilePack internal constructor(internal val impl: MLNO
       }
     }
 
-  override fun equals(other: Any?): Boolean = other is OfflineTilePack && other.impl == impl
+  override fun equals(other: Any?): Boolean = other is OfflinePack && other.impl == impl
 
   override fun hashCode(): Int = impl.hashCode()
 }

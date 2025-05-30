@@ -1,6 +1,6 @@
 package dev.sargunv.maplibrecompose.compose
 
-import dev.sargunv.maplibrecompose.compose.offline.TilePackDefinition
+import dev.sargunv.maplibrecompose.compose.offline.OfflinePackDefinition
 import dev.sargunv.maplibrecompose.compose.offline.toMLNOfflineRegion
 import dev.sargunv.maplibrecompose.compose.offline.toTilePackDefinition
 import io.github.dellisd.spatialk.geojson.BoundingBox
@@ -15,7 +15,7 @@ class TilePackDefinitionTest {
   @Test
   fun convertTilePyramid() {
     val noMax =
-      TilePackDefinition.TilePyramid(
+      OfflinePackDefinition.TilePyramid(
         styleUrl = "https://example.com",
         bounds =
           BoundingBox(
@@ -28,7 +28,7 @@ class TilePackDefinitionTest {
     assert(noMax.toMLNOfflineRegion().toTilePackDefinition() == noMax)
 
     val minMax =
-      TilePackDefinition.TilePyramid(
+      OfflinePackDefinition.TilePyramid(
         styleUrl = "https://example.com",
         bounds =
           BoundingBox(
@@ -44,7 +44,7 @@ class TilePackDefinitionTest {
   @Test
   fun convertShape() {
     val noMax =
-      TilePackDefinition.Shape(
+      OfflinePackDefinition.Shape(
         styleUrl = "https://example.com",
         shape =
           Polygon(
@@ -61,7 +61,7 @@ class TilePackDefinitionTest {
     assert(noMax.toMLNOfflineRegion().toTilePackDefinition() == noMax)
 
     val minMax =
-      TilePackDefinition.Shape(
+      OfflinePackDefinition.Shape(
         styleUrl = "https://example.com",
         shape =
           Polygon(

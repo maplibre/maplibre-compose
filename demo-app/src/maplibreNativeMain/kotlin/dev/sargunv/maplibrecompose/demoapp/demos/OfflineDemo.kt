@@ -42,10 +42,10 @@ import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.layer.FillLayer
 import dev.sargunv.maplibrecompose.compose.offline.DownloadProgress
 import dev.sargunv.maplibrecompose.compose.offline.DownloadStatus
-import dev.sargunv.maplibrecompose.compose.offline.OfflineTilePack
-import dev.sargunv.maplibrecompose.compose.offline.OfflineTilesManager
-import dev.sargunv.maplibrecompose.compose.offline.TilePackDefinition
-import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineTilesManager
+import dev.sargunv.maplibrecompose.compose.offline.OfflineManager
+import dev.sargunv.maplibrecompose.compose.offline.OfflinePack
+import dev.sargunv.maplibrecompose.compose.offline.OfflinePackDefinition
+import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineManager
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
 import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
@@ -81,7 +81,7 @@ object OfflineDemo : Demo {
     val cameraState =
       rememberCameraState(firstPosition = CameraPosition(target = CDMX, zoom = 12.0))
     val styleState = rememberStyleState()
-    val offlineManager = rememberOfflineTilesManager()
+    val offlineManager = rememberOfflineManager()
     val scaffoldState = rememberBottomSheetScaffoldState()
 
     DemoScaffold(this, navigateUp) {
@@ -150,7 +150,7 @@ object OfflineDemo : Demo {
 }
 
 @Composable
-private fun rememberOfflineRegionsSource(offlineManager: OfflineTilesManager): Source {
+private fun rememberOfflineRegionsSource(offlineManager: OfflineManager): Source {
   return rememberGeoJsonSource(
     id = "downloaded-regions",
     data =
@@ -160,7 +160,7 @@ private fun rememberOfflineRegionsSource(offlineManager: OfflineTilesManager): S
           feature(
             geometry =
               when (def) {
-                is TilePackDefinition.TilePyramid -> {
+                is OfflinePackDefinition.TilePyramid -> {
                   val bounds = def.bounds
                   polygon {
                     ring {
@@ -178,7 +178,7 @@ private fun rememberOfflineRegionsSource(offlineManager: OfflineTilesManager): S
                     }
                   }
                 }
-                is TilePackDefinition.Shape -> def.shape
+                is OfflinePackDefinition.Shape -> def.shape
               }
           ) {
             put("name", pack.metadata?.decodeToString().orEmpty())
@@ -197,10 +197,7 @@ private fun rememberOfflineRegionsSource(offlineManager: OfflineTilesManager): S
 }
 
 @Composable
-private fun OfflinePackControls(
-  offlineTilesManager: OfflineTilesManager,
-  cameraState: CameraState,
-) {
+private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: CameraState) {
   var inputValue by remember { mutableStateOf("") }
   val coroutineScope = rememberCoroutineScope()
   val canSave = cameraState.position.zoom >= MIN_ZOOM_TO_SAVE
@@ -220,10 +217,10 @@ private fun OfflinePackControls(
       Button(
         onClick = {
           coroutineScope.launch {
-            offlineTilesManager
+            offlineManager
               .create(
                 definition =
-                  TilePackDefinition.TilePyramid(
+                  OfflinePackDefinition.TilePyramid(
                     styleUrl = MINIMAL_STYLE,
                     bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
                   ),
@@ -247,7 +244,7 @@ private fun OfflinePackControls(
       modifier = Modifier.padding(vertical = 8.dp),
     )
 
-    if (offlineTilesManager.regions.isEmpty()) {
+    if (offlineManager.regions.isEmpty()) {
       Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         Text(
           text = "No regions saved yet",
@@ -256,16 +253,16 @@ private fun OfflinePackControls(
         )
       }
     } else {
-      offlineTilesManager.regions.forEach { pack ->
+      offlineManager.regions.forEach { pack ->
         PackListItem(
           pack,
-          onDelete = { coroutineScope.launch { offlineTilesManager.delete(pack) } },
+          onDelete = { coroutineScope.launch { offlineManager.delete(pack) } },
           onLocate = {
             coroutineScope.launch {
               val def = pack.definition
-              if (def is TilePackDefinition.TilePyramid) {
+              if (def is OfflinePackDefinition.TilePyramid) {
                 cameraState.animateTo(def.bounds)
-              } else if (def is TilePackDefinition.Shape) {
+              } else if (def is OfflinePackDefinition.Shape) {
                 def.shape.bbox?.let { cameraState.animateTo(it) }
               }
             }
@@ -277,7 +274,7 @@ private fun OfflinePackControls(
 }
 
 @Composable
-private fun PackListItem(pack: OfflineTilePack, onDelete: () -> Unit, onLocate: () -> Unit) {
+private fun PackListItem(pack: OfflinePack, onDelete: () -> Unit, onLocate: () -> Unit) {
   val packName =
     remember(pack.metadata) {
       pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" }
