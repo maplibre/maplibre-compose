@@ -37,6 +37,7 @@ val ALL_STYLES =
   )
 
 val DEFAULT_STYLE = ALL_STYLES[0].uri
+val MINIMAL_STYLE = ALL_STYLES[2].uri
 
 /** Caution: this converter results in a loss of precision far from the origin. */
 class PositionVectorConverter(private val origin: Position) :
