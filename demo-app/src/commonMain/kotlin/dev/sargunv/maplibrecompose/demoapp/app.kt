@@ -3,6 +3,7 @@ package dev.sargunv.maplibrecompose.demoapp
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -148,8 +149,16 @@ fun DemoAppBar(demo: Demo, navigateUp: () -> Unit, alpha: Float = 1f) {
 }
 
 @Composable
-fun DemoScaffold(demo: Demo, navigateUp: () -> Unit, content: @Composable () -> Unit) {
-  Scaffold(topBar = { DemoAppBar(demo, navigateUp) }) { padding ->
+fun DemoScaffold(
+  demo: Demo,
+  navigateUp: () -> Unit,
+  floatingActionButton: @Composable () -> Unit = {},
+  content: @Composable () -> Unit,
+) {
+  Scaffold(
+    topBar = { DemoAppBar(demo, navigateUp) },
+    floatingActionButton = floatingActionButton,
+  ) { padding ->
     Box(modifier = Modifier.consumeWindowInsets(padding).padding(padding)) { content() }
   }
 }
@@ -161,9 +170,12 @@ fun DemoMapControls(
   modifier: Modifier = Modifier,
   onCompassClick: () -> Unit = {},
   scaleBarMeasures: ScaleBarMeasures = defaultScaleBarMeasures(),
+  attributionAlignment: Alignment = Alignment.BottomEnd,
+  padding: PaddingValues = PaddingValues(8.dp),
+  content: @Composable BoxScope.() -> Unit = {},
 ) {
   if (Platform.supportsBlending) {
-    Box(modifier = modifier.fillMaxSize().padding(8.dp)) {
+    Box(modifier = modifier.fillMaxSize().padding(padding)) {
       DisappearingScaleBar(
         metersPerDp = cameraState.metersPerDpAtTarget,
         zoom = cameraState.position.zoom,
@@ -178,9 +190,10 @@ fun DemoMapControls(
       ExpandingAttributionButton(
         cameraState = cameraState,
         styleState = styleState,
-        modifier = Modifier.align(Alignment.BottomEnd),
-        contentAlignment = Alignment.BottomEnd,
+        modifier = Modifier.align(attributionAlignment),
+        contentAlignment = attributionAlignment,
       )
+      content()
     }
   }
 }
@@ -192,4 +205,4 @@ fun DemoOrnamentSettings(padding: PaddingValues = PaddingValues(0.dp)) =
       isLogoEnabled = true,
       logoAlignment = Alignment.BottomStart,
     )
-  else OrnamentSettings.AllEnabled
+  else OrnamentSettings.AllEnabled.copy(padding = padding)
