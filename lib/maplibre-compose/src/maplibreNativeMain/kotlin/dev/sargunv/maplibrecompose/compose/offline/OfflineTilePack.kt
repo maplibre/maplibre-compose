@@ -2,13 +2,13 @@ package dev.sargunv.maplibrecompose.compose.offline
 
 /** Represents a collection of resources necessary for viewing a region offline. */
 public expect class OfflineTilePack {
-  /** The area for which this pack manages resources */
+  /** The area for which this pack manages resources. */
   public val definition: TilePackDefinition
 
   /** Arbitrary data stored alongside the downloaded resources. */
   public val metadata: ByteArray?
 
-  /** The pack's current progress */
+  /** The pack's current progress. */
   public val progress: DownloadProgress
 
   /** Resume downloading if the pack is paused. */

@@ -33,6 +33,10 @@ public actual fun rememberOfflineTilesManager(): OfflineTilesManager {
   return IosOfflineTilesManager
 }
 
+/**
+ * Acquire an instance of [OfflineTilesManager] outside a Composition. For use in Composable code,
+ * see [rememberOfflineTilesManager].
+ */
 public fun getOfflineTilesManager(): OfflineTilesManager = IosOfflineTilesManager
 
 internal object IosOfflineTilesManager : OfflineTilesManager {

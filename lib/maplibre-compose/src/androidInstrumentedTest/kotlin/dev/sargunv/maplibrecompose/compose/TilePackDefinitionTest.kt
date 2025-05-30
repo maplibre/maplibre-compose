@@ -43,7 +43,7 @@ class TilePackDefinitionTest {
     val noMax =
       TilePackDefinition.Shape(
         styleUrl = "https://example.com",
-        geometry =
+        shape =
           Polygon(
             listOf(
               Position(longitude = -10.0, latitude = -11.0), // southwest
@@ -60,7 +60,7 @@ class TilePackDefinitionTest {
     val minMax =
       TilePackDefinition.Shape(
         styleUrl = "https://example.com",
-        geometry =
+        shape =
           Polygon(
             listOf(
               Position(longitude = -10.0, latitude = -11.0),

@@ -36,7 +36,7 @@ internal fun MLNOfflineRegionProtocol.toTilePackDefinition() =
     is MLNShapeOfflineRegion ->
       TilePackDefinition.Shape(
         styleUrl = styleURL.toString(),
-        geometry =
+        shape =
           Geometry.fromJson(
             shape.geoJSONDataUsingEncoding(NSUTF8StringEncoding).toByteArray().decodeToString()
           ),
@@ -60,7 +60,7 @@ internal fun TilePackDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtocol =
         styleURL = NSURL(string = styleUrl),
         shape =
           MLNShape.shapeWithData(
-            data = geometry.json().encodeToByteArray().toNSData(),
+            data = shape.json().encodeToByteArray().toNSData(),
             encoding = NSUTF8StringEncoding,
             error = null,
           )!!,

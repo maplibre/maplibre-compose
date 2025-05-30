@@ -17,6 +17,10 @@ public actual fun rememberOfflineTilesManager(): OfflineTilesManager {
   return remember(context) { AndroidOfflineTilesManager.getInstance(context) }
 }
 
+/**
+ * Acquire an instance of [OfflineTilesManager] outside a Composition. For use in Composable code,
+ * see [rememberOfflineTilesManager].
+ */
 public fun getOfflineTilesManager(context: Context): OfflineTilesManager =
   AndroidOfflineTilesManager.getInstance(context)
 

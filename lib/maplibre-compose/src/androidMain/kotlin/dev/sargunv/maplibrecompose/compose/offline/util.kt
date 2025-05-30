@@ -23,7 +23,7 @@ internal fun OfflineRegionDefinition.toTilePackDefinition() =
     is OfflineGeometryRegionDefinition ->
       TilePackDefinition.Shape(
         styleUrl = styleURL!!,
-        geometry = Geometry.fromJson(geometry!!.toJson()),
+        shape = Geometry.fromJson(geometry!!.toJson()),
         minZoom = minZoom.toInt(),
         maxZoom = if (maxZoom.isInfinite()) null else maxZoom.toInt(),
       )
@@ -43,7 +43,7 @@ internal fun TilePackDefinition.toMLNOfflineRegionDefinition(pixelRatio: Float) 
     is TilePackDefinition.Shape ->
       OfflineGeometryRegionDefinition(
         styleURL = styleUrl,
-        geometry = geometry.toMlnGeometry(),
+        geometry = shape.toMlnGeometry(),
         minZoom = minZoom.toDouble(),
         maxZoom = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
         pixelRatio = pixelRatio,

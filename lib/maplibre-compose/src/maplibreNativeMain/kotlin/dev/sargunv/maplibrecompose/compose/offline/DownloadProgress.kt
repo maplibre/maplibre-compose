@@ -43,7 +43,7 @@ public sealed interface DownloadProgress {
 
   /**
    * The download has exceeded the maximum number of allowed offline tiles. See
-   * [OfflineTilesManager.setOfflineTileCountLimit]
+   * [OfflineTilesManager.setOfflineTileCountLimit].
    */
   public data class TileLimitExceeded(val limit: Long) : DownloadProgress
 }
