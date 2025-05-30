@@ -22,5 +22,5 @@ public interface OfflineRegionManager {
 
   public suspend fun setMaximumAmbientCacheSize(size: Long)
 
-  public fun setOfflineMapboxTileCountLimit(limit: Long)
+  public fun setOfflineTileCountLimit(limit: Long)
 }

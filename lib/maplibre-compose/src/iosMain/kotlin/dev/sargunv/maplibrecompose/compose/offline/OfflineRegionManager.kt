@@ -178,7 +178,7 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
     }
   }
 
-  override fun setOfflineMapboxTileCountLimit(limit: Long) {
+  override fun setOfflineTileCountLimit(limit: Long) {
     impl.setMaximumAllowedMapboxTiles(limit.toULong())
   }
 }

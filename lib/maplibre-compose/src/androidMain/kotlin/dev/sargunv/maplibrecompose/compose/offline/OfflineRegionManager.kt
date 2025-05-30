@@ -129,7 +129,7 @@ internal class AndroidOfflineRegionManager(private val context: Context) : Offli
     )
   }
 
-  override fun setOfflineMapboxTileCountLimit(limit: Long) {
+  override fun setOfflineTileCountLimit(limit: Long) {
     impl.setOfflineMapboxTileCountLimit(limit)
   }
 }
