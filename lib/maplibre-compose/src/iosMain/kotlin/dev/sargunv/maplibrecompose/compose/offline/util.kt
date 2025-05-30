@@ -12,6 +12,7 @@ import cocoapods.MapLibre.MLNShape
 import cocoapods.MapLibre.MLNShapeOfflineRegion
 import cocoapods.MapLibre.MLNTilePyramidOfflineRegion
 import dev.sargunv.maplibrecompose.core.util.toBoundingBox
+import dev.sargunv.maplibrecompose.core.util.toByteArray
 import dev.sargunv.maplibrecompose.core.util.toMLNCoordinateBounds
 import dev.sargunv.maplibrecompose.core.util.toNSData
 import io.github.dellisd.spatialk.geojson.Geometry
@@ -36,7 +37,9 @@ internal fun MLNOfflineRegionProtocol.toRegionDefinition() =
       OfflineRegionDefinition.Shape(
         styleUrl = styleURL.toString(),
         geometry =
-          Geometry.fromJson(shape.geoJSONDataUsingEncoding(NSUTF8StringEncoding).toString()),
+          Geometry.fromJson(
+            shape.geoJSONDataUsingEncoding(NSUTF8StringEncoding).toByteArray().decodeToString()
+          ),
         minZoom = minimumZoomLevel.toInt(),
         maxZoom = if (maximumZoomLevel.isInfinite()) null else maximumZoomLevel.toInt(),
       )
