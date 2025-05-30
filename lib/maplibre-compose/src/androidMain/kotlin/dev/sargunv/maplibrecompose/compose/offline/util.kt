@@ -5,15 +5,15 @@ import dev.sargunv.maplibrecompose.core.util.toLatLngBounds
 import dev.sargunv.maplibrecompose.core.util.toMlnGeometry
 import io.github.dellisd.spatialk.geojson.Geometry
 import org.maplibre.android.offline.OfflineGeometryRegionDefinition
-import org.maplibre.android.offline.OfflineRegion as MlnOfflineRegion
-import org.maplibre.android.offline.OfflineRegionDefinition as MlnOfflineRegionDefinition
-import org.maplibre.android.offline.OfflineRegionStatus as MlnOfflineRegionStatus
+import org.maplibre.android.offline.OfflineRegion
+import org.maplibre.android.offline.OfflineRegionDefinition
+import org.maplibre.android.offline.OfflineRegionStatus
 import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
 
-internal fun MlnOfflineRegionDefinition.toRegionDefinition() =
+internal fun OfflineRegionDefinition.toTilePackDefinition() =
   when (this) {
     is OfflineTilePyramidRegionDefinition ->
-      OfflineRegionDefinition.TilePyramid(
+      TilePackDefinition.TilePyramid(
         // can this ever be null? assuming no until proven otherwise
         styleUrl = styleURL!!,
         bounds = bounds!!.toBoundingBox(),
@@ -21,7 +21,7 @@ internal fun MlnOfflineRegionDefinition.toRegionDefinition() =
         maxZoom = if (maxZoom.isInfinite()) null else maxZoom.toInt(),
       )
     is OfflineGeometryRegionDefinition ->
-      OfflineRegionDefinition.Shape(
+      TilePackDefinition.Shape(
         styleUrl = styleURL!!,
         geometry = Geometry.fromJson(geometry!!.toJson()),
         minZoom = minZoom.toInt(),
@@ -30,9 +30,9 @@ internal fun MlnOfflineRegionDefinition.toRegionDefinition() =
     else -> throw IllegalArgumentException("Unknown OfflineRegionDefinition type: $this")
   }
 
-internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(pixelRatio: Float) =
+internal fun TilePackDefinition.toMLNOfflineRegionDefinition(pixelRatio: Float) =
   when (this) {
-    is OfflineRegionDefinition.TilePyramid ->
+    is TilePackDefinition.TilePyramid ->
       OfflineTilePyramidRegionDefinition(
         styleURL = styleUrl,
         bounds = bounds.toLatLngBounds(),
@@ -40,7 +40,7 @@ internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(pixelRatio: Fl
         maxZoom = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
         pixelRatio = pixelRatio,
       )
-    is OfflineRegionDefinition.Shape ->
+    is TilePackDefinition.Shape ->
       OfflineGeometryRegionDefinition(
         styleURL = styleUrl,
         geometry = geometry.toMlnGeometry(),
@@ -50,9 +50,9 @@ internal fun OfflineRegionDefinition.toMlnOfflineRegionDefinition(pixelRatio: Fl
       )
   }
 
-internal fun MlnOfflineRegion.toOfflineRegion() = OfflineRegion(this)
+internal fun OfflineRegion.toOfflineTilePack() = OfflineTilePack(this)
 
-internal fun MlnOfflineRegionStatus.toDownloadProgress() =
+internal fun OfflineRegionStatus.toDownloadProgress() =
   DownloadProgress.Healthy(
     completedResourceCount = completedResourceCount,
     completedResourceBytes = completedResourceSize,
@@ -62,8 +62,8 @@ internal fun MlnOfflineRegionStatus.toDownloadProgress() =
       if (isComplete) DownloadStatus.Complete
       else
         when (downloadState) {
-          MlnOfflineRegion.STATE_ACTIVE -> DownloadStatus.Active
-          MlnOfflineRegion.STATE_INACTIVE -> DownloadStatus.Inactive
+          OfflineRegion.STATE_ACTIVE -> DownloadStatus.Active
+          OfflineRegion.STATE_INACTIVE -> DownloadStatus.Inactive
           else -> error("Unknown OfflineRegion state: $downloadState")
         },
     isRequiredResourceCountPrecise = isRequiredResourceCountPrecise,

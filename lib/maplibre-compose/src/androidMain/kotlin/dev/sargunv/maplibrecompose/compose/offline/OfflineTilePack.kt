@@ -4,14 +4,14 @@ import androidx.compose.runtime.mutableStateOf
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
-import org.maplibre.android.offline.OfflineRegion as MlnOfflineRegion
-import org.maplibre.android.offline.OfflineRegionError as MlnOfflineRegionError
-import org.maplibre.android.offline.OfflineRegionStatus as MlnOfflineRegionStatus
+import org.maplibre.android.offline.OfflineRegion
+import org.maplibre.android.offline.OfflineRegionError
+import org.maplibre.android.offline.OfflineRegionStatus
 
-public actual class OfflineRegion internal constructor(internal val impl: MlnOfflineRegion) :
-  MlnOfflineRegion.OfflineRegionObserver {
-  public actual val definition: OfflineRegionDefinition
-    get() = impl.definition.toRegionDefinition()
+public actual class OfflineTilePack internal constructor(internal val impl: OfflineRegion) :
+  OfflineRegion.OfflineRegionObserver {
+  public actual val definition: TilePackDefinition
+    get() = impl.definition.toTilePackDefinition()
 
   private val metadataState = mutableStateOf(impl.metadata)
 
@@ -27,22 +27,22 @@ public actual class OfflineRegion internal constructor(internal val impl: MlnOff
     impl.setDeliverInactiveMessages(true)
     impl.setObserver(this)
     impl.getStatus(
-      object : MlnOfflineRegion.OfflineRegionStatusCallback {
-        override fun onStatus(status: MlnOfflineRegionStatus?) {
+      object : OfflineRegion.OfflineRegionStatusCallback {
+        override fun onStatus(status: OfflineRegionStatus?) {
           progressState.value = status?.toDownloadProgress() ?: DownloadProgress.Unknown
         }
 
         override fun onError(error: String?) =
-          throw OfflineRegionException(error ?: "Unknown error")
+          throw OfflineTilesManagerException(error ?: "Unknown error")
       }
     )
   }
 
-  override fun onStatusChanged(status: MlnOfflineRegionStatus) {
+  override fun onStatusChanged(status: OfflineRegionStatus) {
     progressState.value = status.toDownloadProgress()
   }
 
-  override fun onError(error: MlnOfflineRegionError) {
+  override fun onError(error: OfflineRegionError) {
     progressState.value = DownloadProgress.Error(error.reason, error.message)
   }
 
@@ -51,30 +51,30 @@ public actual class OfflineRegion internal constructor(internal val impl: MlnOff
   }
 
   public actual fun suspend() {
-    impl.setDownloadState(MlnOfflineRegion.STATE_INACTIVE)
+    impl.setDownloadState(OfflineRegion.STATE_INACTIVE)
   }
 
   public actual fun resume() {
-    impl.setDownloadState(MlnOfflineRegion.STATE_ACTIVE)
+    impl.setDownloadState(OfflineRegion.STATE_ACTIVE)
   }
 
   public actual suspend fun updateMetadata(metadata: ByteArray): Unit =
     suspendCoroutine { continuation ->
       impl.updateMetadata(
         metadata,
-        object : MlnOfflineRegion.OfflineRegionUpdateMetadataCallback {
+        object : OfflineRegion.OfflineRegionUpdateMetadataCallback {
           override fun onUpdate(metadata: ByteArray) {
             metadataState.value = metadata
             continuation.resume(Unit)
           }
 
           override fun onError(error: String) =
-            continuation.resumeWithException(OfflineRegionException(error))
+            continuation.resumeWithException(OfflineTilesManagerException(error))
         },
       )
     }
 
-  override fun equals(other: Any?): Boolean = other is OfflineRegion && other.impl == impl
+  override fun equals(other: Any?): Boolean = other is OfflineTilePack && other.impl == impl
 
   override fun hashCode(): Int = impl.hashCode()
 }

@@ -29,17 +29,17 @@ import platform.darwin.NSObject
 import platform.darwin.sel_registerName
 
 @Composable
-public actual fun rememberOfflineRegionManager(): OfflineRegionManager {
-  return IosOfflineRegionManager
+public actual fun rememberOfflineTilesManager(): OfflineTilesManager {
+  return IosOfflineTilesManager
 }
 
-public fun getOfflineRegionManager(): OfflineRegionManager = IosOfflineRegionManager
+public fun getOfflineTilesManager(): OfflineTilesManager = IosOfflineTilesManager
 
-internal object IosOfflineRegionManager : OfflineRegionManager {
+internal object IosOfflineTilesManager : OfflineTilesManager {
 
   private val impl = MLNOfflineStorage.sharedOfflineStorage
 
-  private val regionsState = mutableStateOf(emptySet<OfflineRegion>())
+  private val regionsState = mutableStateOf(emptySet<OfflineTilePack>())
 
   override val regions
     get() = regionsState.value
@@ -69,7 +69,7 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
       when (context) {
         packsContext ->
           regionsState.value =
-            impl.packs.orEmpty().map { (it as MLNOfflinePack).toOfflineRegion() }.toSet()
+            impl.packs.orEmpty().map { (it as MLNOfflinePack).toOfflineTilePack() }.toSet()
       }
       // ignore other contexts
     }
@@ -129,28 +129,28 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
   }
 
   override suspend fun create(
-    definition: OfflineRegionDefinition,
+    definition: TilePackDefinition,
     metadata: ByteArray,
-  ): OfflineRegion = suspendCoroutine { continuation ->
+  ): OfflineTilePack = suspendCoroutine { continuation ->
     impl.addPackForRegion(
       region = definition.toMLNOfflineRegion(),
       withContext = metadata.toNSData(),
       completionHandler = { pack, error ->
         if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
-        else if (pack != null) continuation.resume(pack.toOfflineRegion())
+        else if (pack != null) continuation.resume(pack.toOfflineTilePack())
         else continuation.resumeWithException(IllegalStateException("Offline pack is null"))
       },
     )
   }
 
-  override suspend fun delete(region: OfflineRegion) = suspendCoroutine { continuation ->
+  override suspend fun delete(region: OfflineTilePack) = suspendCoroutine { continuation ->
     impl.removePack(region.impl) { error ->
       if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
       else continuation.resume(Unit)
     }
   }
 
-  override suspend fun invalidate(region: OfflineRegion) = suspendCoroutine { continuation ->
+  override suspend fun invalidate(region: OfflineTilePack) = suspendCoroutine { continuation ->
     impl.invalidatePack(region.impl) { error ->
       if (error != null) continuation.resumeWithException(error.toOfflineRegionException())
       else continuation.resume(Unit)

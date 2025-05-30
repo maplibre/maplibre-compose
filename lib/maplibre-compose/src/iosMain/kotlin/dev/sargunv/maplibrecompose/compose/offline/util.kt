@@ -22,19 +22,19 @@ import platform.Foundation.NSUTF8StringEncoding
 import platform.posix.UINT64_MAX
 
 internal fun NSError.toOfflineRegionException() =
-  OfflineRegionException(message = localizedDescription)
+  OfflineTilesManagerException(message = localizedDescription)
 
-internal fun MLNOfflineRegionProtocol.toRegionDefinition() =
+internal fun MLNOfflineRegionProtocol.toTilePackDefinition() =
   when (this) {
     is MLNTilePyramidOfflineRegion ->
-      OfflineRegionDefinition.TilePyramid(
+      TilePackDefinition.TilePyramid(
         styleUrl = styleURL.toString(),
         bounds = bounds.toBoundingBox(),
         minZoom = minimumZoomLevel.toInt(),
         maxZoom = if (maximumZoomLevel.isInfinite()) null else maximumZoomLevel.toInt(),
       )
     is MLNShapeOfflineRegion ->
-      OfflineRegionDefinition.Shape(
+      TilePackDefinition.Shape(
         styleUrl = styleURL.toString(),
         geometry =
           Geometry.fromJson(
@@ -43,19 +43,19 @@ internal fun MLNOfflineRegionProtocol.toRegionDefinition() =
         minZoom = minimumZoomLevel.toInt(),
         maxZoom = if (maximumZoomLevel.isInfinite()) null else maximumZoomLevel.toInt(),
       )
-    else -> error("Unknown OfflineRegion type: $this")
+    else -> error("Unknown MLNOfflineRegion type: $this")
   }
 
-internal fun OfflineRegionDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtocol =
+internal fun TilePackDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtocol =
   when (this) {
-    is OfflineRegionDefinition.TilePyramid ->
+    is TilePackDefinition.TilePyramid ->
       MLNTilePyramidOfflineRegion(
         styleURL = NSURL(string = styleUrl),
         bounds = bounds.toMLNCoordinateBounds(),
         fromZoomLevel = minZoom.toDouble(),
         toZoomLevel = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
       )
-    is OfflineRegionDefinition.Shape ->
+    is TilePackDefinition.Shape ->
       MLNShapeOfflineRegion(
         styleURL = NSURL(string = styleUrl),
         shape =
@@ -69,7 +69,7 @@ internal fun OfflineRegionDefinition.toMLNOfflineRegion(): MLNOfflineRegionProto
       )
   }
 
-internal fun MLNOfflinePack.toOfflineRegion() = OfflineRegion(this)
+internal fun MLNOfflinePack.toOfflineTilePack() = OfflineTilePack(this)
 
 internal fun MLNOfflinePackProgress.toDownloadProgress(state: Long) =
   when (state) {

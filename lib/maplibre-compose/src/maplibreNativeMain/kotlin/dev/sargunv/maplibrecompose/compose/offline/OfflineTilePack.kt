@@ -1,7 +1,7 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
-public expect class OfflineRegion {
-  public val definition: OfflineRegionDefinition
+public expect class OfflineTilePack {
+  public val definition: TilePackDefinition
   public val metadata: ByteArray?
   public val progress: DownloadProgress
 

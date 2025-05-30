@@ -11,8 +11,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
-import dev.sargunv.maplibrecompose.compose.offline.OfflineRegionDefinition
-import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineRegionManager
+import dev.sargunv.maplibrecompose.compose.offline.TilePackDefinition
+import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineTilesManager
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
 import dev.sargunv.maplibrecompose.core.CameraPosition
@@ -49,14 +49,14 @@ object OfflineDemo : Demo {
 
         Column(modifier = Modifier.weight(0.5f)) {
           val coroutineScope = rememberCoroutineScope()
-          val offlineManager = rememberOfflineRegionManager()
+          val offlineManager = rememberOfflineTilesManager()
 
           Button(
             onClick = {
               coroutineScope.launch {
                 offlineManager
                   .create(
-                    OfflineRegionDefinition.TilePyramid(
+                    TilePackDefinition.TilePyramid(
                       styleUrl = DEFAULT_STYLE,
                       bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
                     )

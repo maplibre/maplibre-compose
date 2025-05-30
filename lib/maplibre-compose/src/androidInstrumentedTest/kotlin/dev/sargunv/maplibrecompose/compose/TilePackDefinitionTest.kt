@@ -1,18 +1,18 @@
 package dev.sargunv.maplibrecompose.compose
 
-import dev.sargunv.maplibrecompose.compose.offline.OfflineRegionDefinition
-import dev.sargunv.maplibrecompose.compose.offline.toMlnOfflineRegionDefinition
-import dev.sargunv.maplibrecompose.compose.offline.toRegionDefinition
+import dev.sargunv.maplibrecompose.compose.offline.TilePackDefinition
+import dev.sargunv.maplibrecompose.compose.offline.toMLNOfflineRegionDefinition
+import dev.sargunv.maplibrecompose.compose.offline.toTilePackDefinition
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Polygon
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.test.Test
 
-class OfflineRegionDefinitionTest {
+class TilePackDefinitionTest {
   @Test
   fun convertTilePyramid() {
     val noMax =
-      OfflineRegionDefinition.TilePyramid(
+      TilePackDefinition.TilePyramid(
         styleUrl = "https://example.com",
         bounds =
           BoundingBox(
@@ -22,10 +22,10 @@ class OfflineRegionDefinitionTest {
         minZoom = 3,
         maxZoom = null, // infinity
       )
-    assert(noMax.toMlnOfflineRegionDefinition(1f).toRegionDefinition() == noMax)
+    assert(noMax.toMLNOfflineRegionDefinition(1f).toTilePackDefinition() == noMax)
 
     val minMax =
-      OfflineRegionDefinition.TilePyramid(
+      TilePackDefinition.TilePyramid(
         styleUrl = "https://example.com",
         bounds =
           BoundingBox(
@@ -35,13 +35,13 @@ class OfflineRegionDefinitionTest {
         minZoom = 3,
         maxZoom = 10,
       )
-    assert(minMax.toMlnOfflineRegionDefinition(1f).toRegionDefinition() == minMax)
+    assert(minMax.toMLNOfflineRegionDefinition(1f).toTilePackDefinition() == minMax)
   }
 
   @Test
   fun convertShape() {
     val noMax =
-      OfflineRegionDefinition.Shape(
+      TilePackDefinition.Shape(
         styleUrl = "https://example.com",
         geometry =
           Polygon(
@@ -55,10 +55,10 @@ class OfflineRegionDefinitionTest {
         minZoom = 3,
         maxZoom = null, // infinity
       )
-    assert(noMax.toMlnOfflineRegionDefinition(1f).toRegionDefinition() == noMax)
+    assert(noMax.toMLNOfflineRegionDefinition(1f).toTilePackDefinition() == noMax)
 
     val minMax =
-      OfflineRegionDefinition.Shape(
+      TilePackDefinition.Shape(
         styleUrl = "https://example.com",
         geometry =
           Polygon(
@@ -72,6 +72,6 @@ class OfflineRegionDefinitionTest {
         minZoom = 3,
         maxZoom = 10,
       )
-    assert(minMax.toMlnOfflineRegionDefinition(1f).toRegionDefinition() == minMax)
+    assert(minMax.toMLNOfflineRegionDefinition(1f).toTilePackDefinition() == minMax)
   }
 }

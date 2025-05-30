@@ -2,19 +2,19 @@ package dev.sargunv.maplibrecompose.compose.offline
 
 import androidx.compose.runtime.Composable
 
-@Composable public expect fun rememberOfflineRegionManager(): OfflineRegionManager
+@Composable public expect fun rememberOfflineTilesManager(): OfflineTilesManager
 
-public interface OfflineRegionManager {
-  public val regions: Set<OfflineRegion>
+public interface OfflineTilesManager {
+  public val regions: Set<OfflineTilePack>
 
   public suspend fun create(
-    definition: OfflineRegionDefinition,
+    definition: TilePackDefinition,
     metadata: ByteArray = ByteArray(0),
-  ): OfflineRegion
+  ): OfflineTilePack
 
-  public suspend fun delete(region: OfflineRegion)
+  public suspend fun delete(region: OfflineTilePack)
 
-  public suspend fun invalidate(region: OfflineRegion)
+  public suspend fun invalidate(region: OfflineTilePack)
 
   public suspend fun invalidateAmbientCache()
 
