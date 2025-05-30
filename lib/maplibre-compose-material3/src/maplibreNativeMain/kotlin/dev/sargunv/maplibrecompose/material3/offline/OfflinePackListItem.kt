@@ -1,23 +1,21 @@
 package dev.sargunv.maplibrecompose.material3.offline
 
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ProgressIndicatorDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.offline.DownloadProgress
 import dev.sargunv.maplibrecompose.compose.offline.DownloadStatus
 import dev.sargunv.maplibrecompose.compose.offline.OfflineManager
@@ -28,7 +26,7 @@ import dev.sargunv.maplibrecompose.material3.generated.check_circle_filled
 import dev.sargunv.maplibrecompose.material3.generated.delete
 import dev.sargunv.maplibrecompose.material3.generated.error_filled
 import dev.sargunv.maplibrecompose.material3.generated.pause
-import dev.sargunv.maplibrecompose.material3.generated.pending_filled
+import dev.sargunv.maplibrecompose.material3.generated.pause_circle_filled
 import dev.sargunv.maplibrecompose.material3.generated.resume
 import dev.sargunv.maplibrecompose.material3.generated.warning_filled
 import kotlinx.coroutines.CoroutineScope
@@ -74,12 +72,13 @@ public object OfflinePackListItemDefaults {
         contentDescription = "Complete",
       )
     },
-    downloadingIcon: @Composable () -> Unit = {
+    pausedIcon: @Composable () -> Unit = {
       Icon(
-        imageVector = vectorResource(Res.drawable.pending_filled),
+        imageVector = vectorResource(Res.drawable.pause_circle_filled),
         contentDescription = "Complete",
       )
     },
+    downloadingIcon: @Composable () -> Unit = { DownloadProgressCircle(pack) },
     errorIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.error_filled),
@@ -100,7 +99,7 @@ public object OfflinePackListItemDefaults {
         is DownloadProgress.Healthy ->
           when (progress.status) {
             DownloadStatus.Complete -> completedIcon
-            DownloadStatus.Paused,
+            DownloadStatus.Paused -> pausedIcon
             DownloadStatus.Downloading -> downloadingIcon
           }
         is DownloadProgress.Error -> errorIcon
@@ -130,32 +129,47 @@ public object OfflinePackListItemDefaults {
   }
 
   @Composable
-  public fun SupportingContent(progress: DownloadProgress): Unit =
+  public fun SupportingContent(
+    progress: DownloadProgress,
+    completedContent: @Composable (DownloadProgress.Healthy) -> Unit = {
+      Text(it.completedResourceBytes.binaryBytes.toString())
+    },
+    downloadingContent: @Composable (DownloadProgress.Healthy) -> Unit = { Text(it.status.name) },
+    errorContent: @Composable (DownloadProgress.Error) -> Unit = { Text("Error - ${it.message}") },
+    tileLimitExceededContent: @Composable (DownloadProgress.TileLimitExceeded) -> Unit = {
+      Text("Tile limit exceeded - ${it.limit}")
+    },
+    unknownContent: @Composable (DownloadProgress.Unknown) -> Unit = { Text("Unknown status") },
+  ) {
     when (progress) {
       is DownloadProgress.Healthy ->
         when (progress.status) {
-          DownloadStatus.Complete -> Text(progress.completedResourceBytes.binaryBytes.toString())
-          else ->
-            Column {
-              DownloadProgressBar(progress)
-              Text("${progress.completedResourceCount}/${progress.requiredResourceCount} resources")
-            }
+          DownloadStatus.Complete -> completedContent(progress)
+          DownloadStatus.Downloading,
+          DownloadStatus.Paused -> downloadingContent(progress)
         }
-      is DownloadProgress.Error -> Text("Error - ${progress.message}")
-      is DownloadProgress.TileLimitExceeded -> Text("Tile limit exceeded - ${progress.limit} tiles")
-      is DownloadProgress.Unknown -> Text("Unknown status")
+      is DownloadProgress.Error -> errorContent(progress)
+      is DownloadProgress.TileLimitExceeded -> tileLimitExceededContent(progress)
+      is DownloadProgress.Unknown -> unknownContent(progress)
     }
+  }
 }
 
 @Composable
-private fun DownloadProgressBar(progress: DownloadProgress.Healthy) =
-  LinearProgressIndicator(
-    progress = {
-      if (progress.requiredResourceCount == 0L) 0f
-      else progress.completedResourceCount.toFloat() / progress.requiredResourceCount
-    },
-    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-  )
+private fun DownloadProgressCircle(pack: OfflinePack) {
+  val progressRatio by derivedStateOf {
+    val progress = pack.downloadProgress
+    if (progress is DownloadProgress.Healthy && progress.requiredResourceCount != 0L)
+      progress.completedResourceCount.toFloat() / progress.requiredResourceCount
+    else 0f
+  }
+  val animatedProgressRatio by
+    animateFloatAsState(
+      targetValue = progressRatio,
+      animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
+    )
+  CircularProgressIndicator(progress = { animatedProgressRatio })
+}
 
 @Composable
 private fun PauseResumeButton(status: DownloadStatus, onPause: () -> Unit, onResume: () -> Unit) {
