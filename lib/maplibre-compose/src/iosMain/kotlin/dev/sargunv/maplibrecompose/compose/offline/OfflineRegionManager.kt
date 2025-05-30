@@ -33,6 +33,8 @@ public actual fun rememberOfflineRegionManager(): OfflineRegionManager {
   return IosOfflineRegionManager
 }
 
+public fun getOfflineRegionManager(): OfflineRegionManager = IosOfflineRegionManager
+
 internal object IosOfflineRegionManager : OfflineRegionManager {
 
   private val impl = MLNOfflineStorage.sharedOfflineStorage
@@ -43,7 +45,7 @@ internal object IosOfflineRegionManager : OfflineRegionManager {
     get() = regionsState.value
 
   // hold on to the objects to prevent ObjC weak references from losing them
-  private val progressObserver = OfflinePackProgressObserver()
+  @Suppress("unused") private val progressObserver = OfflinePackProgressObserver()
   @Suppress("unused") private val packsListObserver = PacksListObserver()
 
   private class PacksListObserver() : NSObject(), KVObserverProtocol {
