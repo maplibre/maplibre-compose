@@ -54,7 +54,7 @@ import dev.sargunv.maplibrecompose.material3.controls.DisappearingCompassButton
 import dev.sargunv.maplibrecompose.material3.controls.DisappearingScaleBar
 import dev.sargunv.maplibrecompose.material3.controls.ExpandingAttributionButton
 import dev.sargunv.maplibrecompose.material3.controls.ScaleBarMeasures
-import dev.sargunv.maplibrecompose.material3.defaultScaleBarMeasures
+import dev.sargunv.maplibrecompose.material3.util.defaultScaleBarMeasures
 import org.jetbrains.compose.resources.vectorResource
 
 private val DEMOS = buildList {

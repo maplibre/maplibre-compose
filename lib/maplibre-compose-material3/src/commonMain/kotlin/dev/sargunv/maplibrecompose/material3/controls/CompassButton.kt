@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
@@ -29,10 +28,12 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.CameraState
+import dev.sargunv.maplibrecompose.core.CameraPosition
 import dev.sargunv.maplibrecompose.material3.generated.Res
 import dev.sargunv.maplibrecompose.material3.generated.compass
 import dev.sargunv.maplibrecompose.material3.generated.compass_needle
-import kotlin.math.abs
+import dev.sargunv.maplibrecompose.material3.util.AngleMath
+import kotlin.math.absoluteValue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
@@ -51,14 +52,13 @@ public fun CompassButton(
   contentPadding: PaddingValues = PaddingValues(size / 6),
   shape: Shape = CircleShape,
   needlePainter: Painter = painterResource(Res.drawable.compass_needle),
+  getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
 ) {
   val coroutineScope = rememberCoroutineScope()
   ElevatedButton(
     modifier = modifier.requiredSize(size).aspectRatio(1f),
     onClick = {
-      coroutineScope.launch {
-        cameraState.animateTo(cameraState.position.copy(bearing = 0.0, tilt = 0.0))
-      }
+      coroutineScope.launch { cameraState.animateTo(getHomePosition(cameraState.position)) }
       onClick()
     },
     shape = shape,
@@ -92,13 +92,19 @@ public fun DisappearingCompassButton(
   visibilityDuration: Duration = 1.seconds,
   enterTransition: EnterTransition = fadeIn(),
   exitTransition: ExitTransition = fadeOut(),
+  getHomePosition: (CameraPosition) -> CameraPosition = { it.copy(bearing = 0.0, tilt = 0.0) },
+  slop: Double = 0.5,
 ) {
   val visible = remember { MutableTransitionState(false) }
 
+  val homePosition by derivedStateOf { getHomePosition(cameraState.position) }
+
   val shouldBeVisible by derivedStateOf {
-    val tilt = abs(cameraState.position.tilt) % 360
-    val bearing = abs(cameraState.position.bearing) % 360
-    tilt in 0.5..359.5 || bearing in 0.5..359.5
+    with(AngleMath) {
+      val tiltDiff = cameraState.position.tilt.diff(homePosition.tilt).absoluteValue
+      val bearingDiff = cameraState.position.bearing.diff(homePosition.bearing).absoluteValue
+      tiltDiff > slop || bearingDiff > slop
+    }
   }
 
   LaunchedEffect(shouldBeVisible) {
@@ -126,6 +132,7 @@ public fun DisappearingCompassButton(
       contentPadding = contentPadding,
       shape = shape,
       needlePainter = needlePainter,
+      getHomePosition = getHomePosition,
     )
   }
 }

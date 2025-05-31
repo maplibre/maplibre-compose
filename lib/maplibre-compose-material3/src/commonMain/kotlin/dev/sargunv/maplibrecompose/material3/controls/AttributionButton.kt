@@ -50,10 +50,10 @@ import dev.sargunv.maplibrecompose.core.source.AttributionLink
 import dev.sargunv.maplibrecompose.material3.generated.Res
 import dev.sargunv.maplibrecompose.material3.generated.attribution
 import dev.sargunv.maplibrecompose.material3.generated.info
-import dev.sargunv.maplibrecompose.material3.horizontal
-import dev.sargunv.maplibrecompose.material3.reverse
-import dev.sargunv.maplibrecompose.material3.toArrangement
-import dev.sargunv.maplibrecompose.material3.vertical
+import dev.sargunv.maplibrecompose.material3.util.horizontal
+import dev.sargunv.maplibrecompose.material3.util.reverse
+import dev.sargunv.maplibrecompose.material3.util.toArrangement
+import dev.sargunv.maplibrecompose.material3.util.vertical
 import org.jetbrains.compose.resources.stringResource
 import org.jetbrains.compose.resources.vectorResource
 

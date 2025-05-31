@@ -1,4 +1,4 @@
-package dev.sargunv.maplibrecompose.material3
+package dev.sargunv.maplibrecompose.material3.util
 
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme

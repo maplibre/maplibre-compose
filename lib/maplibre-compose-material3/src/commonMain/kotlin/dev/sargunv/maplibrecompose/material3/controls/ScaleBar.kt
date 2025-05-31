@@ -20,10 +20,10 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
-import dev.sargunv.maplibrecompose.material3.backgroundColorFor
-import dev.sargunv.maplibrecompose.material3.defaultScaleBarMeasures
-import dev.sargunv.maplibrecompose.material3.drawPathsWithHalo
-import dev.sargunv.maplibrecompose.material3.drawTextWithHalo
+import dev.sargunv.maplibrecompose.material3.util.backgroundColorFor
+import dev.sargunv.maplibrecompose.material3.util.defaultScaleBarMeasures
+import dev.sargunv.maplibrecompose.material3.util.drawPathsWithHalo
+import dev.sargunv.maplibrecompose.material3.util.drawTextWithHalo
 import io.github.kevincianfarini.alchemist.scalar.meters
 import io.github.kevincianfarini.alchemist.type.Length
 import io.github.kevincianfarini.alchemist.unit.LengthUnit
