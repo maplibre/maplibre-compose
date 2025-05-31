@@ -61,7 +61,6 @@ public fun OfflinePackListItem(
 }
 
 public object OfflinePackListItemDefaults {
-
   @Composable
   public fun LeadingContent(
     pack: OfflinePack,
@@ -75,21 +74,21 @@ public object OfflinePackListItemDefaults {
     pausedIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.pause_circle_filled),
-        contentDescription = "Complete",
+        contentDescription = "Paused",
       )
     },
     downloadingIcon: @Composable () -> Unit = { DownloadProgressCircle(pack) },
     errorIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.error_filled),
-        contentDescription = "Complete",
+        contentDescription = "Error",
         tint = MaterialTheme.colorScheme.error,
       )
     },
     warningIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.warning_filled),
-        contentDescription = "Complete",
+        contentDescription = "Warning",
       )
     },
   ) {
@@ -198,9 +197,4 @@ private fun PauseResumeButton(status: DownloadStatus, onPause: () -> Unit, onRes
       }
     }
   }
-}
-
-@Composable
-private fun DeleteButton(onDelete: () -> Unit) {
-  IconButton(onClick = onDelete) { Icon(vectorResource(Res.drawable.delete), "Delete") }
 }
