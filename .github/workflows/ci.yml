@@ -3,7 +3,7 @@ name: "CI"
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
   workflow_dispatch:
 
@@ -59,6 +59,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
+      - run: "./gradlew testDebugAndroidTest"
       - name: "Run with AVD ./gradlew connectedDebugAndroidTest"
         uses: "./.github/actions/run-with-avd"
         with:
