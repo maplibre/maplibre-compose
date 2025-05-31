@@ -59,7 +59,7 @@ jobs:
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
-      - run: "./gradlew testDebugAndroidTest"
+      - run: "./gradlew testDebugUnitTest"
       - name: "Run with AVD ./gradlew connectedDebugAndroidTest"
         uses: "./.github/actions/run-with-avd"
         with:
