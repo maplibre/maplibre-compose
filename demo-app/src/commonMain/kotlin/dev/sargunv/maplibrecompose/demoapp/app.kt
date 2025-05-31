@@ -2,8 +2,10 @@ package dev.sargunv.maplibrecompose.demoapp
 
 import androidx.compose.animation.AnimatedContentTransitionScope
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +48,7 @@ import dev.sargunv.maplibrecompose.demoapp.demos.FrameRateDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.LocalTilesDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.MarkersDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.StyleSwitcherDemo
+import dev.sargunv.maplibrecompose.demoapp.demos.UserLocationDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.platformDemos
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.demoapp.generated.arrow_back
@@ -61,6 +64,7 @@ private val DEMOS = buildList {
   add(StyleSwitcherDemo)
   if (Platform.supportsBlending) add(EdgeToEdgeDemo)
   if (Platform.supportsLayers) {
+    add(UserLocationDemo)
     add(MarkersDemo)
     add(ClusteredPointsDemo)
     add(AnimatedLayerDemo)
@@ -165,6 +169,7 @@ fun DemoMapControls(
   onCompassClick: () -> Unit = {},
   scaleBarMeasures: ScaleBarMeasures = defaultScaleBarMeasures(),
   padding: PaddingValues = PaddingValues(8.dp),
+  extraButtons: @Composable ColumnScope.() -> Unit = {},
 ) {
   if (Platform.supportsBlending) {
     Box(modifier = modifier.fillMaxSize().padding(padding)) {
@@ -174,11 +179,13 @@ fun DemoMapControls(
         modifier = Modifier.align(Alignment.TopStart),
         measures = scaleBarMeasures,
       )
-      DisappearingCompassButton(
-        cameraState,
+      Column(
         modifier = Modifier.align(Alignment.TopEnd),
-        onClick = onCompassClick,
-      )
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        extraButtons()
+        DisappearingCompassButton(cameraState, onClick = onCompassClick)
+      }
       ExpandingAttributionButton(
         cameraState = cameraState,
         styleState = styleState,

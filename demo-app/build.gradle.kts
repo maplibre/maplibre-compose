@@ -82,6 +82,7 @@ kotlin {
       implementation(compose.runtime)
       implementation(compose.ui)
       implementation(libs.androidx.navigation.compose)
+      implementation(libs.compass.geolocation.core)
       implementation(libs.ktor.client.core)
       implementation(libs.ktor.client.contentNegotiation)
       implementation(libs.ktor.serialization.kotlinxJson)
@@ -89,10 +90,13 @@ kotlin {
       implementation(project(":lib:maplibre-compose-material3"))
     }
 
-    val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
+    val mobileMain by creating {
+      dependsOn(commonMain.get())
+      dependencies { implementation(libs.compass.geolocation.mobile) }
+    }
 
     androidMain {
-      dependsOn(maplibreNativeMain)
+      dependsOn(mobileMain)
       dependencies {
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
@@ -101,7 +105,7 @@ kotlin {
     }
 
     iosMain {
-      dependsOn(maplibreNativeMain)
+      dependsOn(mobileMain)
       dependencies { implementation(libs.ktor.client.darwin) }
     }
 
@@ -114,6 +118,7 @@ kotlin {
     jsMain.dependencies {
       implementation(compose.html.core)
       implementation(libs.ktor.client.js)
+      implementation(libs.compass.geolocation.browser)
     }
 
     commonTest.dependencies {
