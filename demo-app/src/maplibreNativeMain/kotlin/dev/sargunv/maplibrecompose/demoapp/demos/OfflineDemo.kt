@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
@@ -25,6 +26,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
@@ -126,32 +128,37 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
   var inputValue by remember { mutableStateOf("Example") }
   val coroutineScope = rememberCoroutineScope()
   val zoomedInEnough = cameraState.position.zoom >= 8.0
-  val canSave = inputValue.isNotBlank() && zoomedInEnough
+  val canDownload = inputValue.isNotBlank() && zoomedInEnough
+  val kc = LocalSoftwareKeyboardController.current
 
-  fun downloadPack() =
-    coroutineScope.launch {
-      val pack =
-        offlineManager.createNamed(
-          name = inputValue,
-          bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
-        )
-      offlineManager.resume(pack)
-      inputValue = ""
-    }
+  fun downloadPack() {
+    kc?.hide()
+    if (canDownload)
+      coroutineScope.launch {
+        val pack =
+          offlineManager.createNamed(
+            name = inputValue,
+            bounds = cameraState.awaitProjection().queryVisibleBoundingBox(),
+          )
+        offlineManager.resume(pack)
+        inputValue = ""
+      }
+  }
 
   Column(modifier = Modifier.padding(bottom = 16.dp, start = 16.dp, end = 16.dp)) {
     OutlinedTextField(
       value = inputValue,
       onValueChange = { inputValue = it },
-      label = { Text("Name") },
+      label = { Text("Pack name") },
       modifier = Modifier.fillMaxWidth(),
       isError = !zoomedInEnough,
       supportingText = { AnimatedVisibility(!zoomedInEnough) { Text("Too far; zoom in") } },
       singleLine = true,
+      keyboardActions = KeyboardActions(onDone = { downloadPack() }),
       trailingIcon = {
         AnimatedContent(zoomedInEnough) { zoomedInEnough ->
           if (zoomedInEnough)
-            IconButton(enabled = canSave, onClick = ::downloadPack) {
+            IconButton(enabled = canDownload, onClick = ::downloadPack) {
               Icon(
                 vectorResource(Res.drawable.download),
                 contentDescription = "Download",
@@ -166,7 +173,7 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
 
   Column(modifier = Modifier.padding(horizontal = 16.dp)) {
     Text(
-      text = "Offline Packs",
+      text = "Offline packs",
       style = MaterialTheme.typography.titleMedium,
       modifier = Modifier.padding(vertical = 8.dp),
     )
@@ -174,7 +181,7 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
       if (offlineManager.packs.isEmpty())
         Text(
-          text = "No regions saved yet",
+          text = "No packs downloaded yet",
           modifier = Modifier.padding(16.dp),
           style = MaterialTheme.typography.bodyMedium,
         )
