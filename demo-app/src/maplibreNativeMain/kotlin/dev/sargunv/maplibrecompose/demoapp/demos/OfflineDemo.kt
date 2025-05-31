@@ -29,6 +29,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.CameraState
+import dev.sargunv.maplibrecompose.compose.ClickResult
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.layer.FillLayer
 import dev.sargunv.maplibrecompose.compose.offline.OfflineManager
@@ -75,6 +76,7 @@ object OfflineDemo : Demo {
     val offlineManager = rememberOfflineManager()
     val scaffoldState = rememberBottomSheetScaffoldState()
     val sheetPeekHeight = BottomSheetDefaults.SheetPeekHeight + 72.dp
+    val keyboard = LocalSoftwareKeyboardController.current
 
     DemoScaffold(this, navigateUp) {
       BottomSheetScaffold(
@@ -90,7 +92,12 @@ object OfflineDemo : Demo {
           styleUri = MINIMAL_STYLE,
           cameraState = cameraState,
           styleState = styleState,
-          ornamentSettings = DemoOrnamentSettings(padding = PaddingValues(bottom = sheetPeekHeight)),
+          ornamentSettings =
+            DemoOrnamentSettings(padding = PaddingValues(bottom = sheetPeekHeight)),
+          onMapClick = { _, _ ->
+            keyboard?.hide()
+            ClickResult.Pass
+          },
         ) {
           OfflinePacksLayers(offlineManager)
         }
@@ -129,10 +136,10 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
   val coroutineScope = rememberCoroutineScope()
   val zoomedInEnough = cameraState.position.zoom >= 8.0
   val canDownload = inputValue.isNotBlank() && zoomedInEnough
-  val kc = LocalSoftwareKeyboardController.current
+  val keyboard = LocalSoftwareKeyboardController.current
 
   fun downloadPack() {
-    kc?.hide()
+    keyboard?.hide()
     if (canDownload)
       coroutineScope.launch {
         val pack =

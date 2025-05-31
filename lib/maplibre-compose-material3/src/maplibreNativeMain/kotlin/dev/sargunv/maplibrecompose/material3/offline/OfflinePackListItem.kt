@@ -128,16 +128,24 @@ public object OfflinePackListItemDefaults {
     }
   }
 
+  private fun DownloadProgress.Healthy.completedBytesString() =
+    completedResourceBytes.binaryBytes.toString()
+
   @Composable
   public fun SupportingContent(
     progress: DownloadProgress,
     completedContent: @Composable (DownloadProgress.Healthy) -> Unit = {
-      Text(it.completedResourceBytes.binaryBytes.toString())
+      Text(it.completedBytesString())
     },
-    downloadingContent: @Composable (DownloadProgress.Healthy) -> Unit = { Text(it.status.name) },
-    errorContent: @Composable (DownloadProgress.Error) -> Unit = { Text("Error - ${it.message}") },
+    downloadingContent: @Composable (DownloadProgress.Healthy) -> Unit = {
+      Text("Downloading: ${it.completedBytesString()}")
+    },
+    pausedContent: @Composable (DownloadProgress.Healthy) -> Unit = {
+      Text("Paused: ${it.completedBytesString()}")
+    },
+    errorContent: @Composable (DownloadProgress.Error) -> Unit = { Text("Error: ${it.message}") },
     tileLimitExceededContent: @Composable (DownloadProgress.TileLimitExceeded) -> Unit = {
-      Text("Tile limit exceeded - ${it.limit}")
+      Text("Tile limit exceeded: ${it.limit} tiles")
     },
     unknownContent: @Composable (DownloadProgress.Unknown) -> Unit = { Text("Unknown status") },
   ) {
@@ -145,8 +153,8 @@ public object OfflinePackListItemDefaults {
       is DownloadProgress.Healthy ->
         when (progress.status) {
           DownloadStatus.Complete -> completedContent(progress)
-          DownloadStatus.Downloading,
-          DownloadStatus.Paused -> downloadingContent(progress)
+          DownloadStatus.Downloading -> downloadingContent(progress)
+          DownloadStatus.Paused -> pausedContent(progress)
         }
       is DownloadProgress.Error -> errorContent(progress)
       is DownloadProgress.TileLimitExceeded -> tileLimitExceededContent(progress)
