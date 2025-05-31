@@ -2,16 +2,13 @@ package dev.sargunv.maplibrecompose.demoapp.demos
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +30,7 @@ import dev.sargunv.maplibrecompose.compose.ClickResult
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.layer.FillLayer
 import dev.sargunv.maplibrecompose.compose.offline.OfflineManager
+import dev.sargunv.maplibrecompose.compose.offline.OfflinePack
 import dev.sargunv.maplibrecompose.compose.offline.OfflinePackDefinition
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineManager
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflinePacksSource
@@ -82,11 +80,7 @@ object OfflineDemo : Demo {
       BottomSheetScaffold(
         scaffoldState = scaffoldState,
         sheetPeekHeight = sheetPeekHeight,
-        sheetContent = {
-          Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-            OfflinePackControls(offlineManager, cameraState)
-          }
-        },
+        sheetContent = { OfflinePackControls(offlineManager, cameraState) },
       ) {
         MaplibreMap(
           styleUri = MINIMAL_STYLE,
@@ -132,15 +126,54 @@ private fun OfflinePacksLayers(offlineManager: OfflineManager) {
 
 @Composable
 private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: CameraState) {
+  val coroutineScope = rememberCoroutineScope()
+
+  LazyColumn(modifier = Modifier.padding(bottom = 16.dp, start = 16.dp, end = 16.dp)) {
+    item { DownloadForm(cameraState) }
+
+    item {
+      Text(
+        text = "Offline packs",
+        style = MaterialTheme.typography.titleMedium,
+        modifier = Modifier.padding(vertical = 8.dp),
+      )
+    }
+
+    if (offlineManager.packs.isEmpty()) {
+      item {
+        Text(
+          text = "No packs downloaded yet",
+          modifier = Modifier.padding(16.dp),
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      }
+    } else {
+      fun locatePack(pack: OfflinePack) {
+        coroutineScope.launch { cameraState.animateToOfflinePack(pack.definition) }
+      }
+
+      offlineManager.packs.forEach { pack ->
+        item {
+          OfflinePackListItem(pack, onClick = { locatePack(pack) }) {
+            Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
+          }
+        }
+      }
+    }
+  }
+}
+
+@Composable
+private fun DownloadForm(cameraState: CameraState) {
   var inputValue by remember { mutableStateOf("Example") }
+  val offlineManager = rememberOfflineManager()
   val coroutineScope = rememberCoroutineScope()
   val zoomedInEnough = cameraState.position.zoom >= 8.0
-  val canDownload = inputValue.isNotBlank() && zoomedInEnough
   val keyboard = LocalSoftwareKeyboardController.current
 
   fun downloadPack() {
     keyboard?.hide()
-    if (canDownload)
+    if (zoomedInEnough)
       coroutineScope.launch {
         val pack =
           offlineManager.createNamed(
@@ -152,66 +185,41 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
       }
   }
 
-  Column(modifier = Modifier.padding(bottom = 16.dp, start = 16.dp, end = 16.dp)) {
-    OutlinedTextField(
-      value = inputValue,
-      onValueChange = { inputValue = it },
-      label = { Text("Pack name") },
-      modifier = Modifier.fillMaxWidth(),
-      isError = !zoomedInEnough,
-      supportingText = { AnimatedVisibility(!zoomedInEnough) { Text("Too far; zoom in") } },
-      singleLine = true,
-      keyboardActions = KeyboardActions(onDone = { downloadPack() }),
-      trailingIcon = {
-        AnimatedContent(zoomedInEnough) { zoomedInEnough ->
-          if (zoomedInEnough)
-            IconButton(enabled = canDownload, onClick = ::downloadPack) {
-              Icon(
-                vectorResource(Res.drawable.download),
-                contentDescription = "Download",
-                tint = MaterialTheme.colorScheme.primary,
-              )
-            }
-          else Icon(vectorResource(Res.drawable.error_filled), contentDescription = "Error")
-        }
-      },
-    )
-  }
+  OutlinedTextField(
+    value = inputValue,
+    onValueChange = { inputValue = it },
+    label = { Text("Pack name") },
+    modifier = Modifier.fillMaxWidth(),
+    isError = !zoomedInEnough,
+    supportingText = { AnimatedVisibility(!zoomedInEnough) { Text("Too far; zoom in") } },
+    singleLine = true,
+    keyboardActions = KeyboardActions(onDone = { downloadPack() }),
+    trailingIcon = {
+      AnimatedContent(zoomedInEnough) { zoomedInEnough ->
+        if (zoomedInEnough) DownloadButton(enabled = zoomedInEnough, onClick = ::downloadPack)
+        else Icon(vectorResource(Res.drawable.error_filled), contentDescription = "Error")
+      }
+    },
+  )
+}
 
-  Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-    Text(
-      text = "Offline packs",
-      style = MaterialTheme.typography.titleMedium,
-      modifier = Modifier.padding(vertical = 8.dp),
+@Composable
+private fun DownloadButton(enabled: Boolean, onClick: () -> Unit) {
+  IconButton(enabled = enabled, onClick = onClick) {
+    Icon(
+      vectorResource(Res.drawable.download),
+      contentDescription = "Download",
+      tint = MaterialTheme.colorScheme.primary,
     )
-
-    Card(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
-      if (offlineManager.packs.isEmpty())
-        Text(
-          text = "No packs downloaded yet",
-          modifier = Modifier.padding(16.dp),
-          style = MaterialTheme.typography.bodyMedium,
-        )
-      else
-        offlineManager.packs.forEach { pack ->
-          OfflinePackListItem(
-            pack,
-            onClick = {
-              coroutineScope.launch { cameraState.animateToOfflinePack(pack.definition) }
-            },
-          ) {
-            Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
-          }
-        }
-    }
   }
 }
 
-private suspend fun OfflineManager.createNamed(name: String, bounds: BoundingBox) =
-  create(
+private suspend fun OfflineManager.createNamed(name: String, bounds: BoundingBox): OfflinePack {
+  return create(
     OfflinePackDefinition.TilePyramid(styleUrl = DEFAULT_STYLE, bounds = bounds),
     name.encodeToByteArray(),
   )
+}
 
 private suspend fun CameraState.animateToOfflinePack(definition: OfflinePackDefinition) {
   val targetBounds =

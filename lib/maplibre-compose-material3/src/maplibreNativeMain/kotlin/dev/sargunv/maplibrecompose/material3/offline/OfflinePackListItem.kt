@@ -28,6 +28,7 @@ import dev.sargunv.maplibrecompose.material3.generated.error_filled
 import dev.sargunv.maplibrecompose.material3.generated.pause
 import dev.sargunv.maplibrecompose.material3.generated.pause_circle_filled
 import dev.sargunv.maplibrecompose.material3.generated.resume
+import dev.sargunv.maplibrecompose.material3.generated.sync
 import dev.sargunv.maplibrecompose.material3.generated.warning_filled
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -115,20 +116,9 @@ public object OfflinePackListItemDefaults {
     offlineManager: OfflineManager = rememberOfflineManager(),
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
   ): Unit = Row {
-    val progress = pack.downloadProgress
-    if (progress is DownloadProgress.Healthy)
-      PauseResumeButton(
-        progress.status,
-        onPause = { offlineManager.pause(pack) },
-        onResume = { offlineManager.resume(pack) },
-      )
-    IconButton(onClick = { coroutineScope.launch { offlineManager.delete(pack) } }) {
-      Icon(vectorResource(Res.drawable.delete), "Delete", tint = MaterialTheme.colorScheme.error)
-    }
+    PauseResumeUpdateButton(pack, offlineManager)
+    DeleteButton(pack, offlineManager)
   }
-
-  private fun DownloadProgress.Healthy.completedBytesString() =
-    completedResourceBytes.binaryBytes.toString()
 
   @Composable
   public fun SupportingContent(
@@ -163,6 +153,19 @@ public object OfflinePackListItemDefaults {
 }
 
 @Composable
+private fun DeleteButton(pack: OfflinePack, offlineManager: OfflineManager) {
+  val coroutineScope = rememberCoroutineScope()
+
+  fun onDelete() {
+    coroutineScope.launch { offlineManager.delete(pack) }
+  }
+
+  IconButton(onClick = ::onDelete) {
+    Icon(vectorResource(Res.drawable.delete), "Delete", tint = MaterialTheme.colorScheme.error)
+  }
+}
+
+@Composable
 private fun DownloadProgressCircle(pack: OfflinePack) {
   val progressRatio by derivedStateOf {
     val progress = pack.downloadProgress
@@ -170,31 +173,39 @@ private fun DownloadProgressCircle(pack: OfflinePack) {
       progress.completedResourceCount.toFloat() / progress.requiredResourceCount
     else 0f
   }
+
   val animatedProgressRatio by
     animateFloatAsState(
       targetValue = progressRatio,
       animationSpec = ProgressIndicatorDefaults.ProgressAnimationSpec,
     )
+
   CircularProgressIndicator(progress = { animatedProgressRatio })
 }
 
 @Composable
-private fun PauseResumeButton(status: DownloadStatus, onPause: () -> Unit, onResume: () -> Unit) {
-  IconButton(
-    onClick = {
-      when (status) {
-        DownloadStatus.Paused -> onResume()
-        DownloadStatus.Downloading -> onPause()
-        else -> {}
-      }
+private fun PauseResumeUpdateButton(pack: OfflinePack, offlineManager: OfflineManager) {
+  val status = (pack.downloadProgress as? DownloadProgress.Healthy)?.status ?: return
+  val coroutineScope = rememberCoroutineScope()
+
+  fun onClick() {
+    when (status) {
+      DownloadStatus.Paused -> offlineManager.resume(pack)
+      DownloadStatus.Downloading -> offlineManager.pause(pack)
+      DownloadStatus.Complete -> coroutineScope.launch { offlineManager.invalidate(pack) }
     }
-  ) {
+  }
+
+  IconButton(::onClick) {
     AnimatedContent(status) { status ->
       when (status) {
         DownloadStatus.Paused -> Icon(vectorResource(Res.drawable.resume), "Resume")
         DownloadStatus.Downloading -> Icon(vectorResource(Res.drawable.pause), "Pause")
-        else -> {}
+        DownloadStatus.Complete -> Icon(vectorResource(Res.drawable.sync), "Update")
       }
     }
   }
 }
+
+private fun DownloadProgress.Healthy.completedBytesString() =
+  completedResourceBytes.binaryBytes.toString()
