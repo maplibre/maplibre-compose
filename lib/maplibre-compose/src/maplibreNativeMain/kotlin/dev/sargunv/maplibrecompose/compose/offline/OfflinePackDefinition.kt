@@ -6,8 +6,10 @@ import io.github.dellisd.spatialk.geojson.Geometry
 /** An object that defines a region required by an [OfflinePack]. */
 public sealed interface OfflinePackDefinition {
   public val styleUrl: String
+
   /** The minimum zoom level for which to download tiles and other resources. */
   public val minZoom: Int
+
   /**
    * The maximum zoom level for which to download tiles and other resources. Null means no maximum.
    */

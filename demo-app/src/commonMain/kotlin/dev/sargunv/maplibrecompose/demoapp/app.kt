@@ -149,16 +149,8 @@ fun DemoAppBar(demo: Demo, navigateUp: () -> Unit, alpha: Float = 1f) {
 }
 
 @Composable
-fun DemoScaffold(
-  demo: Demo,
-  navigateUp: () -> Unit,
-  floatingActionButton: @Composable () -> Unit = {},
-  content: @Composable () -> Unit,
-) {
-  Scaffold(
-    topBar = { DemoAppBar(demo, navigateUp) },
-    floatingActionButton = floatingActionButton,
-  ) { padding ->
+fun DemoScaffold(demo: Demo, navigateUp: () -> Unit, content: @Composable () -> Unit) {
+  Scaffold(topBar = { DemoAppBar(demo, navigateUp) }) { padding ->
     Box(modifier = Modifier.consumeWindowInsets(padding).padding(padding).safeDrawingPadding()) {
       content()
     }
@@ -172,7 +164,6 @@ fun DemoMapControls(
   modifier: Modifier = Modifier,
   onCompassClick: () -> Unit = {},
   scaleBarMeasures: ScaleBarMeasures = defaultScaleBarMeasures(),
-  attributionAlignment: Alignment = Alignment.BottomEnd,
   padding: PaddingValues = PaddingValues(8.dp),
 ) {
   if (Platform.supportsBlending) {
@@ -191,8 +182,8 @@ fun DemoMapControls(
       ExpandingAttributionButton(
         cameraState = cameraState,
         styleState = styleState,
-        modifier = Modifier.align(attributionAlignment),
-        contentAlignment = attributionAlignment,
+        modifier = Modifier.align(Alignment.BottomEnd),
+        contentAlignment = Alignment.BottomEnd,
       )
     }
   }

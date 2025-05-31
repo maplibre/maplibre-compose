@@ -37,6 +37,18 @@ import kotlinx.coroutines.launch
 import me.saket.bytesize.binaryBytes
 import org.jetbrains.compose.resources.vectorResource
 
+/**
+ * A [ListItem] to manage an [OfflinePack].
+ *
+ * By default, it includes controls to pause, resume, invalidate, and delete the pack, and a
+ * [CircularProgressIndicator] for download progress.
+ *
+ * You must supply a [headlineContent] for the list item. Typically, this will be a suitable name
+ * for the pack, parsed from [OfflinePack.metadata].
+ *
+ * You can customize each part of the [ListItem] by supplying alternate [leadingContent],
+ * [supportingContent], and [trailingContent].
+ */
 @Composable
 public fun OfflinePackListItem(
   pack: OfflinePack,
@@ -64,6 +76,11 @@ public fun OfflinePackListItem(
 }
 
 public object OfflinePackListItemDefaults {
+  /**
+   * The default leading content for an [OfflinePackListItem]. It includes a
+   * [CircularProgressIndicator] for in-progress downloads, and otherwise an [Icon] representing the
+   * status of the pack.
+   */
   @Composable
   public fun LeadingContent(
     pack: OfflinePack,
@@ -112,6 +129,11 @@ public object OfflinePackListItemDefaults {
     AnimatedContent(icon) { icon -> icon() }
   }
 
+  /**
+   * The default trailing content for an [OfflinePackListItem]. It includes a button to pause,
+   * resume, or update the pack, depending on the pack's current status. It also includes a delete
+   * button.
+   */
   @Composable
   public fun TrailingContent(
     pack: OfflinePack,
@@ -122,6 +144,11 @@ public object OfflinePackListItemDefaults {
     DeleteButton(pack, offlineManager)
   }
 
+  /**
+   * The default supporting content for an [OfflinePackListItem]. It includes a [Text] describing
+   * the status of the pack; typically the download status and size. If the pack is in an error or
+   * other unhealthy state, it'll be indicated here.
+   */
   @Composable
   public fun SupportingContent(
     progress: DownloadProgress,
