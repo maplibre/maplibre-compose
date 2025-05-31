@@ -9,6 +9,7 @@ import cocoapods.MapLibre.MLNOfflinePack
 import cocoapods.MapLibre.MLNOfflinePackErrorNotification
 import cocoapods.MapLibre.MLNOfflinePackMaximumMapboxTilesReachedNotification
 import cocoapods.MapLibre.MLNOfflinePackProgressChangedNotification
+import cocoapods.MapLibre.MLNOfflinePackUserInfoKeyError
 import cocoapods.MapLibre.MLNOfflinePackUserInfoKeyMaximumCount
 import cocoapods.MapLibre.MLNOfflineStorage
 import dev.sargunv.maplibrecompose.core.util.KVObserverProtocol
@@ -114,7 +115,7 @@ internal object IosOfflineManager : OfflineManager {
     @ObjCAction
     fun offlinePackDidReceiveError(notification: NSNotification) {
       val pack = notification.`object` as MLNOfflinePack
-      val error = notification.userInfo!![MLNOfflinePackErrorNotification] as NSError
+      val error = notification.userInfo!![MLNOfflinePackUserInfoKeyError] as NSError
       packToProgress[pack]?.value =
         DownloadProgress.Error(
           error.localizedFailureReason ?: "Unknown",

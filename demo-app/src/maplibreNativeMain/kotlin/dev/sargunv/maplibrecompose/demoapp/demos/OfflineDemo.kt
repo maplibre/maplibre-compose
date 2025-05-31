@@ -2,13 +2,16 @@ package dev.sargunv.maplibrecompose.demoapp.demos
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -141,22 +144,25 @@ private fun OfflinePackControls(offlineManager: OfflineManager, cameraState: Cam
 
     if (offlineManager.packs.isEmpty()) {
       item {
-        Text(
-          text = "No packs downloaded yet",
-          modifier = Modifier.padding(16.dp),
-          style = MaterialTheme.typography.bodyMedium,
-        )
+        Card(modifier = Modifier.fillMaxWidth().animateItem()) {
+          Text(
+            text = "No packs downloaded yet",
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+          )
+        }
       }
     } else {
       fun locatePack(pack: OfflinePack) {
         coroutineScope.launch { cameraState.animateToOfflinePack(pack.definition) }
       }
 
-      offlineManager.packs.forEach { pack ->
-        item {
-          OfflinePackListItem(pack, onClick = { locatePack(pack) }) {
-            Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
-          }
+      items(offlineManager.packs.toList(), key = { it.hashCode() }) { pack ->
+        OfflinePackListItem(
+          pack = pack,
+          modifier = Modifier.animateItem().clickable { locatePack(pack) },
+        ) {
+          Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
         }
       }
     }

@@ -2,7 +2,6 @@ package dev.sargunv.maplibrecompose.material3.offline
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -41,7 +40,7 @@ import org.jetbrains.compose.resources.vectorResource
 @Composable
 public fun OfflinePackListItem(
   pack: OfflinePack,
-  onClick: (() -> Unit)? = null,
+  modifier: Modifier = Modifier,
   offlineManager: OfflineManager = rememberOfflineManager(),
   leadingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.LeadingContent(pack, offlineManager)
@@ -56,7 +55,7 @@ public fun OfflinePackListItem(
 ) {
   // TODO swipe to delete? confirmation to delete?
   ListItem(
-    modifier = Modifier.let { if (onClick != null) it.clickable(onClick = onClick) else it },
+    modifier = modifier,
     leadingContent = leadingContent,
     headlineContent = headlineContent,
     supportingContent = supportingContent,
