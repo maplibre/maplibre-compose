@@ -14,7 +14,10 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import dev.sargunv.maplibrecompose.compose.offline.DownloadProgress
 import dev.sargunv.maplibrecompose.compose.offline.DownloadStatus
@@ -155,12 +158,14 @@ public object OfflinePackListItemDefaults {
 @Composable
 private fun DeleteButton(pack: OfflinePack, offlineManager: OfflineManager) {
   val coroutineScope = rememberCoroutineScope()
+  var deleting by remember { mutableStateOf(false) }
 
   fun onDelete() {
-    coroutineScope.launch { offlineManager.delete(pack) }
+    deleting = true
+    coroutineScope.launch { offlineManager.delete(pack) }.invokeOnCompletion { deleting = false }
   }
 
-  IconButton(onClick = ::onDelete) {
+  IconButton(onClick = ::onDelete, enabled = !deleting) {
     Icon(vectorResource(Res.drawable.delete), "Delete", tint = MaterialTheme.colorScheme.error)
   }
 }
