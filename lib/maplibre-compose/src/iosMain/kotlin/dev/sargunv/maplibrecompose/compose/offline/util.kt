@@ -1,6 +1,5 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
-import cocoapods.MapLibre.MLNOfflinePack
 import cocoapods.MapLibre.MLNOfflinePackProgress
 import cocoapods.MapLibre.MLNOfflinePackStateActive
 import cocoapods.MapLibre.MLNOfflinePackStateComplete
@@ -68,8 +67,6 @@ internal fun OfflinePackDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtoco
         toZoomLevel = maxZoom?.toDouble() ?: Double.POSITIVE_INFINITY,
       )
   }
-
-internal fun MLNOfflinePack.toOfflinePack() = OfflinePack(this)
 
 internal fun MLNOfflinePackProgress.toDownloadProgress(state: Long) =
   when (state) {

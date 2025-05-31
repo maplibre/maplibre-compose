@@ -72,7 +72,7 @@ internal object IosOfflineManager : OfflineManager {
       when (context) {
         packsContext ->
           packsState.value =
-            impl.packs.orEmpty().map { (it as MLNOfflinePack).toOfflinePack() }.toSet()
+            impl.packs.orEmpty().map { OfflinePack.getInstance(it as MLNOfflinePack) }.toSet()
       }
       // ignore other contexts
     }
@@ -138,7 +138,7 @@ internal object IosOfflineManager : OfflineManager {
         withContext = metadata.toNSData(),
         completionHandler = { pack, error ->
           if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
-          else if (pack != null) continuation.resume(pack.toOfflinePack())
+          else if (pack != null) continuation.resume(OfflinePack.getInstance(pack))
           else continuation.resumeWithException(IllegalStateException("Offline pack is null"))
         },
       )
@@ -151,7 +151,7 @@ internal object IosOfflineManager : OfflineManager {
   override suspend fun delete(pack: OfflinePack) = suspendCoroutine { continuation ->
     impl.removePack(pack.impl) { error ->
       if (error != null) continuation.resumeWithException(error.toOfflineManagerException())
-      else continuation.resume(Unit)
+      else continuation.resume(Unit).also { OfflinePack.dispose(pack) }
     }
   }
 

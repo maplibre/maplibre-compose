@@ -50,8 +50,6 @@ internal fun OfflinePackDefinition.toMLNOfflineRegionDefinition(pixelRatio: Floa
       )
   }
 
-internal fun OfflineRegion.toOfflinePack() = OfflinePack(this)
-
 internal fun OfflineRegionStatus.toDownloadProgress() =
   DownloadProgress.Healthy(
     completedResourceCount = completedResourceCount,

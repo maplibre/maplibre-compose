@@ -33,7 +33,7 @@ internal class AndroidOfflineManager @UiThread internal constructor(context: Con
   companion object {
     private var manager: AndroidOfflineManager? = null
 
-    internal fun getInstance(context: Context): AndroidOfflineManager =
+    fun getInstance(context: Context): AndroidOfflineManager =
       manager ?: AndroidOfflineManager(context.applicationContext).also { manager = it }
   }
 
@@ -54,7 +54,7 @@ internal class AndroidOfflineManager @UiThread internal constructor(context: Con
     impl.listOfflineRegions(
       object : MLNOfflineManager.ListOfflineRegionsCallback {
         override fun onList(offlineRegions: Array<OfflineRegion>?) {
-          packsState.value = offlineRegions.orEmpty().map { it.toOfflinePack() }.toSet()
+          packsState.value = offlineRegions.orEmpty().map { OfflinePack.getInstance(it) }.toSet()
         }
 
         override fun onError(error: String) = throw OfflineManagerException(error)
@@ -70,7 +70,7 @@ internal class AndroidOfflineManager @UiThread internal constructor(context: Con
           callback =
             object : MLNOfflineManager.CreateOfflineRegionCallback {
               override fun onCreate(offlineRegion: OfflineRegion) {
-                continuation.resume(offlineRegion.toOfflinePack())
+                continuation.resume(OfflinePack.getInstance(offlineRegion))
               }
 
               override fun onError(error: String) =
@@ -97,7 +97,10 @@ internal class AndroidOfflineManager @UiThread internal constructor(context: Con
           }
         )
       }
-      .also { packsState.value -= pack }
+      .also {
+        packsState.value -= pack
+        OfflinePack.dispose(pack)
+      }
 
   override suspend fun invalidate(pack: OfflinePack) = suspendCoroutine { continuation ->
     pack.impl.invalidate(

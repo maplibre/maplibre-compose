@@ -8,8 +8,23 @@ import org.maplibre.android.offline.OfflineRegion
 import org.maplibre.android.offline.OfflineRegionError
 import org.maplibre.android.offline.OfflineRegionStatus
 
-public actual class OfflinePack internal constructor(internal val impl: OfflineRegion) :
+public actual class OfflinePack private constructor(internal val impl: OfflineRegion) :
   OfflineRegion.OfflineRegionObserver {
+
+  internal companion object {
+    // there must only be one OfflinePack instance per OfflineRegion, because only the newest will
+    // receive updates to its State
+    private val instances = mutableMapOf<OfflineRegion, OfflinePack>()
+
+    internal fun getInstance(region: OfflineRegion): OfflinePack {
+      return instances.getOrPut(region) { OfflinePack(region) }
+    }
+
+    internal fun dispose(pack: OfflinePack) {
+      instances.remove(pack.impl)
+    }
+  }
+
   public actual val definition: OfflinePackDefinition
     get() = impl.definition.toOfflinePackDefinition()
 

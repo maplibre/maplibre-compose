@@ -9,7 +9,20 @@ import kotlin.coroutines.resumeWithException
 import kotlin.coroutines.suspendCoroutine
 import kotlinx.cinterop.useContents
 
-public actual class OfflinePack internal constructor(internal val impl: MLNOfflinePack) {
+public actual class OfflinePack private constructor(internal val impl: MLNOfflinePack) {
+  internal companion object {
+    // there must only be one OfflinePack instance per MLNOfflinePack, because only the newest will
+    // receive updates to its State
+    private val instances = mutableMapOf<MLNOfflinePack, OfflinePack>()
+
+    internal fun getInstance(region: MLNOfflinePack): OfflinePack {
+      return instances.getOrPut(region) { OfflinePack(region) }
+    }
+
+    internal fun dispose(pack: OfflinePack) {
+      instances.remove(pack.impl)
+    }
+  }
 
   public actual val definition: OfflinePackDefinition
     get() = impl.region.toOfflinePackDefinition()
