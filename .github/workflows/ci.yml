@@ -52,8 +52,10 @@ jobs:
     strategy:
       matrix:
         api-level:
-          - 24
+          # the latest, Android 15 (Vanilla Ice Cream)
           - 35
+          # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
+          - 24
     steps:
       - uses: "actions/checkout@v4"
         with:
@@ -67,13 +69,28 @@ jobs:
           script: "./gradlew connectedDebugAndroidTest"
 
   test-ios:
-    runs-on: "macos-latest"
+    strategy:
+      matrix:
+        include:
+          # the latest
+          - runner: "macos-15"
+            os_version: "^18"
+          # the oldest on GH Actions (supports back to ~iPhone XS from 2018)
+          - runner: "macos-15"
+            os_version: "^17"
+    name: "test-ios (${{ matrix.os_version }})"
+    runs-on: "${{ matrix.runner }}"
     steps:
       - uses: "actions/checkout@v4"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
-      - run: "./gradlew iosSimulatorArm64Test"
+      - uses: "futureware-tech/simulator-action@v4"
+        id: "setup-simulator"
+        with:
+          os: "iOS"
+          os_version: "${{ matrix.os_version }}"
+      - run: "./gradlew iosSimulatorArm64Test -- --device ${{ steps.setup-simulator.outputs.udid }}"
 
   build-docs:
     runs-on: "macos-latest"
