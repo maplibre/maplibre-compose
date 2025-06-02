@@ -22,7 +22,7 @@ gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.32.0"
 gradle-mkdocs = "4.0.1"
-gradle-spotless = "7.0.3"
+gradle-spotless = "7.0.4"
 tool-prettier = "3.5.3"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
