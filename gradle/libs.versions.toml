@@ -61,6 +61,9 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
+maplibre-androidOpenGL = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android-sdk" }
+maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk-vulkan", version.ref = "maplibre-android-sdk" }
+maplibre-androidDebug = { module = "org.maplibre.gl:android-sdk-debug", version.ref = "maplibre-android-sdk" }
 maplibre-android-scalebar = { module = "org.maplibre.gl:android-plugin-scalebar-v9", version.ref = "maplibre-android-plugins" }
 spatialk-geojson = { group = "io.github.dellisd.spatialk", name = "geojson", version.ref = "spatialk" }
 

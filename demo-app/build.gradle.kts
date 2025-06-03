@@ -86,8 +86,15 @@ kotlin {
       implementation(libs.ktor.client.core)
       implementation(libs.ktor.client.contentNegotiation)
       implementation(libs.ktor.serialization.kotlinxJson)
-      implementation(project(":lib:maplibre-compose"))
-      implementation(project(":lib:maplibre-compose-material3"))
+
+      // we exclude the android sdk here so we can select a variant via gradle property
+      // see androidMain below
+      implementation(project(":lib:maplibre-compose")) {
+        exclude(group = "org.maplibre.gl", module = "android-sdk")
+      }
+      implementation(project(":lib:maplibre-compose-material3")) {
+        exclude(group = "org.maplibre.gl", module = "android-sdk")
+      }
     }
 
     val mobileMain by creating {
@@ -101,6 +108,17 @@ kotlin {
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.ktor.client.okhttp)
+
+        project.properties["demoAppMaplibreAndroidFlavor"].let { flavor ->
+          when (flavor) {
+            null,
+            "default" -> implementation(libs.maplibre.android)
+            "opengl" -> implementation(libs.maplibre.androidOpenGL)
+            "vulkan" -> implementation(libs.maplibre.androidVulkan)
+            "debug" -> implementation(libs.maplibre.androidDebug)
+            else -> error("Unknown maplibre android flavor: $flavor")
+          }
+        }
       }
     }
 
