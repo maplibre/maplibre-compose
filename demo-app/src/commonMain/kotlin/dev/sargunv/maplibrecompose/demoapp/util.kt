@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.demoapp
 
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.TwoWayConverter
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -39,6 +40,7 @@ val ALL_STYLES =
 
 val DEFAULT_STYLE = ALL_STYLES[0].uri
 val MINIMAL_STYLE = ALL_STYLES[2].uri
+val EMPTY_STYLE = Res.getUri("files/styles/empty.json")
 
 /** Caution: this converter results in a loss of precision far from the origin. */
 class PositionVectorConverter(private val origin: Position) :
@@ -78,7 +80,7 @@ internal class FrameRateState(private val spinner: String = "◐◓◑◒") {
     get() = rollingAverage.roundToInt()
 }
 
-@Composable expect fun getDefaultColorScheme(isDark: Boolean = false): ColorScheme
+@Composable expect fun getDefaultColorScheme(isDark: Boolean = isSystemInDarkTheme()): ColorScheme
 
 expect object Platform {
   val isAndroid: Boolean

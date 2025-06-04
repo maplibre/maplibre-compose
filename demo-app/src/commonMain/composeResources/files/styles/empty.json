@@ -3,13 +3,5 @@
   "name": "Empty",
   "metadata": {},
   "sources": {},
-  "layers": [
-    {
-      "id": "background",
-      "type": "background",
-      "paint": {
-        "background-color": "rgba(0,0,0,0)"
-      }
-    }
-  ]
+  "layers": []
 }
