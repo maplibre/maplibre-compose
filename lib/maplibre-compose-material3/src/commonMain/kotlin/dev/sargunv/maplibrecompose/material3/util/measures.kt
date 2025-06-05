@@ -1,4 +1,4 @@
-package dev.sargunv.maplibrecompose.material3
+package dev.sargunv.maplibrecompose.material3.util
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.intl.Locale

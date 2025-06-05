@@ -17,8 +17,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import dev.sargunv.maplibrecompose.material3.backgroundColorFor
-import dev.sargunv.maplibrecompose.material3.defaultScaleBarMeasures
+import dev.sargunv.maplibrecompose.material3.util.backgroundColorFor
+import dev.sargunv.maplibrecompose.material3.util.defaultScaleBarMeasures
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay

@@ -33,11 +33,11 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.CameraState
-import dev.sargunv.maplibrecompose.material3.findEllipsisIntersection
-import dev.sargunv.maplibrecompose.material3.proportionalAbsoluteOffset
-import dev.sargunv.maplibrecompose.material3.proportionalPadding
-import dev.sargunv.maplibrecompose.material3.toDpOffset
-import dev.sargunv.maplibrecompose.material3.toOffset
+import dev.sargunv.maplibrecompose.material3.util.findEllipsisIntersection
+import dev.sargunv.maplibrecompose.material3.util.proportionalAbsoluteOffset
+import dev.sargunv.maplibrecompose.material3.util.proportionalPadding
+import dev.sargunv.maplibrecompose.material3.util.toDpOffset
+import dev.sargunv.maplibrecompose.material3.util.toOffset
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.math.PI
 import kotlin.math.cos
@@ -86,8 +86,11 @@ public fun PointerPinButton(
   interactionSource: MutableInteractionSource? = null,
   content: @Composable (BoxScope.() -> Unit),
 ) {
-  val target =
-    cameraState.projection?.screenLocationFromPosition(targetPosition)?.toOffset() ?: return
+  val dpTarget =
+    remember(targetPosition, cameraState.position) {
+      cameraState.projection?.screenLocationFromPosition(targetPosition)
+    }
+  val target = dpTarget?.toOffset() ?: return
   var area by remember { mutableStateOf<Rect?>(null) }
 
   Box(modifier = modifier.fillMaxSize().onGloballyPositioned { area = it.boundsInParent() }) {
