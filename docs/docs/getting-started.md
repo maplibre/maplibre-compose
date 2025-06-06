@@ -70,38 +70,9 @@ cocoapods {
 
 Alternatively you can use the [SPM for KMP plugin][spm4kmp]:
 
-!!! warning
-
-    According to the author of the plugin this functionality should be considered experimental.
-
 ```kotlin title="build.gradle.kts"
-plugins {
-  alias(libs.plugins.kotlinMultiplatform)
-  alias(libs.plugins.spm4kmp)
-}
-
-kotlin {
-  listOf(
-    iosX64(),
-    iosArm64(),
-    iosSimulatorArm64()
-  ).forEach { iosTarget ->
-    iosTarget.compilations {
-      val main by getting {
-        cinterops.create("nativeIosShared") // should match name in smp config
-      }
-    }
-    iosTarget.binaries.framework {
-      baseName = "ComposeApp"
-      isStatic = true
-    }
-  }
-}
-
 swiftPackageConfig {
-  create("nativeIosShared") {
-    @OptIn(ExperimentalSpmForKmpFeature::class)
-    copyDependenciesToApp = true
+  create("[cinteropName]") {
     dependency {
       remotePackageVersion(
         url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
