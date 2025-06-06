@@ -68,7 +68,7 @@ cocoapods {
 }
 ```
 
-Alternatively you can use the [SPM for KMP plugin][smp4kmp]:
+Alternatively you can use the [SPM for KMP plugin][spm4kmp]:
 
 !!! warning
 
