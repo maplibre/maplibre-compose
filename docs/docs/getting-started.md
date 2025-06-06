@@ -68,6 +68,51 @@ cocoapods {
 }
 ```
 
+Alternatively you can use the [SMP for KMP plugin][smp4kmp]:
+
+!!! warning
+
+    According to the author of the plugin this functionality should be considered experimental.
+
+```kotlin title="build.gradle.kts"
+plugins {
+  alias(libs.plugins.kotlinMultiplatform)
+  alias(libs.plugins.spm4kmp)
+}
+
+kotlin {
+  listOf(
+    iosX64(),
+    iosArm64(),
+    iosSimulatorArm64()
+  ).forEach { iosTarget ->
+    iosTarget.compilations {
+      val main by getting {
+        cinterops.create("nativeIosShared") // should match name in smp config
+      }
+    }
+    iosTarget.binaries.framework {
+      baseName = "ComposeApp"
+      isStatic = true
+    }
+  }
+}
+
+swiftPackageConfig {
+  create("nativeIosShared") {
+    @OptIn(ExperimentalSpmForKmpFeature::class)
+    copyDependenciesToApp = true
+    dependency {
+      remotePackageVersion(
+        url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
+        products = { add("MapLibre") },
+        version = "{{ gradle.maplibre_ios_version }}",
+      )
+    }
+  }
+}
+```
+
 ## Set up Vulkan on Android (Optional)
 
 !!! warning
@@ -180,13 +225,14 @@ to get a detailed map with all the features you'd expect, proceed to
 [Styling](./styling.md).
 
 [compose-guide]:
-  https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
+https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
 [maven]: https://central.sonatype.com/namespace/dev.sargunv.maplibre-compose
 [gh-packages]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
+https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
 [gh-packages-guide]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
+https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
 [kotlin-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
+[smp4kmp]: https://frankois944.github.io/spm4Kmp/setup/
 [repo]: https://github.com/maplibre/maplibre-compose
 [demotiles]: https://demotiles.maplibre.org/
 [kcef]: https://github.com/DatL4g/KCEF
