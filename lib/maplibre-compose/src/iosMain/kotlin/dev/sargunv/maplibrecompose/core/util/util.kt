@@ -133,6 +133,14 @@ internal fun GeoJson.toMLNShape(): MLNShape {
   )!!
 }
 
+internal fun String.toMLNShape(): MLNShape {
+  return MLNShape.shapeWithData(
+    data = encodeToByteArray().toNSData(),
+    encoding = NSUTF8StringEncoding,
+    error = null,
+  )!!
+}
+
 internal fun CompiledExpression<*>.toNSExpression(): NSExpression =
   if (this == NullLiteral) NSExpression.expressionForConstantValue(null)
   else NSExpression.expressionWithMLNJSONObject(normalizeJsonLike(false)!!)

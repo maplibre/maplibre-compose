@@ -12,6 +12,7 @@ import dev.sargunv.maplibrecompose.compose.layer.CircleLayer
 import dev.sargunv.maplibrecompose.compose.layer.LineLayer
 import dev.sargunv.maplibrecompose.compose.source.getBaseSource
 import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
+import dev.sargunv.maplibrecompose.core.source.GeoJsonData
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.expressions.dsl.const
 import dev.sargunv.maplibrecompose.expressions.dsl.exponential
@@ -35,14 +36,14 @@ fun Layers() {
     val amtrakStations =
       rememberGeoJsonSource(
         id = "amtrak-stations",
-        uri = Res.getUri("files/data/amtrak_stations.geojson"),
+        data = GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")),
       )
 
     // -8<- [start:amtrak-1]
     val amtrakRoutes =
       rememberGeoJsonSource(
         id = "amtrak-routes",
-        uri = Res.getUri("files/data/amtrak_routes.geojson"),
+        data = GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")),
       )
     LineLayer(
       id = "amtrak-routes-casing",

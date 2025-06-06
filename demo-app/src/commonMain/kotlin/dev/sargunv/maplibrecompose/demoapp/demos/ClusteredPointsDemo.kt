@@ -2,14 +2,17 @@ package dev.sargunv.maplibrecompose.demoapp.demos
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -21,6 +24,7 @@ import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
 import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
 import dev.sargunv.maplibrecompose.core.CameraPosition
+import dev.sargunv.maplibrecompose.core.source.GeoJsonData
 import dev.sargunv.maplibrecompose.core.source.GeoJsonOptions
 import dev.sargunv.maplibrecompose.demoapp.DEFAULT_STYLE
 import dev.sargunv.maplibrecompose.demoapp.Demo
@@ -34,13 +38,14 @@ import dev.sargunv.maplibrecompose.expressions.dsl.const
 import dev.sargunv.maplibrecompose.expressions.dsl.feature
 import dev.sargunv.maplibrecompose.expressions.dsl.not
 import dev.sargunv.maplibrecompose.expressions.dsl.offset
-import dev.sargunv.maplibrecompose.expressions.dsl.plus
 import dev.sargunv.maplibrecompose.expressions.dsl.step
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.FeatureCollection
 import io.github.dellisd.spatialk.geojson.Point
 import io.github.dellisd.spatialk.geojson.Position
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
@@ -66,6 +71,7 @@ object ClusteredPointsDemo : Demo {
       val cameraState =
         rememberCameraState(firstPosition = CameraPosition(target = SEATTLE, zoom = 10.0))
       val styleState = rememberStyleState()
+      val isLoading = remember { mutableStateOf(true) }
 
       val coroutineScope = rememberCoroutineScope()
 
@@ -76,12 +82,12 @@ object ClusteredPointsDemo : Demo {
           styleState = styleState,
           ornamentSettings = DemoOrnamentSettings(),
         ) {
-          val gbfsData by rememberGbfsFeatureState(GBFS_FILE)
+          val gbfsData by rememberGbfsFeatureState(GBFS_FILE, isLoading)
 
           val bikeSource =
             rememberGeoJsonSource(
               "bikes",
-              gbfsData,
+              GeoJsonData.JsonString(gbfsData),
               GeoJsonOptions(
                 cluster = true,
                 clusterRadius = 32,
@@ -162,23 +168,33 @@ object ClusteredPointsDemo : Demo {
           )
         }
         DemoMapControls(cameraState, styleState)
+        if (isLoading.value) {
+          CircularProgressIndicator(Modifier.align(Alignment.Center))
+        }
       }
     }
   }
 }
 
 @Composable
-private fun rememberGbfsFeatureState(gbfsFilePath: String): State<FeatureCollection> {
-  val dataState = remember { mutableStateOf(FeatureCollection()) }
+private fun rememberGbfsFeatureState(
+  gbfsFilePath: String,
+  isLoading: MutableState<Boolean>,
+): State<String> {
+  val dataState = remember { mutableStateOf(FeatureCollection().json()) }
   LaunchedEffect(gbfsFilePath) {
-    val response = readGbfsData(gbfsFilePath)
-    dataState.value = response
+    withContext(Dispatchers.Default) {
+      isLoading.value = true
+      val response = readGbfsData(gbfsFilePath)
+      dataState.value = response
+      isLoading.value = false
+    }
   }
   return dataState
 }
 
 @OptIn(ExperimentalResourceApi::class)
-private suspend fun readGbfsData(gbfsFilePath: String): FeatureCollection {
+private suspend fun readGbfsData(gbfsFilePath: String): String {
   val bodyString = Res.readBytes(gbfsFilePath).decodeToString()
   val body = Json.parseToJsonElement(bodyString).jsonObject
   val bikes = body["data"]!!.jsonObject["bikes"]!!.jsonArray.map { it.jsonObject }
@@ -204,5 +220,5 @@ private suspend fun readGbfsData(gbfsFilePath: String): FeatureCollection {
           ),
       )
     }
-  return FeatureCollection(features)
+  return FeatureCollection(features).json()
 }

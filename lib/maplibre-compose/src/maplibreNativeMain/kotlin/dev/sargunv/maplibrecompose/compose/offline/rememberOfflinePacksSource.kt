@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.compose.offline
 
 import androidx.compose.runtime.Composable
 import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
+import dev.sargunv.maplibrecompose.core.source.GeoJsonData
 import dev.sargunv.maplibrecompose.core.source.GeoJsonOptions
 import dev.sargunv.maplibrecompose.core.source.Source
 import io.github.dellisd.spatialk.geojson.BoundingBox
@@ -32,14 +33,16 @@ public fun rememberOfflinePacksSource(
     id = id,
     options = options,
     data =
-      featureCollection {
-        offlinePacks.forEach { pack ->
-          feature(pack.definition.geometry) {
-            putDownloadProgressProperties(pack.downloadProgress)
-            putExtraProperties(pack)
+      GeoJsonData.Features(
+        featureCollection {
+          offlinePacks.forEach { pack ->
+            feature(pack.definition.geometry) {
+              putDownloadProgressProperties(pack.downloadProgress)
+              putExtraProperties(pack)
+            }
           }
         }
-      },
+      ),
   )
 }
 
