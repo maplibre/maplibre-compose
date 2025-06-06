@@ -203,7 +203,7 @@ to get a detailed map with all the features you'd expect, proceed to
 [gh-packages-guide]:
   https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
 [kotlin-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
-[spm4kmp]: https://frankois944.github.io/spm4Kmp/setup/
+[spm4kmp]: https://frankois944.github.io/spm4Kmp/
 [repo]: https://github.com/maplibre/maplibre-compose
 [demotiles]: https://demotiles.maplibre.org/
 [kcef]: https://github.com/DatL4g/KCEF
