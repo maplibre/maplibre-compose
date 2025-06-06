@@ -66,7 +66,7 @@ two Gradle plugins:
 
 ### Cocoapods
 
-!!! warning
+!!! info
 
     CocoaPods will stop receiving new versions of packages in late 2026. See the [official announcement][cocoapods-support].
 
@@ -84,7 +84,7 @@ Follow the [official setup documentation][gradle-spm4kmp], and add the below to 
 
 ```kotlin title="build.gradle.kts"
 swiftPackageConfig {
-  create("[cinteropName]") { // must match with cinterops.create name
+  create("[cinteropName]") { // (1)!
     dependency {
       remotePackageVersion(
         url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
@@ -95,6 +95,8 @@ swiftPackageConfig {
   }
 }
 ```
+
+1. This name must match with `cinterops.create` name.
 
 ## Set up Vulkan on Android (Optional)
 
@@ -118,8 +120,7 @@ Vulkan build to your Android dependencies:
 
 ```kotlin title="build.gradle.kts"
 commonMain.dependencies {
-  // Note the .get().toString()! This is needed to work around a limitation in the Kotlin Gradle plugin.
-  implementation(libs.maplibre.compose.get().toString()) {
+  implementation(libs.maplibre.compose.get().toString()) { // (1)!
     exclude(group = "org.maplibre.gl", module = "android-sdk")
   }
 }
@@ -128,6 +129,8 @@ androidMain.dependencies {
   implementation(libs.maplibre.android.vulkan)
 }
 ```
+
+1. The `.get().toString()` is needed to work around a limitation in the Kotlin Gradle plugin.
 
 ## Set up Web (JS)
 
