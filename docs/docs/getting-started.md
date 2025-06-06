@@ -58,9 +58,19 @@ commonMain.dependencies {
 
 ## Set up iOS
 
-For iOS, you'll additionally need to add the MapLibre framework to your build.
-The easiest way to do this in Kotlin Multiplatform is with the [CocoaPods Gradle
-plugin][kotlin-cocoapods]:
+For iOS, you'll additionally need to add the MapLibre framework to your build. The easiest way is to select one of these
+two Gradle plugins:
+
+* JetBrains's [CocoaPods plugin][gradle-cocoapods]
+* Third party [Swift Package Manager plugin][gradle-spm4kmp]
+
+### Cocoapods
+
+!!! warning
+
+    CocoaPods will stop receiving new versions of packages in late 2026. See the [official announcement][cocoapods-support].
+
+Follow the [official setup documentation][gradle-cocoapods], and add the below to include MapLibre in your build:
 
 ```kotlin title="build.gradle.kts"
 cocoapods {
@@ -68,11 +78,13 @@ cocoapods {
 }
 ```
 
-Alternatively you can use the [SPM for KMP plugin][spm4kmp]:
+### Swift Package Manager
+
+Follow the [official setup documentation][gradle-spm4kmp], and add the below to include MapLibre in your build:
 
 ```kotlin title="build.gradle.kts"
 swiftPackageConfig {
-  create("[cinteropName]") {
+  create("[cinteropName]") { // must match with cinterops.create name
     dependency {
       remotePackageVersion(
         url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
@@ -129,13 +141,13 @@ easiest way to do this is via the CDN:
 ```html title="index.html"
 <!doctype html>
 <html lang="en">
-  <head>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/maplibre-gl@{{ gradle.maplibre_js_version }}/dist/maplibre-gl.css"
-    />
-    <title>Example Map</title>
-  </head>
+<head>
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/maplibre-gl@{{ gradle.maplibre_js_version }}/dist/maplibre-gl.css"
+  />
+  <title>Example Map</title>
+</head>
 </html>
 ```
 
@@ -180,7 +192,7 @@ Wrap your app with `KcefProvider` to download KCEF on first lanch, and
 is running in:
 
 ```kotlin title="Main.kt"
--8 < -"demo-app/src/desktopMain/kotlin/dev/sargunv/maplibrecompose/demoapp/Main.kt:main"
+-8<- "demo-app/src/desktopMain/kotlin/dev/sargunv/maplibrecompose/demoapp/Main.kt:main"
 ```
 
 ## Display your first map
@@ -188,7 +200,7 @@ is running in:
 In your Composable UI, add a map:
 
 ```kotlin title="App.kt"
--8 < -"demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/demoapp/docs/GettingStarted.kt:app"
+-8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/demoapp/docs/GettingStarted.kt:app"
 ```
 
 When you run your app, you should see the default [demotiles] map. To learn how
@@ -196,14 +208,24 @@ to get a detailed map with all the features you'd expect, proceed to
 [Styling](./styling.md).
 
 [compose-guide]:
-  https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
+https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
+
 [maven]: https://central.sonatype.com/namespace/dev.sargunv.maplibre-compose
+
 [gh-packages]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
+https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
+
 [gh-packages-guide]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
-[kotlin-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
-[spm4kmp]: https://frankois944.github.io/spm4Kmp/
+https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
+
+[gradle-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
+
+[gradle-spm4kmp]: https://frankois944.github.io/spm4Kmp/
+
+[cocoapods-support]: https://blog.cocoapods.org/CocoaPods-Support-Plans/
+
 [repo]: https://github.com/maplibre/maplibre-compose
+
 [demotiles]: https://demotiles.maplibre.org/
+
 [kcef]: https://github.com/DatL4g/KCEF
