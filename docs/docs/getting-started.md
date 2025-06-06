@@ -68,7 +68,7 @@ cocoapods {
 }
 ```
 
-Alternatively you can use the [SMP for KMP plugin][smp4kmp]:
+Alternatively you can use the [SPM for KMP plugin][smp4kmp]:
 
 !!! warning
 
@@ -232,7 +232,7 @@ to get a detailed map with all the features you'd expect, proceed to
 [gh-packages-guide]:
   https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
 [kotlin-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
-[smp4kmp]: https://frankois944.github.io/spm4Kmp/setup/
+[spm4kmp]: https://frankois944.github.io/spm4Kmp/setup/
 [repo]: https://github.com/maplibre/maplibre-compose
 [demotiles]: https://demotiles.maplibre.org/
 [kcef]: https://github.com/DatL4g/KCEF
