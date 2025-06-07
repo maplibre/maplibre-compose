@@ -98,6 +98,135 @@ public external class Map public constructor(options: MapOptions) {
   ): Array<Any>
 
   public fun getBounds(): LngLatBounds
+
+  public fun addLayer(layer: LayerSpecification, beforeId: String? = definedExternally)
+
+  public fun removeLayer(id: String)
+
+  public fun getLayer(id: String): StyleLayer?
+
+  public fun getLayersOrder(): Array<String>
+
+  public fun addSource(id: String, source: SourceSpecification)
+
+  public fun removeSource(id: String)
+
+  public fun getSource(id: String): Source?
+
+  public fun setLayoutProperty(layerId: String, name: String, value: Expression)
+
+  public fun setPaintProperty(layerId: String, name: String, value: Expression)
+
+  public fun setFilter(layerId: String, filter: Expression)
+}
+
+/** [Source](https://maplibre.org/maplibre-gl-js/docs/API/interfaces/Source/) */
+public sealed external interface Source {
+  public val type: String
+
+  public val id: String
+
+  public var minzoom: Number
+  public var maxzoom: Number
+  public var tileSize: Number
+  public var attribution: String?
+}
+
+/** https://maplibre.org/maplibre-style-spec/sources/ */
+public sealed external interface SourceSpecification {
+  public var type: String
+}
+
+public sealed external interface VectorSourceSpecification : SourceSpecification {
+  public var url: String?
+  public var tiles: Array<String>?
+  public var bounds: Array<Double>?
+  public var scheme: String?
+  public var minzoom: Int?
+  public var maxzoom: Int?
+  public var attribution: String?
+  public var promoteId: dynamic // string or object
+  public var volatile: Boolean?
+}
+
+public sealed external interface RasterSourceSpecification : SourceSpecification {
+  public var url: String?
+  public var tiles: Array<String>?
+  public var bounds: Array<Double>?
+  public var minzoom: Int?
+  public var maxzoom: Int?
+  public var tileSize: Int?
+  public var scheme: String?
+  public var attribution: String?
+  public var volatile: Boolean?
+}
+
+public sealed external interface GeoJsonSourceSpecification : SourceSpecification {
+  public var data: dynamic // string url or geojson object
+  public var maxzoom: Int?
+  public var attribution: String?
+  public var buffer: Int?
+  public var filter: Expression?
+  public var tolerance: Double?
+  public var cluster: Boolean?
+  public var clusterRadius: Int?
+  public var clusterMaxZoom: Int?
+  public var clusterMinPoints: Int?
+  public var clusterProperties: dynamic
+  public var lineMetrics: Boolean?
+  public var generateId: Boolean?
+  public var progression: dynamic // string or object
+  public var volatile: Boolean?
+}
+
+/** [StyleLayer](https://maplibre.org/maplibre-gl-js/docs/API/classes/StyleLayer/) */
+public sealed external class StyleLayer {
+  public val id: String
+  public val type: String
+  public var source: String
+  public var sourceLayer: String?
+  public var minzoom: Int?
+  public var maxzoom: Int?
+  public var filter: Expression?
+  public var visibility: String?
+
+  public fun getLayoutProperty(key: String): dynamic
+
+  public fun setLayoutProperty(key: String, value: dynamic)
+
+  public fun getPaintProperty(key: String): dynamic
+
+  public fun setPaintProperty(key: String, value: dynamic)
+}
+
+public external class FillStyleLayer private constructor() : StyleLayer
+
+public external class BackgroundStyleLayer private constructor() : StyleLayer
+
+public external class CircleStyleLayer private constructor() : StyleLayer
+
+public external class FillExtrusionStyleLayer private constructor() : StyleLayer
+
+public external class HeatmapStyleLayer private constructor() : StyleLayer
+
+public external class HillshadeStyleLayer private constructor() : StyleLayer
+
+public external class LineStyleLayer private constructor() : StyleLayer
+
+public external class RasterStyleLayer private constructor() : StyleLayer
+
+public external class SymbolStyleLayer private constructor() : StyleLayer
+
+public external interface LayerSpecification {
+  public var id: String?
+  public var source: String?
+  public var sourceLayer: String?
+  public var type: String?
+  public var minzoom: Int?
+  public var maxzoom: Int?
+  public var filter: Expression?
+  public var layout: dynamic
+  public var paint: dynamic
 }
 
 /**
