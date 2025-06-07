@@ -59,7 +59,7 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
     )
   }
 
-  override suspend fun asyngSetMaximumFps(maximumFps: Int) {
+  override suspend fun asyncSetMaximumFps(maximumFps: Int) {
     // Not supported on web
   }
 

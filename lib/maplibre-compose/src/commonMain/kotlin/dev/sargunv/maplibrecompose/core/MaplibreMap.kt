@@ -41,7 +41,7 @@ internal interface MaplibreMap {
 
   suspend fun asyncGetVisibleRegion(): VisibleRegion
 
-  suspend fun asyngSetMaximumFps(maximumFps: Int)
+  suspend fun asyncSetMaximumFps(maximumFps: Int)
 
   suspend fun asyncSetOrnamentSettings(value: OrnamentSettings)
 
@@ -106,7 +106,7 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   override suspend fun asyncGetVisibleRegion(): VisibleRegion = getVisibleRegion()
 
-  override suspend fun asyngSetMaximumFps(maximumFps: Int) = setMaximumFps(maximumFps)
+  override suspend fun asyncSetMaximumFps(maximumFps: Int) = setMaximumFps(maximumFps)
 
   override suspend fun asyncSetOrnamentSettings(value: OrnamentSettings) =
     setOrnamentSettings(value)
