@@ -9,8 +9,9 @@ class NumberFormatterTest {
   val fr = Locale("fr-FR")
   val de = Locale("de-DE")
   val ar = Locale("ar-SA")
-  
-  @Test fun format() {
+
+  @Test
+  fun format() {
     assertEquals("1", NumberFormatter(en).format(1.0))
     assertEquals("1.5", NumberFormatter(en).format(1.5))
     assertEquals("1,5", NumberFormatter(fr).format(1.5))

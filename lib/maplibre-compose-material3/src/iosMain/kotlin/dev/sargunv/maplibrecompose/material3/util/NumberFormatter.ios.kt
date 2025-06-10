@@ -5,13 +5,14 @@ import platform.Foundation.NSNumber
 import platform.Foundation.NSNumberFormatter
 import platform.Foundation.NSNumberFormatterDecimalStyle
 
-private class NumberFormatterIos(locale: Locale, maximumFractionDigits: Int): NumberFormatter {
+private class NumberFormatterIos(locale: Locale, maximumFractionDigits: Int) : NumberFormatter {
 
-  private val format = NSNumberFormatter().also {
-    it.numberStyle = NSNumberFormatterDecimalStyle
-    it.maximumFractionDigits = maximumFractionDigits.toULong()
-    it.locale = locale.platformLocale
-  }
+  private val format =
+    NSNumberFormatter().also {
+      it.numberStyle = NSNumberFormatterDecimalStyle
+      it.maximumFractionDigits = maximumFractionDigits.toULong()
+      it.locale = locale.platformLocale
+    }
 
   override fun format(value: Number): String =
     format.stringFromNumber(value as NSNumber) ?: value.toString()

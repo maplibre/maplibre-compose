@@ -10,5 +10,5 @@ internal interface NumberFormatter {
 /** Create a new [NumberFormatter] instance with the given [locale] */
 internal expect fun NumberFormatter(
   locale: Locale,
-  maximumFractionDigits: Int = Int.MAX_VALUE
+  maximumFractionDigits: Int = Int.MAX_VALUE,
 ): NumberFormatter
