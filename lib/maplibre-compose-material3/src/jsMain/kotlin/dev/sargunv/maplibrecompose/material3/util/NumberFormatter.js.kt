@@ -10,7 +10,11 @@ actual constructor(locale: Locale, maximumFractionDigits: Int) {
   private val format =
     NumberFormat(
       locales = locale.toLanguageTag(),
-      options = NumberFormatOptions(maximumFractionDigits = maximumFractionDigits.coerceAtMost(20)),
+      options =
+        NumberFormatOptions(
+          // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Intl/NumberFormat/NumberFormat#maximumfractiondigits
+          maximumFractionDigits = maximumFractionDigits.coerceAtMost(100)
+        ),
     )
 
   actual fun format(value: Number): String = format.format(value)
