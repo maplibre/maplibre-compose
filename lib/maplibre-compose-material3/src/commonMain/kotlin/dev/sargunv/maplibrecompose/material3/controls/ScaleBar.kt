@@ -16,14 +16,17 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
+import dev.sargunv.maplibrecompose.material3.util.NumberFormatter
 import dev.sargunv.maplibrecompose.material3.util.backgroundColorFor
 import dev.sargunv.maplibrecompose.material3.util.defaultScaleBarMeasures
 import dev.sargunv.maplibrecompose.material3.util.drawPathsWithHalo
 import dev.sargunv.maplibrecompose.material3.util.drawTextWithHalo
+import io.github.kevincianfarini.alchemist.scalar.kilometers
 import io.github.kevincianfarini.alchemist.scalar.meters
 import io.github.kevincianfarini.alchemist.type.Length
 import io.github.kevincianfarini.alchemist.unit.LengthUnit
@@ -71,8 +74,11 @@ public fun ScaleBar(
 
   val textMeasurer = rememberTextMeasurer()
   // longest possible text
-  val maxTextSizePx =
-    remember(textMeasurer, textStyle) { textMeasurer.measure("5 000 km", textStyle).size }
+  measures.primary.getText(50000.kilometers)
+  val maxTextSizePx = remember(textMeasurer, textStyle, Locale.current) {
+    val formatter = NumberFormatter(Locale.current)
+    textMeasurer.measure("${formatter.format(50000)} km", textStyle).size
+  }
   val maxTextSize = with(LocalDensity.current) { maxTextSizePx.toSize().toDpSize() }
 
   // padding of text to bar stroke
