@@ -19,7 +19,7 @@ class NumberFormatterTest {
 
     assertEquals("1,000,000", NumberFormatter(en).format(1_000_000))
     // oh well, implementations may differ on what kind of whitespace is used
-    //assertEquals("1 000 000", NumberFormatter(fr).format(1_000_000))
+    // assertEquals("1 000 000", NumberFormatter(fr).format(1_000_000))
     assertEquals("1.000.000", NumberFormatter(de).format(1_000_000))
     assertEquals("١٬٠٠٠٬٠٠٠", NumberFormatter(ar).format(1_000_000))
   }
