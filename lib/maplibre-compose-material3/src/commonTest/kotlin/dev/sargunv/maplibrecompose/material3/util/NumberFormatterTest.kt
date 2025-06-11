@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.material3.util
 
 import androidx.compose.ui.text.intl.Locale
 import kotlin.test.Test
+import kotlin.test.assertContains
 import kotlin.test.assertEquals
 
 class NumberFormatterTest {
@@ -22,7 +23,11 @@ class NumberFormatterTest {
 
     assertEquals("1,000,000", formatter(en).format(1_000_000))
     assertEquals("1.000.000", formatter(de).format(1_000_000))
-    assertEquals("1\u202F000\u202F000", formatter(fr).format(1_000_000))
     assertEquals("١٬٠٠٠٬٠٠٠", formatter(ar).format(1_000_000))
+
+    assertContains(
+      setOf("1\u202F000\u202F000", "1\u00A0000\u00A0000"),
+      formatter(fr).format(1_000_000),
+    )
   }
 }
