@@ -21,12 +21,11 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.toSize
-import dev.sargunv.maplibrecompose.material3.util.NumberFormatter
 import dev.sargunv.maplibrecompose.material3.util.backgroundColorFor
 import dev.sargunv.maplibrecompose.material3.util.defaultScaleBarMeasures
 import dev.sargunv.maplibrecompose.material3.util.drawPathsWithHalo
 import dev.sargunv.maplibrecompose.material3.util.drawTextWithHalo
-import io.github.kevincianfarini.alchemist.scalar.kilometers
+import dev.sargunv.maplibrecompose.material3.util.rememberNumberFormatter
 import io.github.kevincianfarini.alchemist.scalar.meters
 import io.github.kevincianfarini.alchemist.type.Length
 import io.github.kevincianfarini.alchemist.unit.LengthUnit
@@ -73,12 +72,12 @@ public fun ScaleBar(
   if (metersPerDp == 0.0) return
 
   val textMeasurer = rememberTextMeasurer()
+
   // longest possible text
-  measures.primary.getText(50000.kilometers)
+  val formatter = rememberNumberFormatter(Locale.current)
   val maxTextSizePx =
-    remember(textMeasurer, textStyle, Locale.current) {
-      val formatter = NumberFormatter(Locale.current)
-      textMeasurer.measure("${formatter.format(50000)} km", textStyle).size
+    remember(textMeasurer, textStyle, formatter) {
+      textMeasurer.measure("${formatter.format(50000)}\u202Fkm", textStyle).size
     }
   val maxTextSize = with(LocalDensity.current) { maxTextSizePx.toSize().toDpSize() }
 

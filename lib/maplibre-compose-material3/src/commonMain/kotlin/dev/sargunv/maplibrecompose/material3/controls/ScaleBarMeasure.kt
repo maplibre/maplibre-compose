@@ -1,7 +1,6 @@
 package dev.sargunv.maplibrecompose.material3.controls
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.text.intl.Locale
 import dev.sargunv.maplibrecompose.material3.generated.Res
 import dev.sargunv.maplibrecompose.material3.generated.feet_symbol
@@ -9,7 +8,7 @@ import dev.sargunv.maplibrecompose.material3.generated.kilometers_symbol
 import dev.sargunv.maplibrecompose.material3.generated.meters_symbol
 import dev.sargunv.maplibrecompose.material3.generated.miles_symbol
 import dev.sargunv.maplibrecompose.material3.generated.yards_symbol
-import dev.sargunv.maplibrecompose.material3.util.NumberFormatter
+import dev.sargunv.maplibrecompose.material3.util.rememberNumberFormatter
 import io.github.kevincianfarini.alchemist.scalar.centimeters
 import io.github.kevincianfarini.alchemist.scalar.kilometers
 import io.github.kevincianfarini.alchemist.scalar.toLength
@@ -97,7 +96,7 @@ public interface ScaleBarMeasure {
     /** Get the formatted text to show for a given generated stop and length. */
     @Composable
     protected open fun getText(stop: Double, unit: LengthUnit): String {
-      val formatter = remember(Locale.current) { NumberFormatter(Locale.current) }
+      val formatter = rememberNumberFormatter(Locale.current)
       return "${formatter.format(stop)}\u202F${unit.symbol}"
     }
   }
@@ -105,7 +104,7 @@ public interface ScaleBarMeasure {
   public data object Metric : Default(Meter, Kilometer) {
     @Composable
     override fun getText(stop: Double, unit: LengthUnit): String {
-      val formatter = remember(Locale.current) { NumberFormatter(Locale.current) }
+      val formatter = rememberNumberFormatter(Locale.current)
       val symbol =
         when (unit) {
           Meter -> stringResource(Res.string.meters_symbol)
@@ -119,7 +118,7 @@ public interface ScaleBarMeasure {
   public data object FeetAndMiles : Default(Foot, Mile) {
     @Composable
     override fun getText(stop: Double, unit: LengthUnit): String {
-      val formatter = remember(Locale.current) { NumberFormatter(Locale.current) }
+      val formatter = rememberNumberFormatter(Locale.current)
       val symbol =
         when (unit) {
           Foot -> stringResource(Res.string.feet_symbol)
@@ -133,7 +132,7 @@ public interface ScaleBarMeasure {
   public data object YardsAndMiles : Default(Yard, Mile) {
     @Composable
     override fun getText(stop: Double, unit: LengthUnit): String {
-      val formatter = remember(Locale.current) { NumberFormatter(Locale.current) }
+      val formatter = rememberNumberFormatter(Locale.current)
       val symbol =
         when (unit) {
           Yard -> stringResource(Res.string.yards_symbol)

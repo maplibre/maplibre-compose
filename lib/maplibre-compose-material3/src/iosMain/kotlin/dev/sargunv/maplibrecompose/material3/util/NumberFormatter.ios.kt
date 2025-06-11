@@ -5,7 +5,8 @@ import platform.Foundation.NSNumber
 import platform.Foundation.NSNumberFormatter
 import platform.Foundation.NSNumberFormatterDecimalStyle
 
-private class NumberFormatterIos(locale: Locale, maximumFractionDigits: Int) : NumberFormatter {
+internal actual class NumberFormatter
+actual constructor(locale: Locale, maximumFractionDigits: Int) {
 
   private val format =
     NSNumberFormatter().also {
@@ -14,9 +15,6 @@ private class NumberFormatterIos(locale: Locale, maximumFractionDigits: Int) : N
       it.locale = locale.platformLocale
     }
 
-  override fun format(value: Number): String =
+  actual fun format(value: Number): String =
     format.stringFromNumber(value as NSNumber) ?: value.toString()
 }
-
-internal actual fun NumberFormatter(locale: Locale, maximumFractionDigits: Int): NumberFormatter =
-  NumberFormatterIos(locale, maximumFractionDigits)

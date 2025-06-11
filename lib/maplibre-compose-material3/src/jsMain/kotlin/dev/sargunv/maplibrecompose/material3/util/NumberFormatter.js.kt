@@ -2,7 +2,8 @@ package dev.sargunv.maplibrecompose.material3.util
 
 import androidx.compose.ui.text.intl.Locale
 
-private class NumberFormatterJs(locale: Locale, maximumFractionDigits: Int) : NumberFormatter {
+internal actual class NumberFormatter
+actual constructor(locale: Locale, maximumFractionDigits: Int) {
 
   val format =
     NumberFormat(
@@ -10,8 +11,5 @@ private class NumberFormatterJs(locale: Locale, maximumFractionDigits: Int) : Nu
       numberFormatOptions = NumberFormatOptions(maximumFractionDigits = maximumFractionDigits),
     )
 
-  override fun format(value: Number): String = format.format(value)
+  actual fun format(value: Number): String = format.format(value)
 }
-
-internal actual fun NumberFormatter(locale: Locale, maximumFractionDigits: Int): NumberFormatter =
-  NumberFormatterJs(locale, maximumFractionDigits)
