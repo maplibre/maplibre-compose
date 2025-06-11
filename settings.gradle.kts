@@ -31,12 +31,6 @@ dependencyResolutionManagement {
     // https://kevinnzou.github.io/compose-webview-multiplatform/installation/
     maven("https://jogamp.org/deployment/maven")
   }
-
-  versionCatalogs {
-    create("kotlinJsWrappers") {
-      from("org.jetbrains.kotlin-wrappers:kotlin-wrappers-catalog:2025.6.4")
-    }
-  }
 }
 
 plugins { id("org.gradle.toolchains.foojay-resolver-convention") version ("0.10.0") }
