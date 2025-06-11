@@ -1,0 +1,5 @@
+<resources>
+  <string name="meters_symbol">м</string>
+  <string name="kilometers_symbol">км</string>
+  <string name="compass">قطب نما</string>
+</resources>

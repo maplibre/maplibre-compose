@@ -1,4 +1,5 @@
 <resources>
   <string name="meters_symbol">მ</string>
   <string name="kilometers_symbol">კმ</string>
+  <string name="compass">კომპასი</string>
 </resources>
