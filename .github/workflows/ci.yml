@@ -3,7 +3,7 @@ name: "CI"
 
 on:
   push:
-    branches: ["main"]
+    branches: [ "main" ]
   pull_request:
   workflow_dispatch:
 
@@ -143,6 +143,8 @@ jobs:
       - "lint-android"
       - "test-android"
       - "test-ios"
+      - "test-desktop"
+      - "test-js"
       - "build-docs"
       - "build-android-app"
     runs-on: "ubuntu-latest"
