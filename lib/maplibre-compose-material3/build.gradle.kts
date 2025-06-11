@@ -60,6 +60,8 @@ kotlin {
 
     androidMain { dependsOn(maplibreNativeMain) }
 
+    jsMain.dependencies { implementation(kotlinJsWrappers.js) }
+
     commonTest.dependencies {
       implementation(kotlin("test"))
       implementation(kotlin("test-common"))
