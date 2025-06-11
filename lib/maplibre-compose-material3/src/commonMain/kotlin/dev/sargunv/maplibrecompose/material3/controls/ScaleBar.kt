@@ -75,10 +75,11 @@ public fun ScaleBar(
   val textMeasurer = rememberTextMeasurer()
   // longest possible text
   measures.primary.getText(50000.kilometers)
-  val maxTextSizePx = remember(textMeasurer, textStyle, Locale.current) {
-    val formatter = NumberFormatter(Locale.current)
-    textMeasurer.measure("${formatter.format(50000)} km", textStyle).size
-  }
+  val maxTextSizePx =
+    remember(textMeasurer, textStyle, Locale.current) {
+      val formatter = NumberFormatter(Locale.current)
+      textMeasurer.measure("${formatter.format(50000)} km", textStyle).size
+    }
   val maxTextSize = with(LocalDensity.current) { maxTextSizePx.toSize().toDpSize() }
 
   // padding of text to bar stroke
