@@ -49,7 +49,7 @@ kotlin {
       baseName = "DemoApp"
       isStatic = true
     }
-    it.compilations.getByName("main") { cinterops.create("spmMaplibre") }
+    it.configureSpmMaplibre(project)
   }
 
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }

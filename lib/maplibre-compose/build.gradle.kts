@@ -55,13 +55,13 @@ kotlin {
   listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach {
     it.compilations.getByName("main") {
       cinterops {
-        val spmMaplibre by creating {}
-        val observer by creating {
+        create("observer") {
           defFile(project.file("src/nativeInterop/cinterop/observer.def"))
           packageName("dev.sargunv.maplibrecompose.core.util")
         }
       }
     }
+    it.configureSpmMaplibre(project)
   }
 
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }

@@ -32,9 +32,7 @@ kotlin {
     publishLibraryVariants("release", "debug")
   }
 
-  listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach {
-    it.compilations.getByName("main") { cinterops.create("spmMaplibre") }
-  }
+  listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach { it.configureSpmMaplibre(project) }
 
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
 
