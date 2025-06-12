@@ -1,7 +1,6 @@
 @file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalSpmForKmpFeature::class)
 
 import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
-import java.net.URI
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -9,6 +8,7 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
   id("module-conventions")
+  id("spm-maplibre")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
   id(libs.plugins.android.application.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
@@ -39,20 +39,6 @@ android {
   @Suppress("UnstableApiUsage") testOptions { animationsDisabled = true }
 }
 
-swiftPackageConfig {
-  create("nativeIosShared") {
-    copyDependenciesToApp = true
-    dependency {
-      remotePackageVersion(
-        url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
-        products = { add("MapLibre", exportToKotlin = true) },
-        packageName = "maplibre-gl-native-distribution",
-        version = libs.versions.maplibre.ios.get(),
-      )
-    }
-  }
-}
-
 kotlin {
   androidTarget {
     compilerOptions { jvmTarget = project.getJvmTarget() }
@@ -64,7 +50,7 @@ kotlin {
       baseName = "DemoApp"
       isStatic = true
     }
-    it.compilations.getByName("main") { cinterops.create("nativeIosShared") }
+    it.compilations.getByName("main") { cinterops.create("spmMaplibre") }
   }
 
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
