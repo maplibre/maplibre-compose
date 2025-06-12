@@ -1,5 +1,7 @@
-@file:OptIn(ExperimentalKotlinGradlePluginApi::class)
+@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalSpmForKmpFeature::class)
 
+import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
+import java.net.URI
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -11,8 +13,8 @@ plugins {
   id(libs.plugins.android.application.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
-  id(libs.plugins.kotlin.cocoapods.get().pluginId)
   id(libs.plugins.kotlin.serialization.get().pluginId)
+  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 android {
@@ -37,33 +39,42 @@ android {
   @Suppress("UnstableApiUsage") testOptions { animationsDisabled = true }
 }
 
+swiftPackageConfig {
+  create("nativeIosShared") {
+    copyDependenciesToApp = true
+    dependency {
+      remotePackageVersion(
+        url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
+        products = { add("MapLibre", exportToKotlin = true) },
+        packageName = "maplibre-gl-native-distribution",
+        version = libs.versions.maplibre.ios.get(),
+      )
+    }
+  }
+}
+
 kotlin {
   androidTarget {
     compilerOptions { jvmTarget = project.getJvmTarget() }
     instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
   }
-  iosArm64()
-  iosSimulatorArm64()
-  iosX64()
+
+  listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach {
+    it.binaries.framework {
+      baseName = "DemoApp"
+      isStatic = true
+    }
+    it.compilations.getByName("main") { cinterops.create("nativeIosShared") }
+  }
+
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
+
   js(IR) {
     browser { commonWebpackConfig { outputFileName = "app.js" } }
     binaries.executable()
   }
 
   applyDefaultHierarchyTemplate()
-
-  cocoapods {
-    summary = "MapLibre Compose demo app"
-    homepage = "https://github.com/maplibre/maplibre-compose"
-    ios.deploymentTarget = "15.3" // TODO reduce this to same as library target?
-    podfile = project.file("../iosApp/Podfile")
-    framework {
-      baseName = "DemoApp"
-      version = "0.0.0" // not using real version here because it'll pollute the git diff
-    }
-    pod("MapLibre", libs.versions.maplibre.ios.get())
-  }
 
   compilerOptions {
     allWarningsAsErrors = false // TODO re-enable after Compose 1.8.1
