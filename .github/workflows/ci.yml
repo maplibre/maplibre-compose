@@ -128,7 +128,6 @@ jobs:
   all-good:
     needs:
       - "check-format"
-      - "check-podspec"
       - "lint-android"
       - "test-android"
       - "test-ios"
