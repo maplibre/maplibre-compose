@@ -27,17 +27,6 @@ jobs:
           cleanup: false
       - run: "git diff --exit-code"
 
-  check-podspec:
-    runs-on: "macos-latest"
-    steps:
-      - uses: "actions/checkout@v4"
-        with:
-          fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./gradlew podInstall"
-      - run: |
-          git diff -I '^COCOAPODS: [0-9]+\.[0-9]+\.[0-9]+$' --exit-code
-
   lint-android:
     runs-on: "ubuntu-latest"
     steps:

@@ -3,12 +3,11 @@
 ## Development
 
 Create a `local.properties` in the root of the project with paths to inform
-Gradle where to find the Android SDK and CocoaPods:
+Gradle where to find the Android SDK:
 
 ```properties
 # Replace the paths with the actual paths on your machine
 sdk.dir=/Users/username/Library/Android/sdk
-kotlin.apple.cocoapods.bin=/opt/homebrew/bin/pod
 ```
 
 Follow

@@ -81,6 +81,11 @@ cocoapods {
 
 ### Swift Package Manager
 
+!!! info
+
+    The [MapLibre Compose repository][repo] uses this plugin for development, so a working example of this configuration
+    can be found there.
+
 Follow the [official setup documentation][gradle-spm4kmp], and add the below to
 include MapLibre in your build:
 
@@ -214,15 +219,24 @@ to get a detailed map with all the features you'd expect, proceed to
 [Styling](./styling.md).
 
 [compose-guide]:
-  https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
+https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
+
 [maven]: https://central.sonatype.com/namespace/dev.sargunv.maplibre-compose
+
 [gh-packages]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
+https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
+
 [gh-packages-guide]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
+https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
+
 [gradle-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
+
 [gradle-spm4kmp]: https://frankois944.github.io/spm4Kmp/
+
 [cocoapods-support]: https://blog.cocoapods.org/CocoaPods-Support-Plans/
+
 [repo]: https://github.com/maplibre/maplibre-compose
+
 [demotiles]: https://demotiles.maplibre.org/
+
 [kcef]: https://github.com/DatL4g/KCEF
