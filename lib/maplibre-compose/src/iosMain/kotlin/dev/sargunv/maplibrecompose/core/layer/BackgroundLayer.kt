@@ -1,6 +1,6 @@
 package dev.sargunv.maplibrecompose.core.layer
 
-import cocoapods.MapLibre.MLNBackgroundStyleLayer
+import MapLibre.MLNBackgroundStyleLayer
 import dev.sargunv.maplibrecompose.core.util.toNSExpression
 import dev.sargunv.maplibrecompose.expressions.ast.CompiledExpression
 import dev.sargunv.maplibrecompose.expressions.ast.NullLiteral

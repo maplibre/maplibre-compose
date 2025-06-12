@@ -13,7 +13,6 @@ plugins {
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.mavenPublish.get().pluginId)
-  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 android { namespace = "dev.sargunv.maplibrecompose.material3" }

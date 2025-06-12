@@ -1,12 +1,12 @@
 package dev.sargunv.maplibrecompose.core
 
+import MapLibre.MLNRasterTileSource
+import MapLibre.MLNShapeSource
+import MapLibre.MLNSource
+import MapLibre.MLNStyle
+import MapLibre.MLNStyleLayer
+import MapLibre.MLNVectorTileSource
 import androidx.compose.ui.graphics.ImageBitmap
-import cocoapods.MapLibre.MLNRasterTileSource
-import cocoapods.MapLibre.MLNShapeSource
-import cocoapods.MapLibre.MLNSource
-import cocoapods.MapLibre.MLNStyle
-import cocoapods.MapLibre.MLNStyleLayer
-import cocoapods.MapLibre.MLNVectorTileSource
 import dev.sargunv.maplibrecompose.core.layer.Layer
 import dev.sargunv.maplibrecompose.core.layer.UnknownLayer
 import dev.sargunv.maplibrecompose.core.source.GeoJsonSource

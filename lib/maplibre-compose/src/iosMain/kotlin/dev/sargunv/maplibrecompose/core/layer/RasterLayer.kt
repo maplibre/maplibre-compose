@@ -1,6 +1,6 @@
 package dev.sargunv.maplibrecompose.core.layer
 
-import cocoapods.MapLibre.MLNRasterStyleLayer
+import MapLibre.MLNRasterStyleLayer
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.core.util.toNSExpression
 import dev.sargunv.maplibrecompose.expressions.ast.CompiledExpression

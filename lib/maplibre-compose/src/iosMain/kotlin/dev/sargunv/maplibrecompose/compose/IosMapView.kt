@@ -1,5 +1,6 @@
 package dev.sargunv.maplibrecompose.compose
 
+import MapLibre.MLNMapView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -18,7 +19,6 @@ import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import co.touchlab.kermit.Logger
-import cocoapods.MapLibre.MLNMapView
 import dev.sargunv.maplibrecompose.core.IosMap
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap

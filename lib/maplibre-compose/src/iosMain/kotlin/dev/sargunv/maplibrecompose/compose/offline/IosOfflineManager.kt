@@ -1,17 +1,17 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
+import MapLibre.MLNOfflinePack
+import MapLibre.MLNOfflinePackErrorNotification
+import MapLibre.MLNOfflinePackMaximumMapboxTilesReachedNotification
+import MapLibre.MLNOfflinePackProgressChangedNotification
+import MapLibre.MLNOfflinePackUserInfoKeyError
+import MapLibre.MLNOfflinePackUserInfoKeyMaximumCount
+import MapLibre.MLNOfflineStorage
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import cocoapods.MapLibre.MLNOfflinePack
-import cocoapods.MapLibre.MLNOfflinePackErrorNotification
-import cocoapods.MapLibre.MLNOfflinePackMaximumMapboxTilesReachedNotification
-import cocoapods.MapLibre.MLNOfflinePackProgressChangedNotification
-import cocoapods.MapLibre.MLNOfflinePackUserInfoKeyError
-import cocoapods.MapLibre.MLNOfflinePackUserInfoKeyMaximumCount
-import cocoapods.MapLibre.MLNOfflineStorage
 import dev.sargunv.maplibrecompose.core.util.KVObserverProtocol
 import dev.sargunv.maplibrecompose.core.util.toNSData
 import kotlin.coroutines.resume

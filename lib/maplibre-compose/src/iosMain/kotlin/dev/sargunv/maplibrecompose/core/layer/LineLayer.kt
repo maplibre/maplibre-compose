@@ -1,6 +1,6 @@
 package dev.sargunv.maplibrecompose.core.layer
 
-import cocoapods.MapLibre.MLNLineStyleLayer
+import MapLibre.MLNLineStyleLayer
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.core.util.toNSExpression
 import dev.sargunv.maplibrecompose.core.util.toNSPredicate

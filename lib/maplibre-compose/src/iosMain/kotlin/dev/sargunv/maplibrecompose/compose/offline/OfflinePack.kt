@@ -1,7 +1,7 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
+import MapLibre.MLNOfflinePack
 import androidx.compose.runtime.mutableStateOf
-import cocoapods.MapLibre.MLNOfflinePack
 import dev.sargunv.maplibrecompose.core.util.toByteArray
 import dev.sargunv.maplibrecompose.core.util.toNSData
 import kotlin.coroutines.resume

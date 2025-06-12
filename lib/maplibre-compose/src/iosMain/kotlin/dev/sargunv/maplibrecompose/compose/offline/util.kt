@@ -1,15 +1,15 @@
 package dev.sargunv.maplibrecompose.compose.offline
 
-import cocoapods.MapLibre.MLNOfflinePackProgress
-import cocoapods.MapLibre.MLNOfflinePackStateActive
-import cocoapods.MapLibre.MLNOfflinePackStateComplete
-import cocoapods.MapLibre.MLNOfflinePackStateInactive
-import cocoapods.MapLibre.MLNOfflinePackStateInvalid
-import cocoapods.MapLibre.MLNOfflinePackStateUnknown
-import cocoapods.MapLibre.MLNOfflineRegionProtocol
-import cocoapods.MapLibre.MLNShape
-import cocoapods.MapLibre.MLNShapeOfflineRegion
-import cocoapods.MapLibre.MLNTilePyramidOfflineRegion
+import MapLibre.MLNOfflinePackProgress
+import MapLibre.MLNOfflinePackStateActive
+import MapLibre.MLNOfflinePackStateComplete
+import MapLibre.MLNOfflinePackStateInactive
+import MapLibre.MLNOfflinePackStateInvalid
+import MapLibre.MLNOfflinePackStateUnknown
+import MapLibre.MLNOfflineRegionProtocol
+import MapLibre.MLNShape
+import MapLibre.MLNShapeOfflineRegion
+import MapLibre.MLNTilePyramidOfflineRegion
 import dev.sargunv.maplibrecompose.core.util.toBoundingBox
 import dev.sargunv.maplibrecompose.core.util.toByteArray
 import dev.sargunv.maplibrecompose.core.util.toMLNCoordinateBounds
