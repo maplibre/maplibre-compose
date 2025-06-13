@@ -20,7 +20,7 @@ import dev.sargunv.maplibrecompose.core.CameraPosition
 import dev.sargunv.maplibrecompose.demoapp.ALL_STYLES
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
-import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
+import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.getDefaultColorScheme
 import io.github.dellisd.spatialk.geojson.Position
@@ -47,7 +47,7 @@ object StyleSwitcherDemo : Demo {
               styleUri = ALL_STYLES[selectedIndex].uri,
               cameraState = cameraState,
               styleState = styleState,
-              ornamentSettings = DemoOrnamentSettings(),
+              options = DemoMapOptions(),
             )
             DemoMapControls(cameraState, styleState)
           }

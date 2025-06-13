@@ -12,7 +12,7 @@ import dev.sargunv.maplibrecompose.compose.source.rememberRasterSource
 import dev.sargunv.maplibrecompose.core.source.TileSetOptions
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
-import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
+import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.material3.controls.ScaleBarMeasure
@@ -37,7 +37,7 @@ object LocalTilesDemo : Demo {
             zoomRange = 0f..4f,
             cameraState = cameraState,
             styleState = styleState,
-            ornamentSettings = DemoOrnamentSettings(),
+            options = DemoMapOptions(),
           ) {
             val tiles =
               rememberRasterSource(

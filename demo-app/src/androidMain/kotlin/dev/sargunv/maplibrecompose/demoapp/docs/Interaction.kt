@@ -11,8 +11,9 @@ import dev.sargunv.maplibrecompose.compose.ClickResult
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.core.CameraPosition
-import dev.sargunv.maplibrecompose.core.GestureSettings
-import dev.sargunv.maplibrecompose.core.OrnamentSettings
+import dev.sargunv.maplibrecompose.core.GestureOptions
+import dev.sargunv.maplibrecompose.core.MapOptions
+import dev.sargunv.maplibrecompose.core.OrnamentOptions
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration.Companion.seconds
 
@@ -20,30 +21,36 @@ import kotlin.time.Duration.Companion.seconds
 fun Interaction() {
   // -8<- [start:gesture-settings]
   MaplibreMap(
-    gestureSettings =
-      GestureSettings(
-        isTiltGesturesEnabled = true,
-        isZoomGesturesEnabled = true, // (1)!
-        isRotateGesturesEnabled = true,
-        isScrollGesturesEnabled = true,
+    options =
+      MapOptions(
+        gestureOptions =
+          GestureOptions(
+            isTiltEnabled = true,
+            isZoomEnabled = true, // (1)!
+            isRotateEnabled = true,
+            isScrollEnabled = true,
+          )
       )
   )
   // -8<- [end:gesture-settings]
 
   // -8<- [start:ornament-settings]
   MaplibreMap(
-    ornamentSettings =
-      OrnamentSettings(
-        padding = PaddingValues(0.dp), // (1)!
-        isLogoEnabled = true, // (2)!
-        logoAlignment = Alignment.BottomStart, // (3)!
-        isAttributionEnabled = true, // (4)!
-        attributionAlignment = Alignment.BottomEnd,
-        isCompassEnabled = true, // (5)!
-        compassAlignment = Alignment.TopEnd,
-        isScaleBarEnabled = true, // (6)!
-        scaleBarAlignment = Alignment.TopStart,
-      )
+    ornamentPadding = PaddingValues(0.dp), // (1)!
+    options =
+      MapOptions(
+        ornamentOptions =
+          OrnamentOptions(
+            isLogoEnabled = true, // (2)!
+            logoAlignment = Alignment.BottomStart, // (3)!
+            isAttributionEnabled = true, // (4)!
+            attributionAlignment = Alignment.BottomEnd,
+            isCompassEnabled = true, // (5)!
+            compassAlignment = Alignment.TopEnd,
+            isScaleBarEnabled = true, // (6)!
+            scaleBarAlignment = Alignment.TopStart,
+          )
+      ),
   )
   // -8<- [end:ornament-settings]
 

@@ -12,7 +12,8 @@ import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
-import dev.sargunv.maplibrecompose.core.OrnamentSettings
+import dev.sargunv.maplibrecompose.core.MapOptions
+import dev.sargunv.maplibrecompose.core.OrnamentOptions
 import dev.sargunv.maplibrecompose.material3.controls.CompassButton
 import dev.sargunv.maplibrecompose.material3.controls.DisappearingCompassButton
 import dev.sargunv.maplibrecompose.material3.controls.DisappearingScaleBar
@@ -29,7 +30,7 @@ fun Material3() {
     MaplibreMap(
       cameraState = cameraState,
       styleState = styleState,
-      ornamentSettings = OrnamentSettings.AllDisabled,
+      options = MapOptions(ornamentOptions = OrnamentOptions.AllDisabled),
     )
 
     Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
@@ -50,7 +51,7 @@ fun Material3() {
     MaplibreMap(
       cameraState = cameraState,
       styleState = styleState,
-      ornamentSettings = OrnamentSettings.AllDisabled,
+      options = MapOptions(ornamentOptions = OrnamentOptions.AllDisabled),
     )
 
     Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {

@@ -22,6 +22,7 @@ import MapLibre.MLNLoggingLevelVerbose
 import MapLibre.MLNLoggingLevelWarning
 import MapLibre.MLNMapCamera
 import MapLibre.MLNMapDebugCollisionBoxesMask
+import MapLibre.MLNMapDebugOverdrawVisualizationMask
 import MapLibre.MLNMapDebugTileBoundariesMask
 import MapLibre.MLNMapDebugTileInfoMask
 import MapLibre.MLNMapDebugTimestampsMask
@@ -41,6 +42,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
+import dev.sargunv.maplibrecompose.core.util.getSystemRefreshRate
 import dev.sargunv.maplibrecompose.core.util.toBoundingBox
 import dev.sargunv.maplibrecompose.core.util.toCGPoint
 import dev.sargunv.maplibrecompose.core.util.toCGRect
@@ -249,16 +251,6 @@ internal class IosMap(
     }
   }
 
-  override fun setDebugEnabled(enabled: Boolean) {
-    mapView.debugMask =
-      if (enabled)
-        MLNMapDebugTileBoundariesMask or
-          MLNMapDebugTileInfoMask or
-          MLNMapDebugTimestampsMask or
-          MLNMapDebugCollisionBoxesMask
-      else 0uL
-  }
-
   override fun setMinPitch(minPitch: Double) {
     mapView.minimumPitch = minPitch
   }
@@ -290,15 +282,26 @@ internal class IosMap(
     }
   }
 
-  override fun setMaximumFps(maximumFps: Int) {
-    mapView.preferredFramesPerSecond = maximumFps.toLong()
+  override fun setRenderSettings(value: RenderOptions) {
+    mapView.preferredFramesPerSecond = value.maximumFps?.toLong() ?: getSystemRefreshRate(mapView)
+
+    var debugMask = 0uL
+    with(value.debugSettings) {
+      if (isTileBoundariesEnabled) debugMask = debugMask or MLNMapDebugTileBoundariesMask
+      if (isTileInfoEnabled) debugMask = debugMask or MLNMapDebugTileInfoMask
+      if (isTimestampsEnabled) debugMask = debugMask or MLNMapDebugTimestampsMask
+      if (isCollisionBoxesEnabled) debugMask = debugMask or MLNMapDebugCollisionBoxesMask
+      if (isOverdrawVisualizationEnabled)
+        debugMask = debugMask or MLNMapDebugOverdrawVisualizationMask
+    }
+    mapView.debugMask = debugMask
   }
 
-  override fun setGestureSettings(value: GestureSettings) {
-    mapView.rotateEnabled = value.isRotateGesturesEnabled
-    mapView.scrollEnabled = value.isScrollGesturesEnabled
-    mapView.allowsTilting = value.isTiltGesturesEnabled
-    mapView.zoomEnabled = value.isZoomGesturesEnabled
+  override fun setGestureSettings(value: GestureOptions) {
+    mapView.rotateEnabled = value.isRotateEnabled
+    mapView.scrollEnabled = value.isScrollEnabled
+    mapView.allowsTilting = value.isTiltEnabled
+    mapView.zoomEnabled = value.isZoomEnabled
   }
 
   private fun calculateMargins(
@@ -354,23 +357,22 @@ internal class IosMap(
     }
   }
 
-  override fun setOrnamentSettings(value: OrnamentSettings) {
+  override fun setOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) {
     mapView.logoView.hidden = !value.isLogoEnabled
     mapView.logoViewPosition = value.logoAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.logoViewMargins = calculateMargins(mapView.logoViewPosition, value.padding)
+    mapView.logoViewMargins = calculateMargins(mapView.logoViewPosition, padding)
 
     mapView.attributionButton.hidden = !value.isAttributionEnabled
     mapView.attributionButtonPosition = value.attributionAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.attributionButtonMargins =
-      calculateMargins(mapView.attributionButtonPosition, value.padding)
+    mapView.attributionButtonMargins = calculateMargins(mapView.attributionButtonPosition, padding)
 
     mapView.compassView.hidden = !value.isCompassEnabled
     mapView.compassViewPosition = value.compassAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.compassViewMargins = calculateMargins(mapView.compassViewPosition, value.padding)
+    mapView.compassViewMargins = calculateMargins(mapView.compassViewPosition, padding)
 
     mapView.scaleBar.hidden = !value.isScaleBarEnabled
     mapView.scaleBarPosition = value.scaleBarAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.scaleBarMargins = calculateMargins(mapView.scaleBarPosition, value.padding)
+    mapView.scaleBarMargins = calculateMargins(mapView.scaleBarPosition, padding)
   }
 
   private fun CameraPosition.toMLNMapCamera(): MLNMapCamera {

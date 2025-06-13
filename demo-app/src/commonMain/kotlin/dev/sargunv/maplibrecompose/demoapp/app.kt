@@ -38,7 +38,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.compose.StyleState
-import dev.sargunv.maplibrecompose.core.OrnamentSettings
+import dev.sargunv.maplibrecompose.core.MapOptions
+import dev.sargunv.maplibrecompose.core.OrnamentOptions
 import dev.sargunv.maplibrecompose.demoapp.demos.AnimatedLayerDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.CameraFollowDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.CameraStateDemo
@@ -196,11 +197,10 @@ fun DemoMapControls(
   }
 }
 
-fun DemoOrnamentSettings(padding: PaddingValues = PaddingValues(0.dp)) =
-  if (Platform.supportsBlending)
-    OrnamentSettings.AllDisabled.copy(
-      padding = padding,
-      isLogoEnabled = true,
-      logoAlignment = Alignment.BottomStart,
-    )
-  else OrnamentSettings.AllEnabled.copy(padding = padding)
+fun DemoMapOptions(): MapOptions {
+  return if (Platform.supportsBlending) {
+    MapOptions(ornamentOptions = OrnamentOptions.OnlyLogo)
+  } else {
+    MapOptions(ornamentOptions = OrnamentOptions.Standard)
+  }
+}

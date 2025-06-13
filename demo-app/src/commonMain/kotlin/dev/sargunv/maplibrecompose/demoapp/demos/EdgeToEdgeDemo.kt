@@ -17,7 +17,7 @@ import dev.sargunv.maplibrecompose.demoapp.DEFAULT_STYLE
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoAppBar
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
-import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
+import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
 import io.github.dellisd.spatialk.geojson.Position
 
 private val PORTLAND = Position(latitude = 45.521, longitude = -122.675)
@@ -38,7 +38,7 @@ object EdgeToEdgeDemo : Demo {
           styleUri = DEFAULT_STYLE,
           cameraState = cameraState,
           styleState = styleState,
-          ornamentSettings = DemoOrnamentSettings(padding),
+          options = DemoMapOptions(),
         )
         DemoMapControls(cameraState, styleState, modifier = Modifier.padding(padding))
       }

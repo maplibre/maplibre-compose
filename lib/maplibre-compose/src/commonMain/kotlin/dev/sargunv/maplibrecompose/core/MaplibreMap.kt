@@ -23,8 +23,6 @@ internal interface MaplibreMap {
 
   suspend fun asyncSetStyleUri(styleUri: String)
 
-  suspend fun asyncSetDebugEnabled(enabled: Boolean)
-
   suspend fun asyncGetCameraPosition(): CameraPosition
 
   suspend fun asyncSetCameraPosition(cameraPosition: CameraPosition)
@@ -41,11 +39,11 @@ internal interface MaplibreMap {
 
   suspend fun asyncGetVisibleRegion(): VisibleRegion
 
-  suspend fun asyncSetMaximumFps(maximumFps: Int)
+  suspend fun asyncSetRenderSettings(value: RenderOptions)
 
-  suspend fun asyncSetOrnamentSettings(value: OrnamentSettings)
+  suspend fun asyncSetOrnamentSettings(value: OrnamentOptions, padding: PaddingValues)
 
-  suspend fun asyncSetGestureSettings(value: GestureSettings)
+  suspend fun asyncSetGestureSettings(value: GestureOptions)
 
   suspend fun asyncGetPosFromScreenLocation(offset: DpOffset): Position
 
@@ -87,8 +85,6 @@ internal interface MaplibreMap {
 internal interface StandardMaplibreMap : MaplibreMap {
   override suspend fun asyncSetStyleUri(styleUri: String) = setStyleUri(styleUri)
 
-  override suspend fun asyncSetDebugEnabled(enabled: Boolean) = setDebugEnabled(enabled)
-
   override suspend fun asyncGetCameraPosition(): CameraPosition = getCameraPosition()
 
   override suspend fun asyncSetCameraPosition(cameraPosition: CameraPosition) =
@@ -106,12 +102,12 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   override suspend fun asyncGetVisibleRegion(): VisibleRegion = getVisibleRegion()
 
-  override suspend fun asyncSetMaximumFps(maximumFps: Int) = setMaximumFps(maximumFps)
+  override suspend fun asyncSetRenderSettings(value: RenderOptions) = setRenderSettings(value)
 
-  override suspend fun asyncSetOrnamentSettings(value: OrnamentSettings) =
-    setOrnamentSettings(value)
+  override suspend fun asyncSetOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) =
+    setOrnamentSettings(value, padding)
 
-  override suspend fun asyncSetGestureSettings(value: GestureSettings) = setGestureSettings(value)
+  override suspend fun asyncSetGestureSettings(value: GestureOptions) = setGestureSettings(value)
 
   override suspend fun asyncGetPosFromScreenLocation(offset: DpOffset): Position =
     positionFromScreenLocation(offset)
@@ -136,8 +132,6 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   fun setStyleUri(styleUri: String)
 
-  fun setDebugEnabled(enabled: Boolean)
-
   fun getCameraPosition(): CameraPosition
 
   fun setCameraPosition(cameraPosition: CameraPosition)
@@ -154,11 +148,11 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   fun getVisibleRegion(): VisibleRegion
 
-  fun setMaximumFps(maximumFps: Int)
+  fun setRenderSettings(value: RenderOptions)
 
-  fun setOrnamentSettings(value: OrnamentSettings)
+  fun setOrnamentSettings(value: OrnamentOptions, padding: PaddingValues)
 
-  fun setGestureSettings(value: GestureSettings)
+  fun setGestureSettings(value: GestureOptions)
 
   fun positionFromScreenLocation(offset: DpOffset): Position
 

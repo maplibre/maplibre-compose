@@ -94,12 +94,6 @@ internal class JsMap(
     callbacks.onStyleChanged(this, JsStyle(impl))
   }
 
-  override fun setDebugEnabled(enabled: Boolean) {
-    impl.showCollisionBoxes = enabled
-    impl.showPadding = enabled
-    impl.showTileBoundaries = enabled
-  }
-
   override fun setMinPitch(minPitch: Double) {
     impl.setMinPitch(minPitch)
   }
@@ -130,47 +124,74 @@ internal class JsMap(
     )
   }
 
-  override fun setMaximumFps(maximumFps: Int) {
-    // not supported on web
+  override fun setRenderSettings(value: RenderOptions) {
+    with(value.debugSettings) {
+      impl.showCollisionBoxes = showCollisionBoxes
+      impl.showPadding = showPadding
+      impl.showTileBoundaries = showTileBoundaries
+      impl.showOverdrawInspector = showOverdrawInspector
+    }
   }
 
-  override fun setGestureSettings(value: GestureSettings) {
-    if (value.isTiltGesturesEnabled) {
+  override fun setGestureSettings(value: GestureOptions) {
+    if (value.isTouchPitchEnabled) {
       impl.touchPitch.enable()
     } else {
       impl.touchPitch.disable()
     }
 
-    if (value.isRotateGesturesEnabled) {
+    if (value.isDragRotateEnabled) {
       impl.dragRotate.enable()
-      impl.keyboard.enableRotation()
-      impl.touchZoomRotate.enableRotation()
     } else {
       impl.dragRotate.disable()
-      impl.keyboard.disableRotation()
-      impl.touchZoomRotate.disableRotation()
     }
 
-    if (value.isScrollGesturesEnabled) {
+    if (value.isDragPanEnabled) {
       impl.dragPan.enable()
     } else {
       impl.dragPan.disable()
     }
 
-    if (value.isZoomGesturesEnabled) {
+    if (value.isDoubleClickZoomEnabled) {
       impl.doubleClickZoom.enable()
-      impl.scrollZoom.enable()
-      impl.touchZoomRotate.enable()
     } else {
       impl.doubleClickZoom.disable()
-      impl.scrollZoom.disable()
-      impl.touchZoomRotate.disable()
     }
 
-    if (value.isKeyboardGesturesEnabled) {
-      impl.keyboard.enable()
+    if (value.isScrollZoomEnabled) {
+      impl.scrollZoom.enable()
     } else {
-      impl.keyboard.disable()
+      impl.scrollZoom.disable()
+    }
+
+    when (value.touchZoomRotateMode) {
+      GestureOptions.ZoomRotateMode.Disabled -> {
+        impl.touchZoomRotate.disableRotation()
+        impl.touchZoomRotate.disable()
+      }
+      GestureOptions.ZoomRotateMode.ZoomOnly -> {
+        impl.touchZoomRotate.enable()
+        impl.touchZoomRotate.disableRotation()
+      }
+      GestureOptions.ZoomRotateMode.RotateAndZoom -> {
+        impl.touchZoomRotate.enableRotation()
+        impl.touchZoomRotate.enable()
+      }
+    }
+
+    when (value.keyboardZoomRotateMode) {
+      GestureOptions.ZoomRotateMode.Disabled -> {
+        impl.keyboard.disableRotation()
+        impl.keyboard.disable()
+      }
+      GestureOptions.ZoomRotateMode.ZoomOnly -> {
+        impl.keyboard.enable()
+        impl.keyboard.disableRotation()
+      }
+      GestureOptions.ZoomRotateMode.RotateAndZoom -> {
+        impl.keyboard.enableRotation()
+        impl.keyboard.enable()
+      }
     }
   }
 
@@ -184,9 +205,10 @@ internal class JsMap(
   private val scaleControl = ScaleControl()
   private val attributionControl = AttributionControl()
 
-  override fun setOrnamentSettings(value: OrnamentSettings) {
+  override fun setOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) {
     val desiredCompassPosition =
-      if (value.isCompassEnabled) value.compassAlignment.toControlPosition(layoutDir) else null
+      if (value.isNavigationEnabled) value.navigationAlignment.toControlPosition(layoutDir)
+      else null
     val desiredLogoPosition =
       if (value.isLogoEnabled) value.logoAlignment.toControlPosition(layoutDir) else null
     val desiredScalePosition =

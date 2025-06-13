@@ -93,6 +93,10 @@ kotlin {
     // (e.g. Android and iOS, and maybe someday Desktop)
     val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
 
+    // used to expose APIs only available on platforms backed by MapLibre JS
+    // (e.g. JS, Desktop for now, and someday WASM)
+    val maplibreJsMain by creating { dependsOn(commonMain.get()) }
+
     iosMain {
       dependsOn(skiaMain)
       dependsOn(maplibreNativeMain)
@@ -106,9 +110,9 @@ kotlin {
       }
     }
 
-    // no idea why this is differently typed from the others
     desktopMain.apply {
       dependsOn(skiaMain)
+      dependsOn(maplibreJsMain)
       dependencies {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
@@ -118,6 +122,7 @@ kotlin {
 
     jsMain {
       dependsOn(skiaMain)
+      dependsOn(maplibreJsMain)
       dependencies {
         implementation(project(":lib:kotlin-maplibre-js"))
         implementation(project(":lib:compose-html-interop"))

@@ -16,5 +16,5 @@ internal expect fun ComposableMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MaplibreMap.Callbacks,
-  platformOptions: MapOptions,
+  options: MapOptions,
 )

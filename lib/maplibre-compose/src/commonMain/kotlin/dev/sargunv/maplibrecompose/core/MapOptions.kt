@@ -1,6 +1,7 @@
 package dev.sargunv.maplibrecompose.core
 
-/** Configures various platform-specific behavior. */
-public expect class MapOptions
-
-public expect fun defaultMapOptions(): MapOptions
+public data class MapOptions(
+  val renderOptions: RenderOptions = RenderOptions.Standard,
+  val gestureOptions: GestureOptions = GestureOptions.Standard,
+  val ornamentOptions: OrnamentOptions = OrnamentOptions.Standard,
+)

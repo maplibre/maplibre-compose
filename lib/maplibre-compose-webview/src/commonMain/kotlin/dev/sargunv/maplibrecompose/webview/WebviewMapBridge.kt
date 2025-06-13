@@ -39,10 +39,20 @@ object WebviewMapBridge {
     map.setStyle(styleUri)
   }
 
-  fun setDebugEnabled(enabled: Boolean) {
+  fun setShowCollisionBoxes(enabled: Boolean) {
     map.showCollisionBoxes = enabled
+  }
+
+  fun setShowPadding(enabled: Boolean) {
     map.showPadding = enabled
+  }
+
+  fun setShowTileBoundaries(enabled: Boolean) {
     map.showTileBoundaries = enabled
+  }
+
+  fun setShowOverdrawInspector(enabled: Boolean) {
+    map.showOverdrawInspector = enabled
   }
 
   fun setMaxZoom(maxZoom: Double) {
@@ -93,39 +103,57 @@ object WebviewMapBridge {
     map.removeControl(attributionControl)
   }
 
-  fun setTiltGesturesEnabled(enabled: Boolean) {
+  fun setTouchPitchEnabled(enabled: Boolean) {
     if (enabled) map.touchPitch.enable() else map.touchPitch.disable()
   }
 
-  fun setZoomGesturesEnabled(enabled: Boolean) {
-    if (enabled) {
-      map.doubleClickZoom.enable()
-      map.scrollZoom.enable()
-      map.touchZoomRotate.enable()
-    } else {
-      map.doubleClickZoom.disable()
-      map.scrollZoom.disable()
-      map.touchZoomRotate.disable()
-    }
+  fun setDragRotateEnabled(enabled: Boolean) {
+    if (enabled) map.dragRotate.enable() else map.dragRotate.disable()
   }
 
-  fun setRotateGesturesEnabled(enabled: Boolean) {
-    if (enabled) {
-      map.dragRotate.enable()
-      map.keyboard.enableRotation()
-      map.touchZoomRotate.enableRotation()
-    } else {
-      map.dragRotate.disable()
-      map.keyboard.disableRotation()
-      map.touchZoomRotate.disableRotation()
-    }
-  }
-
-  fun setScrollGesturesEnabled(enabled: Boolean) {
+  fun setDragPanEnabled(enabled: Boolean) {
     if (enabled) map.dragPan.enable() else map.dragPan.disable()
   }
 
-  fun setKeyboardGesturesEnabled(enabled: Boolean) {
-    if (enabled) map.keyboard.enable() else map.keyboard.disable()
+  fun setDoubleClickZoomEnabled(enabled: Boolean) {
+    if (enabled) map.doubleClickZoom.enable() else map.doubleClickZoom.disable()
+  }
+
+  fun setScrollZoomEnabled(enabled: Boolean) {
+    if (enabled) map.scrollZoom.enable() else map.scrollZoom.disable()
+  }
+
+  fun setTouchZoomRotateMode(mode: String) {
+    when (mode) {
+      "Disabled" -> {
+        map.touchZoomRotate.disableRotation()
+        map.touchZoomRotate.disable()
+      }
+      "ZoomOnly" -> {
+        map.touchZoomRotate.enable()
+        map.touchZoomRotate.disableRotation()
+      }
+      "RotateAndZoom" -> {
+        map.touchZoomRotate.enableRotation()
+        map.touchZoomRotate.enable()
+      }
+    }
+  }
+
+  fun setKeyboardZoomRotateMode(mode: String) {
+    when (mode) {
+      "Disabled" -> {
+        map.keyboard.disableRotation()
+        map.keyboard.disable()
+      }
+      "ZoomOnly" -> {
+        map.keyboard.enable()
+        map.keyboard.disableRotation()
+      }
+      "RotateAndZoom" -> {
+        map.keyboard.enableRotation()
+        map.keyboard.enable()
+      }
+    }
   }
 }

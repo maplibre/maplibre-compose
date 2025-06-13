@@ -20,10 +20,6 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
     bridge.callVoid("setStyleUri", styleUri)
   }
 
-  override suspend fun asyncSetDebugEnabled(enabled: Boolean) {
-    bridge.callVoid("setDebugEnabled", enabled)
-  }
-
   override suspend fun asyncGetCameraPosition(): CameraPosition {
     return CameraPosition()
   }
@@ -59,8 +55,13 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
     )
   }
 
-  override suspend fun asyncSetMaximumFps(maximumFps: Int) {
-    // Not supported on web
+  override suspend fun asyncSetRenderSettings(value: RenderOptions) {
+    with(value.debugSettings) {
+      bridge.callVoid("setShowCollisionBoxes", showCollisionBoxes)
+      bridge.callVoid("setShowPadding", showPadding)
+      bridge.callVoid("setShowTileBoundaries", showTileBoundaries)
+      bridge.callVoid("setShowOverdrawInspector", showOverdrawInspector)
+    }
   }
 
   private var compassPosition: String? = null
@@ -68,11 +69,12 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
   private var scalePosition: String? = null
   private var attributionPosition: String? = null
 
-  override suspend fun asyncSetOrnamentSettings(value: OrnamentSettings) {
+  override suspend fun asyncSetOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) {
     val layoutDir = LayoutDirection.Ltr // TODO: Get from composition
 
     val desiredCompassPosition =
-      if (value.isCompassEnabled) value.compassAlignment.toControlPosition(layoutDir) else null
+      if (value.isNavigationEnabled) value.navigationAlignment.toControlPosition(layoutDir)
+      else null
     val desiredLogoPosition =
       if (value.isLogoEnabled) value.logoAlignment.toControlPosition(layoutDir) else null
     val desiredScalePosition =
@@ -106,12 +108,14 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
     }
   }
 
-  override suspend fun asyncSetGestureSettings(value: GestureSettings) {
-    bridge.callVoid("setTiltGesturesEnabled", value.isTiltGesturesEnabled)
-    bridge.callVoid("setZoomGesturesEnabled", value.isZoomGesturesEnabled)
-    bridge.callVoid("setRotateGesturesEnabled", value.isRotateGesturesEnabled)
-    bridge.callVoid("setScrollGesturesEnabled", value.isScrollGesturesEnabled)
-    bridge.callVoid("setKeyboardGesturesEnabled", value.isKeyboardGesturesEnabled)
+  override suspend fun asyncSetGestureSettings(value: GestureOptions) {
+    bridge.callVoid("setTouchPitchEnabled", value.isTouchPitchEnabled)
+    bridge.callVoid("setDragRotateEnabled", value.isDragRotateEnabled)
+    bridge.callVoid("setDragPanEnabled", value.isDragPanEnabled)
+    bridge.callVoid("setDoubleClickZoomEnabled", value.isDoubleClickZoomEnabled)
+    bridge.callVoid("setScrollZoomEnabled", value.isScrollZoomEnabled)
+    bridge.callVoid("setTouchZoomRotateMode", value.touchZoomRotateMode.name)
+    bridge.callVoid("setKeyboardZoomRotateMode", value.keyboardZoomRotateMode.name)
   }
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {}

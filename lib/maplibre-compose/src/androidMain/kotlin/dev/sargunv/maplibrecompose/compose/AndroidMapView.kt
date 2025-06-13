@@ -15,6 +15,7 @@ import dev.sargunv.maplibrecompose.core.AndroidMap
 import dev.sargunv.maplibrecompose.core.AndroidScaleBar
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
+import dev.sargunv.maplibrecompose.core.RenderOptions
 import dev.sargunv.maplibrecompose.core.SafeStyle
 import org.maplibre.android.MapLibre
 import org.maplibre.android.maps.MapLibreMapOptions
@@ -29,7 +30,7 @@ internal actual fun ComposableMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MaplibreMap.Callbacks,
-  platformOptions: MapOptions,
+  options: MapOptions,
 ) {
   AndroidMapView(
     modifier = modifier,
@@ -39,7 +40,7 @@ internal actual fun ComposableMapView(
     onReset = onReset,
     logger = logger,
     callbacks = callbacks,
-    platformOptions = platformOptions,
+    options = options,
   )
 }
 
@@ -52,7 +53,7 @@ internal fun AndroidMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MaplibreMap.Callbacks,
-  platformOptions: MapOptions,
+  options: MapOptions,
 ) {
   val layoutDir = LocalLayoutDirection.current
   val density = LocalDensity.current
@@ -69,7 +70,8 @@ internal fun AndroidMapView(
       MapLibre.getInstance(context)
       MapView(
           context,
-          MapLibreMapOptions.createFromAttributes(context).textureMode(platformOptions.textureMode),
+          MapLibreMapOptions.createFromAttributes(context)
+            .textureMode(options.renderOptions.renderMode == RenderOptions.RenderMode.TextureView),
         )
         .also { mapView ->
           currentMapView = mapView

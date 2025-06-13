@@ -7,11 +7,11 @@ import androidx.compose.ui.Modifier
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
-import dev.sargunv.maplibrecompose.core.MapOptions
+import dev.sargunv.maplibrecompose.core.RenderOptions
 import dev.sargunv.maplibrecompose.demoapp.DEFAULT_STYLE
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
-import dev.sargunv.maplibrecompose.demoapp.DemoOrnamentSettings
+import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 
@@ -31,8 +31,11 @@ object TextureModeDemo : Demo {
           styleUri = DEFAULT_STYLE,
           cameraState = cameraState,
           styleState = styleState,
-          ornamentSettings = DemoOrnamentSettings(),
-          platformOptions = MapOptions(textureMode = true),
+          options =
+            DemoMapOptions()
+              .copy(
+                renderOptions = RenderOptions(renderMode = RenderOptions.RenderMode.TextureView)
+              ),
         )
         DemoMapControls(cameraState, styleState)
       }
