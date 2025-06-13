@@ -192,7 +192,9 @@ public fun ExpandingAttributionButton(
           exit = collapse(animationAlignment),
         ) {
           Box(Modifier.padding(start = 0.dp, end = 16.dp, top = 8.dp, bottom = 8.dp)) {
-            expandedContent(attributions)
+            CompositionLocalProvider(LocalLayoutDirection provides layoutDir) {
+              expandedContent(attributions)
+            }
           }
         }
       }
