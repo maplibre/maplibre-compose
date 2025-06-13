@@ -51,11 +51,29 @@ kotlin {
 
     val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
 
-    iosMain { dependsOn(maplibreNativeMain) }
+    val webMain by creating { dependsOn(commonMain.get()) }
 
-    androidMain { dependsOn(maplibreNativeMain) }
+    val nonWebMain by creating {
+      dependsOn(commonMain.get())
+      dependencies { implementation(libs.htmlConverterCompose) }
+    }
 
-    jsMain.dependencies { implementation(libs.kotlin.wrappers.js) }
+    iosMain {
+      dependsOn(maplibreNativeMain)
+      dependsOn(nonWebMain)
+    }
+
+    androidMain {
+      dependsOn(maplibreNativeMain)
+      dependsOn(nonWebMain)
+    }
+
+    get("desktopMain").apply { dependsOn(nonWebMain) }
+
+    jsMain {
+      dependsOn(webMain)
+      dependencies { implementation(libs.kotlin.wrappers.js) }
+    }
 
     commonTest.dependencies {
       implementation(kotlin("test"))

@@ -6,10 +6,8 @@ public actual sealed class Source {
   internal actual val id: String
     get() = TODO()
 
-  public actual val attributionLinks: List<AttributionLink>
-    get() {
-      TODO()
-    }
+  public actual val attributionHtml: String
+    get() = TODO()
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }

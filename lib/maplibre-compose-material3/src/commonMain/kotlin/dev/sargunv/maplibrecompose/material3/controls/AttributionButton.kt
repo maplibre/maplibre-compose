@@ -36,21 +36,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.text.LinkAnnotation.Url
 import androidx.compose.ui.text.TextLinkStyles
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.withLink
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.compose.StyleState
 import dev.sargunv.maplibrecompose.core.CameraMoveReason
-import dev.sargunv.maplibrecompose.core.source.AttributionLink
 import dev.sargunv.maplibrecompose.material3.generated.Res
 import dev.sargunv.maplibrecompose.material3.generated.attribution
 import dev.sargunv.maplibrecompose.material3.generated.info
 import dev.sargunv.maplibrecompose.material3.util.horizontal
+import dev.sargunv.maplibrecompose.material3.util.htmlToAnnotatedString
 import dev.sargunv.maplibrecompose.material3.util.reverse
 import dev.sargunv.maplibrecompose.material3.util.toArrangement
 import dev.sargunv.maplibrecompose.material3.util.vertical
@@ -82,7 +79,7 @@ public fun ExpandingAttributionButton(
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionButtonDefaults.button,
-  expandedContent: @Composable (List<AttributionLink>) -> Unit = AttributionButtonDefaults.content,
+  expandedContent: @Composable (List<String>) -> Unit = AttributionButtonDefaults.content,
   expandedStyle: AttributionButtonStyle = AttributionButtonDefaults.expandedStyle(),
   collapsedStyle: AttributionButtonStyle = AttributionButtonDefaults.collapsedStyle(),
   expand: (Alignment) -> EnterTransition = AttributionButtonDefaults.expand,
@@ -136,14 +133,16 @@ public fun ExpandingAttributionButton(
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionButtonDefaults.button,
-  expandedContent: @Composable (List<AttributionLink>) -> Unit = AttributionButtonDefaults.content,
+  expandedContent: @Composable (List<String>) -> Unit = AttributionButtonDefaults.content,
   expandedStyle: AttributionButtonStyle = AttributionButtonDefaults.expandedStyle(),
   collapsedStyle: AttributionButtonStyle = AttributionButtonDefaults.collapsedStyle(),
   expand: (Alignment) -> EnterTransition = AttributionButtonDefaults.expand,
   collapse: (Alignment) -> ExitTransition = AttributionButtonDefaults.collapse,
 ) {
   val attributions by remember {
-    derivedStateOf { styleState.sources.values.flatMap { it.attributionLinks }.distinct() }
+    derivedStateOf {
+      styleState.sources.values.map { it.attributionHtml }.filter { it.isNotEmpty() }.distinct()
+    }
   }
   if (attributions.isEmpty()) return
 
@@ -203,19 +202,14 @@ public fun ExpandingAttributionButton(
 
 @Composable
 public fun AttributionLinks(
-  attributions: List<AttributionLink>,
+  attributions: List<String>,
   linkStyles: TextLinkStyles? = null,
   spacing: Dp = 8.dp,
   modifier: Modifier = Modifier,
 ) {
+  val texts = remember(attributions) { attributions.map { htmlToAnnotatedString(it, linkStyles) } }
   FlowRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(spacing)) {
-    attributions.forEachIndexed { i, attr ->
-      val attributionString = buildAnnotatedString {
-        val link = Url(url = attr.url, styles = linkStyles)
-        withLink(link) { this.append(attr.title) }
-      }
-      Text(attributionString)
-    }
+    texts.forEach { Text(it) }
   }
 }
 
@@ -234,7 +228,7 @@ public object AttributionButtonDefaults {
     }
   }
 
-  public val content: @Composable (List<AttributionLink>) -> Unit = {
+  public val content: @Composable (List<String>) -> Unit = {
     ProvideTextStyle(MaterialTheme.typography.bodyMedium) { AttributionLinks(it) }
   }
 
