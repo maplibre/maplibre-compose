@@ -201,6 +201,6 @@ fun DemoMapOptions(): MapOptions {
   return if (Platform.supportsBlending) {
     MapOptions(ornamentOptions = OrnamentOptions.OnlyLogo)
   } else {
-    MapOptions(ornamentOptions = OrnamentOptions.Standard)
+    MapOptions(ornamentOptions = OrnamentOptions.AllEnabled)
   }
 }

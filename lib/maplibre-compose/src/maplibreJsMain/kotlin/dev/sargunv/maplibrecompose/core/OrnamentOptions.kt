@@ -17,7 +17,7 @@ public actual data class OrnamentOptions(
   // TODO: geolocate control
 ) {
   public actual companion object Companion {
-    public actual val Standard: OrnamentOptions = OrnamentOptions()
+    public actual val AllEnabled: OrnamentOptions = OrnamentOptions()
     public actual val AllDisabled: OrnamentOptions =
       OrnamentOptions(
         isLogoEnabled = false,

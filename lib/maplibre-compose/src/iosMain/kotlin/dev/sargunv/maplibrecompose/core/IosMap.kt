@@ -302,6 +302,7 @@ internal class IosMap(
     mapView.scrollEnabled = value.isScrollEnabled
     mapView.allowsTilting = value.isTiltEnabled
     mapView.zoomEnabled = value.isZoomEnabled
+    mapView.hapticFeedbackEnabled = value.isHapticFeedbackEnabled
   }
 
   private fun calculateMargins(
