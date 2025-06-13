@@ -8,11 +8,13 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.expandIn
 import androidx.compose.animation.shrinkOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -211,7 +213,9 @@ public fun AttributionLinks(
 ) {
   val texts = remember(attributions) { attributions.map { htmlToAnnotatedString(it, linkStyles) } }
   FlowRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(spacing)) {
-    texts.forEach { Text(it) }
+    texts.forEach {
+      Text(it, maxLines = 1, modifier = Modifier.horizontalScroll(rememberScrollState()))
+    }
   }
 }
 
