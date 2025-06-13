@@ -19,6 +19,16 @@ import kotlin.time.Duration.Companion.seconds
 
 @Composable
 fun Interaction() {
+  // -8<- [start:common-gesture-ornament]
+  MaplibreMap(
+    options =
+      MapOptions(
+        gestureOptions = GestureOptions.Standard,
+        ornamentOptions = OrnamentOptions.OnlyLogo,
+      )
+  )
+  // -8<- [end:common-gesture-ornament]
+
   // -8<- [start:gesture-settings]
   MaplibreMap(
     options =
@@ -26,7 +36,7 @@ fun Interaction() {
         gestureOptions =
           GestureOptions(
             isTiltEnabled = true,
-            isZoomEnabled = true, // (1)!
+            isZoomEnabled = true,
             isRotateEnabled = true,
             isScrollEnabled = true,
           )

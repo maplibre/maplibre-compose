@@ -30,7 +30,7 @@ fun Material3() {
     MaplibreMap(
       cameraState = cameraState,
       styleState = styleState,
-      options = MapOptions(ornamentOptions = OrnamentOptions.AllDisabled),
+      options = MapOptions(ornamentOptions = OrnamentOptions.OnlyLogo),
     )
 
     Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
@@ -51,7 +51,7 @@ fun Material3() {
     MaplibreMap(
       cameraState = cameraState,
       styleState = styleState,
-      options = MapOptions(ornamentOptions = OrnamentOptions.AllDisabled),
+      options = MapOptions(ornamentOptions = OrnamentOptions.OnlyLogo),
     )
 
     Box(modifier = Modifier.fillMaxSize().padding(8.dp)) {
