@@ -2,8 +2,9 @@
 
 ## Gestures and ornaments
 
-Configuraton options for interaction vary significantly by platform. We provide some presets in common code, but if
-you're working with multiple platforms and you want to configure these in detail, you'll need to use expect/actual code.
+Configuraton options for interaction vary significantly by platform. We provide
+some presets in common code, but if you're working with multiple platforms and
+you want to configure these in detail, you'll need to use expect/actual code.
 
 ```kotlin title="map.common.kt"
 -8<- "demo-app/src/androidMain/kotlin/dev/sargunv/maplibrecompose/demoapp/docs/Interaction.kt:common-gesture-ornament"
