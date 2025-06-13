@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.viewinterop.AndroidView
@@ -64,6 +65,10 @@ internal fun AndroidMapView(
 
   MapViewLifecycleEffect(currentMapView, rememberedStyle)
 
+  // load these ahead of time so the factory doesn't capture the entire options object
+  val foregroundLoadColor = options.renderOptions.foregroundLoadColor
+  val renderMode = options.renderOptions.renderMode
+
   AndroidView(
     modifier = modifier,
     factory = { context ->
@@ -71,7 +76,8 @@ internal fun AndroidMapView(
       MapView(
           context,
           MapLibreMapOptions.createFromAttributes(context)
-            .textureMode(options.renderOptions.renderMode == RenderOptions.RenderMode.TextureView),
+            .foregroundLoadColor(foregroundLoadColor.toArgb())
+            .textureMode(renderMode == RenderOptions.RenderMode.TextureView),
         )
         .also { mapView ->
           currentMapView = mapView

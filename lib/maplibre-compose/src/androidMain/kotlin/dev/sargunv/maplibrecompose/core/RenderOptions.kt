@@ -1,5 +1,7 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.ui.graphics.Color
+
 public actual data class RenderOptions(
   /**
    * Select between [android.opengl.GLSurfaceView] and [android.view.TextureView] as rendered
@@ -10,6 +12,7 @@ public actual data class RenderOptions(
    * See [org.maplibre.android.maps.MapLibreMapOptions.textureMode]
    */
   val renderMode: RenderMode = RenderMode.SurfaceView,
+  val foregroundLoadColor: Color = Color.Transparent,
   val isDebugEnabled: Boolean = false,
   val maximumFps: Int? = null,
 ) {
