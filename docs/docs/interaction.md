@@ -3,9 +3,11 @@
 ## Gestures
 
 The map supports pan, zoom, rotate, and tilt gestures. Each of these can be
-enabled or disabled individually:
+enabled or disabled individually, but the available options vary by platform. If
+you're working with Kotlin Multiplatform, you'll need to configure this in
+`expect`/`actual` code.
 
-```kotlin
+```kotlin title="options.android.kt"
 -8<- "demo-app/src/androidMain/kotlin/dev/sargunv/maplibrecompose/demoapp/docs/Interaction.kt:gesture-settings"
 ```
 
@@ -21,11 +23,13 @@ enabled or disabled individually:
     section](./material3.md) for more information.
 
 Ornaments are built in UI elements that are displayed on the map, such as a
-compass or attribution button. They're implemented by the underlying MapLibre
-SDK, so may render differently on different platforms. You can control the
-visibility and position of these ornaments:
+compass or attribution button. You can control the visibility and position of
+these ornaments. They're implemented by the underlying MapLibre SDK, so may
+render differently on different platforms and the available options vary by
+platform. If you're working with Kotlin Multiplatform, you'll need to configure
+this in `expect`/`actual` code.
 
-```kotlin
+```kotlin title="options.android.kt"
 -8<- "demo-app/src/androidMain/kotlin/dev/sargunv/maplibrecompose/demoapp/docs/Interaction.kt:ornament-settings"
 ```
 

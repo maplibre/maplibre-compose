@@ -38,6 +38,7 @@ object EdgeToEdgeDemo : Demo {
           styleUri = DEFAULT_STYLE,
           cameraState = cameraState,
           styleState = styleState,
+          ornamentPadding = padding,
           options = DemoMapOptions(),
         )
         DemoMapControls(cameraState, styleState, modifier = Modifier.padding(padding))
