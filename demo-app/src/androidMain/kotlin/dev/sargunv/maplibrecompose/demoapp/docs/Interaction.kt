@@ -46,11 +46,11 @@ fun Interaction() {
 
   // -8<- [start:ornament-settings]
   MaplibreMap(
-    ornamentPadding = PaddingValues(0.dp), // (1)!
     options =
       MapOptions(
         ornamentOptions =
           OrnamentOptions(
+            padding = PaddingValues(0.dp), // (1)!
             isLogoEnabled = true, // (2)!
             logoAlignment = Alignment.BottomStart, // (3)!
             isAttributionEnabled = true, // (4)!
@@ -60,7 +60,7 @@ fun Interaction() {
             isScaleBarEnabled = true, // (6)!
             scaleBarAlignment = Alignment.TopStart,
           )
-      ),
+      )
   )
   // -8<- [end:ornament-settings]
 

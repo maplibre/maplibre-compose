@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.demoapp
 
 import androidx.compose.animation.core.AnimationVector2D
 import androidx.compose.animation.core.TwoWayConverter
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -9,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.util.fastRoundToInt
 import dev.jordond.compass.geolocation.Geolocator
+import dev.sargunv.maplibrecompose.core.OrnamentOptions
 import dev.sargunv.maplibrecompose.core.RenderOptions
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import io.github.dellisd.spatialk.geojson.Position
@@ -100,3 +102,5 @@ val Platform.usesMaplibreNative: Boolean
 expect fun getGeolocator(): Geolocator
 
 expect fun RenderOptions.withMaxFps(maxFps: Int): RenderOptions
+
+expect fun OrnamentOptions.withPadding(padding: PaddingValues): OrnamentOptions

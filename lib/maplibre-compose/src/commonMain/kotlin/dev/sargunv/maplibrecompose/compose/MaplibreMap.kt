@@ -1,6 +1,5 @@
 package dev.sargunv.maplibrecompose.compose
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -10,7 +9,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import dev.sargunv.maplibrecompose.compose.engine.LayerNode
 import dev.sargunv.maplibrecompose.compose.engine.rememberStyleComposition
@@ -90,7 +88,6 @@ public fun MaplibreMap(
   onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass },
   onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
   onFrame: (framesPerSecond: Double) -> Unit = {},
-  ornamentPadding: PaddingValues = PaddingValues(0.dp),
   options: MapOptions = MapOptions(),
   logger: Logger? = remember { Logger.withTag("maplibre-compose") },
   content: @Composable @MaplibreComposable () -> Unit = {},
@@ -190,7 +187,7 @@ public fun MaplibreMap(
           map.setMaxPitch(pitchRange.endInclusive.toDouble())
           map.setRenderSettings(options.renderOptions)
           map.setGestureSettings(options.gestureOptions)
-          map.setOrnamentSettings(options.ornamentOptions, ornamentPadding)
+          map.setOrnamentSettings(options.ornamentOptions)
         }
 
         else ->
@@ -201,7 +198,7 @@ public fun MaplibreMap(
             map.asyncSetMaxPitch(pitchRange.endInclusive.toDouble())
             map.asyncSetRenderSettings(options.renderOptions)
             map.asyncSetGestureSettings(options.gestureOptions)
-            map.asyncSetOrnamentSettings(options.ornamentOptions, ornamentPadding)
+            map.asyncSetOrnamentSettings(options.ornamentOptions)
           }
       }
     },

@@ -225,7 +225,7 @@ internal class AndroidMap(
     map.uiSettings.isDoubleTapGesturesEnabled = value.isDoubleTapEnabled
   }
 
-  override fun setOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) {
+  override fun setOrnamentSettings(value: OrnamentOptions) {
     map.uiSettings.isLogoEnabled = value.isLogoEnabled
     map.uiSettings.logoGravity = value.logoAlignment.toGravity(layoutDir)
 
@@ -237,14 +237,16 @@ internal class AndroidMap(
 
     scaleBar.enabled = value.isScaleBarEnabled
     scaleBar.alignment = value.scaleBarAlignment
-    scaleBar.padding = padding
+    scaleBar.padding = value.padding
     scaleBar.updateLayout()
 
     with(density) {
-      val left = (padding.calculateLeftPadding(layoutDir).coerceAtLeast(0.dp) + 8.dp).roundToPx()
-      val top = (padding.calculateTopPadding().coerceAtLeast(0.dp) + 8.dp).roundToPx()
-      val right = (padding.calculateRightPadding(layoutDir).coerceAtLeast(0.dp) + 8.dp).roundToPx()
-      val bottom = (padding.calculateBottomPadding().coerceAtLeast(0.dp) + 8.dp).roundToPx()
+      val left =
+        (value.padding.calculateLeftPadding(layoutDir).coerceAtLeast(0.dp) + 8.dp).roundToPx()
+      val top = (value.padding.calculateTopPadding().coerceAtLeast(0.dp) + 8.dp).roundToPx()
+      val right =
+        (value.padding.calculateRightPadding(layoutDir).coerceAtLeast(0.dp) + 8.dp).roundToPx()
+      val bottom = (value.padding.calculateBottomPadding().coerceAtLeast(0.dp) + 8.dp).roundToPx()
       map.uiSettings.setAttributionMargins(left, top, right, bottom)
       map.uiSettings.setLogoMargins(left, top, right, bottom)
       map.uiSettings.setCompassMargins(left, top, right, bottom)

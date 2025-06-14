@@ -197,10 +197,10 @@ fun DemoMapControls(
   }
 }
 
-fun DemoMapOptions(): MapOptions {
+fun DemoMapOptions(padding: PaddingValues = PaddingValues(0.dp)): MapOptions {
   return if (Platform.supportsBlending) {
-    MapOptions(ornamentOptions = OrnamentOptions.OnlyLogo)
+    MapOptions(ornamentOptions = OrnamentOptions.OnlyLogo.withPadding(padding))
   } else {
-    MapOptions(ornamentOptions = OrnamentOptions.AllEnabled)
+    MapOptions(ornamentOptions = OrnamentOptions.AllEnabled.withPadding(padding))
   }
 }

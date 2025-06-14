@@ -205,7 +205,7 @@ internal class JsMap(
   private val scaleControl = ScaleControl()
   private val attributionControl = AttributionControl()
 
-  override fun setOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) {
+  override fun setOrnamentSettings(value: OrnamentOptions) {
     val desiredCompassPosition =
       if (value.isNavigationEnabled) value.navigationAlignment.toControlPosition(layoutDir)
       else null

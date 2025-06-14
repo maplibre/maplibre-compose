@@ -1,8 +1,11 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.unit.dp
 
 /**
+ * @param padding Padding of the ornaments to the edge of the map.
  * @param isLogoEnabled Determines if the MapLibre logo is displayed.
  * @param logoAlignment Specifies the location of the MapLibre logo. On Android, only the four
  *   corners are supported (TopStart, TopEnd, BottomStart, BottomEnd). On iOS, the four corners,
@@ -22,6 +25,7 @@ import androidx.compose.ui.Alignment
  *   centers along the edges, and the center are supported.
  */
 public actual data class OrnamentOptions(
+  val padding: PaddingValues = PaddingValues(0.dp),
   val isLogoEnabled: Boolean = true,
   val logoAlignment: Alignment = Alignment.Companion.BottomStart,
   val isAttributionEnabled: Boolean = true,

@@ -41,7 +41,7 @@ internal interface MaplibreMap {
 
   suspend fun asyncSetRenderSettings(value: RenderOptions)
 
-  suspend fun asyncSetOrnamentSettings(value: OrnamentOptions, padding: PaddingValues)
+  suspend fun asyncSetOrnamentSettings(value: OrnamentOptions)
 
   suspend fun asyncSetGestureSettings(value: GestureOptions)
 
@@ -104,8 +104,7 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   override suspend fun asyncSetRenderSettings(value: RenderOptions) = setRenderSettings(value)
 
-  override suspend fun asyncSetOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) =
-    setOrnamentSettings(value, padding)
+  override suspend fun asyncSetOrnamentSettings(value: OrnamentOptions) = setOrnamentSettings(value)
 
   override suspend fun asyncSetGestureSettings(value: GestureOptions) = setGestureSettings(value)
 
@@ -150,7 +149,7 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   fun setRenderSettings(value: RenderOptions)
 
-  fun setOrnamentSettings(value: OrnamentOptions, padding: PaddingValues)
+  fun setOrnamentSettings(value: OrnamentOptions)
 
   fun setGestureSettings(value: GestureOptions)
 

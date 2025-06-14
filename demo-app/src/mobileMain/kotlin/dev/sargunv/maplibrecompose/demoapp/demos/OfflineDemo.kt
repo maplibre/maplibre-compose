@@ -89,8 +89,7 @@ object OfflineDemo : Demo {
           styleUri = MINIMAL_STYLE,
           cameraState = cameraState,
           styleState = styleState,
-          options = DemoMapOptions(),
-          ornamentPadding = PaddingValues(bottom = sheetPeekHeight),
+          options = DemoMapOptions(PaddingValues(bottom = sheetPeekHeight)),
           onMapClick = { _, _ ->
             keyboard?.hide()
             ClickResult.Pass

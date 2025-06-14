@@ -69,7 +69,7 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
   private var scalePosition: String? = null
   private var attributionPosition: String? = null
 
-  override suspend fun asyncSetOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) {
+  override suspend fun asyncSetOrnamentSettings(value: OrnamentOptions) {
     val layoutDir = LayoutDirection.Ltr // TODO: Get from composition
 
     val desiredCompassPosition =

@@ -358,22 +358,23 @@ internal class IosMap(
     }
   }
 
-  override fun setOrnamentSettings(value: OrnamentOptions, padding: PaddingValues) {
+  override fun setOrnamentSettings(value: OrnamentOptions) {
     mapView.logoView.hidden = !value.isLogoEnabled
     mapView.logoViewPosition = value.logoAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.logoViewMargins = calculateMargins(mapView.logoViewPosition, padding)
+    mapView.logoViewMargins = calculateMargins(mapView.logoViewPosition, value.padding)
 
     mapView.attributionButton.hidden = !value.isAttributionEnabled
     mapView.attributionButtonPosition = value.attributionAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.attributionButtonMargins = calculateMargins(mapView.attributionButtonPosition, padding)
+    mapView.attributionButtonMargins =
+      calculateMargins(mapView.attributionButtonPosition, value.padding)
 
     mapView.compassView.hidden = !value.isCompassEnabled
     mapView.compassViewPosition = value.compassAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.compassViewMargins = calculateMargins(mapView.compassViewPosition, padding)
+    mapView.compassViewMargins = calculateMargins(mapView.compassViewPosition, value.padding)
 
     mapView.scaleBar.hidden = !value.isScaleBarEnabled
     mapView.scaleBarPosition = value.scaleBarAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.scaleBarMargins = calculateMargins(mapView.scaleBarPosition, padding)
+    mapView.scaleBarMargins = calculateMargins(mapView.scaleBarPosition, value.padding)
   }
 
   private fun CameraPosition.toMLNMapCamera(): MLNMapCamera {
