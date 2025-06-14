@@ -333,8 +333,6 @@ internal class IosMap(
         )
 
       MLNOrnamentPositionBottomLeft -> {
-        println("uiPadding: $uiPadding")
-        println("insetPadding: $insetPadding")
         CGPointMake(
           (uiPadding.calculateLeftPadding(layoutDir).value -
               insetPadding.calculateLeftPadding(layoutDir).value)

@@ -9,8 +9,6 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 internal fun WindowInsets.afterConsuming(other: WindowInsets): WindowInsets {
   val density = LocalDensity.current
   val layoutDir = LocalLayoutDirection.current
-  println("this: $this")
-  println("other: $other")
   return WindowInsets(
     maxOf(0, getLeft(density, layoutDir) - other.getLeft(density, layoutDir)),
     maxOf(0, getTop(density) - other.getTop(density)),
