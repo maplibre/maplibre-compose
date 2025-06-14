@@ -9,9 +9,8 @@ import androidx.compose.ui.window.singleWindowApplication
 import dev.sargunv.maplibrecompose.compose.KcefProvider
 import dev.sargunv.maplibrecompose.compose.MaplibreContextProvider
 
-// TODO This should enable support for blending Compose over Swing views
-// but it's just crashing on launch
-// https://github.com/JetBrains/compose-multiplatform-core/pull/915#issuecomment-1954155894
+// TODO This should enable support for blending Compose over Swing views but it doesn't seem to work
+// with KCEF. Maybe we'll get it working when we integrate MapLibre Native instead.
 // System.setProperty("compose.interop.blending", "true")
 
 // -8<- [start:main]
