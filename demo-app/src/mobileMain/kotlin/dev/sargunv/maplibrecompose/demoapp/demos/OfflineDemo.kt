@@ -3,7 +3,10 @@ package dev.sargunv.maplibrecompose.demoapp.demos
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -85,24 +88,27 @@ object OfflineDemo : Demo {
         sheetPeekHeight = sheetPeekHeight,
         sheetContent = { OfflinePackControls(offlineManager, cameraState) },
       ) { padding ->
-        MaplibreMap(
-          styleUri = MINIMAL_STYLE,
-          cameraState = cameraState,
-          styleState = styleState,
-          options = DemoMapOptions(PaddingValues(bottom = sheetPeekHeight)),
-          onMapClick = { _, _ ->
-            keyboard?.hide()
-            ClickResult.Pass
-          },
-        ) {
-          OfflinePacksLayers(offlineManager)
+        Box(modifier = Modifier.fillMaxSize()) {
+          MaplibreMap(
+            styleUri = MINIMAL_STYLE,
+            cameraState = cameraState,
+            styleState = styleState,
+            options = DemoMapOptions(PaddingValues(bottom = sheetPeekHeight)),
+            onMapClick = { _, _ ->
+              keyboard?.hide()
+              ClickResult.Pass
+            },
+          ) {
+            OfflinePacksLayers(offlineManager)
+          }
+          DemoMapControls(
+            cameraState = cameraState,
+            styleState = styleState,
+            modifier =
+              Modifier.padding(bottom = sheetPeekHeight)
+                .consumeWindowInsets(PaddingValues(bottom = sheetPeekHeight)),
+          )
         }
-
-        DemoMapControls(
-          cameraState = cameraState,
-          styleState = styleState,
-          modifier = Modifier.padding(bottom = sheetPeekHeight).padding(padding),
-        )
       }
     }
   }
