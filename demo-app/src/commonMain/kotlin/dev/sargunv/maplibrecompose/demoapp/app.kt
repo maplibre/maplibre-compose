@@ -169,11 +169,10 @@ fun DemoMapControls(
   modifier: Modifier = Modifier,
   onCompassClick: () -> Unit = {},
   scaleBarMeasures: ScaleBarMeasures = defaultScaleBarMeasures(),
-  padding: PaddingValues = PaddingValues(8.dp),
   extraButtons: @Composable ColumnScope.() -> Unit = {},
 ) {
   if (Platform.supportsBlending) {
-    Box(modifier = modifier.fillMaxSize().padding(padding)) {
+    Box(modifier = modifier.fillMaxSize().padding(8.dp)) {
       DisappearingScaleBar(
         metersPerDp = cameraState.metersPerDpAtTarget,
         zoom = cameraState.position.zoom,

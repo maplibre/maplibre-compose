@@ -84,7 +84,7 @@ object OfflineDemo : Demo {
         scaffoldState = scaffoldState,
         sheetPeekHeight = sheetPeekHeight,
         sheetContent = { OfflinePackControls(offlineManager, cameraState) },
-      ) {
+      ) { padding ->
         MaplibreMap(
           styleUri = MINIMAL_STYLE,
           cameraState = cameraState,
@@ -101,8 +101,7 @@ object OfflineDemo : Demo {
         DemoMapControls(
           cameraState = cameraState,
           styleState = styleState,
-          padding =
-            PaddingValues(start = 8.dp, end = 8.dp, top = 8.dp, bottom = 8.dp + sheetPeekHeight),
+          modifier = Modifier.padding(bottom = sheetPeekHeight).padding(padding),
         )
       }
     }

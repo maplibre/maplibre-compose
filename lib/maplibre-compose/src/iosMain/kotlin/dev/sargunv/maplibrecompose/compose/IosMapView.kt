@@ -4,6 +4,7 @@ import MapLibre.MLNMapView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.onConsumedWindowInsetsChanged
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -23,6 +24,7 @@ import dev.sargunv.maplibrecompose.core.IosMap
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
 import dev.sargunv.maplibrecompose.core.SafeStyle
+import dev.sargunv.maplibrecompose.core.util.afterConsuming
 import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGSizeMake
 import platform.Foundation.NSURL
@@ -58,11 +60,13 @@ internal fun IosMapView(
   logger: Logger?,
   callbacks: MaplibreMap.Callbacks,
 ) {
-  MeasuredBox(modifier = modifier.fillMaxSize()) { x, y, width, height ->
+  var consumedInsets by remember { mutableStateOf(WindowInsets(0, 0, 0, 0)) }
+  val insetPadding = WindowInsets.safeDrawing.afterConsuming(consumedInsets).asPaddingValues()
+  MeasuredBox(
+    modifier = modifier.fillMaxSize().onConsumedWindowInsetsChanged { consumedInsets = it }
+  ) { x, y, width, height ->
     val layoutDir = LocalLayoutDirection.current
     val density = LocalDensity.current
-    val insetPadding = WindowInsets.safeDrawing.asPaddingValues()
-
     val currentOnReset by rememberUpdatedState(onReset)
     var currentMap by remember { mutableStateOf<IosMap?>(null) }
 
