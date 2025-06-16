@@ -68,7 +68,7 @@ import org.jetbrains.compose.resources.vectorResource
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
  * @param expandedContent Composable that defines how the attribution content is displayed when
- *   expanded. Takes a list of HTML strings as parameter.
+ *   expanded. Takes a list of HTML strings as a parameter.
  * @param expandedStyle Style of the attribution [Surface] when it is expanded
  * @param collapsedStyle Style of the attribution [Surface] when it is collapsed
  * @param expand Function that returns an [EnterTransition] for the expanding animation based on the
@@ -121,7 +121,7 @@ public fun ExpandingAttributionButton(
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
  * @param expandedContent Composable that defines how the attribution content is displayed when
- *   expanded. Takes a list of HTML string as parameter.
+ *   expanded. Takes a list of HTML strings as a parameter.
  * @param expandedStyle Style of the attribution [Surface] when it is expanded
  * @param collapsedStyle Style of the attribution [Surface] when it is collapsed
  * @param expand Function that returns an [EnterTransition] for the expanding animation based on the
