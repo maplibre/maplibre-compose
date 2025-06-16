@@ -36,17 +36,21 @@ public actual class VectorSource : Source {
         identifier = id,
         tileURLTemplates = tiles,
         options =
-          mapOf(
-            MLNTileSourceOptionMinimumZoomLevel to options.minZoom.toDouble(),
-            MLNTileSourceOptionMaximumZoomLevel to options.maxZoom.toDouble(),
-            MLNTileSourceOptionTileCoordinateSystem to
+          buildMap {
+            put(MLNTileSourceOptionMinimumZoomLevel, options.minZoom.toDouble())
+            put(MLNTileSourceOptionMaximumZoomLevel, options.maxZoom.toDouble())
+            put(
+              MLNTileSourceOptionTileCoordinateSystem,
               when (options.tileCoordinateSystem) {
                 TileCoordinateSystem.XYZ -> MLNTileCoordinateSystemXYZ
                 TileCoordinateSystem.TMS -> MLNTileCoordinateSystemTMS
               },
-            MLNTileSourceOptionCoordinateBounds to options.boundingBox?.toMLNCoordinateBounds(),
-            MLNTileSourceOptionAttributionHTMLString to options.attributionHtml,
-          ),
+            )
+            if (options.boundingBox != null)
+              put(MLNTileSourceOptionCoordinateBounds, options.boundingBox.toMLNCoordinateBounds())
+            if (options.attributionHtml != null)
+              put(MLNTileSourceOptionAttributionHTMLString, options.attributionHtml)
+          },
       )
   }
 
