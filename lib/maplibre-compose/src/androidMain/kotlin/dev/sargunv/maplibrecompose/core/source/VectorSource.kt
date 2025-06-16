@@ -26,17 +26,18 @@ public actual class VectorSource : Source {
     impl =
       MLNVectorSource(
         id,
-        TileSet("{\"type\": \"vector\"}", *tiles.toTypedArray()).apply {
-          minZoom = options.minZoom.toFloat()
-          maxZoom = options.maxZoom.toFloat()
-          scheme =
-            when (options.tileCoordinateSystem) {
-              TileCoordinateSystem.XYZ -> "xyz"
-              TileCoordinateSystem.TMS -> "tms"
-            }
-          options.boundingBox?.let { setBounds(it.toLatLngBounds()) }
-          attribution = options.attributionHtml
-        },
+        TileSet("{\"type\": \"vector\"}", *tiles.map { it.correctedAndroidUri() }.toTypedArray())
+          .apply {
+            minZoom = options.minZoom.toFloat()
+            maxZoom = options.maxZoom.toFloat()
+            scheme =
+              when (options.tileCoordinateSystem) {
+                TileCoordinateSystem.XYZ -> "xyz"
+                TileCoordinateSystem.TMS -> "tms"
+              }
+            options.boundingBox?.let { setBounds(it.toLatLngBounds()) }
+            attribution = options.attributionHtml
+          },
       )
   }
 
