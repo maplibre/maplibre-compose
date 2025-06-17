@@ -13,7 +13,7 @@ internal val LocalAnchor: ProvidableCompositionLocal<Anchor> = compositionLocalO
  * Declares where the layers should be anchored, i.e. positioned in the list of layers in the map
  * style.
  *
- * This allows for layers declared in Compose to be inserted at any locatiton of the layers defined
+ * This allows for layers declared in Compose to be inserted at any location of the layers defined
  * in the base style JSON rather than exclusively on top of these.
  *
  * **Note:** This mechanism can only be used to anchor layers at `layerId`s from the *base map
