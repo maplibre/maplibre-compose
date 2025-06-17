@@ -32,8 +32,11 @@ As there's no stable LSP for Kotlin Multiplatform, you'll want to use either
 IntelliJ IDEA or Android Studio for developing MapLibre Compose. In addition to
 the IDE, you'll need some plugins:
 
-- [The Kotlin Multiplatform plugin](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform)
-- [The Android plugin](https://plugins.jetbrains.com/plugin/22989-android)
+- [Kotlin Multiplatform](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform)
+- [Android](https://plugins.jetbrains.com/plugin/22989-android)
+- [Android Design Tools](https://plugins.jetbrains.com/plugin/22990-android-design-tools)
+- [Jetpack Compose](https://plugins.jetbrains.com/plugin/18409-jetpack-compose)
+- [Native Debugging Support](https://plugins.jetbrains.com/plugin/12775-native-debugging-support)
 
 If developing on a Mac, install XCode to build for Apple platforms. Jetbrains
 [has a table](https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html#version-compatibility)
