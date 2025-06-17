@@ -98,10 +98,10 @@ object ClusteredPointsDemo : Demo {
                 //   mapOf(
                 //     "total_range" to
                 //       GeoJsonOptions.ClusterPropertyAggregator(
-                //         mapper = feature.get("current_range_meters").asNumber(),
+                //         mapper = feature["current_range_meters"].asNumber(),
                 //         reducer =
                 //           feature.accumulated().asNumber() +
-                //             feature.get("total_range").asNumber(),
+                //             feature["total_range"].asNumber(),
                 //       )
                 //   ),
               ),
@@ -115,7 +115,7 @@ object ClusteredPointsDemo : Demo {
             opacity = const(0.5f),
             radius =
               step(
-                input = feature.get("point_count").asNumber(),
+                input = feature["point_count"].asNumber(),
                 fallback = const(15.dp),
                 25 to const(20.dp),
                 100 to const(30.dp),
@@ -142,7 +142,7 @@ object ClusteredPointsDemo : Demo {
             id = "clustered-bikes-count",
             source = bikeSource,
             filter = feature.has("point_count"),
-            textField = feature.get("point_count_abbreviated").asString(),
+            textField = feature["point_count_abbreviated"].asString(),
             textFont = const(listOf("Noto Sans Regular")),
             textColor = const(MaterialTheme.colorScheme.onBackground),
           )

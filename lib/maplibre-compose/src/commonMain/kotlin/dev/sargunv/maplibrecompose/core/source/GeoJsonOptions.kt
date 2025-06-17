@@ -66,8 +66,8 @@ public data class GeoJsonOptions(
      * Example:
      * ```kt
      * GeoJsonOptions.ClusterPropertyAggregator(
-     *   mapper = feature.get("current_range_meters").asNumber(),
-     *   reducer = feature.get("total_range").asNumber() + feature.accumulated().asNumber(),
+     *   mapper = feature["current_range_meters"].asNumber(),
+     *   reducer = feature["total_range"].asNumber() + feature.accumulated().asNumber(),
      * )
      * ```
      */

@@ -20,10 +20,10 @@ import dev.sargunv.maplibrecompose.expressions.value.TextUnitValue
  * ```kt
  * format(
  *   span(
- *     feature.get("name").asString().substring(0, 1).uppercase(),
+ *     feature["name"].asString().substring(0, 1).uppercase(),
  *     textScale = const(1.5f),
  *   ),
- *   span(feature.get("name").asString().substring(1))
+ *   span(feature["name"].asString().substring(1))
  * )
  * ```
  *

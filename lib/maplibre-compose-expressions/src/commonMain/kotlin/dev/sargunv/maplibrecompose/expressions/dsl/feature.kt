@@ -15,13 +15,13 @@ public object Feature {
    * Returns the value corresponding to the given [key] in the current feature's properties or
    * `null` if it is not present.
    */
-  public fun get(key: Expression<StringValue>): Expression<*> = FunctionCall.of("get", key)
+  public operator fun get(key: Expression<StringValue>): Expression<*> = FunctionCall.of("get", key)
 
   /**
    * Returns the value corresponding to the given [key] in the current feature's properties or
    * `null` if it is not present.
    */
-  public fun get(key: String): Expression<*> = get(const(key))
+  public operator fun get(key: String): Expression<*> = get(const(key))
 
   /** Tests for the presence of a property value [key] in the current feature's properties. */
   public fun has(key: Expression<StringValue>): Expression<BooleanValue> =

@@ -25,13 +25,13 @@ import kotlin.jvm.JvmName
  *     output = interpolate(
  *       linear(),
  *       zoom(),
- *       1 to feature.get("color1").convertToColor(),
- *       20 to feature.get("color2").convertToColor()
+ *       1 to feature["color1"].convertToColor(),
+ *       20 to feature["color2"].convertToColor()
  *     ),
  *   ),
  *   condition(
  *     test = feature.has("color"),
- *     output = feature.get("color").convertToColor(),
+ *     output = feature["color"].convertToColor(),
  *   ),
  *   fallback = const(Color.Red),
  * )
@@ -86,7 +86,7 @@ public fun <T : ExpressionValue> condition(
  * Example:
  * ```kt
  * switch(
- *   input = feature.get("building_type").asString(),
+ *   input = feature["building_type"].asString(),
  *   case(
  *     label = "residential",
  *     output = const(Color.Cyan),
