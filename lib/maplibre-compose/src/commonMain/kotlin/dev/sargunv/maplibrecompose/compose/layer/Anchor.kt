@@ -86,7 +86,7 @@ public sealed interface Anchor {
 
     /**
      * The layers specified in [block] replace the layer (i.e. are shown instead of it) with the
-     * given [layerId] from the base map style.,
+     * given [layerId] from the base map style.
      */
     @Composable
     @MaplibreComposable
