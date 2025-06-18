@@ -144,4 +144,3 @@ public fun ceil(value: Expression<FloatValue>): Expression<IntValue> =
 /** Returns the largest integer that is less than or equal to [value]. */
 public fun floor(value: Expression<FloatValue>): Expression<IntValue> =
   FunctionCall.of("floor", value).cast()
-
