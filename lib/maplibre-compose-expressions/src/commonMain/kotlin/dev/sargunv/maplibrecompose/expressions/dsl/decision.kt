@@ -9,7 +9,6 @@ import dev.sargunv.maplibrecompose.expressions.value.EnumValue
 import dev.sargunv.maplibrecompose.expressions.value.EquatableValue
 import dev.sargunv.maplibrecompose.expressions.value.ExpressionValue
 import dev.sargunv.maplibrecompose.expressions.value.FloatValue
-import dev.sargunv.maplibrecompose.expressions.value.GeoJsonValue
 import dev.sargunv.maplibrecompose.expressions.value.MatchableValue
 import dev.sargunv.maplibrecompose.expressions.value.StringValue
 import kotlin.jvm.JvmName
@@ -249,7 +248,7 @@ public fun lt(
 /**
  * Returns whether this expression is greater than or equal to [other].
  *
- * Strings are compared lexicographically (`"b" >= "a"`).
+ * Strings are compared lexicographically (`"b" ≥ "a"`).
  */
 public infix fun <T> Expression<ComparableValue<T>>.gte(
   other: Expression<ComparableValue<T>>
@@ -260,7 +259,7 @@ public infix fun <T> Expression<ComparableValue<T>>.gte(
  * expression. An optional [collator] (see [collator]) can be specified to control locale-dependent
  * string comparisons.
  *
- * Strings are compared lexicographically (`"b" >= "a"`).
+ * Strings are compared lexicographically (`"b" ≥ "a"`).
  */
 public fun gte(
   left: Expression<StringValue>,
@@ -271,7 +270,7 @@ public fun gte(
 /**
  * Returns whether this string expression is less than or equal to [other].
  *
- * Strings are compared lexicographically (`"a" <= "b"`).
+ * Strings are compared lexicographically (`"a" ≤ "b"`).
  */
 public infix fun <T> Expression<ComparableValue<T>>.lte(
   other: Expression<ComparableValue<T>>
@@ -312,14 +311,3 @@ public infix fun Expression<BooleanValue>.or(
 @JvmName("notOperator")
 public operator fun Expression<BooleanValue>.not(): Expression<BooleanValue> =
   FunctionCall.of("!", this).cast()
-
-/**
- * Returns true if the evaluated feature is fully contained inside a boundary of the input geometry,
- * false otherwise. The input value can be a valid GeoJSON of type Polygon, MultiPolygon, Feature,
- * or FeatureCollection. Supported features for evaluation:
- * - Point: Returns false if a point is on the boundary or falls outside the boundary.
- * - LineString: Returns false if any part of a line falls outside the boundary, the line intersects
- *   the boundary, or a line's endpoint is on the boundary.
- */
-public fun within(geometry: Expression<GeoJsonValue>): Expression<BooleanValue> =
-  FunctionCall.of("within", geometry).cast()

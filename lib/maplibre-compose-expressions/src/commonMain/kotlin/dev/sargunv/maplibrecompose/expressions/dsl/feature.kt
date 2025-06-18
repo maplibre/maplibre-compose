@@ -5,6 +5,7 @@ import dev.sargunv.maplibrecompose.expressions.ast.FunctionCall
 import dev.sargunv.maplibrecompose.expressions.value.BooleanValue
 import dev.sargunv.maplibrecompose.expressions.value.ExpressionValue
 import dev.sargunv.maplibrecompose.expressions.value.FloatValue
+import dev.sargunv.maplibrecompose.expressions.value.GeoJsonValue
 import dev.sargunv.maplibrecompose.expressions.value.GeometryType
 import dev.sargunv.maplibrecompose.expressions.value.MapValue
 import dev.sargunv.maplibrecompose.expressions.value.StringValue
@@ -74,7 +75,7 @@ public object Feature {
   public fun <T : ExpressionValue> state(key: String): Expression<T> = state(const(key))
 
   /** Gets the feature's geometry type. */
-  public fun type(): Expression<GeometryType> = FunctionCall.of("geometry-type").cast()
+  public fun geometryType(): Expression<GeometryType> = FunctionCall.of("geometry-type").cast()
 
   /** Gets the feature's id, if it has one. */
   public fun <T : ExpressionValue> id(): Expression<T> = FunctionCall.of("id").cast()
@@ -98,6 +99,21 @@ public object Feature {
    * [GeoJsonOptions][dev.sargunv.maplibrecompose.core.source.GeoJsonOptions].
    */
   public fun accumulated(): Expression<*> = FunctionCall.of("accumulated")
+
+  /**
+   * Returns true if the evaluated feature is fully contained inside a boundary of the input
+   * geometry, false otherwise. The input value can be a valid GeoJSON of type Polygon,
+   * MultiPolygon, Feature, or FeatureCollection. Supported features for evaluation:
+   * - Point: Returns false if a point is on the boundary or falls outside the boundary.
+   * - LineString: Returns false if any part of a line falls outside the boundary, the line
+   *   intersects the boundary, or a line's endpoint is on the boundary.
+   */
+  public fun within(geometry: Expression<GeoJsonValue>): Expression<BooleanValue> =
+    FunctionCall.of("within", geometry).cast()
+
+  /** Returns the shortest distance in meters between the evaluated feature and [geometry]. */
+  public fun distance(geometry: Expression<GeoJsonValue>): Expression<FloatValue> =
+    FunctionCall.of("distance", geometry).cast()
 }
 
 /** Accesses to feature-related data */
