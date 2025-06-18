@@ -5,6 +5,7 @@ import dev.sargunv.maplibrecompose.expressions.ast.FunctionCall
 import dev.sargunv.maplibrecompose.expressions.value.BooleanValue
 import dev.sargunv.maplibrecompose.expressions.value.CollatorValue
 import dev.sargunv.maplibrecompose.expressions.value.ComparableValue
+import dev.sargunv.maplibrecompose.expressions.value.EnumValue
 import dev.sargunv.maplibrecompose.expressions.value.EquatableValue
 import dev.sargunv.maplibrecompose.expressions.value.ExpressionValue
 import dev.sargunv.maplibrecompose.expressions.value.FloatValue
@@ -132,6 +133,12 @@ public fun <O : ExpressionValue> case(label: String, output: Expression<O>): Cas
   Case(const(label), output)
 
 /** Create a [Case], see [switch] */
+public fun <O : ExpressionValue, E : EnumValue<E>> case(
+  label: E,
+  output: Expression<O>,
+): Case<EnumValue<E>, O> = Case(const(label), output)
+
+/** Create a [Case], see [switch] */
 public fun <O : ExpressionValue> case(label: Number, output: Expression<O>): Case<FloatValue, O> =
   Case(const(label.toFloat()), output)
 
@@ -139,6 +146,13 @@ public fun <O : ExpressionValue> case(label: Number, output: Expression<O>): Cas
 @JvmName("stringsCase")
 public fun <O : ExpressionValue> case(
   label: List<String>,
+  output: Expression<O>,
+): Case<StringValue, O> = Case(const(label), output)
+
+/** Create a [Case], see [switch] */
+@JvmName("enumsCase")
+public fun <O : ExpressionValue, E : EnumValue<E>> case(
+  label: List<E>,
   output: Expression<O>,
 ): Case<StringValue, O> = Case(const(label), output)
 

@@ -85,6 +85,11 @@ public fun <T : ExpressionValue> const(list: List<Literal<T, *>>): ListLiteral<T
 @JvmName("constStringList")
 public fun const(list: List<String>): ListLiteral<StringValue> = const(list.map { const(it) })
 
+/** Creates a literal expression for a list of strings. */
+@JvmName("constEnumList")
+public fun <T : EnumValue<T>> const(list: List<EnumValue<T>>): ListLiteral<EnumValue<T>> =
+  const(list.map { const(it) })
+
 /** Creates a literal expression for a list of numbers. */
 @JvmName("constNumberList")
 public fun const(list: List<Number>): Literal<VectorValue<Number>, *> =
