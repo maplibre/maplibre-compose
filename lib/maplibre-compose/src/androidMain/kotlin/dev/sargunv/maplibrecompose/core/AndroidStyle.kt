@@ -14,9 +14,9 @@ import dev.sargunv.maplibrecompose.core.source.VectorSource
 import org.maplibre.android.maps.Style as MLNStyle
 import org.maplibre.android.style.sources.CustomGeometrySource
 import org.maplibre.android.style.sources.GeoJsonSource as MLNGeoJsonSource
+import org.maplibre.android.style.sources.ImageSource as MLNImageSource
 import org.maplibre.android.style.sources.RasterSource as MLNRasterSource
 import org.maplibre.android.style.sources.Source as MLNSource
-import org.maplibre.android.style.sources.ImageSource as MLNImageSource
 import org.maplibre.android.style.sources.VectorSource as MLNVectorSource
 
 internal class AndroidStyle(style: MLNStyle) : Style {

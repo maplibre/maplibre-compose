@@ -39,7 +39,7 @@ import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
 import dev.sargunv.maplibrecompose.demoapp.Platform
 import dev.sargunv.maplibrecompose.demoapp.PositionVectorConverter
-import dev.sargunv.maplibrecompose.demoapp.supportsLayers
+import dev.sargunv.maplibrecompose.demoapp.supportsStyling
 import dev.sargunv.maplibrecompose.demoapp.util.LocationPuckLayers
 import dev.sargunv.maplibrecompose.material3.controls.PointerPinButton
 import io.github.dellisd.spatialk.geojson.Point
@@ -85,7 +85,7 @@ object CameraFollowDemo : Demo {
             styleState = styleState,
             options = DemoMapOptions(),
           ) {
-            if (Platform.supportsLayers) {
+            if (Platform.supportsStyling) {
               LocationPuckLayers(
                 idPrefix = "target",
                 locationSource =

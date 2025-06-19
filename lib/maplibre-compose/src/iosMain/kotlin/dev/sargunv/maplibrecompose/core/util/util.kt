@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.core.util
 
 import MapLibre.MLNCoordinateBounds
 import MapLibre.MLNCoordinateBoundsMake
+import MapLibre.MLNCoordinateQuadMake
 import MapLibre.MLNFeatureProtocol
 import MapLibre.MLNOrnamentPosition
 import MapLibre.MLNOrnamentPositionBottomLeft
@@ -233,3 +234,15 @@ internal fun ImageBitmap.toUIImage(scale: Float, sdf: Boolean) =
       if (sdf) UIImageRenderingMode.UIImageRenderingModeAlwaysTemplate
       else UIImageRenderingMode.UIImageRenderingModeAutomatic
     )
+
+internal fun ImageBitmap.toUIImage() =
+  UIImage(data = Image.makeFromBitmap(this.asSkiaBitmap()).encodeToData()!!.bytes.toNSData())
+    .imageWithRenderingMode(UIImageRenderingMode.UIImageRenderingModeAutomatic)
+
+internal fun PositionQuad.toMLNCoordinateQuad() =
+  MLNCoordinateQuadMake(
+    topLeft = topLeft.toCLLocationCoordinate2D(),
+    topRight = topRight.toCLLocationCoordinate2D(),
+    bottomLeft = bottomLeft.toCLLocationCoordinate2D(),
+    bottomRight = bottomRight.toCLLocationCoordinate2D(),
+  )

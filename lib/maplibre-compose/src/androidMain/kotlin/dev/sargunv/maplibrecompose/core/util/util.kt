@@ -41,6 +41,7 @@ import java.net.URI
 import java.net.URISyntaxException
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
+import org.maplibre.android.geometry.LatLngQuad
 import org.maplibre.android.style.expressions.Expression as MLNExpression
 
 internal fun String.correctedAndroidUri(): String {
@@ -181,3 +182,11 @@ internal fun Geometry.toMlnGeometry(): org.maplibre.geojson.Geometry {
     is Polygon -> org.maplibre.geojson.Polygon.fromJson(json())
   }
 }
+
+internal fun PositionQuad.toLatLngQuad() =
+  LatLngQuad(
+    topRight = this.topRight.toLatLng(),
+    topLeft = this.topLeft.toLatLng(),
+    bottomLeft = this.bottomLeft.toLatLng(),
+    bottomRight = this.bottomRight.toLatLng(),
+  )

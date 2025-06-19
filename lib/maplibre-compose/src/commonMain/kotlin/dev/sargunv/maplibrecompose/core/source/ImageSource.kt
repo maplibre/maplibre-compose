@@ -1,32 +1,22 @@
 package dev.sargunv.maplibrecompose.core.source
 
 import androidx.compose.ui.graphics.ImageBitmap
-import io.github.dellisd.spatialk.geojson.Position
+import dev.sargunv.maplibrecompose.core.util.PositionQuad
 
-/** A map data source of an image at overlay at a given position. */
+/** A map data source of an image placed at a given position. */
 public expect class ImageSource : Source {
-  public constructor(id: String, data: ImageSourceData)
+  /** Create an ImageSource from coordinates and a bitmap image. */
+  public constructor(id: String, position: PositionQuad, image: ImageBitmap)
+
+  /** Create an ImageSource from coordinates and an image URI. */
+  public constructor(id: String, position: PositionQuad, uri: String)
+
+  /** Updates the latitude and longitude of the four corners of the image. */
+  public fun setBounds(bounds: PositionQuad)
+
+  /** Updates the source image to a bitmap. */
+  public fun setImage(image: ImageBitmap)
+
+  /** Updates the source image URI. */
+  public fun setUri(uri: String)
 }
-
-public sealed interface ImageSourceData {
-  public val boundingBox: ImageBoundingBox
-
-  public data class Bitmap(
-    override val boundingBox: ImageBoundingBox,
-    val bitmap: ImageBitmap
-  ): ImageSourceData
-
-  public data class Uri(
-    override val boundingBox: ImageBoundingBox,
-    val uri: String
-  ): ImageSourceData
-}
-
-public data class ImageBoundingBox(
-  val topLeft: Corner,
-  val topRight: Corner,
-  val bottomRight: Corner,
-  val bottomLeft: Corner,
-)
-
-public data class Corner(val latitude: Double, val longitude: Double)

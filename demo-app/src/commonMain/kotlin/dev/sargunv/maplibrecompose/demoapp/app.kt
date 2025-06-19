@@ -65,14 +65,12 @@ import org.jetbrains.compose.resources.vectorResource
 private val DEMOS = buildList {
   add(StyleSwitcherDemo)
   if (Platform.supportsBlending) add(EdgeToEdgeDemo)
-  if (Platform.supportsLayers) {
+  if (Platform.supportsStyling) {
     add(UserLocationDemo)
     add(MarkersDemo)
     add(ClusteredPointsDemo)
     add(AnimatedLayerDemo)
     add(LocalTilesDemo)
-  }
-  if (Platform.supportsImageSource) {
     add(ImageSourceDemo)
   }
   if (!Platform.isDesktop) add(CameraStateDemo)

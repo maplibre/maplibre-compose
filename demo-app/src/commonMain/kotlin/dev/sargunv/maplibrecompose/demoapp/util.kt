@@ -90,7 +90,7 @@ expect object Platform {
   val isWeb: Boolean
 }
 
-val Platform.supportsLayers: Boolean
+val Platform.supportsStyling: Boolean
   get() = isAndroid || isIos
 
 val Platform.supportsBlending: Boolean
@@ -98,9 +98,6 @@ val Platform.supportsBlending: Boolean
 
 val Platform.usesMaplibreNative: Boolean
   get() = isAndroid || isIos
-
-val Platform.supportsImageSource: Boolean
-  get() = isAndroid
 
 expect fun getGeolocator(): Geolocator
 
