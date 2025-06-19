@@ -4,12 +4,14 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
 import dev.sargunv.maplibrecompose.core.layer.Layer
 import dev.sargunv.maplibrecompose.core.layer.UnknownLayer
+import dev.sargunv.maplibrecompose.core.source.ComputedSource
 import dev.sargunv.maplibrecompose.core.source.GeoJsonSource
 import dev.sargunv.maplibrecompose.core.source.RasterSource
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.core.source.UnknownSource
 import dev.sargunv.maplibrecompose.core.source.VectorSource
 import org.maplibre.android.maps.Style as MLNStyle
+import org.maplibre.android.style.sources.CustomGeometrySource
 import org.maplibre.android.style.sources.GeoJsonSource as MLNGeoJsonSource
 import org.maplibre.android.style.sources.RasterSource as MLNRasterSource
 import org.maplibre.android.style.sources.Source as MLNSource
@@ -31,6 +33,7 @@ internal class AndroidStyle(style: MLNStyle) : Style {
       is MLNVectorSource -> VectorSource(this)
       is MLNGeoJsonSource -> GeoJsonSource(this)
       is MLNRasterSource -> RasterSource(this)
+      is CustomGeometrySource -> ComputedSource(this)
       else -> UnknownSource(this)
     }
 
