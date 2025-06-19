@@ -40,20 +40,12 @@
 			path = "Preview Content";
 			sourceTree = "<group>";
 		};
-		3113B0324B799087857DD645 /* Pods */ = {
-			isa = PBXGroup;
-			children = (
-			);
-			path = Pods;
-			sourceTree = "<group>";
-		};
 		7555FF72242A565900829871 = {
 			isa = PBXGroup;
 			children = (
 				AB1DB47929225F7C00F7AF9C /* Configuration */,
 				7555FF7D242A565900829871 /* iosApp */,
 				7555FF7C242A565900829871 /* Products */,
-				3113B0324B799087857DD645 /* Pods */,
 			);
 			sourceTree = "<group>";
 		};
