@@ -12,4 +12,10 @@ public actual class ComputedSource : Source {
     options: ComputedSourceOptions,
     getFeatures: (BoundingBox, Int) -> FeatureCollection,
   )
+
+  public actual fun invalidateBounds(bounds: BoundingBox) {}
+
+  public actual fun invalidateTile(zoomLevel: Int, x: Int, y: Int) {}
+
+  public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection) {}
 }

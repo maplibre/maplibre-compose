@@ -17,4 +17,23 @@ public expect class ComputedSource : Source {
     options: ComputedSourceOptions = ComputedSourceOptions(),
     getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
   )
+
+  /**
+   * Invalidate previously provided features within a given bounds at all zoom levels. Invoking this
+   * method will result in new requests to `getFeatures` for regions that contain, include, or
+   * intersect with the provided bounds.
+   */
+  public fun invalidateBounds(bounds: BoundingBox)
+
+  /**
+   * Invalidate the geometry contents of a specific tile. Invoking this method will result in new
+   * requests to `getFeatures` for visible tiles.
+   */
+  public fun invalidateTile(zoomLevel: Int, x: Int, y: Int)
+
+  /**
+   * Set or update geometry contents of a specific tile. Use this method to update tiles for which
+   * `getFeatures` was previously invoked.
+   */
+  public fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection)
 }

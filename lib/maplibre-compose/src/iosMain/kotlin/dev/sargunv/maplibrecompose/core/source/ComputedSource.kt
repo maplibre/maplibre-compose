@@ -11,6 +11,7 @@ import MapLibre.MLNShapeSourceOptionMinimumZoomLevel
 import MapLibre.MLNShapeSourceOptionSimplificationTolerance
 import MapLibre.MLNShapeSourceOptionWrapsCoordinates
 import dev.sargunv.maplibrecompose.core.util.toBoundingBox
+import dev.sargunv.maplibrecompose.core.util.toMLNCoordinateBounds
 import dev.sargunv.maplibrecompose.core.util.toMLNShape
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.FeatureCollection
@@ -44,6 +45,23 @@ public actual class ComputedSource : Source {
         },
     )
   )
+
+  public actual fun invalidateBounds(bounds: BoundingBox) {
+    impl.invalidateBounds(bounds.toMLNCoordinateBounds())
+  }
+
+  public actual fun invalidateTile(zoomLevel: Int, x: Int, y: Int) {
+    impl.invalidateTileAtX(x = x.toULong(), y = y.toULong(), zoomLevel = zoomLevel.toULong())
+  }
+
+  public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection) {
+    impl.setFeatures(
+      features = data.map { it.toMLNShape() },
+      inTileAtX = x.toULong(),
+      y = y.toULong(),
+      zoomLevel = zoomLevel.toULong(),
+    )
+  }
 
   private companion object {
     private fun buildOptionMap(options: ComputedSourceOptions) =
