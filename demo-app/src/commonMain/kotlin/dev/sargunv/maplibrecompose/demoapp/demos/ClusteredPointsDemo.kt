@@ -6,12 +6,11 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -31,7 +30,6 @@ import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
 import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
-import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.expressions.dsl.asNumber
 import dev.sargunv.maplibrecompose.expressions.dsl.asString
 import dev.sargunv.maplibrecompose.expressions.dsl.const
@@ -43,6 +41,9 @@ import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.FeatureCollection
 import io.github.dellisd.spatialk.geojson.Point
 import io.github.dellisd.spatialk.geojson.Position
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -53,9 +54,6 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-import org.jetbrains.compose.resources.ExperimentalResourceApi
-
-private const val GBFS_FILE = "files/data/lime_seattle.gbfs.json"
 
 private val SEATTLE = Position(latitude = 47.607, longitude = -122.342)
 
@@ -68,12 +66,20 @@ object ClusteredPointsDemo : Demo {
   @Composable
   override fun Component(navigateUp: () -> Unit) {
     DemoScaffold(this, navigateUp) {
+      val styleState = rememberStyleState()
+      val coroutineScope = rememberCoroutineScope()
+
+      var isLoading by remember { mutableStateOf(true) }
+      var data by remember { mutableStateOf(FeatureCollection().json()) }
+      LaunchedEffect(Unit) {
+        withContext(Dispatchers.Default) {
+          data = getLimeBikeStatusAsGeoJson()
+          isLoading = false
+        }
+      }
+
       val cameraState =
         rememberCameraState(firstPosition = CameraPosition(target = SEATTLE, zoom = 10.0))
-      val styleState = rememberStyleState()
-      val isLoading = remember { mutableStateOf(true) }
-
-      val coroutineScope = rememberCoroutineScope()
 
       Box(modifier = Modifier.fillMaxSize()) {
         MaplibreMap(
@@ -82,12 +88,10 @@ object ClusteredPointsDemo : Demo {
           styleState = styleState,
           options = DemoMapOptions(),
         ) {
-          val gbfsData by rememberGbfsFeatureState(GBFS_FILE, isLoading)
-
           val bikeSource =
             rememberGeoJsonSource(
               "bikes",
-              GeoJsonData.JsonString(gbfsData),
+              GeoJsonData.JsonString(data),
               GeoJsonOptions(
                 cluster = true,
                 clusterRadius = 32,
@@ -168,34 +172,17 @@ object ClusteredPointsDemo : Demo {
           )
         }
         DemoMapControls(cameraState, styleState)
-        if (isLoading.value) {
-          CircularProgressIndicator(Modifier.align(Alignment.Center))
-        }
+        if (isLoading) CircularProgressIndicator(Modifier.align(Alignment.Center))
       }
     }
   }
 }
 
-@Composable
-private fun rememberGbfsFeatureState(
-  gbfsFilePath: String,
-  isLoading: MutableState<Boolean>,
-): State<String> {
-  val dataState = remember { mutableStateOf(FeatureCollection().json()) }
-  LaunchedEffect(gbfsFilePath) {
-    withContext(Dispatchers.Default) {
-      isLoading.value = true
-      val response = readGbfsData(gbfsFilePath)
-      dataState.value = response
-      isLoading.value = false
-    }
-  }
-  return dataState
-}
-
-@OptIn(ExperimentalResourceApi::class)
-private suspend fun readGbfsData(gbfsFilePath: String): String {
-  val bodyString = Res.readBytes(gbfsFilePath).decodeToString()
+private suspend fun getLimeBikeStatusAsGeoJson(): String {
+  val bodyString =
+    HttpClient()
+      .get("https://data.lime.bike/api/partners/v1/gbfs/seattle/free_bike_status.json")
+      .bodyAsText()
   val body = Json.parseToJsonElement(bodyString).jsonObject
   val bikes = body["data"]!!.jsonObject["bikes"]!!.jsonArray.map { it.jsonObject }
   val features =
