@@ -19,12 +19,12 @@ import dev.sargunv.maplibrecompose.compose.rememberStyleState
 import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
 import dev.sargunv.maplibrecompose.core.CameraPosition
 import dev.sargunv.maplibrecompose.core.source.GeoJsonData
+import dev.sargunv.maplibrecompose.core.source.GeoJsonOptions
 import dev.sargunv.maplibrecompose.demoapp.DEFAULT_STYLE
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
 import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
 import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
-import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.expressions.dsl.const
 import dev.sargunv.maplibrecompose.expressions.dsl.exponential
 import dev.sargunv.maplibrecompose.expressions.dsl.interpolate
@@ -33,8 +33,6 @@ import dev.sargunv.maplibrecompose.expressions.value.LineCap
 import dev.sargunv.maplibrecompose.expressions.value.LineJoin
 import io.github.dellisd.spatialk.geojson.Position
 import org.jetbrains.compose.resources.ExperimentalResourceApi
-
-private const val ROUTES_FILE = "files/data/amtrak_routes.geojson"
 
 private val US = Position(latitude = 46.336, longitude = -96.205)
 
@@ -59,7 +57,11 @@ object AnimatedLayerDemo : Demo {
           val routeSource =
             rememberGeoJsonSource(
               id = "amtrak-routes",
-              data = GeoJsonData.Uri(Res.getUri(ROUTES_FILE)),
+              data =
+                GeoJsonData.Uri(
+                  "https://raw.githubusercontent.com/datanews/amtrak-geojson/refs/heads/master/amtrak-combined.geojson"
+                ),
+              options = GeoJsonOptions(tolerance = 0.1f),
             )
 
           val infiniteTransition = rememberInfiniteTransition()
