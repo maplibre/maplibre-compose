@@ -99,6 +99,9 @@ val Platform.supportsBlending: Boolean
 val Platform.usesMaplibreNative: Boolean
   get() = isAndroid || isIos
 
+val Platform.supportsImageSource: Boolean
+  get() = isAndroid
+
 expect fun getGeolocator(): Geolocator
 
 expect fun RenderOptions.withMaxFps(maxFps: Int): RenderOptions
