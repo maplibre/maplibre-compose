@@ -20,6 +20,7 @@ import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import co.touchlab.kermit.Logger
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.IosMap
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
@@ -32,7 +33,7 @@ import platform.Foundation.NSURL
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
-  styleUri: String,
+  style: BaseStyle,
   rememberedStyle: SafeStyle?,
   update: (map: MaplibreMap) -> Unit,
   onReset: () -> Unit,
@@ -42,7 +43,7 @@ internal actual fun ComposableMapView(
 ) {
   IosMapView(
     modifier = modifier,
-    styleUri = styleUri,
+    style = style,
     update = update,
     onReset = onReset,
     logger = logger,
@@ -54,7 +55,7 @@ internal actual fun ComposableMapView(
 @Composable
 internal fun IosMapView(
   modifier: Modifier,
-  styleUri: String,
+  style: BaseStyle,
   update: (map: MaplibreMap) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -75,28 +76,29 @@ internal fun IosMapView(
       properties =
         UIKitInteropProperties(interactionMode = UIKitInteropInteractionMode.NonCooperative),
       factory = {
-        MLNMapView(
-            frame =
-              CGRectMake(
-                x = x.value.toDouble(),
-                y = y.value.toDouble(),
-                width = width.value.toDouble(),
-                height = height.value.toDouble(),
-              ),
-            styleURL = NSURL(string = styleUri),
+        val frame =
+          CGRectMake(
+            x = x.value.toDouble(),
+            y = y.value.toDouble(),
+            width = width.value.toDouble(),
+            height = height.value.toDouble(),
           )
-          .also { mapView ->
-            currentMap =
-              IosMap(
-                mapView = mapView,
-                size = CGSizeMake(width.value.toDouble(), height.value.toDouble()),
-                layoutDir = layoutDir,
-                density = density,
-                insetPadding = insetPadding,
-                callbacks = callbacks,
-                logger = logger,
-              )
+        val mapView =
+          when (style) {
+            is BaseStyle.Uri -> MLNMapView(frame = frame, styleURL = NSURL(string = style.uri))
+            is BaseStyle.Json -> MLNMapView(frame = frame, styleJSON = style.json)
           }
+        currentMap =
+          IosMap(
+            mapView = mapView,
+            size = CGSizeMake(width.value.toDouble(), height.value.toDouble()),
+            layoutDir = layoutDir,
+            density = density,
+            insetPadding = insetPadding,
+            callbacks = callbacks,
+            logger = logger,
+          )
+        mapView
       },
       update = { _ ->
         val map = currentMap ?: return@UIKitView
@@ -106,7 +108,7 @@ internal fun IosMapView(
         map.insetPadding = insetPadding
         map.callbacks = callbacks
         map.logger = logger
-        map.setStyleUri(styleUri)
+        map.setBaseStyle(style)
         update(map)
       },
       onReset = {

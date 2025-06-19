@@ -16,7 +16,7 @@ styles.
 
 ## Using a style
 
-To use a style, you can pass the `styleUri` of your chosen style to the
+To use a style, you can pass the `BaseStyle` of your chosen style to the
 `MaplibreMap` composable:
 
 ```kotlin

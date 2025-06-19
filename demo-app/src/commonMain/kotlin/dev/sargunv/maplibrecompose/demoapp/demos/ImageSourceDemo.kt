@@ -35,7 +35,7 @@ object ImageSourceDemo : Demo {
 
     Scaffold(topBar = { DemoAppBar(this, navigateUp) }) { padding ->
       Box(modifier = Modifier.fillMaxSize()) {
-        MaplibreMap(styleUri = DEFAULT_STYLE, cameraState = cameraState, styleState = styleState) {
+        MaplibreMap(baseStyle = DEFAULT_STYLE, cameraState = cameraState, styleState = styleState) {
           val imageSource =
             rememberImageSource(
               id = "demo-image",

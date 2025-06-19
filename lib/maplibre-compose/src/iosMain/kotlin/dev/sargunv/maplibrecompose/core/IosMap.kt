@@ -213,14 +213,17 @@ internal class IosMap(
     }
   }
 
-  private var lastStyleUri: String = ""
+  private var lastBaseStyle: BaseStyle? = null
 
-  override fun setStyleUri(styleUri: String) {
-    if (styleUri == lastStyleUri) return
-    lastStyleUri = styleUri
+  override fun setBaseStyle(style: BaseStyle) {
+    if (style == lastBaseStyle) return
+    lastBaseStyle = style
     logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
-    mapView.setStyleURL(NSURL(string = styleUri))
+    when (style) {
+      is BaseStyle.Uri -> mapView.setStyleURL(NSURL(string = style.uri))
+      is BaseStyle.Json -> mapView.setStyleJSON(style.json)
+    }
   }
 
   internal class Gesture<T : UIGestureRecognizer>(

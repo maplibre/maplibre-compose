@@ -10,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.util.fastRoundToInt
 import dev.jordond.compass.geolocation.Geolocator
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.OrnamentOptions
 import dev.sargunv.maplibrecompose.core.RenderOptions
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
@@ -25,23 +26,39 @@ interface Demo {
   @Composable fun Component(navigateUp: () -> Unit)
 }
 
-data class StyleInfo(val name: String, val uri: String, val isDark: Boolean)
+data class StyleInfo(val name: String, val style: BaseStyle, val isDark: Boolean)
 
 @OptIn(ExperimentalResourceApi::class)
 val ALL_STYLES =
   listOf(
-    StyleInfo("Bright", "https://tiles.openfreemap.org/styles/bright", isDark = false),
-    StyleInfo("Liberty", "https://tiles.openfreemap.org/styles/liberty", isDark = false),
-    StyleInfo("Positron", "https://tiles.openfreemap.org/styles/positron", isDark = false),
-    StyleInfo("Fiord", "https://tiles.openfreemap.org/styles/fiord", isDark = true),
-    StyleInfo("Dark", "https://tiles.openfreemap.org/styles/dark", isDark = true),
-    StyleInfo("Colorful", Res.getUri("files/styles/colorful.json"), isDark = false),
-    StyleInfo("Eclipse", Res.getUri("files/styles/eclipse.json"), isDark = true),
-    StyleInfo("OSM Carto", Res.getUri("files/styles/osm-raster.json"), isDark = false),
+    StyleInfo(
+      "Bright",
+      BaseStyle.Uri("https://tiles.openfreemap.org/styles/bright"),
+      isDark = false,
+    ),
+    StyleInfo(
+      "Liberty",
+      BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
+      isDark = false,
+    ),
+    StyleInfo(
+      "Positron",
+      BaseStyle.Uri("https://tiles.openfreemap.org/styles/positron"),
+      isDark = false,
+    ),
+    StyleInfo("Fiord", BaseStyle.Uri("https://tiles.openfreemap.org/styles/fiord"), isDark = true),
+    StyleInfo("Dark", BaseStyle.Uri("https://tiles.openfreemap.org/styles/dark"), isDark = true),
+    StyleInfo("Colorful", BaseStyle.Uri(Res.getUri("files/styles/colorful.json")), isDark = false),
+    StyleInfo("Eclipse", BaseStyle.Uri(Res.getUri("files/styles/eclipse.json")), isDark = true),
+    StyleInfo(
+      "OSM Carto",
+      BaseStyle.Uri(Res.getUri("files/styles/osm-raster.json")),
+      isDark = false,
+    ),
   )
 
-val DEFAULT_STYLE = ALL_STYLES[0].uri
-val MINIMAL_STYLE = ALL_STYLES[2].uri
+val DEFAULT_STYLE = ALL_STYLES[0].style
+val MINIMAL_STYLE = ALL_STYLES[2].style
 
 /** Caution: this converter results in a loss of precision far from the origin. */
 class PositionVectorConverter(private val origin: Position) :

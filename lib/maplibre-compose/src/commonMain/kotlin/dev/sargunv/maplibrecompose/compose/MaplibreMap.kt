@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
 import dev.sargunv.maplibrecompose.compose.engine.LayerNode
 import dev.sargunv.maplibrecompose.compose.engine.rememberStyleComposition
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.CameraMoveReason
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
@@ -25,7 +26,7 @@ import kotlinx.coroutines.launch
  * Displays a MapLibre based map.
  *
  * @param modifier The modifier to be applied to the layout.
- * @param styleUri The URI of the map style specification JSON to use, see
+ * @param baseStyle The URI or JSON of the map style to use. See
  *   [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param zoomRange The allowable bounds for the camera zoom level.
  * @param pitchRange The allowable bounds for the camera pitch.
@@ -40,7 +41,7 @@ import kotlinx.coroutines.launch
  * @param onFrame Invoked on every rendered frame.
  * @param logger kermit logger to use.
  * @param content The map content additional to what is already part of the map as defined in the
- *   base map style linked in [styleUri].
+ *   base map style linked in [baseStyle].
  *
  * Additional [sources](https://maplibre.org/maplibre-style-spec/sources/) can be added via:
  * - [rememberGeoJsonSource][dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource] (see
@@ -80,7 +81,7 @@ import kotlinx.coroutines.launch
 @Composable
 public fun MaplibreMap(
   modifier: Modifier = Modifier,
-  styleUri: String = "https://demotiles.maplibre.org/style.json",
+  baseStyle: BaseStyle = BaseStyle.Demo,
   zoomRange: ClosedRange<Float> = 0f..20f,
   pitchRange: ClosedRange<Float> = 0f..60f,
   cameraState: CameraState = rememberCameraState(),
@@ -176,7 +177,7 @@ public fun MaplibreMap(
 
   ComposableMapView(
     modifier = modifier.fillMaxSize(),
-    styleUri = styleUri,
+    style = baseStyle,
     update = { map ->
       when (map) {
         is StandardMaplibreMap -> {

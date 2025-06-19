@@ -13,6 +13,7 @@ import com.multiplatform.webview.web.WebView
 import com.multiplatform.webview.web.WebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewNavigator
 import com.multiplatform.webview.web.rememberWebViewStateWithHTMLData
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
 import dev.sargunv.maplibrecompose.core.SafeStyle
@@ -22,7 +23,7 @@ import dev.sargunv.maplibrecompose.core.WebviewMap
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
-  styleUri: String,
+  style: BaseStyle,
   rememberedStyle: SafeStyle?,
   update: (map: MaplibreMap) -> Unit,
   onReset: () -> Unit,
@@ -32,7 +33,7 @@ internal actual fun ComposableMapView(
 ) =
   DesktopMapView(
     modifier = modifier,
-    styleUri = styleUri,
+    style = style,
     update = update,
     onReset = onReset,
     logger = logger,
@@ -42,7 +43,7 @@ internal actual fun ComposableMapView(
 @Composable
 internal fun DesktopMapView(
   modifier: Modifier,
-  styleUri: String,
+  style: BaseStyle,
   update: suspend (map: MaplibreMap) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -68,7 +69,7 @@ internal fun DesktopMapView(
 
   LaunchedEffect(map) { map.init() }
 
-  LaunchedEffect(map, styleUri) { map.asyncSetStyleUri(styleUri) }
+  LaunchedEffect(map, style) { map.asyncSetBaseStyle(style) }
 
   LaunchedEffect(map, update) { update(map) }
 }

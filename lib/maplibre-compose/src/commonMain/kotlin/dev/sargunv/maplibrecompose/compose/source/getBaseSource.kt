@@ -6,7 +6,7 @@ import dev.sargunv.maplibrecompose.compose.engine.LocalStyleNode
 import dev.sargunv.maplibrecompose.core.source.Source
 
 /**
- * Get the source with the given [id] from the base style specified via the `styleUri` parameter in
+ * Get the source with the given [id] from the base style specified via the `baseStyle` parameter in
  * [MaplibreMap][dev.sargunv.maplibrecompose.compose.MaplibreMap].
  *
  * @throws IllegalStateException if the source does not exist

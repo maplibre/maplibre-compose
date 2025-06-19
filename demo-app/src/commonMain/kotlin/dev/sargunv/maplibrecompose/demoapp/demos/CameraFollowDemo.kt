@@ -80,7 +80,7 @@ object CameraFollowDemo : Demo {
 
         Box(modifier = Modifier.weight(1f)) {
           MaplibreMap(
-            styleUri = DEFAULT_STYLE,
+            baseStyle = DEFAULT_STYLE,
             cameraState = cameraState,
             styleState = styleState,
             options = DemoMapOptions(),

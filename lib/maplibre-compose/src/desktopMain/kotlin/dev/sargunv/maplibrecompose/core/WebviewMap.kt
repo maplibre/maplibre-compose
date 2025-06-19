@@ -16,8 +16,11 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
     bridge.callVoid("init")
   }
 
-  override suspend fun asyncSetStyleUri(styleUri: String) {
-    bridge.callVoid("setStyleUri", styleUri)
+  override suspend fun asyncSetBaseStyle(style: BaseStyle) {
+    when (style) {
+      is BaseStyle.Uri -> bridge.callVoid("setStyleUri", style.uri)
+      is BaseStyle.Json -> bridge.callVoid("setStyleJson", style.json)
+    }
   }
 
   override suspend fun asyncGetCameraPosition(): CameraPosition {

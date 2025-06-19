@@ -14,6 +14,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import co.touchlab.kermit.Logger
 import dev.sargunv.maplibrecompose.core.AndroidMap
 import dev.sargunv.maplibrecompose.core.AndroidScaleBar
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.MapOptions
 import dev.sargunv.maplibrecompose.core.MaplibreMap
 import dev.sargunv.maplibrecompose.core.RenderOptions
@@ -25,7 +26,7 @@ import org.maplibre.android.maps.MapView
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
-  styleUri: String,
+  style: BaseStyle,
   rememberedStyle: SafeStyle?,
   update: (map: MaplibreMap) -> Unit,
   onReset: () -> Unit,
@@ -35,7 +36,7 @@ internal actual fun ComposableMapView(
 ) {
   AndroidMapView(
     modifier = modifier,
-    styleUri = styleUri,
+    style = style,
     rememberedStyle = rememberedStyle,
     update = update,
     onReset = onReset,
@@ -48,7 +49,7 @@ internal actual fun ComposableMapView(
 @Composable
 internal fun AndroidMapView(
   modifier: Modifier,
-  styleUri: String,
+  style: BaseStyle,
   rememberedStyle: SafeStyle?,
   update: (map: MaplibreMap) -> Unit,
   onReset: () -> Unit,
@@ -90,7 +91,7 @@ internal fun AndroidMapView(
                 layoutDir = layoutDir,
                 density = density,
                 callbacks = callbacks,
-                styleUri = styleUri,
+                baseStyle = style,
                 logger = logger,
               )
 
@@ -104,7 +105,7 @@ internal fun AndroidMapView(
       map.density = density
       map.callbacks = callbacks
       map.logger = logger
-      map.setStyleUri(styleUri)
+      map.setBaseStyle(style)
       update(map)
     },
     onReset = {

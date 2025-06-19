@@ -12,6 +12,7 @@ import dev.sargunv.maplibrecompose.compose.layer.CircleLayer
 import dev.sargunv.maplibrecompose.compose.layer.LineLayer
 import dev.sargunv.maplibrecompose.compose.source.getBaseSource
 import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.source.GeoJsonData
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.expressions.dsl.const
@@ -26,7 +27,7 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 @OptIn(ExperimentalResourceApi::class)
 fun Layers() {
   // -8<- [start:simple]
-  MaplibreMap(styleUri = "https://tiles.openfreemap.org/styles/liberty") {
+  MaplibreMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
     val tiles = getBaseSource(id = "openmaptiles")
     CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
   }

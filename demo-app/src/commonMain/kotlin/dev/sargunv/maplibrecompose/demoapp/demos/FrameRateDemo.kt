@@ -44,7 +44,7 @@ object FrameRateDemo : Demo {
 
         Box(modifier = Modifier.weight(1f)) {
           MaplibreMap(
-            styleUri = DEFAULT_STYLE,
+            baseStyle = DEFAULT_STYLE,
             onFrame = fpsState::recordFps,
             cameraState = cameraState,
             styleState = styleState,

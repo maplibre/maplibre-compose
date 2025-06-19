@@ -42,6 +42,7 @@ import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineManager
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflinePacksSource
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.CameraPosition
 import dev.sargunv.maplibrecompose.demoapp.DEFAULT_STYLE
 import dev.sargunv.maplibrecompose.demoapp.Demo
@@ -90,7 +91,7 @@ object OfflineDemo : Demo {
       ) { padding ->
         Box(modifier = Modifier.fillMaxSize()) {
           MaplibreMap(
-            styleUri = MINIMAL_STYLE,
+            baseStyle = MINIMAL_STYLE,
             cameraState = cameraState,
             styleState = styleState,
             options = DemoMapOptions(PaddingValues(bottom = sheetPeekHeight)),
@@ -226,7 +227,10 @@ private fun DownloadButton(enabled: Boolean, onClick: () -> Unit) {
 
 private suspend fun OfflineManager.createNamed(name: String, bounds: BoundingBox): OfflinePack {
   return create(
-    OfflinePackDefinition.TilePyramid(styleUrl = DEFAULT_STYLE, bounds = bounds),
+    OfflinePackDefinition.TilePyramid(
+      styleUrl = (DEFAULT_STYLE as BaseStyle.Uri).uri,
+      bounds = bounds,
+    ),
     name.encodeToByteArray(),
   )
 }

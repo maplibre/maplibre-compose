@@ -28,7 +28,7 @@ object TextureModeDemo : Demo {
 
       Box(modifier = Modifier.Companion.fillMaxSize()) {
         MaplibreMap(
-          styleUri = DEFAULT_STYLE,
+          baseStyle = DEFAULT_STYLE,
           cameraState = cameraState,
           styleState = styleState,
           options =

@@ -9,6 +9,7 @@ import dev.sargunv.maplibrecompose.compose.layer.RasterLayer
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
 import dev.sargunv.maplibrecompose.compose.rememberStyleState
 import dev.sargunv.maplibrecompose.compose.source.rememberRasterSource
+import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.core.source.TileSetOptions
 import dev.sargunv.maplibrecompose.demoapp.Demo
 import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
@@ -33,7 +34,7 @@ object LocalTilesDemo : Demo {
 
         Box(modifier = Modifier.Companion.weight(1f)) {
           MaplibreMap(
-            styleUri = Res.getUri("files/styles/empty.json"),
+            baseStyle = BaseStyle.Empty,
             zoomRange = 0f..4f,
             cameraState = cameraState,
             styleState = styleState,

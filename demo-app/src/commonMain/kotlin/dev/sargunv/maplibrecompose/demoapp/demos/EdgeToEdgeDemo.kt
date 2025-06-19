@@ -33,7 +33,7 @@ object EdgeToEdgeDemo : Demo {
     Scaffold(topBar = { DemoAppBar(this, navigateUp, alpha = 0.5f) }) { padding ->
       Box(modifier = Modifier.fillMaxSize()) {
         MaplibreMap(
-          styleUri = DEFAULT_STYLE,
+          baseStyle = DEFAULT_STYLE,
           cameraState = cameraState,
           styleState = styleState,
           options = DemoMapOptions(padding),

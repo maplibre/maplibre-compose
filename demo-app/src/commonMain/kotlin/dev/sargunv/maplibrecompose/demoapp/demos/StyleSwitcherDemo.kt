@@ -44,7 +44,7 @@ object StyleSwitcherDemo : Demo {
 
           Box(modifier = Modifier.weight(1f)) {
             MaplibreMap(
-              styleUri = ALL_STYLES[selectedIndex].uri,
+              baseStyle = ALL_STYLES[selectedIndex].style,
               cameraState = cameraState,
               styleState = styleState,
               options = DemoMapOptions(),

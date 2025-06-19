@@ -49,7 +49,7 @@ object AnimatedLayerDemo : Demo {
 
       Box(modifier = Modifier.fillMaxSize()) {
         MaplibreMap(
-          styleUri = DEFAULT_STYLE,
+          baseStyle = DEFAULT_STYLE,
           cameraState = cameraState,
           styleState = styleState,
           options = DemoMapOptions(),
