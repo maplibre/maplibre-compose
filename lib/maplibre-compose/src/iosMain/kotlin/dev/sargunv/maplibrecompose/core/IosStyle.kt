@@ -1,5 +1,6 @@
 package dev.sargunv.maplibrecompose.core
 
+import MapLibre.MLNComputedShapeSource
 import MapLibre.MLNRasterTileSource
 import MapLibre.MLNShapeSource
 import MapLibre.MLNSource
@@ -9,6 +10,7 @@ import MapLibre.MLNVectorTileSource
 import androidx.compose.ui.graphics.ImageBitmap
 import dev.sargunv.maplibrecompose.core.layer.Layer
 import dev.sargunv.maplibrecompose.core.layer.UnknownLayer
+import dev.sargunv.maplibrecompose.core.source.ComputedSource
 import dev.sargunv.maplibrecompose.core.source.GeoJsonSource
 import dev.sargunv.maplibrecompose.core.source.RasterSource
 import dev.sargunv.maplibrecompose.core.source.Source
@@ -32,6 +34,7 @@ internal class IosStyle(style: MLNStyle, private val getScale: () -> Float) : St
       is MLNVectorTileSource -> VectorSource(this)
       is MLNShapeSource -> GeoJsonSource(this)
       is MLNRasterTileSource -> RasterSource(this)
+      is MLNComputedShapeSource -> ComputedSource(this)
       else -> UnknownSource(this)
     }
 
