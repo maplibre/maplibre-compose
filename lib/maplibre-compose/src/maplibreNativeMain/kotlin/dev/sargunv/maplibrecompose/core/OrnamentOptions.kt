@@ -44,6 +44,7 @@ public actual data class OrnamentOptions(
         isCompassEnabled = false,
         isScaleBarEnabled = false,
       )
+
     public actual val OnlyLogo: OrnamentOptions = AllDisabled.copy(isLogoEnabled = true)
   }
 }
