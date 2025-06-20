@@ -40,6 +40,8 @@ import kotlinx.coroutines.launch
  * @param onMapLongClick Invoked when the map is long-clicked. See [onMapClick].
  * @param onFrame Invoked on every rendered frame.
  * @param logger kermit logger to use.
+ * @param onMapLoadFailed Invoked when the map failed to load.
+ * @param onMapLoadFinished Invoked when the map finished loading.
  * @param content The map content additional to what is already part of the map as defined in the
  *   base map style linked in [baseStyle].
  *
