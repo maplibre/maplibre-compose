@@ -51,6 +51,12 @@ val ALL_STYLES =
     StyleInfo("Colorful", BaseStyle.Uri(Res.getUri("files/styles/colorful.json")), isDark = false),
     StyleInfo("Eclipse", BaseStyle.Uri(Res.getUri("files/styles/eclipse.json")), isDark = true),
     StyleInfo(
+      "Graybeard",
+      BaseStyle.Uri(Res.getUri("files/styles/graybeard.json")),
+      isDark = false,
+    ),
+    StyleInfo("Neutrino", BaseStyle.Uri(Res.getUri("files/styles/neutrino.json")), isDark = true),
+    StyleInfo(
       "OSM Carto",
       BaseStyle.Uri(Res.getUri("files/styles/osm-raster.json")),
       isDark = false,
