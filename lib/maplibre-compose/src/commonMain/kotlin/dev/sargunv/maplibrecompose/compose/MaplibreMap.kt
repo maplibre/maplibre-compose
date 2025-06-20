@@ -91,6 +91,8 @@ public fun MaplibreMap(
   onFrame: (framesPerSecond: Double) -> Unit = {},
   options: MapOptions = MapOptions(),
   logger: Logger? = remember { Logger.withTag("maplibre-compose") },
+  onMapFailLoading: (String?) -> Unit = {},
+  onMapFinishedLoading: () -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit = {},
 ) {
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
@@ -108,9 +110,14 @@ public fun MaplibreMap(
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
         }
 
+        override fun onMapFailLoading(reason: String?) {
+          onMapFailLoading(reason)
+        }
+
         override fun onMapFinishedLoading(map: MaplibreMap) {
           map as StandardMaplibreMap
           styleState.reloadSources()
+          onMapFinishedLoading()
         }
 
         override fun onCameraMoveStarted(map: MaplibreMap, reason: CameraMoveReason) {

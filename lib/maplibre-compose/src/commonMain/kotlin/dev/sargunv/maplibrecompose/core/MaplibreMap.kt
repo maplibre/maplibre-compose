@@ -68,6 +68,8 @@ internal interface MaplibreMap {
 
     fun onMapFinishedLoading(map: MaplibreMap)
 
+    fun onMapFailLoading(reason: String?)
+
     fun onCameraMoveStarted(map: MaplibreMap, reason: CameraMoveReason)
 
     fun onCameraMoved(map: MaplibreMap)
