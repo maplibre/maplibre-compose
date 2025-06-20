@@ -192,9 +192,9 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): Any? =
       NSValue.valueWithUIEdgeInsets(
         UIEdgeInsetsMake(
           top = value.calculateTopPadding().value.toDouble(),
-          left = value.calculateLeftPadding(LayoutDirection.Ltr).value.toDouble(),
+          left = value.calculateRightPadding(LayoutDirection.Ltr).value.toDouble(),
           bottom = value.calculateBottomPadding().value.toDouble(),
-          right = value.calculateRightPadding(LayoutDirection.Ltr).value.toDouble(),
+          right = value.calculateLeftPadding(LayoutDirection.Ltr).value.toDouble(),
         )
       )
 
