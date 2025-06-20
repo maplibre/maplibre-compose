@@ -29,42 +29,51 @@ interface Demo {
 data class StyleInfo(val name: String, val style: BaseStyle, val isDark: Boolean)
 
 @OptIn(ExperimentalResourceApi::class)
-val ALL_STYLES =
-  listOf(
+val ALL_STYLES = buildList {
+  listOf("Bright", "Liberty", "Positron", "Fiord", "Dark").forEach { name ->
+    add(
+      StyleInfo(
+        "OpenFreeMap $name",
+        BaseStyle.Uri("https://tiles.openfreemap.org/styles/${name.lowercase()}"),
+        isDark = name == "Dark" || name == "Fiord",
+      )
+    )
+  }
+
+  listOf("Light", "Dark", "White", "Grayscale", "Black").forEach { name ->
+    add(
+      StyleInfo(
+        "Protomaps $name",
+        BaseStyle.Uri(
+          // Get your own free key at https://protomaps.com/! This one is just for the demo.
+          "https://api.protomaps.com/styles/v5/${name.lowercase()}/en.json?key=73c45a97eddd43fb"
+        ),
+        isDark = name == "Dark" || name == "Black",
+      )
+    )
+  }
+
+  listOf("Colorful", "Eclipse", "Graybeard", "Neutrino").forEach { name ->
+    add(
+      StyleInfo(
+        "Versatiles $name",
+        BaseStyle.Uri(Res.getUri("files/styles/${name.lowercase()}.json")),
+        isDark = name == "Eclipse",
+      )
+    )
+  }
+
+  add(
     StyleInfo(
-      "Bright",
-      BaseStyle.Uri("https://tiles.openfreemap.org/styles/bright"),
-      isDark = false,
-    ),
-    StyleInfo(
-      "Liberty",
-      BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
-      isDark = false,
-    ),
-    StyleInfo(
-      "Positron",
-      BaseStyle.Uri("https://tiles.openfreemap.org/styles/positron"),
-      isDark = false,
-    ),
-    StyleInfo("Fiord", BaseStyle.Uri("https://tiles.openfreemap.org/styles/fiord"), isDark = true),
-    StyleInfo("Dark", BaseStyle.Uri("https://tiles.openfreemap.org/styles/dark"), isDark = true),
-    StyleInfo("Colorful", BaseStyle.Uri(Res.getUri("files/styles/colorful.json")), isDark = false),
-    StyleInfo("Eclipse", BaseStyle.Uri(Res.getUri("files/styles/eclipse.json")), isDark = true),
-    StyleInfo(
-      "Graybeard",
-      BaseStyle.Uri(Res.getUri("files/styles/graybeard.json")),
-      isDark = false,
-    ),
-    StyleInfo("Neutrino", BaseStyle.Uri(Res.getUri("files/styles/neutrino.json")), isDark = true),
-    StyleInfo(
-      "OSM Carto",
+      "OpenStreetMaps Carto",
       BaseStyle.Uri(Res.getUri("files/styles/osm-raster.json")),
       isDark = false,
-    ),
+    )
   )
+}
 
 val DEFAULT_STYLE = ALL_STYLES[0].style
-val MINIMAL_STYLE = ALL_STYLES[2].style
+val MINIMAL_STYLE = ALL_STYLES.first { it.name.contains("Positron") }.style
 
 /** Caution: this converter results in a loss of precision far from the origin. */
 class PositionVectorConverter(private val origin: Position) :

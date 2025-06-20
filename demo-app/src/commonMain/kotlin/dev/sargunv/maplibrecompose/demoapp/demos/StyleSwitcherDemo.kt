@@ -57,7 +57,14 @@ object StyleSwitcherDemo : Demo {
               Tab(
                 selected = selectedIndex == index,
                 onClick = { selectedIndex = index },
-                text = { Text(text = style.name, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                text = {
+                  Text(
+                    text = style.name,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.labelSmall,
+                  )
+                },
               )
             }
           }
