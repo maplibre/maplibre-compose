@@ -105,7 +105,7 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
     impl.setProperties(PropertyFactory.iconRotate(rotate.toMLNExpression()))
   }
 
-  actual fun setIconPadding(padding: CompiledExpression<DpValue>) {
+  actual fun setIconPadding(padding: CompiledExpression<DpPaddingValue>) {
     impl.setProperties(PropertyFactory.iconPadding(padding.toMLNExpression()))
   }
 
