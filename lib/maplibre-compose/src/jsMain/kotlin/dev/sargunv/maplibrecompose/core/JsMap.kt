@@ -88,6 +88,7 @@ internal class JsMap(
   private var lastBaseStyle: BaseStyle? = null
 
   override fun setBaseStyle(style: BaseStyle) {
+    if (style == lastBaseStyle) return
     lastBaseStyle = style
     when (style) {
       is BaseStyle.Json -> impl.setStyle(JSON.parse(style.json))
