@@ -91,8 +91,8 @@ public fun MaplibreMap(
   onFrame: (framesPerSecond: Double) -> Unit = {},
   options: MapOptions = MapOptions(),
   logger: Logger? = remember { Logger.withTag("maplibre-compose") },
-  onMapFailLoading: (String?) -> Unit = {},
-  onMapFinishedLoading: () -> Unit = {},
+  onMapLoadFailed: (reason: String?) -> Unit = {},
+  onMapLoadFinished: () -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit = {},
 ) {
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
@@ -111,13 +111,13 @@ public fun MaplibreMap(
         }
 
         override fun onMapFailLoading(reason: String?) {
-          onMapFailLoading(reason)
+          onMapLoadFailed(reason)
         }
 
         override fun onMapFinishedLoading(map: MaplibreMap) {
           map as StandardMaplibreMap
           styleState.reloadSources()
-          onMapFinishedLoading()
+          onMapLoadFinished()
         }
 
         override fun onCameraMoveStarted(map: MaplibreMap, reason: CameraMoveReason) {
