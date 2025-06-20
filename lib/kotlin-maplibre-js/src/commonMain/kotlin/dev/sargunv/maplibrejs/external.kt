@@ -57,6 +57,8 @@ public external class Map public constructor(options: MapOptions) {
 
   public fun setMinPitch(min: Double)
 
+  public fun setMaxBounds(bounds: Array<DoubleArray>?)
+
   public fun jumpTo(options: JumpToOptions)
 
   public fun easeTo(options: EaseToOptions)

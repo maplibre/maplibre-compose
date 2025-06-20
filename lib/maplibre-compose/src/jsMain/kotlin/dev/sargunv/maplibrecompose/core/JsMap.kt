@@ -113,6 +113,17 @@ internal class JsMap(
     impl.setMaxZoom(maxZoom)
   }
 
+  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
+    impl.setMaxBounds(
+      boundingBox?.let {
+        arrayOf(
+          it.southwest.coordinates,
+          it.northeast.coordinates
+        )
+      }
+    )
+  }
+
   override fun getVisibleBoundingBox(): BoundingBox {
     return impl.getBounds().toBoundingBox()
   }

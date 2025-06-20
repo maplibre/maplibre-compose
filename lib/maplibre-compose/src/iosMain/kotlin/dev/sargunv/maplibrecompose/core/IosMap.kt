@@ -270,6 +270,10 @@ internal class IosMap(
     mapView.maximumZoomLevel = maxZoom
   }
 
+  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
+    mapView.setMaximumScreenBounds(boundingBox?.toMLNCoordinateBounds())
+  }
+
   override fun getVisibleBoundingBox(): BoundingBox {
     return mapView.visibleCoordinateBounds.toBoundingBox()
   }
