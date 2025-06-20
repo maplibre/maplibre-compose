@@ -29,7 +29,7 @@ tool-prettier = "3.5.3"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.8.1"
+gradle-compose = "1.8.2"
 #noinspection GradleDependency: follow version matrix above
 androidx-composeUi = "1.8.1"
 #noinspection GradleDependency: follow version matrix above
