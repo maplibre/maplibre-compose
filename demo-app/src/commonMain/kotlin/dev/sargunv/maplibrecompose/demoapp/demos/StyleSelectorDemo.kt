@@ -20,10 +20,7 @@ object StyleSelectorDemo : Demo {
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
     PageColumn(modifier = modifier) {
-      Heading(
-        text = "Offline Manager",
-        trailingContent = { CloseButton { state.nav.popBackStack() } },
-      )
+      Heading(text = name, trailingContent = { CloseButton { state.nav.popBackStack() } })
 
       val stylesByProvider =
         mapOf(

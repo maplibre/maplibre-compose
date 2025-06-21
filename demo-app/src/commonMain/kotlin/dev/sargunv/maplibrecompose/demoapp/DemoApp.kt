@@ -20,8 +20,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
+import dev.sargunv.maplibrecompose.demoapp.demos.StyleSelectorDemo
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.demoapp.generated.keyboard_arrow_up_24px
+import dev.sargunv.maplibrecompose.demoapp.util.Platform
 import dev.sargunv.maplibrecompose.demoapp.util.getDefaultColorScheme
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
@@ -31,6 +33,7 @@ fun DemoApp() {
   val demoState = rememberDemoState()
   val sheetState = rememberBottomSheetScaffoldState()
   var chosenStyle by remember { mutableStateOf<DemoStyle>(Protomaps.Light) }
+  val demos = listOf(StyleSelectorDemo) + Platform.extraDemos
 
   MaterialTheme(colorScheme = getDefaultColorScheme(isDark = chosenStyle.isDark)) {
     BottomSheetScaffold(
@@ -46,12 +49,13 @@ fun DemoApp() {
       },
       sheetContent = {
         DemoSheetContent(
+          demos = demos,
           state = demoState,
           modifier = Modifier.consumeWindowInsets(PaddingValues(top = 56.dp)).requiredHeight(500.dp),
         )
       },
     ) { padding ->
-      DemoMap(padding, demoState)
+      DemoMap(demos, padding, demoState)
     }
   }
 }

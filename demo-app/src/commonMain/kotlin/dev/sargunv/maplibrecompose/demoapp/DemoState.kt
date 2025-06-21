@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.navigation.NavDestination
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.rememberNavController
 import dev.sargunv.maplibrecompose.compose.CameraState
@@ -17,6 +18,17 @@ class DemoState(
   val styleState: StyleState,
 ) {
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
+
+  private val navDestinationState = mutableStateOf<NavDestination?>(null)
+
+  val navDestination: NavDestination?
+    get() = navDestinationState.value
+
+  init {
+    nav.addOnDestinationChangedListener { _, destination, _ ->
+      navDestinationState.value = destination
+    }
+  }
 }
 
 @Composable

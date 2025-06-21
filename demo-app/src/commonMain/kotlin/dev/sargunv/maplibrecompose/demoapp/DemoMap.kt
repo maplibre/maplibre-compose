@@ -16,6 +16,7 @@ import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.StyleState
 import dev.sargunv.maplibrecompose.core.MapOptions
+import dev.sargunv.maplibrecompose.demoapp.demos.Demo
 import dev.sargunv.maplibrecompose.demoapp.util.Platform
 import dev.sargunv.maplibrecompose.demoapp.util.PlatformFeature
 import dev.sargunv.maplibrecompose.demoapp.util.rememberOrnamentOptions
@@ -24,14 +25,19 @@ import dev.sargunv.maplibrecompose.material3.controls.DisappearingScaleBar
 import dev.sargunv.maplibrecompose.material3.controls.ExpandingAttributionButton
 
 @Composable
-fun DemoMap(padding: PaddingValues, state: DemoState) {
+fun DemoMap(demos: List<Demo>, padding: PaddingValues, state: DemoState) {
   Box(Modifier.background(MaterialTheme.colorScheme.background)) {
     MaplibreMap(
       styleState = state.styleState,
       cameraState = state.cameraState,
       baseStyle = state.selectedStyle.base,
       options = MapOptions(ornamentOptions = rememberOrnamentOptions(padding)),
-    ) {}
+    ) {
+      for (demo in demos) demo.MapContent(
+        state = state,
+        isOpen = state.navDestination?.route == demo.name,
+      )
+    }
 
     if (PlatformFeature.InteropBlending in Platform.supportedFeatures) {
       MapOverlay(padding, state.cameraState, state.styleState)
