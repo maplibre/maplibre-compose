@@ -16,9 +16,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.demoapp.DemoState
 import dev.sargunv.maplibrecompose.demoapp.design.CardColumn
-import dev.sargunv.maplibrecompose.demoapp.design.CloseButton
-import dev.sargunv.maplibrecompose.demoapp.design.Heading
-import dev.sargunv.maplibrecompose.demoapp.design.PageColumn
 import dev.sargunv.maplibrecompose.demoapp.design.Subheading
 import kotlin.math.pow
 import kotlin.math.roundToInt
@@ -30,27 +27,23 @@ object CameraStateDemo : Demo {
   override fun SheetContent(state: DemoState, modifier: Modifier) {
     val cameraState = state.cameraState
 
-    PageColumn(modifier = modifier) {
-      Heading(text = name, trailingContent = { CloseButton { state.nav.popBackStack() } })
+    Subheading(text = "Camera Position")
+    CardColumn {
+      val position = cameraState.position
+      InfoRow("Zoom", position.zoom.toRoundedString(2))
+      InfoRow("Bearing", "${position.bearing.toRoundedString(1)}°")
+      InfoRow("Tilt", "${position.tilt.toRoundedString(1)}°")
+      InfoRow("Target Longitude", "${position.target.longitude.toRoundedString(5)}°")
+      InfoRow("Target Latitude", "${position.target.latitude.toRoundedString(5)}°")
+    }
 
-      Subheading(text = "Camera Position")
-      CardColumn {
-        val position = cameraState.position
-        InfoRow("Zoom", position.zoom.toRoundedString(2))
-        InfoRow("Bearing", "${position.bearing.toRoundedString(1)}°")
-        InfoRow("Tilt", "${position.tilt.toRoundedString(1)}°")
-        InfoRow("Target Longitude", "${position.target.longitude.toRoundedString(5)}°")
-        InfoRow("Target Latitude", "${position.target.latitude.toRoundedString(5)}°")
-      }
+    Spacer(modifier = Modifier.height(8.dp))
 
-      Spacer(modifier = Modifier.height(8.dp))
-
-      Subheading(text = "Camera State")
-      CardColumn {
-        InfoRow("Is Camera Moving", cameraState.isCameraMoving.toString())
-        InfoRow("Move Reason", cameraState.moveReason.toString())
-        InfoRow("Meters Per DP At Target", cameraState.metersPerDpAtTarget.toRoundedString(2))
-      }
+    Subheading(text = "Camera State")
+    CardColumn {
+      InfoRow("Is Camera Moving", cameraState.isCameraMoving.toString())
+      InfoRow("Move Reason", cameraState.moveReason.toString())
+      InfoRow("Meters Per DP At Target", cameraState.metersPerDpAtTarget.toRoundedString(2))
     }
   }
 

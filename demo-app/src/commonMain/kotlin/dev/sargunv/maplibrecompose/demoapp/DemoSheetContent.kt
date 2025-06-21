@@ -7,6 +7,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import dev.sargunv.maplibrecompose.demoapp.demos.Demo
 import dev.sargunv.maplibrecompose.demoapp.design.CardColumn
+import dev.sargunv.maplibrecompose.demoapp.design.CloseButton
 import dev.sargunv.maplibrecompose.demoapp.design.Heading
 import dev.sargunv.maplibrecompose.demoapp.design.PageColumn
 import dev.sargunv.maplibrecompose.demoapp.design.SimpleListItem
@@ -34,7 +35,12 @@ fun DemoSheetContent(demos: List<Demo>, state: DemoState, modifier: Modifier) {
     }
 
     for (demo in demos) {
-      composable(demo.name) { demo.SheetContent(state, modifier) }
+      composable(demo.name) {
+        PageColumn(modifier = modifier) {
+          Heading(text = demo.name, trailingContent = { CloseButton { state.nav.popBackStack() } })
+          demo.SheetContent(state, modifier)
+        }
+      }
     }
   }
 }

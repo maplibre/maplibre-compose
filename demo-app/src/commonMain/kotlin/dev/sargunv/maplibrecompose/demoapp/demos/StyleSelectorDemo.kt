@@ -8,9 +8,6 @@ import dev.sargunv.maplibrecompose.demoapp.OtherStyles
 import dev.sargunv.maplibrecompose.demoapp.Protomaps
 import dev.sargunv.maplibrecompose.demoapp.Versatiles
 import dev.sargunv.maplibrecompose.demoapp.design.CardColumn
-import dev.sargunv.maplibrecompose.demoapp.design.CloseButton
-import dev.sargunv.maplibrecompose.demoapp.design.Heading
-import dev.sargunv.maplibrecompose.demoapp.design.PageColumn
 import dev.sargunv.maplibrecompose.demoapp.design.SimpleListItem
 import dev.sargunv.maplibrecompose.demoapp.design.Subheading
 
@@ -19,27 +16,24 @@ object StyleSelectorDemo : Demo {
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
-    PageColumn(modifier = modifier) {
-      Heading(text = name, trailingContent = { CloseButton { state.nav.popBackStack() } })
 
-      val stylesByProvider =
-        mapOf(
-          "Protomaps" to Protomaps.entries,
-          "OpenFreeMap" to OpenFreeMap.entries,
-          "Versatiles" to Versatiles.entries,
-          "Other Styles" to OtherStyles.entries,
-        )
+    val stylesByProvider =
+      mapOf(
+        "Protomaps" to Protomaps.entries,
+        "OpenFreeMap" to OpenFreeMap.entries,
+        "Versatiles" to Versatiles.entries,
+        "Other Styles" to OtherStyles.entries,
+      )
 
-      stylesByProvider.forEach { (provider, styles) ->
-        Subheading(text = provider)
-        CardColumn {
-          styles.forEach { style ->
-            SimpleListItem(
-              text = style.displayName,
-              onClick = { state.selectedStyle = style },
-              isSelected = style == state.selectedStyle,
-            )
-          }
+    stylesByProvider.forEach { (provider, styles) ->
+      Subheading(text = provider)
+      CardColumn {
+        styles.forEach { style ->
+          SimpleListItem(
+            text = style.displayName,
+            onClick = { state.selectedStyle = style },
+            isSelected = style == state.selectedStyle,
+          )
         }
       }
     }

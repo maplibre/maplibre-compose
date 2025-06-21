@@ -1,0 +1,180 @@
+package dev.sargunv.maplibrecompose.demoapp.demos
+
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+import dev.sargunv.maplibrecompose.compose.ClickResult
+import dev.sargunv.maplibrecompose.compose.layer.CircleLayer
+import dev.sargunv.maplibrecompose.compose.layer.SymbolLayer
+import dev.sargunv.maplibrecompose.compose.source.rememberGeoJsonSource
+import dev.sargunv.maplibrecompose.core.source.GeoJsonData
+import dev.sargunv.maplibrecompose.core.source.GeoJsonOptions
+import dev.sargunv.maplibrecompose.demoapp.DemoState
+import dev.sargunv.maplibrecompose.expressions.dsl.asNumber
+import dev.sargunv.maplibrecompose.expressions.dsl.asString
+import dev.sargunv.maplibrecompose.expressions.dsl.const
+import dev.sargunv.maplibrecompose.expressions.dsl.feature
+import dev.sargunv.maplibrecompose.expressions.dsl.not
+import dev.sargunv.maplibrecompose.expressions.dsl.offset
+import dev.sargunv.maplibrecompose.expressions.dsl.step
+import dev.sargunv.maplibrecompose.expressions.dsl.zoom
+import io.github.dellisd.spatialk.geojson.Feature
+import io.github.dellisd.spatialk.geojson.FeatureCollection
+import io.github.dellisd.spatialk.geojson.Point
+import io.github.dellisd.spatialk.geojson.Position
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.double
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+
+object ClusteredPointsDemo : Demo {
+  override val name: String = "Clustered points"
+
+  private val LimeGreen = Color(50, 205, 5)
+
+  @Composable
+  override fun MapContent(state: DemoState, isOpen: Boolean) {
+    val coroutineScope = rememberCoroutineScope()
+
+    // TODO isLoading as some standard state on the Demo, exposed to the main UI?
+    //    var isLoading by remember { mutableStateOf(true) }
+    var data by remember { mutableStateOf(FeatureCollection().json()) }
+    LaunchedEffect(Unit) {
+      withContext(Dispatchers.Default) {
+        data = getLimeBikeStatusAsGeoJson()
+        //        isLoading = false
+      }
+    }
+
+    val bikeSource =
+      rememberGeoJsonSource(
+        "bikes",
+        GeoJsonData.JsonString(data),
+        GeoJsonOptions(
+          cluster = true,
+          clusterRadius = 32,
+          clusterMaxZoom = 16,
+          // TODO on Android, this segfaults when the mapper is anything but a constant
+          // See https://github.com/maplibre/maplibre-native/issues/3493
+          // clusterProperties =
+          //   mapOf(
+          //     "total_range" to
+          //       GeoJsonOptions.ClusterPropertyAggregator(
+          //         mapper = feature["current_range_meters"].asNumber(),
+          //         reducer =
+          //           feature.accumulated().asNumber() +
+          //             feature["total_range"].asNumber(),
+          //       )
+          //   ),
+        ),
+      )
+
+    CircleLayer(
+      id = "clustered-bikes",
+      source = bikeSource,
+      filter = feature.has("point_count"),
+      color = const(LimeGreen),
+      opacity = const(0.5f),
+      radius =
+        step(
+          input = feature["point_count"].asNumber(),
+          fallback = const(15.dp),
+          25 to const(20.dp),
+          100 to const(30.dp),
+          500 to const(40.dp),
+          1000 to const(50.dp),
+          5000 to const(60.dp),
+        ),
+      onClick = { features ->
+        features.firstOrNull()?.geometry?.let {
+          coroutineScope.launch {
+            state.cameraState.animateTo(
+              state.cameraState.position.copy(
+                target = (it as Point).coordinates,
+                zoom = (state.cameraState.position.zoom + 2).coerceAtMost(20.0),
+              )
+            )
+          }
+          ClickResult.Consume
+        } ?: ClickResult.Pass
+      },
+    )
+
+    SymbolLayer(
+      id = "clustered-bikes-count",
+      source = bikeSource,
+      filter = feature.has("point_count"),
+      textField = feature["point_count_abbreviated"].asString(),
+      textFont = const(listOf("Noto Sans Regular")),
+      textColor = const(MaterialTheme.colorScheme.onBackground),
+    )
+
+    CircleLayer(
+      id = "unclustered-bikes-shadow",
+      source = bikeSource,
+      filter = !feature.has("point_count"),
+      radius = const(13.dp),
+      color = const(Color.Black),
+      blur = const(1f),
+      translate = offset(0.dp, 1.dp),
+    )
+
+    CircleLayer(
+      id = "unclustered-bikes",
+      source = bikeSource,
+      filter = !feature.has("point_count"),
+      color = const(LimeGreen),
+      radius = const(7.dp),
+      strokeWidth = const(3.dp),
+      strokeColor = const(Color.White),
+    )
+  }
+
+  private suspend fun getLimeBikeStatusAsGeoJson(): String {
+    val bodyString =
+      HttpClient()
+        .get("https://data.lime.bike/api/partners/v1/gbfs/seattle/free_bike_status.json")
+        .bodyAsText()
+    val body = Json.parseToJsonElement(bodyString).jsonObject
+    val bikes = body["data"]!!.jsonObject["bikes"]!!.jsonArray.map { it.jsonObject }
+    val features =
+      bikes.map { bike ->
+        Feature(
+          id = bike["bike_id"]!!.jsonPrimitive.content,
+          geometry =
+            Point(
+              Position(
+                longitude = bike["lon"]!!.jsonPrimitive.double,
+                latitude = bike["lat"]!!.jsonPrimitive.double,
+              )
+            ),
+          properties =
+            mapOf(
+              "vehicle_type" to (bike["vehicle_type"] ?: JsonNull),
+              "vehicle_type_id" to (bike["vehicle_type_id"] ?: JsonNull),
+              "last_reported" to (bike["last_reported"] ?: JsonNull),
+              "current_range_meters" to (bike["current_range_meters"] ?: JsonPrimitive(0)),
+              "is_reserved" to (bike["is_reserved"] ?: JsonNull),
+              "is_disabled" to (bike["is_disabled"] ?: JsonNull),
+            ),
+        )
+      }
+    return FeatureCollection(features).json()
+  }
+}

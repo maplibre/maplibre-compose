@@ -22,7 +22,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
+import dev.sargunv.maplibrecompose.demoapp.demos.AnimatedLayerDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.CameraStateDemo
+import dev.sargunv.maplibrecompose.demoapp.demos.ClusteredPointsDemo
 import dev.sargunv.maplibrecompose.demoapp.demos.StyleSelectorDemo
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 import dev.sargunv.maplibrecompose.demoapp.generated.keyboard_arrow_up_24px
@@ -36,7 +38,9 @@ fun DemoApp() {
   val demoState = rememberDemoState()
   val sheetState = rememberBottomSheetScaffoldState()
   var chosenStyle by remember { mutableStateOf<DemoStyle>(Protomaps.Light) }
-  val demos = listOf(StyleSelectorDemo, CameraStateDemo) + Platform.extraDemos
+  val demos =
+    listOf(StyleSelectorDemo, CameraStateDemo, AnimatedLayerDemo, ClusteredPointsDemo) +
+      Platform.extraDemos
 
   MaterialTheme(colorScheme = getDefaultColorScheme(isDark = chosenStyle.isDark)) {
     BottomSheetScaffold(

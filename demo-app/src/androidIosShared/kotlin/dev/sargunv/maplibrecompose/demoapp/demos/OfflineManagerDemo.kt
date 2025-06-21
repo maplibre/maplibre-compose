@@ -32,9 +32,6 @@ import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.demoapp.DemoState
 import dev.sargunv.maplibrecompose.demoapp.DemoStyle
 import dev.sargunv.maplibrecompose.demoapp.design.CardColumn
-import dev.sargunv.maplibrecompose.demoapp.design.CloseButton
-import dev.sargunv.maplibrecompose.demoapp.design.Heading
-import dev.sargunv.maplibrecompose.demoapp.design.PageColumn
 import dev.sargunv.maplibrecompose.demoapp.design.Subheading
 import dev.sargunv.maplibrecompose.expressions.dsl.asString
 import dev.sargunv.maplibrecompose.expressions.dsl.case
@@ -72,30 +69,26 @@ object OfflineManagerDemo : Demo {
     val offlineManager = rememberOfflineManager()
     val coroutineScope = rememberCoroutineScope()
 
-    PageColumn(modifier = modifier) {
-      Heading(text = name, trailingContent = { CloseButton { state.nav.popBackStack() } })
+    DownloadForm(state.selectedStyle, state.cameraState, offlineManager)
 
-      DownloadForm(state.selectedStyle, state.cameraState, offlineManager)
+    Subheading("Offline packs")
 
-      Subheading("Offline packs")
+    CardColumn {
+      if (offlineManager.packs.isEmpty()) {
+        Text(
+          text = "No packs downloaded yet",
+          modifier = Modifier.padding(16.dp),
+          style = MaterialTheme.typography.bodyMedium,
+        )
+      } else {
+        fun locatePack(pack: OfflinePack) {
+          coroutineScope.launch { state.cameraState.animateToOfflinePack(pack.definition) }
+        }
 
-      CardColumn {
-        if (offlineManager.packs.isEmpty()) {
-          Text(
-            text = "No packs downloaded yet",
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodyMedium,
-          )
-        } else {
-          fun locatePack(pack: OfflinePack) {
-            coroutineScope.launch { state.cameraState.animateToOfflinePack(pack.definition) }
-          }
-
-          offlineManager.packs.toList().forEach { pack ->
-            key(pack.hashCode()) {
-              OfflinePackListItem(pack = pack, modifier = Modifier.clickable { locatePack(pack) }) {
-                Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
-              }
+        offlineManager.packs.toList().forEach { pack ->
+          key(pack.hashCode()) {
+            OfflinePackListItem(pack = pack, modifier = Modifier.clickable { locatePack(pack) }) {
+              Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
             }
           }
         }
