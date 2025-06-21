@@ -1,4 +1,4 @@
-package dev.sargunv.maplibrecompose.demoapp.ui.pages
+package dev.sargunv.maplibrecompose.demoapp.demos
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.clickable
@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -27,50 +26,52 @@ import dev.sargunv.maplibrecompose.compose.offline.OfflinePack
 import dev.sargunv.maplibrecompose.compose.offline.OfflinePackDefinition
 import dev.sargunv.maplibrecompose.compose.offline.rememberOfflineManager
 import dev.sargunv.maplibrecompose.core.BaseStyle
-import dev.sargunv.maplibrecompose.demoapp.StyleInfo
-import dev.sargunv.maplibrecompose.demoapp.ui.design.BackButton
-import dev.sargunv.maplibrecompose.demoapp.ui.design.CardColumn
-import dev.sargunv.maplibrecompose.demoapp.ui.design.Heading
-import dev.sargunv.maplibrecompose.demoapp.ui.design.PageColumn
-import dev.sargunv.maplibrecompose.demoapp.ui.design.Subheading
+import dev.sargunv.maplibrecompose.demoapp.DemoState
+import dev.sargunv.maplibrecompose.demoapp.DemoStyle
+import dev.sargunv.maplibrecompose.demoapp.design.CardColumn
+import dev.sargunv.maplibrecompose.demoapp.design.CloseButton
+import dev.sargunv.maplibrecompose.demoapp.design.Heading
+import dev.sargunv.maplibrecompose.demoapp.design.PageColumn
+import dev.sargunv.maplibrecompose.demoapp.design.Subheading
 import dev.sargunv.maplibrecompose.material3.offline.OfflinePackListItem
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun OfflineManagerPage(
-  modifier: Modifier,
-  onNavigateBack: () -> Unit,
-  selectedStyle: StyleInfo,
-  cameraState: CameraState,
-) {
-  val offlineManager = rememberOfflineManager()
-  val coroutineScope = rememberCoroutineScope()
+object OfflineManagerDemo : Demo {
+  override val name = "Manage offline tiles"
 
-  PageColumn(modifier = modifier) {
-    Heading(text = "Offline Manager", trailingContent = { BackButton { onNavigateBack() } })
+  @Composable
+  override fun SheetContent(state: DemoState, modifier: Modifier) {
+    val offlineManager = rememberOfflineManager()
+    val coroutineScope = rememberCoroutineScope()
 
-    DownloadForm(selectedStyle, cameraState, offlineManager)
+    PageColumn(modifier = modifier) {
+      Heading(
+        text = "Offline Manager",
+        trailingContent = { CloseButton { state.nav.popBackStack() } },
+      )
 
-    Subheading("Offline packs")
+      DownloadForm(state.selectedStyle, state.cameraState, offlineManager)
 
-    CardColumn {
-      if (offlineManager.packs.isEmpty()) {
-        Text(
-          text = "No packs downloaded yet",
-          modifier = Modifier.padding(16.dp),
-          style = MaterialTheme.typography.bodyMedium,
-        )
-      } else {
-        fun locatePack(pack: OfflinePack) {
-          coroutineScope.launch { cameraState.animateToOfflinePack(pack.definition) }
-        }
+      Subheading("Offline packs")
 
-        offlineManager.packs.toList().forEach { pack ->
-          key(pack.hashCode()) {
-            OfflinePackListItem(pack = pack, modifier = Modifier.clickable { locatePack(pack) }) {
-              Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
+      CardColumn {
+        if (offlineManager.packs.isEmpty()) {
+          Text(
+            text = "No packs downloaded yet",
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+          )
+        } else {
+          fun locatePack(pack: OfflinePack) {
+            coroutineScope.launch { state.cameraState.animateToOfflinePack(pack.definition) }
+          }
+
+          offlineManager.packs.toList().forEach { pack ->
+            key(pack.hashCode()) {
+              OfflinePackListItem(pack = pack, modifier = Modifier.clickable { locatePack(pack) }) {
+                Text(pack.metadata?.decodeToString().orEmpty().ifBlank { "Unnamed Region" })
+              }
             }
           }
         }
@@ -81,7 +82,7 @@ fun OfflineManagerPage(
 
 @Composable
 private fun DownloadForm(
-  style: StyleInfo,
+  style: DemoStyle,
   cameraState: CameraState,
   offlineManager: OfflineManager,
 ) {
@@ -129,7 +130,7 @@ private fun DownloadForm(
 }
 
 private suspend fun OfflineManager.createNamed(
-  style: StyleInfo,
+  style: DemoStyle,
   name: String,
   bounds: BoundingBox,
 ): OfflinePack {

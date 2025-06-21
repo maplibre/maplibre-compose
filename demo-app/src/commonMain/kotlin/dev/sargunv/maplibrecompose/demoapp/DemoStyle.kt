@@ -4,14 +4,14 @@ import dev.sargunv.maplibrecompose.compose.layer.Anchor
 import dev.sargunv.maplibrecompose.core.BaseStyle
 import dev.sargunv.maplibrecompose.demoapp.generated.Res
 
-interface StyleInfo {
+interface DemoStyle {
   val displayName: String
   val base: BaseStyle
   val isDark: Boolean
   val anchorBelowSymbols: Anchor
 }
 
-enum class Protomaps(override val isDark: Boolean = false) : StyleInfo {
+enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
   Light,
   Dark(true),
   White,
@@ -28,7 +28,7 @@ enum class Protomaps(override val isDark: Boolean = false) : StyleInfo {
   override val anchorBelowSymbols = Anchor.Below("address_label")
 }
 
-enum class OpenFreeMap(override val isDark: Boolean = false) : StyleInfo {
+enum class OpenFreeMap(override val isDark: Boolean = false) : DemoStyle {
   Bright,
   Liberty,
   Positron,
@@ -42,7 +42,7 @@ enum class OpenFreeMap(override val isDark: Boolean = false) : StyleInfo {
   override val anchorBelowSymbols = Anchor.Below("waterway_line_label")
 }
 
-enum class Versatiles(override val isDark: Boolean = false) : StyleInfo {
+enum class Versatiles(override val isDark: Boolean = false) : DemoStyle {
   Colorful,
   Eclipse(true),
   Graybeard,
@@ -60,7 +60,7 @@ enum class OtherStyles(
   override val base: BaseStyle,
   override val isDark: Boolean = false,
   override val anchorBelowSymbols: Anchor = Anchor.Top,
-) : StyleInfo {
+) : DemoStyle {
   OpenStreetMaps(
     displayName = "OpenStreetMaps Carto",
     base = BaseStyle.Uri(Res.getUri("files/styles/osm-raster.json")),

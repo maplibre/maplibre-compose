@@ -1,7 +1,6 @@
 package dev.sargunv.maplibrecompose.demoapp.util
 
-import androidx.navigation.NavGraphBuilder
-import dev.sargunv.maplibrecompose.demoapp.ui.pages.Routes
+import dev.sargunv.maplibrecompose.demoapp.demos.Demo
 
 expect object Platform {
   val name: String
@@ -10,16 +9,5 @@ expect object Platform {
 
   val supportedFeatures: Set<PlatformFeature>
 
-  val extraRoutes: Map<Any, String>
-
-  fun NavGraphBuilder.extraNavGraph(ctx: Routes.Context)
-}
-
-enum class PlatformFeature {
-  InteropBlending,
-  LayerStyling;
-
-  companion object {
-    val Everything = entries.toSet()
-  }
+  val extraDemos: List<Demo>
 }

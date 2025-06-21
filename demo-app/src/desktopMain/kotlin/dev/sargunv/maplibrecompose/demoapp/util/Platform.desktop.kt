@@ -1,7 +1,6 @@
 package dev.sargunv.maplibrecompose.demoapp.util
 
-import androidx.navigation.NavGraphBuilder
-import dev.sargunv.maplibrecompose.demoapp.ui.pages.Routes
+import dev.sargunv.maplibrecompose.demoapp.demos.Demo
 
 actual object Platform {
   actual val name = System.getProperty("os.name")!!
@@ -10,7 +9,5 @@ actual object Platform {
 
   actual val supportedFeatures = emptySet<PlatformFeature>()
 
-  actual val extraRoutes: Map<Any, String> = emptyMap()
-
-  actual fun NavGraphBuilder.extraNavGraph(ctx: Routes.Context) {}
+  actual val extraDemos: List<Demo> = emptyList()
 }

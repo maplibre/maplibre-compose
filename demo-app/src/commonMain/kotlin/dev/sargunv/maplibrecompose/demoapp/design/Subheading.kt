@@ -1,4 +1,4 @@
-package dev.sargunv.maplibrecompose.demoapp.ui.design
+package dev.sargunv.maplibrecompose.demoapp.design
 
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme

@@ -1,10 +1,8 @@
 package dev.sargunv.maplibrecompose.demoapp.util
 
 import android.os.Build
-import androidx.navigation.NavGraphBuilder
-import androidx.navigation.compose.composable
-import dev.sargunv.maplibrecompose.demoapp.ui.pages.OfflineManagerPage
-import dev.sargunv.maplibrecompose.demoapp.ui.pages.Routes
+import dev.sargunv.maplibrecompose.demoapp.demos.Demo
+import dev.sargunv.maplibrecompose.demoapp.demos.OfflineManagerDemo
 
 actual object Platform {
   actual val name = "Android"
@@ -13,16 +11,5 @@ actual object Platform {
 
   actual val supportedFeatures = PlatformFeature.Everything
 
-  actual val extraRoutes: Map<Any, String> = mapOf(Routes.OfflineManager to "Offline Manager")
-
-  actual fun NavGraphBuilder.extraNavGraph(ctx: Routes.Context) {
-    composable<Routes.OfflineManager> {
-      OfflineManagerPage(
-        modifier = ctx.modifier,
-        onNavigateBack = { ctx.nav.popBackStack() },
-        cameraState = ctx.cameraState,
-        selectedStyle = ctx.selectedStyle,
-      )
-    }
-  }
+  actual val extraDemos: List<Demo> = listOf(OfflineManagerDemo)
 }

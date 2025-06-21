@@ -1,4 +1,4 @@
-package dev.sargunv.maplibrecompose.demoapp.ui.design
+package dev.sargunv.maplibrecompose.demoapp.design
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.fillMaxWidth

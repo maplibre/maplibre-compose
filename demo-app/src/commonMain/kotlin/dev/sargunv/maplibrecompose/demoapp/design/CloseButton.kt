@@ -1,4 +1,4 @@
-package dev.sargunv.maplibrecompose.demoapp.ui.design
+package dev.sargunv.maplibrecompose.demoapp.design
 
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -8,8 +8,8 @@ import dev.sargunv.maplibrecompose.demoapp.generated.close_24px
 import org.jetbrains.compose.resources.vectorResource
 
 @Composable
-fun BackButton(onClick: () -> Unit) {
+fun CloseButton(onClick: () -> Unit) {
   IconButton(onClick = onClick) {
-    Icon(vectorResource(Res.drawable.close_24px), contentDescription = "Back")
+    Icon(vectorResource(Res.drawable.close_24px), contentDescription = "Close")
   }
 }
