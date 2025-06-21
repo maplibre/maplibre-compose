@@ -17,8 +17,8 @@ fun DemoSheetContent(demos: List<Demo>, state: DemoState, modifier: Modifier) {
     navController = state.nav,
     startDestination = "MAIN_MENU",
     enterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) },
-    exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Up) },
-    popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Down) },
+    exitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down) },
+    popEnterTransition = { slideIntoContainer(AnimatedContentTransitionScope.SlideDirection.Up) },
     popExitTransition = { slideOutOfContainer(AnimatedContentTransitionScope.SlideDirection.Down) },
   ) {
     composable("MAIN_MENU") {

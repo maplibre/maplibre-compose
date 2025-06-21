@@ -1,10 +1,12 @@
 package dev.sargunv.maplibrecompose.demoapp
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredHeight
+import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,8 +40,9 @@ fun DemoApp() {
 
   MaterialTheme(colorScheme = getDefaultColorScheme(isDark = chosenStyle.isDark)) {
     BottomSheetScaffold(
+      sheetPeekHeight = 128.dp, // TODO dynamic peek based on selected demo
       scaffoldState = sheetState,
-      sheetSwipeEnabled = false,
+      sheetSwipeEnabled = true,
       sheetDragHandle = {
         ExpandCollapseButton(
           sheetState.bottomSheetState.targetValue == SheetValue.Expanded,
@@ -52,7 +55,11 @@ fun DemoApp() {
         DemoSheetContent(
           demos = demos,
           state = demoState,
-          modifier = Modifier.consumeWindowInsets(PaddingValues(top = 56.dp)).requiredHeight(500.dp),
+          // TODO this doesn't work well on landscape and small screens
+          modifier =
+            Modifier.background(BottomSheetDefaults.ContainerColor)
+              .consumeWindowInsets(PaddingValues(top = 56.dp))
+              .requiredHeight(500.dp),
         )
       },
     ) { padding ->
