@@ -100,7 +100,7 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
     TODO()
   }
 
-  actual fun setIconPadding(padding: CompiledExpression<DpValue>) {
+  actual fun setIconPadding(padding: CompiledExpression<DpPaddingValue>) {
     TODO()
   }
 

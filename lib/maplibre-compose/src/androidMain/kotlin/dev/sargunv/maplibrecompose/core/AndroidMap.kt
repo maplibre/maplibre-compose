@@ -105,6 +105,7 @@ internal class AndroidMap(
 
   init {
     mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
+    mapView.addOnDidFailLoadingMapListener { callbacks.onMapFailLoading(it) }
 
     map.addOnCameraMoveStartedListener { reason ->
       // MapLibre doesn't have docs on these reasons, and even though they're named like Google's:

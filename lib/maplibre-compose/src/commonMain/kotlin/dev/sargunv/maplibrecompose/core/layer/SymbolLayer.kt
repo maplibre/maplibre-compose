@@ -63,7 +63,7 @@ internal expect class SymbolLayer(id: String, source: Source) : FeatureLayer {
 
   fun setIconRotate(rotate: CompiledExpression<FloatValue>)
 
-  fun setIconPadding(padding: CompiledExpression<DpValue>)
+  fun setIconPadding(padding: CompiledExpression<DpPaddingValue>)
 
   fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>)
 

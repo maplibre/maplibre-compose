@@ -40,6 +40,8 @@ import kotlinx.coroutines.launch
  * @param onMapLongClick Invoked when the map is long-clicked. See [onMapClick].
  * @param onFrame Invoked on every rendered frame.
  * @param logger kermit logger to use.
+ * @param onMapLoadFailed Invoked when the map failed to load.
+ * @param onMapLoadFinished Invoked when the map finished loading.
  * @param content The map content additional to what is already part of the map as defined in the
  *   base map style linked in [baseStyle].
  *
@@ -91,6 +93,8 @@ public fun MaplibreMap(
   onFrame: (framesPerSecond: Double) -> Unit = {},
   options: MapOptions = MapOptions(),
   logger: Logger? = remember { Logger.withTag("maplibre-compose") },
+  onMapLoadFailed: (reason: String?) -> Unit = {},
+  onMapLoadFinished: () -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit = {},
 ) {
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
@@ -108,9 +112,14 @@ public fun MaplibreMap(
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
         }
 
+        override fun onMapFailLoading(reason: String?) {
+          onMapLoadFailed(reason)
+        }
+
         override fun onMapFinishedLoading(map: MaplibreMap) {
           map as StandardMaplibreMap
           styleState.reloadSources()
+          onMapLoadFinished()
         }
 
         override fun onCameraMoveStarted(map: MaplibreMap, reason: CameraMoveReason) {

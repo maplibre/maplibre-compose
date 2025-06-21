@@ -147,6 +147,7 @@ internal class IosMap(
 
     override fun mapViewDidFailLoadingMap(mapView: MLNMapView, withError: NSError) {
       map.logger?.e { "Map failed to load: $withError" }
+      map.callbacks.onMapFailLoading(withError.localizedFailureReason)
     }
 
     override fun mapViewDidFinishLoadingMap(mapView: MLNMapView) {
