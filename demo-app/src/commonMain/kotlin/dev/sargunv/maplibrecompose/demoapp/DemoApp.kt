@@ -42,6 +42,14 @@ fun DemoApp() {
     listOf(StyleSelectorDemo, CameraStateDemo, AnimatedLayerDemo, ClusteredPointsDemo) +
       Platform.extraDemos
 
+  // TODO:
+  // Camera follow
+  // Frame rate
+  // Image source
+  // Local tiles
+  // Markers
+  // User location
+
   MaterialTheme(colorScheme = getDefaultColorScheme(isDark = chosenStyle.isDark)) {
     BottomSheetScaffold(
       sheetPeekHeight = 128.dp, // TODO dynamic peek based on selected demo
