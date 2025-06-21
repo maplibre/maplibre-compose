@@ -35,6 +35,8 @@ internal interface MaplibreMap {
 
   suspend fun asyncSetMaxPitch(maxPitch: Double)
 
+  suspend fun asyncSetCameraBoundingBox(boundingBox: BoundingBox?)
+
   suspend fun asyncGetVisibleBoundingBox(): BoundingBox
 
   suspend fun asyncGetVisibleRegion(): VisibleRegion
@@ -100,6 +102,8 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   override suspend fun asyncSetMaxPitch(maxPitch: Double) = setMaxPitch(maxPitch)
 
+  override suspend fun asyncSetCameraBoundingBox(boundingBox: BoundingBox?) = setCameraBoundingBox(boundingBox)
+
   override suspend fun asyncGetVisibleBoundingBox(): BoundingBox = getVisibleBoundingBox()
 
   override suspend fun asyncGetVisibleRegion(): VisibleRegion = getVisibleRegion()
@@ -136,6 +140,8 @@ internal interface StandardMaplibreMap : MaplibreMap {
   fun getCameraPosition(): CameraPosition
 
   fun setCameraPosition(cameraPosition: CameraPosition)
+
+  fun setCameraBoundingBox(boundingBox: BoundingBox?)
 
   fun setMaxZoom(maxZoom: Double)
 

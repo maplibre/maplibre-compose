@@ -19,6 +19,7 @@ import dev.sargunv.maplibrecompose.core.MaplibreMap
 import dev.sargunv.maplibrecompose.core.SafeStyle
 import dev.sargunv.maplibrecompose.core.StandardMaplibreMap
 import dev.sargunv.maplibrecompose.core.Style
+import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Position
 import kotlinx.coroutines.launch
 
@@ -32,6 +33,10 @@ import kotlinx.coroutines.launch
  * @param pitchRange The allowable bounds for the camera pitch.
  * @param cameraState The camera state specifies what position of the map is rendered, at what zoom,
  *   at what tilt, etc.
+ * @param cameraBoundingBox The allowable bounds for the camera position. Behaves differently on
+ *   android and iOS:
+ *   android: prevents the camera center target from going outside of bounds
+ *   iOS: prevents the camera edges from going outside of bounds.
  * @param onMapClick Invoked when the map is clicked. A click callback can be defined per layer,
  *   too, see e.g. the `onClick` parameter for
  *   [LineLayer][dev.sargunv.maplibrecompose.compose.layer.LineLayer]. However, this callback is
@@ -87,6 +92,7 @@ public fun MaplibreMap(
   zoomRange: ClosedRange<Float> = 0f..20f,
   pitchRange: ClosedRange<Float> = 0f..60f,
   cameraState: CameraState = rememberCameraState(),
+  cameraBoundingBox: BoundingBox? = null,
   styleState: StyleState = rememberStyleState(),
   onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass },
   onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
@@ -198,6 +204,7 @@ public fun MaplibreMap(
           map.setRenderSettings(options.renderOptions)
           map.setGestureSettings(options.gestureOptions)
           map.setOrnamentSettings(options.ornamentOptions)
+          map.setCameraBoundingBox(cameraBoundingBox)
         }
 
         else ->
@@ -209,6 +216,7 @@ public fun MaplibreMap(
             map.asyncSetRenderSettings(options.renderOptions)
             map.asyncSetGestureSettings(options.gestureOptions)
             map.asyncSetOrnamentSettings(options.ornamentOptions)
+            map.asyncSetCameraBoundingBox(cameraBoundingBox)
           }
       }
     },
