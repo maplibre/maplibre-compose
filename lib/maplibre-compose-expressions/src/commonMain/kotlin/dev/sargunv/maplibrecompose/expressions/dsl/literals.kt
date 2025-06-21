@@ -24,6 +24,7 @@ import dev.sargunv.maplibrecompose.expressions.ast.OffsetLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.StringLiteral
 import dev.sargunv.maplibrecompose.expressions.ast.TextUnitCalculation
 import dev.sargunv.maplibrecompose.expressions.ast.TextUnitOffsetCalculation
+import dev.sargunv.maplibrecompose.expressions.value.DpPaddingValue
 import dev.sargunv.maplibrecompose.expressions.value.EnumValue
 import dev.sargunv.maplibrecompose.expressions.value.ExpressionValue
 import dev.sargunv.maplibrecompose.expressions.value.StringValue
@@ -128,6 +129,12 @@ public fun offset(x: Dp, y: Dp): DpOffsetLiteral = DpOffsetLiteral.of(DpOffset(x
  */
 public fun offset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> =
   TextUnitOffsetCalculation.of(x, y)
+
+/** Creates a literal expression for a [PaddingValues.Absolute] value. */
+public fun padding(left: Dp, top: Dp, right: Dp, bottom: Dp): Expression<DpPaddingValue> =
+  DpPaddingLiteral.of(
+    PaddingValues.Absolute(left = left, top = top, right = right, bottom = bottom)
+  )
 
 /**
  * Creates a literal expression for a `null` value.
