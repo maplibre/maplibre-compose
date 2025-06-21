@@ -1,88 +1,77 @@
 package dev.sargunv.maplibrecompose.demoapp.demos
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawingPadding
-import androidx.compose.foundation.layout.wrapContentSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import dev.sargunv.maplibrecompose.compose.MaplibreMap
-import dev.sargunv.maplibrecompose.compose.rememberCameraState
-import dev.sargunv.maplibrecompose.compose.rememberStyleState
-import dev.sargunv.maplibrecompose.core.CameraPosition
-import dev.sargunv.maplibrecompose.demoapp.DEFAULT_STYLE
-import dev.sargunv.maplibrecompose.demoapp.Demo
-import dev.sargunv.maplibrecompose.demoapp.DemoMapControls
-import dev.sargunv.maplibrecompose.demoapp.DemoMapOptions
-import dev.sargunv.maplibrecompose.demoapp.DemoScaffold
-import dev.sargunv.maplibrecompose.demoapp.format
-import io.github.dellisd.spatialk.geojson.Position
+import dev.sargunv.maplibrecompose.demoapp.DemoState
+import dev.sargunv.maplibrecompose.demoapp.design.CardColumn
+import dev.sargunv.maplibrecompose.demoapp.design.Subheading
+import kotlin.math.pow
 import kotlin.math.roundToInt
 
-private val CHICAGO = Position(latitude = 41.878, longitude = -87.626)
-
 object CameraStateDemo : Demo {
-  override val name = "Camera state"
-  override val description = "Read camera position as state."
+  override val name = "Camera State"
 
   @Composable
-  override fun Component(navigateUp: () -> Unit) {
-    DemoScaffold(this, navigateUp) {
-      Column {
-        val cameraState =
-          rememberCameraState(firstPosition = CameraPosition(target = CHICAGO, zoom = 12.0))
-        val styleState = rememberStyleState()
+  override fun SheetContent(state: DemoState, modifier: Modifier) {
+    val cameraState = state.cameraState
 
-        Box(modifier = Modifier.weight(1f)) {
-          MaplibreMap(
-            baseStyle = DEFAULT_STYLE,
-            cameraState = cameraState,
-            styleState = styleState,
-            options = DemoMapOptions(),
-          )
-          DemoMapControls(cameraState, styleState)
-        }
+    Subheading(text = "Camera Position")
+    CardColumn {
+      val position = cameraState.position
+      InfoRow("Zoom", position.zoom.toRoundedString(2))
+      InfoRow("Bearing", "${position.bearing.toRoundedString(1)}°")
+      InfoRow("Tilt", "${position.tilt.toRoundedString(1)}°")
+      InfoRow("Target Longitude", "${position.target.longitude.toRoundedString(5)}°")
+      InfoRow("Target Latitude", "${position.target.latitude.toRoundedString(5)}°")
+    }
 
-        Row(modifier = Modifier.safeDrawingPadding().wrapContentSize(Alignment.Center)) {
-          val pos = cameraState.position
-          val scale = cameraState.metersPerDpAtTarget
-          val isCameraMoving = cameraState.isCameraMoving
+    Spacer(modifier = Modifier.height(8.dp))
 
-          Cell("Latitude", pos.target.latitude.format(3), Modifier.weight(1.4f))
-          Cell("Longitude", pos.target.longitude.format(3), Modifier.weight(1.4f))
-          Cell("Zoom", pos.zoom.format(2), Modifier.weight(1f))
-          Cell("Bearing", pos.bearing.format(2), Modifier.weight(1f))
-          Cell("Tilt", pos.tilt.format(2), Modifier.weight(1f))
-          Cell("Scale", "${scale.roundToInt()}m", Modifier.weight(1f))
-          Cell("IsMoving", isCameraMoving.toString(), Modifier.weight(1.2f))
-        }
-      }
+    Subheading(text = "Camera State")
+    CardColumn {
+      InfoRow("Is Camera Moving", cameraState.isCameraMoving.toString())
+      InfoRow("Move Reason", cameraState.moveReason.toString())
+      InfoRow("Meters Per DP At Target", cameraState.metersPerDpAtTarget.toRoundedString(2))
     }
   }
-}
 
-@Composable
-private fun Cell(title: String, value: String, modifier: Modifier = Modifier) {
-  Column(modifier = modifier.padding(PaddingValues(4.dp)).wrapContentSize(Alignment.Center)) {
-    Text(
-      text = title,
-      textAlign = TextAlign.Center,
-      maxLines = 1,
-      style = MaterialTheme.typography.labelSmall,
-    )
-    Text(
-      text = value,
-      textAlign = TextAlign.Center,
-      maxLines = 1,
-      style = MaterialTheme.typography.bodySmall,
-    )
+  @Composable
+  private fun InfoRow(label: String, value: String) {
+    Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+      Text(
+        text = label,
+        style = MaterialTheme.typography.bodyMedium,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.weight(1f),
+      )
+      Spacer(modifier = Modifier.width(16.dp))
+      Text(
+        text = value,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = Modifier.weight(1f),
+      )
+    }
+  }
+
+  private fun Double.toRoundedString(numDigits: Int): String {
+    val scaleFactor = 10.0.pow(numDigits)
+    val digits = (this * scaleFactor).roundToInt().toString()
+    return if (digits.length > numDigits) {
+      "${digits.substring(0, digits.length - numDigits)}.${digits.takeLast(numDigits)}"
+    } else {
+      "0.${"0".repeat(numDigits - digits.length)}$digits"
+    }
   }
 }
