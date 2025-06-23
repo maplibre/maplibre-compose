@@ -60,6 +60,8 @@ kotlin {
   applyDefaultHierarchyTemplate()
 
   compilerOptions {
+    // KLIB resolver: The same 'unique_name=annotation_commonMain' found in more than one library
+    allWarningsAsErrors = false
     freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xconsistent-data-class-copy-visibility")
   }
 
@@ -80,8 +82,8 @@ kotlin {
       implementation(libs.ktor.client.contentNegotiation)
       implementation(libs.ktor.serialization.kotlinxJson)
 
-      // we exclude the android sdk here so we can select a variant via gradle property
-      // see androidMain below
+      // We exclude the android sdk here so we can select a variant via gradle property.
+      // See androidMain below.
       implementation(project(":lib:maplibre-compose")) {
         exclude(group = "org.maplibre.gl", module = "android-sdk")
       }
@@ -90,13 +92,17 @@ kotlin {
       }
     }
 
-    val mobileMain by creating {
+    val nonAndroidShared by creating { dependsOn(commonMain.get()) }
+
+    val androidIosShared by creating {
       dependsOn(commonMain.get())
       dependencies { implementation(libs.compass.geolocation.mobile) }
     }
 
+    val desktopJsShared by creating { dependsOn(commonMain.get()) }
+
     androidMain {
-      dependsOn(mobileMain)
+      dependsOn(androidIosShared)
       dependencies {
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
@@ -116,20 +122,29 @@ kotlin {
     }
 
     iosMain {
-      dependsOn(mobileMain)
+      dependsOn(androidIosShared)
+      dependsOn(nonAndroidShared)
       dependencies { implementation(libs.ktor.client.darwin) }
     }
 
-    desktopMain.dependencies {
-      implementation(compose.desktop.currentOs)
-      implementation(libs.kotlinx.coroutines.swing)
-      implementation(libs.ktor.client.okhttp)
+    desktopMain.apply {
+      dependsOn(nonAndroidShared)
+      dependsOn(desktopJsShared)
+      dependencies {
+        implementation(compose.desktop.currentOs)
+        implementation(libs.kotlinx.coroutines.swing)
+        implementation(libs.ktor.client.okhttp)
+      }
     }
 
-    jsMain.dependencies {
-      implementation(compose.html.core)
-      implementation(libs.ktor.client.js)
-      implementation(libs.compass.geolocation.browser)
+    jsMain {
+      dependsOn(nonAndroidShared)
+      dependsOn(desktopJsShared)
+      dependencies {
+        implementation(compose.html.core)
+        implementation(libs.ktor.client.js)
+        implementation(libs.compass.geolocation.browser)
+      }
     }
 
     commonTest.dependencies {

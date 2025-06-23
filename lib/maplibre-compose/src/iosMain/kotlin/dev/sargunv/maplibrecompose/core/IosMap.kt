@@ -12,9 +12,7 @@ import MapLibre.MLNCameraChangeReasonGestureZoomOut
 import MapLibre.MLNCameraChangeReasonProgrammatic
 import MapLibre.MLNCoordinateBoundsMake
 import MapLibre.MLNFeatureProtocol
-import MapLibre.MLNLoggingBlockHandler
 import MapLibre.MLNLoggingConfiguration
-import MapLibre.MLNLoggingLevel
 import MapLibre.MLNLoggingLevelDebug
 import MapLibre.MLNLoggingLevelError
 import MapLibre.MLNLoggingLevelFault
@@ -83,7 +81,6 @@ import platform.UIKit.UIGestureRecognizerStateEnded
 import platform.UIKit.UILongPressGestureRecognizer
 import platform.UIKit.UITapGestureRecognizer
 import platform.darwin.NSObject
-import platform.darwin.NSUInteger
 import platform.darwin.sel_registerName
 
 internal class IosMap(
@@ -117,25 +114,21 @@ internal class IosMap(
     )
 
     // delegate log level configuration to Kermit logger
-    MLNLoggingConfiguration.sharedConfiguration.setHandler(LoggingBlockHandler(this))
     MLNLoggingConfiguration.sharedConfiguration.loggingLevel = MLNLoggingLevelVerbose
-
-    delegate = Delegate(this)
-    mapView.delegate = delegate
-  }
-
-  private class LoggingBlockHandler(private val map: IosMap) : MLNLoggingBlockHandler {
-    override fun invoke(level: MLNLoggingLevel, path: String?, line: NSUInteger, message: String?) {
+    MLNLoggingConfiguration.sharedConfiguration.setHandler { level, path, line, message ->
       when (level) {
-        MLNLoggingLevelFault -> map.logger?.a { "$message" }
-        MLNLoggingLevelError -> map.logger?.e { "$message" }
-        MLNLoggingLevelWarning -> map.logger?.w { "$message" }
-        MLNLoggingLevelInfo -> map.logger?.i { "$message" }
-        MLNLoggingLevelDebug -> map.logger?.d { "$message" }
-        MLNLoggingLevelVerbose -> map.logger?.v { "$message" }
+        MLNLoggingLevelFault -> logger?.a { "$message" }
+        MLNLoggingLevelError -> logger?.e { "$message" }
+        MLNLoggingLevelWarning -> logger?.w { "$message" }
+        MLNLoggingLevelInfo -> logger?.i { "$message" }
+        MLNLoggingLevelDebug -> logger?.d { "$message" }
+        MLNLoggingLevelVerbose -> logger?.v { "$message" }
         else -> error("Unexpected logging level: $level")
       }
     }
+
+    delegate = Delegate(this)
+    mapView.delegate = delegate
   }
 
   private class Delegate(private val map: IosMap) : NSObject(), MLNMapViewDelegateProtocol {

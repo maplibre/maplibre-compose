@@ -31,7 +31,7 @@ tool-prettier = "3.5.3"
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
 gradle-compose = "1.8.2"
 #noinspection GradleDependency: follow version matrix above
-androidx-composeUi = "1.8.1"
+androidx-compose = "1.8.2"
 #noinspection GradleDependency: follow version matrix above
 androidx-navigation = "2.9.0-beta03"
 
@@ -45,7 +45,7 @@ gradle-android = "8.10.0"
 [libraries]
 alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.ref = "alchemist" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
-androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-composeUi" }
+androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 compass-geolocation-core = { module = "dev.jordond.compass:geolocation", version.ref = "compass" }
