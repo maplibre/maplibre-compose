@@ -21,7 +21,7 @@ webview = "1.9.40"
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
-gradle-mavenPublish = "0.32.0"
+gradle-mavenPublish = "0.33.0"
 gradle-mkdocs = "4.0.1"
 gradle-spotless = "7.0.4"
 gradle-spmForKmp = "0.11.2"
