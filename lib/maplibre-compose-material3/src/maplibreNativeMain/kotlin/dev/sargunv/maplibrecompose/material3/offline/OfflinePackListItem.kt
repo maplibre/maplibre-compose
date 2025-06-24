@@ -112,20 +112,23 @@ public object OfflinePackListItemDefaults {
       )
     },
   ) {
-    val icon by derivedStateOf {
-      val progress = pack.downloadProgress
-      when (progress) {
-        is DownloadProgress.Healthy ->
-          when (progress.status) {
-            DownloadStatus.Complete -> completedIcon
-            DownloadStatus.Paused -> pausedIcon
-            DownloadStatus.Downloading -> downloadingIcon
+    val icon by
+      remember(pack) {
+        derivedStateOf {
+          val progress = pack.downloadProgress
+          when (progress) {
+            is DownloadProgress.Healthy ->
+              when (progress.status) {
+                DownloadStatus.Complete -> completedIcon
+                DownloadStatus.Paused -> pausedIcon
+                DownloadStatus.Downloading -> downloadingIcon
+              }
+            is DownloadProgress.Error -> errorIcon
+            is DownloadProgress.TileLimitExceeded,
+            is DownloadProgress.Unknown -> warningIcon
           }
-        is DownloadProgress.Error -> errorIcon
-        is DownloadProgress.TileLimitExceeded,
-        is DownloadProgress.Unknown -> warningIcon
+        }
       }
-    }
     AnimatedContent(icon) { icon -> icon() }
   }
 
@@ -198,12 +201,15 @@ private fun DeleteButton(pack: OfflinePack, offlineManager: OfflineManager) {
 
 @Composable
 private fun DownloadProgressCircle(pack: OfflinePack) {
-  val progressRatio by derivedStateOf {
-    val progress = pack.downloadProgress
-    if (progress is DownloadProgress.Healthy && progress.requiredResourceCount != 0L)
-      progress.completedResourceCount.toFloat() / progress.requiredResourceCount
-    else 0f
-  }
+  val progressRatio by
+    remember(pack) {
+      derivedStateOf {
+        val progress = pack.downloadProgress
+        if (progress is DownloadProgress.Healthy && progress.requiredResourceCount != 0L)
+          progress.completedResourceCount.toFloat() / progress.requiredResourceCount
+        else 0f
+      }
+    }
 
   val animatedProgressRatio by
     animateFloatAsState(
