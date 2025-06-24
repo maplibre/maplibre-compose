@@ -62,7 +62,6 @@ kotlin {
   applyDefaultHierarchyTemplate()
 
   compilerOptions {
-    allWarningsAsErrors = false // TODO re-enable after Compose 1.8.1
     freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xconsistent-data-class-copy-visibility")
   }
 

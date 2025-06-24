@@ -10,7 +10,7 @@ public actual class ComputedSource : Source {
   public actual constructor(
     id: String,
     options: ComputedSourceOptions,
-    getFeatures: (BoundingBox, Int) -> FeatureCollection,
+    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
   )
 
   public actual fun invalidateBounds(bounds: BoundingBox) {}

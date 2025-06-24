@@ -30,7 +30,7 @@ public actual class ComputedSource : Source {
   public actual constructor(
     id: String,
     options: ComputedSourceOptions,
-    getFeatures: (BoundingBox, Int) -> FeatureCollection,
+    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
   ) : this(
     MLNComputedShapeSource(
       identifier = id,
