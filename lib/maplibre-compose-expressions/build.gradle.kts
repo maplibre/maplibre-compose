@@ -1,8 +1,4 @@
-@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalWasmDsl::class)
-
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
   id("library-conventions")
@@ -14,8 +10,6 @@ plugins {
   id(libs.plugins.mavenPublish.get().pluginId)
 }
 
-android { namespace = "dev.sargunv.maplibrecompose.expressions" }
-
 mavenPublishing {
   pom {
     name = "MapLibre Compose Expressions"
@@ -25,17 +19,13 @@ mavenPublishing {
 }
 
 kotlin {
-  androidTarget {
-    compilerOptions { jvmTarget = project.getJvmTarget() }
-    instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
-    publishLibraryVariants("release", "debug")
-  }
+  androidLibrary { namespace = "dev.sargunv.maplibrecompose.expressions" }
   iosArm64()
   iosSimulatorArm64()
   iosX64()
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
   js(IR) { browser() }
-  wasmJs { browser() }
+  @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
 
   sourceSets {
     commonMain.dependencies { implementation(compose.foundation) }

@@ -1,8 +1,4 @@
-@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalComposeLibrary::class)
-
 import org.jetbrains.compose.ExperimentalComposeLibrary
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
   id("library-conventions")
@@ -15,8 +11,6 @@ plugins {
   id(libs.plugins.mavenPublish.get().pluginId)
   id(libs.plugins.spmForKmp.get().pluginId)
 }
-
-android { namespace = "dev.sargunv.maplibrecompose" }
 
 mavenPublishing {
   pom {
@@ -46,11 +40,7 @@ val copyDesktopResources by
   }
 
 kotlin {
-  androidTarget {
-    compilerOptions { jvmTarget = project.getJvmTarget() }
-    instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
-    publishLibraryVariants("release", "debug")
-  }
+  androidLibrary { namespace = "dev.sargunv.maplibrecompose" }
 
   listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach {
     it.compilations.getByName("main") {

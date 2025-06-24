@@ -1,16 +1,32 @@
-plugins { id("com.android.library") }
+import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
 
-android {
-  defaultConfig {
+plugins {
+  id("org.jetbrains.kotlin.multiplatform")
+  id("com.android.kotlin.multiplatform.library")
+  id("com.android.lint")
+}
+
+kotlin {
+  @Suppress("UnstableApiUsage")
+  androidLibrary {
     minSdk = project.properties["androidMinSdk"]!!.toString().toInt()
     compileSdk = project.properties["androidCompileSdk"]!!.toString().toInt()
-    testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-  }
 
-  compileOptions {
-    sourceCompatibility = JavaVersion.VERSION_11
-    targetCompatibility = JavaVersion.VERSION_11
-  }
+    withHostTestBuilder {}.configure {}
+    withDeviceTestBuilder { sourceSetTreeName = "test" }
+      .configure {
+        animationsDisabled = true
+        instrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+      }
 
-  @Suppress("UnstableApiUsage") testOptions { animationsDisabled = true }
+    compilations.configureEach {
+      compileTaskProvider.configure {
+        compilerOptions {
+          // TODO revisit this with AGP 8.11? https://issuetracker.google.com/issues/379315244
+          if (this is KotlinJvmCompilerOptions) jvmTarget.set(project.getJvmTarget())
+          else error("Unexpected compilation type: ${this::class}")
+        }
+      }
+    }
+  }
 }

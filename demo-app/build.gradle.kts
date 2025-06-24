@@ -1,6 +1,3 @@
-@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalSpmForKmpFeature::class)
-
-import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -35,12 +32,13 @@ android {
     targetCompatibility = JavaVersion.VERSION_11
   }
 
-  @Suppress("UnstableApiUsage") testOptions { animationsDisabled = true }
+  testOptions { animationsDisabled = true }
 }
 
 kotlin {
   androidTarget {
     compilerOptions { jvmTarget = project.getJvmTarget() }
+    @OptIn(ExperimentalKotlinGradlePluginApi::class)
     instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
   }
 

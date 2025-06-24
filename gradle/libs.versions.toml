@@ -73,7 +73,8 @@ spatialk-geojson = { group = "io.github.dellisd.spatialk", name = "geojson", ver
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle-android" }
-android-library = { id = "com.android.library", version.ref = "gradle-android" }
+android-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "gradle-android" }
+android-lint = { id = "com.android.lint", version.ref = "gradle-android" }
 compose = { id = "org.jetbrains.compose", version.ref = "gradle-compose" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "gradle-dokka" }
 jgitver = { id = "fr.brouillard.oss.gradle.jgitver", version.ref = "gradle-jgitver" }

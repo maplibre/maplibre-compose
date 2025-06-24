@@ -1,8 +1,4 @@
-@file:OptIn(ExperimentalKotlinGradlePluginApi::class, ExperimentalComposeLibrary::class)
-
 import org.jetbrains.compose.ExperimentalComposeLibrary
-import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
-import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
   id("library-conventions")
@@ -15,8 +11,6 @@ plugins {
   id(libs.plugins.mavenPublish.get().pluginId)
 }
 
-android { namespace = "dev.sargunv.maplibrecompose.material3" }
-
 mavenPublishing {
   pom {
     name = "MapLibre Compose Material 3"
@@ -26,11 +20,7 @@ mavenPublishing {
 }
 
 kotlin {
-  androidTarget {
-    compilerOptions { jvmTarget = project.getJvmTarget() }
-    instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
-    publishLibraryVariants("release", "debug")
-  }
+  androidLibrary { namespace = "dev.sargunv.maplibrecompose.material3" }
 
   listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach { it.configureSpmMaplibre(project) }
 

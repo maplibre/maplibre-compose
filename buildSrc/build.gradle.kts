@@ -11,6 +11,7 @@ kotlin { jvmToolchain(21) }
 dependencies {
   pluginImplementation(libs.plugins.android.application)
   pluginImplementation(libs.plugins.android.library)
+  pluginImplementation(libs.plugins.android.lint)
   pluginImplementation(libs.plugins.compose)
   pluginImplementation(libs.plugins.dokka)
   pluginImplementation(libs.plugins.jgitver)

@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalWasmDsl::class)
-
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
@@ -20,7 +18,7 @@ mavenPublishing {
 
 kotlin {
   js(IR) { browser() }
-  wasmJs { browser() }
+  @OptIn(ExperimentalWasmDsl::class) wasmJs { browser() }
 
   sourceSets {
     commonMain.dependencies { implementation(compose.foundation) }

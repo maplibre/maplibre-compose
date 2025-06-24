@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalSpmForKmpFeature::class)
-
 import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
 import java.net.URI
 
@@ -7,6 +5,7 @@ plugins { id("io.github.frankois944.spmForKmp") }
 
 swiftPackageConfig {
   create("spmMaplibre") {
+    @OptIn(ExperimentalSpmForKmpFeature::class)
     copyDependenciesToApp = true
     dependency {
       remotePackageVersion(

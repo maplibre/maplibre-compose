@@ -1,5 +1,3 @@
-@file:Suppress("UnstableApiUsage")
-
 rootProject.name = "maplibre-compose"
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
@@ -7,6 +5,7 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 pluginManagement {
   repositories {
     google {
+      @Suppress("UnstableApiUsage")
       mavenContent {
         includeGroupAndSubgroups("androidx")
         includeGroupAndSubgroups("com.android")
@@ -19,6 +18,7 @@ pluginManagement {
 }
 
 dependencyResolutionManagement {
+  @Suppress("UnstableApiUsage")
   repositories {
     google {
       mavenContent {
