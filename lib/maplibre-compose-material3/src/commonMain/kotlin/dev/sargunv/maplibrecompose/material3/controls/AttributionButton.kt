@@ -43,6 +43,7 @@ import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.CameraState
 import dev.sargunv.maplibrecompose.compose.StyleState
@@ -225,7 +226,16 @@ public fun AttributionLinks(
   breakWithinAttribution: Boolean = false,
   modifier: Modifier = Modifier,
 ) {
-  val texts = remember(attributions) { attributions.map { htmlToAnnotatedString(it, linkStyles) } }
+  val texts =
+    remember(attributions) { html ->
+      attributions.map {
+        htmlToAnnotatedString(
+          html,
+          compactMode = true,
+          style = HtmlStyle(indentUnit = TextUnit.Unspecified, textLinkStyles = linkStyles),
+        )
+      }
+    }
   FlowRow(modifier = modifier, horizontalArrangement = Arrangement.spacedBy(spacing)) {
     texts.forEach {
       if (breakWithinAttribution) Text(it)

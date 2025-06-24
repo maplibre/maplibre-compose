@@ -46,34 +46,17 @@ kotlin {
       implementation(compose.material3)
       implementation(compose.components.resources)
       implementation(libs.bytesize)
+      implementation(libs.htmlConverterCompose)
       api(project(":lib:maplibre-compose"))
     }
 
     val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
 
-    val webMain by creating { dependsOn(commonMain.get()) }
+    iosMain { dependsOn(maplibreNativeMain) }
 
-    val nonWebMain by creating {
-      dependsOn(commonMain.get())
-      dependencies { implementation(libs.htmlConverterCompose) }
-    }
+    androidMain { dependsOn(maplibreNativeMain) }
 
-    iosMain {
-      dependsOn(maplibreNativeMain)
-      dependsOn(nonWebMain)
-    }
-
-    androidMain {
-      dependsOn(maplibreNativeMain)
-      dependsOn(nonWebMain)
-    }
-
-    get("desktopMain").apply { dependsOn(nonWebMain) }
-
-    jsMain {
-      dependsOn(webMain)
-      dependencies { implementation(libs.kotlin.wrappers.js) }
-    }
+    jsMain { dependencies { implementation(libs.kotlin.wrappers.js) } }
 
     commonTest.dependencies {
       implementation(kotlin("test"))
