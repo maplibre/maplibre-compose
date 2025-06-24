@@ -72,9 +72,9 @@ kotlin {
       @OptIn(ExperimentalComposeLibrary::class) implementation(compose.uiTest)
     }
 
-    androidUnitTest.dependencies { implementation(compose.desktop.currentOs) }
+    androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
-    androidInstrumentedTest.dependencies {
+    androidDeviceTest.dependencies {
       implementation(compose.desktop.uiTestJUnit4)
       implementation(libs.androidx.composeUi.testManifest)
     }
