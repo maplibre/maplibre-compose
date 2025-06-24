@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.compose
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -26,7 +27,7 @@ public class CameraState(firstPosition: CameraPosition) {
   internal val projectionState = mutableStateOf<CameraProjection?>(null)
   internal val positionState = mutableStateOf(firstPosition)
   internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
-  internal val metersPerDpAtTargetState = mutableStateOf(0.0)
+  internal val metersPerDpAtTargetState = mutableDoubleStateOf(0.0)
   internal val isCameraMovingState = mutableStateOf(false)
 
   internal var map: MaplibreMap?
