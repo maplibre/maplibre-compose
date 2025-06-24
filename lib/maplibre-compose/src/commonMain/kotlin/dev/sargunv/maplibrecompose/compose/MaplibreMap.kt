@@ -29,14 +29,10 @@ import kotlinx.coroutines.launch
  * @param modifier The modifier to be applied to the layout.
  * @param baseStyle The URI or JSON of the map style to use. See
  *   [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
- * @param zoomRange The allowable bounds for the camera zoom level.
- * @param pitchRange The allowable bounds for the camera pitch.
  * @param cameraState The camera state specifies what position of the map is rendered, at what zoom,
  *   at what tilt, etc.
- * @param cameraBoundingBox The allowable bounds for the camera position. Behaves differently on
- *   android and iOS:
- *   android: prevents the camera center target from going outside of bounds
- *   iOS: prevents the camera edges from going outside of bounds.
+ * @param cameraBounds The bounds of the camera consisting of a range of zoom, pitch and a
+ *   bounding box
  * @param onMapClick Invoked when the map is clicked. A click callback can be defined per layer,
  *   too, see e.g. the `onClick` parameter for
  *   [LineLayer][dev.sargunv.maplibrecompose.compose.layer.LineLayer]. However, this callback is
@@ -89,10 +85,8 @@ import kotlinx.coroutines.launch
 public fun MaplibreMap(
   modifier: Modifier = Modifier,
   baseStyle: BaseStyle = BaseStyle.Demo,
-  zoomRange: ClosedRange<Float> = 0f..20f,
-  pitchRange: ClosedRange<Float> = 0f..60f,
   cameraState: CameraState = rememberCameraState(),
-  cameraBoundingBox: BoundingBox? = null,
+  cameraBounds: CameraBounds = CameraBounds(),
   styleState: StyleState = rememberStyleState(),
   onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass },
   onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
@@ -197,26 +191,26 @@ public fun MaplibreMap(
       when (map) {
         is StandardMaplibreMap -> {
           cameraState.map = map
-          map.setMinZoom(zoomRange.start.toDouble())
-          map.setMaxZoom(zoomRange.endInclusive.toDouble())
-          map.setMinPitch(pitchRange.start.toDouble())
-          map.setMaxPitch(pitchRange.endInclusive.toDouble())
+          map.setMinZoom(cameraBounds.zoomRange.start.toDouble())
+          map.setMaxZoom(cameraBounds.zoomRange.endInclusive.toDouble())
+          map.setMinPitch(cameraBounds.pitchRange.start.toDouble())
+          map.setMaxPitch(cameraBounds.pitchRange.endInclusive.toDouble())
           map.setRenderSettings(options.renderOptions)
           map.setGestureSettings(options.gestureOptions)
           map.setOrnamentSettings(options.ornamentOptions)
-          map.setCameraBoundingBox(cameraBoundingBox)
+          map.setCameraBoundingBox(cameraBounds.boundingBox)
         }
 
         else ->
           scope.launch {
-            map.asyncSetMinZoom(zoomRange.start.toDouble())
-            map.asyncSetMaxZoom(zoomRange.endInclusive.toDouble())
-            map.asyncSetMinPitch(pitchRange.start.toDouble())
-            map.asyncSetMaxPitch(pitchRange.endInclusive.toDouble())
+            map.asyncSetMinZoom(cameraBounds.zoomRange.start.toDouble())
+            map.asyncSetMaxZoom(cameraBounds.zoomRange.endInclusive.toDouble())
+            map.asyncSetMinPitch(cameraBounds.pitchRange.start.toDouble())
+            map.asyncSetMaxPitch(cameraBounds.pitchRange.endInclusive.toDouble())
             map.asyncSetRenderSettings(options.renderOptions)
             map.asyncSetGestureSettings(options.gestureOptions)
             map.asyncSetOrnamentSettings(options.ornamentOptions)
-            map.asyncSetCameraBoundingBox(cameraBoundingBox)
+            map.asyncSetCameraBoundingBox(cameraBounds.boundingBox)
           }
       }
     },
