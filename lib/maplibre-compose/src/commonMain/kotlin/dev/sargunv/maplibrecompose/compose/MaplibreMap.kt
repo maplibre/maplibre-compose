@@ -33,9 +33,10 @@ import kotlinx.coroutines.launch
  *   at what tilt, etc.
  * @param zoomRange The allowable camera zoom range.
  * @param pitchRange The allowable camera pitch range.
- * @param boundingBox The allowable bounds for the camera position. On Android, it prevents the
- *   camera **center** from going out of bounds. On iOS and Web, it prevents the camera **edges**
- *   from going out of bounds. If null is provided, the bounds are reset.
+ * @param boundingBox The allowable bounds for the camera position. On iOS and Web, it prevents the
+ *   camera **edges** from going out of bounds. If null is provided, the bounds are reset. On
+ *   Android, it prevents the camera **center** from going out of bounds. See
+ *   [this GH Issue](https://github.com/maplibre/maplibre-native/issues/3128).
  * @param onMapClick Invoked when the map is clicked. A click callback can be defined per layer,
  *   too, see e.g. the `onClick` parameter for
  *   [LineLayer][dev.sargunv.maplibrecompose.compose.layer.LineLayer]. However, this callback is
