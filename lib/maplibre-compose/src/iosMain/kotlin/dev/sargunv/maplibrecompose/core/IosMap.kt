@@ -10,6 +10,7 @@ import MapLibre.MLNCameraChangeReasonGestureTilt
 import MapLibre.MLNCameraChangeReasonGestureZoomIn
 import MapLibre.MLNCameraChangeReasonGestureZoomOut
 import MapLibre.MLNCameraChangeReasonProgrammatic
+import MapLibre.MLNCoordinateBoundsMake
 import MapLibre.MLNFeatureProtocol
 import MapLibre.MLNLoggingBlockHandler
 import MapLibre.MLNLoggingConfiguration
@@ -71,6 +72,7 @@ import kotlinx.cinterop.useContents
 import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGPointMake
 import platform.CoreGraphics.CGSize
+import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.Foundation.NSError
 import platform.Foundation.NSURL
 import platform.UIKit.UIEdgeInsets
@@ -272,7 +274,13 @@ internal class IosMap(
   }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
-    mapView.setMaximumScreenBounds(boundingBox?.toMLNCoordinateBounds())
+    mapView.setMaximumScreenBounds(
+      boundingBox?.toMLNCoordinateBounds()
+        ?: MLNCoordinateBoundsMake(
+          ne = CLLocationCoordinate2DMake(latitude = 90.0, longitude = 180.0),
+          sw = CLLocationCoordinate2DMake(latitude = -90.0, longitude = -180.0),
+        )
+    )
   }
 
   override fun getVisibleBoundingBox(): BoundingBox {

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import dev.sargunv.maplibrecompose.compose.CameraBounds
 import dev.sargunv.maplibrecompose.compose.MaplibreMap
 import dev.sargunv.maplibrecompose.compose.layer.RasterLayer
 import dev.sargunv.maplibrecompose.compose.rememberCameraState
@@ -36,7 +35,7 @@ object LocalTilesDemo : Demo {
         Box(modifier = Modifier.Companion.weight(1f)) {
           MaplibreMap(
             baseStyle = BaseStyle.Empty,
-            cameraBounds = CameraBounds(zoomRange = 0f..4f),
+            zoomRange = 0f..4f,
             cameraState = cameraState,
             styleState = styleState,
             options = DemoMapOptions(),
