@@ -115,12 +115,7 @@ internal class JsMap(
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
     impl.setMaxBounds(
-      boundingBox?.let {
-        arrayOf(
-          it.southwest.coordinates,
-          it.northeast.coordinates
-        )
-      }
+      boundingBox?.let { arrayOf(it.southwest.coordinates, it.northeast.coordinates) }
     )
   }
 

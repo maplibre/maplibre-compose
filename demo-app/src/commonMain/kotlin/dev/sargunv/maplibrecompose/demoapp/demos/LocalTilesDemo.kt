@@ -36,9 +36,7 @@ object LocalTilesDemo : Demo {
         Box(modifier = Modifier.Companion.weight(1f)) {
           MaplibreMap(
             baseStyle = BaseStyle.Empty,
-            cameraBounds = CameraBounds(
-              zoomRange = 0f..4f
-            ),
+            cameraBounds = CameraBounds(zoomRange = 0f..4f),
             cameraState = cameraState,
             styleState = styleState,
             options = DemoMapOptions(),

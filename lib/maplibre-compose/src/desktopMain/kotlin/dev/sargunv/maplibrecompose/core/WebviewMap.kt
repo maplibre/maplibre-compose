@@ -46,12 +46,10 @@ internal class WebviewMap(private val bridge: WebviewBridge) : MaplibreMap {
   }
 
   override suspend fun asyncSetCameraBoundingBox(boundingBox: BoundingBox?) {
-    bridge.callVoid("setMaxBounds", boundingBox?.let {
-      arrayOf(
-        it.southwest.coordinates,
-        it.northeast.coordinates
-      )
-    })
+    bridge.callVoid(
+      "setMaxBounds",
+      boundingBox?.let { arrayOf(it.southwest.coordinates, it.northeast.coordinates) },
+    )
   }
 
   override suspend fun asyncGetVisibleBoundingBox(): BoundingBox {

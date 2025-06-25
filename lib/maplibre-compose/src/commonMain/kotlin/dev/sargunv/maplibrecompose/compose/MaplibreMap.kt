@@ -19,7 +19,6 @@ import dev.sargunv.maplibrecompose.core.MaplibreMap
 import dev.sargunv.maplibrecompose.core.SafeStyle
 import dev.sargunv.maplibrecompose.core.StandardMaplibreMap
 import dev.sargunv.maplibrecompose.core.Style
-import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Position
 import kotlinx.coroutines.launch
 
@@ -31,8 +30,8 @@ import kotlinx.coroutines.launch
  *   [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param cameraState The camera state specifies what position of the map is rendered, at what zoom,
  *   at what tilt, etc.
- * @param cameraBounds The bounds of the camera consisting of a range of zoom, pitch and a
- *   bounding box
+ * @param cameraBounds The bounds of the camera consisting of a range of zoom, pitch and a bounding
+ *   box
  * @param onMapClick Invoked when the map is clicked. A click callback can be defined per layer,
  *   too, see e.g. the `onClick` parameter for
  *   [LineLayer][dev.sargunv.maplibrecompose.compose.layer.LineLayer]. However, this callback is

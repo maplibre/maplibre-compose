@@ -102,7 +102,8 @@ internal interface StandardMaplibreMap : MaplibreMap {
 
   override suspend fun asyncSetMaxPitch(maxPitch: Double) = setMaxPitch(maxPitch)
 
-  override suspend fun asyncSetCameraBoundingBox(boundingBox: BoundingBox?) = setCameraBoundingBox(boundingBox)
+  override suspend fun asyncSetCameraBoundingBox(boundingBox: BoundingBox?) =
+    setCameraBoundingBox(boundingBox)
 
   override suspend fun asyncGetVisibleBoundingBox(): BoundingBox = getVisibleBoundingBox()
 
