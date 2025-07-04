@@ -16,7 +16,7 @@ maplibre-js = "4.7.1" # TODO: is outdated; update to v5.x
 spatialk = "0.3.0" # TODO: is unmaintained; watch for https://github.com/maplibre/maplibre-java/pull/40
 webpack-html = "5.6.3"
 webpack-htmlInlineScript = "3.2.1"
-webview = "1.9.40"
+webview = "2.0.1"
 
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.0.0"
