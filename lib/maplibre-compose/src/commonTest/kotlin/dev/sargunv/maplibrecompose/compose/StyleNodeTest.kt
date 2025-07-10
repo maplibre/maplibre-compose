@@ -48,7 +48,7 @@ abstract class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       assertEquals(testSources[1], s.sourceManager.getBaseSource("bar"))
-      assertFails { s.sourceManager.getBaseSource("BAR") }
+      assertEquals(null, s.sourceManager.getBaseSource("BAR"))
     }
   }
 
