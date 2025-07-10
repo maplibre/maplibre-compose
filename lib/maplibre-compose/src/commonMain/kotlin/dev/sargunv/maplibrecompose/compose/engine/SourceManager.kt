@@ -12,8 +12,8 @@ internal class SourceManager(private val node: StyleNode) {
   /** Receives updates on changes to the style */
   internal var state: StyleState? = null
 
-  internal fun getBaseSource(id: String): Source {
-    return baseSources[id] ?: error("Source ID '$id' not found in base style")
+  internal fun getBaseSource(id: String): Source? {
+    return baseSources[id]
   }
 
   internal fun nextId(): String = sourceIds.next()

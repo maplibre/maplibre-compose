@@ -28,8 +28,9 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 fun Layers() {
   // -8<- [start:simple]
   MaplibreMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
-    val tiles = getBaseSource(id = "openmaptiles")
-    CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
+    getBaseSource(id = "openmaptiles")?.let { tiles ->
+      CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
+    }
   }
   // -8<- [end:simple]
 
