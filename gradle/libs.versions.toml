@@ -6,11 +6,11 @@ bytesize = "2.0.0-beta04"
 compass = "2.3.1"
 htmlConverterCompose = "1.1.0"
 kermit = "2.0.6"
-kotlin-wrappers = "2025.7.1"
+kotlin-wrappers = "2025.7.2"
 kotlinx-browser = "0.3"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.2.1"
-maplibre-android-sdk = "11.10.3"
+maplibre-android-sdk = "11.12.1"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "4.7.1" # TODO: is outdated; update to v5.x
 spatialk = "0.3.0" # TODO: is unmaintained; watch for https://github.com/maplibre/maplibre-java/pull/40
@@ -21,10 +21,10 @@ webview = "1.9.40"
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
-gradle-mavenPublish = "0.32.0"
+gradle-mavenPublish = "0.33.0"
 gradle-mkdocs = "4.0.1"
-gradle-spotless = "7.0.4"
-gradle-spmForKmp = "0.11.2"
+gradle-spotless = "7.1.0"
+gradle-spmForKmp = "0.11.3"
 tool-prettier = "3.5.3"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
