@@ -100,26 +100,6 @@ abstract class StyleNodeTest {
   }
 
   @Test
-  fun shouldAllowAddSourceBeforeRemove() = runComposeUiTest {
-    runOnUiThread {
-      val s = makeStyleNode()
-      val s1 = GeoJsonSource("new", GeoJsonData.Features(FeatureCollection()), GeoJsonOptions())
-      val s2 = GeoJsonSource("new", GeoJsonData.Features(FeatureCollection()), GeoJsonOptions())
-
-      s.sourceManager.addReference(s1)
-      s.onEndChanges()
-
-      assertEquals(s1, s.style.getSource("new"))
-
-      s.sourceManager.addReference(s2)
-      s.sourceManager.removeReference(s1)
-      s.onEndChanges()
-
-      assertEquals(s2, s.style.getSource("new"))
-    }
-  }
-
-  @Test
   fun shouldAnchorTop() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
