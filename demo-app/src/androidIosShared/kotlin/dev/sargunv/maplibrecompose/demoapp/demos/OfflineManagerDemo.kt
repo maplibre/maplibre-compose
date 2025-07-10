@@ -57,7 +57,7 @@ object OfflineManagerDemo : Demo {
     val offlineManager = rememberOfflineManager()
     FillLayer(
       id = "offline-packs",
-      source = rememberOfflinePacksSource("offline-packs", offlineManager.packs),
+      source = rememberOfflinePacksSource(offlineManager.packs),
       opacity = const(0.5f),
       color =
         switch(

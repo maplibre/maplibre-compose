@@ -24,13 +24,11 @@ import io.github.dellisd.spatialk.geojson.dsl.featureCollection
  */
 @Composable
 public fun rememberOfflinePacksSource(
-  id: String,
   offlinePacks: Set<OfflinePack>,
   options: GeoJsonOptions = GeoJsonOptions(),
   putExtraProperties: PropertiesBuilder.(OfflinePack) -> Unit = {},
 ): Source {
   return rememberGeoJsonSource(
-    id = id,
     options = options,
     data =
       GeoJsonData.Features(

@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.compose.layer
 
 import androidx.compose.runtime.Composable
 import dev.sargunv.maplibrecompose.compose.MaplibreComposable
+import dev.sargunv.maplibrecompose.compose.source.SourceReferenceEffect
 import dev.sargunv.maplibrecompose.core.layer.RasterLayer
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.expressions.ast.Expression
@@ -63,6 +64,7 @@ public fun RasterLayer(
   val compiledResampling = compile(resampling)
   val compiledFadeDuration = compile(fadeDuration)
 
+  SourceReferenceEffect(source)
   LayerNode(
     factory = { RasterLayer(id = id, source = source) },
     update = {

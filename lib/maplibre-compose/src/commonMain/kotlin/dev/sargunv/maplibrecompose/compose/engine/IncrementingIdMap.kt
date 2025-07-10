@@ -1,11 +1,11 @@
 package dev.sargunv.maplibrecompose.compose.engine
 
 internal class IncrementingIdMap<in T>(private val name: String) {
-  private var nextId = 0
+  private val ids = IncrementingId(name)
   private val map = mutableMapOf<T, String>()
 
   fun addId(value: T): String {
-    return map.getOrPut(value) { "__MAPLIBRE_COMPOSE_${name}_${nextId++}" }
+    return map.getOrPut(value) { ids.next() }
   }
 
   fun getId(value: T): String {
