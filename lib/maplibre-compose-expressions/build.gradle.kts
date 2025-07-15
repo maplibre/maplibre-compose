@@ -19,7 +19,7 @@ mavenPublishing {
 }
 
 kotlin {
-  androidLibrary { namespace = "dev.sargunv.maplibrecompose.expressions" }
+  androidLibrary { namespace = "org.maplibre.compose.expressions" }
   iosArm64()
   iosSimulatorArm64()
   iosX64()

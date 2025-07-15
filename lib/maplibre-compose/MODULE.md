@@ -2,14 +2,14 @@
 
 The primary entry point for MapLibre Compose.
 
-# Package dev.sargunv.maplibrecompose.compose
+# Package org.maplibre.compose.style
 
 The main Composable to instantiate a map, and related utilities.
 
-# Package dev.sargunv.maplibrecompose.compose.layer
+# Package org.maplibre.compose.style.layer
 
 Composables and related utilities to add layers to the map.
 
-# Package dev.sargunv.maplibrecompose.compose.source
+# Package org.maplibre.compose.style.source
 
 Composables and related utilities to add sources to the map.

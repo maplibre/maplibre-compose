@@ -20,7 +20,7 @@ To use a style, you can pass the `BaseStyle` of your chosen style to the
 `MaplibreMap` composable:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Styling.kt:simple"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt:simple"
 ```
 
 ## Dark mode
@@ -30,7 +30,7 @@ automatically animate the transition between styles. This is handy if you have a
 light and a dark mode style:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Styling.kt:dynamic"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt:dynamic"
 ```
 
 ## Local styles
@@ -39,7 +39,7 @@ While styles are typically hosted on the internet, you can also load a local
 style with [Compose Multiplatform resources][resources]:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Styling.kt:local"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt:local"
 ```
 
 [maputnik]: https://maputnik.github.io/

@@ -40,14 +40,14 @@ val copyDesktopResources by
   }
 
 kotlin {
-  androidLibrary { namespace = "dev.sargunv.maplibrecompose" }
+  androidLibrary { namespace = "org.maplibre.compose" }
 
   listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach {
     it.compilations.getByName("main") {
       cinterops {
         create("observer") {
           defFile(project.file("src/nativeInterop/cinterop/observer.def"))
-          packageName("dev.sargunv.maplibrecompose.core.util")
+          packageName("org.maplibre.compose.core.util")
         }
       }
     }
@@ -137,7 +137,7 @@ kotlin {
 }
 
 compose.resources {
-  packageOfResClass = "dev.sargunv.maplibrecompose.generated"
+  packageOfResClass = "org.maplibre.compose.generated"
 
   customDirectory(
     sourceSetName = "desktopMain",

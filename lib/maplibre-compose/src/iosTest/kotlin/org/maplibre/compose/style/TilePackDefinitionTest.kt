@@ -1,0 +1,80 @@
+package org.maplibre.compose.style
+
+import io.github.dellisd.spatialk.geojson.BoundingBox
+import io.github.dellisd.spatialk.geojson.Polygon
+import io.github.dellisd.spatialk.geojson.Position
+import kotlin.experimental.ExperimentalNativeApi
+import kotlin.test.Test
+import kotlinx.cinterop.ExperimentalForeignApi
+import org.maplibre.compose.style.offline.OfflinePackDefinition
+import org.maplibre.compose.style.offline.toMLNOfflineRegion
+import org.maplibre.compose.style.offline.toOfflinePackDefinition
+
+@OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
+class TilePackDefinitionTest {
+  @Test
+  fun convertTilePyramid() {
+    val noMax =
+      OfflinePackDefinition.TilePyramid(
+        styleUrl = "https://example.com",
+        bounds =
+          BoundingBox(
+            southwest = Position(longitude = -10.0, latitude = -11.0),
+            northeast = Position(longitude = 12.0, latitude = 13.0),
+          ),
+        minZoom = 3,
+        maxZoom = null, // infinity
+      )
+    assert(noMax.toMLNOfflineRegion().toOfflinePackDefinition() == noMax)
+
+    val minMax =
+      OfflinePackDefinition.TilePyramid(
+        styleUrl = "https://example.com",
+        bounds =
+          BoundingBox(
+            southwest = Position(longitude = -10.0, latitude = -11.0),
+            northeast = Position(longitude = 12.0, latitude = 13.0),
+          ),
+        minZoom = 3,
+        maxZoom = 10,
+      )
+    assert(minMax.toMLNOfflineRegion().toOfflinePackDefinition() == minMax)
+  }
+
+  @Test
+  fun convertShape() {
+    val noMax =
+      OfflinePackDefinition.Shape(
+        styleUrl = "https://example.com",
+        shape =
+          Polygon(
+            listOf(
+              Position(longitude = -10.0, latitude = -11.0), // southwest
+              Position(longitude = -10.0, latitude = 13.0), // northwest
+              Position(longitude = 12.0, latitude = 13.0), // northeast
+              Position(longitude = 12.0, latitude = -11.0), // southeast
+            )
+          ),
+        minZoom = 3,
+        maxZoom = null, // infinity
+      )
+    assert(noMax.toMLNOfflineRegion().toOfflinePackDefinition() == noMax)
+
+    val minMax =
+      OfflinePackDefinition.Shape(
+        styleUrl = "https://example.com",
+        shape =
+          Polygon(
+            listOf(
+              Position(longitude = -10.0, latitude = -11.0),
+              Position(longitude = -10.0, latitude = 13.0),
+              Position(longitude = 12.0, latitude = 13.0),
+              Position(longitude = 12.0, latitude = -11.0),
+            )
+          ),
+        minZoom = 3,
+        maxZoom = 10,
+      )
+    assert(minMax.toMLNOfflineRegion().toOfflinePackDefinition() == minMax)
+  }
+}

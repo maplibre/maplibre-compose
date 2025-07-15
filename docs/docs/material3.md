@@ -19,7 +19,7 @@ To get started, add the dependency to your project:
 
 ```toml title="libs.versions.toml"
 [libraries]
-maplibre-composeMaterial3 = { module = "dev.sargunv.maplibre-compose:maplibre-compose-material3", version = "{{ gradle.release_version }}" }
+maplibre-composeMaterial3 = { module = "org.maplibre.compose:maplibre-compose-material3", version = "{{ gradle.release_version }}" }
 ```
 
 ```kotlin title="build.gradle.kts"
@@ -32,14 +32,14 @@ Then, disable the default ornaments and add the Material controls after the
 `MaplibreMap` in a shared `Box`.
 
 ```kotlin title="App.kt"
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Material3.kt:controls"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Material3.kt:controls"
 ```
 
 There are also disappearing versions of the controls which appear when relevant
 and fade out after a certain time:
 
 ```kotlin title="App.kt"
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Material3.kt:disappearing-controls"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Material3.kt:disappearing-controls"
 ```
 
 1. Appears when the zoom level changes; fades away when zoom is idle.

@@ -7,7 +7,7 @@ repo_name: maplibre-compose
 repo_url: http://github.com/maplibre/maplibre-compose
 edit_uri: "edit/main/docs/docs/"
 
-copyright: "Copyright &copy; 2024 Sargun Vohra"
+copyright: "Copyright &copy; 2025 MapLibre"
 
 extra_css:
   - stylesheets/extra.css

@@ -20,7 +20,7 @@ mavenPublishing {
 }
 
 kotlin {
-  androidLibrary { namespace = "dev.sargunv.maplibrecompose.material3" }
+  androidLibrary { namespace = "org.maplibre.compose.material3" }
 
   listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach { it.configureSpmMaplibre(project) }
 
@@ -64,4 +64,4 @@ kotlin {
   }
 }
 
-compose.resources { packageOfResClass = "dev.sargunv.maplibrecompose.material3.generated" }
+compose.resources { packageOfResClass = "org.maplibre.compose.material3.generated" }

@@ -2,15 +2,15 @@
 
 Utilities for creating MapLibre expressions with a type-safe Kotlin DSL.
 
-# Package dev.sargunv.maplibrecompose.expressions.ast
+# Package org.maplibre.compose.expressions.ast
 
 The abstract syntax tree (AST) for the expression language.
 
-# Package dev.sargunv.maplibrecompose.expressions.dsl
+# Package org.maplibre.compose.expressions.dsl
 
 The Kotlin DSL for creating MapLibre expressions. This is the primary API you'll
 be using to create expressions.
 
-# Package dev.sargunv.maplibrecompose.expressions.value
+# Package org.maplibre.compose.expressions.value
 
 The interfaces and enums defining the type system for MapLibre expressions.

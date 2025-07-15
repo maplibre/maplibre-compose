@@ -12,14 +12,14 @@ MapLibre Compose, you can dynamically configure sources and layers with
 `@Composable` functions:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Layers.kt:simple"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:simple"
 ```
 
 The above example shows how to add a layer referring to a source from the base
 style, but you can also declare new sources:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Layers.kt:amtrak-1"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:amtrak-1"
 ```
 
 The full breadth of layer styling options available is out of scope for this
@@ -36,7 +36,7 @@ types. When passing a constant value instead of a formula, wrap it in `const()`
 to turn it into an expression.
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Layers.kt:amtrak-2"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:amtrak-2"
 ```
 
 ## Anchoring layers
@@ -46,7 +46,7 @@ at the top of the map, above the base style layers. However, you can insert them
 at other positions in the stack of layers with `Anchor`:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Layers.kt:anchors"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:anchors"
 ```
 
 Anchors to insert layers at the `Bottom`, `Top`, `Above` a base layer, `Below` a
@@ -58,7 +58,7 @@ Layer composables provide click listeners, similar to the map itself. You can
 listen for clicks on a layer and consume or pass those click events:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/dev/sargunv/maplibrecompose/docsnippets/Layers.kt:interaction"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:interaction"
 ```
 
 Click listeners are called on the map first, then in layer order from the top to
