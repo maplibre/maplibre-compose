@@ -1,6 +1,7 @@
 package dev.sargunv.maplibrecompose.core
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.dp
  *   corners are supported (TopStart, TopEnd, BottomStart, BottomEnd). On iOS, the four corners,
  *   centers along the edges, and the center are supported.
  */
+@Immutable
 public actual data class OrnamentOptions(
   val padding: PaddingValues = PaddingValues(0.dp),
   val isLogoEnabled: Boolean = true,

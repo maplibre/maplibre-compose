@@ -1,5 +1,8 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.runtime.Immutable
+
+@Immutable
 public actual data class GestureOptions(
   val isTouchPitchEnabled: Boolean = true,
   val isDragRotateEnabled: Boolean = true,
