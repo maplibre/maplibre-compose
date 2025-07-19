@@ -1,5 +1,6 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -15,6 +16,7 @@ import androidx.compose.ui.graphics.Color
  * @param maximumFps Specifies the maximum frame rate for rendering the map view. The value is
  *   limited by the device's hardware capabilities.
  */
+@Immutable
 public actual data class RenderOptions(
   val renderMode: RenderMode = RenderMode.SurfaceView,
   val foregroundLoadColor: Color = Color.Transparent,
