@@ -28,24 +28,19 @@ import org.jetbrains.compose.resources.ExperimentalResourceApi
 fun Layers() {
   // -8<- [start:simple]
   MaplibreMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
-    val tiles = getBaseSource(id = "openmaptiles")
-    CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
+    getBaseSource(id = "openmaptiles")?.let { tiles ->
+      CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
+    }
   }
   // -8<- [end:simple]
 
   MaplibreMap {
     val amtrakStations =
-      rememberGeoJsonSource(
-        id = "amtrak-stations",
-        data = GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")),
-      )
+      rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
 
     // -8<- [start:amtrak-1]
     val amtrakRoutes =
-      rememberGeoJsonSource(
-        id = "amtrak-routes",
-        data = GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")),
-      )
+      rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")))
     LineLayer(
       id = "amtrak-routes-casing",
       source = amtrakRoutes,

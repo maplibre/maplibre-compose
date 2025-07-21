@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.FeaturesClickHandler
 import dev.sargunv.maplibrecompose.compose.MaplibreComposable
+import dev.sargunv.maplibrecompose.compose.source.SourceReferenceEffect
 import dev.sargunv.maplibrecompose.core.layer.CircleLayer
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.expressions.ast.Expression
@@ -98,6 +99,7 @@ public fun CircleLayer(
   val compiledPitchScale = compile(pitchScale)
   val compiledPitchAlignment = compile(pitchAlignment)
 
+  SourceReferenceEffect(source)
   LayerNode(
     factory = { CircleLayer(id = id, source = source) },
     update = {

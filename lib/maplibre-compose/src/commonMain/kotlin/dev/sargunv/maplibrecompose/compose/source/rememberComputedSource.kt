@@ -8,18 +8,16 @@ import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.FeatureCollection
 
 /**
- * Remember a new [ComputedSource] with the given [id] and [options] from the given [getFeatures]
- * function.
+ * Remember a new [ComputedSource] with the given [options] from the given [getFeatures] function.
  */
 @Composable
 public fun rememberGeoJsonSource(
-  id: String,
   options: ComputedSourceOptions = ComputedSourceOptions(),
   getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
 ): ComputedSource =
-  key(id, options, getFeatures) {
+  key(options, getFeatures) {
     rememberUserSource(
-      factory = { ComputedSource(id = id, options = options, getFeatures = getFeatures) },
+      factory = { ComputedSource(id = it, options = options, getFeatures = getFeatures) },
       update = {},
     )
   }

@@ -3,6 +3,7 @@ package dev.sargunv.maplibrecompose.compose.layer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import dev.sargunv.maplibrecompose.compose.MaplibreComposable
+import dev.sargunv.maplibrecompose.compose.source.SourceReferenceEffect
 import dev.sargunv.maplibrecompose.core.layer.HillshadeLayer
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.expressions.ast.Expression
@@ -57,6 +58,7 @@ public fun HillshadeLayer(
   val compiledIlluminationAnchor = compile(illuminationAnchor)
   val compiledExaggeration = compile(exaggeration)
 
+  SourceReferenceEffect(source)
   LayerNode(
     factory = { HillshadeLayer(id = id, source = source) },
     update = {

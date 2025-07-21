@@ -36,7 +36,6 @@ object AnimatedLayerDemo : Demo {
   override fun MapContent(state: DemoState, isOpen: Boolean) {
     val routeSource =
       rememberGeoJsonSource(
-        id = "amtrak-routes",
         data =
           GeoJsonData.Uri(
             "https://raw.githubusercontent.com/datanews/amtrak-geojson/refs/heads/master/amtrak-combined.geojson"

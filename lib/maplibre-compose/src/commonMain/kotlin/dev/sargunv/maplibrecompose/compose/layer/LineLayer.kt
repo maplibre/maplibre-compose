@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.FeaturesClickHandler
 import dev.sargunv.maplibrecompose.compose.MaplibreComposable
+import dev.sargunv.maplibrecompose.compose.source.SourceReferenceEffect
 import dev.sargunv.maplibrecompose.core.layer.LineLayer
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.expressions.ast.Expression
@@ -130,6 +131,7 @@ public fun LineLayer(
   val compiledMiterLimit = compile(miterLimit)
   val compiledRoundLimit = compile(roundLimit)
 
+  SourceReferenceEffect(source)
   LayerNode(
     factory = { LineLayer(id = id, source = source) },
     update = {

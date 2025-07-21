@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
 import dev.sargunv.maplibrecompose.compose.FeaturesClickHandler
 import dev.sargunv.maplibrecompose.compose.MaplibreComposable
+import dev.sargunv.maplibrecompose.compose.source.SourceReferenceEffect
 import dev.sargunv.maplibrecompose.core.layer.HeatmapLayer
 import dev.sargunv.maplibrecompose.core.source.Source
 import dev.sargunv.maplibrecompose.expressions.Defaults
@@ -71,6 +72,7 @@ public fun HeatmapLayer(
   val compiledWeight = compile(weight)
   val compiledIntensity = compile(intensity)
 
+  SourceReferenceEffect(source)
   LayerNode(
     factory = { HeatmapLayer(id = id, source = source) },
     update = {

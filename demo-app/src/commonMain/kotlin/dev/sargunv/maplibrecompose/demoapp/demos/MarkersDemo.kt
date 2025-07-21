@@ -45,11 +45,10 @@ object MarkersDemo : Demo {
 
     val amtrakStations =
       rememberGeoJsonSource(
-        id = "amtrak-stations",
         data =
           GeoJsonData.Uri(
             "https://raw.githubusercontent.com/datanews/amtrak-geojson/refs/heads/master/amtrak-stations.geojson"
-          ),
+          )
       )
 
     SymbolLayer(
