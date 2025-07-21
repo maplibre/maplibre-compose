@@ -34,6 +34,7 @@ public actual class GeoJsonSource : Source {
       withCluster(options.cluster)
       withClusterMaxZoom(options.clusterMaxZoom)
       withClusterRadius(options.clusterRadius)
+      withClusterMinPoints(options.clusterMinPoints)
       options.clusterProperties.forEach { (name, aggregator) ->
         withClusterProperty(
           name,

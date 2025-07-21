@@ -26,10 +26,8 @@ import dev.sargunv.maplibrecompose.expressions.value.ExpressionValue
  * @param clusterMaxZoom Max zoom to cluster points on. Clusters are re-evaluated at integer zoom
  *   levels. So, setting the max zoom to 14 means that the clusters will still be displayed on zoom
  *   14.9.
- * @param clusterMinPoints **Note: Not supported on native platforms, see
- *   [maplibre-native#261](https://github.com/maplibre/maplibre-native/issues/261)**
- *
- *   Minimum number of points necessary to form a cluster if clustering is enabled.
+ * @param clusterMinPoints Minimum number of points necessary to form a cluster if clustering is
+ *   enabled.
  *
  * @param clusterProperties A map defining custom properties on the generated clusters if clustering
  *   is enabled, aggregating values from clustered points. The keys are the property names, the

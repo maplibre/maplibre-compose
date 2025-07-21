@@ -57,6 +57,7 @@ public actual class GeoJsonSource : Source {
       put(MLNShapeSourceOptionClustered, NSNumber(options.cluster))
       put(MLNShapeSourceOptionMaximumZoomLevelForClustering, NSNumber(options.clusterMaxZoom))
       put(MLNShapeSourceOptionClusterRadius, NSNumber(options.clusterRadius))
+      put(MLNShapeSourceOptionClusterMinPoints, NSNumber(options.clusterMinPoints))
       put(
         MLNShapeSourceOptionClusterProperties,
         options.clusterProperties.mapValues { (name, aggregator) ->
