@@ -28,7 +28,6 @@ import dev.sargunv.maplibrecompose.expressions.value.ExpressionValue
  *   14.9.
  * @param clusterMinPoints Minimum number of points necessary to form a cluster if clustering is
  *   enabled.
- *
  * @param clusterProperties A map defining custom properties on the generated clusters if clustering
  *   is enabled, aggregating values from clustered points. The keys are the property names, the
  *   values are an aggregation mapper and reducer.
