@@ -2,6 +2,7 @@ package dev.sargunv.maplibrecompose.core.source
 
 import MapLibre.MLNShapeSource
 import MapLibre.MLNShapeSourceOptionBuffer
+import MapLibre.MLNShapeSourceOptionClusterMinPoints
 import MapLibre.MLNShapeSourceOptionClusterProperties
 import MapLibre.MLNShapeSourceOptionClusterRadius
 import MapLibre.MLNShapeSourceOptionClustered
