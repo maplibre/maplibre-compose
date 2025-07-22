@@ -1,7 +1,9 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 
+@Immutable
 public actual data class OrnamentOptions(
   val isLogoEnabled: Boolean = true,
   val logoAlignment: Alignment = Alignment.Companion.BottomStart,

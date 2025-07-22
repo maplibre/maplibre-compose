@@ -1,5 +1,7 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.runtime.Immutable
+
 /**
  * @param isRotateEnabled Set whether the user may rotate the map by moving two fingers in a
  *   circular motion.
@@ -11,6 +13,7 @@ package dev.sargunv.maplibrecompose.core
  * @param isQuickZoomEnabled Set whether the user may zoom the map in and out by double tapping,
  *   holding, and moving the finger up and down.
  */
+@Immutable
 public actual data class GestureOptions(
   val isRotateEnabled: Boolean = true,
   val isScrollEnabled: Boolean = true,

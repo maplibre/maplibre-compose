@@ -1,6 +1,9 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.runtime.Immutable
+
 /** @param debugSettings Options for enabling debugging features. */
+@Immutable
 public actual data class RenderOptions(val debugSettings: DebugSettings = DebugSettings()) {
   public actual companion object Companion {
     public actual val Standard: RenderOptions = RenderOptions()
@@ -22,6 +25,7 @@ public actual data class RenderOptions(val debugSettings: DebugSettings = DebugS
    *   many times it has been shaded. White fragments have been shaded 8 or more times. Black
    *   fragments have been shaded 0 times.
    */
+  @Immutable
   public data class DebugSettings(
     val showCollisionBoxes: Boolean = false,
     val showTileBoundaries: Boolean = false,
