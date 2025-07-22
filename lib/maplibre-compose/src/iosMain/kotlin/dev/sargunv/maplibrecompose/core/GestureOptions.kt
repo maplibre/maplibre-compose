@@ -1,5 +1,6 @@
 package dev.sargunv.maplibrecompose.core
 
+import androidx.compose.runtime.Immutable
 import kotlin.Boolean
 
 /**
@@ -13,6 +14,7 @@ import kotlin.Boolean
  * @param isHapticFeedbackEnabled Set whether the user receives haptic feedback when rotating the
  *   map to due north.
  */
+@Immutable
 public actual data class GestureOptions(
   public val isRotateEnabled: Boolean = true,
   public val isScrollEnabled: Boolean = true,
