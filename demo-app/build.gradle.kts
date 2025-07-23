@@ -1,3 +1,4 @@
+import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -161,6 +162,13 @@ kotlin {
       implementation(compose.desktop.uiTestJUnit4)
       implementation(libs.androidx.composeUi.testManifest)
     }
+  }
+}
+
+swiftPackageConfig {
+  getByName("spmMaplibre") {
+    @OptIn(ExperimentalSpmForKmpFeature::class)
+    copyDependenciesToApp = true
   }
 }
 

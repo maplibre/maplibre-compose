@@ -1,14 +1,18 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with
+code in this repository.
 
 ## Project Overview
 
-MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that provides a declarative Compose-based API for rendering interactive maps across Android, iOS, Desktop, and Web platforms.
+MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that
+provides a declarative Compose-based API for rendering interactive maps across
+Android, iOS, Desktop, and Web platforms.
 
 ## Essential Commands
 
 ### Development
+
 ```bash
 # Format code before committing
 ./gradlew spotlessApply
@@ -24,6 +28,7 @@ MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that pro
 ```
 
 ### Testing
+
 ```bash
 # Android unit tests
 ./gradlew testDebugUnitTest
@@ -45,6 +50,7 @@ MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that pro
 ```
 
 ### Running Demo App
+
 ```bash
 # Desktop
 ./gradlew :demo-app:run
@@ -56,6 +62,7 @@ MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that pro
 ```
 
 ### Building
+
 ```bash
 # Build Android APK
 ./gradlew packageDebug
@@ -67,21 +74,25 @@ MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that pro
 ## Architecture
 
 ### Module Structure
+
 - `lib/maplibre-compose` - Core library with map composables and common API
 - `lib/maplibre-compose-material3` - Material 3 themed map components
-- `lib/maplibre-compose-expressions` - Type-safe DSL for MapLibre style expressions
+- `lib/maplibre-compose-expressions` - Type-safe DSL for MapLibre style
+  expressions
 - `lib/kotlin-maplibre-js` - Kotlin/JS bindings for MapLibre GL JS
 - `lib/compose-html-interop` - HTML interop utilities for web platform
 - `lib/maplibre-compose-webview` - WebView-based implementation for desktop
 - `demo-app` - Multiplatform demo application
 
 ### Platform Implementation Strategy
+
 - **Android**: Direct integration with MapLibre Native Android SDK
 - **iOS**: Direct integration with MapLibre Native iOS SDK via SPM
 - **Web**: Uses MapLibre GL JS through Kotlin/JS bindings
 - **Desktop**: Currently uses KCEF WebView to embed MapLibre GL JS
 
 ### Core Components
+
 - `MaplibreMap` - Main composable for displaying maps
 - `CameraState` - Manages camera position, zoom, bearing, and animations
 - `StyleState` - Handles map styling and style transitions
@@ -90,6 +101,7 @@ MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that pro
 - Gesture handlers and map interaction controls
 
 ### Code Conventions
+
 - Kotlin code uses Google style (enforced by spotless with ktfmt)
 - Swift code for iOS uses swift-format
 - All public APIs require KDoc documentation
@@ -99,6 +111,7 @@ MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that pro
 - State management follows Compose patterns (remember, mutableStateOf)
 
 ### Testing Approach
+
 - Unit tests for business logic in `commonTest`
 - Platform-specific tests for native integrations
 - UI tests using Compose Testing framework
@@ -106,20 +119,24 @@ MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that pro
 
 ## Key Development Notes
 
-1. **Gradle Configuration**: Uses version catalogs (`gradle/libs.versions.toml`) and convention plugins in `buildSrc`
+1. **Gradle Configuration**: Uses version catalogs (`gradle/libs.versions.toml`)
+   and convention plugins in `buildSrc`
 
 2. **Required Setup**:
+
    - JDK 21 for building (targets JVM 11)
    - Android SDK with compileSdk 35
    - For iOS: Xcode with iOS 12.0+ deployment target
    - Create `local.properties` with `sdk.dir=/path/to/Android/sdk`
 
 3. **Platform Considerations**:
+
    - Android and iOS are stable platforms with full feature support
    - Web and Desktop are experimental with limited features
    - Desktop requires KCEF setup with specific JVM flags
 
 4. **State Management**:
+
    - Use `rememberCameraState()` for camera control
    - Use `rememberStyleState()` for style management
    - States are designed to be hoisted for external control
