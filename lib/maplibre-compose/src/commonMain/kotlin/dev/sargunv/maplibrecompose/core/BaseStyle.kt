@@ -11,10 +11,10 @@ import kotlinx.serialization.json.putJsonObject
 @Immutable
 public sealed interface BaseStyle {
 
-  @Immutable public class Uri(public val uri: String) : BaseStyle
+  @Immutable public data class Uri(public val uri: String) : BaseStyle
 
   @Immutable
-  public class Json(public val json: String) : BaseStyle {
+  public data class Json(public val json: String) : BaseStyle {
 
     public constructor(json: JsonObject) : this(json.toString())
 
