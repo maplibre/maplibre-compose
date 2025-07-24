@@ -210,7 +210,11 @@ internal class AndroidMap(
     map.setMaxZoomPreference(maxZoom)
   }
 
+  private var lastBoundingBox: BoundingBox? = null
+
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
+    if (boundingBox == lastBoundingBox) return
+    lastBoundingBox = boundingBox
     map.setLatLngBoundsForCameraTarget(boundingBox?.toLatLngBounds())
   }
 
