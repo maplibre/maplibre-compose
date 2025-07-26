@@ -5,11 +5,11 @@ import androidx.compose.ui.unit.DpRect
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.Position
+import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.map.StandardMapAdapter
-import org.maplibre.compose.style.expressions.ast.Expression
-import org.maplibre.compose.style.expressions.ast.ExpressionContext
-import org.maplibre.compose.style.expressions.dsl.const
-import org.maplibre.compose.style.expressions.value.BooleanValue
 import org.maplibre.compose.util.VisibleRegion
 
 /**

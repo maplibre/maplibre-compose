@@ -7,20 +7,20 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.exponential
+import org.maplibre.compose.expressions.dsl.interpolate
+import org.maplibre.compose.expressions.dsl.zoom
+import org.maplibre.compose.expressions.value.LineCap
+import org.maplibre.compose.expressions.value.LineJoin
+import org.maplibre.compose.layers.Anchor
+import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.getBaseSource
+import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.expressions.dsl.const
-import org.maplibre.compose.style.expressions.dsl.exponential
-import org.maplibre.compose.style.expressions.dsl.interpolate
-import org.maplibre.compose.style.expressions.dsl.zoom
-import org.maplibre.compose.style.expressions.value.LineCap
-import org.maplibre.compose.style.expressions.value.LineJoin
-import org.maplibre.compose.style.layer.Anchor
-import org.maplibre.compose.style.layer.CircleLayer
-import org.maplibre.compose.style.layer.LineLayer
-import org.maplibre.compose.style.source.GeoJsonData
-import org.maplibre.compose.style.source.getBaseSource
-import org.maplibre.compose.style.source.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult
 
 @Composable

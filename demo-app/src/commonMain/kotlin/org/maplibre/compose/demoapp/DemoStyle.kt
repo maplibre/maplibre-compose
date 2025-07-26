@@ -1,8 +1,8 @@
 package org.maplibre.compose.demoapp
 
 import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.layer.Anchor
 
 interface DemoStyle {
   val displayName: String

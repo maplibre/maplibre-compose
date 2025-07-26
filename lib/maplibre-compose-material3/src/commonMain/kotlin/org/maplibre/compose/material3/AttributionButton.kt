@@ -212,7 +212,7 @@ public fun ExpandingAttributionButton(
  * A composable function that displays a collection of attribution links as a flow layout.
  *
  * @param attributions A list of HTML strings representing the attributions that need to be
- *   displayed as links. See: [org.maplibre.compose.style.source.Source.attributionHtml].
+ *   displayed as links. See: [org.maplibre.compose.sources.Source.attributionHtml].
  * @param linkStyles Optional style for hyperlinks. Default is primary color and underlined.
  * @param spacing The horizontal spacing between items in the flow layout.
  * @param breakWithinAttribution Whether the text within an individual attribution should break

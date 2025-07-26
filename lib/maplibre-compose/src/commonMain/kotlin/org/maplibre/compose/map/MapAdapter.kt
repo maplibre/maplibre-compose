@@ -9,10 +9,10 @@ import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
-import org.maplibre.compose.style.expressions.ast.CompiledExpression
-import org.maplibre.compose.style.expressions.value.BooleanValue
 import org.maplibre.compose.util.VisibleRegion
 
 internal interface MapAdapter {

@@ -6,10 +6,10 @@ import io.github.dellisd.spatialk.geojson.Polygon
 import io.github.dellisd.spatialk.geojson.Position
 import io.github.dellisd.spatialk.geojson.dsl.PropertiesBuilder
 import io.github.dellisd.spatialk.geojson.dsl.featureCollection
-import org.maplibre.compose.style.source.GeoJsonData
-import org.maplibre.compose.style.source.GeoJsonOptions
-import org.maplibre.compose.style.source.Source
-import org.maplibre.compose.style.source.rememberGeoJsonSource
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.rememberGeoJsonSource
 
 /**
  * Specialization of [rememberGeoJsonSource] that contains the list of [OfflinePack] as features.

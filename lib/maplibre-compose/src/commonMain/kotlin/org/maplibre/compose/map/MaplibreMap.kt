@@ -17,11 +17,10 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.SafeStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.compose.style.StyleState
-import org.maplibre.compose.style.composition.LayerNode
-import org.maplibre.compose.style.composition.rememberStyleComposition
 import org.maplibre.compose.style.rememberStyleState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.MapClickHandler
@@ -42,9 +41,9 @@ import org.maplibre.compose.util.MaplibreComposable
  *   Android, it prevents the camera **center** from going out of bounds. See
  *   [this GH Issue](https://github.com/maplibre/maplibre-native/issues/3128).
  * @param onMapClick Invoked when the map is clicked. A click callback can be defined per layer,
- *   too, see e.g. the `onClick` parameter for
- *   [LineLayer][org.maplibre.compose.style.layer.LineLayer]. However, this callback is always
- *   called first and can thus prevent subsequent callbacks to be invoked by consuming the event.
+ *   too, see e.g. the `onClick` parameter for [LineLayer][org.maplibre.compose.layers.LineLayer].
+ *   However, this callback is always called first and can thus prevent subsequent callbacks to be
+ *   invoked by consuming the event.
  * @param onMapLongClick Invoked when the map is long-clicked. See [onMapClick].
  * @param onFrame Invoked on every rendered frame.
  * @param logger kermit logger to use.
@@ -54,39 +53,39 @@ import org.maplibre.compose.util.MaplibreComposable
  *   base map style linked in [baseStyle].
  *
  * Additional [sources](https://maplibre.org/maplibre-style-spec/sources/) can be added via:
- * - [rememberGeoJsonSource][org.maplibre.compose.style.source.rememberGeoJsonSource] (see
- *   [GeoJsonSource][org.maplibre.compose.style.source.GeoJsonSource]),
- * - [rememberVectorSource][org.maplibre.compose.style.source.rememberVectorSource] (see
- *   [VectorSource][org.maplibre.compose.style.source.VectorSource]),
- * - [rememberRasterSource][org.maplibre.compose.style.source.rememberRasterSource] (see
- *   [RasterSource][org.maplibre.compose.style.source.RasterSource])
+ * - [rememberGeoJsonSource][org.maplibre.compose.sources.rememberGeoJsonSource] (see
+ *   [GeoJsonSource][org.maplibre.compose.sources.GeoJsonSource]),
+ * - [rememberVectorSource][org.maplibre.compose.sources.rememberVectorSource] (see
+ *   [VectorSource][org.maplibre.compose.sources.VectorSource]),
+ * - [rememberRasterSource][org.maplibre.compose.sources.rememberRasterSource] (see
+ *   [RasterSource][org.maplibre.compose.sources.RasterSource])
  *
  * A source that is already defined in the base map style can be referenced via
- * [getBaseSource][org.maplibre.compose.style.source.getBaseSource].
+ * [getBaseSource][org.maplibre.compose.sources.getBaseSource].
  *
  * The data from a source can then be used in
  * [layer](https://maplibre.org/maplibre-style-spec/layers/) definition(s), which define how that
  * data is rendered, see:
- * - [BackgroundLayer][org.maplibre.compose.style.layer.BackgroundLayer]
- * - [LineLayer][org.maplibre.compose.style.layer.LineLayer]
- * - [FillExtrusionLayer][org.maplibre.compose.style.layer.FillExtrusionLayer]
- * - [FillLayer][org.maplibre.compose.style.layer.FillLayer]
- * - [HeatmapLayer][org.maplibre.compose.style.layer.HeatmapLayer]
- * - [HillshadeLayer][org.maplibre.compose.style.layer.HillshadeLayer]
- * - [LineLayer][org.maplibre.compose.style.layer.LineLayer]
- * - [RasterLayer][org.maplibre.compose.style.layer.RasterLayer]
- * - [SymbolLayer][org.maplibre.compose.style.layer.SymbolLayer]
+ * - [BackgroundLayer][org.maplibre.compose.layers.BackgroundLayer]
+ * - [LineLayer][org.maplibre.compose.layers.LineLayer]
+ * - [FillExtrusionLayer][org.maplibre.compose.layers.FillExtrusionLayer]
+ * - [FillLayer][org.maplibre.compose.layers.FillLayer]
+ * - [HeatmapLayer][org.maplibre.compose.layers.HeatmapLayer]
+ * - [HillshadeLayer][org.maplibre.compose.layers.HillshadeLayer]
+ * - [LineLayer][org.maplibre.compose.layers.LineLayer]
+ * - [RasterLayer][org.maplibre.compose.layers.RasterLayer]
+ * - [SymbolLayer][org.maplibre.compose.layers.SymbolLayer]
  *
  * By default, the layers defined in this scope are put on top of the layers from the base style, in
  * the order they are defined. Alternatively, it is possible to anchor layers at certain layers from
  * the base style. This is done, for example, in order to add a layer just below the first symbol
  * layer from the base style so that it isn't above labels. See:
- * - [Anchor.Top][org.maplibre.compose.style.layer.Anchor.Companion.Top],
- * - [Anchor.Bottom][org.maplibre.compose.style.layer.Anchor.Companion.Bottom],
- * - [Anchor.Above][org.maplibre.compose.style.layer.Anchor.Companion.Above],
- * - [Anchor.Below][org.maplibre.compose.style.layer.Anchor.Companion.Below],
- * - [Anchor.Replace][org.maplibre.compose.style.layer.Anchor.Companion.Replace],
- * - [Anchor.At][org.maplibre.compose.style.layer.Anchor.Companion.At]
+ * - [Anchor.Top][org.maplibre.compose.layers.Anchor.Companion.Top],
+ * - [Anchor.Bottom][org.maplibre.compose.layers.Anchor.Companion.Bottom],
+ * - [Anchor.Above][org.maplibre.compose.layers.Anchor.Companion.Above],
+ * - [Anchor.Below][org.maplibre.compose.layers.Anchor.Companion.Below],
+ * - [Anchor.Replace][org.maplibre.compose.layers.Anchor.Companion.Replace],
+ * - [Anchor.At][org.maplibre.compose.layers.Anchor.Companion.At]
  */
 @Composable
 public fun MaplibreMap(

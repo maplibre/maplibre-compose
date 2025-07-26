@@ -31,18 +31,18 @@ import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.geometry.LatLngQuad
 import org.maplibre.android.style.expressions.Expression as MLNExpression
-import org.maplibre.compose.style.expressions.ast.BooleanLiteral
-import org.maplibre.compose.style.expressions.ast.ColorLiteral
-import org.maplibre.compose.style.expressions.ast.CompiledExpression
-import org.maplibre.compose.style.expressions.ast.CompiledFunctionCall
-import org.maplibre.compose.style.expressions.ast.CompiledListLiteral
-import org.maplibre.compose.style.expressions.ast.CompiledMapLiteral
-import org.maplibre.compose.style.expressions.ast.CompiledOptions
-import org.maplibre.compose.style.expressions.ast.DpPaddingLiteral
-import org.maplibre.compose.style.expressions.ast.FloatLiteral
-import org.maplibre.compose.style.expressions.ast.NullLiteral
-import org.maplibre.compose.style.expressions.ast.OffsetLiteral
-import org.maplibre.compose.style.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.ast.BooleanLiteral
+import org.maplibre.compose.expressions.ast.ColorLiteral
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.ast.CompiledFunctionCall
+import org.maplibre.compose.expressions.ast.CompiledListLiteral
+import org.maplibre.compose.expressions.ast.CompiledMapLiteral
+import org.maplibre.compose.expressions.ast.CompiledOptions
+import org.maplibre.compose.expressions.ast.DpPaddingLiteral
+import org.maplibre.compose.expressions.ast.FloatLiteral
+import org.maplibre.compose.expressions.ast.NullLiteral
+import org.maplibre.compose.expressions.ast.OffsetLiteral
+import org.maplibre.compose.expressions.ast.StringLiteral
 
 internal fun String.correctedAndroidUri(): String {
   return try {

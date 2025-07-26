@@ -1,8 +1,8 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import org.maplibre.compose.style.layer.Layer
-import org.maplibre.compose.style.source.Source
+import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.sources.Source
 import org.maplibre.kmp.js.Map
 
 internal class JsStyle(internal val impl: Map) : Style {

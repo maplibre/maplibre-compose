@@ -56,10 +56,10 @@ import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.useContents
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.IosStyle
-import org.maplibre.compose.style.expressions.ast.CompiledExpression
-import org.maplibre.compose.style.expressions.value.BooleanValue
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.getSystemRefreshRate
 import org.maplibre.compose.util.toBoundingBox

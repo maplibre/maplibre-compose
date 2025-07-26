@@ -37,10 +37,10 @@ import org.maplibre.android.maps.Style as MlnStyle
 import org.maplibre.android.style.expressions.Expression as MLNExpression
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.AndroidStyle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.expressions.ast.CompiledExpression
-import org.maplibre.compose.style.expressions.value.BooleanValue
 import org.maplibre.compose.util.KermitLoggerDefinition
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.correctedAndroidUri

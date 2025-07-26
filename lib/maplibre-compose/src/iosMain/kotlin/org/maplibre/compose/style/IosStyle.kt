@@ -8,14 +8,14 @@ import MapLibre.MLNStyle
 import MapLibre.MLNStyleLayer
 import MapLibre.MLNVectorTileSource
 import androidx.compose.ui.graphics.ImageBitmap
-import org.maplibre.compose.style.layer.Layer
-import org.maplibre.compose.style.layer.UnknownLayer
-import org.maplibre.compose.style.source.ComputedSource
-import org.maplibre.compose.style.source.GeoJsonSource
-import org.maplibre.compose.style.source.RasterSource
-import org.maplibre.compose.style.source.Source
-import org.maplibre.compose.style.source.UnknownSource
-import org.maplibre.compose.style.source.VectorSource
+import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.sources.ComputedSource
+import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.UnknownSource
+import org.maplibre.compose.sources.VectorSource
 import org.maplibre.compose.util.toUIImage
 
 internal class IosStyle(style: MLNStyle, private val getScale: () -> Float) : Style {

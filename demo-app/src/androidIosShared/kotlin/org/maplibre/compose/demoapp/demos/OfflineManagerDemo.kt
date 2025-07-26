@@ -34,6 +34,12 @@ import org.maplibre.compose.demoapp.design.Subheading
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.download_24px
 import org.maplibre.compose.demoapp.generated.error_24px
+import org.maplibre.compose.expressions.dsl.asString
+import org.maplibre.compose.expressions.dsl.case
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.expressions.dsl.switch
+import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.material3.OfflinePackListItem
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePack
@@ -41,12 +47,6 @@ import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.expressions.dsl.asString
-import org.maplibre.compose.style.expressions.dsl.case
-import org.maplibre.compose.style.expressions.dsl.const
-import org.maplibre.compose.style.expressions.dsl.feature
-import org.maplibre.compose.style.expressions.dsl.switch
-import org.maplibre.compose.style.layer.FillLayer
 
 object OfflineManagerDemo : Demo {
   override val name = "Manage offline tiles"

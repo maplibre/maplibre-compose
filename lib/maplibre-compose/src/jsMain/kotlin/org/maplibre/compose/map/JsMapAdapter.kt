@@ -14,10 +14,10 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.JsStyle
-import org.maplibre.compose.style.expressions.ast.CompiledExpression
-import org.maplibre.compose.style.expressions.value.BooleanValue
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toControlPosition
