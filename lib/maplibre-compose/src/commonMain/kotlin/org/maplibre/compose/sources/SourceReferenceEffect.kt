@@ -2,6 +2,7 @@ package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import org.maplibre.compose.style.LocalStyleNode
 
 @Composable
 internal fun SourceReferenceEffect(source: Source) {

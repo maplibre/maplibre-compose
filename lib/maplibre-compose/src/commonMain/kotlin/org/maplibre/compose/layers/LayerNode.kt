@@ -5,6 +5,7 @@ import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.Updater
 import androidx.compose.runtime.key
 import org.maplibre.compose.style.LayerNode
+import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable

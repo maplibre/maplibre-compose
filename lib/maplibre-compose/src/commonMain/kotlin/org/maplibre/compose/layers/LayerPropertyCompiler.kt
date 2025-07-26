@@ -17,6 +17,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.style.ImageManager
+import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleNode
 
 internal class LayerPropertyCompiler(

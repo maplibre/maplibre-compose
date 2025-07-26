@@ -21,6 +21,7 @@ import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.SafeStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.compose.style.rememberStyleState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.MapClickHandler

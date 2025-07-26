@@ -3,6 +3,7 @@ package org.maplibre.compose.sources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import org.maplibre.compose.style.LocalStyleNode
 
 /** A data source for map data */
 public expect sealed class Source {

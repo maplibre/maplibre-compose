@@ -36,6 +36,8 @@ import org.maplibre.compose.expressions.dsl.convertToNumber
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.not
 import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.dsl.plus
+import org.maplibre.compose.expressions.dsl.step
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
