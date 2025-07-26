@@ -21,7 +21,7 @@ import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.StableRef
 import kotlinx.cinterop.useContents
-import org.maplibre.compose.core.util.KVObserverProtocol
+import org.maplibre.compose.util.KVObserverProtocol
 import org.maplibre.compose.util.toNSData
 import platform.Foundation.NSError
 import platform.Foundation.NSKeyValueObservingOptionInitial

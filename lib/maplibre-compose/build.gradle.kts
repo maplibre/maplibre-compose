@@ -47,7 +47,7 @@ kotlin {
       cinterops {
         create("observer") {
           defFile(project.file("src/nativeInterop/cinterop/observer.def"))
-          packageName("org.maplibre.compose.core.util")
+          packageName("org.maplibre.compose.util")
         }
       }
     }
@@ -72,7 +72,6 @@ kotlin {
       implementation(compose.components.resources)
       api(libs.kermit)
       api(libs.spatialk.geojson)
-      api(project(":lib:maplibre-compose-expressions"))
     }
 
     // used to share some implementation on platforms where Compose UI is backed by Skia directly

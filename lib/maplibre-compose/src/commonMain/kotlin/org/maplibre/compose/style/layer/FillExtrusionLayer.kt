@@ -32,8 +32,8 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The [featureState][org.maplibre.compose.style.expressions.dsl.Feature.state] expression
+ *   is not supported in filter expressions.
  * @param visible Whether the layer should be displayed.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up (on the flat plane), respectively.

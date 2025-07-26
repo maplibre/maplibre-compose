@@ -78,9 +78,9 @@ public data class GeoJsonOptions(
 
     /**
      * An expression that aggregates values produced by the [mapper]. The special function
-     * [org.maplibre.compose.expressions.dsl.Feature.accumulated] will return the value accumulated
-     * so far, and the feature property with the name of the property will return the next value to
-     * aggregate.
+     * [org.maplibre.compose.style.expressions.dsl.Feature.accumulated] will return the value
+     * accumulated so far, and the feature property with the name of the property will return the
+     * next value to aggregate.
      *
      * Example:
      * ```kt

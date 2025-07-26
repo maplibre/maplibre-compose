@@ -60,8 +60,8 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The [featureState][org.maplibre.compose.style.expressions.dsl.Feature.state] expression
+ *   is not supported in filter expressions.
  * @param visible Whether the layer should be displayed.
  * @param sortKey Sorts features within this layer in ascending order based on this value. Features
  *   with a higher sort key will appear above features with a lower sort key.
@@ -187,7 +187,7 @@ import org.maplibre.compose.util.MaplibreComposable
  *   the plain string "My label".
  *
  *   The text can also be formatted, employing different colors, fonts, etc., see
- *   [format][org.maplibre.compose.expressions.dsl.format].
+ *   [format][org.maplibre.compose.style.expressions.dsl.format].
  *
  * @param textOpacity The opacity at which the text will be drawn.
  *
@@ -346,7 +346,7 @@ import org.maplibre.compose.util.MaplibreComposable
  *   Ignored if [textField] is not specified.
  *
  * @param textOverlap Controls whether to show an icon/text when it overlaps other symbols on the
- *   map. See [SymbolOverlap][org.maplibre.compose.expressions.util.SymbolOverlap]. Overrides
+ *   map. See [SymbolOverlap][org.maplibre.compose.style.expressions.util.SymbolOverlap]. Overrides
  *   [textAllowOverlap].
  *
  *   Ignored if [textField] is not specified.

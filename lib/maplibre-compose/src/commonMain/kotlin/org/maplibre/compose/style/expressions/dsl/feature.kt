@@ -96,7 +96,7 @@ public object Feature {
   /**
    * Gets the value of a cluster property accumulated so far. Can only be used in the
    * `clusterProperties` option of a clustered GeoJSON source, see
-   * [GeoJsonOptions][org.maplibre.compose.core.source.GeoJsonOptions].
+   * [GeoJsonOptions][org.maplibre.compose.style.source.GeoJsonOptions].
    */
   public fun accumulated(): Expression<*> = FunctionCall.of("accumulated")
 
