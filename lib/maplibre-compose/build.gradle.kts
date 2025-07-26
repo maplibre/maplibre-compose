@@ -114,8 +114,9 @@ kotlin {
       dependsOn(skiaMain)
       dependsOn(maplibreJsMain)
       dependencies {
+        // TODO replace this with the official component in the next version of Compose
+        implementation("dev.sargunv.maplibre-compose:compose-html-interop:0.10.4")
         implementation(project(":lib:kotlin-maplibre-js"))
-        implementation(project(":lib:compose-html-interop"))
       }
     }
 

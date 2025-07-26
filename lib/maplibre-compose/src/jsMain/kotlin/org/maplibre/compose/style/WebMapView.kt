@@ -17,7 +17,7 @@ import org.maplibre.compose.core.JsMap
 import org.maplibre.compose.core.MapOptions
 import org.maplibre.compose.core.MaplibreMap
 import org.maplibre.compose.core.SafeStyle
-import org.maplibre.compose.htmlinterop.HtmlElement
+import dev.sargunv.maplibrecompose.htmlinterop.HtmlElement
 import org.w3c.dom.HTMLElement
 
 @Composable

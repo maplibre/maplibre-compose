@@ -80,7 +80,6 @@ Android, iOS, Desktop, and Web platforms.
 - `lib/maplibre-compose-expressions` - Type-safe DSL for MapLibre style
   expressions
 - `lib/kotlin-maplibre-js` - Kotlin/JS bindings for MapLibre GL JS
-- `lib/compose-html-interop` - HTML interop utilities for web platform
 - `lib/maplibre-compose-webview` - WebView-based implementation for desktop
 - `demo-app` - Multiplatform demo application
 
