@@ -1,9 +1,8 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import org.maplibre.compose.core.Style
-import org.maplibre.compose.core.layer.Layer
-import org.maplibre.compose.core.source.Source
+import org.maplibre.compose.style.layer.Layer
+import org.maplibre.compose.style.source.Source
 
 internal class FakeStyle(
   images: List<Pair<String, ImageBitmap>>,

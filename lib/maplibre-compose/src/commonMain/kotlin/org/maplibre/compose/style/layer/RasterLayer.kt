@@ -2,15 +2,15 @@ package org.maplibre.compose.style.layer
 
 import androidx.compose.runtime.Composable
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.core.layer.RasterLayer
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.expressions.value.MillisecondsValue
-import org.maplibre.compose.expressions.value.RasterResampling
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.value.FloatValue
+import org.maplibre.compose.style.expressions.value.MillisecondsValue
+import org.maplibre.compose.style.expressions.value.RasterResampling
+import org.maplibre.compose.style.source.Source
 import org.maplibre.compose.style.source.SourceReferenceEffect
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * Raster map textures such as satellite imagery.
@@ -83,4 +83,24 @@ public fun RasterLayer(
     onClick = null,
     onLongClick = null,
   )
+}
+
+internal expect class RasterLayer(id: String, source: Source) : Layer {
+  val source: Source
+
+  fun setRasterOpacity(opacity: CompiledExpression<FloatValue>)
+
+  fun setRasterHueRotate(hueRotate: CompiledExpression<FloatValue>)
+
+  fun setRasterBrightnessMin(brightnessMin: CompiledExpression<FloatValue>)
+
+  fun setRasterBrightnessMax(brightnessMax: CompiledExpression<FloatValue>)
+
+  fun setRasterSaturation(saturation: CompiledExpression<FloatValue>)
+
+  fun setRasterContrast(contrast: CompiledExpression<FloatValue>)
+
+  fun setRasterResampling(resampling: CompiledExpression<RasterResampling>)
+
+  fun setRasterFadeDuration(fadeDuration: CompiledExpression<MillisecondsValue>)
 }

@@ -9,13 +9,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration.Companion.seconds
-import org.maplibre.compose.core.CameraPosition
-import org.maplibre.compose.core.GestureOptions
-import org.maplibre.compose.core.MapOptions
-import org.maplibre.compose.core.OrnamentOptions
-import org.maplibre.compose.style.ClickResult
-import org.maplibre.compose.style.MaplibreMap
-import org.maplibre.compose.style.rememberCameraState
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.map.GestureOptions
+import org.maplibre.compose.map.MapOptions
+import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.OrnamentOptions
+import org.maplibre.compose.util.ClickResult
 
 @Composable
 fun Interaction() {

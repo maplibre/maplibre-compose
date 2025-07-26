@@ -3,12 +3,12 @@ package org.maplibre.compose.demoapp.demos
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import kotlin.math.roundToInt
-import org.maplibre.compose.core.RenderOptions
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.demoapp.design.SegmentedButtonListItem
 import org.maplibre.compose.demoapp.design.SliderListItem
 import org.maplibre.compose.demoapp.design.SwitchListItem
+import org.maplibre.compose.map.RenderOptions
 
 object RenderOptionsDemo : Demo {
   override val name = "Configure rendering"

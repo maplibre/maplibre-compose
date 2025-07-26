@@ -1,13 +1,12 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this
+repository.
 
 ## Project Overview
 
-MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that
-provides a declarative Compose-based API for rendering interactive maps across
-Android, iOS, Desktop, and Web platforms.
+MapLibre Compose is a Kotlin Multiplatform wrapper around MapLibre SDKs that provides a declarative
+Compose-based API for rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 
 ## Essential Commands
 
@@ -76,9 +75,7 @@ Android, iOS, Desktop, and Web platforms.
 ### Module Structure
 
 - `lib/maplibre-compose` - Core library with map composables and common API
-- `lib/maplibre-compose-material3` - Material 3 themed map components
-- `lib/maplibre-compose-expressions` - Type-safe DSL for MapLibre style
-  expressions
+- `lib/maplibre-compose-material3` - Material 3 themed map components expressions
 - `lib/kotlin-maplibre-js` - Kotlin/JS bindings for MapLibre GL JS
 - `lib/maplibre-compose-webview` - WebView-based implementation for desktop
 - `demo-app` - Multiplatform demo application
@@ -123,24 +120,24 @@ Android, iOS, Desktop, and Web platforms.
 
 2. **Required Setup**:
 
-   - JDK 21 for building (targets JVM 11)
-   - Android SDK with compileSdk 35
-   - For iOS: Xcode with iOS 12.0+ deployment target
-   - Create `local.properties` with `sdk.dir=/path/to/Android/sdk`
+  - JDK 21 for building (targets JVM 11)
+  - Android SDK with compileSdk 35
+  - For iOS: Xcode with iOS 12.0+ deployment target
+  - Create `local.properties` with `sdk.dir=/path/to/Android/sdk`
 
 3. **Platform Considerations**:
 
-   - Android and iOS are stable platforms with full feature support
-   - Web and Desktop are experimental with limited features
-   - Desktop requires KCEF setup with specific JVM flags
+  - Android and iOS are stable platforms with full feature support
+  - Web and Desktop are experimental with limited features
+  - Desktop requires KCEF setup with specific JVM flags
 
 4. **State Management**:
 
-   - Use `rememberCameraState()` for camera control
-   - Use `rememberStyleState()` for style management
-   - States are designed to be hoisted for external control
+  - Use `rememberCameraState()` for camera control
+  - Use `rememberStyleState()` for style management
+  - States are designed to be hoisted for external control
 
 5. **Expression DSL**:
-   - Type-safe DSL for creating MapLibre style expressions
-   - Located in `maplibre-compose-expressions` module
-   - Provides compile-time validation of expression syntax
+  - Type-safe DSL for creating MapLibre style expressions
+  - Located in `maplibre-compose-expressions` module
+  - Provides compile-time validation of expression syntax

@@ -3,20 +3,20 @@ package org.maplibre.compose.style.layer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
-import org.maplibre.compose.core.layer.FillLayer
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
-import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.expressions.value.ColorValue
-import org.maplibre.compose.expressions.value.DpOffsetValue
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.expressions.value.ImageValue
-import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.style.FeaturesClickHandler
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.dsl.nil
+import org.maplibre.compose.style.expressions.value.BooleanValue
+import org.maplibre.compose.style.expressions.value.ColorValue
+import org.maplibre.compose.style.expressions.value.DpOffsetValue
+import org.maplibre.compose.style.expressions.value.FloatValue
+import org.maplibre.compose.style.expressions.value.ImageValue
+import org.maplibre.compose.style.expressions.value.TranslateAnchor
+import org.maplibre.compose.style.source.Source
 import org.maplibre.compose.style.source.SourceReferenceEffect
+import org.maplibre.compose.util.FeaturesClickHandler
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * A fill layer draws polygons from the [sourceLayer] in the given [source] in the given style as a
@@ -112,4 +112,26 @@ public fun FillLayer(
     onClick = onClick,
     onLongClick = onLongClick,
   )
+}
+
+internal expect class FillLayer(id: String, source: Source) : FeatureLayer {
+  override var sourceLayer: String
+
+  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+
+  fun setFillSortKey(sortKey: CompiledExpression<FloatValue>)
+
+  fun setFillAntialias(antialias: CompiledExpression<BooleanValue>)
+
+  fun setFillOpacity(opacity: CompiledExpression<FloatValue>)
+
+  fun setFillColor(color: CompiledExpression<ColorValue>)
+
+  fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>)
+
+  fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>)
+
+  fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+
+  fun setFillPattern(pattern: CompiledExpression<ImageValue>)
 }

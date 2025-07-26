@@ -2,15 +2,15 @@ package org.maplibre.compose.style.layer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import org.maplibre.compose.core.layer.HillshadeLayer
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.value.ColorValue
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.expressions.value.IlluminationAnchor
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.value.ColorValue
+import org.maplibre.compose.style.expressions.value.FloatValue
+import org.maplibre.compose.style.expressions.value.IlluminationAnchor
+import org.maplibre.compose.style.source.Source
 import org.maplibre.compose.style.source.SourceReferenceEffect
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * Client-side hillshading visualization based on DEM data. The implementation supports Mapbox
@@ -75,4 +75,20 @@ public fun HillshadeLayer(
     onClick = null,
     onLongClick = null,
   )
+}
+
+internal expect class HillshadeLayer(id: String, source: Source) : Layer {
+  val source: Source
+
+  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatValue>)
+
+  fun setHillshadeIlluminationAnchor(anchor: CompiledExpression<IlluminationAnchor>)
+
+  fun setHillshadeExaggeration(exaggeration: CompiledExpression<FloatValue>)
+
+  fun setHillshadeShadowColor(shadowColor: CompiledExpression<ColorValue>)
+
+  fun setHillshadeHighlightColor(highlightColor: CompiledExpression<ColorValue>)
+
+  fun setHillshadeAccentColor(accentColor: CompiledExpression<ColorValue>)
 }

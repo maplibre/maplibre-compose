@@ -4,9 +4,9 @@ import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Polygon
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.test.Test
-import org.maplibre.compose.style.offline.OfflinePackDefinition
-import org.maplibre.compose.style.offline.toMLNOfflineRegionDefinition
-import org.maplibre.compose.style.offline.toOfflinePackDefinition
+import org.maplibre.compose.offline.OfflinePackDefinition
+import org.maplibre.compose.offline.toMLNOfflineRegionDefinition
+import org.maplibre.compose.offline.toOfflinePackDefinition
 
 class TilePackDefinitionTest {
   @Test

@@ -3,8 +3,8 @@ package org.maplibre.compose.style
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.style.engine.StyleNode
+import org.maplibre.compose.style.composition.StyleNode
+import org.maplibre.compose.style.source.Source
 
 /** Remember a new [StyleState]. */
 @Composable

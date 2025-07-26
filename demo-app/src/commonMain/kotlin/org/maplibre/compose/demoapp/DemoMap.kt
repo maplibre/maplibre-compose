@@ -12,15 +12,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.core.MapOptions
+import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.util.Platform
 import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.demoapp.util.rememberOrnamentOptions
-import org.maplibre.compose.material3.controls.DisappearingCompassButton
-import org.maplibre.compose.material3.controls.DisappearingScaleBar
-import org.maplibre.compose.material3.controls.ExpandingAttributionButton
-import org.maplibre.compose.style.CameraState
-import org.maplibre.compose.style.MaplibreMap
+import org.maplibre.compose.map.MapOptions
+import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.material3.DisappearingCompassButton
+import org.maplibre.compose.material3.DisappearingScaleBar
+import org.maplibre.compose.material3.ExpandingAttributionButton
 import org.maplibre.compose.style.StyleState
 
 @Composable

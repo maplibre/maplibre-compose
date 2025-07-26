@@ -4,7 +4,7 @@ import android.icu.util.LocaleData
 import android.icu.util.ULocale
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalConfiguration
-import org.maplibre.compose.material3.controls.ScaleBarMeasure
+import org.maplibre.compose.material3.ScaleBarMeasure
 
 @Composable
 internal actual fun systemDefaultPrimaryMeasure(): ScaleBarMeasure? {

@@ -3,20 +3,20 @@ package org.maplibre.compose.style.layer
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
-import org.maplibre.compose.core.layer.FillExtrusionLayer
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
-import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.expressions.value.ColorValue
-import org.maplibre.compose.expressions.value.DpOffsetValue
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.expressions.value.ImageValue
-import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.style.FeaturesClickHandler
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.dsl.nil
+import org.maplibre.compose.style.expressions.value.BooleanValue
+import org.maplibre.compose.style.expressions.value.ColorValue
+import org.maplibre.compose.style.expressions.value.DpOffsetValue
+import org.maplibre.compose.style.expressions.value.FloatValue
+import org.maplibre.compose.style.expressions.value.ImageValue
+import org.maplibre.compose.style.expressions.value.TranslateAnchor
+import org.maplibre.compose.style.source.Source
 import org.maplibre.compose.style.source.SourceReferenceEffect
+import org.maplibre.compose.util.FeaturesClickHandler
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * A fill extrusion layer draws polygons from the [sourceLayer] in the given [source] in the given
@@ -113,4 +113,26 @@ public fun FillExtrusionLayer(
     onClick = onClick,
     onLongClick = onLongClick,
   )
+}
+
+internal expect class FillExtrusionLayer(id: String, source: Source) : FeatureLayer {
+  override var sourceLayer: String
+
+  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+
+  fun setFillExtrusionOpacity(opacity: CompiledExpression<FloatValue>)
+
+  fun setFillExtrusionColor(color: CompiledExpression<ColorValue>)
+
+  fun setFillExtrusionTranslate(translate: CompiledExpression<DpOffsetValue>)
+
+  fun setFillExtrusionTranslateAnchor(anchor: CompiledExpression<TranslateAnchor>)
+
+  fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue>)
+
+  fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>)
+
+  fun setFillExtrusionBase(base: CompiledExpression<FloatValue>)
+
+  fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>)
 }

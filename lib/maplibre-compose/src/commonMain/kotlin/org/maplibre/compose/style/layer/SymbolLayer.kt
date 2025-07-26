@@ -1,5 +1,6 @@
 package org.maplibre.compose.style.layer
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
@@ -7,46 +8,44 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
-import org.maplibre.compose.core.layer.SymbolLayer
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.expressions.DefaultIconPadding
-import org.maplibre.compose.expressions.Defaults
-import org.maplibre.compose.expressions.ZeroPadding
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.div
-import org.maplibre.compose.expressions.dsl.nil
-import org.maplibre.compose.expressions.dsl.offset
-import org.maplibre.compose.expressions.dsl.times
-import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.expressions.value.ColorValue
-import org.maplibre.compose.expressions.value.DpOffsetValue
-import org.maplibre.compose.expressions.value.DpPaddingValue
-import org.maplibre.compose.expressions.value.DpValue
-import org.maplibre.compose.expressions.value.FloatOffsetValue
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.expressions.value.FormattedValue
-import org.maplibre.compose.expressions.value.IconPitchAlignment
-import org.maplibre.compose.expressions.value.IconRotationAlignment
-import org.maplibre.compose.expressions.value.IconTextFit
-import org.maplibre.compose.expressions.value.ImageValue
-import org.maplibre.compose.expressions.value.ListValue
-import org.maplibre.compose.expressions.value.StringValue
-import org.maplibre.compose.expressions.value.SymbolAnchor
-import org.maplibre.compose.expressions.value.SymbolOverlap
-import org.maplibre.compose.expressions.value.SymbolPlacement
-import org.maplibre.compose.expressions.value.SymbolZOrder
-import org.maplibre.compose.expressions.value.TextJustify
-import org.maplibre.compose.expressions.value.TextPitchAlignment
-import org.maplibre.compose.expressions.value.TextRotationAlignment
-import org.maplibre.compose.expressions.value.TextTransform
-import org.maplibre.compose.expressions.value.TextUnitOffsetValue
-import org.maplibre.compose.expressions.value.TextUnitValue
-import org.maplibre.compose.expressions.value.TextWritingMode
-import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.style.FeaturesClickHandler
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.dsl.div
+import org.maplibre.compose.style.expressions.dsl.nil
+import org.maplibre.compose.style.expressions.dsl.offset
+import org.maplibre.compose.style.expressions.dsl.times
+import org.maplibre.compose.style.expressions.value.BooleanValue
+import org.maplibre.compose.style.expressions.value.ColorValue
+import org.maplibre.compose.style.expressions.value.DpOffsetValue
+import org.maplibre.compose.style.expressions.value.DpPaddingValue
+import org.maplibre.compose.style.expressions.value.DpValue
+import org.maplibre.compose.style.expressions.value.FloatOffsetValue
+import org.maplibre.compose.style.expressions.value.FloatValue
+import org.maplibre.compose.style.expressions.value.FormattedValue
+import org.maplibre.compose.style.expressions.value.IconPitchAlignment
+import org.maplibre.compose.style.expressions.value.IconRotationAlignment
+import org.maplibre.compose.style.expressions.value.IconTextFit
+import org.maplibre.compose.style.expressions.value.ImageValue
+import org.maplibre.compose.style.expressions.value.ListValue
+import org.maplibre.compose.style.expressions.value.StringValue
+import org.maplibre.compose.style.expressions.value.SymbolAnchor
+import org.maplibre.compose.style.expressions.value.SymbolOverlap
+import org.maplibre.compose.style.expressions.value.SymbolPlacement
+import org.maplibre.compose.style.expressions.value.SymbolZOrder
+import org.maplibre.compose.style.expressions.value.TextJustify
+import org.maplibre.compose.style.expressions.value.TextPitchAlignment
+import org.maplibre.compose.style.expressions.value.TextRotationAlignment
+import org.maplibre.compose.style.expressions.value.TextTransform
+import org.maplibre.compose.style.expressions.value.TextUnitOffsetValue
+import org.maplibre.compose.style.expressions.value.TextUnitValue
+import org.maplibre.compose.style.expressions.value.TextVariableAnchorOffsetValue
+import org.maplibre.compose.style.expressions.value.TextWritingMode
+import org.maplibre.compose.style.expressions.value.TranslateAnchor
+import org.maplibre.compose.style.source.Source
 import org.maplibre.compose.style.source.SourceReferenceEffect
+import org.maplibre.compose.util.FeaturesClickHandler
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * A symbol layer draws data from the [sourceLayer] in the given [source] as icons and/or text
@@ -347,7 +346,7 @@ import org.maplibre.compose.style.source.SourceReferenceEffect
  *   Ignored if [textField] is not specified.
  *
  * @param textOverlap Controls whether to show an icon/text when it overlaps other symbols on the
- *   map. See [SymbolOverlap][org.maplibre.compose.expressions.value.SymbolOverlap]. Overrides
+ *   map. See [SymbolOverlap][org.maplibre.compose.expressions.util.SymbolOverlap]. Overrides
  *   [textAllowOverlap].
  *
  *   Ignored if [textField] is not specified.
@@ -408,7 +407,7 @@ public fun SymbolLayer(
   iconRotationAlignment: Expression<IconRotationAlignment> = const(IconRotationAlignment.Auto),
   iconPitchAlignment: Expression<IconPitchAlignment> = const(IconPitchAlignment.Auto),
   iconTextFit: Expression<IconTextFit> = const(IconTextFit.None),
-  iconTextFitPadding: Expression<DpPaddingValue> = const(ZeroPadding),
+  iconTextFitPadding: Expression<DpPaddingValue> = const(PaddingValues.Absolute(0.dp)),
   iconKeepUpright: Expression<BooleanValue> = const(false),
   iconRotate: Expression<FloatValue> = const(0f),
 
@@ -417,7 +416,7 @@ public fun SymbolLayer(
   iconOffset: Expression<DpOffsetValue> = const(DpOffset.Zero),
 
   // icon collision
-  iconPadding: Expression<DpPaddingValue> = const(DefaultIconPadding),
+  iconPadding: Expression<DpPaddingValue> = const(PaddingValues.Absolute(2.dp, 2.dp, 2.dp, 2.dp)),
   iconAllowOverlap: Expression<BooleanValue> = const(false),
   iconOverlap: Expression<StringValue> = nil(),
   iconIgnorePlacement: Expression<BooleanValue> = const(false),
@@ -438,7 +437,7 @@ public fun SymbolLayer(
   textHaloBlur: Expression<DpValue> = const(0.dp),
 
   // text glyph properties
-  textFont: Expression<ListValue<StringValue>> = Defaults.FontNames,
+  textFont: Expression<ListValue<StringValue>> = LayerDefaults.FontNames,
   textSize: Expression<TextUnitValue> = const(1.em),
   textTransform: Expression<TextTransform> = const(TextTransform.None),
   textLetterSpacing: Expression<TextUnitValue> = const(0f.em),
@@ -620,4 +619,128 @@ public fun SymbolLayer(
     onClick = onClick,
     onLongClick = onLongClick,
   )
+}
+
+internal expect class SymbolLayer(id: String, source: Source) : FeatureLayer {
+  override var sourceLayer: String
+
+  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+
+  fun setSymbolPlacement(placement: CompiledExpression<SymbolPlacement>)
+
+  fun setSymbolSpacing(spacing: CompiledExpression<DpValue>)
+
+  fun setSymbolAvoidEdges(avoidEdges: CompiledExpression<BooleanValue>)
+
+  fun setSymbolSortKey(sortKey: CompiledExpression<FloatValue>)
+
+  fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>)
+
+  fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>)
+
+  fun setIconOverlap(overlap: CompiledExpression<StringValue>)
+
+  fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>)
+
+  fun setIconOptional(optional: CompiledExpression<BooleanValue>)
+
+  fun setIconRotationAlignment(rotationAlignment: CompiledExpression<IconRotationAlignment>)
+
+  fun setIconSize(size: CompiledExpression<FloatValue>)
+
+  fun setIconTextFit(textFit: CompiledExpression<IconTextFit>)
+
+  fun setIconTextFitPadding(textFitPadding: CompiledExpression<DpPaddingValue>)
+
+  fun setIconImage(image: CompiledExpression<ImageValue>)
+
+  fun setIconRotate(rotate: CompiledExpression<FloatValue>)
+
+  fun setIconPadding(padding: CompiledExpression<DpPaddingValue>)
+
+  fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>)
+
+  fun setIconOffset(offset: CompiledExpression<DpOffsetValue>)
+
+  fun setIconAnchor(anchor: CompiledExpression<SymbolAnchor>)
+
+  fun setIconPitchAlignment(pitchAlignment: CompiledExpression<IconPitchAlignment>)
+
+  fun setIconOpacity(opacity: CompiledExpression<FloatValue>)
+
+  fun setIconColor(color: CompiledExpression<ColorValue>)
+
+  fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>)
+
+  fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>)
+
+  fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>)
+
+  fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>)
+
+  fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+
+  fun setTextPitchAlignment(pitchAlignment: CompiledExpression<TextPitchAlignment>)
+
+  fun setTextRotationAlignment(rotationAlignment: CompiledExpression<TextRotationAlignment>)
+
+  fun setTextField(field: CompiledExpression<FormattedValue>)
+
+  fun setTextFont(font: CompiledExpression<ListValue<StringValue>>)
+
+  fun setTextSize(size: CompiledExpression<DpValue>)
+
+  fun setTextMaxWidth(maxWidth: CompiledExpression<FloatValue>)
+
+  fun setTextLineHeight(lineHeight: CompiledExpression<FloatValue>)
+
+  fun setTextLetterSpacing(letterSpacing: CompiledExpression<FloatValue>)
+
+  fun setTextJustify(justify: CompiledExpression<TextJustify>)
+
+  fun setTextRadialOffset(radialOffset: CompiledExpression<FloatValue>)
+
+  fun setTextVariableAnchor(variableAnchor: CompiledExpression<ListValue<SymbolAnchor>>)
+
+  fun setTextVariableAnchorOffset(
+    variableAnchorOffset: CompiledExpression<TextVariableAnchorOffsetValue>
+  )
+
+  fun setTextAnchor(anchor: CompiledExpression<SymbolAnchor>)
+
+  fun setTextMaxAngle(maxAngle: CompiledExpression<FloatValue>)
+
+  fun setTextWritingMode(writingMode: CompiledExpression<ListValue<TextWritingMode>>)
+
+  fun setTextRotate(rotate: CompiledExpression<FloatValue>)
+
+  fun setTextPadding(padding: CompiledExpression<DpValue>)
+
+  fun setTextKeepUpright(keepUpright: CompiledExpression<BooleanValue>)
+
+  fun setTextTransform(transform: CompiledExpression<TextTransform>)
+
+  fun setTextOffset(offset: CompiledExpression<FloatOffsetValue>)
+
+  fun setTextAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>)
+
+  fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>)
+
+  fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>)
+
+  fun setTextOptional(optional: CompiledExpression<BooleanValue>)
+
+  fun setTextOpacity(opacity: CompiledExpression<FloatValue>)
+
+  fun setTextColor(color: CompiledExpression<ColorValue>)
+
+  fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>)
+
+  fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>)
+
+  fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>)
+
+  fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>)
+
+  fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
 }

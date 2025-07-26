@@ -2,11 +2,11 @@ package org.maplibre.compose.material3.util
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.intl.Locale
-import org.maplibre.compose.material3.controls.ScaleBarMeasure
-import org.maplibre.compose.material3.controls.ScaleBarMeasure.FeetAndMiles
-import org.maplibre.compose.material3.controls.ScaleBarMeasure.Metric
-import org.maplibre.compose.material3.controls.ScaleBarMeasure.YardsAndMiles
-import org.maplibre.compose.material3.controls.ScaleBarMeasures
+import org.maplibre.compose.material3.ScaleBarMeasure
+import org.maplibre.compose.material3.ScaleBarMeasure.FeetAndMiles
+import org.maplibre.compose.material3.ScaleBarMeasure.Metric
+import org.maplibre.compose.material3.ScaleBarMeasure.YardsAndMiles
+import org.maplibre.compose.material3.ScaleBarMeasures
 
 /** use system locale APIs for the primary scale bar measure */
 @Composable internal expect fun systemDefaultPrimaryMeasure(): ScaleBarMeasure?

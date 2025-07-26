@@ -4,12 +4,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.Updater
 import androidx.compose.runtime.key
-import org.maplibre.compose.core.layer.Layer
-import org.maplibre.compose.style.FeaturesClickHandler
-import org.maplibre.compose.style.MaplibreComposable
-import org.maplibre.compose.style.engine.LayerNode
-import org.maplibre.compose.style.engine.LocalStyleNode
-import org.maplibre.compose.style.engine.MapNodeApplier
+import org.maplibre.compose.style.composition.LayerNode
+import org.maplibre.compose.style.composition.LocalStyleNode
+import org.maplibre.compose.style.composition.MapNodeApplier
+import org.maplibre.compose.util.FeaturesClickHandler
+import org.maplibre.compose.util.MaplibreComposable
 
 @Composable
 @MaplibreComposable

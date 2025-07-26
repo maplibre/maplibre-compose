@@ -5,7 +5,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.compositionLocalOf
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.util.MaplibreComposable
 
 internal val LocalAnchor: ProvidableCompositionLocal<Anchor> = compositionLocalOf { Anchor.Top }
 
@@ -18,7 +18,7 @@ internal val LocalAnchor: ProvidableCompositionLocal<Anchor> = compositionLocalO
  *
  * **Note:** This mechanism can only be used to anchor layers at `layerId`s from the *base map
  * style* referred to in the `baseStyle` parameter of the
- * [MapLibreMap][org.maplibre.compose.style.MaplibreMap] composable. Anchoring layers defined in the
+ * [MapLibreMap][org.maplibre.compose.map.MaplibreMap] composable. Anchoring layers defined in the
  * composition to other layers defined in the composition is not possible.
  *
  * See [Anchor.Companion] for [Composable] functions to use in the layers composition.

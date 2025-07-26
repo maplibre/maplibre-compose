@@ -2,20 +2,19 @@ package org.maplibre.compose.style.layer
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.core.layer.HeatmapLayer
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.expressions.Defaults
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.heatmapDensity
-import org.maplibre.compose.expressions.dsl.nil
-import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.expressions.value.ColorValue
-import org.maplibre.compose.expressions.value.DpValue
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.style.FeaturesClickHandler
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.dsl.heatmapDensity
+import org.maplibre.compose.style.expressions.dsl.nil
+import org.maplibre.compose.style.expressions.value.BooleanValue
+import org.maplibre.compose.style.expressions.value.ColorValue
+import org.maplibre.compose.style.expressions.value.DpValue
+import org.maplibre.compose.style.expressions.value.FloatValue
+import org.maplibre.compose.style.source.Source
 import org.maplibre.compose.style.source.SourceReferenceEffect
+import org.maplibre.compose.util.FeaturesClickHandler
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * A heatmap layer draws points from the [sourceLayer] in the given [source] as a heatmap.
@@ -55,7 +54,7 @@ public fun HeatmapLayer(
   maxZoom: Float = 24.0f,
   filter: Expression<BooleanValue> = nil(),
   visible: Boolean = true,
-  color: Expression<ColorValue> = Defaults.HeatmapColors,
+  color: Expression<ColorValue> = LayerDefaults.HeatmapColors,
   opacity: Expression<FloatValue> = const(1f),
   radius: Expression<DpValue> = const(30.dp),
   weight: Expression<FloatValue> = const(1f),
@@ -90,4 +89,20 @@ public fun HeatmapLayer(
     onClick = onClick,
     onLongClick = onLongClick,
   )
+}
+
+internal expect class HeatmapLayer(id: String, source: Source) : FeatureLayer {
+  override var sourceLayer: String
+
+  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+
+  fun setHeatmapRadius(radius: CompiledExpression<DpValue>)
+
+  fun setHeatmapWeight(weight: CompiledExpression<FloatValue>)
+
+  fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>)
+
+  fun setHeatmapColor(color: CompiledExpression<ColorValue>)
+
+  fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>)
 }

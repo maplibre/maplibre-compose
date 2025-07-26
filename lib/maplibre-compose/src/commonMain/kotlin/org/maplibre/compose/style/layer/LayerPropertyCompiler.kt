@@ -8,17 +8,17 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.TextUnitType
-import org.maplibre.compose.expressions.ExpressionContext
-import org.maplibre.compose.expressions.ast.BitmapLiteral
-import org.maplibre.compose.expressions.ast.CompiledExpression
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.PainterLiteral
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.value.ExpressionValue
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.style.engine.ImageManager
-import org.maplibre.compose.style.engine.LocalStyleNode
-import org.maplibre.compose.style.engine.StyleNode
+import org.maplibre.compose.style.composition.ImageManager
+import org.maplibre.compose.style.composition.LocalStyleNode
+import org.maplibre.compose.style.composition.StyleNode
+import org.maplibre.compose.style.expressions.ast.BitmapLiteral
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.ast.ExpressionContext
+import org.maplibre.compose.style.expressions.ast.PainterLiteral
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.value.ExpressionValue
+import org.maplibre.compose.style.expressions.value.FloatValue
 
 internal class LayerPropertyCompiler(
   private val styleNode: StyleNode,

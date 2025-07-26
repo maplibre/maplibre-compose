@@ -4,24 +4,24 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.core.layer.LineLayer
-import org.maplibre.compose.core.source.Source
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.nil
-import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.expressions.value.ColorValue
-import org.maplibre.compose.expressions.value.DpOffsetValue
-import org.maplibre.compose.expressions.value.DpValue
-import org.maplibre.compose.expressions.value.FloatValue
-import org.maplibre.compose.expressions.value.ImageValue
-import org.maplibre.compose.expressions.value.LineCap
-import org.maplibre.compose.expressions.value.LineJoin
-import org.maplibre.compose.expressions.value.TranslateAnchor
-import org.maplibre.compose.expressions.value.VectorValue
-import org.maplibre.compose.style.FeaturesClickHandler
-import org.maplibre.compose.style.MaplibreComposable
+import org.maplibre.compose.style.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.expressions.ast.Expression
+import org.maplibre.compose.style.expressions.dsl.const
+import org.maplibre.compose.style.expressions.dsl.nil
+import org.maplibre.compose.style.expressions.value.BooleanValue
+import org.maplibre.compose.style.expressions.value.ColorValue
+import org.maplibre.compose.style.expressions.value.DpOffsetValue
+import org.maplibre.compose.style.expressions.value.DpValue
+import org.maplibre.compose.style.expressions.value.FloatValue
+import org.maplibre.compose.style.expressions.value.ImageValue
+import org.maplibre.compose.style.expressions.value.LineCap
+import org.maplibre.compose.style.expressions.value.LineJoin
+import org.maplibre.compose.style.expressions.value.TranslateAnchor
+import org.maplibre.compose.style.expressions.value.VectorValue
+import org.maplibre.compose.style.source.Source
 import org.maplibre.compose.style.source.SourceReferenceEffect
+import org.maplibre.compose.util.FeaturesClickHandler
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * A line layer draws polylines and polygons from the [sourceLayer] in the given [source] in the
@@ -160,4 +160,42 @@ public fun LineLayer(
     onClick = onClick,
     onLongClick = onLongClick,
   )
+}
+
+internal expect class LineLayer(id: String, source: Source) : FeatureLayer {
+  override var sourceLayer: String
+
+  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+
+  fun setLineCap(cap: CompiledExpression<LineCap>)
+
+  fun setLineJoin(join: CompiledExpression<LineJoin>)
+
+  fun setLineMiterLimit(miterLimit: CompiledExpression<FloatValue>)
+
+  fun setLineRoundLimit(roundLimit: CompiledExpression<FloatValue>)
+
+  fun setLineSortKey(sortKey: CompiledExpression<FloatValue>)
+
+  fun setLineOpacity(opacity: CompiledExpression<FloatValue>)
+
+  fun setLineColor(color: CompiledExpression<ColorValue>)
+
+  fun setLineTranslate(translate: CompiledExpression<DpOffsetValue>)
+
+  fun setLineTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+
+  fun setLineWidth(width: CompiledExpression<DpValue>)
+
+  fun setLineGapWidth(gapWidth: CompiledExpression<DpValue>)
+
+  fun setLineOffset(offset: CompiledExpression<DpValue>)
+
+  fun setLineBlur(blur: CompiledExpression<DpValue>)
+
+  fun setLineDasharray(dasharray: CompiledExpression<VectorValue<Number>>)
+
+  fun setLinePattern(pattern: CompiledExpression<ImageValue>)
+
+  fun setLineGradient(gradient: CompiledExpression<ColorValue>)
 }
