@@ -23,7 +23,7 @@ gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.34.0"
 gradle-mkdocs = "4.0.1"
-gradle-spotless = "7.2.0"
+gradle-spotless = "7.2.1"
 gradle-spmForKmp = "0.11.3"
 tool-prettier = "3.5.3"
 
