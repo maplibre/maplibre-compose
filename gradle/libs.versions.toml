@@ -33,7 +33,7 @@ gradle-compose = "1.8.2"
 #noinspection GradleDependency: follow version matrix above
 androidx-compose = "1.8.2"
 #noinspection GradleDependency: follow version matrix above
-androidx-navigation = "2.9.0-beta03"
+androidx-navigation = "2.9.0-beta04"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
