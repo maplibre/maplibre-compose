@@ -2,7 +2,7 @@
 # Regular libraries: keep as up to date as possible.
 alchemist = "0.2.0"
 androidx-activity = "1.10.1"
-bytesize = "2.0.0-beta04"
+bytesize = "2.0.0"
 compass = "2.3.1"
 htmlConverterCompose = "1.1.0"
 kermit = "2.0.6"
