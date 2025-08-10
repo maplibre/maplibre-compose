@@ -1,0 +1,130 @@
+{
+  "version": 3,
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "MLN_WITH_RTTI": "ON",
+        "MLN_WITH_WERROR": "OFF",
+        "MLN_WITH_GLFW": "OFF",
+        "MLN_WITH_EGL": "OFF",
+        "MLN_WITH_METAL": "OFF",
+        "MLN_WITH_OPENGL": "OFF",
+        "MLN_WITH_VULKAN": "OFF",
+        "SIMPLEJNI_HEADERS_DIR": "${sourceDir}/build/generated/simplejni-headers"
+      }
+    },
+    {
+      "name": "windows-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      },
+      "toolchainFile": "${sourceDir}/build/_deps/maplibre-native-src/platform/windows/vendor/vcpkg/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Windows",
+        "CMAKE_C_COMPILER": "cl.exe",
+        "CMAKE_CXX_COMPILER": "cl.exe"
+      }
+    },
+    {
+      "name": "windows-wgl",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "MLN_WITH_OPENGL": "ON",
+        "MLN_WITH_EGL": "OFF"
+      }
+    },
+    {
+      "name": "windows-egl",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "MLN_WITH_OPENGL": "ON",
+        "MLN_WITH_EGL": "ON"
+      }
+    },
+    {
+      "name": "windows-vulkan",
+      "inherits": "windows-base",
+      "cacheVariables": {
+        "MLN_WITH_VULKAN": "ON"
+      }
+    },
+    {
+      "name": "linux-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Linux",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "MLN_WITH_X11": "ON",
+        "MLN_WITH_WAYLAND": "OFF"
+      }
+    },
+    {
+      "name": "linux-egl",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "MLN_WITH_OPENGL": "ON",
+        "MLN_WITH_EGL": "ON"
+      }
+    },
+    {
+      "name": "linux-glx",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "MLN_WITH_OPENGL": "ON",
+        "MLN_WITH_EGL": "OFF"
+      }
+    },
+    {
+      "name": "linux-vulkan",
+      "inherits": "linux-base",
+      "cacheVariables": {
+        "MLN_WITH_VULKAN": "ON"
+      }
+    },
+    {
+      "name": "macos-base",
+      "hidden": true,
+      "inherits": "base",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      },
+      "cacheVariables": {
+        "CMAKE_SYSTEM_NAME": "Darwin",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "macos-metal",
+      "inherits": "macos-base",
+      "cacheVariables": {
+        "MLN_WITH_METAL": "ON"
+      }
+    },
+    {
+      "name": "macos-vulkan",
+      "inherits": "macos-base",
+      "cacheVariables": {
+        "MLN_WITH_VULKAN": "ON"
+      }
+    }
+  ]
+}

@@ -96,7 +96,7 @@ internal class IosMapAdapter(
   internal var insetPadding: PaddingValues,
   internal var callbacks: MapAdapter.Callbacks,
   internal var logger: Logger?,
-) : StandardMapAdapter {
+) : MapAdapter {
 
   // hold strong references to things that the sdk keeps weak references to
   private val gestures = mutableListOf<Gesture<*>>()

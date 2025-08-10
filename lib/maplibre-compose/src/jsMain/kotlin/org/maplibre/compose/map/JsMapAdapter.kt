@@ -51,7 +51,7 @@ internal class JsMapAdapter(
   internal var density: Density,
   internal var callbacks: MapAdapter.Callbacks,
   internal var logger: Logger?,
-) : StandardMapAdapter {
+) : MapAdapter {
   private val impl = Map(MapOptions(parent, disableAttributionControl = true))
 
   val timeSource = TimeSource.Monotonic

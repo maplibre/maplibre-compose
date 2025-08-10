@@ -135,6 +135,13 @@ kotlin {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
+
+        // TODO: detect platform
+        runtimeOnly(project(":lib:maplibre-native-jni")) {
+          capabilities {
+            requireCapability("org.maplibre.compose:maplibre-native-jni-macos-aarch64-metal")
+          }
+        }
       }
     }
 

@@ -1,7 +1,7 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository.
+This file provides guidance to OpenCode and other agents when working with code
+in this repository.
 
 ## Development Commands
 
@@ -38,10 +38,11 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 - **`lib/`**: Core library modules
   - `maplibre-compose`: Main map composables and core functionality
   - `maplibre-compose-material3`: Material 3 themed UI components
-  - `maplibre-compose-webview`: WebView-based implementation
-  - `kotlin-maplibre-js`: JavaScript bindings for MapLibre GL JS
+  - `kotlin-maplibre-js`: Kotlin/JS bindings for MapLibre GL JS
+  - `kotlin-maplibre-native`: Kotlin/JVM bindings for MapLibre Native
+  - `maplibre-native-jni`: C++ library required by `kotlin-maplibre-native`
 - **`demo-app/`**: Multiplatform demo application
-- **`iosApp/`**: iOS-specific application wrapper
+- **`iosApp/`**: iOS-specific demo app wrapper
 - **`buildSrc/`**: Custom Gradle build conventions
 
 ### Key Packages
@@ -57,9 +58,9 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 
 The library uses platform-specific implementations:
 
-- **Android/iOS**: Native MapLibre SDKs (MapLibre Android SDK, MapLibre iOS)
-- **Web**: MapLibre GL JS via Kotlin/JS bindings
-- **Desktop**: WebView-based implementation using KCEF
+- **Android/iOS**: MapLibre Native SDKs (MapLibre Android SDK, MapLibre iOS)
+- **Web**: MapLibre GL JS via `kotlin-maplibre-js`
+- **Desktop**: MapLibre Native Core via `kotlin-maplibre-native`
 
 ### Build Configuration
 
