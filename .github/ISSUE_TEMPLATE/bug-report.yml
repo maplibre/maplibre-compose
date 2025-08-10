@@ -47,7 +47,8 @@ body:
     id: sample-code
     attributes:
       label: Sample Code
-      description: Please provide a minimal code sample that demonstrates the issue
+      description:
+        Please provide a minimal code sample that demonstrates the issue
       placeholder: |
         @Composable
         fun MyMap() {

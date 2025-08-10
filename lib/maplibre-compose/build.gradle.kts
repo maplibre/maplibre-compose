@@ -20,25 +20,6 @@ mavenPublishing {
   }
 }
 
-val desktopResources: Configuration by
-  configurations.creating {
-    isCanBeConsumed = false
-    isCanBeResolved = true
-  }
-
-dependencies {
-  desktopResources(
-    project(path = ":lib:maplibre-compose-webview", configuration = "jsBrowserDistribution")
-  )
-}
-
-val copyDesktopResources by
-  tasks.registering(Copy::class) {
-    from(desktopResources)
-    eachFile { path = "files/${path}" }
-    into(project.layout.buildDirectory.dir(desktopResources.name))
-  }
-
 kotlin {
   androidLibrary { namespace = "org.maplibre.compose" }
 
@@ -105,7 +86,7 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
-        implementation(libs.webview)
+        implementation(project(":lib:kotlin-maplibre-native"))
       }
     }
 
@@ -136,11 +117,4 @@ kotlin {
   }
 }
 
-compose.resources {
-  packageOfResClass = "org.maplibre.compose.generated"
-
-  customDirectory(
-    sourceSetName = "desktopMain",
-    directoryProvider = layout.dir(copyDesktopResources.map { it.destinationDir }),
-  )
-}
+compose.resources { packageOfResClass = "org.maplibre.compose.generated" }

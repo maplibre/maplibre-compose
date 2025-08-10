@@ -65,7 +65,7 @@ internal class AndroidMapAdapter(
   internal var callbacks: MapAdapter.Callbacks,
   logger: Logger?,
   baseStyle: BaseStyle,
-) : StandardMapAdapter {
+) : MapAdapter {
 
   internal var layoutDir: LayoutDirection = layoutDir
     set(value) {

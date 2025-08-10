@@ -19,3 +19,5 @@ iosApp/*.xcodeproj/*
 !iosApp/*.xcworkspace/xcshareddata/
 **/xcshareddata/WorkspaceSettings.xcsettings
 exportedSpmMaplibre
+out/
+.cache/

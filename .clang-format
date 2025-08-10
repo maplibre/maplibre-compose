@@ -1,0 +1,18 @@
+---
+BasedOnStyle: Google
+ColumnLimit: 80
+IndentWidth: 2
+ContinuationIndentWidth: 2
+UseCRLF: false
+UseTab: Never
+AlignAfterOpenBracket: BlockIndent
+IncludeBlocks: Merge
+IncludeCategories:
+  - Regex: '^<\w+>$'
+    Priority: 0
+  - Regex: '^<.*_class\.h>$'
+    Priority: 40
+  - Regex: "^<.*>$"
+    Priority: 20
+  - Regex: ".*"
+    Priority: 100

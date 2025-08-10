@@ -9,14 +9,14 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.map.StandardMapAdapter
+import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.util.VisibleRegion
 
 /**
  * Provides an imperative API to interact with the projection of the map, such as converting
  * coordinates or querying what's visible.
  */
-public class CameraProjection internal constructor(internal val map: StandardMapAdapter) {
+public class CameraProjection internal constructor(internal val map: MapAdapter) {
   /**
    * Returns an offset from the top-left corner of the map composable that corresponds to the given
    * [position]. This works for positions that are off-screen, too.

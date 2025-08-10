@@ -5,14 +5,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Position
-import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
@@ -113,7 +111,6 @@ public fun MaplibreMap(
     remember(cameraState, styleState, styleComposition) {
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: Style?) {
-          map as StandardMapAdapter
           rememberedStyle?.unload()
           val safeStyle = style?.let { SafeStyle(it) }
           rememberedStyle = safeStyle
@@ -126,7 +123,6 @@ public fun MaplibreMap(
         }
 
         override fun onMapFinishedLoading(map: MapAdapter) {
-          map as StandardMapAdapter
           styleState.reloadSources()
           onMapLoadFinished()
         }
@@ -137,7 +133,6 @@ public fun MaplibreMap(
         }
 
         override fun onCameraMoved(map: MapAdapter) {
-          map as StandardMapAdapter
           cameraState.positionState.value = map.getCameraPosition()
           cameraState.metersPerDpAtTargetState.value =
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
@@ -156,7 +151,6 @@ public fun MaplibreMap(
         }
 
         override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-          map as StandardMapAdapter
           if (onMapClick(latLng, offset).consumed) return
           layerNodesInOrder().find { node ->
             val handle = node.onClick ?: return@find false
@@ -171,7 +165,6 @@ public fun MaplibreMap(
         }
 
         override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-          map as StandardMapAdapter
           if (onMapLongClick(latLng, offset).consumed) return
           layerNodesInOrder().find { node ->
             val handle = node.onLongClick ?: return@find false
@@ -191,37 +184,19 @@ public fun MaplibreMap(
       }
     }
 
-  val scope = rememberCoroutineScope()
-
   ComposableMapView(
     modifier = modifier.fillMaxSize(),
     style = baseStyle,
     update = { map ->
-      when (map) {
-        is StandardMapAdapter -> {
-          cameraState.map = map
-          map.setMinZoom(zoomRange.start.toDouble())
-          map.setMaxZoom(zoomRange.endInclusive.toDouble())
-          map.setMinPitch(pitchRange.start.toDouble())
-          map.setMaxPitch(pitchRange.endInclusive.toDouble())
-          map.setRenderSettings(options.renderOptions)
-          map.setGestureSettings(options.gestureOptions)
-          map.setOrnamentSettings(options.ornamentOptions)
-          map.setCameraBoundingBox(boundingBox)
-        }
-
-        else ->
-          scope.launch {
-            map.asyncSetMinZoom(zoomRange.start.toDouble())
-            map.asyncSetMaxZoom(zoomRange.endInclusive.toDouble())
-            map.asyncSetMinPitch(pitchRange.start.toDouble())
-            map.asyncSetMaxPitch(pitchRange.endInclusive.toDouble())
-            map.asyncSetRenderSettings(options.renderOptions)
-            map.asyncSetGestureSettings(options.gestureOptions)
-            map.asyncSetOrnamentSettings(options.ornamentOptions)
-            map.asyncSetCameraBoundingBox(boundingBox)
-          }
-      }
+      cameraState.map = map
+      map.setMinZoom(zoomRange.start.toDouble())
+      map.setMaxZoom(zoomRange.endInclusive.toDouble())
+      map.setMinPitch(pitchRange.start.toDouble())
+      map.setMaxPitch(pitchRange.endInclusive.toDouble())
+      map.setRenderSettings(options.renderOptions)
+      map.setGestureSettings(options.gestureOptions)
+      map.setOrnamentSettings(options.ornamentOptions)
+      map.setCameraBoundingBox(boundingBox)
     },
     onReset = {
       cameraState.map = null

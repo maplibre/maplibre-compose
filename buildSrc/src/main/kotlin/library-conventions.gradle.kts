@@ -6,8 +6,6 @@ plugins {
   id("maven-publish")
 }
 
-group = "org.maplibre.compose"
-
 kotlin {
   explicitApi()
 
