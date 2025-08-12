@@ -6,47 +6,60 @@ plugins {
   id("maven-publish")
 }
 
-enum class Variant(val os: String, val arch: String) {
-  MacosX64("macos", "x64"),
-  MacosArm64("macos", "arm64"),
-  LinuxX64("linux", "x64"),
-  LinuxArm64("linux", "arm64"),
-  WindowsX64("windows", "x64"),
-  WindowsArm64("windows", "arm64");
+enum class Variant(
+  val os: String,
+  val arch: String,
+  val renderer: String,
+  val sharedLibraryName: String,
+) {
+  MacosAmd64Metal("macos", "amd64", "metal", "libmaplibre-jni.dylib"),
+  MacosAarch64Metal("macos", "aarch64", "metal", "libmaplibre-jni.dylib"),
+  MacosAmd64Vulkan("macos", "amd64", "vulkan", "libmaplibre-jni.dylib"),
+  MacosAarch64Vulkan("macos", "aarch64", "vulkan", "libmaplibre-jni.dylib"),
+  LinuxAmd64OpenGl("linux", "amd64", "opengl", "libmaplibre-jni.so"),
+  LinuxAarch64OpenGl("linux", "aarch64", "opengl", "libmaplibre-jni.so"),
+  LinuxAmd64Vulkan("linux", "amd64", "vulkan", "libmaplibre-jni.so"),
+  LinuxAarch64Vulkan("linux", "aarch64", "vulkan", "libmaplibre-jni.so"),
+  WindowsAmd64OpenGl("windows", "amd64", "opengl", "maplibre-jni.dll"),
+  WindowsAarch64OpenGl("windows", "aarch64", "opengl", "maplibre-jni.dll"),
+  WindowsAmd64Vulkan("windows", "amd64", "vulkan", "maplibre-jni.dll"),
+  WindowsAarch64Vulkan("windows", "aarch64", "vulkan", "maplibre-jni.dll");
 
   val sourceSetName = "${name}Main"
-  val variantName = name
+  val cmakePreset = "$os-$renderer"
 
-  fun resourcesDirectory(layout: ProjectLayout) =
-      layout.buildDirectory.dir("natives/${variantName}")
+  fun sharedLibraryFromFile(layout: ProjectLayout) =
+    layout.buildDirectory.file("lib/main/shared/$sharedLibraryName")
+
+  fun sharedLibraryToDirectory(layout: ProjectLayout) =
+    layout.buildDirectory.dir("natives/${os}/${arch}/${renderer}")
 
   companion object {
-    fun fromOsAndArch(os: String, arch: String): Variant {
-      val correctedArch =
-          when (arch) {
-            "x86_64" -> "x64"
-            "aarch64" -> "arm64"
-            else -> arch
-          }
-      val correctedOs =
-          when {
-            os.lowercase().startsWith("mac") -> "macos"
-            os.lowercase().startsWith("lin") -> "linux"
-            os.lowercase().startsWith("win") -> "windows"
-            else -> os
-          }
-      return values().firstOrNull { it.os == correctedOs && it.arch == correctedArch }
-          ?: throw IllegalArgumentException("Unsupported OS/Arch combination: $os/$arch")
-    }
+    private fun find(os: String, arch: String, renderer: String? = null) =
+      Variant.values().firstOrNull {
+        it.os == os && it.arch == arch && (renderer == null || it.renderer == renderer)
+      } ?: error("Unsupported combination: ${os}/${arch}/${renderer}")
 
-    val localDevVariant
-      get() = fromOsAndArch(OperatingSystem.current().name, System.getProperty("os.arch"))
+    val current =
+      find(
+        os =
+          when (OperatingSystem.current()) {
+            OperatingSystem.MAC_OS -> "macos"
+            OperatingSystem.LINUX -> "linux"
+            OperatingSystem.WINDOWS -> "windows"
+            else -> error("Unsupported operating system: ${OperatingSystem.current()}")
+          },
+        arch = System.getProperty("os.arch"),
+        renderer = project.findProperty("desktopRenderer")?.toString(),
+      )
   }
 }
 
+val configureForPublishing = project.findProperty("configureForPublishing")?.toString() == "true"
+
 sourceSets {
   for (variant in Variant.values()) {
-    create(variant.sourceSetName) { resources.srcDir(variant.resourcesDirectory(layout)) }
+    create(variant.sourceSetName) { resources.srcDir(layout.buildDirectory.dir("natives")) }
   }
 }
 
@@ -59,81 +72,90 @@ java {
   }
 }
 
-fun getLocalDevPreset(): String {
-  val os = OperatingSystem.current()
-  return project.findProperty("cmake.preset") as String?
-<<<<<<< Updated upstream
-    ?: when {
-      os.isWindows -> "windows-vulkan"
-      os.isLinux -> "linux-vulkan"
-      os.isMacOsX -> "macos-metal"
-      else -> throw GradleException("Unsupported operating system")
-    }
-||||||| Stash base
-    ?: when {
-      os.isWindows -> "windows-vulkan"
-      os.isLinux -> "linux-vulkan"
-      os.isMacOsX -> "macos-vulkan"
-      else -> throw GradleException("Unsupported operating system")
-    }
-=======
-      ?: when {
-        os.isWindows -> "windows-vulkan"
-        os.isLinux -> "linux-vulkan"
-        os.isMacOsX -> "macos-metal"
-        else -> throw GradleException("Unsupported operating system")
+if (configureForPublishing) {
+  tasks.register("validateAllNatives") {
+    group = "verification"
+
+    doLast {
+      val missing = mutableListOf<String>()
+      for (variant in Variant.values()) {
+        val file =
+          variant.sharedLibraryToDirectory(layout).get().asFile.resolve(variant.sharedLibraryName)
+        if (!file.exists()) {
+          missing.add("${variant.name}: ${file.absolutePath}")
+        }
       }
->>>>>>> Stashed changes
-}
-
-tasks.register<Exec>("configureCMake") {
-  val preset = getLocalDevPreset()
-
-  // Use preset-specific subdirectory to avoid rebuilding when switching presets
-  val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
-  val simplejniHeadersDir = layout.buildDirectory.dir("generated/simplejni-headers").get().asFile
-
-  inputs.file("CMakeLists.txt")
-  inputs.file("CMakePresets.json")
-  inputs.dir("src/main/cpp")
-  inputs.dir(simplejniHeadersDir)
-
-  outputs.dir(buildDir)
-  outputs.file(buildDir.resolve("CMakeCache.txt"))
-
-  doFirst { buildDir.mkdirs() }
-
-  workingDir = buildDir
-
-  commandLine(listOf("cmake", "--preset", preset, projectDir.absolutePath))
-
-  doLast {
-    // copy compile_commands.json to a location that clangd can find
-    val compileCommandsSrc = buildDir.resolve("compile_commands.json")
-    val compileCommandsDst = layout.buildDirectory.get().asFile.resolve("compile_commands.json")
-    if (compileCommandsSrc.exists()) {
-      compileCommandsSrc.copyTo(compileCommandsDst, overwrite = true)
+      if (missing.isNotEmpty()) {
+        throw GradleException(
+          "Missing native libraries for variants:\n" + missing.joinToString("\n")
+        )
+      }
     }
   }
-}
 
-tasks.register<Exec>("buildNative") {
-  dependsOn("configureCMake")
-  val preset = getLocalDevPreset()
+  tasks.named("build") { dependsOn("validateAllNatives") }
 
-  val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
-  workingDir = buildDir
+  publishing {
+    repositories {
+      maven {
+        name = "GitHubPackages"
+        setUrl("https://maven.pkg.github.com/maplibre/maplibre-compose")
+        credentials {
+          username = project.properties["githubUser"]?.toString()
+          password = project.properties["githubToken"]?.toString()
+        }
+      }
+    }
+  }
+} else {
+  tasks.register<Exec>("configureCMake") {
+    group = "build"
+    val preset = Variant.current.cmakePreset
 
-  inputs.files(fileTree("src/main/cpp"))
-  inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers"))
-  inputs.file(buildDir.resolve("CMakeCache.txt"))
+    // Use preset-specific subdirectory to avoid rebuilding when switching presets
+    val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
+    val simplejniHeadersDir = layout.buildDirectory.dir("generated/simplejni-headers").get().asFile
 
-  outputs.file(layout.buildDirectory.file("lib/main/shared/libmaplibre-jni.so"))
-  outputs.file(layout.buildDirectory.file("lib/main/shared/libmaplibre-jni.dylib"))
-  outputs.file(layout.buildDirectory.file("lib/main/shared/maplibre-jni.dll"))
-  outputs.dir(layout.buildDirectory.dir("lib"))
+    inputs.file("CMakeLists.txt")
+    inputs.file("CMakePresets.json")
+    inputs.dir("src/main/cpp")
+    inputs.dir(simplejniHeadersDir)
 
-  commandLine(
+    outputs.dir(buildDir)
+    outputs.file(buildDir.resolve("CMakeCache.txt"))
+
+    doFirst { buildDir.mkdirs() }
+
+    workingDir = buildDir
+    commandLine(listOf("cmake", "--preset", preset, projectDir.absolutePath))
+
+    doLast {
+      // copy compile_commands.json to a location that clangd can find
+      val compileCommandsSrc = buildDir.resolve("compile_commands.json")
+      val compileCommandsDst = layout.buildDirectory.get().asFile.resolve("compile_commands.json")
+      if (compileCommandsSrc.exists()) {
+        compileCommandsSrc.copyTo(compileCommandsDst, overwrite = true)
+      }
+    }
+  }
+
+  tasks.register<Exec>("buildNative") {
+    group = "build"
+
+    dependsOn("configureCMake")
+    val preset = Variant.current.cmakePreset
+
+    val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
+    workingDir = buildDir
+
+    inputs.files(fileTree("src/main/cpp"))
+    inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers"))
+    inputs.file(buildDir.resolve("CMakeCache.txt"))
+
+    outputs.file(Variant.current.sharedLibraryFromFile(layout))
+    outputs.dir(layout.buildDirectory.dir("lib"))
+
+    commandLine(
       "cmake",
       "--build",
       ".",
@@ -141,64 +163,35 @@ tasks.register<Exec>("buildNative") {
       "Release",
       "--parallel",
       Runtime.getRuntime().availableProcessors().toString(),
-  )
-}
-
-tasks.register<Copy>("copyNativeToResources") {
-  dependsOn("buildNative")
-
-  val currentVariant = Variant.localDevVariant
-  val os = OperatingSystem.current()
-  val nativeLibraryName =
-      when {
-        os.isWindows -> "maplibre-jni.dll"
-        os.isMacOsX -> "libmaplibre-jni.dylib"
-        os.isLinux -> "libmaplibre-jni.so"
-        else -> error("Unsupported operating system: ${os.name}")
-      }
-
-  from(layout.buildDirectory.file("lib/main/shared/$nativeLibraryName"))
-  into(currentVariant.resourcesDirectory(layout))
-
-  doFirst {
-    println("Copying native library for variant: $currentVariant")
-    println("From: ${layout.buildDirectory.get().asFile}/lib/main/shared/$nativeLibraryName")
-    println("To: ${currentVariant.resourcesDirectory(layout)}")
+    )
   }
-}
 
-tasks.register<Delete>("cleanNative") {
-  delete(layout.buildDirectory.dir("cmake"))
-  delete(layout.buildDirectory.dir("lib"))
-  delete(layout.buildDirectory.dir("_deps"))
-  delete(layout.buildDirectory.dir("natives"))
-  delete(layout.buildDirectory.dir("generated/simplejni-headers"))
-}
+  tasks.register<Copy>("copyNativeToResources") {
+    group = "build"
 
-tasks.named("clean") { dependsOn("cleanNative") }
+    dependsOn("buildNative")
 
-tasks.named("build") {
-  dependsOn("buildNative")
-  dependsOn("copyNativeToResources")
-}
+    val fromFile = Variant.current.sharedLibraryFromFile(layout)
+    val intoDirectory = Variant.current.sharedLibraryToDirectory(layout)
 
-afterEvaluate {
-  val currentVariant = Variant.localDevVariant
-  val capitalizedVariant = currentVariant.variantName.replaceFirstChar { it.uppercase() }
-  tasks
-      .matching { it.name == "process${capitalizedVariant}Resources" }
-      .configureEach { mustRunAfter("copyNativeToResources") }
-}
+    from(fromFile)
+    into(intoDirectory)
 
-publishing {
-  repositories {
-    maven {
-      name = "GitHubPackages"
-      setUrl("https://maven.pkg.github.com/maplibre/maplibre-compose")
-      credentials {
-        username = project.properties["githubUser"]?.toString()
-        password = project.properties["githubToken"]?.toString()
-      }
+    doFirst {
+      println("Copying native library for ${Variant.current}")
+      println("From: ${fromFile.get().asFile.absolutePath}")
+      println("To: ${intoDirectory.get().asFile.absolutePath}")
     }
+  }
+
+  tasks.named("build") {
+    dependsOn("buildNative")
+    dependsOn("copyNativeToResources")
+  }
+
+  afterEvaluate {
+    tasks
+      .matching { it.name == "process${Variant.current.name}Resources" }
+      .configureEach { mustRunAfter("copyNativeToResources") }
   }
 }

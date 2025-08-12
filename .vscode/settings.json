@@ -5,7 +5,7 @@
   "java.import.gradle.enabled": false,
   "customLocalFormatters.formatters": [
     {
-      "command": "ktfmt -",
+      "command": "ktfmt --google-style -",
       "languages": ["kotlin", "gradle-kotlin-dsl"]
     }
   ],
