@@ -24,7 +24,7 @@ import org.maplibre.compose.material3.ExpandingAttributionButton
 import org.maplibre.compose.style.StyleState
 
 @Composable
-fun DemoMap(state: DemoState, padding: PaddingValues) {
+fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
   Box(Modifier.background(MaterialTheme.colorScheme.background)) {
     MaplibreMap(
       styleState = state.styleState,
@@ -43,9 +43,7 @@ fun DemoMap(state: DemoState, padding: PaddingValues) {
       }
     }
 
-    if (PlatformFeature.InteropBlending in Platform.supportedFeatures) {
-      MapOverlay(padding, state.cameraState, state.styleState)
-    }
+    MapOverlay(padding, state.cameraState, state.styleState)
   }
 }
 
