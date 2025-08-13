@@ -1,8 +1,6 @@
 package org.maplibre.kmp.native.map
 
 import org.maplibre.kmp.native.camera.CameraChangeMode
-import org.maplibre.kmp.native.renderer.RenderFrameStatus
-import org.maplibre.kmp.native.renderer.RenderMode
 import smjni.jnigen.CalledByNative
 import smjni.jnigen.ExposeToNative
 

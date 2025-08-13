@@ -55,25 +55,28 @@ kotlin {
       api(libs.spatialk.geojson)
     }
 
-    // used to share some implementation on platforms where Compose UI is backed by Skia directly
+    // used to share some implementation on targets where Compose UI is backed by Skia directly
     // (e.g. all but Android, which is backed by the Android Canvas API)
-    val skiaMain by creating { dependsOn(commonMain.get()) }
-
-    // used to expose APIs only available on platforms backed by MapLibre Native
-    // (e.g. Android and iOS, and maybe someday Desktop)
-    val maplibreNativeMain by creating { dependsOn(commonMain.get()) }
-
-    // used to expose APIs only available on platforms backed by MapLibre JS
-    // (e.g. JS, Desktop for now, and someday WASM)
-    val maplibreJsMain by creating { dependsOn(commonMain.get()) }
-
-    iosMain {
-      dependsOn(skiaMain)
-      dependsOn(maplibreNativeMain)
+    create("skiaMain") {
+      dependsOn(commonMain.get())
+      desktopMain.dependsOn(this)
+      iosMain.get().dependsOn(this)
+      jsMain.get().dependsOn(this)
     }
 
+    // used to expose APIs only available on targets backed by MapLibre Native
+    // (e.g. all but browser targets, which use MapLibre JS)
+    create("maplibreNativeMain") {
+      dependsOn(commonMain.get())
+      androidMain.get().dependsOn(this)
+      iosMain.get().dependsOn(this)
+      // TODO: when we're ready to support the offline manager on desktop
+      // desktopMain.dependsOn(this)
+    }
+
+    iosMain {}
+
     androidMain {
-      dependsOn(maplibreNativeMain)
       dependencies {
         api(libs.maplibre.android)
         implementation(libs.maplibre.android.scalebar)
@@ -81,8 +84,6 @@ kotlin {
     }
 
     desktopMain.apply {
-      dependsOn(skiaMain)
-      dependsOn(maplibreJsMain)
       dependencies {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
@@ -91,8 +92,6 @@ kotlin {
     }
 
     jsMain {
-      dependsOn(skiaMain)
-      dependsOn(maplibreJsMain)
       dependencies {
         // TODO replace this with the official component in the next version of Compose
         implementation("dev.sargunv.maplibre-compose:compose-html-interop:0.10.4")

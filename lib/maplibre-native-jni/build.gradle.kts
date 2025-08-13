@@ -40,7 +40,7 @@ enum class Variant(
         it.os == os && it.arch == arch && (renderer == null || it.renderer == renderer)
       } ?: error("Unsupported combination: ${os}/${arch}/${renderer}")
 
-    val current =
+    fun current(project: Project) =
       find(
         os =
           when (OperatingSystem.current()) {
@@ -110,7 +110,7 @@ if (configureForPublishing) {
 } else {
   tasks.register<Exec>("configureCMake") {
     group = "build"
-    val preset = Variant.current.cmakePreset
+    val preset = Variant.current(project).cmakePreset
 
     // Use preset-specific subdirectory to avoid rebuilding when switching presets
     val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
@@ -143,7 +143,8 @@ if (configureForPublishing) {
     group = "build"
 
     dependsOn("configureCMake")
-    val preset = Variant.current.cmakePreset
+    val variant = Variant.current(project)
+    val preset = variant.cmakePreset
 
     val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
     workingDir = buildDir
@@ -152,7 +153,7 @@ if (configureForPublishing) {
     inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers"))
     inputs.file(buildDir.resolve("CMakeCache.txt"))
 
-    outputs.file(Variant.current.sharedLibraryFromFile(layout))
+    outputs.file(variant.sharedLibraryFromFile(layout))
     outputs.dir(layout.buildDirectory.dir("lib"))
 
     commandLine(
@@ -171,14 +172,15 @@ if (configureForPublishing) {
 
     dependsOn("buildNative")
 
-    val fromFile = Variant.current.sharedLibraryFromFile(layout)
-    val intoDirectory = Variant.current.sharedLibraryToDirectory(layout)
+    val variant = Variant.current(project)
+    val fromFile = variant.sharedLibraryFromFile(layout)
+    val intoDirectory = variant.sharedLibraryToDirectory(layout)
 
     from(fromFile)
     into(intoDirectory)
 
     doFirst {
-      println("Copying native library for ${Variant.current}")
+      println("Copying native library for $variant")
       println("From: ${fromFile.get().asFile.absolutePath}")
       println("To: ${intoDirectory.get().asFile.absolutePath}")
     }
@@ -191,7 +193,7 @@ if (configureForPublishing) {
 
   afterEvaluate {
     tasks
-      .matching { it.name == "process${Variant.current.name}Resources" }
+      .matching { it.name == "process${Variant.current(project).name}Resources" }
       .configureEach { mustRunAfter("copyNativeToResources") }
   }
 }

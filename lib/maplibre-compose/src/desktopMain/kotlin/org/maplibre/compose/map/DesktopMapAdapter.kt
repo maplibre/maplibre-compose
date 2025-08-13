@@ -11,58 +11,85 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.kmp.native.map.MapLibreMap
 
-internal class DesktopMapAdapter : MapAdapter {
-  override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) =
-    Unit
+internal class DesktopMapAdapter(
+  internal val map: MapLibreMap,
+  internal var callbacks: MapAdapter.Callbacks,
+) : MapAdapter {
 
-  override suspend fun animateCameraPosition(
-    boundingBox: BoundingBox,
-    bearing: Double,
-    tilt: Double,
-    padding: PaddingValues,
-    duration: Duration,
-  ) = Unit
+  private var lastBaseStyle: BaseStyle? = null
 
-  override fun setBaseStyle(style: BaseStyle) {}
+  override fun setBaseStyle(style: BaseStyle) {
+    if (style == lastBaseStyle) return
+    lastBaseStyle = style
+    callbacks.onStyleChanged(this, null)
 
-  override fun getCameraPosition(): CameraPosition {
-    TODO()
+    when (style) {
+      is BaseStyle.Uri -> map.loadStyleURL(style.uri)
+      is BaseStyle.Json -> map.loadStyleJSON(style.json)
+    }
+
+    callbacks.onStyleChanged(this, DesktopStyle(map))
   }
 
-  override fun setCameraPosition(cameraPosition: CameraPosition) {}
+  override fun getCameraPosition(): CameraPosition {
+    TODO("get camera position")
+  }
 
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {}
+  override fun setCameraPosition(cameraPosition: CameraPosition) {
+    // TODO: jumpTo
+  }
 
-  override fun setMaxZoom(maxZoom: Double) {}
+  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
+    // TODO: bounds
+  }
 
-  override fun setMinZoom(minZoom: Double) {}
+  override fun setMaxZoom(maxZoom: Double) {
+    // TODO: bounds
+  }
 
-  override fun setMinPitch(minPitch: Double) {}
+  override fun setMinZoom(minZoom: Double) {
+    // TODO: bounds
+  }
 
-  override fun setMaxPitch(maxPitch: Double) {}
+  override fun setMinPitch(minPitch: Double) {
+    // TODO: bounds
+  }
+
+  override fun setMaxPitch(maxPitch: Double) {
+    // TODO: bounds
+  }
 
   override fun getVisibleBoundingBox(): BoundingBox {
-    TODO()
+    TODO("get visible bounding box")
   }
 
   override fun getVisibleRegion(): VisibleRegion {
-    TODO()
+    TODO("get visible region")
   }
 
-  override fun setRenderSettings(value: RenderOptions) {}
+  override fun setRenderSettings(value: RenderOptions) {
+    map.debugOptions = value.debugOptions
+    // TODO: FPS limit
+  }
 
-  override fun setOrnamentSettings(value: OrnamentOptions) {}
+  override fun setOrnamentSettings(value: OrnamentOptions) {
+    // No-op for desktop, as ornaments are not supported
+  }
 
-  override fun setGestureSettings(value: GestureOptions) {}
+  override fun setGestureSettings(value: GestureOptions) {
+    // TODO: gesture settings
+  }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position {
-    TODO()
+    TODO("get position from screen location")
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset {
-    TODO()
+    TODO("get screen location from position")
   }
 
   override fun queryRenderedFeatures(
@@ -70,7 +97,7 @@ internal class DesktopMapAdapter : MapAdapter {
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature> {
-    TODO()
+    TODO("query rendered features at offset")
   }
 
   override fun queryRenderedFeatures(
@@ -78,10 +105,24 @@ internal class DesktopMapAdapter : MapAdapter {
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature> {
-    TODO()
+    TODO("query rendered features in rect")
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double {
-    TODO()
+    TODO("get map scale")
+  }
+
+  override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
+    // TODO: flyTo position
+  }
+
+  override suspend fun animateCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+    duration: Duration,
+  ) {
+    // TODO: flyTo bounding box
   }
 }

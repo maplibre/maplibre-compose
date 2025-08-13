@@ -139,7 +139,7 @@ kotlin {
         // TODO: detect platform
         runtimeOnly(project(":lib:maplibre-native-jni")) {
           capabilities {
-            requireCapability("org.maplibre.compose:maplibre-native-jni-macos-aarch64")
+            requireCapability("org.maplibre.compose:maplibre-native-jni-macos-aarch64-metal")
           }
         }
       }

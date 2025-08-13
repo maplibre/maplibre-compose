@@ -9,6 +9,6 @@ import smjni.jnigen.ExposeToNative
  */
 @ExposeToNative
 public data class ClientOptions(
-  @get:CalledByNative val name: String,
-  @get:CalledByNative val version: String,
+  @get:CalledByNative val name: String = "MapLibre Native for JVM",
+  @get:CalledByNative val version: String = "TODO", // TODO: buildconfig?
 )

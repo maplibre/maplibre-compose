@@ -1,15 +1,10 @@
-package org.maplibre.kmp.native
+package org.maplibre.kmp.native.map
 
 import java.awt.Canvas
 import java.awt.Graphics
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
 import javax.swing.Timer
-import org.maplibre.kmp.native.map.ClientOptions
-import org.maplibre.kmp.native.map.MapLibreMap
-import org.maplibre.kmp.native.map.MapObserver
-import org.maplibre.kmp.native.map.MapOptions
-import org.maplibre.kmp.native.map.ResourceOptions
 import org.maplibre.kmp.native.util.Size
 
 /**
@@ -18,9 +13,9 @@ import org.maplibre.kmp.native.util.Size
  */
 public class MapCanvas(
   private val mapObserver: MapObserver,
-  private val mapOptions: MapOptions,
-  private val resourceOptions: ResourceOptions,
-  private val clientOptions: ClientOptions,
+  private val mapOptions: MapOptions = MapOptions(),
+  private val resourceOptions: ResourceOptions = ResourceOptions(),
+  private val clientOptions: ClientOptions = ClientOptions(),
   private val onMapReady: ((MapLibreMap, MapCanvas) -> Unit) = { _, _ -> },
 ) : Canvas() {
 

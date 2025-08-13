@@ -1,10 +1,19 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.SwingPanel
+import androidx.compose.ui.graphics.Color
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
+import org.maplibre.kmp.native.map.MapCanvas
 
 @Composable
 internal actual fun ComposableMapView(
@@ -20,18 +29,53 @@ internal actual fun ComposableMapView(
   DesktopMapView(
     modifier = modifier,
     style = style,
+    rememberedStyle = rememberedStyle,
     update = update,
     onReset = onReset,
     logger = logger,
     callbacks = callbacks,
+    options = options,
   )
 
 @Composable
 internal fun DesktopMapView(
   modifier: Modifier,
   style: BaseStyle,
+  rememberedStyle: SafeStyle?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MapAdapter.Callbacks,
-) {}
+  options: MapOptions,
+) {
+  val currentOnReset by rememberUpdatedState(onReset)
+  var currentMapObserver by remember { mutableStateOf<DesktopMapObserver?>(null) }
+  var currentMapAdapter by remember { mutableStateOf<DesktopMapAdapter?>(null) }
+
+  SwingPanel(
+    background = Color.White,
+    factory = {
+      val observer = DesktopMapObserver(callbacks)
+      MapCanvas(
+        mapObserver = DesktopMapObserver(callbacks),
+        onMapReady = { map, _ ->
+          val adapter = DesktopMapAdapter(map, callbacks)
+          observer.adapter = adapter
+          currentMapObserver = observer
+          currentMapAdapter = adapter
+          adapter.setBaseStyle(style)
+        },
+      )
+    },
+    update = { _ ->
+      currentMapObserver?.callbacks = callbacks
+      currentMapAdapter?.let { adapter ->
+        adapter.callbacks = callbacks
+        adapter.setBaseStyle(style)
+        update(adapter)
+      }
+    },
+    modifier = modifier,
+  )
+  DisposableEffect(Unit) { onDispose { currentOnReset() } }
+}

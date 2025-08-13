@@ -134,7 +134,7 @@ public class MapControls(
       e.button == MouseEvent.BUTTON3 || (e.button == MouseEvent.BUTTON1 && e.isControlDown) -> {
         if (config.enableRotate || config.enableTilt) {
           isRotatingAndTilting = true
-          map.setGestureInProgress(true)
+          map.isGestureInProgress = true
           // Store the anchor point for rotation
           rotationAnchor = toMapCoordinate(e)
         }
@@ -143,7 +143,7 @@ public class MapControls(
       e.button == MouseEvent.BUTTON1 -> {
         if (config.enablePan) {
           isPanning = true
-          map.setGestureInProgress(true)
+          map.isGestureInProgress = true
         }
       }
     }
@@ -158,7 +158,7 @@ public class MapControls(
     if (!enabled) return
 
     if (isPanning || isRotatingAndTilting) {
-      map.setGestureInProgress(false)
+      map.isGestureInProgress = false
     }
 
     isPanning = false
