@@ -41,6 +41,7 @@ FetchContent_MakeAvailable(maplibre-native SimpleJNI)
 set(MAPLIBRE_JNI_SOURCES
     src/main/cpp/maplibre_map.cpp
     src/main/cpp/conversions.cpp
+    src/main/cpp/jni_on_load.cpp
     src/main/cpp/jni_map_observer.cpp
     src/main/cpp/awt_canvas_renderer.cpp
     src/main/cpp/backend/awt_backend_factory.cpp
@@ -60,12 +61,10 @@ elseif(MLN_WITH_VULKAN)
         )
     endif()
 elseif(MLN_WITH_OPENGL)
-    # Common GL backend files
     list(APPEND MAPLIBRE_JNI_SOURCES
         src/main/cpp/backend/gl/awt_gl_backend.cpp
         src/main/cpp/backend/gl/gl_context_strategy.hpp
     )
-
     if(MLN_WITH_EGL)
         list(APPEND MAPLIBRE_JNI_SOURCES
             src/main/cpp/backend/gl/egl_context_strategy.cpp

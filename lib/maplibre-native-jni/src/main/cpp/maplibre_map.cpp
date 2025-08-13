@@ -7,7 +7,7 @@
 #include <mbgl/style/style.hpp>
 #include <mbgl/util/client_options.hpp>
 #include <smjni/java_exception.h>
-#include <MapLibreMap_Class.h>
+#include <MapLibreMap_class.h>
 #include "awt_canvas_renderer.hpp"
 #include "conversions.hpp"
 #include "java_classes.hpp"
@@ -389,6 +389,107 @@ jboolean JNICALL MapLibreMap_class::isRenderingStatsViewEnabledNative(
   } catch (const std::exception &e) {
     smjni::java_exception::translate(env, e);
     return false;
+  }
+}
+
+jboolean JNICALL
+MapLibreMap_class::isFullyLoadedNative(JNIEnv *env, jMapLibreMap map) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    return wrapper->map->isFullyLoaded();
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+    return false;
+  }
+}
+
+// Tile LOD controls
+jdouble JNICALL
+MapLibreMap_class::getTileLodMinRadiusNative(JNIEnv *env, jMapLibreMap map) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    return wrapper->map->getTileLodMinRadius();
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+    return 0.0;
+  }
+}
+
+void JNICALL MapLibreMap_class::setTileLodMinRadiusNative(
+  JNIEnv *env, jMapLibreMap map, jdouble value
+) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    wrapper->map->setTileLodMinRadius(value);
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+  }
+}
+
+jdouble JNICALL
+MapLibreMap_class::getTileLodScaleNative(JNIEnv *env, jMapLibreMap map) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    return wrapper->map->getTileLodScale();
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+    return 1.0;
+  }
+}
+
+void JNICALL MapLibreMap_class::setTileLodScaleNative(
+  JNIEnv *env, jMapLibreMap map, jdouble value
+) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    wrapper->map->setTileLodScale(value);
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+  }
+}
+
+jdouble JNICALL MapLibreMap_class::getTileLodPitchThresholdNative(
+  JNIEnv *env, jMapLibreMap map
+) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    return wrapper->map->getTileLodPitchThreshold();
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+    return 0.0;
+  }
+}
+
+void JNICALL MapLibreMap_class::setTileLodPitchThresholdNative(
+  JNIEnv *env, jMapLibreMap map, jdouble value
+) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    wrapper->map->setTileLodPitchThreshold(value);
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+  }
+}
+
+jdouble JNICALL
+MapLibreMap_class::getTileLodZoomShiftNative(JNIEnv *env, jMapLibreMap map) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    return wrapper->map->getTileLodZoomShift();
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
+    return 0.0;
+  }
+}
+
+void JNICALL MapLibreMap_class::setTileLodZoomShiftNative(
+  JNIEnv *env, jMapLibreMap map, jdouble value
+) {
+  try {
+    auto *wrapper = getWrapper(env, map);
+    wrapper->map->setTileLodZoomShift(value);
+  } catch (const std::exception &e) {
+    smjni::java_exception::translate(env, e);
   }
 }
 

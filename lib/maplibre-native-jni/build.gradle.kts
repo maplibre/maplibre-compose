@@ -1,4 +1,4 @@
-import org.gradle.internal.os.OperatingSystem
+@file:Suppress("RedundantUnitExpression")
 
 plugins {
   id("module-conventions")
@@ -10,29 +10,39 @@ enum class Variant(
   val os: String,
   val arch: String,
   val renderer: String,
-  val sharedLibraryName: String,
+  val requireWhenPublishing: Boolean = false,
 ) {
-  MacosAmd64Metal("macos", "amd64", "metal", "libmaplibre-jni.dylib"),
-  MacosAarch64Metal("macos", "aarch64", "metal", "libmaplibre-jni.dylib"),
-  MacosAmd64Vulkan("macos", "amd64", "vulkan", "libmaplibre-jni.dylib"),
-  MacosAarch64Vulkan("macos", "aarch64", "vulkan", "libmaplibre-jni.dylib"),
-  LinuxAmd64OpenGl("linux", "amd64", "opengl", "libmaplibre-jni.so"),
-  LinuxAarch64OpenGl("linux", "aarch64", "opengl", "libmaplibre-jni.so"),
-  LinuxAmd64Vulkan("linux", "amd64", "vulkan", "libmaplibre-jni.so"),
-  LinuxAarch64Vulkan("linux", "aarch64", "vulkan", "libmaplibre-jni.so"),
-  WindowsAmd64OpenGl("windows", "amd64", "opengl", "maplibre-jni.dll"),
-  WindowsAarch64OpenGl("windows", "aarch64", "opengl", "maplibre-jni.dll"),
-  WindowsAmd64Vulkan("windows", "amd64", "vulkan", "maplibre-jni.dll"),
-  WindowsAarch64Vulkan("windows", "aarch64", "vulkan", "maplibre-jni.dll");
+  MacosAmd64Metal("macos", "amd64", "metal", true),
+  MacosAarch64Metal("macos", "aarch64", "metal", true),
+  MacosAmd64Vulkan("macos", "amd64", "vulkan"),
+  MacosAarch64Vulkan("macos", "aarch64", "vulkan"),
+  LinuxAmd64Opengl("linux", "amd64", "opengl", true),
+  LinuxAarch64Opengl("linux", "aarch64", "opengl", true),
+  LinuxAmd64Vulkan("linux", "amd64", "vulkan", true),
+  LinuxAarch64Vulkan("linux", "aarch64", "vulkan", true),
+  WindowsAmd64Opengl("windows", "amd64", "opengl", true),
+  WindowsAarch64Opengl("windows", "aarch64", "opengl"),
+  WindowsAmd64Vulkan("windows", "amd64", "vulkan", true),
+  WindowsAarch64Vulkan("windows", "aarch64", "vulkan", true);
 
   val sourceSetName = "${name}Main"
   val cmakePreset = "$os-$renderer"
 
-  fun sharedLibraryFromFile(layout: ProjectLayout) =
+  val sharedLibraryName =
+    when (os) {
+      "macos" -> "libmaplibre-jni.dylib"
+      "linux" -> "libmaplibre-jni.so"
+      "windows" -> "maplibre-jni.dll"
+      else -> error("Unsupported OS: $os")
+    }
+
+  fun cmakeOutputLib(layout: ProjectLayout) =
     layout.buildDirectory.file("lib/main/shared/$sharedLibraryName")
 
-  fun sharedLibraryToDirectory(layout: ProjectLayout) =
-    layout.buildDirectory.dir("natives/${os}/${arch}/${renderer}")
+  fun resourcesTargetDirectory(layout: ProjectLayout) =
+    layout.buildDirectory.dir("copiedResources/$name/$os/$arch/$renderer")
+
+  fun resourcesSourceDir(layout: ProjectLayout) = layout.buildDirectory.dir("copiedResources/$name")
 
   companion object {
     private fun find(os: String, arch: String, renderer: String? = null) =
@@ -40,18 +50,20 @@ enum class Variant(
         it.os == os && it.arch == arch && (renderer == null || it.renderer == renderer)
       } ?: error("Unsupported combination: ${os}/${arch}/${renderer}")
 
-    fun current(project: Project) =
-      find(
+    fun current(project: Project): Variant {
+      val os = System.getProperty("os.name").lowercase()
+      return find(
         os =
-          when (OperatingSystem.current()) {
-            OperatingSystem.MAC_OS -> "macos"
-            OperatingSystem.LINUX -> "linux"
-            OperatingSystem.WINDOWS -> "windows"
-            else -> error("Unsupported operating system: ${OperatingSystem.current()}")
+          when {
+            os.contains("mac") -> "macos"
+            os.contains("linux") -> "linux"
+            os.contains("windows") -> "windows"
+            else -> error("Unsupported operating system: $os")
           },
         arch = System.getProperty("os.arch"),
         renderer = project.findProperty("desktopRenderer")?.toString(),
       )
+    }
   }
 }
 
@@ -59,7 +71,7 @@ val configureForPublishing = project.findProperty("configureForPublishing")?.toS
 
 sourceSets {
   for (variant in Variant.values()) {
-    create(variant.sourceSetName) { resources.srcDir(layout.buildDirectory.dir("natives")) }
+    create(variant.sourceSetName) { resources.srcDir(variant.resourcesSourceDir(layout)) }
   }
 }
 
@@ -73,14 +85,17 @@ java {
 }
 
 if (configureForPublishing) {
+  // when publishing, we build all variants in CI and copy them to the resources directory
+  // so in gradle, we just need to validate that they're present
+
   tasks.register("validateAllNatives") {
     group = "verification"
 
     doLast {
       val missing = mutableListOf<String>()
-      for (variant in Variant.values()) {
+      for (variant in Variant.values().filter { it.requireWhenPublishing }) {
         val file =
-          variant.sharedLibraryToDirectory(layout).get().asFile.resolve(variant.sharedLibraryName)
+          variant.resourcesTargetDirectory(layout).get().asFile.resolve(variant.sharedLibraryName)
         if (!file.exists()) {
           missing.add("${variant.name}: ${file.absolutePath}")
         }
@@ -107,19 +122,22 @@ if (configureForPublishing) {
       }
     }
   }
+
+  Unit // gradle doesn't like if expressions returning things
 } else {
+  // when not publishing, we build the variant relevant to the current platform
+
   tasks.register<Exec>("configureCMake") {
     group = "build"
     val preset = Variant.current(project).cmakePreset
 
     // Use preset-specific subdirectory to avoid rebuilding when switching presets
     val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
-    val simplejniHeadersDir = layout.buildDirectory.dir("generated/simplejni-headers").get().asFile
 
-    inputs.file("CMakeLists.txt")
-    inputs.file("CMakePresets.json")
-    inputs.dir("src/main/cpp")
-    inputs.dir(simplejniHeadersDir)
+    inputs.file(layout.projectDirectory.file("CMakeLists.txt"))
+    inputs.file(layout.projectDirectory.file("CMakePresets.json"))
+    inputs.dir(layout.projectDirectory.dir("src/main/cpp"))
+    inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers").get().asFile)
 
     outputs.dir(buildDir)
     outputs.file(buildDir.resolve("CMakeCache.txt"))
@@ -141,8 +159,8 @@ if (configureForPublishing) {
 
   tasks.register<Exec>("buildNative") {
     group = "build"
-
     dependsOn("configureCMake")
+
     val variant = Variant.current(project)
     val preset = variant.cmakePreset
 
@@ -153,7 +171,7 @@ if (configureForPublishing) {
     inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers"))
     inputs.file(buildDir.resolve("CMakeCache.txt"))
 
-    outputs.file(variant.sharedLibraryFromFile(layout))
+    outputs.file(variant.cmakeOutputLib(layout))
     outputs.dir(layout.buildDirectory.dir("lib"))
 
     commandLine(
@@ -169,12 +187,11 @@ if (configureForPublishing) {
 
   tasks.register<Copy>("copyNativeToResources") {
     group = "build"
-
     dependsOn("buildNative")
 
     val variant = Variant.current(project)
-    val fromFile = variant.sharedLibraryFromFile(layout)
-    val intoDirectory = variant.sharedLibraryToDirectory(layout)
+    val fromFile = variant.cmakeOutputLib(layout)
+    val intoDirectory = variant.resourcesTargetDirectory(layout)
 
     from(fromFile)
     into(intoDirectory)
@@ -186,14 +203,7 @@ if (configureForPublishing) {
     }
   }
 
-  tasks.named("build") {
-    dependsOn("buildNative")
-    dependsOn("copyNativeToResources")
-  }
+  tasks.named("processResources") { dependsOn("copyNativeToResources") }
 
-  afterEvaluate {
-    tasks
-      .matching { it.name == "process${Variant.current(project).name}Resources" }
-      .configureEach { mustRunAfter("copyNativeToResources") }
-  }
+  Unit // gradle doesn't like if expressions returning things
 }
