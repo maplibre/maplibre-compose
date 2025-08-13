@@ -36,9 +36,11 @@ fun DemoMap(state: DemoState, padding: PaddingValues) {
           renderOptions = state.renderOptions,
         ),
     ) {
-      state.demos
-        .filter { state.shouldRenderMapContent(it) }
-        .forEach { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) }
+      if (PlatformFeature.LayerStyling in Platform.supportedFeatures) {
+        state.demos
+          .filter { state.shouldRenderMapContent(it) }
+          .forEach { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) }
+      }
     }
 
     if (PlatformFeature.InteropBlending in Platform.supportedFeatures) {

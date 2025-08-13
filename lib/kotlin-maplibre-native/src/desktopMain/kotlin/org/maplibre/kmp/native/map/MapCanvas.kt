@@ -30,14 +30,13 @@ public class MapCanvas(
             if (map == null) {
               initializeMap()
             } else {
-              val pixelRatio = graphicsConfiguration?.defaultTransform?.scaleX?.toFloat() ?: 1.0f
+              val pixelRatio = graphicsConfiguration.defaultTransform.scaleX.toFloat()
               map?.setSize(
                 Size(
                   width = (this@MapCanvas.width * pixelRatio).toInt(),
                   height = (this@MapCanvas.height * pixelRatio).toInt(),
                 )
               )
-              repaint()
             }
           }
         }
@@ -91,9 +90,13 @@ public class MapCanvas(
     dispose()
   }
 
-  override fun paint(g: Graphics) {}
+  override fun paint(g: Graphics) {
+    // called for lightweight components - no-op
+  }
 
   override fun update(g: Graphics) {
-    paint(g)
+    // called for heavyweight components - no-op for now
+    // though we should probably move the render trigger logic here
+    // and call repaint() on invalidation
   }
 }

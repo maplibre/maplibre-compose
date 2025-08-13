@@ -14,6 +14,7 @@ import co.touchlab.kermit.Logger
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
 import org.maplibre.kmp.native.map.MapCanvas
+import org.maplibre.kmp.native.map.MapControls
 
 @Composable
 internal actual fun ComposableMapView(
@@ -57,7 +58,8 @@ internal fun DesktopMapView(
       val adapter = DesktopMapAdapter(callbacks)
       MapCanvas(
         mapObserver = adapter,
-        onMapReady = { map, _ ->
+        onMapReady = { map, canvas ->
+          MapControls(canvas, map).enable()
           currentMapAdapter = adapter
           adapter.map = map
           adapter.setBaseStyle(style)

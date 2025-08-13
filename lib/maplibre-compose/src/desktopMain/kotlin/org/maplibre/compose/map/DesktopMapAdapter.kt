@@ -51,7 +51,6 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
-    callbacks.onStyleChanged(this, null)
 
     when (style) {
       is BaseStyle.Uri -> map.loadStyleURL(style.uri)
