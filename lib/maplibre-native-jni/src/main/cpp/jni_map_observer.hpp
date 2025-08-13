@@ -11,9 +11,7 @@ namespace maplibre_jni {
 // MapObserver
 class JniMapObserver : public mbgl::MapObserver {
  public:
-  JniMapObserver(
-    JNIEnv *env, smjni::auto_java_ref<jMapObserver> kotlinObserver
-  );
+  JniMapObserver(smjni::auto_java_ref<jMapObserver> kotlinObserver);
   ~JniMapObserver() override;
 
   // Camera events
@@ -51,8 +49,7 @@ class JniMapObserver : public mbgl::MapObserver {
   // - Glyph/Tile/Sprite loading callbacks
 
  private:
-  JNIEnv *env;
-  smjni::auto_java_ref<jMapObserver> observer;
+  smjni::global_java_ref<jMapObserver> observer;
 };
 
 }  // namespace maplibre_jni

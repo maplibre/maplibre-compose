@@ -502,8 +502,7 @@ jlong JNICALL MapLibreMap_class::nativeInit(
     auto renderer = maplibre_jni::AwtCanvasRenderer::create(
       env, canvas, pixelWidth, pixelHeight, pixelRatio, std::nullopt
     );
-    auto observer =
-      std::make_unique<maplibre_jni::JniMapObserver>(env, observerObj);
+    auto observer = std::make_unique<maplibre_jni::JniMapObserver>(observerObj);
     mbgl::MapOptions mapOptions = maplibre_jni::convertMapOptions(
       env, optionsObj, pixelWidth, pixelHeight, pixelRatio
     );
