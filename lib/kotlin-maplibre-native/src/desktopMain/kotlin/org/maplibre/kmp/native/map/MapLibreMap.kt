@@ -12,13 +12,14 @@ import smjni.jnigen.ExposeToNative
 @ExposeToNative
 public class MapLibreMap(
   canvas: Canvas,
-  @get:CalledByNative private val observer: MapObserver,
-  @get:CalledByNative private val options: MapOptions,
-  @get:CalledByNative private val resourceOptions: ResourceOptions,
-  @get:CalledByNative private val clientOptions: ClientOptions,
+  private val observer: MapObserver,
+  private val options: MapOptions,
+  private val resourceOptions: ResourceOptions,
+  private val clientOptions: ClientOptions,
 ) {
   @get:CalledByNative
-  private val nativePeer =
+  @get:JvmName("getNativePeer")
+  internal val nativePeer =
     AutoCleanPointer(
       new = {
         val pixelRatio = canvas.graphicsConfiguration.defaultTransform.scaleX

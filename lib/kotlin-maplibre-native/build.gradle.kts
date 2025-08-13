@@ -44,5 +44,5 @@ ksp {
   )
   arg("smjni.jnigen.own.dest.path", "true")
   arg("smjni.jnigen.output.list.name", "generated_headers.txt")
-  arg("smjni.jnigen.expose.extra", "java.lang.Double")
+  arg("smjni.jnigen.expose.extra", "java.lang.Double;java.awt.Canvas")
 }

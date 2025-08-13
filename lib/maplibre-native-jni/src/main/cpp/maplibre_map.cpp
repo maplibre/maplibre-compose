@@ -494,7 +494,7 @@ void JNICALL MapLibreMap_class::setTileLodZoomShiftNative(
 }
 
 jlong JNICALL MapLibreMap_class::nativeInit(
-  JNIEnv *env, jclass, jobject canvas, jdouble pixelWidth, jdouble pixelHeight,
+  JNIEnv *env, jclass, jCanvas canvas, jdouble pixelWidth, jdouble pixelHeight,
   jfloat pixelRatio, jMapObserver observerObj, jMapOptions optionsObj,
   jResourceOptions resourceOptionsObj, jClientOptions clientOptionsObj
 ) {

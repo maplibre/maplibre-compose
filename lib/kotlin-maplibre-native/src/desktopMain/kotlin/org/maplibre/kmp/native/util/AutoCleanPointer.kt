@@ -6,7 +6,7 @@ import smjni.jnigen.ExposeToNative
 
 @ExposeToNative
 internal class AutoCleanPointer internal constructor(new: () -> Long, destroy: (Long) -> Unit) {
-  @get:CalledByNative private val rawPtr: Long = new()
+  @get:CalledByNative val rawPtr: Long = new()
 
   init {
     cleaner.register(this) { destroy(rawPtr) }

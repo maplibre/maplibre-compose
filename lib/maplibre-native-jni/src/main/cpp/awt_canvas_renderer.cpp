@@ -13,6 +13,7 @@
 #include <mbgl/util/logging.hpp>
 #include <mbgl/util/run_loop.hpp>
 #include <memory>
+#include <type_mapping.h>
 #include "./backend/awt_backend_factory.hpp"
 
 namespace maplibre_jni {
@@ -21,7 +22,7 @@ namespace maplibre_jni {
 class AwtCanvasRenderer::Impl : public mbgl::RendererObserver {
  public:
   Impl(
-    JNIEnv *env, jobject canvas, int width, int height, float pixelRatio,
+    JNIEnv *env, jCanvas canvas, int width, int height, float pixelRatio,
     const std::optional<std::string> &localFontFamily
   )
       : runLoop(
@@ -181,7 +182,7 @@ AwtCanvasRenderer::AwtCanvasRenderer() = default;
 AwtCanvasRenderer::~AwtCanvasRenderer() = default;
 
 std::unique_ptr<AwtCanvasRenderer> AwtCanvasRenderer::create(
-  JNIEnv *env, jobject canvas, int width, int height, float pixelRatio,
+  JNIEnv *env, jCanvas canvas, int width, int height, float pixelRatio,
   const std::optional<std::string> &localFontFamily
 ) {
   auto renderer = std::unique_ptr<AwtCanvasRenderer>(new AwtCanvasRenderer());

@@ -82,7 +82,7 @@ void GLBackend::swapBuffers() { contextStrategy->swapBuffers(); }
 JNIEnv *GLBackend::getEnv() {
   JNIEnv *env = nullptr;
   if (javaVM) {
-    javaVM->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_21);
+    javaVM->GetEnv(reinterpret_cast<void **>(&env), JNI_VERSION_1_6);
   }
   return env;
 }

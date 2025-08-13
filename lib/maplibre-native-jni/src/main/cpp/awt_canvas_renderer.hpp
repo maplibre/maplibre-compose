@@ -7,6 +7,7 @@
 #include <mbgl/renderer/renderer_observer.hpp>
 #include <mbgl/util/run_loop.hpp>
 #include <memory>
+#include <type_mapping.h>
 
 namespace maplibre_jni {
 
@@ -14,7 +15,7 @@ class AwtCanvasRenderer : public mbgl::RendererFrontend {
  public:
   // Create a renderer for the given AWT Canvas
   static std::unique_ptr<AwtCanvasRenderer> create(
-    JNIEnv *env, jobject canvas, int width, int height, float pixelRatio,
+    JNIEnv *env, jCanvas canvas, int width, int height, float pixelRatio,
     const std::optional<std::string> &localFontFamily = std::nullopt
   );
 

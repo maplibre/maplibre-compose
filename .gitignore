@@ -21,3 +21,5 @@ iosApp/*.xcodeproj/*
 exportedSpmMaplibre
 out/
 .cache/
+hs_err_*.log
+demo-app/maplibre-cache

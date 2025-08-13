@@ -203,7 +203,9 @@ if (configureForPublishing) {
     }
   }
 
-  tasks.named("processResources") { dependsOn("copyNativeToResources") }
+  Variant.values().forEach { variant ->
+    tasks.named("process${variant.sourceSetName}Resources") { dependsOn("copyNativeToResources") }
+  }
 
   Unit // gradle doesn't like if expressions returning things
 }
