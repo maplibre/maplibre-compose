@@ -3,24 +3,50 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.dp
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.kmp.native.camera.CameraChangeMode
 import org.maplibre.kmp.native.map.MapLibreMap
+import org.maplibre.kmp.native.map.MapLoadError
+import org.maplibre.kmp.native.map.MapObserver
 
-internal class DesktopMapAdapter(
-  internal val map: MapLibreMap,
-  internal var callbacks: MapAdapter.Callbacks,
-) : MapAdapter {
+internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
+  MapAdapter, MapObserver {
+
+  internal lateinit var map: MapLibreMap
 
   private var lastBaseStyle: BaseStyle? = null
+
+  override fun onDidFinishLoadingMap() {
+    callbacks.onMapFinishedLoading(this)
+  }
+
+  override fun onDidFailLoadingMap(error: MapLoadError, message: String) {
+    callbacks.onMapFailLoading(message)
+  }
+
+  override fun onCameraWillChange(mode: CameraChangeMode) {
+    // TODO: Determine the reason for camera movement
+    callbacks.onCameraMoveStarted(this, CameraMoveReason.UNKNOWN)
+  }
+
+  override fun onCameraIsChanging() {
+    callbacks.onCameraMoved(this)
+  }
+
+  override fun onCameraDidChange(mode: CameraChangeMode) {
+    callbacks.onCameraMoveEnded(this)
+  }
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
@@ -36,7 +62,8 @@ internal class DesktopMapAdapter(
   }
 
   override fun getCameraPosition(): CameraPosition {
-    TODO("get camera position")
+    // TODO: get camera position
+    return CameraPosition()
   }
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
@@ -64,11 +91,18 @@ internal class DesktopMapAdapter(
   }
 
   override fun getVisibleBoundingBox(): BoundingBox {
-    TODO("get visible bounding box")
+    // TODO: get visible bounding box
+    return BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))
   }
 
   override fun getVisibleRegion(): VisibleRegion {
-    TODO("get visible region")
+    // TODO: get visible region
+    return VisibleRegion(
+      Position(0.0, 0.0),
+      Position(0.0, 0.0),
+      Position(0.0, 0.0),
+      Position(0.0, 0.0),
+    )
   }
 
   override fun setRenderSettings(value: RenderOptions) {
@@ -85,11 +119,13 @@ internal class DesktopMapAdapter(
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position {
-    TODO("get position from screen location")
+    // TODO: get position from screen location
+    return Position(0.0, 0.0)
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset {
-    TODO("get screen location from position")
+    // TODO: get screen location from position
+    return DpOffset(0.dp, 0.dp)
   }
 
   override fun queryRenderedFeatures(
@@ -97,7 +133,8 @@ internal class DesktopMapAdapter(
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature> {
-    TODO("query rendered features at offset")
+    // TODO: query rendered features at offset
+    return emptyList()
   }
 
   override fun queryRenderedFeatures(
@@ -105,11 +142,13 @@ internal class DesktopMapAdapter(
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature> {
-    TODO("query rendered features in rect")
+    // TODO: query rendered features in rectangle
+    return emptyList()
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double {
-    TODO("get map scale")
+    // TODO: calculate meters per dp at latitude
+    return 1.0
   }
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {

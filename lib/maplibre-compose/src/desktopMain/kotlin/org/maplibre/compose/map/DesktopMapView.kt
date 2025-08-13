@@ -49,26 +49,22 @@ internal fun DesktopMapView(
   options: MapOptions,
 ) {
   val currentOnReset by rememberUpdatedState(onReset)
-  var currentMapObserver by remember { mutableStateOf<DesktopMapObserver?>(null) }
   var currentMapAdapter by remember { mutableStateOf<DesktopMapAdapter?>(null) }
 
   SwingPanel(
     background = Color.White,
     factory = {
-      val observer = DesktopMapObserver(callbacks)
+      val adapter = DesktopMapAdapter(callbacks)
       MapCanvas(
-        mapObserver = DesktopMapObserver(callbacks),
+        mapObserver = adapter,
         onMapReady = { map, _ ->
-          val adapter = DesktopMapAdapter(map, callbacks)
-          observer.adapter = adapter
-          currentMapObserver = observer
           currentMapAdapter = adapter
+          adapter.map = map
           adapter.setBaseStyle(style)
         },
       )
     },
     update = { _ ->
-      currentMapObserver?.callbacks = callbacks
       currentMapAdapter?.let { adapter ->
         adapter.callbacks = callbacks
         adapter.setBaseStyle(style)
