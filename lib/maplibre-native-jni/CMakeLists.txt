@@ -51,34 +51,34 @@ if(MLN_WITH_METAL)
     list(APPEND MAPLIBRE_JNI_SOURCES
         src/main/cpp/backend/metal/awt_metal_backend.mm
     )
-elseif(MLN_WITH_VULKAN)
-    list(APPEND MAPLIBRE_JNI_SOURCES
-        src/main/cpp/backend/vulkan/awt_vulkan_backend.cpp
-    )
-    if(APPLE)
-        list(APPEND MAPLIBRE_JNI_SOURCES
-            src/main/cpp/backend/vulkan/awt_vulkan_backend.mm
-        )
-    endif()
-elseif(MLN_WITH_OPENGL)
-    list(APPEND MAPLIBRE_JNI_SOURCES
-        src/main/cpp/backend/gl/awt_gl_backend.cpp
-        src/main/cpp/backend/gl/gl_context_strategy.hpp
-    )
-    if(MLN_WITH_EGL)
-        list(APPEND MAPLIBRE_JNI_SOURCES
-            src/main/cpp/backend/gl/egl_context_strategy.cpp
-        )
-    elseif(WIN32)
-        list(APPEND MAPLIBRE_JNI_SOURCES
-            src/main/cpp/backend/gl/wgl_context_strategy.cpp
-        )
-    elseif(UNIX AND NOT APPLE)
-        # Linux with GLX (desktop OpenGL)
-        list(APPEND MAPLIBRE_JNI_SOURCES
-            src/main/cpp/backend/gl/glx_context_strategy.cpp
-        )
-    endif()
+# elseif(MLN_WITH_VULKAN)
+#     list(APPEND MAPLIBRE_JNI_SOURCES
+#         src/main/cpp/backend/vulkan/awt_vulkan_backend.cpp
+#     )
+#     if(APPLE)
+#         list(APPEND MAPLIBRE_JNI_SOURCES
+#             src/main/cpp/backend/vulkan/awt_vulkan_backend.mm
+#         )
+#     endif()
+# elseif(MLN_WITH_OPENGL)
+#     list(APPEND MAPLIBRE_JNI_SOURCES
+#         src/main/cpp/backend/gl/awt_gl_backend.cpp
+#         src/main/cpp/backend/gl/gl_context_strategy.hpp
+#     )
+#     if(MLN_WITH_EGL)
+#         list(APPEND MAPLIBRE_JNI_SOURCES
+#             src/main/cpp/backend/gl/egl_context_strategy.cpp
+#         )
+#     elseif(WIN32)
+#         list(APPEND MAPLIBRE_JNI_SOURCES
+#             src/main/cpp/backend/gl/wgl_context_strategy.cpp
+#         )
+#     elseif(UNIX AND NOT APPLE)
+#         # Linux with GLX (desktop OpenGL)
+#         list(APPEND MAPLIBRE_JNI_SOURCES
+#             src/main/cpp/backend/gl/glx_context_strategy.cpp
+#         )
+#     endif()
 else()
     message(FATAL_ERROR "Unsupported backend configuration.")
 endif()

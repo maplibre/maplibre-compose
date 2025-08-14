@@ -15,7 +15,8 @@ class AwtCanvasRenderer : public mbgl::RendererFrontend {
  public:
   // Create a renderer for the given AWT Canvas
   static std::unique_ptr<AwtCanvasRenderer> create(
-    JNIEnv *env, jCanvas canvas, int width, int height, float pixelRatio,
+    JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
+    jdouble canvasWidth, jdouble canvasHeight,
     const std::optional<std::string> &localFontFamily = std::nullopt
   );
 

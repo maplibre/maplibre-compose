@@ -1,6 +1,7 @@
 #pragma once
 
 #include <all_classes.h>
+#include "type_mapping.h"
 
 class Double_class : public smjni::java_runtime::simple_java_class<jDouble> {
  public:

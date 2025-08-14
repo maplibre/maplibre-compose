@@ -26,19 +26,8 @@ public class MapCanvas(
     addComponentListener(
       object : ComponentAdapter() {
         override fun componentResized(e: ComponentEvent) {
-          if (width > 0 && height > 0) {
-            if (map == null) {
-              initializeMap()
-            } else {
-              val pixelRatio = graphicsConfiguration.defaultTransform.scaleX.toFloat()
-              map?.setSize(
-                Size(
-                  width = (this@MapCanvas.width * pixelRatio).toInt(),
-                  height = (this@MapCanvas.height * pixelRatio).toInt(),
-                )
-              )
-            }
-          }
+          if (width == 0 || height == 0) return // maplibre requires non-zero dimensions
+          map?.setSize(Size(width = this@MapCanvas.width, height = this@MapCanvas.height))
         }
       }
     )
@@ -46,14 +35,11 @@ public class MapCanvas(
 
   private fun initializeMap() {
     try {
-      val pixelRatio = graphicsConfiguration.defaultTransform.scaleX
-      val frameRate = graphicsConfiguration.device.displayMode.refreshRate
-
       // Should match the canvas size
       val adjustedMapOptions =
         mapOptions.copy(
-          pixelRatio = pixelRatio.toFloat(),
-          size = Size(width = (width * pixelRatio).toInt(), height = (height * pixelRatio).toInt()),
+          pixelRatio = graphicsConfiguration.defaultTransform.scaleX.toFloat(),
+          size = Size(width = width, height = height),
         )
 
       val map =
@@ -66,8 +52,6 @@ public class MapCanvas(
           )
           .also { this.map = it }
 
-      startRenderLoop(frameRate)
-
       onMapReady(map, this)
     } catch (e: Exception) {
       println("Failed to initialize MapLibre: ${e.message}")
@@ -75,19 +59,21 @@ public class MapCanvas(
     }
   }
 
-  private fun startRenderLoop(frameRate: Int) {
-    renderTimer = Timer(1000 / frameRate) { map?.tick() }.apply { start() }
-  }
-
-  private fun dispose() {
-    renderTimer?.stop()
-    renderTimer = null
-    map = null
+  override fun addNotify() {
+    super.addNotify()
+    renderTimer =
+      Timer(1000 / graphicsConfiguration.device.displayMode.refreshRate) {
+        if (map == null && isShowing && width > 0 && height > 0) initializeMap()
+        map?.tick()
+      }
+    renderTimer?.start()
   }
 
   override fun removeNotify() {
     super.removeNotify()
-    dispose()
+    renderTimer?.stop()
+    renderTimer = null
+    map = null
   }
 
   override fun paint(g: Graphics) {

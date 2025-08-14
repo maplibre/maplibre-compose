@@ -36,9 +36,12 @@ void JNICALL
 MapLibreMap_class::setSize(JNIEnv *env, jMapLibreMap map, jSize size) {
   try {
     auto *wrapper = getWrapper(env, map);
-    mbgl::Size cSize = maplibre_jni::convertSize(env, size);
+    auto cSize = maplibre_jni::convertSize(env, size);
     wrapper->map->setSize(cSize);
-    wrapper->renderer->updateSize(cSize.width, cSize.height);
+    auto pixelRatio = wrapper->map->getMapOptions().pixelRatio();
+    wrapper->renderer->updateSize(
+      cSize.width * pixelRatio, cSize.height * pixelRatio
+    );
   } catch (const std::exception &e) {
     smjni::java_exception::translate(env, e);
   }
@@ -494,18 +497,18 @@ void JNICALL MapLibreMap_class::setTileLodZoomShiftNative(
 }
 
 jlong JNICALL MapLibreMap_class::nativeInit(
-  JNIEnv *env, jclass, jCanvas canvas, jdouble pixelWidth, jdouble pixelHeight,
-  jfloat pixelRatio, jMapObserver observerObj, jMapOptions optionsObj,
-  jResourceOptions resourceOptionsObj, jClientOptions clientOptionsObj
+  JNIEnv *env, jclass, jCanvas canvas, jdouble canvasX, jdouble canvasY,
+  jdouble canvasWidth, jdouble canvasHeight, jMapObserver observerObj,
+  jMapOptions optionsObj, jResourceOptions resourceOptionsObj,
+  jClientOptions clientOptionsObj
 ) {
   try {
     auto renderer = maplibre_jni::AwtCanvasRenderer::create(
-      env, canvas, pixelWidth, pixelHeight, pixelRatio, std::nullopt
+      env, canvas, canvasX, canvasY, canvasWidth, canvasHeight, std::nullopt
     );
     auto observer = std::make_unique<maplibre_jni::JniMapObserver>(observerObj);
-    mbgl::MapOptions mapOptions = maplibre_jni::convertMapOptions(
-      env, optionsObj, pixelWidth, pixelHeight, pixelRatio
-    );
+    mbgl::MapOptions mapOptions =
+      maplibre_jni::convertMapOptions(env, optionsObj);
     mbgl::ResourceOptions resourceOptions =
       maplibre_jni::convertResourceOptions(env, resourceOptionsObj);
     mbgl::ClientOptions clientOptions =

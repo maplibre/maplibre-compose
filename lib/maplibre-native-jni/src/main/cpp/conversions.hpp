@@ -35,10 +35,7 @@ jCameraOptions convertCameraOptions(
 mbgl::Size convertSize(JNIEnv *env, jSize sizeObj);
 jSize convertSize(JNIEnv *env, const mbgl::Size &size);
 
-mbgl::MapOptions convertMapOptions(
-  JNIEnv *env, jMapOptions optionsObj, double pixelWidth, double pixelHeight,
-  float pixelRatio
-);
+mbgl::MapOptions convertMapOptions(JNIEnv *env, jMapOptions optionsObj);
 jMapOptions convertMapOptions(JNIEnv *env, const mbgl::MapOptions &mapOptions);
 
 mbgl::ResourceOptions convertResourceOptions(

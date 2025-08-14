@@ -1,6 +1,9 @@
+#include <cstddef>
+#include <cstdio>
+#include "smjni/java_ref.h"
+#include "type_mapping.h"
 #ifdef USE_METAL_BACKEND
 
-#include "awt_metal_backend.hpp"
 #import <Cocoa/Cocoa.h>
 #include <Metal/Metal.hpp>
 #import <QuartzCore/CAMetalLayer.h>
@@ -14,6 +17,8 @@
 #include <mbgl/mtl/texture2d.hpp>
 #include <mbgl/util/logging.hpp>
 #include <memory>
+#include "awt_metal_backend.hpp"
+#include "java_classes.hpp"
 
 namespace maplibre_jni {
 // Implementation follows below
@@ -33,15 +38,12 @@ class MetalRenderableResource final : public mtl::RenderableResource {
     swapchain->setDevice(backend.getDevice().get());
   }
 
-  void setBackendSize(mbgl::Size size_) {
-    size = size_;
+  void setBackendSize(mbgl::Size size) {
     swapchain->setDrawableSize(
       {static_cast<CGFloat>(size.width), static_cast<CGFloat>(size.height)}
     );
     buffersInvalid = true;
   }
-
-  mbgl::Size getSize() const { return size; }
 
   void bind() override {
     surface = NS::TransferPtr(swapchain->nextDrawable());
@@ -153,7 +155,6 @@ class MetalRenderableResource final : public mtl::RenderableResource {
  private:
   mbgl::mtl::RendererBackend &rendererBackend;
   mbgl::Color clearColor{0.0, 0.0, 0.0, 1.0};
-  mbgl::Size size{0, 0};
   NS::SharedPtr<MTL::CommandQueue> commandQueue;
   NS::SharedPtr<CA::MetalDrawable> surface;
   MTLCommandBufferPtr commandBuffer;
@@ -167,68 +168,30 @@ class MetalRenderableResource final : public mtl::RenderableResource {
 
 namespace maplibre_jni {
 
-// MetalBackend implementation
-
-MetalBackend::MetalBackend(JNIEnv *env, jobject canvas, int width, int height)
+MetalBackend::MetalBackend(
+  JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
+  jdouble canvasWidth, jdouble canvasHeight
+)
     : mbgl::mtl::RendererBackend(mbgl::gfx::ContextMode::Unique),
       mbgl::gfx::Renderable(
         mbgl::Size{0, 0}, std::make_unique<mbgl::MetalRenderableResource>(*this)
       ),
-      size({static_cast<uint32_t>(width), static_cast<uint32_t>(height)}) {
-  // Get JavaVM for later use
-  env->GetJavaVM(&jvm);
-  canvasRef = env->NewGlobalRef(canvas);
-
-  // Configure the Metal layer via Objective-C
-  auto &resource = getResource<mbgl::MetalRenderableResource>();
-  resource.setBackendSize(size);
-  CAMetalLayer *metalLayer = (__bridge CAMetalLayer *)resource.swapchain.get();
-
-  // Get the backing scale factor for proper Retina display support
-  NSScreen *screen = [NSScreen mainScreen];
-  CGFloat scale = screen.backingScaleFactor;
-
-  // Set the frame accounting for the scale factor (convert from pixels to
-  // points)
-  metalLayer.frame = CGRectMake(0, 0, width / scale, height / scale);
-
-  // Set the contentsScale to match the screen's backing scale
-  metalLayer.contentsScale = scale;
-
-  // Now set up the Metal layer on the AWT Canvas
-  setupMetalLayer(env, canvas);
-}
-
-MetalBackend::~MetalBackend() {
-  releaseNativeWindow();
-
-  if (canvasRef && jvm) {
-    JNIEnv *env = getEnv();
-    if (env) {
-      env->DeleteGlobalRef(canvasRef);
-    }
-  }
+      canvasRef(smjni::jglobal_ref(canvas)) {
+  setupMetalLayer(env, canvas, canvasX, canvasY, canvasWidth, canvasHeight);
 }
 
 void MetalBackend::setSize(mbgl::Size newSize) {
   size = newSize;
   auto &resource = getResource<mbgl::MetalRenderableResource>();
   resource.setBackendSize(size);
-
-  // Update the Metal layer frame to match the new size
-  CAMetalLayer *metalLayer = (__bridge CAMetalLayer *)resource.swapchain.get();
-  NSScreen *screen = [NSScreen mainScreen];
-  CGFloat scale = screen.backingScaleFactor;
-  metalLayer.frame =
-    CGRectMake(0, 0, newSize.width / scale, newSize.height / scale);
-  metalLayer.contentsScale = scale;
 }
 
 mbgl::gfx::Renderable &MetalBackend::getDefaultRenderable() { return *this; }
 
-mbgl::Size MetalBackend::getSize() const { return size; }
-
-void MetalBackend::setupMetalLayer(JNIEnv *env, jobject canvas) {
+void MetalBackend::setupMetalLayer(
+  JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
+  jdouble canvasWidth, jdouble canvasHeight
+) {
   // Get JAWT
   JAWT awt;
   awt.version = JAWT_VERSION_9;
@@ -279,50 +242,17 @@ void MetalBackend::setupMetalLayer(JNIEnv *env, jobject canvas) {
   // Get the Metal layer from our resource and set it on the JAWT surface
   auto &resource = getResource<mbgl::MetalRenderableResource>();
   CAMetalLayer *metalLayer = (__bridge CAMetalLayer *)resource.swapchain.get();
-
-  // Set the Metal layer on the JAWT surface
+  NSScreen *screen = [NSScreen mainScreen];
+  CGFloat scale = screen.backingScaleFactor;
+  // Set the layer's frame in window coordinates
+  metalLayer.frame = CGRectMake(canvasX, canvasY, canvasWidth, canvasHeight);
+  metalLayer.contentsScale = scale;
   surfaceLayers.layer = metalLayer;
 
-  // Store references for cleanup
-  jawtDrawingSurface = ds;
-  jawtDrawingSurfaceInfo = dsi;
-}
-
-void MetalBackend::releaseNativeWindow() {
-  if (jawtDrawingSurfaceInfo && jawtDrawingSurface) {
-    JAWT_DrawingSurface *ds = (JAWT_DrawingSurface *)jawtDrawingSurface;
-    ds->FreeDrawingSurfaceInfo(
-      (JAWT_DrawingSurfaceInfo *)jawtDrawingSurfaceInfo
-    );
-    ds->Unlock(ds);
-
-    // Get JAWT to free the surface
-    JAWT awt;
-    awt.version = JAWT_VERSION_9;
-    JNIEnv *env = getEnv();
-    if (env && JAWT_GetAWT(env, &awt) != JNI_FALSE) {
-      awt.FreeDrawingSurface(ds);
-    }
-
-    jawtDrawingSurface = nullptr;
-    jawtDrawingSurfaceInfo = nullptr;
-  }
-}
-
-JNIEnv *MetalBackend::getEnv() {
-  JNIEnv *env = nullptr;
-  if (jvm) {
-    jvm->AttachCurrentThread((void **)&env, nullptr);
-  }
-  return env;
-}
-
-// Factory function
-std::unique_ptr<mbgl::gfx::RendererBackend> createMetalBackend(
-  JNIEnv *env, jobject canvas, int width, int height,
-  const mbgl::gfx::ContextMode contextMode
-) {
-  return std::make_unique<MetalBackend>(env, canvas, width, height);
+  // Clean up references
+  ds->FreeDrawingSurfaceInfo(dsi);
+  ds->Unlock(ds);
+  awt.FreeDrawingSurface(ds);
 }
 
 }  // namespace maplibre_jni

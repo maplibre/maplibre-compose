@@ -3,6 +3,7 @@
 #include <smjni/java_ref.h>
 #include <smjni/java_string.h>
 #include <tuple>
+#include "MapOptions_class.h"
 #include "java_classes.hpp"
 
 namespace maplibre_jni {
@@ -260,10 +261,8 @@ mbgl::TileServerOptions convertTileServerOptions(
   return tileServerOptions;
 }
 
-mbgl::MapOptions convertMapOptions(
-  JNIEnv *env, jMapOptions optionsObj, double pixelWidth, double pixelHeight,
-  float pixelRatio
-) {
+mbgl::MapOptions convertMapOptions(JNIEnv *env, jMapOptions optionsObj) {
+  auto jSize = java_classes::get<MapOptions_class>().getSize(env, optionsObj);
   auto jMapMode =
     java_classes::get<MapOptions_class>().getMapMode(env, optionsObj);
   auto jConstrainMode =
@@ -300,8 +299,15 @@ mbgl::MapOptions convertMapOptions(
       )
     )
   );
-  mapOptions.withSize(mbgl::Size(pixelWidth, pixelHeight));
-  mapOptions.withPixelRatio(pixelRatio);
+  mapOptions.withSize(
+    mbgl::Size(
+      java_classes::get<Size_class>().getWidth(env, jSize),
+      java_classes::get<Size_class>().getHeight(env, jSize)
+    )
+  );
+  mapOptions.withPixelRatio(
+    java_classes::get<MapOptions_class>().getPixelRatio(env, optionsObj)
+  );
 
   return mapOptions;
 }

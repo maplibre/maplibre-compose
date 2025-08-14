@@ -58,22 +58,14 @@ public class MapControls(
   private var lastClickTime = 0L
   private val doubleClickThreshold = 400L // milliseconds
 
-  // Get pixel ratio for proper scaling
-  private val pixelRatio: Float
-    get() =
-      (component as? java.awt.Canvas)?.graphicsConfiguration?.defaultTransform?.scaleX?.toFloat()
-        ?: 1.0f
-
   /** Convert mouse event to map coordinates */
   private fun toMapCoordinate(e: MouseEvent): ScreenCoordinate {
-    val pixelRatio = pixelRatio
-    return ScreenCoordinate(e.x.toDouble() * pixelRatio, e.y.toDouble() * pixelRatio)
+    return ScreenCoordinate(e.x.toDouble(), e.y.toDouble())
   }
 
   /** Convert delta values to map coordinates (for pan operations) */
   private fun toMapDelta(dx: Double, dy: Double): ScreenCoordinate {
-    val pixelRatio = pixelRatio
-    return ScreenCoordinate(dx * pixelRatio, dy * pixelRatio)
+    return ScreenCoordinate(dx, dy)
   }
 
   /** Enable interaction handling */
@@ -256,14 +248,10 @@ public class MapControls(
       KeyEvent.VK_LEFT -> {
         if (config.enablePan) {
           val currentCamera = map.getCameraOptions()
-          val pixelRatio = pixelRatio
           val screenDelta = toMapDelta(100.0 * config.panSpeed, 0.0)
           val newCenter =
             map.latLngForPixel(
-              ScreenCoordinate(
-                component.width * pixelRatio / 2.0 - screenDelta.x,
-                component.height * pixelRatio / 2.0,
-              )
+              ScreenCoordinate(component.width / 2.0 - screenDelta.x, component.height / 2.0)
             )
           map.easeTo(currentCamera.copy(center = newCenter), 300)
         }
@@ -272,14 +260,10 @@ public class MapControls(
       KeyEvent.VK_RIGHT -> {
         if (config.enablePan) {
           val currentCamera = map.getCameraOptions()
-          val pixelRatio = pixelRatio
           val screenDelta = toMapDelta(-100.0 * config.panSpeed, 0.0)
           val newCenter =
             map.latLngForPixel(
-              ScreenCoordinate(
-                component.width * pixelRatio / 2.0 - screenDelta.x,
-                component.height * pixelRatio / 2.0,
-              )
+              ScreenCoordinate(component.width / 2.0 - screenDelta.x, component.height / 2.0)
             )
           map.easeTo(currentCamera.copy(center = newCenter), 300)
         }
@@ -288,14 +272,10 @@ public class MapControls(
       KeyEvent.VK_UP -> {
         if (config.enablePan) {
           val currentCamera = map.getCameraOptions()
-          val pixelRatio = pixelRatio
           val screenDelta = toMapDelta(0.0, 100.0 * config.panSpeed)
           val newCenter =
             map.latLngForPixel(
-              ScreenCoordinate(
-                component.width * pixelRatio / 2.0,
-                component.height * pixelRatio / 2.0 - screenDelta.y,
-              )
+              ScreenCoordinate(component.width / 2.0, component.height / 2.0 - screenDelta.y)
             )
           map.easeTo(currentCamera.copy(center = newCenter), 300)
         }
@@ -304,14 +284,10 @@ public class MapControls(
       KeyEvent.VK_DOWN -> {
         if (config.enablePan) {
           val currentCamera = map.getCameraOptions()
-          val pixelRatio = pixelRatio
           val screenDelta = toMapDelta(0.0, -100.0 * config.panSpeed)
           val newCenter =
             map.latLngForPixel(
-              ScreenCoordinate(
-                component.width * pixelRatio / 2.0,
-                component.height * pixelRatio / 2.0 - screenDelta.y,
-              )
+              ScreenCoordinate(component.width / 2.0, component.height / 2.0 - screenDelta.y)
             )
           map.easeTo(currentCamera.copy(center = newCenter), 300)
         }

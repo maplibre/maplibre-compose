@@ -1,5 +1,7 @@
 #pragma once
 
+#include "smjni/java_ref.h"
+#include "type_mapping.h"
 #ifdef USE_METAL_BACKEND
 
 #include <jni.h>
@@ -12,8 +14,11 @@ namespace maplibre_jni {
 class MetalBackend final : public mbgl::mtl::RendererBackend,
                            public mbgl::gfx::Renderable {
  public:
-  MetalBackend(JNIEnv *env, jobject canvas, int width, int height);
-  ~MetalBackend() override;
+  MetalBackend(
+    JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
+    jdouble canvasWidth, jdouble canvasHeight
+  );
+  ~MetalBackend() override = default;
 
   // mbgl::gfx::RendererBackend implementation
   mbgl::gfx::Renderable &getDefaultRenderable() override;
@@ -25,23 +30,13 @@ class MetalBackend final : public mbgl::mtl::RendererBackend,
 
   // Size management
   void setSize(mbgl::Size size);
-  mbgl::Size getSize() const;
 
  private:
-  void setupMetalLayer(JNIEnv *env, jobject canvas);
-  void releaseNativeWindow();
-  JNIEnv *getEnv();
-
-  // Size
-  mbgl::Size size;
-
-  // JAWT structures
-  void *jawtDrawingSurface = nullptr;
-  void *jawtDrawingSurfaceInfo = nullptr;
-
-  // JNI references
-  JavaVM *jvm = nullptr;
-  jobject canvasRef = nullptr;
+  void setupMetalLayer(
+    JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
+    jdouble canvasWidth, jdouble canvasHeight
+  );
+  smjni::global_java_ref<jCanvas> canvasRef;
 };
 
 }  // namespace maplibre_jni
