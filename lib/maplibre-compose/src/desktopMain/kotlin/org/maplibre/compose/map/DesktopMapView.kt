@@ -53,7 +53,7 @@ internal fun DesktopMapView(
   var currentMapAdapter by remember { mutableStateOf<DesktopMapAdapter?>(null) }
 
   SwingPanel(
-    background = Color.White,
+    background = Color.Transparent,
     factory = {
       val adapter = DesktopMapAdapter(callbacks)
       MapCanvas(

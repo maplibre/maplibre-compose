@@ -1,7 +1,6 @@
 package org.maplibre.kmp.native.map
 
 import java.awt.Canvas
-import java.awt.Component
 import java.lang.reflect.Array.set
 import org.maplibre.kmp.native.camera.CameraOptions
 import org.maplibre.kmp.native.util.AutoCleanPointer
@@ -24,18 +23,8 @@ public class MapLibreMap(
   internal val nativePeer =
     AutoCleanPointer(
       new = {
-        // get location in window
-        var root: Component = canvas
-        while (true) root.parent?.let { root = it } ?: break
-        val canvasLoc = canvas.locationOnScreen
-        val rootLoc = root.locationOnScreen
-
         nativeInit(
           canvas = canvas,
-          canvasX = (canvasLoc.x - rootLoc.x).toDouble(),
-          canvasY = (canvasLoc.y - rootLoc.y).toDouble(),
-          canvasWidth = canvas.width.toDouble(),
-          canvasHeight = canvas.height.toDouble(),
           observer = observer,
           options = options,
           resourceOptions = resourceOptions,
@@ -255,10 +244,6 @@ public class MapLibreMap(
     @JvmStatic
     external fun nativeInit(
       canvas: Canvas,
-      canvasX: Double,
-      canvasY: Double,
-      canvasWidth: Double,
-      canvasHeight: Double,
       observer: MapObserver,
       options: MapOptions,
       resourceOptions: ResourceOptions,

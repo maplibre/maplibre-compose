@@ -15,8 +15,7 @@ using PlatformBackend = MetalBackend;
 #endif
 
 std::unique_ptr<PlatformBackend> createPlatformBackend(
-  JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-  jdouble canvasWidth, jdouble canvasHeight
+  JNIEnv *env, jCanvas canvas
 );
 
 }  // namespace maplibre_jni

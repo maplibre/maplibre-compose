@@ -22,8 +22,7 @@ namespace maplibre_jni {
 class AwtCanvasRenderer::Impl : public mbgl::RendererObserver {
  public:
   Impl(
-    JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-    jdouble canvasWidth, jdouble canvasHeight,
+    JNIEnv *env, jCanvas canvas,
     const std::optional<std::string> &localFontFamily
   )
       : runLoop(
@@ -34,9 +33,7 @@ class AwtCanvasRenderer::Impl : public mbgl::RendererObserver {
         dirty(false) {
     env->GetJavaVM(&jvm);
     canvasRef = env->NewGlobalRef(canvas);
-    backend = createPlatformBackend(
-      env, canvas, canvasX, canvasY, canvasWidth, canvasHeight
-    );
+    backend = createPlatformBackend(env, canvas);
     // TODO get the pixel ratio from mapOptions
     renderer = std::make_unique<mbgl::Renderer>(*backend, 2.0, localFontFamily);
     renderer->setObserver(this);
@@ -185,14 +182,10 @@ AwtCanvasRenderer::AwtCanvasRenderer() = default;
 AwtCanvasRenderer::~AwtCanvasRenderer() = default;
 
 std::unique_ptr<AwtCanvasRenderer> AwtCanvasRenderer::create(
-  JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-  jdouble canvasWidth, jdouble canvasHeight,
-  const std::optional<std::string> &localFontFamily
+  JNIEnv *env, jCanvas canvas, const std::optional<std::string> &localFontFamily
 ) {
   auto renderer = std::unique_ptr<AwtCanvasRenderer>(new AwtCanvasRenderer());
-  renderer->impl = std::make_unique<Impl>(
-    env, canvas, canvasX, canvasY, canvasWidth, canvasHeight, localFontFamily
-  );
+  renderer->impl = std::make_unique<Impl>(env, canvas, localFontFamily);
   return renderer;
 }
 

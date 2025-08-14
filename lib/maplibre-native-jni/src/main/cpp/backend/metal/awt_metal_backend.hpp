@@ -14,10 +14,7 @@ namespace maplibre_jni {
 class MetalBackend final : public mbgl::mtl::RendererBackend,
                            public mbgl::gfx::Renderable {
  public:
-  MetalBackend(
-    JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-    jdouble canvasWidth, jdouble canvasHeight
-  );
+  MetalBackend(JNIEnv *env, jCanvas canvas);
   ~MetalBackend() override = default;
 
   // mbgl::gfx::RendererBackend implementation
@@ -32,10 +29,7 @@ class MetalBackend final : public mbgl::mtl::RendererBackend,
   void setSize(mbgl::Size size);
 
  private:
-  void setupMetalLayer(
-    JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-    jdouble canvasWidth, jdouble canvasHeight
-  );
+  void setupMetalLayer(JNIEnv *env, jCanvas canvas);
   smjni::global_java_ref<jCanvas> canvasRef;
 };
 

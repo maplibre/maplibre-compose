@@ -497,15 +497,13 @@ void JNICALL MapLibreMap_class::setTileLodZoomShiftNative(
 }
 
 jlong JNICALL MapLibreMap_class::nativeInit(
-  JNIEnv *env, jclass, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-  jdouble canvasWidth, jdouble canvasHeight, jMapObserver observerObj,
+  JNIEnv *env, jclass, jCanvas canvas, jMapObserver observerObj,
   jMapOptions optionsObj, jResourceOptions resourceOptionsObj,
   jClientOptions clientOptionsObj
 ) {
   try {
-    auto renderer = maplibre_jni::AwtCanvasRenderer::create(
-      env, canvas, canvasX, canvasY, canvasWidth, canvasHeight, std::nullopt
-    );
+    auto renderer =
+      maplibre_jni::AwtCanvasRenderer::create(env, canvas, std::nullopt);
     auto observer = std::make_unique<maplibre_jni::JniMapObserver>(observerObj);
     mbgl::MapOptions mapOptions =
       maplibre_jni::convertMapOptions(env, optionsObj);

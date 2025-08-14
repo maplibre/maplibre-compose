@@ -168,16 +168,13 @@ class MetalRenderableResource final : public mtl::RenderableResource {
 
 namespace maplibre_jni {
 
-MetalBackend::MetalBackend(
-  JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-  jdouble canvasWidth, jdouble canvasHeight
-)
+MetalBackend::MetalBackend(JNIEnv *env, jCanvas canvas)
     : mbgl::mtl::RendererBackend(mbgl::gfx::ContextMode::Unique),
       mbgl::gfx::Renderable(
         mbgl::Size{0, 0}, std::make_unique<mbgl::MetalRenderableResource>(*this)
       ),
       canvasRef(smjni::jglobal_ref(canvas)) {
-  setupMetalLayer(env, canvas, canvasX, canvasY, canvasWidth, canvasHeight);
+  setupMetalLayer(env, canvas);
 }
 
 void MetalBackend::setSize(mbgl::Size newSize) {
@@ -188,10 +185,7 @@ void MetalBackend::setSize(mbgl::Size newSize) {
 
 mbgl::gfx::Renderable &MetalBackend::getDefaultRenderable() { return *this; }
 
-void MetalBackend::setupMetalLayer(
-  JNIEnv *env, jCanvas canvas, jdouble canvasX, jdouble canvasY,
-  jdouble canvasWidth, jdouble canvasHeight
-) {
+void MetalBackend::setupMetalLayer(JNIEnv *env, jCanvas canvas) {
   // Get JAWT
   JAWT awt;
   awt.version = JAWT_VERSION_9;
@@ -244,8 +238,8 @@ void MetalBackend::setupMetalLayer(
   CAMetalLayer *metalLayer = (__bridge CAMetalLayer *)resource.swapchain.get();
   NSScreen *screen = [NSScreen mainScreen];
   CGFloat scale = screen.backingScaleFactor;
-  // Set the layer's frame in window coordinates
-  metalLayer.frame = CGRectMake(canvasX, canvasY, canvasWidth, canvasHeight);
+  // TODO how do we set this properly?
+  metalLayer.bounds = CGRectMake(0, 0, 1, 1);
   metalLayer.contentsScale = scale;
   surfaceLayers.layer = metalLayer;
 
