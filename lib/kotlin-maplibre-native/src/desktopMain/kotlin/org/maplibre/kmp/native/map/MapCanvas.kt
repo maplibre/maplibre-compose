@@ -1,6 +1,7 @@
 package org.maplibre.kmp.native.map
 
 import java.awt.Canvas
+import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
@@ -51,6 +52,14 @@ public class MapCanvas(
             clientOptions = clientOptions,
           )
           .also { this.map = it }
+
+      // HACK: Force a re-layout so AWT sets the correct position and size on macOS.
+      // For more info, see the "quirks" in:
+      // https://github.com/sgothel/jogl/blob/367f3a875096b0091ba6c1053d2804a252062130/src/nativewindow/classes/jogamp/nativewindow/jawt/JAWTUtil.java
+      val originalWidth = width
+      val originalHeight = height
+      size = Dimension(originalWidth + 1, originalHeight + 1)
+      size = Dimension(originalWidth, originalHeight)
 
       onMapReady(map, this)
     } catch (e: Exception) {

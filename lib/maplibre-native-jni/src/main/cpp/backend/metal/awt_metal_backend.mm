@@ -234,11 +234,13 @@ void MetalBackend::setupMetalLayer(JNIEnv *env, jCanvas canvas) {
   }
 
   // Get the Metal layer from our resource and set it on the JAWT surface
+
   auto &resource = getResource<mbgl::MetalRenderableResource>();
   CAMetalLayer *metalLayer = (__bridge CAMetalLayer *)resource.swapchain.get();
   NSScreen *screen = [NSScreen mainScreen];
   CGFloat scale = screen.backingScaleFactor;
-  // TODO how do we set this properly?
+
+  // AWT will set the layer's frame for us
   metalLayer.bounds = CGRectMake(0, 0, 1, 1);
   metalLayer.contentsScale = scale;
   surfaceLayers.layer = metalLayer;
