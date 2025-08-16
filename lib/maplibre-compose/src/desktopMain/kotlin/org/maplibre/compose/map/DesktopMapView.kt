@@ -1,20 +1,20 @@
 package org.maplibre.compose.map
 
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.awt.SwingPanel
+import androidx.compose.ui.graphics.Color
 import co.touchlab.kermit.Logger
-import com.multiplatform.webview.jsbridge.IJsMessageHandler
-import com.multiplatform.webview.jsbridge.JsMessage
-import com.multiplatform.webview.jsbridge.rememberWebViewJsBridge
-import com.multiplatform.webview.web.WebView
-import com.multiplatform.webview.web.WebViewNavigator
-import com.multiplatform.webview.web.rememberWebViewNavigator
-import com.multiplatform.webview.web.rememberWebViewStateWithHTMLData
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
+import org.maplibre.kmp.native.map.MapCanvas
+import org.maplibre.kmp.native.map.MapControls
 
 @Composable
 internal actual fun ComposableMapView(
@@ -30,57 +30,50 @@ internal actual fun ComposableMapView(
   DesktopMapView(
     modifier = modifier,
     style = style,
+    rememberedStyle = rememberedStyle,
     update = update,
     onReset = onReset,
     logger = logger,
     callbacks = callbacks,
+    options = options,
   )
 
 @Composable
 internal fun DesktopMapView(
   modifier: Modifier,
   style: BaseStyle,
-  update: suspend (map: MapAdapter) -> Unit,
+  rememberedStyle: SafeStyle?,
+  update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MapAdapter.Callbacks,
+  options: MapOptions,
 ) {
-  val data = LocalMaplibreContext.current.webviewHtml
-  val state = rememberWebViewStateWithHTMLData(data)
-  val navigator = rememberWebViewNavigator()
-  val jsBridge = rememberWebViewJsBridge(navigator)
+  val currentOnReset by rememberUpdatedState(onReset)
+  var currentMapAdapter by remember { mutableStateOf<DesktopMapAdapter?>(null) }
 
-  WebView(
-    state = state,
-    modifier = modifier.fillMaxWidth(),
-    navigator = navigator,
-    webViewJsBridge = jsBridge,
-    onCreated = { _ -> },
-    onDispose = { _ -> onReset() },
+  SwingPanel(
+    background = Color.Transparent,
+    factory = {
+      val adapter = DesktopMapAdapter(callbacks)
+      MapCanvas(
+        mapObserver = adapter,
+        onMapReady = { map, canvas ->
+          MapControls(canvas, map).enable()
+          currentMapAdapter = adapter
+          adapter.map = map
+          adapter.setBaseStyle(style)
+        },
+      )
+    },
+    update = { _ ->
+      currentMapAdapter?.let { adapter ->
+        adapter.callbacks = callbacks
+        adapter.setBaseStyle(style)
+        update(adapter)
+      }
+    },
+    modifier = modifier,
   )
-
-  if (state.isLoading) return
-
-  val map =
-    remember(state) { WebviewMapAdapter(WebviewBridge(state.nativeWebView, "WebviewMapBridge")) }
-
-  LaunchedEffect(map) { map.init() }
-
-  LaunchedEffect(map, style) { map.asyncSetBaseStyle(style) }
-
-  LaunchedEffect(map, update) { update(map) }
-}
-
-internal class MessageHandler(
-  val name: String,
-  val handler:
-    (message: JsMessage, navigator: WebViewNavigator?, callback: (String) -> Unit) -> Unit,
-) : IJsMessageHandler {
-  override fun handle(
-    message: JsMessage,
-    navigator: WebViewNavigator?,
-    callback: (String) -> Unit,
-  ) = handler(message, navigator, callback)
-
-  override fun methodName(): String = name
+  DisposableEffect(Unit) { onDispose { currentOnReset() } }
 }

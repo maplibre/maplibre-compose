@@ -1,7 +1,81 @@
-#!/bin/sh
+#!/usr/bin/env zsh
+set -euo pipefail
 
-# Run Spotless
-./gradlew -q spotlessApply
+# Stash unstaged changes (keep staged)
+STASHED=false
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  git stash -q --keep-index --include-untracked
+  STASHED=true
+fi
 
-# Add any modified files back to the staging area
-git add .
+# Collect staged files (split on NUL)
+local -a STAGED
+STAGED=("${(0)$(git diff --cached --name-only -z --diff-filter=ACMR)}")
+
+local -a KOTLIN_FILES SWIFT_FILES MD_FILES YAML_FILES CPP_FILES
+for f in "${STAGED[@]}"; do
+  case "$f" in
+    *.kt|*.kts) KOTLIN_FILES+=("$f") ;;
+    *.swift)    SWIFT_FILES+=("$f") ;;
+    *.md)       MD_FILES+=("$f") ;;
+    *.yml|*.yaml) YAML_FILES+=("$f") ;;
+    *.cpp|*.hpp|*.mm) CPP_FILES+=("$f") ;;
+  esac
+done
+
+# Kotlin: ktfmt
+if (( ${#KOTLIN_FILES[@]} > 0 )); then
+  if command -v ktfmt >/dev/null 2>&1; then
+    ktfmt -i --google-style "${KOTLIN_FILES[@]}" || true
+    git add -- "${KOTLIN_FILES[@]}"
+  else
+    echo "Warning: ktfmt not found on PATH. Skipping Kotlin formatting." >&2
+  fi
+fi
+
+# Swift: swift-format
+if (( ${#SWIFT_FILES[@]} > 0 )); then
+  if command -v swift >/dev/null 2>&1 && swift format --help >/dev/null 2>&1; then
+    swift format --in-place "${SWIFT_FILES[@]}" || true
+    git add -- "${SWIFT_FILES[@]}"
+  else
+    echo "Warning: swift format not available. Skipping Swift formatting." >&2
+  fi
+fi
+
+# Markdown: prettier
+if (( ${#MD_FILES[@]} > 0 )); then
+  if command -v prettier >/dev/null 2>&1; then
+    prettier --log-level warn --write "${MD_FILES[@]}" || true
+    git add -- "${MD_FILES[@]}"
+  else
+    echo "Warning: prettier not found on PATH. Skipping Markdown formatting." >&2
+  fi
+fi
+
+# YAML: prettier
+if (( ${#YAML_FILES[@]} > 0 )); then
+  if command -v prettier >/dev/null 2>&1; then
+    prettier --log-level warn --write "${YAML_FILES[@]}" || true
+    git add -- "${YAML_FILES[@]}"
+  else
+    echo "Warning: prettier not found on PATH. Skipping YAML formatting." >&2
+  fi
+fi
+
+# C++/ObjC++: clang-format
+if (( ${#CPP_FILES[@]} > 0 )); then
+  if command -v clang-format >/dev/null 2>&1; then
+    clang-format -i "${CPP_FILES[@]}" || true
+    git add -- "${CPP_FILES[@]}"
+  else
+    echo "Warning: clang-format not found on PATH. Skipping C++ formatting." >&2
+  fi
+fi
+
+# Restore unstaged changes
+if [ "$STASHED" = true ]; then
+  git stash pop -q || true
+fi
+
+exit 0

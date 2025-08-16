@@ -18,9 +18,9 @@ dependencies {
   pluginImplementation(libs.plugins.kotlin.multiplatform)
   pluginImplementation(libs.plugins.kotlin.serialization)
   pluginImplementation(libs.plugins.kotlin.composeCompiler)
+  pluginImplementation(libs.plugins.ksp)
   pluginImplementation(libs.plugins.mkdocs)
   pluginImplementation(libs.plugins.mavenPublish)
-  pluginImplementation(libs.plugins.spotless)
   pluginImplementation(libs.plugins.spmForKmp)
 
   // noinspection GradleDynamicVersion: extra for jgitver imports

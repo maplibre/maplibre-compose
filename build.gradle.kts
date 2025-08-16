@@ -1,7 +1,6 @@
 import ru.vyarus.gradle.plugin.mkdocs.task.MkdocsTask
 
 plugins {
-  id(libs.plugins.spotless.get().pluginId)
   id(libs.plugins.dokka.get().pluginId)
   id(libs.plugins.mkdocs.get().pluginId)
   id("module-conventions")
@@ -48,33 +47,8 @@ tasks.register("generateDocs") {
 dependencies {
   dokka(project(":lib:maplibre-compose:"))
   dokka(project(":lib:maplibre-compose-material3:"))
+  dokka(project(":lib:kotlin-maplibre-native"))
   dokka(project(":lib:kotlin-maplibre-js"))
-}
-
-spotless {
-  val modulePaths = listOf("demo-app", "lib/*", "buildSrc")
-  kotlinGradle {
-    target("*.gradle.kts", *(modulePaths.map { "${it}/*.gradle.kts" }).toTypedArray())
-    ktfmt().googleStyle()
-  }
-  kotlin {
-    target(*modulePaths.map { "${it}/src/**/*.kt" }.toTypedArray())
-    ktfmt().googleStyle()
-  }
-  if (System.getProperty("os.name").contains("Mac OS X")) {
-    format("swift") {
-      target("iosApp/iosApp/**/*.swift")
-      nativeCmd("swiftFormat", "/usr/bin/env", listOf("swift", "format"))
-    }
-  }
-  format("markdown") {
-    target("**/*.md")
-    prettier(libs.versions.tool.prettier.get()).config(mapOf("proseWrap" to "always"))
-  }
-  yaml {
-    target("**/*.yml", "**/*.yaml")
-    prettier(libs.versions.tool.prettier.get())
-  }
 }
 
 tasks.register("installGitHooks") {

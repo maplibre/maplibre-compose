@@ -36,7 +36,8 @@ body:
     id: willing_to_pr
     attributes:
       label: Implementation
-      description: Would you be willing to implement this feature and submit a PR?
+      description:
+        Would you be willing to implement this feature and submit a PR?
       options:
         - "Yes"
         - "No"
@@ -44,7 +45,9 @@ body:
     id: development_platforms
     attributes:
       label: Development Platforms
-      description: If you're willing to implement this, which platforms can you develop for?
+      description:
+        If you're willing to implement this, which platforms can you develop
+        for?
       options:
         - label: Android
         - label: iOS
