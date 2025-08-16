@@ -129,6 +129,8 @@ if (configureForPublishing) {
 
   tasks.register<Exec>("configureCMake") {
     group = "build"
+    // Ensure JNI headers are generated before configuring CMake
+    dependsOn(":lib:kotlin-maplibre-native:kspKotlinDesktop")
     val preset = Variant.current(project).cmakePreset
 
     // Use preset-specific subdirectory to avoid rebuilding when switching presets
@@ -160,6 +162,8 @@ if (configureForPublishing) {
   tasks.register<Exec>("buildNative") {
     group = "build"
     dependsOn("configureCMake")
+    // Ensure JNI headers are generated before building native code
+    dependsOn(":lib:kotlin-maplibre-native:kspKotlinDesktop")
 
     val variant = Variant.current(project)
     val preset = variant.cmakePreset
