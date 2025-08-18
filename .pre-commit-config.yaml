@@ -19,24 +19,24 @@ repos:
     rev: v2.15.0
     hooks:
       - id: pretty-format-kotlin
-        name: ktfmt
+        name: format kotlin
         args: [--autofix, --ktfmt, --ktfmt-style=google]
   - repo: local
     hooks:
       - id: prettier
-        name: markdown, json, yaml
+        name: format markdown, json, yaml
         language: node
         entry: prettier --write
         additional_dependencies: [prettier]
         types_or: [markdown, json, yaml]
       - id: clang-format
-        name: c++
+        name: format c, c++, obj-c, obj-c++
         language: python
         additional_dependencies: [clang-format]
         entry: clang-format -i
         types_or: [c, c++, objective-c, objective-c++]
       - id: swift
-        name: swift
+        name: format swift
         language: system
         entry: |
           bash -euo pipefail -c '
