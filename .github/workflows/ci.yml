@@ -15,7 +15,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
@@ -30,7 +30,7 @@ jobs:
   lint-android:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
@@ -46,7 +46,7 @@ jobs:
           # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
           - 24
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
@@ -70,7 +70,7 @@ jobs:
     name: "test-ios (${{ matrix.os_version }})"
     runs-on: "${{ matrix.runner }}"
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
@@ -84,7 +84,7 @@ jobs:
   test-js:
     runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
@@ -93,7 +93,7 @@ jobs:
   test-desktop:
     runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
@@ -102,7 +102,7 @@ jobs:
   build-docs:
     runs-on: "macos-latest"
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
@@ -114,7 +114,7 @@ jobs:
   build-android-app:
     runs-on: "ubuntu-latest"
     steps:
-      - uses: "actions/checkout@v4"
+      - uses: "actions/checkout@v5"
         with:
           fetch-depth: 0
       - uses: "./.github/actions/setup"
