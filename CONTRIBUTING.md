@@ -20,6 +20,24 @@ expertise on some topic.
 
 ## Set up your development environment
 
+### Kotlin Multiplatform
+
+Check out
+[the official instructions](https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-setup.html)
+for setting up a Kotlin Multiplatform environment.
+
+### IDE
+
+As there's no stable LSP for Kotlin Multiplatform, you'll want to use either
+IntelliJ IDEA or Android Studio for developing MapLibre Compose. In addition to
+the IDE, you'll need some plugins:
+
+- [Kotlin Multiplatform](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform)
+- [Android](https://plugins.jetbrains.com/plugin/22989-android)
+- [Jetpack Compose](https://plugins.jetbrains.com/plugin/18409-jetpack-compose)
+
+### Building for Android
+
 Create a `local.properties` in the root of the project with paths to inform
 Gradle where to find the Android SDK:
 
@@ -28,25 +46,28 @@ Gradle where to find the Android SDK:
 sdk.dir=/Users/username/Library/Android/sdk
 ```
 
-As there's no stable LSP for Kotlin Multiplatform, you'll want to use either
-IntelliJ IDEA or Android Studio for developing MapLibre Compose. In addition to
-the IDE, you'll need some plugins:
+### Building for Apple platforms
 
-- [Kotlin Multiplatform](https://plugins.jetbrains.com/plugin/14936-kotlin-multiplatform)
-- [Android](https://plugins.jetbrains.com/plugin/22989-android)
-- [Android Design Tools](https://plugins.jetbrains.com/plugin/22990-android-design-tools)
-- [Jetpack Compose](https://plugins.jetbrains.com/plugin/18409-jetpack-compose)
-- [Native Debugging Support](https://plugins.jetbrains.com/plugin/12775-native-debugging-support)
-
-If developing on a Mac, install XCode to build for Apple platforms. Jetbrains
+Install XCode to build for Apple platforms. Jetbrains
 [has a table](https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html#version-compatibility)
 of supported XCode versions by Kotlin version. Check the compatibility table and
 install the latest supported XCode version. I recommend using
 [Xcodes](https://www.xcodes.app/) to manage multiple XCode versions.
 
-If you have any trouble; check out
-[the official instructions](https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-setup.html)
-for setting up a Kotlin Multiplaform environment.
+### Building for Desktop
+
+For desktop, we build a C++ library that includes
+[MapLibre Native Core](https://maplibre.org/maplibre-native/docs/book/introduction.html).
+You'll need to have your developer environment set up to build MapLibre Native.
+
+- [macOS requirements](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
+  - Additionally, `brew install cmake` because we build with CMake, not Bazel.
+  - If building the Vulkan backend, install MoltenVK with
+    `brew install molten-vk` and set the `VULKAN_SDK` environment variable to
+    the MoltenVK prefix (`brew --prefix molten-vk`).
+- [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)
+- [Windows requirements (MSVS2022)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html#prerequisites)
+  - Use a Developer Command Prompt for VS2022 to run the build scripts.
 
 ## Run the demo
 
