@@ -87,7 +87,7 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
-        implementation(project(":lib:kotlin-maplibre-native"))
+        implementation(project(":lib:maplibre-native-bindings"))
       }
     }
 
@@ -95,7 +95,7 @@ kotlin {
       dependencies {
         // TODO replace this with the official component in the next version of Compose
         implementation("dev.sargunv.maplibre-compose:compose-html-interop:0.10.4")
-        implementation(project(":lib:kotlin-maplibre-js"))
+        implementation(project(":lib:maplibre-js-bindings"))
       }
     }
 

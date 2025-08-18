@@ -40,7 +40,7 @@ include(
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",
-  ":lib:kotlin-maplibre-native",
-  ":lib:maplibre-native-jni",
-  ":lib:kotlin-maplibre-js",
+  ":lib:maplibre-native-bindings",
+  ":lib:maplibre-native-bindings-jni",
+  ":lib:maplibre-js-bindings",
 )

@@ -137,9 +137,11 @@ kotlin {
         implementation(libs.ktor.client.okhttp)
 
         // TODO: detect platform
-        runtimeOnly(project(":lib:maplibre-native-jni")) {
+        runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
           capabilities {
-            requireCapability("org.maplibre.compose:maplibre-native-jni-macos-aarch64-metal")
+            requireCapability(
+              "org.maplibre.compose:maplibre-native-bindings-jni-macos-aarch64-metal"
+            )
           }
         }
       }

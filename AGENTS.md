@@ -38,9 +38,10 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 - **`lib/`**: Core library modules
   - `maplibre-compose`: Main map composables and core functionality
   - `maplibre-compose-material3`: Material 3 themed UI components
-  - `kotlin-maplibre-js`: Kotlin/JS bindings for MapLibre GL JS
-  - `kotlin-maplibre-native`: Kotlin/JVM bindings for MapLibre Native
-  - `maplibre-native-jni`: C++ library required by `kotlin-maplibre-native`
+  - `maplibre-js-bindings`: Kotlin/JS bindings for MapLibre GL JS
+  - `maplibre-native-bindings`: Kotlin/JVM bindings for MapLibre Native
+  - `maplibre-native-bindings-jni`: C++ library required by
+    `maplibre-native-bindings`
 - **`demo-app/`**: Multiplatform demo application
 - **`iosApp/`**: iOS-specific demo app wrapper
 - **`buildSrc/`**: Custom Gradle build conventions
@@ -59,8 +60,8 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 The library uses platform-specific implementations:
 
 - **Android/iOS**: MapLibre Native SDKs (MapLibre Android SDK, MapLibre iOS)
-- **Web**: MapLibre GL JS via `kotlin-maplibre-js`
-- **Desktop**: MapLibre Native Core via `kotlin-maplibre-native`
+- **Web**: MapLibre GL JS via `maplibre-js-bindings`
+- **Desktop**: MapLibre Native Core via `maplibre-native-bindings`
 
 ### Build Configuration
 

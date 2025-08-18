@@ -130,7 +130,7 @@ if (configureForPublishing) {
   tasks.register<Exec>("configureCMake") {
     group = "build"
 
-    dependsOn(":lib:kotlin-maplibre-native:kspKotlinDesktop")
+    dependsOn(":lib:maplibre-native-bindings:kspKotlinDesktop")
     inputs.file(layout.projectDirectory.file("CMakeLists.txt"))
     inputs.file(layout.projectDirectory.file("CMakePresets.json"))
     inputs.dir(layout.projectDirectory.dir("src/main/cpp"))
@@ -159,13 +159,12 @@ if (configureForPublishing) {
 
   tasks.register<Exec>("buildNative") {
     group = "build"
+
     dependsOn("configureCMake")
-    // Ensure JNI headers are generated before building native code
-    dependsOn(":lib:kotlin-maplibre-native:kspKotlinDesktop")
+    dependsOn(":lib:maplibre-native-bindings:kspKotlinDesktop")
 
     val variant = Variant.current(project)
     val preset = variant.cmakePreset
-
     val buildDir = layout.buildDirectory.dir("cmake/${preset}").get().asFile
     workingDir = buildDir
 
@@ -209,5 +208,5 @@ if (configureForPublishing) {
     tasks.named("process${variant.sourceSetName}Resources") { dependsOn("copyNativeToResources") }
   }
 
-  Unit // gradle doesn't like if expressions returning things
+  Unit // gradle doesn't like `if` expressions returning things
 }

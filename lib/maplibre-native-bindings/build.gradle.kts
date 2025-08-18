@@ -34,7 +34,7 @@ dependencies { add("kspDesktop", libs.simplejni.kprocessor) }
 ksp {
   arg(
     "smjni.jnigen.dest.path",
-    project(":lib:maplibre-native-jni")
+    project(":lib:maplibre-native-bindings-jni")
       .layout
       .buildDirectory
       .dir("generated/simplejni-headers")
