@@ -7,19 +7,19 @@ site_url: https://maplibre.org/maplibre-compose
 
 repo_name: maplibre-compose
 repo_url: http://github.com/maplibre/maplibre-compose
-edit_uri: "edit/main/docs/docs/"
+edit_uri: edit/main/docs/docs/
 
-copyright: "Copyright &copy; 2025 MapLibre Compose contributors"
+copyright: Copyright &copy; 2025 MapLibre Compose contributors
 
 extra_css:
   - stylesheets/extra.css
 
 theme:
-  name: "material"
+  name: material
   icon:
-    repo: "fontawesome/brands/github"
+    repo: fontawesome/brands/github
   palette:
-    - media: "(prefers-color-scheme)"
+    - media: (prefers-color-scheme)
       toggle:
         icon: material/brightness-auto
         name: Switch to light mode
@@ -65,7 +65,7 @@ markdown_extensions:
       permalink: true
   - tables
 
-  # Python Markdown Extensions
+    # Python Markdown Extensions
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.betterem:

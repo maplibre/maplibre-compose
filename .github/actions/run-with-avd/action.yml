@@ -1,48 +1,47 @@
----
-name: "Execute with AVD"
-description: "Set up an Android virtual device, cache it, and run a script"
+name: Execute with AVD
+description: Set up an Android virtual device, cache it, and run a script
 inputs:
   api-level:
-    description: "API level of the platform system image"
+    description: API level of the platform system image
     required: true
   script:
-    description: "Custom script to run"
+    description: Custom script to run
     required: true
 runs:
-  using: "composite"
+  using: composite
   steps:
-    - name: "Configure KVM"
-      shell: "bash"
+    - name: Configure KVM
+      shell: bash
       run: |
         echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
         sudo udevadm control --reload-rules
         sudo udevadm trigger --name-match=kvm
-    - name: "Cache AVD"
-      uses: "actions/cache@v4"
-      id: "avd-cache"
+    - name: Cache AVD
+      uses: actions/cache@v4
+      id: avd-cache
       with:
         path: |
           ~/.android/avd/*
           ~/.android/adb*
-        key: "avd-v${{ inputs.api-level }}"
-    - name: "Create AVD for caching"
-      if: "steps.avd-cache.outputs.cache-hit != 'true'"
-      uses: "reactivecircus/android-emulator-runner@v2"
+        key: avd-v${{ inputs.api-level }}
+    - name: Create AVD for caching
+      if: steps.avd-cache.outputs.cache-hit != 'true'
+      uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: "${{ inputs.api-level }}"
-        arch: "x86_64"
+        api-level: ${{ inputs.api-level }}
+        arch: x86_64
         force-avd-creation: false
         emulator-options:
-          "-no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
-          -camera-back none"
-        script: "echo 'Generated AVD snapshot for caching.'"
-    - name: "${{ inputs.script }}"
-      uses: "reactivecircus/android-emulator-runner@v2"
+          -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim
+          -camera-back none
+        script: echo 'Generated AVD snapshot for caching.'
+    - name: ${{ inputs.script }}
+      uses: reactivecircus/android-emulator-runner@v2
       with:
-        api-level: "${{ inputs.api-level }}"
-        arch: "x86_64"
+        api-level: ${{ inputs.api-level }}
+        arch: x86_64
         force-avd-creation: false
         emulator-options:
-          "-no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
-          -no-boot-anim -camera-back none"
-        script: "${{ inputs.script }}"
+          -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio
+          -no-boot-anim -camera-back none
+        script: ${{ inputs.script }}

@@ -1,16 +1,14 @@
 _default:
     @just --list
 
-format:
-    ./scripts/format
+pre-commit-install:
+    pre-commit install
 
-hooks-install:
-    ./scripts/git-hooks install
+pre-commit-uninstall:
+    pre-commit uninstall
 
-hooks-uninstall:
-    ./scripts/git-hooks uninstall
+pre-commit-run:
+    pre-commit run --all-files
 
 run-desktop:
     ./gradlew :demo-app:run
-
-# TODO: flesh this out

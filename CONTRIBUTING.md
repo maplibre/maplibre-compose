@@ -59,17 +59,14 @@ launch on iOS, and Gradle to launch on JS or Desktop:
 ## Make CI happy
 
 A Git pre-commit hook is available to ensure that the code is formatted before
-every commit. Install hooks with:
+every commit. Install hooks with [pre-commit](https://pre-commit.com/):
 
 ```bash
-./scripts/git-hooks install
+pre-commit install
 ```
 
 Uninstall with:
 
 ```bash
-./scripts/git-hooks uninstall
+pre-commit uninstall
 ```
-
-The hook runs `./scripts/format --staged` on staged files. Tools are optional
-locally; in CI they are required and failures will stop the job.

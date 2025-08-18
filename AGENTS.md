@@ -12,14 +12,6 @@ code in this repository.
 - **Build all modules:** `./gradlew build`
 - **Clean build:** `./gradlew clean`
 
-### Code Quality
-
-- **Format code:** `./scripts/format`
-- **Format specific files:** `./scripts/format <file1> <file2>...`
-- **Format staged files:** `./scripts/format --staged`
-- **Install git hooks:** `./scripts/git-hooks install`
-- **Uninstall git hooks:** `./scripts/git-hooks uninstall`
-
 ### Documentation
 
 - **Generate docs:** `./gradlew generateDocs` (builds both MkDocs site and Dokka

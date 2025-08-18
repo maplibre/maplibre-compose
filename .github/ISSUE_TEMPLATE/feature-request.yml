@@ -1,6 +1,6 @@
 name: Feature Request
 description: Suggest a new feature
-type: "feature"
+type: feature
 body:
   - type: markdown
     attributes:
@@ -38,9 +38,7 @@ body:
       label: Implementation
       description:
         Would you be willing to implement this feature and submit a PR?
-      options:
-        - "Yes"
-        - "No"
+      options: [Yes, No]
   - type: checkboxes
     id: development_platforms
     attributes:

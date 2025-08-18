@@ -1,25 +1,25 @@
 {
-  "version": 8,
+  "layers": [
+    {
+      "id": "simple-tiles",
+      "maxzoom": 19,
+      "minzoom": 0,
+      "source": "openmaptiles",
+      "type": "raster"
+    }
+  ],
   "name": "Open Street Map Public",
   "sources": {
     "openmaptiles": {
-      "type": "raster",
+      "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+      "tileSize": 256,
       "tiles": [
         "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
         "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
         "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
       ],
-      "tileSize": 256,
-      "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors"
+      "type": "raster"
     }
   },
-  "layers": [
-    {
-      "id": "simple-tiles",
-      "type": "raster",
-      "source": "openmaptiles",
-      "minzoom": 0,
-      "maxzoom": 19
-    }
-  ]
+  "version": 8
 }

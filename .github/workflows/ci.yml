@@ -1,142 +1,139 @@
----
-name: "CI"
+name: CI
 
 on:
   push:
-    branches: ["main"]
+    branches: [main]
   pull_request:
   workflow_dispatch:
 
 jobs:
   check-format:
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     permissions:
       checks: write
       issues: write
       pull-requests: write
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./scripts/format"
-      - if: "${{ github.event_name == 'pull_request' }}"
+      - uses: pre-commit/action@v3.0.1
+      - if: ${{ github.event_name == 'pull_request' && failure() }}
         uses: reviewdog/action-suggester@v1
         with:
-          tool_name: formatter
+          tool_name: pre-commit
           cleanup: false
-      - run: "git diff --exit-code"
 
   lint-android:
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./gradlew lint"
+      - uses: ./.github/actions/setup
+      - run: ./gradlew lint
 
   test-android:
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         api-level:
           # the latest, Android 15 (Vanilla Ice Cream)
           - 35
-          # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
+            # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
           - 24
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./gradlew testDebugUnitTest"
-      - name: "Run with AVD ./gradlew connectedDebugAndroidTest"
-        uses: "./.github/actions/run-with-avd"
+      - uses: ./.github/actions/setup
+      - run: ./gradlew testDebugUnitTest
+      - name: Run with AVD ./gradlew connectedDebugAndroidTest
+        uses: ./.github/actions/run-with-avd
         with:
-          api-level: "${{ matrix.api-level }}"
-          script: "./gradlew connectedDebugAndroidTest"
+          api-level: ${{ matrix.api-level }}
+          script: ./gradlew connectedDebugAndroidTest
 
   test-ios:
     strategy:
       matrix:
         include:
           # the latest
-          - runner: "macos-15"
-            os_version: "^18"
-          # the oldest on GH Actions (supports back to ~iPhone XS from 2018)
-          - runner: "macos-14"
-            os_version: "^17"
-    name: "test-ios (${{ matrix.os_version }})"
-    runs-on: "${{ matrix.runner }}"
+          - runner: macos-15
+            os_version: ^18
+            # the oldest on GH Actions (supports back to ~iPhone XS from 2018)
+          - runner: macos-14
+            os_version: ^17
+    name: test-ios (${{ matrix.os_version }})
+    runs-on: ${{ matrix.runner }}
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - uses: "futureware-tech/simulator-action@v4"
-        id: "setup-simulator"
+      - uses: ./.github/actions/setup
+      - uses: futureware-tech/simulator-action@v4
+        id: setup-simulator
         with:
-          os: "iOS"
-          os_version: "${{ matrix.os_version }}"
+          os: iOS
+          os_version: ${{ matrix.os_version }}
       - run:
-          "./gradlew iosSimulatorArm64Test -- --device ${{
-          steps.setup-simulator.outputs.udid }}"
+          ./gradlew iosSimulatorArm64Test -- --device ${{
+          steps.setup-simulator.outputs.udid }}
 
   test-js:
     runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./gradlew jsBrowserTest"
+      - uses: ./.github/actions/setup
+      - run: ./gradlew jsBrowserTest
 
   test-desktop:
     runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./gradlew desktopTest"
+      - uses: ./.github/actions/setup
+      - run: ./gradlew desktopTest
 
   build-docs:
-    runs-on: "macos-latest"
+    runs-on: macos-latest
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./gradlew generateDocs"
-      - uses: "actions/upload-pages-artifact@v3"
+      - uses: ./.github/actions/setup
+      - run: ./gradlew generateDocs
+      - uses: actions/upload-pages-artifact@v3
         with:
-          path: "build/docs"
+          path: build/docs
 
   build-android-app:
-    runs-on: "ubuntu-latest"
+    runs-on: ubuntu-latest
     steps:
-      - uses: "actions/checkout@v5"
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: "./.github/actions/setup"
-      - run: "./gradlew packageDebug"
-      - uses: "actions/upload-artifact@v4"
+      - uses: ./.github/actions/setup
+      - run: ./gradlew packageDebug
+      - uses: actions/upload-artifact@v4
         with:
-          if-no-files-found: "error"
-          name: "demo-app-debug"
-          path: "demo-app/build/outputs/apk/debug/demo-app-debug.apk"
+          if-no-files-found: error
+          name: demo-app-debug
+          path: demo-app/build/outputs/apk/debug/demo-app-debug.apk
 
   all-good:
     needs:
-      - "check-format"
-      - "lint-android"
-      - "test-android"
-      - "test-ios"
-      - "test-desktop"
-      - "test-js"
-      - "build-docs"
-      - "build-android-app"
-    runs-on: "ubuntu-latest"
+      - check-format
+      - lint-android
+      - test-android
+      - test-ios
+      - test-desktop
+      - test-js
+      - build-docs
+      - build-android-app
+    runs-on: ubuntu-latest
     steps:
-      - run: "echo 'All checks passed!'"
+      - run: echo 'All checks passed!'

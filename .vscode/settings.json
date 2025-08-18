@@ -1,35 +1,35 @@
 {
-  "editor.formatOnSave": true,
-  "kotlin.languageServer.enabled": false,
-  "java.configuration.updateBuildConfiguration": "disabled",
-  "java.import.gradle.enabled": false,
+  "[cpp]": {
+    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+  },
+  "[gradle-kotlin-dsl]": {
+    "editor.defaultFormatter": "jkillian.custom-local-formatters"
+  },
+  "[json]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[kotlin]": {
+    "editor.defaultFormatter": "jkillian.custom-local-formatters"
+  },
+  "[markdown]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[swift]": {
+    "editor.defaultFormatter": "sswg.swift-lang"
+  },
+  "[yaml]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
   "customLocalFormatters.formatters": [
     {
       "command": "ktfmt --google-style -",
       "languages": ["kotlin", "gradle-kotlin-dsl"]
     }
   ],
-  "[kotlin]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[gradle-kotlin-dsl]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[cpp]": {
-    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
-  },
-  "[swift]": {
-    "editor.defaultFormatter": "sswg.swift-lang"
-  },
-  "[markdown]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[yaml]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
+  "editor.formatOnSave": true,
+  "java.autobuild.enabled": false,
+  "java.configuration.updateBuildConfiguration": "disabled",
+  "java.import.gradle.enabled": false,
   "java.server.launchMode": "LightWeight",
-  "java.autobuild.enabled": false
+  "kotlin.languageServer.enabled": false
 }

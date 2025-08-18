@@ -1,15 +1,14 @@
----
-name: "Setup"
-description: "Set up the build environment, used by most jobs"
+name: Setup
+description: Set up the build environment, used by most jobs
 runs:
-  using: "composite"
+  using: composite
   steps:
-    - uses: "actions/setup-java@v4"
+    - uses: actions/setup-java@v4
       with:
-        distribution: "temurin"
+        distribution: temurin
         java-version: 21
-    - uses: "gradle/actions/setup-gradle@v4"
+    - uses: gradle/actions/setup-gradle@v4
       with:
         build-scan-publish: true
-        build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
-        build-scan-terms-of-use-agree: "yes"
+        build-scan-terms-of-use-url: https://gradle.com/terms-of-service
+        build-scan-terms-of-use-agree: yes
