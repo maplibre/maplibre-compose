@@ -1,0 +1,173 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+# Unified formatter entrypoint.
+# - No args: format tracked files in repo
+# - File args: format only those files
+# - --staged: format currently staged files only
+# In CI (CI=true) failures are fatal; otherwise they are warnings.
+
+use Cwd qw(abs_path);
+use File::Basename qw(dirname);
+
+my $ROOT_DIR = dirname( dirname(abs_path($0)) );
+chdir $ROOT_DIR or die "Failed to chdir to $ROOT_DIR: $!\n";
+
+my $STRICT = $ENV{STRICT} // $ENV{CI} // '';
+
+# --- Arg parsing ---
+my $STAGED = 0;
+my @ARG_FILES;
+while (@ARGV) {
+	my $arg = shift @ARGV;
+	if ($arg eq '--staged') {
+		$STAGED = 1;
+	} elsif ($arg eq '--') {
+		push @ARG_FILES, @ARGV;
+		last;
+	} elsif ($arg =~ /^--/) {
+		die "Unknown option: $arg\n";
+	} else {
+		push @ARG_FILES, $arg;
+	}
+}
+
+# --- Utilities ---
+
+# Locate an executable by absolute path or by searching PATH; return path or undef
+sub which_bin {
+	my ($bin) = @_;
+	return $bin if $bin =~ m{^/} && -x $bin;
+	my $path = $ENV{PATH} // '';
+	for my $dir (split /:/, $path) {
+		next unless length $dir;
+		my $candidate = "$dir/$bin";
+		return $candidate if -x $candidate;
+	}
+	return;
+}
+
+# Ensure a required tool exists; fatal in STRICT/CI, warn and skip otherwise
+sub require_tool {
+	my ($bin, $friendly) = @_;
+	if (which_bin($bin)) { return 1 }
+	if ($STRICT) {
+		die "Error: $friendly is required in CI.\n";
+	} else {
+		warn "Warning: $friendly not found on PATH. Skipping related formatting.\n";
+		return 0;
+	}
+}
+
+# Run a system command and return success; die in STRICT on failure
+sub system_ok {
+	my (@cmd) = @_;
+	my $rc = system @cmd;
+	if ($rc == 0) { return 1 }
+	if ($STRICT) {
+		die "Command failed: @cmd (exit " . ($rc >> 8) . ")\n";
+	}
+	return 0;
+}
+
+# Call a runner subroutine on files in bounded-size batches
+sub run_batched {
+	my ($runner, $files_ref, $batch_size) = @_;
+	my @files = @$files_ref;
+	my $N = $batch_size // 500;
+	return if !@files;
+	while (@files) {
+		my @batch = splice(@files, 0, $N);
+		$runner->(@batch);
+	}
+}
+
+# Read NUL-delimited file paths from a git command into a list
+sub read_git_paths_nul {
+	my (@cmd) = @_;
+	open(my $fh, '-|', @cmd) or die "Failed to run @cmd: $!\n";
+	local $/ = "\0";
+	my @paths;
+	while (defined(my $p = <$fh>)) {
+		chomp $p; # remove trailing NUL
+		push @paths, $p if length $p;
+	}
+	close $fh;
+	return @paths;
+}
+
+# Determine files to process: explicit args, staged files, or all tracked files
+sub emit_scope {
+	if (@ARG_FILES) {
+		my @existing = grep { -e $_ } @ARG_FILES;
+		return @existing;
+	}
+	if ($STAGED) {
+		return read_git_paths_nul(qw(git diff --cached --name-only -z --diff-filter=ACMR));
+	}
+	return read_git_paths_nul(qw(git ls-files -z));
+}
+
+# Filter a list of files keeping those matching any of the provided regexes
+sub filter_by_regex {
+	my ($files_ref, @regexes) = @_;
+	my @compiled = map { ref($_) eq 'Regexp' ? $_ : qr/$_/ } @regexes;
+	my @out;
+	FILE: for my $f (@$files_ref) {
+		for my $re (@compiled) {
+			if ($f =~ $re) { push @out, $f; next FILE }
+		}
+	}
+	return @out;
+}
+
+# --- Formatters ---
+
+# Format Kotlin and KTS files using ktfmt with Google style
+sub run_kotlin {
+	return unless require_tool('ktfmt', 'ktfmt');
+	my @files = filter_by_regex(\@_, qr/\.(?:kt|kts)\z/);
+	return if !@files;
+	run_batched(sub { system_ok('ktfmt', '-i', '--google-style', @_) }, \@files);
+}
+
+# Format Swift files using `swift format` in-place
+sub run_swift {
+	# Prefer checking that `swift format` exists; if not, require swift in STRICT mode
+	my $has_swift = which_bin('swift');
+	my $has_format = $has_swift && system('sh', '-c', 'swift format --help >/dev/null 2>&1') == 0;
+	if (!$has_format) {
+		return unless require_tool('swift', 'swift-format (swift format)');
+	}
+	my @files = filter_by_regex(\@_, qr/\.swift\z/);
+	return if !@files;
+	run_batched(sub { system_ok('swift', 'format', '--in-place', @_) }, \@files);
+}
+
+# Format YAML, JSON, and Markdown files using Prettier
+sub run_prettier {
+	return unless require_tool('prettier', 'prettier');
+	my @files = filter_by_regex(\@_, qr/\.md|\.json|\.yaml|\.yml\z/);
+	return if !@files;
+	run_batched(sub { system_ok('prettier', '--log-level', 'warn', '--write', @_) }, \@files);
+}
+
+# Format C++/Obj-C++ sources and headers using clang-format
+sub run_cpp {
+	return unless require_tool('clang-format', 'clang-format');
+	my @files = filter_by_regex(\@_, qr/\.(?:cpp|hpp|mm)\z/);
+	return if !@files;
+	run_batched(sub { system_ok('clang-format', '-i', @_) }, \@files);
+}
+
+# --- Main ---
+
+my @scope = emit_scope();
+
+run_kotlin(@scope);
+run_swift(@scope);
+run_prettier(@scope);
+run_cpp(@scope);
+
+exit 0;

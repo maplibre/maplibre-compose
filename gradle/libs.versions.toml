@@ -23,7 +23,6 @@ gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.34.0"
 gradle-mkdocs = "4.0.1"
-gradle-spotless = "7.2.1"
 gradle-spmForKmp = "0.11.3"
 tool-prettier = "3.5.3"
 
@@ -83,5 +82,4 @@ kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref 
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "gradle-kotlin" }
 mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "gradle-mavenPublish" }
 mkdocs = { id = "ru.vyarus.mkdocs-build", version.ref = "gradle-mkdocs" }
-spotless = { id = "com.diffplug.spotless", version.ref = "gradle-spotless" }
 spmForKmp = { id = "io.github.frankois944.spmForKmp", version.ref = "gradle-spmForKmp" }

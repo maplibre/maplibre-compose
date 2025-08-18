@@ -1,0 +1,11 @@
+{
+  "recommendations": [
+    "jkillian.custom-local-formatters",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "sswg.swift-lang",
+    "esbenp.prettier-vscode",
+    "fwcd.kotlin",
+    "redhat.java",
+    "edwinhuish.better-comments-next"
+  ]
+}

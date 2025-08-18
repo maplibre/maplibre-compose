@@ -1,6 +1,8 @@
 site_name: MapLibre Compose
 
-site_description: MapLibre Compose embeds interactive vector maps in your Compose Multiplatform apps.
+site_description:
+  MapLibre Compose embeds interactive vector maps in your Compose Multiplatform
+  apps.
 site_url: https://maplibre.org/maplibre-compose
 
 repo_name: maplibre-compose

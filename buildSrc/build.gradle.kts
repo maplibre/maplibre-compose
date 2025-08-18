@@ -20,7 +20,6 @@ dependencies {
   pluginImplementation(libs.plugins.kotlin.composeCompiler)
   pluginImplementation(libs.plugins.mkdocs)
   pluginImplementation(libs.plugins.mavenPublish)
-  pluginImplementation(libs.plugins.spotless)
   pluginImplementation(libs.plugins.spmForKmp)
 
   // noinspection GradleDynamicVersion: extra for jgitver imports

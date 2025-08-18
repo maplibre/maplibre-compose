@@ -59,9 +59,17 @@ launch on iOS, and Gradle to launch on JS or Desktop:
 ## Make CI happy
 
 A Git pre-commit hook is available to ensure that the code is formatted before
-every commit. Run `./gradlew installGitHooks` to install it. It will run
-`./gradlew spotlessApply` before every commit. To run the formatter, you'll need
-to have `swift` installed (for `swift format`) and `npm` installed (for
-`prettier`). Or run just
-`./gradlew spotlessKotlinApply spotlessKotlinGradleApply` to skip those
-dependencies.
+every commit. Install hooks with:
+
+```bash
+./scripts/git-hooks install
+```
+
+Uninstall with:
+
+```bash
+./scripts/git-hooks uninstall
+```
+
+The hook runs `./scripts/format --staged` on staged files. Tools are optional
+locally; in CI they are required and failures will stop the job.
