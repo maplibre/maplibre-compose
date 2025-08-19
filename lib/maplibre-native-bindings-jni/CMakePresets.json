@@ -35,19 +35,10 @@
       }
     },
     {
-      "name": "windows-wgl",
+      "name": "windows-opengl",
       "inherits": "windows-base",
       "cacheVariables": {
-        "MLN_WITH_OPENGL": "ON",
-        "MLN_WITH_EGL": "OFF"
-      }
-    },
-    {
-      "name": "windows-egl",
-      "inherits": "windows-base",
-      "cacheVariables": {
-        "MLN_WITH_OPENGL": "ON",
-        "MLN_WITH_EGL": "ON"
+        "MLN_WITH_OPENGL": "ON"
       }
     },
     {
@@ -75,19 +66,11 @@
       }
     },
     {
-      "name": "linux-egl",
+      "name": "linux-opengl",
       "inherits": "linux-base",
       "cacheVariables": {
         "MLN_WITH_OPENGL": "ON",
         "MLN_WITH_EGL": "ON"
-      }
-    },
-    {
-      "name": "linux-glx",
-      "inherits": "linux-base",
-      "cacheVariables": {
-        "MLN_WITH_OPENGL": "ON",
-        "MLN_WITH_EGL": "OFF"
       }
     },
     {

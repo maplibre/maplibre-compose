@@ -51,33 +51,19 @@ if(MLN_WITH_METAL)
     list(APPEND MAPLIBRE_JNI_SOURCES
         src/main/cpp/canvas_metal_backend.mm
     )
-# elseif(MLN_WITH_VULKAN)
-#     list(APPEND MAPLIBRE_JNI_SOURCES
-#         src/main/cpp/canvas_vulkan_backend.cpp
-#     )
-#     if(APPLE)
-#         list(APPEND MAPLIBRE_JNI_SOURCES
-#             src/main/cpp/canvas_vulkan_backend.mm
-#         )
-#     endif()
-# elseif(MLN_WITH_OPENGL)
-#     list(APPEND MAPLIBRE_JNI_SOURCES
-#         src/main/cpp/canvas_gl_backend.cpp
-#     )
-#     if(MLN_WITH_EGL)
-#         list(APPEND MAPLIBRE_JNI_SOURCES
-#             src/main/cpp/canvas_egl_strategy.cpp
-#         )
-#     elseif(WIN32)
-#         list(APPEND MAPLIBRE_JNI_SOURCES
-#             src/main/cpp/canvas_wgl_strategy.cpp
-#         )
-#     elseif(UNIX AND NOT APPLE)
-#         # Linux with GLX (desktop OpenGL)
-#         list(APPEND MAPLIBRE_JNI_SOURCES
-#             src/main/cpp/canvas_glx_strategy.cpp
-#         )
-#     endif()
+elseif(MLN_WITH_VULKAN)
+    list(APPEND MAPLIBRE_JNI_SOURCES
+        src/main/cpp/canvas_vulkan_backend.cpp
+    )
+    if(APPLE)
+        list(APPEND MAPLIBRE_JNI_SOURCES
+            src/main/cpp/canvas_vulkan_backend.mm
+        )
+    endif()
+elseif(MLN_WITH_OPENGL)
+    list(APPEND MAPLIBRE_JNI_SOURCES
+        src/main/cpp/canvas_gl_backend.cpp
+    )
 else()
     message(FATAL_ERROR "Unsupported backend configuration.")
 endif()
