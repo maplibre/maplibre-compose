@@ -168,7 +168,7 @@ easiest way to do this is via the CDN:
 
     Desktop support is not yet at feature parity with Android and iOS. Check the [status table](index.md#status) for more info.
 
-On desktop, we use MapLibre Native via a small JNI bindings module that bundles
+On desktop, we use MapLibre Native via a JNI bindings module that bundles
 platform-specific native libraries. Add a runtime-only dependency for each
 platform you want to support, selecting exactly one renderer per OS/architecture
 combination via capabilities.

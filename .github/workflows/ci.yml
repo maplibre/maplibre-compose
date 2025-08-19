@@ -90,7 +90,13 @@ jobs:
       - run: ./gradlew jsBrowserTest
 
   test-desktop:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - runner: macos-latest
+          - runner: ubuntu-latest
+          - runner: windows-latest
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
         with:
