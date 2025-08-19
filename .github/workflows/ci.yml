@@ -91,6 +91,7 @@ jobs:
 
   test-desktop:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: macos-latest
