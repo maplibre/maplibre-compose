@@ -64,7 +64,7 @@ You'll need to have your developer environment set up to build MapLibre Native.
   - Additionally, `brew install cmake` because we build with CMake, not Bazel.
   - If building the Vulkan backend, install MoltenVK with
     `brew install molten-vk` and set the `VULKAN_SDK` environment variable to
-    the MoltenVK prefix (`brew --prefix molten-vk`).
+    the MoltenVK prefix (`export VULKAN_SDK="$(brew --prefix molten-vk)"`).
 - [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)
 - [Windows requirements (MSVS2022)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html#prerequisites)
   - Use a Developer Command Prompt for VS2022 to run the build scripts.
