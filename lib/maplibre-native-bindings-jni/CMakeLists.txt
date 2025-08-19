@@ -45,23 +45,10 @@ set(MAPLIBRE_JNI_SOURCES
     src/main/cpp/jni_map_observer.cpp
     src/main/cpp/canvas_frontend.cpp
     src/main/cpp/canvas_backend.cpp
+    src/main/cpp/canvas_metal_backend.mm
+    src/main/cpp/canvas_vulkan_backend.mm
+    src/main/cpp/canvas_gl_backend.cpp
 )
-
-if(MLN_WITH_METAL)
-    list(APPEND MAPLIBRE_JNI_SOURCES
-        src/main/cpp/canvas_metal_backend.mm
-    )
-elseif(MLN_WITH_VULKAN)
-    list(APPEND MAPLIBRE_JNI_SOURCES
-        src/main/cpp/canvas_vulkan_backend.mm
-    )
-elseif(MLN_WITH_OPENGL)
-    list(APPEND MAPLIBRE_JNI_SOURCES
-        src/main/cpp/canvas_gl_backend.cpp
-    )
-else()
-    message(FATAL_ERROR "Unsupported backend configuration.")
-endif()
 
 add_library(maplibre-jni SHARED ${MAPLIBRE_JNI_SOURCES})
 
@@ -94,7 +81,7 @@ if(MLN_WITH_METAL)
     )
 endif()
 
-# Compile options (will inherit from mbgl-compiler-options)
+# Compile options
 target_compile_options(maplibre-jni PRIVATE
     -frtti
     -fexceptions
@@ -119,8 +106,8 @@ if(MLN_WITH_OPENGL)
         target_compile_definitions(maplibre-jni PRIVATE USE_EGL_BACKEND)
     elseif(WIN32)
         target_compile_definitions(maplibre-jni PRIVATE USE_WGL_BACKEND)
-    elseif(UNIX AND NOT APPLE)
-        target_compile_definitions(maplibre-jni PRIVATE USE_GLX_BACKEND)
+    else()
+        message(FATAL_ERROR "Unsupported OpenGL target.")
     endif()
 endif()
 

@@ -1,3 +1,5 @@
+#ifdef USE_VULKAN_BACKEND
+
 #include <jawt_md.h>
 #include <mbgl/vulkan/context.hpp>
 #include <mbgl/vulkan/renderable_resource.hpp>
@@ -32,9 +34,7 @@ class VulkanRenderableResource final
     return {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
   };
 
-  void bind() override {
-    // no-op?
-  };
+  void bind() override {};
 
 #ifdef __APPLE__
  private:
@@ -137,3 +137,5 @@ std::vector<const char*> CanvasVulkanBackend::getInstanceExtensions() {
 }
 
 }  // namespace maplibre_jni
+
+#endif  // USE_VULKAN_BACKEND
