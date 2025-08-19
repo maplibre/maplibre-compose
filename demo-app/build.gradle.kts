@@ -139,8 +139,12 @@ kotlin {
         // TODO: detect platform
         runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
           capabilities {
+            val renderer =
+              project.properties["desktopRenderer"]
+                ?: if (System.getProperty("os.name").lowercase().contains("mac")) "metal"
+                else "vulkan"
             requireCapability(
-              "org.maplibre.compose:maplibre-native-bindings-jni-macos-aarch64-metal"
+              "org.maplibre.compose:maplibre-native-bindings-jni-macos-aarch64-$renderer"
             )
           }
         }
@@ -196,16 +200,16 @@ compose.desktop {
       // packageVersion = project.ext["base_tag"].toString().replace("v", "")
       packageVersion = "1.0.0"
     }
+  }
+}
 
-    // https://github.com/KevinnZou/compose-webview-multiplatform/blob/main/README.desktop.md#flags
-    jvmArgs("--add-opens", "java.desktop/sun.awt=ALL-UNNAMED")
-    jvmArgs(
-      "--add-opens",
-      "java.desktop/java.awt.peer=ALL-UNNAMED",
-    ) // recommended but not necessary
-    if (System.getProperty("os.name").contains("Mac")) {
-      jvmArgs("--add-opens", "java.desktop/sun.lwawt=ALL-UNNAMED")
-      jvmArgs("--add-opens", "java.desktop/sun.lwawt.macosx=ALL-UNNAMED")
-    }
+tasks.withType<JavaExec>().configureEach {
+  if (System.getProperty("os.name").lowercase().contains("mac")) {
+    val homebrewPath = System.getenv("HOMEBREW_PREFIX")?.let { "$it/lib" } ?: ""
+    val existingPath = System.getenv("DYLD_FALLBACK_LIBRARY_PATH") ?: "/usr/local/lib:/usr/lib"
+    val vulkanSdkPath = System.getenv("VULKAN_SDK")?.let { "$it/lib" } ?: ""
+    val paths =
+      listOf(homebrewPath, vulkanSdkPath, existingPath).filter { it.isNotEmpty() }.joinToString(":")
+    environment("DYLD_FALLBACK_LIBRARY_PATH", paths)
   }
 }

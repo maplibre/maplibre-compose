@@ -1,4 +1,5 @@
 #include <jawt_md.h>
+#include <mbgl/vulkan/context.hpp>
 #include <mbgl/vulkan/renderable_resource.hpp>
 #include <vulkan/vulkan_core.h>
 #include "canvas_renderer.hpp"
@@ -45,7 +46,6 @@ class VulkanRenderableResource final
 
     // Set the Metal layer in the platform info
     auto scale = [NSScreen mainScreen].backingScaleFactor;
-
     metalLayer = [CAMetalLayer layer];
     metalLayer.bounds = CGRectMake(0, 0, 1, 1);
     metalLayer.contentsScale = scale;
@@ -102,27 +102,24 @@ class VulkanRenderableResource final
 };
 
 CanvasVulkanBackend::CanvasVulkanBackend(JNIEnv* env, jCanvas canvas)
-    : CanvasBackend(env, canvas),
+    : mbgl::vulkan::RendererBackend(mbgl::gfx::ContextMode::Unique),
+      surfaceInfo_(env, canvas),
       mbgl::vulkan::Renderable(
         mbgl::Size(
           java_classes::get<Canvas_class>().getWidth(env, canvas),
           java_classes::get<Canvas_class>().getHeight(env, canvas)
         ),
         std::make_unique<VulkanRenderableResource>(*this)
-      ) {}
+      ) {
+  init();
+}
 
 mbgl::gfx::Renderable& CanvasVulkanBackend::getDefaultRenderable() {
   return *this;
 }
 
-void CanvasVulkanBackend::wait() {
-  // TODO figure out what to do here
-}
-
 void CanvasVulkanBackend::setSize(mbgl::Size size) {
   this->mbgl::vulkan::Renderable::setSize(size);
-  getResource<VulkanRenderableResource>().setSize(size);
-  // TODO request surface update?
 }
 
 std::vector<const char*> CanvasVulkanBackend::getInstanceExtensions() {

@@ -1,5 +1,6 @@
 #include <jni_md.h>
 #include <mbgl/gfx/renderer_backend.hpp>
+#include <mbgl/renderer/renderer.hpp>
 #include <mbgl/renderer/update_parameters.hpp>
 #include <memory>
 #include <smjni/java_ref.h>

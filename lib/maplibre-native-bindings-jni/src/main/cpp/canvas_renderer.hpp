@@ -7,8 +7,6 @@
 #include <mbgl/gfx/backend_scope.hpp>
 #include <mbgl/gfx/renderable.hpp>
 #include <mbgl/gfx/renderer_backend.hpp>
-#include <mbgl/mtl/renderable_resource.hpp>
-#include <mbgl/renderer/renderer.hpp>
 #include <mbgl/renderer/renderer_frontend.hpp>
 #include <mbgl/renderer/renderer_observer.hpp>
 #include <mbgl/renderer/update_parameters.hpp>
@@ -18,39 +16,35 @@
 
 #ifdef USE_METAL_BACKEND
 #include <mbgl/mtl/renderer_backend.hpp>
-#define SUPER_BACKEND_TYPE mbgl::mtl::RendererBackend
 #define BACKEND_TYPE CanvasMetalBackend
 #endif
 #ifdef USE_VULKAN_BACKEND
 #include <mbgl/vulkan/renderable_resource.hpp>
 #include <mbgl/vulkan/renderer_backend.hpp>
-#define SUPER_BACKEND_TYPE mbgl::vulkan::RendererBackend
 #define BACKEND_TYPE CanvasVulkanBackend
 #endif
 #ifdef USE_OPENGL_BACKEND
 #include <mbgl/gl/renderer_backend.hpp>
-#define SUPER_BACKEND_TYPE mbgl::gl::RendererBackend
 #define BACKEND_TYPE CanvasOpenGLBackend
 #endif
 
+namespace mbgl {
+class Renderer;
+}
+
 namespace maplibre_jni {
 
-class CanvasBackend : public SUPER_BACKEND_TYPE {
+class CanvasSurfaceInfo {
  public:
-  explicit CanvasBackend(JNIEnv* env, jCanvas canvas);
-  virtual ~CanvasBackend() override;
-  virtual void setSize(mbgl::Size) = 0;
+  explicit CanvasSurfaceInfo(JNIEnv* env, jCanvas canvas);
+  ~CanvasSurfaceInfo();
+
   inline void* getPlatformInfo() { return platformInfo_; }
+  inline void lock() { drawingSurface_->Lock(drawingSurface_); }
+  inline void unlock() { drawingSurface_->Unlock(drawingSurface_); }
 
- protected:
-  virtual void activate() override;
-  virtual void deactivate() override;
-
-#ifdef USE_VULKAN_BACKEND
-  virtual std::vector<const char*> getInstanceExtensions() override = 0;
-#endif
-
-  JAWT jawt_;
+ private:
+  JAWT jawt_{};
   JAWT_DrawingSurface* drawingSurface_ = nullptr;
   JAWT_DrawingSurfaceInfo* drawingSurfaceInfo_ = nullptr;
   void* platformInfo_ = nullptr;
@@ -58,47 +52,64 @@ class CanvasBackend : public SUPER_BACKEND_TYPE {
 
 #ifdef USE_METAL_BACKEND
 
-class CanvasMetalBackend : public CanvasBackend, public mbgl::gfx::Renderable {
+class CanvasMetalBackend : public mbgl::mtl::RendererBackend,
+                           public mbgl::gfx::Renderable {
  public:
   explicit CanvasMetalBackend(JNIEnv* env, jCanvas canvas);
   mbgl::gfx::Renderable& getDefaultRenderable() override;
-  void wait() override;
-  void setSize(mbgl::Size) override;
+  void wait() override {}
+  void setSize(mbgl::Size);
 
  protected:
+  void activate() override { surfaceInfo_.lock(); }
+  void deactivate() override { surfaceInfo_.unlock(); }
   std::unique_ptr<mbgl::gfx::Context> createContext() override;
-  void updateAssumedState() override;
+  void updateAssumedState() override {}
+
+ private:
+  CanvasSurfaceInfo surfaceInfo_;
 };
 
 #endif
 
 #ifdef USE_VULKAN_BACKEND
 
-class CanvasVulkanBackend : public CanvasBackend,
+class CanvasVulkanBackend : public mbgl::vulkan::RendererBackend,
                             public mbgl::vulkan::Renderable {
  public:
   explicit CanvasVulkanBackend(JNIEnv* env, jCanvas canvas);
   mbgl::gfx::Renderable& getDefaultRenderable() override;
-  void wait() override;
-  void setSize(mbgl::Size) override;
+  void wait() override {}
+  void setSize(mbgl::Size);
+  inline void* getPlatformInfo() { return surfaceInfo_.getPlatformInfo(); }
 
  protected:
+  void activate() override { surfaceInfo_.lock(); }
+  void deactivate() override { surfaceInfo_.unlock(); }
   std::vector<const char*> getInstanceExtensions() override;
+
+ private:
+  CanvasSurfaceInfo surfaceInfo_;
 };
 
 #endif
 
 #ifdef USE_OPENGL_BACKEND
 
-class CanvasOpenGLBackend : public CanvasBackend {
+class CanvasOpenGLBackend : public mbgl::gl::RendererBackend {
  public:
   explicit CanvasOpenGLBackend(JNIEnv* env, jCanvas canvas);
   mbgl::gfx::Renderable& getDefaultRenderable() override;
   void wait() override;
-  void setSize(mbgl::Size) override;
+  void setSize(mbgl::Size);
 
  protected:
+  void activate() override { surfaceInfo_.lock(); }
+  void deactivate() override { surfaceInfo_.unlock(); }
   std::unique_ptr<mbgl::gfx::Context> createContext() override;
+
+ private:
+  CanvasSurfaceInfo surfaceInfo_;
 };
 
 #endif

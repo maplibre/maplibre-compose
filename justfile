@@ -12,3 +12,12 @@ pre-commit-run:
 
 run-desktop:
     ./gradlew :demo-app:run
+
+run-desktop-metal:
+    ./gradlew :demo-app:run -PdesktopRenderer=metal
+
+run-desktop-vulkan:
+    ./gradlew :demo-app:run -PdesktopRenderer=vulkan
+
+run-desktop-opengl:
+    ./gradlew :demo-app:run -PdesktopRenderer=opengl

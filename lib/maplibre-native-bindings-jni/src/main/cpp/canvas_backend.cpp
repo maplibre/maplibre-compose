@@ -5,8 +5,7 @@
 
 namespace maplibre_jni {
 
-CanvasBackend::CanvasBackend(JNIEnv* env, jCanvas canvas)
-    : SUPER_BACKEND_TYPE(mbgl::gfx::ContextMode::Unique) {
+CanvasSurfaceInfo::CanvasSurfaceInfo(JNIEnv* env, jCanvas canvas) {
   jawt_.version = JAWT_VERSION_9;
   if (JAWT_GetAWT(env, &jawt_) == JNI_FALSE) {
     throw std::runtime_error("Failed to get AWT");
@@ -37,7 +36,7 @@ CanvasBackend::CanvasBackend(JNIEnv* env, jCanvas canvas)
   platformInfo_ = drawingSurfaceInfo->platformInfo;
 }
 
-CanvasBackend::~CanvasBackend() {
+CanvasSurfaceInfo::~CanvasSurfaceInfo() {
   if (drawingSurface_) {
     if (drawingSurfaceInfo_) {
       drawingSurface_->FreeDrawingSurfaceInfo(drawingSurfaceInfo_);
@@ -47,9 +46,5 @@ CanvasBackend::~CanvasBackend() {
     drawingSurface_ = nullptr;
   }
 }
-
-void CanvasBackend::activate() { drawingSurface_->Lock(drawingSurface_); }
-
-void CanvasBackend::deactivate() { drawingSurface_->Unlock(drawingSurface_); }
 
 }  // namespace maplibre_jni

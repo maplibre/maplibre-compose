@@ -181,7 +181,8 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
 };
 
 CanvasMetalBackend::CanvasMetalBackend(JNIEnv *env, jCanvas canvas)
-    : CanvasBackend(env, canvas),
+    : mbgl::mtl::RendererBackend(mbgl::gfx::ContextMode::Unique),
+      surfaceInfo_(env, canvas),
       mbgl::gfx::Renderable(
         mbgl::Size(
           java_classes::get<Canvas_class>().getWidth(env, canvas),
@@ -190,7 +191,7 @@ CanvasMetalBackend::CanvasMetalBackend(JNIEnv *env, jCanvas canvas)
         std::make_unique<MetalRenderableResource>(*this)
       ) {
   getResource<MetalRenderableResource>().createPlatformSurface(
-    (id<JAWT_SurfaceLayers>)platformInfo_
+    (id<JAWT_SurfaceLayers>)surfaceInfo_.getPlatformInfo()
   );
 }
 
@@ -204,14 +205,6 @@ std::unique_ptr<mbgl::gfx::Context> CanvasMetalBackend::createContext() {
 
 mbgl::gfx::Renderable &CanvasMetalBackend::getDefaultRenderable() {
   return *this;
-}
-
-void CanvasMetalBackend::updateAssumedState() {
-  // TODO Figure out what to do here
-}
-
-void CanvasMetalBackend::wait() {
-  // TODO Figure out what to do here
 }
 
 }  // namespace maplibre_jni

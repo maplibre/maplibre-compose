@@ -8,10 +8,19 @@ internal object SharedLibraryLoader {
 
   fun load() {
     if (loaded) return
-    extractAndLoadLibrary(getLibraryPath())
+    var error: UnsatisfiedLinkError? = null
+    getLibraryPaths().forEach { path ->
+      try {
+        extractAndLoadLibrary(path)
+        return
+      } catch (e: UnsatisfiedLinkError) {
+        error = e
+      }
+    }
+    throw error!!
   }
 
-  private fun getLibraryPath(): String {
+  private fun getLibraryPaths(): List<String> {
     val os = System.getProperty("os.name").lowercase()
     val arch = System.getProperty("os.arch").lowercase()
 
@@ -23,12 +32,11 @@ internal object SharedLibraryLoader {
         else -> throw UnsatisfiedLinkError("Unsupported operating system: $os")
       }
 
-    // TODO overridable somehow
-    val rendererPart =
+    val rendererParts =
       when {
-        os.contains("windows") -> "opengl"
-        os.contains("mac") -> "metal"
-        os.contains("linux") -> "vulkan"
+        os.contains("windows") -> listOf("opengl", "vulkan")
+        os.contains("mac") -> listOf("metal", "vulkan")
+        os.contains("linux") -> listOf("opengl", "vulkan")
         else -> throw UnsatisfiedLinkError("Unsupported renderer for OS: $os")
       }
 
@@ -40,7 +48,7 @@ internal object SharedLibraryLoader {
         else -> throw UnsatisfiedLinkError("Unsupported operating system: $os")
       }
 
-    return "$osPart/$arch/$rendererPart/$filePart"
+    return rendererParts.map { "$osPart/$arch/$it/$filePart" }
   }
 
   @Suppress("UnsafeDynamicallyLoadedCode")
