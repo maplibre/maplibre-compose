@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <jawt.h>
+#include <jawt_md.h>
 #include <jni.h>
 #include <mbgl/actor/scheduler.hpp>
 #include <mbgl/gfx/backend_scope.hpp>
@@ -39,9 +40,28 @@ class CanvasSurfaceInfo {
   explicit CanvasSurfaceInfo(JNIEnv* env, jCanvas canvas);
   ~CanvasSurfaceInfo();
 
-  inline void* getPlatformInfo() { return platformInfo_; }
   inline void lock() { drawingSurface_->Lock(drawingSurface_); }
   inline void unlock() { drawingSurface_->Unlock(drawingSurface_); }
+
+  // TODO: delete this, use initializeMetalLayer instead
+  inline void* getPlatformInfo() { return platformInfo_; }
+
+#ifdef _WIN32
+  inline void* getNativeWindow() {
+    // TODO
+  }
+#elifdef __linux__
+  inline void* getNativeDisplay() {
+    // TODO
+  }
+  inline void* getNativeWindow() {
+    // TODO
+  }
+#elifdef __APPLE__
+  inline void* initializeMetalLayer() {
+    // TODO
+  }
+#endif
 
  private:
   JAWT jawt_{};

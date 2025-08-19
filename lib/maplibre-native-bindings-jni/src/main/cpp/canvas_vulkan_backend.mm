@@ -26,6 +26,10 @@ namespace maplibre_jni {
 
 class VulkanRenderableResource final
     : public mbgl::vulkan::SurfaceRenderableResource {
+#ifdef __APPLE__
+  CAMetalLayer* metalLayer;
+#endif
+
  public:
   VulkanRenderableResource(mbgl::vulkan::RendererBackend& backend)
       : mbgl::vulkan::SurfaceRenderableResource(backend) {}
@@ -36,14 +40,9 @@ class VulkanRenderableResource final
 
   void bind() override {};
 
-#ifdef __APPLE__
- private:
-  CAMetalLayer* metalLayer;
-
- public:
   void createPlatformSurface() override {
     auto& backendImpl = static_cast<CanvasVulkanBackend&>(backend);
-
+#ifdef __APPLE__
     // Set the Metal layer in the platform info
     auto scale = [NSScreen mainScreen].backingScaleFactor;
     metalLayer = [CAMetalLayer layer];
@@ -82,23 +81,73 @@ class VulkanRenderableResource final
                       instance, nullptr, backendImpl.getDispatcher()
                     )
     );
-  };
+#elifdef __linux__
+    if (!backendImpl.getNativeDisplay() || !backendImpl.getNativeWindow()) {
+      throw std::runtime_error("X11 display or window not available");
+    }
+
+    VkXlibSurfaceCreateInfoKHR createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
+    createInfo.dpy = static_cast<Display*>(backendImpl.getNativeDisplay());
+    createInfo.window = static_cast<Window>(
+      reinterpret_cast<uintptr_t>(backendImpl.getNativeWindow())
+    );
+
+    VkSurfaceKHR surface_;
+
+    if (vkCreateXlibSurfaceKHR(
+          backendImpl.getInstance().get(), &createInfo, nullptr, &surface_
+        ) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create X11 surface");
+    }
+
+    surface = vk::UniqueSurfaceKHR(
+      surface_,
+      vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>(
+        backendImpl.getInstance().get(), nullptr, backendImpl.getDispatcher()
+      )
+    );
+#elifdef _WIN32
+    if (!backendImpl.getNativeWindow()) {
+      throw std::runtime_error("Win32 window handle not available");
+    }
+
+    VkWin32SurfaceCreateInfoKHR createInfo{};
+    createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
+    createInfo.hinstance = GetModuleHandle(NULL);
+    createInfo.hwnd = static_cast<HWND>(backendImpl.getNativeWindow());
+
+    VkSurfaceKHR surface_;
+    VkResult result = vkCreateWin32SurfaceKHR(
+      backendImpl.getInstance().get(), &createInfo, nullptr, &surface_
+    );
+
+    if (result != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create Win32 surface");
+    }
+
+    surface = vk::UniqueSurfaceKHR(
+      surface_,
+      vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>(
+        backendImpl.getInstance().get(), nullptr, backendImpl.getDispatcher()
+      )
+    );
+#endif
+  }
 
   ~VulkanRenderableResource() {
+#ifdef __APPLE__
     if (!metalLayer) return;
     [metalLayer release];
+#endif
   }
 
   void setSize(mbgl::Size size) {
+#ifdef __APPLE__
     if (!metalLayer) return;
     metalLayer.drawableSize = CGSizeMake(size.width, size.height);
-  }
-
-#elifdef __linux__
-// TODO
-#elifdef _WIN32
-// TODO
 #endif
+  }
 };
 
 CanvasVulkanBackend::CanvasVulkanBackend(JNIEnv* env, jCanvas canvas)
