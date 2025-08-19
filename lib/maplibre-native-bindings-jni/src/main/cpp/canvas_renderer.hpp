@@ -22,6 +22,7 @@
 #define BACKEND_TYPE CanvasMetalBackend
 #endif
 #ifdef USE_VULKAN_BACKEND
+#include <mbgl/vulkan/renderable_resource.hpp>
 #include <mbgl/vulkan/renderer_backend.hpp>
 #define SUPER_BACKEND_TYPE mbgl::vulkan::RendererBackend
 #define BACKEND_TYPE CanvasVulkanBackend
@@ -34,30 +35,21 @@
 
 namespace maplibre_jni {
 
-class CanvasRenderable : public mbgl::gfx::Renderable {
- public:
-  explicit CanvasRenderable(
-    mbgl::Size size, std::unique_ptr<mbgl::gfx::RenderableResource> resource
-  )
-      : mbgl::gfx::Renderable(size, std::move(resource)) {}
-  void wait() override;
-};
-
 class CanvasBackend : public SUPER_BACKEND_TYPE {
  public:
-  explicit CanvasBackend(
-    JNIEnv* env, jCanvas canvas,
-    std::unique_ptr<mbgl::gfx::RenderableResource> resource
-  );
+  explicit CanvasBackend(JNIEnv* env, jCanvas canvas);
   virtual ~CanvasBackend() override;
-  virtual mbgl::gfx::Renderable& getDefaultRenderable() override;
   virtual void setSize(mbgl::Size) = 0;
+  inline void* getPlatformInfo() { return platformInfo_; }
 
  protected:
   virtual void activate() override;
   virtual void deactivate() override;
 
-  std::unique_ptr<CanvasRenderable> renderable_;
+#ifdef USE_VULKAN_BACKEND
+  virtual std::vector<const char*> getInstanceExtensions() override = 0;
+#endif
+
   JAWT jawt_;
   JAWT_DrawingSurface* drawingSurface_ = nullptr;
   JAWT_DrawingSurfaceInfo* drawingSurfaceInfo_ = nullptr;
@@ -66,9 +58,11 @@ class CanvasBackend : public SUPER_BACKEND_TYPE {
 
 #ifdef USE_METAL_BACKEND
 
-class CanvasMetalBackend : public CanvasBackend {
+class CanvasMetalBackend : public CanvasBackend, public mbgl::gfx::Renderable {
  public:
   explicit CanvasMetalBackend(JNIEnv* env, jCanvas canvas);
+  mbgl::gfx::Renderable& getDefaultRenderable() override;
+  void wait() override;
   void setSize(mbgl::Size) override;
 
  protected:
@@ -80,12 +74,16 @@ class CanvasMetalBackend : public CanvasBackend {
 
 #ifdef USE_VULKAN_BACKEND
 
-class CanvasVulkanBackend : public CanvasBackend {
+class CanvasVulkanBackend : public CanvasBackend,
+                            public mbgl::vulkan::Renderable {
  public:
   explicit CanvasVulkanBackend(JNIEnv* env, jCanvas canvas);
+  mbgl::gfx::Renderable& getDefaultRenderable() override;
+  void wait() override;
+  void setSize(mbgl::Size) override;
 
  protected:
-  std::unique_ptr<mbgl::gfx::Context> createContext() override;
+  std::vector<const char*> getInstanceExtensions() override;
 };
 
 #endif
@@ -95,6 +93,9 @@ class CanvasVulkanBackend : public CanvasBackend {
 class CanvasOpenGLBackend : public CanvasBackend {
  public:
   explicit CanvasOpenGLBackend(JNIEnv* env, jCanvas canvas);
+  mbgl::gfx::Renderable& getDefaultRenderable() override;
+  void wait() override;
+  void setSize(mbgl::Size) override;
 
  protected:
   std::unique_ptr<mbgl::gfx::Context> createContext() override;

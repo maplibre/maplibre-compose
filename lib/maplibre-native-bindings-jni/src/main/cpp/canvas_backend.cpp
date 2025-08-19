@@ -2,27 +2,11 @@
 #include <jni.h>
 #include <mbgl/gfx/renderer_backend.hpp>
 #include "canvas_renderer.hpp"
-#include "java_classes.hpp"
 
 namespace maplibre_jni {
 
-void CanvasRenderable::wait() {
-  // TODO: what do we do here?
-}
-
-CanvasBackend::CanvasBackend(
-  JNIEnv* env, jCanvas canvas,
-  std::unique_ptr<mbgl::gfx::RenderableResource> resource
-)
+CanvasBackend::CanvasBackend(JNIEnv* env, jCanvas canvas)
     : SUPER_BACKEND_TYPE(mbgl::gfx::ContextMode::Unique) {
-  renderable_ = std::make_unique<CanvasRenderable>(
-    mbgl::Size(
-      java_classes::get<Canvas_class>().getWidth(env, canvas),
-      java_classes::get<Canvas_class>().getHeight(env, canvas)
-    ),
-    std::move(resource)
-  );
-
   jawt_.version = JAWT_VERSION_9;
   if (JAWT_GetAWT(env, &jawt_) == JNI_FALSE) {
     throw std::runtime_error("Failed to get AWT");
@@ -62,10 +46,6 @@ CanvasBackend::~CanvasBackend() {
     jawt_.FreeDrawingSurface(drawingSurface_);
     drawingSurface_ = nullptr;
   }
-}
-
-mbgl::gfx::Renderable& CanvasBackend::getDefaultRenderable() {
-  return *renderable_;
 }
 
 void CanvasBackend::activate() { drawingSurface_->Lock(drawingSurface_); }

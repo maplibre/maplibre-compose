@@ -53,13 +53,8 @@ if(MLN_WITH_METAL)
     )
 elseif(MLN_WITH_VULKAN)
     list(APPEND MAPLIBRE_JNI_SOURCES
-        src/main/cpp/canvas_vulkan_backend.cpp
+        src/main/cpp/canvas_vulkan_backend.mm
     )
-    if(APPLE)
-        list(APPEND MAPLIBRE_JNI_SOURCES
-            src/main/cpp/canvas_vulkan_backend.mm
-        )
-    endif()
 elseif(MLN_WITH_OPENGL)
     list(APPEND MAPLIBRE_JNI_SOURCES
         src/main/cpp/canvas_gl_backend.cpp

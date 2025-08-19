@@ -18,9 +18,9 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
   MetalRenderableResource(mbgl::mtl::RendererBackend &backend)
       : rendererBackend(backend) {}
 
-  void setup() {
+  void createPlatformSurface(id<JAWT_SurfaceLayers> surfaceLayers) {
     // If we attempt this in the constructor, we get a null command queue.
-    // So, we'll call setup() explicitly in the CanvasMetalBackend constructor.
+    // So, we'll call createPlatformSurface() in CanvasMetalBackend constructor.
     commandQueue =
       NS::TransferPtr(rendererBackend.getDevice()->newCommandQueue());
     if (!commandQueue) {
@@ -31,6 +31,12 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
       throw std::runtime_error("Failed to create swapchain");
     }
     swapchain->setDevice(rendererBackend.getDevice().get());
+    auto metalLayer = (__bridge CAMetalLayer *)swapchain.get();
+    auto screen = [NSScreen mainScreen];
+    auto scale = screen.backingScaleFactor;
+    metalLayer.bounds = CGRectMake(0, 0, 1, 1);  // AWT will set the size
+    metalLayer.contentsScale = scale;
+    surfaceLayers.layer = metalLayer;
   }
 
   void setSize(mbgl::Size size_) {
@@ -40,8 +46,6 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     );
     buffersInvalid = true;
   }
-
-  mbgl::Size getSize() const { return size; }
 
   void bind() override {
     // Acquire next drawable surface and update texture size
@@ -163,8 +167,6 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     return renderPassDescriptor;
   }
 
-  const mbgl::mtl::CAMetalLayerPtr &getSwapchain() const { return swapchain; }
-
  private:
   mbgl::mtl::RendererBackend &rendererBackend;
   mbgl::mtl::MTLCommandQueuePtr commandQueue;
@@ -179,31 +181,37 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
 };
 
 CanvasMetalBackend::CanvasMetalBackend(JNIEnv *env, jCanvas canvas)
-    : CanvasBackend(
-        env, canvas, std::make_unique<MetalRenderableResource>(*this)
+    : CanvasBackend(env, canvas),
+      mbgl::gfx::Renderable(
+        mbgl::Size(
+          java_classes::get<Canvas_class>().getWidth(env, canvas),
+          java_classes::get<Canvas_class>().getHeight(env, canvas)
+        ),
+        std::make_unique<MetalRenderableResource>(*this)
       ) {
-  auto surfaceLayers = (id<JAWT_SurfaceLayers>)platformInfo_;
-  auto &resource = renderable_->getResource<MetalRenderableResource>();
-  resource.setup();
-  auto metalLayer = (__bridge CAMetalLayer *)resource.getSwapchain().get();
-  auto screen = [NSScreen mainScreen];
-  auto scale = screen.backingScaleFactor;
-  metalLayer.bounds = CGRectMake(0, 0, 1, 1);  // AWT will set the size
-  metalLayer.contentsScale = scale;
-  surfaceLayers.layer = metalLayer;
+  getResource<MetalRenderableResource>().createPlatformSurface(
+    (id<JAWT_SurfaceLayers>)platformInfo_
+  );
 }
 
 void CanvasMetalBackend::setSize(mbgl::Size size) {
-  auto &resource = renderable_->getResource<MetalRenderableResource>();
-  resource.setSize(size);
+  getResource<MetalRenderableResource>().setSize(size);
 }
 
 std::unique_ptr<mbgl::gfx::Context> CanvasMetalBackend::createContext() {
   return std::make_unique<mbgl::mtl::Context>(*this);
 }
 
+mbgl::gfx::Renderable &CanvasMetalBackend::getDefaultRenderable() {
+  return *this;
+}
+
 void CanvasMetalBackend::updateAssumedState() {
-  // no-op for metal
+  // TODO Figure out what to do here
+}
+
+void CanvasMetalBackend::wait() {
+  // TODO Figure out what to do here
 }
 
 }  // namespace maplibre_jni
