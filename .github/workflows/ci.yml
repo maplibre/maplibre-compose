@@ -102,6 +102,20 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - if: ${{ matrix.runner == 'ubuntu-latest' }}
+        name: Install Linux maplibre-native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev \
+            libjpeg-turbo8-dev \
+            libpng-dev \
+            libwebp-dev \
+            libx11-dev \
+            libgl1-mesa-dev \
+            libuv1-dev \
+            libbz2-dev \
+            libicu-dev
       - uses: ./.github/actions/setup
       - run: ./gradlew desktopTest
 
