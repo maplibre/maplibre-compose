@@ -8,19 +8,6 @@
 #include "canvas_renderer.hpp"
 #include "java_classes.hpp"
 
-#if defined(__linux__)
-#include <X11/Xlib.h>
-#define VK_USE_PLATFORM_XLIB_KHR
-#include <vulkan/vulkan_xlib.h>
-#elif defined(_WIN32)
-#include <windows.h>
-#define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan_win32.h>
-#elif defined(__APPLE__)
-#define VK_USE_PLATFORM_METAL_EXT
-#include <vulkan/vulkan_metal.h>
-#endif
-
 namespace maplibre_jni {
 
 #ifdef __APPLE__
@@ -132,6 +119,9 @@ mbgl::gfx::Renderable& CanvasVulkanBackend::getDefaultRenderable() {
 
 void CanvasVulkanBackend::setSize(mbgl::Size size) {
   this->mbgl::vulkan::Renderable::setSize(size);
+  if (context && size.width && size.height) {
+    static_cast<mbgl::vulkan::Context&>(*context).requestSurfaceUpdate();
+  }
 }
 
 std::vector<const char*> CanvasVulkanBackend::getInstanceExtensions() {

@@ -4,11 +4,31 @@
 #include <mbgl/mtl/renderer_backend.hpp>
 #define BACKEND_TYPE CanvasMetalBackend
 #endif
+
 #ifdef USE_VULKAN_BACKEND
 #include <mbgl/vulkan/renderable_resource.hpp>
 #include <mbgl/vulkan/renderer_backend.hpp>
 #define BACKEND_TYPE CanvasVulkanBackend
+
+#if defined(__linux__)
+#include <X11/Xlib.h>
+#include <vulkan/vulkan_xlib.h>
+// X11 defines None and Always, which conflict with MapLibre Native
+#ifdef None
+#undef None
 #endif
+#ifdef Always
+#undef Always
+#endif
+#elif defined(_WIN32)
+#include <vulkan/vulkan_win32.h>
+#include <windows.h>
+#elif defined(__APPLE__)
+#include <vulkan/vulkan_metal.h>
+#endif
+
+#endif
+
 #ifdef USE_OPENGL_BACKEND
 #include <mbgl/gl/renderer_backend.hpp>
 #define BACKEND_TYPE CanvasOpenGLBackend
@@ -28,17 +48,6 @@
 #include <jni.h>
 #include <smjni/java_ref.h>
 #include <type_mapping.h>
-
-#ifdef __linux__
-// X11 defines None and Always, which conflict with MapLibre Native
-#include <X11/Xlib.h>
-#ifdef None
-#undef None
-#endif
-#ifdef Always
-#undef Always
-#endif
-#endif
 
 namespace mbgl {
 class Renderer;
