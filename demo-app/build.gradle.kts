@@ -150,7 +150,7 @@ kotlin {
             val rendererPart =
               project.properties["desktopRenderer"]
                 ?: if (System.getProperty("os.name").lowercase().contains("mac")) "metal"
-                else "vulkan"
+                else "opengl"
             requireCapability(
               "org.maplibre.compose:maplibre-native-bindings-jni-$osPart-$archPart-$rendererPart"
             )

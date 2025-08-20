@@ -8,16 +8,16 @@ internal object SharedLibraryLoader {
 
   fun load() {
     if (loaded) return
-    var error: UnsatisfiedLinkError? = null
+    val errors = mutableListOf<UnsatisfiedLinkError>()
     getLibraryPaths().forEach { path ->
       try {
         extractAndLoadLibrary(path)
         return
       } catch (e: UnsatisfiedLinkError) {
-        error = e
+        errors.add(e)
       }
     }
-    throw error!!
+    throw UnsatisfiedLinkError("Failed to load native library: $errors")
   }
 
   private fun getLibraryPaths(): List<String> {

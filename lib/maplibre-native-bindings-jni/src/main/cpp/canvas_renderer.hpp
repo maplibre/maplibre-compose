@@ -92,7 +92,6 @@ class CanvasSurfaceInfo {
 };
 
 #ifdef USE_METAL_BACKEND
-
 class CanvasMetalBackend : public mbgl::mtl::RendererBackend,
                            public mbgl::gfx::Renderable {
  public:
@@ -110,11 +109,9 @@ class CanvasMetalBackend : public mbgl::mtl::RendererBackend,
  private:
   CanvasSurfaceInfo surfaceInfo_;
 };
-
 #endif
 
 #ifdef USE_VULKAN_BACKEND
-
 class CanvasVulkanBackend : public mbgl::vulkan::RendererBackend,
                             public mbgl::vulkan::Renderable {
  public:
@@ -135,28 +132,27 @@ class CanvasVulkanBackend : public mbgl::vulkan::RendererBackend,
  private:
   CanvasSurfaceInfo surfaceInfo_;
 };
-
 #endif
 
 #ifdef USE_OPENGL_BACKEND
-
-class CanvasOpenGLBackend : public mbgl::gl::RendererBackend {
+class CanvasOpenGLBackend : public mbgl::gl::RendererBackend,
+                            public mbgl::gfx::Renderable {
  public:
   explicit CanvasOpenGLBackend(JNIEnv* env, jCanvas canvas);
   mbgl::gfx::Renderable& getDefaultRenderable() override;
-  void wait() override;
   void setSize(mbgl::Size);
 
  protected:
-  void activate() override { surfaceInfo_.lock(); }
-  void deactivate() override { surfaceInfo_.unlock(); }
-  std::unique_ptr<mbgl::gfx::Context> createContext() override;
+  void activate() override;
+  void deactivate() override;
+  mbgl::gl::ProcAddress getExtensionFunctionPointer(const char* name) override;
+  void updateAssumedState() override;
 
  private:
   CanvasSurfaceInfo surfaceInfo_;
 };
-
 #endif
+
 class CanvasRenderer : public mbgl::RendererFrontend {
  public:
   explicit CanvasRenderer(
