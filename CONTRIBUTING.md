@@ -66,6 +66,13 @@ You'll need to have your developer environment set up to build MapLibre Native.
     `brew install molten-vk` and set the `VULKAN_SDK` environment variable to
     the MoltenVK prefix (`export VULKAN_SDK="$(brew --prefix molten-vk)"`).
 - [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)
+  - On Fedora, install the following:
+    ```bash
+    sudo dnf group install c-development development-tools
+    sudo dnf install cmake ninja-build clang \
+      libcurl-devel libjpeg-turbo-devel libpng-devel libwebp-devel \
+      libX11-devel mesa-libGL-devel libuv-devel bzip2-devel libicu-devel
+    ```
 - [Windows requirements (MSVS2022)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html#prerequisites)
   - Use a Developer Command Prompt for VS2022 to run the build scripts.
 

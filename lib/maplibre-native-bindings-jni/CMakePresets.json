@@ -8,6 +8,7 @@
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "MLN_WITH_CLANG_TIDY": "OFF",
         "MLN_WITH_RTTI": "ON",
         "MLN_WITH_WERROR": "OFF",
         "MLN_WITH_GLFW": "OFF",
@@ -61,6 +62,7 @@
         "CMAKE_SYSTEM_NAME": "Linux",
         "CMAKE_C_COMPILER": "clang",
         "CMAKE_CXX_COMPILER": "clang++",
+        "CMAKE_BUILD_WITH_INSTALL_RPATH": "ON",
         "MLN_WITH_X11": "ON",
         "MLN_WITH_WAYLAND": "OFF"
       }
