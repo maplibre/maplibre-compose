@@ -47,7 +47,8 @@ set(MAPLIBRE_JNI_SOURCES
     src/main/cpp/canvas_backend.cpp
     src/main/cpp/canvas_metal_backend.mm
     src/main/cpp/canvas_vulkan_backend.mm
-    src/main/cpp/canvas_gl_backend.cpp
+    src/main/cpp/canvas_vulkan_backend.cpp
+    src/main/cpp/canvas_opengl_backend.cpp
 )
 
 add_library(maplibre-jni SHARED ${MAPLIBRE_JNI_SOURCES})
@@ -102,13 +103,7 @@ if(MLN_WITH_VULKAN)
     target_compile_definitions(maplibre-jni PRIVATE USE_VULKAN_BACKEND)
 endif()
 if(MLN_WITH_OPENGL)
-    if (MLN_WITH_EGL)
-        target_compile_definitions(maplibre-jni PRIVATE USE_EGL_BACKEND)
-    elseif(WIN32)
-        target_compile_definitions(maplibre-jni PRIVATE USE_WGL_BACKEND)
-    else()
-        message(FATAL_ERROR "Unsupported OpenGL target.")
-    endif()
+    target_compile_definitions(maplibre-jni PRIVATE USE_OPENGL_BACKEND)
 endif()
 
 # Link common libraries

@@ -1,13 +1,15 @@
 #ifdef USE_METAL_BACKEND
 
+#include <mbgl/mtl/context.hpp>
+#include <mbgl/mtl/renderable_resource.hpp>
+#include <mbgl/mtl/texture2d.hpp>
+
 #import <Cocoa/Cocoa.h>
 #include <Metal/Metal.hpp>
 #import <QuartzCore/CAMetalLayer.h>
 #include <QuartzCore/CAMetalLayer.hpp>
 #include <jawt_md.h>
-#include <mbgl/mtl/context.hpp>
-#include <mbgl/mtl/renderable_resource.hpp>
-#include <mbgl/mtl/texture2d.hpp>
+
 #include "canvas_renderer.hpp"
 #include "java_classes.hpp"
 

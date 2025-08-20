@@ -1,34 +1,25 @@
+#ifdef __APPLE__
 #ifdef USE_VULKAN_BACKEND
 
-#include <jawt_md.h>
+#define VK_USE_PLATFORM_METAL_EXT
+
 #include <mbgl/vulkan/context.hpp>
 #include <mbgl/vulkan/renderable_resource.hpp>
-#include <vulkan/vulkan_core.h>
-#include "canvas_renderer.hpp"
-#include "java_classes.hpp"
 
-#ifdef __linux__
-#include <X11/Xlib.h>
-#define VK_USE_PLATFORM_XLIB_KHR
-#include <vulkan/vulkan_xlib.h>
-#elif _WIN32
-#include <windows.h>
-#define VK_USE_PLATFORM_WIN32_KHR
-#include <vulkan/vulkan_win32.h>
-#elif __APPLE__
 #import <Cocoa/Cocoa.h>
 #import <QuartzCore/CAMetalLayer.h>
-#define VK_USE_PLATFORM_METAL_EXT
+#include <jawt_md.h>
+#include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_metal.h>
-#endif
+
+#include "canvas_renderer.hpp"
+#include "java_classes.hpp"
 
 namespace maplibre_jni {
 
 class VulkanRenderableResource final
     : public mbgl::vulkan::SurfaceRenderableResource {
-#ifdef __APPLE__
   CAMetalLayer* metalLayer;
-#endif
 
  public:
   VulkanRenderableResource(mbgl::vulkan::RendererBackend& backend)
@@ -42,7 +33,6 @@ class VulkanRenderableResource final
 
   void createPlatformSurface() override {
     auto& backendImpl = static_cast<CanvasVulkanBackend&>(backend);
-#ifdef __APPLE__
     // Set the Metal layer in the platform info
     auto scale = [NSScreen mainScreen].backingScaleFactor;
     metalLayer = [CAMetalLayer layer];
@@ -81,110 +71,18 @@ class VulkanRenderableResource final
                       instance, nullptr, backendImpl.getDispatcher()
                     )
     );
-#elifdef __linux__
-    if (!backendImpl.getNativeDisplay() || !backendImpl.getNativeWindow()) {
-      throw std::runtime_error("X11 display or window not available");
-    }
-
-    VkXlibSurfaceCreateInfoKHR createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR;
-    createInfo.dpy = static_cast<Display*>(backendImpl.getNativeDisplay());
-    createInfo.window = static_cast<Window>(
-      reinterpret_cast<uintptr_t>(backendImpl.getNativeWindow())
-    );
-
-    VkSurfaceKHR surface_;
-
-    if (vkCreateXlibSurfaceKHR(
-          backendImpl.getInstance().get(), &createInfo, nullptr, &surface_
-        ) != VK_SUCCESS) {
-      throw std::runtime_error("Failed to create X11 surface");
-    }
-
-    surface = vk::UniqueSurfaceKHR(
-      surface_,
-      vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>(
-        backendImpl.getInstance().get(), nullptr, backendImpl.getDispatcher()
-      )
-    );
-#elifdef _WIN32
-    if (!backendImpl.getNativeWindow()) {
-      throw std::runtime_error("Win32 window handle not available");
-    }
-
-    VkWin32SurfaceCreateInfoKHR createInfo{};
-    createInfo.sType = VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR;
-    createInfo.hinstance = GetModuleHandle(NULL);
-    createInfo.hwnd = static_cast<HWND>(backendImpl.getNativeWindow());
-
-    VkSurfaceKHR surface_;
-    VkResult result = vkCreateWin32SurfaceKHR(
-      backendImpl.getInstance().get(), &createInfo, nullptr, &surface_
-    );
-
-    if (result != VK_SUCCESS) {
-      throw std::runtime_error("Failed to create Win32 surface");
-    }
-
-    surface = vk::UniqueSurfaceKHR(
-      surface_,
-      vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>(
-        backendImpl.getInstance().get(), nullptr, backendImpl.getDispatcher()
-      )
-    );
-#endif
   }
 
   ~VulkanRenderableResource() {
-#ifdef __APPLE__
     if (!metalLayer) return;
     [metalLayer release];
-#endif
   }
 
   void setSize(mbgl::Size size) {
-#ifdef __APPLE__
     if (!metalLayer) return;
     metalLayer.drawableSize = CGSizeMake(size.width, size.height);
-#endif
   }
 };
 
-CanvasVulkanBackend::CanvasVulkanBackend(JNIEnv* env, jCanvas canvas)
-    : mbgl::vulkan::RendererBackend(mbgl::gfx::ContextMode::Unique),
-      surfaceInfo_(env, canvas),
-      mbgl::vulkan::Renderable(
-        mbgl::Size(
-          java_classes::get<Canvas_class>().getWidth(env, canvas),
-          java_classes::get<Canvas_class>().getHeight(env, canvas)
-        ),
-        std::make_unique<VulkanRenderableResource>(*this)
-      ) {
-  init();
-}
-
-mbgl::gfx::Renderable& CanvasVulkanBackend::getDefaultRenderable() {
-  return *this;
-}
-
-void CanvasVulkanBackend::setSize(mbgl::Size size) {
-  this->mbgl::vulkan::Renderable::setSize(size);
-}
-
-std::vector<const char*> CanvasVulkanBackend::getInstanceExtensions() {
-#ifdef __APPLE__
-  auto platformSurfaceExtension = VK_EXT_METAL_SURFACE_EXTENSION_NAME;
-#elifdef __linux__
-  auto platformSurfaceExtension = VK_KHR_XLIB_SURFACE_EXTENSION_NAME;
-#elifdef _WIN32
-  auto platformSurfaceExtension = VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
-#endif
-  return {
-    VK_KHR_SURFACE_EXTENSION_NAME, platformSurfaceExtension,
-    VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
-  };
-}
-
-}  // namespace maplibre_jni
-
 #endif  // USE_VULKAN_BACKEND
+#endif  // __APPLE__

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <all_classes.h>
+
 #include "smjni/java_method.h"
 #include "type_mapping.h"
 

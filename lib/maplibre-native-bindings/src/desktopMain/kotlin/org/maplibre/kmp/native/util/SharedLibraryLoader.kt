@@ -26,9 +26,9 @@ internal object SharedLibraryLoader {
 
     val osPart =
       when {
-        os.contains("win") -> "windows"
+        os.contains("windows") -> "windows"
         os.contains("mac") -> "macos"
-        os.contains("nix") -> "linux"
+        os.contains("linux") -> "linux"
         else -> throw UnsatisfiedLinkError("Unsupported operating system: $os")
       }
 

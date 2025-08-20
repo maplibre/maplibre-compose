@@ -136,15 +136,23 @@ kotlin {
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
 
-        // TODO: detect platform
         runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
           capabilities {
-            val renderer =
+            val osName = System.getProperty("os.name").lowercase()
+            val osPart =
+              when {
+                osName.contains("windows") -> "windows"
+                osName.contains("mac") -> "macos"
+                osName.contains("linux") -> "linux"
+                else -> error("Unsupported operating system: $osName")
+              }
+            val archPart = System.getProperty("os.arch").lowercase()
+            val rendererPart =
               project.properties["desktopRenderer"]
                 ?: if (System.getProperty("os.name").lowercase().contains("mac")) "metal"
                 else "vulkan"
             requireCapability(
-              "org.maplibre.compose:maplibre-native-bindings-jni-macos-aarch64-$renderer"
+              "org.maplibre.compose:maplibre-native-bindings-jni-$osPart-$archPart-$rendererPart"
             )
           }
         }

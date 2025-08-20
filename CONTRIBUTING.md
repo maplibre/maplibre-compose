@@ -71,14 +71,16 @@ You'll need to have your developer environment set up to build MapLibre Native.
     sudo dnf group install c-development development-tools
     sudo dnf install cmake ninja-build clang \
       libcurl-devel libjpeg-turbo-devel libpng-devel libwebp-devel \
-      libX11-devel mesa-libGL-devel libuv-devel bzip2-devel libicu-devel
+      libX11-devel mesa-libGL-devel libuv-devel bzip2-devel libicu-devel \
+      vulkan-loader-devel
     ```
   - On Ubuntu, do the following:
     ```bash
     sudo apt update
     sudo apt install build-essential cmake ninja-build clang \
       libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
-      libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev
+      libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
+      libvulkan-dev
     ```
 - [Windows requirements (MSVS2022)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html#prerequisites)
   - Use a Developer Command Prompt for VS2022 to run the build scripts.

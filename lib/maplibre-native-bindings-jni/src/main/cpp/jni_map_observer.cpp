@@ -1,8 +1,11 @@
 #pragma once
 
-#include "jni_map_observer.hpp"
-#include <jni.h>
 #include <mbgl/map/map_observer.hpp>
+
+#include <jni.h>
+
+#include "jni_map_observer.hpp"
+
 #include "java_classes.hpp"
 
 namespace maplibre_jni {

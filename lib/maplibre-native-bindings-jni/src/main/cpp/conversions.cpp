@@ -1,10 +1,15 @@
-#include "conversions.hpp"
+#include <tuple>
+
 #include <mbgl/map/mode.hpp>
+
 #include <smjni/java_ref.h>
 #include <smjni/java_string.h>
-#include <tuple>
+
 #include <CameraOptions_class.h>
 #include <MapOptions_class.h>
+
+#include "conversions.hpp"
+
 #include "java_classes.hpp"
 
 namespace maplibre_jni {

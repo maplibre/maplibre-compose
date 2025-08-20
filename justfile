@@ -7,7 +7,7 @@ pre-commit-install:
 pre-commit-uninstall:
     pre-commit uninstall
 
-pre-commit-run:
+format:
     pre-commit run --all-files
 
 run-desktop:

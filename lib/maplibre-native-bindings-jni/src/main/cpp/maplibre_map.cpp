@@ -1,5 +1,3 @@
-#include <jni.h>
-#include <jni_md.h>
 #include <mbgl/map/map.hpp>
 #include <mbgl/map/map_options.hpp>
 #include <mbgl/storage/file_source.hpp>
@@ -7,8 +5,13 @@
 #include <mbgl/storage/resource_options.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/util/client_options.hpp>
+
+#include <jni.h>
+#include <jni_md.h>
 #include <smjni/java_exception.h>
+
 #include <MapLibreMap_class.h>
+
 #include "conversions.hpp"
 #include "java_classes.hpp"
 #include "jni_map_observer.hpp"

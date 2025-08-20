@@ -1,7 +1,8 @@
 #pragma once
 
-#include <jni.h>
 #include <mbgl/map/map_observer.hpp>
+
+#include <jni.h>
 #include <smjni/java_ref.h>
 #include <type_mapping.h>
 

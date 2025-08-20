@@ -1,11 +1,13 @@
 #pragma once
 
-#include <jni.h>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map_options.hpp>
 #include <mbgl/storage/resource_options.hpp>
 #include <mbgl/util/client_options.hpp>
 #include <mbgl/util/tile_server_options.hpp>
+
+#include <jni.h>
+
 #include "type_mapping.h"
 
 namespace maplibre_jni {

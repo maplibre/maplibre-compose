@@ -5,13 +5,15 @@ ContinuationIndentWidth: 2
 UseCRLF: false
 UseTab: Never
 AlignAfterOpenBracket: BlockIndent
-IncludeBlocks: Merge
+IncludeBlocks: Regroup
 IncludeCategories:
-  - Regex: ^<\w+>$
-    Priority: 0
+  - Regex: ^<[a-zA-Z0-9_]+>$
+    Priority: -100
+  - Regex: ^<mbgl/.*>$
+    Priority: -60
   - Regex: ^<.*_class\.h>$
-    Priority: 40
+    Priority: -40
   - Regex: ^<.*>$
-    Priority: 20
+    Priority: -50
   - Regex: .*
-    Priority: 100
+    Priority: 1

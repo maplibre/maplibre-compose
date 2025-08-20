@@ -1,6 +1,8 @@
+#include <mbgl/gfx/renderer_backend.hpp>
+
 #include <jawt.h>
 #include <jni.h>
-#include <mbgl/gfx/renderer_backend.hpp>
+
 #include "canvas_renderer.hpp"
 
 namespace maplibre_jni {

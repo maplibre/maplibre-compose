@@ -1,11 +1,14 @@
-#include <jni_md.h>
+#include <memory>
+
 #include <mbgl/gfx/renderer_backend.hpp>
 #include <mbgl/renderer/renderer.hpp>
 #include <mbgl/renderer/update_parameters.hpp>
-#include <memory>
+
+#include <jni_md.h>
 #include <smjni/java_ref.h>
 #include <smjni/jni_provider.h>
 #include <type_mapping.h>
+
 #include "canvas_renderer.hpp"
 #include "conversions.hpp"
 #include "java_classes.hpp"

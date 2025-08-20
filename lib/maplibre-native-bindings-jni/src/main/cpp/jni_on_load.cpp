@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <smjni/jni_provider.h>
+
 #include "java_classes.hpp"
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *vm, void *) {
