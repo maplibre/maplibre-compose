@@ -19,3 +19,8 @@ iosApp/*.xcodeproj/*
 !iosApp/*.xcworkspace/xcshareddata/
 **/xcshareddata/WorkspaceSettings.xcsettings
 exportedSpmMaplibre
+out/
+.cache/
+hs_err_*.log
+demo-app/maplibre-cache
+demo-app/maplibre-cache-journal

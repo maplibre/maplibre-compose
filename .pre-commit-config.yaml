@@ -40,10 +40,13 @@ repos:
         language: system
         entry: |
           bash -euo pipefail -c '
-            if ! command -v swift >/dev/null 2>&1; then
-              echo "swift not found"
+            if command -v swift >/dev/null 2>&1 && swift format --help >/dev/null 2>&1; then
+              exec swift format -i "$@"
+            elif command -v swift-format >/dev/null 2>&1; then
+              exec swift-format -i "$@"
+            else
+              echo "swift format or swift-format not found"
               exit $([ "${CI:-}" = "true" ] && echo 1 || echo 0)
             fi
-            exec swift format -i "$@"
           ' --
         types_or: [swift]

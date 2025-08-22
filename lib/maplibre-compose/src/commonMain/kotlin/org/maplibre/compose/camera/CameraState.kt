@@ -12,7 +12,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.MapAdapter
-import org.maplibre.compose.map.StandardMapAdapter
 
 /** Remember a new [CameraState] in the initial state as given in [firstPosition]. */
 @Composable
@@ -34,7 +33,7 @@ public class CameraState(firstPosition: CameraPosition) {
       val prevMap = mapState.value
       mapState.value = map
 
-      if (map !== prevMap && map is StandardMapAdapter) {
+      if (map !== prevMap && map is MapAdapter) {
         // apply deferred state
         map.setCameraPosition(position)
 
@@ -52,7 +51,7 @@ public class CameraState(firstPosition: CameraPosition) {
   public var position: CameraPosition
     get() = positionState.value
     set(value) {
-      (map as? StandardMapAdapter)?.setCameraPosition(value)
+      (map as? MapAdapter)?.setCameraPosition(value)
       positionState.value = value
     }
 

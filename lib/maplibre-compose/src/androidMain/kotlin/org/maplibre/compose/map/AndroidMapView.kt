@@ -72,7 +72,6 @@ internal fun AndroidMapView(
       modifier = modifier,
       factory = { context ->
         MapLibre.getInstance(context)
-        println("Recreated map!")
         MapView(
             context,
             MapLibreMapOptions.createFromAttributes(context)

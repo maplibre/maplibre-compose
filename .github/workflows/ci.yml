@@ -90,11 +90,26 @@ jobs:
       - run: ./gradlew jsBrowserTest
 
   test-desktop:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+          - runner: ubuntu-latest
+          - runner: windows-latest
+    runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+      - if: ${{ matrix.runner == 'ubuntu-latest' }}
+        name: Install Linux maplibre-native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
+            libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
+            libvulkan-dev
       - uses: ./.github/actions/setup
       - run: ./gradlew desktopTest
 

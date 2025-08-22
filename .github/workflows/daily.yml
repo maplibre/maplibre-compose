@@ -12,14 +12,13 @@ jobs:
       - uses: octokit/request-action@v2.x
         id: check-last-run
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          route:
-            GET
-            /repos/${{github.repository}}/actions/workflows/daily.yml/runs?per_page=1&status=completed
+          route: |
+            GET /repos/${{github.repository}}/actions/workflows/daily.yml/runs?per_page=1&status=completed
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     outputs:
-      last_sha:
-        ${{
-        fromJson(steps.check-last-run.outputs.data).workflow_runs[0].head_sha }}
+      last_sha: |
+        ${{ fromJson(steps.check-last-run.outputs.data).workflow_runs[0].head_sha }}
 
   publish-snapshot:
     needs: [check-last-run]
