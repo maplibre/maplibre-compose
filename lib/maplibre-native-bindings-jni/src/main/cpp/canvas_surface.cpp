@@ -10,8 +10,6 @@ void CanvasSurfaceInfo::lock() { drawingSurface_->Lock(drawingSurface_); }
 
 void CanvasSurfaceInfo::unlock() { drawingSurface_->Unlock(drawingSurface_); }
 
-void* CanvasSurfaceInfo::getPlatformInfo() { return platformInfo_; }
-
 #if defined(_WIN32)
 
 HWND CanvasSurfaceInfo::getNativeWindow() {

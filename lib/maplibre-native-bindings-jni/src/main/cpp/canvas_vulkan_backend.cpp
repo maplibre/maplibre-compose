@@ -10,19 +10,6 @@
 
 namespace maplibre_jni {
 
-#ifdef __APPLE__
-// Implemented in canvas_vulkan_backend.mm
-class VulkanRenderableResource final
-    : public mbgl::vulkan::SurfaceRenderableResource {
- public:
-  VulkanRenderableResource(mbgl::vulkan::RendererBackend& backend);
-  ~VulkanRenderableResource();
-  std::vector<const char*> getDeviceExtensions() override;
-  void bind() override {};
-  void createPlatformSurface() override;
-  void setSize(mbgl::Size);
-};
-#else
 class VulkanRenderableResource final
     : public mbgl::vulkan::SurfaceRenderableResource {
  public:
@@ -38,6 +25,30 @@ class VulkanRenderableResource final
   void createPlatformSurface() override {
     auto& backendImpl = static_cast<CanvasVulkanBackend&>(backend);
     auto& surfaceInfo = backendImpl.getSurfaceInfo();
+#ifdef __APPLE__
+    auto* metalLayer = surfaceInfo.createMetalLayer();
+
+    VkMetalSurfaceCreateInfoEXT createInfo{
+      .sType = static_cast<VkStructureType>(
+        VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT
+      ),
+      .pNext = nullptr,
+      .flags = 0,
+      .pLayer = metalLayer,
+    };
+
+    VkSurfaceKHR surface_;
+
+    auto vkCreateMetalSurfaceEXT =
+      reinterpret_cast<PFN_vkCreateMetalSurfaceEXT>(vkGetInstanceProcAddr(
+        backendImpl.getInstance().get(), "vkCreateMetalSurfaceEXT"
+      ));
+    if (vkCreateMetalSurfaceEXT(
+          backendImpl.getInstance().get(), &createInfo, nullptr, &surface_
+        ) != VK_SUCCESS) {
+      throw std::runtime_error("Failed to create Metal surface for MoltenVK");
+    }
+#endif
 #if defined(__linux__)
     if (!surfaceInfo.getNativeDisplay() || !surfaceInfo.getNativeDrawable()) {
       throw std::runtime_error("X11 display or window not available");
@@ -58,13 +69,6 @@ class VulkanRenderableResource final
         ) != VK_SUCCESS) {
       throw std::runtime_error("Failed to create X11 surface");
     }
-
-    surface = vk::UniqueSurfaceKHR(
-      surface_,
-      vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>(
-        backendImpl.getInstance().get(), nullptr, backendImpl.getDispatcher()
-      )
-    );
 #elif defined(_WIN32)
     if (!surfaceInfo.getNativeWindow()) {
       throw std::runtime_error("Win32 window handle not available");
@@ -86,20 +90,25 @@ class VulkanRenderableResource final
     if (result != VK_SUCCESS) {
       throw std::runtime_error("Failed to create Win32 surface");
     }
-
+#endif
     surface = vk::UniqueSurfaceKHR(
       surface_,
       vk::ObjectDestroy<vk::Instance, vk::DispatchLoaderDynamic>(
         backendImpl.getInstance().get(), nullptr, backendImpl.getDispatcher()
       )
     );
-#endif
   }
 
-  ~VulkanRenderableResource() {}
-  void setSize(mbgl::Size) {}
-};
+  void setSize(mbgl::Size size) {
+#ifdef __APPLE__
+    auto& surfaceInfo =
+      static_cast<CanvasVulkanBackend&>(backend).getSurfaceInfo();
+    surfaceInfo.setLayerSize(size);
+#else
+    (void)size;
 #endif
+  }
+};
 
 CanvasVulkanBackend::CanvasVulkanBackend(JNIEnv* env, jCanvas canvas)
     : mbgl::vulkan::RendererBackend(mbgl::gfx::ContextMode::Unique),

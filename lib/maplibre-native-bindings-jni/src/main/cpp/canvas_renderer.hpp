@@ -61,8 +61,6 @@ class CanvasSurfaceInfo {
   void lock();
   void unlock();
 
-  void* getPlatformInfo();
-
 #if defined(_WIN32)
   HWND getNativeWindow();
 #elif defined(__linux__)
@@ -70,6 +68,7 @@ class CanvasSurfaceInfo {
   Drawable getNativeDrawable();
 #elif defined(__APPLE__)
   void* createMetalLayer();
+  void setLayerSize(mbgl::Size size);
 #endif
 
  private:

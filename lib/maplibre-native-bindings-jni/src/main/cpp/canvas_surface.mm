@@ -20,5 +20,11 @@ void* CanvasSurfaceInfo::createMetalLayer() {
   return metalLayer_;
 }
 
+void CanvasSurfaceInfo::setLayerSize(mbgl::Size size) {
+  auto* macInfo = (id<JAWT_SurfaceLayers>)(drawingSurfaceInfo_->platformInfo);
+  auto* metalLayer = reinterpret_cast<CAMetalLayer*>(macInfo.layer);
+  metalLayer.drawableSize = CGSizeMake(size.width, size.height);
+}
+
 }  // namespace maplibre_jni
 #endif  // __APPLE__
