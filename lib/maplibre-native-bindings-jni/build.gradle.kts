@@ -37,7 +37,7 @@ enum class Variant(
     }
 
   fun cmakeOutputLib(layout: ProjectLayout) =
-    layout.buildDirectory.file("lib/main/shared/$sharedLibraryName")
+    layout.buildDirectory.file("lib/$cmakePreset/shared/$sharedLibraryName")
 
   fun resourcesTargetDirectory(layout: ProjectLayout) =
     layout.buildDirectory.dir("copiedResources/$name/$os/$arch/$renderer")

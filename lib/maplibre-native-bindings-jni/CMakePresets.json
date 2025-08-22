@@ -15,8 +15,7 @@
         "MLN_WITH_EGL": "OFF",
         "MLN_WITH_METAL": "OFF",
         "MLN_WITH_OPENGL": "OFF",
-        "MLN_WITH_VULKAN": "OFF",
-        "SIMPLEJNI_HEADERS_DIR": "${sourceDir}/build/generated/simplejni-headers"
+        "MLN_WITH_VULKAN": "OFF"
       }
     },
     {
@@ -39,6 +38,7 @@
       "name": "windows-opengl",
       "inherits": "windows-base",
       "cacheVariables": {
+        "OUTPUT_DIR": "${sourceDir}/build/lib/windows-opengl/shared",
         "MLN_WITH_OPENGL": "ON"
       }
     },
@@ -46,6 +46,7 @@
       "name": "windows-vulkan",
       "inherits": "windows-base",
       "cacheVariables": {
+        "OUTPUT_DIR": "${sourceDir}/build/lib/windows-vulkan/shared",
         "MLN_WITH_VULKAN": "ON"
       }
     },
@@ -71,6 +72,7 @@
       "name": "linux-opengl",
       "inherits": "linux-base",
       "cacheVariables": {
+        "OUTPUT_DIR": "${sourceDir}/build/lib/linux-opengl/shared",
         "MLN_WITH_OPENGL": "ON",
         "MLN_WITH_EGL": "ON"
       }
@@ -79,6 +81,7 @@
       "name": "linux-vulkan",
       "inherits": "linux-base",
       "cacheVariables": {
+        "OUTPUT_DIR": "${sourceDir}/build/lib/linux-vulkan/shared",
         "MLN_WITH_VULKAN": "ON"
       }
     },
@@ -101,6 +104,7 @@
       "name": "macos-metal",
       "inherits": "macos-base",
       "cacheVariables": {
+        "OUTPUT_DIR": "${sourceDir}/build/lib/macos-metal/shared",
         "MLN_WITH_METAL": "ON"
       }
     },
@@ -108,6 +112,7 @@
       "name": "macos-vulkan",
       "inherits": "macos-base",
       "cacheVariables": {
+        "OUTPUT_DIR": "${sourceDir}/build/lib/macos-vulkan/shared",
         "MLN_WITH_VULKAN": "ON"
       }
     }

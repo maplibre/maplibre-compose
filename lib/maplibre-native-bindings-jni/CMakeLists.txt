@@ -6,6 +6,10 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(SIMPLEJNI_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/generated/simplejni-headers" CACHE PATH "Path to SimpleJNI generated headers")
 
+if(NOT DEFINED OUTPUT_DIR)
+    message(FATAL_ERROR "OUTPUT_DIR is not defined")
+endif()
+
 if(APPLE)
     enable_language(OBJCXX)
 endif()
@@ -175,6 +179,6 @@ endif()
 
 # Set output directory
 set_target_properties(maplibre-jni PROPERTIES
-    LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib/main/shared
-    RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/build/lib/main/shared
+    LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
+    RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
 )
