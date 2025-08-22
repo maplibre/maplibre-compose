@@ -1,3 +1,5 @@
+#ifdef USE_OPENGL_BACKEND
+
 #include <string>
 
 #include <EGL/eglplatform.h>
@@ -263,5 +265,7 @@ void CanvasOpenGLBackend::updateAssumedState() {
 }
 
 }  // namespace maplibre_jni
+
+#endif
 
 #endif
