@@ -1,5 +1,14 @@
 #pragma once
 
+#ifdef _WIN32
+#include <windows.h>
+#elif defined(__linux__)
+#include <X11/Xlib.h>
+// X11 defines None and Always, which conflict with MapLibre Native
+#undef None
+#undef Always
+#endif
+
 #ifdef USE_METAL_BACKEND
 #include <mbgl/mtl/renderer_backend.hpp>
 #define BACKEND_TYPE CanvasMetalBackend
@@ -9,24 +18,13 @@
 #include <mbgl/vulkan/renderable_resource.hpp>
 #include <mbgl/vulkan/renderer_backend.hpp>
 #define BACKEND_TYPE CanvasVulkanBackend
-
 #if defined(__linux__)
-#include <X11/Xlib.h>
 #include <vulkan/vulkan_xlib.h>
-// X11 defines None and Always, which conflict with MapLibre Native
-#ifdef None
-#undef None
-#endif
-#ifdef Always
-#undef Always
-#endif
 #elif defined(_WIN32)
 #include <vulkan/vulkan_win32.h>
-#include <windows.h>
 #elif defined(__APPLE__)
 #include <vulkan/vulkan_metal.h>
 #endif
-
 #endif
 
 #ifdef USE_OPENGL_BACKEND
@@ -60,28 +58,18 @@ class CanvasSurfaceInfo {
   explicit CanvasSurfaceInfo(JNIEnv* env, jCanvas canvas);
   ~CanvasSurfaceInfo();
 
-  inline void lock() { drawingSurface_->Lock(drawingSurface_); }
-  inline void unlock() { drawingSurface_->Unlock(drawingSurface_); }
+  void lock();
+  void unlock();
 
-  inline void* getPlatformInfo() { return platformInfo_; }
+  void* getPlatformInfo();
 
 #if defined(_WIN32)
-  inline HWND getNativeWindow() {
-    auto win32DrawingSurfaceInfo =
-      reinterpret_cast<JAWT_Win32DrawingSurfaceInfo*>(platformInfo_);
-    return win32DrawingSurfaceInfo->hwnd;
-  }
+  HWND getNativeWindow();
 #elif defined(__linux__)
-  inline Display* getNativeDisplay() {
-    auto x11DrawingSurfaceInfo =
-      reinterpret_cast<JAWT_X11DrawingSurfaceInfo*>(platformInfo_);
-    return x11DrawingSurfaceInfo->display;
-  }
-  inline Drawable getNativeDrawable() {
-    auto x11DrawingSurfaceInfo =
-      reinterpret_cast<JAWT_X11DrawingSurfaceInfo*>(platformInfo_);
-    return x11DrawingSurfaceInfo->drawable;
-  }
+  Display* getNativeDisplay();
+  Drawable getNativeDrawable();
+#elif defined(__APPLE__)
+  void* createMetalLayer();
 #endif
 
  private:
@@ -89,6 +77,9 @@ class CanvasSurfaceInfo {
   JAWT_DrawingSurface* drawingSurface_ = nullptr;
   JAWT_DrawingSurfaceInfo* drawingSurfaceInfo_ = nullptr;
   void* platformInfo_ = nullptr;
+#ifdef __APPLE__
+  void* metalLayer_ = nullptr;
+#endif
 };
 
 #ifdef USE_METAL_BACKEND
@@ -99,6 +90,7 @@ class CanvasMetalBackend : public mbgl::mtl::RendererBackend,
   mbgl::gfx::Renderable& getDefaultRenderable() override;
   void wait() override {}
   void setSize(mbgl::Size);
+  inline CanvasSurfaceInfo& getSurfaceInfo() { return surfaceInfo_; }
 
  protected:
   void activate() override { surfaceInfo_.lock(); }
@@ -119,10 +111,7 @@ class CanvasVulkanBackend : public mbgl::vulkan::RendererBackend,
   mbgl::gfx::Renderable& getDefaultRenderable() override;
   void wait() override {}
   void setSize(mbgl::Size);
-  inline Drawable getNativeDrawable() {
-    return surfaceInfo_.getNativeDrawable();
-  }
-  inline Display* getNativeDisplay() { return surfaceInfo_.getNativeDisplay(); }
+  inline CanvasSurfaceInfo& getSurfaceInfo() { return surfaceInfo_; }
 
  protected:
   void activate() override { surfaceInfo_.lock(); }
@@ -141,6 +130,7 @@ class CanvasOpenGLBackend : public mbgl::gl::RendererBackend,
   explicit CanvasOpenGLBackend(JNIEnv* env, jCanvas canvas);
   mbgl::gfx::Renderable& getDefaultRenderable() override;
   void setSize(mbgl::Size);
+  inline CanvasSurfaceInfo& getSurfaceInfo() { return surfaceInfo_; }
 
  protected:
   void activate() override;

@@ -48,6 +48,8 @@ set(MAPLIBRE_JNI_SOURCES
     src/main/cpp/jni_on_load.cpp
     src/main/cpp/jni_map_observer.cpp
     src/main/cpp/canvas_frontend.cpp
+    src/main/cpp/canvas_surface.cpp
+    src/main/cpp/canvas_surface.mm
     src/main/cpp/canvas_backend.cpp
     src/main/cpp/canvas_metal_backend.mm
     src/main/cpp/canvas_vulkan_backend.mm
@@ -80,7 +82,7 @@ if(WIN32)
 endif()
 
 # Add Metal-cpp headers for macOS
-if(MLN_WITH_METAL)
+if(APPLE)
     target_include_directories(maplibre-jni SYSTEM PRIVATE
         ${maplibre-native_SOURCE_DIR}/vendor/metal-cpp
     )

@@ -37,8 +37,9 @@ class VulkanRenderableResource final
 
   void createPlatformSurface() override {
     auto& backendImpl = static_cast<CanvasVulkanBackend&>(backend);
+    auto& surfaceInfo = backendImpl.getSurfaceInfo();
 #if defined(__linux__)
-    if (!backendImpl.getNativeDisplay() || !backendImpl.getNativeDrawable()) {
+    if (!surfaceInfo.getNativeDisplay() || !surfaceInfo.getNativeDrawable()) {
       throw std::runtime_error("X11 display or window not available");
     }
 
@@ -46,8 +47,8 @@ class VulkanRenderableResource final
       .sType = VK_STRUCTURE_TYPE_XLIB_SURFACE_CREATE_INFO_KHR,
       .pNext = nullptr,
       .flags = 0,
-      .dpy = backendImpl.getNativeDisplay(),
-      .window = backendImpl.getNativeDrawable(),
+      .dpy = surfaceInfo.getNativeDisplay(),
+      .window = surfaceInfo.getNativeDrawable(),
     };
 
     VkSurfaceKHR surface_;
@@ -65,7 +66,7 @@ class VulkanRenderableResource final
       )
     );
 #elif defined(_WIN32)
-    if (!backendImpl.getNativeWindow()) {
+    if (!surfaceInfo.getNativeWindow()) {
       throw std::runtime_error("Win32 window handle not available");
     }
 
@@ -74,7 +75,7 @@ class VulkanRenderableResource final
       .pNext = nullptr,
       .flags = 0,
       .hinstance = GetModuleHandle(NULL),
-      .hwnd = backendImpl.getNativeWindow(),
+      .hwnd = surfaceInfo.getNativeWindow(),
     };
 
     VkSurfaceKHR surface_;

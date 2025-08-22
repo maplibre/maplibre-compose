@@ -1,13 +1,13 @@
-#ifdef __APPLE__
-#ifdef USE_VULKAN_BACKEND
-
-#define VK_USE_PLATFORM_METAL_EXT
+#if defined(__APPLE__) && defined(USE_VULKAN_BACKEND)
 
 #include <mbgl/vulkan/context.hpp>
 #include <mbgl/vulkan/renderable_resource.hpp>
 
 #import <Cocoa/Cocoa.h>
+#include <Foundation/Foundation.hpp>
+#include <Metal/Metal.hpp>
 #import <QuartzCore/CAMetalLayer.h>
+#include <QuartzCore/QuartzCore.hpp>
 #include <jawt_md.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vulkan_metal.h>
@@ -33,15 +33,8 @@ class VulkanRenderableResource final
 
   void createPlatformSurface() override {
     auto& backendImpl = static_cast<CanvasVulkanBackend&>(backend);
-    // Set the Metal layer in the platform info
-    auto scale = [NSScreen mainScreen].backingScaleFactor;
-    metalLayer = [CAMetalLayer layer];
-    metalLayer.bounds = CGRectMake(0, 0, 1, 1);
-    metalLayer.contentsScale = scale;
-    auto platformInfo = (id<JAWT_SurfaceLayers>)backendImpl.getPlatformInfo();
-    platformInfo.layer = metalLayer;
+    metalLayer = (CAMetalLayer*)backendImpl.getSurfaceInfo().createMetalLayer();
 
-    // Create the Vulkan surface
     auto& instance = backendImpl.getInstance().get();
 
     auto vkCreateMetalSurfaceEXT =
@@ -84,5 +77,6 @@ class VulkanRenderableResource final
   }
 };
 
-#endif  // USE_VULKAN_BACKEND
-#endif  // __APPLE__
+}  // namespace maplibre_jni
+
+#endif

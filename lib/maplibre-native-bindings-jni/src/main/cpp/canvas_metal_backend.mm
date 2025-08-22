@@ -17,10 +17,10 @@ namespace maplibre_jni {
 
 class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
  public:
-  MetalRenderableResource(mbgl::mtl::RendererBackend &backend)
+  MetalRenderableResource(CanvasMetalBackend &backend)
       : rendererBackend(backend) {}
 
-  void createPlatformSurface(id<JAWT_SurfaceLayers> surfaceLayers) {
+  void createPlatformSurface() {
     // If we attempt this in the constructor, we get a null command queue.
     // So, we'll call createPlatformSurface() in CanvasMetalBackend constructor.
     commandQueue =
@@ -28,17 +28,12 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     if (!commandQueue) {
       throw std::runtime_error("Failed to create command queue");
     }
-    swapchain = NS::TransferPtr(CA::MetalLayer::layer());
-    if (!swapchain) {
-      throw std::runtime_error("Failed to create swapchain");
-    }
+
+    CAMetalLayer *metalLayer =
+      (CAMetalLayer *)rendererBackend.getSurfaceInfo().createMetalLayer();
+
+    swapchain = NS::TransferPtr(reinterpret_cast<CA::MetalLayer *>(metalLayer));
     swapchain->setDevice(rendererBackend.getDevice().get());
-    auto metalLayer = (__bridge CAMetalLayer *)swapchain.get();
-    auto screen = [NSScreen mainScreen];
-    auto scale = screen.backingScaleFactor;
-    metalLayer.bounds = CGRectMake(0, 0, 1, 1);  // AWT will set the size
-    metalLayer.contentsScale = scale;
-    surfaceLayers.layer = metalLayer;
   }
 
   void setSize(mbgl::Size size_) {
@@ -170,7 +165,7 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
   }
 
  private:
-  mbgl::mtl::RendererBackend &rendererBackend;
+  CanvasMetalBackend &rendererBackend;
   mbgl::mtl::MTLCommandQueuePtr commandQueue;
   mbgl::mtl::MTLCommandBufferPtr commandBuffer;
   mbgl::mtl::MTLRenderPassDescriptorPtr renderPassDescriptor;
@@ -192,9 +187,7 @@ CanvasMetalBackend::CanvasMetalBackend(JNIEnv *env, jCanvas canvas)
         ),
         std::make_unique<MetalRenderableResource>(*this)
       ) {
-  getResource<MetalRenderableResource>().createPlatformSurface(
-    (id<JAWT_SurfaceLayers>)surfaceInfo_.getPlatformInfo()
-  );
+  getResource<MetalRenderableResource>().createPlatformSurface();
 }
 
 void CanvasMetalBackend::setSize(mbgl::Size size) {
