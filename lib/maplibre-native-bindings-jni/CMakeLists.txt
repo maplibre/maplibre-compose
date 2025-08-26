@@ -41,6 +41,16 @@ FetchContent_Declare(
 # Make MapLibre Native and SimpleJNI available
 FetchContent_MakeAvailable(maplibre-native SimpleJNI)
 
+# Manually exclude test and benchmark directories as there's no flag for them
+set_target_properties(
+    mbgl-test-runner
+    mbgl-benchmark-runner
+    mbgl-render-test-runner
+    PROPERTIES
+    EXCLUDE_FROM_ALL TRUE
+    EXCLUDE_FROM_DEFAULT_BUILD TRUE
+)
+
 # Create our JNI library
 set(MAPLIBRE_JNI_SOURCES
     src/main/cpp/maplibre_map.cpp
