@@ -80,13 +80,6 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
     if (eglContext == EGL_NO_CONTEXT) {
       throw std::runtime_error("Failed to create EGL context");
     }
-
-    if (!eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
-      auto error = eglGetError();
-      throw std::runtime_error(
-        "Failed to make EGL context current: " + std::to_string(error)
-      );
-    }
 #elif defined(_WIN32)
     hwnd = canvasInfo.getNativeWindow();
     hdc = GetDC(hwnd);
@@ -144,10 +137,6 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
     if (!hglrc) {
       throw std::runtime_error("Failed to create OpenGL 3.0 context");
     }
-
-    if (!wglMakeCurrent(hdc, hglrc)) {
-      throw std::runtime_error("Failed to make WGL context current");
-    }
 #endif
   }
 
@@ -182,13 +171,23 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #if defined(__linux__)
     if (eglDisplay != EGL_NO_DISPLAY && eglContext != EGL_NO_CONTEXT &&
         eglSurface != EGL_NO_SURFACE) {
-      if (!eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
-        throw std::runtime_error("Failed to make EGL context current");
+      auto ret = eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
+      if (ret == EGL_FALSE) {
+        auto error = eglGetError();
+        throw std::runtime_error(
+          "Failed to make EGL context current: " + std::to_string(error)
+        );
       }
     }
 #elif defined(_WIN32)
     if (hdc && hglrc) {
-      wglMakeCurrent(hdc, hglrc);
+      auto ret = wglMakeCurrent(hdc, hglrc);
+      if (ret == FALSE) {
+        auto error = GetLastError();
+        throw std::runtime_error(
+          "Failed to make WGL context current: " + std::to_string(error)
+        );
+      }
     }
 #endif
   }
