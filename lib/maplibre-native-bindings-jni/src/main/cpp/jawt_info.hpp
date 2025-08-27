@@ -17,7 +17,7 @@ class JawtInfo {
     assert(awtResult != JNI_FALSE);
 
     drawingSurface = awt.GetDrawingSurface(env, panel);
-    if (drawingSurface == NULL) return;
+    assert(drawingSurface != NULL);
 
     auto lockResult = drawingSurface->Lock(drawingSurface);
     assert((lockResult & JAWT_LOCK_ERROR) == 0);

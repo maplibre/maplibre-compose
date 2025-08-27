@@ -18,10 +18,11 @@
 #include <mbgl/vulkan/renderer_backend.hpp>
 #if defined(__linux__)
 #include <vulkan/vulkan_xlib.h>
-#elif defined(_WIN32)
-#include <vulkan/vulkan_win32.h>
-#elif defined(__APPLE__)
-#include <vulkan/vulkan_metal.h>
+#elif defined(__linux__)
+#include <X11/Xlib.h>
+// X11 defines None and Always, which conflict with MapLibre Native
+#undef None
+#undef Always
 #endif
 #endif
 
@@ -63,10 +64,6 @@ class CanvasBackend : public mbgl::gl::RendererBackend,
   void deactivate() override;
   mbgl::gl::ProcAddress getExtensionFunctionPointer(const char* name) override;
   void updateAssumedState() override;
-
- private:
-  jCanvas canvas;
-  std::unique_ptr<JawtInfo> activeJawtInfo;
 };
 #endif
 
