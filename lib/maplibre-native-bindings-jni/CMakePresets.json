@@ -6,7 +6,7 @@
       "hidden": true,
       "generator": "Ninja",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release",
+        "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
         "MLN_WITH_CLANG_TIDY": "OFF",
         "MLN_WITH_RTTI": "ON",

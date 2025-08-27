@@ -1,3 +1,4 @@
+#include <iostream>
 #ifdef USE_OPENGL_BACKEND
 
 #include <string>
@@ -21,12 +22,51 @@ namespace maplibre_jni {
 
 class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
  public:
-  explicit OpenGLRenderableResource(maplibre_jni::CanvasOpenGLBackend &backend_)
+  explicit OpenGLRenderableResource(maplibre_jni::CanvasBackend &backend_)
       : backend(backend_) {}
 
-  void init(CanvasSurfaceInfo &canvasInfo) {
+  void setActiveJawtInfo(std::shared_ptr<JawtInfo> jawtInfo) {
+    std::cout << "OpenGLRenderableResource::setActiveJawtInfo" << std::endl;
+    this->activeJawtInfo = jawtInfo;
+  }
+
+  void deinitGL() {
+    std::cout << "OpenGLRenderableResource::deinitGL" << std::endl;
 #if defined(__linux__)
-    eglDisplay = eglGetDisplay(canvasInfo.getNativeDisplay());
+    if (eglContext != EGL_NO_CONTEXT) {
+      eglMakeCurrent(
+        eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT
+      );
+      eglDestroyContext(eglDisplay, eglContext);
+      eglContext = EGL_NO_CONTEXT;
+    }
+    if (eglSurface != EGL_NO_SURFACE) {
+      eglDestroySurface(eglDisplay, eglSurface);
+      eglSurface = EGL_NO_SURFACE;
+    }
+    if (eglDisplay != EGL_NO_DISPLAY) {
+      eglTerminate(eglDisplay);
+      eglDisplay = EGL_NO_DISPLAY;
+    }
+    eglConfig = nullptr;
+#elif defined(_WIN32)
+    if (hglrc) {
+      wglMakeCurrent(nullptr, nullptr);
+      wglDeleteContext(hglrc);
+      hglrc = nullptr;
+    }
+    if (hdc && hwnd) {
+      ReleaseDC(hwnd, hdc);
+      hdc = nullptr;
+    }
+    hwnd = nullptr;
+#endif
+  }
+
+  void initGL() {
+    std::cout << "OpenGLRenderableResource::initGL" << std::endl;
+#if defined(__linux__)
+    eglDisplay = eglGetDisplay(activeJawtInfo->getPlatformInfo()->display);
     if (eglDisplay == EGL_NO_DISPLAY) {
       throw std::runtime_error("Failed to get EGL display");
     }
@@ -67,7 +107,8 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
     }
 
     eglSurface = eglCreateWindowSurface(
-      eglDisplay, eglConfig, canvasInfo.getNativeDrawable(), nullptr
+      eglDisplay, eglConfig, activeJawtInfo->getPlatformInfo()->drawable,
+      nullptr
     );
     if (eglSurface == EGL_NO_SURFACE) {
       throw std::runtime_error("Failed to create EGL surface");
@@ -81,7 +122,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
       throw std::runtime_error("Failed to create EGL context");
     }
 #elif defined(_WIN32)
-    hwnd = canvasInfo.getNativeWindow();
+    hwnd = activeJawtInfo->getPlatformInfo()->hwnd;
     hdc = GetDC(hwnd);
     if (!hdc) {
       throw std::runtime_error("Failed to get device context");
@@ -166,6 +207,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
   }
 
   void bind() override {
+    std::cout << "OpenGLRenderableResource::bind" << std::endl;
     backend.setFramebufferBinding(0);
     backend.setViewport(0, 0, backend.getSize());
 #if defined(__linux__)
@@ -193,6 +235,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
   }
 
   void swap() override {
+    std::cout << "OpenGLRenderableResource::swap" << std::endl;
 #if defined(__linux__)
     if (eglDisplay != EGL_NO_DISPLAY) {
       eglMakeCurrent(
@@ -211,7 +254,8 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
   }
 
  private:
-  maplibre_jni::CanvasOpenGLBackend &backend;
+  maplibre_jni::CanvasBackend &backend;
+  std::shared_ptr<JawtInfo> activeJawtInfo;
 
 #if defined(__linux__)
   EGLDisplay eglDisplay = EGL_NO_DISPLAY;
@@ -225,7 +269,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #endif
 };
 
-CanvasOpenGLBackend::CanvasOpenGLBackend(JNIEnv *env, jCanvas canvas)
+CanvasBackend::CanvasBackend(JNIEnv *env, jCanvas canvas)
     : mbgl::gl::RendererBackend(mbgl::gfx::ContextMode::Unique),
       mbgl::gfx::Renderable(
         mbgl::Size(
@@ -233,22 +277,35 @@ CanvasOpenGLBackend::CanvasOpenGLBackend(JNIEnv *env, jCanvas canvas)
           java_classes::get<Canvas_class>().getHeight(env, canvas)
         ),
         std::make_unique<OpenGLRenderableResource>(*this)
-      ),
-      surfaceInfo_(env, canvas) {
-  getResource<OpenGLRenderableResource>().init(surfaceInfo_);
+      ) {}
+
+mbgl::gfx::Renderable &CanvasBackend::getDefaultRenderable() { return *this; }
+
+void CanvasBackend::setSize(mbgl::Size size) { this->size = size; }
+
+void CanvasBackend::activate() {
+  std::cout << "CanvasOpenGLBackend::activate" << std::endl;
+  auto env = smjni::jni_provider::get_jni();
+  activeJawtInfo = std::make_unique<JawtInfo>(env, canvas);
+  auto changed = activeJawtInfo->lock();
+  auto &resource = getResource<OpenGLRenderableResource>();
+  resource.setActiveJawtInfo(std::move(activeJawtInfo));
+  if (changed) {
+    std::cout << "CanvasOpenGLBackend::activate: changed" << std::endl;
+    resource.deinitGL();
+    resource.initGL();
+  }
 }
 
-mbgl::gfx::Renderable &CanvasOpenGLBackend::getDefaultRenderable() {
-  return *this;
+void CanvasBackend::deactivate() {
+  std::cout << "CanvasOpenGLBackend::deactivate" << std::endl;
+  auto &resource = getResource<OpenGLRenderableResource>();
+  resource.setActiveJawtInfo(nullptr);
+  activeJawtInfo->unlock();
+  activeJawtInfo.reset();
 }
 
-void CanvasOpenGLBackend::setSize(mbgl::Size size) { this->size = size; }
-
-void CanvasOpenGLBackend::activate() { this->surfaceInfo_.lock(); }
-
-void CanvasOpenGLBackend::deactivate() { this->surfaceInfo_.unlock(); }
-
-mbgl::gl::ProcAddress CanvasOpenGLBackend::getExtensionFunctionPointer(
+mbgl::gl::ProcAddress CanvasBackend::getExtensionFunctionPointer(
   const char *name
 ) {
 #if defined(__linux__)
@@ -258,7 +315,7 @@ mbgl::gl::ProcAddress CanvasOpenGLBackend::getExtensionFunctionPointer(
 #endif
 }
 
-void CanvasOpenGLBackend::updateAssumedState() {
+void CanvasBackend::updateAssumedState() {
   assumeFramebufferBinding(0);
   setViewport(0, 0, size);
 }

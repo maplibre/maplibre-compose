@@ -23,7 +23,7 @@ CanvasRenderer::CanvasRenderer(
       ),
       canvasRenderer_(smjni::jglobal_ref(canvasFrontend)),
       backend_(
-        std::make_unique<BACKEND_TYPE>(
+        std::make_unique<CanvasBackend>(
           env, java_classes::get<CanvasRenderer_class>()
                  .getCanvas(env, canvasFrontend)
                  .c_ptr()
