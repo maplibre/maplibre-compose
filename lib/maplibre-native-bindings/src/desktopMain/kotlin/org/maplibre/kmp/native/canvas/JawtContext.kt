@@ -51,7 +51,7 @@ internal sealed class JawtContext(canvas: Canvas) {
   }
 
   companion object {
-    private val awt: JAWT = JAWT.calloc()
+    private val awt: JAWT = JAWT.create()
 
     init {
       awt.version(JAWT_VERSION_9)

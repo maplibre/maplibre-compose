@@ -60,9 +60,9 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 lwjgl-core = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
-lwjgl-egl = { module = "org.lwjgl:lwjgl-egl", version.ref = "lwjgl" }
 lwjgl-jawt = { module = "org.lwjgl:lwjgl-jawt", version.ref = "lwjgl" }
 lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
+lwjgl-egl = { module = "org.lwjgl:lwjgl-egl", version.ref = "lwjgl" }
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
 maplibre-androidOpenGL = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android-sdk" }
 maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk-vulkan", version.ref = "maplibre-android-sdk" }

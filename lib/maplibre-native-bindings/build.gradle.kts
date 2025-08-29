@@ -27,9 +27,12 @@ kotlin {
         implementation(
           project.dependencies.variantOf(libs.lwjgl.core) { classifier("natives-linux") }
         )
+        implementation(
+          project.dependencies.variantOf(libs.lwjgl.opengl) { classifier("natives-linux") }
+        )
         implementation(libs.lwjgl.core)
-        implementation(libs.lwjgl.egl)
         implementation(libs.lwjgl.jawt)
+        implementation(libs.lwjgl.egl)
         implementation(libs.lwjgl.opengl)
       }
     }

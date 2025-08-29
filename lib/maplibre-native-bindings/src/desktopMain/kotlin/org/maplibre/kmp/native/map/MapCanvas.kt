@@ -1,6 +1,6 @@
 package org.maplibre.kmp.native.map
 
-import org.lwjgl.opengl.GL11C.*
+import org.lwjgl.opengl.GL30C.*
 import org.maplibre.kmp.native.canvas.GLCanvas
 
 /**
