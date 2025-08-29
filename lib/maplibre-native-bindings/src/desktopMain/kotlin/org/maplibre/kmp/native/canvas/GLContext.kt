@@ -1,8 +1,6 @@
 package org.maplibre.kmp.native.canvas
 
 import java.nio.IntBuffer
-import org.lwjgl.PointerBuffer
-import org.lwjgl.egl.EGL15.*
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GLX14.*
 import org.lwjgl.opengl.GLXARBCreateContext.*
@@ -31,136 +29,9 @@ internal sealed interface GLContext {
     fun create(jawtContext: JawtContext): GLContext {
       return when (jawtContext) {
         is JawtContext.Win32 -> WGL(jawtContext)
-        is JawtContext.X11 -> EGL(jawtContext)
-        // MacOS is not implemented yet, but EGL could potentially work with ANGLE
-        is JawtContext.MacOS -> EGL(jawtContext)
+        is JawtContext.X11 -> GLX(jawtContext)
+        is JawtContext.MacOS -> error("not supported")
       }
-    }
-  }
-
-  class EGL(jawtContext: JawtContext) : GLContext {
-    private var eglDisplay: Long
-    private var eglSurface: Long
-    private var eglContext: Long
-
-    init {
-      val (nativeDisplay, nativeWindow) =
-        when (jawtContext) {
-          is JawtContext.X11 -> Pair(jawtContext.display, jawtContext.drawable)
-          is JawtContext.Win32 -> Pair(jawtContext.hdc, jawtContext.hwnd)
-          is JawtContext.MacOS -> {
-            if (jawtContext.layer == 0L) jawtContext.initLayer()
-            Pair(EGL_DEFAULT_DISPLAY, jawtContext.layer)
-          }
-        }
-
-      eglDisplay = eglGetDisplay(nativeDisplay)
-      if (eglDisplay == EGL_NO_DISPLAY) throwLastError()
-
-      eglInitialize(eglDisplay, null as IntArray?, null) || throwLastError()
-      bind()
-
-      val config = PointerBuffer.allocateDirect(1)
-      eglChooseConfig(
-        eglDisplay,
-        intArrayOf(
-          EGL_SURFACE_TYPE,
-          EGL_WINDOW_BIT,
-          EGL_RED_SIZE,
-          8,
-          EGL_GREEN_SIZE,
-          8,
-          EGL_BLUE_SIZE,
-          8,
-          EGL_ALPHA_SIZE,
-          8,
-          EGL_DEPTH_SIZE,
-          24,
-          EGL_STENCIL_SIZE,
-          8,
-          EGL_RENDERABLE_TYPE,
-          EGL_OPENGL_ES2_BIT,
-          EGL_NONE,
-        ),
-        config,
-        IntArray(1),
-      ) || throwLastError()
-
-      eglSurface =
-        eglCreateWindowSurface(eglDisplay, config.get(0), nativeWindow, null as IntArray?)
-      if (eglSurface == EGL_NO_SURFACE) throwLastError()
-
-      eglContext =
-        eglCreateContext(
-          eglDisplay,
-          config.get(0),
-          EGL_NO_CONTEXT,
-          intArrayOf(EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE),
-        )
-      if (eglContext == EGL_NO_CONTEXT) throwLastError()
-
-      activate()
-      deactivate()
-    }
-
-    override val isCurrent: Boolean
-      get() {
-        check(eglContext != EGL_NO_CONTEXT)
-        return eglGetCurrentContext() == eglContext
-      }
-
-    private fun throwLastError(): Nothing {
-      val err = eglGetError()
-      when (err) {
-        EGL_SUCCESS -> error("EGL success")
-        EGL_NOT_INITIALIZED -> error("EGL not initialized")
-        EGL_BAD_ACCESS -> error("EGL bad access")
-        EGL_BAD_ALLOC -> error("EGL bad alloc")
-        EGL_BAD_ATTRIBUTE -> error("EGL bad attribute")
-        EGL_BAD_CONFIG -> error("EGL bad config")
-        EGL_BAD_CONTEXT -> error("EGL bad context")
-        EGL_BAD_CURRENT_SURFACE -> error("EGL bad current surface")
-        EGL_BAD_DISPLAY -> error("EGL bad display")
-        EGL_BAD_MATCH -> error("EGL bad match")
-        EGL_BAD_NATIVE_PIXMAP -> error("EGL bad native pixmap")
-        EGL_BAD_NATIVE_WINDOW -> error("EGL bad native window")
-        EGL_BAD_PARAMETER -> error("EGL bad parameter")
-        EGL_BAD_SURFACE -> error("EGL bad surface")
-        EGL_CONTEXT_LOST -> error("EGL context lost")
-        else -> error("EGL error: $err")
-      }
-    }
-
-    override fun dispose() {
-      check(
-        eglDisplay != EGL_NO_DISPLAY && eglSurface != EGL_NO_SURFACE && eglContext != EGL_NO_CONTEXT
-      )
-      deactivate()
-      eglDestroyContext(eglDisplay, eglContext) || throwLastError()
-      eglContext = EGL_NO_CONTEXT
-      eglDestroySurface(eglDisplay, eglSurface) || throwLastError()
-      eglSurface = EGL_NO_SURFACE
-    }
-
-    override fun bind() {
-      eglBindAPI(EGL_OPENGL_ES_API) || throwLastError()
-    }
-
-    override fun swap() {
-      check(eglDisplay != EGL_NO_DISPLAY && eglSurface != EGL_NO_SURFACE)
-      eglSwapBuffers(eglDisplay, eglSurface) || throwLastError()
-    }
-
-    override fun activate() {
-      check(
-        eglDisplay != EGL_NO_DISPLAY && eglSurface != EGL_NO_SURFACE && eglContext != EGL_NO_CONTEXT
-      )
-      eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext) || throwLastError()
-    }
-
-    override fun deactivate() {
-      check(eglDisplay != EGL_NO_DISPLAY)
-      eglMakeCurrent(eglDisplay, 0L, 0L, 0L) || throwLastError()
     }
   }
 

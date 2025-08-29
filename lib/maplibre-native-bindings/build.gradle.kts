@@ -32,7 +32,6 @@ kotlin {
         )
         implementation(libs.lwjgl.core)
         implementation(libs.lwjgl.jawt)
-        implementation(libs.lwjgl.egl)
         implementation(libs.lwjgl.opengl)
       }
     }

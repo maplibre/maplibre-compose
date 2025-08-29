@@ -93,10 +93,18 @@ internal sealed class JawtContext(canvas: Canvas) {
     var hdc: Long = 0
       private set
 
+    var hbitmap: Long = 0
+      private set
+
+    var hpalette: Long = 0
+      private set
+
     override fun onDrawingSurfaceInfo(dsi: JAWTDrawingSurfaceInfo) {
       val dsiWin = JAWTWin32DrawingSurfaceInfo.create(dsi.platformInfo())
       hwnd = dsiWin.hwnd()
       hdc = dsiWin.hdc()
+      hbitmap = dsiWin.hbitmap()
+      hpalette = dsiWin.hpalette()
     }
   }
 
@@ -107,10 +115,22 @@ internal sealed class JawtContext(canvas: Canvas) {
     var drawable: Long = 0
       private set
 
+    var visualId: Long = 0
+      private set
+
+    var colorMapId: Long = 0
+      private set
+
+    var depth: Int = 0
+      private set
+
     override fun onDrawingSurfaceInfo(dsi: JAWTDrawingSurfaceInfo) {
-      val dsiWin = JAWTX11DrawingSurfaceInfo.create(dsi.platformInfo())
-      display = dsiWin.display()
-      drawable = dsiWin.drawable()
+      val dsiX11 = JAWTX11DrawingSurfaceInfo.create(dsi.platformInfo())
+      display = dsiX11.display()
+      drawable = dsiX11.drawable()
+      visualId = dsiX11.visualID()
+      colorMapId = dsiX11.colormapID()
+      depth = dsiX11.depth()
     }
   }
 
