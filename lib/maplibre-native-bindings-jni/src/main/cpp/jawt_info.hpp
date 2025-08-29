@@ -1,4 +1,5 @@
 #include <cassert>
+#include <stdexcept>
 
 #include <jawt.h>
 #include <jawt_md.h>
@@ -17,7 +18,9 @@ class JawtInfo {
     assert(awtResult != JNI_FALSE);
 
     drawingSurface = awt.GetDrawingSurface(env, panel);
-    assert(drawingSurface != NULL);
+    if (drawingSurface == NULL) {
+      throw std::runtime_error("No drawing surface yet");
+    }
 
     auto lockResult = drawingSurface->Lock(drawingSurface);
     assert((lockResult & JAWT_LOCK_ERROR) == 0);

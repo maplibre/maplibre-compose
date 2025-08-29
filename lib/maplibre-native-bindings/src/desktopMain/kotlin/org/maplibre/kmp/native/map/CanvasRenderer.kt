@@ -39,7 +39,10 @@ public class CanvasRenderer(
   @Suppress("unused")
   @CalledByNative
   private fun requestRunOnce() {
-    EventQueue.invokeLater { runOnce() }
+    EventQueue.invokeLater {
+      if (!canvas.isDisplayable) return@invokeLater
+      runOnce()
+    }
   }
 
   private companion object Companion {

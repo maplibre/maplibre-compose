@@ -1,6 +1,14 @@
 cmake_minimum_required(VERSION 3.21)
 project(maplibre-jni)
 
+# Enable AddressSanitizer for Debug builds
+# AddressSanitizer disabled to avoid UnsatisfiedLinkError in runtime packaging
+# if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+#     message(STATUS "Enabling AddressSanitizer for Debug build")
+#     add_compile_options(-fsanitize=address -fno-omit-frame-pointer -g)
+#     add_link_options(-fsanitize=address)
+# endif()
+
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 

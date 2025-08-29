@@ -28,12 +28,20 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 
   void activate() {
     std::cout << "OpenGLRenderableResource::activate" << std::endl;
-    activeJawtInfo =
-      std::make_unique<JawtInfo>(smjni::jni_provider::get_jni(), canvas);
-    auto changed = activeJawtInfo->lock();
-    if (changed) {
-      deinitGL();
-      initGL();
+    try {
+      activeJawtInfo =
+        std::make_unique<JawtInfo>(smjni::jni_provider::get_jni(), canvas);
+      auto changed = activeJawtInfo->lock();
+      if (changed) {
+        deinitGL();
+        initGL();
+      }
+    } catch (const std::exception &e) {
+      std::cout
+        << "OpenGLRenderableResource::activate: waiting for drawing surface: "
+        << e.what() << std::endl;
+      activeJawtInfo.reset();
+      // Skip this frame; next platform callback will retry
     }
   }
 
@@ -116,7 +124,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
       EGL_STENCIL_SIZE,
       8,
       EGL_RENDERABLE_TYPE,
-      EGL_OPENGL_ES2_BIT,
+      EGL_OPENGL_ES3_BIT,
       EGL_NONE
     };
 
@@ -135,7 +143,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
       throw std::runtime_error("Failed to create EGL surface");
     }
 
-    const EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE};
+    const EGLint contextAttribs[] = {EGL_CONTEXT_CLIENT_VERSION, 3, EGL_NONE};
 
     eglContext =
       eglCreateContext(eglDisplay, eglConfig, EGL_NO_CONTEXT, contextAttribs);
@@ -167,10 +175,11 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
     backend.setFramebufferBinding(0);
     backend.setViewport(0, 0, backend.getSize());
 #if defined(__linux__)
-    assert(
-      eglDisplay != EGL_NO_DISPLAY && eglContext != EGL_NO_CONTEXT &&
-      eglSurface != EGL_NO_SURFACE
-    );
+    if (eglDisplay == EGL_NO_DISPLAY || eglContext == EGL_NO_CONTEXT ||
+        eglSurface == EGL_NO_SURFACE) {
+      // Not initialized yet; skip this frame
+      return;
+    }
     auto ret = eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext);
     if (ret == EGL_FALSE) {
       auto error = eglGetError();
@@ -184,10 +193,11 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
   void swap() override {
     std::cout << "OpenGLRenderableResource::swap" << std::endl;
 #if defined(__linux__)
-    assert(
-      eglDisplay != EGL_NO_DISPLAY && eglContext != EGL_NO_CONTEXT &&
-      eglSurface != EGL_NO_SURFACE
-    );
+    if (eglDisplay == EGL_NO_DISPLAY || eglContext == EGL_NO_CONTEXT ||
+        eglSurface == EGL_NO_SURFACE) {
+      // Not initialized yet; skip
+      return;
+    }
     eglSwapBuffers(eglDisplay, eglSurface);
     eglMakeCurrent(eglDisplay, EGL_NO_SURFACE, EGL_NO_SURFACE, EGL_NO_CONTEXT);
 #endif

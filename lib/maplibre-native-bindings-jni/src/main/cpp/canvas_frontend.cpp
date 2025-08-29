@@ -1,4 +1,6 @@
+#include <iostream>
 #include <memory>
+#include <string>
 
 #include <mbgl/gfx/renderer_backend.hpp>
 #include <mbgl/renderer/renderer.hpp>
@@ -30,9 +32,16 @@ CanvasRenderer::CanvasRenderer(
         )
       ),
       renderer_(std::make_unique<mbgl::Renderer>(*backend_, pixelRatio)) {
+  std::cout << "CanvasRenderer: setting platform callback" << std::endl;
   runLoop_->setPlatformCallback([this]() {
-    if (!canvasRenderer_) return;
+    std::cout << "CanvasRenderer: platform callback fired" << std::endl;
+    if (!canvasRenderer_) {
+      std::cout << "CanvasRenderer: platform callback: no canvasRenderer_"
+                << std::endl;
+      return;
+    }
     auto env = smjni::jni_provider::get_jni();
+    std::cout << "CanvasRenderer: requestRunOnce" << std::endl;
     java_classes::get<CanvasRenderer_class>().requestRunOnce(
       env, canvasRenderer_
     );

@@ -19,7 +19,20 @@ kotlin {
   sourceSets {
     val desktopMain by getting
 
-    desktopMain.apply { dependencies { implementation(libs.simplejni.annotations) } }
+    desktopMain.apply {
+      dependencies {
+        implementation(libs.simplejni.annotations)
+        implementation(libs.lwjgl.core)
+        // TODO other natives
+        implementation(
+          project.dependencies.variantOf(libs.lwjgl.core) { classifier("natives-linux") }
+        )
+        implementation(libs.lwjgl.core)
+        implementation(libs.lwjgl.egl)
+        implementation(libs.lwjgl.jawt)
+        implementation(libs.lwjgl.opengl)
+      }
+    }
 
     commonTest.dependencies {
       implementation(kotlin("test"))
