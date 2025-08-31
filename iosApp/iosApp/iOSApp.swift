@@ -11,7 +11,6 @@ struct MainView: UIViewControllerRepresentable {
     _ uiViewController: UIViewController, context: Context
   ) {}
 }
-
 @main
 struct iOSApp: App {
   var body: some Scene {

@@ -14,13 +14,13 @@
 
 namespace maplibre_jni {
 
-mbgl::LatLng convertLatLng(JNIEnv *env, jLatLng latLngObj) {
+mbgl::LatLng convertLatLng(JNIEnv* env, jLatLng latLngObj) {
   auto lat = java_classes::get<LatLng_class>().getLatitude(env, latLngObj);
   auto lng = java_classes::get<LatLng_class>().getLongitude(env, latLngObj);
   return mbgl::LatLng(lat, lng);
 }
 
-jLatLng convertLatLng(JNIEnv *env, mbgl::LatLng latLng) {
+jLatLng convertLatLng(JNIEnv* env, mbgl::LatLng latLng) {
   auto latLngObj = java_classes::get<LatLng_class>().ctor(
     env, latLng.latitude(), latLng.longitude()
   );
@@ -28,7 +28,7 @@ jLatLng convertLatLng(JNIEnv *env, mbgl::LatLng latLng) {
 }
 
 mbgl::ScreenCoordinate convertScreenCoordinate(
-  JNIEnv *env, jScreenCoordinate screenCoordinateObj
+  JNIEnv* env, jScreenCoordinate screenCoordinateObj
 ) {
   auto x =
     java_classes::get<ScreenCoordinate_class>().getX(env, screenCoordinateObj);
@@ -38,7 +38,7 @@ mbgl::ScreenCoordinate convertScreenCoordinate(
 }
 
 jScreenCoordinate convertScreenCoordinate(
-  JNIEnv *env, mbgl::ScreenCoordinate screenCoordinate
+  JNIEnv* env, mbgl::ScreenCoordinate screenCoordinate
 ) {
   auto screenCoordinateObj = java_classes::get<ScreenCoordinate_class>().ctor(
     env, screenCoordinate.x, screenCoordinate.y
@@ -46,7 +46,7 @@ jScreenCoordinate convertScreenCoordinate(
   return screenCoordinateObj.release();
 }
 
-mbgl::EdgeInsets convertEdgeInsets(JNIEnv *env, jEdgeInsets edgeInsetsObj) {
+mbgl::EdgeInsets convertEdgeInsets(JNIEnv* env, jEdgeInsets edgeInsetsObj) {
   auto top = java_classes::get<EdgeInsets_class>().getTop(env, edgeInsetsObj);
   auto bottom =
     java_classes::get<EdgeInsets_class>().getBottom(env, edgeInsetsObj);
@@ -56,7 +56,7 @@ mbgl::EdgeInsets convertEdgeInsets(JNIEnv *env, jEdgeInsets edgeInsetsObj) {
   return mbgl::EdgeInsets(top, bottom, left, right);
 }
 
-jEdgeInsets convertEdgeInsets(JNIEnv *env, const mbgl::EdgeInsets &edgeInsets) {
+jEdgeInsets convertEdgeInsets(JNIEnv* env, const mbgl::EdgeInsets& edgeInsets) {
   auto obj = java_classes::get<EdgeInsets_class>().ctor(
     env, edgeInsets.top(), edgeInsets.left(), edgeInsets.bottom(),
     edgeInsets.right()
@@ -65,7 +65,7 @@ jEdgeInsets convertEdgeInsets(JNIEnv *env, const mbgl::EdgeInsets &edgeInsets) {
 }
 
 mbgl::CameraOptions convertCameraOptions(
-  JNIEnv *env, jCameraOptions cameraOptionsObj
+  JNIEnv* env, jCameraOptions cameraOptionsObj
 ) {
   auto center =
     java_classes::get<CameraOptions_class>().getCenter(env, cameraOptionsObj);
@@ -97,7 +97,7 @@ mbgl::CameraOptions convertCameraOptions(
   return options;
 }
 
-jCameraOptions convertCameraOptions(JNIEnv *env, const mbgl::CameraOptions &c) {
+jCameraOptions convertCameraOptions(JNIEnv* env, const mbgl::CameraOptions& c) {
   smjni::local_java_ref<jLatLng> jCenter;
   if (c.center) {
     jCenter = java_classes::get<LatLng_class>().ctor(
@@ -134,13 +134,13 @@ jCameraOptions convertCameraOptions(JNIEnv *env, const mbgl::CameraOptions &c) {
     .release();
 }
 
-mbgl::Size convertSize(JNIEnv *env, jSize sizeObj) {
+mbgl::Size convertSize(JNIEnv* env, jSize sizeObj) {
   auto width = java_classes::get<Size_class>().getWidth(env, sizeObj);
   auto height = java_classes::get<Size_class>().getHeight(env, sizeObj);
   return mbgl::Size(width, height);
 }
 
-jSize convertSize(JNIEnv *env, const mbgl::Size &size) {
+jSize convertSize(JNIEnv* env, const mbgl::Size& size) {
   auto obj = java_classes::get<Size_class>().ctor(
     env, static_cast<jint>(size.width), static_cast<jint>(size.height)
   );
@@ -149,7 +149,7 @@ jSize convertSize(JNIEnv *env, const mbgl::Size &size) {
 
 std::tuple<std::string, std::string, std::optional<std::string>>
 convertTileServerTemplate(
-  JNIEnv *env, jTileServerTemplate tileServerTemplateObj
+  JNIEnv* env, jTileServerTemplate tileServerTemplateObj
 ) {
   std::optional<std::string> versionPrefix = std::nullopt;
   auto v = java_classes::get<TileServerTemplate_class>().getVersionPrefix(
@@ -174,7 +174,7 @@ convertTileServerTemplate(
 }
 
 mbgl::TileServerOptions convertTileServerOptions(
-  JNIEnv *env, jTileServerOptions tileServerOptionsObj
+  JNIEnv* env, jTileServerOptions tileServerOptionsObj
 ) {
   mbgl::TileServerOptions tileServerOptions;
 
@@ -267,7 +267,7 @@ mbgl::TileServerOptions convertTileServerOptions(
   return tileServerOptions;
 }
 
-mbgl::MapOptions convertMapOptions(JNIEnv *env, jMapOptions optionsObj) {
+mbgl::MapOptions convertMapOptions(JNIEnv* env, jMapOptions optionsObj) {
   auto jSize = java_classes::get<MapOptions_class>().getSize(env, optionsObj);
   auto jMapMode =
     java_classes::get<MapOptions_class>().getMapMode(env, optionsObj);
@@ -318,7 +318,7 @@ mbgl::MapOptions convertMapOptions(JNIEnv *env, jMapOptions optionsObj) {
   return mapOptions;
 }
 
-jMapOptions convertMapOptions(JNIEnv *env, const mbgl::MapOptions &opts) {
+jMapOptions convertMapOptions(JNIEnv* env, const mbgl::MapOptions& opts) {
   auto jMapMode = java_classes::get<MapMode_class>().fromNativeValue(
     env, static_cast<jint>(opts.mapMode())
   );
@@ -348,7 +348,7 @@ jMapOptions convertMapOptions(JNIEnv *env, const mbgl::MapOptions &opts) {
 }
 
 mbgl::ResourceOptions convertResourceOptions(
-  JNIEnv *env, jResourceOptions resourceOptionsObj
+  JNIEnv* env, jResourceOptions resourceOptionsObj
 ) {
   auto jTileServerOptions =
     java_classes::get<ResourceOptions_class>().getTileServerOptions(
@@ -381,7 +381,7 @@ mbgl::ResourceOptions convertResourceOptions(
 }
 
 mbgl::ClientOptions convertClientOptions(
-  JNIEnv *env, jClientOptions clientOptionsObj
+  JNIEnv* env, jClientOptions clientOptionsObj
 ) {
   mbgl::ClientOptions clientOptions;
   clientOptions.withName(

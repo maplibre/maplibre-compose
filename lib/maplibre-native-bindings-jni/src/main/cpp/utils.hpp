@@ -4,7 +4,7 @@
 
 namespace maplibre_jni {
 
-inline void check(bool condition, const char *message) {
+inline void check(bool condition, const char* message) {
   if (!condition) throw std::runtime_error(message);
 }
 

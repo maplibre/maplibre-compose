@@ -24,20 +24,20 @@ class JniMapObserver : public mbgl::MapObserver {
   void onWillStartLoadingMap() override;
   void onDidFinishLoadingMap() override;
   void onDidFailLoadingMap(
-    mbgl::MapLoadError error, const std::string &message
+    mbgl::MapLoadError error, const std::string& message
   ) override;
 
   // Rendering events
   void onWillStartRenderingFrame() override;
   void onDidFinishRenderingFrame(
-    const mbgl::MapObserver::RenderFrameStatus &status
+    const mbgl::MapObserver::RenderFrameStatus& status
   ) override;
   void onWillStartRenderingMap() override;
   void onDidFinishRenderingMap(mbgl::MapObserver::RenderMode mode) override;
 
   // Style events
   void onDidFinishLoadingStyle() override;
-  void onStyleImageMissing(const std::string &imageId) override;
+  void onStyleImageMissing(const std::string& imageId) override;
 
   // Idle state
   void onDidBecomeIdle() override;

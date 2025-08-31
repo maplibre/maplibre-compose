@@ -20,7 +20,7 @@ namespace maplibre_jni {
 class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
  public:
   explicit OpenGLRenderableResource(
-    maplibre_jni::CanvasBackend &backend_, JNIEnv *env, jCanvas canvas_
+    maplibre_jni::CanvasBackend& backend_, JNIEnv* env, jCanvas canvas_
   )
       : backend(backend_), jawtContext(env, canvas_) {}
 
@@ -79,7 +79,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 
   void initGL() {
     int fbCount = 0;
-    GLXFBConfig *configs = glXChooseFBConfig(
+    GLXFBConfig* configs = glXChooseFBConfig(
       jawtContext.getDisplay(), DefaultScreen(jawtContext.getDisplay()),
       (int[]){GLX_X_RENDERABLE,
               True,
@@ -115,7 +115,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 
     auto glXCreateContextAttribsARB =
       reinterpret_cast<PFNGLXCREATECONTEXTATTRIBSARBPROC>(glXGetProcAddressARB(
-        reinterpret_cast<const GLubyte *>("glXCreateContextAttribsARB")
+        reinterpret_cast<const GLubyte*>("glXCreateContextAttribsARB")
       ));
     check(
       glXCreateContextAttribsARB != nullptr,
@@ -192,7 +192,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 
 #endif
 
-  maplibre_jni::CanvasBackend &backend;
+  maplibre_jni::CanvasBackend& backend;
   JawtContext jawtContext;
 #if defined(__linux__)
   GLXContext glContext = nullptr;
@@ -202,7 +202,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #endif
 };
 
-CanvasBackend::CanvasBackend(JNIEnv *env, jCanvas canvas)
+CanvasBackend::CanvasBackend(JNIEnv* env, jCanvas canvas)
     : mbgl::gl::RendererBackend(mbgl::gfx::ContextMode::Unique),
       mbgl::gfx::Renderable(
         mbgl::Size(
@@ -212,25 +212,25 @@ CanvasBackend::CanvasBackend(JNIEnv *env, jCanvas canvas)
         std::make_unique<OpenGLRenderableResource>(*this, env, canvas)
       ) {}
 
-mbgl::gfx::Renderable &CanvasBackend::getDefaultRenderable() { return *this; }
+mbgl::gfx::Renderable& CanvasBackend::getDefaultRenderable() { return *this; }
 
 void CanvasBackend::setSize(mbgl::Size size) { this->size = size; }
 
 void CanvasBackend::activate() {
-  auto &resource = getResource<OpenGLRenderableResource>();
+  auto& resource = getResource<OpenGLRenderableResource>();
   resource.activate();
 }
 
 void CanvasBackend::deactivate() {
-  auto &resource = getResource<OpenGLRenderableResource>();
+  auto& resource = getResource<OpenGLRenderableResource>();
   resource.deactivate();
 }
 
 mbgl::gl::ProcAddress CanvasBackend::getExtensionFunctionPointer(
-  const char *name
+  const char* name
 ) {
 #if defined(__linux__)
-  return glXGetProcAddressARB((const GLubyte *)name);
+  return glXGetProcAddressARB((const GLubyte*)name);
 #elif defined(_WIN32)
   return reinterpret_cast<mbgl::gl::ProcAddress>(wgl_GetProcAddress(name));
 #endif

@@ -19,7 +19,7 @@ JniMapObserver::~JniMapObserver() {}
 void JniMapObserver::onCameraWillChange(
   mbgl::MapObserver::CameraChangeMode mode
 ) {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   auto jMode =
     java_classes::get<CameraChangeMode_class>().fromNativeValue(env, (int)mode);
   java_classes::get<MapObserver_class>().onCameraWillChange(
@@ -28,14 +28,14 @@ void JniMapObserver::onCameraWillChange(
 }
 
 void JniMapObserver::onCameraIsChanging() {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   java_classes::get<MapObserver_class>().onCameraIsChanging(env, observer);
 }
 
 void JniMapObserver::onCameraDidChange(
   mbgl::MapObserver::CameraChangeMode mode
 ) {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   auto jMode =
     java_classes::get<CameraChangeMode_class>().fromNativeValue(env, (int)mode);
   java_classes::get<MapObserver_class>().onCameraDidChange(
@@ -44,19 +44,19 @@ void JniMapObserver::onCameraDidChange(
 }
 
 void JniMapObserver::onWillStartLoadingMap() {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   java_classes::get<MapObserver_class>().onWillStartLoadingMap(env, observer);
 }
 
 void JniMapObserver::onDidFinishLoadingMap() {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   java_classes::get<MapObserver_class>().onDidFinishLoadingMap(env, observer);
 }
 
 void JniMapObserver::onDidFailLoadingMap(
-  mbgl::MapLoadError error, const std::string &message
+  mbgl::MapLoadError error, const std::string& message
 ) {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   auto jError =
     java_classes::get<MapLoadError_class>().fromNativeValue(env, (int)error);
   auto jMessage = smjni::java_string_create(env, message);
@@ -66,16 +66,16 @@ void JniMapObserver::onDidFailLoadingMap(
 }
 
 void JniMapObserver::onWillStartRenderingFrame() {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   java_classes::get<MapObserver_class>().onWillStartRenderingFrame(
     env, observer
   );
 }
 
 void JniMapObserver::onDidFinishRenderingFrame(
-  const mbgl::MapObserver::RenderFrameStatus &status
+  const mbgl::MapObserver::RenderFrameStatus& status
 ) {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   auto jMode = java_classes::get<RenderMode_class>().fromNativeValue(
     env, (int)status.mode
   );
@@ -88,14 +88,14 @@ void JniMapObserver::onDidFinishRenderingFrame(
 }
 
 void JniMapObserver::onWillStartRenderingMap() {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   java_classes::get<MapObserver_class>().onWillStartRenderingMap(env, observer);
 }
 
 void JniMapObserver::onDidFinishRenderingMap(
   mbgl::MapObserver::RenderMode mode
 ) {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   auto jMode =
     java_classes::get<RenderMode_class>().fromNativeValue(env, (int)mode);
   java_classes::get<MapObserver_class>().onDidFinishRenderingMap(
@@ -104,12 +104,12 @@ void JniMapObserver::onDidFinishRenderingMap(
 }
 
 void JniMapObserver::onDidFinishLoadingStyle() {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   java_classes::get<MapObserver_class>().onDidFinishLoadingStyle(env, observer);
 }
 
-void JniMapObserver::onStyleImageMissing(const std::string &imageId) {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+void JniMapObserver::onStyleImageMissing(const std::string& imageId) {
+  JNIEnv* env = smjni::jni_provider::get_jni();
   auto jImageId = smjni::java_string_create(env, imageId);
   java_classes::get<MapObserver_class>().onStyleImageMissing(
     env, observer, jImageId
@@ -117,7 +117,7 @@ void JniMapObserver::onStyleImageMissing(const std::string &imageId) {
 }
 
 void JniMapObserver::onDidBecomeIdle() {
-  JNIEnv *env = smjni::jni_provider::get_jni();
+  JNIEnv* env = smjni::jni_provider::get_jni();
   java_classes::get<MapObserver_class>().onDidBecomeIdle(env, observer);
 }
 }  // namespace maplibre_jni

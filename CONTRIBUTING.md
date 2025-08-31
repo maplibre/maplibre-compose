@@ -99,11 +99,11 @@ A Git pre-commit hook is available to ensure that the code is formatted before
 every commit. Install hooks with [pre-commit](https://pre-commit.com/):
 
 ```bash
-pre-commit install
+just pre-commit-install
 ```
 
 Uninstall with:
 
 ```bash
-pre-commit uninstall
+just pre-commit-uninstall
 ```
