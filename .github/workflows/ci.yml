@@ -94,17 +94,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-latest
-          - runner: ubuntu-latest
-          - runner: windows-latest
+          # TODO add alternative architectures
+          - runner: macos-latest # aarch64
+          - runner: ubuntu-latest # amd64
+          - runner: windows-latest # amd64
     runs-on: ${{ matrix.runner }}
     steps:
-      - run: git config --global core.longpaths true
-        if: ${{ matrix.runner == 'windows-latest' }}
+      - if: ${{ matrix.runner == 'windows-latest' }}
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
+      - if: ${{ matrix.runner == 'windows-latest' }}
+        uses: ilammy/msvc-dev-cmd@v1
       - if: ${{ matrix.runner == 'ubuntu-latest' }}
         name: Install Linux maplibre-native dependencies
         run: |
@@ -147,17 +150,23 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-latest
-          - runner: ubuntu-latest
-          - runner: windows-latest
+          # TODO add alternative architectures
+          - runner: macos-latest # aarch64
+            artifact_name: demo-app-desktop-macos-aarch64
+          - runner: ubuntu-latest # amd64
+            artifact_name: demo-app-desktop-linux-amd64
+          - runner: windows-latest # amd64
+            artifact_name: demo-app-desktop-windows-amd64
     runs-on: ${{ matrix.runner }}
     steps:
       - if: ${{ matrix.runner == 'windows-latest' }}
-        run: git config core.longpaths true
+        run: git config --global core.longpaths true
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
+      - if: ${{ matrix.runner == 'windows-latest' }}
+        uses: ilammy/msvc-dev-cmd@v1
       - if: ${{ matrix.runner == 'ubuntu-latest' }}
         name: Install Linux maplibre-native dependencies
         run: |
@@ -171,7 +180,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
-          name: demo-app-desktop
+          name: ${{ matrix.artifact_name }}
           path: demo-app/build/compose/binaries/
 
   all-good:
