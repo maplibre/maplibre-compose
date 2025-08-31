@@ -152,12 +152,16 @@ jobs:
         include:
           # TODO add alternative architectures
           - runner: macos-latest # aarch64
+            artifact_type: dmg
             artifact_name: demo-app-desktop-macos-aarch64
           - runner: ubuntu-latest # amd64
+            artifact_type: deb
             artifact_name: demo-app-desktop-linux-amd64
           - runner: windows-latest # amd64
+            artifact_type: msi
             artifact_name: demo-app-desktop-windows-amd64
     runs-on: ${{ matrix.runner }}
+    name: build-desktop-app (${{ matrix.runner }})
     steps:
       - if: ${{ matrix.runner == 'windows-latest' }}
         run: git config --global core.longpaths true
@@ -181,7 +185,8 @@ jobs:
         with:
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
-          path: demo-app/build/compose/binaries/
+          path:
+            "demo-app/build/compose/binaries/main/${{ matrix.artifact_type }}/*"
 
   all-good:
     needs:
