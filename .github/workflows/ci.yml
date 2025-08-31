@@ -99,6 +99,8 @@ jobs:
           - runner: windows-latest
     runs-on: ${{ matrix.runner }}
     steps:
+      - run: git config core.longpaths true
+        if: ${{ matrix.runner == 'windows-latest' }}
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
