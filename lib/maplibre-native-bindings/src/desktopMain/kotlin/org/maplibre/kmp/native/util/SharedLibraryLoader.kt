@@ -17,38 +17,33 @@ internal object SharedLibraryLoader {
         errors.add(e)
       }
     }
-    throw UnsatisfiedLinkError("Failed to load native library: $errors")
+    throw errors.firstOrNull { !(it.message?.contains("not found in JAR") ?: false) }
+      ?: errors.first()
   }
 
   private fun getLibraryPaths(): List<String> {
-    val os = System.getProperty("os.name").lowercase()
+    val os =
+      when (val os = System.getProperty("os.name").lowercase()) {
+        "mac os x" -> "macos"
+        else -> os.split(" ").first()
+      }
+
     val arch = System.getProperty("os.arch").lowercase()
 
-    val osPart =
-      when {
-        os.contains("windows") -> "windows"
-        os.contains("mac") -> "macos"
-        os.contains("linux") -> "linux"
-        else -> throw UnsatisfiedLinkError("Unsupported operating system: $os")
+    val renderers =
+      when (os) {
+        "macos" -> listOf("metal", "vulkan")
+        else -> listOf("opengl", "vulkan")
       }
 
-    val rendererParts =
-      when {
-        os.contains("windows") -> listOf("opengl", "vulkan")
-        os.contains("mac") -> listOf("metal", "vulkan")
-        os.contains("linux") -> listOf("opengl", "vulkan")
-        else -> throw UnsatisfiedLinkError("Unsupported renderer for OS: $os")
+    val file =
+      when (os) {
+        "windows" -> "maplibre-jni.dll"
+        "macos" -> "libmaplibre-jni.dylib"
+        else -> "libmaplibre-jni.so"
       }
 
-    val filePart =
-      when {
-        os.contains("windows") -> "maplibre-jni.dll"
-        os.contains("mac") -> "libmaplibre-jni.dylib"
-        os.contains("linux") -> "libmaplibre-jni.so"
-        else -> throw UnsatisfiedLinkError("Unsupported operating system: $os")
-      }
-
-    return rendererParts.map { "$osPart/$arch/$it/$filePart" }
+    return renderers.map { renderer -> "$os/$arch/$renderer/$file" }
   }
 
   @Suppress("UnsafeDynamicallyLoadedCode")

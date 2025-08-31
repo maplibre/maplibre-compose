@@ -138,19 +138,14 @@ kotlin {
 
         runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
           capabilities {
-            val osName = System.getProperty("os.name").lowercase()
             val osPart =
-              when {
-                osName.contains("windows") -> "windows"
-                osName.contains("mac") -> "macos"
-                osName.contains("linux") -> "linux"
-                else -> error("Unsupported operating system: $osName")
+              when (val os = System.getProperty("os.name").lowercase()) {
+                "mac os x" -> "macos"
+                else -> os.split(' ').first()
               }
             val archPart = System.getProperty("os.arch").lowercase()
             val rendererPart =
-              project.properties["desktopRenderer"]
-                ?: if (System.getProperty("os.name").lowercase().contains("mac")) "metal"
-                else "opengl"
+              project.properties["desktopRenderer"] ?: if (osPart == "macos") "metal" else "opengl"
             requireCapability(
               "org.maplibre.compose:maplibre-native-bindings-jni-$osPart-$archPart-$rendererPart"
             )

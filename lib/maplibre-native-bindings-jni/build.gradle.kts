@@ -1,5 +1,7 @@
 @file:Suppress("RedundantUnitExpression")
 
+import com.android.tools.r8.internal.os
+
 plugins {
   id("module-conventions")
   id("java-library")
@@ -51,14 +53,11 @@ enum class Variant(
       } ?: error("Unsupported combination: ${os}/${arch}/${renderer}")
 
     fun current(project: Project): Variant {
-      val os = System.getProperty("os.name").lowercase()
       return find(
         os =
-          when {
-            os.contains("mac") -> "macos"
-            os.contains("linux") -> "linux"
-            os.contains("windows") -> "windows"
-            else -> error("Unsupported operating system: $os")
+          when (val os = System.getProperty("os.name").lowercase()) {
+            "mac os x" -> "macos"
+            else -> os.split(" ").first()
           },
         arch = System.getProperty("os.arch"),
         renderer = project.findProperty("desktopRenderer")?.toString(),
