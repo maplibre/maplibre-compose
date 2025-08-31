@@ -22,18 +22,19 @@ internal object SharedLibraryLoader {
 
   private val libraryNames =
     when {
-      os == "windows" && arch == "aarch64" -> listOf(
-        "icudt74.dll",      // ICU data (must load before icuuc/icuini)
-        "icuuc74.dll",      // ICU common (must load before icuin)
-        "icuin74.dll",      // ICU internationalization
-        "zlib1.dll",        // zlib (required by libpng, libwebp, etc.)
-        "libpng16.dll",     // libpng (depends on zlib)
-        "jpeg62.dll",       // jpeg (no dependencies)
-        "libwebpdecoder.dll", // webp decoder (may depend on zlib, libpng, jpeg)
-        "uv.dll",           // libuv (no dependencies)
-        "libcurl.dll",      // libcurl (depends on zlib)
-        "maplibre-jni.dll", // main JNI library (depends on all above)
-      )
+      os == "windows" && arch == "aarch64" ->
+        listOf(
+          "icudt74.dll", // ICU data (must load before icuuc/icuini)
+          "icuuc74.dll", // ICU common (must load before icuin)
+          "icuin74.dll", // ICU internationalization
+          "zlib1.dll", // zlib (required by libpng, libwebp, etc.)
+          "libpng16.dll", // libpng (depends on zlib)
+          "jpeg62.dll", // jpeg (no dependencies)
+          "libwebpdecoder.dll", // webp decoder (may depend on zlib, libpng, jpeg)
+          "uv.dll", // libuv (no dependencies)
+          "libcurl.dll", // libcurl (depends on zlib)
+          "maplibre-jni.dll", // main JNI library (depends on all above)
+        )
       os == "windows" -> listOf("libmaplibre-jni.dll")
       os == "macos" -> listOf("libmaplibre-jni.dylib")
       else -> listOf("libmaplibre-jni.so")
@@ -73,15 +74,13 @@ internal object SharedLibraryLoader {
 
     getLibraryBasePaths().forEach { basePath ->
       try {
-        libraryNames.forEach { fileName ->
-          extractAndLoadLibrary("$basePath/$fileName")
-        }
+        libraryNames.forEach { fileName -> extractAndLoadLibrary("$basePath/$fileName") }
         return
       } catch (e: UnsatisfiedLinkError) {
         errors.add(e)
       }
     }
-    
+
     throw errors.firstOrNull { !(it.message?.contains("not found in JAR") ?: false) }
       ?: errors.first()
   }

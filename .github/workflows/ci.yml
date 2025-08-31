@@ -139,8 +139,40 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
-          name: demo-app-debug
+          name: demo-app-android
           path: demo-app/build/outputs/apk/debug/demo-app-debug.apk
+
+  build-desktop-app:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: macos-latest
+          - runner: ubuntu-latest
+          - runner: windows-latest
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - if: ${{ matrix.runner == 'windows-latest' }}
+        run: git config core.longpaths true
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - if: ${{ matrix.runner == 'ubuntu-latest' }}
+        name: Install Linux maplibre-native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
+            libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
+            libvulkan-dev
+      - uses: ./.github/actions/setup
+      - run: ./gradlew :demo-app:packageDistributionForCurrentOS
+      - uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: demo-app-desktop
+          path: demo-app/build/compose/binaries/
 
   all-good:
     needs:
@@ -152,6 +184,7 @@ jobs:
       - test-js
       - build-docs
       - build-android-app
+      - build-desktop-app
     runs-on: ubuntu-latest
     steps:
       - run: echo 'All checks passed!'

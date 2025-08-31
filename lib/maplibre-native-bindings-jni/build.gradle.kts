@@ -200,9 +200,7 @@ if (configureForPublishing) {
     val fromDirectory = variant.cmakeOutputDirectory(layout)
     val intoDirectory = variant.resourcesTargetDirectory(layout)
 
-    from(fromDirectory) {
-      include("*.${variant.sharedLibraryExtension}")
-    }
+    from(fromDirectory) { include("*.${variant.sharedLibraryExtension}") }
     into(intoDirectory)
 
     doFirst {
