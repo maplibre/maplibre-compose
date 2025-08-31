@@ -30,16 +30,21 @@ enum class Variant(
   val sourceSetName = "${name}Main"
   val cmakePreset = "$os-$renderer"
 
-  val sharedLibraryName =
+  val sharedLibraryExtension =
     when (os) {
-      "macos" -> "libmaplibre-jni.dylib"
-      "linux" -> "libmaplibre-jni.so"
-      "windows" -> "maplibre-jni.dll"
-      else -> error("Unsupported OS: $os")
+      "macos" -> "dylib"
+      "windows" -> "dll"
+      else -> "so"
     }
 
-  fun cmakeOutputLib(layout: ProjectLayout) =
-    layout.buildDirectory.file("lib/$cmakePreset/shared/$sharedLibraryName")
+  val sharedLibraryName =
+    when (os) {
+      "windows" -> "maplibre-jni.${sharedLibraryExtension}"
+      else -> "libmaplibre-jni.${sharedLibraryExtension}"
+    }
+
+  fun cmakeOutputDirectory(layout: ProjectLayout) =
+    layout.buildDirectory.dir("lib/$cmakePreset/shared")
 
   fun resourcesTargetDirectory(layout: ProjectLayout) =
     layout.buildDirectory.dir("copiedResources/$name/$os/$arch/$renderer")
@@ -173,7 +178,7 @@ if (configureForPublishing) {
     inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers"))
     inputs.file(buildDir.resolve("CMakeCache.txt"))
 
-    outputs.file(variant.cmakeOutputLib(layout))
+    outputs.dir(variant.cmakeOutputDirectory(layout))
     outputs.dir(layout.buildDirectory.dir("lib"))
 
     commandLine(
@@ -192,15 +197,17 @@ if (configureForPublishing) {
     dependsOn("buildNative")
 
     val variant = Variant.current(project)
-    val fromFile = variant.cmakeOutputLib(layout)
+    val fromDirectory = variant.cmakeOutputDirectory(layout)
     val intoDirectory = variant.resourcesTargetDirectory(layout)
 
-    from(fromFile)
+    from(fromDirectory) {
+      include("*.${variant.sharedLibraryExtension}")
+    }
     into(intoDirectory)
 
     doFirst {
-      println("Copying native library for $variant")
-      println("From: ${fromFile.get().asFile.absolutePath}")
+      println("Copying native libraries for $variant")
+      println("From: ${fromDirectory.get().asFile.absolutePath}")
       println("To: ${intoDirectory.get().asFile.absolutePath}")
     }
   }
