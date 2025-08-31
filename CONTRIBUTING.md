@@ -1,5 +1,17 @@
 # Contributing
 
+## Clone the repo with submodules
+
+```bash
+git clone --recurse-submodules --shallow-submodules https://github.com/maplibre/maplibre-compose.git
+```
+
+Or if you already have the repo cloned, run:
+
+```bash
+git submodule update --init --recursive --depth=1
+```
+
 ## Find or file an issue to work on
 
 If you're looking to add a feature or fix a bug and there's no issue filed yet,

@@ -102,6 +102,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
+          submodules: recursive
       - if: ${{ matrix.runner == 'ubuntu-latest' }}
         name: Install Linux maplibre-native dependencies
         run: |
