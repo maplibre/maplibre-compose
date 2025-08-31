@@ -1,0 +1,8 @@
+[submodule "lib/maplibre-native-bindings-jni/maplibre-native"]
+	path = lib/maplibre-native-bindings-jni/vendor/maplibre-native
+	url = https://github.com/maplibre/maplibre-native.git
+	ignore = dirty
+[submodule "lib/maplibre-native-bindings-jni/SimpleJNI"]
+	path = lib/maplibre-native-bindings-jni/vendor/SimpleJNI
+	url = https://github.com/gershnik/SimpleJNI.git
+	ignore = dirty

@@ -16,29 +16,17 @@ endif()
 
 find_package(JNI REQUIRED)
 
-# Fetch dependencies
-include(FetchContent)
-FetchContent_Declare(
-    maplibre-native
-    GIT_REPOSITORY https://github.com/maplibre/maplibre-native.git
-    GIT_TAG        core-fe158c7e9b0b3f748f88d34ad384a7bcbc2cf903
-    GIT_SHALLOW    TRUE
-    GIT_SUBMODULES_RECURSE TRUE
-    GIT_PROGRESS   TRUE
-)
-FetchContent_Declare(
-    SimpleJNI
-    GIT_REPOSITORY https://github.com/gershnik/SimpleJNI.git
-    GIT_TAG        3.14
-    GIT_SHALLOW    TRUE
-)
-FetchContent_MakeAvailable(maplibre-native SimpleJNI)
-
-# Declare our project only after the custom toolchain is available on Windows
+# Declare project with vendored dependencies
+set(SimpleJNI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/SimpleJNI")
+set(maplibre-native_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/maplibre-native")
 if(WIN32)
     set(CMAKE_TOOLCHAIN_FILE ${maplibre-native_SOURCE_DIR}/platform/windows/custom-toolchain.cmake)
 endif()
 project(maplibre-jni)
+# FetchContent causes problems with the vcpkg toolchain, see (TODO link)
+# So we use git submodules instead and add_subdirectory() AFTER project()
+add_subdirectory(${SimpleJNI_SOURCE_DIR})
+add_subdirectory(${maplibre-native_SOURCE_DIR})
 
 # Manually exclude test and benchmark directories as there's no flag for them
 set_target_properties(
