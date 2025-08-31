@@ -38,6 +38,18 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #endif
   }
 
+  void activate() {
+    jawtContext.lock();
+    if (glContext == nullptr) initGL();
+#if defined(__linux__)
+    glXMakeCurrent(
+      jawtContext.getDisplay(), jawtContext.getDrawable(), glContext
+    );
+#elif defined(_WIN32)
+    wglMakeCurrent(hdc, glContext);
+#endif
+  }
+
   void bind() override {
     backend.setFramebufferBinding(0);
     backend.setViewport(0, 0, backend.getSize());
@@ -51,20 +63,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #endif
   }
 
-  void activate() {
-    jawtContext.lock();
-    if (glContext == nullptr) initGL();
-#if defined(__linux__)
-    glXMakeCurrent(
-      jawtContext.getDisplay(), jawtContext.getDrawable(), glContext
-    );
-#elif defined(_WIN32)
-    wglMakeCurrent(hdc, glContext);
-#endif
-  }
-
   void deactivate() {
-    jawtContext.unlock();
 #if defined(__linux__)
     glXMakeCurrent(
       jawtContext.getDisplay(), jawtContext.getDrawable(), nullptr
@@ -72,6 +71,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #elif defined(_WIN32)
     wglMakeCurrent(hdc, nullptr);
 #endif
+    jawtContext.unlock();
   }
 
  private:
