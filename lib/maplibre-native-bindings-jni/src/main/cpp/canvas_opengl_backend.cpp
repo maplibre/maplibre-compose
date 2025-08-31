@@ -13,10 +13,6 @@
 #elif defined(_WIN32)
 #include <gl_functions_wgl.h>
 #include <windows.h>
-#define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
-#define WGL_CONTEXT_MINOR_VERSION_ARB 0x2092
-#define WGL_CONTEXT_PROFILE_MASK_ARB 0x9126
-#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
 #endif
 
 namespace maplibre_jni {
@@ -36,8 +32,9 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
     );
     glXDestroyContext(jawtContext.getDisplay(), glContext);
 #elif defined(_WIN32)
-    wglMakeCurrent(jawtContext.getHdc(), nullptr);
+    wglMakeCurrent(hdc, nullptr);
     wglDeleteContext(glContext);
+    ReleaseDC(jawtContext.getHwnd(), hdc);
 #endif
   }
 
@@ -50,7 +47,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #if defined(__linux__)
     glXSwapBuffers(jawtContext.getDisplay(), jawtContext.getDrawable());
 #elif defined(_WIN32)
-    SwapBuffers(jawtContext.getHdc());
+    SwapBuffers(hdc);
 #endif
   }
 
@@ -62,7 +59,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
       jawtContext.getDisplay(), jawtContext.getDrawable(), glContext
     );
 #elif defined(_WIN32)
-    wglMakeCurrent(jawtContext.getHdc(), glContext);
+    wglMakeCurrent(hdc, glContext);
 #endif
   }
 
@@ -73,7 +70,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
       jawtContext.getDisplay(), jawtContext.getDrawable(), nullptr
     );
 #elif defined(_WIN32)
-    wglMakeCurrent(jawtContext.getHdc(), nullptr);
+    wglMakeCurrent(hdc, nullptr);
 #endif
   }
 
@@ -137,21 +134,28 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #elif defined(_WIN32)
 
   void initGL() {
-    HDC hdc = jawtContext.getHdc();
+    hdc = GetDC(jawtContext.getHwnd());
 
     // Create pixel format descriptor
-    PIXELFORMATDESCRIPTOR pfd = {};
-    pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
-    pfd.nVersion = 1;
-    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-    pfd.iPixelType = PFD_TYPE_RGBA;
-    pfd.cColorBits = 24;
-    pfd.cAlphaBits = 8;
-    pfd.cDepthBits = 24;
-    pfd.cStencilBits = 8;
+    PIXELFORMATDESCRIPTOR pfd = {
+      .nSize = sizeof(PIXELFORMATDESCRIPTOR),
+      .nVersion = 1,
+      .dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER,
+      .iPixelType = PFD_TYPE_RGBA,
+      .cColorBits = 24,
+      .cAlphaBits = 8,
+      .cDepthBits = 24,
+      .cStencilBits = 8,
+    };
 
     // Choose pixel format
     auto pixelFormat = ChoosePixelFormat(hdc, &pfd);
+    if (pixelFormat == 0) {
+      auto error = GetLastError();
+      throw std::runtime_error(
+        "ChoosePixelFormat failed: " + std::to_string(error)
+      );
+    }
     check(pixelFormat != 0, "ChoosePixelFormat failed");
     check(SetPixelFormat(hdc, pixelFormat, &pfd), "SetPixelFormat failed");
 
@@ -193,6 +197,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #if defined(__linux__)
   GLXContext glContext = nullptr;
 #elif defined(_WIN32)
+  HDC hdc = nullptr;
   HGLRC glContext = nullptr;
 #endif
 };
