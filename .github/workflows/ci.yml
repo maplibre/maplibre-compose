@@ -40,7 +40,7 @@ jobs:
         api-level:
           # the latest, Android 15 (Vanilla Ice Cream)
           - 35
-            # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
+          # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
           - 24
     steps:
       - uses: actions/checkout@v5
@@ -99,7 +99,7 @@ jobs:
           - runner: windows-latest
     runs-on: ${{ matrix.runner }}
     steps:
-      - run: git config core.longpaths true
+      - run: git config --global core.longpaths true
         if: ${{ matrix.runner == 'windows-latest' }}
       - uses: actions/checkout@v5
         with:
