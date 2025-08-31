@@ -65,7 +65,11 @@ enum class Variant(
             "mac os x" -> "macos"
             else -> os.split(" ").first()
           },
-        arch = System.getProperty("os.arch"),
+        arch =
+          when (val arch = System.getProperty("os.arch").lowercase()) {
+            "x86_64" -> "amd64" // jdk returns x86_64 on macos but amd64 elsewhere
+            else -> arch
+          },
         renderer = project.findProperty("desktopRenderer")?.toString(),
       )
     }

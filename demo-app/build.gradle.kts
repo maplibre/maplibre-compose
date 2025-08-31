@@ -143,7 +143,11 @@ kotlin {
                 "mac os x" -> "macos"
                 else -> os.split(' ').first()
               }
-            val archPart = System.getProperty("os.arch").lowercase()
+            val archPart =
+              when (val arch = System.getProperty("os.arch").lowercase()) {
+                "x86_64" -> "amd64" // jdk returns x86_64 on macos but amd64 elsewhere
+                else -> arch
+              }
             val rendererPart =
               project.properties["desktopRenderer"] ?: if (osPart == "macos") "metal" else "opengl"
             requireCapability(

@@ -12,7 +12,11 @@ internal object SharedLibraryLoader {
       else -> os.split(" ").first()
     }
 
-  private val arch = System.getProperty("os.arch").lowercase()
+  private val arch =
+    when (val arch = System.getProperty("os.arch").lowercase()) {
+      "x86_64" -> "amd64" // jdk returns x86_64 on macos but amd64 elsewhere
+      else -> arch
+    }
 
   private val supportedRenderers =
     when (os) {

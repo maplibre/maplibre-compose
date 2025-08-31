@@ -194,15 +194,6 @@ sourceSets {
 }
 ```
 
-Supported capability suffixes (select one renderer per OS/Arch):
-
-- macOS aarch64: `macos-aarch64-metal`, `macos-aarch64-vulkan`
-- macOS amd64: `macos-amd64-metal`, `macos-amd64-vulkan`
-- Linux aarch64: `linux-aarch64-opengl`, `linux-aarch64-vulkan`
-- Linux amd64: `linux-amd64-opengl`, `linux-amd64-vulkan`
-- Windows aarch64: `windows-aarch64-opengl`, `windows-aarch64-vulkan`
-- Windows amd64: `windows-amd64-opengl`, `windows-amd64-vulkan`
-
 ## Display your first map
 
 In your Composable UI, add a map:
