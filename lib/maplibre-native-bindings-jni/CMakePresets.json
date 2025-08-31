@@ -73,8 +73,7 @@
       "inherits": "linux-base",
       "cacheVariables": {
         "OUTPUT_DIR": "${sourceDir}/build/lib/linux-opengl/shared",
-        "MLN_WITH_OPENGL": "ON",
-        "MLN_WITH_EGL": "ON"
+        "MLN_WITH_OPENGL": "ON"
       }
     },
     {

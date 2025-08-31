@@ -35,7 +35,7 @@ MapLibreMap_class::setSize(JNIEnv *env, jMapLibreMap map, jSize size) {
   try {
     auto *wrapper = getWrapper(env, map);
     auto cSize = maplibre_jni::convertSize(env, size);
-    wrapper->map->setSize(cSize);
+    if (cSize.width > 0 && cSize.height > 0) wrapper->map->setSize(cSize);
   } catch (const std::exception &e) {
     smjni::java_exception::translate(env, e);
   }
