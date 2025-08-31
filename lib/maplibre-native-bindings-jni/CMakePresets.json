@@ -27,7 +27,6 @@
         "lhs": "${hostSystemName}",
         "rhs": "Windows"
       },
-      "toolchainFile": "${sourceDir}/build/_deps/maplibre-native-src/platform/windows/vendor/vcpkg/scripts/buildsystems/vcpkg.cmake",
       "cacheVariables": {
         "CMAKE_SYSTEM_NAME": "Windows",
         "CMAKE_C_COMPILER": "cl.exe",

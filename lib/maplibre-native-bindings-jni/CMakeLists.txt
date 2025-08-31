@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.21)
-project(maplibre-jni)
 
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 set(SIMPLEJNI_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/generated/simplejni-headers" CACHE PATH "Path to SimpleJNI generated headers")
 
@@ -16,11 +16,8 @@ endif()
 
 find_package(JNI REQUIRED)
 
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-# Fetch MapLibre Native using FetchContent
+# Fetch dependencies
 include(FetchContent)
-
 FetchContent_Declare(
     maplibre-native
     GIT_REPOSITORY https://github.com/maplibre/maplibre-native.git
@@ -29,17 +26,19 @@ FetchContent_Declare(
     GIT_SUBMODULES_RECURSE TRUE
     GIT_PROGRESS   TRUE
 )
-
-# Fetch SimpleJNI library
 FetchContent_Declare(
     SimpleJNI
     GIT_REPOSITORY https://github.com/gershnik/SimpleJNI.git
     GIT_TAG        3.14
     GIT_SHALLOW    TRUE
 )
-
-# Make MapLibre Native and SimpleJNI available
 FetchContent_MakeAvailable(maplibre-native SimpleJNI)
+
+# Declare our project only after the custom toolchain is available on Windows
+if(WIN32)
+    set(CMAKE_TOOLCHAIN_FILE ${maplibre-native_SOURCE_DIR}/platform/windows/custom-toolchain.cmake)
+endif()
+project(maplibre-jni)
 
 # Manually exclude test and benchmark directories as there's no flag for them
 set_target_properties(
