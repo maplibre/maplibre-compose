@@ -3,6 +3,24 @@
 This file provides guidance to OpenCode and other agents when working with code
 in this repository.
 
+## SEARCHING VENDORED MAPLIBRE-NATIVE CODEBASE:
+
+When searching the vendored maplibre-native codebase:
+
+- Location: Look in `lib/maplibre-native-bindings-jni/vendor/maplibre-native/`
+- Key Directories:
+  - `platform/linux/` `- Linux-specific code (includes linux.cmake)
+  - `platform/windows/` - Windows-specific code (includes windows.cmake)
+  - `platform/darwin/` - macOS/iOS-specific code (includes darwin.cmake)
+  - `platform/default/` - Cross-platform code
+  - `include/mbgl/` - Public headers
+  - `src/mbgl/` - Implementation files
+- Common Search Patterns:
+  - Platform-specific cmake: `platform/*/platform/*.cmake`
+  - MLN options: `option(MLN*WITH*\*`
+  - Compiler flags: `target_compile_options`, `target_link_options`
+  - Feature detection: `MLN_WITH_OPENGL`, `MLN_WITH_VULKAN`
+
 ## Development Commands
 
 ### Building and Running

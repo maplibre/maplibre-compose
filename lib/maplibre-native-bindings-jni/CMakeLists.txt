@@ -14,19 +14,21 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-find_package(JNI REQUIRED)
-
 # Declare project with vendored dependencies
+
 set(SimpleJNI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/SimpleJNI")
 set(maplibre-native_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/maplibre-native")
 if(WIN32)
     set(CMAKE_TOOLCHAIN_FILE ${maplibre-native_SOURCE_DIR}/platform/windows/custom-toolchain.cmake)
 endif()
 project(maplibre-jni)
+
 # FetchContent causes problems with the vcpkg toolchain, see (TODO link)
 # So we use git submodules instead and add_subdirectory() AFTER project()
 add_subdirectory(${SimpleJNI_SOURCE_DIR})
 add_subdirectory(${maplibre-native_SOURCE_DIR})
+
+find_package(JNI REQUIRED)
 
 # Manually exclude test and benchmark directories as there's no flag for them
 set_target_properties(
