@@ -21,7 +21,7 @@ namespace maplibre_jni {
 
 class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
  public:
-  explicit OpenGLRenderableResource(maplibre_jni::CanvasOpenGLBackend &backend_)
+  explicit OpenGLRenderableResource(maplibre_jni::CanvasBackend &backend_)
       : backend(backend_) {}
 
   void init(CanvasSurfaceInfo &canvasInfo) {
@@ -211,7 +211,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
   }
 
  private:
-  maplibre_jni::CanvasOpenGLBackend &backend;
+  maplibre_jni::CanvasBackend &backend;
 
 #if defined(__linux__)
   EGLDisplay eglDisplay = EGL_NO_DISPLAY;
@@ -225,7 +225,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #endif
 };
 
-CanvasOpenGLBackend::CanvasOpenGLBackend(JNIEnv *env, jCanvas canvas)
+CanvasBackend::CanvasBackend(JNIEnv *env, jCanvas canvas)
     : mbgl::gl::RendererBackend(mbgl::gfx::ContextMode::Unique),
       mbgl::gfx::Renderable(
         mbgl::Size(
@@ -238,17 +238,15 @@ CanvasOpenGLBackend::CanvasOpenGLBackend(JNIEnv *env, jCanvas canvas)
   getResource<OpenGLRenderableResource>().init(surfaceInfo_);
 }
 
-mbgl::gfx::Renderable &CanvasOpenGLBackend::getDefaultRenderable() {
-  return *this;
-}
+mbgl::gfx::Renderable &CanvasBackend::getDefaultRenderable() { return *this; }
 
-void CanvasOpenGLBackend::setSize(mbgl::Size size) { this->size = size; }
+void CanvasBackend::setSize(mbgl::Size size) { this->size = size; }
 
-void CanvasOpenGLBackend::activate() { this->surfaceInfo_.lock(); }
+void CanvasBackend::activate() { this->surfaceInfo_.lock(); }
 
-void CanvasOpenGLBackend::deactivate() { this->surfaceInfo_.unlock(); }
+void CanvasBackend::deactivate() { this->surfaceInfo_.unlock(); }
 
-mbgl::gl::ProcAddress CanvasOpenGLBackend::getExtensionFunctionPointer(
+mbgl::gl::ProcAddress CanvasBackend::getExtensionFunctionPointer(
   const char *name
 ) {
 #if defined(__linux__)
@@ -258,7 +256,7 @@ mbgl::gl::ProcAddress CanvasOpenGLBackend::getExtensionFunctionPointer(
 #endif
 }
 
-void CanvasOpenGLBackend::updateAssumedState() {
+void CanvasBackend::updateAssumedState() {
   assumeFramebufferBinding(0);
   setViewport(0, 0, size);
 }

@@ -58,11 +58,7 @@ set(MAPLIBRE_JNI_SOURCES
     src/main/cpp/jni_on_load.cpp
     src/main/cpp/jni_map_observer.cpp
     src/main/cpp/canvas_frontend.cpp
-    src/main/cpp/canvas_surface.cpp
-    src/main/cpp/canvas_surface.mm
-    src/main/cpp/canvas_backend.cpp
     src/main/cpp/canvas_metal_backend.mm
-    src/main/cpp/canvas_vulkan_backend.cpp
     src/main/cpp/canvas_opengl_backend.cpp
 )
 

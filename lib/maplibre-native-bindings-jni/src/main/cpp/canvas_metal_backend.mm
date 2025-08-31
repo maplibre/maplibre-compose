@@ -1,3 +1,5 @@
+#include <iostream>
+#include <memory>
 #ifdef USE_METAL_BACKEND
 
 #include <mbgl/mtl/context.hpp>
@@ -12,25 +14,25 @@
 
 #include "canvas_renderer.hpp"
 #include "java_classes.hpp"
+#include "jawt_context.hpp"
 
 namespace maplibre_jni {
 
 class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
  public:
-  MetalRenderableResource(CanvasMetalBackend &backend)
-      : rendererBackend(backend) {}
-
-  void createPlatformSurface() {
-    // If we attempt this in the constructor, we get a null command queue.
-    // So, we'll call createPlatformSurface() in CanvasMetalBackend constructor.
+  MetalRenderableResource(CanvasBackend &backend, JNIEnv *env, jCanvas canvas)
+      : rendererBackend(backend), jawtContext_(env, canvas) {
     commandQueue =
       NS::TransferPtr(rendererBackend.getDevice()->newCommandQueue());
-    if (!commandQueue) {
+    if (!commandQueue)
       throw std::runtime_error("Failed to create command queue");
-    }
 
-    CAMetalLayer *metalLayer =
-      (CAMetalLayer *)rendererBackend.getSurfaceInfo().createMetalLayer();
+    CGFloat scale = [NSScreen mainScreen].backingScaleFactor;
+    auto metalLayer = [CAMetalLayer layer];
+    metalLayer.bounds = CGRectMake(0, 0, size.width, size.height);
+    metalLayer.contentsScale = scale;
+    jawtContext_.getSurfaceLayers().layer = metalLayer;
+    [metalLayer retain];
 
     swapchain = NS::TransferPtr(reinterpret_cast<CA::MetalLayer *>(metalLayer));
     swapchain->setDevice(rendererBackend.getDevice().get());
@@ -41,7 +43,8 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     swapchain->setDrawableSize(
       {static_cast<CGFloat>(size.width), static_cast<CGFloat>(size.height)}
     );
-    buffersInvalid = true;
+    depthTexture = nullptr;
+    stencilTexture = nullptr;
   }
 
   void bind() override {
@@ -61,13 +64,6 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     renderPassDescriptor->colorAttachments()->object(0)->setTexture(
       surface->texture()
     );
-
-    // Invalidate and reset depth/stencil textures if needed
-    if (buffersInvalid) {
-      depthTexture = nullptr;
-      stencilTexture = nullptr;
-      buffersInvalid = false;
-    }
 
     // Helper to create and configure a depth or stencil texture if missing
     auto ensureTexture = [&](
@@ -147,6 +143,10 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     }
   }
 
+  void activate() { jawtContext_.lock(); }
+
+  void deactivate() { jawtContext_.unlock(); }
+
   const mbgl::mtl::RendererBackend &getBackend() const override {
     return rendererBackend;
   }
@@ -165,7 +165,8 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
   }
 
  private:
-  CanvasMetalBackend &rendererBackend;
+  CanvasBackend &rendererBackend;
+  JawtContext jawtContext_;
   mbgl::mtl::MTLCommandQueuePtr commandQueue;
   mbgl::mtl::MTLCommandBufferPtr commandBuffer;
   mbgl::mtl::MTLRenderPassDescriptorPtr renderPassDescriptor;
@@ -174,32 +175,34 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
   mbgl::gfx::Texture2DPtr depthTexture;
   mbgl::gfx::Texture2DPtr stencilTexture;
   mbgl::Size size;
-  bool buffersInvalid = true;
 };
 
-CanvasMetalBackend::CanvasMetalBackend(JNIEnv *env, jCanvas canvas)
+CanvasBackend::CanvasBackend(JNIEnv *env, jCanvas canvas)
     : mbgl::mtl::RendererBackend(mbgl::gfx::ContextMode::Unique),
-      surfaceInfo_(env, canvas),
       mbgl::gfx::Renderable(
         mbgl::Size(
           java_classes::get<Canvas_class>().getWidth(env, canvas),
           java_classes::get<Canvas_class>().getHeight(env, canvas)
         ),
-        std::make_unique<MetalRenderableResource>(*this)
-      ) {
-  getResource<MetalRenderableResource>().createPlatformSurface();
-}
+        std::make_unique<MetalRenderableResource>(*this, env, canvas)
+      ) {}
 
-void CanvasMetalBackend::setSize(mbgl::Size size) {
+void CanvasBackend::setSize(mbgl::Size size) {
   getResource<MetalRenderableResource>().setSize(size);
 }
 
-std::unique_ptr<mbgl::gfx::Context> CanvasMetalBackend::createContext() {
+std::unique_ptr<mbgl::gfx::Context> CanvasBackend::createContext() {
   return std::make_unique<mbgl::mtl::Context>(*this);
 }
 
-mbgl::gfx::Renderable &CanvasMetalBackend::getDefaultRenderable() {
-  return *this;
+mbgl::gfx::Renderable &CanvasBackend::getDefaultRenderable() { return *this; }
+
+void CanvasBackend::activate() {
+  getResource<MetalRenderableResource>().activate();
+}
+
+void CanvasBackend::deactivate() {
+  getResource<MetalRenderableResource>().deactivate();
 }
 
 }  // namespace maplibre_jni
