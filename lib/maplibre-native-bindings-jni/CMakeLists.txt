@@ -25,23 +25,13 @@ project(maplibre-jni)
 
 # FetchContent causes problems with the vcpkg toolchain, see (TODO link)
 # So we use git submodules instead and add_subdirectory() AFTER project()
-add_subdirectory(${SimpleJNI_SOURCE_DIR})
-add_subdirectory(${maplibre-native_SOURCE_DIR})
+add_subdirectory(${SimpleJNI_SOURCE_DIR} EXCLUDE_FROM_ALL)
+add_subdirectory(${maplibre-native_SOURCE_DIR} EXCLUDE_FROM_ALL)
 
 find_package(JNI REQUIRED)
 
-# Manually exclude test and benchmark directories as there's no flag for them
-set_target_properties(
-    mbgl-test-runner
-    mbgl-benchmark-runner
-    mbgl-render-test-runner
-    PROPERTIES
-    EXCLUDE_FROM_ALL TRUE
-    EXCLUDE_FROM_DEFAULT_BUILD TRUE
-)
-
 # Create our JNI library
-set(MAPLIBRE_JNI_SOURCES
+add_library(maplibre-jni SHARED
     src/main/cpp/maplibre_map.cpp
     src/main/cpp/conversions.cpp
     src/main/cpp/jni_on_load.cpp
@@ -50,8 +40,6 @@ set(MAPLIBRE_JNI_SOURCES
     src/main/cpp/canvas_metal_backend.mm
     src/main/cpp/canvas_opengl_backend.cpp
 )
-
-add_library(maplibre-jni SHARED ${MAPLIBRE_JNI_SOURCES})
 
 # Include directories
 target_include_directories(maplibre-jni
@@ -72,6 +60,7 @@ if(WIN32)
     target_include_directories(maplibre-jni SYSTEM PRIVATE
         ${maplibre-native_SOURCE_DIR}/platform/windows/include
         ${maplibre-native_SOURCE_DIR}/platform/windows/vendor/vcpkg/installed/x64-windows/include
+        ${maplibre-native_SOURCE_DIR}/platform/windows/vendor/vcpkg/installed/x86-windows/include
     )
 endif()
 
@@ -84,8 +73,8 @@ endif()
 
 # Compile options
 target_compile_options(maplibre-jni PRIVATE
-    -frtti
-    -fexceptions
+    $<$<CXX_COMPILER_ID:GNU>:-frtti -fexceptions>
+    $<$<CXX_COMPILER_ID:Clang>:-frtti -fexceptions>
 )
 
 # Windows-specific definitions
@@ -167,7 +156,7 @@ elseif(MLN_WITH_OPENGL)
     target_include_directories(maplibre-jni PRIVATE ${OpenGL_INCLUDE_DIR})
 
     # Link GLX on Linux when not using EGL
-    if(UNIX AND NOT APPLE AND NOT MLN_WITH_EGL)
+    if(UNIX AND NOT APPLE)
         find_package(OpenGL REQUIRED COMPONENTS GLX)
         target_link_libraries(maplibre-jni PRIVATE OpenGL::GLX)
     endif()

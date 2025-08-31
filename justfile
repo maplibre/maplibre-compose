@@ -12,6 +12,10 @@ pre-commit-uninstall:
 format:
     pre-commit run --all-files
 
+# Reset the vcpkg submodule to a clean state
+clean-vcpkg:
+    cd lib/maplibre-native-bindings-jni/vendor/maplibre-native/platform/windows/vendor/vcpkg; git reset --hard; git clean -fdx
+
 run-desktop:
     ./gradlew :demo-app:run
 

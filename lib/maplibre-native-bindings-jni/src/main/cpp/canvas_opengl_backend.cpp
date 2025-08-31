@@ -10,6 +10,13 @@
 #if defined(__linux__)
 #include <GL/glx.h>
 #include <GL/glxext.h>
+#elif defined(_WIN32)
+#include <gl_functions_wgl.h>
+#include <windows.h>
+#define WGL_CONTEXT_MAJOR_VERSION_ARB 0x2091
+#define WGL_CONTEXT_MINOR_VERSION_ARB 0x2092
+#define WGL_CONTEXT_PROFILE_MASK_ARB 0x9126
+#define WGL_CONTEXT_CORE_PROFILE_BIT_ARB 0x00000001
 #endif
 
 namespace maplibre_jni {
@@ -43,7 +50,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #if defined(__linux__)
     glXSwapBuffers(jawtContext.getDisplay(), jawtContext.getDrawable());
 #elif defined(_WIN32)
-    wglSwapBuffers(jawtContext.getHdc());
+    SwapBuffers(jawtContext.getHdc());
 #endif
   }
 
@@ -130,7 +137,53 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #elif defined(_WIN32)
 
   void initGL() {
-#error "TODO"
+    HDC hdc = jawtContext.getHdc();
+
+    // Create pixel format descriptor
+    PIXELFORMATDESCRIPTOR pfd = {};
+    pfd.nSize = sizeof(PIXELFORMATDESCRIPTOR);
+    pfd.nVersion = 1;
+    pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
+    pfd.iPixelType = PFD_TYPE_RGBA;
+    pfd.cColorBits = 24;
+    pfd.cAlphaBits = 8;
+    pfd.cDepthBits = 24;
+    pfd.cStencilBits = 8;
+
+    // Choose pixel format
+    auto pixelFormat = ChoosePixelFormat(hdc, &pfd);
+    check(pixelFormat != 0, "ChoosePixelFormat failed");
+    check(SetPixelFormat(hdc, pixelFormat, &pfd), "SetPixelFormat failed");
+
+    // Create temporary context
+    auto tempContext = wglCreateContext(hdc);
+    check(tempContext != nullptr, "wglCreateContext failed");
+    check(wglMakeCurrent(hdc, tempContext), "wglMakeCurrent failed");
+
+    // Get function pointer for wglCreateContextAttribsARB
+    auto wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)
+      wglGetProcAddress("wglCreateContextAttribsARB");
+    check(
+      wglCreateContextAttribsARB != nullptr,
+      "wglCreateContextAttribsARB not available"
+    );
+
+    // Create modern OpenGL context
+    int attribs[] = {
+      WGL_CONTEXT_MAJOR_VERSION_ARB,
+      3,
+      WGL_CONTEXT_MINOR_VERSION_ARB,
+      0,
+      WGL_CONTEXT_PROFILE_MASK_ARB,
+      WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+      0,
+    };
+    glContext = wglCreateContextAttribsARB(hdc, nullptr, attribs);
+    check(glContext != nullptr, "failed to create WGL context");
+
+    // Clean up temporary context
+    wglMakeCurrent(hdc, nullptr);
+    wglDeleteContext(tempContext);
   }
 
 #endif
@@ -174,7 +227,7 @@ mbgl::gl::ProcAddress CanvasBackend::getExtensionFunctionPointer(
 #if defined(__linux__)
   return glXGetProcAddressARB((const GLubyte *)name);
 #elif defined(_WIN32)
-  return wglGetProcAddress(name);
+  return reinterpret_cast<mbgl::gl::ProcAddress>(wgl_GetProcAddress(name));
 #endif
 }
 
