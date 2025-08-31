@@ -3,13 +3,13 @@
 alchemist = "0.2.0"
 androidx-activity = "1.10.1"
 bytesize = "2.0.0"
-compass = "2.3.1"
+compass = "2.4.0"
 htmlConverterCompose = "1.1.0"
 kermit = "2.0.6"
-kotlin-wrappers = "2025.8.3"
+kotlin-wrappers = "2025.8.19"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.2.3"
-maplibre-android-sdk = "11.12.1"
+maplibre-android-sdk = "11.13.0"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "4.7.1"              # TODO: is outdated; update to v5.x
 spatialk = "0.3.0"                 # TODO: is unmaintained; watch for https://github.com/maplibre/maplibre-java/pull/40
