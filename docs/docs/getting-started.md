@@ -223,4 +223,3 @@ to get a detailed map with all the features you'd expect, proceed to
 [cocoapods-support]: https://blog.cocoapods.org/CocoaPods-Support-Plans/
 [repo]: https://github.com/maplibre/maplibre-compose
 [demotiles]: https://demotiles.maplibre.org/
-[kcef]: https://github.com/DatL4g/KCEF
