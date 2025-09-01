@@ -182,10 +182,7 @@ sourceSets {
       runtimeOnly("org.maplibre.compose:maplibre-native-bindings-jni:{{ gradle.release_version }}") {
         capabilities {
           requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-macos-aarch64-metal")
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-macos-amd64-metal")
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-linux-aarch64-opengl")
           requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-linux-amd64-opengl")
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-windows-aarch64-opengl")
           requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-windows-amd64-opengl")
         }
       }
@@ -193,6 +190,14 @@ sourceSets {
   }
 }
 ```
+
+The following targets are available now:
+
+- `macos-aarch64-metal`
+- `linux-amd64-opengl`
+- `windows-amd64-opengl`
+
+Other architectures and renderers will be added later.
 
 ## Display your first map
 

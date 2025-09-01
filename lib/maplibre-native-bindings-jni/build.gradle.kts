@@ -12,9 +12,10 @@ enum class Variant(
   val os: String,
   val arch: String,
   val renderer: String,
+  // TODO: default true when all/most are publishable
   val requireWhenPublishing: Boolean = false,
 ) {
-  // TOOD: enable alternate architectures
+  // TODO: enable alternate architectures and renderers
   MacosAmd64Metal("macos", "amd64", "metal"),
   MacosAarch64Metal("macos", "aarch64", "metal", true),
   MacosAmd64Vulkan("macos", "amd64", "vulkan"),

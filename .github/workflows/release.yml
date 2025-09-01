@@ -5,7 +5,55 @@ on:
     tags: [v*.*.*]
 
 jobs:
+  build-natives:
+    strategy:
+      fail-fast: true
+      matrix:
+        include:
+          - variant: macos-aarch64-metal
+            renderer: metal
+            preset: macos-metal
+            runner: macos-latest # aarch64
+          - variant: linux-amd64-opengl
+            renderer: opengl
+            preset: linux-opengl
+            runner: ubuntu-latest # amd64
+          - variant: windows-amd64-opengl
+            renderer: opengl
+            preset: windows-opengl
+            runner: windows-latest # amd64
+    runs-on: ${{ matrix.runner }}
+    name: build-natives (${{ matrix.variant }})
+    steps:
+      - if: ${{ matrix.runner == 'windows-latest' }}
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - if: ${{ matrix.runner == 'windows-latest' }}
+        uses: ilammy/msvc-dev-cmd@v1
+      - if: ${{ matrix.runner == 'ubuntu-latest' }}
+        name: Install Linux maplibre-native dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
+            libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
+            libvulkan-dev
+      - uses: ./.github/actions/setup
+      - run: |
+          ./gradlew :lib:maplibre-native-bindings-jni:buildNative \
+            -PdesktopRenderer=${{ matrix.renderer }}
+      - uses: actions/upload-artifact@v4
+        with:
+          if-no-files-found: error
+          name: natives-${{ matrix.variant }}
+          path: |
+            "./lib/maplibre-native-bindings-jni/build/lib/${{ matrix.preset }}/shared/*"
+
   publish-maven:
+    needs: [build-natives]
     runs-on: macos-latest
     environment:
       name: maven-central-maplibre
@@ -16,7 +64,22 @@ jobs:
           fetch-depth: 0
       - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
       - uses: ./.github/actions/setup
-      - run: ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
+      - uses: actions/download-artifact@v4
+        with:
+          name: natives-macos-aarch64-metal
+          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/MacosAarch64Metal/macos/aarch64/metal/
+      - uses: actions/download-artifact@v4
+        with:
+          name: natives-linux-amd64-opengl
+          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/LinuxAmd64Opengl/linux/amd64/opengl/
+      - uses: actions/download-artifact@v4
+        with:
+          name: natives-windows-amd64-opengl
+          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/WindowsAmd64Opengl/windows/amd64/opengl/
+      - run: |
+          ./gradlew publishAndReleaseToMavenCentral \
+            -PconfigureForPublishing=true
+            --no-configuration-cache
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername:
             ${{ secrets.MAVEN_CENTRAL_USERNAME }}
