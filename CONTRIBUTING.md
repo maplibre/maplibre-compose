@@ -73,12 +73,13 @@ For desktop, we build a C++ library that includes
 You'll need to have your developer environment set up to build MapLibre Native.
 
 - [macOS requirements](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
-  - Additionally, `brew install cmake` because we build with CMake, not Bazel.
-  - If building the Vulkan backend, install MoltenVK with
-    `brew install molten-vk` and set the `VULKAN_SDK` environment variable to
+  - Install XCode, and use the matching clang version provided by XCode rather
+    than from homebrew. As of writing, that's XCode 16.4 and clang 17.
+  - `brew install cmake webp libuv webp icu4c jpeg-turbo glfw libuv molten-vk`
+  - If building the Vulkan backend, set the `VULKAN_SDK` environment variable to
     the MoltenVK prefix (`export VULKAN_SDK="$(brew --prefix molten-vk)"`).
 - [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)
-  - On Fedora, do the following:
+  - On Fedora, install the following:
     ```bash
     sudo dnf group install c-development development-tools
     sudo dnf install cmake ninja-build clang \
@@ -86,7 +87,7 @@ You'll need to have your developer environment set up to build MapLibre Native.
       libX11-devel mesa-libGL-devel libuv-devel bzip2-devel libicu-devel \
       vulkan-loader-devel
     ```
-  - On Ubuntu, do the following:
+  - On Ubuntu, install the following:
     ```bash
     sudo apt update
     sudo apt install build-essential cmake ninja-build clang \
@@ -95,7 +96,13 @@ You'll need to have your developer environment set up to build MapLibre Native.
       libvulkan-dev
     ```
 - [Windows requirements (MSVS2022)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html#prerequisites)
-  - Use a Developer Command Prompt for VS2022 to run the build scripts.
+  - When cloning the repo, pass `--config core.longpaths=true` to Git to avoid
+    issues with long file paths.
+  - Install Visual Studio 2022 with the following workloads:
+    - `Desktop development with C++`
+  - Use the _Native Tools Command Prompt for VS 2022_ for the right architecture
+    (x64 or arm64 depending on your machine) to run the build scripts.
+  - Developing MapLibre Compose with MSYS2 has not been tested.
 
 ## Run the demo
 
