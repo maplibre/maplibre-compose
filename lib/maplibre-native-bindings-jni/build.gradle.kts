@@ -152,7 +152,6 @@ if (configureForPublishing) {
     val preset = Variant.current(project).cmakePreset
     val buildDir = layout.buildDirectory.dir("cmake/${preset}")
     outputs.dir(buildDir)
-    outputs.file(buildDir.map { it.asFile.resolve("CMakeCache.txt") })
 
     doFirst { buildDir.get().asFile.mkdirs() }
 
@@ -182,7 +181,7 @@ if (configureForPublishing) {
 
     inputs.files(fileTree("src/main/cpp"))
     inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers"))
-    inputs.file(buildDir.resolve("CMakeCache.txt"))
+    inputs.dir(buildDir)
 
     outputs.dir(variant.cmakeOutputDirectory(layout))
     outputs.dir(layout.buildDirectory.dir("lib"))
