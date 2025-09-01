@@ -34,7 +34,7 @@ androidx-navigation = "2.9.0-beta03"
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.2.0"
+gradle-kotlin = "2.2.10"
 #noinspection AndroidGradlePluginVersion: follow version matrix above
 gradle-android = "8.10.0"
 
