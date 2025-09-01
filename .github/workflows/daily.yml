@@ -60,8 +60,7 @@ jobs:
             libvulkan-dev
       - uses: ./.github/actions/setup
       - run: |
-          ./gradlew :lib:maplibre-native-bindings-jni:buildNative \
-            -PdesktopRenderer=${{ matrix.renderer }}
+          ./gradlew :lib:maplibre-native-bindings-jni:buildNative -PdesktopRenderer=${{ matrix.renderer }}
       - uses: actions/upload-artifact@v4
         with:
           if-no-files-found: error
