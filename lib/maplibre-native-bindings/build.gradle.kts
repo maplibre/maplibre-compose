@@ -44,14 +44,5 @@ ksp {
   )
   arg("smjni.jnigen.own.dest.path", "true")
   arg("smjni.jnigen.output.list.name", "generated_headers.txt")
-  arg(
-    "smjni.jnigen.expose.extra",
-    listOf(
-        "java.lang.Double",
-        "java.awt.Canvas",
-        "javax.swing.SwingUtilities",
-        "java.lang.Runnable",
-      )
-      .joinToString(";"),
-  )
+  arg("smjni.jnigen.expose.extra", listOf("java.lang.Double", "java.awt.Canvas").joinToString(";"))
 }

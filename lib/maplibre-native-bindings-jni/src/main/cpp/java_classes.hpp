@@ -51,24 +51,6 @@ inline Canvas_class::Canvas_class(JNIEnv* env)
       m_getWidth(env, *this, "getWidth"),
       m_getHeight(env, *this, "getHeight") {}
 
-class SwingUtilities_class
-    : public smjni::java_runtime::simple_java_class<jSwingUtilities> {
- public:
-  SwingUtilities_class(JNIEnv* env);
-
-  void invokeLater(JNIEnv* env, jRunnable doRun) const {
-    m_invokeLater(env, *this, doRun);
-  }
-
- private:
-  const smjni::java_static_method<void, jSwingUtilities, jRunnable>
-    m_invokeLater;
-};
-
-inline SwingUtilities_class::SwingUtilities_class(JNIEnv* env)
-    : simple_java_class(env), m_invokeLater(env, *this, "invokeLater") {}
-
 typedef smjni::java_class_table<
-  JNIGEN_ALL_GENERATED_CLASSES, Double_class, Canvas_class,
-  SwingUtilities_class>
+  JNIGEN_ALL_GENERATED_CLASSES, Double_class, Canvas_class>
   java_classes;
