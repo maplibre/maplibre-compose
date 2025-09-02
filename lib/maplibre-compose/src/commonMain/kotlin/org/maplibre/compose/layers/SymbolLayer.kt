@@ -2,8 +2,10 @@ package org.maplibre.compose.layers
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
@@ -44,6 +46,24 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
+
+private const val ASSUMED_SP = 16f // MapLibre's default text size
+
+@Composable
+private fun rememberDpCompiler(dpPerSp: Dp) =
+  rememberPropertyCompiler(
+    emScale = const(ASSUMED_SP * dpPerSp.value),
+    spScale = const(dpPerSp.value),
+  )
+
+@Composable
+private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerPropertyCompiler {
+  val compileWithSpTextSize =
+    rememberPropertyCompiler(emScale = const(ASSUMED_SP), spScale = const(1f))
+  val textSizeSp = compileWithSpTextSize(textSize)
+  val spScale = remember(textSizeSp) { const(1f) / textSizeSp.cast() }
+  return rememberPropertyCompiler(emScale = const(1f), spScale = spScale)
+}
 
 /**
  * A symbol layer draws data from the [sourceLayer] in the given [source] as icons and/or text
@@ -472,22 +492,9 @@ public fun SymbolLayer(
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
 ) {
-  // scaling code will need changes after https://github.com/maplibre/maplibre-native/issues/3057
-  val dpPerSp = LocalDensity.current.fontScale.dp
-
-  // used for textSize
-  val compileWithDpTextSize =
-    rememberPropertyCompiler(emScale = const(16f * dpPerSp.value), spScale = const(dpPerSp.value))
-
-  // we need an SP expression to create our EM expression
-  // NOTE this will break if a value MapLibre expects as EMs is defined in SP, and textSize is
-  // defined with interpolation.
-  val compileWithSpTextSize = rememberPropertyCompiler(emScale = const(16f), spScale = const(1f))
-  val compileWithEmTextSize =
-    rememberPropertyCompiler(
-      emScale = const(1f),
-      spScale = const(1f) / compileWithSpTextSize(textSize.cast()),
-    )
+  // Scaling code will need changes after https://github.com/maplibre/maplibre-native/issues/3057.
+  val compileWithDpTextSize = rememberDpCompiler(LocalDensity.current.fontScale.dp)
+  val compileWithEmTextSize = rememberEmCompiler(textSize)
   val compile = rememberPropertyCompiler()
 
   val compiledFilter = compile(filter)
