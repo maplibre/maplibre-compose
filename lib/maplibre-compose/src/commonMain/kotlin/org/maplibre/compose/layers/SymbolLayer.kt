@@ -236,6 +236,11 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
+ *   **Important:** If using zoom interpolation for text size, then all other properties defined in
+ *   text units (like [textLetterSpacing], [textOffset], etc) MUST be defined in EM units, not SP
+ *   units. If text size does not use zoom interpolation, then those other properties can be defined
+ *   in either unit. This is a limitation of the MapLibre expression parser.
+ *
  * @param textTransform Specifies how to capitalize text.
  * @param textLetterSpacing Text tracking amount.
  *
