@@ -1,4 +1,3 @@
-#include <jni.h>
 #include <smjni/jni_provider.h>
 
 #include "java_classes.hpp"

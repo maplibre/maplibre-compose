@@ -6,8 +6,6 @@
 #include <mbgl/style/style.hpp>
 #include <mbgl/util/client_options.hpp>
 
-#include <jni.h>
-#include <jni_md.h>
 #include <smjni/java_exception.h>
 
 #include <MapLibreMap_class.h>

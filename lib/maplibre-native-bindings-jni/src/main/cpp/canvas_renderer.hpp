@@ -11,7 +11,6 @@
 
 #include <jawt.h>
 #include <jawt_md.h>
-#include <jni.h>
 #include <smjni/java_ref.h>
 #include <type_mapping.h>
 

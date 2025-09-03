@@ -6,8 +6,6 @@
 #include <mbgl/util/client_options.hpp>
 #include <mbgl/util/tile_server_options.hpp>
 
-#include <jni.h>
-
 #include "type_mapping.h"
 
 namespace maplibre_jni {

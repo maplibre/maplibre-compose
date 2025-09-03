@@ -2,8 +2,6 @@
 
 #include <mbgl/map/map_observer.hpp>
 
-#include <jni.h>
-
 #include "jni_map_observer.hpp"
 
 #include "java_classes.hpp"
