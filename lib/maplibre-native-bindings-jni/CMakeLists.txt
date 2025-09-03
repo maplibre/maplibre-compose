@@ -1,14 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
-if(WIN32)
-    cmake_policy(SET CMP0091 NEW)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-endif()
-
 if(NOT DEFINED SIMPLEJNI_HEADERS_DIR)
     message(FATAL_ERROR "SIMPLEJNI_HEADERS_DIR is not defined")
 endif()
@@ -17,9 +8,17 @@ if(NOT DEFINED OUTPUT_DIR)
     message(FATAL_ERROR "OUTPUT_DIR is not defined")
 endif()
 
-if(APPLE)
-    enable_language(OBJCXX)
+set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
+if(WIN32)
+    cmake_policy(SET CMP0091 NEW)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
+    set(CMAKE_TOOLCHAIN_FILE "vendor/vcpkg/scripts/buildsystems/vcpkg.cmake")
 endif()
+
+project(maplibre-jni)
 
 # Fetch dependencies
 
@@ -43,18 +42,15 @@ FetchContent_Declare(
   EXCLUDE_FROM_ALL
 )
 
-# Must be before project() so the toolchain file is available
 FetchContent_MakeAvailable(SimpleJNI)
 FetchContent_MakeAvailable(maplibre-native)
-if(WIN32)
-    set(CMAKE_TOOLCHAIN_FILE "${maplibre-native_SOURCE_DIR}/platform/windows/custom-toolchain.cmake")
-endif()
-
-project(maplibre-jni)
-
-find_package(JNI REQUIRED)
 
 # Create our library
+
+if(APPLE)
+    enable_language(OBJCXX)
+endif()
+
 add_library(maplibre-jni SHARED
     src/main/cpp/maplibre_map.cpp
     src/main/cpp/conversions.cpp
@@ -65,7 +61,8 @@ add_library(maplibre-jni SHARED
     src/main/cpp/canvas_opengl_backend.cpp
 )
 
-# Include directories
+# Add include directories
+
 target_include_directories(maplibre-jni
     PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/main/cpp
@@ -79,7 +76,6 @@ target_include_directories(maplibre-jni
         ${maplibre-native_SOURCE_DIR}/src
 )
 
-# Add Windows-specific includes
 if(WIN32)
     target_include_directories(maplibre-jni SYSTEM PRIVATE
         ${maplibre-native_SOURCE_DIR}/platform/windows/include
@@ -87,30 +83,26 @@ if(WIN32)
         ${maplibre-native_SOURCE_DIR}/platform/windows/vendor/vcpkg/installed/x64-windows/include
         ${maplibre-native_SOURCE_DIR}/platform/windows/vendor/vcpkg/installed/x86-windows/include
     )
-endif()
-
-# Add Metal-cpp headers for macOS
-if(APPLE)
+elseif(APPLE)
     target_include_directories(maplibre-jni SYSTEM PRIVATE
         ${maplibre-native_SOURCE_DIR}/vendor/metal-cpp
     )
 endif()
 
-# Compile options
+# Add compile options
+
 target_compile_options(maplibre-jni PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-frtti -fexceptions>
     $<$<CXX_COMPILER_ID:Clang>:-frtti -fexceptions>
     # no extra options on MSVC
 )
 
-# Windows-specific definitions
 if(WIN32)
     target_compile_definitions(maplibre-jni PRIVATE
         NOMINMAX  # Prevent min/max macro conflicts
     )
 endif()
 
-# Pass backend selection to C++ code
 if(MLN_WITH_METAL)
     target_compile_definitions(maplibre-jni PRIVATE USE_METAL_BACKEND)
 elseif(MLN_WITH_VULKAN)
@@ -126,40 +118,32 @@ elseif(MLN_WITH_OPENGL)
     target_compile_definitions(maplibre-jni PRIVATE USE_OPENGL_BACKEND)
 endif()
 
-# Link common libraries
+# Link libraries
+
+find_package(JNI REQUIRED)
 target_link_libraries(maplibre-jni PRIVATE
     Mapbox::Map
     smjni::smjni
     ${JNI_LIBRARIES}
 )
 
-# Platform-specific linking
 if(APPLE)
     target_link_libraries(maplibre-jni PRIVATE
         "-framework Cocoa"
         "-framework QuartzCore"
     )
-endif()
-
-if (MLN_WITH_METAL)
-    target_link_libraries(maplibre-jni PRIVATE "-framework Metal")
-endif()
-
-if(UNIX AND NOT APPLE)
+elseif(UNIX)
     find_package(X11 REQUIRED)
     target_link_libraries(maplibre-jni PRIVATE ${X11_LIBRARIES})
     target_include_directories(maplibre-jni PRIVATE ${X11_INCLUDE_DIR})
 endif()
 
-if(MLN_WITH_VULKAN)
-    # Find Vulkan library
+if (MLN_WITH_METAL)
+    target_link_libraries(maplibre-jni PRIVATE "-framework Metal")
+elseif(MLN_WITH_VULKAN)
     find_package(Vulkan REQUIRED)
     target_link_libraries(maplibre-jni PRIVATE Vulkan::Vulkan)
-    # Don't use system Vulkan headers - use MapLibre's vendored headers for compatibility
-    # The vendored headers are included via the Mapbox::Map target
-endif()
-
-if(MLN_WITH_OPENGL AND MLN_WITH_EGL)
+elseif(MLN_WITH_OPENGL AND MLN_WITH_EGL)
     if(WIN32)
         # On Windows, use ANGLE libraries from vcpkg
         find_package(unofficial-angle CONFIG REQUIRED)
@@ -185,6 +169,7 @@ elseif(MLN_WITH_OPENGL)
 endif()
 
 # Set output directory
+
 set_target_properties(maplibre-jni PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${OUTPUT_DIR}
     RUNTIME_OUTPUT_DIRECTORY ${OUTPUT_DIR}
