@@ -33,6 +33,7 @@ FetchContent_Declare(
   GIT_REPOSITORY https://github.com/maplibre/maplibre-native.git
   GIT_TAG core-9b6325a14e2cf1cc29ab28c1855ad376f1ba4903
   GIT_SHALLOW 1
+  GIT_CONFIG core.longpaths=true
   SYSTEM
   EXCLUDE_FROM_ALL
 )
