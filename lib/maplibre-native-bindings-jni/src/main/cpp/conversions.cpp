@@ -2,6 +2,7 @@
 
 #include <mbgl/map/mode.hpp>
 
+#include <jni.h>
 #include <smjni/java_ref.h>
 #include <smjni/java_string.h>
 
@@ -99,38 +100,40 @@ auto convertCameraOptions(JNIEnv* env, jCameraOptions cameraOptionsObj)
   return options;
 }
 
-auto convertCameraOptions(JNIEnv* env, const mbgl::CameraOptions& c)
+auto convertCameraOptions(JNIEnv* env, const mbgl::CameraOptions& cameraOptions)
   -> jCameraOptions {
   smjni::local_java_ref<jLatLng> jCenter;
-  if (c.center) {
+  if (cameraOptions.center) {
     jCenter = java_classes::get<LatLng_class>().ctor(
-      env, c.center->latitude(), c.center->longitude()
+      env, cameraOptions.center->latitude(), cameraOptions.center->longitude()
     );
   }
   smjni::local_java_ref<jEdgeInsets> jPadding;
-  if (c.padding) {
+  if (cameraOptions.padding) {
     jPadding = java_classes::get<EdgeInsets_class>().ctor(
-      env, c.padding->top(), c.padding->left(), c.padding->bottom(),
-      c.padding->right()
+      env, cameraOptions.padding->top(), cameraOptions.padding->left(),
+      cameraOptions.padding->bottom(), cameraOptions.padding->right()
     );
   }
   smjni::local_java_ref<jScreenCoordinate> jAnchor;
-  if (c.anchor) {
+  if (cameraOptions.anchor) {
     jAnchor = java_classes::get<ScreenCoordinate_class>().ctor(
-      env, c.anchor->x, c.anchor->y
+      env, cameraOptions.anchor->x, cameraOptions.anchor->y
     );
   }
   smjni::local_java_ref<jDouble> jZoom;
-  if (c.zoom) {
-    jZoom = java_classes::get<Double_class>().valueOf(env, *c.zoom);
+  if (cameraOptions.zoom) {
+    jZoom = java_classes::get<Double_class>().valueOf(env, *cameraOptions.zoom);
   }
   smjni::local_java_ref<jDouble> jBearing;
-  if (c.bearing) {
-    jBearing = java_classes::get<Double_class>().valueOf(env, *c.bearing);
+  if (cameraOptions.bearing) {
+    jBearing =
+      java_classes::get<Double_class>().valueOf(env, *cameraOptions.bearing);
   }
   smjni::local_java_ref<jDouble> jPitch;
-  if (c.pitch) {
-    jPitch = java_classes::get<Double_class>().valueOf(env, *c.pitch);
+  if (cameraOptions.pitch) {
+    jPitch =
+      java_classes::get<Double_class>().valueOf(env, *cameraOptions.pitch);
   }
   return java_classes::get<CameraOptions_class>()
     .ctor(env, jCenter, jPadding, jAnchor, jZoom, jBearing, jPitch)
@@ -154,11 +157,12 @@ auto convertTileServerTemplate(
   JNIEnv* env, jTileServerTemplate tileServerTemplateObj
 ) -> std::tuple<std::string, std::string, std::optional<std::string>> {
   std::optional<std::string> versionPrefix = std::nullopt;
-  auto v = java_classes::get<TileServerTemplate_class>().getVersionPrefix(
-    env, tileServerTemplateObj
-  );
-  if (v) {
-    versionPrefix = smjni::java_string_to_cpp(env, v);
+  auto versionPrefixObj =
+    java_classes::get<TileServerTemplate_class>().getVersionPrefix(
+      env, tileServerTemplateObj
+    );
+  if (versionPrefixObj) {
+    versionPrefix = smjni::java_string_to_cpp(env, versionPrefixObj);
   }
   return std::make_tuple(
     smjni::java_string_to_cpp(
@@ -204,7 +208,7 @@ auto convertTileServerOptions(
   tileServerOptions.setRequiresApiKey(
     java_classes::get<TileServerOptions_class>().getRequiresApiKey(
       env, tileServerOptionsObj
-    )
+    ) != JNI_FALSE
   );
 
   std::apply(
@@ -299,7 +303,7 @@ auto convertMapOptions(JNIEnv* env, jMapOptions optionsObj)
   mapOptions.withCrossSourceCollisions(
     java_classes::get<MapOptions_class>().getCrossSourceCollisions(
       env, optionsObj
-    )
+    ) != JNI_FALSE
   );
   mapOptions.withNorthOrientation(
     static_cast<mbgl::NorthOrientation>(

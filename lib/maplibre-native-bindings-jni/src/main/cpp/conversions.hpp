@@ -10,44 +10,47 @@
 
 namespace maplibre_jni {
 
-mbgl::LatLng convertLatLng(JNIEnv* env, jLatLng latLngObj);
+auto convertLatLng(JNIEnv* env, jLatLng latLngObj) -> mbgl::LatLng;
 
-jLatLng convertLatLng(JNIEnv* env, mbgl::LatLng latLng);
+auto convertLatLng(JNIEnv* env, mbgl::LatLng latLng) -> jLatLng;
 
-mbgl::EdgeInsets convertEdgeInsets(JNIEnv* env, jEdgeInsets edgeInsetsObj);
-jEdgeInsets convertEdgeInsets(JNIEnv* env, const mbgl::EdgeInsets& edgeInsets);
+auto convertEdgeInsets(JNIEnv* env, jEdgeInsets edgeInsetsObj)
+  -> mbgl::EdgeInsets;
 
-mbgl::ScreenCoordinate convertScreenCoordinate(
-  JNIEnv* env, jScreenCoordinate screenCoordinateObj
-);
+auto convertEdgeInsets(JNIEnv* env, const mbgl::EdgeInsets& edgeInsets)
+  -> jEdgeInsets;
 
-jScreenCoordinate convertScreenCoordinate(
+auto convertScreenCoordinate(JNIEnv* env, jScreenCoordinate screenCoordinateObj)
+  -> mbgl::ScreenCoordinate;
+
+auto convertScreenCoordinate(
   JNIEnv* env, mbgl::ScreenCoordinate screenCoordinate
-);
+) -> jScreenCoordinate;
 
-mbgl::CameraOptions convertCameraOptions(
-  JNIEnv* env, jCameraOptions cameraOptionsObj
-);
-jCameraOptions convertCameraOptions(
-  JNIEnv* env, const mbgl::CameraOptions& cameraOptions
-);
+auto convertCameraOptions(JNIEnv* env, jCameraOptions cameraOptionsObj)
+  -> mbgl::CameraOptions;
 
-mbgl::Size convertSize(JNIEnv* env, jSize sizeObj);
-jSize convertSize(JNIEnv* env, const mbgl::Size& size);
+auto convertCameraOptions(JNIEnv* env, const mbgl::CameraOptions& cameraOptions)
+  -> jCameraOptions;
 
-mbgl::MapOptions convertMapOptions(JNIEnv* env, jMapOptions mapOptionsObj);
-jMapOptions convertMapOptions(JNIEnv* env, const mbgl::MapOptions& mapOptions);
+auto convertSize(JNIEnv* env, jSize sizeObj) -> mbgl::Size;
 
-mbgl::ResourceOptions convertResourceOptions(
-  JNIEnv* env, jResourceOptions resourceOptionsObj
-);
+auto convertSize(JNIEnv* env, const mbgl::Size& size) -> jSize;
 
-mbgl::TileServerOptions convertTileServerOptions(
+auto convertMapOptions(JNIEnv* env, jMapOptions mapOptionsObj)
+  -> mbgl::MapOptions;
+
+auto convertMapOptions(JNIEnv* env, const mbgl::MapOptions& mapOptions)
+  -> jMapOptions;
+
+auto convertResourceOptions(JNIEnv* env, jResourceOptions resourceOptionsObj)
+  -> mbgl::ResourceOptions;
+
+auto convertTileServerOptions(
   JNIEnv* env, jTileServerOptions tileServerOptionsObj
-);
+) -> mbgl::TileServerOptions;
 
-mbgl::ClientOptions convertClientOptions(
-  JNIEnv* env, jClientOptions clientOptionsObj
-);
+auto convertClientOptions(JNIEnv* env, jClientOptions clientOptionsObj)
+  -> mbgl::ClientOptions;
 
 }  // namespace maplibre_jni

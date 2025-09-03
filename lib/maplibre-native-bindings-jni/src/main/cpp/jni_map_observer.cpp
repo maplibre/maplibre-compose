@@ -78,7 +78,8 @@ void JniMapObserver::onDidFinishRenderingFrame(
     env, (int)status.mode
   );
   auto jStatus = java_classes::get<RenderFrameStatus_class>().ctor(
-    env, jMode, status.needsRepaint, status.placementChanged
+    env, jMode, static_cast<jboolean>(status.needsRepaint),
+    static_cast<jboolean>(status.placementChanged)
   );
   java_classes::get<MapObserver_class>().onDidFinishRenderingFrame(
     env, observer, jStatus

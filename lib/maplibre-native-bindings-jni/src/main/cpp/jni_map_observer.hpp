@@ -11,6 +11,11 @@ namespace maplibre_jni {
 // MapObserver
 class JniMapObserver : public mbgl::MapObserver {
  public:
+  JniMapObserver(const JniMapObserver&) = delete;
+  JniMapObserver(JniMapObserver&&) = delete;
+  JniMapObserver& operator=(const JniMapObserver&) = delete;
+  JniMapObserver& operator=(JniMapObserver&&) = delete;
+
   JniMapObserver(smjni::auto_java_ref<jMapObserver> kotlinObserver);
   ~JniMapObserver() override;
 

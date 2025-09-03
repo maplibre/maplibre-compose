@@ -16,17 +16,22 @@ namespace maplibre_jni {
 
 #ifdef __APPLE__
 #ifdef __OBJC__
-typedef id<JAWT_SurfaceLayers> SurfaceLayersRef;
+using SurfaceLayersRef = id<JAWT_SurfaceLayers>;
 #else
-typedef void* SurfaceLayersRef;
+using SurfaceLayersRef = void*;
 #endif
 #endif
 
 class JawtContext {
  public:
+  JawtContext(const JawtContext&) = delete;
+  JawtContext(JawtContext&&) = delete;
+  auto operator=(const JawtContext&) -> JawtContext& = delete;
+  auto operator=(JawtContext&&) -> JawtContext& = delete;
+
   JawtContext(JNIEnv* env, jCanvas canvas) {
     awt.version = JAWT_VERSION_9;
-    check(JAWT_GetAWT(env, &awt), "JAWT_GetAWT failed");
+    check(JAWT_GetAWT(env, &awt) != JNI_FALSE, "JAWT_GetAWT failed");
 
     drawingSurface = awt.GetDrawingSurface(env, canvas);
     check(drawingSurface != nullptr, "awt.GetDrawingSurface failed");
@@ -81,7 +86,7 @@ class JawtContext {
 
  private:
   JAWT_DrawingSurface* drawingSurface;
-  JAWT awt;
+  JAWT awt{};
 
 #if defined(_WIN32)
   HWND hwnd = nullptr;
