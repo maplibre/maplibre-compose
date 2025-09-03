@@ -1,3 +1,4 @@
 [submodule "lib/maplibre-native-bindings-jni/vendor/vcpkg"]
 	path = lib/maplibre-native-bindings-jni/vendor/vcpkg
 	url = https://github.com/microsoft/vcpkg
+  ignore = dirty
