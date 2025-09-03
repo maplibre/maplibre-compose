@@ -31,8 +31,8 @@ project(maplibre-jni)
 
 # FetchContent causes problems with the vcpkg toolchain, see (TODO link)
 # So we use git submodules instead and add_subdirectory() AFTER project()
-add_subdirectory(${SimpleJNI_SOURCE_DIR} EXCLUDE_FROM_ALL)
-add_subdirectory(${maplibre-native_SOURCE_DIR} EXCLUDE_FROM_ALL)
+add_subdirectory(${SimpleJNI_SOURCE_DIR} EXCLUDE_FROM_ALL SYSTEM)
+add_subdirectory(${maplibre-native_SOURCE_DIR} EXCLUDE_FROM_ALL SYSTEM)
 
 find_package(JNI REQUIRED)
 
