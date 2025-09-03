@@ -4,13 +4,14 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
-# Set MSVC runtime library to dynamic (MD/MDd)
 if(WIN32)
     cmake_policy(SET CMP0091 NEW)
     set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
 endif()
 
-set(SIMPLEJNI_HEADERS_DIR "${CMAKE_CURRENT_SOURCE_DIR}/build/generated/simplejni-headers" CACHE PATH "Path to SimpleJNI generated headers")
+if(NOT DEFINED SIMPLEJNI_HEADERS_DIR)
+    message(FATAL_ERROR "SIMPLEJNI_HEADERS_DIR is not defined")
+endif()
 
 if(NOT DEFINED OUTPUT_DIR)
     message(FATAL_ERROR "OUTPUT_DIR is not defined")
@@ -20,23 +21,40 @@ if(APPLE)
     enable_language(OBJCXX)
 endif()
 
-# Declare project with vendored dependencies
+# Fetch dependencies
 
-set(SimpleJNI_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/SimpleJNI")
-set(maplibre-native_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/vendor/maplibre-native")
+include(FetchContent)
+
+FetchContent_Declare(
+  maplibre-native
+  GIT_REPOSITORY https://github.com/maplibre/maplibre-native.git
+  GIT_TAG core-9b6325a14e2cf1cc29ab28c1855ad376f1ba4903
+  SYSTEM
+  EXCLUDE_FROM_ALL
+)
+
+FetchContent_Declare(
+  SimpleJNI
+  GIT_REPOSITORY https://github.com/gershnik/SimpleJNI.git
+  GIT_TAG 3.14
+  SYSTEM
+  EXCLUDE_FROM_ALL
+)
+
+# Populate before project() so Windows can use toolchain from maplibre-native
+FetchContent_Populate(maplibre-native)
+FetchContent_Populate(SimpleJNI)
+
 if(WIN32)
-    set(CMAKE_TOOLCHAIN_FILE ${maplibre-native_SOURCE_DIR}/platform/windows/custom-toolchain.cmake)
+    set(CMAKE_TOOLCHAIN_FILE "${maplibre-native_SOURCE_DIR}/platform/windows/custom-toolchain.cmake")
 endif()
+
+# Make available after project(), as SimpleJNI breaks vcpkg otherwise
 project(maplibre-jni)
-
-# FetchContent causes problems with the vcpkg toolchain, see (TODO link)
-# So we use git submodules instead and add_subdirectory() AFTER project()
-add_subdirectory(${SimpleJNI_SOURCE_DIR} EXCLUDE_FROM_ALL SYSTEM)
-add_subdirectory(${maplibre-native_SOURCE_DIR} EXCLUDE_FROM_ALL SYSTEM)
-
+FetchContent_MakeAvailable(maplibre-native SimpleJNI)
 find_package(JNI REQUIRED)
 
-# Create our JNI library
+# Create our library
 add_library(maplibre-jni SHARED
     src/main/cpp/maplibre_map.cpp
     src/main/cpp/conversions.cpp
@@ -82,6 +100,7 @@ endif()
 target_compile_options(maplibre-jni PRIVATE
     $<$<CXX_COMPILER_ID:GNU>:-frtti -fexceptions>
     $<$<CXX_COMPILER_ID:Clang>:-frtti -fexceptions>
+    # no extra options on MSVC
 )
 
 # Windows-specific definitions
@@ -94,8 +113,7 @@ endif()
 # Pass backend selection to C++ code
 if(MLN_WITH_METAL)
     target_compile_definitions(maplibre-jni PRIVATE USE_METAL_BACKEND)
-endif()
-if(MLN_WITH_VULKAN)
+elseif(MLN_WITH_VULKAN)
     target_compile_definitions(maplibre-jni PRIVATE USE_VULKAN_BACKEND)
     if(APPLE)
         target_compile_definitions(maplibre-jni PRIVATE VK_USE_PLATFORM_METAL_EXT)
@@ -104,8 +122,7 @@ if(MLN_WITH_VULKAN)
     elseif(WIN32)
         target_compile_definitions(maplibre-jni PRIVATE VK_USE_PLATFORM_WIN32_KHR)
     endif()
-endif()
-if(MLN_WITH_OPENGL)
+elseif(MLN_WITH_OPENGL)
     target_compile_definitions(maplibre-jni PRIVATE USE_OPENGL_BACKEND)
 endif()
 
