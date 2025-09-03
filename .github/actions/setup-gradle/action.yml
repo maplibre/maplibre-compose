@@ -1,5 +1,5 @@
-name: Setup
-description: Set up the build environment, used by most jobs
+name: Setup Gradle
+description: Set up the Java and Gradle environment
 runs:
   using: composite
   steps:

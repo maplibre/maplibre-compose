@@ -25,23 +25,12 @@ jobs:
     runs-on: ${{ matrix.runner }}
     name: build-natives (${{ matrix.variant }})
     steps:
-      - if: ${{ matrix.runner == 'windows-latest' }}
-        run: git config --global core.longpaths true
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
-      - if: ${{ matrix.runner == 'windows-latest' }}
-        uses: ilammy/msvc-dev-cmd@v1
-      - if: ${{ matrix.runner == 'ubuntu-latest' }}
-        name: Install Linux maplibre-native dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
-            libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
-            libvulkan-dev
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
+      - uses: ./.github/actions/setup-cmake
       - run: |
           ./gradlew :lib:maplibre-native-bindings-jni:buildNative -PdesktopRenderer=${{ matrix.renderer }}
       - uses: actions/upload-artifact@v4
@@ -62,7 +51,7 @@ jobs:
         with:
           fetch-depth: 0
       - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - uses: actions/download-artifact@v4
         with:
           name: natives-macos-aarch64-metal
@@ -103,7 +92,7 @@ jobs:
         with:
           fetch-depth: 0
       - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew generateDocs
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,0 +1,22 @@
+name: Setup CMake
+description: Set up caching for native builds
+runs:
+  using: composite
+  steps:
+    - name: Cache CMake deps
+      uses: actions/cache@v4
+      with:
+        path: lib/maplibre-native-bindings-jni/build/cmake/_deps
+        key: |
+          cmake-deps-${{hashFiles('lib/maplibre-native-bindings-jni/CMakeLists.txt') }}
+    - if: runner.os == 'Windows'
+      name: Setup MSVC environment
+      uses: ilammy/msvc-dev-cmd@v1
+    - if: runner.os == 'Linux'
+      name: Install Linux maplibre-native dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
+          libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
+          libvulkan-dev
