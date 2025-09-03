@@ -32,7 +32,7 @@ CanvasRenderer::CanvasRenderer(
       renderer_(std::make_unique<mbgl::Renderer>(*backend_, pixelRatio)) {
   runLoop_->setPlatformCallback([this]() {
     if (!canvasRenderer_) return;
-    auto env = smjni::jni_provider::get_jni();
+    auto* env = smjni::jni_provider::get_jni();
     java_classes::get<CanvasRenderer_class>().requestRunOnce(
       env, canvasRenderer_
     );
@@ -53,13 +53,13 @@ void CanvasRenderer::setObserver(mbgl::RendererObserver& observer) {
 
 void CanvasRenderer::update(std::shared_ptr<mbgl::UpdateParameters> params) {
   updateParameters_ = std::make_unique<mbgl::UpdateParameters>(*params);
-  if (!canvasRenderer_.c_ptr()) return;
+  if (canvasRenderer_.c_ptr() == nullptr) return;
   java_classes::get<CanvasRenderer_class>().requestCanvasRepaint(
     smjni::jni_provider::get_jni(), canvasRenderer_.c_ptr()
   );
 }
 
-const mbgl::TaggedScheduler& CanvasRenderer::getThreadPool() const {
+auto CanvasRenderer::getThreadPool() const -> const mbgl::TaggedScheduler& {
   return backend_->getThreadPool();
 }
 
@@ -70,6 +70,8 @@ void CanvasRenderer::render() {
   renderer_->render(copy);
 }
 
+void CanvasRenderer::runOnce() { runLoop_->runOnce(); }
+
 void CanvasRenderer::setSize(mbgl::Size size) { backend_->setSize(size); }
 
 }  // namespace maplibre_jni
@@ -77,9 +79,11 @@ void CanvasRenderer::setSize(mbgl::Size size) { backend_->setSize(size); }
 void JNICALL
 CanvasRenderer_class::render(JNIEnv* env, jCanvasRenderer renderer) {
   try {
-    auto frontend = reinterpret_cast<maplibre_jni::CanvasRenderer*>(
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* frontend = reinterpret_cast<maplibre_jni::CanvasRenderer*>(
       java_classes::get<CanvasRenderer_class>().getNativePointer(env, renderer)
     );
+    // TODO: something in here is segfaulting on Linux
     frontend->render();
   } catch (const std::exception& e) {
     smjni::java_exception::translate(env, e);
@@ -89,11 +93,11 @@ CanvasRenderer_class::render(JNIEnv* env, jCanvasRenderer renderer) {
 void JNICALL
 CanvasRenderer_class::runOnce(JNIEnv* env, jCanvasRenderer renderer) {
   try {
-    auto frontend = reinterpret_cast<maplibre_jni::CanvasRenderer*>(
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* frontend = reinterpret_cast<maplibre_jni::CanvasRenderer*>(
       java_classes::get<CanvasRenderer_class>().getNativePointer(env, renderer)
     );
-    // TODO: something in here is segfaulting on Linux
-    frontend->runLoop_->runOnce();
+    frontend->runOnce();
   } catch (const std::exception& e) {
     smjni::java_exception::translate(env, e);
   }
@@ -103,7 +107,8 @@ void JNICALL CanvasRenderer_class::setSize(
   JNIEnv* env, jCanvasRenderer canvasFrontend, jSize size
 ) {
   try {
-    auto renderer = reinterpret_cast<maplibre_jni::CanvasRenderer*>(
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* renderer = reinterpret_cast<maplibre_jni::CanvasRenderer*>(
       java_classes::get<CanvasRenderer_class>().getNativePointer(
         env, canvasFrontend
       )
@@ -114,10 +119,11 @@ void JNICALL CanvasRenderer_class::setSize(
   }
 }
 
-jlong JNICALL CanvasRenderer_class::alloc(
-  JNIEnv* env, jclass, jCanvasRenderer renderer, jfloat pixelRatio
-) {
+auto JNICALL CanvasRenderer_class::alloc(
+  JNIEnv* env, jclass /*unused*/, jCanvasRenderer renderer, jfloat pixelRatio
+) -> jlong {
   try {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
     return reinterpret_cast<jlong>(
       new maplibre_jni::CanvasRenderer(env, renderer, pixelRatio)
     );
@@ -127,8 +133,10 @@ jlong JNICALL CanvasRenderer_class::alloc(
   }
 }
 
-void JNICALL CanvasRenderer_class::destroy(JNIEnv* env, jclass, jlong ptr) {
+void JNICALL
+CanvasRenderer_class::destroy(JNIEnv* env, jclass /*unused*/, jlong ptr) {
   try {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast,cppcoreguidelines-owning-memory)
     delete reinterpret_cast<maplibre_jni::CanvasRenderer*>(ptr);
   } catch (const std::exception& e) {
     smjni::java_exception::translate(env, e);

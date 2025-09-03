@@ -28,19 +28,21 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
       throw std::runtime_error("Failed to create command queue");
 
     CGFloat scale = [NSScreen mainScreen].backingScaleFactor;
-    auto metalLayer = [CAMetalLayer layer];
-    metalLayer.bounds = CGRectMake(0, 0, size.width, size.height);
-    metalLayer.contentsScale = scale;
-    jawtContext_.getSurfaceLayers().layer = metalLayer;
-    [metalLayer retain];
+    auto objCMetalLayer = [CAMetalLayer layer];
+    objCMetalLayer.bounds = CGRectMake(0, 0, size.width, size.height);
+    objCMetalLayer.contentsScale = scale;
+    jawtContext_.getSurfaceLayers().layer = objCMetalLayer;
+    [objCMetalLayer retain];
 
-    swapchain = NS::TransferPtr(reinterpret_cast<CA::MetalLayer *>(metalLayer));
-    swapchain->setDevice(rendererBackend.getDevice().get());
+    metalLayer =
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+      NS::TransferPtr(reinterpret_cast<CA::MetalLayer *>(objCMetalLayer));
+    metalLayer->setDevice(rendererBackend.getDevice().get());
   }
 
   void setSize(mbgl::Size size_) {
     size = size_;
-    swapchain->setDrawableSize(
+    metalLayer->setDrawableSize(
       {static_cast<CGFloat>(size.width), static_cast<CGFloat>(size.height)}
     );
     depthTexture = nullptr;
@@ -49,10 +51,10 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
 
   void bind() override {
     // Acquire next drawable surface and update texture size
-    surface = NS::TransferPtr(swapchain->nextDrawable());
+    metalDrawable = NS::TransferPtr(metalLayer->nextDrawable());
     auto texSize = mbgl::Size{
-      static_cast<uint32_t>(swapchain->drawableSize().width),
-      static_cast<uint32_t>(swapchain->drawableSize().height)
+      static_cast<uint32_t>(metalLayer->drawableSize().width),
+      static_cast<uint32_t>(metalLayer->drawableSize().height)
     };
 
     // Create command buffer and render pass descriptor
@@ -62,7 +64,7 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
 
     // Attach color texture to render pass
     renderPassDescriptor->colorAttachments()->object(0)->setTexture(
-      surface->texture()
+      metalDrawable->texture()
     );
 
     // Helper to create and configure a depth or stencil texture if missing
@@ -75,11 +77,12 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
         texture = rendererBackend.getContext().createTexture2D();
         texture->setSize(texSize);
         texture->setFormat(pixelType, channelType);
-        texture->setSamplerConfiguration(
-          {mbgl::gfx::TextureFilterType::Linear,
-           mbgl::gfx::TextureWrapType::Clamp, mbgl::gfx::TextureWrapType::Clamp}
-        );
-        static_cast<mbgl::mtl::Texture2D *>(texture.get())
+        texture->setSamplerConfiguration({
+          .filter = mbgl::gfx::TextureFilterType::Linear,
+          .wrapU = mbgl::gfx::TextureWrapType::Clamp,
+          .wrapV = mbgl::gfx::TextureWrapType::Clamp,
+        });
+        dynamic_cast<mbgl::mtl::Texture2D *>(texture.get())
           ->setUsage(
             MTL::TextureUsageShaderRead | MTL::TextureUsageShaderWrite |
             MTL::TextureUsageRenderTarget
@@ -109,7 +112,7 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     auto configureDepthAttachment = [&]() {
       depthTexture->create();
       renderPassDescriptor->depthAttachment()->setTexture(
-        static_cast<mbgl::mtl::Texture2D *>(depthTexture.get())
+        dynamic_cast<mbgl::mtl::Texture2D *>(depthTexture.get())
           ->getMetalTexture()
       );
       auto &depthAttachment = *renderPassDescriptor->depthAttachment();
@@ -122,7 +125,7 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     auto configureStencilAttachment = [&]() {
       stencilTexture->create();
       renderPassDescriptor->stencilAttachment()->setTexture(
-        static_cast<mbgl::mtl::Texture2D *>(stencilTexture.get())
+        dynamic_cast<mbgl::mtl::Texture2D *>(stencilTexture.get())
           ->getMetalTexture()
       );
       auto &stencilAttachment = *renderPassDescriptor->stencilAttachment();
@@ -137,8 +140,8 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
   }
 
   void swap() override {
-    if (surface && commandBuffer) {
-      commandBuffer->presentDrawable(surface.get());
+    if (metalDrawable && commandBuffer) {
+      commandBuffer->presentDrawable(metalDrawable.get());
       commandBuffer->commit();
     }
   }
@@ -147,20 +150,23 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
 
   void deactivate() { jawtContext_.unlock(); }
 
-  const mbgl::mtl::RendererBackend &getBackend() const override {
+  [[nodiscard]] auto getBackend() const
+    -> const mbgl::mtl::RendererBackend & override {
     return rendererBackend;
   }
 
-  const mbgl::mtl::MTLCommandBufferPtr &getCommandBuffer() const override {
+  [[nodiscard]] auto getCommandBuffer() const
+    -> const mbgl::mtl::MTLCommandBufferPtr & override {
     return commandBuffer;
   }
 
-  mbgl::mtl::MTLBlitPassDescriptorPtr getUploadPassDescriptor() const override {
+  [[nodiscard]] auto getUploadPassDescriptor() const
+    -> mbgl::mtl::MTLBlitPassDescriptorPtr override {
     return NS::TransferPtr(MTL::BlitPassDescriptor::alloc()->init());
   }
 
-  const mbgl::mtl::MTLRenderPassDescriptorPtr &
-  getRenderPassDescriptor() const override {
+  [[nodiscard]] auto getRenderPassDescriptor() const
+    -> const mbgl::mtl::MTLRenderPassDescriptorPtr & override {
     return renderPassDescriptor;
   }
 
@@ -170,8 +176,8 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
   mbgl::mtl::MTLCommandQueuePtr commandQueue;
   mbgl::mtl::MTLCommandBufferPtr commandBuffer;
   mbgl::mtl::MTLRenderPassDescriptorPtr renderPassDescriptor;
-  mbgl::mtl::CAMetalDrawablePtr surface;
-  mbgl::mtl::CAMetalLayerPtr swapchain;
+  mbgl::mtl::CAMetalDrawablePtr metalDrawable;
+  mbgl::mtl::CAMetalLayerPtr metalLayer;
   mbgl::gfx::Texture2DPtr depthTexture;
   mbgl::gfx::Texture2DPtr stencilTexture;
   mbgl::Size size;
@@ -191,11 +197,13 @@ void CanvasBackend::setSize(mbgl::Size size) {
   getResource<MetalRenderableResource>().setSize(size);
 }
 
-std::unique_ptr<mbgl::gfx::Context> CanvasBackend::createContext() {
+auto CanvasBackend::createContext() -> std::unique_ptr<mbgl::gfx::Context> {
   return std::make_unique<mbgl::mtl::Context>(*this);
 }
 
-mbgl::gfx::Renderable &CanvasBackend::getDefaultRenderable() { return *this; }
+auto CanvasBackend::getDefaultRenderable() -> mbgl::gfx::Renderable & {
+  return *this;
+}
 
 void CanvasBackend::activate() {
   getResource<MetalRenderableResource>().activate();

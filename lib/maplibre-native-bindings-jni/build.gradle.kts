@@ -161,7 +161,7 @@ if (configureForPublishing) {
     doLast {
       // copy compile_commands.json to a location that clangd can find
       val compileCommandsSrc = buildDir.get().asFile.resolve("compile_commands.json")
-      val compileCommandsDst = layout.buildDirectory.get().asFile.resolve("compile_commands.json")
+      val compileCommandsDst = layout.projectDirectory.asFile.resolve("compile_commands.json")
       if (compileCommandsSrc.exists()) {
         compileCommandsSrc.copyTo(compileCommandsDst, overwrite = true)
       }

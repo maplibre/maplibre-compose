@@ -1,0 +1,18 @@
+---
+Checks:
+  - -*
+  - misc-include-cleaner
+  - modernize-*
+  - readability-*
+  - clang-analyzer-*
+  - bugprone-*
+  - cert-*
+  - cppcoreguidelines-*
+CheckOptions:
+  - key: readability-braces-around-statements.ShortStatementLines
+    value: 2
+  - key: readability-identifier-length.IgnoredVariableNames
+    value: i|j|k|n|x|y|z
+WarningsAsErrors: ""
+FormatStyle: file
+SystemHeaders: false

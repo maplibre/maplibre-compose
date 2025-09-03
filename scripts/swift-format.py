@@ -4,33 +4,31 @@ Swift formatter wrapper that works cross-platform.
 Tries to find and use either 'swift format' or 'swift-format' command.
 """
 
-import os
 import sys
 import subprocess
 import shutil
-from pathlib import Path
-from typing import Union, List, Optional
+from typing import List, Optional
 
 
 def find_swift_formatter() -> Optional[List[str]]:
     # Try swift format first (newer, built into Swift toolchain)
-    if shutil.which('swift'):
+    if shutil.which("swift"):
         try:
             # Check if 'swift format' subcommand is available
             result = subprocess.run(
-                ['swift', 'format', '--help'],
+                ["swift", "format", "--help"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=10,
             )
             if result.returncode == 0:
-                return ['swift', 'format']
+                return ["swift", "format"]
         except (subprocess.TimeoutExpired, FileNotFoundError):
             pass
 
     # Try swift-format as fallback
-    if shutil.which('swift-format'):
-        return ['swift-format']
+    if shutil.which("swift-format"):
+        return ["swift-format"]
 
     return None
 
@@ -45,7 +43,7 @@ def format_files(files: List[str]) -> int:
         return 1
 
     # Format files in-place
-    cmd = formatter + ['-i'] + files
+    cmd = formatter + ["-i"] + files
 
     try:
         result = subprocess.run(cmd, check=False)

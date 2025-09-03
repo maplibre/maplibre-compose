@@ -1,6 +1,15 @@
 {
+  "[c]": {
+    "editor.defaultFormatter": "jkillian.custom-local-formatters"
+  },
   "[cpp]": {
-    "editor.defaultFormatter": "llvm-vs-code-extensions.vscode-clangd"
+    "editor.defaultFormatter": "jkillian.custom-local-formatters"
+  },
+  "[objective-c]": {
+    "editor.defaultFormatter": "jkillian.custom-local-formatters"
+  },
+  "[objective-cpp]": {
+    "editor.defaultFormatter": "jkillian.custom-local-formatters"
   },
   "[gradle-kotlin-dsl]": {
     "editor.defaultFormatter": "jkillian.custom-local-formatters"
@@ -24,6 +33,10 @@
     {
       "command": "ktfmt --google-style -",
       "languages": ["kotlin", "gradle-kotlin-dsl"]
+    },
+    {
+      "command": "clang-format",
+      "languages": ["c", "cpp", "objective-c", "objective-cpp"]
     }
   ],
   "editor.formatOnSave": true,
@@ -31,5 +44,8 @@
   "java.configuration.updateBuildConfiguration": "disabled",
   "java.import.gradle.enabled": false,
   "java.server.launchMode": "LightWeight",
-  "kotlin.languageServer.enabled": false
+  "kotlin.languageServer.enabled": false,
+  "cmake.sourceDirectory": [
+    "/Users/sargunv/Code/maplibre-compose/lib/maplibre-native-bindings-jni"
+  ]
 }
