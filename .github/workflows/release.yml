@@ -49,7 +49,7 @@ jobs:
           if-no-files-found: error
           name: natives-${{ matrix.variant }}
           path: |
-            "./lib/maplibre-native-bindings-jni/build/lib/${{ matrix.preset }}/shared/*"
+            lib/maplibre-native-bindings-jni/build/lib/${{ matrix.preset }}/shared/*
 
   publish-maven:
     needs: [build-natives]
