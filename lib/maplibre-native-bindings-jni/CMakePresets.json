@@ -15,7 +15,8 @@
         "MLN_WITH_EGL": "OFF",
         "MLN_WITH_METAL": "OFF",
         "MLN_WITH_OPENGL": "OFF",
-        "MLN_WITH_VULKAN": "OFF"
+        "MLN_WITH_VULKAN": "OFF",
+        "SIMPLEJNI_HEADERS_DIR": "${sourceDir}/build/generated/simplejni-headers"
       }
     },
     {

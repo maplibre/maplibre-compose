@@ -7,7 +7,10 @@ in this repository.
 
 When searching the vendored maplibre-native codebase:
 
-- Location: Look in `lib/maplibre-native-bindings-jni/vendor/maplibre-native/`
+- Location: Look in
+  `lib/maplibre-native-bindings-jni/build/cmake/$preset/vendor/maplibre-native/`
+  (where `$preset` is the preset used to build the library, like `macos-metal`
+  or `linux-opengl`)
 - Key Directories:
   - `platform/linux/` `- Linux-specific code (includes linux.cmake)
   - `platform/windows/` - Windows-specific code (includes windows.cmake)

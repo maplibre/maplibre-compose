@@ -41,17 +41,15 @@ FetchContent_Declare(
   EXCLUDE_FROM_ALL
 )
 
-# Populate before project() so Windows can use toolchain from maplibre-native
-FetchContent_Populate(maplibre-native)
-FetchContent_Populate(SimpleJNI)
-
+# Must be before project() so the toolchain file is available
+FetchContent_MakeAvailable(SimpleJNI)
+FetchContent_MakeAvailable(maplibre-native)
 if(WIN32)
     set(CMAKE_TOOLCHAIN_FILE "${maplibre-native_SOURCE_DIR}/platform/windows/custom-toolchain.cmake")
 endif()
 
-# Make available after project(), as SimpleJNI breaks vcpkg otherwise
 project(maplibre-jni)
-FetchContent_MakeAvailable(maplibre-native SimpleJNI)
+
 find_package(JNI REQUIRED)
 
 # Create our library
@@ -129,8 +127,6 @@ endif()
 # Link common libraries
 target_link_libraries(maplibre-jni PRIVATE
     Mapbox::Map
-    mbgl-compiler-options
-    mbgl-vendor-unique_resource
     smjni::smjni
     ${JNI_LIBRARIES}
 )
