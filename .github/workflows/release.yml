@@ -31,16 +31,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - if: ${{ matrix.runner == 'windows-latest' }}
-        uses: ilammy/msvc-dev-cmd@v1
-      - if: ${{ matrix.runner == 'ubuntu-latest' }}
-        name: Install Linux maplibre-native dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
-            libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
-            libvulkan-dev
+      - uses: ./.github/actions/setup-cmake
       - uses: ./.github/actions/setup-gradle
       - run: |
           ./gradlew :lib:maplibre-native-bindings-jni:buildNative -PdesktopRenderer=${{ matrix.renderer }}
