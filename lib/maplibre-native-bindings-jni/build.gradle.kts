@@ -14,7 +14,7 @@ enum class Variant(
   val arch: String,
   val renderer: String,
   // TODO: default true when all/most are publishable
-  val requireWhenPublishing: Boolean = false,
+  val publish: Boolean = false,
 ) {
   // TODO: enable alternate architectures and renderers
   MacosAmd64Metal("macos", "amd64", "metal"),
@@ -82,7 +82,9 @@ val configureForPublishing = project.findProperty("configureForPublishing")?.toS
 
 sourceSets {
   for (variant in Variant.values()) {
-    create(variant.sourceSetName) { resources.srcDir(variant.resourcesSourceDir(layout)) }
+    if (!configureForPublishing || variant.publish) {
+      create(variant.sourceSetName) { resources.srcDir(variant.resourcesSourceDir(layout)) }
+    }
   }
 }
 
@@ -125,7 +127,7 @@ if (configureForPublishing) {
 
     doLast {
       val missing = mutableListOf<String>()
-      for (variant in Variant.values().filter { it.requireWhenPublishing }) {
+      for (variant in Variant.values().filter { it.publish }) {
         val file =
           variant.resourcesTargetDirectory(layout).get().asFile.resolve(variant.sharedLibraryName)
         if (!file.exists()) {
