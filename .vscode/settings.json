@@ -44,5 +44,5 @@
   "java.configuration.updateBuildConfiguration": "disabled",
   "java.import.gradle.enabled": false,
   "java.server.launchMode": "LightWeight",
-  "kotlin.languageServer.enabled": false,
+  "kotlin.languageServer.enabled": false
 }
