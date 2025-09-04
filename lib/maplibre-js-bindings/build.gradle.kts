@@ -6,7 +6,7 @@ plugins {
 
 mavenPublishing {
   pom {
-    name = "MapLibre GL JS Kotlin"
+    name = "MapLibre GL JS Bindings"
     description = "Kotlin bindings for MapLibre GL JS."
     url = "https://github.com/maplibre/maplibre-compose"
   }

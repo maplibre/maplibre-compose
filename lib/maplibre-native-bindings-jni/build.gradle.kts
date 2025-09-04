@@ -6,6 +6,7 @@ plugins {
   id("module-conventions")
   id("java-library")
   id("maven-publish")
+  id(libs.plugins.mavenPublish.get().pluginId)
 }
 
 enum class Variant(
@@ -94,6 +95,27 @@ java {
   }
 }
 
+mavenPublishing {
+  pom {
+    name = "MapLibre Native Bindings (Natives)"
+    description = "JNI native libraries for MapLibre Native Bindings."
+    url = "https://github.com/maplibre/maplibre-compose"
+  }
+}
+
+publishing {
+  repositories {
+    maven {
+      name = "GitHubPackages"
+      setUrl("https://maven.pkg.github.com/maplibre/maplibre-compose")
+      credentials {
+        username = project.properties["githubUser"]?.toString()
+        password = project.properties["githubToken"]?.toString()
+      }
+    }
+  }
+}
+
 if (configureForPublishing) {
   // when publishing, we build all variants in CI and copy them to the resources directory
   // so in gradle, we just need to validate that they're present
@@ -119,19 +141,6 @@ if (configureForPublishing) {
   }
 
   tasks.named("build") { dependsOn("validateAllNatives") }
-
-  publishing {
-    repositories {
-      maven {
-        name = "GitHubPackages"
-        setUrl("https://maven.pkg.github.com/maplibre/maplibre-compose")
-        credentials {
-          username = project.properties["githubUser"]?.toString()
-          password = project.properties["githubToken"]?.toString()
-        }
-      }
-    }
-  }
 
   Unit // gradle doesn't like if expressions returning things
 } else {
@@ -218,6 +227,15 @@ if (configureForPublishing) {
   Variant.values().forEach { variant ->
     tasks.named("process${variant.sourceSetName}Resources") { dependsOn("copyNativeToResources") }
   }
+
+  // poison the publish tasks to ensure we never publish without configureForPublishing set
+  tasks
+    .matching { it.name.startsWith("publish") }
+    .configureEach {
+      doFirst {
+        throw GradleException("publish tasks are disabled when configureForPublishing is false")
+      }
+    }
 
   Unit // gradle doesn't like `if` expressions returning things
 }

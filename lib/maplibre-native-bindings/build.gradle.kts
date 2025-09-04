@@ -7,7 +7,7 @@ plugins {
 
 mavenPublishing {
   pom {
-    name = "MapLibre Native Kotlin"
+    name = "MapLibre Native Bindings"
     description = "Kotlin bindings for MapLibre Native."
     url = "https://github.com/maplibre/maplibre-compose"
   }
