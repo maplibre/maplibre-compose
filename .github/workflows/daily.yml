@@ -58,7 +58,7 @@ jobs:
             libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
             libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
             libvulkan-dev
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: |
           ./gradlew :lib:maplibre-native-bindings-jni:buildNative -PdesktopRenderer=${{ matrix.renderer }}
       - uses: actions/upload-artifact@v4
@@ -78,7 +78,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - uses: actions/download-artifact@v4
         with:
           name: natives-macos-aarch64-metal

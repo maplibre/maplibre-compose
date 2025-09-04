@@ -30,7 +30,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew lint
 
   test-android:
@@ -46,7 +46,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew testDebugUnitTest
       - name: Run with AVD ./gradlew connectedDebugAndroidTest
         uses: ./.github/actions/run-with-avd
@@ -70,7 +70,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - uses: futureware-tech/simulator-action@v4
         id: setup-simulator
         with:
@@ -86,7 +86,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew jsBrowserTest
 
   test-desktop:
@@ -116,7 +116,7 @@ jobs:
             libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
             libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
             libvulkan-dev
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew desktopTest
 
   build-docs:
@@ -125,7 +125,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew generateDocs
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -137,7 +137,7 @@ jobs:
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew packageDebug
       - uses: actions/upload-artifact@v4
         with:
@@ -179,7 +179,7 @@ jobs:
             libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
             libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
             libvulkan-dev
-      - uses: ./.github/actions/setup
+      - uses: ./.github/actions/setup-gradle
       - run: ./gradlew :demo-app:packageDistributionForCurrentOS
       - uses: actions/upload-artifact@v4
         with:
