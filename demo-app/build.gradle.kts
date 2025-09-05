@@ -138,20 +138,8 @@ kotlin {
 
         runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
           capabilities {
-            val osPart =
-              when (val os = System.getProperty("os.name").lowercase()) {
-                "mac os x" -> "macos"
-                else -> os.split(' ').first()
-              }
-            val archPart =
-              when (val arch = System.getProperty("os.arch").lowercase()) {
-                "x86_64" -> "amd64" // jdk returns x86_64 on macos but amd64 elsewhere
-                else -> arch
-              }
-            val rendererPart =
-              project.properties["desktopRenderer"] ?: if (osPart == "macos") "metal" else "opengl"
             requireCapability(
-              "org.maplibre.compose:maplibre-native-bindings-jni-$osPart-$archPart-$rendererPart"
+              "org.maplibre.compose:maplibre-native-bindings-jni-${Configuration(project).hostOsArchRendererTriplet}"
             )
           }
         }
