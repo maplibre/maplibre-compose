@@ -57,14 +57,11 @@ target_include_directories(maplibre-jni
         ${SIMPLEJNI_HEADERS_DIR}
         ${JNI_INCLUDE_DIRS}
         ${maplibre-native_SOURCE_DIR}/include
-        ${maplibre-native_SOURCE_DIR}/platform/default/include
-        ${maplibre-native_SOURCE_DIR}/src
 )
 
 # Add Windows-specific includes
 if(WIN32)
     target_include_directories(maplibre-jni SYSTEM PRIVATE
-        ${maplibre-native_SOURCE_DIR}/platform/windows/include
         ${maplibre-native_SOURCE_DIR}/platform/windows/vendor/vcpkg/installed/arm64-windows/include
         ${maplibre-native_SOURCE_DIR}/platform/windows/vendor/vcpkg/installed/x64-windows/include
         ${maplibre-native_SOURCE_DIR}/platform/windows/vendor/vcpkg/installed/x86-windows/include
