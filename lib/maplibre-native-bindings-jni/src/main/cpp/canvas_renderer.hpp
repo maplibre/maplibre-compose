@@ -30,14 +30,12 @@ class CanvasBackend : public mbgl::mtl::RendererBackend,
                       public mbgl::gfx::Renderable {
  public:
   explicit CanvasBackend(JNIEnv* env, jCanvas canvas);
-  mbgl::gfx::Renderable& getDefaultRenderable() override;
-  void wait() override {}
+  auto getDefaultRenderable() -> mbgl::gfx::Renderable& override;
   void setSize(mbgl::Size);
 
  protected:
   void activate() override;
   void deactivate() override;
-  std::unique_ptr<mbgl::gfx::Context> createContext() override;
   void updateAssumedState() override {}
 };
 

@@ -197,10 +197,6 @@ void CanvasBackend::setSize(mbgl::Size size) {
   getResource<MetalRenderableResource>().setSize(size);
 }
 
-auto CanvasBackend::createContext() -> std::unique_ptr<mbgl::gfx::Context> {
-  return std::make_unique<mbgl::mtl::Context>(*this);
-}
-
 auto CanvasBackend::getDefaultRenderable() -> mbgl::gfx::Renderable & {
   return *this;
 }
