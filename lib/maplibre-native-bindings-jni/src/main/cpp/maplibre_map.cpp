@@ -323,9 +323,10 @@ MapLibreMap_class::getMapOptionsNative(JNIEnv* env, jMapLibreMap map)
 
 #pragma mark - Projection Mode
 
-// TODO: wrap projection mode
+// TODO: wrap ProjectionMode
 // void setProjectionMode(const ProjectionMode&);
 // ProjectionMode getProjectionMode() const;
+
 #pragma mark - Projection
 
 auto JNICALL
@@ -434,7 +435,7 @@ MapLibreMap_class::isFullyLoadedNative(JNIEnv* env, jMapLibreMap map)
 
 #pragma mark - Free Camera
 
-// TODO: wrap free camera
+// TODO: wrap FreeCameraOptions
 // void setFreeCameraOptions(const FreeCameraOptions& camera);
 // FreeCameraOptions getFreeCameraOptions() const;
 
@@ -506,8 +507,10 @@ MapLibreMap_class::getTileLodZoomShiftNative(JNIEnv* env, jMapLibreMap map)
 
 #pragma mark - Other
 
-// TODO: wrap these
+// TODO: wrap ClientOptions
 // ClientOptions getClientOptions() const;
+
+// TODO: wrap ActionJournal
 // const std::unique_ptr<util::ActionJournal>& getActionJournal();
 
 #pragma mark - Allocation

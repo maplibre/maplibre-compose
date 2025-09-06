@@ -38,22 +38,29 @@ public class MapLibreMap(
     get() = nativePeer.rawPtr
 
   // region Rendering
-  public external fun triggerRepaint()
 
   // TODO: renderStill(callback)
+
   // TODO: renderStill(cameraOptions, debugOptions, callback)
+
+  public external fun triggerRepaint()
+
   // endregion
 
   // region Style
+
+  // TODO: getStyle()
+
+  // TODO: setStyle(style)
+
   public external fun loadStyleURL(url: String)
 
   public external fun loadStyleJSON(json: String)
 
-  // TODO: getStyle()
-  // TODO: setStyle(style)
   // endregion
 
-  // region Transitions / Gestures
+  // region Transitions
+
   public external fun cancelTransitions()
 
   public var isGestureInProgress: Boolean
@@ -82,6 +89,7 @@ public class MapLibreMap(
   // endregion
 
   // region Camera
+
   public external fun getCameraOptions(): CameraOptions
 
   public external fun jumpTo(cameraOptions: CameraOptions)
@@ -114,16 +122,20 @@ public class MapLibreMap(
   ): org.maplibre.kmp.native.util.LatLngBounds
 
   // TODO: cameraForLatLngs(points, edgeInsets, bearing?, pitch?)
+
   // TODO: cameraForGeometry(geometry, edgeInsets, bearing?, pitch?)
+
   // endregion
 
   // region Bounds
+
   // TODO: setBounds(options)
+
   // TODO: getBounds()
+
   // endregion
 
   // region Map Options
-  private external fun getMapOptionsNative(): MapOptions
 
   public var northOrientation: NorthOrientation
     get() = getMapOptionsNative().northOrientation
@@ -145,33 +157,50 @@ public class MapLibreMap(
 
   public external fun setSize(size: Size)
 
+  private external fun getMapOptionsNative(): MapOptions
+
   // endregion
 
   // region Projection Mode
+
   // TODO: setProjectionMode(mode)
+
   // TODO: getProjectionMode()
+
   // endregion
 
   // region Projection
+
   public external fun pixelForLatLng(latLng: LatLng): ScreenCoordinate
 
   public external fun latLngForPixel(pixel: ScreenCoordinate): LatLng
 
   // TODO: pixelsForLatLngs(latLngs)
+
   // TODO: latLngsForPixels(pixels)
+
   // endregion
 
   // region Transform
-  // TODO: getTransfromState()
+
+  // TODO: getTransformState()
+
   // endregion
 
   // region Annotations
+
   // TODO: addAnnotationImage(image)
+
   // TODO: removeAnnotationImage(id)
+
   // TODO: getTopOffsetPixelsForAnnotationImage(id)
+
   // TODO: addAnnotation(annotation)
+
   // TODO: updateAnnotation(id, annotation)
+
   // TODO: removeAnnotation(id)
+
   // endregion
 
   // region Tile prefetching
@@ -186,7 +215,8 @@ public class MapLibreMap(
 
   // endregion
 
-  // region Debug / Status
+  // region Debug
+
   public var debugOptions: MapDebugOptions
     get() = MapDebugOptions(getDebugNative())
     set(value) = setDebugNative(value.value)
@@ -208,15 +238,20 @@ public class MapLibreMap(
 
   private external fun isFullyLoadedNative(): Boolean
 
-  // TODO: dumpDebugLogs()
+  public external fun dumpDebugLogs()
+
   // endregion
 
   // region Free Camera
+
   // TODO: setFreeCameraOptions(options)
+
   // TODO: getFreeCameraOptions()
+
   // endregion
 
   // region Tile LOD controls
+
   public var tileLodMinRadius: Double
     get() = getTileLodMinRadiusNative()
     set(value) = setTileLodMinRadiusNative(value)
@@ -251,9 +286,12 @@ public class MapLibreMap(
 
   // endregion
 
-  // region Client / Journal
+  // region Other
+
   // TODO: getClientOptions()
+
   // TODO: getActionJournal()
+
   // endregion
 
   private companion object {
