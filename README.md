@@ -5,7 +5,7 @@
 
 # MapLibre for Compose Multiplatform
 
-[![Maven Central Version](https://img.shields.io/maven-central/v/dev.sargunv.maplibre-compose/maplibre-compose?label=Maven)](https://central.sonatype.com/namespace/dev.sargunv.maplibre-compose)
+[![Maven Central Version](https://img.shields.io/maven-central/v/org.maplibre.compose/maplibre-compose?label=Maven)](https://central.sonatype.com/namespace/org.maplibre.compose)
 [![License](https://img.shields.io/github/license/maplibre/maplibre-compose?label=License)](https://github.com/maplibre/maplibre-compose/blob/main/LICENSE)
 [![Kotlin Version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmaplibre%2Fmaplibre-compose%2Frefs%2Fheads%2Fmain%2Fgradle%2Flibs.versions.toml&query=versions.gradle-kotlin&prefix=v&logo=kotlin&label=Kotlin)](./gradle/libs.versions.toml)
 [![Compose Version](https://img.shields.io/badge/dynamic/toml?url=https%3A%2F%2Fraw.githubusercontent.com%2Fmaplibre%2Fmaplibre-compose%2Frefs%2Fheads%2Fmain%2Fgradle%2Flibs.versions.toml&query=versions.gradle-compose&prefix=v&logo=jetpackcompose&label=Compose)](./gradle/libs.versions.toml)
