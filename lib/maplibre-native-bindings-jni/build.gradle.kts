@@ -112,7 +112,6 @@ if (config.shouldConfigureForPublishing) {
     inputs.file(layout.projectDirectory.file("CMakeLists.txt"))
     inputs.dir(layout.projectDirectory.dir("cmake"))
     inputs.file(layout.projectDirectory.file("vendor/SimpleJNI/CMakeLists.txt"))
-    inputs.file(layout.projectDirectory.file("vendor/maplibre-native/CMakeLists.txt"))
     inputs.file(layout.projectDirectory.file("CMakePresets.json"))
     inputs.dir(layout.projectDirectory.dir("src/main/cpp"))
     inputs.dir(layout.buildDirectory.dir("generated/simplejni-headers"))
