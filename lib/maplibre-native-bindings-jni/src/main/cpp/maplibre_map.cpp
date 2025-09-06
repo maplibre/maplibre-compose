@@ -202,11 +202,55 @@ void JNICALL MapLibreMap_class::rotateBy(
   });
 }
 
-// TODO: wrap latlng bounds camera methods
-// CameraOptions cameraForLatLngBounds(const LatLngBounds&,
-//   const EdgeInsets&,
-//   const std::optional<double>& bearing = std::nullopt,
-//   const std::optional<double>& pitch = std::nullopt) const;
+auto JNICALL MapLibreMap_class::cameraForLatLngBounds(
+  JNIEnv* env, jMapLibreMap map, jLatLngBounds bounds, jEdgeInsets padding,
+  jDouble bearing, jDouble pitch
+) -> jCameraOptions {
+  return withMapWrapper(
+    env, map, [env, bounds, padding, bearing, pitch](auto wrapper) {
+      auto cppBounds = maplibre_jni::convertLatLngBounds(env, bounds);
+      auto cppPadding = maplibre_jni::convertEdgeInsets(env, padding);
+
+      std::optional<double> cppBearing = std::nullopt;
+      if (bearing != nullptr) {
+        cppBearing =
+          java_classes::get<Double_class>().doubleValue(env, bearing);
+      }
+
+      std::optional<double> cppPitch = std::nullopt;
+      if (pitch != nullptr) {
+        cppPitch = java_classes::get<Double_class>().doubleValue(env, pitch);
+      }
+
+      auto opts = wrapper->map->cameraForLatLngBounds(
+        cppBounds, cppPadding, cppBearing, cppPitch
+      );
+      return maplibre_jni::convertCameraOptions(env, opts);
+    }
+  );
+}
+
+auto JNICALL MapLibreMap_class::latLngBoundsForCamera(
+  JNIEnv* env, jMapLibreMap map, jCameraOptions camera
+) -> jLatLngBounds {
+  return withMapWrapper(env, map, [env, camera](auto wrapper) {
+    auto cppCamera = maplibre_jni::convertCameraOptions(env, camera);
+    auto bounds = wrapper->map->latLngBoundsForCamera(cppCamera);
+    return maplibre_jni::convertLatLngBounds(env, bounds);
+  });
+}
+
+auto JNICALL MapLibreMap_class::latLngBoundsForCameraUnwrapped(
+  JNIEnv* env, jMapLibreMap map, jCameraOptions camera
+) -> jLatLngBounds {
+  return withMapWrapper(env, map, [env, camera](auto wrapper) {
+    auto cppCamera = maplibre_jni::convertCameraOptions(env, camera);
+    auto bounds = wrapper->map->latLngBoundsForCameraUnwrapped(cppCamera);
+    return maplibre_jni::convertLatLngBounds(env, bounds);
+  });
+}
+
+// TODO: wrap remaining camera methods
 // CameraOptions cameraForLatLngs(const std::vector<LatLng>&,
 // const EdgeInsets&,
 // const std::optional<double>& bearing = std::nullopt,
@@ -215,8 +259,6 @@ void JNICALL MapLibreMap_class::rotateBy(
 // const EdgeInsets&,
 // const std::optional<double>& bearing = std::nullopt,
 // const std::optional<double>& pitch = std::nullopt) const;
-// LatLngBounds latLngBoundsForCamera(const CameraOptions&) const;
-// LatLngBounds latLngBoundsForCameraUnwrapped(const CameraOptions&) const;
 
 #pragma mark - Bounds
 

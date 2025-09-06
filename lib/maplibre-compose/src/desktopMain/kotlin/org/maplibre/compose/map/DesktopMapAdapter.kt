@@ -18,8 +18,11 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toMlnCameraOptions
+import org.maplibre.compose.util.toMlnEdgeInsets
+import org.maplibre.compose.util.toMlnLatLngBounds
 import org.maplibre.kmp.native.camera.CameraChangeMode
 import org.maplibre.kmp.native.camera.CameraOptions
 import org.maplibre.kmp.native.map.MapLibreMap
@@ -103,8 +106,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun getVisibleBoundingBox(): BoundingBox {
-    // TODO: get visible bounding box
-    return BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))
+    return map.latLngBoundsForCamera(map.getCameraOptions()).toBoundingBox()
   }
 
   override fun getVisibleRegion(): VisibleRegion {
@@ -183,6 +185,21 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     padding: PaddingValues,
     duration: Duration,
   ) {
-    // TODO: flyTo bounding box
+    val cameraOptions =
+      map.cameraForLatLngBounds(
+        bounds = boundingBox.toMlnLatLngBounds(),
+        padding = padding.toMlnEdgeInsets(LayoutDirection.Ltr),
+        bearing = bearing,
+        pitch = tilt,
+      )
+
+    map.flyTo(cameraOptions, duration.inWholeMilliseconds.toInt())
+
+    try {
+      delay(duration)
+    } catch (e: CancellationException) {
+      map.cancelTransitions()
+      throw e
+    }
   }
 }

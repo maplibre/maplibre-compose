@@ -3,11 +3,13 @@ package org.maplibre.compose.util
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Position
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.kmp.native.camera.CameraOptions as MLNCameraOptions
 import org.maplibre.kmp.native.util.EdgeInsets as MLNEdgeInsets
 import org.maplibre.kmp.native.util.LatLng as MLNLatLng
+import org.maplibre.kmp.native.util.LatLngBounds as MLNLatLngBounds
 
 internal fun MLNCameraOptions.toCameraPosition() =
   CameraPosition(
@@ -43,3 +45,9 @@ internal fun PaddingValues.toMlnEdgeInsets(layoutDirection: LayoutDirection) =
     top = calculateTopPadding().value.toDouble(),
     bottom = calculateBottomPadding().value.toDouble(),
   )
+
+internal fun MLNLatLngBounds.toBoundingBox() =
+  BoundingBox(south = south, west = west, north = north, east = east)
+
+internal fun BoundingBox.toMlnLatLngBounds() =
+  MLNLatLngBounds.hull(southwest.toMlnLatLng(), northeast.toMlnLatLng())

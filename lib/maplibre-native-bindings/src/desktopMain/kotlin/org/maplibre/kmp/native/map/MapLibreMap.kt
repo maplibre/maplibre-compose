@@ -98,11 +98,23 @@ public class MapLibreMap(
 
   public external fun rotateBy(first: ScreenCoordinate, second: ScreenCoordinate)
 
-  // TODO: cameraForLatLngBounds(bounds, edgeInsets, bearing?, pitch?)
+  public external fun cameraForLatLngBounds(
+    bounds: org.maplibre.kmp.native.util.LatLngBounds,
+    padding: org.maplibre.kmp.native.util.EdgeInsets,
+    bearing: Double? = null,
+    pitch: Double? = null,
+  ): CameraOptions
+
+  public external fun latLngBoundsForCamera(
+    camera: CameraOptions
+  ): org.maplibre.kmp.native.util.LatLngBounds
+
+  public external fun latLngBoundsForCameraUnwrapped(
+    camera: CameraOptions
+  ): org.maplibre.kmp.native.util.LatLngBounds
+
   // TODO: cameraForLatLngs(points, edgeInsets, bearing?, pitch?)
   // TODO: cameraForGeometry(geometry, edgeInsets, bearing?, pitch?)
-  // TODO: latLngBoundsForCamera(cameraOptions)
-  // TODO: latLngBoundsForCameraUnwrapped(cameraOptions)
   // endregion
 
   // region Bounds
