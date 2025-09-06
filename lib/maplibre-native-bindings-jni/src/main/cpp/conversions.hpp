@@ -1,5 +1,6 @@
 #pragma once
 
+#include <mbgl/map/bound_options.hpp>
 #include <mbgl/map/camera.hpp>
 #include <mbgl/map/map_options.hpp>
 #include <mbgl/storage/resource_options.hpp>
@@ -32,6 +33,12 @@ auto convertScreenCoordinate(JNIEnv* env, jScreenCoordinate screenCoordinateObj)
 auto convertScreenCoordinate(
   JNIEnv* env, mbgl::ScreenCoordinate screenCoordinate
 ) -> jScreenCoordinate;
+
+auto convertBoundOptions(JNIEnv* env, jBoundOptions boundOptionsObj)
+  -> mbgl::BoundOptions;
+
+auto convertBoundOptions(JNIEnv* env, const mbgl::BoundOptions& boundOptions)
+  -> jBoundOptions;
 
 auto convertCameraOptions(JNIEnv* env, jCameraOptions cameraOptionsObj)
   -> mbgl::CameraOptions;

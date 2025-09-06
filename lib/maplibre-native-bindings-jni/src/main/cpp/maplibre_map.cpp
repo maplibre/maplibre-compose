@@ -264,9 +264,22 @@ auto JNICALL MapLibreMap_class::latLngBoundsForCameraUnwrapped(
 
 #pragma mark - Bounds
 
-// TODO: wrap BoundOptions
-// void setBounds(const BoundOptions& options);
-// BoundOptions getBounds() const;
+void JNICALL MapLibreMap_class::setBoundsNative(
+  JNIEnv* env, jMapLibreMap map, jBoundOptions boundOptions
+) {
+  withMapWrapper(env, map, [env, boundOptions](auto wrapper) {
+    auto opts = maplibre_jni::convertBoundOptions(env, boundOptions);
+    wrapper->map->setBounds(opts);
+  });
+}
+
+auto JNICALL MapLibreMap_class::getBoundsNative(JNIEnv* env, jMapLibreMap map)
+  -> jBoundOptions {
+  return withMapWrapper(env, map, [env](auto wrapper) {
+    auto opts = wrapper->map->getBounds();
+    return maplibre_jni::convertBoundOptions(env, opts);
+  });
+}
 
 #pragma mark - Map Options
 

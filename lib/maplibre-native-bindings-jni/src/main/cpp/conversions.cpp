@@ -6,6 +6,7 @@
 #include <smjni/java_ref.h>
 #include <smjni/java_string.h>
 
+#include <BoundOptions_class.h>
 #include <CameraOptions_class.h>
 #include <MapOptions_class.h>
 
@@ -84,6 +85,82 @@ auto convertEdgeInsets(JNIEnv* env, const mbgl::EdgeInsets& edgeInsets)
   auto obj = java_classes::get<EdgeInsets_class>().ctor(
     env, edgeInsets.top(), edgeInsets.left(), edgeInsets.bottom(),
     edgeInsets.right()
+  );
+  return obj.release();
+}
+
+auto convertBoundOptions(JNIEnv* env, jBoundOptions boundOptionsObj)
+  -> mbgl::BoundOptions {
+  auto bounds =
+    java_classes::get<BoundOptions_class>().getBounds(env, boundOptionsObj);
+  auto minZoom =
+    java_classes::get<BoundOptions_class>().getMinZoom(env, boundOptionsObj);
+  auto maxZoom =
+    java_classes::get<BoundOptions_class>().getMaxZoom(env, boundOptionsObj);
+  auto minPitch =
+    java_classes::get<BoundOptions_class>().getMinPitch(env, boundOptionsObj);
+  auto maxPitch =
+    java_classes::get<BoundOptions_class>().getMaxPitch(env, boundOptionsObj);
+
+  mbgl::BoundOptions options;
+  if (bounds)
+    options.withLatLngBounds(convertLatLngBounds(env, bounds.c_ptr()));
+  if (minZoom)
+    options.withMinZoom(
+      java_classes::get<Double_class>().doubleValue(env, minZoom.c_ptr())
+    );
+  if (maxZoom)
+    options.withMaxZoom(
+      java_classes::get<Double_class>().doubleValue(env, maxZoom.c_ptr())
+    );
+  if (minPitch)
+    options.withMinPitch(
+      java_classes::get<Double_class>().doubleValue(env, minPitch.c_ptr())
+    );
+  if (maxPitch)
+    options.withMaxPitch(
+      java_classes::get<Double_class>().doubleValue(env, maxPitch.c_ptr())
+    );
+
+  return options;
+}
+
+auto convertBoundOptions(JNIEnv* env, const mbgl::BoundOptions& boundOptions)
+  -> jBoundOptions {
+  smjni::local_java_ref<jLatLngBounds> jBounds;
+  if (boundOptions.bounds) {
+    jBounds = java_classes::get<LatLngBounds_class>().ctor(
+      env, boundOptions.bounds->north(), boundOptions.bounds->east(),
+      boundOptions.bounds->south(), boundOptions.bounds->west()
+    );
+  }
+
+  smjni::local_java_ref<jDouble> jMinZoom;
+  if (boundOptions.minZoom) {
+    jMinZoom =
+      java_classes::get<Double_class>().valueOf(env, *boundOptions.minZoom);
+  }
+
+  smjni::local_java_ref<jDouble> jMaxZoom;
+  if (boundOptions.maxZoom) {
+    jMaxZoom =
+      java_classes::get<Double_class>().valueOf(env, *boundOptions.maxZoom);
+  }
+
+  smjni::local_java_ref<jDouble> jMinPitch;
+  if (boundOptions.minPitch) {
+    jMinPitch =
+      java_classes::get<Double_class>().valueOf(env, *boundOptions.minPitch);
+  }
+
+  smjni::local_java_ref<jDouble> jMaxPitch;
+  if (boundOptions.maxPitch) {
+    jMaxPitch =
+      java_classes::get<Double_class>().valueOf(env, *boundOptions.maxPitch);
+  }
+
+  auto obj = java_classes::get<BoundOptions_class>().ctor(
+    env, jBounds, jMinZoom, jMaxZoom, jMinPitch, jMaxPitch
   );
   return obj.release();
 }
