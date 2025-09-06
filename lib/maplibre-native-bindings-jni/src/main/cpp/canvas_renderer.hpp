@@ -13,6 +13,10 @@
 #include <smjni/java_ref.h>
 #include <type_mapping.h>
 
+// clang-format off
+#include "fix_x11_pollution.h"
+// clang-format on
+
 #if defined(USE_METAL_BACKEND)
 #include <mbgl/mtl/renderer_backend.hpp>
 #elif defined(USE_OPENGL_BACKEND)

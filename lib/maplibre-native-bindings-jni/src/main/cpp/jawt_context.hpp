@@ -12,6 +12,10 @@
 #include <X11/Xlib.h>
 #endif
 
+// clang-format off
+#include "fix_x11_pollution.h"
+// clang-format on
+
 namespace maplibre_jni {
 
 #ifdef __APPLE__

@@ -3,7 +3,6 @@
 #include <mbgl/gfx/renderer_backend.hpp>
 #include <mbgl/renderer/renderer.hpp>
 
-#include <jni_md.h>
 #include <smjni/java_ref.h>
 #include <smjni/jni_provider.h>
 #include <type_mapping.h>
