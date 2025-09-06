@@ -129,9 +129,9 @@ public class MapLibreMap(
 
   // region Bounds
 
-  public fun setBounds(options: BoundOptions): Unit = setBoundsNative(options)
-
-  public fun getBounds(): BoundOptions = getBoundsNative()
+  public var bounds: BoundOptions
+    get() = getBoundsNative()
+    set(value) = setBoundsNative(value)
 
   private external fun setBoundsNative(options: BoundOptions)
 

@@ -86,33 +86,23 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
-    val currentBounds = map.getBounds()
-    val newBounds = currentBounds.copy(bounds = boundingBox?.toMlnLatLngBounds())
-    map.setBounds(newBounds)
+    map.bounds = map.bounds.copy(bounds = boundingBox?.toMlnLatLngBounds())
   }
 
   override fun setMaxZoom(maxZoom: Double) {
-    val currentBounds = map.getBounds()
-    val newBounds = currentBounds.copy(maxZoom = maxZoom)
-    map.setBounds(newBounds)
+    map.bounds = map.bounds.copy(maxZoom = maxZoom)
   }
 
   override fun setMinZoom(minZoom: Double) {
-    val currentBounds = map.getBounds()
-    val newBounds = currentBounds.copy(minZoom = minZoom)
-    map.setBounds(newBounds)
+    map.bounds = map.bounds.copy(minZoom = minZoom)
   }
 
   override fun setMinPitch(minPitch: Double) {
-    val currentBounds = map.getBounds()
-    val newBounds = currentBounds.copy(minPitch = minPitch)
-    map.setBounds(newBounds)
+    map.bounds = map.bounds.copy(minPitch = minPitch)
   }
 
   override fun setMaxPitch(maxPitch: Double) {
-    val currentBounds = map.getBounds()
-    val newBounds = currentBounds.copy(maxPitch = maxPitch)
-    map.setBounds(newBounds)
+    map.bounds = map.bounds.copy(maxPitch = maxPitch)
   }
 
   override fun getVisibleBoundingBox(): BoundingBox {
