@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Feature
@@ -16,6 +17,8 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.toCameraPosition
+import org.maplibre.compose.util.toMlnCameraOptions
 import org.maplibre.kmp.native.camera.CameraChangeMode
 import org.maplibre.kmp.native.camera.CameraOptions
 import org.maplibre.kmp.native.map.MapLibreMap
@@ -64,8 +67,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun getCameraPosition(): CameraPosition {
-    // TODO: get camera position
-    return CameraPosition()
+    return map.getCameraOptions().toCameraPosition()
   }
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
@@ -162,12 +164,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
     map.flyTo(
-      CameraOptions.centered(
-        center = LatLng(finalPosition.target.latitude, finalPosition.target.longitude),
-        zoom = finalPosition.zoom,
-        bearing = finalPosition.bearing,
-        pitch = finalPosition.tilt,
-      ),
+      finalPosition.toMlnCameraOptions(LayoutDirection.Ltr),
       duration.inWholeMilliseconds.toInt(),
     )
     // TODO: handle cancellation somehow?
