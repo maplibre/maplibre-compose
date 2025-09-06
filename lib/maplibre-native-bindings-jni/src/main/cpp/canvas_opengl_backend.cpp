@@ -82,7 +82,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
     GLXFBConfig* configs = glXChooseFBConfig(
       jawtContext.getDisplay(), DefaultScreen(jawtContext.getDisplay()),
       (int[]){GLX_X_RENDERABLE,
-              True,
+              1,
               GLX_DRAWABLE_TYPE,
               GLX_WINDOW_BIT,
               GLX_RENDER_TYPE,
@@ -102,8 +102,8 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
               GLX_STENCIL_SIZE,
               8,
               GLX_DOUBLEBUFFER,
-              True,
-              None},
+              1,
+              0},
       &fbCount
     );
     check(
@@ -123,10 +123,10 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
     );
 
     glContext = glXCreateContextAttribsARB(
-      jawtContext.getDisplay(), config, nullptr, True,
+      jawtContext.getDisplay(), config, nullptr, 1,
       (int[]){GLX_CONTEXT_MAJOR_VERSION_ARB, 3, GLX_CONTEXT_MINOR_VERSION_ARB,
               0, GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
-              None}
+              0}
     );
     check(glContext != nullptr, "glContext is nullptr");
   }
