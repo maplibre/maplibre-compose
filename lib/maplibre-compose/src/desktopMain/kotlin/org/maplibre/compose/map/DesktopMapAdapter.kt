@@ -32,6 +32,7 @@ import org.maplibre.kmp.native.map.MapLibreMap
 import org.maplibre.kmp.native.map.MapLoadError
 import org.maplibre.kmp.native.map.MapObserver
 import org.maplibre.kmp.native.util.LatLng
+import org.maplibre.kmp.native.util.Projection
 
 internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   MapAdapter, MapObserver {
@@ -162,8 +163,8 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double {
-    // TODO: calculate meters per dp at latitude
-    return 1.0
+    // TODO: does this need to be density scaled?
+    return Projection.getMetersPerPixelAtLatitude(latitude, getCameraPosition().zoom)
   }
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {

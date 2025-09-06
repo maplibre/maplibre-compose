@@ -5,6 +5,7 @@
 #include <mbgl/map/map_options.hpp>
 #include <mbgl/storage/resource_options.hpp>
 #include <mbgl/util/client_options.hpp>
+#include <mbgl/util/projection.hpp>
 #include <mbgl/util/tile_server_options.hpp>
 
 #include "type_mapping.h"

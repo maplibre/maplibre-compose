@@ -8,6 +8,7 @@ add_library(maplibre-jni SHARED
     src/main/cpp/canvas_frontend.cpp
     src/main/cpp/canvas_metal_backend.mm
     src/main/cpp/canvas_opengl_backend.cpp
+    src/main/cpp/maplibre_util_projection.cpp
 )
 
 target_compile_options(maplibre-jni PRIVATE
