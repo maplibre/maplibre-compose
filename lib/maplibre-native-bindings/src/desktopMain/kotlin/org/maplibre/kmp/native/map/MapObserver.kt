@@ -8,10 +8,14 @@ import smjni.jnigen.ExposeToNative
 public interface MapObserver {
 
   // Camera events
+
+  /** Called once when camera position is set or an transition animation is started. */
   @CalledByNative public fun onCameraWillChange(mode: CameraChangeMode) {}
 
+  /** Called for each camera position change during a transition animation. */
   @CalledByNative public fun onCameraIsChanging() {}
 
+  /** Called once when camera position is set or transition animation has ended. */
   @CalledByNative public fun onCameraDidChange(mode: CameraChangeMode) {}
 
   // Map loading events
