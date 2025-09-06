@@ -43,7 +43,7 @@ auto withMapWrapper(JNIEnv* env, jMapLibreMap map, Func&& func)
 
 #pragma mark - Rendering
 
-// TODO: wrap renderStill
+// TODO: wrap StillImageCallback
 // using StillImageCallback = std::function<void(std::exception_ptr)>;
 // void renderStill(StillImageCallback);
 // void renderStill(const CameraOptions&, MapDebugOptions, StillImageCallback);
@@ -56,7 +56,7 @@ void JNICALL MapLibreMap_class::triggerRepaint(JNIEnv* env, jMapLibreMap map) {
 
 #pragma mark - Style
 
-// TODO: wrap get/set style
+// TODO: wrap style::Style
 // style::Style& getStyle();
 // const style::Style& getStyle() const;
 // void setStyle(std::unique_ptr<style::Style>);
@@ -250,19 +250,21 @@ auto JNICALL MapLibreMap_class::latLngBoundsForCameraUnwrapped(
   });
 }
 
-// TODO: wrap remaining camera methods
+// TODO: wrap std::vector<LatLng>
 // CameraOptions cameraForLatLngs(const std::vector<LatLng>&,
-// const EdgeInsets&,
-// const std::optional<double>& bearing = std::nullopt,
-// const std::optional<double>& pitch = std::nullopt) const;
+//   const EdgeInsets&,
+//   const std::optional<double>& bearing = std::nullopt,
+//   const std::optional<double>& pitch = std::nullopt) const;
+
+// TODO: wrap Geometry<>
 // CameraOptions cameraForGeometry(const Geometry<double>&,
-// const EdgeInsets&,
-// const std::optional<double>& bearing = std::nullopt,
-// const std::optional<double>& pitch = std::nullopt) const;
+//   const EdgeInsets&,
+//   const std::optional<double>& bearing = std::nullopt,
+//   const std::optional<double>& pitch = std::nullopt) const;
 
 #pragma mark - Bounds
 
-// TODO: wrap bounds
+// TODO: wrap BoundOptions
 // void setBounds(const BoundOptions& options);
 // BoundOptions getBounds() const;
 
@@ -348,19 +350,19 @@ auto JNICALL MapLibreMap_class::latLngForPixel(
   });
 }
 
-// TODO: wrap pixelsForLatLngs
+// TODO: wrap std::vector<LatLng>
 // std::vector<ScreenCoordinate> pixelsForLatLngs(const std::vector<LatLng>&)
 // const; std::vector<LatLng> latLngsForPixels(const
-// std::vector<ScreenCoordinate>&) const;
+//   std::vector<ScreenCoordinate>&) const;
 
 #pragma mark - Transform
 
-// TODO: wrap getTransfromState
+// TODO: wrap TransformState
 // TransformState getTransfromState() const;
 
 #pragma mark - Annotations
 
-// TODO: wrap addAnnotationImage
+// TODO: wrap style::Image, Annotation, AnnotationID
 // void addAnnotationImage(std::unique_ptr<style::Image>);
 // void removeAnnotationImage(const std::string&);
 // double getTopOffsetPixelsForAnnotationImage(const std::string&);
@@ -370,9 +372,21 @@ auto JNICALL MapLibreMap_class::latLngForPixel(
 
 #pragma mark - Tile prefetching
 
-// TODO: wrap prefetch zoom delta
-// void setPrefetchZoomDelta(uint8_t delta);
-// uint8_t getPrefetchZoomDelta() const;
+void JNICALL MapLibreMap_class::setPrefetchZoomDeltaNative(
+  JNIEnv* env, jMapLibreMap map, jbyte delta
+) {
+  withMapWrapper(env, map, [delta](auto wrapper) {
+    wrapper->map->setPrefetchZoomDelta(static_cast<uint8_t>(delta));
+  });
+}
+
+auto JNICALL
+MapLibreMap_class::getPrefetchZoomDeltaNative(JNIEnv* env, jMapLibreMap map)
+  -> jbyte {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jbyte>(wrapper->map->getPrefetchZoomDelta());
+  });
+}
 
 #pragma mark - Debug
 

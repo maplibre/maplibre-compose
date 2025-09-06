@@ -175,8 +175,15 @@ public class MapLibreMap(
   // endregion
 
   // region Tile prefetching
-  // TODO: setPrefetchZoomDelta(delta)
-  // TODO: getPrefetchZoomDelta()
+
+  public var prefetchZoomDelta: UByte
+    get() = getPrefetchZoomDeltaNative().toUByte()
+    set(value) = setPrefetchZoomDeltaNative(value.toByte())
+
+  private external fun setPrefetchZoomDeltaNative(delta: Byte)
+
+  private external fun getPrefetchZoomDeltaNative(): Byte
+
   // endregion
 
   // region Debug / Status
