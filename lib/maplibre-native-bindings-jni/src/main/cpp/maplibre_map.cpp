@@ -430,8 +430,9 @@ MapLibreMap_class::isFullyLoadedNative(JNIEnv* env, jMapLibreMap map)
   });
 }
 
-// TODO: wrap dump debug logs
-// void dumpDebugLogs() const;
+void JNICALL MapLibreMap_class::dumpDebugLogs(JNIEnv* env, jMapLibreMap map) {
+  withMapWrapper(env, map, [](auto wrapper) { wrapper->map->dumpDebugLogs(); });
+}
 
 #pragma mark - Free Camera
 
