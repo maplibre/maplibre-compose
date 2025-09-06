@@ -15,6 +15,8 @@
 #include "java_classes.hpp"
 #include "jni_map_observer.hpp"
 
+#pragma mark - Helpers
+
 struct MapWrapper {
   std::unique_ptr<mbgl::Map> map;
   std::unique_ptr<maplibre_jni::JniMapObserver> observer;
@@ -39,20 +41,25 @@ auto withMapWrapper(JNIEnv* env, jMapLibreMap map, Func&& func)
   }
 }
 
+#pragma mark - Rendering
+
+// TODO: wrap renderStill
+// using StillImageCallback = std::function<void(std::exception_ptr)>;
+// void renderStill(StillImageCallback);
+// void renderStill(const CameraOptions&, MapDebugOptions, StillImageCallback);
+
 void JNICALL MapLibreMap_class::triggerRepaint(JNIEnv* env, jMapLibreMap map) {
   withMapWrapper(env, map, [](auto wrapper) {
     wrapper->map->triggerRepaint();
   });
 }
 
-// Map Options
-void JNICALL
-MapLibreMap_class::setSize(JNIEnv* env, jMapLibreMap map, jSize size) {
-  withMapWrapper(env, map, [env, size](auto wrapper) {
-    auto cSize = maplibre_jni::convertSize(env, size);
-    if (cSize.width > 0 && cSize.height > 0) wrapper->map->setSize(cSize);
-  });
-}
+#pragma mark - Style
+
+// TODO: wrap get/set style
+// style::Style& getStyle();
+// const style::Style& getStyle() const;
+// void setStyle(std::unique_ptr<style::Style>);
 
 void JNICALL
 MapLibreMap_class::loadStyleURL(JNIEnv* env, jMapLibreMap map, jstring url) {
@@ -68,6 +75,8 @@ MapLibreMap_class::loadStyleJSON(JNIEnv* env, jMapLibreMap map, jstring json) {
   });
 }
 
+#pragma mark - Transitions
+
 void JNICALL
 MapLibreMap_class::cancelTransitions(JNIEnv* env, jMapLibreMap map) {
   withMapWrapper(env, map, [](auto wrapper) {
@@ -75,7 +84,45 @@ MapLibreMap_class::cancelTransitions(JNIEnv* env, jMapLibreMap map) {
   });
 }
 
-// Camera
+void JNICALL MapLibreMap_class::setGestureInProgressNative(
+  JNIEnv* env, jMapLibreMap map, jboolean inProgress
+) {
+  withMapWrapper(env, map, [inProgress](auto wrapper) {
+    wrapper->map->setGestureInProgress(inProgress != JNI_FALSE);
+  });
+}
+
+auto JNICALL
+MapLibreMap_class::isGestureInProgressNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isGestureInProgress());
+  });
+}
+
+auto JNICALL MapLibreMap_class::isRotatingNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isRotating());
+  });
+}
+
+auto JNICALL MapLibreMap_class::isScalingNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isScaling());
+  });
+}
+
+auto JNICALL MapLibreMap_class::isPanningNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isPanning());
+  });
+}
+
+#pragma mark - Camera
+
 auto JNICALL MapLibreMap_class::getCameraOptions(JNIEnv* env, jMapLibreMap map)
   -> jCameraOptions {
   return withMapWrapper(env, map, [env](auto wrapper) {
@@ -137,6 +184,13 @@ void JNICALL MapLibreMap_class::scaleBy(
   });
 }
 
+void JNICALL
+MapLibreMap_class::pitchBy(JNIEnv* env, jMapLibreMap map, jdouble pitch) {
+  withMapWrapper(env, map, [pitch](auto wrapper) {
+    wrapper->map->pitchBy(pitch);
+  });
+}
+
 void JNICALL MapLibreMap_class::rotateBy(
   JNIEnv* env, jMapLibreMap map, jScreenCoordinate first,
   jScreenCoordinate second
@@ -148,59 +202,29 @@ void JNICALL MapLibreMap_class::rotateBy(
   });
 }
 
-void JNICALL
-MapLibreMap_class::pitchBy(JNIEnv* env, jMapLibreMap map, jdouble pitch) {
-  withMapWrapper(env, map, [pitch](auto wrapper) {
-    wrapper->map->pitchBy(pitch);
-  });
-}
+// TODO: wrap latlng bounds camera methods
+// CameraOptions cameraForLatLngBounds(const LatLngBounds&,
+//   const EdgeInsets&,
+//   const std::optional<double>& bearing = std::nullopt,
+//   const std::optional<double>& pitch = std::nullopt) const;
+// CameraOptions cameraForLatLngs(const std::vector<LatLng>&,
+// const EdgeInsets&,
+// const std::optional<double>& bearing = std::nullopt,
+// const std::optional<double>& pitch = std::nullopt) const;
+// CameraOptions cameraForGeometry(const Geometry<double>&,
+// const EdgeInsets&,
+// const std::optional<double>& bearing = std::nullopt,
+// const std::optional<double>& pitch = std::nullopt) const;
+// LatLngBounds latLngBoundsForCamera(const CameraOptions&) const;
+// LatLngBounds latLngBoundsForCameraUnwrapped(const CameraOptions&) const;
 
-void JNICALL MapLibreMap_class::setGestureInProgressNative(
-  JNIEnv* env, jMapLibreMap map, jboolean inProgress
-) {
-  withMapWrapper(env, map, [inProgress](auto wrapper) {
-    wrapper->map->setGestureInProgress(inProgress != JNI_FALSE);
-  });
-}
+#pragma mark - Bounds
 
-auto JNICALL
-MapLibreMap_class::isGestureInProgressNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  return withMapWrapper(env, map, [](auto wrapper) {
-    return static_cast<jboolean>(wrapper->map->isGestureInProgress());
-  });
-}
+// TODO: wrap bounds
+// void setBounds(const BoundOptions& options);
+// BoundOptions getBounds() const;
 
-auto JNICALL MapLibreMap_class::isRotatingNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  return withMapWrapper(env, map, [](auto wrapper) {
-    return static_cast<jboolean>(wrapper->map->isRotating());
-  });
-}
-
-auto JNICALL MapLibreMap_class::isScalingNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  return withMapWrapper(env, map, [](auto wrapper) {
-    return static_cast<jboolean>(wrapper->map->isScaling());
-  });
-}
-
-auto JNICALL MapLibreMap_class::isPanningNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  return withMapWrapper(env, map, [](auto wrapper) {
-    return static_cast<jboolean>(wrapper->map->isPanning());
-  });
-}
-
-// Map Options
-auto JNICALL
-MapLibreMap_class::getMapOptionsNative(JNIEnv* env, jMapLibreMap map)
-  -> jMapOptions {
-  return withMapWrapper(env, map, [env](auto wrapper) {
-    const mbgl::MapOptions opts = wrapper->map->getMapOptions();
-    return maplibre_jni::convertMapOptions(env, opts);
-  });
-}
+#pragma mark - Map Options
 
 void JNICALL MapLibreMap_class::setNorthOrientationNative(
   JNIEnv* env, jMapLibreMap map, jNorthOrientation value
@@ -236,6 +260,30 @@ void JNICALL MapLibreMap_class::setViewportModeNative(
   });
 }
 
+void JNICALL
+MapLibreMap_class::setSize(JNIEnv* env, jMapLibreMap map, jSize size) {
+  withMapWrapper(env, map, [env, size](auto wrapper) {
+    auto cSize = maplibre_jni::convertSize(env, size);
+    if (cSize.width > 0 && cSize.height > 0) wrapper->map->setSize(cSize);
+  });
+}
+
+auto JNICALL
+MapLibreMap_class::getMapOptionsNative(JNIEnv* env, jMapLibreMap map)
+  -> jMapOptions {
+  return withMapWrapper(env, map, [env](auto wrapper) {
+    const mbgl::MapOptions opts = wrapper->map->getMapOptions();
+    return maplibre_jni::convertMapOptions(env, opts);
+  });
+}
+
+#pragma mark - Projection Mode
+
+// TODO: wrap projection mode
+// void setProjectionMode(const ProjectionMode&);
+// ProjectionMode getProjectionMode() const;
+#pragma mark - Projection
+
 auto JNICALL
 MapLibreMap_class::pixelForLatLng(JNIEnv* env, jMapLibreMap map, jLatLng latLng)
   -> jScreenCoordinate {
@@ -258,6 +306,34 @@ auto JNICALL MapLibreMap_class::latLngForPixel(
   });
 }
 
+// TODO: wrap pixelsForLatLngs
+// std::vector<ScreenCoordinate> pixelsForLatLngs(const std::vector<LatLng>&)
+// const; std::vector<LatLng> latLngsForPixels(const
+// std::vector<ScreenCoordinate>&) const;
+
+#pragma mark - Transform
+
+// TODO: wrap getTransfromState
+// TransformState getTransfromState() const;
+
+#pragma mark - Annotations
+
+// TODO: wrap addAnnotationImage
+// void addAnnotationImage(std::unique_ptr<style::Image>);
+// void removeAnnotationImage(const std::string&);
+// double getTopOffsetPixelsForAnnotationImage(const std::string&);
+// AnnotationID addAnnotation(const Annotation&);
+// void updateAnnotation(AnnotationID, const Annotation&);
+// void removeAnnotation(AnnotationID);
+
+#pragma mark - Tile prefetching
+
+// TODO: wrap prefetch zoom delta
+// void setPrefetchZoomDelta(uint8_t delta);
+// uint8_t getPrefetchZoomDelta() const;
+
+#pragma mark - Debug
+
 void JNICALL MapLibreMap_class::setDebugNative(
   JNIEnv* env, jMapLibreMap map, jint debugOptions
 ) {
@@ -273,20 +349,19 @@ auto JNICALL MapLibreMap_class::getDebugNative(JNIEnv* env, jMapLibreMap map)
   });
 }
 
-// Debug / Status
-void JNICALL MapLibreMap_class::enableRenderingStatsViewNative(
-  JNIEnv* env, jMapLibreMap map, jboolean enabled
-) {
-  withMapWrapper(env, map, [enabled](auto wrapper) {
-    wrapper->map->enableRenderingStatsView(enabled != JNI_FALSE);
-  });
-}
-
 auto JNICALL MapLibreMap_class::isRenderingStatsViewEnabledNative(
   JNIEnv* env, jMapLibreMap map
 ) -> jboolean {
   return withMapWrapper(env, map, [](auto wrapper) {
     return static_cast<jboolean>(wrapper->map->isRenderingStatsViewEnabled());
+  });
+}
+
+void JNICALL MapLibreMap_class::enableRenderingStatsViewNative(
+  JNIEnv* env, jMapLibreMap map, jboolean enabled
+) {
+  withMapWrapper(env, map, [enabled](auto wrapper) {
+    wrapper->map->enableRenderingStatsView(enabled != JNI_FALSE);
   });
 }
 
@@ -298,14 +373,16 @@ MapLibreMap_class::isFullyLoadedNative(JNIEnv* env, jMapLibreMap map)
   });
 }
 
-// Tile LOD controls
-auto JNICALL
-MapLibreMap_class::getTileLodMinRadiusNative(JNIEnv* env, jMapLibreMap map)
-  -> jdouble {
-  return withMapWrapper(env, map, [](auto wrapper) {
-    return wrapper->map->getTileLodMinRadius();
-  });
-}
+// TODO: wrap dump debug logs
+// void dumpDebugLogs() const;
+
+#pragma mark - Free Camera
+
+// TODO: wrap free camera
+// void setFreeCameraOptions(const FreeCameraOptions& camera);
+// FreeCameraOptions getFreeCameraOptions() const;
+
+#pragma mark - Tile LOD controls
 
 void JNICALL MapLibreMap_class::setTileLodMinRadiusNative(
   JNIEnv* env, jMapLibreMap map, jdouble value
@@ -316,10 +393,10 @@ void JNICALL MapLibreMap_class::setTileLodMinRadiusNative(
 }
 
 auto JNICALL
-MapLibreMap_class::getTileLodScaleNative(JNIEnv* env, jMapLibreMap map)
+MapLibreMap_class::getTileLodMinRadiusNative(JNIEnv* env, jMapLibreMap map)
   -> jdouble {
   return withMapWrapper(env, map, [](auto wrapper) {
-    return wrapper->map->getTileLodScale();
+    return wrapper->map->getTileLodMinRadius();
   });
 }
 
@@ -332,10 +409,10 @@ void JNICALL MapLibreMap_class::setTileLodScaleNative(
 }
 
 auto JNICALL
-MapLibreMap_class::getTileLodPitchThresholdNative(JNIEnv* env, jMapLibreMap map)
+MapLibreMap_class::getTileLodScaleNative(JNIEnv* env, jMapLibreMap map)
   -> jdouble {
   return withMapWrapper(env, map, [](auto wrapper) {
-    return wrapper->map->getTileLodPitchThreshold();
+    return wrapper->map->getTileLodScale();
   });
 }
 
@@ -348,10 +425,10 @@ void JNICALL MapLibreMap_class::setTileLodPitchThresholdNative(
 }
 
 auto JNICALL
-MapLibreMap_class::getTileLodZoomShiftNative(JNIEnv* env, jMapLibreMap map)
+MapLibreMap_class::getTileLodPitchThresholdNative(JNIEnv* env, jMapLibreMap map)
   -> jdouble {
   return withMapWrapper(env, map, [](auto wrapper) {
-    return wrapper->map->getTileLodZoomShift();
+    return wrapper->map->getTileLodPitchThreshold();
   });
 }
 
@@ -362,6 +439,22 @@ void JNICALL MapLibreMap_class::setTileLodZoomShiftNative(
     wrapper->map->setTileLodZoomShift(value);
   });
 }
+
+auto JNICALL
+MapLibreMap_class::getTileLodZoomShiftNative(JNIEnv* env, jMapLibreMap map)
+  -> jdouble {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return wrapper->map->getTileLodZoomShift();
+  });
+}
+
+#pragma mark - Other
+
+// TODO: wrap these
+// ClientOptions getClientOptions() const;
+// const std::unique_ptr<util::ActionJournal>& getActionJournal();
+
+#pragma mark - Allocation
 
 auto JNICALL MapLibreMap_class::nativeInit(
   JNIEnv* env, jclass /*unused*/, jlong frontendPointer,
