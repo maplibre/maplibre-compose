@@ -118,7 +118,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup-gradle
       - run: ./gradlew generateDocs
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: build/docs
 

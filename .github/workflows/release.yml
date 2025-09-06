@@ -94,7 +94,7 @@ jobs:
       - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
       - uses: ./.github/actions/setup-gradle
       - run: ./gradlew generateDocs
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         with:
           path: build/docs
       - uses: actions/deploy-pages@v4
