@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.dp
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.Position
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlinx.coroutines.delay
 import org.maplibre.compose.camera.CameraMoveReason
@@ -167,8 +168,12 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
       finalPosition.toMlnCameraOptions(LayoutDirection.Ltr),
       duration.inWholeMilliseconds.toInt(),
     )
-    // TODO: handle cancellation somehow?
-    delay(duration)
+    try {
+      delay(duration)
+    } catch (e: CancellationException) {
+      map.cancelTransitions()
+      throw e
+    }
   }
 
   override suspend fun animateCameraPosition(

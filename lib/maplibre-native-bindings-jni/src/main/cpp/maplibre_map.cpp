@@ -15,6 +15,8 @@
 #include "java_classes.hpp"
 #include "jni_map_observer.hpp"
 
+#pragma mark - Helpers
+
 struct MapWrapper {
   std::unique_ptr<mbgl::Map> map;
   std::unique_ptr<maplibre_jni::JniMapObserver> observer;
@@ -23,461 +25,436 @@ struct MapWrapper {
       : map(map), observer(observer) {}
 };
 
-auto getWrapper(JNIEnv* env, jMapLibreMap map) -> MapWrapper* {
-  auto ptr = java_classes::get<MapLibreMap_class>().getNativePointer(env, map);
-  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-  return reinterpret_cast<MapWrapper*>(ptr);
-}
-
-// Map Options continued
-void JNICALL
-MapLibreMap_class::setSize(JNIEnv* env, jMapLibreMap map, jSize size) {
+template <typename Func>
+auto withMapWrapper(JNIEnv* env, jMapLibreMap map, Func&& func)
+  -> decltype(func(std::declval<MapWrapper*>())) {
+  using ReturnType = decltype(func(std::declval<MapWrapper*>()));
   try {
-    auto* wrapper = getWrapper(env, map);
-    auto cSize = maplibre_jni::convertSize(env, size);
-    if (cSize.width > 0 && cSize.height > 0) wrapper->map->setSize(cSize);
+    auto ptr =
+      java_classes::get<MapLibreMap_class>().getNativePointer(env, map);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto* wrapper = reinterpret_cast<MapWrapper*>(ptr);
+    return std::forward<Func>(func)(wrapper);
   } catch (const std::exception& e) {
     smjni::java_exception::translate(env, e);
+    if constexpr (!std::is_void_v<ReturnType>) return ReturnType{};
   }
 }
+
+#pragma mark - Rendering
+
+// TODO: wrap renderStill
+// using StillImageCallback = std::function<void(std::exception_ptr)>;
+// void renderStill(StillImageCallback);
+// void renderStill(const CameraOptions&, MapDebugOptions, StillImageCallback);
 
 void JNICALL MapLibreMap_class::triggerRepaint(JNIEnv* env, jMapLibreMap map) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [](auto wrapper) {
     wrapper->map->triggerRepaint();
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
+
+#pragma mark - Style
+
+// TODO: wrap get/set style
+// style::Style& getStyle();
+// const style::Style& getStyle() const;
+// void setStyle(std::unique_ptr<style::Style>);
 
 void JNICALL
 MapLibreMap_class::loadStyleURL(JNIEnv* env, jMapLibreMap map, jstring url) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, url](auto wrapper) {
     wrapper->map->getStyle().loadURL(smjni::java_string_to_cpp(env, url));
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 void JNICALL
 MapLibreMap_class::loadStyleJSON(JNIEnv* env, jMapLibreMap map, jstring json) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, json](auto wrapper) {
     wrapper->map->getStyle().loadJSON(smjni::java_string_to_cpp(env, json));
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
+
+#pragma mark - Transitions
 
 void JNICALL
 MapLibreMap_class::cancelTransitions(JNIEnv* env, jMapLibreMap map) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [](auto wrapper) {
     wrapper->map->cancelTransitions();
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
-// Camera
+void JNICALL MapLibreMap_class::setGestureInProgressNative(
+  JNIEnv* env, jMapLibreMap map, jboolean inProgress
+) {
+  withMapWrapper(env, map, [inProgress](auto wrapper) {
+    wrapper->map->setGestureInProgress(inProgress != JNI_FALSE);
+  });
+}
+
+auto JNICALL
+MapLibreMap_class::isGestureInProgressNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isGestureInProgress());
+  });
+}
+
+auto JNICALL MapLibreMap_class::isRotatingNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isRotating());
+  });
+}
+
+auto JNICALL MapLibreMap_class::isScalingNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isScaling());
+  });
+}
+
+auto JNICALL MapLibreMap_class::isPanningNative(JNIEnv* env, jMapLibreMap map)
+  -> jboolean {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return static_cast<jboolean>(wrapper->map->isPanning());
+  });
+}
+
+#pragma mark - Camera
+
 auto JNICALL MapLibreMap_class::getCameraOptions(JNIEnv* env, jMapLibreMap map)
   -> jCameraOptions {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  return withMapWrapper(env, map, [env](auto wrapper) {
     auto opts = wrapper->map->getCameraOptions();
     return maplibre_jni::convertCameraOptions(env, opts);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return nullptr;
-  }
+  });
 }
 
 void JNICALL MapLibreMap_class::jumpTo(
   JNIEnv* env, jMapLibreMap map, jCameraOptions cameraOptions
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, cameraOptions](auto wrapper) {
     auto opts = maplibre_jni::convertCameraOptions(env, cameraOptions);
     wrapper->map->jumpTo(opts);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 void JNICALL MapLibreMap_class::easeTo(
   JNIEnv* env, jMapLibreMap map, jCameraOptions cameraOptions, jint duration
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, cameraOptions, duration](auto wrapper) {
     auto opts = maplibre_jni::convertCameraOptions(env, cameraOptions);
     wrapper->map->easeTo(
       opts, mbgl::AnimationOptions{
               static_cast<mbgl::Duration>(std::chrono::milliseconds(duration))
             }
     );
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 void JNICALL MapLibreMap_class::flyTo(
   JNIEnv* env, jMapLibreMap map, jCameraOptions cameraOptions, jint duration
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, cameraOptions, duration](auto wrapper) {
     auto opts = maplibre_jni::convertCameraOptions(env, cameraOptions);
     wrapper->map->flyTo(
       opts, mbgl::AnimationOptions{
               static_cast<mbgl::Duration>(std::chrono::milliseconds(duration))
             }
     );
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 void JNICALL MapLibreMap_class::moveBy(
   JNIEnv* env, jMapLibreMap map, jScreenCoordinate screenCoordinate
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, screenCoordinate](auto wrapper) {
     auto coord = maplibre_jni::convertScreenCoordinate(env, screenCoordinate);
     wrapper->map->moveBy(coord);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 void JNICALL MapLibreMap_class::scaleBy(
   JNIEnv* env, jMapLibreMap map, jdouble scale, jScreenCoordinate anchor
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, scale, anchor](auto wrapper) {
     auto anchorCoord = maplibre_jni::convertScreenCoordinate(env, anchor);
     wrapper->map->scaleBy(scale, anchorCoord);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
+}
+
+void JNICALL
+MapLibreMap_class::pitchBy(JNIEnv* env, jMapLibreMap map, jdouble pitch) {
+  withMapWrapper(env, map, [pitch](auto wrapper) {
+    wrapper->map->pitchBy(pitch);
+  });
 }
 
 void JNICALL MapLibreMap_class::rotateBy(
   JNIEnv* env, jMapLibreMap map, jScreenCoordinate first,
   jScreenCoordinate second
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, first, second](auto wrapper) {
     auto firstCoord = maplibre_jni::convertScreenCoordinate(env, first);
     auto secondCoord = maplibre_jni::convertScreenCoordinate(env, second);
     wrapper->map->rotateBy(firstCoord, secondCoord);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
-void JNICALL
-MapLibreMap_class::pitchBy(JNIEnv* env, jMapLibreMap map, jdouble pitch) {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    wrapper->map->pitchBy(pitch);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
-}
+// TODO: wrap latlng bounds camera methods
+// CameraOptions cameraForLatLngBounds(const LatLngBounds&,
+//   const EdgeInsets&,
+//   const std::optional<double>& bearing = std::nullopt,
+//   const std::optional<double>& pitch = std::nullopt) const;
+// CameraOptions cameraForLatLngs(const std::vector<LatLng>&,
+// const EdgeInsets&,
+// const std::optional<double>& bearing = std::nullopt,
+// const std::optional<double>& pitch = std::nullopt) const;
+// CameraOptions cameraForGeometry(const Geometry<double>&,
+// const EdgeInsets&,
+// const std::optional<double>& bearing = std::nullopt,
+// const std::optional<double>& pitch = std::nullopt) const;
+// LatLngBounds latLngBoundsForCamera(const CameraOptions&) const;
+// LatLngBounds latLngBoundsForCameraUnwrapped(const CameraOptions&) const;
 
-void JNICALL MapLibreMap_class::setGestureInProgressNative(
-  JNIEnv* env, jMapLibreMap map, jboolean inProgress
-) {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    wrapper->map->setGestureInProgress(inProgress != JNI_FALSE);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
-}
+#pragma mark - Bounds
 
-auto JNICALL
-MapLibreMap_class::isGestureInProgressNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return static_cast<jboolean>(wrapper->map->isGestureInProgress());
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return JNI_FALSE;
-  }
-}
+// TODO: wrap bounds
+// void setBounds(const BoundOptions& options);
+// BoundOptions getBounds() const;
 
-auto JNICALL MapLibreMap_class::isRotatingNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return static_cast<jboolean>(wrapper->map->isRotating());
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return JNI_FALSE;
-  }
-}
-
-auto JNICALL MapLibreMap_class::isScalingNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return static_cast<jboolean>(wrapper->map->isScaling());
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return JNI_FALSE;
-  }
-}
-
-auto JNICALL MapLibreMap_class::isPanningNative(JNIEnv* env, jMapLibreMap map)
-  -> jboolean {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return static_cast<jboolean>(wrapper->map->isPanning());
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return JNI_FALSE;
-  }
-}
-
-// Map Options
-auto JNICALL
-MapLibreMap_class::getMapOptionsNative(JNIEnv* env, jMapLibreMap map)
-  -> jMapOptions {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    const mbgl::MapOptions opts = wrapper->map->getMapOptions();
-    return maplibre_jni::convertMapOptions(env, opts);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return nullptr;
-  }
-}
+#pragma mark - Map Options
 
 void JNICALL MapLibreMap_class::setNorthOrientationNative(
   JNIEnv* env, jMapLibreMap map, jNorthOrientation value
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, value](auto wrapper) {
     jint nativeValue =
       java_classes::get<NorthOrientation_class>().getNativeValue(env, value);
     wrapper->map->setNorthOrientation(
       static_cast<mbgl::NorthOrientation>(nativeValue)
     );
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 void JNICALL MapLibreMap_class::setConstrainModeNative(
   JNIEnv* env, jMapLibreMap map, jConstrainMode value
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, value](auto wrapper) {
     jint nativeValue =
       java_classes::get<ConstrainMode_class>().getNativeValue(env, value);
     wrapper->map->setConstrainMode(
       static_cast<mbgl::ConstrainMode>(nativeValue)
     );
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 void JNICALL MapLibreMap_class::setViewportModeNative(
   JNIEnv* env, jMapLibreMap map, jViewportMode value
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [env, value](auto wrapper) {
     jint nativeValue =
       java_classes::get<ViewportMode_class>().getNativeValue(env, value);
     wrapper->map->setViewportMode(static_cast<mbgl::ViewportMode>(nativeValue));
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
+
+void JNICALL
+MapLibreMap_class::setSize(JNIEnv* env, jMapLibreMap map, jSize size) {
+  withMapWrapper(env, map, [env, size](auto wrapper) {
+    auto cSize = maplibre_jni::convertSize(env, size);
+    if (cSize.width > 0 && cSize.height > 0) wrapper->map->setSize(cSize);
+  });
+}
+
+auto JNICALL
+MapLibreMap_class::getMapOptionsNative(JNIEnv* env, jMapLibreMap map)
+  -> jMapOptions {
+  return withMapWrapper(env, map, [env](auto wrapper) {
+    const mbgl::MapOptions opts = wrapper->map->getMapOptions();
+    return maplibre_jni::convertMapOptions(env, opts);
+  });
+}
+
+#pragma mark - Projection Mode
+
+// TODO: wrap projection mode
+// void setProjectionMode(const ProjectionMode&);
+// ProjectionMode getProjectionMode() const;
+#pragma mark - Projection
 
 auto JNICALL
 MapLibreMap_class::pixelForLatLng(JNIEnv* env, jMapLibreMap map, jLatLng latLng)
   -> jScreenCoordinate {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  return withMapWrapper(env, map, [env, latLng](auto wrapper) {
     auto cLatLng = maplibre_jni::convertLatLng(env, latLng);
     return maplibre_jni::convertScreenCoordinate(
       env, wrapper->map->pixelForLatLng(cLatLng)
     );
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return nullptr;
-  }
+  });
 }
 
 auto JNICALL MapLibreMap_class::latLngForPixel(
   JNIEnv* env, jMapLibreMap map, jScreenCoordinate pixel
 ) -> jLatLng {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  return withMapWrapper(env, map, [env, pixel](auto wrapper) {
     auto cPixel = maplibre_jni::convertScreenCoordinate(env, pixel);
     return maplibre_jni::convertLatLng(
       env, wrapper->map->latLngForPixel(cPixel)
     );
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return nullptr;
-  }
+  });
 }
+
+// TODO: wrap pixelsForLatLngs
+// std::vector<ScreenCoordinate> pixelsForLatLngs(const std::vector<LatLng>&)
+// const; std::vector<LatLng> latLngsForPixels(const
+// std::vector<ScreenCoordinate>&) const;
+
+#pragma mark - Transform
+
+// TODO: wrap getTransfromState
+// TransformState getTransfromState() const;
+
+#pragma mark - Annotations
+
+// TODO: wrap addAnnotationImage
+// void addAnnotationImage(std::unique_ptr<style::Image>);
+// void removeAnnotationImage(const std::string&);
+// double getTopOffsetPixelsForAnnotationImage(const std::string&);
+// AnnotationID addAnnotation(const Annotation&);
+// void updateAnnotation(AnnotationID, const Annotation&);
+// void removeAnnotation(AnnotationID);
+
+#pragma mark - Tile prefetching
+
+// TODO: wrap prefetch zoom delta
+// void setPrefetchZoomDelta(uint8_t delta);
+// uint8_t getPrefetchZoomDelta() const;
+
+#pragma mark - Debug
 
 void JNICALL MapLibreMap_class::setDebugNative(
   JNIEnv* env, jMapLibreMap map, jint debugOptions
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [debugOptions](auto wrapper) {
     wrapper->map->setDebug(static_cast<mbgl::MapDebugOptions>(debugOptions));
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 auto JNICALL MapLibreMap_class::getDebugNative(JNIEnv* env, jMapLibreMap map)
   -> jint {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  return withMapWrapper(env, map, [](auto wrapper) {
     return static_cast<jint>(wrapper->map->getDebug());
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return 0;
-  }
-}
-
-// Debug / Status
-void JNICALL MapLibreMap_class::enableRenderingStatsViewNative(
-  JNIEnv* env, jMapLibreMap map, jboolean enabled
-) {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    wrapper->map->enableRenderingStatsView(enabled != JNI_FALSE);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 auto JNICALL MapLibreMap_class::isRenderingStatsViewEnabledNative(
   JNIEnv* env, jMapLibreMap map
 ) -> jboolean {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  return withMapWrapper(env, map, [](auto wrapper) {
     return static_cast<jboolean>(wrapper->map->isRenderingStatsViewEnabled());
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return JNI_FALSE;
-  }
+  });
+}
+
+void JNICALL MapLibreMap_class::enableRenderingStatsViewNative(
+  JNIEnv* env, jMapLibreMap map, jboolean enabled
+) {
+  withMapWrapper(env, map, [enabled](auto wrapper) {
+    wrapper->map->enableRenderingStatsView(enabled != JNI_FALSE);
+  });
 }
 
 auto JNICALL
 MapLibreMap_class::isFullyLoadedNative(JNIEnv* env, jMapLibreMap map)
   -> jboolean {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  return withMapWrapper(env, map, [](auto wrapper) {
     return static_cast<jboolean>(wrapper->map->isFullyLoaded());
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return JNI_FALSE;
-  }
+  });
 }
 
-// Tile LOD controls
-auto JNICALL
-MapLibreMap_class::getTileLodMinRadiusNative(JNIEnv* env, jMapLibreMap map)
-  -> jdouble {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return wrapper->map->getTileLodMinRadius();
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return 0.0;
-  }
-}
+// TODO: wrap dump debug logs
+// void dumpDebugLogs() const;
+
+#pragma mark - Free Camera
+
+// TODO: wrap free camera
+// void setFreeCameraOptions(const FreeCameraOptions& camera);
+// FreeCameraOptions getFreeCameraOptions() const;
+
+#pragma mark - Tile LOD controls
 
 void JNICALL MapLibreMap_class::setTileLodMinRadiusNative(
   JNIEnv* env, jMapLibreMap map, jdouble value
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [value](auto wrapper) {
     wrapper->map->setTileLodMinRadius(value);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 auto JNICALL
-MapLibreMap_class::getTileLodScaleNative(JNIEnv* env, jMapLibreMap map)
+MapLibreMap_class::getTileLodMinRadiusNative(JNIEnv* env, jMapLibreMap map)
   -> jdouble {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return wrapper->map->getTileLodScale();
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return 1.0;
-  }
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return wrapper->map->getTileLodMinRadius();
+  });
 }
 
 void JNICALL MapLibreMap_class::setTileLodScaleNative(
   JNIEnv* env, jMapLibreMap map, jdouble value
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [value](auto wrapper) {
     wrapper->map->setTileLodScale(value);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 auto JNICALL
-MapLibreMap_class::getTileLodPitchThresholdNative(JNIEnv* env, jMapLibreMap map)
+MapLibreMap_class::getTileLodScaleNative(JNIEnv* env, jMapLibreMap map)
   -> jdouble {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return wrapper->map->getTileLodPitchThreshold();
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return 0.0;
-  }
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return wrapper->map->getTileLodScale();
+  });
 }
 
 void JNICALL MapLibreMap_class::setTileLodPitchThresholdNative(
   JNIEnv* env, jMapLibreMap map, jdouble value
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [value](auto wrapper) {
     wrapper->map->setTileLodPitchThreshold(value);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
 
 auto JNICALL
-MapLibreMap_class::getTileLodZoomShiftNative(JNIEnv* env, jMapLibreMap map)
+MapLibreMap_class::getTileLodPitchThresholdNative(JNIEnv* env, jMapLibreMap map)
   -> jdouble {
-  try {
-    auto* wrapper = getWrapper(env, map);
-    return wrapper->map->getTileLodZoomShift();
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-    return 0.0;
-  }
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return wrapper->map->getTileLodPitchThreshold();
+  });
 }
 
 void JNICALL MapLibreMap_class::setTileLodZoomShiftNative(
   JNIEnv* env, jMapLibreMap map, jdouble value
 ) {
-  try {
-    auto* wrapper = getWrapper(env, map);
+  withMapWrapper(env, map, [value](auto wrapper) {
     wrapper->map->setTileLodZoomShift(value);
-  } catch (const std::exception& e) {
-    smjni::java_exception::translate(env, e);
-  }
+  });
 }
+
+auto JNICALL
+MapLibreMap_class::getTileLodZoomShiftNative(JNIEnv* env, jMapLibreMap map)
+  -> jdouble {
+  return withMapWrapper(env, map, [](auto wrapper) {
+    return wrapper->map->getTileLodZoomShift();
+  });
+}
+
+#pragma mark - Other
+
+// TODO: wrap these
+// ClientOptions getClientOptions() const;
+// const std::unique_ptr<util::ActionJournal>& getActionJournal();
+
+#pragma mark - Allocation
 
 auto JNICALL MapLibreMap_class::nativeInit(
   JNIEnv* env, jclass /*unused*/, jlong frontendPointer,
