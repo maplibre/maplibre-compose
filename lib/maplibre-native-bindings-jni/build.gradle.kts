@@ -110,6 +110,7 @@ if (config.shouldConfigureForPublishing) {
 
     dependsOn(":lib:maplibre-native-bindings:kspKotlinDesktop")
     inputs.file(layout.projectDirectory.file("CMakeLists.txt"))
+    inputs.file(layout.projectDirectory.dir("cmake"))
     inputs.file(layout.projectDirectory.file("vendor/SimpleJNI/CMakeLists.txt"))
     inputs.file(layout.projectDirectory.file("vendor/maplibre-native/CMakeLists.txt"))
     inputs.file(layout.projectDirectory.file("CMakePresets.json"))
