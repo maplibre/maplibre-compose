@@ -44,5 +44,17 @@
   "java.configuration.updateBuildConfiguration": "disabled",
   "java.import.gradle.enabled": false,
   "java.server.launchMode": "LightWeight",
-  "kotlin.languageServer.enabled": false
+  "kotlin.languageServer.enabled": false,
+  "terminal.integrated.defaultProfile.windows": "Native Tools",
+  "terminal.integrated.profiles.windows": {
+    "Native Tools": {
+      "overrideName": true,
+      "path": "C:\\WINDOWS\\System32\\cmd.exe",
+      "args": [
+        "/k",
+        "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\VC\\Auxiliary\\Build\\vcvarsall.bat",
+        "${env:PROCESSOR_ARCHITECTURE}"
+      ]
+    }
+  }
 }

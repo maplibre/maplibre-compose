@@ -39,7 +39,7 @@ internal object SharedLibraryLoader {
           "libcurl.dll", // libcurl (depends on zlib)
           "maplibre-jni.dll", // main JNI library (depends on all above)
         )
-      os == "windows" -> listOf("libmaplibre-jni.dll")
+      os == "windows" -> listOf("maplibre-jni.dll")
       os == "macos" -> listOf("libmaplibre-jni.dylib")
       else -> listOf("libmaplibre-jni.so")
     }

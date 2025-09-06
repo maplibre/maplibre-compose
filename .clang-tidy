@@ -8,6 +8,8 @@ Checks:
   - bugprone-*
   - cert-*
   - cppcoreguidelines-*
+  - -cppcoreguidelines-avoid-magic-numbers
+  - -readability-magic-numbers
 CheckOptions:
   - key: readability-braces-around-statements.ShortStatementLines
     value: 2

@@ -11,7 +11,6 @@
 #include <GL/glx.h>
 #include <GL/glxext.h>
 #elif defined(_WIN32)
-#include <gl_functions_wgl.h>
 #include <windows.h>
 #endif
 
@@ -19,6 +18,13 @@ namespace maplibre_jni {
 
 class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
  public:
+  OpenGLRenderableResource(const OpenGLRenderableResource&) = delete;
+  OpenGLRenderableResource(OpenGLRenderableResource&&) = delete;
+  auto operator=(const OpenGLRenderableResource&)
+    -> OpenGLRenderableResource& = delete;
+  auto operator=(OpenGLRenderableResource&&)
+    -> OpenGLRenderableResource& = delete;
+
   explicit OpenGLRenderableResource(
     maplibre_jni::CanvasBackend& backend_, JNIEnv* env, jCanvas canvas_
   )
@@ -157,32 +163,35 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
       );
     }
     check(pixelFormat != 0, "ChoosePixelFormat failed");
-    check(SetPixelFormat(hdc, pixelFormat, &pfd), "SetPixelFormat failed");
+    check(SetPixelFormat(hdc, pixelFormat, &pfd) != 0, "SetPixelFormat failed");
 
     // Create temporary context
-    auto tempContext = wglCreateContext(hdc);
+    auto* tempContext = wglCreateContext(hdc);
     check(tempContext != nullptr, "wglCreateContext failed");
-    check(wglMakeCurrent(hdc, tempContext), "wglMakeCurrent failed");
+    check(wglMakeCurrent(hdc, tempContext) != 0, "wglMakeCurrent failed");
 
     // Get function pointer for wglCreateContextAttribsARB
-    auto wglCreateContextAttribsARB = (PFNWGLCREATECONTEXTATTRIBSARBPROC)
-      wglGetProcAddress("wglCreateContextAttribsARB");
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    auto wglCreateContextAttribsARB = reinterpret_cast<
+      HGLRC(WINAPI*)(HDC hDC, HGLRC hShareContext, const int* attribList)>(
+      wglGetProcAddress("wglCreateContextAttribsARB")
+    );
     check(
       wglCreateContextAttribsARB != nullptr,
       "wglCreateContextAttribsARB not available"
     );
 
     // Create modern OpenGL context
-    int attribs[] = {
-      WGL_CONTEXT_MAJOR_VERSION_ARB,
+    std::array<int, 7> attribs = {
+      0x2091,  // WGL_CONTEXT_MAJOR_VERSION_ARB
       3,
-      WGL_CONTEXT_MINOR_VERSION_ARB,
+      0x2092,  // WGL_CONTEXT_MINOR_VERSION_ARB
       0,
-      WGL_CONTEXT_PROFILE_MASK_ARB,
-      WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
+      0x9126,  // WGL_CONTEXT_PROFILE_MASK_ARB
+      1,       // WGL_CONTEXT_CORE_PROFILE_BIT_ARB,
       0,
     };
-    glContext = wglCreateContextAttribsARB(hdc, nullptr, attribs);
+    glContext = wglCreateContextAttribsARB(hdc, nullptr, attribs.data());
     check(glContext != nullptr, "failed to create WGL context");
 
     // Clean up temporary context
@@ -212,7 +221,9 @@ CanvasBackend::CanvasBackend(JNIEnv* env, jCanvas canvas)
         std::make_unique<OpenGLRenderableResource>(*this, env, canvas)
       ) {}
 
-mbgl::gfx::Renderable& CanvasBackend::getDefaultRenderable() { return *this; }
+auto CanvasBackend::getDefaultRenderable() -> mbgl::gfx::Renderable& {
+  return *this;
+}
 
 void CanvasBackend::setSize(mbgl::Size size) { this->size = size; }
 
@@ -232,7 +243,10 @@ mbgl::gl::ProcAddress CanvasBackend::getExtensionFunctionPointer(
 #if defined(__linux__)
   return glXGetProcAddressARB((const GLubyte*)name);
 #elif defined(_WIN32)
-  return reinterpret_cast<mbgl::gl::ProcAddress>(wgl_GetProcAddress(name));
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+  return reinterpret_cast<mbgl::gl::ProcAddress>(
+    GetProcAddress(LoadLibraryA("opengl32.dll"), name)
+  );
 #endif
 }
 
