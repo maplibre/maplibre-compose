@@ -50,8 +50,14 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun onCameraWillChange(mode: CameraChangeMode) {
-    // TODO: Determine the reason for camera movement
-    callbacks.onCameraMoveStarted(this, CameraMoveReason.UNKNOWN)
+    val reason =
+      when {
+        // onCameraWillChange is called once on map initialization, before we have a map reference
+        !::map.isInitialized -> CameraMoveReason.NONE
+        map.isGestureInProgress -> CameraMoveReason.GESTURE
+        else -> CameraMoveReason.PROGRAMMATIC
+      }
+    callbacks.onCameraMoveStarted(this, reason)
   }
 
   override fun onCameraIsChanging() {
