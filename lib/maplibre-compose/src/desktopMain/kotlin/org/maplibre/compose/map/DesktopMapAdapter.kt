@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.Position
@@ -20,9 +19,13 @@ import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toCameraPosition
+import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toMlnCameraOptions
 import org.maplibre.compose.util.toMlnEdgeInsets
+import org.maplibre.compose.util.toMlnLatLng
 import org.maplibre.compose.util.toMlnLatLngBounds
+import org.maplibre.compose.util.toPosition
+import org.maplibre.compose.util.toScreenCoordinate
 import org.maplibre.kmp.native.camera.CameraChangeMode
 import org.maplibre.kmp.native.camera.CameraOptions
 import org.maplibre.kmp.native.map.MapLibreMap
@@ -133,13 +136,11 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position {
-    // TODO: get position from screen location
-    return Position(0.0, 0.0)
+    return map.latLngForPixel(offset.toScreenCoordinate()).toPosition()
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset {
-    // TODO: get screen location from position
-    return DpOffset(0.dp, 0.dp)
+    return map.pixelForLatLng(position.toMlnLatLng()).toDpOffset()
   }
 
   override fun queryRenderedFeatures(

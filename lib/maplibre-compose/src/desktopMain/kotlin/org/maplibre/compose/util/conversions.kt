@@ -1,6 +1,7 @@
 package org.maplibre.compose.util
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import io.github.dellisd.spatialk.geojson.BoundingBox
@@ -10,6 +11,7 @@ import org.maplibre.kmp.native.camera.CameraOptions as MLNCameraOptions
 import org.maplibre.kmp.native.util.EdgeInsets as MLNEdgeInsets
 import org.maplibre.kmp.native.util.LatLng as MLNLatLng
 import org.maplibre.kmp.native.util.LatLngBounds as MLNLatLngBounds
+import org.maplibre.kmp.native.util.ScreenCoordinate as MLNScreenCoordinate
 
 internal fun MLNCameraOptions.toCameraPosition() =
   CameraPosition(
@@ -51,3 +53,11 @@ internal fun MLNLatLngBounds.toBoundingBox() =
 
 internal fun BoundingBox.toMlnLatLngBounds() =
   MLNLatLngBounds.hull(southwest.toMlnLatLng(), northeast.toMlnLatLng())
+
+internal fun DpOffset.toScreenCoordinate() =
+  // TODO: should this be density scaled?
+  MLNScreenCoordinate(x = x.value.toDouble(), y = y.value.toDouble())
+
+internal fun MLNScreenCoordinate.toDpOffset() =
+  // TODO: should this be density scaled?
+  DpOffset(x = x.dp, y = y.dp)

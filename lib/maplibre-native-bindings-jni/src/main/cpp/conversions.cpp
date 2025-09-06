@@ -105,22 +105,26 @@ auto convertBoundOptions(JNIEnv* env, jBoundOptions boundOptionsObj)
   mbgl::BoundOptions options;
   if (bounds)
     options.withLatLngBounds(convertLatLngBounds(env, bounds.c_ptr()));
-  if (minZoom)
+  if (minZoom) {
     options.withMinZoom(
       java_classes::get<Double_class>().doubleValue(env, minZoom.c_ptr())
     );
-  if (maxZoom)
+  }
+  if (maxZoom) {
     options.withMaxZoom(
       java_classes::get<Double_class>().doubleValue(env, maxZoom.c_ptr())
     );
-  if (minPitch)
+  }
+  if (minPitch) {
     options.withMinPitch(
       java_classes::get<Double_class>().doubleValue(env, minPitch.c_ptr())
     );
-  if (maxPitch)
+  }
+  if (maxPitch) {
     options.withMaxPitch(
       java_classes::get<Double_class>().doubleValue(env, maxPitch.c_ptr())
     );
+  }
 
   return options;
 }
