@@ -1,6 +1,6 @@
+#ifdef USE_METAL_BACKEND
 #include <iostream>
 #include <memory>
-#ifdef USE_METAL_BACKEND
 
 #include <mbgl/mtl/context.hpp>
 #include <mbgl/mtl/renderable_resource.hpp>
