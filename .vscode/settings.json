@@ -35,7 +35,7 @@
       "languages": ["kotlin", "gradle-kotlin-dsl"]
     },
     {
-      "command": "clang-format",
+      "command": "clang-format --assume-filename=${file}",
       "languages": ["c", "cpp", "objective-c", "objective-cpp"]
     }
   ],
