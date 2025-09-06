@@ -2,7 +2,6 @@
 
 #include <mbgl/gfx/renderer_backend.hpp>
 #include <mbgl/renderer/renderer.hpp>
-#include <mbgl/renderer/update_parameters.hpp>
 
 #include <jni_md.h>
 #include <smjni/java_ref.h>
@@ -52,7 +51,7 @@ void CanvasRenderer::setObserver(mbgl::RendererObserver& observer) {
 }
 
 void CanvasRenderer::update(std::shared_ptr<mbgl::UpdateParameters> params) {
-  updateParameters_ = std::make_unique<mbgl::UpdateParameters>(*params);
+  updateParameters_ = std::move(params);
   if (canvasRenderer_.c_ptr() == nullptr) return;
   java_classes::get<CanvasRenderer_class>().requestCanvasRepaint(
     smjni::jni_provider::get_jni(), canvasRenderer_.c_ptr()
@@ -66,8 +65,7 @@ auto CanvasRenderer::getThreadPool() const -> const mbgl::TaggedScheduler& {
 void CanvasRenderer::render() {
   if (!renderer_ || !updateParameters_) return;
   mbgl::gfx::BackendScope scope(*backend_);
-  auto copy = std::make_shared<mbgl::UpdateParameters>(*updateParameters_);
-  renderer_->render(copy);
+  renderer_->render(updateParameters_);
 }
 
 void CanvasRenderer::runOnce() { runLoop_->runOnce(); }

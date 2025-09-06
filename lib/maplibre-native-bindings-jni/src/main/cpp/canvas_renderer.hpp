@@ -6,7 +6,6 @@
 #include <mbgl/gfx/renderer_backend.hpp>
 #include <mbgl/renderer/renderer_frontend.hpp>
 #include <mbgl/renderer/renderer_observer.hpp>
-#include <mbgl/renderer/update_parameters.hpp>
 #include <mbgl/util/run_loop.hpp>
 
 #include <jawt.h>
@@ -80,7 +79,7 @@ class CanvasRenderer : public mbgl::RendererFrontend {
   std::unique_ptr<CanvasBackend> backend_;
   std::unique_ptr<mbgl::Renderer> renderer_;
   std::unique_ptr<mbgl::RendererObserver> observer_;
-  std::unique_ptr<mbgl::UpdateParameters> updateParameters_;
+  std::shared_ptr<mbgl::UpdateParameters> updateParameters_;
 
  public:
   void render();
