@@ -16,8 +16,6 @@ public constructor(@get:CalledByNative val width: Int, @get:CalledByNative val h
   val isEmpty: Boolean
     get() = width == 0 || height == 0
 
-  override fun toString(): String = "Size($width, $height)"
-
   public operator fun plus(other: Size): Size {
     return Size(width + other.width, height + other.height)
   }

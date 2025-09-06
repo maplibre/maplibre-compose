@@ -28,6 +28,28 @@ auto convertLatLng(JNIEnv* env, mbgl::LatLng latLng) -> jLatLng {
   return latLngObj.release();
 }
 
+auto convertLatLngBounds(JNIEnv* env, jLatLngBounds latLngBoundsObj)
+  -> mbgl::LatLngBounds {
+  auto north =
+    java_classes::get<LatLngBounds_class>().getNorth(env, latLngBoundsObj);
+  auto east =
+    java_classes::get<LatLngBounds_class>().getEast(env, latLngBoundsObj);
+  auto south =
+    java_classes::get<LatLngBounds_class>().getSouth(env, latLngBoundsObj);
+  auto west =
+    java_classes::get<LatLngBounds_class>().getWest(env, latLngBoundsObj);
+  return mbgl::LatLngBounds::hull({south, west}, {north, east});
+}
+
+auto convertLatLngBounds(JNIEnv* env, const mbgl::LatLngBounds& latLngBounds)
+  -> jLatLngBounds {
+  auto latLngBoundsObj = java_classes::get<LatLngBounds_class>().ctor(
+    env, latLngBounds.north(), latLngBounds.east(), latLngBounds.south(),
+    latLngBounds.west()
+  );
+  return latLngBoundsObj.release();
+}
+
 auto convertScreenCoordinate(JNIEnv* env, jScreenCoordinate screenCoordinateObj)
   -> mbgl::ScreenCoordinate {
   auto x =

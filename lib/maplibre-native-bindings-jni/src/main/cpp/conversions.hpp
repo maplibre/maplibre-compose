@@ -14,6 +14,12 @@ auto convertLatLng(JNIEnv* env, jLatLng latLngObj) -> mbgl::LatLng;
 
 auto convertLatLng(JNIEnv* env, mbgl::LatLng latLng) -> jLatLng;
 
+auto convertLatLngBounds(JNIEnv* env, jLatLngBounds latLngBoundsObj)
+  -> mbgl::LatLngBounds;
+
+auto convertLatLngBounds(JNIEnv* env, const mbgl::LatLngBounds& latLngBounds)
+  -> jLatLngBounds;
+
 auto convertEdgeInsets(JNIEnv* env, jEdgeInsets edgeInsetsObj)
   -> mbgl::EdgeInsets;
 

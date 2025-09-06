@@ -30,6 +30,4 @@ public constructor(
     val centerY = (height - top - bottom) / 2.0 + top
     return ScreenCoordinate(centerX, centerY)
   }
-
-  override fun toString(): String = "EdgeInsets(top=$top, left=$left, bottom=$bottom, right=$right)"
 }
