@@ -110,7 +110,7 @@ listOf(
 }
 
 swiftPackageConfig {
-  create("[cinteropName]") { // (1)!
+  create("spmMaplibre") { // (1)!
     dependency {
       remotePackageVersion(
         url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
