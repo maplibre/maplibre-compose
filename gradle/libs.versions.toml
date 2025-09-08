@@ -17,7 +17,7 @@ spatialk = "0.3.0"                 # TODO: is unmaintained; watch for https://gi
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
-gradle-ksp = "2.2.0-2.0.2"
+gradle-ksp = "2.2.10-2.0.2"
 gradle-mavenPublish = "0.34.0"
 gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "0.11.3"
