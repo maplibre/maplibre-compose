@@ -54,15 +54,15 @@ jobs:
           fetch-depth: 0
       - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
       - uses: ./.github/actions/setup-gradle
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: natives-macos-aarch64-metal
           path: ./lib/maplibre-native-bindings-jni/build/copiedResources/MacosAarch64Metal/macos/aarch64/metal/
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: natives-linux-amd64-opengl
           path: ./lib/maplibre-native-bindings-jni/build/copiedResources/LinuxAmd64Opengl/linux/amd64/opengl/
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v5
         with:
           name: natives-windows-amd64-opengl
           path: ./lib/maplibre-native-bindings-jni/build/copiedResources/WindowsAmd64Opengl/windows/amd64/opengl/
