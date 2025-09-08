@@ -97,7 +97,7 @@ listOf(
 ).forEach { iosTarget ->
     iosTarget.compilations {
         val main by getting {
-            cinterops.create("maplibrenativeBridge") // (1)!
+            cinterops.create("spmMaplibre") // (1)!
         }
     }
 
