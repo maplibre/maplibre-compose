@@ -90,20 +90,20 @@ Follow the [official setup documentation][gradle-spm4kmp], and add the below to
 include MapLibre in your build:
 
 ```kotlin title="build.gradle.kts"
-listOf(
+kotlin {
+  listOf(
     iosX64(),
     iosArm64(),
     iosSimulatorArm64()
-).forEach { iosTarget ->
-    iosTarget.compilations {
-        val main by getting {
-            cinterops.create("spmMaplibre") // (1)!
-        }
+  ).forEach {
+    it.compilations {
+      getByName("main") {
+        cinterops.create("spmMaplibre") // (1)!
+      }
     }
-
-    iosTarget.binaries.framework {
-        baseName = "ComposeApp"
-        isStatic = true
+    it.binaries.framework {
+      baseName = "ComposeApp"
+      isStatic = true
     }
   }
 }
