@@ -106,6 +106,7 @@ listOf(
         isStatic = true
         freeCompilerArgs += listOf("-Xbinary=bundleId=<your.app.here>")
     }
+  }
 }
 
 swiftPackageConfig {
