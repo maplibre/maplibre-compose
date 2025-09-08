@@ -90,6 +90,24 @@ Follow the [official setup documentation][gradle-spm4kmp], and add the below to
 include MapLibre in your build:
 
 ```kotlin title="build.gradle.kts"
+listOf(
+    iosX64(),
+    iosArm64(),
+    iosSimulatorArm64()
+).forEach { iosTarget ->
+    iosTarget.compilations {
+        val main by getting {
+            cinterops.create("maplibrenativeBridge") // (1)!
+        }
+    }
+
+    iosTarget.binaries.framework {
+        baseName = "ComposeApp"
+        isStatic = true
+        freeCompilerArgs += listOf("-Xbinary=bundleId=<your.app.here>")
+    }
+}
+
 swiftPackageConfig {
   create("[cinteropName]") { // (1)!
     dependency {
