@@ -26,15 +26,17 @@ import org.maplibre.kmp.native.util.ScreenCoordinate
 public class MapControls(
   private val component: Component,
   private val map: MapLibreMap,
-  private val config: Config = Config(),
+  public var config: Config = Config(),
 ) : MouseListener, MouseMotionListener, MouseWheelListener, KeyListener {
 
   public data class Config(
-    val enablePan: Boolean = true,
-    val enableZoom: Boolean = true,
-    val enableRotate: Boolean = true,
-    val enableTilt: Boolean = true,
-    val enableKeyboard: Boolean = true,
+    val enableDragPan: Boolean = true,
+    val enableScrollZoom: Boolean = true,
+    val enableDoubleClickZoom: Boolean = true,
+    val enableDragRotate: Boolean = true,
+    val enableDragTilt: Boolean = true,
+    val enableKeyboardPan: Boolean = true,
+    val enableKeyboardZoom: Boolean = true,
     val panSpeed: Double = 1.0,
     val zoomSpeed: Double = 1.0,
     val rotateSpeed: Double = 1.0,
@@ -75,10 +77,8 @@ public class MapControls(
     component.addMouseListener(this)
     component.addMouseMotionListener(this)
     component.addMouseWheelListener(this)
-    if (config.enableKeyboard) {
-      component.addKeyListener(this)
-      component.isFocusable = true
-    }
+    component.addKeyListener(this)
+    component.isFocusable = true
 
     enabled = true
   }
@@ -90,9 +90,7 @@ public class MapControls(
     component.removeMouseListener(this)
     component.removeMouseMotionListener(this)
     component.removeMouseWheelListener(this)
-    if (config.enableKeyboard) {
-      component.removeKeyListener(this)
-    }
+    component.removeKeyListener(this)
 
     enabled = false
   }
@@ -124,7 +122,7 @@ public class MapControls(
     when {
       // Right-click or Ctrl+Left click for rotation and tilt
       e.button == MouseEvent.BUTTON3 || (e.button == MouseEvent.BUTTON1 && e.isControlDown) -> {
-        if (config.enableRotate || config.enableTilt) {
+        if (config.enableDragRotate || config.enableDragTilt) {
           isRotatingAndTilting = true
           map.isGestureInProgress = true
           // Store the anchor point for rotation
@@ -133,7 +131,7 @@ public class MapControls(
       }
       // Left click for pan
       e.button == MouseEvent.BUTTON1 -> {
-        if (config.enablePan) {
+        if (config.enableDragPan) {
           isPanning = true
           map.isGestureInProgress = true
         }
@@ -170,7 +168,7 @@ public class MapControls(
     val dy = e.y - lastY
 
     when {
-      isPanning && config.enablePan -> {
+      isPanning && config.enableDragPan -> {
         // Pan the map
         map.moveBy(toMapDelta(dx * config.panSpeed, dy * config.panSpeed))
       }
@@ -179,7 +177,7 @@ public class MapControls(
         // Right-click drag: X for rotation, Y for pitch
         // Both rotate around the initial click point
 
-        if (config.enableRotate && abs(dx) > 0.01) {
+        if (config.enableDragRotate && abs(dx) > 0.01) {
           // Rotate around the anchor point where we clicked
           rotationAnchor?.let { anchor ->
             val currentCamera = map.getCameraOptions()
@@ -198,7 +196,7 @@ public class MapControls(
           }
         }
 
-        if (config.enableTilt && abs(dy) > 0.01) {
+        if (config.enableDragTilt && abs(dy) > 0.01) {
           // Tilt based on vertical movement
           map.pitchBy(dy * config.tiltSpeed)
         }
@@ -216,7 +214,7 @@ public class MapControls(
 
   // MouseWheelListener implementation
   override fun mouseWheelMoved(e: MouseWheelEvent) {
-    if (!enabled || !config.enableZoom) return
+    if (!enabled || !config.enableScrollZoom) return
 
     val rotation = e.wheelRotation
     val scrollAmount = e.scrollAmount.toDouble()
@@ -241,12 +239,12 @@ public class MapControls(
 
   // KeyListener implementation
   override fun keyPressed(e: KeyEvent) {
-    if (!enabled || !config.enableKeyboard) return
+    if (!enabled || (!config.enableKeyboardPan && !config.enableKeyboardZoom)) return
 
     when (e.keyCode) {
       // Pan with arrow keys - animated like zoom
       KeyEvent.VK_LEFT -> {
-        if (config.enablePan) {
+        if (config.enableKeyboardPan) {
           val currentCamera = map.getCameraOptions()
           val screenDelta = toMapDelta(100.0 * config.panSpeed, 0.0)
           val newCenter =
@@ -258,7 +256,7 @@ public class MapControls(
       }
 
       KeyEvent.VK_RIGHT -> {
-        if (config.enablePan) {
+        if (config.enableKeyboardPan) {
           val currentCamera = map.getCameraOptions()
           val screenDelta = toMapDelta(-100.0 * config.panSpeed, 0.0)
           val newCenter =
@@ -270,7 +268,7 @@ public class MapControls(
       }
 
       KeyEvent.VK_UP -> {
-        if (config.enablePan) {
+        if (config.enableKeyboardPan) {
           val currentCamera = map.getCameraOptions()
           val screenDelta = toMapDelta(0.0, 100.0 * config.panSpeed)
           val newCenter =
@@ -282,7 +280,7 @@ public class MapControls(
       }
 
       KeyEvent.VK_DOWN -> {
-        if (config.enablePan) {
+        if (config.enableKeyboardPan) {
           val currentCamera = map.getCameraOptions()
           val screenDelta = toMapDelta(0.0, -100.0 * config.panSpeed)
           val newCenter =
@@ -296,7 +294,7 @@ public class MapControls(
       // Zoom with +/- keys - animated like double-click
       KeyEvent.VK_PLUS,
       KeyEvent.VK_EQUALS -> {
-        if (config.enableZoom) {
+        if (config.enableKeyboardZoom) {
           val currentCamera = map.getCameraOptions()
           val currentZoom = currentCamera.zoom ?: 0.0
           map.easeTo(currentCamera.copy(zoom = currentZoom + 1.0), 300)
@@ -304,7 +302,7 @@ public class MapControls(
       }
 
       KeyEvent.VK_MINUS -> {
-        if (config.enableZoom) {
+        if (config.enableKeyboardZoom) {
           val currentCamera = map.getCameraOptions()
           val currentZoom = currentCamera.zoom ?: 0.0
           map.easeTo(currentCamera.copy(zoom = currentZoom - 1.0), 300)
@@ -319,7 +317,7 @@ public class MapControls(
 
   // Private helper methods
   private fun handleDoubleClick(e: MouseEvent) {
-    if (!config.enableZoom) return
+    if (!config.enableDoubleClickZoom) return
 
     // Get current zoom and calculate new zoom
     val currentCamera = map.getCameraOptions()

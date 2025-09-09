@@ -28,6 +28,7 @@ import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenCoordinate
 import org.maplibre.kmp.native.camera.CameraChangeMode
 import org.maplibre.kmp.native.camera.CameraOptions
+import org.maplibre.kmp.native.map.MapControls
 import org.maplibre.kmp.native.map.MapLibreMap
 import org.maplibre.kmp.native.map.MapLoadError
 import org.maplibre.kmp.native.map.MapObserver
@@ -38,6 +39,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   MapAdapter, MapObserver {
 
   internal lateinit var map: MapLibreMap
+  internal lateinit var mapControls: MapControls
 
   private var lastBaseStyle: BaseStyle? = null
 
@@ -139,7 +141,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun setGestureSettings(value: GestureOptions) {
-    // TODO: gesture settings
+    mapControls.config = value.toMapControlsConfig()
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position {

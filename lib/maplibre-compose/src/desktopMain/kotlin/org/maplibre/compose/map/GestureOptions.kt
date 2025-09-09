@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
+import org.maplibre.kmp.native.map.MapControls
 
 @Immutable
 public actual data class GestureOptions(
@@ -23,4 +24,16 @@ public actual data class GestureOptions(
         isKeyboardZoomEnabled = false,
       )
   }
+}
+
+internal fun GestureOptions.toMapControlsConfig(): MapControls.Config {
+  return MapControls.Config(
+    enableDragPan = isDragPanEnabled,
+    enableScrollZoom = isScrollZoomEnabled,
+    enableDoubleClickZoom = isDoubleClickZoomEnabled,
+    enableDragRotate = isDragRotateTiltEnabled,
+    enableDragTilt = isDragRotateTiltEnabled,
+    enableKeyboardPan = isKeyboardPanEnabled,
+    enableKeyboardZoom = isKeyboardZoomEnabled,
+  )
 }
