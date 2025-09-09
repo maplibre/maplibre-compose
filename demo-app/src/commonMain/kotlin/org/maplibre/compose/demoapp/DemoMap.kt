@@ -22,6 +22,7 @@ import org.maplibre.compose.material3.DisappearingCompassButton
 import org.maplibre.compose.material3.DisappearingScaleBar
 import org.maplibre.compose.material3.ExpandingAttributionButton
 import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.util.ClickResult
 
 @Composable
 fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
@@ -30,6 +31,10 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
       styleState = state.styleState,
       cameraState = state.cameraState,
       baseStyle = state.selectedStyle.base,
+      onMapClick = { position, offset ->
+        state.mapClickEvents.add(MapClickEvent(position, offset))
+        ClickResult.Pass
+      },
       options =
         MapOptions(
           ornamentOptions = rememberOrnamentOptions(padding),

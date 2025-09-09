@@ -2,6 +2,7 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -14,6 +15,7 @@ import org.maplibre.compose.demoapp.demos.AnimatedLayerDemo
 import org.maplibre.compose.demoapp.demos.CameraStateDemo
 import org.maplibre.compose.demoapp.demos.ClusteredPointsDemo
 import org.maplibre.compose.demoapp.demos.Demo
+import org.maplibre.compose.demoapp.demos.MapClickDemo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.util.Platform
@@ -27,6 +29,9 @@ class DemoState(
   val cameraState: CameraState,
   val styleState: StyleState,
 ) {
+
+  val mapClickEvents = mutableStateListOf<MapClickEvent>()
+
   // TODO:
   // Camera follow
   // Image source
@@ -37,6 +42,7 @@ class DemoState(
       CameraStateDemo,
       AnimatedLayerDemo,
       MarkersDemo,
+      MapClickDemo,
       ClusteredPointsDemo,
     ) + Platform.extraDemos)
 
