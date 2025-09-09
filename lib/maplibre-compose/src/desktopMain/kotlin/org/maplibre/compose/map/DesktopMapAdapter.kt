@@ -9,6 +9,8 @@ import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
+import kotlin.time.DurationUnit
+import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -32,6 +34,7 @@ import org.maplibre.kmp.native.map.MapControls
 import org.maplibre.kmp.native.map.MapLibreMap
 import org.maplibre.kmp.native.map.MapLoadError
 import org.maplibre.kmp.native.map.MapObserver
+import org.maplibre.kmp.native.map.RenderFrameStatus
 import org.maplibre.kmp.native.util.LatLng
 import org.maplibre.kmp.native.util.Projection
 import org.maplibre.kmp.native.util.ScreenCoordinate
@@ -69,6 +72,16 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     if (!::map.isInitialized) return
     callbacks.onCameraMoved(this)
     callbacks.onCameraMoveEnded(this)
+  }
+
+  val frameTimer = TimeSource.Monotonic
+  var lastFrameTime = frameTimer.markNow()
+
+  override fun onDidFinishRenderingFrame(status: RenderFrameStatus) {
+    val time = frameTimer.markNow()
+    val duration = time - lastFrameTime
+    lastFrameTime = time
+    callbacks.onFrame(1.0 / duration.toDouble(DurationUnit.SECONDS))
   }
 
   override fun setBaseStyle(style: BaseStyle) {
