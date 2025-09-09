@@ -75,9 +75,30 @@ void JniMapObserver::onDidFinishRenderingFrame(
   auto jMode = java_classes::get<RenderMode_class>().fromNativeValue(
     env, (int)status.mode
   );
+
+  const auto& stats = status.renderingStats;
+  auto jRenderingStats = java_classes::get<RenderingStats_class>().ctor(
+    env, stats.encodingTime, stats.renderingTime, stats.numFrames,
+    stats.numDrawCalls, stats.totalDrawCalls, stats.numCreatedTextures,
+    stats.numActiveTextures, stats.numTextureBindings, stats.numTextureUpdates,
+    static_cast<jlong>(stats.textureUpdateBytes),
+    static_cast<jlong>(stats.totalBuffers),
+    static_cast<jlong>(stats.totalBufferObjs),
+    static_cast<jlong>(stats.bufferUpdates),
+    static_cast<jlong>(stats.bufferObjUpdates),
+    static_cast<jlong>(stats.bufferUpdateBytes), stats.numBuffers,
+    stats.numFrameBuffers, stats.numIndexBuffers,
+    static_cast<jlong>(stats.indexUpdateBytes), stats.numVertexBuffers,
+    static_cast<jlong>(stats.vertexUpdateBytes), stats.numUniformBuffers,
+    stats.numUniformUpdates, static_cast<jlong>(stats.uniformUpdateBytes),
+    stats.memTextures, stats.memBuffers, stats.memIndexBuffers,
+    stats.memVertexBuffers, stats.memUniformBuffers, stats.stencilClears,
+    stats.stencilUpdates
+  );
+
   auto jStatus = java_classes::get<RenderFrameStatus_class>().ctor(
     env, jMode, static_cast<jboolean>(status.needsRepaint),
-    static_cast<jboolean>(status.placementChanged)
+    static_cast<jboolean>(status.placementChanged), jRenderingStats
   );
   java_classes::get<MapObserver_class>().onDidFinishRenderingFrame(
     env, observer, jStatus

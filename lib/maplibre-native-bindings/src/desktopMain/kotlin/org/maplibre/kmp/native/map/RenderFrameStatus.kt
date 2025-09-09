@@ -10,5 +10,5 @@ public constructor(
   val mode: RenderMode,
   val needsRepaint: Boolean,
   val placementChanged: Boolean,
-  // TODO: Add renderingStats when we wrap that type
+  val renderingStats: RenderingStats,
 )
