@@ -59,7 +59,13 @@ internal fun DesktopMapView(
       MapCanvas(
         mapObserver = adapter,
         onMapReady = { map, canvas ->
-          val controls = MapControls(canvas, map, options.gestureOptions.toMapControlsConfig())
+          val controls =
+            MapControls(
+              component = canvas,
+              map = map,
+              config = options.gestureOptions.toMapControlsConfig(),
+              observer = adapter,
+            )
           controls.enable()
           adapter.map = map
           adapter.mapControls = controls

@@ -27,7 +27,14 @@ public class MapControls(
   private val component: Component,
   private val map: MapLibreMap,
   public var config: Config = Config(),
+  private val observer: Observer? = null,
 ) : MouseListener, MouseMotionListener, MouseWheelListener, KeyListener {
+
+  public interface Observer {
+    public fun onMapPrimaryClick(coordinate: ScreenCoordinate) {}
+
+    public fun onMapSecondaryClick(coordinate: ScreenCoordinate) {}
+  }
 
   public data class Config(
     val enableDragPan: Boolean = true,
@@ -99,18 +106,28 @@ public class MapControls(
   override fun mouseClicked(e: MouseEvent) {
     if (!enabled) return
 
-    // Only handle double-click for primary mouse button
-    if (e.button != MouseEvent.BUTTON1) return
+    when (e.button) {
+      MouseEvent.BUTTON1 -> {
+        // Handle left click and double-click
+        val currentTime = System.currentTimeMillis()
+        val timeSinceLastClick = currentTime - lastClickTime
 
-    val currentTime = System.currentTimeMillis()
-    val timeSinceLastClick = currentTime - lastClickTime
+        if (timeSinceLastClick < doubleClickThreshold) {
+          // Double-click detected
+          handleDoubleClick(e)
+        } else {
+          // Single left click
+          // TODO: delayed handling of left click
+          observer?.onMapPrimaryClick(toMapCoordinate(e))
+        }
 
-    if (timeSinceLastClick < doubleClickThreshold) {
-      // Double-click detected
-      handleDoubleClick(e)
+        lastClickTime = currentTime
+      }
+      MouseEvent.BUTTON3 -> {
+        // Right click (secondary click)
+        observer?.onMapSecondaryClick(toMapCoordinate(e))
+      }
     }
-
-    lastClickTime = currentTime
   }
 
   override fun mousePressed(e: MouseEvent) {

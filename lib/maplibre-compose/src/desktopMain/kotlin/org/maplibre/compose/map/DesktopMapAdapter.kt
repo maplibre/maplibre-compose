@@ -34,9 +34,10 @@ import org.maplibre.kmp.native.map.MapLoadError
 import org.maplibre.kmp.native.map.MapObserver
 import org.maplibre.kmp.native.util.LatLng
 import org.maplibre.kmp.native.util.Projection
+import org.maplibre.kmp.native.util.ScreenCoordinate
 
 internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
-  MapAdapter, MapObserver {
+  MapAdapter, MapObserver, MapControls.Observer {
 
   internal lateinit var map: MapLibreMap
   internal lateinit var mapControls: MapControls
@@ -211,5 +212,19 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
       map.cancelTransitions()
       throw e
     }
+  }
+
+  override fun onMapPrimaryClick(coordinate: ScreenCoordinate) {
+    val latLng = map.latLngForPixel(coordinate)
+    val position = latLng.toPosition()
+    val dpOffset = coordinate.toDpOffset()
+    callbacks.onClick(this, position, dpOffset)
+  }
+
+  override fun onMapSecondaryClick(coordinate: ScreenCoordinate) {
+    val latLng = map.latLngForPixel(coordinate)
+    val position = latLng.toPosition()
+    val dpOffset = coordinate.toDpOffset()
+    callbacks.onLongClick(this, position, dpOffset)
   }
 }
