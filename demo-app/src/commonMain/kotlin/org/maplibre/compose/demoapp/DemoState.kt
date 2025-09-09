@@ -17,6 +17,7 @@ import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.util.Platform
+import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
@@ -41,6 +42,7 @@ class DemoState(
 
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
+  var gestureOptions by mutableStateOf(GestureOptions.Standard)
 
   private val navDestinationState = mutableStateOf<NavDestination?>(null)
 

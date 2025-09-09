@@ -34,6 +34,7 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
         MapOptions(
           ornamentOptions = rememberOrnamentOptions(padding),
           renderOptions = state.renderOptions,
+          gestureOptions = state.gestureOptions,
         ),
     ) {
       if (PlatformFeature.LayerStyling in Platform.supportedFeatures) {
