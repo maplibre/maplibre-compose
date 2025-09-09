@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
 
+include(FetchContent)
 include(cmake/vars.cmake)
 
 project(maplibre-jni)
