@@ -97,13 +97,15 @@ public fun DisappearingCompassButton(
 ) {
   val visible = remember { MutableTransitionState(false) }
 
-  val homePosition by derivedStateOf { getHomePosition(cameraState.position) }
+  val homePosition by remember { derivedStateOf { getHomePosition(cameraState.position) } }
 
-  val shouldBeVisible by derivedStateOf {
-    with(AngleMath) {
-      val tiltDiff = cameraState.position.tilt.diff(homePosition.tilt).absoluteValue
-      val bearingDiff = cameraState.position.bearing.diff(homePosition.bearing).absoluteValue
-      tiltDiff > slop || bearingDiff > slop
+  val shouldBeVisible by remember {
+    derivedStateOf {
+      with(AngleMath) {
+        val tiltDiff = cameraState.position.tilt.diff(homePosition.tilt).absoluteValue
+        val bearingDiff = cameraState.position.bearing.diff(homePosition.bearing).absoluteValue
+        tiltDiff > slop || bearingDiff > slop
+      }
     }
   }
 
