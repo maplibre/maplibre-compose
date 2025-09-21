@@ -1,15 +1,15 @@
 [versions]
 # Regular libraries: keep as up to date as possible.
 alchemist = "0.2.0"
-androidx-activity = "1.10.1"
+androidx-activity = "1.11.0"
 bytesize = "2.0.0"
 compass = "2.4.0"
 htmlConverterCompose = "1.1.0"
 kermit = "2.0.8"
 kotlin-wrappers = "2025.9.8"
 kotlinx-coroutines = "1.10.2"
-ktor = "3.2.3"
-maplibre-android-sdk = "11.13.1"
+ktor = "3.3.0"
+maplibre-android-sdk = "11.13.5"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "4.7.1"              # TODO: is outdated; update to v5.x
 spatialk = "0.3.0"                 # TODO: is unmaintained; watch for https://github.com/maplibre/maplibre-java/pull/40
@@ -17,32 +17,32 @@ spatialk = "0.3.0"                 # TODO: is unmaintained; watch for https://gi
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.0.0"
 gradle-jgitver = "0.10.0-rc03"
-gradle-ksp = "2.2.0-2.0.2"
 gradle-mavenPublish = "0.34.0"
 gradle-mkdocs = "4.0.1"
-gradle-spmForKmp = "0.11.3"
+gradle-spmForKmp = "0.11.3"        # TODO: is outdated; update to v1.0.0 beta
 simplejni = "3.14"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.8.2"
+gradle-compose = "1.9.0"
 #noinspection GradleDependency: follow version matrix above
-androidx-compose = "1.8.2"
-#noinspection GradleDependency: follow version matrix above
-androidx-navigation = "2.9.0-beta03"
+androidx-compose = "1.9.0"
+jetbrains-navigation = "2.9.0"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.2.0"
+gradle-kotlin = "2.2.20"
 #noinspection AndroidGradlePluginVersion: follow version matrix above
-gradle-android = "8.10.0"
+gradle-android = "8.11.1"
+#noinspection GradleDependency: follow Kotlin version above
+gradle-ksp = "2.2.20-2.0.3"
 
 [libraries]
 alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.ref = "alchemist" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
-androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "androidx-navigation" }
+androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 compass-geolocation-core = { module = "dev.jordond.compass:geolocation", version.ref = "compass" }
 compass-geolocation-mobile = { module = "dev.jordond.compass:geolocation-mobile", version.ref = "compass" }
