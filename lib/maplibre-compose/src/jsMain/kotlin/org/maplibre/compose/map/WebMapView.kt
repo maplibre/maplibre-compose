@@ -6,12 +6,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.viewinterop.WebElementView
 import co.touchlab.kermit.Logger
-import dev.sargunv.composehtmlinterop.HtmlElement
 import kotlinx.browser.document
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
@@ -38,6 +39,7 @@ internal actual fun ComposableMapView(
   )
 
 @Composable
+@OptIn(ExperimentalComposeUiApi::class)
 internal fun WebMapView(
   modifier: Modifier,
   style: BaseStyle,
@@ -51,9 +53,8 @@ internal fun WebMapView(
   val layoutDir = LocalLayoutDirection.current
   val density = LocalDensity.current
 
-  HtmlElement(
+  WebElementView(
     modifier = modifier.onGloballyPositioned { maybeMap?.resize() },
-    // zIndex = "-1", // TODO figure out pointer interop
     factory = {
       document.createElement("div").unsafeCast<HTMLElement>().apply {
         this.style.apply {

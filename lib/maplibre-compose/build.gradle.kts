@@ -91,13 +91,7 @@ kotlin {
       }
     }
 
-    jsMain {
-      dependencies {
-        // TODO replace this with the official component in the next version of Compose
-        implementation("dev.sargunv.maplibre-compose:compose-html-interop:0.10.4")
-        implementation(project(":lib:maplibre-js-bindings"))
-      }
-    }
+    jsMain { dependencies { implementation(project(":lib:maplibre-js-bindings")) } }
 
     commonTest.dependencies {
       implementation(kotlin("test"))
