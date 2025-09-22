@@ -1,4 +1,4 @@
-rootProject.name = "maplibre-compose"
+rootProject.name = "maplibre-compose-project"
 
 enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 
