@@ -10,12 +10,12 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
   Location(
     position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
     accuracy = accuracy.toDouble(),
-    bearing = bearing.toDouble(),
+    bearing = if (hasBearing()) bearing.toDouble() else null,
     bearingAccuracy =
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasBearingAccuracy()) {
         bearingAccuracyDegrees.toDouble()
       } else {
-        0.0
+        null
       },
     age = (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos).nanoseconds,
   )

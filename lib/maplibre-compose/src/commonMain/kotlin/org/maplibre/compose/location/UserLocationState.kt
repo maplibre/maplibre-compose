@@ -15,8 +15,8 @@ public class UserLocationState internal constructor(locationState: State<Locatio
 public data class Location(
   val position: Position,
   val accuracy: Double,
-  val bearing: Double,
-  val bearingAccuracy: Double,
+  val bearing: Double?,
+  val bearingAccuracy: Double?,
   val age: Duration,
 )
 

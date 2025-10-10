@@ -36,6 +36,8 @@ public fun LocationLayer(
   accuracyFillColor: Color = MaterialTheme.colorScheme.primary,
   accuracyStrokeColor: Color = accuracyFillColor,
   accuracyStrokeWidth: Dp = 1.dp,
+  bearingSize: Dp = 5.dp,
+  bearingColor: Color = MaterialTheme.colorScheme.secondary,
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
@@ -59,6 +61,8 @@ public fun LocationLayer(
     accuracyFillColor = accuracyFillColor,
     accuracyStrokeColor = accuracyStrokeColor,
     accuracyStrokeWidth = accuracyStrokeWidth,
+    bearingSize = bearingSize,
+    bearingColor = bearingColor,
     onClick = onClick,
     onLongClick = onLongClick,
   )

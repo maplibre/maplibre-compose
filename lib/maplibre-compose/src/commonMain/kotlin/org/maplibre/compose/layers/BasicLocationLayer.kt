@@ -1,8 +1,19 @@
 package org.maplibre.compose.layers
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.Path
+import androidx.compose.ui.graphics.vector.PathData
+import androidx.compose.ui.graphics.vector.path
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -10,6 +21,10 @@ import androidx.compose.ui.unit.times
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.FeatureCollection
 import io.github.dellisd.spatialk.geojson.Point
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.times
@@ -22,7 +37,13 @@ import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.dsl.dp
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.gt
+import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.expressions.dsl.minus
+import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.dsl.plus
 import org.maplibre.compose.expressions.dsl.switch
+import org.maplibre.compose.expressions.value.IconRotationAlignment
+import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.location.Location
 import org.maplibre.compose.location.UserLocationState
 import org.maplibre.compose.sources.GeoJsonData
@@ -49,9 +70,67 @@ public fun BasicLocationLayer(
   accuracyFillColor: Color = Color.Blue,
   accuracyStrokeColor: Color = accuracyFillColor,
   accuracyStrokeWidth: Dp = 1.dp,
+  bearingSize: Dp = 6.dp,
+  bearingColor: Color = Color.Red,
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
+  val bearingPainter =
+    rememberVectorPainter(
+      defaultWidth = bearingSize,
+      defaultHeight = bearingSize,
+      autoMirror = false,
+    ) { viewportWidth, viewportHeight ->
+      Path(
+        pathData =
+          PathData {
+            moveTo(0f, 0f)
+            lineTo(0f, viewportHeight)
+            lineTo(viewportWidth, 0f)
+            close()
+          },
+        fill = SolidColor(bearingColor),
+      )
+    }
+
+  val density by rememberUpdatedState(LocalDensity.current)
+
+  val dotRadius by rememberUpdatedState(dotRadius)
+  val dotStrokeWidth by rememberUpdatedState(dotStrokeWidth)
+  val bearingColor by rememberUpdatedState(bearingColor)
+
+  val bearingAccuracyVector by remember {
+    derivedStateOf {
+      val radius = with(density) { Offset(dotRadius.toPx(), dotRadius.toPx()) }
+
+      val deltaDegrees = 2 * (locationState.location?.bearingAccuracy ?: 0.0)
+      val delta = (PI * deltaDegrees / 180.0).toFloat()
+
+      val start = Offset(radius.x, 0f) + radius * 2f
+      val end = Offset(radius.x * cos(delta), radius.y * sin(delta)) + radius * 2f
+
+      ImageVector.Builder(
+          defaultWidth = 4 * dotRadius,
+          defaultHeight = 4 * dotRadius,
+          viewportWidth = with(density) { (4 * dotRadius.toPx()) },
+          viewportHeight = with(density) { (4 * dotRadius.toPx()) },
+          autoMirror = false,
+        )
+        .apply {
+          path(
+            stroke = SolidColor(bearingColor),
+            strokeLineWidth = with(density) { dotStrokeWidth.toPx() },
+          ) {
+            moveTo(start.x, start.y)
+            arcTo(radius.x, radius.y, 0f, delta > PI, delta > 0, end.x, end.y)
+          }
+        }
+        .build()
+    }
+  }
+
+  val bearingAccuracyPainter = rememberVectorPainter(bearingAccuracyVector)
+
   val features =
     remember(locationState.location) {
       val location = locationState.location
@@ -123,7 +202,32 @@ public fun BasicLocationLayer(
     strokeWidth = const(dotStrokeWidth),
   )
 
-  // TODO: symbol layer for bearing
+  SymbolLayer(
+    id = "$id-bearing",
+    source = locationSource,
+    visible = locationState.location?.bearing != null,
+    iconImage = image(bearingPainter),
+    iconAnchor = const(SymbolAnchor.Center),
+    iconRotate = feature["bearing"].asNumber() + const(45f),
+    iconOffset =
+      offset(
+        -(dotRadius + dotStrokeWidth) * sqrt(2f) / 2f,
+        -(dotRadius + dotStrokeWidth) * sqrt(2f) / 2f,
+      ),
+    iconRotationAlignment = const(IconRotationAlignment.Map),
+    iconAllowOverlap = const(true),
+  )
+
+  SymbolLayer(
+    id = "$id-bearingAccuracy",
+    source = locationSource,
+    visible = locationState.location?.bearingAccuracy != null,
+    iconImage = image(bearingAccuracyPainter),
+    iconAnchor = const(SymbolAnchor.Center),
+    iconRotate = feature["bearing"].asNumber() - const(90f) - feature["bearingAccuracy"].asNumber(),
+    iconRotationAlignment = const(IconRotationAlignment.Map),
+    iconAllowOverlap = const(true),
+  )
 }
 
 public typealias LocationClickHandler = (Location) -> Unit
