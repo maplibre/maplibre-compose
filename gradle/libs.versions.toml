@@ -9,9 +9,11 @@ kermit = "2.0.8"
 kotlin-wrappers = "2025.9.8"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.3.0"
+lifecycleRuntimeCompose = "2.9.4"
 maplibre-android-sdk = "11.13.5"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "4.7.1"              # TODO: is outdated; update to v5.x
+playServices-location = "21.3.0"
 spatialk = "0.3.0"                 # TODO: is unmaintained; watch for https://github.com/maplibre/maplibre-java/pull/40
 
 # Regular tools: keep as up to date as possible
@@ -51,6 +53,7 @@ htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconver
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-playServices = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 ktor-client-core = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
 ktor-client-darwin = { module = "io.ktor:ktor-client-darwin", version.ref = "ktor" }
@@ -58,11 +61,13 @@ ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
 maplibre-androidOpenGL = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android-sdk" }
 maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk-vulkan", version.ref = "maplibre-android-sdk" }
 maplibre-androidDebug = { module = "org.maplibre.gl:android-sdk-debug", version.ref = "maplibre-android-sdk" }
 maplibre-android-scalebar = { module = "org.maplibre.gl:android-plugin-scalebar-v9", version.ref = "maplibre-android-plugins" }
+playServices-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServices-location" }
 simplejni-annotations = { module = "io.github.gershnik:smjni-jnigen-annotations", version.ref = "simplejni" }
 simplejni-kprocessor = { module = "io.github.gershnik:smjni-jnigen-kprocessor", version.ref = "simplejni" }
 spatialk-geojson = { group = "io.github.dellisd.spatialk", name = "geojson", version.ref = "spatialk" }

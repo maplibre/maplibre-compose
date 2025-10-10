@@ -43,4 +43,5 @@ include(
   ":lib:maplibre-native-bindings",
   ":lib:maplibre-native-bindings-jni",
   ":lib:maplibre-js-bindings",
+  ":lib:maplibre-compose-gms",
 )

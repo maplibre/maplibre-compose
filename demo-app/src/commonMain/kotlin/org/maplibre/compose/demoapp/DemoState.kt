@@ -18,7 +18,11 @@ import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.MapClickDemo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
+import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
+import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.location.rememberDefaultGeoLocator
+import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.StyleState
@@ -28,6 +32,7 @@ class DemoState(
   val nav: NavHostController,
   val cameraState: CameraState,
   val styleState: StyleState,
+  val locationState: UserLocationState,
 ) {
 
   val mapClickEvents = mutableStateListOf<MapClickEvent>()
@@ -35,7 +40,7 @@ class DemoState(
   // TODO:
   // Camera follow
   // Image source
-  // User location
+
   val demos =
     (listOf(
       StyleSelectorDemo,
@@ -44,6 +49,7 @@ class DemoState(
       MarkersDemo,
       MapClickDemo,
       ClusteredPointsDemo,
+      UserLocationDemo,
     ) + Platform.extraDemos)
 
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
@@ -75,5 +81,9 @@ fun rememberDemoState(): DemoState {
   val nav = rememberNavController()
   val cameraState = rememberCameraState()
   val styleState = rememberStyleState()
-  return remember(nav, cameraState, styleState) { DemoState(nav, cameraState, styleState) }
+  val geoLocator = rememberDefaultGeoLocator()
+  val locationState = rememberUserLocationState(geoLocator)
+  return remember(nav, cameraState, styleState) {
+    DemoState(nav, cameraState, styleState, locationState)
+  }
 }
