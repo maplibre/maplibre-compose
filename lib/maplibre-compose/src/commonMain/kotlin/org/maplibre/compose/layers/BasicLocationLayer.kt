@@ -48,6 +48,7 @@ import org.maplibre.compose.location.Location
 import org.maplibre.compose.location.UserLocationState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.util.ClickResult
 
 @Composable
 public fun BasicLocationLayer(
@@ -200,6 +201,14 @@ public fun BasicLocationLayer(
       ),
     strokeColor = const(dotStrokeColor),
     strokeWidth = const(dotStrokeWidth),
+    onClick = {
+      locationState.location?.let { onClick?.invoke(it) }
+      ClickResult.Consume
+    },
+    onLongClick = {
+      locationState.location?.let { onLongClick?.invoke(it) }
+      ClickResult.Consume
+    },
   )
 
   SymbolLayer(
