@@ -29,6 +29,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.camera.LocationTrackingEffect
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
@@ -49,6 +50,48 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult
 
+/**
+ * A location layer show a dot at the users current location according to [locationState] and
+ * optionally a circle for the location accuracy. If supported and enabled, indicators for the
+ * current bearing and bearing accuracy are shown as well.
+ *
+ * **NOTE:** This "layer" is implemented as multiple distinct layers all using [id] as a prefix.
+ *
+ * @param id the prefix used for the layers to display the location indicator
+ * @param locationState a [UserLocationState] holding the location to display
+ * @param cameraState the [CameraState] of the map, used only for [CameraState.metersPerDpAtTarget]
+ *   to correctly draw the accuracy circle. The camera state is not modified by this composable, if
+ *   you want the camera to track the current location use [LocationTrackingEffect].
+ * @param oldLocationThreshold location with an [age][Location.age] older than this will be
+ *   considered old locations
+ * @param dotRadius the radius of the main location indicator dot
+ * @param dotFillColorCurrentLocation the fill color of the main indicator dot, when location is
+ *   *not* old according to [oldLocationThreshold]
+ * @param dotFillColorOldLocation the fill color of the main indicator dot, when location *is*
+ *   considered old according to [oldLocationThreshold]
+ * @param dotStrokeColor the stroke color for the border of the main indicator dot
+ * @param dotStrokeWidth the stroke width for the border of the main indicator dot
+ * @param shadowSize if positive, a shadow will be drawn underneath the main indicator dot with a
+ *   radius of `dotRadius + dotStrokeWidth + shadowSize`, i.e. the shadow extends [shadowSize]
+ *   beyond the dot
+ * @param shadowOffset an offset applied to the shadow of the main indicator dot
+ * @param shadowColor the color of the main indicator's shadow
+ * @param shadowBlur how much the blur the shadow (see `blur` parameter of [CircleLayer])
+ * @param accuracyThreshold a circle showing the accuracy range will be drawn, when
+ *   [Location.accuracy] is larger than this value. Use [Float.POSITIVE_INFINITY] to never show the
+ *   accuracy range.
+ * @param accuracyOpacity the opacity of the accuracy circle
+ * @param accuracyFillColor the fill color of the accuracy circle
+ * @param accuracyStrokeColor the stroke color of the accuracy circle's border
+ * @param accuracyStrokeWidth the stroke width of the accuracy circle's border
+ * @param showBearing whether to show an indicator for [Location.bearing]
+ * @param bearingSize the size of the bearing indicator
+ * @param bearingColor the color of the bearing indicator
+ * @param showBearingAccuracy whether to show an indicator for [Location.bearingAccuracy]
+ * @param onClick a [LocationClickHandler] to invoke when the main location indicator dot is clicked
+ * @param onClick a [LocationClickHandler] to invoke when the main location indicator dot is
+ *   long-clicked
+ */
 @Composable
 public fun BasicLocationLayer(
   id: String,

@@ -30,6 +30,7 @@ import org.maplibre.compose.location.GeoLocator
 import org.maplibre.compose.location.Location
 import org.maplibre.compose.location.asMapLibreLocation
 
+/** A [GeoLocator] based on a [LocationRequest] for [FusedLocationProviderClient] */
 public class FusedGeoLocator
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]

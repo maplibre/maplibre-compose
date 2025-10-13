@@ -13,6 +13,19 @@ import kotlinx.coroutines.flow.filterNotNull
 import org.maplibre.compose.location.Location
 import org.maplibre.compose.location.UserLocationState
 
+/**
+ * A form of [LaunchedEffect] that is specialized for tracking user location.
+ *
+ * [onLocationChange] will be called, whenever the [location][UserLocationState.location] of
+ * [locationState] changes according to the given parameters. Only [Location]s whose `latitude` or
+ * `longitude` changes by at least [precision] compared to the previous location will result in a
+ * call to [onLocationChange]. If [trackBearing] is `true`, the `bearing` must change by at least
+ * [precision] as well (or change between null/non-null).
+ *
+ * If [enabled] is `false` [onLocationChange] will never be called and location is not monitored,
+ * i.e. the [GeoLocator][org.maplibre.compose.location.GeoLocator] underneath [locationState] may
+ * stop requesting location updates from the platform.
+ */
 @Composable
 public fun LocationTrackingEffect(
   locationState: UserLocationState,

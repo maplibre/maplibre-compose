@@ -17,6 +17,13 @@ public enum class DesiredAccuracy {
   Lowest,
 }
 
+/**
+ * Create and remember a [GeoLocator] using the default implementation for the platform.
+ *
+ * **NOTE:** There are also platform-specific `remember*GeoLocator` functions you may want to use.
+ *
+ * @param updateInterval
+ */
 @Composable
 public expect fun rememberDefaultGeoLocator(
   updateInterval: Duration = 1.seconds,

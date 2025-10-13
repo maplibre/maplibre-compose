@@ -12,6 +12,7 @@ import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 
 public class UserLocationState internal constructor(locationState: State<Location?>) {
+  /** The user's current or last known location */
   public val location: Location? by locationState
 }
 

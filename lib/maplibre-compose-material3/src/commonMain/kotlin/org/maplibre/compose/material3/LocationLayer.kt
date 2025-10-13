@@ -14,6 +14,11 @@ import org.maplibre.compose.layers.BasicLocationLayer
 import org.maplibre.compose.layers.LocationClickHandler
 import org.maplibre.compose.location.UserLocationState
 
+/**
+ * A Material 3 themed variant of [BasicLocationLayer].
+ *
+ * @see BasicLocationLayer
+ */
 @Composable
 public fun LocationLayer(
   id: String,

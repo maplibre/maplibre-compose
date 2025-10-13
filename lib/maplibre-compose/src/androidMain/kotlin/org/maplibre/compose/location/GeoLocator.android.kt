@@ -27,6 +27,17 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
 
+/**
+ * A [GeoLocator] built on the [LocationManager] platform APIs.
+ *
+ * The [LocationManager.PASSIVE_PROVIDER] will be used for [DesiredAccuracy.Lowest], otherwise an
+ * appropriate provider and configuration is chosen based on API level and [desiredAccuracy].
+ *
+ * @param locationManager the [LocationManager] system service
+ * @param updateInterval the *minimum* time between location updates, the value is coerced to be at
+ *   least 1 second
+ * @param desiredAccuracy the [DesiredAccuracy] for location updates.
+ */
 public class AndroidGeoLocator
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]

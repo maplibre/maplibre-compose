@@ -23,6 +23,14 @@ import org.maplibre.android.location.engine.LocationEngineDefault
 import org.maplibre.android.location.engine.LocationEngineRequest
 import org.maplibre.android.location.engine.LocationEngineResult
 
+/**
+ * A [GeoLocator] based on a [LocationEngine] implementation and a provided [LocationEngineRequest].
+ *
+ * This implementation is provided only for backwards compatibility with existing [LocationEngine]
+ * implementations in apps migrating to `maplibre-compose`. Always prefer using one of the other
+ * provided [GeoLocator] implementations, or (re-)writing a custom [GeoLocator] from scratch if
+ * possible.
+ */
 public class LocationEngineGeoLocator
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
