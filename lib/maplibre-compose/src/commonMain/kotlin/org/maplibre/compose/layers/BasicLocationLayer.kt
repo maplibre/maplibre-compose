@@ -27,7 +27,6 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.times
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.asNumber
@@ -147,7 +146,7 @@ public fun BasicLocationLayer(
                 "accuracy" to JsonPrimitive(location.accuracy),
                 "bearing" to JsonPrimitive(location.bearing),
                 "bearingAccuracy" to JsonPrimitive(location.bearingAccuracy),
-                "age" to JsonPrimitive(location.age.inWholeNanoseconds.toFloat()),
+                "age" to JsonPrimitive(location.timestamp.elapsedNow().inWholeNanoseconds),
               ),
           )
         )

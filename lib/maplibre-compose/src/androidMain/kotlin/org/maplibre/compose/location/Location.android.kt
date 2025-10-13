@@ -5,6 +5,7 @@ import android.os.Build
 import android.os.SystemClock
 import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.TimeSource
 
 public fun AndroidLocation.asMapLibreLocation(): Location =
   Location(
@@ -17,5 +18,8 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
       } else {
         null
       },
-    age = (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos).nanoseconds,
+    timestamp =
+      (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos).nanoseconds.let { age ->
+        TimeSource.Monotonic.markNow() - age
+      },
   )
