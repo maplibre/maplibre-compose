@@ -71,6 +71,8 @@ public fun BasicLocationLayer(
   accuracyFillColor: Color = Color.Blue,
   accuracyStrokeColor: Color = accuracyFillColor,
   accuracyStrokeWidth: Dp = 1.dp,
+  showBearing: Boolean = true,
+  showBearingAccuracy: Boolean = true,
   bearingSize: Dp = 6.dp,
   bearingColor: Color = Color.Red,
   onClick: LocationClickHandler? = null,
@@ -214,10 +216,10 @@ public fun BasicLocationLayer(
   SymbolLayer(
     id = "$id-bearing",
     source = locationSource,
-    visible = locationState.location?.bearing != null,
+    visible = showBearing && locationState.location?.bearing != null,
     iconImage = image(bearingPainter),
     iconAnchor = const(SymbolAnchor.Center),
-    iconRotate = feature["bearing"].asNumber() + const(45f),
+    iconRotate = feature["bearing"].asNumber(const(0f)) + const(45f),
     iconOffset =
       offset(
         -(dotRadius + dotStrokeWidth) * sqrt(2f) / 2f,
@@ -230,10 +232,16 @@ public fun BasicLocationLayer(
   SymbolLayer(
     id = "$id-bearingAccuracy",
     source = locationSource,
-    visible = locationState.location?.bearingAccuracy != null,
+    visible =
+      showBearingAccuracy &&
+        locationState.location?.bearing != null &&
+        locationState.location?.bearingAccuracy != null,
     iconImage = image(bearingAccuracyPainter),
     iconAnchor = const(SymbolAnchor.Center),
-    iconRotate = feature["bearing"].asNumber() - const(90f) - feature["bearingAccuracy"].asNumber(),
+    iconRotate =
+      feature["bearing"].asNumber(const(0f)) -
+        const(90f) -
+        feature["bearingAccuracy"].asNumber(const(0f)),
     iconRotationAlignment = const(IconRotationAlignment.Map),
     iconAllowOverlap = const(true),
   )

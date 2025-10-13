@@ -76,6 +76,8 @@ object UserLocationDemo : Demo {
       locationState = state.locationState,
       cameraState = state.cameraState,
       accuracyThreshold = 0f,
+      showBearing = bearingUpdate != BearingUpdate.IGNORE,
+      showBearingAccuracy = bearingUpdate != BearingUpdate.IGNORE,
       onClick = { location ->
         locationClickedCount++
         if (trackLocation) {
