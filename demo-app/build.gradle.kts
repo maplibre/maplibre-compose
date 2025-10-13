@@ -109,6 +109,10 @@ kotlin {
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.ktor.client.okhttp)
 
+        implementation(project(":lib:maplibre-compose-gms")) {
+          exclude(group = "org.maplibre.gl", module = "android-sdk")
+        }
+
         project.properties["demoAppMaplibreAndroidFlavor"].let { flavor ->
           when (flavor) {
             null,
