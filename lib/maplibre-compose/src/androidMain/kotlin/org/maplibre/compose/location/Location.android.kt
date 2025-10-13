@@ -18,6 +18,13 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
       } else {
         null
       },
+    speed = if (hasSpeed()) speed.toDouble() else null,
+    speedAccuracy =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasSpeedAccuracy()) {
+        speedAccuracyMetersPerSecond.toDouble()
+      } else {
+        null
+      },
     timestamp =
       (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos).nanoseconds.let { age ->
         TimeSource.Monotonic.markNow() - age
