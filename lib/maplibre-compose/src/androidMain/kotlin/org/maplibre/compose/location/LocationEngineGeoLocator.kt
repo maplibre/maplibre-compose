@@ -3,13 +3,7 @@ package org.maplibre.compose.location
 import android.Manifest
 import android.os.HandlerThread
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.RememberObserver
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.ui.platform.LocalContext
 import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +13,6 @@ import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
 import org.maplibre.android.location.engine.LocationEngine
 import org.maplibre.android.location.engine.LocationEngineCallback
-import org.maplibre.android.location.engine.LocationEngineDefault
 import org.maplibre.android.location.engine.LocationEngineRequest
 import org.maplibre.android.location.engine.LocationEngineResult
 
@@ -37,7 +30,7 @@ public class LocationEngineGeoLocator
 )
 constructor(
   private val locationEngine: LocationEngine,
-  private val locationEngineRequest: LocationEngineRequest,
+  private val locationEngineRequest: LocationEngineRequest = defaultLocationEngineRequest,
   coroutineScope: CoroutineScope,
 ) : GeoLocator, LocationEngineCallback<LocationEngineResult>, RememberObserver {
   private val _location = MutableStateFlow<Location?>(null)
@@ -90,32 +83,6 @@ constructor(
 
   private companion object {
     private val handlerThread by lazy { HandlerThread("LocationEngineGeoLocator") }
-  }
-}
-
-@Composable
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
-public fun rememberAndroidGeoLocator(
-  locationEngineRequest: LocationEngineRequest = defaultLocationEngineRequest
-): GeoLocator {
-  val context by rememberUpdatedState(LocalContext.current)
-  val locationEngine = remember(context) { LocationEngineDefault.getDefaultLocationEngine(context) }
-  return rememberAndroidGeoLocator(locationEngine, locationEngineRequest)
-}
-
-@Composable
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
-public fun rememberAndroidGeoLocator(
-  locationEngine: LocationEngine,
-  locationEngineRequest: LocationEngineRequest = defaultLocationEngineRequest,
-): GeoLocator {
-  val coroutineScope = rememberCoroutineScope()
-  return remember(locationEngine) {
-    LocationEngineGeoLocator(locationEngine, locationEngineRequest, coroutineScope)
   }
 }
 
