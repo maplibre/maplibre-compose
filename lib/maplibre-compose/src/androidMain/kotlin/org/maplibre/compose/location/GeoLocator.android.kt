@@ -236,6 +236,18 @@ public actual fun rememberDefaultGeoLocator(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
 ): GeoLocator {
+  return rememberAndroidGeoLocator(updateInterval, desiredAccuracy)
+}
+
+/** Create and remember an [AndroidGeoLocator], the default [GeoLocator] for Android */
+@Composable
+@RequiresPermission(
+  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
+)
+public fun rememberAndroidGeoLocator(
+  updateInterval: Duration,
+  desiredAccuracy: DesiredAccuracy,
+): AndroidGeoLocator {
   val context by rememberUpdatedState(LocalContext.current)
   val coroutineScope = rememberCoroutineScope()
   return remember(context) {

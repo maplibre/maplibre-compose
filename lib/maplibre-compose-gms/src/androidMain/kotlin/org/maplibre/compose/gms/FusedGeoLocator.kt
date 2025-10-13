@@ -1,13 +1,12 @@
 package org.maplibre.compose.gms
 
 import android.Manifest
+import android.content.Context
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.RememberObserver
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Granularity
@@ -98,19 +97,32 @@ constructor(
   }
 }
 
+/**
+ * Create and remember a [FusedGeoLocator] with the provided [locationRequest]
+ *
+ * The [minimum update interval][LocationRequest.getMinUpdateIntervalMillis] will be coerced to be
+ * at least 1 second.
+ */
 @Composable
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
 public fun rememberFusedGeoLocator(
-  locationRequest: LocationRequest = defaultLocationRequest
-): GeoLocator {
-  val context by rememberUpdatedState(LocalContext.current)
+  context: Context = LocalContext.current,
+  locationRequest: LocationRequest = defaultLocationRequest,
+): FusedGeoLocator {
   val locationClient =
     remember(context) { LocationServices.getFusedLocationProviderClient(context) }
   return rememberFusedGeoLocator(locationClient, locationRequest)
 }
 
+/**
+ * Create and remember a [FusedGeoLocator] with the provided [locationRequest] and
+ * [fusedLocationProviderClient]
+ *
+ * The [minimum update interval][LocationRequest.getMinUpdateIntervalMillis] will be coerced to be
+ * at least 1 second.
+ */
 @Composable
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
@@ -118,12 +130,15 @@ public fun rememberFusedGeoLocator(
 public fun rememberFusedGeoLocator(
   fusedLocationProviderClient: FusedLocationProviderClient,
   locationRequest: LocationRequest = defaultLocationRequest,
-): GeoLocator {
+): FusedGeoLocator {
   val coroutineScope = rememberCoroutineScope()
   return remember(fusedLocationProviderClient) {
     FusedGeoLocator(
       locationClient = fusedLocationProviderClient,
-      locationRequest = LocationRequest.Builder(locationRequest).build(),
+      locationRequest =
+        LocationRequest.Builder(locationRequest)
+          .setMinUpdateIntervalMillis(locationRequest.minUpdateIntervalMillis.coerceAtLeast(1000))
+          .build(),
       coroutineScope = coroutineScope,
     )
   }
