@@ -43,15 +43,15 @@ public fun LocationTrackingEffect(
       .filterNotNull()
       .distinctUntilChanged equal@{ old, new ->
         if (trackBearing && (old.bearing != null || new.bearing != null)) {
-          if (old.bearing == null) return@equal true
-          if (new.bearing == null) return@equal true
-          if (abs(old.bearing - new.bearing) >= precision) return@equal true
+          if (old.bearing == null) return@equal false
+          if (new.bearing == null) return@equal false
+          if (abs(old.bearing - new.bearing) >= precision) return@equal false
         }
 
-        if (abs(old.position.latitude - new.position.latitude) >= precision) return@equal true
-        if (abs(old.position.longitude - new.position.longitude) >= precision) return@equal true
+        if (abs(old.position.latitude - new.position.latitude) >= precision) return@equal false
+        if (abs(old.position.longitude - new.position.longitude) >= precision) return@equal false
 
-        false
+        true
       }
       .collect(changeCollector)
   }
