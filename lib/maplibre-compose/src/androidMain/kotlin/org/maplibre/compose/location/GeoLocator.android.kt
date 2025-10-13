@@ -2,7 +2,6 @@ package org.maplibre.compose.location
 
 import android.Manifest
 import android.location.Criteria
-import android.location.Location as AndroidLocation
 import android.location.LocationListener
 import android.location.LocationManager
 import android.location.LocationRequest
@@ -12,20 +11,19 @@ import android.os.HandlerThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.stateIn
 
 /**
  * A [GeoLocator] built on the [LocationManager] platform APIs.
@@ -34,9 +32,10 @@ import kotlinx.coroutines.launch
  * appropriate provider and configuration is chosen based on API level and [desiredAccuracy].
  *
  * @param locationManager the [LocationManager] system service
- * @param updateInterval the *minimum* time between location updates, the value is coerced to be at
- *   least 1 second
+ * @param updateInterval the *minimum* time between location updates
  * @param desiredAccuracy the [DesiredAccuracy] for location updates.
+ * @param coroutineScope the [CoroutineScope] used to share the [location] flow
+ * @param sharingStarted parameter for [stateIn] call of [location]
  */
 public class AndroidGeoLocator
 @RequiresPermission(
@@ -47,88 +46,96 @@ constructor(
   updateInterval: Duration,
   private val desiredAccuracy: DesiredAccuracy,
   coroutineScope: CoroutineScope,
-) : GeoLocator, LocationListener, RememberObserver {
-  private val _location = MutableStateFlow<Location?>(null)
-  override val location: StateFlow<Location?> = _location.asStateFlow()
+  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
+) : GeoLocator {
+  override val location: StateFlow<Location?>
 
   init {
     if (!handlerThread.isAlive) {
       handlerThread.start()
     }
-    val updateInterval = updateInterval.coerceAtLeast(1.seconds)
 
-    if (desiredAccuracy == DesiredAccuracy.Lowest) {
-      initPassive(locationManager, updateInterval)
-    } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-      initApi31(locationManager, updateInterval, desiredAccuracy)
-    } else {
-      initCompat(locationManager, updateInterval, desiredAccuracy)
-    }
-
-    coroutineScope.launch {
-      _location.subscriptionCount
-        .distinctUntilChangedBy { it > 0 }
-        .collect { subscriptionCount ->
-          if (subscriptionCount > 0) {
+    location =
+      callbackFlow {
+          val lastLocation =
             if (desiredAccuracy == DesiredAccuracy.Lowest) {
-              startPassive(locationManager, updateInterval)
+              lastLocationPassive(locationManager, updateInterval)
             } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-              startApi31(locationManager, updateInterval, desiredAccuracy)
+              lastLocationApi31(locationManager, updateInterval, desiredAccuracy)
             } else {
-              startCompat(locationManager, updateInterval, desiredAccuracy)
+              lastLocationCompat(locationManager, updateInterval, desiredAccuracy)
             }
+          send(lastLocation)
+
+          val listener = LocationListener { trySendBlocking(it.asMapLibreLocation()).getOrThrow() }
+
+          if (desiredAccuracy == DesiredAccuracy.Lowest) {
+            startPassive(locationManager, updateInterval, listener)
+          } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            startApi31(locationManager, updateInterval, desiredAccuracy, listener)
           } else {
-            removeListener()
+            startCompat(locationManager, updateInterval, desiredAccuracy, listener)
           }
+
+          awaitClose { locationManager.removeUpdates(listener) }
         }
-    }
+        .stateIn(coroutineScope, sharingStarted, null)
   }
 
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
-  private fun initPassive(locationManager: LocationManager, updateInterval: Duration) {
-    _location.value =
-      locationManager.getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)?.asMapLibreLocation()
+  private fun lastLocationPassive(
+    locationManager: LocationManager,
+    updateInterval: Duration,
+  ): Location? {
+    return locationManager
+      .getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
+      ?.asMapLibreLocation()
   }
 
   @RequiresApi(Build.VERSION_CODES.S)
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
-  private fun initApi31(
+  private fun lastLocationApi31(
     locationManager: LocationManager,
     updateInterval: Duration,
     desiredAccuracy: DesiredAccuracy,
-  ) {
-    _location.value =
-      locationManager.getLastKnownLocation(LocationManager.FUSED_PROVIDER)?.asMapLibreLocation()
+  ): Location? {
+    return locationManager
+      .getLastKnownLocation(LocationManager.FUSED_PROVIDER)
+      ?.asMapLibreLocation()
   }
 
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
-  private fun initCompat(
+  private fun lastLocationCompat(
     locationManager: LocationManager,
     updateInterval: Duration,
     desiredAccuracy: DesiredAccuracy,
-  ) {
+  ): Location? {
     val criteria = getCriteria(desiredAccuracy)
 
     @Suppress("DEPRECATION")
     val provider = locationManager.getBestProvider(criteria, true) ?: LocationManager.GPS_PROVIDER
-    _location.value = locationManager.getLastKnownLocation(provider)?.asMapLibreLocation()
+    return locationManager.getLastKnownLocation(provider)?.asMapLibreLocation()
   }
 
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
-  private fun startPassive(locationManager: LocationManager, updateInterval: Duration) {
+  private fun startPassive(
+    locationManager: LocationManager,
+    updateInterval: Duration,
+    listener: LocationListener,
+  ) {
     locationManager.requestLocationUpdates(
       LocationManager.PASSIVE_PROVIDER,
       updateInterval.inWholeMilliseconds,
       0f,
-      this,
+      listener,
       handlerThread.looper,
     )
   }
@@ -141,6 +148,7 @@ constructor(
     locationManager: LocationManager,
     updateInterval: Duration,
     desiredAccuracy: DesiredAccuracy,
+    listener: LocationListener,
   ) {
     locationManager.requestLocationUpdates(
       LocationManager.FUSED_PROVIDER,
@@ -157,7 +165,7 @@ constructor(
         .setMinUpdateIntervalMillis(1000)
         .build(),
       HandlerExecutor(Handler(handlerThread.looper)),
-      this,
+      listener,
     )
   }
 
@@ -168,6 +176,7 @@ constructor(
     locationManager: LocationManager,
     updateInterval: Duration,
     desiredAccuracy: DesiredAccuracy,
+    listener: LocationListener,
   ) {
     val criteria = getCriteria(desiredAccuracy)
 
@@ -178,7 +187,7 @@ constructor(
       provider,
       updateInterval.inWholeMilliseconds,
       0f,
-      this,
+      listener,
       handlerThread.looper,
     )
   }
@@ -204,24 +213,6 @@ constructor(
           DesiredAccuracy.Lowest -> error("unreachable")
         }
     }
-
-  override fun onLocationChanged(location: AndroidLocation) {
-    _location.value = location.asMapLibreLocation()
-  }
-
-  override fun onRemembered() {}
-
-  override fun onAbandoned() {
-    removeListener()
-  }
-
-  override fun onForgotten() {
-    removeListener()
-  }
-
-  private fun removeListener() {
-    locationManager.removeUpdates(this)
-  }
 
   private companion object {
     private val handlerThread by lazy { HandlerThread("AndroidGeoLocator") }

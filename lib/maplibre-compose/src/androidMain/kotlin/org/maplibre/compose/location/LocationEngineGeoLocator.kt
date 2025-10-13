@@ -3,14 +3,13 @@ package org.maplibre.compose.location
 import android.Manifest
 import android.os.HandlerThread
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.RememberObserver
-import kotlin.time.ExperimentalTime
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.stateIn
 import org.maplibre.android.location.engine.LocationEngine
 import org.maplibre.android.location.engine.LocationEngineCallback
 import org.maplibre.android.location.engine.LocationEngineRequest
@@ -23,6 +22,11 @@ import org.maplibre.android.location.engine.LocationEngineResult
  * implementations in apps migrating to `maplibre-compose`. Always prefer using one of the other
  * provided [GeoLocator] implementations, or (re-)writing a custom [GeoLocator] from scratch if
  * possible.
+ *
+ * @param locationEngine the [LocationEngine] to use
+ * @param locationEngineRequest the [LocationEngineRequest] to use
+ * @param coroutineScope the [CoroutineScope] used to share the [location] flow
+ * @param sharingStarted parameter for [stateIn] call of [location]
  */
 public class LocationEngineGeoLocator
 @RequiresPermission(
@@ -32,53 +36,37 @@ constructor(
   private val locationEngine: LocationEngine,
   private val locationEngineRequest: LocationEngineRequest = defaultLocationEngineRequest,
   coroutineScope: CoroutineScope,
-) : GeoLocator, LocationEngineCallback<LocationEngineResult>, RememberObserver {
-  private val _location = MutableStateFlow<Location?>(null)
-  override val location: StateFlow<Location?> = _location.asStateFlow()
+  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
+) : GeoLocator {
+  override val location: StateFlow<Location?>
 
   init {
-    locationEngine.getLastLocation(this)
-
     if (!handlerThread.isAlive) {
       handlerThread.start()
     }
 
-    coroutineScope.launch {
-      _location.subscriptionCount
-        .distinctUntilChangedBy { it > 0 }
-        .collect { subscriptionCount ->
-          if (subscriptionCount > 0) {
-            locationEngine.requestLocationUpdates(
-              locationEngineRequest,
-              this@LocationEngineGeoLocator,
-              handlerThread.looper,
-            )
-          } else {
-            removeListener()
-          }
+    location =
+      callbackFlow {
+          val callback =
+            object : LocationEngineCallback<LocationEngineResult> {
+              override fun onSuccess(result: LocationEngineResult?) {
+                result?.locations?.forEach { trySendBlocking(it.asMapLibreLocation()).getOrThrow() }
+              }
+
+              override fun onFailure(exception: Exception) {}
+            }
+
+          locationEngine.getLastLocation(callback)
+
+          locationEngine.requestLocationUpdates(
+            locationEngineRequest,
+            callback,
+            handlerThread.looper,
+          )
+
+          awaitClose { locationEngine.removeLocationUpdates(callback) }
         }
-    }
-  }
-
-  @OptIn(ExperimentalTime::class)
-  override fun onSuccess(result: LocationEngineResult?) {
-    result?.locations?.forEach { _location.value = it.asMapLibreLocation() }
-  }
-
-  override fun onFailure(exception: Exception) {}
-
-  override fun onRemembered() {}
-
-  override fun onAbandoned() {
-    removeListener()
-  }
-
-  override fun onForgotten() {
-    removeListener()
-  }
-
-  private fun removeListener() {
-    locationEngine.removeLocationUpdates(this)
+        .stateIn(coroutineScope, sharingStarted, null)
   }
 
   private companion object {
