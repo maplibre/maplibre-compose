@@ -158,7 +158,9 @@ public fun BasicLocationLayer(
   CircleLayer(
     id = "$id-accuracy",
     source = locationSource,
-    visible = locationState.location.let { it != null && it.accuracy > accuracyThreshold },
+    visible =
+      accuracyThreshold <= Float.POSITIVE_INFINITY &&
+        locationState.location.let { it != null && it.accuracy > accuracyThreshold },
     radius =
       switch(
         condition(
@@ -178,8 +180,8 @@ public fun BasicLocationLayer(
   CircleLayer(
     id = "$id-shadow",
     source = locationSource,
-    visible = locationState.location != null,
-    radius = const(dotRadius + 2 * shadowSize),
+    visible = shadowSize > 0.dp && locationState.location != null,
+    radius = const(dotRadius + dotStrokeWidth + shadowSize),
     color = const(shadowColor),
     blur = const(shadowBlur),
     translate = const(DpOffset(0.dp, 1.dp)),

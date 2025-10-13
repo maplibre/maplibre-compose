@@ -2,10 +2,12 @@ package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshotFlow
 import kotlin.math.abs
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import org.maplibre.compose.location.Location
@@ -19,7 +21,9 @@ public fun LocationTrackingEffect(
   precision: Double = 0.00001, // approx 1 m
   onLocationChange: suspend LocationChangeScope.() -> Unit,
 ) {
-  LaunchedEffect(enabled, trackBearing) {
+  val changeCollector = remember(onLocationChange) { LocationChangeCollector(onLocationChange) }
+
+  LaunchedEffect(enabled, trackBearing, changeCollector) {
     if (!enabled) return@LaunchedEffect
 
     snapshotFlow { locationState.location }
@@ -28,21 +32,36 @@ public fun LocationTrackingEffect(
         if (trackBearing && (old.bearing != null || new.bearing != null)) {
           if (old.bearing == null) return@equal true
           if (new.bearing == null) return@equal true
-          if (abs(old.bearing - new.bearing) > precision) return@equal true
+          if (abs(old.bearing - new.bearing) >= precision) return@equal true
         }
 
-        if (abs(old.position.latitude - new.position.latitude) > precision) return@equal true
-        if (abs(old.position.longitude - new.position.longitude) > precision) return@equal true
+        if (abs(old.position.latitude - new.position.latitude) >= precision) return@equal true
+        if (abs(old.position.longitude - new.position.longitude) >= precision) return@equal true
 
         false
       }
-      .collect { LocationChangeScopeImpl(currentLocation = it).onLocationChange() }
+      .collect(changeCollector)
   }
 }
 
+/**
+ * Provides an easy mechanism to keep a map's [CameraState] in sync with the current location via
+ * [LocationTrackingEffect].
+ */
 public interface LocationChangeScope {
+  /** The previous [Location] before the location change */
+  public val previousLocation: Location?
+
+  /** The [Location] that caused the location change */
   public val currentLocation: Location
 
+  /**
+   * Convenience method for updating a [CameraState] based on this location change
+   *
+   * @param animationDuration if `null` updates [CameraState.position] directly without animation,
+   *   otherwise specifies the duration of the camera animation
+   * @param updateBearing determines how the [Location.bearing] affects the camera state
+   */
   public suspend fun CameraState.updateFromLocation(
     animationDuration: Duration? = 300.milliseconds,
     updateBearing: BearingUpdate = BearingUpdate.TRACK_LOCATION,
@@ -50,13 +69,27 @@ public interface LocationChangeScope {
 }
 
 public enum class BearingUpdate {
+  /** ignore changes in bearing and keep current orientation */
   IGNORE,
+
+  /** ignore changes in bearing and reset orientation to point north */
   ALWAYS_NORTH,
+
+  /** update camera orientation based on location bearing */
   TRACK_LOCATION,
 }
 
-internal class LocationChangeScopeImpl(override val currentLocation: Location) :
-  LocationChangeScope {
+internal class LocationChangeCollector(private val onEmit: suspend LocationChangeScope.() -> Unit) :
+  FlowCollector<Location>, LocationChangeScope {
+  override var previousLocation: Location? = null
+  override lateinit var currentLocation: Location
+
+  override suspend fun emit(value: Location) {
+    currentLocation = value
+    onEmit()
+    previousLocation = value
+  }
+
   override suspend fun CameraState.updateFromLocation(
     animationDuration: Duration?,
     updateBearing: BearingUpdate,
