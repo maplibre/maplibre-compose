@@ -9,7 +9,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlin.time.times
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.layers.BasicLocationLayer
 import org.maplibre.compose.layers.LocationClickHandler
@@ -20,8 +19,7 @@ public fun LocationLayer(
   id: String,
   locationState: UserLocationState,
   cameraState: CameraState,
-  updateInterval: Duration = 1.seconds,
-  oldLocationThreshold: Duration = 2 * updateInterval,
+  oldLocationThreshold: Duration = 30.seconds,
   dotRadius: Dp = 7.dp,
   dotFillColorCurrentLocation: Color = MaterialTheme.colorScheme.primary,
   dotFillColorOldLocation: Color = MaterialTheme.colorScheme.surfaceDim,
@@ -37,9 +35,9 @@ public fun LocationLayer(
   accuracyStrokeColor: Color = accuracyFillColor,
   accuracyStrokeWidth: Dp = 1.dp,
   showBearing: Boolean = true,
-  showBearingAccuracy: Boolean = true,
   bearingSize: Dp = 5.dp,
   bearingColor: Color = MaterialTheme.colorScheme.secondary,
+  showBearingAccuracy: Boolean = true,
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
@@ -47,7 +45,6 @@ public fun LocationLayer(
     id = id,
     locationState = locationState,
     cameraState = cameraState,
-    updateInterval = updateInterval,
     oldLocationThreshold = oldLocationThreshold,
     dotRadius = dotRadius,
     dotFillColorCurrentLocation = dotFillColorCurrentLocation,
@@ -64,9 +61,9 @@ public fun LocationLayer(
     accuracyStrokeColor = accuracyStrokeColor,
     accuracyStrokeWidth = accuracyStrokeWidth,
     showBearing = showBearing,
-    showBearingAccuracy = showBearingAccuracy,
     bearingSize = bearingSize,
     bearingColor = bearingColor,
+    showBearingAccuracy = showBearingAccuracy,
     onClick = onClick,
     onLongClick = onLongClick,
   )
