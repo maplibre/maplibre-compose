@@ -23,6 +23,7 @@ public enum class DesiredAccuracy {
  * **NOTE:** There are also platform-specific `remember*GeoLocator` functions you may want to use.
  *
  * @param updateInterval
+ * @throws NotImplementedError if [GeoLocator] no default [GeoLocator] is provided for the platform
  */
 @Composable
 public expect fun rememberDefaultGeoLocator(
