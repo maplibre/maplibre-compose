@@ -7,6 +7,7 @@ import kotlin.time.Duration
 public actual fun rememberDefaultGeoLocator(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
+  minDistanceMeters: Double,
 ): GeoLocator {
   throw NotImplementedError("no default implementation for desktop")
 }

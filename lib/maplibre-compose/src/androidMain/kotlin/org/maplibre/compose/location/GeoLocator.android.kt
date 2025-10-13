@@ -1,6 +1,7 @@
 package org.maplibre.compose.location
 
 import android.Manifest
+import android.content.Context
 import android.location.Criteria
 import android.location.LocationListener
 import android.location.LocationManager
@@ -11,10 +12,8 @@ import android.os.HandlerThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.platform.LocalContext
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
@@ -44,6 +43,7 @@ public class AndroidGeoLocator
 constructor(
   private val locationManager: LocationManager,
   updateInterval: Duration,
+  private val minDistanceMeters: Float,
   private val desiredAccuracy: DesiredAccuracy,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
@@ -134,7 +134,7 @@ constructor(
     locationManager.requestLocationUpdates(
       LocationManager.PASSIVE_PROVIDER,
       updateInterval.inWholeMilliseconds,
-      0f,
+      minDistanceMeters,
       listener,
       handlerThread.looper,
     )
@@ -162,7 +162,7 @@ constructor(
             DesiredAccuracy.Lowest -> error("unreachable")
           }
         )
-        .setMinUpdateIntervalMillis(1000)
+        .setMinUpdateDistanceMeters(minDistanceMeters)
         .build(),
       HandlerExecutor(Handler(handlerThread.looper)),
       listener,
@@ -186,7 +186,7 @@ constructor(
     locationManager.requestLocationUpdates(
       provider,
       updateInterval.inWholeMilliseconds,
-      0f,
+      minDistanceMeters,
       listener,
       handlerThread.looper,
     )
@@ -226,8 +226,13 @@ constructor(
 public actual fun rememberDefaultGeoLocator(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
+  minDistanceMeters: Double,
 ): GeoLocator {
-  return rememberAndroidGeoLocator(updateInterval, desiredAccuracy)
+  return rememberAndroidGeoLocator(
+    updateInterval = updateInterval,
+    desiredAccuracy = desiredAccuracy,
+    minDistanceMeters = minDistanceMeters.toFloat(),
+  )
 }
 
 /** Create and remember an [AndroidGeoLocator], the default [GeoLocator] for Android */
@@ -238,15 +243,26 @@ public actual fun rememberDefaultGeoLocator(
 public fun rememberAndroidGeoLocator(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
+  minDistanceMeters: Float,
+  context: Context = LocalContext.current,
+  coroutineScope: CoroutineScope = rememberCoroutineScope(),
+  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ): AndroidGeoLocator {
-  val context by rememberUpdatedState(LocalContext.current)
-  val coroutineScope = rememberCoroutineScope()
-  return remember(context) {
+  return remember(
+    context,
+    updateInterval,
+    desiredAccuracy,
+    minDistanceMeters,
+    coroutineScope,
+    sharingStarted,
+  ) {
     AndroidGeoLocator(
       locationManager = context.getSystemService(LocationManager::class.java),
       updateInterval = updateInterval,
       desiredAccuracy = desiredAccuracy,
+      minDistanceMeters = minDistanceMeters,
       coroutineScope = coroutineScope,
+      sharingStarted = sharingStarted,
     )
   }
 }

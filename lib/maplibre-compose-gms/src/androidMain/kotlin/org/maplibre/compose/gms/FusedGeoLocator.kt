@@ -46,7 +46,7 @@ constructor(
   private val locationClient: FusedLocationProviderClient,
   private val locationRequest: LocationRequest,
   coroutineScope: CoroutineScope,
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
+  sharingStarted: SharingStarted,
 ) : GeoLocator {
   @Suppress("JoinDeclarationAndAssignment") // because of @RequiresPermission
   override val location: StateFlow<Location?>
@@ -98,8 +98,8 @@ constructor(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
 public fun rememberFusedGeoLocator(
-  context: Context = LocalContext.current,
   locationRequest: LocationRequest = defaultLocationRequest,
+  context: Context = LocalContext.current,
 ): FusedGeoLocator {
   val locationClient =
     remember(context) { LocationServices.getFusedLocationProviderClient(context) }
@@ -117,13 +117,15 @@ public fun rememberFusedGeoLocator(
 public fun rememberFusedGeoLocator(
   fusedLocationProviderClient: FusedLocationProviderClient,
   locationRequest: LocationRequest = defaultLocationRequest,
+  coroutineScope: CoroutineScope = rememberCoroutineScope(),
+  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ): FusedGeoLocator {
-  val coroutineScope = rememberCoroutineScope()
   return remember(fusedLocationProviderClient) {
     FusedGeoLocator(
       locationClient = fusedLocationProviderClient,
       locationRequest = locationRequest,
       coroutineScope = coroutineScope,
+      sharingStarted = sharingStarted,
     )
   }
 }
