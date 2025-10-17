@@ -3,7 +3,6 @@
 alchemist = "0.2.0"
 androidx-activity = "1.11.0"
 bytesize = "2.0.0"
-compass = "2.4.0"
 htmlConverterCompose = "1.1.0"
 kermit = "2.0.8"
 kotlin-wrappers = "2025.9.8"
@@ -46,9 +45,6 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
-compass-geolocation-core = { module = "dev.jordond.compass:geolocation", version.ref = "compass" }
-compass-geolocation-mobile = { module = "dev.jordond.compass:geolocation-mobile", version.ref = "compass" }
-compass-geolocation-browser = { module = "dev.jordond.compass:geolocation-browser", version.ref = "compass" }
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }

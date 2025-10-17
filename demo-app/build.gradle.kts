@@ -78,7 +78,6 @@ kotlin {
       implementation(compose.runtime)
       implementation(compose.ui)
       implementation(libs.androidx.navigation.compose)
-      implementation(libs.compass.geolocation.core)
       implementation(libs.ktor.client.core)
       implementation(libs.ktor.client.contentNegotiation)
       implementation(libs.ktor.serialization.kotlinxJson)
@@ -97,7 +96,6 @@ kotlin {
 
     val androidIosShared by creating {
       dependsOn(commonMain.get())
-      dependencies { implementation(libs.compass.geolocation.mobile) }
     }
 
     val desktopJsShared by creating { dependsOn(commonMain.get()) }
@@ -156,7 +154,6 @@ kotlin {
       dependencies {
         implementation(compose.html.core)
         implementation(libs.ktor.client.js)
-        implementation(libs.compass.geolocation.browser)
       }
     }
 
@@ -174,13 +171,6 @@ kotlin {
       implementation(compose.desktop.uiTestJUnit4)
       implementation(libs.androidx.composeUi.testManifest)
     }
-  }
-}
-
-swiftPackageConfig {
-  getByName("spmMaplibre") {
-    @OptIn(ExperimentalSpmForKmpFeature::class)
-    copyDependenciesToApp = true
   }
 }
 
