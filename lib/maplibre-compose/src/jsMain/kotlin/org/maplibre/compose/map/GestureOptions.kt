@@ -14,6 +14,26 @@ public actual data class GestureOptions(
 ) {
   public actual companion object Companion {
     public actual val Standard: GestureOptions = GestureOptions()
+
+    public actual val PositionLocked: GestureOptions = GestureOptions(isDragPanEnabled = false)
+
+    public actual val RotationLocked: GestureOptions =
+      GestureOptions(
+        isDragRotateEnabled = false,
+        isTouchPitchEnabled = false,
+        touchZoomRotateMode = ZoomRotateMode.ZoomOnly,
+        keyboardZoomRotateMode = ZoomRotateMode.ZoomOnly,
+      )
+
+    public actual val ZoomOnly: GestureOptions =
+      GestureOptions(
+        isDragPanEnabled = false,
+        isDragRotateEnabled = false,
+        isTouchPitchEnabled = false,
+        touchZoomRotateMode = ZoomRotateMode.ZoomOnly,
+        keyboardZoomRotateMode = ZoomRotateMode.ZoomOnly,
+      )
+
     public actual val AllDisabled: GestureOptions =
       GestureOptions(
         isTouchPitchEnabled = false,

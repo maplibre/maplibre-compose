@@ -51,6 +51,7 @@ kotlin {
     commonMain.dependencies {
       implementation(compose.foundation)
       implementation(compose.components.resources)
+      implementation(libs.lifecycle.runtime.compose)
       api(libs.kermit)
       api(libs.spatialk.geojson)
     }

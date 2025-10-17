@@ -64,8 +64,12 @@ object ClusteredPointsDemo : Demo {
     var data by remember { mutableStateOf(FeatureCollection().json()) }
     LaunchedEffect(Unit) {
       withContext(Dispatchers.Default) {
-        data = getLimeBikeStatusAsGeoJson()
-        //        isLoading = false
+        try {
+          data = getLimeBikeStatusAsGeoJson()
+          //        isLoading = false
+        } catch (e: Exception) {
+          e.printStackTrace()
+        }
       }
     }
 
