@@ -109,41 +109,47 @@ object UserLocationDemo : Demo {
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
-    CardColumn {
-      Text("User Location clicked $locationClickedCount times")
-      Text(
-        buildString {
-          if (trackLocation) {
-            append("camera is tracking location and ")
-            append(
-              when (bearingUpdate) {
-                BearingUpdate.IGNORE -> "ignoring bearing"
-                BearingUpdate.ALWAYS_NORTH -> "locked to north bearing"
-                BearingUpdate.TRACK_LOCATION -> "bearing"
-              }
-            )
-          } else {
-            append("location and bearing not tracked by camera")
-          }
-        }
-      )
-      Button(onClick = { lockCamera = !lockCamera }) {
-        Icon(
-          painter =
-            if (lockCamera) {
-              painterResource(Res.drawable.lock_24px)
-            } else {
-              painterResource(Res.drawable.lock_open_24px)
-            },
-          contentDescription = null,
-        )
+    if (!state.locationPermissionState.hasPermission) {
+      Button(onClick = state.locationPermissionState::requestPermission) {
+        Text("Request permission")
+      }
+    } else {
+      CardColumn {
+        Text("User Location clicked $locationClickedCount times")
         Text(
-          if (lockCamera) {
-            "Lock camera when tracking location"
-          } else {
-            "Cancel tracking when camera is moved"
+          buildString {
+            if (trackLocation) {
+              append("camera is tracking location and ")
+              append(
+                when (bearingUpdate) {
+                  BearingUpdate.IGNORE -> "ignoring bearing"
+                  BearingUpdate.ALWAYS_NORTH -> "locked to north bearing"
+                  BearingUpdate.TRACK_LOCATION -> "bearing"
+                }
+              )
+            } else {
+              append("location and bearing not tracked by camera")
+            }
           }
         )
+        Button(onClick = { lockCamera = !lockCamera }) {
+          Icon(
+            painter =
+              if (lockCamera) {
+                painterResource(Res.drawable.lock_24px)
+              } else {
+                painterResource(Res.drawable.lock_open_24px)
+              },
+            contentDescription = null,
+          )
+          Text(
+            if (lockCamera) {
+              "Lock camera when tracking location"
+            } else {
+              "Cancel tracking when camera is moved"
+            }
+          )
+        }
       }
     }
   }

@@ -2,6 +2,7 @@ package org.maplibre.compose.location
 
 import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.LocationListener
 import android.location.LocationManager
@@ -30,18 +31,19 @@ import kotlinx.coroutines.flow.stateIn
  * The [LocationManager.PASSIVE_PROVIDER] will be used for [DesiredAccuracy.Lowest], otherwise an
  * appropriate provider and configuration is chosen based on API level and [desiredAccuracy].
  *
- * @param locationManager the [LocationManager] system service
+ * @param context the [Context] get the [LocationManager] system service from
  * @param updateInterval the *minimum* time between location updates
  * @param desiredAccuracy the [DesiredAccuracy] for location updates.
  * @param coroutineScope the [CoroutineScope] used to share the [location] flow
  * @param sharingStarted parameter for [stateIn] call of [location]
+ * @throws PermissionException if the necessary platform permissions have not been granted
  */
 public class AndroidGeoLocator
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
 constructor(
-  private val locationManager: LocationManager,
+  private val context: Context,
   updateInterval: Duration,
   private val minDistanceMeters: Float,
   private val desiredAccuracy: DesiredAccuracy,
@@ -54,6 +56,17 @@ constructor(
     if (!handlerThread.isAlive) {
       handlerThread.start()
     }
+
+    if (
+      context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) !=
+        PackageManager.PERMISSION_GRANTED &&
+        context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) !=
+          PackageManager.PERMISSION_GRANTED
+    ) {
+      throw PermissionException()
+    }
+
+    val locationManager = context.getSystemService(LocationManager::class.java)
 
     location =
       callbackFlow {
@@ -257,7 +270,7 @@ public fun rememberAndroidGeoLocator(
     sharingStarted,
   ) {
     AndroidGeoLocator(
-      locationManager = context.getSystemService(LocationManager::class.java),
+      context = context,
       updateInterval = updateInterval,
       desiredAccuracy = desiredAccuracy,
       minDistanceMeters = minDistanceMeters,

@@ -106,6 +106,7 @@ kotlin {
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.ktor.client.okhttp)
+        implementation(libs.accompanist.permissions)
 
         implementation(project(":lib:maplibre-compose-gms")) {
           exclude(group = "org.maplibre.gl", module = "android-sdk")

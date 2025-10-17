@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.stateIn
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
 import platform.CoreLocation.kCLLocationAccuracyBest
 import platform.CoreLocation.kCLLocationAccuracyBestForNavigation
 import platform.CoreLocation.kCLLocationAccuracyKilometer
@@ -39,6 +41,15 @@ public class IosGeoLocator(
 ) : GeoLocator {
   private val locationManager = CLLocationManager()
 
+  init {
+    if (
+      locationManager.authorizationStatus != kCLAuthorizationStatusAuthorizedAlways &&
+        locationManager.authorizationStatus != kCLAuthorizationStatusAuthorizedWhenInUse
+    ) {
+      throw PermissionException()
+    }
+  }
+
   override val location: StateFlow<Location?> =
     callbackFlow {
         locationManager.delegate = Delegate(channel)
@@ -53,6 +64,7 @@ public class IosGeoLocator(
           }
         locationManager.distanceFilter = minDistanceMeters
 
+        locationManager.stopUpdatingLocation()
         locationManager.startUpdatingLocation()
 
         awaitClose { locationManager.stopUpdatingLocation() }

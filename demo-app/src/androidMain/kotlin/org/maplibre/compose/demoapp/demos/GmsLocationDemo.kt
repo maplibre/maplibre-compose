@@ -1,6 +1,7 @@
 package org.maplibre.compose.demoapp.demos
 
 import android.annotation.SuppressLint
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -26,25 +27,36 @@ object GmsLocationDemo : Demo {
     if (!isOpen) return
 
     val coroutineScope = rememberCoroutineScope()
-    @SuppressLint("MissingPermission") val geoLocator = rememberFusedGeoLocator()
-    val locationState = rememberUserLocationState(geoLocator)
 
-    LocationLayer(
-      id = "gms-location",
-      locationState = locationState,
-      cameraState = state.cameraState,
-      accuracyThreshold = 0f,
-      onClick = { location ->
-        locationClickedCount++
-        coroutineScope.launch {
-          state.cameraState.animateTo(CameraPosition(target = location.position, zoom = 16.0))
-        }
-      },
-    )
+    // this if _is_ a permission check Lint just doesn't know that
+    @SuppressLint("MissingPermission")
+    if (state.locationPermissionState.hasPermission) {
+      val geoLocator = rememberFusedGeoLocator()
+      val locationState = rememberUserLocationState(geoLocator)
+
+      LocationLayer(
+        id = "gms-location",
+        locationState = locationState,
+        cameraState = state.cameraState,
+        accuracyThreshold = 0f,
+        onClick = { location ->
+          locationClickedCount++
+          coroutineScope.launch {
+            state.cameraState.animateTo(CameraPosition(target = location.position, zoom = 16.0))
+          }
+        },
+      )
+    }
   }
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
-    CardColumn { Text("User Location clicked $locationClickedCount times") }
+    if (!state.locationPermissionState.hasPermission) {
+      Button(onClick = state.locationPermissionState::requestPermission) {
+        Text("Request permission")
+      }
+    } else {
+      CardColumn { Text("User Location clicked $locationClickedCount times") }
+    }
   }
 }

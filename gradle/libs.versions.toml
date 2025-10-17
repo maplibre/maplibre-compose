@@ -1,5 +1,6 @@
 [versions]
 # Regular libraries: keep as up to date as possible.
+accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
 androidx-activity = "1.11.0"
 bytesize = "2.0.0"
@@ -40,6 +41,7 @@ gradle-android = "8.11.1"
 gradle-ksp = "2.2.20-2.0.3"
 
 [libraries]
+accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
 alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.ref = "alchemist" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
