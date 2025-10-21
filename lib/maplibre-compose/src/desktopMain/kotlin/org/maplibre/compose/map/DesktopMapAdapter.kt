@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.Position
+import java.net.URI
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -38,7 +39,6 @@ import org.maplibre.kmp.native.map.RenderFrameStatus
 import org.maplibre.kmp.native.util.LatLng
 import org.maplibre.kmp.native.util.Projection
 import org.maplibre.kmp.native.util.ScreenCoordinate
-import java.net.URI
 
 internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   MapAdapter, MapObserver, MapControls.Observer {
@@ -90,11 +90,12 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     lastBaseStyle = style
 
     when (style) {
-      is BaseStyle.Uri -> if (style.uri.startsWith("jar:file:")) {
+      is BaseStyle.Uri ->
+        if (style.uri.startsWith("jar:file:")) {
           map.loadStyleJSON(URI(style.uri).toURL().readText())
-      } else {
+        } else {
           map.loadStyleURL(style.uri)
-      }
+        }
       is BaseStyle.Json -> map.loadStyleJSON(style.json)
     }
 
