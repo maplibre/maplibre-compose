@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.Path
@@ -14,7 +13,6 @@ import androidx.compose.ui.graphics.vector.PathData
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.times
@@ -63,29 +61,10 @@ import org.maplibre.compose.util.ClickResult
  *   you want the camera to track the current location use [LocationTrackingEffect].
  * @param oldLocationThreshold locations with a [timestamp][Location.timestamp] older than this will
  *   be considered old locations
- * @param dotRadius the radius of the main location indicator dot
- * @param dotFillColorCurrentLocation the fill color of the main indicator dot, when location is
- *   *not* old according to [oldLocationThreshold]
- * @param dotFillColorOldLocation the fill color of the main indicator dot, when location *is*
- *   considered old according to [oldLocationThreshold]
- * @param dotStrokeColor the stroke color for the border of the main indicator dot
- * @param dotStrokeWidth the stroke width for the border of the main indicator dot
- * @param shadowSize if positive, a shadow will be drawn underneath the main indicator dot with a
- *   radius of `dotRadius + dotStrokeWidth + shadowSize`, i.e. the shadow extends [shadowSize]
- *   beyond the dot
- * @param shadowOffset an offset applied to the shadow of the main indicator dot
- * @param shadowColor the color of the main indicator's shadow
- * @param shadowBlur how much the blur the shadow (see `blur` parameter of [CircleLayer])
  * @param accuracyThreshold a circle showing the accuracy range will be drawn, when
  *   [Location.accuracy] is larger than this value. Use [Float.POSITIVE_INFINITY] to never show the
  *   accuracy range.
- * @param accuracyOpacity the opacity of the accuracy circle
- * @param accuracyFillColor the fill color of the accuracy circle
- * @param accuracyStrokeColor the stroke color of the accuracy circle's border
- * @param accuracyStrokeWidth the stroke width of the accuracy circle's border
  * @param showBearing whether to show an indicator for [Location.bearing]
- * @param bearingSize the size of the bearing indicator
- * @param bearingColor the color of the bearing indicator
  * @param showBearingAccuracy whether to show an indicator for [Location.bearingAccuracy]
  * @param onClick a [LocationClickHandler] to invoke when the main location indicator dot is clicked
  * @param onClick a [LocationClickHandler] to invoke when the main location indicator dot is
@@ -97,31 +76,18 @@ public fun BasicLocationPuck(
   locationState: UserLocationState,
   cameraState: CameraState,
   oldLocationThreshold: Duration = 30.seconds,
-  dotRadius: Dp = 7.dp,
-  dotFillColorCurrentLocation: Color = Color.Blue,
-  dotFillColorOldLocation: Color = Color.Gray,
-  dotStrokeColor: Color = Color.White,
-  dotStrokeWidth: Dp = 3.dp,
-  shadowSize: Dp = 3.dp,
-  shadowOffset: DpOffset = DpOffset(0.dp, 1.dp),
-  shadowColor: Color = Color.Black,
-  shadowBlur: Float = 1f,
   accuracyThreshold: Float = 50f,
-  accuracyOpacity: Float = 0.3f,
-  accuracyFillColor: Color = Color.Blue,
-  accuracyStrokeColor: Color = accuracyFillColor,
-  accuracyStrokeWidth: Dp = 1.dp,
+  colors: LocationPuckColors = LocationPuckColors(),
+  sizes: LocationPuckSizes = LocationPuckSizes(),
   showBearing: Boolean = true,
-  bearingSize: Dp = 6.dp,
-  bearingColor: Color = Color.Red,
   showBearingAccuracy: Boolean = true,
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
   val bearingPainter =
     rememberVectorPainter(
-      defaultWidth = bearingSize,
-      defaultHeight = bearingSize,
+      defaultWidth = sizes.bearingSize,
+      defaultHeight = sizes.bearingSize,
       autoMirror = false,
     ) { viewportWidth, viewportHeight ->
       Path(
@@ -132,15 +98,15 @@ public fun BasicLocationPuck(
             lineTo(viewportWidth, 0f)
             close()
           },
-        fill = SolidColor(bearingColor),
+        fill = SolidColor(colors.bearingColor),
       )
     }
 
   val density by rememberUpdatedState(LocalDensity.current)
 
-  val dotRadius by rememberUpdatedState(dotRadius)
-  val dotStrokeWidth by rememberUpdatedState(dotStrokeWidth)
-  val bearingColor by rememberUpdatedState(bearingColor)
+  val dotRadius by rememberUpdatedState(sizes.dotRadius)
+  val dotStrokeWidth by rememberUpdatedState(sizes.dotStrokeWidth)
+  val bearingColor by rememberUpdatedState(colors.bearingColor)
 
   val bearingAccuracyVector by remember {
     derivedStateOf {
@@ -213,19 +179,18 @@ public fun BasicLocationPuck(
         fallback =
           (feature["accuracy"].asNumber() / const(cameraState.metersPerDpAtTarget.toFloat())).dp,
       ),
-    color = const(accuracyFillColor),
-    strokeColor = const(accuracyStrokeColor),
-    strokeWidth = const(accuracyStrokeWidth),
-    opacity = const(accuracyOpacity),
+    color = const(colors.accuracyFillColor),
+    strokeColor = const(colors.accuracyStrokeColor),
+    strokeWidth = const(sizes.accuracyStrokeWidth),
   )
 
   CircleLayer(
     id = "$idPrefix-shadow",
     source = locationSource,
-    visible = shadowSize > 0.dp && locationState.location != null,
-    radius = const(dotRadius + dotStrokeWidth + shadowSize),
-    color = const(shadowColor),
-    blur = const(shadowBlur),
+    visible = sizes.shadowSize > 0.dp && locationState.location != null,
+    radius = const(dotRadius + dotStrokeWidth + sizes.shadowSize),
+    color = const(colors.shadowColor),
+    blur = const(sizes.shadowBlur),
     translate = const(DpOffset(0.dp, 1.dp)),
   )
 
@@ -239,11 +204,11 @@ public fun BasicLocationPuck(
         condition(
           test =
             feature["age"].asNumber() gt const(oldLocationThreshold.inWholeNanoseconds.toFloat()),
-          output = const(dotFillColorOldLocation),
+          output = const(colors.dotFillColorOldLocation),
         ),
-        fallback = const(dotFillColorCurrentLocation),
+        fallback = const(colors.dotFillColorCurrentLocation),
       ),
-    strokeColor = const(dotStrokeColor),
+    strokeColor = const(colors.dotStrokeColor),
     strokeWidth = const(dotStrokeWidth),
     onClick = {
       locationState.location?.let { onClick?.invoke(it) }
