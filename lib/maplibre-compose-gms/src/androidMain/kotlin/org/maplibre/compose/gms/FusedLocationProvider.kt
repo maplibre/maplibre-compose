@@ -26,19 +26,19 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.tasks.await
-import org.maplibre.compose.location.GeoLocator
 import org.maplibre.compose.location.Location
+import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.asMapLibreLocation
 
 /**
- * A [GeoLocator] based on a [LocationRequest] for [FusedLocationProviderClient]
+ * A [LocationProvider] based on a [LocationRequest] for [FusedLocationProviderClient]
  *
  * @param locationClient the [FusedLocationProviderClient] to use
  * @param locationRequest the [LocationRequest] to use
  * @param coroutineScope the [CoroutineScope] used to share the [location] flow
  * @param sharingStarted parameter for [stateIn] call of [location]
  */
-public class FusedGeoLocator
+public class FusedLocationProvider
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
@@ -47,7 +47,7 @@ constructor(
   private val locationRequest: LocationRequest,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted,
-) : GeoLocator {
+) : LocationProvider {
   @Suppress("JoinDeclarationAndAssignment") // because of @RequiresPermission
   override val location: StateFlow<Location?>
 
@@ -86,42 +86,42 @@ constructor(
   private companion object {
     private val dispatcher =
       Executors.newSingleThreadExecutor { runnable ->
-          Thread(runnable, "FusedGeoLocator").apply { isDaemon = true }
+          Thread(runnable, "FusedLocationProvider").apply { isDaemon = true }
         }
         .asCoroutineDispatcher()
   }
 }
 
-/** Create and remember a [FusedGeoLocator] with the provided [locationRequest] */
+/** Create and remember a [FusedLocationProvider] with the provided [locationRequest] */
 @Composable
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
-public fun rememberFusedGeoLocator(
+public fun rememberFusedLocationProvider(
   locationRequest: LocationRequest = defaultLocationRequest,
   context: Context = LocalContext.current,
-): FusedGeoLocator {
+): FusedLocationProvider {
   val locationClient =
     remember(context) { LocationServices.getFusedLocationProviderClient(context) }
-  return rememberFusedGeoLocator(locationClient, locationRequest)
+  return rememberFusedLocationProvider(locationClient, locationRequest)
 }
 
 /**
- * Create and remember a [FusedGeoLocator] with the provided [locationRequest] and
+ * Create and remember a [FusedLocationProvider] with the provided [locationRequest] and
  * [fusedLocationProviderClient]
  */
 @Composable
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
-public fun rememberFusedGeoLocator(
+public fun rememberFusedLocationProvider(
   fusedLocationProviderClient: FusedLocationProviderClient,
   locationRequest: LocationRequest = defaultLocationRequest,
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): FusedGeoLocator {
+): FusedLocationProvider {
   return remember(fusedLocationProviderClient) {
-    FusedGeoLocator(
+    FusedLocationProvider(
       locationClient = fusedLocationProviderClient,
       locationRequest = locationRequest,
       coroutineScope = coroutineScope,

@@ -6,14 +6,24 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import org.maplibre.compose.location.DesiredAccuracy.Balanced
+import org.maplibre.compose.location.DesiredAccuracy.High
 
-public interface GeoLocator {
+/**
+ * This is an intentionally very limited abstraction over the various platform APIs for geolocation.
+ * It is specialized to the use case of maplibre-compose.
+ *
+ * If you have a more general use case, prefer using the platform APIs directly or using a more
+ * powerful wrapper. In that case, you may want to provider your own [LocationProvider]
+ * implementation to unify the API underneath. This is an explicitly supported use case.
+ */
+public interface LocationProvider {
   public val location: StateFlow<Location?>
 }
 
 /**
- * Accuracy levels for [rememberDefaultGeoLocator], which will be mapped to platform accuracy and
- * power levels.
+ * Accuracy levels for [rememberDefaultLocationProvider], which will be mapped to platform accuracy
+ * and power levels.
  *
  * The recommended level for actively displaying the user location on screen is [High] or
  * [Balanced], if the location doesn't have to be perfectly accurate.
@@ -64,44 +74,45 @@ public enum class DesiredAccuracy {
   Lowest,
 }
 
-public class NullGeoLocator : GeoLocator {
+public class NullLocationProvider : LocationProvider {
   public override val location: StateFlow<Location?> = MutableStateFlow(null)
 }
 
 public class PermissionException : Exception()
 
 /**
- * Create and remember a [GeoLocator] using the default implementation for the platform.
+ * Create and remember a [LocationProvider] using the default implementation for the platform.
  *
  * The configuration parameters [updateInterval], [desiredAccuracy] and [minDistanceMeters] may
  * **all** be ignored, if the platform doesn't support them
  *
- * **NOTE:** There are also platform-specific `remember*GeoLocator` functions you may want to use,
- * if you need more control over the configuration.
+ * **NOTE:** There are also platform-specific `remember*LocationProvider` functions you may want to
+ * use, if you need more control over the configuration.
  *
  * @param updateInterval the desired interval for updates
  * @param desiredAccuracy the [DesiredAccuracy] for location updates
  * @param minDistanceMeters the minimum distance between locations to trigger an update
- * @throws NotImplementedError if [GeoLocator] no default [GeoLocator] is provided for the platform
+ * @throws NotImplementedError if [LocationProvider] no default [LocationProvider] is provided for
+ *   the platform
  * @throws PermissionException if the necessary platform permissions have not been granted, use
- *   [rememberNullGeoLocator] as a fallback
- * @see rememberNullGeoLocator
+ *   [rememberNullLocationProvider] as a fallback
+ * @see rememberNullLocationProvider
  */
 @Composable
-public expect fun rememberDefaultGeoLocator(
+public expect fun rememberDefaultLocationProvider(
   updateInterval: Duration = 1.seconds,
   desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
   minDistanceMeters: Double = 1.0,
-): GeoLocator
+): LocationProvider
 
 /**
- * Create and remember a [GeoLocator] that never provides a location.
+ * Create and remember a [LocationProvider] that never provides a location.
  *
  * This can be used as a fallback, when the user has not granted the necessary permissions.
  *
- * @see rememberDefaultGeoLocator
+ * @see rememberDefaultLocationProvider
  */
 @Composable
-public fun rememberNullGeoLocator(): GeoLocator {
-  return remember { NullGeoLocator() }
+public fun rememberNullLocationProvider(): LocationProvider {
+  return remember { NullLocationProvider() }
 }

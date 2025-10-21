@@ -13,7 +13,7 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
-import org.maplibre.compose.gms.rememberFusedGeoLocator
+import org.maplibre.compose.gms.rememberFusedLocationProvider
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.material3.LocationPuckDefaults
@@ -32,8 +32,8 @@ object GmsLocationDemo : Demo {
     // this if _is_ a permission check Lint just doesn't know that
     @SuppressLint("MissingPermission")
     if (state.locationPermissionState.hasPermission) {
-      val geoLocator = rememberFusedGeoLocator()
-      val locationState = rememberUserLocationState(geoLocator)
+      val locationProvider = rememberFusedLocationProvider()
+      val locationState = rememberUserLocationState(locationProvider)
 
       LocationPuck(
         idPrefix = "gms-location",

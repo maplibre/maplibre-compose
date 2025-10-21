@@ -22,8 +22,8 @@ import org.maplibre.compose.camera.CameraState
  * [precision] as well (or change between null/non-null).
  *
  * If [enabled] is `false` [onLocationChange] will never be called and location is not monitored,
- * i.e. the [GeoLocator][GeoLocator] underneath [locationState] may stop requesting location updates
- * from the platform.
+ * i.e. the [LocationProvider] underneath [locationState] may stop requesting location updates from
+ * the platform.
  */
 @Composable
 public fun LocationTrackingEffect(

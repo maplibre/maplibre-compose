@@ -4,10 +4,10 @@ import androidx.compose.runtime.Composable
 import kotlin.time.Duration
 
 @Composable
-public actual fun rememberDefaultGeoLocator(
+public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Double,
-): GeoLocator {
+): LocationProvider {
   throw NotImplementedError("no default implementation for desktop")
 }

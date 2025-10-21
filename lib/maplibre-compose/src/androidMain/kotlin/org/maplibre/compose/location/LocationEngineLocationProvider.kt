@@ -16,19 +16,20 @@ import org.maplibre.android.location.engine.LocationEngineRequest
 import org.maplibre.android.location.engine.LocationEngineResult
 
 /**
- * A [GeoLocator] based on a [LocationEngine] implementation and a provided [LocationEngineRequest].
+ * A [LocationProvider] based on a [LocationEngine] implementation and a provided
+ * [LocationEngineRequest].
  *
  * This implementation is provided only for backwards compatibility with existing [LocationEngine]
  * implementations in apps migrating to `maplibre-compose`. Always prefer using one of the other
- * provided [GeoLocator] implementations, or (re-)writing a custom [GeoLocator] from scratch if
- * possible.
+ * provided [LocationProvider] implementations, or (re-)writing a custom [LocationProvider] from
+ * scratch if possible.
  *
  * @param locationEngine the [LocationEngine] to use
  * @param locationEngineRequest the [LocationEngineRequest] to use
  * @param coroutineScope the [CoroutineScope] used to share the [location] flow
  * @param sharingStarted parameter for [stateIn] call of [location]
  */
-public class LocationEngineGeoLocator
+public class LocationEngineLocationProvider
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
@@ -37,7 +38,7 @@ constructor(
   private val locationEngineRequest: LocationEngineRequest = defaultLocationEngineRequest,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-) : GeoLocator {
+) : LocationProvider {
   override val location: StateFlow<Location?>
 
   init {
@@ -70,7 +71,7 @@ constructor(
   }
 
   private companion object {
-    private val handlerThread by lazy { HandlerThread("LocationEngineGeoLocator") }
+    private val handlerThread by lazy { HandlerThread("LocationEngineLocationProvider") }
   }
 }
 

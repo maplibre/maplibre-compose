@@ -26,19 +26,19 @@ import platform.Foundation.NSError
 import platform.darwin.NSObject
 
 /**
- * A [GeoLocator] built on the [CLLocationManager] platform APIs.
+ * A [LocationProvider] built on the [CLLocationManager] platform APIs.
  *
  * @param minDistanceMeters the minimum distance between location updates
  * @param desiredAccuracy the [DesiredAccuracy] for location updates.
  * @param coroutineScope the [CoroutineScope] used to share the [location] flow
  * @param sharingStarted parameter for [stateIn] call of [location]
  */
-public class IosGeoLocator(
+public class IosLocationProvider(
   private val minDistanceMeters: Double,
   private val desiredAccuracy: DesiredAccuracy,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted,
-) : GeoLocator {
+) : LocationProvider {
   private val locationManager = CLLocationManager()
 
   init {
@@ -84,23 +84,23 @@ public class IosGeoLocator(
 }
 
 @Composable
-public actual fun rememberDefaultGeoLocator(
+public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Double,
-): GeoLocator {
-  return rememberIosGeoLocator(minDistanceMeters, desiredAccuracy)
+): LocationProvider {
+  return rememberIosLocationProvider(minDistanceMeters, desiredAccuracy)
 }
 
 @Composable
-public fun rememberIosGeoLocator(
+public fun rememberIosLocationProvider(
   minDistanceMeters: Double = 1.0,
   desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): IosGeoLocator {
+): IosLocationProvider {
   return remember(minDistanceMeters, desiredAccuracy, coroutineScope, sharingStarted) {
-    IosGeoLocator(
+    IosLocationProvider(
       minDistanceMeters = minDistanceMeters,
       desiredAccuracy = desiredAccuracy,
       coroutineScope = coroutineScope,

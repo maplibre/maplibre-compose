@@ -26,7 +26,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 
 /**
- * A [GeoLocator] built on the [LocationManager] platform APIs.
+ * A [LocationProvider] built on the [LocationManager] platform APIs.
  *
  * The [LocationManager.PASSIVE_PROVIDER] will be used for [DesiredAccuracy.Lowest], otherwise an
  * appropriate provider and configuration is chosen based on API level and [desiredAccuracy].
@@ -38,7 +38,7 @@ import kotlinx.coroutines.flow.stateIn
  * @param sharingStarted parameter for [stateIn] call of [location]
  * @throws PermissionException if the necessary platform permissions have not been granted
  */
-public class AndroidGeoLocator
+public class AndroidLocationProvider
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
@@ -49,7 +49,7 @@ constructor(
   private val desiredAccuracy: DesiredAccuracy,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-) : GeoLocator {
+) : LocationProvider {
   override val location: StateFlow<Location?>
 
   init {
@@ -228,7 +228,7 @@ constructor(
     }
 
   private companion object {
-    private val handlerThread by lazy { HandlerThread("AndroidGeoLocator") }
+    private val handlerThread by lazy { HandlerThread("AndroidLocationProvider") }
   }
 }
 
@@ -236,31 +236,31 @@ constructor(
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
-public actual fun rememberDefaultGeoLocator(
+public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Double,
-): GeoLocator {
-  return rememberAndroidGeoLocator(
+): LocationProvider {
+  return rememberAndroidLocationProvider(
     updateInterval = updateInterval,
     desiredAccuracy = desiredAccuracy,
     minDistanceMeters = minDistanceMeters.toFloat(),
   )
 }
 
-/** Create and remember an [AndroidGeoLocator], the default [GeoLocator] for Android */
+/** Create and remember an [AndroidLocationProvider], the default [LocationProvider] for Android */
 @Composable
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
-public fun rememberAndroidGeoLocator(
+public fun rememberAndroidLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Float,
   context: Context = LocalContext.current,
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): AndroidGeoLocator {
+): AndroidLocationProvider {
   return remember(
     context,
     updateInterval,
@@ -269,7 +269,7 @@ public fun rememberAndroidGeoLocator(
     coroutineScope,
     sharingStarted,
   ) {
-    AndroidGeoLocator(
+    AndroidLocationProvider(
       context = context,
       updateInterval = updateInterval,
       desiredAccuracy = desiredAccuracy,

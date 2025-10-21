@@ -18,13 +18,13 @@ public class UserLocationState internal constructor(locationState: State<Locatio
 
 @Composable
 public fun rememberUserLocationState(
-  geoLocator: GeoLocator,
+  locationProvider: LocationProvider,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
   coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ): UserLocationState {
   val locationState =
-    geoLocator.location.collectAsStateWithLifecycle(
+    locationProvider.location.collectAsStateWithLifecycle(
       lifecycleOwner = lifecycleOwner,
       minActiveState = minActiveState,
       context = coroutineContext,

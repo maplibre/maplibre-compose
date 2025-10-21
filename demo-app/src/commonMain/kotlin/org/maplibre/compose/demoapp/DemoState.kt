@@ -22,8 +22,8 @@ import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
 import org.maplibre.compose.location.UserLocationState
-import org.maplibre.compose.location.rememberDefaultGeoLocator
-import org.maplibre.compose.location.rememberNullGeoLocator
+import org.maplibre.compose.location.rememberDefaultLocationProvider
+import org.maplibre.compose.location.rememberNullLocationProvider
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
@@ -86,20 +86,21 @@ fun rememberDemoState(): DemoState {
   val styleState = rememberStyleState()
 
   val locationPermissionState = rememberLocationPermissionState()
-  // this keying and swapping of GeoLocators is necessary because of the way the demo is set up
+  // this keying and swapping of LocationProviders is necessary because of the way the demo is set
+  // up
   //
-  // In a normal app, it would be best to avoid creating a GeoLocator and everything dependent on it
-  // altogether, if no permission has been granted. The at look at GmsLocationDemo on Android for an
-  // example of this.
-  val geoLocator =
+  // In a normal app, it would be best to avoid creating a LocationProvider and everything dependent
+  // on it altogether, if no permission has been granted. The at look at GmsLocationDemo on Android
+  // for an example of this.
+  val locationProvider =
     key(locationPermissionState.hasPermission) {
       if (locationPermissionState.hasPermission) {
-        rememberDefaultGeoLocator()
+        rememberDefaultLocationProvider()
       } else {
-        rememberNullGeoLocator()
+        rememberNullLocationProvider()
       }
     }
-  val locationState = rememberUserLocationState(geoLocator)
+  val locationState = rememberUserLocationState(locationProvider)
 
   return remember(nav, cameraState, styleState, locationPermissionState) {
     DemoState(nav, cameraState, styleState, locationState, locationPermissionState)
