@@ -71,7 +71,7 @@ import org.maplibre.compose.util.ClickResult
  *   long-clicked
  */
 @Composable
-public fun BasicLocationPuck(
+public fun LocationPuck(
   idPrefix: String,
   locationState: UserLocationState,
   cameraState: CameraState,

@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 
 /**
- * Colors for [BasicLocationPuck]
+ * Colors for [LocationPuck]
  *
  * @param dotFillColorCurrentLocation the fill color of the main indicator dot, when location is
  *   *not* old

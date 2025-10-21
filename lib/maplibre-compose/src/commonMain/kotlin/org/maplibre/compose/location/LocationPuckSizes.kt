@@ -6,7 +6,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 
 /**
- * Sizing parameters for [BasicLocationPuck]
+ * Sizing parameters for [LocationPuck]
  *
  * @param dotRadius the radius of the main location indicator dot
  * @param dotStrokeWidth the stroke width for the border of the main indicator dot

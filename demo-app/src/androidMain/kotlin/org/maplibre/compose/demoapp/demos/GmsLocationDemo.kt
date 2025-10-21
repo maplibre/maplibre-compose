@@ -2,6 +2,7 @@ package org.maplibre.compose.demoapp.demos
 
 import android.annotation.SuppressLint
 import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -14,8 +15,9 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.gms.rememberFusedGeoLocator
+import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.rememberUserLocationState
-import org.maplibre.compose.material3.LocationPuck
+import org.maplibre.compose.material3.locationPuckColors
 
 object GmsLocationDemo : Demo {
   override val name = "Gms Location"
@@ -35,10 +37,11 @@ object GmsLocationDemo : Demo {
       val locationState = rememberUserLocationState(geoLocator)
 
       LocationPuck(
-        id = "gms-location",
+        idPrefix = "gms-location",
         locationState = locationState,
         cameraState = state.cameraState,
         accuracyThreshold = 0f,
+        colors = MaterialTheme.colorScheme.locationPuckColors(),
         onClick = { location ->
           locationClickedCount++
           coroutineScope.launch {
