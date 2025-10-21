@@ -10,6 +10,7 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.Path
 import androidx.compose.ui.graphics.vector.PathData
+import androidx.compose.ui.graphics.vector.VectorPainter
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.platform.LocalDensity
@@ -44,6 +45,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult
 
@@ -84,84 +86,14 @@ public fun LocationPuck(
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
-  val bearingPainter =
-    rememberVectorPainter(
-      defaultWidth = sizes.bearingSize,
-      defaultHeight = sizes.bearingSize,
-      autoMirror = false,
-    ) { viewportWidth, viewportHeight ->
-      Path(
-        pathData =
-          PathData {
-            moveTo(0f, 0f)
-            lineTo(0f, viewportHeight)
-            lineTo(viewportWidth, 0f)
-            close()
-          },
-        fill = SolidColor(colors.bearingColor),
-      )
-    }
-
-  val density by rememberUpdatedState(LocalDensity.current)
-
-  val dotRadius by rememberUpdatedState(sizes.dotRadius)
-  val dotStrokeWidth by rememberUpdatedState(sizes.dotStrokeWidth)
-  val bearingColor by rememberUpdatedState(colors.bearingColor)
-
-  val bearingAccuracyVector by remember {
-    derivedStateOf {
-      val radius = with(density) { Offset(dotRadius.toPx(), dotRadius.toPx()) }
-
-      val deltaDegrees = 2 * (locationState.location?.bearingAccuracy ?: 0.0)
-      val delta = (PI * deltaDegrees / 180.0).toFloat()
-
-      val start = Offset(radius.x, 0f) + radius * 2f
-      val end = Offset(radius.x * cos(delta), radius.y * sin(delta)) + radius * 2f
-
-      ImageVector.Builder(
-          defaultWidth = 4 * dotRadius,
-          defaultHeight = 4 * dotRadius,
-          viewportWidth = with(density) { (4 * dotRadius.toPx()) },
-          viewportHeight = with(density) { (4 * dotRadius.toPx()) },
-          autoMirror = false,
-        )
-        .apply {
-          path(
-            stroke = SolidColor(bearingColor),
-            strokeLineWidth = with(density) { dotStrokeWidth.toPx() },
-          ) {
-            moveTo(start.x, start.y)
-            arcTo(radius.x, radius.y, 0f, delta > PI, delta > 0, end.x, end.y)
-          }
-        }
-        .build()
-    }
-  }
-
-  val bearingAccuracyPainter = rememberVectorPainter(bearingAccuracyVector)
-
-  val features =
-    remember(locationState.location) {
-      val location = locationState.location
-      if (location == null) {
-        FeatureCollection()
-      } else {
-        FeatureCollection(
-          Feature(
-            geometry = Point(location.position),
-            properties =
-              mapOf(
-                "accuracy" to JsonPrimitive(location.accuracy),
-                "bearing" to JsonPrimitive(location.bearing),
-                "bearingAccuracy" to JsonPrimitive(location.bearingAccuracy),
-                "age" to JsonPrimitive(location.timestamp.elapsedNow().inWholeNanoseconds),
-              ),
-          )
-        )
-      }
-    }
-
-  val locationSource = rememberGeoJsonSource(GeoJsonData.Features(features))
+  val bearingPainter = rememberBearingPainter(sizes, colors)
+  val bearingAccuracyPainter =
+    rememberBearingAccuracyPainter(
+      sizes = sizes,
+      colors = colors,
+      bearingAccuracy = locationState.location?.bearingAccuracy ?: 0.0,
+    )
+  val locationSource = rememberLocationSource(locationState)
 
   CircleLayer(
     id = "$idPrefix-accuracy",
@@ -188,7 +120,7 @@ public fun LocationPuck(
     id = "$idPrefix-shadow",
     source = locationSource,
     visible = sizes.shadowSize > 0.dp && locationState.location != null,
-    radius = const(dotRadius + dotStrokeWidth + sizes.shadowSize),
+    radius = const(sizes.dotRadius + sizes.dotStrokeWidth + sizes.shadowSize),
     color = const(colors.shadowColor),
     blur = const(sizes.shadowBlur),
     translate = const(DpOffset(0.dp, 1.dp)),
@@ -198,7 +130,7 @@ public fun LocationPuck(
     id = "$idPrefix-dot",
     source = locationSource,
     visible = locationState.location != null,
-    radius = const(dotRadius),
+    radius = const(sizes.dotRadius),
     color =
       switch(
         condition(
@@ -209,7 +141,7 @@ public fun LocationPuck(
         fallback = const(colors.dotFillColorCurrentLocation),
       ),
     strokeColor = const(colors.dotStrokeColor),
-    strokeWidth = const(dotStrokeWidth),
+    strokeWidth = const(sizes.dotStrokeWidth),
     onClick = {
       locationState.location?.let { onClick?.invoke(it) }
       ClickResult.Consume
@@ -229,8 +161,8 @@ public fun LocationPuck(
     iconRotate = feature["bearing"].asNumber(const(0f)) + const(45f),
     iconOffset =
       offset(
-        -(dotRadius + dotStrokeWidth) * sqrt(2f) / 2f,
-        -(dotRadius + dotStrokeWidth) * sqrt(2f) / 2f,
+        -(sizes.dotRadius + sizes.dotStrokeWidth) * sqrt(2f) / 2f,
+        -(sizes.dotRadius + sizes.dotStrokeWidth) * sqrt(2f) / 2f,
       ),
     iconRotationAlignment = const(IconRotationAlignment.Map),
     iconAllowOverlap = const(true),
@@ -252,6 +184,107 @@ public fun LocationPuck(
     iconRotationAlignment = const(IconRotationAlignment.Map),
     iconAllowOverlap = const(true),
   )
+}
+
+@Composable
+private fun rememberBearingPainter(
+  sizes: LocationPuckSizes,
+  colors: LocationPuckColors,
+): VectorPainter {
+  return rememberVectorPainter(
+    defaultWidth = sizes.bearingSize,
+    defaultHeight = sizes.bearingSize,
+    autoMirror = false,
+  ) { viewportWidth, viewportHeight ->
+    Path(
+      pathData =
+        PathData {
+          moveTo(0f, 0f)
+          lineTo(0f, viewportHeight)
+          lineTo(viewportWidth, 0f)
+          close()
+        },
+      fill = SolidColor(colors.bearingColor),
+    )
+  }
+}
+
+@Composable
+private fun rememberBearingAccuracyPainter(
+  sizes: LocationPuckSizes,
+  colors: LocationPuckColors,
+  bearingAccuracy: Double,
+): VectorPainter {
+  val density by rememberUpdatedState(LocalDensity.current)
+
+  val dotRadius by rememberUpdatedState(sizes.dotRadius)
+  val dotStrokeWidth by rememberUpdatedState(sizes.dotStrokeWidth)
+  val bearingColor by rememberUpdatedState(colors.bearingColor)
+
+  val bearingAccuracy by rememberUpdatedState(bearingAccuracy)
+
+  val bearingAccuracyVector by remember {
+    derivedStateOf {
+      val radius = with(density) { Offset(dotRadius.toPx(), dotRadius.toPx()) }
+
+      val deltaDegrees = 2 * bearingAccuracy
+      val delta = (PI * deltaDegrees / 180.0).toFloat()
+
+      val width = 2 * dotRadius + 2 * dotStrokeWidth
+      val height = 2 * dotRadius + 2 * dotStrokeWidth
+
+      val center = with(density) { Offset((width / 2).toPx(), (height / 2).toPx()) }
+
+      val start = center + Offset(radius.x, 0f)
+      val end = center + Offset(radius.x * cos(delta), radius.y * sin(delta))
+
+      ImageVector.Builder(
+          defaultWidth = width,
+          defaultHeight = height,
+          viewportWidth = with(density) { width.toPx() },
+          viewportHeight = with(density) { height.toPx() },
+          autoMirror = false,
+        )
+        .apply {
+          path(
+            stroke = SolidColor(bearingColor),
+            strokeLineWidth = with(density) { dotStrokeWidth.toPx() },
+          ) {
+            moveTo(start.x, start.y)
+            arcTo(radius.x, radius.y, 0f, delta > PI, delta > 0, end.x, end.y)
+          }
+        }
+        .build()
+    }
+  }
+
+  return rememberVectorPainter(bearingAccuracyVector)
+}
+
+@Composable
+private fun rememberLocationSource(locationState: UserLocationState): GeoJsonSource {
+  val features =
+    remember(locationState.location) {
+      val location = locationState.location
+      if (location == null) {
+        FeatureCollection()
+      } else {
+        FeatureCollection(
+          Feature(
+            geometry = Point(location.position),
+            properties =
+              mapOf(
+                "accuracy" to JsonPrimitive(location.accuracy),
+                "bearing" to JsonPrimitive(location.bearing),
+                "bearingAccuracy" to JsonPrimitive(location.bearingAccuracy),
+                "age" to JsonPrimitive(location.timestamp.elapsedNow().inWholeNanoseconds),
+              ),
+          )
+        )
+      }
+    }
+
+  return rememberGeoJsonSource(GeoJsonData.Features(features))
 }
 
 public typealias LocationClickHandler = (Location) -> Unit
