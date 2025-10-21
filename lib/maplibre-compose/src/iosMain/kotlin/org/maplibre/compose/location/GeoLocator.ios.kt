@@ -19,8 +19,8 @@ import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
 import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
 import platform.CoreLocation.kCLLocationAccuracyBest
 import platform.CoreLocation.kCLLocationAccuracyBestForNavigation
+import platform.CoreLocation.kCLLocationAccuracyHundredMeters
 import platform.CoreLocation.kCLLocationAccuracyKilometer
-import platform.CoreLocation.kCLLocationAccuracyNearestTenMeters
 import platform.CoreLocation.kCLLocationAccuracyReduced
 import platform.Foundation.NSError
 import platform.darwin.NSObject
@@ -58,7 +58,7 @@ public class IosGeoLocator(
           when (desiredAccuracy) {
             DesiredAccuracy.Highest -> kCLLocationAccuracyBestForNavigation
             DesiredAccuracy.High -> kCLLocationAccuracyBest
-            DesiredAccuracy.Balanced -> kCLLocationAccuracyNearestTenMeters
+            DesiredAccuracy.Balanced -> kCLLocationAccuracyHundredMeters
             DesiredAccuracy.Low -> kCLLocationAccuracyKilometer
             DesiredAccuracy.Lowest -> kCLLocationAccuracyReduced
           }
