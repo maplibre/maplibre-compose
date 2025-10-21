@@ -1,4 +1,3 @@
-import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -94,9 +93,7 @@ kotlin {
 
     val nonAndroidShared by creating { dependsOn(commonMain.get()) }
 
-    val androidIosShared by creating {
-      dependsOn(commonMain.get())
-    }
+    val androidIosShared by creating { dependsOn(commonMain.get()) }
 
     val desktopJsShared by creating { dependsOn(commonMain.get()) }
 
