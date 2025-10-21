@@ -15,6 +15,7 @@ import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.gms.rememberFusedGeoLocator
 import org.maplibre.compose.location.rememberUserLocationState
+import org.maplibre.compose.material3.LocationPuck
 
 object GmsLocationDemo : Demo {
   override val name = "Gms Location"
@@ -33,7 +34,7 @@ object GmsLocationDemo : Demo {
       val geoLocator = rememberFusedGeoLocator()
       val locationState = rememberUserLocationState(geoLocator)
 
-      LocationLayer(
+      LocationPuck(
         id = "gms-location",
         locationState = locationState,
         cameraState = state.cameraState,

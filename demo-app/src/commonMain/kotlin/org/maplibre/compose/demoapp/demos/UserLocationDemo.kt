@@ -21,6 +21,7 @@ import org.maplibre.compose.demoapp.generated.lock_open_24px
 import org.maplibre.compose.location.BearingUpdate
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.map.GestureOptions
+import org.maplibre.compose.material3.LocationPuck
 
 object UserLocationDemo : Demo {
   override val name = "User Location"
@@ -70,7 +71,7 @@ object UserLocationDemo : Demo {
       }
     }
 
-    LocationLayer(
+    LocationPuck(
       id = "user-location",
       locationState = state.locationState,
       cameraState = state.cameraState,

@@ -10,17 +10,17 @@ import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.location.BasicLocationLayer
+import org.maplibre.compose.location.BasicLocationPuck
 import org.maplibre.compose.location.LocationClickHandler
 import org.maplibre.compose.location.UserLocationState
 
 /**
- * A Material 3 themed variant of [BasicLocationLayer].
+ * A Material 3 themed variant of [BasicLocationPuck].
  *
- * @see BasicLocationLayer
+ * @see BasicLocationPuck
  */
 @Composable
-public fun LocationLayer(
+public fun LocationPuck(
   id: String,
   locationState: UserLocationState,
   cameraState: CameraState,
@@ -46,8 +46,8 @@ public fun LocationLayer(
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
-  BasicLocationLayer(
-    id = id,
+  BasicLocationPuck(
+    idPrefix = id,
     locationState = locationState,
     cameraState = cameraState,
     oldLocationThreshold = oldLocationThreshold,

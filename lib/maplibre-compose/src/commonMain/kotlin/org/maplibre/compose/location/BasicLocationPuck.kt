@@ -50,19 +50,19 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult
 
 /**
- * A location layer show a dot at the users current location according to [locationState] and
+ * Adds multiple layers to form a location puck.
+ *
+ * A location puck is a dot at the users current location according to [locationState] and
  * optionally a circle for the location accuracy. If supported and enabled, indicators for the
  * current bearing and bearing accuracy are shown as well.
  *
- * **NOTE:** This "layer" is implemented as multiple distinct layers all using [id] as a prefix.
- *
- * @param id the prefix used for the layers to display the location indicator
+ * @param idPrefix the prefix used for the layers to display the location indicator
  * @param locationState a [UserLocationState] holding the location to display
  * @param cameraState the [CameraState] of the map, used only for [CameraState.metersPerDpAtTarget]
  *   to correctly draw the accuracy circle. The camera state is not modified by this composable, if
  *   you want the camera to track the current location use [LocationTrackingEffect].
- * @param oldLocationThreshold location with an [age][Location.age] older than this will be
- *   considered old locations
+ * @param oldLocationThreshold locations with a [timestamp][Location.timestamp] older than this will
+ *   be considered old locations
  * @param dotRadius the radius of the main location indicator dot
  * @param dotFillColorCurrentLocation the fill color of the main indicator dot, when location is
  *   *not* old according to [oldLocationThreshold]
@@ -92,8 +92,8 @@ import org.maplibre.compose.util.ClickResult
  *   long-clicked
  */
 @Composable
-public fun BasicLocationLayer(
-  id: String,
+public fun BasicLocationPuck(
+  idPrefix: String,
   locationState: UserLocationState,
   cameraState: CameraState,
   oldLocationThreshold: Duration = 30.seconds,
@@ -198,7 +198,7 @@ public fun BasicLocationLayer(
   val locationSource = rememberGeoJsonSource(GeoJsonData.Features(features))
 
   CircleLayer(
-    id = "$id-accuracy",
+    id = "$idPrefix-accuracy",
     source = locationSource,
     visible =
       accuracyThreshold <= Float.POSITIVE_INFINITY &&
@@ -220,7 +220,7 @@ public fun BasicLocationLayer(
   )
 
   CircleLayer(
-    id = "$id-shadow",
+    id = "$idPrefix-shadow",
     source = locationSource,
     visible = shadowSize > 0.dp && locationState.location != null,
     radius = const(dotRadius + dotStrokeWidth + shadowSize),
@@ -230,7 +230,7 @@ public fun BasicLocationLayer(
   )
 
   CircleLayer(
-    id = "$id-dot",
+    id = "$idPrefix-dot",
     source = locationSource,
     visible = locationState.location != null,
     radius = const(dotRadius),
@@ -256,7 +256,7 @@ public fun BasicLocationLayer(
   )
 
   SymbolLayer(
-    id = "$id-bearing",
+    id = "$idPrefix-bearing",
     source = locationSource,
     visible = showBearing && locationState.location?.bearing != null,
     iconImage = image(bearingPainter),
@@ -272,7 +272,7 @@ public fun BasicLocationLayer(
   )
 
   SymbolLayer(
-    id = "$id-bearingAccuracy",
+    id = "$idPrefix-bearingAccuracy",
     source = locationSource,
     visible =
       showBearingAccuracy &&
