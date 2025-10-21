@@ -1,4 +1,4 @@
-package org.maplibre.compose.camera
+package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -10,8 +10,7 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
-import org.maplibre.compose.location.Location
-import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.camera.CameraState
 
 /**
  * A form of [LaunchedEffect] that is specialized for tracking user location.
@@ -23,8 +22,8 @@ import org.maplibre.compose.location.UserLocationState
  * [precision] as well (or change between null/non-null).
  *
  * If [enabled] is `false` [onLocationChange] will never be called and location is not monitored,
- * i.e. the [GeoLocator][org.maplibre.compose.location.GeoLocator] underneath [locationState] may
- * stop requesting location updates from the platform.
+ * i.e. the [GeoLocator][GeoLocator] underneath [locationState] may stop requesting location updates
+ * from the platform.
  */
 @Composable
 public fun LocationTrackingEffect(
@@ -58,8 +57,8 @@ public fun LocationTrackingEffect(
 }
 
 /**
- * Provides an easy mechanism to keep a map's [CameraState] in sync with the current location via
- * [LocationTrackingEffect].
+ * Provides an easy mechanism to keep a map's [org.maplibre.compose.camera.CameraState] in sync with
+ * the current location via [LocationTrackingEffect].
  */
 public interface LocationChangeScope {
   /** The previous [Location] before the location change */
@@ -69,10 +68,11 @@ public interface LocationChangeScope {
   public val currentLocation: Location
 
   /**
-   * Convenience method for updating a [CameraState] based on this location change
+   * Convenience method for updating a [org.maplibre.compose.camera.CameraState] based on this
+   * location change
    *
-   * @param animationDuration if `null` updates [CameraState.position] directly without animation,
-   *   otherwise specifies the duration of the camera animation
+   * @param animationDuration if `null` updates [org.maplibre.compose.camera.CameraState.position]
+   *   directly without animation, otherwise specifies the duration of the camera animation
    * @param updateBearing determines how the [Location.bearing] affects the camera state
    */
   public suspend fun CameraState.updateFromLocation(

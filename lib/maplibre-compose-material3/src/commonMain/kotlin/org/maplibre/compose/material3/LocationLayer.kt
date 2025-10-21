@@ -10,8 +10,8 @@ import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.layers.BasicLocationLayer
-import org.maplibre.compose.layers.LocationClickHandler
+import org.maplibre.compose.location.BasicLocationLayer
+import org.maplibre.compose.location.LocationClickHandler
 import org.maplibre.compose.location.UserLocationState
 
 /**

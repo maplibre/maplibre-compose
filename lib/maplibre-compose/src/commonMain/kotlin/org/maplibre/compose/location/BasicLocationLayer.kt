@@ -1,4 +1,4 @@
-package org.maplibre.compose.layers
+package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
@@ -29,7 +29,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.LocationTrackingEffect
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
@@ -44,8 +43,8 @@ import org.maplibre.compose.expressions.dsl.plus
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
-import org.maplibre.compose.location.Location
-import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult

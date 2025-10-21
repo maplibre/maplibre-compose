@@ -15,7 +15,6 @@ import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.gms.rememberFusedGeoLocator
 import org.maplibre.compose.location.rememberUserLocationState
-import org.maplibre.compose.material3.LocationLayer
 
 object GmsLocationDemo : Demo {
   override val name = "Gms Location"

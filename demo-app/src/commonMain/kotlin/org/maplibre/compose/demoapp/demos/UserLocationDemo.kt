@@ -11,17 +11,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import org.jetbrains.compose.resources.painterResource
-import org.maplibre.compose.camera.BearingUpdate
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.LocationTrackingEffect
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.lock_24px
 import org.maplibre.compose.demoapp.generated.lock_open_24px
+import org.maplibre.compose.location.BearingUpdate
+import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.material3.LocationLayer
 
 object UserLocationDemo : Demo {
   override val name = "User Location"
