@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +22,7 @@ import org.maplibre.compose.location.BearingUpdate
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.material3.locationPuckColors
+import org.maplibre.compose.material3.LocationPuckDefaults
 
 object UserLocationDemo : Demo {
   override val name = "User Location"
@@ -80,7 +79,7 @@ object UserLocationDemo : Demo {
       accuracyThreshold = 0f,
       showBearing = bearingUpdate != BearingUpdate.IGNORE,
       showBearingAccuracy = bearingUpdate != BearingUpdate.IGNORE,
-      colors = MaterialTheme.colorScheme.locationPuckColors(),
+      colors = LocationPuckDefaults.colors(),
       onClick = { location ->
         locationClickedCount++
         if (trackLocation) {
