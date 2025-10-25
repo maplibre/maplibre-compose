@@ -166,7 +166,7 @@ object ClusteredPointsDemo : Demo {
     val features =
       bikes.map { bike ->
         Feature(
-          id = bike["bike_id"]!!.jsonPrimitive.content,
+          id = bike["bike_id"]!!.jsonPrimitive,
           geometry =
             Point(
               Position(
