@@ -58,12 +58,10 @@ jobs:
     strategy:
       matrix:
         include:
-          # the latest
-          - runner: macos-15
-            os_version: ^18
-            # the oldest on GH Actions (supports back to ~iPhone XS from 2018)
-          - runner: macos-14
-            os_version: ^17
+          - runner: macos-26
+            os_version: ^26
+          - runner: macos-26
+            os_version: ^15
     name: test-ios (${{ matrix.os_version }})
     runs-on: ${{ matrix.runner }}
     steps:
