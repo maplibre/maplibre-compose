@@ -9,7 +9,7 @@ kermit = "2.0.8"
 kotlin-wrappers = "2025.9.8"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.3.1"
-lifecycleRuntimeCompose = "2.9.4"
+lifecycleRuntimeCompose = "2.9.5"
 maplibre-android-sdk = "11.13.5"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "4.7.1"              # TODO: is outdated; update to v5.x
@@ -22,23 +22,20 @@ gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.34.0"
 gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "1.0.0"        # TODO: is outdated; update to v1.0.0 beta
+gradle-ksp = "2.3.0"
 simplejni = "3.14"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.9.0"
-#noinspection GradleDependency: follow version matrix above
-androidx-compose = "1.9.0"
-jetbrains-navigation = "2.9.0"
+gradle-compose = "1.9.1"
+androidx-compose = "1.9.3"
+jetbrains-navigation = "2.9.1"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.2.20"
-#noinspection AndroidGradlePluginVersion: follow version matrix above
+gradle-kotlin = "2.2.21"
 gradle-android = "8.11.1"
-#noinspection GradleDependency: follow Kotlin version above
-gradle-ksp = "2.2.20-2.0.3"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }

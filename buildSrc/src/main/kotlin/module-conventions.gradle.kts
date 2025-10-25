@@ -8,3 +8,5 @@ jgitver {
   strategy(Strategies.MAVEN)
   nonQualifierBranches("main")
 }
+
+tasks.withType<AbstractTestTask>().configureEach { failOnNoDiscoveredTests = false }
