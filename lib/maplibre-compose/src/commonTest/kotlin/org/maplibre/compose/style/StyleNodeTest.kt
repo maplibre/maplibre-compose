@@ -14,15 +14,15 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.VectorSource
-import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 @OptIn(ExperimentalTestApi::class)
 abstract class StyleNodeTest {
   private val testSources by lazy {
     listOf(
       VectorSource("foo", "https://example.com/{z}/{x}/{y}.pbf"),
-      GeoJsonSource("bar", GeoJsonData.Features(FeatureCollection()), GeoJsonOptions()),
-      GeoJsonSource("baz", GeoJsonData.Features(FeatureCollection()), GeoJsonOptions()),
+      GeoJsonSource("bar", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions()),
+      GeoJsonSource("baz", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions()),
     )
   }
 
@@ -54,7 +54,7 @@ abstract class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val newSource =
-        GeoJsonSource("new", GeoJsonData.Features(FeatureCollection()), GeoJsonOptions())
+        GeoJsonSource("new", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       s.sourceManager.addReference(newSource)
       s.onEndChanges()
       assertEquals(4, s.style.getSources().size)
@@ -67,7 +67,7 @@ abstract class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val newSource =
-        GeoJsonSource("new", GeoJsonData.Features(FeatureCollection()), GeoJsonOptions())
+        GeoJsonSource("new", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       s.sourceManager.addReference(newSource)
       s.onEndChanges()
       s.sourceManager.removeReference(newSource)
@@ -82,7 +82,7 @@ abstract class StyleNodeTest {
       val s = makeStyleNode()
       assertFails {
         s.sourceManager.addReference(
-          GeoJsonSource("foo", GeoJsonData.Features(FeatureCollection()), GeoJsonOptions())
+          GeoJsonSource("foo", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
         )
       }
     }
