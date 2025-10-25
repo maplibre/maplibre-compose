@@ -4,5 +4,9 @@ import androidx.compose.runtime.Composable
 
 @Composable
 actual fun rememberLocationPermissionState(): LocationPermissionState {
-  TODO("Not yet implemented")
+  return object : LocationPermissionState {
+    override val hasPermission: Boolean = false
+
+    override fun requestPermission() {}
+  }
 }
