@@ -10,9 +10,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.FeatureCollection
-import io.github.dellisd.spatialk.geojson.Point
 import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.DemoState
@@ -23,6 +20,9 @@ import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.Point
 
 object MapClickDemo : Demo {
   override val name = "Map Click Events"
@@ -32,7 +32,9 @@ object MapClickDemo : Demo {
     if (!isOpen) return
 
     val clickFeatures by derivedStateOf {
-      FeatureCollection(state.mapClickEvents.map { Feature(geometry = Point(it.position)) })
+      FeatureCollection(
+        state.mapClickEvents.map { Feature(geometry = Point(it.position), properties = null) }
+      )
     }
 
     SymbolLayer(

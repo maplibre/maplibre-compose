@@ -2,15 +2,17 @@ package org.maplibre.compose.camera
 
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.Position
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Provides an imperative API to interact with the projection of the map, such as converting
@@ -49,7 +51,7 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     val predicateOrNull =
       predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
     return map.queryRenderedFeatures(offset, layerIds, predicateOrNull)
@@ -70,7 +72,7 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     val predicateOrNull =
       predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
     return map.queryRenderedFeatures(rect, layerIds, predicateOrNull)

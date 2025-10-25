@@ -6,12 +6,10 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -43,6 +41,10 @@ import org.maplibre.kmp.js.NavigationControlOptions
 import org.maplibre.kmp.js.Point
 import org.maplibre.kmp.js.QueryRenderedFeaturesOptions
 import org.maplibre.kmp.js.ScaleControl
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 import org.w3c.dom.HTMLElement
 
 internal class JsMapAdapter(
@@ -120,7 +122,9 @@ internal class JsMapAdapter(
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
     impl.setMaxBounds(
-      boundingBox?.let { arrayOf(it.southwest.coordinates, it.northeast.coordinates) }
+      boundingBox?.let {
+        arrayOf(doubleArrayOf(it.west, it.south), doubleArrayOf(it.east, it.north))
+      }
     )
   }
 
@@ -323,7 +327,7 @@ internal class JsMapAdapter(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     return impl
       .queryRenderedFeatures(
         offset.toPoint(),
@@ -332,14 +336,14 @@ internal class JsMapAdapter(
           filter = null, // TODO
         ),
       )
-      .map { Feature.Companion.fromJson(JSON.stringify(it)) }
+      .map { Feature.fromJson(JSON.stringify(it)) }
   }
 
   override fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     return impl
       .queryRenderedFeatures(
         arrayOf(
@@ -351,7 +355,7 @@ internal class JsMapAdapter(
           filter = null, // TODO
         ),
       )
-      .map { Feature.Companion.fromJson(JSON.stringify(it)) }
+      .map { Feature.fromJson(JSON.stringify(it)) }
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double {

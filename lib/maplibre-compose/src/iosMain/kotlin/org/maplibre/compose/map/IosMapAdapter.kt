@@ -41,9 +41,6 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.time.Duration
@@ -54,6 +51,7 @@ import kotlinx.cinterop.CValue
 import kotlinx.cinterop.ObjCAction
 import kotlinx.cinterop.ObjCSignatureOverride
 import kotlinx.cinterop.useContents
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -72,6 +70,10 @@ import org.maplibre.compose.util.toMLNCoordinateBounds
 import org.maplibre.compose.util.toMLNOrnamentPosition
 import org.maplibre.compose.util.toNSPredicate
 import org.maplibre.compose.util.toPosition
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGPointMake
 import platform.CoreGraphics.CGSize
@@ -120,7 +122,7 @@ internal class IosMapAdapter(
 
     // delegate log level configuration to Kermit logger
     MLNLoggingConfiguration.sharedConfiguration.loggingLevel = MLNLoggingLevelVerbose
-    MLNLoggingConfiguration.sharedConfiguration.setHandler { level, path, line, message ->
+    MLNLoggingConfiguration.sharedConfiguration.setHandler { level, _, _, message ->
       when (level) {
         MLNLoggingLevelFault -> logger?.a { "$message" }
         MLNLoggingLevelError -> logger?.e { "$message" }
@@ -491,7 +493,7 @@ internal class IosMapAdapter(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> =
+  ): List<Feature<Geometry, JsonObject?>> =
     mapView
       .visibleFeaturesAtPoint(
         point = offset.toCGPoint(),
@@ -504,7 +506,7 @@ internal class IosMapAdapter(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> =
+  ): List<Feature<Geometry, JsonObject?>> =
     mapView
       .visibleFeaturesInRect(
         rect = rect.toCGRect(),

@@ -22,6 +22,7 @@ import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.toJson
 
 @Composable
 @OptIn(ExperimentalResourceApi::class)
@@ -83,7 +84,7 @@ fun Layers() {
       id = "amtrak-stations",
       source = amtrakStations,
       onClick = { features ->
-        println("Clicked on ${features[0].json()}")
+        println("Clicked on ${features[0].toJson()}")
         ClickResult.Consume
       },
     )

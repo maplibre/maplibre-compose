@@ -3,7 +3,7 @@ package org.maplibre.compose.camera
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Stable
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Defines how the camera is oriented towards the map.

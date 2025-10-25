@@ -10,9 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.em
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.Position
+import kotlinx.serialization.json.JsonObject
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.generated.Res
@@ -28,6 +26,11 @@ import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Feature.Companion.getStringProperty
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 object MarkersDemo : Demo {
   override val name = "Markers and icons"
@@ -37,7 +40,7 @@ object MarkersDemo : Demo {
 
   override val mapContentVisibilityState = mutableStateOf(true)
 
-  private var selectedFeature by mutableStateOf<Feature?>(null)
+  private var selectedFeature by mutableStateOf<Feature<Geometry, JsonObject?>?>(null)
 
   @Composable
   override fun MapContent(state: DemoState, isOpen: Boolean) {

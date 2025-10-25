@@ -1,9 +1,9 @@
 package org.maplibre.compose.offline
 
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Polygon
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.test.Test
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Polygon
+import org.maplibre.spatialk.geojson.Position
 
 class TilePackDefinitionTest {
   @Test

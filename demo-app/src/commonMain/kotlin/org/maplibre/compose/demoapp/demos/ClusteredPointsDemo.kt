@@ -10,11 +10,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.FeatureCollection
-import io.github.dellisd.spatialk.geojson.Point
-import io.github.dellisd.spatialk.geojson.Position
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
@@ -44,6 +39,13 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
+import org.maplibre.spatialk.geojson.toJson
 
 object ClusteredPointsDemo : Demo {
   override val name = "Clustered points"
@@ -61,7 +63,7 @@ object ClusteredPointsDemo : Demo {
 
     // TODO isLoading as some standard state on the Demo, exposed to the main UI?
     //    var isLoading by remember { mutableStateOf(true) }
-    var data by remember { mutableStateOf(FeatureCollection().json()) }
+    var data by remember { mutableStateOf(featureCollectionOf().toJson()) }
     LaunchedEffect(Unit) {
       withContext(Dispatchers.Default) {
         try {
@@ -183,6 +185,6 @@ object ClusteredPointsDemo : Demo {
             ),
         )
       }
-    return FeatureCollection(features).json()
+    return FeatureCollection(features).toJson()
   }
 }

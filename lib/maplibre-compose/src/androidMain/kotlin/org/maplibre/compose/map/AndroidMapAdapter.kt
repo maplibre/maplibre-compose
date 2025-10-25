@@ -10,15 +10,13 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.coroutines.Continuation
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.android.camera.CameraPosition as MLNCameraPosition
 import org.maplibre.android.camera.CameraUpdateFactory
 import org.maplibre.android.geometry.VisibleRegion as MLNVisibleRegion
@@ -55,6 +53,10 @@ import org.maplibre.compose.util.toPointF
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toRectF
 import org.maplibre.geojson.Feature as MLNFeature
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 internal class AndroidMapAdapter(
   private val mapView: MapView,
@@ -367,7 +369,7 @@ internal class AndroidMapAdapter(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     // Kotlin hack to pass null to a java nullable varargs
     val query: (PointF, MLNExpression?, Array<String>?) -> List<MLNFeature> =
       map::queryRenderedFeatures
@@ -379,7 +381,7 @@ internal class AndroidMapAdapter(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     // Kotlin hack to pass null to a java nullable varargs
     val query: (RectF, MLNExpression?, Array<String>?) -> List<MLNFeature> =
       map::queryRenderedFeatures

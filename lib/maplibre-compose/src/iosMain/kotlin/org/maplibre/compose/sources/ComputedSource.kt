@@ -10,12 +10,12 @@ import MapLibre.MLNShapeSourceOptionMaximumZoomLevel
 import MapLibre.MLNShapeSourceOptionMinimumZoomLevel
 import MapLibre.MLNShapeSourceOptionSimplificationTolerance
 import MapLibre.MLNShapeSourceOptionWrapsCoordinates
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.FeatureCollection
 import kotlinx.cinterop.CValue
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toMLNCoordinateBounds
 import org.maplibre.compose.util.toMLNShape
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.FeatureCollection
 import platform.Foundation.NSNumber
 import platform.darwin.NSObject
 import platform.darwin.NSUInteger
@@ -30,7 +30,7 @@ public actual class ComputedSource : Source {
   public actual constructor(
     id: String,
     options: ComputedSourceOptions,
-    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
+    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection<*, *>,
   ) : this(
     MLNComputedShapeSource(
       identifier = id,
@@ -54,7 +54,7 @@ public actual class ComputedSource : Source {
     impl.invalidateTileAtX(x = x.toULong(), y = y.toULong(), zoomLevel = zoomLevel.toULong())
   }
 
-  public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection) {
+  public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection<*, *>) {
     impl.setFeatures(
       features = data.map { it.toMLNShape() },
       inTileAtX = x.toULong(),

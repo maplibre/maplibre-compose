@@ -1,6 +1,5 @@
 package org.maplibre.compose.offline
 
-import io.github.dellisd.spatialk.geojson.Geometry
 import org.maplibre.android.offline.OfflineGeometryRegionDefinition
 import org.maplibre.android.offline.OfflineRegion
 import org.maplibre.android.offline.OfflineRegionDefinition
@@ -9,6 +8,7 @@ import org.maplibre.android.offline.OfflineTilePyramidRegionDefinition
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toMlnGeometry
+import org.maplibre.spatialk.geojson.Geometry
 
 internal fun OfflineRegionDefinition.toOfflinePackDefinition() =
   when (this) {

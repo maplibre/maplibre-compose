@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
@@ -16,6 +15,8 @@ import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.util.ClickResult
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.toJson
 
 @Composable
 fun Interaction() {
@@ -89,7 +90,7 @@ fun Interaction() {
     onMapClick = { pos, offset ->
       val features = camera.projection?.queryRenderedFeatures(offset)
       if (!features.isNullOrEmpty()) {
-        println("Clicked on ${features[0].json()}")
+        println("Clicked on ${features[0].toJson()}")
         ClickResult.Consume // (1)!
       } else {
         ClickResult.Pass

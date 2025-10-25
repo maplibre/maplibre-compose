@@ -1,7 +1,7 @@
 package org.maplibre.compose.location
 
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.TimeMark
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Describes a user's location

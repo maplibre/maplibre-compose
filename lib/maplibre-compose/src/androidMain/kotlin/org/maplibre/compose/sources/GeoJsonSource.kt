@@ -6,6 +6,7 @@ import org.maplibre.android.style.sources.GeoJsonSource as MLNGeoJsonSource
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.correctedAndroidUri
 import org.maplibre.compose.util.toMLNExpression
+import org.maplibre.spatialk.geojson.toJson
 
 public actual class GeoJsonSource : Source {
   override val impl: MLNGeoJsonSource
@@ -18,7 +19,7 @@ public actual class GeoJsonSource : Source {
     impl =
       when (data) {
         is GeoJsonData.Features ->
-          MLNGeoJsonSource(id, data.geoJson.json(), buildOptionMap(options))
+          MLNGeoJsonSource(id, data.geoJson.toJson(), buildOptionMap(options))
         is GeoJsonData.JsonString -> MLNGeoJsonSource(id, data.json, buildOptionMap(options))
         is GeoJsonData.Uri -> MLNGeoJsonSource(id, URI(data.uri), buildOptionMap(options))
       }
@@ -46,7 +47,7 @@ public actual class GeoJsonSource : Source {
 
   public actual fun setData(data: GeoJsonData) {
     when (data) {
-      is GeoJsonData.Features -> impl.setGeoJson(data.geoJson.json())
+      is GeoJsonData.Features -> impl.setGeoJson(data.geoJson.toJson())
       is GeoJsonData.JsonString -> impl.setGeoJson(data.json)
       is GeoJsonData.Uri -> impl.setUri(data.uri.correctedAndroidUri())
     }

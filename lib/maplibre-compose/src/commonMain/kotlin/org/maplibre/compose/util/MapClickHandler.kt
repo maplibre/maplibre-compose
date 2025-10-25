@@ -1,7 +1,7 @@
 package org.maplibre.compose.util
 
 import androidx.compose.ui.unit.DpOffset
-import io.github.dellisd.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * A callback for when the map is clicked. Called before any layer click handlers.

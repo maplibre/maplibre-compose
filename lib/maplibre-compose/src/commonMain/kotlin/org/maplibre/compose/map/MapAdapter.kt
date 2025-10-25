@@ -3,10 +3,8 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -14,6 +12,10 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 internal interface MapAdapter {
   suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration)
@@ -60,13 +62,13 @@ internal interface MapAdapter {
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,
-  ): List<Feature>
+  ): List<Feature<Geometry, JsonObject?>>
 
   fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,
-  ): List<Feature>
+  ): List<Feature<Geometry, JsonObject?>>
 
   fun metersPerDpAtLatitude(latitude: Double): Double
 

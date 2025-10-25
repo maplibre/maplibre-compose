@@ -7,7 +7,7 @@ import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.SaverScope
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.Position
 
 internal object CameraStateSaver : Saver<CameraState, Map<String, Double>> {
   override fun SaverScope.save(value: CameraState): Map<String, Double> {

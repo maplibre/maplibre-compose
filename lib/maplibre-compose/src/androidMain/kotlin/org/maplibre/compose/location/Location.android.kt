@@ -3,9 +3,9 @@ package org.maplibre.compose.location
 import android.location.Location as AndroidLocation
 import android.os.Build
 import android.os.SystemClock
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.TimeSource
+import org.maplibre.spatialk.geojson.Position
 
 public fun AndroidLocation.asMapLibreLocation(): Location =
   Location(

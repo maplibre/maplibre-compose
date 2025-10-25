@@ -1,15 +1,18 @@
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Composable
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Polygon
-import io.github.dellisd.spatialk.geojson.Position
-import io.github.dellisd.spatialk.geojson.dsl.PropertiesBuilder
-import io.github.dellisd.spatialk.geojson.dsl.featureCollection
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Polygon
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.dsl.addFeature
+import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 /**
  * Specialization of [rememberGeoJsonSource] that contains the list of [OfflinePack] as features.
@@ -26,17 +29,19 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 public fun rememberOfflinePacksSource(
   offlinePacks: Set<OfflinePack>,
   options: GeoJsonOptions = GeoJsonOptions(),
-  putExtraProperties: PropertiesBuilder.(OfflinePack) -> Unit = {},
+  putExtraProperties: JsonObjectBuilder.(OfflinePack) -> Unit = {},
 ): Source {
   return rememberGeoJsonSource(
     options = options,
     data =
       GeoJsonData.Features(
-        featureCollection {
+        buildFeatureCollection {
           offlinePacks.forEach { pack ->
-            feature(pack.definition.geometry) {
-              putDownloadProgressProperties(pack.downloadProgress)
-              putExtraProperties(pack)
+            addFeature(geometry = pack.definition.geometry) {
+              properties = buildJsonObject {
+                putDownloadProgressProperties(pack.downloadProgress)
+                putExtraProperties(pack)
+              }
             }
           }
         }
@@ -44,7 +49,7 @@ public fun rememberOfflinePacksSource(
   )
 }
 
-private fun PropertiesBuilder.putDownloadProgressProperties(progress: DownloadProgress) =
+private fun JsonObjectBuilder.putDownloadProgressProperties(progress: DownloadProgress) =
   when (progress) {
     is DownloadProgress.Healthy -> {
       put("status", progress.status.name)

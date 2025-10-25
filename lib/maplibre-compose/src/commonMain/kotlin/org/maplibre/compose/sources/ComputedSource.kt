@@ -3,8 +3,8 @@ package org.maplibre.compose.sources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.key
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.FeatureCollection
 
 /** A map data source of tiled vector data generated with some custom logic */
 public expect class ComputedSource : Source {
@@ -18,7 +18,7 @@ public expect class ComputedSource : Source {
   public constructor(
     id: String,
     options: ComputedSourceOptions = ComputedSourceOptions(),
-    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
+    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection<*, *>,
   )
 
   /**
@@ -38,7 +38,7 @@ public expect class ComputedSource : Source {
    * Set or update geometry contents of a specific tile. Use this method to update tiles for which
    * `getFeatures` was previously invoked.
    */
-  public fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection)
+  public fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection<*, *>)
 }
 
 /**
@@ -72,7 +72,7 @@ public data class ComputedSourceOptions(
 @Composable
 public fun rememberGeoJsonSource(
   options: ComputedSourceOptions = ComputedSourceOptions(),
-  getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
+  getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection<*, *>,
 ): ComputedSource =
   key(options, getFeatures) {
     rememberUserSource(

@@ -6,12 +6,12 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Position
 import org.maplibre.kmp.js.LngLat
 import org.maplibre.kmp.js.LngLatBounds
 import org.maplibre.kmp.js.PaddingOptions
 import org.maplibre.kmp.js.Point
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 internal fun Alignment.toControlPosition(layoutDir: LayoutDirection): String {
   val (x, y) = align(IntSize(1, 1), IntSize(2, 2), layoutDir)

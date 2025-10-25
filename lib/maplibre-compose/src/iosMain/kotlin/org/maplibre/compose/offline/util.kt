@@ -10,11 +10,12 @@ import MapLibre.MLNOfflineRegionProtocol
 import MapLibre.MLNShape
 import MapLibre.MLNShapeOfflineRegion
 import MapLibre.MLNTilePyramidOfflineRegion
-import io.github.dellisd.spatialk.geojson.Geometry
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toByteArray
 import org.maplibre.compose.util.toMLNCoordinateBounds
 import org.maplibre.compose.util.toNSData
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.toJson
 import platform.Foundation.NSError
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
@@ -59,7 +60,7 @@ internal fun OfflinePackDefinition.toMLNOfflineRegion(): MLNOfflineRegionProtoco
         styleURL = NSURL(string = styleUrl),
         shape =
           MLNShape.shapeWithData(
-            data = shape.json().encodeToByteArray().toNSData(),
+            data = shape.toJson().encodeToByteArray().toNSData(),
             encoding = NSUTF8StringEncoding,
             error = null,
           )!!,

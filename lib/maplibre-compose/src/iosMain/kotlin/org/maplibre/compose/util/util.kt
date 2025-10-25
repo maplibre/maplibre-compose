@@ -21,10 +21,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.GeoJson
-import io.github.dellisd.spatialk.geojson.Position
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.useContents
@@ -48,6 +44,12 @@ import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.GeoJsonObject
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.toJson
 import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGPointMake
 import platform.CoreGraphics.CGRect
@@ -79,8 +81,8 @@ internal fun NSData.toByteArray(): ByteArray {
   else ByteArray(length.toInt()).apply { usePinned { memcpy(it.addressOf(0), bytes, length) } }
 }
 
-internal fun MLNFeatureProtocol.toFeature(): Feature {
-  return Feature.fromJson(JsonElement.convert(geoJSONDictionary()) as JsonObject)
+internal fun MLNFeatureProtocol.toFeature(): Feature<Geometry, JsonObject?> {
+  return Feature.fromJson(JsonElement.convert(geoJSONDictionary()).toString())
 }
 
 internal fun JsonElement.Companion.convert(any: Any?): JsonElement {
@@ -126,9 +128,9 @@ internal fun BoundingBox.toMLNCoordinateBounds(): CValue<MLNCoordinateBounds> =
     sw = southwest.toCLLocationCoordinate2D(),
   )
 
-internal fun GeoJson.toMLNShape(): MLNShape {
+internal fun GeoJsonObject.toMLNShape(): MLNShape {
   return MLNShape.shapeWithData(
-    data = json().encodeToByteArray().toNSData(),
+    data = toJson().encodeToByteArray().toNSData(),
     encoding = NSUTF8StringEncoding,
     error = null,
   )!!

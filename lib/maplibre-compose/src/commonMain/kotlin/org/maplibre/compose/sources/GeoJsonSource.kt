@@ -3,9 +3,9 @@ package org.maplibre.compose.sources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.key
-import io.github.dellisd.spatialk.geojson.GeoJson
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.spatialk.geojson.GeoJsonObject
 
 /** A map data source consisting of geojson data. */
 public expect class GeoJsonSource : Source {
@@ -24,7 +24,7 @@ public sealed interface GeoJsonData {
 
   public data class JsonString(val json: String) : GeoJsonData
 
-  public data class Features(val geoJson: GeoJson) : GeoJsonData
+  public data class Features(val geoJson: GeoJsonObject) : GeoJsonData
 }
 
 /**

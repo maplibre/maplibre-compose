@@ -23,7 +23,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.unit.dp
-import io.github.dellisd.spatialk.geojson.BoundingBox
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.camera.CameraState
@@ -47,6 +46,7 @@ import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.BoundingBox
 
 object OfflineManagerDemo : Demo {
   override val name = "Manage offline tiles"

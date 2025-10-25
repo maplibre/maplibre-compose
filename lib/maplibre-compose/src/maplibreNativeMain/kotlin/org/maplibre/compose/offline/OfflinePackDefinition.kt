@@ -1,7 +1,7 @@
 package org.maplibre.compose.offline
 
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Geometry
 
 /** An object that defines a region required by an [OfflinePack]. */
 public sealed interface OfflinePackDefinition {

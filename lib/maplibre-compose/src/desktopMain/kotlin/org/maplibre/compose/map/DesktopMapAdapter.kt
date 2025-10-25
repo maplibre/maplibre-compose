@@ -4,15 +4,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Feature
-import io.github.dellisd.spatialk.geojson.Position
 import java.net.URI
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -39,6 +37,10 @@ import org.maplibre.kmp.native.map.RenderFrameStatus
 import org.maplibre.kmp.native.util.LatLng
 import org.maplibre.kmp.native.util.Projection
 import org.maplibre.kmp.native.util.ScreenCoordinate
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   MapAdapter, MapObserver, MapControls.Observer {
@@ -176,7 +178,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     // TODO: query rendered features at offset
     return emptyList()
   }
@@ -185,7 +187,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     // TODO: query rendered features in rectangle
     return emptyList()
   }

@@ -80,6 +80,7 @@ kotlin {
       implementation(libs.ktor.client.core)
       implementation(libs.ktor.client.contentNegotiation)
       implementation(libs.ktor.serialization.kotlinxJson)
+      implementation(libs.spatialk.geojson)
 
       // We exclude the android sdk here so we can select a variant via gradle property.
       // See androidMain below.

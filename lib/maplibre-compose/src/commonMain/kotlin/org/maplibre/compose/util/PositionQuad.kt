@@ -1,7 +1,7 @@
 package org.maplibre.compose.util
 
-import io.github.dellisd.spatialk.geojson.Polygon
-import io.github.dellisd.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.Polygon
+import org.maplibre.spatialk.geojson.Position
 
 public data class PositionQuad(
   val topLeft: Position,

@@ -1,6 +1,6 @@
 package org.maplibre.compose.util
 
-import io.github.dellisd.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Four-sided polygon representing the visible area of the map composable. If the camera has tilt

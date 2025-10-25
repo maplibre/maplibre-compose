@@ -1,6 +1,6 @@
 package org.maplibre.compose.sources
 
-import io.github.dellisd.spatialk.geojson.Feature
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.android.style.sources.TileSet
 import org.maplibre.android.style.sources.VectorSource as MLNVectorSource
 import org.maplibre.compose.expressions.ast.Expression
@@ -10,6 +10,8 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.util.correctedAndroidUri
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toMLNExpression
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
 
 public actual class VectorSource : Source {
   override val impl: MLNVectorSource
@@ -44,7 +46,7 @@ public actual class VectorSource : Source {
   public actual fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
-  ): List<Feature> {
+  ): List<Feature<Geometry, JsonObject?>> {
     return impl
       .querySourceFeatures(
         sourceLayerIds = sourceLayerIds.toTypedArray(),

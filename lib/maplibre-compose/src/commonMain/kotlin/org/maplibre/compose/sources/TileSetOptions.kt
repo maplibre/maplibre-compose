@@ -1,7 +1,7 @@
 package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Immutable
-import io.github.dellisd.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.BoundingBox
 
 @Immutable
 public data class TileSetOptions(

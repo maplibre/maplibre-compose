@@ -9,8 +9,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Position
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
@@ -24,6 +22,8 @@ import org.maplibre.compose.style.rememberStyleState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Displays a MapLibre based map.

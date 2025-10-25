@@ -1,11 +1,11 @@
 package org.maplibre.compose.offline
 
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Polygon
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.test.Test
 import kotlinx.cinterop.ExperimentalForeignApi
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Polygon
+import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
 class TilePackDefinitionTest {

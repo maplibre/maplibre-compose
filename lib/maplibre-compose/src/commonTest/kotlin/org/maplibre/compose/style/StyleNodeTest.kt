@@ -2,7 +2,6 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
-import io.github.dellisd.spatialk.geojson.FeatureCollection
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -15,6 +14,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.VectorSource
+import org.maplibre.spatialk.geojson.FeatureCollection
 
 @OptIn(ExperimentalTestApi::class)
 abstract class StyleNodeTest {

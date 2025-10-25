@@ -2,10 +2,12 @@ package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
-import io.github.dellisd.spatialk.geojson.Feature
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
 
 /** A map data source of tiled vector data. */
 public expect class VectorSource : Source {
@@ -37,7 +39,7 @@ public expect class VectorSource : Source {
   public fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature>
+  ): List<Feature<Geometry, JsonObject?>>
 }
 
 /** Remember a new [VectorSource] from the given [uri]. */

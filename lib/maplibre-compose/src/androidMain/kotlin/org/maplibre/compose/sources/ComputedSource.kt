@@ -1,7 +1,5 @@
 package org.maplibre.compose.sources
 
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.FeatureCollection
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.style.sources.CustomGeometrySource
 import org.maplibre.android.style.sources.CustomGeometrySourceOptions
@@ -9,6 +7,9 @@ import org.maplibre.android.style.sources.GeometryTileProvider
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.geojson.FeatureCollection as MLNFeatureCollection
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.toJson
 
 public actual class ComputedSource : Source {
   override val impl: CustomGeometrySource
@@ -20,7 +21,7 @@ public actual class ComputedSource : Source {
   public actual constructor(
     id: String,
     options: ComputedSourceOptions,
-    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection,
+    getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection<*, *>,
   ) : this(
     CustomGeometrySource(
       id = id,
@@ -31,7 +32,7 @@ public actual class ComputedSource : Source {
             bounds: LatLngBounds,
             zoomLevel: Int,
           ): MLNFeatureCollection =
-            MLNFeatureCollection.fromJson(getFeatures(bounds.toBoundingBox(), zoomLevel).json())
+            MLNFeatureCollection.fromJson(getFeatures(bounds.toBoundingBox(), zoomLevel).toJson())
         },
     )
   )
@@ -44,12 +45,12 @@ public actual class ComputedSource : Source {
     impl.invalidateTile(zoomLevel = zoomLevel, x = x, y = y)
   }
 
-  public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection) {
+  public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection<*, *>) {
     impl.setTileData(
       zoomLevel = zoomLevel,
       x = x,
       y = y,
-      data = MLNFeatureCollection.fromJson(data.json()),
+      data = MLNFeatureCollection.fromJson(data.toJson()),
     )
   }
 

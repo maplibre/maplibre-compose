@@ -1,9 +1,9 @@
 package org.maplibre.compose.location
 
-import io.github.dellisd.spatialk.geojson.Position
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.cinterop.useContents
+import org.maplibre.spatialk.geojson.Position
 import platform.CoreLocation.CLLocation
 import platform.Foundation.timeIntervalSinceNow
 

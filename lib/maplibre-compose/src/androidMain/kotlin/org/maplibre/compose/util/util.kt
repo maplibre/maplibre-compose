@@ -15,16 +15,6 @@ import com.google.gson.JsonElement
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
 import com.google.gson.JsonPrimitive
-import io.github.dellisd.spatialk.geojson.BoundingBox
-import io.github.dellisd.spatialk.geojson.Geometry
-import io.github.dellisd.spatialk.geojson.GeometryCollection
-import io.github.dellisd.spatialk.geojson.LineString
-import io.github.dellisd.spatialk.geojson.MultiLineString
-import io.github.dellisd.spatialk.geojson.MultiPoint
-import io.github.dellisd.spatialk.geojson.MultiPolygon
-import io.github.dellisd.spatialk.geojson.Point
-import io.github.dellisd.spatialk.geojson.Polygon
-import io.github.dellisd.spatialk.geojson.Position
 import java.net.URI
 import java.net.URISyntaxException
 import org.maplibre.android.geometry.LatLng
@@ -43,6 +33,17 @@ import org.maplibre.compose.expressions.ast.FloatLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.GeometryCollection
+import org.maplibre.spatialk.geojson.LineString
+import org.maplibre.spatialk.geojson.MultiLineString
+import org.maplibre.spatialk.geojson.MultiPoint
+import org.maplibre.spatialk.geojson.MultiPolygon
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Polygon
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.toJson
 
 internal fun String.correctedAndroidUri(): String {
   return try {
@@ -173,13 +174,13 @@ internal fun Alignment.toGravity(layoutDir: LayoutDirection): Int {
 
 internal fun Geometry.toMlnGeometry(): org.maplibre.geojson.Geometry {
   return when (this) {
-    is Point -> org.maplibre.geojson.Point.fromJson(json())
-    is GeometryCollection -> org.maplibre.geojson.GeometryCollection.fromJson(json())
-    is LineString -> org.maplibre.geojson.LineString.fromJson(json())
-    is MultiLineString -> org.maplibre.geojson.MultiLineString.fromJson(json())
-    is MultiPoint -> org.maplibre.geojson.MultiPoint.fromJson(json())
-    is MultiPolygon -> org.maplibre.geojson.MultiPolygon.fromJson(json())
-    is Polygon -> org.maplibre.geojson.Polygon.fromJson(json())
+    is Point -> org.maplibre.geojson.Point.fromJson(toJson())
+    is GeometryCollection<*> -> org.maplibre.geojson.GeometryCollection.fromJson(toJson())
+    is LineString -> org.maplibre.geojson.LineString.fromJson(toJson())
+    is MultiLineString -> org.maplibre.geojson.MultiLineString.fromJson(toJson())
+    is MultiPoint -> org.maplibre.geojson.MultiPoint.fromJson(toJson())
+    is MultiPolygon -> org.maplibre.geojson.MultiPolygon.fromJson(toJson())
+    is Polygon -> org.maplibre.geojson.Polygon.fromJson(toJson())
   }
 }
 
