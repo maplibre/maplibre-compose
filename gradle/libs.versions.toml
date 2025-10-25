@@ -6,39 +6,38 @@ androidx-activity = "1.11.0"
 bytesize = "2.0.0"
 htmlConverterCompose = "1.1.0"
 kermit = "2.0.8"
-kotlin-wrappers = "2025.9.8"
+kotlin-wrappers = "2025.10.12"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.3.1"
-lifecycleRuntimeCompose = "2.9.4"
-maplibre-android-sdk = "11.13.5"
+lifecycleRuntimeCompose = "2.9.5"
+maplibre-android-sdk = "12.0.1"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "4.7.1"              # TODO: is outdated; update to v5.x
 playServices-location = "21.3.0"
-spatialk = "0.3.0"                 # TODO: is unmaintained; watch for https://github.com/maplibre/maplibre-java/pull/40
+spatialk = "0.3.0"                 # TODO: switch to org.maplibre.spatialk v0.4.0
 
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.1.0"
 gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.34.0"
 gradle-mkdocs = "4.0.1"
-gradle-spmForKmp = "0.11.3"        # TODO: is outdated; update to v1.0.0 beta
+gradle-spmForKmp = "1.0.0"
+gradle-ksp = "2.3.0"
 simplejni = "3.14"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.9.0"
+gradle-compose = "1.9.1"
 #noinspection GradleDependency: follow version matrix above
-androidx-compose = "1.9.0"
-jetbrains-navigation = "2.9.0"
+androidx-compose = "1.9.3"
+jetbrains-navigation = "2.9.1"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.2.20"
+gradle-kotlin = "2.2.21"
 #noinspection AndroidGradlePluginVersion: follow version matrix above
 gradle-android = "8.11.1"
-#noinspection GradleDependency: follow Kotlin version above
-gradle-ksp = "2.2.20-2.0.3"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }

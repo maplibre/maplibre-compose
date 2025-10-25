@@ -16,6 +16,9 @@ format:
 clean-vcpkg:
     cd lib/maplibre-native-bindings-jni/vendor/maplibre-native/platform/windows/vendor/vcpkg; git reset --hard; git clean -fdx
 
+run-js:
+    ./gradlew :demo-app:jsBrowserDevelopmentRun
+
 run-desktop:
     ./gradlew :demo-app:run
 
