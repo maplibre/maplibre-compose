@@ -47,6 +47,7 @@ class TilePackDefinitionTest {
               Position(longitude = -10.0, latitude = 13.0), // northwest
               Position(longitude = 12.0, latitude = 13.0), // northeast
               Position(longitude = 12.0, latitude = -11.0), // southeast
+              Position(longitude = -10.0, latitude = -11.0), // southwest
             )
           ),
         minZoom = 3,
@@ -64,6 +65,7 @@ class TilePackDefinitionTest {
               Position(longitude = -10.0, latitude = 13.0),
               Position(longitude = 12.0, latitude = 13.0),
               Position(longitude = 12.0, latitude = -11.0),
+              Position(longitude = -10.0, latitude = -11.0),
             )
           ),
         minZoom = 3,
