@@ -7,6 +7,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import io.github.dellisd.spatialk.geojson.BoundingBox
 import io.github.dellisd.spatialk.geojson.Feature
 import io.github.dellisd.spatialk.geojson.Position
+import java.net.URI
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -89,7 +90,12 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     lastBaseStyle = style
 
     when (style) {
-      is BaseStyle.Uri -> map.loadStyleURL(style.uri)
+      is BaseStyle.Uri ->
+        if (style.uri.startsWith("jar:file:")) {
+          map.loadStyleJSON(URI(style.uri).toURL().readText())
+        } else {
+          map.loadStyleURL(style.uri)
+        }
       is BaseStyle.Json -> map.loadStyleJSON(style.json)
     }
 

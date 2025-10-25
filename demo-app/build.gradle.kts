@@ -1,4 +1,3 @@
-import io.github.frankois944.spmForKmp.utils.ExperimentalSpmForKmpFeature
 import org.jetbrains.compose.ExperimentalComposeLibrary
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
@@ -78,7 +77,6 @@ kotlin {
       implementation(compose.runtime)
       implementation(compose.ui)
       implementation(libs.androidx.navigation.compose)
-      implementation(libs.compass.geolocation.core)
       implementation(libs.ktor.client.core)
       implementation(libs.ktor.client.contentNegotiation)
       implementation(libs.ktor.serialization.kotlinxJson)
@@ -95,10 +93,7 @@ kotlin {
 
     val nonAndroidShared by creating { dependsOn(commonMain.get()) }
 
-    val androidIosShared by creating {
-      dependsOn(commonMain.get())
-      dependencies { implementation(libs.compass.geolocation.mobile) }
-    }
+    val androidIosShared by creating { dependsOn(commonMain.get()) }
 
     val desktopJsShared by creating { dependsOn(commonMain.get()) }
 
@@ -108,6 +103,11 @@ kotlin {
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.ktor.client.okhttp)
+        implementation(libs.accompanist.permissions)
+
+        implementation(project(":lib:maplibre-compose-gms")) {
+          exclude(group = "org.maplibre.gl", module = "android-sdk")
+        }
 
         project.properties["demoAppMaplibreAndroidFlavor"].let { flavor ->
           when (flavor) {
@@ -152,7 +152,6 @@ kotlin {
       dependencies {
         implementation(compose.html.core)
         implementation(libs.ktor.client.js)
-        implementation(libs.compass.geolocation.browser)
       }
     }
 
@@ -170,13 +169,6 @@ kotlin {
       implementation(compose.desktop.uiTestJUnit4)
       implementation(libs.androidx.composeUi.testManifest)
     }
-  }
-}
-
-swiftPackageConfig {
-  getByName("spmMaplibre") {
-    @OptIn(ExperimentalSpmForKmpFeature::class)
-    copyDependenciesToApp = true
   }
 }
 

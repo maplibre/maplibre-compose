@@ -2,6 +2,7 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -18,7 +19,12 @@ import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.MapClickDemo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
+import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
+import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.location.rememberDefaultLocationProvider
+import org.maplibre.compose.location.rememberNullLocationProvider
+import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.StyleState
@@ -28,6 +34,8 @@ class DemoState(
   val nav: NavHostController,
   val cameraState: CameraState,
   val styleState: StyleState,
+  val locationState: UserLocationState,
+  val locationPermissionState: LocationPermissionState,
 ) {
 
   val mapClickEvents = mutableStateListOf<MapClickEvent>()
@@ -35,7 +43,7 @@ class DemoState(
   // TODO:
   // Camera follow
   // Image source
-  // User location
+
   val demos =
     (listOf(
       StyleSelectorDemo,
@@ -44,6 +52,7 @@ class DemoState(
       MarkersDemo,
       MapClickDemo,
       ClusteredPointsDemo,
+      UserLocationDemo,
     ) + Platform.extraDemos)
 
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
@@ -75,5 +84,33 @@ fun rememberDemoState(): DemoState {
   val nav = rememberNavController()
   val cameraState = rememberCameraState()
   val styleState = rememberStyleState()
-  return remember(nav, cameraState, styleState) { DemoState(nav, cameraState, styleState) }
+
+  val locationPermissionState = rememberLocationPermissionState()
+  // this keying and swapping of LocationProviders is necessary because of the way the demo is set
+  // up
+  //
+  // In a normal app, it would be best to avoid creating a LocationProvider and everything dependent
+  // on it altogether, if no permission has been granted. The at look at GmsLocationDemo on Android
+  // for an example of this.
+  val locationProvider =
+    key(locationPermissionState.hasPermission) {
+      if (locationPermissionState.hasPermission) {
+        rememberDefaultLocationProvider()
+      } else {
+        rememberNullLocationProvider()
+      }
+    }
+  val locationState = rememberUserLocationState(locationProvider)
+
+  return remember(nav, cameraState, styleState, locationPermissionState) {
+    DemoState(nav, cameraState, styleState, locationState, locationPermissionState)
+  }
 }
+
+interface LocationPermissionState {
+  val hasPermission: Boolean
+
+  fun requestPermission()
+}
+
+@Composable expect fun rememberLocationPermissionState(): LocationPermissionState

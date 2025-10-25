@@ -18,6 +18,8 @@ iosApp/*.xcodeproj/*
 !iosApp/*.xcworkspace/contents.xcworkspacedata
 !iosApp/*.xcworkspace/xcshareddata/
 **/xcshareddata/WorkspaceSettings.xcsettings
+iosApp/Build
+iosApp/DerivedData
 exportedSpmMaplibre
 out/
 .cache/
