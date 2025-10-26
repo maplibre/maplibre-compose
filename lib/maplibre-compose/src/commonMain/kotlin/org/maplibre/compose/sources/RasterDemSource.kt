@@ -30,7 +30,7 @@ public expect class RasterDemSource : Source {
   )
 }
 
-/** Remember a new [RasterSource] with the given [tileSize] from the given [uri]. */
+/** Remember a new [RasterDemSource] with the given [tileSize] from the given [uri]. */
 @Composable
 public fun rememberRasterDemSource(
   uri: String,
