@@ -17,7 +17,7 @@ import org.maplibre.compose.util.MaplibreComposable
  * Terrain RGB, Mapzen Terrarium tiles and custom encodings.
  *
  * @param id Unique layer name.
- * @param source Vector data source for this layer.
+ * @param source Raster DEM data source for this layer.
  * @param minZoom The minimum zoom level for the layer. At zoom levels less than this, the layer
  *   will be hidden. A value in the range of `[0..24]`.
  * @param maxZoom The maximum zoom level for the layer. At zoom levels equal to or greater than
