@@ -21,7 +21,7 @@ gradle-dokka = "2.1.0"
 gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.34.0"
 gradle-mkdocs = "4.0.1"
-gradle-spmForKmp = "1.0.0"
+gradle-spmForKmp = "1.0.3"
 gradle-ksp = "2.3.0"
 simplejni = "3.14"
 
