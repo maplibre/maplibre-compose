@@ -21,6 +21,7 @@ public actual class RasterDemSource : Source {
     tiles: List<String>,
     options: TileSetOptions,
     tileSize: Int,
+    demEncoding: RasterDemEncoding
   ) {
     impl =
       MLNRasterDemSource(
@@ -32,6 +33,7 @@ public actual class RasterDemSource : Source {
           .apply {
             minZoom = options.minZoom.toFloat()
             maxZoom = options.maxZoom.toFloat()
+            encoding = demEncoding.value
             options.boundingBox?.let { setBounds(it.toLatLngBounds()) }
             attribution = options.attributionHtml
           },
