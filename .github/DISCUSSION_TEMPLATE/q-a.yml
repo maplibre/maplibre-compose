@@ -1,0 +1,71 @@
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for asking a question! Please provide as much detail as possible to help us understand your issue.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: What are you trying to achieve?
+      description: |
+        Describe what you're trying to accomplish and what you expect to happen.
+      placeholder: |
+        Example: I'm trying to display markers on my map that update when the user clicks on different locations.
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: platform
+    attributes:
+      label: Affected Platform(s)
+      description: Which platform(s) are you working with?
+      options:
+        - label: Android
+        - label: iOS
+        - label: Desktop - macOS (JVM)
+        - label: Desktop - Linux (JVM)
+        - label: Desktop - Windows (JVM)
+        - label: Browser (JS)
+        - label: Browser (Wasm)
+    validations:
+      required: true
+
+  - type: input
+    id: library-version
+    attributes:
+      label: Library Version
+      description: What version of MapLibre Compose are you using?
+      placeholder: e.g. 0.12.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-tried
+    attributes:
+      label: What have you tried?
+      description: |
+        Please describe what approaches you've already attempted and what happened.
+        Include code samples if possible. This helps us understand where you're stuck.
+      placeholder: |
+        Example:
+        I tried using a SymbolLayer but I'm not sure how to update the marker position.
+
+        ```kotlin
+        MaplibreMap(...) {
+          // my code here
+        }
+        ```
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description:
+        Add any other context, screenshots, or relevant links about your
+        question.
+      placeholder: |
+        Example: I found this example in the MapLibre docs
