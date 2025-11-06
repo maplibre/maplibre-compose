@@ -28,6 +28,10 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * Displays a MapLibre based map.
  *
+ * The map has no intrinsic size and will expand to fill its container by default. If placed in a
+ * scrollable container or other layout that doesn't provide constraints, you must specify an
+ * explicit size using modifiers like [Modifier.size][androidx.compose.foundation.layout.size].
+ *
  * @param modifier The modifier to be applied to the layout.
  * @param baseStyle The URI or JSON of the map style to use. See
  *   [MapLibre Style](https://maplibre.org/maplibre-style-spec/).

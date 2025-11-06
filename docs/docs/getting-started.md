@@ -184,14 +184,32 @@ easiest way to do this is via the CDN:
 
 !!! warning
 
-    Desktop support is not yet at feature parity with Android and iOS. Check the [status table](index.md#status) for more info.
+    Desktop support is not yet at feature parity with Android and iOS.
+    Check the [status table](index.md#status) for more info.
 
 On desktop, we use MapLibre Native via a JNI bindings module that bundles
-platform-specific native libraries. Add a runtime-only dependency for each
-platform you want to support, selecting exactly one renderer per OS/architecture
-combination via capabilities.
+platform-specific native libraries. Add a runtime-only dependency for the
+platform you want to support, selecting exactly one capability matching your
+current OS/architecture combination.
 
 ```kotlin title="build.gradle.kts"
+fun detectTarget(): String {
+  val hostOs = when (val os = System.getProperty("os.name").lowercase()) {
+    "mac os x" -> "macos"
+    else -> os.split(" ").first()
+  }
+  val hostArch = when (val arch = System.getProperty("os.arch").lowercase()) {
+    "x86_64" -> "amd64"
+    "arm64" -> "aarch64"
+    else -> arch
+  }
+  val renderer = when (hostOs) {
+    "macos" -> "metal"
+    else -> "opengl"
+  }
+  return "${hostOs}-${hostArch}-${renderer}"
+}
+
 sourceSets {
   val desktopMain by getting {
     dependencies {
@@ -199,9 +217,7 @@ sourceSets {
       implementation("org.maplibre.compose:maplibre-compose:{{ gradle.release_version }}")
       runtimeOnly("org.maplibre.compose:maplibre-native-bindings-jni:{{ gradle.release_version }}") {
         capabilities {
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-macos-aarch64-metal")
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-linux-amd64-opengl")
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-windows-amd64-opengl")
+          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-${detectTarget()}")
         }
       }
     }
