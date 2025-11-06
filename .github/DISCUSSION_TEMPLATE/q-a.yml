@@ -56,7 +56,6 @@ body:
           // my code here
         }
         ```
-      render: markdown
     validations:
       required: true
 
