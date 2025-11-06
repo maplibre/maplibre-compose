@@ -108,20 +108,24 @@ public fun <I : MatchableValue, O : ExpressionValue> switch(
   vararg cases: Case<I, O>,
   fallback: Expression<O>,
 ): Expression<O> =
-  FunctionCall.of(
-      "match",
-      input,
-      *cases.foldToArgs { (label, output) ->
-        add(label)
-        add(output)
-      },
-      fallback,
-      isLiteralArg = { i ->
-        // label positions are odd, starting from 1 and not including the fallback
-        i in 1..(cases.size * 2) && i % 2 == 1
-      },
-    )
-    .cast()
+  when (cases.size) {
+    0 -> fallback
+    else ->
+      FunctionCall.of(
+          "match",
+          input,
+          *cases.foldToArgs { (label, output) ->
+            add(label)
+            add(output)
+          },
+          fallback,
+          isLiteralArg = { i ->
+            // label positions are odd, starting from 1 and not including the fallback
+            i in 1..(cases.size * 2) && i % 2 == 1
+          },
+        )
+        .cast()
+  }
 
 /** See [switch] */
 public data class Case<@Suppress("unused") I : MatchableValue, O : ExpressionValue>
