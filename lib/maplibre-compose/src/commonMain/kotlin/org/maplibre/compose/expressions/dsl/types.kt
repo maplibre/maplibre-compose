@@ -90,9 +90,8 @@ public fun Expression<*>.asString(vararg fallbacks: Expression<*>): Expression<S
  * In case this expression is not an entry of the enum, each of the [fallbacks] is evaluated in
  * order until a match is obtained. If none of the inputs match, the expression is an error.
  */
-public inline fun <reified T> Expression<*>.asEnum(
-  vararg fallbacks: Expression<*>
-): Expression<T> where T : Enum<T>, T : EnumValue<T> {
+public inline fun <reified T> Expression<*>.asEnum(vararg fallbacks: Expression<*>): Expression<T>
+  where T : Enum<T>, T : EnumValue<T> {
   val entries = const(enumEntries<T>().map { it.name })
   return switch(
       condition(entries.contains(this), this),

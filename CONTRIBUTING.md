@@ -32,6 +32,23 @@ expertise on some topic.
 
 ## Set up your development environment
 
+### Mise
+
+This project uses [mise](https://mise.jdx.dev/) for environment management. You
+can either:
+
+#### Option 1: Use mise (Recommended)
+
+1. Install mise if you haven't already:
+   https://mise.jdx.dev/getting-started.html.
+2. Run `mise install` in the project root to install all required tools.
+3. Still read the rest of the guide, because not all tools are managed by mise.
+
+#### Option 2: Manual Setup
+
+If you prefer not to use mise, check `mise.toml` for the list of required tools
+and versions, then install them manually.
+
 ### Kotlin Multiplatform
 
 Check out
@@ -60,11 +77,9 @@ sdk.dir=/Users/username/Library/Android/sdk
 
 ### Building for Apple platforms
 
-Install XCode to build for Apple platforms. Jetbrains
-[has a table](https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html#version-compatibility)
-of supported XCode versions by Kotlin version. Check the compatibility table and
-install the latest supported XCode version. I recommend using
-[Xcodes](https://www.xcodes.app/) to manage multiple XCode versions.
+Install XCode to build for Apple platforms. Mise will do this for you with
+`xcodes`. If installing manually, use the version named in the
+[`.xcode-version`](.xcode-version) file.
 
 ### Building for Desktop
 
@@ -74,8 +89,9 @@ You'll need to have your developer environment set up to build MapLibre Native.
 
 - [macOS requirements](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
   - Install XCode, and use the matching clang version provided by XCode rather
-    than from homebrew. As of writing, that's XCode 16.4 and clang 17.
-  - `brew install cmake webp libuv webp icu4c jpeg-turbo glfw libuv molten-vk`
+    than from homebrew. `/usr/bin/clang --version` and `clang --version` should
+    match.
+  - `brew install webp libuv webp icu4c jpeg-turbo glfw libuv molten-vk`
   - If building the Vulkan backend, set the `VULKAN_SDK` environment variable to
     the MoltenVK prefix (`export VULKAN_SDK="$(brew --prefix molten-vk)"`).
 - [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)
@@ -115,14 +131,15 @@ launch on iOS, and Gradle to launch on JS or Desktop:
 ## Make CI happy
 
 A Git pre-commit hook is available to ensure that the code is formatted before
-every commit. Install hooks with [pre-commit](https://pre-commit.com/):
+every commit. It'll be installed automatically if you use `mise`, but you can
+remove it with:
 
 ```bash
-just pre-commit-install
+hk uninstall
 ```
 
-Uninstall with:
+If not using the pre-commit hook, you can manually format the code using:
 
 ```bash
-just pre-commit-uninstall
+hk fix --all
 ```

@@ -1,0 +1,53 @@
+amends "package://github.com/jdx/hk/releases/download/v1.20.0/hk@1.20.0#/Config.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.20.0/hk@1.20.0#/Builtins.pkl"
+
+fail_fast = false
+
+local linters = new Mapping<String, Step> {
+  ["trailing-whitespace"] = (Builtins.trailing_whitespace)
+  ["end-of-file-fixer"] = (Builtins.newlines)
+  ["mixed-line-ending"] = (Builtins.mixed_line_ending)
+  ["check-added-large-files"] = (Builtins.check_added_large_files)
+  ["check-merge-conflict"] = (Builtins.check_merge_conflict)
+  ["actionlint"] = (Builtins.actionlint)
+  ["clang-format"] = (Builtins.clang_format) {
+    glob = List("*.c", "*.h", "*.cpp", "*.hpp", "*.cc", "*.hh", "*.cxx", "*.hxx", "*.h", "*.mm")
+  }
+  ["prettier"] = (Builtins.prettier)
+  ["ktfmt"] {
+    glob = List("*.kt", "*.kts")
+    fix = "ktfmt --google-style {{files}}"
+  }
+  ["swift-format"] {
+    glob = List("*.swift")
+    fix = new Script {
+      macos = "swift format -pi {{files}}"
+      linux = "swift-format -pi {{files}}"
+      windows = "swift-format -pi {{files}}"
+      other = "swift-format -pi {{files}}"
+    }
+  }
+  ["mise"] {
+    glob = List("**/mise.toml")
+    fix = "mise fmt"
+  }
+  ["pkl"] = (Builtins.pkl) {
+    check_first = false
+    fix = "pkl format -w {{files}}"
+  }
+}
+
+hooks {
+  ["pre-commit"] {
+    fix = true
+    stash = "git"
+    steps = linters
+  }
+  ["check"] {
+    steps = linters
+  }
+  ["fix"] {
+    fix = true
+    steps = linters
+  }
+}
