@@ -27,7 +27,7 @@ dokka {
         localDirectory.set(rootDir)
       }
       externalDocumentationLinks {
-        create("spatial-k") { url("https://dellisd.github.io/spatial-k/api/") }
+        create("spatial-k") { url("https://maplibre.org/spatial-k/api/") }
         create("maplibre-native") {
           url("https://maplibre.org/maplibre-native/android/api/")
           packageListUrl(

@@ -84,14 +84,7 @@ public object Feature {
    * Gets the progress along a gradient line. Can only be used in the `gradient` property of a line
    * layer, see [LineLayer][org.maplibre.compose.layers.LineLayer].
    */
-  public fun lineProgress(value: Expression<FloatValue>): Expression<FloatValue> =
-    FunctionCall.of("line-progress", value).cast()
-
-  /**
-   * Gets the progress along a gradient line. Can only be used in the `gradient` property of a line
-   * layer, see [LineLayer][org.maplibre.compose.layers.LineLayer].
-   */
-  public fun lineProgress(value: Float): Expression<FloatValue> = lineProgress(const(value))
+  public fun lineProgress(): Expression<FloatValue> = FunctionCall.of("line-progress").cast()
 
   /**
    * Gets the value of a cluster property accumulated so far. Can only be used in the

@@ -1,0 +1,108 @@
+[[tools.actionlint]]
+version = "1.7.8"
+backend = "aqua:rhysd/actionlint"
+
+[tools.actionlint.platforms.linux-x64]
+checksum = "sha256:be92c2652ab7b6d08425428797ceabeb16e31a781c07bc388456b4e592f3e36a"
+size = 2219735
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_linux_amd64.tar.gz"
+
+[tools.actionlint.platforms.macos-arm64]
+checksum = "sha256:ffb1f6c429a51dc9f37af9d11f96c16bd52f54b713bf7f8bd92f7fce9fd4284a"
+size = 2056182
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_darwin_arm64.tar.gz"
+
+[[tools.hk]]
+version = "1.20.0"
+backend = "aqua:jdx/hk"
+
+[tools.hk.platforms.linux-x64]
+checksum = "sha256:f35036c5e43f32e5c110a6c147df598d69d2afb56186ffa7b5d5af0d517c7069"
+size = 7184547
+url = "https://github.com/jdx/hk/releases/download/v1.20.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+
+[[tools.java]]
+version = "21.0.2"
+backend = "core:java"
+
+[tools.java.platforms.linux-x64]
+checksum = "sha256:a2def047a73941e01a73739f92755f86b895811afb1f91243db214cff5bdac3f"
+size = 203616881
+url = "https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c558476027ac/13/GPL/openjdk-21.0.2_linux-x64_bin.tar.gz"
+
+[[tools.ninja]]
+version = "1.13.1"
+backend = "aqua:ninja-build/ninja"
+
+[tools.ninja.platforms.linux-x64]
+checksum = "sha256:0830252db77884957a1a4b87b05a1e2d9b5f658b8367f82999a941884cbe0238"
+size = 134048
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-linux.zip"
+
+[[tools.node]]
+version = "24.11.0"
+backend = "core:node"
+
+[tools.node.platforms.linux-x64]
+checksum = "sha256:b3c071cdf47aab867c3b2aa287257df12ec5d7c962bf922b32fd33226c4295fd"
+size = 58899117
+url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-linux-x64.tar.gz"
+
+[[tools."npm:ktfmt"]]
+version = "0.59.0"
+backend = "npm:ktfmt"
+
+[[tools.pipx]]
+version = "1.8.0"
+backend = "aqua:pypa/pipx"
+
+[tools.pipx.platforms.linux-x64]
+checksum = "sha256:b9eabd835dffe0677e36bd99416fc9837c592bd8c079235379bed3dfe043c601"
+size = 344601
+url = "https://github.com/pypa/pipx/releases/download/1.8.0/pipx.pyz"
+
+[[tools."pipx:clang-format"]]
+version = "21.1.5"
+backend = "pipx:clang-format"
+
+[[tools.pkl]]
+version = "0.30.0"
+backend = "aqua:apple/pkl"
+
+[tools.pkl.platforms.linux-x64]
+checksum = "sha256:182a50a2c84bb002010ea45c8982c1e63b54e7e6a40e939bb5eb70beaad38cd7"
+size = 99355968
+url = "https://github.com/apple/pkl/releases/download/0.30.0/pkl-linux-amd64"
+
+[[tools.pre-commit]]
+version = "4.3.0"
+backend = "aqua:pre-commit/pre-commit"
+
+[tools.pre-commit.platforms.linux-x64]
+checksum = "sha256:f1d50b97e9ca9167aceb76c14e90b07cde8b6789bc199d5005cfd817a718878c"
+size = 8268268
+url = "https://github.com/pre-commit/pre-commit/releases/download/v4.3.0/pre-commit-4.3.0.pyz"
+
+[[tools.prettier]]
+version = "3.6.2"
+backend = "npm:prettier"
+
+[[tools.python]]
+version = "3.14.0"
+backend = "core:python"
+
+[[tools.swift]]
+version = "6.2.1"
+backend = "core:swift"
+
+[tools.swift.platforms.linux-x64]
+checksum = "blake3:49343e42f3988ca8a3f3da18b727b30c1612674d82f6ca1f713e7e20216bcf0d"
+size = 1008044814
+
+[[tools."vfox:cmake"]]
+version = "4.1.2"
+backend = "vfox:cmake"
+
+[[tools.xcodes]]
+version = "1.6.2"
+backend = "aqua:XcodesOrg/xcodes"
