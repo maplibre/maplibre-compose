@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -7,6 +9,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraMoveReason
@@ -93,7 +97,7 @@ import org.maplibre.spatialk.geojson.Position
 @Composable
 public fun MaplibreMap(
   modifier: Modifier = Modifier,
-  baseStyle: BaseStyle = BaseStyle.Companion.Demo,
+  baseStyle: BaseStyle = BaseStyle.Demo,
   cameraState: CameraState = rememberCameraState(),
   zoomRange: ClosedRange<Float> = 0f..20f,
   pitchRange: ClosedRange<Float> = 0f..60f,
@@ -108,6 +112,12 @@ public fun MaplibreMap(
   onMapLoadFinished: () -> Unit = {},
   content: @Composable @MaplibreComposable () -> Unit = {},
 ) {
+  // In preview/inspection mode, show a placeholder instead of trying to render the map
+  if (LocalInspectionMode.current) {
+    Box(modifier = modifier.fillMaxSize().background(Color.Gray))
+    return
+  }
+
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
 
