@@ -17,6 +17,7 @@ actionlint = "latest"
 
 [settings]
 lockfile = true
+experimental = true
 
 [hooks]
 postinstall = [
