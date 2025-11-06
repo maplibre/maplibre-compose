@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import org.maplibre.android.style.sources.CustomGeometrySource
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.ImageSource
+import org.maplibre.android.style.sources.RasterDemSource
 import org.maplibre.android.style.sources.RasterSource
 import org.maplibre.android.style.sources.Source
 import org.maplibre.android.style.sources.VectorSource
@@ -30,6 +31,7 @@ internal class AndroidStyle(style: org.maplibre.android.maps.Style) : Style {
       is GeoJsonSource -> org.maplibre.compose.sources.GeoJsonSource(this)
       is RasterSource -> org.maplibre.compose.sources.RasterSource(this)
       is ImageSource -> org.maplibre.compose.sources.ImageSource(this)
+      is RasterDemSource -> org.maplibre.compose.sources.RasterDemSource(this)
       is CustomGeometrySource -> ComputedSource(this)
       else -> UnknownSource(this)
     }

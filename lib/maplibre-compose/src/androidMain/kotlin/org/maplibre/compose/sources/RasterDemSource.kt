@@ -21,7 +21,7 @@ public actual class RasterDemSource : Source {
     tiles: List<String>,
     options: TileSetOptions,
     tileSize: Int,
-    demEncoding: RasterDemEncoding
+    demEncoding: RasterDemEncoding,
   ) {
     impl =
       MLNRasterDemSource(

@@ -34,13 +34,36 @@ public expect class RasterDemSource : Source {
 
 /** The encoding used by a Raster DEM source. */
 public sealed class RasterDemEncoding(internal val value: String) {
-  /** Mapbox Terrain RGB tiles. See https://www.mapbox.com/help/access-elevation-data/#mapbox-terrain-rgb for more info */
+  /**
+   * Mapbox Terrain RGB tiles. See
+   * https://www.mapbox.com/help/access-elevation-data/#mapbox-terrain-rgb for more info
+   */
   public data object Mapbox : RasterDemEncoding("mapbox")
 
-  /** Terrarium format PNG tiles. See https://aws.amazon.com/es/public-datasets/terrain/ for more info. */
+  /**
+   * Terrarium format PNG tiles. See https://aws.amazon.com/es/public-datasets/terrain/ for more
+   * info.
+   */
   public data object Terrarium : RasterDemEncoding("terrarium")
-}
 
+  /**
+   * Custom format using the given [redFactor], [blueFactor], [greenFactor] and [baseShift]
+   * parameters.
+   *
+   * Unsupported on Android, iOS, and Desktop
+   * [#2783](https://github.com/maplibre/maplibre-native/issues/2783).
+   */
+  public data class Custom(
+    /** Value that will be multiplied by the red channel value when decoding. */
+    public val redFactor: Float = 1f,
+    /** Value that will be multiplied by the blue channel value when decoding. */
+    public val blueFactor: Float = 1f,
+    /** Value that will be multiplied by the green channel value when decoding. */
+    public val greenFactor: Float = 1f,
+    /** Value that will be added to the encoding mix when decoding. */
+    public val baseShift: Float = 0f,
+  ) : RasterDemEncoding("custom")
+}
 
 /** Remember a new [RasterDemSource] with the given [tileSize] from the given [uri]. */
 @Composable
@@ -64,7 +87,15 @@ public fun rememberRasterDemSource(
 ): RasterDemSource =
   key(tiles, options, tileSize) {
     rememberUserSource(
-      factory = { RasterDemSource(id = it, tiles = tiles, options = options, tileSize = tileSize, demEncoding = encoding) },
+      factory = {
+        RasterDemSource(
+          id = it,
+          tiles = tiles,
+          options = options,
+          tileSize = tileSize,
+          demEncoding = encoding,
+        )
+      },
       update = {},
     )
   }

@@ -1,6 +1,8 @@
 package org.maplibre.compose.style
 
 import MapLibre.MLNComputedShapeSource
+import MapLibre.MLNImageSource
+import MapLibre.MLNRasterDEMSource
 import MapLibre.MLNRasterTileSource
 import MapLibre.MLNShapeSource
 import MapLibre.MLNSource
@@ -12,6 +14,8 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.ComputedSource
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.ImageSource
+import org.maplibre.compose.sources.RasterDemSource
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.UnknownSource
@@ -34,6 +38,8 @@ internal class IosStyle(style: MLNStyle, private val getScale: () -> Float) : St
       is MLNVectorTileSource -> VectorSource(this)
       is MLNShapeSource -> GeoJsonSource(this)
       is MLNRasterTileSource -> RasterSource(this)
+      is MLNImageSource -> ImageSource(this)
+      is MLNRasterDEMSource -> RasterDemSource(this)
       is MLNComputedShapeSource -> ComputedSource(this)
       else -> UnknownSource(this)
     }
