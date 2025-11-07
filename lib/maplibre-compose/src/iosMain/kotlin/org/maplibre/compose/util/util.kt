@@ -233,10 +233,6 @@ internal fun ImageBitmap.toUIImage(
   sdf: Boolean,
   resizeOptions: ImageResizeOptions?,
 ): UIImage {
-  println("width: ${this.width}, height: ${this.height}")
-  println("resizeOptions: $resizeOptions")
-  println("scale: $scale")
-
   var image =
     UIImage(
         data = Image.makeFromBitmap(this.asSkiaBitmap()).encodeToData()!!.bytes.toNSData(),

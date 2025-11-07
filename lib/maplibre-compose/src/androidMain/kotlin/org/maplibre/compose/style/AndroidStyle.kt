@@ -35,8 +35,8 @@ internal class AndroidStyle(
       with(getDensity()) {
         val left = resizeOptions.left.toPx()
         val top = resizeOptions.top.toPx()
-        val right = androidBitmap.height - resizeOptions.right.toPx()
-        val bottom = androidBitmap.width - resizeOptions.bottom.toPx()
+        val right = androidBitmap.width - resizeOptions.right.toPx()
+        val bottom = androidBitmap.height - resizeOptions.bottom.toPx()
         impl.addImage(
           id,
           androidBitmap,
