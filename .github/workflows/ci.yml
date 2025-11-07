@@ -18,12 +18,13 @@ jobs:
           fetch-depth: 0
       - uses: jdx/mise-action@v3
       - run: mise fix
-      - if: ${{ github.event_name == 'pull_request' }}
-        uses: stefanzweifel/git-auto-commit-action@v7
-        with:
-          commit_message: "Apply `mise fix`"
-      - if: ${{ github.event_name != 'pull_request' }}
-        run: git diff --exit-code
+      - run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+          git add .
+          git commit -m 'Apply `mise fix`'
+          git push
+          git diff --exit-code
 
   lint-hk:
     runs-on: ubuntu-latest
