@@ -23,7 +23,8 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
@@ -273,12 +274,12 @@ private fun rememberLocationSource(locationState: UserLocationState): GeoJsonSou
           Feature(
             geometry = Point(location.position),
             properties =
-              mapOf(
-                "accuracy" to JsonPrimitive(location.accuracy),
-                "bearing" to JsonPrimitive(location.bearing),
-                "bearingAccuracy" to JsonPrimitive(location.bearingAccuracy),
-                "age" to JsonPrimitive(location.timestamp.elapsedNow().inWholeNanoseconds),
-              ),
+              buildJsonObject {
+                put("accuracy", location.accuracy)
+                put("bearing", location.bearing)
+                put("bearingAccuracy", location.bearingAccuracy)
+                put("age", location.timestamp.elapsedNow().inWholeNanoseconds)
+              },
           )
         )
       }
