@@ -67,6 +67,7 @@ import platform.UIKit.UIColor
 import platform.UIKit.UIEdgeInsetsMake
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageRenderingMode
+import platform.UIKit.UIImageResizingModeStretch
 import platform.UIKit.valueWithCGVector
 import platform.UIKit.valueWithUIEdgeInsets
 import platform.posix.memcpy
@@ -227,15 +228,41 @@ internal fun Alignment.toMLNOrnamentPosition(layoutDir: LayoutDirection): MLNOrn
   }
 }
 
-internal fun ImageBitmap.toUIImage(scale: Float, sdf: Boolean) =
-  UIImage(
-      data = Image.makeFromBitmap(this.asSkiaBitmap()).encodeToData()!!.bytes.toNSData(),
-      scale = scale.toDouble(),
-    )
-    .imageWithRenderingMode(
-      if (sdf) UIImageRenderingMode.UIImageRenderingModeAlwaysTemplate
-      else UIImageRenderingMode.UIImageRenderingModeAutomatic
-    )
+internal fun ImageBitmap.toUIImage(
+  scale: Float,
+  sdf: Boolean,
+  resizeOptions: ImageResizeOptions?,
+): UIImage {
+  println("width: ${this.width}, height: ${this.height}")
+  println("resizeOptions: $resizeOptions")
+  println("scale: $scale")
+
+  var image =
+    UIImage(
+        data = Image.makeFromBitmap(this.asSkiaBitmap()).encodeToData()!!.bytes.toNSData(),
+        scale = scale.toDouble(),
+      )
+      .imageWithRenderingMode(
+        if (sdf) UIImageRenderingMode.UIImageRenderingModeAlwaysTemplate
+        else UIImageRenderingMode.UIImageRenderingModeAutomatic
+      )
+
+  if (resizeOptions != null)
+    image =
+      image.size.useContents {
+        image.resizableImageWithCapInsets(
+          UIEdgeInsetsMake(
+            top = resizeOptions.top.value.toDouble(),
+            left = resizeOptions.left.value.toDouble(),
+            bottom = resizeOptions.bottom.value.toDouble(),
+            right = resizeOptions.right.value.toDouble(),
+          ),
+          UIImageResizingModeStretch,
+        )
+      }
+
+  return image
+}
 
 internal fun ImageBitmap.toUIImage() =
   UIImage(data = Image.makeFromBitmap(this.asSkiaBitmap()).encodeToData()!!.bytes.toNSData())

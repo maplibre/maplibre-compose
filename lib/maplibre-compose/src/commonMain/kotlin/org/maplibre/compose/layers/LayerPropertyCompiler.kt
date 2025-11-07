@@ -93,12 +93,13 @@ internal class LayerPropertyCompiler(
     }
   }
 
-  private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf)
+  private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf, resizeOptions)
 
   private fun PainterLiteral.key(
     density: Density,
     layoutDirection: LayoutDirection,
-  ): ImageManager.PainterKey = ImageManager.PainterKey(value, density, layoutDirection, size, sdf)
+  ): ImageManager.PainterKey =
+    ImageManager.PainterKey(value, density, layoutDirection, size, sdf, resizeOptions)
 }
 
 @Composable

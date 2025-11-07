@@ -9,6 +9,7 @@ import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.StringValue
+import org.maplibre.compose.util.ImageResizeOptions
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -56,8 +57,12 @@ public fun image(value: String): Expression<ImageValue> = image(const(value))
  * @param isSdf Should be set to true if the bitmap is a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/)
  */
-public fun image(value: ImageBitmap, isSdf: Boolean = false): Expression<ImageValue> =
-  FunctionCall.of("image", BitmapLiteral.of(value, isSdf)).cast()
+public fun image(
+  value: ImageBitmap,
+  isSdf: Boolean = false,
+  resizeOptions: ImageResizeOptions? = null,
+): Expression<ImageValue> =
+  FunctionCall.of("image", BitmapLiteral.of(value, isSdf, resizeOptions)).cast()
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -82,5 +87,6 @@ public fun image(
   value: Painter,
   size: DpSize? = null,
   drawAsSdf: Boolean = false,
+  resizeOptions: ImageResizeOptions? = null,
 ): Expression<ImageValue> =
-  FunctionCall.of("image", PainterLiteral.of(value, size, drawAsSdf)).cast()
+  FunctionCall.of("image", PainterLiteral.of(value, size, drawAsSdf, resizeOptions)).cast()

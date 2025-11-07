@@ -3,9 +3,10 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.ImageResizeOptions
 
 internal interface Style {
-  fun addImage(id: String, image: ImageBitmap, sdf: Boolean)
+  fun addImage(id: String, image: ImageBitmap, sdf: Boolean, resizeOptions: ImageResizeOptions?)
 
   fun removeImage(id: String)
 

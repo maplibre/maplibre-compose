@@ -2,6 +2,9 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.ui.unit.Density
+import org.maplibre.android.maps.ImageContent
+import org.maplibre.android.maps.ImageStretches
 import org.maplibre.android.style.sources.CustomGeometrySource
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.ImageSource
@@ -12,12 +15,38 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.ComputedSource
 import org.maplibre.compose.sources.UnknownSource
+import org.maplibre.compose.util.ImageResizeOptions
 
-internal class AndroidStyle(style: org.maplibre.android.maps.Style) : Style {
+internal class AndroidStyle(
+  style: org.maplibre.android.maps.Style,
+  private val getDensity: () -> Density,
+) : Style {
   private var impl: org.maplibre.android.maps.Style = style
 
-  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean) {
-    impl.addImage(id, image.asAndroidBitmap(), sdf)
+  override fun addImage(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean,
+    resizeOptions: ImageResizeOptions?,
+  ) {
+    val androidBitmap = image.asAndroidBitmap()
+    if (resizeOptions == null) impl.addImage(id, androidBitmap, sdf)
+    else {
+      with(getDensity()) {
+        val left = resizeOptions.left.toPx()
+        val top = resizeOptions.top.toPx()
+        val right = androidBitmap.height - resizeOptions.right.toPx()
+        val bottom = androidBitmap.width - resizeOptions.bottom.toPx()
+        impl.addImage(
+          id,
+          androidBitmap,
+          sdf,
+          listOf(ImageStretches(left, right)),
+          listOf(ImageStretches(top, bottom)),
+          ImageContent(left, top, right, bottom),
+        )
+      }
+    }
   }
 
   override fun removeImage(id: String) {

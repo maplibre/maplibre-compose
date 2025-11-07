@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.ImageResizeOptions
 
 internal class SafeStyle(private val delegate: Style) : Style {
   internal var isUnloaded = false
@@ -17,9 +18,14 @@ internal class SafeStyle(private val delegate: Style) : Style {
     }
   }
 
-  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean) {
+  override fun addImage(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean,
+    resizeOptions: ImageResizeOptions?,
+  ) {
     warnIfUnloaded("addImage")
-    if (!isUnloaded) delegate.addImage(id, image, sdf)
+    if (!isUnloaded) delegate.addImage(id, image, sdf, resizeOptions)
   }
 
   override fun removeImage(id: String) {

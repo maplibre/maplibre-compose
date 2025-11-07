@@ -107,7 +107,7 @@ internal class AndroidMapAdapter(
 
     map.setStyle(builder) { style ->
       logger?.i { "Style finished loading" }
-      callbacks.onStyleChanged(this, AndroidStyle(style))
+      callbacks.onStyleChanged(this, AndroidStyle(style, getDensity = { density }))
     }
   }
 

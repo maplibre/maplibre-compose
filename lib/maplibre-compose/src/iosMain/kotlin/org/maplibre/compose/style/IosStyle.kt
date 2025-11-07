@@ -16,13 +16,19 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorSource
+import org.maplibre.compose.util.ImageResizeOptions
 import org.maplibre.compose.util.toUIImage
 
 internal class IosStyle(style: MLNStyle, private val getScale: () -> Float) : Style {
   private var impl: MLNStyle = style
 
-  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean) {
-    impl.setImage(image.toUIImage(getScale(), sdf), forName = id)
+  override fun addImage(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean,
+    resizeOptions: ImageResizeOptions?,
+  ) {
+    impl.setImage(image.toUIImage(getScale(), sdf, resizeOptions), forName = id)
   }
 
   override fun removeImage(id: String) {

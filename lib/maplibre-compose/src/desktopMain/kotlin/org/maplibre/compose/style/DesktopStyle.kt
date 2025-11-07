@@ -3,11 +3,17 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.ImageResizeOptions
 import org.maplibre.kmp.native.map.MapLibreMap
 
 internal class DesktopStyle(internal val impl: MapLibreMap) : Style {
 
-  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean) {}
+  override fun addImage(
+    id: String,
+    image: ImageBitmap,
+    sdf: Boolean,
+    resizeOptions: ImageResizeOptions?,
+  ) {}
 
   override fun removeImage(id: String) {}
 
