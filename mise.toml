@@ -14,6 +14,7 @@ xcodes = { version = "latest", os = ["macos"] }
 swift = { version = "latest", os = ["linux", "windows", "other"] }
 pkl = "latest"
 actionlint = "latest"
+shellcheck = "latest"
 
 [settings]
 lockfile = true

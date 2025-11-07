@@ -91,6 +91,15 @@ backend = "npm:prettier"
 version = "3.14.0"
 backend = "core:python"
 
+[[tools.shellcheck]]
+version = "0.11.0"
+backend = "aqua:koalaman/shellcheck"
+
+[tools.shellcheck.platforms.macos-arm64]
+checksum = "sha256:56affdd8de5527894dca6dc3d7e0a99a873b0f004d7aabc30ae407d3f48b0a79"
+size = 7245972
+url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.xz"
+
 [[tools.swift]]
 version = "6.2.1"
 backend = "core:swift"
