@@ -62,8 +62,9 @@ public class MapCanvas(
 
   override fun removeNotify() {
     super.removeNotify()
-    // TODO: explicitly dispose the native map and renderer?
+    map?.dispose()
     map = null
+    renderer?.dispose()
     renderer = null
   }
 

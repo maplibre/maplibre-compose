@@ -23,6 +23,8 @@ public class CanvasRenderer(
   override val nativePointer: Long
     get() = nativePeer.rawPtr
 
+  public fun dispose(): Unit = nativePeer.clean()
+
   public external fun render()
 
   public external fun setSize(size: Size)

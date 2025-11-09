@@ -8,9 +8,9 @@ import smjni.jnigen.ExposeToNative
 internal class AutoCleanPointer internal constructor(new: () -> Long, destroy: (Long) -> Unit) {
   @get:CalledByNative val rawPtr: Long = new()
 
-  init {
-    cleaner.register(this) { destroy(rawPtr) }
-  }
+  private val cleanable = cleaner.register(this) { destroy(rawPtr) }
+
+  internal fun clean() = cleanable.clean()
 
   private companion object Companion {
     val cleaner: Cleaner = Cleaner.create()

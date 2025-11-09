@@ -37,6 +37,8 @@ public class MapLibreMap(
   internal val nativePointer: Long
     get() = nativePeer.rawPtr
 
+  public fun dispose(): Unit = nativePeer.clean()
+
   // region Rendering
 
   // TODO: renderStill(callback)
