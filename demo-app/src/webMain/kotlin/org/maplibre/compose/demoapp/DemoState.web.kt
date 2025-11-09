@@ -1,10 +1,14 @@
 package org.maplibre.compose.demoapp
 
-@androidx.compose.runtime.Composable
-actual fun rememberLocationPermissionState(): LocationPermissionState {
-  return object : LocationPermissionState {
-    override val hasPermission: Boolean = false
+import androidx.compose.runtime.Composable
 
-    override fun requestPermission() {}
-  }
+private object FakeLocationPermissionState : LocationPermissionState {
+  override val hasPermission: Boolean = false
+
+  override fun requestPermission() {}
+}
+
+@Composable
+actual fun rememberLocationPermissionState(): LocationPermissionState {
+  return FakeLocationPermissionState
 }
