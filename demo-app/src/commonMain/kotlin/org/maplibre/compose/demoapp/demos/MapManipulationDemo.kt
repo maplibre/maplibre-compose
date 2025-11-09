@@ -22,7 +22,6 @@ object MapManipulationDemo : Demo {
   override fun SheetContent(state: DemoState, modifier: Modifier) {
     val manipulationState = state.mapManipulationState
 
-    Subheading(text = "Visibility")
     CardColumn {
       SwitchListItem(
         text = "Show Map",
@@ -31,7 +30,6 @@ object MapManipulationDemo : Demo {
       )
     }
 
-    Subheading(text = "Size")
     CardColumn {
       SegmentedButtonListItem(
         options = MapSize.entries,
