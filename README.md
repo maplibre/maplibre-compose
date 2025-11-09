@@ -44,7 +44,7 @@ are still catching up.
 | Android | ![90%](https://progress-bar.xyz/90/?progress_color=3DDC84&width=200) |
 | iOS     | ![90%](https://progress-bar.xyz/90/?progress_color=147efb&width=200) |
 | Web     | ![20%](https://progress-bar.xyz/20/?progress_color=FF9500&width=200) |
-| Desktop | ![5%](https://progress-bar.xyz/5/?progress_color=CE0000&width=200)   |
+| Desktop | ![15%](https://progress-bar.xyz/15/?progress_color=CE0000&width=200) |
 
 [compose]: https://www.jetbrains.com/compose-multiplatform/
 [maplibre]: https://maplibre.org/
