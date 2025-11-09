@@ -25,8 +25,7 @@ experimental = true
 postinstall = [
   "hk install",
   # Install and select XCode from .xcode-version
-  "xcodes install",
-  "xcodes select",
+  "if command -v xcodes; then xcodes install && xcodes select; fi",
 ]
 
 [tasks.check]
