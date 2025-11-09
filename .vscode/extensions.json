@@ -6,6 +6,7 @@
     "esbenp.prettier-vscode",
     "fwcd.kotlin",
     "redhat.java",
-    "edwinhuish.better-comments-next"
+    "edwinhuish.better-comments-next",
+    "hverlin.mise-vscode"
   ]
 }
