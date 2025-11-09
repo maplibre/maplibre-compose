@@ -12,6 +12,15 @@ checksum = "sha256:ffb1f6c429a51dc9f37af9d11f96c16bd52f54b713bf7f8bd92f7fce9fd42
 size = 2056182
 url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_darwin_arm64.tar.gz"
 
+[[tools.bazel]]
+version = "7.7.0"
+backend = "aqua:bazelbuild/bazel"
+
+[tools.bazel.platforms.macos-arm64]
+checksum = "sha256:2533ddc8628a96d1da3c5e99f45442d30fec93ee724316fd9687c78e56a84049"
+size = 52899858
+url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-darwin-arm64"
+
 [[tools.hk]]
 version = "1.20.0"
 backend = "aqua:jdx/hk"

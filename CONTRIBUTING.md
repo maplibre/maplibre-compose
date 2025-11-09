@@ -91,7 +91,6 @@ You'll need to have your developer environment set up to build MapLibre Native.
   - Install XCode, and use the matching clang version provided by XCode rather
     than from homebrew. `/usr/bin/clang --version` and `clang --version` should
     match.
-  - `brew install webp libuv webp icu4c jpeg-turbo glfw libuv molten-vk`
   - If building the Vulkan backend, set the `VULKAN_SDK` environment variable to
     the MoltenVK prefix (`export VULKAN_SDK="$(brew --prefix molten-vk)"`).
 - [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)

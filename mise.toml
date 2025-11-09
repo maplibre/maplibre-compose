@@ -15,6 +15,7 @@ swift = { version = "latest", os = ["linux", "windows", "other"] }
 pkl = "latest"
 actionlint = "latest"
 shellcheck = "latest"
+bazel = "latest"
 
 [settings]
 lockfile = true
