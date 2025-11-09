@@ -64,8 +64,12 @@ import org.maplibre.spatialk.geojson.Position
  *   [GeoJsonSource][org.maplibre.compose.sources.GeoJsonSource]),
  * - [rememberVectorSource][org.maplibre.compose.sources.rememberVectorSource] (see
  *   [VectorSource][org.maplibre.compose.sources.VectorSource]),
+ * - [rememberComputedSource][org.maplibre.compose.sources.rememberComputedSource] (see
+ *   [ComputedSource][org.maplibre.compose.sources.ComputedSource])
  * - [rememberRasterSource][org.maplibre.compose.sources.rememberRasterSource] (see
  *   [RasterSource][org.maplibre.compose.sources.RasterSource])
+ * - [rememberRasterDemSource][org.maplibre.compose.sources.rememberRasterDemSource] (see
+ *   [RasterDemSource][org.maplibre.compose.sources.RasterDemSource])
  *
  * A source that is already defined in the base map style can be referenced via
  * [getBaseSource][org.maplibre.compose.sources.getBaseSource].

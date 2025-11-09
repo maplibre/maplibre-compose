@@ -9,6 +9,7 @@ import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.geojson.FeatureCollection as MLNFeatureCollection
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.GeoJsonObject
 import org.maplibre.spatialk.geojson.toJson
 
 public actual class ComputedSource : Source {
@@ -31,8 +32,12 @@ public actual class ComputedSource : Source {
           override fun getFeaturesForBounds(
             bounds: LatLngBounds,
             zoomLevel: Int,
-          ): MLNFeatureCollection =
-            MLNFeatureCollection.fromJson(getFeatures(bounds.toBoundingBox(), zoomLevel).toJson())
+          ): MLNFeatureCollection {
+            // HACK: we intentionally drop the FeatureCollection<*, *> type info in order to use the
+            // runtime serializer detection of GeoJsonObject.
+            val features: GeoJsonObject = getFeatures(bounds.toBoundingBox(), zoomLevel)
+            return MLNFeatureCollection.fromJson(features.toJson())
+          }
         },
     )
   )

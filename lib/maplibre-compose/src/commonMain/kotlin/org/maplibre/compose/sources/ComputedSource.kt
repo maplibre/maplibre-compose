@@ -70,7 +70,7 @@ public data class ComputedSourceOptions(
  * Remember a new [ComputedSource] with the given [options] from the given [getFeatures] function.
  */
 @Composable
-public fun rememberGeoJsonSource(
+public fun rememberComputedSource(
   options: ComputedSourceOptions = ComputedSourceOptions(),
   getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection<*, *>,
 ): ComputedSource =
