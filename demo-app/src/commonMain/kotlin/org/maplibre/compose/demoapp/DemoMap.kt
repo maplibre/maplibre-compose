@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,28 +25,56 @@ import org.maplibre.compose.material3.ExpandingAttributionButton
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.util.ClickResult
 
+private fun getMapAlignment(position: MapPosition): Alignment {
+  return when (position) {
+    MapPosition.TopLeft -> Alignment.TopStart
+    MapPosition.TopCenter -> Alignment.TopCenter
+    MapPosition.TopRight -> Alignment.TopEnd
+    MapPosition.CenterLeft -> Alignment.CenterStart
+    MapPosition.Center -> Alignment.Center
+    MapPosition.CenterRight -> Alignment.CenterEnd
+    MapPosition.BottomLeft -> Alignment.BottomStart
+    MapPosition.BottomCenter -> Alignment.BottomCenter
+    MapPosition.BottomRight -> Alignment.BottomEnd
+  }
+}
+
 @Composable
 fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
   Box(Modifier.background(MaterialTheme.colorScheme.background)) {
-    MaplibreMap(
-      styleState = state.styleState,
-      cameraState = state.cameraState,
-      baseStyle = state.selectedStyle.base,
-      onMapClick = { position, offset ->
-        state.mapClickEvents.add(MapClickEvent(position, offset))
-        ClickResult.Pass
-      },
-      options =
-        MapOptions(
-          ornamentOptions = rememberOrnamentOptions(padding),
-          renderOptions = state.renderOptions,
-          gestureOptions = state.gestureOptions,
-        ),
+    Box(
+      modifier =
+        Modifier.let {
+            when (state.mapManipulationState.size) {
+              MapSize.Full -> it.fillMaxSize()
+              MapSize.Half -> it.fillMaxSize(0.5f)
+              MapSize.Fixed -> it.size(200.dp)
+            }
+          }
+          .align(getMapAlignment(state.mapManipulationState.position))
     ) {
-      if (PlatformFeature.LayerStyling in Platform.supportedFeatures) {
-        state.demos
-          .filter { state.shouldRenderMapContent(it) }
-          .forEach { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) }
+      if (state.mapManipulationState.isVisible) {
+        MaplibreMap(
+          styleState = state.styleState,
+          cameraState = state.cameraState,
+          baseStyle = state.selectedStyle.base,
+          onMapClick = { position, offset ->
+            state.mapClickEvents.add(MapClickEvent(position, offset))
+            ClickResult.Pass
+          },
+          options =
+            MapOptions(
+              ornamentOptions = rememberOrnamentOptions(padding),
+              renderOptions = state.renderOptions,
+              gestureOptions = state.gestureOptions,
+            ),
+        ) {
+          if (PlatformFeature.LayerStyling in Platform.supportedFeatures) {
+            state.demos
+              .filter { state.shouldRenderMapContent(it) }
+              .forEach { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) }
+          }
+        }
       }
     }
 

@@ -17,6 +17,7 @@ import org.maplibre.compose.demoapp.demos.CameraStateDemo
 import org.maplibre.compose.demoapp.demos.ClusteredPointsDemo
 import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.MapClickDemo
+import org.maplibre.compose.demoapp.demos.MapManipulationDemo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
@@ -30,12 +31,37 @@ import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
 
+enum class MapSize {
+  Full,
+  Half,
+  Fixed,
+}
+
+enum class MapPosition {
+  TopLeft,
+  TopCenter,
+  TopRight,
+  CenterLeft,
+  Center,
+  CenterRight,
+  BottomLeft,
+  BottomCenter,
+  BottomRight,
+}
+
+class MapManipulationState {
+  var isVisible by mutableStateOf(true)
+  var size by mutableStateOf(MapSize.Full)
+  var position by mutableStateOf(MapPosition.Center)
+}
+
 class DemoState(
   val nav: NavHostController,
   val cameraState: CameraState,
   val styleState: StyleState,
   val locationState: UserLocationState,
   val locationPermissionState: LocationPermissionState,
+  val mapManipulationState: MapManipulationState = MapManipulationState(),
 ) {
 
   val mapClickEvents = mutableStateListOf<MapClickEvent>()
@@ -53,6 +79,7 @@ class DemoState(
       MapClickDemo,
       ClusteredPointsDemo,
       UserLocationDemo,
+      MapManipulationDemo,
     ) + Platform.extraDemos)
 
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)

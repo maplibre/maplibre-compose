@@ -13,6 +13,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 
 @Composable
@@ -21,6 +22,7 @@ fun SelectableListItem(
   onClick: (() -> Unit)? = null,
   isSelected: Boolean = false,
   trailingContent: @Composable (() -> Unit)? = null,
+  textAlign: TextAlign? = null,
   modifier: Modifier = Modifier,
 ) {
   val backgroundColor =
@@ -32,7 +34,13 @@ fun SelectableListItem(
     else MaterialTheme.colorScheme.onSurface
 
   ListItem(
-    headlineContent = { Text(text) },
+    headlineContent = {
+      Text(
+        text = text,
+        textAlign = textAlign,
+        modifier = if (textAlign != null) Modifier.fillMaxWidth() else Modifier,
+      )
+    },
     trailingContent = trailingContent,
     colors = ListItemDefaults.colors(backgroundColor, contentColor),
     modifier =
