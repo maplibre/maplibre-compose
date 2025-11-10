@@ -31,11 +31,11 @@
   },
   "customLocalFormatters.formatters": [
     {
-      "command": "mise x -- ktfmt --google-style -",
+      "command": "ktfmt --google-style -",
       "languages": ["kotlin", "gradle-kotlin-dsl"]
     },
     {
-      "command": "mise x -- clang-format --assume-filename=${file}",
+      "command": "clang-format --assume-filename=${file}",
       "languages": ["c", "cpp", "objective-c", "objective-cpp"]
     }
   ],
