@@ -27,11 +27,23 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
         metalLayer(NS::TransferPtr(CA::MetalLayer::layer())) {
     metalLayer->setDevice(rendererBackend.getDevice().get());
 
-    auto objCMetalLayer = (__bridge CALayer *)metalLayer.get();
+    auto objCMetalLayer = (__bridge CAMetalLayer *)metalLayer.get();
     objCMetalLayer.bounds = CGRectMake(0, 0, size.width, size.height);
     objCMetalLayer.contentsScale = [NSScreen mainScreen].backingScaleFactor;
     jawtContext_.getSurfaceLayers().layer = objCMetalLayer;
   }
+
+  ~MetalRenderableResource() override {
+    auto layer = (__bridge CAMetalLayer *)metalLayer.get();
+    [layer removeFromSuperlayer];
+  };
+
+  MetalRenderableResource(const MetalRenderableResource &) = delete;
+  MetalRenderableResource(MetalRenderableResource &&) = delete;
+  auto operator=(const MetalRenderableResource &)
+    -> MetalRenderableResource & = delete;
+  auto operator=(MetalRenderableResource &&)
+    -> MetalRenderableResource & = delete;
 
   void setSize(mbgl::Size size_) {
     size = size_;
