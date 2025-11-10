@@ -5,6 +5,7 @@ import java.awt.Dimension
 import java.awt.Graphics
 import java.awt.event.ComponentAdapter
 import java.awt.event.ComponentEvent
+import javax.swing.SwingUtilities
 import org.maplibre.kmp.native.util.Size
 
 /**
@@ -66,6 +67,13 @@ public class MapCanvas(
     map = null
     renderer?.dispose()
     renderer = null
+
+    // HACK: Force a repaint by resizing the window slightly to avoid a ghost map on macoOS.
+    val root = SwingUtilities.getWindowAncestor(this)
+    val oWidth = root.width
+    val oHeight = root.height
+    root.size = Dimension(oWidth + 1, oHeight + 1)
+    root.size = Dimension(oWidth, oHeight)
   }
 
   /**
