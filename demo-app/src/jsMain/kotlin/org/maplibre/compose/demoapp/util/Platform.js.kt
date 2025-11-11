@@ -2,6 +2,7 @@ package org.maplibre.compose.demoapp.util
 
 import kotlinx.browser.window
 import org.maplibre.compose.demoapp.demos.Demo
+import org.maplibre.compose.demoapp.demos.GestureOptionsDemo
 
 actual object Platform {
   actual val name = "JS on ${window.navigator.appName}"
@@ -10,5 +11,5 @@ actual object Platform {
 
   actual val supportedFeatures = emptySet<PlatformFeature>()
 
-  actual val extraDemos = emptyList<Demo>()
+  actual val extraDemos: List<Demo> = listOf(GestureOptionsDemo)
 }
