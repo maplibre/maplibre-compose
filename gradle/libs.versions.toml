@@ -14,7 +14,7 @@ maplibre-android-sdk = "12.0.1"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "4.7.1"              # TODO: is outdated; update to v5.x
 playServices-location = "21.3.0"
-spatialk = "0.6.0"
+spatialk = "0.6.1"
 
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.1.0"
