@@ -19,9 +19,6 @@ breadth of the MapLibre SDKs is not yet covered. What is already supported may
 have bugs. API stability is not yet guaranteed; we're still exploring how best
 to express an interactive map API in Compose.
 
-We don't yet support Wasm because one of our dependencies,
-[Spatial-K][spatial-k], doesn't support it.
-
 | Feature                                           |        Android         |          iOS           |     Desktop (JVM)      |        Web (JS)        | Web (Wasm) |
 | :------------------------------------------------ | :--------------------: | :--------------------: | :--------------------: | :--------------------: | :--------: |
 | Renderer                                          | [MapLibre Native][MLN] | [MapLibre Native][MLN] | [MapLibre Native][MLN] | [MapLibre GL JS][MLJS] |    :x:     |
