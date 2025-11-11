@@ -6,15 +6,15 @@ androidx-activity = "1.11.0"
 bytesize = "2.0.0"
 htmlConverterCompose = "1.1.0"
 kermit = "2.0.8"
-kotlin-wrappers = "2025.10.9"
+kotlin-wrappers = "2025.11.5"
 kotlinx-coroutines = "1.10.2"
-ktor = "3.3.1"
-lifecycleRuntimeCompose = "2.9.5"
+ktor = "3.3.2"
+lifecycleRuntimeCompose = "2.9.6"
 maplibre-android-sdk = "12.0.1"
 maplibre-android-plugins = "3.0.2"
-maplibre-js = "4.7.1"              # TODO: is outdated; update to v5.x
+maplibre-js = "5.12.0"
 playServices-location = "21.3.0"
-spatialk = "0.5.0"
+spatialk = "0.6.1"
 
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.1.0"
@@ -27,7 +27,7 @@ simplejni = "3.14"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.9.2"
+gradle-compose = "1.9.3"
 androidx-compose = "1.9.4"
 jetbrains-navigation = "2.9.1"
 
