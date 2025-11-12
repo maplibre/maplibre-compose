@@ -59,7 +59,7 @@ class MapManipulationState {
 
 class OrnamentOptionsState {
   var isMaterial3ControlsEnabled by
-  mutableStateOf(PlatformFeature.InteropBlending in Platform.supportedFeatures)
+    mutableStateOf(PlatformFeature.InteropBlending in Platform.supportedFeatures)
 }
 
 class DemoState(
@@ -145,5 +145,4 @@ interface LocationPermissionState {
   fun requestPermission()
 }
 
-@Composable
-expect fun rememberLocationPermissionState(): LocationPermissionState
+@Composable expect fun rememberLocationPermissionState(): LocationPermissionState

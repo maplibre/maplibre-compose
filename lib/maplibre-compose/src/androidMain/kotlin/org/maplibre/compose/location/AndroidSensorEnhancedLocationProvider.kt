@@ -114,9 +114,6 @@ public actual fun rememberSensorEnhancedLocationProvider(
  * rotation vector sensor.
  */
 @Composable
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
 public fun rememberAndroidSensorEnhancedLocationProvider(
   locationProvider: LocationProvider,
   context: Context = LocalContext.current,
