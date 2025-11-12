@@ -13,12 +13,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 
 /**
@@ -55,41 +58,44 @@ public class AndroidSensorEnhancedLocationProvider(
       else -> 180.0
     }
 
-  private val bearing: Flow<Pair<Double, Double>> = callbackFlow {
-    val rotationMatrix = FloatArray(9)
-    val orientationAngles = FloatArray(3)
-    var accuracyDegrees = accuracyToDegrees(SensorManager.SENSOR_STATUS_UNRELIABLE)
+  private val bearing: Flow<Pair<Double, Double>> =
+    callbackFlow {
+        val rotationMatrix = FloatArray(9)
+        val orientationAngles = FloatArray(3)
+        var accuracyDegrees = accuracyToDegrees(SensorManager.SENSOR_STATUS_UNRELIABLE)
 
-    val listener =
-      object : SensorEventListener {
-        override fun onSensorChanged(event: SensorEvent?) {
-          if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
-            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
-            SensorManager.getOrientation(rotationMatrix, orientationAngles)
+        val listener =
+          object : SensorEventListener {
+            override fun onSensorChanged(event: SensorEvent?) {
+              if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
+                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+                SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
-            trySend(Math.toDegrees(orientationAngles[0].toDouble()) to accuracyDegrees)
+                trySend(Math.toDegrees(orientationAngles[0].toDouble()) to accuracyDegrees)
+              }
+            }
+
+            override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+              accuracyDegrees = accuracyToDegrees(accuracy)
+            }
           }
-        }
 
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-          accuracyDegrees = accuracyToDegrees(accuracy)
-        }
+        val sensor =
+          sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+            ?: throw IllegalStateException("Rotation vector sensor is not available")
+
+        sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
+
+        awaitClose { sensorManager.unregisterListener(listener) }
       }
-
-    val sensor =
-      sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
-        ?: throw IllegalStateException("Rotation vector sensor is not available")
-
-    sensorManager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_NORMAL)
-
-    awaitClose { sensorManager.unregisterListener(listener) }
-  }
+      .buffer(capacity = 1)
+      .flowOn(Dispatchers.Default)
 
   override val location: StateFlow<Location?> =
     locationProvider.location
       .combine(bearing) { location, (sensorBearing, sensorAccuracy) ->
         val bearingAccuracy = location?.bearingAccuracy
-        if (bearingAccuracy != null && bearingAccuracy > sensorAccuracy) {
+        if (location != null && (bearingAccuracy == null || bearingAccuracy > sensorAccuracy)) {
           location.copy(bearing = sensorBearing, accuracy = sensorAccuracy)
         } else {
           location
