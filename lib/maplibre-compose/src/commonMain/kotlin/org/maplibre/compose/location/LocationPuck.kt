@@ -38,6 +38,7 @@ import org.maplibre.compose.expressions.dsl.minus
 import org.maplibre.compose.expressions.dsl.offset
 import org.maplibre.compose.expressions.dsl.plus
 import org.maplibre.compose.expressions.dsl.switch
+import org.maplibre.compose.expressions.value.CirclePitchAlignment
 import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
@@ -115,6 +116,7 @@ public fun LocationPuck(
     color = const(colors.accuracyFillColor),
     strokeColor = const(colors.accuracyStrokeColor),
     strokeWidth = const(sizes.accuracyStrokeWidth),
+    pitchAlignment = const(CirclePitchAlignment.Map),
   )
 
   CircleLayer(
@@ -125,6 +127,7 @@ public fun LocationPuck(
     color = const(colors.shadowColor),
     blur = const(sizes.shadowBlur),
     translate = const(DpOffset(0.dp, 1.dp)),
+    pitchAlignment = const(CirclePitchAlignment.Map),
   )
 
   CircleLayer(
@@ -151,6 +154,7 @@ public fun LocationPuck(
       locationState.location?.let { onLongClick?.invoke(it) }
       ClickResult.Consume
     },
+    pitchAlignment = const(CirclePitchAlignment.Map),
   )
 
   SymbolLayer(
