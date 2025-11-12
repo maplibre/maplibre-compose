@@ -86,7 +86,7 @@ fun <T> SegmentedButtonListItem(
   ListItem(
     headlineContent = {
       SingleChoiceSegmentedButtonRow(
-        modifier = modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)
       ) {
         options.forEach { option ->
           SegmentedButton(

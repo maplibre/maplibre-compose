@@ -235,25 +235,31 @@ internal class JsMapAdapter(
       if (value.isAttributionEnabled) value.attributionAlignment.toControlPosition(layoutDir)
       else null
 
+    println("got: $value")
+
     if (compassPosition != desiredCompassPosition) {
+      println("compass: $compassPosition != $desiredCompassPosition")
       if (desiredCompassPosition == null) impl.removeControl(navigationControl)
       else impl.addControl(navigationControl, desiredCompassPosition)
       compassPosition = desiredCompassPosition
     }
 
     if (logoPosition != desiredLogoPosition) {
+      println("logo: $logoPosition != $desiredLogoPosition")
       if (desiredLogoPosition == null) impl.removeControl(logoControl)
       else impl.addControl(logoControl, desiredLogoPosition)
       logoPosition = desiredLogoPosition
     }
 
     if (scalePosition != desiredScalePosition) {
+      println("scale: $scalePosition != $desiredScalePosition")
       if (desiredScalePosition == null) impl.removeControl(scaleControl)
       else impl.addControl(scaleControl, desiredScalePosition)
       scalePosition = desiredScalePosition
     }
 
     if (attributionPosition != desiredAttributionPosition) {
+      println("attribution: $attributionPosition != $desiredAttributionPosition")
       if (desiredAttributionPosition == null) impl.removeControl(attributionControl)
       else impl.addControl(attributionControl, desiredAttributionPosition)
       attributionPosition = desiredAttributionPosition

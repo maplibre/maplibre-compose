@@ -29,13 +29,13 @@ import androidx.compose.ui.unit.dp
 public actual data class OrnamentOptions(
   val padding: PaddingValues = PaddingValues(0.dp),
   val isLogoEnabled: Boolean = true,
-  val logoAlignment: Alignment = Alignment.Companion.BottomStart,
+  val logoAlignment: Alignment = Alignment.BottomStart,
   val isAttributionEnabled: Boolean = true,
-  val attributionAlignment: Alignment = Alignment.Companion.BottomEnd,
+  val attributionAlignment: Alignment = Alignment.BottomEnd,
   val isCompassEnabled: Boolean = true,
-  val compassAlignment: Alignment = Alignment.Companion.TopEnd,
+  val compassAlignment: Alignment = Alignment.TopEnd,
   val isScaleBarEnabled: Boolean = true,
-  val scaleBarAlignment: Alignment = Alignment.Companion.TopStart,
+  val scaleBarAlignment: Alignment = Alignment.TopStart,
 ) {
   public actual companion object Companion {
     public actual val AllEnabled: OrnamentOptions = OrnamentOptions()
