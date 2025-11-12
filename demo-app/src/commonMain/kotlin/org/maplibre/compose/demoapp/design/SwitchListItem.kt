@@ -18,6 +18,7 @@ fun SwitchListItem(
   text: String,
   checked: Boolean,
   onCheckedChange: (Boolean) -> Unit,
+  enabled: Boolean = true,
   modifier: Modifier = Modifier,
 ) {
   Row(
@@ -26,6 +27,6 @@ fun SwitchListItem(
   ) {
     Text(text = text, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
     Spacer(modifier = Modifier.width(16.dp))
-    Switch(checked = checked, onCheckedChange = onCheckedChange)
+    Switch(checked = checked, onCheckedChange = onCheckedChange, enabled = enabled)
   }
 }

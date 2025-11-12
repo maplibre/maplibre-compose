@@ -22,11 +22,13 @@ import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
+import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.location.UserLocationState
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberNullLocationProvider
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.map.GestureOptions
+import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
@@ -55,6 +57,11 @@ class MapManipulationState {
   var position by mutableStateOf(MapPosition.Center)
 }
 
+class OrnamentOptionsState {
+  var isMaterial3ControlsEnabled by
+    mutableStateOf(PlatformFeature.InteropBlending in Platform.supportedFeatures)
+}
+
 class DemoState(
   val nav: NavHostController,
   val cameraState: CameraState,
@@ -62,13 +69,10 @@ class DemoState(
   val locationState: UserLocationState,
   val locationPermissionState: LocationPermissionState,
   val mapManipulationState: MapManipulationState = MapManipulationState(),
+  val ornamentOptionsState: OrnamentOptionsState = OrnamentOptionsState(),
 ) {
 
   val mapClickEvents = mutableStateListOf<MapClickEvent>()
-
-  // TODO:
-  // Camera follow
-  // Image source
 
   val demos =
     (listOf(
@@ -85,6 +89,7 @@ class DemoState(
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var gestureOptions by mutableStateOf(GestureOptions.Standard)
+  var ornamentOptions by mutableStateOf(OrnamentOptions.AllEnabled)
 
   private val navDestinationState = mutableStateOf<NavDestination?>(null)
 

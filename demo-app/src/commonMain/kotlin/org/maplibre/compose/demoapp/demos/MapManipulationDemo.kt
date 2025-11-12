@@ -1,17 +1,13 @@
 package org.maplibre.compose.demoapp.demos
 
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.MapPosition
 import org.maplibre.compose.demoapp.MapSize
 import org.maplibre.compose.demoapp.design.CardColumn
+import org.maplibre.compose.demoapp.design.GridSelectorListItem
 import org.maplibre.compose.demoapp.design.SegmentedButtonListItem
-import org.maplibre.compose.demoapp.design.SelectableListItem
 import org.maplibre.compose.demoapp.design.Subheading
 import org.maplibre.compose.demoapp.design.SwitchListItem
 
@@ -54,19 +50,12 @@ object MapManipulationDemo : Demo {
           listOf(MapPosition.BottomLeft, MapPosition.BottomCenter, MapPosition.BottomRight),
         )
 
-      positionRows.forEach { row ->
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-          row.forEach { position ->
-            SelectableListItem(
-              text = getPositionLabel(position),
-              onClick = { manipulationState.position = position },
-              isSelected = manipulationState.position == position,
-              textAlign = TextAlign.Center,
-              modifier = Modifier.weight(1f),
-            )
-          }
-        }
-      }
+      GridSelectorListItem(
+        options = positionRows,
+        selectedOption = manipulationState.position,
+        onOptionSelected = { manipulationState.position = it },
+        optionLabel = { position -> getPositionLabel(position) },
+      )
     }
   }
 
