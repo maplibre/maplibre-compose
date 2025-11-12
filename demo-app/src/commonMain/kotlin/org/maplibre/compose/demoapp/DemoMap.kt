@@ -47,7 +47,7 @@ private fun getMapAlignment(position: MapPosition): Alignment {
 
 @Composable
 fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
-  Box(Modifier.background(MaterialTheme.colorScheme.background)) {
+  Box(Modifier.background(MaterialTheme.colorScheme.background).fillMaxSize()) {
     Box(
       modifier =
         Modifier.let {

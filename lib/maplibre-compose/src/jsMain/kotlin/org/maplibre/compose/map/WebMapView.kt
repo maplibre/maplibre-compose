@@ -55,14 +55,7 @@ internal fun WebMapView(
 
   WebElementView(
     modifier = modifier.onGloballyPositioned { maybeMap?.resize() },
-    factory = {
-      document.createElement("div").unsafeCast<HTMLElement>().apply {
-        this.style.apply {
-          width = "100%"
-          height = "100%"
-        }
-      }
-    },
+    factory = { document.createElement("div").unsafeCast<HTMLElement>() },
     update = { element ->
       val map =
         maybeMap
