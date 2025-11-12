@@ -16,6 +16,7 @@ import co.touchlab.kermit.Logger
 import kotlinx.browser.document
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
+import org.maplibre.kmp.js.getVersion
 import org.w3c.dom.HTMLElement
 
 @Composable
@@ -57,10 +58,15 @@ internal fun WebMapView(
     modifier = modifier.onGloballyPositioned { maybeMap?.resize() },
     factory = {
       document.createElement("div").unsafeCast<HTMLElement>().apply {
-        this.style.apply {
-          width = "100%"
-          height = "100%"
-        }
+        appendChild(
+          document.createElement("link").apply {
+            setAttribute("rel", "stylesheet")
+            setAttribute(
+              "href",
+              "https://unpkg.com/maplibre-gl@${getVersion()}/dist/maplibre-gl.css",
+            )
+          }
+        )
       }
     },
     update = { element ->

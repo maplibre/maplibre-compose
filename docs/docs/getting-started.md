@@ -164,21 +164,7 @@ androidMain.dependencies {
 
     Web support is not yet at feature parity with Android and iOS. Check the [status table](index.md#status) for more info.
 
-For Web, you'll additionally need to add the MapLibre CSS to your page. The
-easiest way to do this is via the CDN:
-
-```html title="index.html"
-<!DOCTYPE html>
-<html lang="en">
-  <head>
-    <link
-      rel="stylesheet"
-      href="https://unpkg.com/maplibre-gl@{{ gradle.maplibre_js_version }}/dist/maplibre-gl.css"
-    />
-    <title>Example Map</title>
-  </head>
-</html>
-```
+There are no longer any special steps required to use MapLibre Compose on Web.
 
 ## Set up Desktop (JVM)
 

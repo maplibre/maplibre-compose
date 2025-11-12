@@ -8,6 +8,9 @@ import org.w3c.dom.TouchEvent
 import org.w3c.dom.events.MouseEvent
 import org.w3c.dom.events.WheelEvent
 
+/** https://maplibre.org/maplibre-gl-js/docs/API/functions/getVersion/ */
+public external fun getVersion(): String
+
 /** [Map](https://maplibre.org/maplibre-gl-js/docs/API/classes/Map/) */
 public external class Map public constructor(options: MapOptions) {
   public var repaint: Boolean
