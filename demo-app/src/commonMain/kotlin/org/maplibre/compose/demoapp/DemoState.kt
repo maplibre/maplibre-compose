@@ -24,8 +24,8 @@ import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
 import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.location.UserLocationState
-import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberNullLocationProvider
+import org.maplibre.compose.location.rememberSensorEnhancedLocationProvider
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.OrnamentOptions
@@ -59,7 +59,7 @@ class MapManipulationState {
 
 class OrnamentOptionsState {
   var isMaterial3ControlsEnabled by
-    mutableStateOf(PlatformFeature.InteropBlending in Platform.supportedFeatures)
+  mutableStateOf(PlatformFeature.InteropBlending in Platform.supportedFeatures)
 }
 
 class DemoState(
@@ -127,7 +127,7 @@ fun rememberDemoState(): DemoState {
   val locationProvider =
     key(locationPermissionState.hasPermission) {
       if (locationPermissionState.hasPermission) {
-        rememberDefaultLocationProvider()
+        rememberSensorEnhancedLocationProvider()
       } else {
         rememberNullLocationProvider()
       }
@@ -145,4 +145,5 @@ interface LocationPermissionState {
   fun requestPermission()
 }
 
-@Composable expect fun rememberLocationPermissionState(): LocationPermissionState
+@Composable
+expect fun rememberLocationPermissionState(): LocationPermissionState

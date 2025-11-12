@@ -11,3 +11,10 @@ public actual fun rememberDefaultLocationProvider(
 ): LocationProvider {
   throw NotImplementedError("no default implementation for desktop")
 }
+
+@Composable
+public actual fun rememberSensorEnhancedLocationProvider(
+  locationProvider: LocationProvider
+): LocationProvider {
+  TODO()
+}

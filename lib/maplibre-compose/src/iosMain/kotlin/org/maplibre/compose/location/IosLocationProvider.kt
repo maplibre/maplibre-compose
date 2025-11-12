@@ -108,3 +108,11 @@ public fun rememberIosLocationProvider(
     )
   }
 }
+
+@Composable
+public actual fun rememberSensorEnhancedLocationProvider(
+  locationProvider: LocationProvider
+): LocationProvider {
+  // TODO: Implement sensor enhanced location provider
+  return locationProvider
+}

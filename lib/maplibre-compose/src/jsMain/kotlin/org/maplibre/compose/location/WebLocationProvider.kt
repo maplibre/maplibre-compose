@@ -9,5 +9,12 @@ public actual fun rememberDefaultLocationProvider(
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Double,
 ): LocationProvider {
-  throw NotImplementedError("no default implementation for desktop")
+  throw NotImplementedError("no default implementation for web")
+}
+
+@Composable
+public actual fun rememberSensorEnhancedLocationProvider(
+  locationProvider: LocationProvider
+): LocationProvider {
+  TODO()
 }
