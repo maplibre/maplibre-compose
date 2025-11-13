@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.ImageResizeOptions
-import org.maplibre.kmp.js.Map
+import org.maplibre.kmp.js.map.Map
 
 internal class JsStyle(internal val impl: Map) : Style {
 

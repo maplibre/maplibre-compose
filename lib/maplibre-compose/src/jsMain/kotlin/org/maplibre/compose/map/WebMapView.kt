@@ -16,7 +16,7 @@ import co.touchlab.kermit.Logger
 import kotlinx.browser.document
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
-import org.maplibre.kmp.js.getVersion
+import org.maplibre.kmp.js.util.getVersion
 import org.w3c.dom.HTMLElement
 
 @Composable
