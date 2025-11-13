@@ -1,7 +1,11 @@
 package org.maplibre.compose.location
 
 import kotlin.time.TimeMark
+import kotlinx.serialization.Serializable
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.Rotation
 
 /**
  * Describes a user's location
@@ -24,14 +28,18 @@ import org.maplibre.spatialk.geojson.Position
  *   instead of e.g. [kotlin.time.Instant], to allow calculating how old a location is, even if the
  *   system clock changes.
  */
+@Serializable
 public data class Location(
-  val position: Position,
-  val accuracy: Double,
-  val bearing: Double?,
-  val bearingAccuracy: Double?,
-  val heading: Double?,
-  val headingAccuracy: Double?,
-  val speed: Double?,
-  val speedAccuracy: Double?,
+  val position: PositionMeasurement? = null,
+  val speed: SpeedMeasurement? = null,
+  val course: BearingMeasurement? = null,
+  val orientation: BearingMeasurement? = null,
   val timestamp: TimeMark,
 )
+
+@Serializable public data class PositionMeasurement(val position: Position, val inaccuracy: Length?)
+
+@Serializable public data class BearingMeasurement(val bearing: Bearing, val inaccuracy: Rotation?)
+
+@Serializable
+public data class SpeedMeasurement(val distancePerSecond: Length, val inaccuracy: Length?)

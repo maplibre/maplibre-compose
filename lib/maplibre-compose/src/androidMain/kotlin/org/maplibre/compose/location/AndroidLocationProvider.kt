@@ -2,11 +2,16 @@ package org.maplibre.compose.location
 
 import android.Manifest
 import android.content.Context
+import android.content.Context.SENSOR_SERVICE
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.location.Criteria
 import android.location.LocationListener
 import android.location.LocationManager
-import android.location.LocationRequest
+import android.location.LocationRequest as AndroidLocationRequest
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -17,14 +22,21 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import kotlin.time.Duration
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.channels.trySendBlocking
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.zip
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.extensions.degrees
+import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
  * A [LocationProvider] built on the [LocationManager] platform APIs.
@@ -45,10 +57,10 @@ public class AndroidLocationProvider
 )
 constructor(
   private val context: Context,
+  private val request: LocationRequest,
   updateInterval: Duration,
-  private val minDistanceMeters: Float,
+  private val minDistance: Length,
   private val desiredAccuracy: DesiredAccuracy,
-  private val enableHeading: Boolean,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ) : LocationProvider {
@@ -69,6 +81,41 @@ constructor(
     }
 
     val locationManager = context.getSystemService(LocationManager::class.java)
+    val sensorManager = context.getSystemService(SENSOR_SERVICE) as SensorManager
+
+    @OptIn(FlowPreview::class)
+    val orientation: Flow<Double> = callbackFlow {
+      val rotationMatrix = FloatArray(9)
+      val orientationAngles = FloatArray(3)
+
+      val listener =
+        object : SensorEventListener {
+          override fun onSensorChanged(event: SensorEvent?) {
+            if (event?.sensor?.type == Sensor.TYPE_ROTATION_VECTOR) {
+              SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
+              SensorManager.getOrientation(rotationMatrix, orientationAngles)
+
+              trySend(Math.toDegrees(orientationAngles[0].toDouble()))
+            }
+          }
+
+          override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+        }
+
+      val sensor =
+        sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
+          ?: throw IllegalStateException("Rotation vector sensor is not available")
+
+      sensorManager.registerListener(
+        listener,
+        sensor,
+        SensorManager.SENSOR_DELAY_NORMAL,
+        updateInterval.inWholeMicroseconds.toInt(),
+        Handler(handlerThread.looper),
+      )
+
+      awaitClose { sensorManager.unregisterListener(listener) }
+    }
 
     location =
       callbackFlow {
@@ -94,20 +141,16 @@ constructor(
 
           awaitClose { locationManager.removeUpdates(listener) }
         }
-        .let {
-          if (enableHeading) {
-            it.zip(
-              Heading(
-                  context = context,
-                  Handler(handlerThread.looper),
-                  updateInterval.inWholeMilliseconds.toInt(),
-                )
-                .heading
-            ) { location, (heading, headingAccuracy) ->
-              location?.copy(heading = heading, headingAccuracy = headingAccuracy)
-            }
-          } else {
-            it
+        .let { flow ->
+          if (!request.orientation) {
+            return@let flow
+          }
+          flow.zip(orientation) { location, facing ->
+            (location ?: Location(timestamp = TimeSource.Monotonic.markNow())).copy(
+              orientation =
+                // SensorManager does not provide accuracy in degrees
+                BearingMeasurement(bearing = Bearing.North + facing.degrees, inaccuracy = null)
+            )
           }
         }
         .stateIn(coroutineScope, sharingStarted, null)
@@ -165,7 +208,7 @@ constructor(
     locationManager.requestLocationUpdates(
       LocationManager.PASSIVE_PROVIDER,
       updateInterval.inWholeMilliseconds,
-      minDistanceMeters,
+      minDistance.inMeters.toFloat(),
       listener,
       handlerThread.looper,
     )
@@ -183,17 +226,17 @@ constructor(
   ) {
     locationManager.requestLocationUpdates(
       LocationManager.FUSED_PROVIDER,
-      LocationRequest.Builder(updateInterval.inWholeMilliseconds)
+      AndroidLocationRequest.Builder(updateInterval.inWholeMilliseconds)
         .setQuality(
           when (desiredAccuracy) {
-            DesiredAccuracy.Highest -> LocationRequest.QUALITY_HIGH_ACCURACY
-            DesiredAccuracy.High -> LocationRequest.QUALITY_HIGH_ACCURACY
-            DesiredAccuracy.Balanced -> LocationRequest.QUALITY_BALANCED_POWER_ACCURACY
-            DesiredAccuracy.Low -> LocationRequest.QUALITY_LOW_POWER
+            DesiredAccuracy.Highest -> AndroidLocationRequest.QUALITY_HIGH_ACCURACY
+            DesiredAccuracy.High -> AndroidLocationRequest.QUALITY_HIGH_ACCURACY
+            DesiredAccuracy.Balanced -> AndroidLocationRequest.QUALITY_BALANCED_POWER_ACCURACY
+            DesiredAccuracy.Low -> AndroidLocationRequest.QUALITY_LOW_POWER
             DesiredAccuracy.Lowest -> error("unreachable")
           }
         )
-        .setMinUpdateDistanceMeters(minDistanceMeters)
+        .setMinUpdateDistanceMeters(minDistance.inMeters.toFloat())
         .build(),
       HandlerExecutor(Handler(handlerThread.looper)),
       listener,
@@ -217,7 +260,7 @@ constructor(
     locationManager.requestLocationUpdates(
       provider,
       updateInterval.inWholeMilliseconds,
-      minDistanceMeters,
+      minDistance.inMeters.toFloat(),
       listener,
       handlerThread.looper,
     )
@@ -255,16 +298,16 @@ constructor(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
 public actual fun rememberDefaultLocationProvider(
+  request: LocationRequest,
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
-  minDistanceMeters: Double,
-  enableHeading: Boolean,
+  minDistance: Length,
 ): LocationProvider {
   return rememberAndroidLocationProvider(
     updateInterval = updateInterval,
     desiredAccuracy = desiredAccuracy,
-    minDistanceMeters = minDistanceMeters.toFloat(),
-    enableHeading = enableHeading,
+    minDistance = minDistance,
+    request = request,
   )
 }
 
@@ -274,10 +317,10 @@ public actual fun rememberDefaultLocationProvider(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
 public fun rememberAndroidLocationProvider(
+  request: LocationRequest,
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
-  minDistanceMeters: Float,
-  enableHeading: Boolean,
+  minDistance: Length,
   context: Context = LocalContext.current,
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
@@ -286,16 +329,16 @@ public fun rememberAndroidLocationProvider(
     context,
     updateInterval,
     desiredAccuracy,
-    minDistanceMeters,
+    minDistance,
     coroutineScope,
     sharingStarted,
   ) {
     AndroidLocationProvider(
       context = context,
+      request = request,
       updateInterval = updateInterval,
       desiredAccuracy = desiredAccuracy,
-      enableHeading = enableHeading,
-      minDistanceMeters = minDistanceMeters,
+      minDistance = minDistance,
       coroutineScope = coroutineScope,
       sharingStarted = sharingStarted,
     )

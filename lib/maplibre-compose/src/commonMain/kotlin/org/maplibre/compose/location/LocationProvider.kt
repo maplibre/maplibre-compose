@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.maplibre.compose.location.DesiredAccuracy.Balanced
 import org.maplibre.compose.location.DesiredAccuracy.High
+import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.extensions.meters
 
 /**
  * This is an intentionally very limited abstraction over the various platform APIs for geolocation.
@@ -100,10 +102,10 @@ public class PermissionException : Exception()
  */
 @Composable
 public expect fun rememberDefaultLocationProvider(
+  request: LocationRequest = LocationRequest(),
   updateInterval: Duration = 1.seconds,
   desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
-  minDistanceMeters: Double = 1.0,
-  enableHeading: Boolean = false,
+  minDistance: Length = 1.meters,
 ): LocationProvider
 
 /**

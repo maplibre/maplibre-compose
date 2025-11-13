@@ -66,6 +66,7 @@ playServices-location = { module = "com.google.android.gms:play-services-locatio
 simplejni-annotations = { module = "io.github.gershnik:smjni-jnigen-annotations", version.ref = "simplejni" }
 simplejni-kprocessor = { module = "io.github.gershnik:smjni-jnigen-kprocessor", version.ref = "simplejni" }
 spatialk-geojson = { group = "org.maplibre.spatialk", name = "geojson", version.ref = "spatialk" }
+spatialk-units = { group = "org.maplibre.spatialk", name = "units", version.ref = "spatialk" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle-android" }

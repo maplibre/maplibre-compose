@@ -15,8 +15,10 @@ import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.gms.rememberFusedLocationProvider
 import org.maplibre.compose.location.LocationPuck
+import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.material3.LocationPuckDefaults
+import org.maplibre.spatialk.units.extensions.degrees
 
 object GmsLocationDemo : Demo {
   override val name = "Gms Location"
@@ -32,19 +34,31 @@ object GmsLocationDemo : Demo {
     // this if _is_ a permission check Lint just doesn't know that
     @SuppressLint("MissingPermission")
     if (state.locationPermissionState.hasPermission) {
-      val locationProvider = rememberFusedLocationProvider()
+      val locationProvider = rememberFusedLocationProvider(LocationRequest(orientation = true))
       val locationState = rememberUserLocationState(locationProvider)
 
       LocationPuck(
         idPrefix = "gms-location",
-        locationState = locationState,
+        location = locationState.location,
+        bearing =
+          locationState.location?.let { location ->
+            val courseAccuracy = location.course?.inaccuracy ?: 180.degrees
+            val orientationAccuracy = location.orientation?.inaccuracy ?: 180.degrees
+            if (courseAccuracy < orientationAccuracy) {
+              location.course
+            } else {
+              location.orientation
+            }
+          },
         cameraState = state.cameraState,
         accuracyThreshold = 0f,
         colors = LocationPuckDefaults.colors(),
         onClick = { location ->
           locationClickedCount++
           coroutineScope.launch {
-            state.cameraState.animateTo(CameraPosition(target = location.position, zoom = 16.0))
+            state.cameraState.animateTo(
+              CameraPosition(target = location.position!!.position, zoom = 16.0)
+            )
           }
         },
       )

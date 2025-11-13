@@ -54,6 +54,7 @@ kotlin {
       implementation(libs.lifecycle.runtime.compose)
       api(libs.kermit)
       api(libs.spatialk.geojson)
+      api(libs.spatialk.units)
     }
 
     // used to share some implementation on targets where Compose UI is backed by Skia directly

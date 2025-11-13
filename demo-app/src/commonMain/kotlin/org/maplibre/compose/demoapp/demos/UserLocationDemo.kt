@@ -38,7 +38,7 @@ object UserLocationDemo : Demo {
     if (!isOpen) return
 
     LocationTrackingEffect(
-      locationState = state.locationState,
+      location = state.locationState.location,
       enabled = trackLocation,
       trackBearing = bearingUpdate == BearingUpdate.TRACK_LOCATION,
     ) {
@@ -58,6 +58,7 @@ object UserLocationDemo : Demo {
               BearingUpdate.IGNORE -> GestureOptions.PositionLocked
               BearingUpdate.ALWAYS_NORTH -> GestureOptions.ZoomOnly
               BearingUpdate.TRACK_LOCATION -> GestureOptions.ZoomOnly
+              else -> TODO()
             }
           } else {
             GestureOptions.Standard
@@ -74,11 +75,12 @@ object UserLocationDemo : Demo {
 
     LocationPuck(
       idPrefix = "user-location",
-      locationState = state.locationState,
+      location = state.locationState.location,
       cameraState = state.cameraState,
       accuracyThreshold = 0f,
-      showDirection = bearingUpdate != BearingUpdate.IGNORE,
-      showDirectionAccuracy = bearingUpdate != BearingUpdate.IGNORE,
+      bearing =
+        if (bearingUpdate != BearingUpdate.IGNORE) state.locationState.location?.orientation
+        else null,
       colors = LocationPuckDefaults.colors(),
       onClick = { location ->
         locationClickedCount++
@@ -91,6 +93,7 @@ object UserLocationDemo : Demo {
                 trackLocation = false
                 BearingUpdate.IGNORE
               }
+              else -> TODO()
             }
         } else {
           bearingUpdate = BearingUpdate.TRACK_LOCATION
@@ -100,7 +103,8 @@ object UserLocationDemo : Demo {
             state.cameraState.position =
               CameraPosition(
                 target =
-                  state.locationState.location?.position ?: state.cameraState.position.target,
+                  state.locationState.location?.position?.position
+                    ?: state.cameraState.position.target,
                 zoom = 16.0,
               )
           }
@@ -127,6 +131,8 @@ object UserLocationDemo : Demo {
                   BearingUpdate.IGNORE -> "ignoring bearing"
                   BearingUpdate.ALWAYS_NORTH -> "locked to north bearing"
                   BearingUpdate.TRACK_LOCATION -> "bearing"
+                  BearingUpdate.TRACK_COURSE -> "course"
+                  BearingUpdate.TRACK_ORIENTATION -> "orientation"
                 }
               )
             } else {

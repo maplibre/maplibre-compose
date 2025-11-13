@@ -11,23 +11,24 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNotNull
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.inDegrees
 
 /**
  * A form of [LaunchedEffect] that is specialized for tracking user location.
  *
- * [onLocationChange] will be called, whenever the [location][UserLocationState.location] of
- * [locationState] changes according to the given parameters. Only [Location]s whose `latitude` or
- * `longitude` changes by at least [precision] compared to the previous location will result in a
- * call to [onLocationChange]. If [trackBearing] is `true`, the `bearing` must change by at least
- * [precision] as well (or change between null/non-null).
+ * [onLocationChange] will be called, whenever the [location] changes according to the given
+ * parameters. Only [Location]s whose position `latitude` or `longitude` changes by at least
+ * [precision] compared to the previous location will result in a call to [onLocationChange]. If
+ * [trackBearing] is `true`, the bearing must change by at least [precision] as well (or change
+ * between null/non-null).
  *
  * If [enabled] is `false` [onLocationChange] will never be called and location is not monitored,
- * i.e. the [LocationProvider] underneath [locationState] may stop requesting location updates from
- * the platform.
+ * i.e. the [LocationProvider] may stop requesting location updates from the platform.
  */
 @Composable
 public fun LocationTrackingEffect(
-  locationState: UserLocationState,
+  location: Location?,
   enabled: Boolean = true,
   trackBearing: Boolean = true,
   precision: Double = 0.00001, // approx 1 m
@@ -38,17 +39,35 @@ public fun LocationTrackingEffect(
   LaunchedEffect(enabled, trackBearing, changeCollector) {
     if (!enabled) return@LaunchedEffect
 
-    snapshotFlow { locationState.location }
+    snapshotFlow { location }
       .filterNotNull()
       .distinctUntilChanged equal@{ old, new ->
-        if (trackBearing && (old.bearing != null || new.bearing != null)) {
-          if (old.bearing == null) return@equal false
-          if (new.bearing == null) return@equal false
-          if (abs(old.bearing - new.bearing) >= precision) return@equal false
+        // Check bearing changes if tracking is enabled
+        if (trackBearing) {
+          val oldBearing = old.course?.bearing ?: old.orientation?.bearing
+          val newBearing = new.course?.bearing ?: new.orientation?.bearing
+
+          if ((oldBearing != null) || (newBearing != null)) {
+            if (oldBearing == null) return@equal false
+            if (newBearing == null) return@equal false
+            if (
+              abs(
+                oldBearing.clockwiseRotationTo(Bearing.North).inDegrees -
+                  newBearing.clockwiseRotationTo(Bearing.North).inDegrees
+              ) >= precision
+            )
+              return@equal false
+          }
         }
 
-        if (abs(old.position.latitude - new.position.latitude) >= precision) return@equal false
-        if (abs(old.position.longitude - new.position.longitude) >= precision) return@equal false
+        // Check position changes
+        val oldPos = old.position?.position
+        val newPos = new.position?.position
+
+        if (oldPos == null || newPos == null) return@equal oldPos == newPos
+
+        if (abs(oldPos.latitude - newPos.latitude) >= precision) return@equal false
+        if (abs(oldPos.longitude - newPos.longitude) >= precision) return@equal false
 
         true
       }
@@ -73,7 +92,7 @@ public interface LocationChangeScope {
    *
    * @param animationDuration if `null` updates [org.maplibre.compose.camera.CameraState.position]
    *   directly without animation, otherwise specifies the duration of the camera animation
-   * @param updateBearing determines how the [Location.bearing] affects the camera state
+   * @param updateBearing determines how the bearing affects the camera state
    */
   public suspend fun CameraState.updateFromLocation(
     animationDuration: Duration? = 300.milliseconds,
@@ -88,7 +107,13 @@ public enum class BearingUpdate {
   /** ignore changes in bearing and reset orientation to point north */
   ALWAYS_NORTH,
 
-  /** update camera orientation based on location bearing */
+  /** update camera orientation based on location course (direction of movement) */
+  TRACK_COURSE,
+
+  /** update camera orientation based on device orientation (heading) */
+  TRACK_ORIENTATION,
+
+  /** update camera orientation based on course if available, otherwise orientation */
   TRACK_LOCATION,
 }
 
@@ -108,21 +133,44 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
     updateBearing: BearingUpdate,
   ) {
     val cameraState = this
+    val position = currentLocation.position?.position
+
+    if (position == null) return
 
     val newPosition =
       when (updateBearing) {
         BearingUpdate.IGNORE -> {
-          cameraState.position.copy(target = currentLocation.position)
+          cameraState.position.copy(target = position)
         }
 
         BearingUpdate.ALWAYS_NORTH -> {
-          cameraState.position.copy(target = currentLocation.position, bearing = 0.0)
+          cameraState.position.copy(target = position, bearing = 0.0)
+        }
+
+        BearingUpdate.TRACK_COURSE -> {
+          cameraState.position.copy(
+            target = position,
+            bearing =
+              currentLocation.course?.bearing?.clockwiseRotationTo(Bearing.North)?.inDegrees
+                ?: cameraState.position.bearing,
+          )
+        }
+
+        BearingUpdate.TRACK_ORIENTATION -> {
+          cameraState.position.copy(
+            target = position,
+            bearing =
+              currentLocation.orientation?.bearing?.clockwiseRotationTo(Bearing.North)?.inDegrees
+                ?: cameraState.position.bearing,
+          )
         }
 
         BearingUpdate.TRACK_LOCATION -> {
+          val bearing = currentLocation.course?.bearing ?: currentLocation.orientation?.bearing
           cameraState.position.copy(
-            target = currentLocation.position,
-            bearing = currentLocation.bearing ?: cameraState.position.bearing,
+            target = position,
+            bearing =
+              bearing?.clockwiseRotationTo(Bearing.North)?.inDegrees ?: cameraState.position.bearing,
           )
         }
       }
