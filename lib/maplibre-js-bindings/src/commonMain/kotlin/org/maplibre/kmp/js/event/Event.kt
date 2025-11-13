@@ -2,4 +2,4 @@
 
 package org.maplibre.kmp.js.event
 
-public sealed external interface AnyEvent
+public sealed external interface Event

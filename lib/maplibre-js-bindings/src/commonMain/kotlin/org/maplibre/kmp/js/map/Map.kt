@@ -4,7 +4,7 @@
 package org.maplibre.kmp.js.map
 
 import org.maplibre.kmp.js.controls.IControl
-import org.maplibre.kmp.js.event.AnyEvent
+import org.maplibre.kmp.js.event.Event
 import org.maplibre.kmp.js.geometry.LngLat
 import org.maplibre.kmp.js.geometry.LngLatBounds
 import org.maplibre.kmp.js.geometry.Point
@@ -89,11 +89,11 @@ public external class Map public constructor(options: MapOptions) {
 
   public fun resize()
 
-  public fun on(event: String, listener: (AnyEvent) -> Unit)
+  public fun on(event: String, listener: (Event) -> Unit)
 
-  public fun off(event: String, listener: (AnyEvent) -> Unit)
+  public fun off(event: String, listener: (Event) -> Unit)
 
-  public fun once(event: String, listener: (AnyEvent) -> Unit)
+  public fun once(event: String, listener: (Event) -> Unit)
 
   public fun project(lngLat: LngLat): Point
 
