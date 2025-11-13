@@ -343,6 +343,40 @@ public constructor(options: TerrainSpecification = definedExternally) : IControl
   override fun onRemove(map: Map)
 }
 
+/** [FullscreenControl](https://maplibre.org/maplibre-gl-js/docs/API/classes/FullscreenControl/) */
+public external class FullscreenControl
+public constructor(options: FullscreenControlOptions = definedExternally) : IControl {
+  override fun onAdd(map: Map): HTMLElement
+
+  override fun onRemove(map: Map)
+}
+
+/**
+ * [FullscreenControlOptions](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/FullscreenControlOptions/)
+ */
+public external interface FullscreenControlOptions {
+  public var container: HTMLElement?
+}
+
+/** [GeolocateControl](https://maplibre.org/maplibre-gl-js/docs/API/classes/GeolocateControl/) */
+public external class GeolocateControl
+public constructor(options: GeolocateControlOptions = definedExternally) : IControl {
+  override fun onAdd(map: Map): HTMLElement
+
+  override fun onRemove(map: Map)
+}
+
+/**
+ * [GeolocateControlOptions](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/GeolocateControlOptions/)
+ */
+public external interface GeolocateControlOptions {
+  public var fitBoundsOptions: FitBoundsOptions?
+  public var positionOptions: PositionOptions?
+  public var showAccuracyCircle: Boolean?
+  public var showUserLocation: Boolean?
+  public var trackUserLocation: Boolean?
+}
+
 /** [TerrainSpecification](https://maplibre.org/maplibre-style-spec/terrain/) */
 public external interface TerrainSpecification {
   public var source: String
@@ -418,6 +452,15 @@ public sealed external interface FitBoundsOptions : FlyToOptions {
   public var linear: Boolean?
   public var maxZoom: Double?
   public var offset: Point?
+}
+
+/**
+ * [PositionOptions](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/getCurrentPosition)
+ */
+public sealed external interface PositionOptions {
+  public var enableHighAccuracy: Boolean?
+  public var timeout: Long?
+  public var maximumAge: Long?
 }
 
 /** [FlyToOptions](https://maplibre.org/maplibre-gl-js/docs/API/type-aliases/FlyToOptions/) */

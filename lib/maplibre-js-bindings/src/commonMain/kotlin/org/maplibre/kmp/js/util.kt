@@ -46,6 +46,35 @@ public fun NavigationControlOptions(
   visualizePitch?.let { this.visualizePitch = it }
 }
 
+public fun FullscreenControlOptions(container: HTMLElement? = null): FullscreenControlOptions =
+  jso {
+    container?.let { this.container = it }
+  }
+
+public fun GeolocateControlOptions(
+  fitBoundsOptions: FitBoundsOptions? = null,
+  positionOptions: PositionOptions? = null,
+  showAccuracyCircle: Boolean? = null,
+  showUserLocation: Boolean? = null,
+  trackUserLocation: Boolean? = null,
+): GeolocateControlOptions = jso {
+  fitBoundsOptions?.let { this.fitBoundsOptions = it }
+  positionOptions?.let { this.positionOptions = it }
+  showAccuracyCircle?.let { this.showAccuracyCircle = it }
+  showUserLocation?.let { this.showUserLocation = it }
+  trackUserLocation?.let { this.trackUserLocation = it }
+}
+
+public fun PositionOptions(
+  enableHighAccuracy: Boolean? = null,
+  timeout: Long? = null,
+  maximumAge: Long? = null,
+): PositionOptions = jso {
+  enableHighAccuracy?.let { this.enableHighAccuracy = it }
+  timeout?.let { this.timeout = it }
+  maximumAge?.let { this.maximumAge = it }
+}
+
 public fun TerrainSpecification(
   source: String,
   exaggeration: Double? = null,

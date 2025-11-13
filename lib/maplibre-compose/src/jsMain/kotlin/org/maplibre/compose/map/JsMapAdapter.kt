@@ -29,6 +29,8 @@ import org.maplibre.compose.util.toPosition
 import org.maplibre.kmp.js.AttributionControl
 import org.maplibre.kmp.js.EaseToOptions
 import org.maplibre.kmp.js.FitBoundsOptions
+import org.maplibre.kmp.js.FullscreenControl
+import org.maplibre.kmp.js.GeolocateControl
 import org.maplibre.kmp.js.GlobeControl
 import org.maplibre.kmp.js.JumpToOptions
 import org.maplibre.kmp.js.LngLat
@@ -219,13 +221,15 @@ internal class JsMapAdapter(
   private var scalePosition: String? = null
   private var attributionPosition: String? = null
   private var globeButtonPosition: String? = null
-
+  private var fullscreenButtonPosition: String? = null
+  private var geolocateButtonPosition: String? = null
   private val navigationControl = NavigationControl(NavigationControlOptions(visualizePitch = true))
   private val logoControl = LogoControl()
   private val scaleControl = ScaleControl()
   private val attributionControl = AttributionControl()
-
   private val globeControl = GlobeControl()
+  private val fullscreenControl = FullscreenControl()
+  private val geolocateControl = GeolocateControl()
 
   override fun setOrnamentSettings(value: OrnamentOptions) {
     val desiredCompassPosition =
@@ -274,6 +278,28 @@ internal class JsMapAdapter(
       if (desiredGlobeButtonPosition == null) impl.removeControl(globeControl)
       else impl.addControl(globeControl, desiredGlobeButtonPosition)
       globeButtonPosition = desiredGlobeButtonPosition
+    }
+
+    val desiredFullscreenButtonPosition =
+      if (value.isFullscreenButtonEnabled)
+        value.fullscreenButtonAlignment.toControlPosition(layoutDir)
+      else null
+
+    if (fullscreenButtonPosition != desiredFullscreenButtonPosition) {
+      if (desiredFullscreenButtonPosition == null) impl.removeControl(fullscreenControl)
+      else impl.addControl(fullscreenControl, desiredFullscreenButtonPosition)
+      fullscreenButtonPosition = desiredFullscreenButtonPosition
+    }
+
+    val desiredGeolocateButtonPosition =
+      if (value.isGeolocateButtonEnabled)
+        value.geolocateButtonAlignment.toControlPosition(layoutDir)
+      else null
+
+    if (geolocateButtonPosition != desiredGeolocateButtonPosition) {
+      if (desiredGeolocateButtonPosition == null) impl.removeControl(geolocateControl)
+      else impl.addControl(geolocateControl, desiredGeolocateButtonPosition)
+      geolocateButtonPosition = desiredGeolocateButtonPosition
     }
   }
 

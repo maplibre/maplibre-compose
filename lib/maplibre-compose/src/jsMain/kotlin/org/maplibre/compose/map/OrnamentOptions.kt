@@ -15,9 +15,11 @@ public actual data class OrnamentOptions(
   val scaleBarAlignment: Alignment = Alignment.TopStart,
   val isGlobeButtonEnabled: Boolean = true,
   val globeButtonAlignment: Alignment = Alignment.TopEnd,
-  // TODO: terrain control
-  // TODO: fullscreen control
-  // TODO: geolocate control
+  val isFullscreenButtonEnabled: Boolean = true,
+  val fullscreenButtonAlignment: Alignment = Alignment.BottomEnd,
+  val isGeolocateButtonEnabled: Boolean = true,
+  val geolocateButtonAlignment: Alignment = Alignment.TopEnd,
+  // TODO terrain control
 ) {
   public actual companion object Companion {
     public actual val AllEnabled: OrnamentOptions = OrnamentOptions()
@@ -28,6 +30,8 @@ public actual data class OrnamentOptions(
         isNavigationEnabled = false,
         isScaleBarEnabled = false,
         isGlobeButtonEnabled = false,
+        isFullscreenButtonEnabled = false,
+        isGeolocateButtonEnabled = false,
       )
 
     public actual val OnlyLogo: OrnamentOptions = AllDisabled.copy(isLogoEnabled = true)
