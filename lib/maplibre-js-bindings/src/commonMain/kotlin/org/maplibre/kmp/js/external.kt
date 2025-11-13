@@ -328,6 +328,27 @@ public external interface NavigationControlOptions {
   public var visualizePitch: Boolean?
 }
 
+/** [GlobeControl](https://maplibre.org/maplibre-gl-js/docs/API/classes/GlobeControl/) */
+public external class GlobeControl public constructor() : IControl {
+  override fun onAdd(map: Map): HTMLElement
+
+  override fun onRemove(map: Map)
+}
+
+/** [TerrainControl](https://maplibre.org/maplibre-gl-js/docs/API/classes/TerrainControl/) */
+public external class TerrainControl
+public constructor(options: TerrainSpecification = definedExternally) : IControl {
+  override fun onAdd(map: Map): HTMLElement
+
+  override fun onRemove(map: Map)
+}
+
+/** [TerrainSpecification](https://maplibre.org/maplibre-style-spec/terrain/) */
+public external interface TerrainSpecification {
+  public var source: String
+  public var exaggeration: Double?
+}
+
 /** [IControl](https://maplibre.org/maplibre-gl-js/docs/API/interfaces/IControl/) */
 public external interface IControl {
   public fun onAdd(map: Map): HTMLElement

@@ -6,15 +6,16 @@ import androidx.compose.ui.Alignment
 @Immutable
 public actual data class OrnamentOptions(
   val isLogoEnabled: Boolean = true,
-  val logoAlignment: Alignment = Alignment.Companion.BottomStart,
+  val logoAlignment: Alignment = Alignment.BottomStart,
   val isAttributionEnabled: Boolean = true,
-  val attributionAlignment: Alignment = Alignment.Companion.BottomEnd,
+  val attributionAlignment: Alignment = Alignment.BottomEnd,
   val isNavigationEnabled: Boolean = true,
-  val navigationAlignment: Alignment = Alignment.Companion.TopEnd,
+  val navigationAlignment: Alignment = Alignment.TopEnd,
   val isScaleBarEnabled: Boolean = true,
-  val scaleBarAlignment: Alignment = Alignment.Companion.TopStart,
+  val scaleBarAlignment: Alignment = Alignment.TopStart,
+  val isGlobeButtonEnabled: Boolean = true,
+  val globeButtonAlignment: Alignment = Alignment.TopEnd,
   // TODO: terrain control
-  // TODO: globe control
   // TODO: fullscreen control
   // TODO: geolocate control
 ) {
@@ -26,6 +27,7 @@ public actual data class OrnamentOptions(
         isAttributionEnabled = false,
         isNavigationEnabled = false,
         isScaleBarEnabled = false,
+        isGlobeButtonEnabled = false,
       )
 
     public actual val OnlyLogo: OrnamentOptions = AllDisabled.copy(isLogoEnabled = true)

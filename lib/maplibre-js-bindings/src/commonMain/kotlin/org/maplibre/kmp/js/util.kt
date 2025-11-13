@@ -46,6 +46,14 @@ public fun NavigationControlOptions(
   visualizePitch?.let { this.visualizePitch = it }
 }
 
+public fun TerrainSpecification(
+  source: String,
+  exaggeration: Double? = null,
+): TerrainSpecification = jso {
+  this.source = source
+  exaggeration?.let { this.exaggeration = it }
+}
+
 public fun JumpToOptions(
   center: LngLat? = null,
   zoom: Double? = null,

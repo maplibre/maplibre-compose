@@ -58,6 +58,15 @@ object OrnamentOptionsDemo : Demo {
           state.ornamentOptions = ornamentOptions.copy(isScaleBarEnabled = isChecked)
         },
       )
+
+      SwitchListItem(
+        text = "Globe button",
+        checked = ornamentOptions.isGlobeButtonEnabled,
+        enabled = !ornamentState.isMaterial3ControlsEnabled,
+        onCheckedChange = { isChecked ->
+          state.ornamentOptions = ornamentOptions.copy(isGlobeButtonEnabled = isChecked)
+        },
+      )
     }
   }
 }

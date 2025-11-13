@@ -29,6 +29,7 @@ import org.maplibre.compose.util.toPosition
 import org.maplibre.kmp.js.AttributionControl
 import org.maplibre.kmp.js.EaseToOptions
 import org.maplibre.kmp.js.FitBoundsOptions
+import org.maplibre.kmp.js.GlobeControl
 import org.maplibre.kmp.js.JumpToOptions
 import org.maplibre.kmp.js.LngLat
 import org.maplibre.kmp.js.LogoControl
@@ -217,22 +218,18 @@ internal class JsMapAdapter(
   private var logoPosition: String? = null
   private var scalePosition: String? = null
   private var attributionPosition: String? = null
+  private var globeButtonPosition: String? = null
 
   private val navigationControl = NavigationControl(NavigationControlOptions(visualizePitch = true))
   private val logoControl = LogoControl()
   private val scaleControl = ScaleControl()
   private val attributionControl = AttributionControl()
 
+  private val globeControl = GlobeControl()
+
   override fun setOrnamentSettings(value: OrnamentOptions) {
     val desiredCompassPosition =
       if (value.isNavigationEnabled) value.navigationAlignment.toControlPosition(layoutDir)
-      else null
-    val desiredLogoPosition =
-      if (value.isLogoEnabled) value.logoAlignment.toControlPosition(layoutDir) else null
-    val desiredScalePosition =
-      if (value.isScaleBarEnabled) value.scaleBarAlignment.toControlPosition(layoutDir) else null
-    val desiredAttributionPosition =
-      if (value.isAttributionEnabled) value.attributionAlignment.toControlPosition(layoutDir)
       else null
 
     if (compassPosition != desiredCompassPosition) {
@@ -241,11 +238,17 @@ internal class JsMapAdapter(
       compassPosition = desiredCompassPosition
     }
 
+    val desiredLogoPosition =
+      if (value.isLogoEnabled) value.logoAlignment.toControlPosition(layoutDir) else null
+
     if (logoPosition != desiredLogoPosition) {
       if (desiredLogoPosition == null) impl.removeControl(logoControl)
       else impl.addControl(logoControl, desiredLogoPosition)
       logoPosition = desiredLogoPosition
     }
+
+    val desiredScalePosition =
+      if (value.isScaleBarEnabled) value.scaleBarAlignment.toControlPosition(layoutDir) else null
 
     if (scalePosition != desiredScalePosition) {
       if (desiredScalePosition == null) impl.removeControl(scaleControl)
@@ -253,10 +256,24 @@ internal class JsMapAdapter(
       scalePosition = desiredScalePosition
     }
 
+    val desiredAttributionPosition =
+      if (value.isAttributionEnabled) value.attributionAlignment.toControlPosition(layoutDir)
+      else null
+
     if (attributionPosition != desiredAttributionPosition) {
       if (desiredAttributionPosition == null) impl.removeControl(attributionControl)
       else impl.addControl(attributionControl, desiredAttributionPosition)
       attributionPosition = desiredAttributionPosition
+    }
+
+    val desiredGlobeButtonPosition =
+      if (value.isGlobeButtonEnabled) value.globeButtonAlignment.toControlPosition(layoutDir)
+      else null
+
+    if (globeButtonPosition != desiredGlobeButtonPosition) {
+      if (desiredGlobeButtonPosition == null) impl.removeControl(globeControl)
+      else impl.addControl(globeControl, desiredGlobeButtonPosition)
+      globeButtonPosition = desiredGlobeButtonPosition
     }
   }
 
