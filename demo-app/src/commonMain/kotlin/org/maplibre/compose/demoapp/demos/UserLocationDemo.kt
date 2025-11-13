@@ -77,8 +77,8 @@ object UserLocationDemo : Demo {
       locationState = state.locationState,
       cameraState = state.cameraState,
       accuracyThreshold = 0f,
-      showBearing = bearingUpdate != BearingUpdate.IGNORE,
-      showBearingAccuracy = bearingUpdate != BearingUpdate.IGNORE,
+      showDirection = bearingUpdate != BearingUpdate.IGNORE,
+      showDirectionAccuracy = bearingUpdate != BearingUpdate.IGNORE,
       colors = LocationPuckDefaults.colors(),
       onClick = { location ->
         locationClickedCount++

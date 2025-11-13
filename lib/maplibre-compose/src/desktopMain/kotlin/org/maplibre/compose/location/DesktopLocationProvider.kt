@@ -8,13 +8,7 @@ public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Double,
+  enableHeading: Boolean,
 ): LocationProvider {
   throw NotImplementedError("no default implementation for desktop")
-}
-
-@Composable
-public actual fun rememberSensorEnhancedLocationProvider(
-  locationProvider: LocationProvider
-): LocationProvider {
-  TODO()
 }

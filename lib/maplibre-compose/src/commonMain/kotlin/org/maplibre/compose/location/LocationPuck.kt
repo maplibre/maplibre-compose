@@ -67,8 +67,8 @@ import org.maplibre.spatialk.geojson.Point
  * @param accuracyThreshold a circle showing the accuracy range will be drawn, when
  *   [Location.accuracy] is larger than this value. Use [Float.POSITIVE_INFINITY] to never show the
  *   accuracy range.
- * @param showBearing whether to show an indicator for [Location.bearing]
- * @param showBearingAccuracy whether to show an indicator for [Location.bearingAccuracy]
+ * @param showDirection whether to show an indicator for [Location.bearing]
+ * @param showDirectionAccuracy whether to show an indicator for [Location.bearingAccuracy]
  * @param onClick a [LocationClickHandler] to invoke when the main location indicator dot is clicked
  * @param onClick a [LocationClickHandler] to invoke when the main location indicator dot is
  *   long-clicked
@@ -82,8 +82,9 @@ public fun LocationPuck(
   accuracyThreshold: Float = 50f,
   colors: LocationPuckColors = LocationPuckColors(),
   sizes: LocationPuckSizes = LocationPuckSizes(),
-  showBearing: Boolean = true,
-  showBearingAccuracy: Boolean = true,
+  showDirection: Boolean = true,
+  showDirectionAccuracy: Boolean = true,
+  direction: LocationPuckDirection = LocationPuckDirection.Bearing,
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
@@ -156,7 +157,7 @@ public fun LocationPuck(
   SymbolLayer(
     id = "$idPrefix-bearing",
     source = locationSource,
-    visible = showBearing && locationState.location?.bearing != null,
+    visible = showDirection && locationState.location?.bearing != null,
     iconImage = image(bearingPainter),
     iconAnchor = const(SymbolAnchor.Center),
     iconRotate = feature["bearing"].asNumber(const(0f)) + const(45f),
@@ -173,7 +174,7 @@ public fun LocationPuck(
     id = "$idPrefix-bearingAccuracy",
     source = locationSource,
     visible =
-      showBearingAccuracy &&
+      showDirectionAccuracy &&
         locationState.location?.bearing != null &&
         locationState.location?.bearingAccuracy != null,
     iconImage = image(bearingAccuracyPainter),
@@ -289,3 +290,9 @@ private fun rememberLocationSource(locationState: UserLocationState): GeoJsonSou
 }
 
 public typealias LocationClickHandler = (Location) -> Unit
+
+public enum class LocationPuckDirection {
+  Bearing,
+  Heading,
+  Combined,
+}

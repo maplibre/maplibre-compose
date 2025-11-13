@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.zip
 
 /**
  * A [LocationProvider] built on the [LocationManager] platform APIs.
@@ -47,6 +48,7 @@ constructor(
   updateInterval: Duration,
   private val minDistanceMeters: Float,
   private val desiredAccuracy: DesiredAccuracy,
+  private val enableHeading: Boolean,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ) : LocationProvider {
@@ -91,6 +93,22 @@ constructor(
           }
 
           awaitClose { locationManager.removeUpdates(listener) }
+        }
+        .let {
+          if (enableHeading) {
+            it.zip(
+              Heading(
+                  context = context,
+                  Handler(handlerThread.looper),
+                  updateInterval.inWholeMilliseconds.toInt(),
+                )
+                .heading
+            ) { location, (heading, headingAccuracy) ->
+              location?.copy(heading = heading, headingAccuracy = headingAccuracy)
+            }
+          } else {
+            it
+          }
         }
         .stateIn(coroutineScope, sharingStarted, null)
   }
@@ -240,11 +258,13 @@ public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Double,
+  enableHeading: Boolean,
 ): LocationProvider {
   return rememberAndroidLocationProvider(
     updateInterval = updateInterval,
     desiredAccuracy = desiredAccuracy,
     minDistanceMeters = minDistanceMeters.toFloat(),
+    enableHeading = enableHeading,
   )
 }
 
@@ -257,6 +277,7 @@ public fun rememberAndroidLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Float,
+  enableHeading: Boolean,
   context: Context = LocalContext.current,
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
@@ -273,6 +294,7 @@ public fun rememberAndroidLocationProvider(
       context = context,
       updateInterval = updateInterval,
       desiredAccuracy = desiredAccuracy,
+      enableHeading = enableHeading,
       minDistanceMeters = minDistanceMeters,
       coroutineScope = coroutineScope,
       sharingStarted = sharingStarted,

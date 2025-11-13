@@ -103,6 +103,7 @@ public expect fun rememberDefaultLocationProvider(
   updateInterval: Duration = 1.seconds,
   desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
   minDistanceMeters: Double = 1.0,
+  enableHeading: Boolean = false,
 ): LocationProvider
 
 /**
@@ -116,14 +117,3 @@ public expect fun rememberDefaultLocationProvider(
 public fun rememberNullLocationProvider(): LocationProvider {
   return remember { NullLocationProvider() }
 }
-
-/**
- * Creates and remembers a [LocationProvider] that enhances another [LocationProvider] with bearing
- * information from the device's orientation sensors.
- *
- * @return A new [LocationProvider] that provides sensor-enhanced bearing information.
- */
-@Composable
-public expect fun rememberSensorEnhancedLocationProvider(
-  locationProvider: LocationProvider = rememberDefaultLocationProvider()
-): LocationProvider

@@ -13,6 +13,10 @@ import org.maplibre.spatialk.geojson.Position
  *   degrees east of true north, i.e. 0° being north, 90° being east, etc.
  * @property bearingAccuracy the accuracy of [bearing], i.e. the true bearing is within +/-
  *   [bearingAccuracy] degrees of [bearing]
+ * @property heading The heading of the user, i.e., which direction the user's device is pointing,
+ *   in degrees east of true north. For example, 0° is north, 90° is east.
+ * @property headingAccuracy The accuracy of [heading], i.e., the true heading is within +/-
+ *   [headingAccuracy] degrees of [heading].
  * @property speed the current speed of the user in meters per second
  * @property speedAccuracy the accuracy of [speed], i.e. the true speed is within +/-
  *   [speedAccuracy] m/s of [speed]
@@ -25,6 +29,8 @@ public data class Location(
   val accuracy: Double,
   val bearing: Double?,
   val bearingAccuracy: Double?,
+  val heading: Double?,
+  val headingAccuracy: Double?,
   val speed: Double?,
   val speedAccuracy: Double?,
   val timestamp: TimeMark,

@@ -88,6 +88,7 @@ public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
   minDistanceMeters: Double,
+  enableHeading: Boolean,
 ): LocationProvider {
   return rememberIosLocationProvider(minDistanceMeters, desiredAccuracy)
 }
@@ -107,12 +108,4 @@ public fun rememberIosLocationProvider(
       sharingStarted = sharingStarted,
     )
   }
-}
-
-@Composable
-public actual fun rememberSensorEnhancedLocationProvider(
-  locationProvider: LocationProvider
-): LocationProvider {
-  // TODO: Implement sensor enhanced location provider
-  return locationProvider
 }

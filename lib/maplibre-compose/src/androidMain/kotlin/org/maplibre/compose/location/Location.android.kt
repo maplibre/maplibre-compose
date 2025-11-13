@@ -18,6 +18,8 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
       } else {
         null
       },
+    heading = null,
+    headingAccuracy = null,
     speed = if (hasSpeed()) speed.toDouble() else null,
     speedAccuracy =
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasSpeedAccuracy()) {
