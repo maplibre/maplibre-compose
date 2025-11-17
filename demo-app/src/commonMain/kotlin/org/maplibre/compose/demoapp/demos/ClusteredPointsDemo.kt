@@ -118,17 +118,19 @@ object ClusteredPointsDemo : Demo {
           5000 to const(60.dp),
         ),
       onClick = { features ->
-        features.firstOrNull()?.geometry?.let {
-          coroutineScope.launch {
-            state.cameraState.animateTo(
-              state.cameraState.position.copy(
-                target = (it as Point).coordinates,
-                zoom = (state.cameraState.position.zoom + 2).coerceAtMost(20.0),
+        features
+          .firstOrNull { bikeSource.isCluster(it) }
+          ?.let {
+            coroutineScope.launch {
+              state.cameraState.animateTo(
+                state.cameraState.position.copy(
+                  target = (it.geometry as Point).coordinates,
+                  zoom = bikeSource.getClusterExpansionZoom(it),
+                )
               )
-            )
-          }
-          ClickResult.Consume
-        } ?: ClickResult.Pass
+            }
+            ClickResult.Consume
+          } ?: ClickResult.Pass
       },
     )
 

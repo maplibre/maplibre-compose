@@ -1,11 +1,16 @@
 package org.maplibre.compose.sources
 
 import java.net.URI
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.android.style.sources.GeoJsonOptions as MLNGeoJsonOptions
 import org.maplibre.android.style.sources.GeoJsonSource as MLNGeoJsonSource
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.correctedAndroidUri
 import org.maplibre.compose.util.toMLNExpression
+import org.maplibre.compose.util.toMLNFeature
+import org.maplibre.compose.util.toSpatialKFeatureCollection
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.toJson
 
 public actual class GeoJsonSource : Source {
@@ -20,6 +25,7 @@ public actual class GeoJsonSource : Source {
       when (data) {
         is GeoJsonData.Features ->
           MLNGeoJsonSource(id, data.geoJson.toJson(), buildOptionMap(options))
+
         is GeoJsonData.JsonString -> MLNGeoJsonSource(id, data.json, buildOptionMap(options))
         is GeoJsonData.Uri -> MLNGeoJsonSource(id, URI(data.uri), buildOptionMap(options))
       }
@@ -51,5 +57,29 @@ public actual class GeoJsonSource : Source {
       is GeoJsonData.JsonString -> impl.setGeoJson(data.json)
       is GeoJsonData.Uri -> impl.setUri(data.uri.correctedAndroidUri())
     }
+  }
+
+  public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
+    return "cluster_id" in feature.properties.orEmpty()
+  }
+
+  public actual fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
+    return impl.getClusterExpansionZoom(feature.toMLNFeature()).toDouble()
+  }
+
+  public actual fun getClusterChildren(
+    feature: Feature<*, JsonObject?>
+  ): FeatureCollection<*, JsonObject?> {
+    return impl.getClusterChildren(feature.toMLNFeature()).toSpatialKFeatureCollection()
+  }
+
+  public actual fun getClusterLeaves(
+    feature: Feature<*, JsonObject?>,
+    limit: Long,
+    offset: Long,
+  ): FeatureCollection<*, JsonObject?> {
+    return impl
+      .getClusterLeaves(feature.toMLNFeature(), limit, offset)
+      .toSpatialKFeatureCollection()
   }
 }

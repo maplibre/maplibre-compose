@@ -34,6 +34,8 @@ import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
 import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.GeometryCollection
 import org.maplibre.spatialk.geojson.LineString
@@ -182,6 +184,16 @@ internal fun Geometry.toMlnGeometry(): org.maplibre.geojson.Geometry {
     is MultiPolygon -> org.maplibre.geojson.MultiPolygon.fromJson(toJson())
     is Polygon -> org.maplibre.geojson.Polygon.fromJson(toJson())
   }
+}
+
+internal fun Feature<*, kotlinx.serialization.json.JsonObject?>.toMLNFeature():
+  org.maplibre.geojson.Feature {
+  return org.maplibre.geojson.Feature.fromJson(toJson())
+}
+
+internal fun org.maplibre.geojson.FeatureCollection.toSpatialKFeatureCollection():
+  FeatureCollection<Geometry, kotlinx.serialization.json.JsonObject?> {
+  return FeatureCollection.fromJson(toJson())
 }
 
 internal fun PositionQuad.toLatLngQuad() =

@@ -9,6 +9,7 @@ import MapLibre.MLNOrnamentPositionBottomLeft
 import MapLibre.MLNOrnamentPositionBottomRight
 import MapLibre.MLNOrnamentPositionTopLeft
 import MapLibre.MLNOrnamentPositionTopRight
+import MapLibre.MLNPointFeatureCluster
 import MapLibre.MLNShape
 import MapLibre.expressionWithMLNJSONObject
 import MapLibre.predicateWithMLNJSONObject
@@ -143,6 +144,20 @@ internal fun String.toMLNShape(): MLNShape {
     encoding = NSUTF8StringEncoding,
     error = null,
   )!!
+}
+
+internal fun Feature<*, JsonObject?>.toMLNPointFeatureCluster(): MLNPointFeatureCluster {
+  val feature =
+    MLNPointFeatureCluster.shapeWithData(
+      data = toJson().encodeToByteArray().toNSData(),
+      encoding = NSUTF8StringEncoding,
+      error = null,
+    ) as MLNFeatureProtocol
+
+  val cluster = MLNPointFeatureCluster()
+  cluster.identifier = feature.identifier
+  cluster.attributes = feature.attributes
+  return cluster
 }
 
 internal fun CompiledExpression<*>.toNSExpression(): NSExpression =

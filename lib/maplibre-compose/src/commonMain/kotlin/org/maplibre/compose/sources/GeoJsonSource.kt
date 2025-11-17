@@ -3,8 +3,11 @@ package org.maplibre.compose.sources
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.key
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.GeoJsonObject
 
 /** A map data source consisting of geojson data. */
@@ -17,6 +20,18 @@ public expect class GeoJsonSource : Source {
   public constructor(id: String, data: GeoJsonData, options: GeoJsonOptions)
 
   public fun setData(data: GeoJsonData)
+
+  public fun isCluster(feature: Feature<*, JsonObject?>): Boolean
+
+  public fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double
+
+  public fun getClusterChildren(feature: Feature<*, JsonObject?>): FeatureCollection<*, JsonObject?>
+
+  public fun getClusterLeaves(
+    feature: Feature<*, JsonObject?>,
+    limit: Long,
+    offset: Long,
+  ): FeatureCollection<*, JsonObject?>
 }
 
 public sealed interface GeoJsonData {
