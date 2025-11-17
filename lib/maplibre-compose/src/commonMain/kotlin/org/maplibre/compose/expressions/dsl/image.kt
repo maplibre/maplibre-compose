@@ -1,5 +1,7 @@
 package org.maplibre.compose.expressions.dsl
 
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.DefaultAlpha
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
@@ -90,3 +92,39 @@ public fun image(
   resizeOptions: ImageResizeOptions? = null,
 ): Expression<ImageValue> =
   FunctionCall.of("image", PainterLiteral.of(value, size, drawAsSdf, resizeOptions)).cast()
+
+/**
+ * Returns an image type for use in `iconImage` (see
+ * [SymbolLayer][org.maplibre.compose.layers.SymbolLayer]), `pattern` entries (see
+ * [BackgroundLayer][org.maplibre.compose.layers.BackgroundLayer],
+ * [FillLayer][org.maplibre.compose.layers.FillLayer],
+ * [FillExtrusionLayer][org.maplibre.compose.layers.FillExtrusionLayer],
+ * [LineLayer][org.maplibre.compose.layers.LineLayer]) and as a section in the [format] expression.
+ *
+ * The [Painter] will be drawn to an [ImageBitmap] and registered with the style when it's
+ * referenced by a layer, and unregistered from the style if it's no longer referenced by any layer.
+ * An ID referencing the bitmap will be generated automatically and inserted into the expression.
+ *
+ * The bitmap will be created with the provided [size], or the intrinsic size of the painter if not
+ * provided, or 16x16 DP if the painter has no intrinsic size.
+ *
+ * @param drawAsSdf If true, will draw the image to a bitmap as a
+ *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
+ *   Ideal for monochrome vector icons.
+ * @param alpha passed to [Painter.draw]
+ * @param colorFilter passed to [Painter.draw]
+ * @see Painter.draw
+ */
+public fun image(
+  value: Painter,
+  size: DpSize? = null,
+  drawAsSdf: Boolean = false,
+  resizeOptions: ImageResizeOptions? = null,
+  alpha: Float = DefaultAlpha,
+  colorFilter: ColorFilter? = null,
+): Expression<ImageValue> =
+  FunctionCall.of(
+      "image",
+      PainterLiteral.of(value, size, drawAsSdf, resizeOptions, alpha, colorFilter),
+    )
+    .cast()

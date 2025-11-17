@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.geometry.takeOrElse
 import androidx.compose.ui.graphics.Canvas
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
 import androidx.compose.ui.graphics.painter.Painter
@@ -47,7 +48,7 @@ internal class ImageManager(private val node: StyleNode) {
       }
     val bitmap = ImageBitmap(size.width.toInt(), size.height.toInt())
     CanvasDrawScope().draw(density, layoutDirection, Canvas(bitmap), size) {
-      with(painter) { draw(size) }
+      with(painter) { draw(size, alpha, colorFilter) }
     }
     return bitmap
   }
@@ -96,5 +97,7 @@ internal class ImageManager(private val node: StyleNode) {
     val size: DpSize?,
     val drawAsSdf: Boolean,
     val resizeOptions: ImageResizeOptions?,
+    val alpha: Float,
+    val colorFilter: ColorFilter?,
   )
 }

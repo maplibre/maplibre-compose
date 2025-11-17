@@ -99,7 +99,16 @@ internal class LayerPropertyCompiler(
     density: Density,
     layoutDirection: LayoutDirection,
   ): ImageManager.PainterKey =
-    ImageManager.PainterKey(value, density, layoutDirection, size, sdf, resizeOptions)
+    ImageManager.PainterKey(
+      value,
+      density,
+      layoutDirection,
+      size,
+      sdf,
+      resizeOptions,
+      alpha,
+      colorFilter,
+    )
 }
 
 @Composable

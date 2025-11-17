@@ -1,5 +1,7 @@
 package org.maplibre.compose.demoapp.demos
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PedalBike
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -9,6 +11,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
@@ -29,6 +34,7 @@ import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToNumber
 import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.not
 import org.maplibre.compose.expressions.dsl.offset
 import org.maplibre.compose.expressions.dsl.plus
@@ -146,13 +152,27 @@ object ClusteredPointsDemo : Demo {
     )
 
     CircleLayer(
-      id = "unclustered-bikes",
+      id = "unclustered-bikes-circle",
       source = bikeSource,
       filter = !feature.has("point_count"),
-      color = const(LimeGreen),
+      color = const(Color.White),
       radius = const(7.dp),
       strokeWidth = const(3.dp),
       strokeColor = const(Color.White),
+    )
+
+    SymbolLayer(
+      id = "unclustered-bikes-icons",
+      source = bikeSource,
+      filter = !feature.has("point_count"),
+      iconImage =
+        image(
+          value = rememberVectorPainter(Icons.Default.PedalBike),
+          size = DpSize(14.dp, 14.dp),
+          alpha = 0.5f,
+          colorFilter = ColorFilter.tint(LimeGreen),
+        ),
+      iconAllowOverlap = const(true),
     )
   }
 
