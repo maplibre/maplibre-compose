@@ -437,6 +437,27 @@ internal class IosMapAdapter(
     )
   }
 
+  override fun setCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ) {
+    mapView.setCamera(
+      camera =
+        mapView
+          .cameraThatFitsCoordinateBounds(
+            bounds = boundingBox.toMLNCoordinateBounds(),
+            edgePadding = padding.toEdgeInsets(),
+          )
+          .apply {
+            heading = bearing
+            pitch = tilt
+          },
+      animated = false,
+    )
+  }
+
   private fun PaddingValues.toEdgeInsets(): CValue<UIEdgeInsets> =
     UIEdgeInsetsMake(
       top = calculateTopPadding().value.toDouble(),

@@ -119,6 +119,23 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     )
   }
 
+  override fun setCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ) {
+    val cameraOptions =
+      map.cameraForLatLngBounds(
+        bounds = boundingBox.toMlnLatLngBounds(),
+        padding = padding.toMlnEdgeInsets(LayoutDirection.Ltr),
+        bearing = bearing,
+        pitch = tilt,
+      )
+
+    map.jumpTo(cameraOptions)
+  }
+
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
     map.bounds = map.bounds.copy(bounds = boundingBox?.toMlnLatLngBounds())
   }

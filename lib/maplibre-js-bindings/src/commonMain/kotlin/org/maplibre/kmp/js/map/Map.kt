@@ -110,4 +110,9 @@ public external class Map public constructor(options: MapOptions) {
   ): Array<Any>
 
   public fun getBounds(): LngLatBounds
+
+  public fun cameraForBounds(
+    bounds: LngLatBounds,
+    options: CameraForBoundsOptions = definedExternally,
+  ): CenterZoomBearing
 }

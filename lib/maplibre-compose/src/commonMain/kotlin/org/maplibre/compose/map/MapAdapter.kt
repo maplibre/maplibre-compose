@@ -34,6 +34,13 @@ internal interface MapAdapter {
 
   fun setCameraPosition(cameraPosition: CameraPosition)
 
+  fun setCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  )
+
   fun setCameraBoundingBox(boundingBox: BoundingBox?)
 
   fun setMaxZoom(maxZoom: Double)

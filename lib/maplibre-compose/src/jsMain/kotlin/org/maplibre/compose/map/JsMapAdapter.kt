@@ -190,10 +190,12 @@ internal class JsMapAdapter(
         impl.touchZoomRotate.disableRotation()
         impl.touchZoomRotate.disable()
       }
+
       GestureOptions.ZoomRotateMode.ZoomOnly -> {
         impl.touchZoomRotate.enable()
         impl.touchZoomRotate.disableRotation()
       }
+
       GestureOptions.ZoomRotateMode.RotateAndZoom -> {
         impl.touchZoomRotate.enableRotation()
         impl.touchZoomRotate.enable()
@@ -205,10 +207,12 @@ internal class JsMapAdapter(
         impl.keyboard.disableRotation()
         impl.keyboard.disable()
       }
+
       GestureOptions.ZoomRotateMode.ZoomOnly -> {
         impl.keyboard.enable()
         impl.keyboard.disableRotation()
       }
+
       GestureOptions.ZoomRotateMode.RotateAndZoom -> {
         impl.keyboard.enableRotation()
         impl.keyboard.enable()
@@ -321,6 +325,24 @@ internal class JsMapAdapter(
         bearing = cameraPosition.bearing,
         pitch = cameraPosition.tilt,
         padding = cameraPosition.padding.toPaddingOptions(layoutDir),
+      )
+    )
+  }
+
+  override fun setCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ) {
+    val centerZoomBearing = impl.cameraForBounds(bounds = boundingBox.toLatLngBounds())
+
+    impl.jumpTo(
+      JumpToOptions(
+        center = centerZoomBearing.center,
+        zoom = centerZoomBearing.zoom,
+        bearing = bearing,
+        padding = padding.toPaddingOptions(layoutDir),
       )
     )
   }

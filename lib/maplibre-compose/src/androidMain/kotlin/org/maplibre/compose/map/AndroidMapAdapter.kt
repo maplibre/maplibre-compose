@@ -319,6 +319,27 @@ internal class AndroidMapAdapter(
     map.moveCamera(CameraUpdateFactory.newCameraPosition(cameraPosition.toMLNCameraPosition()))
   }
 
+  override fun setCameraPosition(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ) {
+    with(density) {
+      map.moveCamera(
+        CameraUpdateFactory.newLatLngBounds(
+          bounds = boundingBox.toLatLngBounds(),
+          bearing = bearing,
+          tilt = tilt,
+          paddingLeft = padding.calculateLeftPadding(layoutDir).roundToPx(),
+          paddingTop = padding.calculateTopPadding().roundToPx(),
+          paddingRight = padding.calculateRightPadding(layoutDir).roundToPx(),
+          paddingBottom = padding.calculateBottomPadding().roundToPx(),
+        )
+      )
+    }
+  }
+
   private class CancelableCoroutineCallback(private val cont: Continuation<Unit>) :
     MLNMap.CancelableCallback {
     override fun onCancel() = cont.resume(Unit)

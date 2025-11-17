@@ -137,3 +137,23 @@ public fun QueryRenderedFeaturesOptions(
   filter?.let { this.filter = it }
   validate?.let { this.validate = it }
 }
+
+public fun CameraForBoundsOptions(
+  maxZoom: Double? = null,
+  offset: Point? = null,
+  padding: PaddingOptions? = null,
+  around: LngLat? = null,
+  pitch: Double? = null,
+  bearing: Double? = null,
+  center: LngLat? = null,
+  zoom: Double? = null,
+): CameraForBoundsOptions = jso {
+  maxZoom?.let { this.maxZoom = it }
+  offset?.let { this.offset = it }
+  padding?.let { this.padding = it }
+  around?.let { this.around = it }
+  pitch?.let { this.pitch = it }
+  bearing?.let { this.bearing = it }
+  center?.let { this.center = it }
+  zoom?.let { this.zoom = it }
+}

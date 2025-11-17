@@ -103,4 +103,22 @@ public class CameraState(firstPosition: CameraPosition) {
   ) {
     awaitMap().animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
   }
+
+  /**
+   * Immediately moves the camera to the specified [boundingBox] with the specified [bearing],
+   * [tilt], and [padding].
+   *
+   * @param boundingBox The bounds to animate the camera to.
+   * @param bearing The bearing to set during the animation. Defaults to 0.0.
+   * @param tilt The tilt to set during the animation. Defaults to 0.0.
+   * @param padding The padding to apply during the animation. Defaults to no padding.
+   */
+  public suspend fun jumpTo(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+  ) {
+    awaitMap().setCameraPosition(boundingBox, bearing, tilt, padding)
+  }
 }
