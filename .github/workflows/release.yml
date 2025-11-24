@@ -27,7 +27,7 @@ jobs:
     steps:
       - if: ${{ matrix.runner == 'windows-latest' }}
         run: git config --global core.longpaths true
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -49,7 +49,7 @@ jobs:
       name: maven-central-maplibre
       url: https://central.sonatype.com/namespace/org.maplibre.compose
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
@@ -88,7 +88,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy-pages.outputs.page_url }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
