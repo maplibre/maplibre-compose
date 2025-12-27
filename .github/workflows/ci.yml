@@ -84,9 +84,8 @@ jobs:
         with:
           os: iOS
           os_version: ${{ matrix.os_version }}
-      - run:
-          ./gradlew iosSimulatorArm64Test -- --device ${{
-          steps.setup-simulator.outputs.udid }}
+      - run: |
+          ./gradlew iosSimulatorArm64Test -- --device ${{ steps.setup-simulator.outputs.udid }}
 
   test-js:
     runs-on: ubuntu-latest
