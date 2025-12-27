@@ -70,8 +70,6 @@ jobs:
         include:
           - runner: macos-26
             os_version: ^26
-          - runner: macos-26
-            os_version: ^18
     name: test-ios (${{ matrix.os_version }})
     runs-on: ${{ matrix.runner }}
     steps:
