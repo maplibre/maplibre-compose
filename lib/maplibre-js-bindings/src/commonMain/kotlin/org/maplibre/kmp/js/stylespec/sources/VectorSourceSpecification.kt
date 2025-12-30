@@ -46,7 +46,7 @@ public external interface VectorSourceSpecification : SourceSpecification {
   public var maxzoom: Int?
 
   /** Contains an attribution to be displayed when map is shown to a user. */
-  public var attribution: String?
+  public override var attribution: String?
 
   /**
    * A property to use as a feature id (for feature state). Either a property name, or an object of

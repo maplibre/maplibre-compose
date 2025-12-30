@@ -3,6 +3,7 @@ package org.maplibre.compose.sources
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.kmp.js.stylespec.sources.SourceSpecification
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -16,6 +17,13 @@ public actual class VectorSource : Source {
   }
 
   override val impl: Nothing
+
+  override val spec: SourceSpecification
+    get() = TODO("Not yet implemented")
+
+  override fun bind(source: org.maplibre.kmp.js.source.Source) {
+    TODO("Not yet implemented")
+  }
 
   public actual fun querySourceFeatures(
     sourceLayerIds: Set<String>,
