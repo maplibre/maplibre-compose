@@ -15,6 +15,8 @@ import org.maplibre.kmp.js.gestures.KeyboardHandler
 import org.maplibre.kmp.js.gestures.ScrollZoomHandler
 import org.maplibre.kmp.js.gestures.TwoFingersTouchPitchHandler
 import org.maplibre.kmp.js.gestures.TwoFingersTouchZoomRotateHandler
+import org.maplibre.kmp.js.source.Source
+import org.maplibre.kmp.js.stylespec.sources.SourceSpecification
 import org.w3c.dom.HTMLCanvasElement
 import org.w3c.dom.HTMLElement
 
@@ -34,6 +36,12 @@ public external class Map public constructor(options: MapOptions) {
   public val scrollZoom: ScrollZoomHandler
   public val touchPitch: TwoFingersTouchPitchHandler
   public val touchZoomRotate: TwoFingersTouchZoomRotateHandler
+
+  public fun addSource(id: String, source: SourceSpecification)
+
+  public fun removeSource(id: String)
+
+  public fun getSource(id: String): Source?
 
   public fun setStyle(style: dynamic)
 
