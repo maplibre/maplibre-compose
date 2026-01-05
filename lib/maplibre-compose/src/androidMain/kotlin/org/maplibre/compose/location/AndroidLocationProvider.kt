@@ -24,6 +24,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
+import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
  * A [LocationProvider] built on the [LocationManager] platform APIs.
@@ -45,7 +47,7 @@ public class AndroidLocationProvider
 constructor(
   private val context: Context,
   updateInterval: Duration,
-  private val minDistanceMeters: Float,
+  private val minDistance: Length,
   private val desiredAccuracy: DesiredAccuracy,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
@@ -147,7 +149,7 @@ constructor(
     locationManager.requestLocationUpdates(
       LocationManager.PASSIVE_PROVIDER,
       updateInterval.inWholeMilliseconds,
-      minDistanceMeters,
+      minDistance.inMeters.toFloat(),
       listener,
       handlerThread.looper,
     )
@@ -175,7 +177,7 @@ constructor(
             DesiredAccuracy.Lowest -> error("unreachable")
           }
         )
-        .setMinUpdateDistanceMeters(minDistanceMeters)
+        .setMinUpdateDistanceMeters(minDistance.inMeters.toFloat())
         .build(),
       HandlerExecutor(Handler(handlerThread.looper)),
       listener,
@@ -199,7 +201,7 @@ constructor(
     locationManager.requestLocationUpdates(
       provider,
       updateInterval.inWholeMilliseconds,
-      minDistanceMeters,
+      minDistance.inMeters.toFloat(),
       listener,
       handlerThread.looper,
     )
@@ -239,12 +241,12 @@ constructor(
 public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
-  minDistanceMeters: Double,
+  minDistance: Length,
 ): LocationProvider {
   return rememberAndroidLocationProvider(
     updateInterval = updateInterval,
     desiredAccuracy = desiredAccuracy,
-    minDistanceMeters = minDistanceMeters.toFloat(),
+    minDistance = minDistance,
   )
 }
 
@@ -256,7 +258,7 @@ public actual fun rememberDefaultLocationProvider(
 public fun rememberAndroidLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
-  minDistanceMeters: Float,
+  minDistance: Length,
   context: Context = LocalContext.current,
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
@@ -265,7 +267,7 @@ public fun rememberAndroidLocationProvider(
     context,
     updateInterval,
     desiredAccuracy,
-    minDistanceMeters,
+    minDistance,
     coroutineScope,
     sharingStarted,
   ) {
@@ -273,7 +275,7 @@ public fun rememberAndroidLocationProvider(
       context = context,
       updateInterval = updateInterval,
       desiredAccuracy = desiredAccuracy,
-      minDistanceMeters = minDistanceMeters,
+      minDistance = minDistance,
       coroutineScope = coroutineScope,
       sharingStarted = sharingStarted,
     )
