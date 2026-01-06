@@ -25,9 +25,9 @@ public data class Location(
   val timestamp: TimeMark,
 )
 
-@Serializable public data class PositionMeasurement(val position: Position, val accuracy: Length?)
+@Serializable public data class PositionMeasurement(val value: Position, val accuracy: Length?)
 
-@Serializable public data class BearingMeasurement(val bearing: Bearing, val accuracy: Rotation?)
+@Serializable public data class BearingMeasurement(val value: Bearing, val accuracy: Rotation?)
 
 @Serializable
 public data class SpeedMeasurement(val distancePerSecond: Length, val accuracy: Length?)

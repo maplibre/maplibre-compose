@@ -69,7 +69,7 @@ public class AndroidOrientationProvider(
                       Orientation(
                         orientation =
                           BearingMeasurement(
-                            bearing = Bearing.North + degrees,
+                            value = Bearing.North + degrees,
                             // we can not get accuracy in degrees
                             accuracy = null,
                           ),

@@ -14,7 +14,7 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
   Location(
     position =
       PositionMeasurement(
-        position = Position(longitude = longitude, latitude = latitude, altitude = altitude),
+        value = Position(longitude = longitude, latitude = latitude, altitude = altitude),
         accuracy = if (hasAccuracy()) accuracy.toDouble().meters else null,
       ),
     speed =
@@ -34,7 +34,7 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
     course =
       if (hasBearing()) {
         BearingMeasurement(
-          bearing = Bearing.North + bearing.toDouble().degrees,
+          value = Bearing.North + bearing.toDouble().degrees,
           accuracy =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasBearingAccuracy()) {
               bearingAccuracyDegrees.toDouble().degrees

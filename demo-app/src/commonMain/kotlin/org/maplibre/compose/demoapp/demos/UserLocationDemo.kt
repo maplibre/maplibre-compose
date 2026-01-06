@@ -111,7 +111,7 @@ object UserLocationDemo : Demo {
             state.cameraState.position =
               CameraPosition(
                 target =
-                  state.locationState.location?.position?.position
+                  state.locationState.location?.position?.value
                     ?: state.cameraState.position.target,
                 zoom = 16.0,
               )
@@ -175,11 +175,11 @@ object UserLocationDemo : Demo {
             verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
             Text(
-              "Course: ${state.location?.course?.bearing?.smallestRotationTo(Bearing.North)?.inDegrees?.roundToInt()} +- ${state.location?.course?.accuracy?.inDegrees?.roundToInt()}"
+              "Course: ${state.location?.course?.value?.smallestRotationTo(Bearing.North)?.inDegrees?.roundToInt()} +- ${state.location?.course?.accuracy?.inDegrees?.roundToInt()}"
             )
             Text(
               "Orientation: ${
-                state.orientation?.orientation?.bearing?.smallestRotationTo(
+                state.orientation?.orientation?.value?.smallestRotationTo(
                   Bearing.North
                 )?.inDegrees?.roundToInt()
               } +- ${state.orientation?.orientation?.accuracy?.inDegrees?.roundToInt()}"

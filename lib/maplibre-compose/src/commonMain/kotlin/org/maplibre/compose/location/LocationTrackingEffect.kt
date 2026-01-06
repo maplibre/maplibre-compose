@@ -45,13 +45,13 @@ public fun LocationTrackingEffect(
         if (trackBearing && (old.course != null || new.course != null)) {
           if (old.course == null) return@equal false
           if (new.course == null) return@equal false
-          if (abs(old.course.bearing.smallestRotationTo(new.course.bearing).inDegrees) >= precision)
+          if (abs(old.course.value.smallestRotationTo(new.course.value).inDegrees) >= precision)
             return@equal false
         }
 
-        if (abs(old.position.position.latitude - new.position.position.latitude) >= precision)
+        if (abs(old.position.value.latitude - new.position.value.latitude) >= precision)
           return@equal false
-        if (abs(old.position.position.longitude - new.position.position.longitude) >= precision)
+        if (abs(old.position.value.longitude - new.position.value.longitude) >= precision)
           return@equal false
 
         true
@@ -123,27 +123,27 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
     val newPosition =
       when (updateBearing) {
         BearingUpdate.IGNORE -> {
-          cameraState.position.copy(target = currentLocation.position.position)
+          cameraState.position.copy(target = currentLocation.position.value)
         }
 
         BearingUpdate.ALWAYS_NORTH -> {
-          cameraState.position.copy(target = currentLocation.position.position, bearing = 0.0)
+          cameraState.position.copy(target = currentLocation.position.value, bearing = 0.0)
         }
 
         BearingUpdate.TRACK_COURSE -> {
           cameraState.position.copy(
-            target = currentLocation.position.position,
+            target = currentLocation.position.value,
             bearing =
-              currentLocation.course?.bearing?.clockwiseRotationTo(Bearing.North)?.inDegrees
+              currentLocation.course?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
                 ?: cameraState.position.bearing,
           )
         }
 
         BearingUpdate.TRACK_AUTOMATIC -> {
           cameraState.position.copy(
-            target = currentLocation.position.position,
+            target = currentLocation.position.value,
             bearing =
-              currentLocation.course?.bearing?.smallestRotationTo(Bearing.North)?.inDegrees
+              currentLocation.course?.value?.smallestRotationTo(Bearing.North)?.inDegrees
                 ?: cameraState.position.bearing,
           )
         }

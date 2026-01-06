@@ -291,11 +291,11 @@ private fun rememberLocationSource(
       } else {
         FeatureCollection(
           Feature(
-            geometry = Point(location.position.position),
+            geometry = Point(location.position.value),
             properties =
               buildJsonObject {
                 put("accuracy", location.position.accuracy?.inMeters)
-                put("bearing", bearing?.bearing?.smallestRotationTo(Bearing.North)?.inDegrees)
+                put("bearing", bearing?.value?.smallestRotationTo(Bearing.North)?.inDegrees)
                 put("bearingAccuracy", bearing?.accuracy?.inDegrees)
                 put("age", location.timestamp.elapsedNow().inWholeNanoseconds)
               },

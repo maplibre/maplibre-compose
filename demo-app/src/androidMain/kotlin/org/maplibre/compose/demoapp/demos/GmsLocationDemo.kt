@@ -75,7 +75,7 @@ object GmsLocationDemo : Demo {
           locationClickedCount++
           coroutineScope.launch {
             state.cameraState.animateTo(
-              CameraPosition(target = location.position.position, zoom = 16.0)
+              CameraPosition(target = location.position.value, zoom = 16.0)
             )
           }
         },
@@ -100,11 +100,11 @@ object GmsLocationDemo : Demo {
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
           Text(
-            "Course: ${locationState?.location?.course?.bearing?.smallestRotationTo(Bearing.North)?.inDegrees?.roundToInt()} +- ${locationState?.location?.course?.accuracy?.inDegrees?.roundToInt()}"
+            "Course: ${locationState?.location?.course?.value?.smallestRotationTo(Bearing.North)?.inDegrees?.roundToInt()} +- ${locationState?.location?.course?.accuracy?.inDegrees?.roundToInt()}"
           )
           Text(
             "Orientation: ${
-              locationState?.orientation?.orientation?.bearing?.smallestRotationTo(
+              locationState?.orientation?.orientation?.value?.smallestRotationTo(
                 Bearing.North
               )?.inDegrees?.roundToInt()
             } +- ${locationState?.orientation?.orientation?.accuracy?.inDegrees?.roundToInt()}"
