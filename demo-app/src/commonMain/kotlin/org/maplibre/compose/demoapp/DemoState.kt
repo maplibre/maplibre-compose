@@ -25,6 +25,7 @@ import org.maplibre.compose.demoapp.util.Platform
 import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.location.UserLocationState
 import org.maplibre.compose.location.rememberDefaultLocationProvider
+import org.maplibre.compose.location.rememberDefaultOrientationProvider
 import org.maplibre.compose.location.rememberNullLocationProvider
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.map.GestureOptions
@@ -132,7 +133,8 @@ fun rememberDemoState(): DemoState {
         rememberNullLocationProvider()
       }
     }
-  val locationState = rememberUserLocationState(locationProvider)
+  val orientationProvider = rememberDefaultOrientationProvider()
+  val locationState = rememberUserLocationState(locationProvider, orientationProvider)
 
   return remember(nav, cameraState, styleState, locationPermissionState) {
     DemoState(nav, cameraState, styleState, locationState, locationPermissionState)

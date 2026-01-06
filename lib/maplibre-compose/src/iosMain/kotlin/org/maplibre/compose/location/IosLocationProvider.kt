@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.stateIn
+import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.extensions.inMeters
+import org.maplibre.spatialk.units.extensions.meters
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
@@ -34,7 +37,7 @@ import platform.darwin.NSObject
  * @param sharingStarted parameter for [stateIn] call of [location]
  */
 public class IosLocationProvider(
-  private val minDistanceMeters: Double,
+  private val minDistance: Length,
   private val desiredAccuracy: DesiredAccuracy,
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted,
@@ -62,7 +65,7 @@ public class IosLocationProvider(
             DesiredAccuracy.Low -> kCLLocationAccuracyKilometer
             DesiredAccuracy.Lowest -> kCLLocationAccuracyReduced
           }
-        locationManager.distanceFilter = minDistanceMeters
+        locationManager.distanceFilter = minDistance.inMeters
 
         locationManager.stopUpdatingLocation()
         locationManager.startUpdatingLocation()
@@ -87,21 +90,21 @@ public class IosLocationProvider(
 public actual fun rememberDefaultLocationProvider(
   updateInterval: Duration,
   desiredAccuracy: DesiredAccuracy,
-  minDistanceMeters: Double,
+  minDistance: Length,
 ): LocationProvider {
-  return rememberIosLocationProvider(minDistanceMeters, desiredAccuracy)
+  return rememberIosLocationProvider(minDistance, desiredAccuracy)
 }
 
 @Composable
 public fun rememberIosLocationProvider(
-  minDistanceMeters: Double = 1.0,
+  minDistance: Length = 1.meters,
   desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ): IosLocationProvider {
-  return remember(minDistanceMeters, desiredAccuracy, coroutineScope, sharingStarted) {
+  return remember(minDistance, desiredAccuracy, coroutineScope, sharingStarted) {
     IosLocationProvider(
-      minDistanceMeters = minDistanceMeters,
+      minDistance = minDistance,
       desiredAccuracy = desiredAccuracy,
       coroutineScope = coroutineScope,
       sharingStarted = sharingStarted,
