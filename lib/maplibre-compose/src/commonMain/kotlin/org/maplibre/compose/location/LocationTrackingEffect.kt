@@ -9,9 +9,9 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.filterNotNull
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 
 /**
@@ -39,20 +39,42 @@ public fun LocationTrackingEffect(
   LaunchedEffect(enabled, trackBearing, changeCollector) {
     if (!enabled) return@LaunchedEffect
 
-    snapshotFlow { locationState.location }
-      .filterNotNull()
+    snapshotFlow { locationState }
       .distinctUntilChanged equal@{ old, new ->
-        if (trackBearing && (old.course != null || new.course != null)) {
-          if (old.course == null) return@equal false
-          if (new.course == null) return@equal false
-          if (abs(old.course.value.smallestRotationTo(new.course.value).inDegrees) >= precision)
+        val oldLocation = old.location
+        val newLocation = new.location
+
+        if (oldLocation != null && newLocation != null) {
+          if (trackBearing && (oldLocation.course != null || newLocation.course != null)) {
+            if (oldLocation.course == null) return@equal false
+            if (newLocation.course == null) return@equal false
+            if (
+              abs(
+                oldLocation.course.value.smallestRotationTo(newLocation.course.value).inDegrees
+              ) >= precision
+            )
+              return@equal false
+          }
+
+          if (
+            abs(oldLocation.position.value.latitude - newLocation.position.value.latitude) >=
+              precision
+          )
+            return@equal false
+          if (
+            abs(oldLocation.position.value.longitude - newLocation.position.value.longitude) >=
+              precision
+          )
             return@equal false
         }
 
-        if (abs(old.position.value.latitude - new.position.value.latitude) >= precision)
-          return@equal false
-        if (abs(old.position.value.longitude - new.position.value.longitude) >= precision)
-          return@equal false
+        val oldOrientation = old.orientation?.orientation
+        val newOrientation = new.orientation?.orientation
+
+        if (trackBearing && oldOrientation != null && newOrientation != null) {
+          if (oldOrientation.value.smallestRotationTo(newOrientation.value).inDegrees >= precision)
+            return@equal false
+        }
 
         true
       }
@@ -65,11 +87,11 @@ public fun LocationTrackingEffect(
  * the current location via [LocationTrackingEffect].
  */
 public interface LocationChangeScope {
-  /** The previous [Location] before the location change */
-  public val previousLocation: Location?
+  /** The previous [UserLocationState] before the location change */
+  public val previousLocation: UserLocationState?
 
-  /** The [Location] that caused the location change */
-  public val currentLocation: Location
+  /** The [UserLocationState] that caused the location change */
+  public val currentLocation: UserLocationState
 
   /**
    * Convenience method for updating a [org.maplibre.compose.camera.CameraState] based on this
@@ -96,19 +118,21 @@ public enum class BearingUpdate {
   TRACK_COURSE,
 
   /** update camera rotation based on device orientation (heading) */
-  // TODO TRACK_ORIENTATION,
+  TRACK_ORIENTATION,
 
-  /** update camera rotation based on course if available, otherwise orientation */
+  /**
+   * Updates the camera's bearing based on the more accurate of two sources: course (direction of
+   * movement) or orientation (device heading).
+   */
   TRACK_AUTOMATIC,
-
 }
 
 internal class LocationChangeCollector(private val onEmit: suspend LocationChangeScope.() -> Unit) :
-  FlowCollector<Location>, LocationChangeScope {
-  override var previousLocation: Location? = null
-  override lateinit var currentLocation: Location
+  FlowCollector<UserLocationState>, LocationChangeScope {
+  override var previousLocation: UserLocationState? = null
+  override lateinit var currentLocation: UserLocationState
 
-  override suspend fun emit(value: Location) {
+  override suspend fun emit(value: UserLocationState) {
     currentLocation = value
     onEmit()
     previousLocation = value
@@ -120,31 +144,49 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
   ) {
     val cameraState = this
 
+    val target = currentLocation.location?.position?.value ?: cameraState.position.target
+    val course =
+      currentLocation.location?.course?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
+    val courseAccuracy = currentLocation.location?.course?.accuracy ?: 180.degrees
+    val orientation =
+      currentLocation.orientation?.orientation?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
+    val orientationAccuracy = currentLocation.orientation?.orientation?.accuracy ?: 180.degrees
+
     val newPosition =
       when (updateBearing) {
         BearingUpdate.IGNORE -> {
-          cameraState.position.copy(target = currentLocation.position.value)
+          cameraState.position.copy(target = target)
         }
 
         BearingUpdate.ALWAYS_NORTH -> {
-          cameraState.position.copy(target = currentLocation.position.value, bearing = 0.0)
+          cameraState.position.copy(target = target, bearing = 0.0)
         }
 
         BearingUpdate.TRACK_COURSE -> {
           cameraState.position.copy(
-            target = currentLocation.position.value,
+            target = target,
             bearing =
-              currentLocation.course?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
+              currentLocation.location?.course?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
                 ?: cameraState.position.bearing,
+          )
+        }
+
+        BearingUpdate.TRACK_ORIENTATION -> {
+          cameraState.position.copy(
+            target = target,
+            bearing = orientation ?: cameraState.position.bearing,
           )
         }
 
         BearingUpdate.TRACK_AUTOMATIC -> {
           cameraState.position.copy(
-            target = currentLocation.position.value,
+            target = target,
             bearing =
-              currentLocation.course?.value?.smallestRotationTo(Bearing.North)?.inDegrees
-                ?: cameraState.position.bearing,
+              if (orientationAccuracy < courseAccuracy) {
+                orientation
+              } else {
+                course
+              } ?: cameraState.position.bearing,
           )
         }
       }

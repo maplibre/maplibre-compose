@@ -95,13 +95,14 @@ object UserLocationDemo : Demo {
         if (trackLocation) {
           bearingUpdate =
             when (bearingUpdate) {
-              BearingUpdate.TRACK_AUTOMATIC -> BearingUpdate.ALWAYS_NORTH
+              BearingUpdate.TRACK_AUTOMATIC -> BearingUpdate.TRACK_COURSE
+              BearingUpdate.TRACK_COURSE -> BearingUpdate.TRACK_ORIENTATION
+              BearingUpdate.TRACK_ORIENTATION -> BearingUpdate.ALWAYS_NORTH
               BearingUpdate.ALWAYS_NORTH -> BearingUpdate.IGNORE
               BearingUpdate.IGNORE -> {
                 trackLocation = false
                 BearingUpdate.IGNORE
               }
-              else -> TODO()
             }
         } else {
           bearingUpdate = BearingUpdate.TRACK_AUTOMATIC
@@ -138,9 +139,9 @@ object UserLocationDemo : Demo {
                 when (bearingUpdate) {
                   BearingUpdate.IGNORE -> "ignoring bearing"
                   BearingUpdate.ALWAYS_NORTH -> "locked to north bearing"
-                  BearingUpdate.TRACK_AUTOMATIC -> "bearing"
                   BearingUpdate.TRACK_COURSE -> "course"
-                // BearingUpdate.TRACK_ORIENTATION -> "orientation"
+                  BearingUpdate.TRACK_ORIENTATION -> "orientation"
+                  BearingUpdate.TRACK_AUTOMATIC -> "automatic"
                 }
               )
             } else {
