@@ -2,6 +2,7 @@ package org.maplibre.compose.location
 
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.cinterop.useContents
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
@@ -12,10 +13,12 @@ import platform.Foundation.timeIntervalSinceNow
 public fun CLLocation.asMapLibreLocation(): Location =
   Location(
     position =
-      PositionMeasurement(
-        value = Position(longitude = longitude, latitude = latitude, altitude = altitude),
-        accuracy = horizontalAccuracy.meters,
-      ),
+      coordinate.useContents {
+        PositionMeasurement(
+          value = Position(longitude = longitude, latitude = latitude, altitude = altitude),
+          accuracy = horizontalAccuracy.meters,
+        )
+      },
     course =
       BearingMeasurement(value = Bearing.North + course.degrees, accuracy = courseAccuracy.degrees),
     speed = SpeedMeasurement(distancePerSecond = speed.meters, accuracy = speedAccuracy.meters),
