@@ -84,7 +84,7 @@ object UserLocationDemo : Demo {
 
     LocationPuck(
       idPrefix = "user-location",
-      locationState = state.locationState,
+      location = state.locationState.location,
       bearing =
         if (bearingUpdate != BearingUpdate.IGNORE) state.locationState.location?.course else null,
       cameraState = state.cameraState,

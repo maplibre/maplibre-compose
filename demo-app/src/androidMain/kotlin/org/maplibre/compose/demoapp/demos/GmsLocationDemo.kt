@@ -56,7 +56,7 @@ object GmsLocationDemo : Demo {
 
       LocationPuck(
         idPrefix = "gms-location",
-        locationState = locationState,
+        location = locationState.location,
         bearing =
           locationState.let { state ->
             val courseAccuracy = state.location?.course?.accuracy ?: 180.degrees
