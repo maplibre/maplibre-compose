@@ -46,8 +46,6 @@ public class FusedOrientationProvider(
   @OptIn(FlowPreview::class)
   override val orientation: StateFlow<Orientation?> =
     callbackFlow {
-        send(null)
-
         val callback: (DeviceOrientation) -> Unit = { orientation ->
           trySend(
             Orientation(

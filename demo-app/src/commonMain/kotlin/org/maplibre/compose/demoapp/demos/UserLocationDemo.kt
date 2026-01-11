@@ -32,6 +32,7 @@ import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.inDegrees
+import org.maplibre.spatialk.units.extensions.inMeters
 
 object UserLocationDemo : Demo {
   override val name = "User Location"
@@ -67,7 +68,8 @@ object UserLocationDemo : Demo {
               BearingUpdate.IGNORE -> GestureOptions.PositionLocked
               BearingUpdate.ALWAYS_NORTH -> GestureOptions.ZoomOnly
               BearingUpdate.TRACK_AUTOMATIC -> GestureOptions.ZoomOnly
-              else -> TODO()
+              BearingUpdate.TRACK_ORIENTATION -> GestureOptions.ZoomOnly
+              BearingUpdate.TRACK_COURSE -> GestureOptions.ZoomOnly
             }
           } else {
             GestureOptions.Standard
@@ -175,6 +177,9 @@ object UserLocationDemo : Demo {
             modifier = Modifier.padding(8.dp).fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(8.dp),
           ) {
+            Text(
+              "Position: ${state.location?.position?.value} +- ${state.location?.position?.accuracy?.inMeters?.roundToInt()}m"
+            )
             Text(
               "Course: ${state.location?.course?.value?.smallestRotationTo(Bearing.North)?.inDegrees?.roundToInt()} +- ${state.location?.course?.accuracy?.inDegrees?.roundToInt()}"
             )

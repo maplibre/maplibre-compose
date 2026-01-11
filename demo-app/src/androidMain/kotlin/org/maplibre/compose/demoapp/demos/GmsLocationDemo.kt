@@ -31,6 +31,7 @@ import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
+import org.maplibre.spatialk.units.extensions.inMeters
 
 object GmsLocationDemo : Demo {
   override val name = "Gms Location"
@@ -99,6 +100,9 @@ object GmsLocationDemo : Demo {
           modifier = Modifier.padding(8.dp).fillMaxWidth(),
           verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+          Text(
+            "Position: ${locationState?.location?.position?.value} +- ${locationState?.location?.position?.accuracy?.inMeters?.roundToInt()}m"
+          )
           Text(
             "Course: ${locationState?.location?.course?.value?.smallestRotationTo(Bearing.North)?.inDegrees?.roundToInt()} +- ${locationState?.location?.course?.accuracy?.inDegrees?.roundToInt()}"
           )

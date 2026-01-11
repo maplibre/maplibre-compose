@@ -136,7 +136,7 @@ fun rememberDemoState(): DemoState {
   val orientationProvider = rememberDefaultOrientationProvider()
   val locationState = rememberUserLocationState(locationProvider, orientationProvider)
 
-  return remember(nav, cameraState, styleState, locationPermissionState) {
+  return remember(nav, cameraState, styleState, locationState, locationPermissionState) {
     DemoState(nav, cameraState, styleState, locationState, locationPermissionState)
   }
 }

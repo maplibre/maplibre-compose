@@ -18,7 +18,6 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -53,8 +52,6 @@ public class AndroidOrientationProvider(
 
     orientation =
       callbackFlow {
-          send(null)
-
           val rotationMatrix = FloatArray(9)
           val orientationAngles = FloatArray(3)
 
@@ -67,18 +64,17 @@ public class AndroidOrientationProvider(
 
                   val degrees = Math.toDegrees(orientationAngles[0].toDouble()).degrees
 
-                  trySendBlocking(
-                      Orientation(
-                        orientation =
-                          BearingMeasurement(
-                            value = Bearing.North + degrees,
-                            // we can not get accuracy in degrees
-                            accuracy = null,
-                          ),
-                        timestamp = TimeSource.Monotonic.markNow(),
-                      )
+                  trySend(
+                    Orientation(
+                      orientation =
+                        BearingMeasurement(
+                          value = Bearing.North + degrees,
+                          // we can not get accuracy in degrees
+                          accuracy = null,
+                        ),
+                      timestamp = TimeSource.Monotonic.markNow(),
                     )
-                    .getOrThrow()
+                  )
                 }
               }
 
