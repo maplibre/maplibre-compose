@@ -19,7 +19,6 @@ import androidx.compose.ui.platform.LocalContext
 import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -82,7 +81,7 @@ constructor(
             }
           send(lastLocation)
 
-          val listener = LocationListener { trySendBlocking(it.asMapLibreLocation()).getOrThrow() }
+          val listener = LocationListener { trySend(it.asMapLibreLocation()) }
 
           if (desiredAccuracy == DesiredAccuracy.Lowest) {
             startPassive(locationManager, updateInterval, listener)

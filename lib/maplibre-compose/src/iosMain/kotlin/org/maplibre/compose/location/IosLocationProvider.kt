@@ -7,7 +7,6 @@ import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -31,7 +30,7 @@ import platform.darwin.NSObject
 /**
  * A [LocationProvider] built on the [CLLocationManager] platform APIs.
  *
- * @param minDistanceMeters the minimum distance between location updates
+ * @param minDistance the minimum distance between location updates
  * @param desiredAccuracy the [DesiredAccuracy] for location updates.
  * @param coroutineScope the [CoroutineScope] used to share the [location] flow
  * @param sharingStarted parameter for [stateIn] call of [location]
@@ -79,7 +78,7 @@ public class IosLocationProvider(
     override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
       @Suppress("UNCHECKED_CAST") val locations = didUpdateLocations as? List<CLLocation>
 
-      locations?.forEach { channel.trySendBlocking(it.asMapLibreLocation()).getOrThrow() }
+      locations?.forEach { channel.trySend(it.asMapLibreLocation()) }
     }
 
     override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {}
