@@ -11,6 +11,12 @@ import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.sample
 
 public class UserLocationState
 internal constructor(locationState: State<Location?>, orientationState: State<Orientation?>) {
@@ -21,31 +27,61 @@ internal constructor(locationState: State<Location?>, orientationState: State<Or
   public val orientation: Orientation? by orientationState
 }
 
+/**
+ * Remembers a [UserLocationState] that can be used to track the user's location and device
+ * orientation.
+ *
+ * @param locationProvider The [LocationProvider] to use for obtaining location updates.
+ * @param orientationProvider The optional [OrientationProvider] to use for obtaining device
+ *   orientation updates. If `null`, the orientation in the returned state will always be `null`.
+ * @param samplePeriod The duration to sample the combined location and orientation flow. If `null`,
+ *   all updates are collected. Defaults to 1 second. This is useful for throttling updates to
+ *   prevent excessive recompositions.
+ * @param lifecycleOwner The [LifecycleOwner] to scope the collection of updates to. Defaults to the
+ *   [LocalLifecycleOwner].
+ * @param minActiveState The minimum [Lifecycle.State] at which to collect updates. Defaults to
+ *   [Lifecycle.State.STARTED].
+ * @param coroutineContext The [CoroutineContext] to use for collecting updates. Defaults to
+ *   [EmptyCoroutineContext].
+ * @return A remembered [UserLocationState] instance.
+ */
+@OptIn(FlowPreview::class)
 @Composable
 public fun rememberUserLocationState(
   locationProvider: LocationProvider,
   orientationProvider: OrientationProvider? = null,
+  samplePeriod: Duration? = 1.seconds,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
   coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ): UserLocationState {
-  val orientationState =
-    orientationProvider
-      ?.orientation
-      ?.collectAsStateWithLifecycle(
+  val state by
+    remember(locationProvider, orientationProvider) {
+        if (orientationProvider != null) {
+          combine(locationProvider.location, orientationProvider.orientation) {
+            location,
+            orientation ->
+            location to orientation
+          }
+        } else {
+          locationProvider.location.map { it to null }
+        }
+      }
+      .let { flow ->
+        if (samplePeriod != null) {
+          flow.sample(samplePeriod)
+        } else {
+          flow
+        }
+      }
+      .collectAsStateWithLifecycle(
+        initialValue = null to null,
         lifecycleOwner = lifecycleOwner,
         minActiveState = minActiveState,
         context = coroutineContext,
       )
 
-  val locationState =
-    locationProvider.location.collectAsStateWithLifecycle(
-      lifecycleOwner = lifecycleOwner,
-      minActiveState = minActiveState,
-      context = coroutineContext,
-    )
-
-  return remember(locationState, orientationState) {
-    UserLocationState(locationState, orientationState ?: mutableStateOf(null))
+  return remember(state) {
+    UserLocationState(mutableStateOf(state.first), mutableStateOf(state.second))
   }
 }

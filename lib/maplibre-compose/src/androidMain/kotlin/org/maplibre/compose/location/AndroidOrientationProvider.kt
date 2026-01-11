@@ -53,6 +53,8 @@ public class AndroidOrientationProvider(
 
     orientation =
       callbackFlow {
+          send(null)
+
           val rotationMatrix = FloatArray(9)
           val orientationAngles = FloatArray(3)
 
