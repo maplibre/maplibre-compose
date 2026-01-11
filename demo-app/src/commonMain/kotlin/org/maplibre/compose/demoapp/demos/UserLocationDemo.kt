@@ -31,6 +31,7 @@ import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 import org.maplibre.spatialk.units.extensions.inMeters
 
@@ -88,7 +89,21 @@ object UserLocationDemo : Demo {
       idPrefix = "user-location",
       location = state.locationState.location,
       bearing =
-        if (bearingUpdate != BearingUpdate.IGNORE) state.locationState.location?.course else null,
+        when (bearingUpdate) {
+          BearingUpdate.TRACK_AUTOMATIC -> {
+            val courseAccuracy = state.locationState.location?.course?.accuracy ?: 180.degrees
+            val orientationAccuracy =
+              state.locationState.orientation?.orientation?.accuracy ?: 180.degrees
+            if (courseAccuracy < orientationAccuracy) {
+              state.locationState.location?.course
+            } else {
+              state.locationState.orientation?.orientation
+            }
+          }
+          BearingUpdate.TRACK_COURSE -> state.locationState.location?.course
+          BearingUpdate.TRACK_ORIENTATION -> state.locationState.orientation?.orientation
+          else -> null
+        },
       cameraState = state.cameraState,
       accuracyThreshold = 0f,
       colors = LocationPuckDefaults.colors(),
