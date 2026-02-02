@@ -147,10 +147,12 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
     val target = currentLocation.location?.position?.value ?: cameraState.position.target
     val course =
       currentLocation.location?.course?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
-    val courseAccuracy = currentLocation.location?.course?.accuracy ?: 180.degrees
+    val courseAccuracy =
+      currentLocation.location?.course?.accuracy ?: Double.POSITIVE_INFINITY.degrees
     val orientation =
       currentLocation.orientation?.orientation?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
-    val orientationAccuracy = currentLocation.orientation?.orientation?.accuracy ?: 180.degrees
+    val orientationAccuracy =
+      currentLocation.orientation?.orientation?.accuracy ?: Double.POSITIVE_INFINITY.degrees
 
     val newPosition =
       when (updateBearing) {
