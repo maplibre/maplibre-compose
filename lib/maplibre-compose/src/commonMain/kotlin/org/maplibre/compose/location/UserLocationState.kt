@@ -15,7 +15,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.sample
 
 public class UserLocationState
@@ -33,7 +32,7 @@ internal constructor(locationState: State<Location?>, orientationState: State<Or
  *
  * @param locationProvider The [LocationProvider] to use for obtaining location updates.
  * @param orientationProvider The optional [OrientationProvider] to use for obtaining device
- *   orientation updates. If `null`, the orientation in the returned state will always be `null`.
+ *   orientation updates. By default, the orientation in the returned state will always be `null`.
  * @param samplePeriod The duration to sample the combined location and orientation flow. If `null`,
  *   all updates are collected. Defaults to 1 second. This is useful for throttling updates to
  *   prevent excessive recompositions.
@@ -49,7 +48,7 @@ internal constructor(locationState: State<Location?>, orientationState: State<Or
 @Composable
 public fun rememberUserLocationState(
   locationProvider: LocationProvider,
-  orientationProvider: OrientationProvider? = null,
+  orientationProvider: OrientationProvider = rememberNullOrientationProvider(),
   samplePeriod: Duration? = 1.seconds,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
@@ -57,14 +56,9 @@ public fun rememberUserLocationState(
 ): UserLocationState {
   val state by
     remember(locationProvider, orientationProvider) {
-        if (orientationProvider != null) {
-          combine(locationProvider.location, orientationProvider.orientation) {
-            location,
-            orientation ->
-            location to orientation
-          }
-        } else {
-          locationProvider.location.map { it to null }
+        combine(locationProvider.location, orientationProvider.orientation) { location, orientation
+          ->
+          location to orientation
         }
       }
       .let { flow ->
