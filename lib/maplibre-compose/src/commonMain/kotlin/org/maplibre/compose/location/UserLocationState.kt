@@ -16,7 +16,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 
@@ -70,8 +69,8 @@ public fun rememberUserLocationState(
   ) {
     suspend fun collect() {
       while (isActive) {
-        locationState.value = locationProvider.location.first()
-        orientationState.value = orientationProvider.orientation.first()
+        locationState.value = locationProvider.location.value
+        orientationState.value = orientationProvider.orientation.value
         delay(samplePeriod)
       }
     }
