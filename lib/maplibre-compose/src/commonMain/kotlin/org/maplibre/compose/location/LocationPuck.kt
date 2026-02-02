@@ -87,8 +87,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
 public fun LocationPuck(
   idPrefix: String,
   location: Location?,
-  bearing: BearingMeasurement? = location?.course,
   cameraState: CameraState,
+  bearing: BearingMeasurement? = location?.course,
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Float = 50f,
   colors: LocationPuckColors = LocationPuckColors(),
