@@ -1,6 +1,7 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -8,14 +9,16 @@ import androidx.compose.runtime.remember
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.repeatOnLifecycle
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.withContext
 
 public class UserLocationState
 internal constructor(locationState: State<Location?>, orientationState: State<Orientation?>) {
@@ -49,33 +52,38 @@ internal constructor(locationState: State<Location?>, orientationState: State<Or
 public fun rememberUserLocationState(
   locationProvider: LocationProvider,
   orientationProvider: OrientationProvider = rememberNullOrientationProvider(),
-  samplePeriod: Duration? = 1.seconds,
+  samplePeriod: Duration = 1.seconds,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
   coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ): UserLocationState {
-  val state by
-    remember(locationProvider, orientationProvider) {
-        combine(locationProvider.location, orientationProvider.orientation) { location, orientation
-          ->
-          location to orientation
-        }
-      }
-      .let { flow ->
-        if (samplePeriod != null) {
-          flow.sample(samplePeriod)
-        } else {
-          flow
-        }
-      }
-      .collectAsStateWithLifecycle(
-        initialValue = null to null,
-        lifecycleOwner = lifecycleOwner,
-        minActiveState = minActiveState,
-        context = coroutineContext,
-      )
+  val locationState = remember { mutableStateOf<Location?>(null) }
+  val orientationState = remember { mutableStateOf<Orientation?>(null) }
+  val state = remember { UserLocationState(locationState, orientationState) }
 
-  return remember(state) {
-    UserLocationState(mutableStateOf(state.first), mutableStateOf(state.second))
+  LaunchedEffect(
+    locationProvider,
+    orientationProvider,
+    lifecycleOwner.lifecycle,
+    minActiveState,
+    coroutineContext,
+  ) {
+    suspend fun collect() {
+      while (isActive) {
+        locationState.value = locationProvider.location.first()
+        orientationState.value = orientationProvider.orientation.first()
+        delay(samplePeriod)
+      }
+    }
+
+    lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
+      if (coroutineContext == EmptyCoroutineContext) {
+        collect()
+      } else {
+        withContext(coroutineContext) { collect() }
+      }
+    }
   }
+
+  return state
 }
