@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
+import org.maplibre.spatialk.units.extensions.degrees
 
 public class UserLocationState
 internal constructor(locationState: State<Location?>, orientationState: State<Orientation?>) {
@@ -31,17 +32,20 @@ internal constructor(locationState: State<Location?>, orientationState: State<Or
 }
 
 /**
- * Remembers a [UserLocationState] that can be used to track the user's location and device
- * orientation.
+ * Remembers and returns a [UserLocationState] that can be used to track the user's location and
+ * device orientation.
+ *
+ * To prevent excessive recompositions from rapid location or orientation updates, the data is
+ * sampled at a regular interval defined by [samplePeriod].
  *
  * @param locationProvider The [LocationProvider] to use for obtaining location updates.
  * @param orientationProvider The optional [OrientationProvider] to use for obtaining device
- *   orientation updates. By default, the orientation in the returned state will always be `null`.
- * @param samplePeriod The duration to sample the combined location and orientation flow. If `null`,
- *   all updates are collected. Defaults to 1 second. This is useful for throttling updates to
- *   prevent excessive recompositions.
+ *   orientation updates. By default, a provider that emits no orientation updates is used, meaning
+ *   the orientation in the returned state will always be `null`.
+ * @param samplePeriod The sampling period for collecting location and orientation updates. This is
+ *   useful for throttling updates to prevent excessive recompositions. Defaults to 1 second.
  * @param lifecycleOwner The [LifecycleOwner] to scope the collection of updates to. Defaults to the
- *   [LocalLifecycleOwner].
+ *   current [LocalLifecycleOwner].
  * @param minActiveState The minimum [Lifecycle.State] at which to collect updates. Defaults to
  *   [Lifecycle.State.STARTED].
  * @param coroutineContext The [CoroutineContext] to use for collecting updates. Defaults to
@@ -92,4 +96,26 @@ public fun rememberUserLocationState(
   }
 
   return state
+}
+
+/**
+ * Returns the most accurate bearing measurement available.
+ *
+ * This function considers the bearing from two potential sources:
+ * 1. The course from the user's [Location] (derived from GPS or other location services), which
+ *    indicates the direction of travel.
+ * 2. The orientation from the device's [Orientation] (derived from the compass/magnetometer), which
+ *    indicates the direction the top of the device is pointing.
+ *
+ * It compares the accuracy of these two measurements and returns the one with the smallest accuracy
+ * value (i.e., the most precise). If a measurement has no accuracy specified (`null`), it is
+ * treated as having infinite (the worst possible) accuracy.
+ *
+ * @return The [BearingMeasurement] with the highest accuracy, or `null` if both [Location] and
+ *   [Orientation] are `null` or do not provide a bearing.
+ */
+public fun UserLocationState.minAccuracyBearing(): BearingMeasurement? {
+  return listOfNotNull(location?.course, orientation?.orientation).minByOrNull {
+    it.accuracy ?: Double.POSITIVE_INFINITY.degrees
+  }
 }

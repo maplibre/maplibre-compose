@@ -11,7 +11,6 @@ import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.distinctUntilChanged
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.spatialk.units.Bearing
-import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 
 /**
@@ -145,14 +144,6 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
     val cameraState = this
 
     val target = currentLocation.location?.position?.value ?: cameraState.position.target
-    val course =
-      currentLocation.location?.course?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
-    val courseAccuracy =
-      currentLocation.location?.course?.accuracy ?: Double.POSITIVE_INFINITY.degrees
-    val orientation =
-      currentLocation.orientation?.orientation?.value?.clockwiseRotationTo(Bearing.North)?.inDegrees
-    val orientationAccuracy =
-      currentLocation.orientation?.orientation?.accuracy ?: Double.POSITIVE_INFINITY.degrees
 
     val newPosition =
       when (updateBearing) {
@@ -176,7 +167,12 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
         BearingUpdate.TRACK_ORIENTATION -> {
           cameraState.position.copy(
             target = target,
-            bearing = orientation ?: cameraState.position.bearing,
+            bearing =
+              currentLocation.orientation
+                ?.orientation
+                ?.value
+                ?.clockwiseRotationTo(Bearing.North)
+                ?.inDegrees ?: cameraState.position.bearing,
           )
         }
 
@@ -184,11 +180,11 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
           cameraState.position.copy(
             target = target,
             bearing =
-              if (orientationAccuracy < courseAccuracy) {
-                orientation
-              } else {
-                course
-              } ?: cameraState.position.bearing,
+              currentLocation
+                .minAccuracyBearing()
+                ?.value
+                ?.clockwiseRotationTo(Bearing.North)
+                ?.inDegrees ?: cameraState.position.bearing,
           )
         }
       }

@@ -26,10 +26,10 @@ import org.maplibre.compose.gms.rememberFusedLocationProvider
 import org.maplibre.compose.gms.rememberFusedOrientationProvider
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.location.minAccuracyBearing
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.units.Bearing
-import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 import org.maplibre.spatialk.units.extensions.inMeters
 
@@ -58,17 +58,7 @@ object GmsLocationDemo : Demo {
       LocationPuck(
         idPrefix = "gms-location",
         location = locationState.location,
-        bearing =
-          locationState.let { state ->
-            val courseAccuracy = state.location?.course?.accuracy ?: 180.degrees
-            val orientationAccuracy =
-              locationState.orientation?.orientation?.accuracy ?: 180.degrees
-            if (courseAccuracy < orientationAccuracy) {
-              state.location?.course
-            } else {
-              state.orientation?.orientation
-            }
-          },
+        bearing = locationState.minAccuracyBearing(),
         cameraState = state.cameraState,
         accuracyThreshold = 0f,
         colors = LocationPuckDefaults.colors(),

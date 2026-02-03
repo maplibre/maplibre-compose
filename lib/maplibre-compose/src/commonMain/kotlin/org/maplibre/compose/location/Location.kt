@@ -2,10 +2,6 @@ package org.maplibre.compose.location
 
 import kotlin.time.TimeMark
 import kotlinx.serialization.Serializable
-import org.maplibre.spatialk.geojson.Position
-import org.maplibre.spatialk.units.Bearing
-import org.maplibre.spatialk.units.Length
-import org.maplibre.spatialk.units.Rotation
 
 /**
  * Describes a user's location.
@@ -24,10 +20,3 @@ public data class Location(
   val course: BearingMeasurement? = null,
   val timestamp: TimeMark,
 )
-
-@Serializable public data class PositionMeasurement(val value: Position, val accuracy: Length?)
-
-@Serializable public data class BearingMeasurement(val value: Bearing, val accuracy: Rotation?)
-
-@Serializable
-public data class SpeedMeasurement(val distancePerSecond: Length, val accuracy: Length?)
