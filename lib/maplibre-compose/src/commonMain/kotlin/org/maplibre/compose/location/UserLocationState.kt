@@ -114,7 +114,7 @@ public fun rememberUserLocationState(
  * @return The [BearingMeasurement] with the highest accuracy, or `null` if both [Location] and
  *   [Orientation] are `null` or do not provide a bearing.
  */
-public fun UserLocationState.minAccuracyBearing(): BearingMeasurement? {
+public fun UserLocationState.mostAccurateBearing(): BearingMeasurement? {
   return listOfNotNull(location?.course, orientation?.orientation).minByOrNull {
     it.accuracy ?: Double.POSITIVE_INFINITY.degrees
   }

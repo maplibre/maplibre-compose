@@ -26,7 +26,7 @@ import org.maplibre.compose.gms.rememberFusedLocationProvider
 import org.maplibre.compose.gms.rememberFusedOrientationProvider
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.UserLocationState
-import org.maplibre.compose.location.minAccuracyBearing
+import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.units.Bearing
@@ -58,7 +58,7 @@ object GmsLocationDemo : Demo {
       LocationPuck(
         idPrefix = "gms-location",
         location = locationState.location,
-        bearing = locationState.minAccuracyBearing(),
+        bearing = locationState.mostAccurateBearing(),
         cameraState = state.cameraState,
         accuracyThreshold = 0f,
         colors = LocationPuckDefaults.colors(),

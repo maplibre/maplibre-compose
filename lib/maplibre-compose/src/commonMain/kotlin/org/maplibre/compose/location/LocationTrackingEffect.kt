@@ -181,7 +181,7 @@ internal class LocationChangeCollector(private val onEmit: suspend LocationChang
             target = target,
             bearing =
               currentLocation
-                .minAccuracyBearing()
+                .mostAccurateBearing()
                 ?.value
                 ?.clockwiseRotationTo(Bearing.North)
                 ?.inDegrees ?: cameraState.position.bearing,
