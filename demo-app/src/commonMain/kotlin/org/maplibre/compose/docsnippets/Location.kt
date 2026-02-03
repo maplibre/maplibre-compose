@@ -1,3 +1,5 @@
+@file:Suppress("unused")
+
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable

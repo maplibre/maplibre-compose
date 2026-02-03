@@ -1,4 +1,4 @@
-# 📍 Location
+# Integrating location
 
 The location module provides a cross-platform way to track and visualize user
 position in MapLibre Compose.
@@ -15,7 +15,7 @@ position in MapLibre Compose.
 ### Implementation
 
 ```kotlin
--8 < -"demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Location.kt:puck"
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Location.kt:puck"
 ```
 
 ### Platform Options
