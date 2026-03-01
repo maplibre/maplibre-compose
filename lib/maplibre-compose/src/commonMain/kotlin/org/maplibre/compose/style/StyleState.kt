@@ -13,7 +13,7 @@ public fun rememberStyleState(): StyleState {
 
 /** Use this class to access information about the style, such as sources and layers. */
 public class StyleState internal constructor() {
-  private var styleNode: StyleNode? = null
+  internal var styleNode: StyleNode? = null
 
   public val sources: Map<String, Source>
     get() = sourcesState.value
