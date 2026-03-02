@@ -23,6 +23,8 @@ internal class MapTestScope(
   val style: Style?
     get() = styleState.styleNode?.style
 
+  fun <T> runOnUiThread(block: () -> T): T = composeUiTest.runOnUiThread(block)
+
   fun switchStyle(newStyle: BaseStyle) {
     composeUiTest.runOnUiThread { baseStyleState.value = newStyle }
   }
@@ -32,8 +34,8 @@ internal class MapTestScope(
   }
 
   fun waitForStyleReload(timeoutMillis: Long = 10_000) {
-    composeUiTest.waitUntil(timeoutMillis = timeoutMillis / 2) { style == null }
-    composeUiTest.waitUntil(timeoutMillis = timeoutMillis / 2) { style != null }
+    val before = style
+    composeUiTest.waitUntil(timeoutMillis = timeoutMillis) { style != null && style !== before }
   }
 
   fun waitUntil(timeoutMillis: Long = 10_000, condition: () -> Boolean) {
