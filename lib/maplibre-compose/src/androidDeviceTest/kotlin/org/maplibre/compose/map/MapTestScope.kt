@@ -16,7 +16,7 @@ import org.maplibre.compose.util.MaplibreComposable
 @OptIn(ExperimentalTestApi::class)
 internal class MapTestScope(
   val styleState: StyleState,
-  val logWriter: CapturingLogWriter,
+  private val logWriter: CapturingLogWriter,
   private val baseStyleState: MutableState<BaseStyle>,
   private val composeUiTest: ComposeUiTest,
 ) {
@@ -53,6 +53,13 @@ internal class MapTestScope(
   }
 }
 
+/**
+ * Sets up a [MaplibreMap] with the given [initialStyle] and [content], waits for the style to load,
+ * then runs [block] in a [MapTestScope].
+ *
+ * Tests using this helper must run sequentially (not in parallel) because each map overwrites the
+ * global [co.touchlab.kermit.Logger] singleton via `MLNLogger.setLoggerDefinition()`.
+ */
 @OptIn(ExperimentalTestApi::class)
 internal fun ComposeUiTest.withMap(
   initialStyle: BaseStyle = BaseStyle.Empty,
