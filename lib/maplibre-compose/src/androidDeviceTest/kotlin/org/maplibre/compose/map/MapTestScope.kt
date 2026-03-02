@@ -8,6 +8,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.loggerConfigInit
+import org.maplibre.android.style.layers.Layer as MLNLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.compose.style.StyleState
@@ -41,6 +42,8 @@ internal class MapTestScope(
   fun waitUntil(timeoutMillis: Long = 10_000, condition: () -> Boolean) {
     composeUiTest.waitUntil(timeoutMillis = timeoutMillis, condition = condition)
   }
+
+  fun getLayerImpl(id: String): MLNLayer? = style?.getLayer(id)?.impl
 
   fun assertNoLogErrors() {
     val errors = logWriter.errors()

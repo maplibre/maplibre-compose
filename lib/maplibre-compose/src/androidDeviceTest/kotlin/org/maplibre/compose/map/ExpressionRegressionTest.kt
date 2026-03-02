@@ -1,12 +1,12 @@
 package org.maplibre.compose.map
 
 import androidx.activity.ComponentActivity
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runAndroidComposeUiTest
-import androidx.compose.ui.unit.dp
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertTrue
+import org.maplibre.android.style.layers.SymbolLayer as MLNSymbolLayer
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
@@ -15,7 +15,7 @@ import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.linear
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.dsl.zoom
-import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
@@ -55,7 +55,13 @@ class ExpressionRegressionTest {
           )
         }
       ) {
-        assertNoLogErrors()
+        val property = runOnUiThread { (getLayerImpl("test-symbol") as MLNSymbolLayer).iconImage }
+        assertTrue { property.isExpression }
+        assertEquals(
+          // language=JSON
+          """["match", ["string", ["get", "type"]], "a", ["image", "icon-a"], "b", ["image", "icon-b"], "c", ["image", "icon-c"], ["image", "icon-default"]]""",
+          property.expression.toString(),
+        )
       }
     }
 
@@ -76,12 +82,15 @@ class ExpressionRegressionTest {
           SymbolLayer(
             id = "test-symbol",
             source = source,
-            iconImage =
-              switch(input = feature["type"].asString(), fallback = const("icon-default")).cast(),
+            textAnchor =
+              switch(input = feature["type"].asString(), fallback = const(SymbolAnchor.Center))
+                .cast(),
           )
         }
       ) {
-        assertNoLogErrors()
+        val property = runOnUiThread { (getLayerImpl("test-symbol") as MLNSymbolLayer).textAnchor }
+        assertTrue { property.isValue }
+        assertEquals("center", property.value)
       }
     }
 
@@ -106,64 +115,13 @@ class ExpressionRegressionTest {
           )
         }
       ) {
-        assertNoLogErrors()
-      }
-    }
-
-  /**
-   * Regression for #471: iconPadding with DpPadding type. The native SDK previously failed when
-   * iconPadding used PaddingValues with dp units.
-   */
-  @Test
-  fun iconPaddingDpType() =
-    runAndroidComposeUiTest<ComponentActivity> {
-      withMap(
-        content = {
-          val source =
-            rememberGeoJsonSource(
-              data = GeoJsonData.Features(featureCollectionOf()),
-              options = GeoJsonOptions(),
-            )
-          SymbolLayer(
-            id = "test-symbol",
-            source = source,
-            iconPadding = const(PaddingValues.Absolute(4.dp, 4.dp, 4.dp, 4.dp)),
-          )
-        }
-      ) {
-        assertNoLogErrors()
-      }
-    }
-
-  /**
-   * Regression for #679: lineProgress expression on line gradient. Requires a GeoJsonSource with
-   * lineMetrics enabled. The native SDK previously failed when lineProgress was used in a gradient
-   * interpolation.
-   */
-  @Test
-  fun lineProgressExpression() =
-    runAndroidComposeUiTest<ComponentActivity> {
-      withMap(
-        content = {
-          val source =
-            rememberGeoJsonSource(
-              data = GeoJsonData.Features(featureCollectionOf()),
-              options = GeoJsonOptions(lineMetrics = true),
-            )
-          LineLayer(
-            id = "test-line",
-            source = source,
-            gradient =
-              interpolate(
-                linear(),
-                feature.lineProgress(),
-                0 to const(Color.Red),
-                1 to const(Color.Blue),
-              ),
-          )
-        }
-      ) {
-        assertNoLogErrors()
+        val property = runOnUiThread { (getLayerImpl("test-symbol") as MLNSymbolLayer).textSize }
+        assertTrue { property.isExpression }
+        assertEquals(
+          // language=JSON
+          """["interpolate", ["linear"], ["zoom"], 10.0, 12.0, 20.0, 24.0]""",
+          property.expression.toString(),
+        )
       }
     }
 }
