@@ -8,6 +8,7 @@ import org.maplibre.compose.demoapp.demos.GmsLocationDemo
 import org.maplibre.compose.demoapp.demos.OfflineManagerDemo
 import org.maplibre.compose.demoapp.demos.OrnamentOptionsDemo
 import org.maplibre.compose.demoapp.demos.RenderOptionsDemo
+import org.maplibre.compose.demoapp.demos.SynchronousGeoJsonUpdatesDemo
 import org.maplibre.compose.map.OrnamentOptions
 
 actual object Platform {
@@ -24,6 +25,7 @@ actual object Platform {
       OfflineManagerDemo,
       RenderOptionsDemo,
       GmsLocationDemo,
+      SynchronousGeoJsonUpdatesDemo,
     )
 
   actual fun padOrnaments(options: OrnamentOptions, padding: PaddingValues) =
