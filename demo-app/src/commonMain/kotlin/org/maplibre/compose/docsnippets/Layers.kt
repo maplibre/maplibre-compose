@@ -18,6 +18,7 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -90,4 +91,16 @@ fun Layers() {
     )
     // -8<- [end:interaction]
   }
+
+  // -8<- [start:synchronous-geojson-updates]
+  val livePositions =
+    rememberGeoJsonSource(
+      data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+      options = GeoJsonOptions(synchronousUpdate = true),
+    )
+  // Android only for now: other platforms currently ignore this option.
+  // Use this only for small, frequently updated in-memory GeoJSON sources.
+  // Synchronous updates can reduce update latency, but may reduce frame rate.
+  CircleLayer(id = "live-positions", source = livePositions)
+  // -8<- [end:synchronous-geojson-updates]
 }

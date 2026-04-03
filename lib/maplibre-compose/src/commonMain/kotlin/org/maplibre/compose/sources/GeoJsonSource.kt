@@ -74,6 +74,10 @@ public sealed interface GeoJsonData {
  *
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
+ * @param synchronousUpdate Whether in-memory GeoJSON updates should be applied synchronously. This
+ *   is intended for small, frequently updated sources such as live positions. Enabling it can
+ *   reduce update latency but may hurt frame rate. At the moment this has an effect only on
+ *   Android; other platforms ignore it.
  */
 @Immutable
 public data class GeoJsonOptions(
@@ -87,6 +91,7 @@ public data class GeoJsonOptions(
   val clusterMaxZoom: Int = maxZoom - 1,
   val clusterProperties: Map<String, ClusterPropertyAggregator<*>> = emptyMap(),
   val lineMetrics: Boolean = false,
+  val synchronousUpdate: Boolean = false,
 ) {
   public data class ClusterPropertyAggregator<T : ExpressionValue>(
     /** Produces the value of a single point, passed to the accumulation operator. */
