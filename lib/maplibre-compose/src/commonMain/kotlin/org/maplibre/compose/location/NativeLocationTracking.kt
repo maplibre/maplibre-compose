@@ -20,7 +20,7 @@ public enum class NativeLocationPuck {
 /**
  * State holder for native user-tracking mode.
  *
- * This mirrors the current desired tracking mode and will later also reflect native dismissals.
+ * This mirrors the current tracking mode shared between Compose and the native map implementation.
  */
 public class NativeLocationTrackingState internal constructor(initialMode: UserTrackingMode) {
   internal val trackingModeState = mutableStateOf(initialMode)

@@ -27,6 +27,7 @@ import org.maplibre.android.gestures.ShoveGestureDetector
 import org.maplibre.android.gestures.StandardScaleGestureDetector
 import org.maplibre.android.location.LocationComponent
 import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.OnCameraTrackingChangedListener
 import org.maplibre.android.location.modes.CameraMode
 import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.log.Logger as MLNLogger
@@ -102,6 +103,16 @@ internal class AndroidMapAdapter(
   private var lastBaseStyle: BaseStyle? = null
   private val locationComponent: LocationComponent = map.locationComponent
   private var nativeLocationTracking: NativeLocationTrackingUpdate? = null
+  private val cameraTrackingListener =
+    object : OnCameraTrackingChangedListener {
+      override fun onCameraTrackingDismissed() {
+        callbacks.onUserTrackingModeChanged(UserTrackingMode.None)
+      }
+
+      override fun onCameraTrackingChanged(currentMode: Int) {
+        callbacks.onUserTrackingModeChanged(currentMode.toUserTrackingMode())
+      }
+    }
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
@@ -208,8 +219,7 @@ internal class AndroidMapAdapter(
       true
     }
 
-    // TODO: In step 2, mirror native tracking changes and dismissals back through
-    // callbacks.onUserTrackingModeChanged(...).
+    locationComponent.addOnCameraTrackingChangedListener(cameraTrackingListener)
     map.setOnFpsChangedListener { fps -> callbacks.onFrame(fps) }
 
     setBaseStyle(baseStyle)
@@ -451,8 +461,16 @@ internal class AndroidMapAdapter(
       )
     }
 
-    locationComponent.renderMode = update.puck.toRenderMode(update.trackingMode)
-    locationComponent.cameraMode = update.trackingMode.toCameraMode()
+    val targetRenderMode = update.puck.toRenderMode(update.trackingMode)
+    if (locationComponent.renderMode != targetRenderMode) {
+      locationComponent.renderMode = targetRenderMode
+    }
+
+    val targetCameraMode = update.trackingMode.toCameraMode()
+    if (locationComponent.cameraMode != targetCameraMode) {
+      locationComponent.cameraMode = targetCameraMode
+    }
+
     locationComponent.isLocationComponentEnabled = true
     update.location?.let { locationComponent.forceLocationUpdate(it.asAndroidLocation()) }
   }
@@ -480,6 +498,14 @@ private fun UserTrackingMode.toCameraMode(): Int =
     UserTrackingMode.None -> CameraMode.NONE
     UserTrackingMode.Follow -> CameraMode.TRACKING
     UserTrackingMode.FollowWithCourse -> CameraMode.TRACKING_GPS
+  }
+
+private fun Int.toUserTrackingMode(): UserTrackingMode =
+  when (this) {
+    CameraMode.NONE -> UserTrackingMode.None
+    CameraMode.TRACKING -> UserTrackingMode.Follow
+    CameraMode.TRACKING_GPS -> UserTrackingMode.FollowWithCourse
+    else -> UserTrackingMode.None
   }
 
 private fun NativeLocationPuck.toRenderMode(trackingMode: UserTrackingMode): Int =

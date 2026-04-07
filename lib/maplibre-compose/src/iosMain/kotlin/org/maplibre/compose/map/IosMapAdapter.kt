@@ -12,6 +12,8 @@ import MapLibre.MLNCameraChangeReasonGestureZoomOut
 import MapLibre.MLNCameraChangeReasonProgrammatic
 import MapLibre.MLNCoordinateBoundsMake
 import MapLibre.MLNFeatureProtocol
+import MapLibre.MLNLocationManagerDelegateProtocol
+import MapLibre.MLNLocationManagerProtocol
 import MapLibre.MLNLoggingConfiguration
 import MapLibre.MLNLoggingLevelDebug
 import MapLibre.MLNLoggingLevelError
@@ -33,6 +35,10 @@ import MapLibre.MLNOrnamentPositionBottomRight
 import MapLibre.MLNOrnamentPositionTopLeft
 import MapLibre.MLNOrnamentPositionTopRight
 import MapLibre.MLNStyle
+import MapLibre.MLNUserTrackingMode
+import MapLibre.MLNUserTrackingModeFollow
+import MapLibre.MLNUserTrackingModeFollowWithCourse
+import MapLibre.MLNUserTrackingModeNone
 import MapLibre.allowsTilting
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.Density
@@ -56,6 +62,9 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.location.NativeLocationPuck
+import org.maplibre.compose.location.UserTrackingMode
+import org.maplibre.compose.location.asClLocation
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.IosStyle
 import org.maplibre.compose.util.VisibleRegion
@@ -77,7 +86,11 @@ import org.maplibre.spatialk.geojson.Position
 import platform.CoreGraphics.CGPoint
 import platform.CoreGraphics.CGPointMake
 import platform.CoreGraphics.CGSize
+import platform.CoreLocation.CLAuthorizationStatus
+import platform.CoreLocation.CLDeviceOrientation
+import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationCoordinate2DMake
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
 import platform.Foundation.NSError
 import platform.Foundation.NSURL
 import platform.UIKit.UIEdgeInsets
@@ -103,6 +116,9 @@ internal class IosMapAdapter(
   // hold strong references to things that the sdk keeps weak references to
   private val gestures = mutableListOf<Gesture<*>>()
   private val delegate: Delegate
+  private val defaultLocationManager: MLNLocationManagerProtocol = mapView.locationManager
+  private val nativeLocationManager = NativeLocationManager()
+  private var nativeLocationTracking: NativeLocationTrackingUpdate? = null
 
   init {
     mapView.automaticallyAdjustsContentInset = false
@@ -163,6 +179,15 @@ internal class IosMapAdapter(
         map = map,
         style = IosStyle(style = didFinishLoadingStyle, getScale = { map.density.density }),
       )
+    }
+
+    @ObjCSignatureOverride
+    override fun mapView(
+      mapView: MLNMapView,
+      didChangeUserTrackingMode: MLNUserTrackingMode,
+      animated: Boolean,
+    ) {
+      map.callbacks.onUserTrackingModeChanged(didChangeUserTrackingMode.toUserTrackingMode())
     }
 
     private val anyGesture =
@@ -326,7 +351,8 @@ internal class IosMapAdapter(
   }
 
   override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
-    // Step 1 only wires Android. iOS follows in step 2.
+    nativeLocationTracking = value
+    syncNativeLocationTracking()
   }
 
   private fun calculateMargins(
@@ -541,4 +567,110 @@ internal class IosMapAdapter(
       .map { (it as MLNFeatureProtocol).toFeature() }
 
   override fun metersPerDpAtLatitude(latitude: Double) = mapView.metersPerPointAtLatitude(latitude)
+
+  private fun syncNativeLocationTracking() {
+    val update = nativeLocationTracking
+    if (update == null || !update.isEnabled) {
+      disableNativeLocationTracking()
+      return
+    }
+
+    nativeLocationManager.updateLocation(update.location?.asClLocation())
+    if (mapView.locationManager !== nativeLocationManager) {
+      mapView.locationManager = nativeLocationManager
+    }
+
+    val shouldShowUserLocation =
+      update.puck != NativeLocationPuck.None || update.trackingMode != UserTrackingMode.None
+    if (mapView.showsUserLocation != shouldShowUserLocation) {
+      mapView.showsUserLocation = shouldShowUserLocation
+    }
+
+    val nativeTrackingMode = update.trackingMode.toMlnUserTrackingMode()
+    if (mapView.userTrackingMode != nativeTrackingMode) {
+      mapView.userTrackingMode = nativeTrackingMode
+    }
+  }
+
+  private fun disableNativeLocationTracking() {
+    nativeLocationManager.updateLocation(null)
+    if (mapView.userTrackingMode != MLNUserTrackingModeNone) {
+      mapView.userTrackingMode = MLNUserTrackingModeNone
+    }
+    if (mapView.showsUserLocation) {
+      mapView.showsUserLocation = false
+    }
+    if (mapView.locationManager === nativeLocationManager) {
+      mapView.locationManager = defaultLocationManager
+    }
+  }
+
+  private class NativeLocationManager : NSObject(), MLNLocationManagerProtocol {
+    private var trackingDelegate: MLNLocationManagerDelegateProtocol? = null
+    private var currentHeadingOrientation: CLDeviceOrientation = 0
+
+    private var latestLocation: CLLocation? = null
+    private var isUpdatingLocation: Boolean = false
+
+    override fun delegate(): MLNLocationManagerDelegateProtocol? = trackingDelegate
+
+    override fun setDelegate(delegate: MLNLocationManagerDelegateProtocol?) {
+      trackingDelegate = delegate
+    }
+
+    override fun headingOrientation(): CLDeviceOrientation = currentHeadingOrientation
+
+    override fun setHeadingOrientation(headingOrientation: CLDeviceOrientation) {
+      currentHeadingOrientation = headingOrientation
+    }
+
+    override fun authorizationStatus(): CLAuthorizationStatus =
+      kCLAuthorizationStatusAuthorizedAlways
+
+    fun updateLocation(location: CLLocation?) {
+      latestLocation = location
+      if (isUpdatingLocation) {
+        notifyLatestLocation()
+      }
+    }
+
+    override fun requestAlwaysAuthorization() = Unit
+
+    override fun requestWhenInUseAuthorization() = Unit
+
+    override fun startUpdatingHeading() = Unit
+
+    override fun startUpdatingLocation() {
+      isUpdatingLocation = true
+      notifyLatestLocation()
+    }
+
+    override fun stopUpdatingHeading() = Unit
+
+    override fun stopUpdatingLocation() {
+      isUpdatingLocation = false
+    }
+
+    override fun dismissHeadingCalibrationDisplay() = Unit
+
+    private fun notifyLatestLocation() {
+      latestLocation?.let { location ->
+        trackingDelegate?.locationManager(this, didUpdateLocations = listOf(location))
+      }
+    }
+  }
 }
+
+private fun UserTrackingMode.toMlnUserTrackingMode(): MLNUserTrackingMode =
+  when (this) {
+    UserTrackingMode.None -> MLNUserTrackingModeNone
+    UserTrackingMode.Follow -> MLNUserTrackingModeFollow
+    UserTrackingMode.FollowWithCourse -> MLNUserTrackingModeFollowWithCourse
+  }
+
+private fun MLNUserTrackingMode.toUserTrackingMode(): UserTrackingMode =
+  when (this) {
+    MLNUserTrackingModeFollow -> UserTrackingMode.Follow
+    MLNUserTrackingModeFollowWithCourse -> UserTrackingMode.FollowWithCourse
+    else -> UserTrackingMode.None
+  }
