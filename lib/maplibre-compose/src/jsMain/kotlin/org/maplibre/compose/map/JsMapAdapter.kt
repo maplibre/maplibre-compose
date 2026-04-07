@@ -220,6 +220,10 @@ internal class JsMapAdapter(
     }
   }
 
+  override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
+    // No-op on JS in step 1.
+  }
+
   private var compassPosition: String? = null
   private var logoPosition: String? = null
   private var scalePosition: String? = null

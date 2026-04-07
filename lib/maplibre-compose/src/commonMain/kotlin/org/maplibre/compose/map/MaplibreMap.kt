@@ -16,6 +16,7 @@ import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.location.NativeLocationTracking
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.SafeStyle
@@ -111,6 +112,7 @@ public fun MaplibreMap(
   onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass },
   onFrame: (framesPerSecond: Double) -> Unit = {},
   options: MapOptions = MapOptions(),
+  nativeLocationTracking: NativeLocationTracking? = null,
   logger: Logger? = remember { Logger.withTag("maplibre-compose") },
   onMapLoadFailed: (reason: String?) -> Unit = {},
   onMapLoadFinished: () -> Unit = {},
@@ -124,9 +126,19 @@ public fun MaplibreMap(
 
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
+  val nativeTrackingState = nativeLocationTracking?.state
+  val nativeTrackedLocation = nativeLocationTracking?.locationState?.location
+  val nativeTrackingUpdate =
+    nativeLocationTracking?.let {
+      NativeLocationTrackingUpdate(
+        location = nativeTrackedLocation,
+        trackingMode = it.state.trackingMode,
+        puck = it.puck,
+      )
+    }
 
   val callbacks =
-    remember(cameraState, styleState, styleComposition) {
+    remember(cameraState, nativeTrackingState, styleState, styleComposition) {
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: Style?) {
           rememberedStyle?.unload()
@@ -199,6 +211,12 @@ public fun MaplibreMap(
         override fun onFrame(fps: Double) {
           onFrame(fps)
         }
+
+        override fun onUserTrackingModeChanged(
+          trackingMode: org.maplibre.compose.location.UserTrackingMode
+        ) {
+          nativeTrackingState?.setFromMap(trackingMode)
+        }
       }
     }
 
@@ -214,6 +232,7 @@ public fun MaplibreMap(
       map.setRenderSettings(options.renderOptions)
       map.setGestureSettings(options.gestureOptions)
       map.setOrnamentSettings(options.ornamentOptions)
+      map.updateNativeLocationTracking(nativeTrackingUpdate)
       map.setCameraBoundingBox(boundingBox)
     },
     onReset = {

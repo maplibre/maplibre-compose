@@ -325,6 +325,10 @@ internal class IosMapAdapter(
     mapView.hapticFeedbackEnabled = value.isHapticFeedbackEnabled
   }
 
+  override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
+    // Step 1 only wires Android. iOS follows in step 2.
+  }
+
   private fun calculateMargins(
     ornamentPosition: MLNOrnamentPosition,
     uiPadding: PaddingValues,

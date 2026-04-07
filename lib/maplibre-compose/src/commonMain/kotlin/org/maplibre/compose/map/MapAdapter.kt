@@ -9,6 +9,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.location.UserTrackingMode
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.compose.util.VisibleRegion
@@ -61,6 +62,8 @@ internal interface MapAdapter {
 
   fun setGestureSettings(value: GestureOptions)
 
+  fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?)
+
   fun positionFromScreenLocation(offset: DpOffset): Position
 
   fun screenLocationFromPosition(position: Position): DpOffset
@@ -97,5 +100,7 @@ internal interface MapAdapter {
     fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset)
 
     fun onFrame(fps: Double)
+
+    fun onUserTrackingModeChanged(trackingMode: UserTrackingMode)
   }
 }

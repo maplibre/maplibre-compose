@@ -183,6 +183,10 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     mapControls.config = value.toMapControlsConfig()
   }
 
+  override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
+    // No-op on desktop in step 1.
+  }
+
   override fun positionFromScreenLocation(offset: DpOffset): Position {
     return map.latLngForPixel(offset.toScreenCoordinate()).toPosition()
   }

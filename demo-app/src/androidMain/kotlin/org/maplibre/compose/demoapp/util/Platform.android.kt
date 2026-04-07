@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.GestureOptionsDemo
 import org.maplibre.compose.demoapp.demos.GmsLocationDemo
+import org.maplibre.compose.demoapp.demos.NativeLocationTrackingDemo
 import org.maplibre.compose.demoapp.demos.OfflineManagerDemo
 import org.maplibre.compose.demoapp.demos.OrnamentOptionsDemo
 import org.maplibre.compose.demoapp.demos.RenderOptionsDemo
@@ -24,6 +25,7 @@ actual object Platform {
       OfflineManagerDemo,
       RenderOptionsDemo,
       GmsLocationDemo,
+      NativeLocationTrackingDemo,
     )
 
   actual fun padOrnaments(options: OrnamentOptions, padding: PaddingValues) =

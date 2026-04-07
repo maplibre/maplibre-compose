@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import android.annotation.SuppressLint
 import android.graphics.PointF
 import android.graphics.RectF
 import androidx.compose.foundation.layout.PaddingValues
@@ -24,6 +25,10 @@ import org.maplibre.android.gestures.MoveGestureDetector
 import org.maplibre.android.gestures.RotateGestureDetector
 import org.maplibre.android.gestures.ShoveGestureDetector
 import org.maplibre.android.gestures.StandardScaleGestureDetector
+import org.maplibre.android.location.LocationComponent
+import org.maplibre.android.location.LocationComponentActivationOptions
+import org.maplibre.android.location.modes.CameraMode
+import org.maplibre.android.location.modes.RenderMode
 import org.maplibre.android.log.Logger as MLNLogger
 import org.maplibre.android.maps.MapLibreMap as MLNMap
 import org.maplibre.android.maps.MapLibreMap
@@ -37,6 +42,9 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.location.NativeLocationPuck
+import org.maplibre.compose.location.UserTrackingMode
+import org.maplibre.compose.location.asAndroidLocation
 import org.maplibre.compose.style.AndroidStyle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.KermitLoggerDefinition
@@ -92,6 +100,8 @@ internal class AndroidMapAdapter(
     }
 
   private var lastBaseStyle: BaseStyle? = null
+  private val locationComponent: LocationComponent = map.locationComponent
+  private var nativeLocationTracking: NativeLocationTrackingUpdate? = null
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
@@ -108,6 +118,7 @@ internal class AndroidMapAdapter(
     map.setStyle(builder) { style ->
       logger?.i { "Style finished loading" }
       callbacks.onStyleChanged(this, AndroidStyle(style, getDensity = { density }))
+      syncNativeLocationTracking()
     }
   }
 
@@ -197,6 +208,8 @@ internal class AndroidMapAdapter(
       true
     }
 
+    // TODO: In step 2, mirror native tracking changes and dismissals back through
+    // callbacks.onUserTrackingModeChanged(...).
     map.setOnFpsChangedListener { fps -> callbacks.onFrame(fps) }
 
     setBaseStyle(baseStyle)
@@ -246,6 +259,11 @@ internal class AndroidMapAdapter(
     map.uiSettings.isZoomGesturesEnabled = value.isZoomEnabled
     map.uiSettings.isQuickZoomGesturesEnabled = value.isQuickZoomEnabled
     map.uiSettings.isDoubleTapGesturesEnabled = value.isDoubleTapEnabled
+  }
+
+  override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
+    nativeLocationTracking = value
+    syncNativeLocationTracking()
   }
 
   override fun setOrnamentSettings(value: OrnamentOptions) {
@@ -412,6 +430,41 @@ internal class AndroidMapAdapter(
 
   override fun metersPerDpAtLatitude(latitude: Double) =
     map.projection.getMetersPerPixelAtLatitude(latitude)
+
+  // Safe here because the component is activated with useDefaultLocationEngine(false) and this
+  // adapter only feeds app-provided locations via forceLocationUpdate(...).
+  @SuppressLint("MissingPermission")
+  private fun syncNativeLocationTracking() {
+    val update = nativeLocationTracking
+    if (update == null || !update.isEnabled) {
+      disableNativeLocationTracking()
+      return
+    }
+
+    val style = map.style ?: return
+
+    if (!locationComponent.isLocationComponentActivated) {
+      locationComponent.activateLocationComponent(
+        LocationComponentActivationOptions.builder(mapView.context, style)
+          .useDefaultLocationEngine(false)
+          .build()
+      )
+    }
+
+    locationComponent.renderMode = update.puck.toRenderMode(update.trackingMode)
+    locationComponent.cameraMode = update.trackingMode.toCameraMode()
+    locationComponent.isLocationComponentEnabled = true
+    update.location?.let { locationComponent.forceLocationUpdate(it.asAndroidLocation()) }
+  }
+
+  // Safe here because disabling the manually-driven component does not start any platform location
+  // requests.
+  @SuppressLint("MissingPermission")
+  private fun disableNativeLocationTracking() {
+    if (!locationComponent.isLocationComponentActivated) return
+    locationComponent.cameraMode = CameraMode.NONE
+    locationComponent.isLocationComponentEnabled = false
+  }
 }
 
 private fun MLNVisibleRegion.toVisibleRegion() =
@@ -421,3 +474,17 @@ private fun MLNVisibleRegion.toVisibleRegion() =
     nearLeft = nearLeft!!.toPosition(),
     nearRight = nearRight!!.toPosition(),
   )
+
+private fun UserTrackingMode.toCameraMode(): Int =
+  when (this) {
+    UserTrackingMode.None -> CameraMode.NONE
+    UserTrackingMode.Follow -> CameraMode.TRACKING
+    UserTrackingMode.FollowWithCourse -> CameraMode.TRACKING_GPS
+  }
+
+private fun NativeLocationPuck.toRenderMode(trackingMode: UserTrackingMode): Int =
+  when {
+    this == NativeLocationPuck.None -> RenderMode.NORMAL
+    trackingMode == UserTrackingMode.FollowWithCourse -> RenderMode.GPS
+    else -> RenderMode.NORMAL
+  }
