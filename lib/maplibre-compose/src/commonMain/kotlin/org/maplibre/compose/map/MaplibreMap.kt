@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -16,7 +17,10 @@ import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.location.ComposeLocationPuckTracker
+import org.maplibre.compose.location.LocalComposeLocationPuckTracker
 import org.maplibre.compose.location.NativeLocationTracking
+import org.maplibre.compose.location.NativeLocationTrackingConflictEffect
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.SafeStyle
@@ -125,7 +129,15 @@ public fun MaplibreMap(
   }
 
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
-  val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
+  val composeLocationPuckTracker = remember { ComposeLocationPuckTracker() }
+  val styleComposition by
+    rememberStyleComposition(styleState, rememberedStyle, logger) {
+      CompositionLocalProvider(
+        LocalComposeLocationPuckTracker provides composeLocationPuckTracker
+      ) {
+        content()
+      }
+    }
   val nativeTrackingState = nativeLocationTracking?.state
   val nativeTrackedLocation = nativeLocationTracking?.locationState?.location
   val nativeTrackingUpdate =
@@ -136,6 +148,11 @@ public fun MaplibreMap(
         puck = it.puck,
       )
     }
+  NativeLocationTrackingConflictEffect(
+    nativeTrackingEnabled = nativeTrackingUpdate?.isEnabled == true,
+    hasComposeLocationPuck = composeLocationPuckTracker.isPresent,
+    logger = logger,
+  )
 
   val callbacks =
     remember(cameraState, nativeTrackingState, styleState, styleComposition) {

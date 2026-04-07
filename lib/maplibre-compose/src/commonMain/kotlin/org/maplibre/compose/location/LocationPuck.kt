@@ -88,6 +88,8 @@ public fun LocationPuck(
   onClick: LocationClickHandler? = null,
   onLongClick: LocationClickHandler? = null,
 ) {
+  TrackComposeLocationPuck()
+
   val bearingPainter = rememberBearingPainter(sizes, colors)
   val bearingAccuracyPainter =
     rememberBearingAccuracyPainter(

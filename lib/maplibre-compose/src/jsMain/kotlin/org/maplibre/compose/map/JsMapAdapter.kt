@@ -221,7 +221,7 @@ internal class JsMapAdapter(
   }
 
   override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
-    // No-op on JS in step 1.
+    // No-op on JS in v1. Native app-provided tracking is only implemented on Android and iOS.
   }
 
   private var compassPosition: String? = null

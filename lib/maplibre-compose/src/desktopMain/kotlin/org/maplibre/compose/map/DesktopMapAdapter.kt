@@ -184,7 +184,7 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
-    // No-op on desktop in step 1.
+    // No-op on desktop in v1. Native app-provided tracking is only implemented on Android and iOS.
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position {

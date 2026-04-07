@@ -276,6 +276,11 @@ internal class AndroidMapAdapter(
     syncNativeLocationTracking()
   }
 
+  override fun dispose() {
+    locationComponent.removeOnCameraTrackingChangedListener(cameraTrackingListener)
+    disableNativeLocationTracking()
+  }
+
   override fun setOrnamentSettings(value: OrnamentOptions) {
     map.uiSettings.isLogoEnabled = value.isLogoEnabled
     map.uiSettings.logoGravity = value.logoAlignment.toGravity(layoutDir)

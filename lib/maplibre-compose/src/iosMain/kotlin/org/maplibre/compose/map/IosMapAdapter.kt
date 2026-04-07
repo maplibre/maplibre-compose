@@ -179,6 +179,7 @@ internal class IosMapAdapter(
         map = map,
         style = IosStyle(style = didFinishLoadingStyle, getScale = { map.density.density }),
       )
+      map.syncNativeLocationTracking()
     }
 
     @ObjCSignatureOverride
@@ -353,6 +354,11 @@ internal class IosMapAdapter(
   override fun updateNativeLocationTracking(value: NativeLocationTrackingUpdate?) {
     nativeLocationTracking = value
     syncNativeLocationTracking()
+  }
+
+  override fun dispose() {
+    disableNativeLocationTracking()
+    nativeLocationManager.setDelegate(null)
   }
 
   private fun calculateMargins(

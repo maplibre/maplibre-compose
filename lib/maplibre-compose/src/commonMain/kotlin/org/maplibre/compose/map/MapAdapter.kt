@@ -82,6 +82,8 @@ internal interface MapAdapter {
 
   fun metersPerDpAtLatitude(latitude: Double): Double
 
+  fun dispose() = Unit
+
   interface Callbacks {
     fun onStyleChanged(map: MapAdapter, style: Style?)
 

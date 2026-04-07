@@ -107,6 +107,7 @@ internal fun AndroidMapView(
         update(map)
       },
       onReset = {
+        currentMap?.dispose()
         currentOnReset()
         currentMap = null
         currentMapView = null

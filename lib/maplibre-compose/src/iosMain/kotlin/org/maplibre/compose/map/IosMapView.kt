@@ -110,6 +110,7 @@ internal fun IosMapView(
         update(map)
       },
       onReset = {
+        currentMap?.dispose()
         currentOnReset()
         currentMap = null
       },
