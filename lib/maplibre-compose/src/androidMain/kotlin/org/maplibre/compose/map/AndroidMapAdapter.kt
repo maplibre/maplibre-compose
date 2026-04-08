@@ -498,14 +498,14 @@ private fun MLNVisibleRegion.toVisibleRegion() =
     nearRight = nearRight!!.toPosition(),
   )
 
-private fun UserTrackingMode.toCameraMode(): Int =
+internal fun UserTrackingMode.toCameraMode(): Int =
   when (this) {
     UserTrackingMode.None -> CameraMode.NONE
     UserTrackingMode.Follow -> CameraMode.TRACKING
     UserTrackingMode.FollowWithCourse -> CameraMode.TRACKING_GPS
   }
 
-private fun Int.toUserTrackingMode(): UserTrackingMode =
+internal fun Int.toUserTrackingMode(): UserTrackingMode =
   when (this) {
     CameraMode.NONE -> UserTrackingMode.None
     CameraMode.TRACKING -> UserTrackingMode.Follow
@@ -513,7 +513,7 @@ private fun Int.toUserTrackingMode(): UserTrackingMode =
     else -> UserTrackingMode.None
   }
 
-private fun NativeLocationPuck.toRenderMode(trackingMode: UserTrackingMode): Int =
+internal fun NativeLocationPuck.toRenderMode(trackingMode: UserTrackingMode): Int =
   when {
     this == NativeLocationPuck.None -> RenderMode.NORMAL
     trackingMode == UserTrackingMode.FollowWithCourse -> RenderMode.GPS

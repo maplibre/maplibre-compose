@@ -667,14 +667,14 @@ internal class IosMapAdapter(
   }
 }
 
-private fun UserTrackingMode.toMlnUserTrackingMode(): MLNUserTrackingMode =
+internal fun UserTrackingMode.toMlnUserTrackingMode(): MLNUserTrackingMode =
   when (this) {
     UserTrackingMode.None -> MLNUserTrackingModeNone
     UserTrackingMode.Follow -> MLNUserTrackingModeFollow
     UserTrackingMode.FollowWithCourse -> MLNUserTrackingModeFollowWithCourse
   }
 
-private fun MLNUserTrackingMode.toUserTrackingMode(): UserTrackingMode =
+internal fun MLNUserTrackingMode.toUserTrackingMode(): UserTrackingMode =
   when (this) {
     MLNUserTrackingModeFollow -> UserTrackingMode.Follow
     MLNUserTrackingModeFollowWithCourse -> UserTrackingMode.FollowWithCourse

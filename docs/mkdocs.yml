@@ -93,6 +93,7 @@ markdown_extensions:
 nav:
   - index.md
   - getting-started.md
+  - location.md
   - styling.md
   - interaction.md
   - layers.md
