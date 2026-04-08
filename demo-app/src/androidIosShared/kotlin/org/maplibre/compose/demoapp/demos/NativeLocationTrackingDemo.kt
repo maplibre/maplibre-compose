@@ -82,7 +82,7 @@ object NativeLocationTrackingDemo : Demo {
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
-    val formattedBearing = demoLocation.bearing?.let { it.format(0) } ?: "-"
+    val formattedBearing = demoLocation.bearing?.format(0) ?: "-"
 
     CardColumn {
       Text("App-provided native location source")

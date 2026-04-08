@@ -49,6 +49,9 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -581,7 +584,18 @@ internal class IosMapAdapter(
       return
     }
 
-    nativeLocationManager.updateLocation(update.location?.asClLocation())
+    val location =
+      update.location?.asClLocation()?.let { nativeLocation ->
+        if (update.trackingMode == UserTrackingMode.FollowWithCourse) {
+          // iOS does not reliably react to course-only app-provided updates unless the
+          // delivered native location also changes slightly.
+          nativeLocation.withCourseNudge()
+        } else {
+          nativeLocation
+        }
+      }
+
+    nativeLocationManager.updateLocation(location)
     if (mapView.locationManager !== nativeLocationManager) {
       mapView.locationManager = nativeLocationManager
     }
@@ -664,6 +678,32 @@ internal class IosMapAdapter(
         trackingDelegate?.locationManager(this, didUpdateLocations = listOf(location))
       }
     }
+  }
+}
+
+internal fun CLLocation.withCourseNudge(): CLLocation {
+  if (course < 0.0) return this
+
+  // Nudge the coordinate by a tiny amount in the current course direction so
+  // consecutive course-only updates still produce distinct native locations.
+  val nudgeDegrees = 1e-5
+  val courseRadians = course * PI / 180.0
+  val latitudeOffset = nudgeDegrees * cos(courseRadians)
+  val longitudeOffset = nudgeDegrees * sin(courseRadians)
+  return coordinate.useContents {
+    CLLocation(
+      coordinate =
+        CLLocationCoordinate2DMake(
+          latitude = latitude + latitudeOffset,
+          longitude = longitude + longitudeOffset,
+        ),
+      altitude = this@withCourseNudge.altitude,
+      horizontalAccuracy = horizontalAccuracy,
+      verticalAccuracy = verticalAccuracy,
+      course = course,
+      speed = speed,
+      timestamp = timestamp,
+    )
   }
 }
 
