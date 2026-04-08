@@ -1,6 +1,10 @@
 package org.maplibre.compose.demoapp.demos
 
-import androidx.compose.material3.Button
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,7 +23,6 @@ import kotlin.math.sin
 import kotlin.time.TimeSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import androidx.compose.foundation.layout.PaddingValues
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.location.Location
@@ -36,33 +39,25 @@ object NativeLocationTrackingDemo : Demo {
   override val name = "Native Tracking"
 
   override val region: BoundingBox =
-    BoundingBox(
-      west = -122.36,
-      south = 47.59,
-      east = -122.30,
-      north = 47.63,
-    )
+    BoundingBox(west = -122.36, south = 47.59, east = -122.30, north = 47.63)
 
-  private var rawLocation by mutableStateOf(sampleLocation())
+  private var demoLocation by mutableStateOf(sampleLocation())
   private var trackingMode by mutableStateOf(UserTrackingMode.FollowWithCourse)
-  private var isOnRoute by mutableStateOf(true)
 
   @Composable
   override fun NativeLocationTracking(state: DemoState, isOpen: Boolean): NativeLocationTracking? {
     if (!isOpen) return null
 
     DisposableEffect(state.cameraState) {
-      val previousPadding = state.cameraState.position.padding
       state.cameraState.position =
         state.cameraState.position.copy(padding = PaddingValues(bottom = 220.dp))
       onDispose {
-        state.cameraState.position = state.cameraState.position.copy(padding = previousPadding)
+        state.cameraState.position = state.cameraState.position.copy(padding = PaddingValues())
       }
     }
 
-    val trackedLocation = rawLocation.toTrackedLocation(isOnRoute)
-    val provider = remember { DemoLocationProvider(trackedLocation) }
-    LaunchedEffect(trackedLocation) { provider.update(trackedLocation) }
+    val provider = remember { DemoLocationProvider(demoLocation) }
+    LaunchedEffect(demoLocation) { provider.update(demoLocation) }
 
     val nativeTrackingState = rememberNativeLocationTrackingState(trackingMode)
     LaunchedEffect(trackingMode) {
@@ -87,34 +82,38 @@ object NativeLocationTrackingDemo : Demo {
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
-    val trackedLocation = rawLocation.toTrackedLocation(isOnRoute)
-    val formattedBearing = trackedLocation.bearing?.let { it.format(0) } ?: "-"
+    val formattedBearing = demoLocation.bearing?.let { it.format(0) } ?: "-"
 
     CardColumn {
       Text("App-provided native location source")
+      Text("The native puck and native follow mode both use this demo-provided location.")
       Text(
-        if (isOnRoute) {
-          "Preferred source: snapped location drives native puck and follow mode"
-        } else {
-          "Preferred source: raw location drives native puck and follow mode"
-        }
-      )
-      Text(
-        "raw lat=${rawLocation.position.latitude.format(5)} lon=${rawLocation.position.longitude.format(5)}"
-      )
-      Text(
-        "tracked lat=${trackedLocation.position.latitude.format(5)} lon=${trackedLocation.position.longitude.format(5)}"
+        "lat=${demoLocation.position.latitude.format(5)} lon=${demoLocation.position.longitude.format(5)}"
       )
       Text("bearing=$formattedBearing mode=$trackingMode")
+      Text("Pan the map to dismiss follow mode and watch the state update.")
 
-      Button(onClick = { rawLocation = rawLocation.advance(0.001) }) { Text("Advance") }
-      Button(onClick = { rawLocation = rawLocation.turn(30.0) }) { Text("Turn +30°") }
-      Button(onClick = { rawLocation = rawLocation.turn(-30.0) }) { Text("Turn -30°") }
-      Button(onClick = { isOnRoute = !isOnRoute }) {
-        Text(if (isOnRoute) "Route state: On route" else "Route state: Off route")
-      }
-      Button(onClick = { trackingMode = nextTrackingMode(trackingMode) }) {
-        Text("Tracking mode: $trackingMode")
+      FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+      ) {
+        AssistChip(
+          onClick = { demoLocation = demoLocation.advance(0.001) },
+          label = { Text("Advance") },
+        )
+        AssistChip(
+          onClick = { demoLocation = demoLocation.turn(30.0) },
+          label = { Text("Turn +30°") },
+        )
+        AssistChip(
+          onClick = { demoLocation = demoLocation.turn(-30.0) },
+          label = { Text("Turn -30°") },
+        )
+        AssistChip(
+          onClick = { trackingMode = nextTrackingMode(trackingMode) },
+          label = { Text("Mode: ${trackingMode.label}") },
+        )
       }
     }
   }
@@ -163,21 +162,6 @@ private fun Location.turn(deltaDegrees: Double): Location {
   return copy(bearing = newBearing, timestamp = TimeSource.Monotonic.markNow())
 }
 
-private fun Location.toTrackedLocation(isOnRoute: Boolean): Location {
-  if (!isOnRoute) return this
-
-  val currentBearing = bearing ?: 0.0
-  val radians = (currentBearing + 90.0) * PI / 180.0
-  return copy(
-    position =
-      Position(
-        longitude = position.longitude + 0.00025 * sin(radians),
-        latitude = position.latitude + 0.00025 * cos(radians),
-      ),
-      timestamp = TimeSource.Monotonic.markNow(),
-    )
-}
-
 private fun nextTrackingMode(mode: UserTrackingMode): UserTrackingMode =
   when (mode) {
     UserTrackingMode.None -> UserTrackingMode.Follow
@@ -189,3 +173,11 @@ private fun Double.format(decimals: Int): String {
   val factor = 10.0.pow(decimals)
   return (round(this * factor) / factor).toString()
 }
+
+private val UserTrackingMode.label: String
+  get() =
+    when (this) {
+      UserTrackingMode.None -> "None"
+      UserTrackingMode.Follow -> "Follow"
+      UserTrackingMode.FollowWithCourse -> "Course"
+    }

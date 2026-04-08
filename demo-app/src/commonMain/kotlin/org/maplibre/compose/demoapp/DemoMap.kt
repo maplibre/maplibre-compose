@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.max
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.util.Platform
 import org.maplibre.compose.demoapp.util.PlatformFeature
+import org.maplibre.compose.location.NativeLocationTracking
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.OrnamentOptions
@@ -63,6 +64,12 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
         val ornamentOptions =
           if (state.ornamentOptionsState.isMaterial3ControlsEnabled) OrnamentOptions.OnlyLogo
           else state.ornamentOptions
+        var nativeLocationTracking: NativeLocationTracking? = null
+        for (demo in state.demos) {
+          if (!state.isDemoOpen(demo)) continue
+          nativeLocationTracking = demo.NativeLocationTracking(state = state, isOpen = true)
+          break
+        }
 
         MaplibreMap(
           styleState = state.styleState,
@@ -79,6 +86,7 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
               renderOptions = state.renderOptions,
               gestureOptions = state.gestureOptions,
             ),
+          nativeLocationTracking = nativeLocationTracking,
         ) {
           if (PlatformFeature.LayerStyling in Platform.supportedFeatures) {
             state.demos

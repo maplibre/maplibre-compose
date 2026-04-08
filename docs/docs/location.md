@@ -7,10 +7,8 @@ MapLibre Compose supports two different ways to render and track user location.
 Use the Compose pipeline when you want full control over the rendered indicator
 and camera behavior in Compose:
 
-- [`LocationPuck`](api/index.html#org.maplibre.compose.location/LocationPuck)
-  renders a Compose-managed puck from a `UserLocationState`.
-- [`LocationTrackingEffect`](api/index.html#org.maplibre.compose.location/LocationTrackingEffect)
-  updates your `CameraState` from the same source.
+- `LocationPuck` renders a Compose-managed puck from a `UserLocationState`.
+- `LocationTrackingEffect` updates your `CameraState` from the same source.
 
 ```kotlin
 val locationState = rememberUserLocationState(rememberDefaultLocationProvider())

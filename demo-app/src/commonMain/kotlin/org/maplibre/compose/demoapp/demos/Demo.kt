@@ -5,6 +5,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
 import org.maplibre.compose.demoapp.DemoState
+import org.maplibre.compose.location.NativeLocationTracking
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 
@@ -18,6 +19,9 @@ interface Demo {
     get() = null
 
   @MaplibreComposable @Composable fun MapContent(state: DemoState, isOpen: Boolean) {}
+
+  @Composable
+  fun NativeLocationTracking(state: DemoState, isOpen: Boolean): NativeLocationTracking? = null
 
   @UiComposable @Composable fun SheetContent(state: DemoState, modifier: Modifier) {}
 }
