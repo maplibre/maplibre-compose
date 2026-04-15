@@ -64,7 +64,8 @@
         "CMAKE_CXX_COMPILER": "clang++",
         "CMAKE_BUILD_WITH_INSTALL_RPATH": "ON",
         "MLN_WITH_X11": "ON",
-        "MLN_WITH_WAYLAND": "OFF"
+        "MLN_WITH_WAYLAND": "OFF",
+        "MLN_LINUX_STATIC_DEPS": "ON"
       }
     },
     {
