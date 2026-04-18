@@ -10,62 +10,67 @@ import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
 
 internal actual class CircleLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
-  override val impl = TODO()
+  @Suppress("UNREACHABLE_CODE") override val impl: Nothing get() = TODO()
+  override val layerId: String = id
+  override fun layerType(): String = "circle"
 
-  actual override var sourceLayer: String = TODO()
+  actual override var sourceLayer: String
+    get() = sourceLayerString()
+    set(value) { updateSourceLayer(value) }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    updateFilter(filter)
   }
 
   actual fun setCircleSortKey(sortKey: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("circle-sort-key", sortKey.toJsonString())
   }
 
   actual fun setCircleRadius(radius: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProp("circle-radius", radius.toJsonString())
   }
 
   actual fun setCircleColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("circle-color", color.toJsonString())
   }
 
   actual fun setCircleBlur(blur: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("circle-blur", blur.toJsonString())
   }
 
   actual fun setCircleOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("circle-opacity", opacity.toJsonString())
   }
 
   actual fun setCircleTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProp("circle-translate", translate.toJsonString())
   }
 
   actual fun setCircleTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProp("circle-translate-anchor", translateAnchor.toJsonString())
   }
 
   actual fun setCirclePitchScale(pitchScale: CompiledExpression<CirclePitchScale>) {
-    TODO()
+    setPaintProp("circle-pitch-scale", pitchScale.toJsonString())
   }
 
   actual fun setCirclePitchAlignment(pitchAlignment: CompiledExpression<CirclePitchAlignment>) {
-    TODO()
+    setPaintProp("circle-pitch-alignment", pitchAlignment.toJsonString())
   }
 
   actual fun setCircleStrokeWidth(strokeWidth: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProp("circle-stroke-width", strokeWidth.toJsonString())
   }
 
   actual fun setCircleStrokeColor(strokeColor: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("circle-stroke-color", strokeColor.toJsonString())
   }
 
   actual fun setCircleStrokeOpacity(strokeOpacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("circle-stroke-opacity", strokeOpacity.toJsonString())
   }
 }

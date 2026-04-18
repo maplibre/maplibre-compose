@@ -68,6 +68,7 @@ internal fun DesktopMapView(
             )
           controls.enable()
           adapter.map = map
+          adapter.canvas = canvas
           adapter.mapControls = controls
           adapter.setBaseStyle(style)
           @Suppress("AssignedValueIsNeverRead") // It is read

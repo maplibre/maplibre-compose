@@ -27,252 +27,262 @@ import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
 
 internal actual class SymbolLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
-  override val impl = TODO()
+  @Suppress("UNREACHABLE_CODE") override val impl: Nothing get() = TODO()
+  override val layerId: String = id
+  override fun layerType(): String = "symbol"
 
-  actual override var sourceLayer: String = TODO()
+  actual override var sourceLayer: String
+    get() = sourceLayerString()
+    set(value) { updateSourceLayer(value) }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    updateFilter(filter)
   }
 
+  // Layout — symbol-*
   actual fun setSymbolPlacement(placement: CompiledExpression<SymbolPlacement>) {
-    TODO()
+    setLayoutProp("symbol-placement", placement.toJsonString())
   }
 
   actual fun setSymbolSpacing(spacing: CompiledExpression<DpValue>) {
-    TODO()
+    setLayoutProp("symbol-spacing", spacing.toJsonString())
   }
 
   actual fun setSymbolAvoidEdges(avoidEdges: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("symbol-avoid-edges", avoidEdges.toJsonString())
   }
 
   actual fun setSymbolSortKey(sortKey: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("symbol-sort-key", sortKey.toJsonString())
   }
 
   actual fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>) {
-    TODO()
+    setLayoutProp("symbol-z-order", zOrder.toJsonString())
   }
 
+  // Layout — icon-*
   actual fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("icon-allow-overlap", allowOverlap.toJsonString())
   }
 
   actual fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
-    TODO()
+    setLayoutProp("icon-overlap", overlap.toJsonString())
   }
 
   actual fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("icon-ignore-placement", ignorePlacement.toJsonString())
   }
 
   actual fun setIconOptional(optional: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("icon-optional", optional.toJsonString())
   }
 
   actual fun setIconRotationAlignment(
     rotationAlignment: CompiledExpression<IconRotationAlignment>
   ) {
-    TODO()
+    setLayoutProp("icon-rotation-alignment", rotationAlignment.toJsonString())
   }
 
   actual fun setIconSize(size: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("icon-size", size.toJsonString())
   }
 
   actual fun setIconTextFit(textFit: CompiledExpression<IconTextFit>) {
-    TODO()
+    setLayoutProp("icon-text-fit", textFit.toJsonString())
   }
 
   actual fun setIconTextFitPadding(textFitPadding: CompiledExpression<DpPaddingValue>) {
-    TODO()
+    setLayoutProp("icon-text-fit-padding", textFitPadding.toJsonString())
   }
 
   actual fun setIconImage(image: CompiledExpression<ImageValue>) {
-    TODO()
+    setLayoutProp("icon-image", image.toJsonString())
   }
 
   actual fun setIconRotate(rotate: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("icon-rotate", rotate.toJsonString())
   }
 
   actual fun setIconPadding(padding: CompiledExpression<DpPaddingValue>) {
-    TODO()
+    setLayoutProp("icon-padding", padding.toJsonString())
   }
 
   actual fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("icon-keep-upright", keepUpright.toJsonString())
   }
 
   actual fun setIconOffset(offset: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setLayoutProp("icon-offset", offset.toJsonString())
   }
 
   actual fun setIconAnchor(anchor: CompiledExpression<SymbolAnchor>) {
-    TODO()
+    setLayoutProp("icon-anchor", anchor.toJsonString())
   }
 
   actual fun setIconPitchAlignment(pitchAlignment: CompiledExpression<IconPitchAlignment>) {
-    TODO()
+    setLayoutProp("icon-pitch-alignment", pitchAlignment.toJsonString())
   }
 
+  // Paint — icon-*
   actual fun setIconOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("icon-opacity", opacity.toJsonString())
   }
 
   actual fun setIconColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("icon-color", color.toJsonString())
   }
 
   actual fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("icon-halo-color", haloColor.toJsonString())
   }
 
   actual fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProp("icon-halo-width", haloWidth.toJsonString())
   }
 
   actual fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProp("icon-halo-blur", haloBlur.toJsonString())
   }
 
   actual fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProp("icon-translate", translate.toJsonString())
   }
 
   actual fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProp("icon-translate-anchor", translateAnchor.toJsonString())
   }
 
+  // Layout — text-*
   actual fun setTextPitchAlignment(pitchAlignment: CompiledExpression<TextPitchAlignment>) {
-    TODO()
+    setLayoutProp("text-pitch-alignment", pitchAlignment.toJsonString())
   }
 
   actual fun setTextRotationAlignment(
     rotationAlignment: CompiledExpression<TextRotationAlignment>
   ) {
-    TODO()
+    setLayoutProp("text-rotation-alignment", rotationAlignment.toJsonString())
   }
 
   actual fun setTextField(field: CompiledExpression<FormattedValue>) {
-    TODO()
+    setLayoutProp("text-field", field.toJsonString())
   }
 
   actual fun setTextFont(font: CompiledExpression<ListValue<StringValue>>) {
-    TODO()
+    setLayoutProp("text-font", font.toJsonString())
   }
 
   actual fun setTextSize(size: CompiledExpression<DpValue>) {
-    TODO()
+    setLayoutProp("text-size", size.toJsonString())
   }
 
   actual fun setTextMaxWidth(maxWidth: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("text-max-width", maxWidth.toJsonString())
   }
 
   actual fun setTextLineHeight(lineHeight: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("text-line-height", lineHeight.toJsonString())
   }
 
   actual fun setTextLetterSpacing(letterSpacing: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("text-letter-spacing", letterSpacing.toJsonString())
   }
 
   actual fun setTextJustify(justify: CompiledExpression<TextJustify>) {
-    TODO()
+    setLayoutProp("text-justify", justify.toJsonString())
   }
 
   actual fun setTextRadialOffset(radialOffset: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("text-radial-offset", radialOffset.toJsonString())
   }
 
   actual fun setTextVariableAnchor(variableAnchor: CompiledExpression<ListValue<SymbolAnchor>>) {
-    TODO()
+    setLayoutProp("text-variable-anchor", variableAnchor.toJsonString())
   }
 
   actual fun setTextVariableAnchorOffset(
     variableAnchorOffset: CompiledExpression<TextVariableAnchorOffsetValue>
   ) {
-    TODO()
+    setLayoutProp("text-variable-anchor-offset", variableAnchorOffset.toJsonString())
   }
 
   actual fun setTextAnchor(anchor: CompiledExpression<SymbolAnchor>) {
-    TODO()
+    setLayoutProp("text-anchor", anchor.toJsonString())
   }
 
   actual fun setTextMaxAngle(maxAngle: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("text-max-angle", maxAngle.toJsonString())
   }
 
   actual fun setTextWritingMode(writingMode: CompiledExpression<ListValue<TextWritingMode>>) {
-    TODO()
+    setLayoutProp("text-writing-mode", writingMode.toJsonString())
   }
 
   actual fun setTextRotate(rotate: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("text-rotate", rotate.toJsonString())
   }
 
   actual fun setTextPadding(padding: CompiledExpression<DpValue>) {
-    TODO()
+    setLayoutProp("text-padding", padding.toJsonString())
   }
 
   actual fun setTextKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("text-keep-upright", keepUpright.toJsonString())
   }
 
   actual fun setTextTransform(transform: CompiledExpression<TextTransform>) {
-    TODO()
+    setLayoutProp("text-transform", transform.toJsonString())
   }
 
   actual fun setTextOffset(offset: CompiledExpression<FloatOffsetValue>) {
-    TODO()
+    setLayoutProp("text-offset", offset.toJsonString())
   }
 
   actual fun setTextAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("text-allow-overlap", allowOverlap.toJsonString())
   }
 
   actual fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
-    TODO()
+    setLayoutProp("text-overlap", overlap.toJsonString())
   }
 
   actual fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("text-ignore-placement", ignorePlacement.toJsonString())
   }
 
   actual fun setTextOptional(optional: CompiledExpression<BooleanValue>) {
-    TODO()
+    setLayoutProp("text-optional", optional.toJsonString())
   }
 
+  // Paint — text-*
   actual fun setTextOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("text-opacity", opacity.toJsonString())
   }
 
   actual fun setTextColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("text-color", color.toJsonString())
   }
 
   actual fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("text-halo-color", haloColor.toJsonString())
   }
 
   actual fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProp("text-halo-width", haloWidth.toJsonString())
   }
 
   actual fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProp("text-halo-blur", haloBlur.toJsonString())
   }
 
   actual fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProp("text-translate", translate.toJsonString())
   }
 
   actual fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProp("text-translate-anchor", translateAnchor.toJsonString())
   }
 }

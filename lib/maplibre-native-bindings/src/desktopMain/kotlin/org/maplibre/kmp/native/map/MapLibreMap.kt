@@ -300,6 +300,56 @@ public class MapLibreMap(
 
   // endregion
 
+  // region Style manipulation
+
+  public external fun addLayerJson(layerJson: String, beforeLayerId: String?)
+
+  public external fun removeLayer(layerId: String)
+
+  public external fun getLayerIds(): Array<String>
+
+  public external fun getStyleJson(): String
+
+  public external fun addSourceJson(sourceId: String, sourceJson: String)
+
+  public external fun removeSource(sourceId: String)
+
+  public external fun getSourceIds(): Array<String>
+
+  /** Updates the GeoJSON data of an existing GeoJSON source without removing it. */
+  public external fun setGeoJsonData(sourceId: String, geoJson: String)
+
+  public external fun addStyleImage(
+    id: String,
+    width: Int,
+    height: Int,
+    pixels: ByteArray,
+    scale: Float,
+    sdf: Boolean,
+    contentLeft: Float,
+    contentTop: Float,
+    contentRight: Float,
+    contentBottom: Float,
+  )
+
+  public external fun removeStyleImage(id: String)
+
+  public external fun queryRenderedFeaturesAtPoint(
+    x: Float,
+    y: Float,
+    layerIdsJson: String?,
+  ): String
+
+  public external fun queryRenderedFeaturesInBox(
+    x1: Float,
+    y1: Float,
+    x2: Float,
+    y2: Float,
+    layerIdsJson: String?,
+  ): String
+
+  // endregion
+
   private companion object {
 
     @JvmStatic

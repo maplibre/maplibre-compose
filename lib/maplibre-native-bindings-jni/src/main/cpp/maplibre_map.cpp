@@ -5,12 +5,26 @@
 #include <mbgl/storage/resource_options.hpp>
 #include <mbgl/style/style.hpp>
 #include <mbgl/util/client_options.hpp>
+#include <mbgl/util/image.hpp>
+
+// Style manipulation via JSON conversion
+#include <mbgl/style/conversion/json.hpp>
+#include <mbgl/style/conversion/layer.hpp>
+#include <mbgl/style/conversion/source.hpp>
+#include <mbgl/style/image.hpp>
+#include <mbgl/style/layers/background_layer.hpp>
+#include <mbgl/style/source.hpp>
+#include <mbgl/style/sources/geojson_source.hpp>
+
+// GeoJSON / feature serialization
+#include <mapbox/geojson.hpp>
 
 #include <jni.h>
 #include <smjni/java_exception.h>
 
 #include <MapLibreMap_class.h>
 
+#include "canvas_renderer.hpp"
 #include "conversions.hpp"
 #include "java_classes.hpp"
 #include "jni_map_observer.hpp"
@@ -20,6 +34,7 @@
 struct MapWrapper {
   std::unique_ptr<mbgl::Map> map;
   std::unique_ptr<maplibre_jni::JniMapObserver> observer;
+  maplibre_jni::CanvasRenderer* renderer{nullptr};  // non-owning
 
   MapWrapper(mbgl::Map* map, maplibre_jni::JniMapObserver* observer)
       : map(map), observer(observer) {}
@@ -527,6 +542,246 @@ MapLibreMap_class::getTileLodZoomShiftNative(JNIEnv* env, jMapLibreMap map)
 // TODO: wrap ActionJournal
 // const std::unique_ptr<util::ActionJournal>& getActionJournal();
 
+#pragma mark - Style manipulation
+
+void JNICALL MapLibreMap_class::addLayerJson(
+  JNIEnv* env, jMapLibreMap map,
+  jstring layerJson, jstring beforeLayerIdOrNull
+) {
+  withMapWrapper(env, map, [env, layerJson, beforeLayerIdOrNull](auto wrapper) {
+    std::string json = smjni::java_string_to_cpp(env, layerJson);
+    mbgl::style::conversion::Error error;
+    auto layer = mbgl::style::conversion::convertJSON<
+      std::unique_ptr<mbgl::style::Layer>>(json, error);
+    if (!layer) {
+      throw std::runtime_error("Failed to parse layer JSON: " + error.message);
+    }
+    std::optional<std::string> beforeId;
+    if (beforeLayerIdOrNull) {
+      beforeId = smjni::java_string_to_cpp(env, beforeLayerIdOrNull);
+    }
+    wrapper->map->getStyle().addLayer(std::move(*layer), beforeId);
+  });
+}
+
+void JNICALL MapLibreMap_class::removeLayer(
+  JNIEnv* env, jMapLibreMap map, jstring layerId
+) {
+  withMapWrapper(env, map, [env, layerId](auto wrapper) {
+    wrapper->map->getStyle().removeLayer(
+      smjni::java_string_to_cpp(env, layerId)
+    );
+  });
+}
+
+auto JNICALL MapLibreMap_class::getLayerIds(JNIEnv* env, jMapLibreMap map)
+  -> jstringArray {
+  return reinterpret_cast<jstringArray>(
+    withMapWrapper(env, map, [env](auto wrapper) -> jobjectArray {
+      const auto& layers = wrapper->map->getStyle().getLayers();
+      auto arr = env->NewObjectArray(
+        static_cast<jsize>(layers.size()),
+        env->FindClass("java/lang/String"),
+        nullptr
+      );
+      for (jsize i = 0; i < static_cast<jsize>(layers.size()); i++) {
+        auto str = smjni::java_string_create(env, layers[i]->getID());
+        env->SetObjectArrayElement(arr, i, str.c_ptr());
+      }
+      return arr;
+    })
+  );
+}
+
+auto JNICALL MapLibreMap_class::getStyleJson(JNIEnv* env, jMapLibreMap map)
+  -> jstring {
+  return withMapWrapper(env, map, [env](auto wrapper) -> jstring {
+    return smjni::java_string_create(
+      env, wrapper->map->getStyle().getJSON()
+    ).release();
+  });
+}
+
+void JNICALL MapLibreMap_class::addSourceJson(
+  JNIEnv* env, jMapLibreMap map, jstring sourceId, jstring sourceJson
+) {
+  withMapWrapper(env, map, [env, sourceId, sourceJson](auto wrapper) {
+    std::string id = smjni::java_string_to_cpp(env, sourceId);
+    std::string json = smjni::java_string_to_cpp(env, sourceJson);
+    mbgl::style::conversion::Error error;
+    auto source = mbgl::style::conversion::convertJSON<
+      std::unique_ptr<mbgl::style::Source>>(json, error, id);
+    if (!source) {
+      throw std::runtime_error("Failed to parse source JSON: " + error.message);
+    }
+    wrapper->map->getStyle().addSource(std::move(*source));
+  });
+}
+
+void JNICALL MapLibreMap_class::removeSource(
+  JNIEnv* env, jMapLibreMap map, jstring sourceId
+) {
+  withMapWrapper(env, map, [env, sourceId](auto wrapper) {
+    wrapper->map->getStyle().removeSource(
+      smjni::java_string_to_cpp(env, sourceId)
+    );
+  });
+}
+
+void JNICALL MapLibreMap_class::setGeoJsonData(
+  JNIEnv* env, jMapLibreMap map, jstring sourceId, jstring geoJson
+) {
+  withMapWrapper(env, map, [env, sourceId, geoJson](auto wrapper) {
+    std::string id = smjni::java_string_to_cpp(env, sourceId);
+    auto* source = wrapper->map->getStyle().getSource(id);
+    if (!source) {
+      throw std::runtime_error("Source not found: " + id);
+    }
+    auto* geoJsonSource = source->template as<mbgl::style::GeoJSONSource>();
+    if (!geoJsonSource) {
+      throw std::runtime_error("Source is not a GeoJSON source: " + id);
+    }
+    std::string json = smjni::java_string_to_cpp(env, geoJson);
+    geoJsonSource->setGeoJSON(mapbox::geojson::parse(json));
+  });
+}
+
+auto JNICALL MapLibreMap_class::getSourceIds(JNIEnv* env, jMapLibreMap map)
+  -> jstringArray {
+  return reinterpret_cast<jstringArray>(
+    withMapWrapper(env, map, [env](auto wrapper) -> jobjectArray {
+      const auto& sources = wrapper->map->getStyle().getSources();
+      auto arr = env->NewObjectArray(
+        static_cast<jsize>(sources.size()),
+        env->FindClass("java/lang/String"),
+        nullptr
+      );
+      for (jsize i = 0; i < static_cast<jsize>(sources.size()); i++) {
+        auto str = smjni::java_string_create(env, sources[i]->getID());
+        env->SetObjectArrayElement(arr, i, str.c_ptr());
+      }
+      return arr;
+    })
+  );
+}
+
+void JNICALL MapLibreMap_class::addStyleImage(
+  JNIEnv* env, jMapLibreMap map,
+  jstring id, jint width, jint height, jbyteArray pixels,
+  jfloat scale, jboolean sdf,
+  jfloat contentLeft, jfloat contentTop,
+  jfloat contentRight, jfloat contentBottom
+) {
+  withMapWrapper(env, map, [&](auto wrapper) {
+    jsize len = env->GetArrayLength(pixels);
+    auto* raw = env->GetByteArrayElements(pixels, nullptr);
+
+    mbgl::PremultipliedImage image(
+      { static_cast<uint32_t>(width), static_cast<uint32_t>(height) }
+    );
+    std::memcpy(image.data.get(), raw, static_cast<size_t>(len));
+    env->ReleaseByteArrayElements(pixels, raw, JNI_ABORT);
+
+    std::optional<mbgl::style::ImageContent> content =
+      mbgl::style::ImageContent{contentLeft, contentTop, contentRight, contentBottom};
+    auto styleImage = std::make_unique<mbgl::style::Image>(
+      smjni::java_string_to_cpp(env, id),
+      std::move(image),
+      static_cast<float>(scale),
+      static_cast<bool>(sdf),
+      mbgl::style::ImageStretches{},
+      mbgl::style::ImageStretches{},
+      content
+    );
+    wrapper->map->getStyle().addImage(std::move(styleImage));
+  });
+}
+
+void JNICALL MapLibreMap_class::removeStyleImage(
+  JNIEnv* env, jMapLibreMap map, jstring id
+) {
+  withMapWrapper(env, map, [env, id](auto wrapper) {
+    wrapper->map->getStyle().removeImage(
+      smjni::java_string_to_cpp(env, id)
+    );
+  });
+}
+
+// Serializes a vector of mbgl::Feature to a GeoJSON FeatureCollection string.
+static std::string featuresToJson(const std::vector<mbgl::Feature>& features) {
+  mapbox::geojson::feature_collection fc;
+  fc.reserve(features.size());
+  for (const auto& f : features) {
+    fc.push_back(mapbox::geojson::feature{f.geometry, f.properties, f.id});
+  }
+  return mapbox::geojson::stringify(fc);
+}
+
+// Parses a JSON array of strings (e.g. ["a","b"]) into a vector.
+static std::vector<std::string> parseJsonStringArray(const std::string& json) {
+  std::vector<std::string> result;
+  size_t pos = 0;
+  while ((pos = json.find('"', pos)) != std::string::npos) {
+    size_t end = json.find('"', pos + 1);
+    if (end == std::string::npos) break;
+    result.push_back(json.substr(pos + 1, end - pos - 1));
+    pos = end + 1;
+  }
+  return result;
+}
+
+auto JNICALL MapLibreMap_class::queryRenderedFeaturesAtPoint(
+  JNIEnv* env, jMapLibreMap map,
+  jfloat x, jfloat y, jstring layerIdsJsonOrNull
+) -> jstring {
+  return withMapWrapper(env, map, [&](auto wrapper) -> jstring {
+    if (!wrapper->renderer) {
+      return smjni::java_string_create(
+        env, R"({"type":"FeatureCollection","features":[]})"
+      ).release();
+    }
+    mbgl::RenderedQueryOptions options;
+    if (layerIdsJsonOrNull) {
+      options.layerIDs = parseJsonStringArray(
+        smjni::java_string_to_cpp(env, layerIdsJsonOrNull)
+      );
+    }
+    auto features = wrapper->renderer->queryRenderedFeaturesAtPoint(
+      mbgl::ScreenCoordinate{static_cast<double>(x), static_cast<double>(y)},
+      options
+    );
+    return smjni::java_string_create(env, featuresToJson(features)).release();
+  });
+}
+
+auto JNICALL MapLibreMap_class::queryRenderedFeaturesInBox(
+  JNIEnv* env, jMapLibreMap map,
+  jfloat x1, jfloat y1, jfloat x2, jfloat y2,
+  jstring layerIdsJsonOrNull
+) -> jstring {
+  return withMapWrapper(env, map, [&](auto wrapper) -> jstring {
+    if (!wrapper->renderer) {
+      return smjni::java_string_create(
+        env, R"({"type":"FeatureCollection","features":[]})"
+      ).release();
+    }
+    mbgl::RenderedQueryOptions options;
+    if (layerIdsJsonOrNull) {
+      options.layerIDs = parseJsonStringArray(
+        smjni::java_string_to_cpp(env, layerIdsJsonOrNull)
+      );
+    }
+    auto features = wrapper->renderer->queryRenderedFeaturesInBox(
+      mbgl::ScreenBox{
+        {static_cast<double>(x1), static_cast<double>(y1)},
+        {static_cast<double>(x2), static_cast<double>(y2)}
+      },
+      options
+    );
+    return smjni::java_string_create(env, featuresToJson(features)).release();
+  });
+}
+
 #pragma mark - Allocation
 
 auto JNICALL MapLibreMap_class::nativeInit(
@@ -536,7 +791,7 @@ auto JNICALL MapLibreMap_class::nativeInit(
 ) -> jlong {
   try {
     // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    auto* renderer = reinterpret_cast<mbgl::RendererFrontend*>(frontendPointer);
+    auto* frontend = reinterpret_cast<mbgl::RendererFrontend*>(frontendPointer);
     auto observer = std::make_unique<maplibre_jni::JniMapObserver>(observerObj);
     mbgl::MapOptions mapOptions =
       maplibre_jni::convertMapOptions(env, optionsObj);
@@ -545,7 +800,7 @@ auto JNICALL MapLibreMap_class::nativeInit(
     mbgl::ClientOptions clientOptions =
       maplibre_jni::convertClientOptions(env, clientOptionsObj);
     auto map = std::make_unique<mbgl::Map>(
-      *renderer, *observer, mapOptions, resourceOptions, clientOptions
+      *frontend, *observer, mapOptions, resourceOptions, clientOptions
     );
 
     // Get network file source for HTTP downloads
@@ -566,10 +821,15 @@ auto JNICALL MapLibreMap_class::nativeInit(
         mbgl::FileSourceType::Database, resourceOptions, clientOptions
       );
 
-    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
-    return reinterpret_cast<jlong>(
+    // All fallible work is done; take ownership and store the renderer pointer.
+    auto wrapper = std::unique_ptr<MapWrapper>(
       new MapWrapper(map.release(), observer.release())
     );
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    wrapper->renderer = reinterpret_cast<maplibre_jni::CanvasRenderer*>(frontendPointer);
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    return reinterpret_cast<jlong>(wrapper.release());
   } catch (const std::exception& e) {
     smjni::java_exception::translate(env, e);
     return 0;

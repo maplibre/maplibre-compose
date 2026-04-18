@@ -4,6 +4,8 @@
 #include <mbgl/gfx/backend_scope.hpp>
 #include <mbgl/gfx/renderable.hpp>
 #include <mbgl/gfx/renderer_backend.hpp>
+#include <mbgl/map/map.hpp>
+#include <mbgl/renderer/query.hpp>
 #include <mbgl/renderer/renderer_frontend.hpp>
 #include <mbgl/renderer/renderer_observer.hpp>
 #include <mbgl/util/run_loop.hpp>
@@ -74,6 +76,16 @@ class CanvasRenderer : public mbgl::RendererFrontend {
   const mbgl::TaggedScheduler& getThreadPool() const override;
   void setSize(mbgl::Size size);
   void runOnce();
+
+  std::vector<mbgl::Feature> queryRenderedFeaturesAtPoint(
+    mbgl::ScreenCoordinate point,
+    mbgl::RenderedQueryOptions options
+  );
+
+  std::vector<mbgl::Feature> queryRenderedFeaturesInBox(
+    mbgl::ScreenBox box,
+    mbgl::RenderedQueryOptions options
+  );
 
  private:
   std::unique_ptr<mbgl::util::RunLoop> runLoop_;

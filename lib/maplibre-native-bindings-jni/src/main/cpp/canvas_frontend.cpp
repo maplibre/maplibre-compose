@@ -71,6 +71,22 @@ void CanvasRenderer::runOnce() { runLoop_->runOnce(); }
 
 void CanvasRenderer::setSize(mbgl::Size size) { backend_->setSize(size); }
 
+std::vector<mbgl::Feature> CanvasRenderer::queryRenderedFeaturesAtPoint(
+  mbgl::ScreenCoordinate point,
+  mbgl::RenderedQueryOptions options
+) {
+  if (!renderer_) return {};
+  return renderer_->queryRenderedFeatures(point, options);
+}
+
+std::vector<mbgl::Feature> CanvasRenderer::queryRenderedFeaturesInBox(
+  mbgl::ScreenBox box,
+  mbgl::RenderedQueryOptions options
+) {
+  if (!renderer_) return {};
+  return renderer_->queryRenderedFeatures(box, options);
+}
+
 }  // namespace maplibre_jni
 
 void JNICALL
