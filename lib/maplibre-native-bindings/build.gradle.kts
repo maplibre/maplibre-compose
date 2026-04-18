@@ -31,17 +31,24 @@ kotlin {
 
 dependencies { add("kspDesktop", libs.simplejni.kprocessor) }
 
+val prebuiltJniVersion = findProperty("prebuiltJniVersion") as? String
+
 ksp {
-  arg(
-    "smjni.jnigen.dest.path",
-    project(":lib:maplibre-native-bindings-jni")
-      .layout
-      .buildDirectory
-      .dir("generated/simplejni-headers")
-      .get()
-      .asFile
-      .absolutePath,
-  )
+  // When building the JNI layer from source, write generated C++ headers directly
+  // into the jni project's build dir so CMake can find them as inputs. When using
+  // prebuilt binaries, write to our own build dir (no C++ compilation happens).
+  val headersDest =
+    if (prebuiltJniVersion.isNullOrBlank()) {
+      project(":lib:maplibre-native-bindings-jni")
+        .layout.buildDirectory
+        .dir("generated/simplejni-headers")
+        .get()
+        .asFile
+        .absolutePath
+    } else {
+      layout.buildDirectory.dir("generated/simplejni-headers").get().asFile.absolutePath
+    }
+  arg("smjni.jnigen.dest.path", headersDest)
   arg("smjni.jnigen.own.dest.path", "true")
   arg("smjni.jnigen.output.list.name", "generated_headers.txt")
   arg("smjni.jnigen.expose.extra", listOf("java.lang.Double", "java.awt.Canvas").joinToString(";"))

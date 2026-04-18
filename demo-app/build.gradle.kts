@@ -139,11 +139,21 @@ kotlin {
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
 
-        runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
-          capabilities {
-            requireCapability(
-              "org.maplibre.compose:maplibre-native-bindings-jni-${Configuration(project).hostOsArchRendererTriplet}"
-            )
+        val prebuiltJniVersion =
+          (project.findProperty("prebuiltJniVersion") as? String)?.takeIf { it.isNotBlank() }
+        val jniCapability =
+          "org.maplibre.compose:maplibre-native-bindings-jni-${Configuration(project).hostOsArchRendererTriplet}"
+        if (prebuiltJniVersion != null) {
+          logger.warn(
+            "maplibre-compose: prebuiltJniVersion=$prebuiltJniVersion — using Maven Central " +
+              "JNI artifact. Only safe for changes outside lib/maplibre-native-bindings[-jni]."
+          )
+          runtimeOnly("org.maplibre.compose:maplibre-native-bindings-jni:$prebuiltJniVersion") {
+            capabilities { requireCapability(jniCapability) }
+          }
+        } else {
+          runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
+            capabilities { requireCapability(jniCapability) }
           }
         }
       }
