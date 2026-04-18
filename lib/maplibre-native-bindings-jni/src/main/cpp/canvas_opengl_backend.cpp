@@ -31,26 +31,34 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
       : backend(backend_), jawtContext(env, canvas_) {}
 
   ~OpenGLRenderableResource() {
-    check(glContext != nullptr, "glContext is nullptr");
+    // glContext is null if initGL() was never called (e.g. destroyed before first render).
+    if (glContext == nullptr) return;
 #if defined(__linux__)
-    glXMakeCurrent(
-      jawtContext.getDisplay(), jawtContext.getDrawable(), nullptr
-    );
-    glXDestroyContext(jawtContext.getDisplay(), glContext);
+    // Pass None as drawable: releasing a context doesn't need a valid window.
+    // display is the JVM's persistent X11 connection and remains valid here.
+    if (jawtContext.getDisplay() != nullptr) {
+      glXMakeCurrent(jawtContext.getDisplay(), None, nullptr);
+      glXDestroyContext(jawtContext.getDisplay(), glContext);
+    }
 #elif defined(_WIN32)
-    wglMakeCurrent(hdc, nullptr);
+    wglMakeCurrent(nullptr, nullptr);
     wglDeleteContext(glContext);
-    ReleaseDC(jawtContext.getHwnd(), hdc);
 #endif
   }
 
   void activate() {
-    jawtContext.lock();
+    jint lockResult = jawtContext.lock();
+    (void)lockResult;  // JAWT_LOCK_SURFACE_CHANGED: drawable was refreshed above;
+                       // existing GLX context remains valid for the new window as
+                       // long as the AWT peer uses the same X11 visual (typical).
     if (glContext == nullptr) initGL();
 #if defined(__linux__)
-    glXMakeCurrent(
-      jawtContext.getDisplay(), jawtContext.getDrawable(), glContext
-    );
+    if (glXMakeCurrent(
+          jawtContext.getDisplay(), jawtContext.getDrawable(), glContext
+        ) == False) {
+      jawtContext.unlock();
+      throw std::runtime_error("glXMakeCurrent failed");
+    }
 #elif defined(_WIN32)
     wglMakeCurrent(hdc, glContext);
 #endif
@@ -71,11 +79,11 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 
   void deactivate() {
 #if defined(__linux__)
-    glXMakeCurrent(
-      jawtContext.getDisplay(), jawtContext.getDrawable(), nullptr
-    );
+    // Use None as drawable when releasing so that a stale drawable doesn't cause
+    // a crash if the surface was just recreated (JAWT_LOCK_SURFACE_CHANGED).
+    glXMakeCurrent(jawtContext.getDisplay(), None, nullptr);
 #elif defined(_WIN32)
-    wglMakeCurrent(hdc, nullptr);
+    wglMakeCurrent(nullptr, nullptr);
 #endif
     jawtContext.unlock();
   }
