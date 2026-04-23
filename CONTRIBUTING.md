@@ -30,6 +30,14 @@ relevant, see the
 label. These are issues that need input or guidance from folks with deeper
 expertise on some topic.
 
+## Note on AI usage
+
+If you are using any kind of AI assistance for your contributions, please take a
+moment to review
+[MapLibre's AI Policy](https://github.com/maplibre/maplibre/blob/main/AI_POLICY.md).
+tl;dr: do not let AI speak for you, verify all generated content before
+requesting a review and disclose AI usage in pull requests.
+
 ## Set up your development environment
 
 ### Mise
@@ -142,9 +150,3 @@ If not using the pre-commit hook, you can manually format the code using:
 ```bash
 hk fix --all
 ```
-
-## AI policy
-
-This project follows the MapLibre organization's
-[AI policy](https://github.com/maplibre/maplibre/blob/main/AI_POLICY.md). Review
-it before submitting AI-generated contributions.
