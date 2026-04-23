@@ -142,3 +142,9 @@ If not using the pre-commit hook, you can manually format the code using:
 ```bash
 hk fix --all
 ```
+
+## AI policy
+
+This project follows the MapLibre organization's
+[AI policy](https://github.com/maplibre/maplibre/blob/main/AI_POLICY.md). Review
+it before submitting AI-generated contributions.
