@@ -65,7 +65,8 @@ public class MapCanvas(
   }
 
   override fun removeNotify() {
-    // Fix for https://github.com/maplibre/maplibre-compose/issues/716 and https://github.com/maplibre/maplibre-compose/issues/695
+    // Fix for https://github.com/maplibre/maplibre-compose/issues/716 and
+    // https://github.com/maplibre/maplibre-compose/issues/695
     // Calling super.removeNotify() before calling dispose crashes the app on jvm targets.
     try {
       map?.dispose()
