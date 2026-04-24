@@ -66,11 +66,17 @@ public class MapCanvas(
 
   override fun removeNotify() {
     val root = SwingUtilities.getWindowAncestor(this)
-    map?.dispose()
-    map = null
-    renderer?.dispose()
-    renderer = null
-    super.removeNotify()
+    // Fix for https://github.com/maplibre/maplibre-compose/issues/716 and
+    // https://github.com/maplibre/maplibre-compose/issues/695
+    // Calling super.removeNotify() before calling dispose crashes the app on jvm targets.
+    try {
+      map?.dispose()
+      map = null
+      renderer?.dispose()
+      renderer = null
+    } finally {
+      super.removeNotify()
+    }
 
     // HACK: Force a repaint by resizing the window slightly to avoid a ghost map on macoOS.
     if (root != null) {
