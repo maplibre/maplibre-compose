@@ -1,7 +1,6 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -76,7 +75,7 @@ public enum class DesiredAccuracy {
   Lowest,
 }
 
-public class NullLocationProvider : LocationProvider {
+public object NullLocationProvider : LocationProvider {
   public override val location: StateFlow<Location?> = MutableStateFlow(null)
 }
 
@@ -116,5 +115,5 @@ public expect fun rememberDefaultLocationProvider(
  */
 @Composable
 public fun rememberNullLocationProvider(): LocationProvider {
-  return remember { NullLocationProvider() }
+  return NullLocationProvider
 }

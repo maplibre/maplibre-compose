@@ -14,14 +14,17 @@ public fun CLLocation.asMapLibreLocation(): Location =
   Location(
     position =
       coordinate.useContents {
-        PositionMeasurement(
+        PositionWithAccuracy(
           value = Position(longitude = longitude, latitude = latitude, altitude = altitude),
           accuracy = horizontalAccuracy.meters,
         )
       },
     course =
-      BearingMeasurement(value = Bearing.North + course.degrees, accuracy = courseAccuracy.degrees),
-    speed = SpeedMeasurement(distancePerSecond = speed.meters, accuracy = speedAccuracy.meters),
+      BearingWithAccuracy(
+        value = Bearing.North + course.degrees,
+        accuracy = courseAccuracy.degrees,
+      ),
+    speed = SpeedWithAccuracy(distancePerSecond = speed.meters, accuracy = speedAccuracy.meters),
     timestamp =
       (-timestamp.timeIntervalSinceNow).seconds.let { age -> TimeSource.Monotonic.markNow() - age },
   )

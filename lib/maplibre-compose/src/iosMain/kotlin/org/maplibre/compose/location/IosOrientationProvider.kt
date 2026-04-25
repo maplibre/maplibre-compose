@@ -7,5 +7,9 @@ import kotlin.time.Duration
 public actual fun rememberDefaultOrientationProvider(
   updateInterval: Duration
 ): OrientationProvider {
-  TODO()
+  return rememberIosLocationProvider(
+    enableLocation = false,
+    enableOrientation = true,
+    orientationUpdateInterval = updateInterval,
+  )
 }

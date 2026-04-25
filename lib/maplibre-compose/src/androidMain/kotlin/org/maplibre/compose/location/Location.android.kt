@@ -13,13 +13,13 @@ import org.maplibre.spatialk.units.extensions.meters
 public fun AndroidLocation.asMapLibreLocation(): Location =
   Location(
     position =
-      PositionMeasurement(
+      PositionWithAccuracy(
         value = Position(longitude = longitude, latitude = latitude, altitude = altitude),
         accuracy = if (hasAccuracy()) accuracy.toDouble().meters else null,
       ),
     speed =
       if (hasSpeed()) {
-        SpeedMeasurement(
+        SpeedWithAccuracy(
           distancePerSecond = speed.toDouble().meters,
           accuracy =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasSpeedAccuracy()) {
@@ -33,7 +33,7 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
       },
     course =
       if (hasBearing()) {
-        BearingMeasurement(
+        BearingWithAccuracy(
           value = Bearing.North + bearing.toDouble().degrees,
           accuracy =
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasBearingAccuracy()) {

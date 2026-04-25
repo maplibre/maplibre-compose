@@ -27,6 +27,7 @@ import org.maplibre.compose.location.UserLocationState
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
 import org.maplibre.compose.location.rememberNullLocationProvider
+import org.maplibre.compose.location.rememberNullOrientationProvider
 import org.maplibre.compose.location.rememberUserLocationState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.OrnamentOptions
@@ -133,7 +134,14 @@ fun rememberDemoState(): DemoState {
         rememberNullLocationProvider()
       }
     }
-  val orientationProvider = rememberDefaultOrientationProvider()
+  val orientationProvider =
+    key(locationPermissionState.hasPermission) {
+      if (locationPermissionState.hasPermission) {
+        rememberDefaultOrientationProvider()
+      } else {
+        rememberNullOrientationProvider()
+      }
+    }
   val locationState = rememberUserLocationState(locationProvider, orientationProvider)
 
   return remember(nav, cameraState, styleState, locationState, locationPermissionState) {

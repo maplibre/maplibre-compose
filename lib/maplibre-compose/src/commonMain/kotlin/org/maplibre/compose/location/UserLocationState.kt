@@ -111,10 +111,10 @@ public fun rememberUserLocationState(
  * value (i.e., the most precise). If a measurement has no accuracy specified (`null`), it is
  * treated as having infinite (the worst possible) accuracy.
  *
- * @return The [BearingMeasurement] with the highest accuracy, or `null` if both [Location] and
+ * @return The [BearingWithAccuracy] with the highest accuracy, or `null` if both [Location] and
  *   [Orientation] are `null` or do not provide a bearing.
  */
-public fun UserLocationState.mostAccurateBearing(): BearingMeasurement? {
+public fun UserLocationState.mostAccurateBearing(): BearingWithAccuracy? {
   return listOfNotNull(location?.course, orientation?.orientation).minByOrNull {
     it.accuracy ?: Double.POSITIVE_INFINITY.degrees
   }

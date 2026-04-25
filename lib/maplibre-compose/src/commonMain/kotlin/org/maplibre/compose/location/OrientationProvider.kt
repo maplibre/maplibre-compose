@@ -1,7 +1,6 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -11,7 +10,7 @@ public interface OrientationProvider {
   public val orientation: StateFlow<Orientation?>
 }
 
-public class NullOrientationProvider : OrientationProvider {
+public object NullOrientationProvider : OrientationProvider {
   public override val orientation: StateFlow<Orientation?> = MutableStateFlow(null)
 }
 
@@ -22,5 +21,5 @@ public expect fun rememberDefaultOrientationProvider(
 
 @Composable
 public fun rememberNullOrientationProvider(): OrientationProvider {
-  return remember { NullOrientationProvider() }
+  return NullOrientationProvider
 }

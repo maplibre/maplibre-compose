@@ -7,31 +7,31 @@ import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.Rotation
 
 /**
- * Represents a measured geographical position with an associated accuracy.
+ * Represents a geographical position with an associated accuracy.
  *
- * @property value The measured geographical position, represented as a [Position] object (latitude,
+ * @property value The geographical position, represented as a [Position] object (latitude,
  *   longitude, and optional altitude).
- * @property accuracy The estimated accuracy of the position measurement, typically as a radius. A
- *   `null` value indicates that the accuracy is unknown.
+ * @property accuracy The estimated accuracy of the position, typically as a radius. A `null` value
+ *   indicates that the accuracy is unknown.
  */
-@Serializable public data class PositionMeasurement(val value: Position, val accuracy: Length?)
+@Serializable public data class PositionWithAccuracy(val value: Position, val accuracy: Length?)
 
 /**
- * Represents a bearing measurement, combining a bearing value with its potential accuracy.
+ * Represents a bearing value with its potential accuracy.
  *
- * @property value The measured bearing.
- * @property accuracy The potential error in the bearing measurement, expressed as a [Rotation]. A
- *   smaller value indicates higher accuracy. A `null` value implies that the accuracy is unknown.
+ * @property value The bearing.
+ * @property accuracy The potential error in the bearing, expressed as a [Rotation]. A smaller value
+ *   indicates higher accuracy. A `null` value implies that the accuracy is unknown.
  */
-@Serializable public data class BearingMeasurement(val value: Bearing, val accuracy: Rotation?)
+@Serializable public data class BearingWithAccuracy(val value: Bearing, val accuracy: Rotation?)
 
 /**
- * Represents a speed measurement.
+ * Represents a speed value with its potential accuracy.
  *
- * @property distancePerSecond The measured speed, expressed as a length traveled per second.
+ * @property distancePerSecond The speed, expressed as a length traveled per second.
  * @property accuracy The potential error in the speed measurement, also expressed as a length per
  *   second. A smaller value indicates a more precise measurement. A `null` value indicates that the
  *   accuracy is unknown.
  */
 @Serializable
-public data class SpeedMeasurement(val distancePerSecond: Length, val accuracy: Length?)
+public data class SpeedWithAccuracy(val distancePerSecond: Length, val accuracy: Length?)

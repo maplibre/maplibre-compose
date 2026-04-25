@@ -15,8 +15,8 @@ import kotlinx.serialization.Serializable
  */
 @Serializable
 public data class Location(
-  val position: PositionMeasurement,
-  val speed: SpeedMeasurement? = null,
-  val course: BearingMeasurement? = null,
+  val position: PositionWithAccuracy,
+  val speed: SpeedWithAccuracy? = null,
+  val course: BearingWithAccuracy? = null,
   val timestamp: TimeMark,
 )

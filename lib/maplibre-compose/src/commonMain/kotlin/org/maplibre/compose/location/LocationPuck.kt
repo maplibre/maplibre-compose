@@ -72,7 +72,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * @param oldLocationThreshold Locations with a [timestamp][Location.timestamp] older than this will
  *   be considered old and will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
- *   [PositionMeasurement.accuracy] is larger than this value. Use [Float.POSITIVE_INFINITY] to
+ *   [PositionWithAccuracy.accuracy] is larger than this value. Use [Float.POSITIVE_INFINITY] to
  *   never show the accuracy range.
  * @param colors The colors to use for the location puck.
  * @param sizes The sizes to use for the location puck.
@@ -88,7 +88,7 @@ public fun LocationPuck(
   idPrefix: String,
   location: Location?,
   cameraState: CameraState,
-  bearing: BearingMeasurement? = location?.course,
+  bearing: BearingWithAccuracy? = location?.course,
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Float = 50f,
   colors: LocationPuckColors = LocationPuckColors(),
@@ -282,7 +282,7 @@ private fun rememberBearingAccuracyPainter(
 @Composable
 private fun rememberLocationSource(
   location: Location?,
-  bearing: BearingMeasurement?,
+  bearing: BearingWithAccuracy?,
 ): GeoJsonSource {
   val features =
     remember(location, bearing) {

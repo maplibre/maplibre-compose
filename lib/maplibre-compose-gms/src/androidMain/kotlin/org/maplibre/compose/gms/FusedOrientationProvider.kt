@@ -22,7 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
-import org.maplibre.compose.location.BearingMeasurement
+import org.maplibre.compose.location.BearingWithAccuracy
 import org.maplibre.compose.location.Orientation
 import org.maplibre.compose.location.OrientationProvider
 import org.maplibre.spatialk.units.Bearing
@@ -50,7 +50,7 @@ public class FusedOrientationProvider(
           trySend(
             Orientation(
               orientation =
-                BearingMeasurement(
+                BearingWithAccuracy(
                   value = Bearing.North - orientation.headingDegrees.toDouble().degrees,
                   accuracy = orientation.headingErrorDegrees.toDouble().degrees,
                 ),

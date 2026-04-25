@@ -67,7 +67,7 @@ public class AndroidOrientationProvider(
                   trySend(
                     Orientation(
                       orientation =
-                        BearingMeasurement(
+                        BearingWithAccuracy(
                           value = Bearing.North - degrees,
                           // we can not get accuracy in degrees
                           accuracy = null,
