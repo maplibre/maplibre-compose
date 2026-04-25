@@ -1,7 +1,9 @@
 package org.maplibre.compose.demoapp.design
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Card
@@ -12,13 +14,20 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun CardColumn(
-  modifier: Modifier = Modifier.Companion,
+  modifier: Modifier = Modifier,
+  contentPadding: PaddingValues = PaddingValues(0.dp),
+  verticalArrangement: Arrangement.Vertical = Arrangement.Top,
   content: @Composable ColumnScope.() -> Unit,
 ) {
   Card(
     modifier = modifier.fillMaxWidth().padding(vertical = 8.dp),
     colors = CardDefaults.cardColors(),
   ) {
-    Column(modifier = Modifier.Companion.fillMaxWidth()) { content() }
+    Column(
+      modifier = Modifier.fillMaxWidth().padding(contentPadding),
+      verticalArrangement = verticalArrangement,
+    ) {
+      content()
+    }
   }
 }

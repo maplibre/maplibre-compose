@@ -22,6 +22,15 @@ style, but you can also declare new sources:
 -8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:amtrak-1"
 ```
 
+For small, frequently updated in-memory GeoJSON sources, you can opt into
+synchronous updates. This currently has an effect only on Android; other
+platforms ignore the option for now. Under the hood, this maps to MapLibre
+Native Android's [GeoJsonOptions.withSynchronousUpdate()][android-sync-update]:
+
+```kotlin
+-8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:synchronous-geojson-updates"
+```
+
 The full breadth of layer styling options available is out of scope for this
 guide; see the [MapLibre Style Specification][spec-layers] for more information.
 
@@ -67,3 +76,5 @@ from propagating to subsequent listeners.
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/
 [spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/
+[android-sync-update]:
+  https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/with-synchronous-update.html

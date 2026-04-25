@@ -86,6 +86,10 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
               .forEach { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) }
           }
         }
+
+        state.demos
+          .filter { state.isDemoOpen(it) }
+          .forEach { it.MapOverlayContent(state = state, isOpen = true) }
       }
     }
 

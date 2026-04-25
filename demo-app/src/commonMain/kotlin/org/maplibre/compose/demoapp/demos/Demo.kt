@@ -19,5 +19,7 @@ interface Demo {
 
   @MaplibreComposable @Composable fun MapContent(state: DemoState, isOpen: Boolean) {}
 
+  @UiComposable @Composable fun MapOverlayContent(state: DemoState, isOpen: Boolean) {}
+
   @UiComposable @Composable fun SheetContent(state: DemoState, modifier: Modifier) {}
 }
