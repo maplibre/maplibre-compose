@@ -8,47 +8,51 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
 
 internal actual class FillLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
+  @Suppress("UNREACHABLE_CODE") override val impl: Nothing get() = TODO()
+  override val layerId: String = id
+  override fun layerType(): String = "fill"
 
-  override val impl = TODO()
-
-  actual override var sourceLayer: String = TODO()
+  actual override var sourceLayer: String
+    get() = sourceLayerString()
+    set(value) { updateSourceLayer(value) }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    updateFilter(filter)
   }
 
   actual fun setFillSortKey(sortKey: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProp("fill-sort-key", sortKey.toJsonString())
   }
 
   actual fun setFillAntialias(antialias: CompiledExpression<BooleanValue>) {
-    TODO()
+    setPaintProp("fill-antialias", antialias.toJsonString())
   }
 
   actual fun setFillOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("fill-opacity", opacity.toJsonString())
   }
 
   actual fun setFillColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("fill-color", color.toJsonString())
   }
 
   actual fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("fill-outline-color", outlineColor.toJsonString())
   }
 
   actual fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProp("fill-translate", translate.toJsonString())
   }
 
   actual fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProp("fill-translate-anchor", translateAnchor.toJsonString())
   }
 
   actual fun setFillPattern(pattern: CompiledExpression<ImageValue>) {
-    TODO()
+    setPaintProp("fill-pattern", pattern.toJsonString())
   }
 }

@@ -5,40 +5,44 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.MillisecondsValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
 
 internal actual class RasterLayer actual constructor(id: String, actual val source: Source) :
   Layer() {
-  override val impl = TODO()
+  @Suppress("UNREACHABLE_CODE") override val impl: Nothing get() = TODO()
+  override val layerId: String = id
+  override fun layerType(): String = "raster"
+  override fun sourceId(): String = source.id
 
   actual fun setRasterOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("raster-opacity", opacity.toJsonString())
   }
 
   actual fun setRasterHueRotate(hueRotate: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("raster-hue-rotate", hueRotate.toJsonString())
   }
 
   actual fun setRasterBrightnessMin(brightnessMin: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("raster-brightness-min", brightnessMin.toJsonString())
   }
 
   actual fun setRasterBrightnessMax(brightnessMax: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("raster-brightness-max", brightnessMax.toJsonString())
   }
 
   actual fun setRasterSaturation(saturation: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("raster-saturation", saturation.toJsonString())
   }
 
   actual fun setRasterContrast(contrast: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("raster-contrast", contrast.toJsonString())
   }
 
   actual fun setRasterResampling(resampling: CompiledExpression<RasterResampling>) {
-    TODO()
+    setPaintProp("raster-resampling", resampling.toJsonString())
   }
 
   actual fun setRasterFadeDuration(fadeDuration: CompiledExpression<MillisecondsValue>) {
-    TODO()
+    setPaintProp("raster-fade-duration", fadeDuration.toJsonString())
   }
 }

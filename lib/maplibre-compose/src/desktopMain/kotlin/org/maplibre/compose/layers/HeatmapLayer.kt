@@ -6,34 +6,39 @@ import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
 
 internal actual class HeatmapLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
-  override val impl = TODO()
+  @Suppress("UNREACHABLE_CODE") override val impl: Nothing get() = TODO()
+  override val layerId: String = id
+  override fun layerType(): String = "heatmap"
 
-  actual override var sourceLayer: String = TODO()
+  actual override var sourceLayer: String
+    get() = sourceLayerString()
+    set(value) { updateSourceLayer(value) }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    updateFilter(filter)
   }
 
   actual fun setHeatmapRadius(radius: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProp("heatmap-radius", radius.toJsonString())
   }
 
   actual fun setHeatmapWeight(weight: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("heatmap-weight", weight.toJsonString())
   }
 
   actual fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("heatmap-intensity", intensity.toJsonString())
   }
 
   actual fun setHeatmapColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("heatmap-color", color.toJsonString())
   }
 
   actual fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("heatmap-opacity", opacity.toJsonString())
   }
 }

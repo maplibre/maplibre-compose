@@ -29,6 +29,7 @@ import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenCoordinate
 import org.maplibre.kmp.native.camera.CameraChangeMode
 import org.maplibre.kmp.native.camera.CameraOptions
+import org.maplibre.kmp.native.map.MapCanvas
 import org.maplibre.kmp.native.map.MapControls
 import org.maplibre.kmp.native.map.MapLibreMap
 import org.maplibre.kmp.native.map.MapLoadError
@@ -39,6 +40,7 @@ import org.maplibre.kmp.native.util.Projection
 import org.maplibre.kmp.native.util.ScreenCoordinate
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
@@ -48,6 +50,9 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   internal lateinit var map: MapLibreMap
   internal lateinit var mapControls: MapControls
 
+  /** Reference to the AWT canvas; used to read canvas dimensions for visible-region computation. */
+  internal var canvas: MapCanvas? = null
+
   private var lastBaseStyle: BaseStyle? = null
 
   override fun onDidFinishLoadingMap() {
@@ -56,6 +61,10 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
 
   override fun onDidFailLoadingMap(error: MapLoadError, message: String) {
     callbacks.onMapFailLoading(message)
+  }
+
+  override fun onDidFinishLoadingStyle() {
+    callbacks.onStyleChanged(this, DesktopStyle(map))
   }
 
   override fun onCameraWillChange(mode: CameraChangeMode) {
@@ -101,7 +110,9 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
       is BaseStyle.Json -> map.loadStyleJSON(style.json)
     }
 
-    callbacks.onStyleChanged(this, DesktopStyle(map))
+    // Signal that a style change is in progress — the new style will be delivered via
+    // onDidFinishLoadingStyle() once it has loaded successfully.
+    callbacks.onStyleChanged(this, null)
   }
 
   override fun getCameraPosition(): CameraPosition {
@@ -161,12 +172,18 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
   }
 
   override fun getVisibleRegion(): VisibleRegion {
-    // TODO: get visible region
+    val c = canvas
+    val w = c?.width?.toDouble() ?: 0.0
+    val h = c?.height?.toDouble() ?: 0.0
+    val topLeft = map.latLngForPixel(ScreenCoordinate(0.0, 0.0)).toPosition()
+    val topRight = map.latLngForPixel(ScreenCoordinate(w, 0.0)).toPosition()
+    val bottomLeft = map.latLngForPixel(ScreenCoordinate(0.0, h)).toPosition()
+    val bottomRight = map.latLngForPixel(ScreenCoordinate(w, h)).toPosition()
     return VisibleRegion(
-      Position(0.0, 0.0),
-      Position(0.0, 0.0),
-      Position(0.0, 0.0),
-      Position(0.0, 0.0),
+      farLeft = topLeft,
+      farRight = topRight,
+      nearLeft = bottomLeft,
+      nearRight = bottomRight,
     )
   }
 
@@ -196,8 +213,9 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> {
-    // TODO: query rendered features at offset
-    return emptyList()
+    val layerIdsJson = layerIds?.toJsonArrayString()
+    val resultJson = map.queryRenderedFeaturesAtPoint(offset.x.value, offset.y.value, layerIdsJson)
+    return parseFeatures(resultJson)
   }
 
   override fun queryRenderedFeatures(
@@ -205,8 +223,13 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> {
-    // TODO: query rendered features in rectangle
-    return emptyList()
+    val layerIdsJson = layerIds?.toJsonArrayString()
+    val resultJson = map.queryRenderedFeaturesInBox(
+      rect.left.value, rect.top.value,
+      rect.right.value, rect.bottom.value,
+      layerIdsJson,
+    )
+    return parseFeatures(resultJson)
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double {
@@ -264,5 +287,21 @@ internal class DesktopMapAdapter(internal var callbacks: MapAdapter.Callbacks) :
     val position = latLng.toPosition()
     val dpOffset = coordinate.toDpOffset()
     callbacks.onLongClick(this, position, dpOffset)
+  }
+
+  companion object {
+    private fun Set<String>.toJsonArrayString(): String =
+      joinToString(",", prefix = "[", postfix = "]") { "\"${it.replace("\"", "\\\"")}\"" }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun parseFeatures(json: String): List<Feature<Geometry, JsonObject?>> {
+      if (json.isBlank()) return emptyList()
+      return try {
+        val collection: FeatureCollection<Geometry, JsonObject?> = FeatureCollection.fromJson(json)
+        collection.features ?: emptyList()
+      } catch (e: Exception) {
+        emptyList()
+      }
+    }
   }
 }

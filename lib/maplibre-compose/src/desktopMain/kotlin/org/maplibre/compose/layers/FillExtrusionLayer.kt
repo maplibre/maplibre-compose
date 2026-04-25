@@ -8,46 +8,51 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
 
 internal actual class FillExtrusionLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
-  override val impl = TODO()
+  @Suppress("UNREACHABLE_CODE") override val impl: Nothing get() = TODO()
+  override val layerId: String = id
+  override fun layerType(): String = "fill-extrusion"
 
-  actual override var sourceLayer: String = TODO()
+  actual override var sourceLayer: String
+    get() = sourceLayerString()
+    set(value) { updateSourceLayer(value) }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    updateFilter(filter)
   }
 
   actual fun setFillExtrusionOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("fill-extrusion-opacity", opacity.toJsonString())
   }
 
   actual fun setFillExtrusionColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProp("fill-extrusion-color", color.toJsonString())
   }
 
   actual fun setFillExtrusionTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProp("fill-extrusion-translate", translate.toJsonString())
   }
 
   actual fun setFillExtrusionTranslateAnchor(anchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProp("fill-extrusion-translate-anchor", anchor.toJsonString())
   }
 
   actual fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue>) {
-    TODO()
+    setPaintProp("fill-extrusion-pattern", pattern.toJsonString())
   }
 
   actual fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("fill-extrusion-height", height.toJsonString())
   }
 
   actual fun setFillExtrusionBase(base: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProp("fill-extrusion-base", base.toJsonString())
   }
 
   actual fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>) {
-    TODO()
+    setPaintProp("fill-extrusion-vertical-gradient", verticalGradient.toJsonString())
   }
 }
