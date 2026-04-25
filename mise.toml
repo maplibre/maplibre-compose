@@ -41,3 +41,33 @@ description = "Called in postinstall"
 hide = true
 run = "if command -v xcodes >/dev/null 2>&1; then xcodes install && xcodes select; fi"
 run_windows = "exit /b 0"
+
+[tasks."clean:vcpkg"]
+description = "Reset the vcpkg submodule to a clean state"
+run = "echo vcpkg is only used on windows; skipping"
+run_windows = "cd lib\\maplibre-native-bindings-jni\\vendor\\maplibre-native\\platform\\windows\\vendor\\vcpkg && git reset --hard && git clean -fdx"
+
+[tasks."run:js"]
+description = "Run the web demo"
+run = "./gradlew :demo-app:jsBrowserDevelopmentRun"
+run_windows = "gradlew.bat :demo-app:jsBrowserDevelopmentRun"
+
+[tasks."run:desktop"]
+description = "Run the desktop demo"
+run = "./gradlew :demo-app:run"
+run_windows = "gradlew.bat :demo-app:run"
+
+[tasks."run:desktop-metal"]
+description = "Run the desktop demo with Metal renderer"
+run = "./gradlew :demo-app:run -PdesktopRenderer=metal"
+run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=metal"
+
+[tasks."run:desktop-vulkan"]
+description = "Run the desktop demo with Vulkan renderer"
+run = "./gradlew :demo-app:run -PdesktopRenderer=vulkan"
+run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=vulkan"
+
+[tasks."run:desktop-opengl"]
+description = "Run the desktop demo with OpenGL renderer"
+run = "./gradlew :demo-app:run -PdesktopRenderer=opengl"
+run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=opengl"
