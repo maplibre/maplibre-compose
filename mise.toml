@@ -38,13 +38,3 @@ run = "hk fix --all"
 description = "Called by dprint.json"
 hide = true
 run = 'java -jar {{ tools["aqua:facebook/ktfmt"].path }}/ktfmt'
-
-[tasks._clangformat]
-description = "Called by dprint.json"
-hide = true
-run = "clang-format"
-
-[tasks._swiftformat]
-description = "Called by dprint.json"
-hide = true
-run = "swift format format"

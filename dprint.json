@@ -22,11 +22,11 @@
         "exts": ["kt", "kts"]
       },
       {
-        "command": "mise run _clangformat --assume-filename={{file_path}}",
+        "command": "clang-format --assume-filename={{file_path}}",
         "exts": ["c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx", "m", "mm"]
       },
       {
-        "command": "mise run _swiftformat --assume-filename {{file_path}} -",
+        "command": "swift format format --assume-filename {{file_path}} -",
         "exts": ["swift"]
       }
     ]
