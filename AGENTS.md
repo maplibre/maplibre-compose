@@ -5,6 +5,15 @@ All contributions must comply with the
 In summary: disclose AI usage, and issues and PR descriptions must be written by
 the human.
 
+Example PR disclosure format:
+
+```markdown
+## AI Disclosure
+
+AI assistance was used to help with implementation and verification. The PR
+description was written by the human author.
+```
+
 ## Searching vendored MapLibre Native codebase
 
 When searching the vendored maplibre-native codebase:
