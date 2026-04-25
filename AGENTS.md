@@ -8,10 +8,10 @@ the human.
 Example PR disclosure format:
 
 ```markdown
-## AI Disclosure
-
-Created with [AGENT].
+_Created using [AGENT]_
 ```
+
+Where `[AGENT]` is like "OpenCode with GPT-5.5" or "Claude Code with Opus 4.7".
 
 ## Searching vendored MapLibre Native codebase
 
