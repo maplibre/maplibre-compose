@@ -4,7 +4,19 @@
 version = "1.7.8"
 backend = "aqua:rhysd/actionlint"
 
+[tools.actionlint."platforms.linux-arm64"]
+checksum = "sha256:4c65dbb2d59b409cdd75d47ffa8fa32af8f0eee573ac510468dc2275c48bf07c"
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_linux_arm64.tar.gz"
+
+[tools.actionlint."platforms.linux-arm64-musl"]
+checksum = "sha256:4c65dbb2d59b409cdd75d47ffa8fa32af8f0eee573ac510468dc2275c48bf07c"
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_linux_arm64.tar.gz"
+
 [tools.actionlint."platforms.linux-x64"]
+checksum = "sha256:be92c2652ab7b6d08425428797ceabeb16e31a781c07bc388456b4e592f3e36a"
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_linux_amd64.tar.gz"
+
+[tools.actionlint."platforms.linux-x64-musl"]
 checksum = "sha256:be92c2652ab7b6d08425428797ceabeb16e31a781c07bc388456b4e592f3e36a"
 url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_linux_amd64.tar.gz"
 
@@ -12,21 +24,169 @@ url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1
 checksum = "sha256:ffb1f6c429a51dc9f37af9d11f96c16bd52f54b713bf7f8bd92f7fce9fd4284a"
 url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_darwin_arm64.tar.gz"
 
+[tools.actionlint."platforms.macos-x64"]
+checksum = "sha256:16b85caf792b34bcc40f7437736c4347680da0a1b034353a85012debbd71a461"
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_darwin_amd64.tar.gz"
+
+[tools.actionlint."platforms.windows-x64"]
+checksum = "sha256:8cae2385eb69b93084ea2e6a4bce57233feb56ab16b3087bea25cbc0abadb0cc"
+url = "https://github.com/rhysd/actionlint/releases/download/v1.7.8/actionlint_1.7.8_windows_amd64.zip"
+
+[[tools."aqua:facebook/ktfmt"]]
+version = "0.62"
+backend = "aqua:facebook/ktfmt"
+
+[tools."aqua:facebook/ktfmt"."platforms.linux-arm64"]
+checksum = "sha256:f39bf9a1f520d27f86f2bdf4d6dbb2574c05e84f656171ed65c4e534b86b9965"
+url = "https://github.com/facebook/ktfmt/releases/download/v0.62/ktfmt-0.62-with-dependencies.jar"
+
+[tools."aqua:facebook/ktfmt"."platforms.linux-arm64-musl"]
+checksum = "sha256:f39bf9a1f520d27f86f2bdf4d6dbb2574c05e84f656171ed65c4e534b86b9965"
+url = "https://github.com/facebook/ktfmt/releases/download/v0.62/ktfmt-0.62-with-dependencies.jar"
+
+[tools."aqua:facebook/ktfmt"."platforms.linux-x64"]
+checksum = "sha256:f39bf9a1f520d27f86f2bdf4d6dbb2574c05e84f656171ed65c4e534b86b9965"
+url = "https://github.com/facebook/ktfmt/releases/download/v0.62/ktfmt-0.62-with-dependencies.jar"
+
+[tools."aqua:facebook/ktfmt"."platforms.linux-x64-musl"]
+checksum = "sha256:f39bf9a1f520d27f86f2bdf4d6dbb2574c05e84f656171ed65c4e534b86b9965"
+url = "https://github.com/facebook/ktfmt/releases/download/v0.62/ktfmt-0.62-with-dependencies.jar"
+
+[tools."aqua:facebook/ktfmt"."platforms.macos-arm64"]
+checksum = "sha256:f39bf9a1f520d27f86f2bdf4d6dbb2574c05e84f656171ed65c4e534b86b9965"
+url = "https://github.com/facebook/ktfmt/releases/download/v0.62/ktfmt-0.62-with-dependencies.jar"
+
+[tools."aqua:facebook/ktfmt"."platforms.macos-x64"]
+checksum = "sha256:f39bf9a1f520d27f86f2bdf4d6dbb2574c05e84f656171ed65c4e534b86b9965"
+url = "https://github.com/facebook/ktfmt/releases/download/v0.62/ktfmt-0.62-with-dependencies.jar"
+
+[tools."aqua:facebook/ktfmt"."platforms.windows-x64"]
+checksum = "sha256:f39bf9a1f520d27f86f2bdf4d6dbb2574c05e84f656171ed65c4e534b86b9965"
+url = "https://github.com/facebook/ktfmt/releases/download/v0.62/ktfmt-0.62-with-dependencies.jar"
+
 [[tools.bazel]]
 version = "7.7.0"
 backend = "aqua:bazelbuild/bazel"
+
+[tools.bazel."platforms.linux-arm64"]
+checksum = "sha256:8d404f7a266ead50be0918f913df1449a4880f5c8ef36c88d09d6204e67f114d"
+url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-linux-arm64"
+
+[tools.bazel."platforms.linux-arm64-musl"]
+checksum = "sha256:8d404f7a266ead50be0918f913df1449a4880f5c8ef36c88d09d6204e67f114d"
+url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-linux-arm64"
+
+[tools.bazel."platforms.linux-x64"]
+checksum = "sha256:fe7e799cbc9140f986b063e06800a3d4c790525075c877d00a7112669824acbf"
+url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-linux-x86_64"
+
+[tools.bazel."platforms.linux-x64-musl"]
+checksum = "sha256:fe7e799cbc9140f986b063e06800a3d4c790525075c877d00a7112669824acbf"
+url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-linux-x86_64"
 
 [tools.bazel."platforms.macos-arm64"]
 checksum = "sha256:2533ddc8628a96d1da3c5e99f45442d30fec93ee724316fd9687c78e56a84049"
 url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-darwin-arm64"
 
+[tools.bazel."platforms.macos-x64"]
+checksum = "sha256:5b254d6c51081502938835969be160e62aeb8799e5b00b2d3acfa0465d6ae7c8"
+url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-darwin-x86_64"
+
+[tools.bazel."platforms.windows-x64"]
+checksum = "sha256:1f5c7ea9972a15cca28b38782304fad5c3b0a1a0f6ddcccf7745135cd1b763a2"
+url = "https://github.com/bazelbuild/bazel/releases/download/7.7.0/bazel-7.7.0-windows-x86_64.zip"
+
+[[tools.cmake]]
+version = "4.1.2"
+backend = "aqua:Kitware/CMake"
+
+[tools.cmake."platforms.linux-arm64"]
+checksum = "sha256:0634996f918b3bab11f45522899c81c987b09c9a64d15f6a0d2bb51c42099534"
+url = "https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-linux-aarch64.tar.gz"
+
+[tools.cmake."platforms.linux-arm64-musl"]
+checksum = "sha256:0634996f918b3bab11f45522899c81c987b09c9a64d15f6a0d2bb51c42099534"
+url = "https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-linux-aarch64.tar.gz"
+
+[tools.cmake."platforms.linux-x64"]
+checksum = "sha256:773cc679c3a7395413bd096523f8e5d6c39f8718af4e12eb4e4195f72f35e4ab"
+url = "https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-linux-x86_64.tar.gz"
+
+[tools.cmake."platforms.linux-x64-musl"]
+checksum = "sha256:773cc679c3a7395413bd096523f8e5d6c39f8718af4e12eb4e4195f72f35e4ab"
+url = "https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-linux-x86_64.tar.gz"
+
+[tools.cmake."platforms.macos-arm64"]
+checksum = "sha256:3be85f5b999e327b1ac7d804cbc9acd767059e9f603c42ec2765f6ab68fbd367"
+url = "https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-macos-universal.tar.gz"
+
+[tools.cmake."platforms.macos-x64"]
+checksum = "sha256:3be85f5b999e327b1ac7d804cbc9acd767059e9f603c42ec2765f6ab68fbd367"
+url = "https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-macos-universal.tar.gz"
+
+[tools.cmake."platforms.windows-x64"]
+checksum = "sha256:82730741149681597510a4bc7095da1460b472dac24eaf9c23ad7440f47753ab"
+url = "https://github.com/Kitware/CMake/releases/download/v4.1.2/cmake-4.1.2-windows-x86_64.zip"
+
+[[tools.dprint]]
+version = "0.53.2"
+backend = "aqua:dprint/dprint"
+
+[tools.dprint."platforms.linux-arm64"]
+checksum = "sha256:c3843a4604dac7428f41f762c4c352e409c63bd634172765bbac482dc59773ba"
+url = "https://github.com/dprint/dprint/releases/download/0.53.2/dprint-aarch64-unknown-linux-musl.zip"
+
+[tools.dprint."platforms.linux-arm64-musl"]
+checksum = "sha256:c3843a4604dac7428f41f762c4c352e409c63bd634172765bbac482dc59773ba"
+url = "https://github.com/dprint/dprint/releases/download/0.53.2/dprint-aarch64-unknown-linux-musl.zip"
+
+[tools.dprint."platforms.linux-x64"]
+checksum = "sha256:7ff2cf9b25c687bd59867528ae9a5526c17e75e82e9788bf1f84a0e3ca7163b6"
+url = "https://github.com/dprint/dprint/releases/download/0.53.2/dprint-x86_64-unknown-linux-musl.zip"
+
+[tools.dprint."platforms.linux-x64-musl"]
+checksum = "sha256:7ff2cf9b25c687bd59867528ae9a5526c17e75e82e9788bf1f84a0e3ca7163b6"
+url = "https://github.com/dprint/dprint/releases/download/0.53.2/dprint-x86_64-unknown-linux-musl.zip"
+
+[tools.dprint."platforms.macos-arm64"]
+checksum = "sha256:a185ba53f74e1e3a8ccdaf03a5d6f96b67d3fdf3f86d0d0f98950d15817eb0c4"
+url = "https://github.com/dprint/dprint/releases/download/0.53.2/dprint-aarch64-apple-darwin.zip"
+
+[tools.dprint."platforms.macos-x64"]
+checksum = "sha256:902a9cff86a0ce643d5f1bb53e3e2434096511542363924e18016ee7bedb769f"
+url = "https://github.com/dprint/dprint/releases/download/0.53.2/dprint-x86_64-apple-darwin.zip"
+
+[tools.dprint."platforms.windows-x64"]
+checksum = "sha256:f18910879d6796b05b0666513391ab7963b346723c041dc4d777d3f43179e416"
+url = "https://github.com/dprint/dprint/releases/download/0.53.2/dprint-x86_64-pc-windows-msvc.zip"
+
 [[tools.hk]]
-version = "1.20.0"
+version = "1.40.0"
 backend = "aqua:jdx/hk"
 
+[tools.hk."platforms.linux-arm64"]
+checksum = "sha256:f6f4a0f9a55a51d8b98ae9fc0e3dff704ec9b4b842d4978dd433e6158c7d5d9f"
+url = "https://github.com/jdx/hk/releases/download/v1.40.0/hk-aarch64-unknown-linux-gnu.tar.gz"
+
+[tools.hk."platforms.linux-arm64-musl"]
+checksum = "sha256:f6f4a0f9a55a51d8b98ae9fc0e3dff704ec9b4b842d4978dd433e6158c7d5d9f"
+url = "https://github.com/jdx/hk/releases/download/v1.40.0/hk-aarch64-unknown-linux-gnu.tar.gz"
+
 [tools.hk."platforms.linux-x64"]
-checksum = "sha256:f35036c5e43f32e5c110a6c147df598d69d2afb56186ffa7b5d5af0d517c7069"
-url = "https://github.com/jdx/hk/releases/download/v1.20.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+checksum = "sha256:5feb9eab6b8539aba09ed73eb49d4e01b3a56471172c14212d0b649ed2c16142"
+url = "https://github.com/jdx/hk/releases/download/v1.40.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+
+[tools.hk."platforms.linux-x64-musl"]
+checksum = "sha256:5feb9eab6b8539aba09ed73eb49d4e01b3a56471172c14212d0b649ed2c16142"
+url = "https://github.com/jdx/hk/releases/download/v1.40.0/hk-x86_64-unknown-linux-gnu.tar.gz"
+
+[tools.hk."platforms.macos-arm64"]
+checksum = "sha256:7a6d77e41868a01edc8511e13235d6b8a9017975dba1f5383b12b7c33ca4278e"
+url = "https://github.com/jdx/hk/releases/download/v1.40.0/hk-aarch64-apple-darwin.tar.gz"
+
+[tools.hk."platforms.windows-x64"]
+checksum = "sha256:2d177c1ac965a7c7843c2849c0eb5fe5c3bb2a560a3c1b67afdb8a62b416d27a"
+url = "https://github.com/jdx/hk/releases/download/v1.40.0/hk-x86_64-pc-windows-msvc.zip"
 
 [[tools.java]]
 version = "21.0.2"
@@ -40,27 +200,91 @@ url = "https://download.java.net/java/GA/jdk21.0.2/f2283984656d49d69e91c55847602
 version = "1.13.1"
 backend = "aqua:ninja-build/ninja"
 
+[tools.ninja."platforms.linux-arm64"]
+checksum = "sha256:740f1b9f9d8ae68438240a6a2f3f7a27fc8b1946d2024a6a6b25857ee877987b"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-linux-aarch64.zip"
+
+[tools.ninja."platforms.linux-arm64-musl"]
+checksum = "sha256:740f1b9f9d8ae68438240a6a2f3f7a27fc8b1946d2024a6a6b25857ee877987b"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-linux-aarch64.zip"
+
 [tools.ninja."platforms.linux-x64"]
 checksum = "sha256:0830252db77884957a1a4b87b05a1e2d9b5f658b8367f82999a941884cbe0238"
 url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-linux.zip"
+
+[tools.ninja."platforms.linux-x64-musl"]
+checksum = "sha256:0830252db77884957a1a4b87b05a1e2d9b5f658b8367f82999a941884cbe0238"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-linux.zip"
+
+[tools.ninja."platforms.macos-arm64"]
+checksum = "sha256:da7797794153629aca5570ef7c813342d0be214ba84632af886856e8f0063dd9"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-mac.zip"
+
+[tools.ninja."platforms.macos-x64"]
+checksum = "sha256:da7797794153629aca5570ef7c813342d0be214ba84632af886856e8f0063dd9"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-mac.zip"
+
+[tools.ninja."platforms.windows-x64"]
+checksum = "sha256:26a40fa8595694dec2fad4911e62d29e10525d2133c9a4230b66397774ae25bf"
+url = "https://github.com/ninja-build/ninja/releases/download/v1.13.1/ninja-win.zip"
 
 [[tools.node]]
 version = "24.11.0"
 backend = "core:node"
 
+[tools.node."platforms.linux-arm64"]
+checksum = "sha256:4786d00c4d259d3ff0b2328307f764ef3ced65f2d6e9502d433e68d66238509d"
+url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-linux-arm64.tar.gz"
+
+[tools.node."platforms.linux-arm64-musl"]
+checksum = "sha256:4786d00c4d259d3ff0b2328307f764ef3ced65f2d6e9502d433e68d66238509d"
+url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-linux-arm64.tar.gz"
+
 [tools.node."platforms.linux-x64"]
 checksum = "sha256:b3c071cdf47aab867c3b2aa287257df12ec5d7c962bf922b32fd33226c4295fd"
 url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-linux-x64.tar.gz"
 
-[[tools."npm:ktfmt"]]
-version = "0.59.0"
-backend = "npm:ktfmt"
+[tools.node."platforms.linux-x64-musl"]
+checksum = "sha256:b3c071cdf47aab867c3b2aa287257df12ec5d7c962bf922b32fd33226c4295fd"
+url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-linux-x64.tar.gz"
+
+[tools.node."platforms.macos-arm64"]
+checksum = "sha256:0be2ab2816a4fa02d1acff014a434f29f56d8d956f5af6a98b70ced6c5f4d201"
+url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-darwin-arm64.tar.gz"
+
+[tools.node."platforms.macos-x64"]
+checksum = "sha256:3884671e87f46f773832d98a0a6cabcc5ec4f637084f0f3515b69e66ea27f2f1"
+url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-darwin-x64.tar.gz"
+
+[tools.node."platforms.windows-x64"]
+checksum = "sha256:1054540bce22b54ec7e50ebc078ec5d090700a77657607a58f6a64df21f49fdd"
+url = "https://nodejs.org/dist/v24.11.0/node-v24.11.0-win-x64.zip"
 
 [[tools.pipx]]
 version = "1.8.0"
 backend = "aqua:pypa/pipx"
 
+[tools.pipx."platforms.linux-arm64"]
+checksum = "sha256:b9eabd835dffe0677e36bd99416fc9837c592bd8c079235379bed3dfe043c601"
+url = "https://github.com/pypa/pipx/releases/download/1.8.0/pipx.pyz"
+
+[tools.pipx."platforms.linux-arm64-musl"]
+checksum = "sha256:b9eabd835dffe0677e36bd99416fc9837c592bd8c079235379bed3dfe043c601"
+url = "https://github.com/pypa/pipx/releases/download/1.8.0/pipx.pyz"
+
 [tools.pipx."platforms.linux-x64"]
+checksum = "sha256:b9eabd835dffe0677e36bd99416fc9837c592bd8c079235379bed3dfe043c601"
+url = "https://github.com/pypa/pipx/releases/download/1.8.0/pipx.pyz"
+
+[tools.pipx."platforms.linux-x64-musl"]
+checksum = "sha256:b9eabd835dffe0677e36bd99416fc9837c592bd8c079235379bed3dfe043c601"
+url = "https://github.com/pypa/pipx/releases/download/1.8.0/pipx.pyz"
+
+[tools.pipx."platforms.macos-arm64"]
+checksum = "sha256:b9eabd835dffe0677e36bd99416fc9837c592bd8c079235379bed3dfe043c601"
+url = "https://github.com/pypa/pipx/releases/download/1.8.0/pipx.pyz"
+
+[tools.pipx."platforms.macos-x64"]
 checksum = "sha256:b9eabd835dffe0677e36bd99416fc9837c592bd8c079235379bed3dfe043c601"
 url = "https://github.com/pypa/pipx/releases/download/1.8.0/pipx.pyz"
 
@@ -69,36 +293,75 @@ version = "21.1.5"
 backend = "pipx:clang-format"
 
 [[tools.pkl]]
-version = "0.30.0"
+version = "0.30.2"
 backend = "aqua:apple/pkl"
 
+[tools.pkl."platforms.linux-arm64"]
+checksum = "sha256:8da3ae65104eb7058e35dc4a9fe46bd8ece2b6faf4b65d0b1054cadb2ede0246"
+url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-linux-aarch64"
+
+[tools.pkl."platforms.linux-arm64-musl"]
+checksum = "sha256:8da3ae65104eb7058e35dc4a9fe46bd8ece2b6faf4b65d0b1054cadb2ede0246"
+url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-linux-aarch64"
+
 [tools.pkl."platforms.linux-x64"]
-checksum = "sha256:182a50a2c84bb002010ea45c8982c1e63b54e7e6a40e939bb5eb70beaad38cd7"
-url = "https://github.com/apple/pkl/releases/download/0.30.0/pkl-linux-amd64"
+checksum = "sha256:474e5137d60a9e2320fde19a526f42c36d8e9d3b245139d59a9b8dff85283c76"
+url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-linux-amd64"
 
-[[tools.pre-commit]]
-version = "4.3.0"
-backend = "aqua:pre-commit/pre-commit"
+[tools.pkl."platforms.linux-x64-musl"]
+checksum = "sha256:474e5137d60a9e2320fde19a526f42c36d8e9d3b245139d59a9b8dff85283c76"
+url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-linux-amd64"
 
-[tools.pre-commit."platforms.linux-x64"]
-checksum = "sha256:f1d50b97e9ca9167aceb76c14e90b07cde8b6789bc199d5005cfd817a718878c"
-url = "https://github.com/pre-commit/pre-commit/releases/download/v4.3.0/pre-commit-4.3.0.pyz"
+[tools.pkl."platforms.macos-arm64"]
+checksum = "sha256:f1db44c0f6f859aee88c9d7d272f2371ae40ac95ec9957ae78eff51665158e04"
+url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-macos-aarch64"
 
-[[tools.prettier]]
-version = "3.6.2"
-backend = "npm:prettier"
+[tools.pkl."platforms.macos-x64"]
+checksum = "sha256:5f62ae7a7a34c15b3a83af17bda8e6b98516953f383a492340d4aa090caaa6d9"
+url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-macos-amd64"
+
+[tools.pkl."platforms.windows-x64"]
+checksum = "sha256:19e92aa59bcf4e54963b6e3b419af7e1b939f5793b44f4a08d60bab1217106f4"
+url = "https://github.com/apple/pkl/releases/download/0.30.2/pkl-windows-amd64.exe"
 
 [[tools.python]]
 version = "3.14.0"
 backend = "core:python"
 
-[[tools.shellcheck]]
-version = "0.11.0"
-backend = "aqua:koalaman/shellcheck"
+[tools.python."platforms.linux-arm64"]
+checksum = "sha256:7603b1905e5d280191b2146599474fe35da0833c81a09512c28b9b77e651812d"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20251120/cpython-3.14.0+20251120-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
+provenance = "github-attestations"
 
-[tools.shellcheck."platforms.macos-arm64"]
-checksum = "sha256:56affdd8de5527894dca6dc3d7e0a99a873b0f004d7aabc30ae407d3f48b0a79"
-url = "https://github.com/koalaman/shellcheck/releases/download/v0.11.0/shellcheck-v0.11.0.darwin.aarch64.tar.xz"
+[tools.python."platforms.linux-arm64-musl"]
+checksum = "sha256:7603b1905e5d280191b2146599474fe35da0833c81a09512c28b9b77e651812d"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20251120/cpython-3.14.0+20251120-aarch64-unknown-linux-gnu-install_only_stripped.tar.gz"
+provenance = "github-attestations"
+
+[tools.python."platforms.linux-x64"]
+checksum = "sha256:66f385305ae0eefd6b65e2cf942bc91d943a61e26fb7581e029f760a2b04f393"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20251120/cpython-3.14.0+20251120-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+provenance = "github-attestations"
+
+[tools.python."platforms.linux-x64-musl"]
+checksum = "sha256:66f385305ae0eefd6b65e2cf942bc91d943a61e26fb7581e029f760a2b04f393"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20251120/cpython-3.14.0+20251120-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+provenance = "github-attestations"
+
+[tools.python."platforms.macos-arm64"]
+checksum = "sha256:5995f024e9c95ccbc87b9bb97152ad1ec9efcf9d76e0574cd37dd946afbea3c6"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20251120/cpython-3.14.0+20251120-aarch64-apple-darwin-install_only_stripped.tar.gz"
+provenance = "github-attestations"
+
+[tools.python."platforms.macos-x64"]
+checksum = "sha256:eb0a5915f58c3dcb64d587e951f8942e6c9c6af63fab8bbb5596d1ce5738c2a4"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20251120/cpython-3.14.0+20251120-x86_64-apple-darwin-install_only_stripped.tar.gz"
+provenance = "github-attestations"
+
+[tools.python."platforms.windows-x64"]
+checksum = "sha256:42a45020cff6a33e0d4f38f63d68c81240f0efa765e1e5a23693fb4c4a9f5e9a"
+url = "https://github.com/astral-sh/python-build-standalone/releases/download/20251120/cpython-3.14.0+20251120-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+provenance = "github-attestations"
 
 [[tools.swift]]
 version = "6.2.1"
@@ -107,10 +370,14 @@ backend = "core:swift"
 [tools.swift."platforms.linux-x64"]
 checksum = "blake3:49343e42f3988ca8a3f3da18b727b30c1612674d82f6ca1f713e7e20216bcf0d"
 
-[[tools."vfox:cmake"]]
-version = "4.1.2"
-backend = "vfox:cmake"
-
 [[tools.xcodes]]
 version = "1.6.2"
 backend = "aqua:XcodesOrg/xcodes"
+
+[tools.xcodes."platforms.macos-arm64"]
+checksum = "sha256:32819bc113e7c9bd8f80be7763d91238b199d589c777a0e88652d7fb9d30e707"
+url = "https://github.com/XcodesOrg/xcodes/releases/download/1.6.2/xcodes.zip"
+
+[tools.xcodes."platforms.macos-x64"]
+checksum = "sha256:32819bc113e7c9bd8f80be7763d91238b199d589c777a0e88652d7fb9d30e707"
+url = "https://github.com/XcodesOrg/xcodes/releases/download/1.6.2/xcodes.zip"

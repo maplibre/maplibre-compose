@@ -76,5 +76,4 @@ from propagating to subsequent listeners.
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/
 [spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/
-[android-sync-update]:
-  https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/with-synchronous-update.html
+[android-sync-update]: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/with-synchronous-update.html

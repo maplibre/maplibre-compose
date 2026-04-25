@@ -43,9 +43,7 @@ style with [Compose Multiplatform resources][resources]:
 ```
 
 [maputnik]: https://maputnik.github.io/
-[awesome-maplibre]:
-  https://github.com/maplibre/awesome-maplibre#maptile-providers
+[awesome-maplibre]: https://github.com/maplibre/awesome-maplibre#maptile-providers
 [openfreemap]: https://openfreemap.org/
 [protomaps]: https://protomaps.com/
-[resources]:
-  https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-resources.html
+[resources]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-resources.html

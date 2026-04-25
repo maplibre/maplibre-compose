@@ -1,29 +1,27 @@
-[tools]
-hk = "latest"
-java = "21"
-ninja = "latest"
-node = "lts"
-"npm:ktfmt" = "latest"
-pipx = "latest"
-"pipx:clang-format" = "latest"
-pre-commit = "latest"
-prettier = "latest"
-python = "latest"
-"vfox:cmake" = "latest"
-xcodes = { version = "latest", os = ["macos"] }
-swift = { version = "latest", os = ["linux", "windows", "other"] }
-pkl = "latest"
-actionlint = "latest"
-shellcheck = "latest"
-bazel = "latest"
-
 [settings]
-lockfile = true
 experimental = true
+lockfile = true
+
+[tools]
+java = "21.0.2"
+dprint = "0.53.2"
+hk = "1.40.0"
+pkl = "0.30.2"
+"aqua:facebook/ktfmt" = "0.62"
+"pipx:clang-format" = "21.1.5"
+cmake = "4.1.2"
+ninja = "1.13.1"
+node = "24.11.0"
+python = "3.14.0"
+pipx = "1.8.0"
+actionlint = "1.7.8"
+bazel = "7.7.0"
+xcodes = { version = "1.6.2", os = ["macos"] }
+swift = { version = "6.2.1", os = ["linux", "windows", "other"] }
 
 [hooks]
 postinstall = [
-  "hk install",
+  "hk install --mise",
   # Install and select XCode from .xcode-version
   "if command -v xcodes; then xcodes install && xcodes select; fi",
 ]
@@ -33,5 +31,20 @@ description = "Run hk checks."
 run = "hk check --all"
 
 [tasks.fix]
-description = "Run hk fixes."
+description = "Auto-fix formatting issues."
 run = "hk fix --all"
+
+[tasks._ktfmt]
+description = "Called by dprint.json"
+hide = true
+run = 'java -jar {{ tools["aqua:facebook/ktfmt"].path }}/ktfmt'
+
+[tasks._clangformat]
+description = "Called by dprint.json"
+hide = true
+run = "clang-format"
+
+[tasks._swiftformat]
+description = "Called by dprint.json"
+hide = true
+run = "swift format format"
