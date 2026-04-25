@@ -20,7 +20,6 @@ import java.util.concurrent.Executors
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.channels.trySendBlocking
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
@@ -57,7 +56,7 @@ constructor(
           val callback =
             object : LocationCallback() {
               override fun onLocationResult(result: LocationResult) {
-                result.locations.forEach { trySendBlocking(it.asMapLibreLocation()).getOrThrow() }
+                result.locations.forEach { trySend(it.asMapLibreLocation()) }
               }
 
               override fun onLocationAvailability(availability: LocationAvailability) {}

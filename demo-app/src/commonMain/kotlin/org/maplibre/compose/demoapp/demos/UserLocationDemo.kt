@@ -1,6 +1,11 @@
 package org.maplibre.compose.demoapp.demos
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
+import androidx.compose.material3.Card
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -10,6 +15,8 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -23,13 +30,17 @@ import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.material3.LocationPuckDefaults
+import org.maplibre.spatialk.units.Bearing
+import org.maplibre.spatialk.units.extensions.degrees
+import org.maplibre.spatialk.units.extensions.inDegrees
+import org.maplibre.spatialk.units.extensions.inMeters
 
 object UserLocationDemo : Demo {
   override val name = "User Location"
 
   private var locationClickedCount by mutableIntStateOf(0)
   private var trackLocation by mutableStateOf(false)
-  private var bearingUpdate by mutableStateOf(BearingUpdate.TRACK_LOCATION)
+  private var bearingUpdate by mutableStateOf(BearingUpdate.TRACK_AUTOMATIC)
 
   private var lockCamera by mutableStateOf(true)
 
@@ -40,7 +51,7 @@ object UserLocationDemo : Demo {
     LocationTrackingEffect(
       locationState = state.locationState,
       enabled = trackLocation,
-      trackBearing = bearingUpdate == BearingUpdate.TRACK_LOCATION,
+      trackBearing = bearingUpdate == BearingUpdate.TRACK_AUTOMATIC,
     ) {
       state.cameraState.updateFromLocation(updateBearing = bearingUpdate)
     }
@@ -57,7 +68,9 @@ object UserLocationDemo : Demo {
             when (bearingUpdate) {
               BearingUpdate.IGNORE -> GestureOptions.PositionLocked
               BearingUpdate.ALWAYS_NORTH -> GestureOptions.ZoomOnly
-              BearingUpdate.TRACK_LOCATION -> GestureOptions.ZoomOnly
+              BearingUpdate.TRACK_AUTOMATIC -> GestureOptions.ZoomOnly
+              BearingUpdate.TRACK_ORIENTATION -> GestureOptions.ZoomOnly
+              BearingUpdate.TRACK_COURSE -> GestureOptions.ZoomOnly
             }
           } else {
             GestureOptions.Standard
@@ -74,18 +87,34 @@ object UserLocationDemo : Demo {
 
     LocationPuck(
       idPrefix = "user-location",
-      locationState = state.locationState,
+      location = state.locationState.location,
+      bearing =
+        when (bearingUpdate) {
+          BearingUpdate.TRACK_AUTOMATIC -> {
+            val courseAccuracy = state.locationState.location?.course?.accuracy ?: 180.degrees
+            val orientationAccuracy =
+              state.locationState.orientation?.orientation?.accuracy ?: 180.degrees
+            if (courseAccuracy < orientationAccuracy) {
+              state.locationState.location?.course
+            } else {
+              state.locationState.orientation?.orientation
+            }
+          }
+          BearingUpdate.TRACK_COURSE -> state.locationState.location?.course
+          BearingUpdate.TRACK_ORIENTATION -> state.locationState.orientation?.orientation
+          else -> null
+        },
       cameraState = state.cameraState,
       accuracyThreshold = 0f,
-      showBearing = bearingUpdate != BearingUpdate.IGNORE,
-      showBearingAccuracy = bearingUpdate != BearingUpdate.IGNORE,
       colors = LocationPuckDefaults.colors(),
       onClick = { location ->
         locationClickedCount++
         if (trackLocation) {
           bearingUpdate =
             when (bearingUpdate) {
-              BearingUpdate.TRACK_LOCATION -> BearingUpdate.ALWAYS_NORTH
+              BearingUpdate.TRACK_AUTOMATIC -> BearingUpdate.TRACK_COURSE
+              BearingUpdate.TRACK_COURSE -> BearingUpdate.TRACK_ORIENTATION
+              BearingUpdate.TRACK_ORIENTATION -> BearingUpdate.ALWAYS_NORTH
               BearingUpdate.ALWAYS_NORTH -> BearingUpdate.IGNORE
               BearingUpdate.IGNORE -> {
                 trackLocation = false
@@ -93,14 +122,15 @@ object UserLocationDemo : Demo {
               }
             }
         } else {
-          bearingUpdate = BearingUpdate.TRACK_LOCATION
+          bearingUpdate = BearingUpdate.TRACK_AUTOMATIC
           trackLocation = true
 
           if (state.cameraState.position.zoom < 16) {
             state.cameraState.position =
               CameraPosition(
                 target =
-                  state.locationState.location?.position ?: state.cameraState.position.target,
+                  state.locationState.location?.position?.value
+                    ?: state.cameraState.position.target,
                 zoom = 16.0,
               )
           }
@@ -126,7 +156,9 @@ object UserLocationDemo : Demo {
                 when (bearingUpdate) {
                   BearingUpdate.IGNORE -> "ignoring bearing"
                   BearingUpdate.ALWAYS_NORTH -> "locked to north bearing"
-                  BearingUpdate.TRACK_LOCATION -> "bearing"
+                  BearingUpdate.TRACK_COURSE -> "course"
+                  BearingUpdate.TRACK_ORIENTATION -> "orientation"
+                  BearingUpdate.TRACK_AUTOMATIC -> "automatic"
                 }
               )
             } else {
@@ -151,6 +183,29 @@ object UserLocationDemo : Demo {
               "Cancel tracking when camera is moved"
             }
           )
+        }
+      }
+
+      state.locationState.let { state ->
+        Card {
+          Column(
+            modifier = Modifier.padding(8.dp).fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+          ) {
+            Text(
+              "Position: ${state.location?.position?.value} +- ${state.location?.position?.accuracy?.inMeters?.roundToInt()}m"
+            )
+            Text(
+              "Course: ${state.location?.course?.value?.smallestRotationTo(Bearing.North)?.inDegrees?.roundToInt()} +- ${state.location?.course?.accuracy?.inDegrees?.roundToInt()}"
+            )
+            Text(
+              "Orientation: ${
+                state.orientation?.orientation?.value?.smallestRotationTo(
+                  Bearing.North
+                )?.inDegrees?.roundToInt()
+              } +- ${state.orientation?.orientation?.accuracy?.inDegrees?.roundToInt()}"
+            )
+          }
         }
       }
     }

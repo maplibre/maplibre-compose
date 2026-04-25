@@ -1,13 +1,14 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import org.maplibre.compose.location.DesiredAccuracy.Balanced
 import org.maplibre.compose.location.DesiredAccuracy.High
+import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.extensions.meters
 
 /**
  * This is an intentionally very limited abstraction over the various platform APIs for geolocation.
@@ -74,7 +75,7 @@ public enum class DesiredAccuracy {
   Lowest,
 }
 
-public class NullLocationProvider : LocationProvider {
+public object NullLocationProvider : LocationProvider {
   public override val location: StateFlow<Location?> = MutableStateFlow(null)
 }
 
@@ -83,15 +84,15 @@ public class PermissionException : Exception()
 /**
  * Create and remember a [LocationProvider] using the default implementation for the platform.
  *
- * The configuration parameters [updateInterval], [desiredAccuracy] and [minDistanceMeters] may
- * **all** be ignored, if the platform doesn't support them
+ * The configuration parameters [updateInterval], [desiredAccuracy] and [minDistance] may **all** be
+ * ignored, if the platform doesn't support them
  *
  * **NOTE:** There are also platform-specific `remember*LocationProvider` functions you may want to
  * use, if you need more control over the configuration.
  *
  * @param updateInterval the desired interval for updates
  * @param desiredAccuracy the [DesiredAccuracy] for location updates
- * @param minDistanceMeters the minimum distance between locations to trigger an update
+ * @param minDistance the minimum distance between locations to trigger an update
  * @throws NotImplementedError if [LocationProvider] no default [LocationProvider] is provided for
  *   the platform
  * @throws PermissionException if the necessary platform permissions have not been granted, use
@@ -101,8 +102,8 @@ public class PermissionException : Exception()
 @Composable
 public expect fun rememberDefaultLocationProvider(
   updateInterval: Duration = 1.seconds,
-  desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
-  minDistanceMeters: Double = 1.0,
+  desiredAccuracy: DesiredAccuracy = High,
+  minDistance: Length = 1.meters,
 ): LocationProvider
 
 /**
@@ -114,5 +115,5 @@ public expect fun rememberDefaultLocationProvider(
  */
 @Composable
 public fun rememberNullLocationProvider(): LocationProvider {
-  return remember { NullLocationProvider() }
+  return NullLocationProvider
 }

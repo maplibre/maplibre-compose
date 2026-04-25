@@ -65,7 +65,7 @@ markdown_extensions:
       permalink: true
   - tables
 
-    # Python Markdown Extensions
+  # Python Markdown Extensions
   - pymdownx.arithmatex:
       generic: true
   - pymdownx.betterem:
@@ -96,5 +96,6 @@ nav:
   - styling.md
   - interaction.md
   - layers.md
+  - location.md
   - material3.md
   - roadmap.md
