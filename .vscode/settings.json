@@ -1,45 +1,6 @@
 {
-  "[c]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[cpp]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[objective-c]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[objective-cpp]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[gradle-kotlin-dsl]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[kotlin]": {
-    "editor.defaultFormatter": "jkillian.custom-local-formatters"
-  },
-  "[markdown]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[swift]": {
-    "editor.defaultFormatter": "sswg.swift-lang"
-  },
-  "[yaml]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "customLocalFormatters.formatters": [
-    {
-      "command": "ktfmt --google-style -",
-      "languages": ["kotlin", "gradle-kotlin-dsl"]
-    },
-    {
-      "command": "clang-format --assume-filename=${file}",
-      "languages": ["c", "cpp", "objective-c", "objective-cpp"]
-    }
-  ],
   "editor.formatOnSave": true,
+  "editor.defaultFormatter": "dprint.dprint",
   "java.autobuild.enabled": false,
   "java.configuration.updateBuildConfiguration": "disabled",
   "java.import.gradle.enabled": false,

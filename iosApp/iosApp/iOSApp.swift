@@ -3,21 +3,22 @@ import SwiftUI
 import UIKit
 
 struct MainView: UIViewControllerRepresentable {
-  func makeUIViewController(context: Context) -> UIViewController {
-    MainViewControllerKt.MainViewController()
-  }
+    func makeUIViewController(context _: Context) -> UIViewController {
+        MainViewControllerKt.MainViewController()
+    }
 
-  func updateUIViewController(
-    _ uiViewController: UIViewController, context: Context
-  ) {}
+    func updateUIViewController(
+        _: UIViewController, context _: Context
+    ) {}
 }
+
 @main
 struct iOSApp: App {
-  var body: some Scene {
-    WindowGroup {
-      MainView()
-        .ignoresSafeArea(.keyboard)  // Compose has own keyboard handler
-        .ignoresSafeArea(edges: .all)
+    var body: some Scene {
+        WindowGroup {
+            MainView()
+                .ignoresSafeArea(.keyboard) // Compose has own keyboard handler
+                .ignoresSafeArea(edges: .all)
+        }
     }
-  }
 }

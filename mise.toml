@@ -1,31 +1,26 @@
-[tools]
-hk = "latest"
-java = "21"
-ninja = "latest"
-node = "lts"
-"npm:ktfmt" = "latest"
-pipx = "latest"
-"pipx:clang-format" = "latest"
-pre-commit = "latest"
-prettier = "latest"
-python = "latest"
-"vfox:cmake" = "latest"
-xcodes = { version = "latest", os = ["macos"] }
-swift = { version = "latest", os = ["linux", "windows", "other"] }
-pkl = "latest"
-actionlint = "latest"
-shellcheck = "latest"
-bazel = "latest"
-
 [settings]
-lockfile = true
 experimental = true
+pin = true
+
+[tools]
+java = "21.0.2"
+dprint = "0.53.2"
+hk = "1.40.0"
+pkl = "0.30.2"
+"aqua:facebook/ktfmt" = "0.62"
+"conda:clang-format" = "21.1.8"
+cmake = "4.1.2"
+ninja = "1.13.1"
+node = "24.11.0"
+actionlint = "1.7.8"
+bazel = "7.7.0"
+xcodes = { version = "1.6.2", os = ["macos"] }
+swiftformat = "0.61.0"
 
 [hooks]
 postinstall = [
-  "hk install",
-  # Install and select XCode from .xcode-version
-  "if command -v xcodes; then xcodes install && xcodes select; fi",
+  "hk install --mise",
+  "mise run _xcodes-select",
 ]
 
 [tasks.check]
@@ -33,5 +28,46 @@ description = "Run hk checks."
 run = "hk check --all"
 
 [tasks.fix]
-description = "Run hk fixes."
+description = "Auto-fix formatting issues."
 run = "hk fix --all"
+
+[tasks._ktfmt]
+description = "Called by dprint.json"
+hide = true
+run = 'java -jar {{ tools["aqua:facebook/ktfmt"].path }}/ktfmt'
+
+[tasks._xcodes-select]
+description = "Called in postinstall"
+hide = true
+run = "if command -v xcodes >/dev/null 2>&1; then xcodes install && xcodes select; fi"
+run_windows = "exit /b 0"
+
+[tasks."clean:vcpkg"]
+description = "Reset the vcpkg submodule to a clean state"
+run = "echo vcpkg is only used on windows; skipping"
+run_windows = "cd lib\\maplibre-native-bindings-jni\\vendor\\maplibre-native\\platform\\windows\\vendor\\vcpkg && git reset --hard && git clean -fdx"
+
+[tasks."run:js"]
+description = "Run the web demo"
+run = "./gradlew :demo-app:jsBrowserDevelopmentRun"
+run_windows = "gradlew.bat :demo-app:jsBrowserDevelopmentRun"
+
+[tasks."run:desktop"]
+description = "Run the desktop demo"
+run = "./gradlew :demo-app:run"
+run_windows = "gradlew.bat :demo-app:run"
+
+[tasks."run:desktop-metal"]
+description = "Run the desktop demo with Metal renderer"
+run = "./gradlew :demo-app:run -PdesktopRenderer=metal"
+run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=metal"
+
+[tasks."run:desktop-vulkan"]
+description = "Run the desktop demo with Vulkan renderer"
+run = "./gradlew :demo-app:run -PdesktopRenderer=vulkan"
+run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=vulkan"
+
+[tasks."run:desktop-opengl"]
+description = "Run the desktop demo with OpenGL renderer"
+run = "./gradlew :demo-app:run -PdesktopRenderer=opengl"
+run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=opengl"

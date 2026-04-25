@@ -1,8 +1,8 @@
 # Getting started
 
 This documentation assumes you already have a Compose Multiplatform project set
-up. If you haven't already, follow [the official JetBrains
-documentation][compose-guide] to set up a project.
+up. If you haven't already, follow
+[the official JetBrains documentation][compose-guide] to set up a project.
 
 ## Add the library to your app
 
@@ -231,13 +231,10 @@ When you run your app, you should see the default [demotiles] map. To learn how
 to get a detailed map with all the features you'd expect, proceed to
 [Styling](./styling.md).
 
-[compose-guide]:
-  https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
+[compose-guide]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
 [maven]: https://central.sonatype.com/namespace/org.maplibre.compose
-[gh-packages]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
-[gh-packages-guide]:
-  https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
+[gh-packages]: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
+[gh-packages-guide]: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
 [gradle-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
 [gradle-spm4kmp]: https://frankois944.github.io/spm4Kmp/
 [cocoapods-support]: https://blog.cocoapods.org/CocoaPods-Support-Plans/

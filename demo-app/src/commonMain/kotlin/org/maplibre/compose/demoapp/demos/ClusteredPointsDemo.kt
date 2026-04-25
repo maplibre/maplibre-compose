@@ -185,28 +185,27 @@ object ClusteredPointsDemo : Demo {
         .bodyAsText()
     val body = Json.parseToJsonElement(bodyString).jsonObject
     val bikes = body["data"]!!.jsonObject["bikes"]!!.jsonArray.map { it.jsonObject }
-    val features =
-      bikes.map { bike ->
-        Feature(
-          id = bike["bike_id"]!!.jsonPrimitive,
-          geometry =
-            Point(
-              Position(
-                longitude = bike["lon"]!!.jsonPrimitive.double,
-                latitude = bike["lat"]!!.jsonPrimitive.double,
-              )
-            ),
-          properties =
-            mapOf(
-              "vehicle_type" to (bike["vehicle_type"] ?: JsonNull),
-              "vehicle_type_id" to (bike["vehicle_type_id"] ?: JsonNull),
-              "last_reported" to (bike["last_reported"] ?: JsonNull),
-              "current_range_meters" to (bike["current_range_meters"] ?: JsonPrimitive(0)),
-              "is_reserved" to (bike["is_reserved"] ?: JsonNull),
-              "is_disabled" to (bike["is_disabled"] ?: JsonNull),
-            ),
-        )
-      }
+    val features = bikes.map { bike ->
+      Feature(
+        id = bike["bike_id"]!!.jsonPrimitive,
+        geometry =
+          Point(
+            Position(
+              longitude = bike["lon"]!!.jsonPrimitive.double,
+              latitude = bike["lat"]!!.jsonPrimitive.double,
+            )
+          ),
+        properties =
+          mapOf(
+            "vehicle_type" to (bike["vehicle_type"] ?: JsonNull),
+            "vehicle_type_id" to (bike["vehicle_type_id"] ?: JsonNull),
+            "last_reported" to (bike["last_reported"] ?: JsonNull),
+            "current_range_meters" to (bike["current_range_meters"] ?: JsonPrimitive(0)),
+            "is_reserved" to (bike["is_reserved"] ?: JsonNull),
+            "is_disabled" to (bike["is_disabled"] ?: JsonNull),
+          ),
+      )
+    }
     return FeatureCollection(features).toJson()
   }
 }

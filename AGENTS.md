@@ -1,7 +1,9 @@
-# AGENTS.md
+## AI Policy
 
 All contributions must comply with the
 [MapLibre AI policy](https://raw.githubusercontent.com/maplibre/maplibre/refs/heads/main/AI_POLICY.md).
+In summary: disclose AI usage, and issues and PR descriptions must be written by
+the human.
 
 ## Searching vendored MapLibre Native codebase
 
