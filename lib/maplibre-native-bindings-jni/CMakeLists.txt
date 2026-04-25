@@ -4,6 +4,10 @@ include(cmake/vars.cmake)
 
 project(maplibre-jni)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_compile_definitions(NDEBUG)
+endif()
+
 include(cmake/target.cmake)
 
 include(cmake/dependencies/platform.cmake)
