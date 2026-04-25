@@ -1,6 +1,6 @@
 [settings]
 experimental = true
-lockfile = true
+pin = true
 
 [tools]
 java = "21.0.2"
@@ -17,7 +17,7 @@ pipx = "1.8.0"
 actionlint = "1.7.8"
 bazel = "7.7.0"
 xcodes = { version = "1.6.2", os = ["macos"] }
-swift = { version = "6.2.1", os = ["linux", "windows", "other"] }
+swiftformat = "0.61.0"
 
 [hooks]
 postinstall = [

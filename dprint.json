@@ -26,7 +26,7 @@
         "exts": ["c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx", "m", "mm"]
       },
       {
-        "command": "swift format format --assume-filename {{file_path}} -",
+        "command": "swiftformat --stdin-path {{file_path}} stdin",
         "exts": ["swift"]
       }
     ]
