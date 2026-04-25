@@ -20,8 +20,7 @@ swiftformat = "0.61.0"
 [hooks]
 postinstall = [
   "hk install --mise",
-  # Install and select XCode from .xcode-version
-  "if command -v xcodes; then xcodes install && xcodes select; fi",
+  "mise run _xcodes-select",
 ]
 
 [tasks.check]
@@ -36,3 +35,9 @@ run = "hk fix --all"
 description = "Called by dprint.json"
 hide = true
 run = 'java -jar {{ tools["aqua:facebook/ktfmt"].path }}/ktfmt'
+
+[tasks._xcodes-select]
+description = "Called in postinstall"
+hide = true
+run = "if command -v xcodes >/dev/null 2>&1; then xcodes install && xcodes select; fi"
+run_windows = "exit /b 0"
