@@ -10,8 +10,7 @@ Example PR disclosure format:
 ```markdown
 ## AI Disclosure
 
-AI assistance was used to help with implementation and verification. The PR
-description was written by the human author.
+Created with [AGENT].
 ```
 
 ## Searching vendored MapLibre Native codebase
