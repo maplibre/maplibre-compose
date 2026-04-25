@@ -5,6 +5,14 @@ All contributions must comply with the
 In summary: disclose AI usage, and issues and PR descriptions must be written by
 the human.
 
+Example PR disclosure format:
+
+```markdown
+_Created using [AGENT]_
+```
+
+Where `[AGENT]` is like "OpenCode with GPT-5.5" or "Claude Code with Opus 4.7".
+
 ## Searching vendored MapLibre Native codebase
 
 When searching the vendored maplibre-native codebase:

@@ -102,22 +102,13 @@ You'll need to have your developer environment set up to build MapLibre Native.
   - If building the Vulkan backend, set the `VULKAN_SDK` environment variable to
     the MoltenVK prefix (`export VULKAN_SDK="$(brew --prefix molten-vk)"`).
 - [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)
-  - On Fedora, install the following:
+  - On a Linux system with Nix, enter the Nix development shell before building:
     ```bash
-    sudo dnf group install c-development development-tools
-    sudo dnf install cmake ninja-build clang \
-      libcurl-devel libjpeg-turbo-devel libpng-devel libwebp-devel \
-      libX11-devel mesa-libGL-devel libuv-devel bzip2-devel libicu-devel \
-      vulkan-loader-devel
+    nix develop
     ```
-  - On Ubuntu, install the following:
-    ```bash
-    sudo apt update
-    sudo apt install build-essential cmake ninja-build clang \
-      libcurl4-openssl-dev libjpeg-turbo8-dev libpng-dev libwebp-dev \
-      libx11-dev libgl1-mesa-dev libuv1-dev libbz2-dev libicu-dev \
-      libvulkan-dev
-    ```
+    This provides the Linux native compiler and system libraries required to
+    build MapLibre Native. If you prefer not to use Nix, follow or adapt the
+    Ubuntu instructions in the page linked above.
 - [Windows requirements (MSVS2022)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html#prerequisites)
   - When cloning the repo, pass `--config core.longpaths=true` to Git to avoid
     issues with long file paths.
