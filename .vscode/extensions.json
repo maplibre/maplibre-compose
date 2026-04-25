@@ -1,12 +1,11 @@
 {
   "recommendations": [
-    "jkillian.custom-local-formatters",
-    "llvm-vs-code-extensions.vscode-clangd",
-    "sswg.swift-lang",
-    "esbenp.prettier-vscode",
+    "dprint.dprint",
+    "hverlin.mise-vscode",
     "fwcd.kotlin",
     "redhat.java",
-    "edwinhuish.better-comments-next",
-    "hverlin.mise-vscode"
+    "sswg.swift-lang",
+    "llvm-vs-code-extensions.vscode-clangd",
+    "edwinhuish.better-comments-next"
   ]
 }
