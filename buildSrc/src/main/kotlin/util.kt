@@ -62,11 +62,11 @@ enum class DesktopVariant(
   MacosAarch64Vulkan("macos", "aarch64", "vulkan"),
   LinuxAmd64Opengl("linux", "amd64", "opengl", true),
   LinuxAarch64Opengl("linux", "aarch64", "opengl"),
-  LinuxAmd64Vulkan("linux", "amd64", "vulkan"),
+  LinuxAmd64Vulkan("linux", "amd64", "vulkan", true),
   LinuxAarch64Vulkan("linux", "aarch64", "vulkan"),
   WindowsAmd64Opengl("windows", "amd64", "opengl", true),
   WindowsAarch64Opengl("windows", "aarch64", "opengl"),
-  WindowsAmd64Vulkan("windows", "amd64", "vulkan"),
+  WindowsAmd64Vulkan("windows", "amd64", "vulkan", true),
   WindowsAarch64Vulkan("windows", "aarch64", "vulkan");
 
   companion object {
