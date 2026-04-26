@@ -22,7 +22,7 @@ gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.36.0"
 gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "1.0.4"
-gradle-ksp = "2.3.7"
+gradle-ksp = "2.3.3"
 simplejni = "3.15"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.

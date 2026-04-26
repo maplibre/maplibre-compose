@@ -214,13 +214,12 @@ auto JNICALL MapLibreMap_class::cameraForLatLngBounds(
       std::optional<double> cppBearing = std::nullopt;
       if (bearing != nullptr) {
         cppBearing =
-          java_classes::get<JavaDouble_class>().doubleValue(env, bearing);
+          java_classes::get<Double_class>().doubleValue(env, bearing);
       }
 
       std::optional<double> cppPitch = std::nullopt;
       if (pitch != nullptr) {
-        cppPitch =
-          java_classes::get<JavaDouble_class>().doubleValue(env, pitch);
+        cppPitch = java_classes::get<Double_class>().doubleValue(env, pitch);
       }
 
       auto opts = wrapper->map->cameraForLatLngBounds(

@@ -2,8 +2,8 @@
 
 #include <jawt.h>
 #include <jawt_md.h>
+#include <type_mapping.h>
 
-#include "java_classes.hpp"
 #include "utils.hpp"
 
 #if defined(_WIN32)
