@@ -23,7 +23,7 @@ gradle-mavenPublish = "0.36.0"
 gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "1.0.4"
 gradle-ksp = "2.3.7"
-simplejni = "3.14"
+simplejni = "3.15"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used

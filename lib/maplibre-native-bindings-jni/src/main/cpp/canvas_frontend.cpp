@@ -22,9 +22,10 @@ CanvasRenderer::CanvasRenderer(
       canvasRenderer_(smjni::jglobal_ref(canvasFrontend)),
       backend_(
         std::make_unique<CanvasBackend>(
-          env, java_classes::get<CanvasRenderer_class>()
-                 .getCanvas(env, canvasFrontend)
-                 .c_ptr()
+          env,
+          smjni::jstatic_cast<jCanvas>(java_classes::get<CanvasRenderer_class>()
+                                         .getCanvas(env, canvasFrontend)
+                                         .c_ptr())
         )
       ),
       renderer_(std::make_unique<mbgl::Renderer>(*backend_, pixelRatio)) {

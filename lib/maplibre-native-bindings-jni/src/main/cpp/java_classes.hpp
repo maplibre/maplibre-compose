@@ -1,9 +1,11 @@
 #pragma once
 
-#include <all_classes.h>
-
 #include "smjni/java_method.h"
-#include "type_mapping.h"
+
+DEFINE_JAVA_TYPE(jDouble, "java.lang.Double")
+DEFINE_JAVA_TYPE(jCanvas, "java.awt.Canvas")
+
+#include <all_classes.h>
 
 class Double_class : public smjni::java_runtime::simple_java_class<jDouble> {
  public:

@@ -11,7 +11,8 @@
 #include <jawt.h>
 #include <jawt_md.h>
 #include <smjni/java_ref.h>
-#include <type_mapping.h>
+
+#include "java_classes.hpp"
 
 // clang-format off
 #include "fix_x11_pollution.h"
