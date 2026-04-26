@@ -26,6 +26,7 @@ public class MapCanvas(
   private var map: MapLibreMap? = null
 
   override fun paint(g: Graphics) {
+    if (width <= 0 || height <= 0) return
     renderer?.render()
   }
 
@@ -40,6 +41,12 @@ public class MapCanvas(
 
   override fun addNotify() {
     super.addNotify()
+
+    initializeMapIfReady()
+  }
+
+  private fun initializeMapIfReady() {
+    if (map != null || renderer != null || width <= 0 || height <= 0) return
 
     // Initialize a map
     val pixelRatio = this.graphicsConfiguration.defaultTransform.scaleX.toFloat()
@@ -99,6 +106,8 @@ public class MapCanvas(
 
     override fun componentResized(e: ComponentEvent) {
       val canvas = e.component as? MapCanvas ?: return
+      if (canvas.width <= 0 || canvas.height <= 0) return
+      canvas.initializeMapIfReady()
       val pixelRatio = canvas.graphicsConfiguration.defaultTransform.scaleX.toFloat()
       val size = Size(width = canvas.width, height = canvas.height)
       canvas.renderer?.setSize(size * pixelRatio)
