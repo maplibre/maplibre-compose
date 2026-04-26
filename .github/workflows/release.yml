@@ -18,9 +18,17 @@ jobs:
             renderer: opengl
             preset: linux-opengl
             runner: ubuntu-latest # amd64
+          - variant: linux-amd64-vulkan
+            renderer: vulkan
+            preset: linux-vulkan
+            runner: ubuntu-latest # amd64
           - variant: windows-amd64-opengl
             renderer: opengl
             preset: windows-opengl
+            runner: windows-latest # amd64
+          - variant: windows-amd64-vulkan
+            renderer: vulkan
+            preset: windows-vulkan
             runner: windows-latest # amd64
     runs-on: ${{ matrix.runner }}
     name: build-natives (${{ matrix.variant }})
@@ -64,8 +72,16 @@ jobs:
           path: ./lib/maplibre-native-bindings-jni/build/copiedResources/LinuxAmd64Opengl/linux/amd64/opengl/
       - uses: actions/download-artifact@v6
         with:
+          name: natives-linux-amd64-vulkan
+          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/LinuxAmd64Vulkan/linux/amd64/vulkan/
+      - uses: actions/download-artifact@v6
+        with:
           name: natives-windows-amd64-opengl
           path: ./lib/maplibre-native-bindings-jni/build/copiedResources/WindowsAmd64Opengl/windows/amd64/opengl/
+      - uses: actions/download-artifact@v6
+        with:
+          name: natives-windows-amd64-vulkan
+          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/WindowsAmd64Vulkan/windows/amd64/vulkan/
       - run: |
           ./gradlew publishAndReleaseToMavenCentral -PconfigureForPublishing=true --no-configuration-cache
         env:

@@ -72,8 +72,13 @@ class JawtContext {
 
   jint lock() {
     jint lockResult = drawingSurface->Lock(drawingSurface);
-    check(lockResult != JAWT_LOCK_ERROR, "drawingSurface->Lock failed");
+    check((lockResult & JAWT_LOCK_ERROR) == 0, "drawingSurface->Lock failed");
     return lockResult;
+  }
+
+  bool tryLock() {
+    jint lockResult = drawingSurface->Lock(drawingSurface);
+    return (lockResult & JAWT_LOCK_ERROR) == 0;
   }
 
   void unlock() { drawingSurface->Unlock(drawingSurface); }

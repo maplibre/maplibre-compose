@@ -215,7 +215,9 @@ The following targets are available now:
 
 - `macos-aarch64-metal`
 - `linux-amd64-opengl`
+- `linux-amd64-vulkan`
 - `windows-amd64-opengl`
+- `windows-amd64-vulkan`
 
 Other architectures and renderers will be added later.
 

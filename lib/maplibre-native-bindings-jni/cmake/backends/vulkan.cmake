@@ -16,6 +16,7 @@ endif()
 
 find_package(Vulkan REQUIRED)
 target_link_libraries(maplibre-jni PRIVATE Vulkan::Vulkan)
+target_include_directories(maplibre-jni SYSTEM PRIVATE ${maplibre-native_SOURCE_DIR}/src)
 
 # Don't use system Vulkan headers - use MapLibre's vendored headers for compatibility
 # The vendored headers are included via the Mapbox::Map target

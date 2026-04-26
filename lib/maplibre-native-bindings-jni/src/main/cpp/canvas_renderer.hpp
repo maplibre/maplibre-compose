@@ -21,7 +21,14 @@
 #include <mbgl/mtl/renderer_backend.hpp>
 #elif defined(USE_OPENGL_BACKEND)
 #include <mbgl/gl/renderer_backend.hpp>
+#elif defined(USE_VULKAN_BACKEND)
+#include <mbgl/vulkan/renderable_resource.hpp>
+#include <mbgl/vulkan/renderer_backend.hpp>
 #endif
+
+// clang-format off
+#include "fix_x11_pollution.h"
+// clang-format on
 
 namespace mbgl {
 class Renderer;
@@ -60,7 +67,21 @@ class CanvasBackend : public mbgl::gl::RendererBackend,
 };
 
 #elif defined(USE_VULKAN_BACKEND)
-#error "TODO: Implement Vulkan Backend"
+
+class CanvasBackend : public mbgl::vulkan::RendererBackend,
+                      public mbgl::vulkan::Renderable {
+ public:
+  explicit CanvasBackend(JNIEnv* env, jCanvas canvas);
+  auto getDefaultRenderable() -> mbgl::gfx::Renderable& override;
+  void setSize(mbgl::Size);
+  bool lockSurfaceForRender();
+  void unlockSurfaceAfterRender();
+
+ protected:
+  auto getInstanceExtensions() -> std::vector<const char*> override;
+  void activate() override {}
+  void deactivate() override {}
+};
 #endif
 
 class CanvasRenderer : public mbgl::RendererFrontend {
