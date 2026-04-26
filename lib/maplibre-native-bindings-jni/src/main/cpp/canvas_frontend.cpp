@@ -80,7 +80,6 @@ CanvasRenderer_class::render(JNIEnv* env, jCanvasRenderer renderer) {
     auto* frontend = reinterpret_cast<maplibre_jni::CanvasRenderer*>(
       java_classes::get<CanvasRenderer_class>().getNativePointer(env, renderer)
     );
-    // TODO: something in here is segfaulting on Linux
     frontend->render();
   } catch (const std::exception& e) {
     smjni::java_exception::translate(env, e);
