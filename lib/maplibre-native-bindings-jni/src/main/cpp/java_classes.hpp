@@ -54,5 +54,15 @@ inline JavaCanvas_class::JavaCanvas_class(JNIEnv* env)
       m_getWidth(env, *this, "getWidth"),
       m_getHeight(env, *this, "getHeight") {}
 
+// java.lang.Double is exposed to JniGen for exact JVM signatures, but its
+// generated class registers JDK native methods that this library must not own.
 using java_classes = smjni::java_class_table<
-  JNIGEN_ALL_GENERATED_CLASSES, JavaDouble_class, JavaCanvas_class>;
+  AutoCleanPointer_class, BoundOptions_class, CameraChangeMode_class,
+  CameraOptions_class, CanvasRenderer_class, ClientOptions_class,
+  ConstrainMode_class, EdgeInsets_class, LatLngBounds_class, LatLng_class,
+  MapLibreMap_class, MapLoadError_class, MapMode_class, MapObserver_class,
+  MapOptions_class, NorthOrientation_class, Projection_class,
+  RenderFrameStatus_class, RenderMode_class, RenderingStats_class,
+  ResourceOptions_class, ScreenCoordinate_class, Size_class,
+  TileServerOptions_class, TileServerTemplate_class, ViewportMode_class,
+  JavaDouble_class, JavaCanvas_class>;
