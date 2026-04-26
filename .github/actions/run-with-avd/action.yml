@@ -17,7 +17,7 @@ runs:
         sudo udevadm control --reload-rules
         sudo udevadm trigger --name-match=kvm
     - name: Cache AVD
-      uses: actions/cache@v4
+      uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
       id: avd-cache
       with:
         path: |
@@ -26,7 +26,7 @@ runs:
         key: avd-v${{ inputs.api-level }}
     - name: Create AVD for caching
       if: steps.avd-cache.outputs.cache-hit != 'true'
-      uses: reactivecircus/android-emulator-runner@v2
+      uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
       with:
         api-level: ${{ inputs.api-level }}
         arch: x86_64
@@ -36,7 +36,7 @@ runs:
           -camera-back none
         script: echo 'Generated AVD snapshot for caching.'
     - name: ${{ inputs.script }}
-      uses: reactivecircus/android-emulator-runner@v2
+      uses: reactivecircus/android-emulator-runner@e89f39f1abbbd05b1113a29cf4db69e7540cae5a # v2.37.0
       with:
         api-level: ${{ inputs.api-level }}
         arch: x86_64
