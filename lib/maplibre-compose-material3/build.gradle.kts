@@ -1,5 +1,3 @@
-import org.jetbrains.compose.ExperimentalComposeLibrary
-
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -22,7 +20,7 @@ mavenPublishing {
 kotlin {
   androidLibrary { namespace = "org.maplibre.compose.material3" }
 
-  listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach { it.configureSpmMaplibre(project) }
+  listOf(iosArm64(), iosSimulatorArm64()).forEach { it.configureSpmMaplibre(project) }
 
   jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
 
@@ -33,8 +31,8 @@ kotlin {
   sourceSets {
     commonMain.dependencies {
       api(libs.alchemist)
-      implementation(compose.material3)
-      implementation(compose.components.resources)
+      implementation(libs.jetbrains.compose.material3)
+      implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.bytesize)
       implementation(libs.htmlConverterCompose)
       api(project(":lib:maplibre-compose"))
@@ -52,13 +50,13 @@ kotlin {
       implementation(kotlin("test"))
       implementation(kotlin("test-common"))
       implementation(kotlin("test-annotations-common"))
-      @OptIn(ExperimentalComposeLibrary::class) implementation(compose.uiTest)
+      implementation(libs.jetbrains.compose.ui.test)
     }
 
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
     androidDeviceTest.dependencies {
-      implementation(compose.desktop.uiTestJUnit4)
+      implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
     }
   }

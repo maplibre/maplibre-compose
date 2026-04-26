@@ -1,5 +1,3 @@
-import org.jetbrains.compose.ExperimentalComposeLibrary
-
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -23,7 +21,7 @@ mavenPublishing {
 kotlin {
   androidLibrary { namespace = "org.maplibre.compose" }
 
-  listOf(iosArm64(), iosSimulatorArm64(), iosX64()).forEach {
+  listOf(iosArm64(), iosSimulatorArm64()).forEach {
     it.compilations.getByName("main") {
       cinterops {
         create("observer") {
@@ -44,13 +42,13 @@ kotlin {
   sourceSets {
     val desktopMain by getting
 
-    listOf(iosMain, iosArm64Main, iosSimulatorArm64Main, iosX64Main).forEach {
+    listOf(iosMain, iosArm64Main, iosSimulatorArm64Main).forEach {
       it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
     }
 
     commonMain.dependencies {
-      implementation(compose.foundation)
-      implementation(compose.components.resources)
+      implementation(libs.jetbrains.compose.foundation)
+      implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.lifecycle.runtime.compose)
       api(libs.kermit)
       api(libs.spatialk.geojson)
@@ -100,13 +98,13 @@ kotlin {
       implementation(kotlin("test-common"))
       implementation(kotlin("test-annotations-common"))
 
-      @OptIn(ExperimentalComposeLibrary::class) implementation(compose.uiTest)
+      implementation(libs.jetbrains.compose.ui.test)
     }
 
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
     androidDeviceTest.dependencies {
-      implementation(compose.desktop.uiTestJUnit4)
+      implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
     }
   }
