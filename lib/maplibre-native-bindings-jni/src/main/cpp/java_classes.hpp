@@ -1,15 +1,13 @@
 #pragma once
 
-#include "smjni/java_method.h"
-
-DEFINE_JAVA_TYPE(jDouble, "java.lang.Double")
-DEFINE_JAVA_TYPE(jCanvas, "java.awt.Canvas")
-
 #include <all_classes.h>
 
-class Double_class : public smjni::java_runtime::simple_java_class<jDouble> {
+#include "smjni/java_method.h"
+
+class JavaDouble_class
+    : public smjni::java_runtime::simple_java_class<jDouble> {
  public:
-  Double_class(JNIEnv* env);
+  JavaDouble_class(JNIEnv* env);
 
   auto valueOf(JNIEnv* env, jdouble value) const
     -> smjni::local_java_ref<jDouble> {
@@ -26,14 +24,15 @@ class Double_class : public smjni::java_runtime::simple_java_class<jDouble> {
   smjni::java_method<jdouble, jDouble> m_doubleValue;
 };
 
-inline Double_class::Double_class(JNIEnv* env)
+inline JavaDouble_class::JavaDouble_class(JNIEnv* env)
     : simple_java_class(env),
       m_valueOf(env, *this, "valueOf"),
       m_doubleValue(env, *this, "doubleValue") {}
 
-class Canvas_class : public smjni::java_runtime::simple_java_class<jCanvas> {
+class JavaCanvas_class
+    : public smjni::java_runtime::simple_java_class<jCanvas> {
  public:
-  Canvas_class(JNIEnv* env);
+  JavaCanvas_class(JNIEnv* env);
 
   auto getWidth(JNIEnv* env, const smjni::auto_java_ref<jCanvas>& self) const
     -> jint {
@@ -50,10 +49,10 @@ class Canvas_class : public smjni::java_runtime::simple_java_class<jCanvas> {
   smjni::java_method<jint, jCanvas> m_getHeight;
 };
 
-inline Canvas_class::Canvas_class(JNIEnv* env)
+inline JavaCanvas_class::JavaCanvas_class(JNIEnv* env)
     : simple_java_class(env),
       m_getWidth(env, *this, "getWidth"),
       m_getHeight(env, *this, "getHeight") {}
 
 using java_classes = smjni::java_class_table<
-  JNIGEN_ALL_GENERATED_CLASSES, Double_class, Canvas_class>;
+  JNIGEN_ALL_GENERATED_CLASSES, JavaDouble_class, JavaCanvas_class>;

@@ -204,7 +204,7 @@ void JNICALL MapLibreMap_class::rotateBy(
 
 auto JNICALL MapLibreMap_class::cameraForLatLngBounds(
   JNIEnv* env, jMapLibreMap map, jLatLngBounds bounds, jEdgeInsets padding,
-  jobject bearing, jobject pitch
+  jDouble bearing, jDouble pitch
 ) -> jCameraOptions {
   return withMapWrapper(
     env, map, [env, bounds, padding, bearing, pitch](auto wrapper) {
@@ -213,16 +213,14 @@ auto JNICALL MapLibreMap_class::cameraForLatLngBounds(
 
       std::optional<double> cppBearing = std::nullopt;
       if (bearing != nullptr) {
-        cppBearing = java_classes::get<Double_class>().doubleValue(
-          env, smjni::jstatic_cast<jDouble>(bearing)
-        );
+        cppBearing =
+          java_classes::get<JavaDouble_class>().doubleValue(env, bearing);
       }
 
       std::optional<double> cppPitch = std::nullopt;
       if (pitch != nullptr) {
-        cppPitch = java_classes::get<Double_class>().doubleValue(
-          env, smjni::jstatic_cast<jDouble>(pitch)
-        );
+        cppPitch =
+          java_classes::get<JavaDouble_class>().doubleValue(env, pitch);
       }
 
       auto opts = wrapper->map->cameraForLatLngBounds(

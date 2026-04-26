@@ -107,22 +107,22 @@ auto convertBoundOptions(JNIEnv* env, jBoundOptions boundOptionsObj)
     options.withLatLngBounds(convertLatLngBounds(env, bounds.c_ptr()));
   if (minZoom) {
     options.withMinZoom(
-      java_classes::get<Double_class>().doubleValue(env, minZoom.c_ptr())
+      java_classes::get<JavaDouble_class>().doubleValue(env, minZoom.c_ptr())
     );
   }
   if (maxZoom) {
     options.withMaxZoom(
-      java_classes::get<Double_class>().doubleValue(env, maxZoom.c_ptr())
+      java_classes::get<JavaDouble_class>().doubleValue(env, maxZoom.c_ptr())
     );
   }
   if (minPitch) {
     options.withMinPitch(
-      java_classes::get<Double_class>().doubleValue(env, minPitch.c_ptr())
+      java_classes::get<JavaDouble_class>().doubleValue(env, minPitch.c_ptr())
     );
   }
   if (maxPitch) {
     options.withMaxPitch(
-      java_classes::get<Double_class>().doubleValue(env, maxPitch.c_ptr())
+      java_classes::get<JavaDouble_class>().doubleValue(env, maxPitch.c_ptr())
     );
   }
 
@@ -142,25 +142,27 @@ auto convertBoundOptions(JNIEnv* env, const mbgl::BoundOptions& boundOptions)
   smjni::local_java_ref<jDouble> jMinZoom;
   if (boundOptions.minZoom) {
     jMinZoom =
-      java_classes::get<Double_class>().valueOf(env, *boundOptions.minZoom);
+      java_classes::get<JavaDouble_class>().valueOf(env, *boundOptions.minZoom);
   }
 
   smjni::local_java_ref<jDouble> jMaxZoom;
   if (boundOptions.maxZoom) {
     jMaxZoom =
-      java_classes::get<Double_class>().valueOf(env, *boundOptions.maxZoom);
+      java_classes::get<JavaDouble_class>().valueOf(env, *boundOptions.maxZoom);
   }
 
   smjni::local_java_ref<jDouble> jMinPitch;
   if (boundOptions.minPitch) {
-    jMinPitch =
-      java_classes::get<Double_class>().valueOf(env, *boundOptions.minPitch);
+    jMinPitch = java_classes::get<JavaDouble_class>().valueOf(
+      env, *boundOptions.minPitch
+    );
   }
 
   smjni::local_java_ref<jDouble> jMaxPitch;
   if (boundOptions.maxPitch) {
-    jMaxPitch =
-      java_classes::get<Double_class>().valueOf(env, *boundOptions.maxPitch);
+    jMaxPitch = java_classes::get<JavaDouble_class>().valueOf(
+      env, *boundOptions.maxPitch
+    );
   }
 
   auto obj = java_classes::get<BoundOptions_class>().ctor(
@@ -189,15 +191,17 @@ auto convertCameraOptions(JNIEnv* env, jCameraOptions cameraOptionsObj)
   if (padding) options.withPadding(convertEdgeInsets(env, padding.c_ptr()));
   if (anchor) options.withAnchor(convertScreenCoordinate(env, anchor.c_ptr()));
   if (zoom)
-    options.withZoom(java_classes::get<Double_class>().doubleValue(env, zoom));
+    options.withZoom(
+      java_classes::get<JavaDouble_class>().doubleValue(env, zoom)
+    );
   if (bearing) {
     options.withBearing(
-      java_classes::get<Double_class>().doubleValue(env, bearing)
+      java_classes::get<JavaDouble_class>().doubleValue(env, bearing)
     );
   }
   if (pitch) {
     options.withPitch(
-      java_classes::get<Double_class>().doubleValue(env, pitch)
+      java_classes::get<JavaDouble_class>().doubleValue(env, pitch)
     );
   }
   return options;
@@ -226,17 +230,19 @@ auto convertCameraOptions(JNIEnv* env, const mbgl::CameraOptions& cameraOptions)
   }
   smjni::local_java_ref<jDouble> jZoom;
   if (cameraOptions.zoom) {
-    jZoom = java_classes::get<Double_class>().valueOf(env, *cameraOptions.zoom);
+    jZoom =
+      java_classes::get<JavaDouble_class>().valueOf(env, *cameraOptions.zoom);
   }
   smjni::local_java_ref<jDouble> jBearing;
   if (cameraOptions.bearing) {
-    jBearing =
-      java_classes::get<Double_class>().valueOf(env, *cameraOptions.bearing);
+    jBearing = java_classes::get<JavaDouble_class>().valueOf(
+      env, *cameraOptions.bearing
+    );
   }
   smjni::local_java_ref<jDouble> jPitch;
   if (cameraOptions.pitch) {
     jPitch =
-      java_classes::get<Double_class>().valueOf(env, *cameraOptions.pitch);
+      java_classes::get<JavaDouble_class>().valueOf(env, *cameraOptions.pitch);
   }
   return java_classes::get<CameraOptions_class>()
     .ctor(env, jCenter, jPadding, jAnchor, jZoom, jBearing, jPitch)

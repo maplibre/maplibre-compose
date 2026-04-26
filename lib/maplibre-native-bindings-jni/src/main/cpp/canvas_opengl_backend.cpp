@@ -228,8 +228,8 @@ CanvasBackend::CanvasBackend(JNIEnv* env, jCanvas canvas)
     : mbgl::gl::RendererBackend(mbgl::gfx::ContextMode::Unique),
       mbgl::gfx::Renderable(
         mbgl::Size(
-          java_classes::get<Canvas_class>().getWidth(env, canvas),
-          java_classes::get<Canvas_class>().getHeight(env, canvas)
+          java_classes::get<JavaCanvas_class>().getWidth(env, canvas),
+          java_classes::get<JavaCanvas_class>().getHeight(env, canvas)
         ),
         std::make_unique<OpenGLRenderableResource>(*this, env, canvas)
       ) {}
