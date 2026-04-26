@@ -43,6 +43,7 @@ class CanvasBackend : public mbgl::mtl::RendererBackend,
   explicit CanvasBackend(JNIEnv* env, jCanvas canvas);
   auto getDefaultRenderable() -> mbgl::gfx::Renderable& override;
   void setSize(mbgl::Size);
+  bool lockSurfaceForRender();
 
  protected:
   void activate() override;
@@ -58,6 +59,7 @@ class CanvasBackend : public mbgl::gl::RendererBackend,
   explicit CanvasBackend(JNIEnv* env, jCanvas canvas);
   mbgl::gfx::Renderable& getDefaultRenderable() override;
   void setSize(mbgl::Size);
+  bool lockSurfaceForRender();
 
  protected:
   void activate() override;

@@ -65,18 +65,23 @@ public class MapCanvas(
   }
 
   override fun removeNotify() {
-    super.removeNotify()
-    map?.dispose()
-    map = null
-    renderer?.dispose()
-    renderer = null
+    val root = SwingUtilities.getWindowAncestor(this)
+    try {
+      map?.dispose()
+      map = null
+      renderer?.dispose()
+      renderer = null
+    } finally {
+      super.removeNotify()
+    }
 
     // HACK: Force a repaint by resizing the window slightly to avoid a ghost map on macoOS.
-    val root = SwingUtilities.getWindowAncestor(this)
-    val oWidth = root.width
-    val oHeight = root.height
-    root.size = Dimension(oWidth + 1, oHeight + 1)
-    root.size = Dimension(oWidth, oHeight)
+    if (root != null) {
+      val oWidth = root.width
+      val oHeight = root.height
+      root.size = Dimension(oWidth + 1, oHeight + 1)
+      root.size = Dimension(oWidth, oHeight)
+    }
   }
 
   /**
