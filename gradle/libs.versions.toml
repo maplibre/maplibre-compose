@@ -17,13 +17,16 @@ playServices-location = "21.3.0"
 spatialk = "0.6.1"
 
 # Regular tools: keep as up to date as possible
-gradle-dokka = "2.1.0"
+gradle-dokka = "2.2.0"
 gradle-jgitver = "0.10.0-rc03"
-gradle-mavenPublish = "0.34.0"
+gradle-mavenPublish = "0.36.0"
 gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "1.0.4"
-gradle-ksp = "2.3.0"
-simplejni = "3.14"
+
+# SimpleJNI and KSP: keep SimpleJNI up to date and set KSP accordingly.
+# https://github.com/gershnik/SimpleJNI/issues/4
+gradle-ksp = "2.3.3"
+simplejni = "3.15"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
@@ -36,8 +39,8 @@ jetbrains-navigation = "2.9.2"
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.2.21"
-gradle-android = "8.11.1"
+gradle-kotlin = "2.3.21"
+gradle-android = "9.0.0"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
