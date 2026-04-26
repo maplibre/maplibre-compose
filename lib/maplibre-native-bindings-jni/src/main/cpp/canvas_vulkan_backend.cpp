@@ -104,6 +104,10 @@ class VulkanRenderableResource final
 
   void bind() override {}
 
+  bool lockForRender() { return jawtContext.tryLock(); }
+
+  void unlockAfterRender() { jawtContext.unlock(); }
+
  private:
   JawtContext jawtContext;
 };
@@ -122,6 +126,14 @@ CanvasBackend::CanvasBackend(JNIEnv* env, jCanvas canvas)
 
 auto CanvasBackend::getDefaultRenderable() -> mbgl::gfx::Renderable& {
   return *this;
+}
+
+bool CanvasBackend::lockSurfaceForRender() {
+  return getResource<VulkanRenderableResource>().lockForRender();
+}
+
+void CanvasBackend::unlockSurfaceAfterRender() {
+  getResource<VulkanRenderableResource>().unlockAfterRender();
 }
 
 void CanvasBackend::setSize(mbgl::Size newSize) {

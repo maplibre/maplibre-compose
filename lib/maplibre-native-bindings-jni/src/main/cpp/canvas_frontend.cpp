@@ -63,6 +63,13 @@ auto CanvasRenderer::getThreadPool() const -> const mbgl::TaggedScheduler& {
 
 void CanvasRenderer::render() {
   if (!renderer_ || !updateParameters_) return;
+#if defined(USE_VULKAN_BACKEND)
+  if (!backend_->lockSurfaceForRender()) return;
+  struct SurfaceUnlocker {
+    CanvasBackend& backend;
+    ~SurfaceUnlocker() { backend.unlockSurfaceAfterRender(); }
+  } surfaceUnlocker{*backend_};
+#endif
   mbgl::gfx::BackendScope scope(*backend_);
   renderer_->render(updateParameters_);
 }

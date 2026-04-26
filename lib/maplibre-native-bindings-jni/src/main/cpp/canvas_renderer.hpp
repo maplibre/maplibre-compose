@@ -74,6 +74,8 @@ class CanvasBackend : public mbgl::vulkan::RendererBackend,
   explicit CanvasBackend(JNIEnv* env, jCanvas canvas);
   auto getDefaultRenderable() -> mbgl::gfx::Renderable& override;
   void setSize(mbgl::Size);
+  bool lockSurfaceForRender();
+  void unlockSurfaceAfterRender();
 
  protected:
   auto getInstanceExtensions() -> std::vector<const char*> override;
