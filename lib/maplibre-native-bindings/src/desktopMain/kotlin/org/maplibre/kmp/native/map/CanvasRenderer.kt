@@ -12,6 +12,8 @@ public class CanvasRenderer(
   @get:CalledByNative @get:JvmName("getCanvas") internal val canvas: Canvas,
   pixelRatio: Float,
 ) : RendererFrontend {
+  private var isDisposed = false
+
   internal val nativePeer =
     AutoCleanPointer(
       new = { alloc(canvas = this, pixelRatio = pixelRatio) },
@@ -23,7 +25,10 @@ public class CanvasRenderer(
   override val nativePointer: Long
     get() = nativePeer.rawPtr
 
-  public fun dispose(): Unit = nativePeer.clean()
+  public fun dispose() {
+    isDisposed = true
+    nativePeer.clean()
+  }
 
   public external fun render()
 
@@ -41,7 +46,7 @@ public class CanvasRenderer(
   @Suppress("unused")
   @CalledByNative
   private fun requestRunOnce() {
-    EventQueue.invokeLater { runOnce() }
+    EventQueue.invokeLater { if (!isDisposed) runOnce() }
   }
 
   private companion object Companion {
