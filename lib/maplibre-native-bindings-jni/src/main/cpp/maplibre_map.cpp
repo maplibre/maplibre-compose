@@ -18,11 +18,11 @@
 #pragma mark - Helpers
 
 struct MapWrapper {
-  std::unique_ptr<mbgl::Map> map;
   std::unique_ptr<maplibre_jni::JniMapObserver> observer;
+  std::unique_ptr<mbgl::Map> map;
 
   MapWrapper(mbgl::Map* map, maplibre_jni::JniMapObserver* observer)
-      : map(map), observer(observer) {}
+      : observer(observer), map(map) {}
 };
 
 template <typename Func>

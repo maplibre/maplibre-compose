@@ -38,6 +38,9 @@ CanvasRenderer::CanvasRenderer(
 }
 
 void CanvasRenderer::reset() {
+  if (renderer_) {
+    renderer_->setObserver(nullptr);
+  }
   renderer_.reset();
   observer_.reset();
   updateParameters_.reset();
