@@ -45,7 +45,10 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
   }
 
   void activate() {
-    jawtContext.lock();
+    if (!surfaceLocked) {
+      jawtContext.lock();
+      surfaceLocked = true;
+    }
     if (glContext == nullptr) initGL();
 #if defined(__linux__)
     glXMakeCurrent(
@@ -54,6 +57,12 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #elif defined(_WIN32)
     wglMakeCurrent(hdc, glContext);
 #endif
+  }
+
+  bool lockForRender() {
+    if (surfaceLocked) return true;
+    surfaceLocked = jawtContext.tryLock();
+    return surfaceLocked;
   }
 
   void bind() override {
@@ -77,7 +86,10 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 #elif defined(_WIN32)
     wglMakeCurrent(hdc, nullptr);
 #endif
-    jawtContext.unlock();
+    if (surfaceLocked) {
+      jawtContext.unlock();
+      surfaceLocked = false;
+    }
   }
 
  private:
@@ -203,6 +215,7 @@ class OpenGLRenderableResource final : public mbgl::gl::RenderableResource {
 
   maplibre_jni::CanvasBackend& backend;
   JawtContext jawtContext;
+  bool surfaceLocked = false;
 #if defined(__linux__)
   GLXContext glContext = nullptr;
 #elif defined(_WIN32)
@@ -226,6 +239,10 @@ auto CanvasBackend::getDefaultRenderable() -> mbgl::gfx::Renderable& {
 }
 
 void CanvasBackend::setSize(mbgl::Size size) { this->size = size; }
+
+bool CanvasBackend::lockSurfaceForRender() {
+  return getResource<OpenGLRenderableResource>().lockForRender();
+}
 
 void CanvasBackend::activate() {
   auto& resource = getResource<OpenGLRenderableResource>();

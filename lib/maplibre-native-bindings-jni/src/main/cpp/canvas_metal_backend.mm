@@ -153,9 +153,25 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
     }
   }
 
-  void activate() { jawtContext_.lock(); }
+  bool lockForRender() {
+    if (surfaceLocked) return true;
+    surfaceLocked = jawtContext_.tryLock();
+    return surfaceLocked;
+  }
 
-  void deactivate() { jawtContext_.unlock(); }
+  void activate() {
+    if (!surfaceLocked) {
+      jawtContext_.lock();
+      surfaceLocked = true;
+    }
+  }
+
+  void deactivate() {
+    if (surfaceLocked) {
+      jawtContext_.unlock();
+      surfaceLocked = false;
+    }
+  }
 
   [[nodiscard]] auto getBackend() const
     -> const mbgl::mtl::RendererBackend & override {
@@ -188,6 +204,7 @@ class MetalRenderableResource final : public mbgl::mtl::RenderableResource {
   mbgl::gfx::Texture2DPtr depthTexture;
   mbgl::gfx::Texture2DPtr stencilTexture;
   mbgl::Size size;
+  bool surfaceLocked = false;
 };
 
 CanvasBackend::CanvasBackend(JNIEnv *env, jCanvas canvas)
@@ -202,6 +219,10 @@ CanvasBackend::CanvasBackend(JNIEnv *env, jCanvas canvas)
 
 void CanvasBackend::setSize(mbgl::Size size) {
   getResource<MetalRenderableResource>().setSize(size);
+}
+
+bool CanvasBackend::lockSurfaceForRender() {
+  return getResource<MetalRenderableResource>().lockForRender();
 }
 
 auto CanvasBackend::getDefaultRenderable() -> mbgl::gfx::Renderable & {
