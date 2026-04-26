@@ -9,7 +9,7 @@ kermit = "2.0.8"
 kotlin-wrappers = "2025.11.5"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.3.2"
-lifecycleRuntimeCompose = "2.9.6"
+lifecycleRuntimeCompose = "2.10.0"
 maplibre-android-sdk = "12.3.1"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "5.12.0"
@@ -27,9 +27,11 @@ simplejni = "3.14"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.9.3"
-androidx-compose = "1.9.4"
-jetbrains-navigation = "2.9.1"
+gradle-compose = "1.10.3"
+androidx-compose = "1.10.5"
+jetbrains-compose-material3 = "1.10.0-alpha05"
+jetbrains-compose-material-iconsExtended = "1.7.3"
+jetbrains-navigation = "2.9.2"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
@@ -57,6 +59,16 @@ ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "kto
 ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
+jetbrains-compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "gradle-compose" }
+jetbrains-compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "gradle-compose" }
+jetbrains-compose-html-core = { module = "org.jetbrains.compose.html:html-core", version.ref = "gradle-compose" }
+jetbrains-compose-material-iconsExtended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "jetbrains-compose-material-iconsExtended" }
+jetbrains-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "jetbrains-compose-material3" }
+jetbrains-compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "gradle-compose" }
+jetbrains-compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "gradle-compose" }
+jetbrains-compose-ui-test = { module = "org.jetbrains.compose.ui:ui-test", version.ref = "gradle-compose" }
+jetbrains-compose-ui-testJunit4 = { module = "org.jetbrains.compose.ui:ui-test-junit4", version.ref = "gradle-compose" }
+jetbrains-compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "gradle-compose" }
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
 maplibre-androidOpenGL = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android-sdk" }
 maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk-vulkan", version.ref = "maplibre-android-sdk" }
