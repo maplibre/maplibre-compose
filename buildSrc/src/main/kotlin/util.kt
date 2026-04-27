@@ -11,7 +11,6 @@ fun Project.getJvmTarget(): JvmTarget {
 
 fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
   swiftPackageConfig {
-    swiftBinPath = project.rootProject.file("gradle/swift-spm-wrapper.sh").absolutePath
     dependency {
       remotePackageVersion(
         url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
