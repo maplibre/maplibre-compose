@@ -25,8 +25,8 @@ gradle-spmForKmp = "1.9.0"
 
 # SimpleJNI and KSP: keep SimpleJNI up to date and set KSP accordingly.
 # https://github.com/gershnik/SimpleJNI/issues/4
-gradle-ksp = "2.3.3"
-simplejni = "3.15"
+gradle-ksp = "2.3.7"
+simplejni = "3.16"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
