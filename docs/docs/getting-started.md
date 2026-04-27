@@ -79,6 +79,8 @@ The easiest way is to select one of these two Gradle plugins:
     cause broken Compose text rendering on iOS because both Compose and
     MapLibre include HarfBuzz symbols.
 
+    See [CMP-8882](https://youtrack.jetbrains.com/issue/CMP-8882/)
+
 ### Cocoapods
 
 !!! info
