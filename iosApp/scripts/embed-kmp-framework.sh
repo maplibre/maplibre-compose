@@ -8,9 +8,7 @@ if [ "YES" = "${OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED:-}" ]; then
 fi
 
 if ! java -version >/dev/null 2>&1 && [ -z "${JAVA_HOME:-}" ]; then
-  if [ -x "$HOME/.sdkman/candidates/java/current/bin/java" ]; then
-    export JAVA_HOME="$HOME/.sdkman/candidates/java/current"
-  elif [ -x "/usr/libexec/java_home" ]; then
+  if [ -x "/usr/libexec/java_home" ]; then
     JAVA_HOME_CANDIDATE="$(/usr/libexec/java_home 2>/dev/null || true)"
     if [ -n "$JAVA_HOME_CANDIDATE" ]; then
       export JAVA_HOME="$JAVA_HOME_CANDIDATE"
