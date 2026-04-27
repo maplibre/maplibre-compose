@@ -21,7 +21,7 @@ gradle-dokka = "2.2.0"
 gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.36.0"
 gradle-mkdocs = "4.0.1"
-gradle-spmForKmp = "1.9.0"
+gradle-spmForKmp = "1.9.1"
 
 # SimpleJNI and KSP: keep SimpleJNI up to date and set KSP accordingly.
 # https://github.com/gershnik/SimpleJNI/issues/4
