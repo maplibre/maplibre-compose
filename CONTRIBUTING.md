@@ -123,6 +123,9 @@ You'll need to have your developer environment set up to build MapLibre Native.
 Use IntelliJ or Android Studio to launch the demo app on Android, XCode to
 launch on iOS, and Gradle to launch on JS or Desktop:
 
+- Android emulator: if the app crashes while creating a Vulkan renderer, run the
+  OpenGL demo flavor instead with
+  `./gradlew :demo-app:installDebug -PdemoAppMaplibreAndroidFlavor=opengl`.
 - Desktop: `./gradlew :demo-app:run`
 - Web: `./gradlew :demo-app:jsRun`
 

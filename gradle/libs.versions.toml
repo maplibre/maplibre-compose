@@ -10,7 +10,7 @@ kotlin-wrappers = "2026.4.12"
 kotlinx-coroutines = "1.10.2"
 ktor = "3.3.2"
 lifecycleRuntimeCompose = "2.10.0"
-maplibre-android-sdk = "12.3.1"
+maplibre-android-sdk = "13.0.2"
 maplibre-android-plugins = "3.0.2"
 maplibre-js = "5.12.0"
 playServices-location = "21.3.0"
@@ -74,7 +74,7 @@ jetbrains-compose-ui-testJunit4 = { module = "org.jetbrains.compose.ui:ui-test-j
 jetbrains-compose-ui-tooling = { module = "org.jetbrains.compose.ui:ui-tooling", version.ref = "gradle-compose" }
 maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
 maplibre-androidOpenGL = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android-sdk" }
-maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk-vulkan", version.ref = "maplibre-android-sdk" }
+maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
 maplibre-androidDebug = { module = "org.maplibre.gl:android-sdk-debug", version.ref = "maplibre-android-sdk" }
 maplibre-android-scalebar = { module = "org.maplibre.gl:android-plugin-scalebar-v9", version.ref = "maplibre-android-plugins" }
 playServices-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServices-location" }
