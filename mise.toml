@@ -32,6 +32,10 @@ run = "hk check --all"
 description = "Auto-fix formatting issues."
 run = "hk fix --all"
 
+[tasks.actions-up]
+description = "Update and pin GitHub Actions steps."
+run = "npx -y actions-up"
+
 [tasks._ktfmt]
 description = "Called by dprint.json"
 hide = true
