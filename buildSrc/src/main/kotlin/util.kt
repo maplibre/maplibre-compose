@@ -11,7 +11,6 @@ fun Project.getJvmTarget(): JvmTarget {
 
 fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
   swiftPackageConfig(cinteropName = "spmMaplibre") {
-    customPackageSourcePath = project.rootProject.file("gradle/spm-empty-bridge").absolutePath
     swiftBinPath = project.rootProject.file("gradle/swift-spm-wrapper.sh").absolutePath
     dependency {
       remotePackageVersion(
