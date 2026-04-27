@@ -1,7 +1,6 @@
 plugins {
   id("library-conventions")
   id("android-library-conventions")
-  id("spm-maplibre")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.android.library.get().pluginId)

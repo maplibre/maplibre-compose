@@ -110,33 +110,25 @@ kotlin {
     iosX64(),
     iosArm64(),
     iosSimulatorArm64()
-  ).forEach {
-    it.compilations {
-      getByName("main") {
-        cinterops.create("spmMaplibre") // (1)!
+  ).forEach { target ->
+    target.swiftPackageConfig {
+      dependency {
+        remotePackageVersion(
+          url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
+          products = { add("MapLibre", exportToKotlin = true) },
+          packageName = "maplibre-gl-native-distribution",
+          version = "{{ gradle.maplibre_ios_version }}",
+        )
       }
     }
-    it.binaries.framework {
+
+    target.binaries.framework {
       baseName = "ComposeApp"
       isStatic = true
     }
   }
 }
-
-swiftPackageConfig {
-  create("spmMaplibre") { // (1)!
-    dependency {
-      remotePackageVersion(
-        url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
-        products = { add("MapLibre") },
-        version = "{{ gradle.maplibre_ios_version }}",
-      )
-    }
-  }
-}
 ```
-
-1. This name must match with `cinterops.create` name.
 
 ## Revert to OpenGL on Android (Optional)
 
