@@ -32,7 +32,7 @@ simplejni = "3.15"
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
 gradle-compose = "1.10.3"
 androidx-compose = "1.10.5"
-jetbrains-compose-material3 = "1.10.0-alpha05"
+jetbrains-compose-material3 = "1.11.0-alpha07"
 jetbrains-compose-material-iconsExtended = "1.7.3"
 jetbrains-navigation = "2.9.2"
 
