@@ -320,9 +320,9 @@
 					"-ObjC",
 					"-l\"c++\"",
 					"-framework",
-					"\"MapLibre\"",
-					"-framework",
 					"\"DemoApp\"",
+					"-framework",
+					"\"MapLibre\"",
 					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "${BUNDLE_ID}${TEAM_ID}";
@@ -357,9 +357,9 @@
 					"-ObjC",
 					"-l\"c++\"",
 					"-framework",
-					"\"MapLibre\"",
-					"-framework",
 					"\"DemoApp\"",
+					"-framework",
+					"\"MapLibre\"",
 					"-lsqlite3",
 				);
 				PRODUCT_BUNDLE_IDENTIFIER = "${BUNDLE_ID}${TEAM_ID}";
