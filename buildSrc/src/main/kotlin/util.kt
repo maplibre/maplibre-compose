@@ -10,7 +10,7 @@ fun Project.getJvmTarget(): JvmTarget {
 }
 
 fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
-  swiftPackageConfig(cinteropName = "spmMaplibre") {
+  swiftPackageConfig {
     swiftBinPath = project.rootProject.file("gradle/swift-spm-wrapper.sh").absolutePath
     dependency {
       remotePackageVersion(
@@ -30,7 +30,7 @@ fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
       else -> error("Unrecognized target: $targetName")
     }
   val rpath =
-    "${project.layout.buildDirectory.get()}/spmKmpPlugin/spmMaplibre/scratch/$variant/release/"
+    "${project.layout.buildDirectory.get()}/spmKmpPlugin/$targetName/scratch/$variant/release/"
   binaries.all { linkerOpts("-F$rpath", "-rpath", rpath) }
 }
 
