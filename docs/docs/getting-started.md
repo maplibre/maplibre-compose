@@ -64,6 +64,21 @@ The easiest way is to select one of these two Gradle plugins:
 - JetBrains's [CocoaPods plugin][gradle-cocoapods]
 - Third party [Swift Package Manager plugin][gradle-spm4kmp]
 
+!!! warning
+
+    In Xcode, ensure your Kotlin/Compose framework is linked before
+    `MapLibre.framework`. Select your iOS app target, open **Build Settings**,
+    search for **Other Linker Flags**, and order the flags like this:
+
+    ```text
+    -framework ComposeApp
+    -framework MapLibre
+    ```
+
+    Replace `ComposeApp` with your Kotlin framework name. The opposite order can
+    cause broken Compose text rendering on iOS because both Compose and
+    MapLibre include HarfBuzz symbols.
+
 ### Cocoapods
 
 !!! info
