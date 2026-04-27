@@ -4,12 +4,12 @@ import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSetTree
 
 plugins {
   id("module-conventions")
-  id("spm-maplibre")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
   id(libs.plugins.android.application.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.kotlin.serialization.get().pluginId)
+  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 android {
