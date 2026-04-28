@@ -33,6 +33,9 @@ simplejni = "3.16"
 gradle-compose = "1.10.3"
 androidx-compose = "1.10.5"
 jetbrains-compose-material3 = "1.10.0-alpha05"
+# TODO: Migrate away from material-icons-extended; JetBrains recommends
+# Material Symbols/vector resources instead.
+# https://kotlinlang.org/docs/multiplatform/whats-new-compose-180.html
 jetbrains-compose-material-iconsExtended = "1.7.3"
 jetbrains-navigation = "2.9.2"
 
