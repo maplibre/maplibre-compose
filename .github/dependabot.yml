@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -5,8 +6,43 @@ updates:
     labels: []
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
+    groups:
+      github-actions:
+        patterns: ["*"]
+
   - package-ecosystem: gradle
     directory: /
     labels: []
     schedule:
       interval: weekly
+    cooldown:
+      default-days: 3
+    ignore:
+      # Follow the Kotlin compatibility matrix, not independent latest releases.
+      - dependency-name: gradle-wrapper
+      - dependency-name: com.android.application
+      - dependency-name: com.android.kotlin.multiplatform.library
+      - dependency-name: com.android.lint
+
+      # Follow the Compose Multiplatform compatibility table, not independent latest releases.
+      - dependency-name: androidx.compose.ui:ui-test-manifest
+      - dependency-name: org.jetbrains.compose.material3:material3
+      - dependency-name: org.jetbrains.androidx.navigation:navigation-compose
+    groups:
+      kotlin:
+        patterns:
+          - org.jetbrains.kotlin*
+      compose:
+        patterns:
+          - org.jetbrains.compose*
+      kotlinx-coroutines:
+        patterns:
+          - org.jetbrains.kotlinx:kotlinx-coroutines-*
+      ktor:
+        patterns:
+          - io.ktor:*
+      maplibre-android:
+        patterns:
+          - org.maplibre.gl:*
