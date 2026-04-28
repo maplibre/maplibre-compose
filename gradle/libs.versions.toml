@@ -3,7 +3,7 @@
 accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
 androidx-activity = "1.11.0"
-bytesize = "2.0.0"
+bytesize = "2.2.1"
 htmlConverterCompose = "1.1.0"
 kermit = "2.1.0"
 kotlin-wrappers = "2026.4.12"
