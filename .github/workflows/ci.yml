@@ -175,6 +175,34 @@ jobs:
           path:
             "demo-app/build/compose/binaries/main/${{ matrix.artifact_type }}/*"
 
+  build-natives:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # test-desktop and build-desktop-app already build the host default renderers:
+          # macOS metal, Linux OpenGL, and Windows OpenGL. Keep this matrix to the
+          # additional released native variants so CI covers releases without duplicate builds.
+          - variant: linux-amd64-vulkan
+            renderer: vulkan
+            runner: ubuntu-latest # amd64
+          - variant: windows-amd64-vulkan
+            renderer: vulkan
+            runner: windows-latest # amd64
+    runs-on: ${{ matrix.runner }}
+    name: build-natives (${{ matrix.variant }})
+    steps:
+      - if: ${{ matrix.runner == 'windows-latest' }}
+        run: git config --global core.longpaths true
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - uses: ./.github/actions/setup-cmake
+      - uses: ./.github/actions/setup-gradle
+      - run: |
+          ./gradlew :lib:maplibre-native-bindings-jni:buildNative -PdesktopRenderer=${{ matrix.renderer }}
+
   all-good:
     needs:
       - format
@@ -187,6 +215,7 @@ jobs:
       - build-docs
       - build-android-app
       - build-desktop-app
+      - build-natives
     runs-on: ubuntu-latest
     steps:
       - run: echo 'All checks passed!'

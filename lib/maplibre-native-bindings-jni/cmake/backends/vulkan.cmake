@@ -14,9 +14,12 @@ elseif(WIN32)
     target_compile_definitions(maplibre-jni PRIVATE VK_USE_PLATFORM_WIN32_KHR)
 endif()
 
-find_package(Vulkan REQUIRED)
-target_link_libraries(maplibre-jni PRIVATE Vulkan::Vulkan)
 target_include_directories(maplibre-jni SYSTEM PRIVATE ${maplibre-native_SOURCE_DIR}/src)
 
-# Don't use system Vulkan headers - use MapLibre's vendored headers for compatibility
-# The vendored headers are included via the Mapbox::Map target
+# Windows loads Vulkan dynamically through Vulkan-Hpp, and MapLibre provides the
+# compatible vendored headers via Mapbox::Map. Requiring a system Vulkan SDK on
+# Windows breaks CI because GitHub runners do not ship one.
+if(NOT WIN32)
+    find_package(Vulkan REQUIRED)
+    target_link_libraries(maplibre-jni PRIVATE Vulkan::Vulkan)
+endif()
