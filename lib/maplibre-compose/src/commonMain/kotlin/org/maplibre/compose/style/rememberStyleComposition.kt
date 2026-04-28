@@ -37,6 +37,7 @@ internal fun rememberStyleComposition(
       awaitCancellation()
     } finally {
       nodeState.value = null
+      style.unload()
       composition.dispose()
     }
   }
