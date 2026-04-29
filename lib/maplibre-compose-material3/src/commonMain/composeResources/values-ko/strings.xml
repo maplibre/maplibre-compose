@@ -1,3 +1,4 @@
 <resources>
   <string name="compass">나침반</string>
+  <string name="attribution">지도 출처</string>
 </resources>
