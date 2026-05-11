@@ -250,7 +250,7 @@ to get a detailed map with all the features you'd expect, proceed to
 [gh-packages]: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
 [gh-packages-guide]: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
 [gradle-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
-[gradle-spm4kmp]: https://frankois944.github.io/spm4Kmp/
+[gradle-spm4kmp]: https://spmforkmp.eu/
 [cocoapods-support]: https://blog.cocoapods.org/CocoaPods-Support-Plans/
 [repo]: https://github.com/maplibre/maplibre-compose
 [demotiles]: https://demotiles.maplibre.org/
