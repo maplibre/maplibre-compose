@@ -12,79 +12,85 @@ import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.expressions.value.VectorValue
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
+import org.maplibre.kmp.native.style.layers.LineLayer as MLNLineLayer
 
 internal actual class LineLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
 
-  override val impl = TODO()
+  override val impl = MLNLineLayer(id, source.id)
 
-  actual override var sourceLayer: String = TODO()
+  actual override var sourceLayer: String
+    get() = impl.sourceLayer
+    set(value) {
+      impl.sourceLayer = value
+    }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    filter.toJsonString()?.let { impl.setFilter(it) }
   }
 
   actual fun setLineCap(cap: CompiledExpression<LineCap>) {
-    TODO()
+    cap.toJsonString()?.let { impl.setProperty("line-cap", it) }
   }
 
   actual fun setLineJoin(join: CompiledExpression<LineJoin>) {
-    TODO()
+    join.toJsonString()?.let { impl.setProperty("line-join", it) }
   }
 
   actual fun setLineMiterLimit(miterLimit: CompiledExpression<FloatValue>) {
-    TODO()
+    miterLimit.toJsonString()?.let { impl.setProperty("line-miter-limit", it) }
   }
 
   actual fun setLineRoundLimit(roundLimit: CompiledExpression<FloatValue>) {
-    TODO()
+    roundLimit.toJsonString()?.let { impl.setProperty("line-round-limit", it) }
   }
 
   actual fun setLineSortKey(sortKey: CompiledExpression<FloatValue>) {
-    TODO()
+    sortKey.toJsonString()?.let { impl.setProperty("line-sort-key", it) }
   }
 
   actual fun setLineOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    opacity.toJsonString()?.let { impl.setProperty("line-opacity", it) }
   }
 
   actual fun setLineColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    color.toJsonString()?.let { impl.setProperty("line-color", it) }
   }
 
   actual fun setLineTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    translate.toJsonString()?.let { impl.setProperty("line-translate", it) }
   }
 
   actual fun setLineTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    translateAnchor.toJsonString()?.let { impl.setProperty("line-translate-anchor", it) }
   }
 
   actual fun setLineWidth(width: CompiledExpression<DpValue>) {
-    TODO()
+    width.toJsonString()?.let { impl.setProperty("line-width", it) }
   }
 
   actual fun setLineGapWidth(gapWidth: CompiledExpression<DpValue>) {
-    TODO()
+    gapWidth.toJsonString()?.let { impl.setProperty("line-gap-width", it) }
   }
 
   actual fun setLineOffset(offset: CompiledExpression<DpValue>) {
-    TODO()
+    offset.toJsonString()?.let { impl.setProperty("line-offset", it) }
   }
 
   actual fun setLineBlur(blur: CompiledExpression<DpValue>) {
-    TODO()
+    blur.toJsonString()?.let { impl.setProperty("line-blur", it) }
   }
 
   actual fun setLineDasharray(dasharray: CompiledExpression<VectorValue<Number>>) {
-    TODO()
+    dasharray.toJsonString()?.let { impl.setProperty("line-dasharray", it) }
   }
 
   actual fun setLinePattern(pattern: CompiledExpression<ImageValue>) {
-    TODO()
+    pattern.toJsonString()?.let { impl.setProperty("line-pattern", it) }
   }
 
   actual fun setLineGradient(gradient: CompiledExpression<ColorValue>) {
-    TODO()
+    gradient.toJsonString()?.let { impl.setProperty("line-gradient", it) }
   }
 }

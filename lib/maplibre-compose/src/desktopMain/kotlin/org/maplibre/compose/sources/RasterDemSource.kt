@@ -1,8 +1,12 @@
 package org.maplibre.compose.sources
 
+import org.maplibre.kmp.native.style.sources.RasterDemSource as MLNRasterDemSource
+
 public actual class RasterDemSource : Source {
+  override val impl: MLNRasterDemSource
+
   public actual constructor(id: String, uri: String, tileSize: Int) : super() {
-    this.impl = TODO()
+    impl = MLNRasterDemSource(id, uri, tileSize)
   }
 
   public actual constructor(
@@ -12,8 +16,11 @@ public actual class RasterDemSource : Source {
     tileSize: Int,
     demEncoding: RasterDemEncoding,
   ) : super() {
-    this.impl = TODO()
+    impl =
+      MLNRasterDemSource(
+        id,
+        tiles,
+        buildTileSetJson(tiles, options, tileSize = tileSize, demEncoding = demEncoding.value),
+      )
   }
-
-  override val impl: Nothing
 }

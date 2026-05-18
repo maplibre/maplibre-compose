@@ -108,6 +108,7 @@ class CanvasRenderer : public mbgl::RendererFrontend {
 
  public:
   void render();
+  mbgl::Renderer* getRenderer() const { return renderer_.get(); }
 };
 
 }  // namespace maplibre_jni

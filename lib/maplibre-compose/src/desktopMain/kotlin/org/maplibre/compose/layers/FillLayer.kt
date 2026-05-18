@@ -8,47 +8,53 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toJsonString
+import org.maplibre.kmp.native.style.layers.FillLayer as MLNFillLayer
 
 internal actual class FillLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
 
-  override val impl = TODO()
+  override val impl = MLNFillLayer(id, source.id)
 
-  actual override var sourceLayer: String = TODO()
+  actual override var sourceLayer: String
+    get() = impl.sourceLayer
+    set(value) {
+      impl.sourceLayer = value
+    }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    filter.toJsonString()?.let { impl.setFilter(it) }
   }
 
   actual fun setFillSortKey(sortKey: CompiledExpression<FloatValue>) {
-    TODO()
+    sortKey.toJsonString()?.let { impl.setProperty("fill-sort-key", it) }
   }
 
   actual fun setFillAntialias(antialias: CompiledExpression<BooleanValue>) {
-    TODO()
+    antialias.toJsonString()?.let { impl.setProperty("fill-antialias", it) }
   }
 
   actual fun setFillOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    opacity.toJsonString()?.let { impl.setProperty("fill-opacity", it) }
   }
 
   actual fun setFillColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    color.toJsonString()?.let { impl.setProperty("fill-color", it) }
   }
 
   actual fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>) {
-    TODO()
+    outlineColor.toJsonString()?.let { impl.setProperty("fill-outline-color", it) }
   }
 
   actual fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    translate.toJsonString()?.let { impl.setProperty("fill-translate", it) }
   }
 
   actual fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    translateAnchor.toJsonString()?.let { impl.setProperty("fill-translate-anchor", it) }
   }
 
   actual fun setFillPattern(pattern: CompiledExpression<ImageValue>) {
-    TODO()
+    pattern.toJsonString()?.let { impl.setProperty("fill-pattern", it) }
   }
 }
