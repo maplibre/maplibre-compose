@@ -43,7 +43,11 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
+    androidHostTest.dependencies {
+      implementation(compose.desktop.currentOs)
+      implementation(libs.playServices.location)
+      implementation(libs.kotlinx.coroutines.test)
+    }
 
     androidDeviceTest.dependencies {
       implementation(libs.jetbrains.compose.ui.testJunit4)

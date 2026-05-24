@@ -51,7 +51,7 @@ public class FusedOrientationProvider(
             Orientation(
               orientation =
                 BearingWithAccuracy(
-                  value = Bearing.North - orientation.headingDegrees.toDouble().degrees,
+                  value = Bearing.North + orientation.headingDegrees.toDouble().degrees,
                   accuracy = orientation.headingErrorDegrees.toDouble().degrees,
                 ),
               timestamp = TimeSource.Monotonic.markNow(),
