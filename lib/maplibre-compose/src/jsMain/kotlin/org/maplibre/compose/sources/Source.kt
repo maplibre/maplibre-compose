@@ -1,13 +1,18 @@
 package org.maplibre.compose.sources
 
+import org.maplibre.kmp.js.stylespec.sources.SourceSpecification
+import org.maplibre.kmp.js.source.Source as JsSource
+
 public actual sealed class Source {
-  internal abstract val impl: Nothing
+  internal abstract val spec: SourceSpecification
 
-  internal actual val id: String
-    get() = TODO()
+  internal abstract val impl: JsSource
 
-  public actual val attributionHtml: String
-    get() = TODO()
+  internal abstract fun bind(source: JsSource)
+
+  internal actual val id: String by lazy { spec.id }
+
+  public actual val attributionHtml: String get() = impl.attribution.orEmpty()
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }

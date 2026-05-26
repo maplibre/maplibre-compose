@@ -1,11 +1,19 @@
 package org.maplibre.compose.sources
 
+import org.maplibre.kmp.js.stylespec.sources.SourceSpecification
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureCollection
 
 public actual class ComputedSource : Source {
 
   @Suppress("UNREACHABLE_CODE") override val impl: Nothing = TODO()
+
+  override val spec: SourceSpecification
+    get() = TODO("Not yet implemented")
+
+  override fun bind(source: org.maplibre.kmp.js.source.Source) {
+    TODO("Not yet implemented")
+  }
 
   public actual constructor(
     id: String,

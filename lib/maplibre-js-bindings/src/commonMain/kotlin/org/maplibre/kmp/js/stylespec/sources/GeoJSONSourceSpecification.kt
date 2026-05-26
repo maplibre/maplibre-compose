@@ -23,7 +23,7 @@ public external interface GeoJSONSourceSpecification : SourceSpecification {
   public var maxzoom: Int?
 
   /** Contains an attribution to be displayed when map is shown to a user. */
-  public var attribution: String?
+  public override var attribution: String?
 
   /**
    * Size of the tile buffer on each side. A value of 0 produces no buffer. A value of 512 produces

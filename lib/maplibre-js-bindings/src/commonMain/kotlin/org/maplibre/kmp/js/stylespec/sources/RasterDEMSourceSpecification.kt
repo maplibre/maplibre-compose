@@ -39,7 +39,7 @@ public external interface RasterDEMSourceSpecification : SourceSpecification {
   public var tileSize: Int?
 
   /** Contains an attribution to be displayed when map is shown to a user. */
-  public var attribution: String?
+  public override var attribution: String?
 
   /**
    * The encoding used by this source. Mapbox Terrain RGB is used by default. Defaults to "mapbox"
