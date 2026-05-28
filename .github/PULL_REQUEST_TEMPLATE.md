@@ -8,6 +8,15 @@
 
 <!-- Please describe how you tested the changes. -->
 
+## AI assistance
+
+<!-- Remove this section if disclosure does not apply. -->
+
+- **Tools:**
+- **Models:**
+- **Scope:**
+- **Context:**
+
 ## Checklist
 
 **To your knowledge, are you making any breaking changes?**

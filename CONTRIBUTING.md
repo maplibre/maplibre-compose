@@ -30,13 +30,9 @@ relevant, see the
 label. These are issues that need input or guidance from folks with deeper
 expertise on some topic.
 
-## Note on AI usage
+## Pull requests
 
-If you are using any kind of AI assistance for your contributions, please take a
-moment to review
-[MapLibre's AI Policy](https://github.com/maplibre/maplibre/blob/main/AI_POLICY.md).
-tl;dr: do not let AI speak for you, verify all generated content before
-requesting a review and disclose AI usage in pull requests.
+If you use AI assistance, follow the [AI policy](./AI_POLICY.md).
 
 ## Set up your development environment
 
