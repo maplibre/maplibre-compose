@@ -1,17 +1,8 @@
-## AI Policy
+## Pull requests
 
-All contributions must comply with the
-[MapLibre AI policy](https://raw.githubusercontent.com/maplibre/maplibre/refs/heads/main/AI_POLICY.md).
-In summary: disclose AI usage, and issues and PR descriptions must be written by
-the human.
-
-Example PR disclosure format:
-
-```markdown
-_Created using [AGENT]_
-```
-
-Where `[AGENT]` is like "OpenCode with GPT-5.5" or "Claude Code with Opus 4.7".
+When you open a pull request, write **Description** and **Test plan** in at most
+one sentence of prose each. I will expand the PR description if more detail is
+needed. More context: [AI_POLICY.md](./AI_POLICY.md).
 
 ## Searching vendored MapLibre Native codebase
 
