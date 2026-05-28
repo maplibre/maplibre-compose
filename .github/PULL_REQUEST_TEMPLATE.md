@@ -8,15 +8,6 @@
 
 <!-- Please describe how you tested the changes. -->
 
-## AI assistance
-
-<!-- Remove this section if disclosure does not apply. -->
-
-- **Tools:**
-- **Models:**
-- **Scope:**
-- **Context:**
-
 ## Checklist
 
 **To your knowledge, are you making any breaking changes?**
@@ -31,3 +22,12 @@
 - iOS: <!-- describe the device and OS version -->
 - Desktop: <!-- describe the OS -->
 - Web: <!-- describe the browser and version -->
+
+## AI assistance
+
+<!-- Remove this section if disclosure does not apply. -->
+
+- **Tools:**
+- **Models:**
+- **Scope:**
+- **Context:**

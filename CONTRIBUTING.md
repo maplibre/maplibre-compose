@@ -30,7 +30,7 @@ relevant, see the
 label. These are issues that need input or guidance from folks with deeper
 expertise on some topic.
 
-## Pull requests
+## Note on AI usage
 
 If you use AI assistance, follow the [AI policy](./AI_POLICY.md).
 
