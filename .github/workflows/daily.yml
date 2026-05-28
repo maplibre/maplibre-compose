@@ -103,21 +103,3 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_githubToken: ${{ secrets.GITHUB_TOKEN }}
           ORG_GRADLE_PROJECT_githubUser: ${{ github.actor }}
-
-  dependency-submission:
-    needs: [check-last-run]
-    if: ${{ needs.check-last-run.outputs.last_sha != github.sha }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      - uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5.2.0
-        with:
-          distribution: temurin
-          java-version: 21
-      - uses: gradle/actions/dependency-submission@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
-        with:
-          build-scan-publish: true
-          build-scan-terms-of-use-url: https://gradle.com/help/legal-terms-of-use
-          build-scan-terms-of-use-agree: yes
