@@ -30,7 +30,7 @@ simplejni = "3.16"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.10.3"
+gradle-compose = "1.11.0"
 androidx-compose = "1.10.5"
 jetbrains-compose-material3 = "1.10.0-alpha05"
 # TODO: Migrate away from material-icons-extended; JetBrains recommends
