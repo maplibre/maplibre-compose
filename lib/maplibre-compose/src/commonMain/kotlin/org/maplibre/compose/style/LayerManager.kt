@@ -17,6 +17,8 @@ internal class LayerManager(private val styleNode: StyleNode) {
 
   private val userLayers = mutableListOf<LayerNode<*>>()
 
+  internal fun isComposableLayer(id: String): Boolean = userLayers.any { it.layer.id == id }
+
   // special handling for Replace anchors
   private val replacedLayers = mutableMapOf<Anchor.Replace, Layer>()
   private val replacementCounters = mutableMapOf<Anchor.Replace, Int>()
