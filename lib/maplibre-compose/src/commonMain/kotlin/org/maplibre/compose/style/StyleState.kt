@@ -20,6 +20,13 @@ public class StyleState internal constructor() {
 
   private val sourcesState = mutableStateOf(emptyMap<String, Source>())
 
+  /**
+   * Imperative access to the layers defined in the base style, or `null` if no style is currently
+   * loaded.
+   */
+  public val baseStyleLayers: BaseStyleLayers?
+    get() = styleNode?.let { BaseStyleLayers(it) }
+
   internal fun attach(styleNode: StyleNode?) {
     if (this.styleNode != styleNode) {
       this.styleNode = styleNode
