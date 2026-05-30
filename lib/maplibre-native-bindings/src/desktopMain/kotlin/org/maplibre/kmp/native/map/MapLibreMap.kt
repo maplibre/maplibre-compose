@@ -61,6 +61,134 @@ public class MapLibreMap(
 
   // endregion
 
+  // region Style Layers
+
+  public external fun addStyleLayer(type: String, id: String, sourceId: String?, beforeId: String?)
+
+  public external fun removeStyleLayer(id: String)
+
+  public external fun restoreStyleLayer(id: String, beforeId: String?)
+
+  public external fun setStyleLayerProperty(
+    layerId: String,
+    propertyName: String,
+    valueJson: String,
+  )
+
+  public external fun setStyleLayerVisible(layerId: String, visible: Boolean)
+
+  public external fun setStyleLayerMinZoom(layerId: String, minZoom: Float)
+
+  public external fun setStyleLayerMaxZoom(layerId: String, maxZoom: Float)
+
+  public external fun setStyleLayerSourceLayer(layerId: String, sourceLayer: String)
+
+  public external fun setStyleLayerFilter(layerId: String, filterJson: String)
+
+  // endregion
+
+  // region Style Sources
+
+  public external fun addStyleSource(type: String, id: String, configJson: String?)
+
+  public external fun removeStyleSource(id: String)
+
+  public external fun setStyleGeoJsonSourceData(sourceId: String, geoJson: String)
+
+  public external fun setStyleGeoJsonSourceUrl(sourceId: String, url: String)
+
+  public external fun hasStyleLayer(layerId: String): Boolean
+
+  public external fun hasStyleSource(sourceId: String): Boolean
+
+  public external fun getStyleLayerIds(): Array<String>
+
+  public external fun getStyleSourceIds(): Array<String>
+
+  // endregion
+
+  // region Style Images
+
+  public external fun addStyleImage(
+    id: String,
+    width: Int,
+    height: Int,
+    pixelRatio: Float,
+    sdf: Boolean,
+    data: ByteArray,
+  )
+
+  public external fun addStyleImageStretched(
+    id: String,
+    width: Int,
+    height: Int,
+    pixelRatio: Float,
+    sdf: Boolean,
+    data: ByteArray,
+    stretchXFrom: Float,
+    stretchXTo: Float,
+    stretchYFrom: Float,
+    stretchYTo: Float,
+    contentLeft: Float,
+    contentTop: Float,
+    contentRight: Float,
+    contentBottom: Float,
+  )
+
+  public external fun removeStyleImage(id: String)
+
+  // endregion
+
+  // region ImageSource
+
+  public external fun setImageSourceCoordinates(
+    sourceId: String,
+    tlLat: Double,
+    tlLng: Double,
+    trLat: Double,
+    trLng: Double,
+    brLat: Double,
+    brLng: Double,
+    blLat: Double,
+    blLng: Double,
+  )
+
+  public external fun setImageSourceImage(
+    sourceId: String,
+    width: Int,
+    height: Int,
+    data: ByteArray,
+  )
+
+  public external fun setImageSourceUrl(sourceId: String, url: String)
+
+  // endregion
+
+  // region Query Features
+
+  public external fun querySourceFeatures(
+    sourceId: String,
+    sourceLayersJson: String?,
+    filterJson: String?,
+  ): String
+
+  // endregion
+
+  // region Cluster Queries
+
+  public external fun getClusterChildren(sourceId: String, clusterId: Long): String
+
+  public external fun getClusterLeaves(
+    sourceId: String,
+    clusterId: Long,
+    limit: Long,
+    offset: Long,
+  ): String
+
+  public external fun getClusterExpansionZoom(sourceId: String, clusterId: Long): Int
+
+  // endregion
+
   // region Transitions
 
   public external fun cancelTransitions()
