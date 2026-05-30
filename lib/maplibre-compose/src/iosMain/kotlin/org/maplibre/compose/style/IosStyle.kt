@@ -93,4 +93,22 @@ internal class IosStyle(style: MLNStyle, private val getScale: () -> Float) : St
   override fun removeLayer(layer: Layer) {
     impl.removeLayer(layer.impl)
   }
+
+  override fun getLayerVisibility(id: String): Boolean? = impl.layerWithIdentifier(id)?.visible
+
+  override fun getLayerMinZoom(id: String): Float? = impl.layerWithIdentifier(id)?.minimumZoomLevel
+
+  override fun getLayerMaxZoom(id: String): Float? = impl.layerWithIdentifier(id)?.maximumZoomLevel
+
+  override fun setLayerVisibility(id: String, visible: Boolean) {
+    impl.layerWithIdentifier(id)?.visible = visible
+  }
+
+  override fun setLayerMinZoom(id: String, minZoom: Float) {
+    impl.layerWithIdentifier(id)?.minimumZoomLevel = minZoom
+  }
+
+  override fun setLayerMaxZoom(id: String, maxZoom: Float) {
+    impl.layerWithIdentifier(id)?.maximumZoomLevel = maxZoom
+  }
 }

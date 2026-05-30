@@ -87,4 +87,34 @@ internal class SafeStyle(private val delegate: Style) : Style {
     warnIfUnloaded("removeLayer")
     if (!isUnloaded) delegate.removeLayer(layer)
   }
+
+  override fun getLayerVisibility(id: String): Boolean? {
+    warnIfUnloaded("getLayerVisibility")
+    return if (!isUnloaded) delegate.getLayerVisibility(id) else null
+  }
+
+  override fun getLayerMinZoom(id: String): Float? {
+    warnIfUnloaded("getLayerMinZoom")
+    return if (!isUnloaded) delegate.getLayerMinZoom(id) else null
+  }
+
+  override fun getLayerMaxZoom(id: String): Float? {
+    warnIfUnloaded("getLayerMaxZoom")
+    return if (!isUnloaded) delegate.getLayerMaxZoom(id) else null
+  }
+
+  override fun setLayerVisibility(id: String, visible: Boolean) {
+    warnIfUnloaded("setLayerVisibility")
+    if (!isUnloaded) delegate.setLayerVisibility(id, visible)
+  }
+
+  override fun setLayerMinZoom(id: String, minZoom: Float) {
+    warnIfUnloaded("setLayerMinZoom")
+    if (!isUnloaded) delegate.setLayerMinZoom(id, minZoom)
+  }
+
+  override fun setLayerMaxZoom(id: String, maxZoom: Float) {
+    warnIfUnloaded("setLayerMaxZoom")
+    if (!isUnloaded) delegate.setLayerMaxZoom(id, maxZoom)
+  }
 }

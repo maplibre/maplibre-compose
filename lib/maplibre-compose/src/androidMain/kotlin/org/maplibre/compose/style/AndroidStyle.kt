@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.unit.Density
 import org.maplibre.android.maps.ImageContent
 import org.maplibre.android.maps.ImageStretches
+import org.maplibre.android.style.layers.Property
+import org.maplibre.android.style.layers.PropertyFactory
 import org.maplibre.android.style.sources.CustomGeometrySource
 import org.maplibre.android.style.sources.GeoJsonSource
 import org.maplibre.android.style.sources.ImageSource
@@ -107,5 +109,26 @@ internal class AndroidStyle(
 
   override fun removeLayer(layer: Layer) {
     impl.removeLayer(layer.impl)
+  }
+
+  override fun getLayerVisibility(id: String): Boolean? =
+    impl.getLayer(id)?.let { (it.visibility.value ?: Property.VISIBLE) == Property.VISIBLE }
+
+  override fun getLayerMinZoom(id: String): Float? = impl.getLayer(id)?.minZoom
+
+  override fun getLayerMaxZoom(id: String): Float? = impl.getLayer(id)?.maxZoom
+
+  override fun setLayerVisibility(id: String, visible: Boolean) {
+    impl
+      .getLayer(id)
+      ?.setProperties(PropertyFactory.visibility(if (visible) Property.VISIBLE else Property.NONE))
+  }
+
+  override fun setLayerMinZoom(id: String, minZoom: Float) {
+    impl.getLayer(id)?.minZoom = minZoom
+  }
+
+  override fun setLayerMaxZoom(id: String, maxZoom: Float) {
+    impl.getLayer(id)?.maxZoom = maxZoom
   }
 }

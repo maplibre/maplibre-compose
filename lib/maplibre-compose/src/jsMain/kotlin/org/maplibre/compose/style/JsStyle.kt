@@ -46,4 +46,22 @@ internal class JsStyle(internal val impl: Map) : Style {
   override fun addLayerAt(index: Int, layer: Layer) {}
 
   override fun removeLayer(layer: Layer) {}
+
+  override fun getLayerVisibility(id: String): Boolean? {
+    return null
+  }
+
+  override fun getLayerMinZoom(id: String): Float? {
+    return null
+  }
+
+  override fun getLayerMaxZoom(id: String): Float? {
+    return null
+  }
+
+  override fun setLayerVisibility(id: String, visible: Boolean) {}
+
+  override fun setLayerMinZoom(id: String, minZoom: Float) {}
+
+  override fun setLayerMaxZoom(id: String, maxZoom: Float) {}
 }

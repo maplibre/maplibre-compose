@@ -31,4 +31,16 @@ internal interface Style {
   fun addLayerAt(index: Int, layer: Layer)
 
   fun removeLayer(layer: Layer)
+
+  fun getLayerVisibility(id: String): Boolean?
+
+  fun getLayerMinZoom(id: String): Float?
+
+  fun getLayerMaxZoom(id: String): Float?
+
+  fun setLayerVisibility(id: String, visible: Boolean)
+
+  fun setLayerMinZoom(id: String, minZoom: Float)
+
+  fun setLayerMaxZoom(id: String, maxZoom: Float)
 }

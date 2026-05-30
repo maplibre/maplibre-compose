@@ -6,7 +6,18 @@ import org.maplibre.compose.layers.Layer
 internal class LayerManager(private val styleNode: StyleNode) {
   private val baseLayers = styleNode.style.getLayers().associateBy { it.id }
 
+  internal fun isBaseLayer(id: String): Boolean =
+    id in baseLayers && replacedLayers.values.none { it.id == id }
+
+  internal val baseLayerIds: List<String>
+    get() {
+      val replaced = replacedLayers.values.mapTo(HashSet()) { it.id }
+      return baseLayers.keys.filter { it !in replaced }
+    }
+
   private val userLayers = mutableListOf<LayerNode<*>>()
+
+  internal fun isComposableLayer(id: String): Boolean = userLayers.any { it.layer.id == id }
 
   // special handling for Replace anchors
   private val replacedLayers = mutableMapOf<Anchor.Replace, Layer>()

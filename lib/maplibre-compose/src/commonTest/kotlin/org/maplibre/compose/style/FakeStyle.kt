@@ -85,4 +85,22 @@ internal class FakeStyle(
     if (!layerList.remove(layer)) error("Layer '${layer}' not found in style")
     layerMap.remove(layer.id)
   }
+
+  override fun getLayerVisibility(id: String): Boolean? {
+    return null
+  }
+
+  override fun getLayerMinZoom(id: String): Float? {
+    return null
+  }
+
+  override fun getLayerMaxZoom(id: String): Float? {
+    return null
+  }
+
+  override fun setLayerVisibility(id: String, visible: Boolean) {}
+
+  override fun setLayerMinZoom(id: String, minZoom: Float) {}
+
+  override fun setLayerMaxZoom(id: String, maxZoom: Float) {}
 }
