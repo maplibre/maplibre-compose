@@ -7,12 +7,14 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
@@ -57,13 +59,12 @@ public class IosLocationProvider(
   coroutineScope: CoroutineScope,
   sharingStarted: SharingStarted,
 ) : LocationProvider, OrientationProvider {
-  private val locationManager = CLLocationManager()
 
   init {
     if (
       enableLocation &&
-        locationManager.authorizationStatus != kCLAuthorizationStatusAuthorizedAlways &&
-        locationManager.authorizationStatus != kCLAuthorizationStatusAuthorizedWhenInUse
+        CLLocationManager.authorizationStatus() != kCLAuthorizationStatusAuthorizedAlways &&
+        CLLocationManager.authorizationStatus() != kCLAuthorizationStatusAuthorizedWhenInUse
     ) {
       throw PermissionException()
     }
@@ -71,6 +72,7 @@ public class IosLocationProvider(
 
   private val updates: StateFlow<ProviderUpdate?> =
     callbackFlow {
+        val locationManager = CLLocationManager()
         val delegate = Delegate(channel)
         locationManager.delegate = delegate
 
@@ -107,6 +109,7 @@ public class IosLocationProvider(
           locationManager.delegate = null
         }
       }
+      .flowOn(Dispatchers.Main)
       .stateIn(coroutineScope, sharingStarted, null)
 
   override val location: StateFlow<Location?> =
