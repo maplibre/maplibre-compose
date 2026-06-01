@@ -1,8 +1,10 @@
 package org.maplibre.compose.style
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import org.maplibre.compose.sources.Source
 
 /** Remember a new [StyleState]. */
@@ -25,11 +27,14 @@ public class StyleState internal constructor() {
    * loaded.
    */
   public val baseStyleLayers: BaseStyleLayers?
-    get() = styleNode?.let { BaseStyleLayers(it) }
+    get() = baseStyleLayersState
+
+  private var baseStyleLayersState by mutableStateOf<BaseStyleLayers?>(null)
 
   internal fun attach(styleNode: StyleNode?) {
     if (this.styleNode != styleNode) {
       this.styleNode = styleNode
+      baseStyleLayersState = styleNode?.let { BaseStyleLayers(it) }
       styleNode?.sourceManager?.state = this
       reloadSources()
     }
