@@ -3,7 +3,7 @@ package org.maplibre.compose.style
 public class BaseStyleLayers internal constructor(private val styleNode: StyleNode) {
   /** Ids of base-style's layers, in render order. */
   public val ids: List<String>
-    get() = styleNode.layerManager.baseLayerIds
+    get() = if (styleNode.style.isUnloaded) emptyList() else styleNode.layerManager.baseLayerIds
 
   /**
    * A handle to the base-style layer with the given [id], or `null` if there is no such base layer
