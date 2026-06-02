@@ -34,20 +34,20 @@ public class BaseStyleLayers internal constructor(private val styleNode: StyleNo
 public class BaseStyleLayer
 internal constructor(private val styleNode: StyleNode, public val id: String) {
   public var visible: Boolean
-    get() = styleNode.style.getLayerVisibility(id) ?: true
+    get() = styleNode.style.getLayer(id)?.visible ?: true
     set(value) {
-      styleNode.style.setLayerVisibility(id, value)
+      styleNode.style.getLayer(id)?.visible = value
     }
 
   public var minZoom: Float
-    get() = styleNode.style.getLayerMinZoom(id) ?: 0.0f
+    get() = styleNode.style.getLayer(id)?.minZoom ?: 0.0f
     set(value) {
-      styleNode.style.setLayerMinZoom(id, value)
+      styleNode.style.getLayer(id)?.minZoom = value
     }
 
   public var maxZoom: Float
-    get() = styleNode.style.getLayerMaxZoom(id) ?: 24.0f
+    get() = styleNode.style.getLayer(id)?.maxZoom ?: 24.0f
     set(value) {
-      styleNode.style.setLayerMaxZoom(id, value)
+      styleNode.style.getLayer(id)?.maxZoom = value
     }
 }
