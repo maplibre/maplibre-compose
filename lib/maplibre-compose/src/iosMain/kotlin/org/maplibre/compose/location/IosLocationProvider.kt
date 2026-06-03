@@ -1,28 +1,21 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
+import kotlin.concurrent.Volatile
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.FlowPreview
-import kotlinx.coroutines.channels.SendChannel
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.runningFold
-import kotlinx.coroutines.flow.sample
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.asStateFlow
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.Length
+import org.maplibre.spatialk.units.extensions.centimeters
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inMeters
-import org.maplibre.spatialk.units.extensions.meters
 import platform.CoreLocation.CLHeading
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
@@ -39,192 +32,166 @@ import platform.Foundation.timeIntervalSinceNow
 import platform.darwin.NSObject
 
 /**
- * A [LocationProvider] built on the [CLLocationManager] platform APIs.
+ * A [LocationProvider] built on [CLLocationManager].
  *
- * @param minDistance the minimum distance between location updates
- * @param desiredAccuracy the [DesiredAccuracy] for location updates.
- * @param enableLocation whether location updates should be requested from [CLLocationManager].
- * @param enableOrientation whether heading updates should be requested from [CLLocationManager].
- * @param orientationUpdateInterval the period at which heading updates are sampled.
- * @param coroutineScope the [CoroutineScope] used to share the [location] flow
- * @param sharingStarted parameter for [stateIn] calls
+ * Lifecycle is managed explicitly via [start] and [stop].
+ * Use [rememberIosLocationProvider] for automatic Compose lifecycle binding.
  */
-@OptIn(FlowPreview::class)
 public class IosLocationProvider(
-  private val minDistance: Length,
-  private val desiredAccuracy: DesiredAccuracy,
-  private val enableLocation: Boolean,
-  private val enableOrientation: Boolean,
-  private val orientationUpdateInterval: Duration,
-  coroutineScope: CoroutineScope,
-  sharingStarted: SharingStarted,
+    private val minDistance: Length,
+    private val desiredAccuracy: DesiredAccuracy,
+    private val enableLocation: Boolean,
+    private val enableOrientation: Boolean,
+    private val orientationUpdateInterval: Duration,
 ) : LocationProvider, OrientationProvider {
 
-  init {
-    if (
-      enableLocation &&
-        CLLocationManager.authorizationStatus() != kCLAuthorizationStatusAuthorizedAlways &&
-        CLLocationManager.authorizationStatus() != kCLAuthorizationStatusAuthorizedWhenInUse
-    ) {
-      throw PermissionException()
+    init {
+        val status = CLLocationManager.authorizationStatus()
+        if (
+            enableLocation &&
+            status != kCLAuthorizationStatusAuthorizedAlways &&
+            status != kCLAuthorizationStatusAuthorizedWhenInUse
+        ) {
+            throw PermissionException()
+        }
     }
-  }
 
-  private val updates: StateFlow<ProviderUpdate?> =
-    callbackFlow {
-        val locationManager = CLLocationManager()
-        val delegate = Delegate(channel)
-        locationManager.delegate = delegate
+    private val _location = MutableStateFlow<Location?>(null)
+    override val location: StateFlow<Location?> = _location.asStateFlow()
+
+    private val _orientation = MutableStateFlow<Orientation?>(null)
+    override val orientation: StateFlow<Orientation?> = _orientation.asStateFlow()
+
+    @Volatile
+    private var lastOrientationUpdate =
+        TimeSource.Monotonic.markNow() - orientationUpdateInterval
+
+    private val delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
+        override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
+            val locations = didUpdateLocations as? List<CLLocation> ?: return
+            locations.lastOrNull()?.let { _location.value = it.asMapLibreLocation() }
+        }
+
+        override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
+            if (lastOrientationUpdate.elapsedNow() >= orientationUpdateInterval) {
+                _orientation.value = didUpdateHeading.asMapLibreOrientation()
+                lastOrientationUpdate = TimeSource.Monotonic.markNow()
+            }
+        }
+
+        override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
+            // CLLocationManager will retry automatically; nothing to act on here.
+        }
+    }
+
+    private val locationManager = CLLocationManager().apply {
+        this.delegate = this@IosLocationProvider.delegate
 
         if (enableLocation) {
-          locationManager.desiredAccuracy =
-            when (desiredAccuracy) {
-              DesiredAccuracy.Highest -> kCLLocationAccuracyBestForNavigation
-              DesiredAccuracy.High -> kCLLocationAccuracyBest
-              DesiredAccuracy.Balanced -> kCLLocationAccuracyHundredMeters
-              DesiredAccuracy.Low -> kCLLocationAccuracyKilometer
-              DesiredAccuracy.Lowest -> kCLLocationAccuracyReduced
-            }
-          locationManager.distanceFilter = minDistance.inMeters
-
-          locationManager.stopUpdatingLocation()
-          locationManager.startUpdatingLocation()
+            this.desiredAccuracy =
+                when (this@IosLocationProvider.desiredAccuracy) {
+                    DesiredAccuracy.Highest -> kCLLocationAccuracyBestForNavigation
+                    DesiredAccuracy.High -> kCLLocationAccuracyBest
+                    DesiredAccuracy.Balanced -> kCLLocationAccuracyHundredMeters
+                    DesiredAccuracy.Low -> kCLLocationAccuracyKilometer
+                    DesiredAccuracy.Lowest -> kCLLocationAccuracyReduced
+                }
+            distanceFilter = minDistance.inMeters
         }
+    }
 
-        if (enableOrientation) {
-          val headingAvailable = CLLocationManager.headingAvailable()
-          if (headingAvailable) {
-            locationManager.stopUpdatingHeading()
+    public fun start() {
+        if (enableLocation) {
+            locationManager.startUpdatingLocation()
+        }
+        if (enableOrientation && CLLocationManager.headingAvailable()) {
             locationManager.startUpdatingHeading()
-          }
         }
-
-        awaitClose {
-          if (enableLocation) {
-            locationManager.stopUpdatingLocation()
-          }
-          if (enableOrientation) {
-            locationManager.stopUpdatingHeading()
-          }
-          locationManager.delegate = null
-        }
-      }
-      .flowOn(Dispatchers.Main)
-      .stateIn(coroutineScope, sharingStarted, null)
-
-  override val location: StateFlow<Location?> =
-    updates
-      .runningFold(null as Location?) { location, update ->
-        when (update) {
-          is ProviderUpdate.LocationUpdate -> update.location
-          else -> location
-        }
-      }
-      .stateIn(coroutineScope, sharingStarted, null)
-
-  override val orientation: StateFlow<Orientation?> =
-    updates
-      .runningFold(null as Orientation?) { orientation, update ->
-        when (update) {
-          is ProviderUpdate.OrientationUpdate -> update.orientation
-          else -> orientation
-        }
-      }
-      .sample(orientationUpdateInterval)
-      .stateIn(coroutineScope, sharingStarted, null)
-
-  private inner class Delegate(private val channel: SendChannel<ProviderUpdate>) :
-    NSObject(), CLLocationManagerDelegateProtocol {
-    override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
-      @Suppress("UNCHECKED_CAST") val locations = didUpdateLocations as? List<CLLocation>
-
-      locations?.forEach { channel.trySend(ProviderUpdate.LocationUpdate(it.asMapLibreLocation())) }
     }
 
-    override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
-      channel.trySend(ProviderUpdate.OrientationUpdate(didUpdateHeading.asMapLibreOrientation()))
+    public fun stop() {
+        locationManager.stopUpdatingLocation()
+        locationManager.stopUpdatingHeading()
+        locationManager.delegate = null
     }
-
-    override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {}
-  }
-
-  private sealed interface ProviderUpdate {
-    data class LocationUpdate(val location: Location) : ProviderUpdate
-
-    data class OrientationUpdate(val orientation: Orientation) : ProviderUpdate
-  }
 }
 
 private fun CLHeading.asMapLibreOrientation(): Orientation {
-  val heading = if (trueHeading >= 0.0) trueHeading else magneticHeading
-  val accuracy = if (headingAccuracy >= 0.0) headingAccuracy.degrees else null
-  val age = (-timestamp.timeIntervalSinceNow).seconds
+    val heading = if (trueHeading >= 0.0) trueHeading else magneticHeading
+    val accuracy = if (headingAccuracy >= 0.0) headingAccuracy.degrees else null
+    val age = (-timestamp.timeIntervalSinceNow).seconds
 
-  return Orientation(
-    orientation = BearingWithAccuracy(value = Bearing.North + heading.degrees, accuracy = accuracy),
-    timestamp = TimeSource.Monotonic.markNow() - age,
-  )
+    return Orientation(
+        orientation = BearingWithAccuracy(
+            value = Bearing.North + heading.degrees,
+            accuracy = accuracy
+        ),
+        timestamp = TimeSource.Monotonic.markNow() - age,
+    )
 }
 
 @Composable
 public actual fun rememberDefaultLocationProvider(
-  updateInterval: Duration,
-  desiredAccuracy: DesiredAccuracy,
-  minDistance: Length,
+    updateInterval: Duration,
+    desiredAccuracy: DesiredAccuracy,
+    minDistance: Length,
 ): LocationProvider {
-  return rememberIosLocationProvider(minDistance, desiredAccuracy)
-}
-
-@Composable
-public fun rememberIosLocationProvider(
-  minDistance: Length = 1.meters,
-  desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
-  enableLocation: Boolean = true,
-  enableOrientation: Boolean = false,
-  orientationUpdateInterval: Duration = 1.seconds,
-  coroutineScope: CoroutineScope = rememberCoroutineScope(),
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): IosLocationProvider {
-  return remember(
-    minDistance,
-    desiredAccuracy,
-    enableLocation,
-    enableOrientation,
-    orientationUpdateInterval,
-    coroutineScope,
-    sharingStarted,
-  ) {
-    IosLocationProvider(
-      minDistance = minDistance,
-      desiredAccuracy = desiredAccuracy,
-      enableLocation = enableLocation,
-      enableOrientation = enableOrientation,
-      orientationUpdateInterval = orientationUpdateInterval,
-      coroutineScope = coroutineScope,
-      sharingStarted = sharingStarted,
+    return rememberIosLocationAndOrientationProvider(
+        minDistance = minDistance,
+        desiredAccuracy = desiredAccuracy,
     )
-  }
 }
 
 /**
- * Create and remember an [IosLocationProvider] that uses one [CLLocationManager] for both location
- * and orientation updates.
+ * Create, remember, and lifecycle-bind an [IosLocationProvider].
+ * Starts on entrance, stops on leave — no manual cleanup needed.
+ */
+@Composable
+public fun rememberIosLocationProvider(
+    minDistance: Length = 50.centimeters,
+    desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
+    enableLocation: Boolean = true,
+    enableOrientation: Boolean = false,
+    orientationUpdateInterval: Duration = 200.milliseconds,
+): IosLocationProvider {
+    val provider = remember(
+        minDistance,
+        desiredAccuracy,
+        enableLocation,
+        enableOrientation,
+        orientationUpdateInterval,
+    ) {
+        IosLocationProvider(
+            minDistance = minDistance,
+            desiredAccuracy = desiredAccuracy,
+            enableLocation = enableLocation,
+            enableOrientation = enableOrientation,
+            orientationUpdateInterval = orientationUpdateInterval,
+        )
+    }
+
+    DisposableEffect(provider) {
+        provider.start()
+        onDispose { provider.stop() }
+    }
+
+    return provider
+}
+
+/**
+ * Create and remember an [IosLocationProvider] for both location and orientation updates.
  */
 @Composable
 public fun rememberIosLocationAndOrientationProvider(
-  minDistance: Length = 1.meters,
-  desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
-  orientationUpdateInterval: Duration = 1.seconds,
-  coroutineScope: CoroutineScope = rememberCoroutineScope(),
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
+    minDistance: Length = 50.centimeters,
+    desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
+    orientationUpdateInterval: Duration = 200.milliseconds,
 ): IosLocationProvider {
-  return rememberIosLocationProvider(
-    minDistance = minDistance,
-    desiredAccuracy = desiredAccuracy,
-    enableLocation = true,
-    enableOrientation = true,
-    orientationUpdateInterval = orientationUpdateInterval,
-    coroutineScope = coroutineScope,
-    sharingStarted = sharingStarted,
-  )
+    return rememberIosLocationProvider(
+        minDistance = minDistance,
+        desiredAccuracy = desiredAccuracy,
+        enableLocation = true,
+        enableOrientation = true,
+        orientationUpdateInterval = orientationUpdateInterval,
+    )
 }
