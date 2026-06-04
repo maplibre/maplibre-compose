@@ -3,7 +3,6 @@ package org.maplibre.compose.location
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -62,7 +61,6 @@ public class IosLocationProvider(
     private val _orientation = MutableStateFlow<Orientation?>(null)
     override val orientation: StateFlow<Orientation?> = _orientation.asStateFlow()
 
-    @Volatile
     private var lastOrientationUpdate =
         TimeSource.Monotonic.markNow() - orientationUpdateInterval
 
