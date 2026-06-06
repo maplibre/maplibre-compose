@@ -3,18 +3,14 @@ package org.maplibre.compose.location
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.Length
-import org.maplibre.spatialk.units.extensions.centimeters
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inMeters
+import org.maplibre.spatialk.units.extensions.meters
 import platform.CoreLocation.CLHeading
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
@@ -29,6 +25,10 @@ import platform.CoreLocation.kCLLocationAccuracyReduced
 import platform.Foundation.NSError
 import platform.Foundation.timeIntervalSinceNow
 import platform.darwin.NSObject
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /**
  * A [LocationProvider] built on [CLLocationManager].
@@ -61,8 +61,7 @@ public class IosLocationProvider(
     private val _orientation = MutableStateFlow<Orientation?>(null)
     override val orientation: StateFlow<Orientation?> = _orientation.asStateFlow()
 
-    private var lastOrientationUpdate =
-        TimeSource.Monotonic.markNow() - orientationUpdateInterval
+    private var lastOrientationUpdate = TimeSource.Monotonic.markNow() - orientationUpdateInterval
 
     private val delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
         override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
@@ -109,8 +108,12 @@ public class IosLocationProvider(
     }
 
     public fun stop() {
-        locationManager.stopUpdatingLocation()
-        locationManager.stopUpdatingHeading()
+        if (enableLocation) {
+            locationManager.stopUpdatingLocation()
+        }
+        if (enableOrientation) {
+            locationManager.stopUpdatingHeading()
+        }
         locationManager.delegate = null
     }
 }
@@ -131,6 +134,7 @@ private fun CLHeading.asMapLibreOrientation(): Orientation {
 
 @Composable
 public actual fun rememberDefaultLocationProvider(
+    @Suppress("UNUSED_PARAMETER")
     updateInterval: Duration,
     desiredAccuracy: DesiredAccuracy,
     minDistance: Length,
@@ -147,7 +151,7 @@ public actual fun rememberDefaultLocationProvider(
  */
 @Composable
 public fun rememberIosLocationProvider(
-    minDistance: Length = 50.centimeters,
+    minDistance: Length = 1.meters,
     desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
     enableLocation: Boolean = true,
     enableOrientation: Boolean = false,
@@ -182,7 +186,7 @@ public fun rememberIosLocationProvider(
  */
 @Composable
 public fun rememberIosLocationAndOrientationProvider(
-    minDistance: Length = 50.centimeters,
+    minDistance: Length = 1.meters,
     desiredAccuracy: DesiredAccuracy = DesiredAccuracy.High,
     orientationUpdateInterval: Duration = 200.milliseconds,
 ): IosLocationProvider {
