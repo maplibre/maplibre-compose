@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Config reference: https://docs.coderabbit.ai/reference/configuration
+
+reviews:
+    # don't post in user's own PR summary, make a separate comment
+    high_level_summary_in_walkthrough: true
+
+    # reduce noisy defaults
+    collapse_walkthrough: true
+    review_status: false
+    in_progress_fortune: false
+    poem: false
+    finishing_touches:
+        docstrings:
+            enabled: false
+        unit_tests:
+            enabled: false
+        simplify:
+            enabled: false
+
+chat:
+    # free OSS plan, should be fine
+    allow_non_org_members: true
+
+    # reduce noisy defaults
+    art: false
+    auto_reply: false
