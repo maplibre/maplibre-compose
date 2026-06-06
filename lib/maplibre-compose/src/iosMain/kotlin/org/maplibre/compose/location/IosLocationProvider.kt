@@ -99,6 +99,7 @@ public class IosLocationProvider(
     }
 
     public fun start() {
+        locationManager.delegate = this@IosLocationProvider.delegate
         if (enableLocation) {
             locationManager.startUpdatingLocation()
         }
@@ -134,7 +135,7 @@ public actual fun rememberDefaultLocationProvider(
     desiredAccuracy: DesiredAccuracy,
     minDistance: Length,
 ): LocationProvider {
-    return rememberIosLocationAndOrientationProvider(
+    return rememberIosLocationProvider(
         minDistance = minDistance,
         desiredAccuracy = desiredAccuracy,
     )
