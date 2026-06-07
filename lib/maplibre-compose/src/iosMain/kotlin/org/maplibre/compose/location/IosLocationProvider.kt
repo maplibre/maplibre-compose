@@ -39,6 +39,12 @@ import kotlin.time.TimeSource
  *
  * Lifecycle is managed explicitly via [start] and [stop].
  * Use [rememberIosLocationProvider] for automatic Compose lifecycle binding combined with LocalLifecycleOwner.
+ *
+ * @param minDistance The minimum distance in meters between location updates.
+ * @param desiredAccuracy The desired accuracy of the location updates.
+ * @param enableLocation Whether to enable location updates.
+ * @param enableOrientation Whether to enable orientation updates.
+ * @param orientationUpdateInterval The interval between orientation updates.
  */
 public class IosLocationProvider(
     private val minDistance: Length,
@@ -101,6 +107,9 @@ public class IosLocationProvider(
         }
     }
 
+    /**
+     * Start updating location and orientation.
+     */
     public fun start() {
         locationManager.delegate = this@IosLocationProvider.delegate
         if (enableLocation) {
@@ -111,6 +120,9 @@ public class IosLocationProvider(
         }
     }
 
+    /**
+     * Stop updating location and orientation.
+     */
     public fun stop() {
         if (enableLocation) {
             locationManager.stopUpdatingLocation()
@@ -122,20 +134,39 @@ public class IosLocationProvider(
     }
 }
 
+/**
+ * Maps a [CLHeading] to a MapLibre [Orientation].
+ *
+ * This function handles invalid heading values by returning a `null` orientation if the
+ * [CLHeading.headingAccuracy] is negative or if no valid heading value is available.
+ */
 private fun CLHeading.asMapLibreOrientation(): Orientation {
-    val heading = if (trueHeading >= 0.0) trueHeading else magneticHeading
-    val accuracy = if (headingAccuracy >= 0.0) headingAccuracy.degrees else null
+    val rawHeading = if (trueHeading >= 0.0) trueHeading else magneticHeading
+    val bearingWithAccuracy = if (headingAccuracy >= 0.0 && rawHeading >= 0.0) {
+        BearingWithAccuracy(
+            value = Bearing.North + rawHeading.degrees,
+            accuracy = headingAccuracy.degrees
+        )
+    } else {
+        null
+    }
     val age = (-timestamp.timeIntervalSinceNow).seconds
 
     return Orientation(
-        orientation = BearingWithAccuracy(
-            value = Bearing.North + heading.degrees,
-            accuracy = accuracy
-        ),
+        orientation = bearingWithAccuracy,
         timestamp = TimeSource.Monotonic.markNow() - age,
     )
 }
 
+/**
+ * Create and remember a default [LocationProvider] for iOS.
+ *
+ * @param updateInterval The desired interval between location updates. Not all providers support
+ *   this.
+ * @param desiredAccuracy The desired accuracy of the location updates.
+ * @param minDistance The minimum distance in meters between location updates.
+ * @return A remembered [LocationProvider] instance.
+ */
 @Composable
 public actual fun rememberDefaultLocationProvider(
     @Suppress("UNUSED_PARAMETER")
@@ -150,8 +181,15 @@ public actual fun rememberDefaultLocationProvider(
 }
 
 /**
- * Create, remember, and lifecycle-bind an [IosLocationProvider].
- * Starts on entrance, stops on leave — no manual cleanup needed.
+ * Create, remember, and lifecycle-bind an [IosLocationProvider]. Starts on entrance, stops on leave
+ * — no manual cleanup needed.
+ *
+ * @param minDistance The minimum distance in meters between location updates.
+ * @param desiredAccuracy The desired accuracy of the location updates.
+ * @param enableLocation Whether to enable location updates.
+ * @param enableOrientation Whether to enable orientation updates.
+ * @param orientationUpdateInterval The interval between orientation updates.
+ * @return A remembered [IosLocationProvider] instance.
  */
 @Composable
 public fun rememberIosLocationProvider(
@@ -194,6 +232,11 @@ public fun rememberIosLocationProvider(
 
 /**
  * Create and remember an [IosLocationProvider] for both location and orientation updates.
+ *
+ * @param minDistance The minimum distance in meters between location updates.
+ * @param desiredAccuracy The desired accuracy of the location updates.
+ * @param orientationUpdateInterval The interval between orientation updates.
+ * @return A remembered [IosLocationProvider] instance.
  */
 @Composable
 public fun rememberIosLocationAndOrientationProvider(
