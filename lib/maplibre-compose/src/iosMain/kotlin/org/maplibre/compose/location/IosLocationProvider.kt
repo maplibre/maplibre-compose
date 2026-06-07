@@ -38,7 +38,7 @@ import kotlin.time.TimeSource
  * A [LocationProvider] built on [CLLocationManager].
  *
  * Lifecycle is managed explicitly via [start] and [stop].
- * Use [rememberIosLocationProvider] for automatic Compose lifecycle binding.
+ * Use [rememberIosLocationProvider] for automatic Compose lifecycle binding combined with LocalLifecycleOwner.
  */
 public class IosLocationProvider(
     private val minDistance: Length,
