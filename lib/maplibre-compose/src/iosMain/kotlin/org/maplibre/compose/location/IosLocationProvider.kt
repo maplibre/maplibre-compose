@@ -1,8 +1,12 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -173,9 +177,16 @@ public fun rememberIosLocationProvider(
         )
     }
 
-    DisposableEffect(provider) {
-        provider.start()
-        onDispose { provider.stop() }
+    val lifecycleOwner = LocalLifecycleOwner.current
+    LaunchedEffect(provider, lifecycleOwner) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            try {
+                provider.start()
+                awaitCancellation()
+            } finally {
+                provider.stop()
+            }
+        }
     }
 
     return provider
