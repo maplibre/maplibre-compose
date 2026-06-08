@@ -11,12 +11,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.runningFold
 import kotlinx.coroutines.flow.sample
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.Length
@@ -60,21 +62,25 @@ public class IosLocationProvider(
   sharingStarted: SharingStarted,
 ) : LocationProvider, OrientationProvider {
 
+  private val locationManager by lazy { CLLocationManager() }
+  private var delegate: Delegate? = null
+
   init {
+    val authorizationStatus = CLLocationManager.authorizationStatus()
     if (
       enableLocation &&
-        CLLocationManager.authorizationStatus() != kCLAuthorizationStatusAuthorizedAlways &&
-        CLLocationManager.authorizationStatus() != kCLAuthorizationStatusAuthorizedWhenInUse
+        authorizationStatus != kCLAuthorizationStatusAuthorizedAlways &&
+        authorizationStatus != kCLAuthorizationStatusAuthorizedWhenInUse
     ) {
       throw PermissionException()
     }
   }
 
-  private val updates: StateFlow<ProviderUpdate?> =
+  private val updates: SharedFlow<ProviderUpdate> =
     callbackFlow {
-        val locationManager = CLLocationManager()
-        val delegate = Delegate(channel)
-        locationManager.delegate = delegate
+        val d = Delegate(channel)
+        delegate = d
+        locationManager.delegate = d
 
         if (enableLocation) {
           locationManager.desiredAccuracy =
@@ -107,10 +113,11 @@ public class IosLocationProvider(
             locationManager.stopUpdatingHeading()
           }
           locationManager.delegate = null
+          delegate = null
         }
       }
       .flowOn(Dispatchers.Main)
-      .stateIn(coroutineScope, sharingStarted, null)
+      .shareIn(coroutineScope, sharingStarted, replay = 1)
 
   override val location: StateFlow<Location?> =
     updates
@@ -133,11 +140,10 @@ public class IosLocationProvider(
       .sample(orientationUpdateInterval)
       .stateIn(coroutineScope, sharingStarted, null)
 
-  private inner class Delegate(private val channel: SendChannel<ProviderUpdate>) :
+  private class Delegate(private val channel: SendChannel<ProviderUpdate>) :
     NSObject(), CLLocationManagerDelegateProtocol {
     override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
       @Suppress("UNCHECKED_CAST") val locations = didUpdateLocations as? List<CLLocation>
-
       locations?.forEach { channel.trySend(ProviderUpdate.LocationUpdate(it.asMapLibreLocation())) }
     }
 
