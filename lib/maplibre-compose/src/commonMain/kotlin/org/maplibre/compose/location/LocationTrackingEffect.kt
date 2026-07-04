@@ -46,7 +46,9 @@ public fun LocationTrackingEffect(
         val oldLocation = old.first
         val newLocation = new.first
 
-        if (oldLocation != null && newLocation != null) {
+        if (oldLocation == null || newLocation == null) {
+          if (oldLocation != newLocation) return@equal false
+        } else {
           if (trackBearing && (oldLocation.course != null || newLocation.course != null)) {
             if (oldLocation.course == null) return@equal false
             if (newLocation.course == null) return@equal false
@@ -73,8 +75,13 @@ public fun LocationTrackingEffect(
         val oldOrientation = old.second?.orientation
         val newOrientation = new.second?.orientation
 
-        if (trackBearing && oldOrientation != null && newOrientation != null) {
-          if (oldOrientation.value.smallestRotationTo(newOrientation.value).inDegrees >= precision)
+        if (trackBearing) {
+          if (oldOrientation == null || newOrientation == null) {
+            if (oldOrientation != newOrientation) return@equal false
+          } else if (
+            abs(oldOrientation.value.smallestRotationTo(newOrientation.value).inDegrees) >=
+              precision
+          )
             return@equal false
         }
 
