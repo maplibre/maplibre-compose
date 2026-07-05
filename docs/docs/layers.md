@@ -19,7 +19,9 @@ The above example shows how to add a layer referring to a source from the base
 style, but you can also declare new sources:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:amtrak-1"
+MaplibreMap {
+  -8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:amtrak-1"
+}
 ```
 
 For small, frequently updated in-memory GeoJSON sources, you can opt into
@@ -28,7 +30,9 @@ platforms ignore the option for now. Under the hood, this maps to MapLibre
 Native Android's [GeoJsonOptions.withSynchronousUpdate()][android-sync-update]:
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:synchronous-geojson-updates"
+MaplibreMap {
+  -8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt:synchronous-geojson-updates"
+}
 ```
 
 The full breadth of layer styling options available is out of scope for this

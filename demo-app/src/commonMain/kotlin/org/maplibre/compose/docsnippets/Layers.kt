@@ -37,10 +37,10 @@ fun Layers() {
   // -8<- [end:simple]
 
   MaplibreMap {
+    // -8<- [start:amtrak-1]
     val amtrakStations =
       rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
 
-    // -8<- [start:amtrak-1]
     val amtrakRoutes =
       rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_routes.geojson")))
     LineLayer(
