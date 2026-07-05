@@ -125,6 +125,12 @@ launch on iOS, and Gradle to launch on JS or Desktop:
 - Desktop: `./gradlew :demo-app:run`
 - Web: `./gradlew :demo-app:jsRun`
 
+## Building documentation
+
+- Build both MkDocs site and Dokka API reference: `./gradlew generateDocs`
+- Build MkDocs only: `./gradlew mkdocsBuild`
+- Build API docs only: `./gradlew dokkaGenerate`
+
 ## Make CI happy
 
 A Git pre-commit hook is available to ensure that the code is formatted before
