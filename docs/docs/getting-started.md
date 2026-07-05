@@ -241,6 +241,10 @@ In your Composable UI, add a map:
 -8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt:app"
 ```
 
+!!! warning
+
+    Make sure you're importing `org.maplibre.compose.map.MaplibreMap` instead of `org.maplibre.android.map.MaplibreMap`.
+
 When you run your app, you should see the default [demotiles] map. To learn how
 to get a detailed map with all the features you'd expect, proceed to
 [Styling](./styling.md).
