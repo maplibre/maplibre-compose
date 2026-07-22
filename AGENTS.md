@@ -87,3 +87,56 @@ The library uses platform-specific implementations:
 - **Android/iOS**: MapLibre Native SDKs (MapLibre Android SDK, MapLibre iOS)
 - **Web**: MapLibre GL JS via `maplibre-js-bindings`
 - **Desktop**: MapLibre Native Core via `maplibre-native-bindings`
+
+## Cursor Cloud specific instructions
+
+This is a **headless Linux VM with no GPU**. Tooling is managed by `mise` (see
+`mise.toml`); the startup update script runs `mise install` and inits the
+`maplibre-native` git submodules. `mise` is activated in `~/.bashrc`, so login
+shells (including new `tmux` shells) have the pinned tools on `PATH`; otherwise
+prefix commands with `mise exec --` or run via `mise run <task>`.
+
+Standard commands live in the sections above and in `mise.toml` tasks; the notes
+below are the non-obvious, cloud-only caveats.
+
+### What can and cannot run here
+
+- **Runnable target: Desktop/JVM.** It renders a real interactive map via Mesa
+  software OpenGL (`llvmpipe`) on the pre-existing VNC display `:1`.
+- **Web/JS builds and serves** (`./gradlew :demo-app:jsRun`, port 8080) but the
+  map does **not** visually render: the Compose/Skiko canvas needs WebGL, which
+  is unavailable without a GPU. The dev server itself works fine.
+- **Android and iOS cannot run/build here**: no Android SDK is installed and
+  there is no macOS/Xcode. So `./gradlew lint`, `testDebugUnitTest`,
+  `packageDebug`, and iOS tasks are out of scope in this VM.
+
+### Running the desktop demo (headless)
+
+Skiko cannot create a hardware GL context here, so force its software renderer.
+MapLibre Native's own map GL context works on `llvmpipe`:
+
+```bash
+DISPLAY=:1 LIBGL_ALWAYS_SOFTWARE=1 SKIKO_RENDER_API=SOFTWARE \
+  ./gradlew :demo-app:run -PdesktopRenderer=opengl
+```
+
+Without `SKIKO_RENDER_API=SOFTWARE` the window fails to map (stays 1x1) after a
+`RenderException: Cannot create Linux GL context`. The app opens on display `:1`
+(view it through the Desktop pane / noVNC).
+
+### Lint / test / build
+
+- Lint: `mise check` (hk → actionlint, pkl, dprint/ktfmt/clang-format). Auto-fix
+  with `mise fix`. First `dprint` run compiles its wasm plugins and is slow.
+- Headless tests that pass here: `./gradlew jsBrowserTest` (headless Chrome) and
+  `./gradlew desktopTest` (builds the native lib, then runs JVM tests).
+- The desktop native build compiles MapLibre Native C++ from the vendored
+  submodule and takes several minutes on the first run (cached afterward).
+
+### Native build system deps (already baked into the VM image)
+
+Beyond the `libgl1-mesa-dev`/`libx11-dev`/etc. list in
+`.github/actions/setup-cmake`, this VM also needs **`libstdc++-14-dev`**:
+`clang` selects the GCC-14 toolchain dir, so without it linking fails with
+`cannot find -lstdc++`. These are installed once (snapshotted), not by the
+update script.
