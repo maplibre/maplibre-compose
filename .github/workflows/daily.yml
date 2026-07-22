@@ -71,8 +71,9 @@ jobs:
     needs: [check-last-run, build-natives]
     if: ${{ needs.check-last-run.outputs.last_sha != github.sha }}
     runs-on: macos-latest
-    permissions:
-      packages: write
+    environment:
+      name: maven-central-maplibre
+      url: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
@@ -99,7 +100,12 @@ jobs:
           name: natives-windows-amd64-vulkan
           path: ./lib/maplibre-native-bindings-jni/build/copiedResources/WindowsAmd64Vulkan/windows/amd64/vulkan/
       - run: |
-          ./gradlew publishAllPublicationsToGitHubPackagesRepository -PconfigureForPublishing=true
+          ./gradlew publishToMavenCentral -PconfigureForPublishing=true
         env:
-          ORG_GRADLE_PROJECT_githubToken: ${{ secrets.GITHUB_TOKEN }}
-          ORG_GRADLE_PROJECT_githubUser: ${{ github.actor }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername:
+            ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword:
+            ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.GPG_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword:
+            ${{ secrets.GPG_PASSPHRASE }}

@@ -62,19 +62,6 @@ mavenPublishing {
   }
 }
 
-publishing {
-  repositories {
-    maven {
-      name = "GitHubPackages"
-      setUrl("https://maven.pkg.github.com/maplibre/maplibre-compose")
-      credentials {
-        username = project.properties["githubUser"]?.toString()
-        password = project.properties["githubToken"]?.toString()
-      }
-    }
-  }
-}
-
 if (config.shouldConfigureForPublishing) {
   // when publishing, we build all variants in CI and copy them to the resources directory
   // so in gradle, we just need to validate that they're present

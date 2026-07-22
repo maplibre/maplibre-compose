@@ -7,7 +7,7 @@ up. If you haven't already, follow
 ## Add the library to your app
 
 This library is published via [Maven Central][maven], and snapshot builds of
-`main` are additionally available on [GitHub Packages][gh-packages].
+`main` are additionally available from [Central Portal Snapshots][snapshots].
 
 === "Releases (Maven Central)"
 
@@ -18,7 +18,7 @@ This library is published via [Maven Central][maven], and snapshot builds of
     maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{ gradle.release_version }}" }
     ```
 
-=== "Snapshots (GitHub Packages)"
+=== "Snapshots (Central Portal)"
 
     !!! warning
 
@@ -26,17 +26,15 @@ This library is published via [Maven Central][maven], and snapshot builds of
         version. If using snapshots, always refer to the [latest source code][repo] for the most
         accurate information.
 
-    First, follow [GitHub's guide][gh-packages-guide] for authenticating to GitHub Packages. Your
-    settings.gradle.kts should have something like this:
+    Add the Central Portal Snapshots repository to your `settings.gradle.kts`:
 
     ```kotlin title="settings.gradle.kts"
     repositories {
       maven {
-        url = uri("https://maven.pkg.github.com/maplibre/maplibre-compose")
-        credentials {
-          username = project.findProperty("gpr.user") as String? ?: System.getenv("GH_USERNAME")
-          password = project.findProperty("gpr.key") as String? ?: System.getenv("GH_TOKEN")
-        }
+        name = "Central Portal Snapshots"
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        mavenContent { snapshotsOnly() }
+        content { includeGroup("org.maplibre.compose") }
       }
     }
     ```
@@ -251,8 +249,7 @@ to get a detailed map with all the features you'd expect, proceed to
 
 [compose-guide]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
 [maven]: https://central.sonatype.com/namespace/org.maplibre.compose
-[gh-packages]: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry
-[gh-packages-guide]: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-gradle-registry#using-a-published-package
+[snapshots]: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/
 [gradle-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
 [gradle-spm4kmp]: https://spmforkmp.eu/
 [cocoapods-support]: https://blog.cocoapods.org/CocoaPods-Support-Plans/
