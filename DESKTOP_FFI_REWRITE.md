@@ -6,9 +6,10 @@ This document is the implementation plan for replacing the desktop JNI
 integration with the Kotlin Multiplatform bindings published by
 [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi).
 
-The rewrite lands end to end on this branch. Intermediate commits may introduce
-the new implementation in layers, but the finished branch has one desktop
-implementation and no runtime fallback to the legacy JNI code.
+Merge this plan before implementation begins. The rewrite then lands end to end
+on a dedicated follow-up branch. Intermediate commits may introduce the new
+implementation in layers, but the completed implementation has one desktop path
+and no runtime fallback to the legacy JNI code.
 
 ## Decisions
 
@@ -42,7 +43,7 @@ implementation and no runtime fallback to the legacy JNI code.
 
 ## Outcomes
 
-The finished branch provides:
+The completed implementation provides:
 
 - working interactive desktop maps on Linux, Windows, and macOS;
 - one Kotlin implementation of MapLibre map behavior above the FFI binding;
@@ -519,10 +520,10 @@ unexplained no-op setters.
 
 ## Legacy removal
 
-Perform legacy removal immediately after the planning commit, before adding Java
-25, FFI dependencies, host abstractions, or new rendering code. The purpose is
-to make every implementation decision against the new architecture instead of
-preserving assumptions from the JNI path.
+Perform legacy removal in the first commit on the implementation branch, before
+adding Java 25, FFI dependencies, host abstractions, or new rendering code. The
+purpose is to make every implementation decision against the new architecture
+instead of preserving assumptions from the JNI path.
 
 Delete:
 
@@ -560,62 +561,60 @@ intermediate desktop revisions green.
 
 ## Commit sequence
 
-Keep commits cohesive and buildable where practical. The desktop target is
-allowed to be red during the explicit clean-slate interval after legacy
-deletion; no commit introduces a runtime dual-path or fallback.
+This document is merged separately before the sequence starts. On the
+implementation branch, keep commits cohesive and buildable where practical. The
+desktop target is allowed to be red during the explicit clean-slate interval
+after legacy deletion; no commit introduces a runtime dual-path or fallback.
 
-1. **Record the rewrite plan**
-   - Add this document and any decisions discovered during implementation.
-
-2. **Delete the legacy desktop implementation**
+1. **Delete the legacy desktop implementation**
    - Delete both bindings modules, vendored submodules, old desktop actuals,
      SimpleJNI, native build logic, runtime capabilities, and JNI CI/release
      jobs.
    - Remove obsolete project, documentation, task, and dependency references.
    - Verify unaffected Android, iOS, and Web tasks.
 
-3. **Prepare Java 25 and FFI dependency resolution**
+2. **Prepare Java 25 and FFI dependency resolution**
    - Split Android and desktop JVM targets.
    - Add snapshot repository, version catalog entries, native-access arguments,
      and runtime classifier build logic.
    - Add dependency-resolution tests or inspection tasks.
 
-4. **Define the host SPI and fake host**
+3. **Define the host SPI and fake host**
    - Add public desktop host interfaces, target descriptors, capability
      negotiation, lifecycle state machine, and a fake in-memory test host.
    - Test backend intersection, frame invalidation, resize, loss, and close.
 
-5. **Port initial native host bridges**
+4. **Port initial native host bridges**
    - Port common surface code and the Linux Vulkan, Windows Vulkan, and macOS
      Metal paths from the FFI Compose example.
    - Isolate and test Skiko reflection.
    - Add the compose-glfw fixture.
 
-6. **Bring up FFI map rendering**
+5. **Bring up FFI map rendering**
    - Add `DesktopMapSession`, runtime pumping, event translation, camera
      operations, frame scheduling, input, density handling, and teardown.
    - The demo loads, renders, resizes, accepts input, and closes on all three
      operating systems at this point.
 
-7. **Complete styles and queries**
+6. **Complete styles and queries**
    - Add JSON/GeoJSON conversions, source and layer implementations, images,
      rendered queries, cluster extensions, and base-style reconstruction.
    - Remove all desktop placeholder implementations.
 
-8. **Complete resources and offline**
+7. **Complete resources and offline**
    - Add Compose resource loading, persistent cache configuration, offline
      manager actuals, cancellation, and persistence tests.
 
-9. **Finish packaging, CI, and documentation**
+8. **Finish packaging, CI, and documentation**
    - Package one runtime per OS/architecture.
    - Replace native-build workflows with consumer tests.
    - Update public docs, development tasks, Nix environment, roadmap, and
      release notes.
 
-10. **Stabilize on the machine matrix**
-    - Incorporate fixes from real GPU, display server, DPI, lifecycle, and soak
-      testing as focused commits.
-    - Re-run the full project build and package installation tests.
+9. **Stabilize on the machine matrix**
+   - Incorporate fixes from real GPU, display server, DPI, lifecycle, and soak
+     testing as focused commits.
+   - Re-run the full project build and package installation tests.
 
 Commits may be split further by cohesive concern. Once the legacy deletion
 commit lands, it is never partially reverted to ease implementation.
