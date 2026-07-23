@@ -80,8 +80,8 @@ MaplibreMap composable
               compose-glfw or another Compose host                |
               supplies context, render target, synchronization,   |
               presentation, and invalidation                      |
-                                                                    |
-maplibre-native-ffi JVM binding <----------------------------------+
+                                                                 |
+maplibre-native-ffi JVM binding <--------------------------------+
   |
 MapLibre Native C ABI
 ```
