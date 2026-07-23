@@ -33,8 +33,9 @@ implementation and no runtime fallback to the legacy JNI code.
   supported GPU context and render-target access. `compose-glfw` is an initial
   alternative integration to validate.
 - The old bindings modules, C++ JNI code, vendored submodules, build machinery,
-  runtime capabilities, and documentation are deleted. Git history remains the
-  reference for the old implementation.
+  runtime capabilities, and documentation are deleted in the first
+  implementation commit. Git history remains the reference for the old
+  implementation.
 - Missing FFI capabilities receive a precise `TODO(maplibre-native-ffi)` comment
   at the fallback or unsupported boundary. The finished rewrite contains no
   unexplained no-ops and no executable `TODO()` stubs.
@@ -163,10 +164,17 @@ OpenGL, another Vulkan presentation path, or a different Compose consumer
 therefore adds a host bridge registration and runtime dependency, not a second
 map implementation.
 
-## Desktop host integration API
+## Desktop host integration SPI
 
-Create a desktop-only experimental API in `org.maplibre.compose.desktop`. Its
-responsibilities are intentionally narrower than the MapLibre map API.
+Add a desktop-only host SPI in `org.maplibre.compose.desktop`. This is a
+long-lived product extension point, not migration scaffolding: it keeps MapLibre
+map behavior independent of the Compose host and allows applications to supply
+supported GPU context and render-target integration.
+
+The SPI is desktop-only because GPU context discovery, native render targets,
+and presentation are desktop host concerns; the common `MaplibreMap` API remains
+host-independent. Publish it as ordinary public desktop API under the same v0.x
+compatibility expectations as the rest of MapLibre Compose.
 
 The API needs these concepts; exact names can be refined before the first public
 snapshot:
@@ -204,8 +212,8 @@ The map session owns:
 
 The public host SPI uses MapLibre Compose handle and descriptor types rather
 than exposing generated FFM classes. Conversion to
-`org.maplibre.nativeffi.render` types stays internal. Annotate the SPI as
-experimental while the reflection hook and FFI are prerelease.
+`org.maplibre.nativeffi.render` types stays internal. Validate the boundary
+against at least two structurally different host implementations.
 
 ### Default Skiko host
 
@@ -225,6 +233,11 @@ Reflection failures become a structured unsupported-host result that explains
 the expected and observed Skiko classes. Pin the supported Compose/Skiko version
 and add a test that checks the reflected member contract without starting
 MapLibre.
+
+The reflection bridge is replaceable implementation detail. When Compose/Skiko
+provides a supported graphics-context hook, replace this bridge behind the same
+host SPI rather than changing the map implementation or requiring applications
+to adopt a new integration model.
 
 ### Alternative hosts
 
@@ -506,10 +519,17 @@ unexplained no-op setters.
 
 ## Legacy removal
 
+Perform legacy removal immediately after the planning commit, before adding Java
+25, FFI dependencies, host abstractions, or new rendering code. The purpose is
+to make every implementation decision against the new architecture instead of
+preserving assumptions from the JNI path.
+
 Delete:
 
 - `lib/maplibre-native-bindings`;
 - `lib/maplibre-native-bindings-jni`;
+- the old desktop map, style, source, layer, rendering, and input
+  implementations that depend on those modules;
 - both git submodule entries and `.gitmodules` if it becomes empty;
 - SimpleJNI and its KSP configuration;
 - desktop native variants, capabilities, and `desktopRenderer` build logic;
@@ -532,63 +552,73 @@ Update:
 No compatibility modules, capability aliases, JNI fallback selector, or
 deprecated wrapper artifacts are introduced.
 
+Desktop compilation may be broken between this deletion and the first FFI-backed
+implementation commit. Keep Android, iOS, and Web checks green and run focused
+tests for each new desktop component as it lands. Do not introduce placeholder
+actuals, a legacy build flag, or a temporary compatibility layer solely to keep
+intermediate desktop revisions green.
+
 ## Commit sequence
 
-Keep commits reviewable and buildable where practical. The old code may remain
-untouched while its replacement is prepared, but no commit introduces a runtime
-dual-path or fallback.
+Keep commits cohesive and buildable where practical. The desktop target is
+allowed to be red during the explicit clean-slate interval after legacy
+deletion; no commit introduces a runtime dual-path or fallback.
 
 1. **Record the rewrite plan**
    - Add this document and any decisions discovered during implementation.
 
-2. **Prepare Java 25 and FFI dependency resolution**
+2. **Delete the legacy desktop implementation**
+   - Delete both bindings modules, vendored submodules, old desktop actuals,
+     SimpleJNI, native build logic, runtime capabilities, and JNI CI/release
+     jobs.
+   - Remove obsolete project, documentation, task, and dependency references.
+   - Verify unaffected Android, iOS, and Web tasks.
+
+3. **Prepare Java 25 and FFI dependency resolution**
    - Split Android and desktop JVM targets.
    - Add snapshot repository, version catalog entries, native-access arguments,
      and runtime classifier build logic.
    - Add dependency-resolution tests or inspection tasks.
 
-3. **Define the host SPI and fake host**
-   - Add experimental desktop host interfaces, target descriptors, capability
+4. **Define the host SPI and fake host**
+   - Add public desktop host interfaces, target descriptors, capability
      negotiation, lifecycle state machine, and a fake in-memory test host.
    - Test backend intersection, frame invalidation, resize, loss, and close.
 
-4. **Port initial native host bridges**
+5. **Port initial native host bridges**
    - Port common surface code and the Linux Vulkan, Windows Vulkan, and macOS
      Metal paths from the FFI Compose example.
    - Isolate and test Skiko reflection.
    - Add the compose-glfw fixture.
 
-5. **Cut over map rendering atomically**
+6. **Bring up FFI map rendering**
    - Add `DesktopMapSession`, runtime pumping, event translation, camera
      operations, frame scheduling, input, density handling, and teardown.
-   - Replace `SwingPanel`/`MapCanvas`.
-   - Delete the old bindings modules and all JNI/native build machinery in the
-     same commit.
    - The demo loads, renders, resizes, accepts input, and closes on all three
      operating systems at this point.
 
-6. **Complete styles and queries**
+7. **Complete styles and queries**
    - Add JSON/GeoJSON conversions, source and layer implementations, images,
      rendered queries, cluster extensions, and base-style reconstruction.
    - Remove all desktop placeholder implementations.
 
-7. **Complete resources and offline**
+8. **Complete resources and offline**
    - Add Compose resource loading, persistent cache configuration, offline
      manager actuals, cancellation, and persistence tests.
 
-8. **Finish packaging, CI, and documentation**
+9. **Finish packaging, CI, and documentation**
    - Package one runtime per OS/architecture.
    - Replace native-build workflows with consumer tests.
    - Update public docs, development tasks, Nix environment, roadmap, and
      release notes.
 
-9. **Stabilize on the machine matrix**
-   - Incorporate fixes from real GPU, display server, DPI, lifecycle, and soak
-     testing as focused commits.
-   - Re-run the full project build and package installation tests.
+10. **Stabilize on the machine matrix**
+    - Incorporate fixes from real GPU, display server, DPI, lifecycle, and soak
+      testing as focused commits.
+    - Re-run the full project build and package installation tests.
 
-Commits may be split further by cohesive concern. The cutover and legacy
-deletion stay together so no revision advertises two desktop implementations.
+Commits may be split further by cohesive concern. Once the legacy deletion
+commit lands, it is never partially reverted to ease implementation.
 
 ## Automated test plan
 
@@ -691,7 +721,7 @@ operating system before declaring the SPI usable.
 - [ ] Java 25 is used for desktop compilation, execution, tests, and packaging.
 - [ ] Android retains its intended bytecode target.
 - [ ] Linux Vulkan, Windows Vulkan, and macOS Metal render through the FFI.
-- [ ] The default Skiko host is replaceable through the public experimental SPI.
+- [ ] The default Skiko host is replaceable through the public host SPI.
 - [ ] A compose-glfw fixture renders through the same map session.
 - [ ] Multiple maps and repeated create/dispose cycles are stable.
 - [ ] Runtime events drive lifecycle callbacks and repaint scheduling.
