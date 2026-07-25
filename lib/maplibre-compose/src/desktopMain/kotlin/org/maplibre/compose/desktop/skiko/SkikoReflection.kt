@@ -65,6 +65,59 @@ internal object SkikoReflection {
     redrawer.getField("contextHandler")
       ?: throw DesktopHostException("$redrawerClass.contextHandler was null")
 
+  /**
+   * The Direct3D device Compose renders with on Windows.
+   *
+   * Skiko keeps this on the redrawer rather than the context handler, and only after the first
+   * frame has initialized the swap chain, so a null or zero pointer here means the host was asked
+   * for a device before Compose had one.
+   */
+  fun requireDirect3DDevice(): SkikoDirect3DDevice = onEdt {
+    val layer = requireSkiaLayer()
+    val redrawer = requireRedrawer(layer, DIRECT3D_REDRAWER_CLASS)
+    val ptr =
+      redrawer.getField("device") as? Long
+        ?: throw DesktopHostException("$DIRECT3D_REDRAWER_CLASS.device was null")
+    if (ptr == 0L) throw DesktopHostException("$DIRECT3D_REDRAWER_CLASS.device was zero")
+    SkikoDirect3DDevice(ptr)
+  }
+
+  /** The context handler of the Metal redrawer backing [layer]. */
+  fun requireMetalContextHandler(layer: Any): Any =
+    requireContextHandler(requireRedrawer(layer, METAL_REDRAWER_CLASS), METAL_REDRAWER_CLASS)
+
+  /**
+   * The Metal device Compose renders with on macOS.
+   *
+   * MapLibre must allocate its texture on the same device Skia will sample it from, so the host
+   * borrows Skiko's rather than creating one. Skiko stores it as a `MetalDevice` value class, which
+   * the JVM sees as a plain `long` field once inlined — hence the widening below, which also covers
+   * the boxed shape in case a future Skiko stops inlining it.
+   */
+  fun requireMetalDevice(): SkikoMetalDevice = onEdt {
+    val contextHandler = requireMetalContextHandler(requireSkiaLayer())
+    val device =
+      contextHandler.getField("device")
+        ?: throw DesktopHostException(
+          "${contextHandler.javaClass.name}.device was null; " +
+            "Skiko has not created the Metal device yet"
+        )
+    val ptr =
+      when (device) {
+        is Long -> device
+        else ->
+          device.getField("ptr") as? Long
+            ?: device.invokeNoArg("getPtr") as? Long
+            ?: throw DesktopHostException(
+              "${device.javaClass.name} did not expose the Skiko MetalDevice pointer"
+            )
+      }
+    if (ptr == 0L) {
+      throw DesktopHostException("${contextHandler.javaClass.name}.device.ptr was zero")
+    }
+    SkikoMetalDevice(ptr)
+  }
+
   /** Runs [block] on the AWT event thread, where Skiko's internals are safe to touch. */
   fun <T> onEdt(block: () -> T): T {
     if (SwingUtilities.isEventDispatchThread()) return block()
@@ -158,3 +211,19 @@ internal object SkikoReflection {
     throw NoSuchMethodException("${this.name}.$name(${parameterTypes.joinToString { it.name }})")
   }
 }
+
+/**
+ * Skiko's native Metal device object, as a borrowed pointer.
+ *
+ * This is Skiko's own wrapper object, not the `id<MTLDevice>` itself; the device is reached from it
+ * by sending `adapter`. Skiko owns it, so it is never retained or released here.
+ */
+internal data class SkikoMetalDevice(val ptr: Long)
+
+/**
+ * Skiko's native Direct3D device object, as a borrowed pointer.
+ *
+ * This is Skiko's own `DirectXDevice` wrapper, not the `ID3D12Device` itself; the device is read
+ * out of it at a fixed offset. Skiko owns it, so it is never addrefed or released here.
+ */
+internal data class SkikoDirect3DDevice(val ptr: Long)
