@@ -37,6 +37,10 @@ and no runtime fallback to the legacy JNI code.
   runtime capabilities, and documentation are deleted in the first
   implementation commit. Git history remains the reference for the old
   implementation.
+- The Nix development shell is deleted rather than trimmed. It existed only to
+  provide a C++ toolchain for building MapLibre Native on NixOS, which the FFI
+  removes the need for; the graphics libraries the runtime loads come from the
+  host system.
 - Missing FFI capabilities receive a precise `TODO(maplibre-native-ffi)` comment
   at the fallback or unsupported boundary. The finished rewrite contains no
   unexplained no-ops and no executable `TODO()` stubs.
@@ -546,7 +550,6 @@ Update:
 - demo runtime selection and packaging;
 - formatting excludes;
 - `mise` tasks and system dependencies;
-- Nix dependencies, retaining graphics loaders needed to run the FFI;
 - `AGENTS.md`, module docs, getting started, roadmap, and contribution docs;
 - release notes for removed artifacts and the Java 25 minimum.
 
@@ -608,8 +611,7 @@ after legacy deletion; no commit introduces a runtime dual-path or fallback.
 8. **Finish packaging, CI, and documentation**
    - Package one runtime per OS/architecture.
    - Replace native-build workflows with consumer tests.
-   - Update public docs, development tasks, Nix environment, roadmap, and
-     release notes.
+   - Update public docs, development tasks, roadmap, and release notes.
 
 9. **Stabilize on the machine matrix**
    - Incorporate fixes from real GPU, display server, DPI, lifecycle, and soak

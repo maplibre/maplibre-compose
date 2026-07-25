@@ -90,13 +90,6 @@ This integration is currently being built; see
 [DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md). Desktop does not compile
 until the FFI-backed implementation lands.
 
-On a Linux system with Nix, enter the development shell to get the graphics
-libraries the runtime loads:
-
-```bash
-nix develop
-```
-
 ## Run the demo
 
 Use IntelliJ or Android Studio to launch the demo app on Android, XCode to
