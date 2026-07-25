@@ -773,9 +773,13 @@ operating system before declaring the SPI usable.
 - [x] Every FFI capability the MapLibre Compose public API asks for is
       integrated. Audited by diffing the public surface of `MapHandle`,
       `RuntimeHandle`, and `RenderSessionHandle` against desktop call sites. The
-      remainder is declined for a stated reason: the typed `add*Source`/
-      `add*Layer` entry points, because sources and layers go through the
-      generic style JSON so one path covers every family; the owned-texture and
+      remainder is unused for a stated reason: the typed `add*Source`/
+      `add*Layer` entry points, because they cannot express what the common API
+      offers — there is no typed adder for fill, line, circle, or symbol layers,
+      and the GeoJSON source adders take no options, so a clustered source is
+      impossible through them. Creation therefore goes through the generic style
+      JSON, while property updates use `setLayerProperty` and the typed source
+      setters, the same shape Android uses. Also unused: the owned-texture and
       surface attach modes, because the hosts render into borrowed textures; and
       capabilities with no common API to reach them — style light, projection
       mode, feature-state writes, custom geometry sources, location indicator
