@@ -9,7 +9,13 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.util.toFfiJsonValue
+import org.maplibre.compose.util.toGeoJsonFeature
+import org.maplibre.compose.util.toStyleJson
+import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -40,10 +46,24 @@ public actual class VectorSource : Source {
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
   ): List<Feature<Geometry, JsonObject?>> {
-    // TODO(maplibre-native-ffi): source feature queries only exist on RenderSessionHandle, which a
-    // source cannot reach through its style binding. MapHandle needs a querySourceFeatures taking a
-    // source id, source-layer ids, and a filter expression, returning the matching features.
-    return emptyList()
+    val options =
+      SourceFeatureQueryOptions().also {
+        it.sourceLayerIds = sourceLayerIds.takeIf { ids -> ids.isNotEmpty() }?.toList()
+        // A trivial predicate is dropped rather than sent, matching Android: MapLibre reads an
+        // absent filter as "match everything", and a scalar true is not a valid filter.
+        it.filter =
+          predicate
+            .takeUnless { expression -> expression == const(true) }
+            ?.compile(ExpressionContext.None)
+            ?.toStyleJson()
+            ?.toFfiJsonValue()
+      }
+    // Empty rather than an exception when no session is attached: this answers from what a render
+    // pass built, so asking before the first frame is ordinary rather than a caller error.
+    return binding
+      .withRenderSession { session -> session.querySourceFeatures(id, options) }
+      .orEmpty()
+      .map { it.toGeoJsonFeature() }
   }
 }
 
