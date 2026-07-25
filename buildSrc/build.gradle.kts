@@ -6,7 +6,9 @@ repositories {
   google()
 }
 
-kotlin { jvmToolchain(21) }
+// Keep in sync with `jvmToolchain` in the root gradle.properties, which buildSrc
+// cannot read because it is a separate build.
+kotlin { jvmToolchain(25) }
 
 dependencies {
   pluginImplementation(libs.plugins.android.application)

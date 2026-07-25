@@ -22,7 +22,7 @@ kotlin {
 
   listOf(iosArm64(), iosSimulatorArm64()).forEach { it.configureSpmMaplibre(project) }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
+  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js(IR) { browser() }
 

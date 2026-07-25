@@ -28,6 +28,11 @@ dependencyResolutionManagement {
       }
     }
     mavenCentral()
+    // TODO(maplibre-native-ffi): drop once maplibre-native-ffi has a release.
+    maven {
+      url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+      content { includeGroup("org.maplibre.nativeffi") }
+    }
   }
 }
 

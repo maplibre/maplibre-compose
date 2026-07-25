@@ -4,10 +4,20 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
-fun Project.getJvmTarget(): JvmTarget {
-  val target = properties["jvmTarget"]!!.toString().toInt()
+private fun Project.getJvmTarget(property: String): JvmTarget {
+  val target = properties[property]!!.toString().toInt()
   return JvmTarget.valueOf("JVM_$target")
 }
+
+fun Project.getAndroidJvmTarget(): JvmTarget = getJvmTarget("androidJvmTarget")
+
+fun Project.getDesktopJvmTarget(): JvmTarget = getJvmTarget("desktopJvmTarget")
+
+/**
+ * JVM arguments required by any JVM that loads the MapLibre Native FFI runtime. Without this, the
+ * FFM downcalls the binding relies on are refused at runtime.
+ */
+val NATIVE_ACCESS_JVM_ARGS = listOf("--enable-native-access=ALL-UNNAMED")
 
 fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
   swiftPackageConfig {
@@ -31,22 +41,4 @@ fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
   val rpath =
     "${project.layout.buildDirectory.get()}/spmKmpPlugin/$targetName/scratch/$variant/release/"
   binaries.all { linkerOpts("-F$rpath", "-rpath", rpath) }
-}
-
-/**
- * Host detection shared by build logic that needs to pick a platform-specific artifact. Step 2 of
- * DESKTOP_FFI_REWRITE.md builds the MapLibre Native FFI runtime classifier on top of this.
- */
-class Configuration {
-  val hostOs =
-    when (val os = System.getProperty("os.name").lowercase()) {
-      "mac os x" -> "macos"
-      else -> os.split(" ").first()
-    }
-
-  val hostArch =
-    when (val arch = System.getProperty("os.arch").lowercase()) {
-      "x86_64" -> "amd64" // jdk returns x86_64 on macos but amd64 elsewhere
-      else -> arch
-    }
 }

@@ -194,7 +194,35 @@ There are no longer any special steps required to use MapLibre Compose on Web.
 
     Setup instructions land with the new implementation. See
     [DESKTOP_FFI_REWRITE.md](https://github.com/maplibre/maplibre-compose/blob/main/DESKTOP_FFI_REWRITE.md)
-    for the plan. Note that the new desktop target requires Java 25.
+    for the plan.
+
+Two requirements are already settled, and both differ from the previous desktop
+integration.
+
+**Desktop requires Java 25.** The MapLibre Native FFI binding ships Java 24
+bytecode and uses the FFM API, so the desktop target cannot run on an older JVM.
+Android is unaffected and keeps its existing bytecode target.
+
+**The JVM needs native access.** MapLibre Native FFI makes FFM downcalls, which
+the JVM refuses unless the module performing them is granted native access. If
+you package your application with Compose Desktop's `nativeDistributions`, add
+the argument to your application configuration:
+
+```kotlin title="build.gradle.kts"
+compose.desktop {
+  application {
+    jvmArgs += "--enable-native-access=ALL-UNNAMED"
+  }
+}
+```
+
+If you launch an unpackaged JVM application instead — `java -jar`, an IDE run
+configuration, or a `JavaExec` task — pass the same argument on the command
+line:
+
+```bash
+java --enable-native-access=ALL-UNNAMED -jar your-app.jar
+```
 
 ## Display your first map
 

@@ -755,6 +755,10 @@ Update this section as the branch develops:
 - Runtime classifiers verified: `natives-linux-x64` loads and reports
   `[VULKAN]`. Published but untested here: `natives-linux-arm64`,
   `natives-windows-x64`, `natives-windows-arm64`, `natives-macos-arm64`.
+- Java: toolchain 25 for every JVM compilation (`jvmToolchain`), desktop
+  bytecode 25 (`desktopJvmTarget`), Android bytecode unchanged at 11
+  (`androidJvmTarget`). `buildSrc` pins 25 separately because it cannot read the
+  root `gradle.properties`. Gradle 9.3 runs on Java 25.
 - Cache/runtime sharing decision: not yet made (step 7).
 - FFI gaps found: none yet.
 - Machine validation results: none yet.

@@ -34,9 +34,13 @@ android {
   testOptions { animationsDisabled = true }
 }
 
+val desktopHostPlatform = DesktopHostPlatform.current()
+
 kotlin {
+  jvmToolchain(properties["jvmToolchain"]!!.toString().toInt())
+
   androidTarget {
-    compilerOptions { jvmTarget = project.getJvmTarget() }
+    compilerOptions { jvmTarget = project.getAndroidJvmTarget() }
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
   }
@@ -49,7 +53,7 @@ kotlin {
     it.configureSpmMaplibre(project)
   }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
+  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js(IR) {
     browser { commonWebpackConfig { outputFileName = "app.js" } }
@@ -137,6 +141,7 @@ kotlin {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
+        runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
       }
     }
 
@@ -166,6 +171,41 @@ kotlin {
   }
 }
 
+/**
+ * Fails fast when the desktop runtime classpath does not carry exactly one MapLibre Native FFI
+ * native runtime matching this host. Getting this wrong otherwise surfaces as an obscure link or
+ * backend error at map creation, far from the build that chose it.
+ */
+val checkDesktopFfiRuntime by tasks.registering {
+  group = "verification"
+  description = "Checks the desktop MapLibre Native FFI runtime resolves for this host."
+
+  val platform = desktopHostPlatform
+  val runtimeClasspath = configurations.named("desktopRuntimeClasspath")
+
+  doLast {
+    val names = runtimeClasspath.get().files.map { it.name }
+
+    val binding = names.filter { it.startsWith("maplibre-native-ffi-jvm") }
+    check(binding.size == 1) {
+      "Expected exactly one MapLibre Native FFI binding on the desktop runtime classpath, " +
+        "found $binding"
+    }
+
+    val natives = names.filter { it.contains("maplibre-native-ffi-runtime-") }
+    check(natives.size == 1) {
+      "Expected exactly one MapLibre Native FFI native runtime, found $natives. " +
+        "An application must select a single OS/architecture/backend runtime."
+    }
+    check(natives.single().contains(platform.nativesClassifier)) {
+      "Resolved native runtime ${natives.single()} does not match this host " +
+        "(${platform.nativesClassifier}, backend ${platform.renderBackend})"
+    }
+
+    logger.lifecycle("Desktop FFI runtime OK: ${binding.single()}, ${natives.single()}")
+  }
+}
+
 compose.resources { packageOfResClass = "org.maplibre.compose.demoapp.generated" }
 
 composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
@@ -173,6 +213,7 @@ composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/report
 compose.desktop {
   application {
     mainClass = "org.maplibre.compose.demoapp.MainKt"
+    jvmArgs += NATIVE_ACCESS_JVM_ARGS
 
     nativeDistributions {
       targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
