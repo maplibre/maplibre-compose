@@ -11,6 +11,10 @@ on a dedicated follow-up branch. Intermediate commits may introduce the new
 implementation in layers, but the completed implementation has one desktop path
 and no runtime fallback to the legacy JNI code.
 
+The scope is everything MapLibre Native FFI can provide. Desktop behavior that
+the FFI does not back — device orientation, for instance — is out of scope even
+where a desktop actual exists as a stub.
+
 ## Decisions
 
 - Desktop runs on Java 25.
@@ -761,11 +765,22 @@ operating system before declaring the SPI usable.
 - [x] Desktop offline APIs are implemented and persistence-tested.
 - [x] Every known FFI gap has a specific `TODO(maplibre-native-ffi)` comment and
       defined behavior, plus an entry in `MAPLIBRE_NATIVE_FFI_FEEDBACK.md`.
-- [~] No executable desktop `TODO()` remains except
-  `DesktopOrientationProvider`, which predates this branch and is unrelated to
-  the FFI.
+- [x] No executable desktop `TODO()` remains in anything the FFI backs.
+      `DesktopOrientationProvider` is still a stub and stays one: device
+      orientation is not something the FFI provides, so it is out of scope.
 - [x] JNI bindings modules, vendored submodules, and native build CI are gone.
 - [x] Demo distributions include exactly one correct FFI runtime.
+- [x] Every FFI capability the MapLibre Compose public API asks for is
+      integrated. Audited by diffing the public surface of `MapHandle`,
+      `RuntimeHandle`, and `RenderSessionHandle` against desktop call sites. The
+      remainder is declined for a stated reason: the typed `add*Source`/
+      `add*Layer` entry points, because sources and layers go through the
+      generic style JSON so one path covers every family; the owned-texture and
+      surface attach modes, because the hosts render into borrowed textures; and
+      capabilities with no common API to reach them — style light, projection
+      mode, feature-state writes, custom geometry sources, location indicator
+      layers, resource transforms, offline database merge, and still images.
+      Wiring any of those means designing a cross-platform API first.
 - [~] Automated tests pass (50 desktop tests). The machine validation matrix
   covers Linux x64 only.
 - [x] Getting-started, contribution, roadmap, and release documentation describe
