@@ -89,6 +89,15 @@ kotlin {
         // The library depends on the backend-independent binding only. The
         // application selects the native runtime; see DesktopHostPlatform.
         implementation(libs.maplibre.nativeFfi)
+
+        // The default Skiko host bridges MapLibre's render target into Compose's
+        // GPU context, which needs direct Vulkan/OpenGL access. Applications
+        // supplying their own DesktopMapHostFactory still pay for these on the
+        // compile classpath; the natives are a runtime concern of the app.
+        implementation(libs.lwjgl.core)
+        implementation(libs.lwjgl.egl)
+        implementation(libs.lwjgl.opengl)
+        implementation(libs.lwjgl.vulkan)
       }
     }
 

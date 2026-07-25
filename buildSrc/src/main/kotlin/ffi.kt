@@ -25,6 +25,15 @@ enum class DesktopHostPlatform(
   val nativesClassifier: String
     get() = "natives-$os-$arch"
 
+  /**
+   * Classifier of the LWJGL natives jar for this platform, e.g. `natives-linux`.
+   *
+   * LWJGL names x64 differently from MapLibre Native FFI: it omits the architecture entirely rather
+   * than spelling it `-x64`, so the two classifiers cannot be shared.
+   */
+  val lwjglNativesClassifier: String
+    get() = if (arch == "x64") "natives-$os" else "natives-$os-$arch"
+
   /** Module carrying this platform's render backend, without a version. */
   val runtimeModule: String
     get() = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-${renderBackend.artifactInfix}-jvm"

@@ -142,6 +142,15 @@ kotlin {
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
         runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
+
+        // LWJGL resolves its natives from the classpath, so the application picks
+        // the pair matching its host exactly as it does for the FFI runtime.
+        // `variantOf` is not available in a KMP source-set dependency block, so
+        // these are spelled out.
+        val lwjglVersion = libs.versions.lwjgl.get()
+        val lwjglNatives = desktopHostPlatform.lwjglNativesClassifier
+        runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives")
+        runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNatives")
       }
     }
 
@@ -181,6 +190,7 @@ val checkDesktopFfiRuntime by tasks.registering {
   description = "Checks the desktop MapLibre Native FFI runtime resolves for this host."
 
   val platform = desktopHostPlatform
+  val lwjglVersion = libs.versions.lwjgl.get()
   val runtimeClasspath = configurations.named("desktopRuntimeClasspath")
 
   doLast {
@@ -200,6 +210,21 @@ val checkDesktopFfiRuntime by tasks.registering {
     check(natives.single().contains(platform.nativesClassifier)) {
       "Resolved native runtime ${natives.single()} does not match this host " +
         "(${platform.nativesClassifier}, backend ${platform.renderBackend})"
+    }
+
+    // The default Skiko host talks to Vulkan and OpenGL through LWJGL, which loads its natives
+    // from the classpath. A missing classifier jar surfaces as an UnsatisfiedLinkError deep in
+    // bridge setup rather than as a dependency problem.
+    // Matched with the version so that "lwjgl-" does not also match "lwjgl-opengl-".
+    for (module in listOf("lwjgl", "lwjgl-opengl")) {
+      val prefix = "$module-$lwjglVersion-natives-"
+      val jar = names.filter { it.startsWith(prefix) }
+      check(jar.size == 1) {
+        "Expected exactly one $module natives jar on the desktop runtime classpath, found $jar"
+      }
+      check(jar.single().contains(platform.lwjglNativesClassifier)) {
+        "Resolved ${jar.single()} does not match this host (${platform.lwjglNativesClassifier})"
+      }
     }
 
     logger.lifecycle("Desktop FFI runtime OK: ${binding.single()}, ${natives.single()}")
