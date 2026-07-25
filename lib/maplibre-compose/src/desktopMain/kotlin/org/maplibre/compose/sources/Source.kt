@@ -38,7 +38,13 @@ public actual sealed class Source(internal actual val id: String) {
    */
   internal fun attach(binding: StyleBinding) {
     this.binding = binding
-    val added = binding.withMap { map -> map.addStyleSourceJson(id, toJson().toFfiJsonValue()) }
+    val added = binding.withMap { map ->
+      // Idempotent, because a layer attaches its own source first when Compose has not run the
+      // source's effect yet; the effect then attaches the same source again.
+      if (!map.styleSourceExists(id)) {
+        map.addStyleSourceJson(id, toJson().toFfiJsonValue())
+      }
+    }
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."

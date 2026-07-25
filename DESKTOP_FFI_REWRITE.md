@@ -775,16 +775,15 @@ Update this section as the branch develops:
   Compose state with no ordering guard, so a resume can briefly show a stale
   progress value before the next event corrects it. Cosmetic; needs a sequence
   number per region.
-- Open bug: a demo layer fails to attach with "layer source does not exist".
-  Evidence gathered: the sources are added (`__MAPLIBRE_COMPOSE_source_0..2`),
-  then all three are _removed_, and only afterwards does the layer attach asking
-  for `source_0` — with no second "Adding source" in between. So the source add
-  is not being skipped by an unloaded style binding (that path now asserts and
-  did not fire); a later composition is attaching a layer whose source reference
-  was already released. Next step is to find who calls
-  `SourceManager.addReference`/`removeReference` around a StyleNode rebuild, and
-  whether desktop's synchronous add exposes an ordering that the mobile SDKs
-  tolerate because their add is deferred.
+- Layer/source ordering: Compose adds a layer to the style _before_ the effect
+  that adds its source. The applier inserts nodes and calls `onEndChanges`,
+  which is where `LayerManager` reaches MapLibre, and only afterwards dispatches
+  remember-observers, where `SourceReferenceEffect` lives. The mobile SDKs
+  tolerate a layer naming a source that does not exist yet; the C API rejects
+  it. Desktop works around it by having a layer attach its own source first,
+  with `Source.attach` made idempotent so the effect's later add is harmless.
+  Worth fixing in the shared layer instead: the ordering is fragile on every
+  platform, and only desktop is strict enough to notice.
 - Display scale: Compose Desktop under XWayland reports density 1.0 on a 1.7x
   display, so the map is rendered at 1x and upscaled by the compositor. The
   extent is logged with the first frame and reads `scale=1.0`. Nothing in the

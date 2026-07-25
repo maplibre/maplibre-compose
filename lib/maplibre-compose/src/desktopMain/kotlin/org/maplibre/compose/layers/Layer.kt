@@ -37,6 +37,18 @@ internal actual sealed class Layer(actual val id: String) {
   /** The source this layer draws from, or null for layers that have none, such as background. */
   protected open val sourceId: String? = null
 
+  /**
+   * The source descriptor this layer draws from, when it has one.
+   *
+   * Needed because Compose adds a layer to the style before the effect that adds its source runs:
+   * the applier inserts nodes and calls `onEndChanges` — which is where layers reach MapLibre — and
+   * only afterwards dispatches remember-observers, where `SourceReferenceEffect` lives. MapLibre's
+   * mobile SDKs tolerate a layer naming a source that does not exist yet; the C API rejects it
+   * outright, so the layer attaches its source first.
+   */
+  internal open val sourceDescriptor: org.maplibre.compose.sources.Source?
+    get() = null
+
   private val layout = mutableMapOf<String, JsonElement>()
   private val paint = mutableMapOf<String, JsonElement>()
   private val root = mutableMapOf<String, JsonElement>()
@@ -115,15 +127,24 @@ internal actual sealed class Layer(actual val id: String) {
     binding.withMap { map -> map.setLayerProperty(id, name, value.toFfiJsonValue()) }
   }
 
-  /** The complete layer object, as the style spec defines it. */
+  /**
+   * The complete layer object, as the style spec defines it.
+   *
+   * Null-valued properties are omitted rather than written. An unset optional property compiles to
+   * a null literal, but the style spec has no null: MapLibre rejects the whole layer with "layer
+   * doesn't support this property" rather than treating it as absent. They are still pushed to an
+   * already-attached layer, where null is how a property is reset to its default.
+   */
   internal fun toJson(): JsonObject = buildJsonObject {
     // `id` and `type` first: MapLibre reads the type before the properties that depend on it.
     put("id", id)
     put("type", type)
     sourceId?.let { put("source", it) }
-    root.forEach { (key, value) -> if (key in ROOT_KEYS) put(key, value) }
-    if (layout.isNotEmpty()) put("layout", JsonObject(layout))
-    if (paint.isNotEmpty()) put("paint", JsonObject(paint))
+    root.forEach { (key, value) -> if (key in ROOT_KEYS && value !is JsonNull) put(key, value) }
+    layout
+      .filterValues { it !is JsonNull }
+      .let { if (it.isNotEmpty()) put("layout", JsonObject(it)) }
+    paint.filterValues { it !is JsonNull }.let { if (it.isNotEmpty()) put("paint", JsonObject(it)) }
   }
 
   /**
@@ -134,6 +155,8 @@ internal actual sealed class Layer(actual val id: String) {
    */
   internal fun attach(binding: StyleBinding, beforeLayerId: String) {
     this.binding = binding
+    // See sourceDescriptor: the source's own effect has not run yet on a fresh style composition.
+    sourceDescriptor?.let { source -> if (!source.isAttached) source.attach(binding) }
     binding.withMap { map ->
       try {
         map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId)
@@ -144,7 +167,7 @@ internal actual sealed class Layer(actual val id: String) {
         throw IllegalStateException(
           "Could not add layer '$id' of type '$type'" +
             (sourceId?.let { " over source '$it'" } ?: "") +
-            ": ${error.message}",
+            ": ${error.message}. Layer JSON: ${toJson()}",
           error,
         )
       }
