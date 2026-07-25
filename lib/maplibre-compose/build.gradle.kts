@@ -69,8 +69,7 @@ kotlin {
       dependsOn(commonMain.get())
       androidMain.get().dependsOn(this)
       iosMain.get().dependsOn(this)
-      // TODO: when we're ready to support the offline manager on desktop
-      // desktopMain.dependsOn(this)
+      desktopMain.dependsOn(this)
     }
 
     iosMain {}

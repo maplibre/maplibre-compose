@@ -49,6 +49,7 @@ import org.maplibre.compose.util.toScreenPoint
 import org.maplibre.nativeffi.camera.AnimationOptions
 import org.maplibre.nativeffi.camera.BoundOptions
 import org.maplibre.nativeffi.camera.CameraFitOptions
+import org.maplibre.nativeffi.camera.CameraOptions
 import org.maplibre.nativeffi.error.InvalidStateException
 import org.maplibre.nativeffi.geo.LatLng
 import org.maplibre.nativeffi.geo.LatLngBounds
@@ -79,6 +80,17 @@ private const val NO_RENDER_UPDATE_DIAGNOSTIC = "no map render update is availab
 private const val TILE_SIZE = 512.0
 
 private const val EARTH_CIRCUMFERENCE_METERS = 2.0 * PI * 6378137.0
+
+/** Degrees of bearing per logical pixel of horizontal drag. */
+private const val DRAG_ROTATE_DEGREES_PER_PIXEL = 0.5
+
+/** Degrees of pitch per logical pixel of vertical drag. */
+private const val DRAG_PITCH_DEGREES_PER_PIXEL = 0.5
+
+private const val MIN_PITCH_DEGREES = 0.0
+
+/** MapLibre rejects a pitch beyond this, so the drag is clamped rather than throwing. */
+private const val MAX_PITCH_DEGREES = 60.0
 
 /** Latitude beyond which Web Mercator is undefined. */
 private const val MERCATOR_MAX_LATITUDE = 85.051129
@@ -158,6 +170,18 @@ internal class DesktopMapSession(
 
   private var renderPending = false
   private var hasRenderedAFrame = false
+
+  /**
+   * Whether MapLibre has reported it has nothing left to do.
+   *
+   * MapLibre only advances while the runtime is pumped, and pumping only happens inside a frame, so
+   * the loop must keep asking for frames until MapLibre says it is finished. Without this, any
+   * frame that does not render ends the loop: a style switch loads, fails its first renderUpdate
+   * because parsing has not finished, and then nothing wakes the pump again. The visible symptom is
+   * that only every other style switch appears to apply, because the next switch's frame is what
+   * finally completes the previous one.
+   */
+  private var isIdle = false
   private var pendingStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
   private var closed = false
@@ -235,6 +259,10 @@ internal class DesktopMapSession(
     drainEvents(runtime)
 
     applyPendingStyle(map)
+
+    // Scheduled before deciding whether to render, so an early return below cannot strand work
+    // that MapLibre still has in flight.
+    if (!isIdle || renderPending) requestRender()
 
     if (!ensureAttached(map, frame)) return DesktopFrameResult.SKIPPED
     if (!renderPending) return DesktopFrameResult.SKIPPED
@@ -463,6 +491,7 @@ internal class DesktopMapSession(
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> {
         renderPending = true
+        isIdle = false
         requestRender()
       }
 
@@ -516,8 +545,9 @@ internal class DesktopMapSession(
 
       // Known, and deliberately not acted on. Named so that the branch below means "an event
       // this build has never seen" rather than "anything we happen not to use".
+      RuntimeEventType.MAP_IDLE -> isIdle = true
+
       RuntimeEventType.MAP_LOADING_STARTED,
-      RuntimeEventType.MAP_IDLE,
       RuntimeEventType.MAP_RENDER_FRAME_STARTED,
       RuntimeEventType.MAP_RENDER_MAP_STARTED,
       RuntimeEventType.MAP_RENDER_MAP_FINISHED,
@@ -579,6 +609,7 @@ internal class DesktopMapSession(
     appliedStyle = style
     pendingStyle = null
     renderPending = true
+    isIdle = false
   }
 
   override fun getCameraPosition(): CameraPosition =
@@ -823,18 +854,33 @@ internal class DesktopMapSession(
     requestRender()
   }
 
-  fun rotateBy(from: DpOffset, to: DpOffset) {
+  /**
+   * Rotates and pitches together from one drag.
+   *
+   * A single `jumpTo` rather than the FFI's two-point `rotateBy`: that call derives an angle
+   * between two pointer positions and is meant for a two-finger gesture, so driving it from a
+   * horizontal mouse drag rotates around the wrong centre and fights the separate pitch change.
+   * Horizontal movement turns the bearing and vertical movement raises the pitch, which is what the
+   * maplibre-native-ffi Compose example does and what the previous desktop implementation did.
+   *
+   * Deltas are in logical pixels.
+   */
+  fun rotateAndPitchBy(deltaX: Double, deltaY: Double) {
     owner.run {
-      map?.rotateBy(from.toScreenPoint(), to.toScreenPoint())
+      val map = map ?: return@run
+      val camera = map.camera
+      map.jumpTo(
+        CameraOptions().also {
+          it.bearing = (camera.bearing ?: 0.0) + deltaX * DRAG_ROTATE_DEGREES_PER_PIXEL
+          it.pitch =
+            ((camera.pitch ?: 0.0) - deltaY * DRAG_PITCH_DEGREES_PER_PIXEL).coerceIn(
+              MIN_PITCH_DEGREES,
+              MAX_PITCH_DEGREES,
+            )
+        }
+      )
       renderPending = true
-    }
-    requestRender()
-  }
-
-  fun pitchBy(delta: Double) {
-    owner.run {
-      map?.pitchBy(delta)
-      renderPending = true
+      isIdle = false
     }
     requestRender()
   }

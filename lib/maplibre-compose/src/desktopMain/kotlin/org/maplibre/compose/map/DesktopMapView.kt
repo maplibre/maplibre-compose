@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.DesktopMapSurface
@@ -30,6 +31,7 @@ internal actual fun ComposableMapView(
   val factory = LocalDesktopMapHostFactory.current
   val runtimeOptions = LocalDesktopRuntimeOptions.current
   val layoutDirection = LocalLayoutDirection.current
+  val density = LocalDensity.current
 
   // Reading the runtime's backends is the one native call safe to make off the owner thread: it
   // only inspects what the loaded library was built with.
@@ -59,7 +61,9 @@ internal actual fun ComposableMapView(
     renderer = session,
     runtimeBackends = runtimeBackends,
     factory = factory,
-    modifier = modifier,
+    // Input is attached here rather than inside the surface because gestures belong to the map,
+    // not to the graphics host: every host gets identical behavior this way.
+    modifier = modifier.desktopMapInput(session, options.gestureOptions, density),
     logger = logger,
   )
 }
