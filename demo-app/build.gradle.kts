@@ -231,6 +231,54 @@ val checkDesktopFfiRuntime by tasks.registering {
   }
 }
 
+/**
+ * Checks the built distribution actually contains what a user needs to run a map.
+ *
+ * The failure modes here are all silent at build time and fatal at launch: a runtime image on the
+ * wrong Java version, a missing FFI native runtime, or missing LWJGL natives each produce an
+ * application that installs cleanly and then fails on the first map.
+ */
+val checkDesktopDistribution by tasks.registering {
+  group = "verification"
+  description = "Checks the packaged desktop distribution carries its Java runtime and natives."
+  dependsOn(tasks.named("createDistributable"))
+
+  val expectedJava = properties["jvmToolchain"]!!.toString()
+  val platform = desktopHostPlatform
+  val appDir = layout.buildDirectory.dir("compose/binaries/main/app/org.maplibre.compose.demoapp")
+
+  doLast {
+    val root = appDir.get().asFile
+    check(root.isDirectory) { "No distribution at $root" }
+
+    val release = root.resolve("lib/runtime/release")
+    check(release.isFile) { "The distribution has no bundled Java runtime at $release" }
+    val javaVersion =
+      release
+        .readLines()
+        .firstOrNull { it.startsWith("JAVA_VERSION=") }
+        ?.substringAfter('=')
+        ?.trim('"')
+    check(javaVersion != null && javaVersion.startsWith(expectedJava)) {
+      "The distribution bundles Java $javaVersion, expected $expectedJava. The MapLibre Native " +
+        "FFI binding is Java 24 bytecode and uses FFM, so an older runtime fails at launch."
+    }
+
+    val jars = root.resolve("lib/app").listFiles().orEmpty().map { it.name }
+    check(jars.any { it.contains("maplibre-native-ffi-runtime-") }) {
+      "The distribution ships no MapLibre Native FFI runtime; the map cannot render."
+    }
+    check(jars.any { it.contains(platform.nativesClassifier) }) {
+      "The distribution ships no natives for ${platform.nativesClassifier}."
+    }
+    check(jars.any { it.startsWith("lwjgl-") && it.contains("natives-") }) {
+      "The distribution ships no LWJGL natives; the default host cannot reach the GPU."
+    }
+
+    logger.lifecycle("Desktop distribution OK: Java $javaVersion, ${jars.size} jars")
+  }
+}
+
 compose.resources { packageOfResClass = "org.maplibre.compose.demoapp.generated" }
 
 composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/reports") }
@@ -241,6 +289,23 @@ compose.desktop {
     jvmArgs += NATIVE_ACCESS_JVM_ARGS
 
     nativeDistributions {
+      // jpackage runs jlink against this JDK, so it decides the Java version inside the installed
+      // application. Without it the packaged app takes whatever JDK Gradle happens to run on,
+      // which can be older than the 24 the MapLibre Native FFI binding requires — a mismatch that
+      // only appears once a user installs and launches it.
+      javaHome =
+        javaToolchains
+          .launcherFor {
+            languageVersion.set(
+              JavaLanguageVersion.of(properties["jvmToolchain"]!!.toString().toInt())
+            )
+          }
+          .get()
+          .metadata
+          .installationPath
+          .asFile
+          .absolutePath
+
       targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
       packageName = "org.maplibre.compose.demoapp"
       // https://youtrack.jetbrains.com/issue/CMP-2360
