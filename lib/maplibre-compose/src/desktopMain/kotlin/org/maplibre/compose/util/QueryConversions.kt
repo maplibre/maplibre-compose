@@ -76,6 +76,10 @@ internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?
  *
  * Returns null when there is no usable cluster id, so a caller can skip the query rather than run
  * one that cannot match.
+ *
+ * TODO(maplibre-native-ffi): delete this once the FFI takes a cluster id instead of a whole
+ *   feature, or coerces these itself. It is the analogous layer to the Android and iOS platform
+ *   bindings, both of which do this fixup by hand today. See MAPLIBRE_NATIVE_FFI_FEEDBACK.md.
  */
 internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
   val clusterId = (properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.toUnsignedOrNull()

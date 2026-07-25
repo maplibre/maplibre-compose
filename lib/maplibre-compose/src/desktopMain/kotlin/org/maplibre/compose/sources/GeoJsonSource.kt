@@ -118,7 +118,7 @@ public actual class GeoJsonSource : Source {
       // Both must be unsigned, for the same reason cluster_id must be: MapLibre reads them with an
       // exact type check. A signed limit is not rejected — it is ignored, and MapLibre quietly
       // substitutes its own default of ten. It also ignores offset unless limit is present, so
-      // both are always sent.
+      // both are always sent. TODO(maplibre-native-ffi): see toFfiClusterFeature.
       JsonValue.ObjectValue(
         listOf(
           JsonValue.Member("limit", JsonValue.UInt(limit.coerceAtLeast(0))),

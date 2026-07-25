@@ -250,14 +250,44 @@ children. The same applies to the `limit` and `offset` arguments for `leaves`: a
 signed `limit` is ignored and mbgl silently substitutes its own default of ten,
 so the call still returns features and still looks correct.
 
+This is the binding's job rather than mbgl's, and the other two platforms show
+why. Android converts the feature out to Java and back, hits exactly this, and
+casts it back by hand — twice, in
+`platform/android/.../style/sources/geojson_source.cpp:135` and `:154`, from
+`double`, because its own conversion picked a third wrong alternative. iOS
+sidesteps the id half entirely by never taking the feature out of C++
+(`MLNShapeSource.mm:326` passes mbgl its own `GeoJSONFeature` straight back), so
+the id keeps its alternative; it still casts `limit` and `offset` by hand at
+`:339-340`. Every binding that round-trips a feature through its host language
+has to do this, and maplibre-native-ffi is the analogous layer for its
+consumers.
+
 _Workaround:_ MapLibre Compose re-types `cluster_id`, `limit`, and `offset` as
 `JsonValue.UInt` in a conversion of its own, and a test asserts that `limit = 2`
 returns exactly two leaves — the only assertion that distinguishes a correctly
 typed limit from an ignored one.
 
-_Suggested fix:_ either accept any integral alternative on the C++ side, or have
-the binding coerce integers to the alternative the extension expects. Failing
-that, return a distinguishable status instead of an empty success.
+_Suggested fix:_ take the cluster id rather than a whole feature. mbgl reads
+nothing else out of it — geometry and identifier are discarded — so the feature
+round trip is all risk and no benefit, and an unsigned parameter type makes the
+mistake unrepresentable:
+
+```kotlin
+public fun getClusterExpansionZoom(sourceId: String, clusterId: ULong): Double
+public fun getClusterChildren(sourceId: String, clusterId: ULong): List<Feature>
+public fun getClusterLeaves(
+  sourceId: String,
+  clusterId: ULong,
+  limit: ULong,
+  offset: ULong,
+): List<Feature>
+```
+
+The generic `queryFeatureExtension` can stay alongside these for anything else.
+Failing that, coerce `cluster_id`, `limit`, and `offset` inside
+`queryFeatureExtension` — a special case in a generic function, but better than
+every consumer rediscovering this. Failing both, return a distinguishable status
+instead of an empty success.
 
 ---
 
