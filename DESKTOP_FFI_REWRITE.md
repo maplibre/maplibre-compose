@@ -750,8 +750,11 @@ Update this section as the branch develops:
   Multiplatform 1.10.3 / skiko 0.9.37.4. All seven classes the FFI Compose
   example reflects into (`SkiaLayer`, `ComposeWindow`, `MetalRedrawer`,
   `Direct3DRedrawer`, `LinuxOpenGLRedrawer`, `LinuxOpenGLRedrawerKt`,
-  `AWTLinuxDrawingSurfaceKt`) exist at that version; member signatures are
-  unverified until the reflection contract test lands in step 4.
+  `AWTLinuxDrawingSurfaceKt`) exist at that version, and
+  `SkikoReflectionContractTest` now confirms the reflected _members_ exist too,
+  so a Compose upgrade that moves one fails the build rather than blanking the
+  map at runtime. Note Compose 1.10.3 spells the Skia canvas accessor
+  `nativeCanvas`; `skiaCanvas` is the 1.11 name the FFI example uses.
 - Runtime classifiers verified: `natives-linux-x64` loads and reports
   `[VULKAN]`. Published but untested here: `natives-linux-arm64`,
   `natives-windows-x64`, `natives-windows-arm64`, `natives-macos-arm64`.
