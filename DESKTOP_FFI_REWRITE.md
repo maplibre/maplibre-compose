@@ -760,7 +760,8 @@ Update this section as the branch develops:
   (`androidJvmTarget`). `buildSrc` pins 25 separately because it cannot read the
   root `gradle.properties`. Gradle 9.3 runs on Java 25.
 - Cache/runtime sharing decision: not yet made (step 7).
-- FFI gaps found: none yet.
+- FFI gaps found: no visible-region API, no meters-per-pixel API, no maximum-FPS
+  control, and no animation-completion signal. See "Confirmed FFI gaps" below.
 - Machine validation results: none yet.
 
 Toolchain facts measured against the published snapshot rather than assumed:
@@ -772,3 +773,125 @@ Toolchain facts measured against the published snapshot rather than assumed:
   required**, so the rewrite does not drag a Kotlin/Compose bump along with it.
 - The `natives-*` classifier jar self-extracts with no library-path overrides;
   the only JVM argument needed is `--enable-native-access=ALL-UNNAMED`.
+
+## Native semantics that constrain the implementation
+
+Read out of the FFI bindings, the C headers, and the working Compose example
+before writing `DesktopMapSession`. Recorded here because most of it is
+observable only by reading native source or by debugging a failure.
+
+### Threading and lifetime
+
+- One live runtime per OS thread, enforced natively, and additionally rejected
+  if the thread already has any active mbgl scheduler. Never create a runtime on
+  a pooled dispatcher thread, the AWT EDT, or a Skiko render thread.
+- A runtime whose `close()` failed leaves its thread permanently unable to host
+  another runtime. Owner threads must not be recycled unless close succeeded.
+- Thread affinity is enforced in native C++ only; there is no Kotlin-side
+  assertion, so a stray Compose-thread call throws `WrongThreadException` with a
+  stack trace pointing at the FFI boundary rather than the caller. The session
+  adds its own owner-thread assertion.
+- Close order is mandatory and enforced: projections, then
+  `RenderSessionHandle`, then `MapHandle`, then `RuntimeHandle`, each on the
+  owner thread. A failed close leaves the handle live and must be retried;
+  swallowing the exception leaks native memory. There is no JVM finalizer or
+  cleaner, so teardown must be `try`/`finally` on the owner thread itself.
+- `MapProjectionHandle` is the one handle that is _not_ a child of its parent:
+  `MapHandle.close()` succeeds while projections are live and they keep working.
+  They must be tracked and closed explicitly. A projection is also a frozen
+  snapshot, so a cached one returns stale results after any camera change; use
+  `pixelForLatLng` / `latLngForPixel` directly instead.
+- `RuntimeHandle.close()` can spin indefinitely waiting for in-flight
+  resource-provider callbacks running on network threads. Provider callbacks
+  must be non-blocking, and outstanding requests must be quiesced before close.
+
+### Event pump
+
+- `pollEvent()` returns one event per call and `null` when the queue is empty
+  _at that instant_. The pump is one `runOnce()` followed by drain-until-null.
+  An empty queue is never a quiescence signal: offline events are enqueued from
+  a database thread and can appear mid-drain.
+- `runOnce()` never blocks and there is no wake, notify, or has-work query. The
+  owner loop cannot park on a blocking queue take, or native loading stalls with
+  no error. It also is not bounded to one task, so a single call can run for an
+  unbounded time.
+- Event types are `@JvmInline value class` wrappers over `Int`, not enums, so
+  `when` gets no exhaustiveness checking and unknown native values pass straight
+  through. The translation table logs unknown types rather than failing.
+- `RuntimeEvent` payloads are fully copied and safe to cross threads. The
+  `mapSource` and `runtimeSource` fields are not: they are live thread-affine
+  handles, and `mapSource` resolves through a `WeakReference`, so the session
+  must hold a strong reference to its `MapHandle` or events become
+  unattributable under memory pressure.
+- `pollEvent()` is not a pure read. On `MAP_STYLE_LOADED` it makes native calls
+  on the source map, so it can throw from the map and must never be skipped or
+  moved off the owner thread.
+- Closing a map purges its queued events, and closing the runtime discards all
+  of them. Teardown must never await a terminal event; it will not arrive.
+- Style load failures arrive **only** as `MAP_LOADING_FAILED` events, never as
+  exceptions from the style setters.
+
+### Rendering
+
+- `renderUpdate()` reports "nothing to render" by throwing
+  `InvalidStateException`, the same type as a genuinely detached or closed
+  session. It is distinguished by its diagnostic text. Treating it as an error
+  fails every map on its first frame; swallowing all `InvalidStateException`
+  spins forever on a dead session.
+- **Borrowed-texture sessions cannot be resized.** `resize()` throws
+  `UnsupportedFeatureException`, and there is no re-attach API. A size or scale
+  change means: close the session, replace the host texture, build a new
+  descriptor, attach again. This is what `DesktopRenderTarget.generation` exists
+  to signal.
+- A map allows at most one live render session; attaching a second throws rather
+  than replacing. `detach()` does not release the parent retention, so a
+  detached handle still blocks `MapHandle.close()`.
+- `RenderTargetExtent` is **logical**. The borrowed texture must be
+  `ceil(logical * scaleFactor)` physical pixels, and nothing validates that it
+  is; a mismatch renders garbage silently rather than throwing.
+- `renderUpdate()` is synchronous to GPU completion, so no host-side fence is
+  needed before sampling the target — but it blocks the owner thread for the
+  whole frame.
+- Zero width or height passes the Kotlin validators and is rejected natively.
+  Compose reports a zero size on first layout routinely, so map creation and
+  attach must be deferred until the extent is non-empty.
+
+### Camera
+
+- The map's `pixelRatio` is fixed at `MapHandle.create` and is not updated by
+  attach or resize. Moving a window between displays of different density
+  requires recreating the map, not just re-attaching.
+- All projection input and output is in **logical** pixels with a top-left
+  origin; `scaleFactor` participates nowhere. Multiplying pointer positions by
+  density before projecting double-applies the scale on HiDPI displays.
+- There is no way to learn that a specific animation finished.
+  `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a completed ease, a
+  cancellation, and a superseded transition, so the session stamps each
+  animation request with a generation and ignores stale completions.
+- `easeTo`/`flyTo` with a null animation is an instant jump, not a
+  default-length animation.
+- `cameraForLatLngBounds(bounds, null)` returns padding of zero, so applying the
+  result verbatim silently clears the map's edge insets.
+- Assigning an all-null `BoundOptions()` is a no-op, not a reset. Clearing a
+  bounds constraint requires assigning world bounds explicitly.
+- Camera and options objects are mutable and lack `equals`, so they are
+  converted to immutable snapshots on the owner thread before reaching Compose
+  state.
+- Animations advance only while the runtime is pumped, so the owner loop keeps
+  ticking while a transition is outstanding.
+
+### Confirmed FFI gaps
+
+Each needs a `TODO(maplibre-native-ffi)` at its boundary and a local fallback:
+
+- **No visible-region API.** `latLngBoundsForCamera` is axis-aligned, so it is
+  wrong for a rotated or pitched camera. Fallback: project the four viewport
+  corners with `latLngsForPixels`. This requires tracking the map's logical size
+  ourselves, because `MapHandle` exposes no size accessor.
+- **No meters-per-pixel API.** Fallback: reimplement mbgl's formula, noting it
+  uses a 512px tile size, or derive it from two `latLngForPixel` calls.
+- **No maximum-FPS control.** Fallback: rate-limit `renderUpdate()` in the
+  session rather than sleeping the owner thread.
+- **No animation-completion signal.** Fallback: the generation counter above.
+- **No way to clear a resource provider**, and it must be installed before any
+  map exists. Ordering is: create runtime, set provider, create map.
