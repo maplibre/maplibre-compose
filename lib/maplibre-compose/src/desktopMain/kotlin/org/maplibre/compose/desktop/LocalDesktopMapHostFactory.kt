@@ -2,6 +2,7 @@ package org.maplibre.compose.desktop
 
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.staticCompositionLocalOf
+import org.maplibre.compose.desktop.skiko.SkikoDesktopMapHostFactory
 
 /**
  * The [DesktopMapHostFactory] maps in this composition use.
@@ -19,24 +20,5 @@ import androidx.compose.runtime.staticCompositionLocalOf
  */
 public val LocalDesktopMapHostFactory: ProvidableCompositionLocal<DesktopMapHostFactory> =
   staticCompositionLocalOf {
-    // TODO(maplibre-native-ffi): replace with the Skiko host factory once the native bridges are
-    // ported. Until then a map only renders with a factory supplied by the application.
-    UnavailableDesktopMapHostFactory
+    SkikoDesktopMapHostFactory
   }
-
-/**
- * Stands in until the default Skiko host lands, reporting a diagnostic rather than failing
- * obscurely.
- */
-internal object UnavailableDesktopMapHostFactory : DesktopMapHostFactory {
-  override val supportedBackends: Set<DesktopBackendPair> = emptySet()
-
-  override val description: String =
-    "no desktop map host (the default Compose Desktop host is not implemented yet)"
-
-  override fun create(producer: MapRenderBackend): DesktopMapHostResult =
-    DesktopMapHostResult.Unsupported(
-      "MapLibre Compose has no default desktop map host yet. Provide one through " +
-        "LocalDesktopMapHostFactory."
-    )
-}

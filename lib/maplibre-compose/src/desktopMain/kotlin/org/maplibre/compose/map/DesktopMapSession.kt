@@ -95,7 +95,36 @@ internal class DesktopMapSession(
 
   override val backend: MapRenderBackend = renderBackend
 
-  private val ownerThread = NativeOwnerThread("maplibre-map-owner")
+  /**
+   * Dispatches native work onto the host's renderer thread.
+   *
+   * The session deliberately does not own a thread. MapLibre binds its runtime to the thread that
+   * creates it, and the host already calls [render] on its own renderer thread, so that thread must
+   * be the owner. Running a second thread here would bind the runtime somewhere the host never
+   * calls from, and every frame would fail with a wrong-thread error.
+   */
+  private val owner = OwnerDispatch()
+
+  private inner class OwnerDispatch {
+    /** The host thread the runtime is bound to, recorded on the first frame. */
+    var thread: Thread? = null
+
+    fun <T> run(action: () -> T): T {
+      // With no host yet there is no map either, so every caller's own null-guard makes running
+      // inline a no-op rather than a wrong-thread hazard.
+      val host = hostSession ?: return action()
+      return host.withRendererAccess(action)
+    }
+
+    fun assertOwnerThread(operation: String) {
+      val expected = thread ?: return
+      check(Thread.currentThread() === expected) {
+        "$operation must run on the map's owner thread (${expected.name}), but ran on " +
+          "${Thread.currentThread().name}. MapLibre enforces this natively, so the failure would " +
+          "otherwise surface as a WrongThreadException at the FFI boundary."
+      }
+    }
+  }
 
   // Strong references, deliberately: RuntimeEvent.mapSource resolves through a WeakReference, so a
   // collected MapHandle would make every map event unattributable.
@@ -156,13 +185,14 @@ internal class DesktopMapSession(
   override fun onSurfaceLost() {
     // The host is about to free the target these handles point at, so the render session must go
     // first. The map and runtime outlive surface loss and are reused if a surface returns.
-    runCatching { ownerThread.run { closeRenderSession() } }
+    runCatching { owner.run { closeRenderSession() } }
       .onFailure { logger?.e(it) { "Failed to close the render session on surface loss" } }
     hostSession = null
   }
 
   override fun render(frame: DesktopMapFrame): DesktopFrameResult {
-    ownerThread.assertOwnerThread("DesktopMapSession.render")
+    owner.thread = owner.thread ?: Thread.currentThread()
+    owner.assertOwnerThread("DesktopMapSession.render")
     if (closed) return DesktopFrameResult.SKIPPED
 
     val runtime = ensureRuntime()
@@ -205,7 +235,7 @@ internal class DesktopMapSession(
     if (closed) return
     closed = true
     try {
-      ownerThread.run {
+      owner.run {
         // Order is mandatory and enforced natively: a handle that still has live children refuses
         // to close, and a failed close leaves it live rather than half-torn-down. Each step gets
         // its own finally so a failure early on cannot strand the rest.
@@ -224,13 +254,12 @@ internal class DesktopMapSession(
         }
       }
     } finally {
-      ownerThread.close()
       hostSession = null
     }
   }
 
   private fun closeRenderSession() {
-    ownerThread.assertOwnerThread("closeRenderSession")
+    owner.assertOwnerThread("closeRenderSession")
     runCatching { renderSession?.close() }
       .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
     renderSession = null
@@ -432,10 +461,21 @@ internal class DesktopMapSession(
         // TODO(step 6): expose a style-image callback hook so applications can supply the image.
         logger?.d { "Style image missing: ${event.message}" }
 
+      // Known, and deliberately not acted on. Named so that the branch below means "an event
+      // this build has never seen" rather than "anything we happen not to use".
+      RuntimeEventType.MAP_LOADING_STARTED,
+      RuntimeEventType.MAP_IDLE,
+      RuntimeEventType.MAP_RENDER_FRAME_STARTED,
+      RuntimeEventType.MAP_RENDER_MAP_STARTED,
+      RuntimeEventType.MAP_RENDER_MAP_FINISHED,
+      RuntimeEventType.MAP_STILL_IMAGE_FINISHED,
+      RuntimeEventType.MAP_STILL_IMAGE_FAILED,
+      RuntimeEventType.MAP_TILE_ACTION -> Unit
+
       else ->
         // Event types are value classes over Int, not enums, so an FFI upgrade can introduce a
         // type this build has never seen. Logging beats failing.
-        logger?.v { "Unhandled MapLibre event type ${event.type}" }
+        logger?.v { "Unrecognized MapLibre event type ${event.type}" }
     }
   }
 
@@ -460,7 +500,7 @@ internal class DesktopMapSession(
   // ───────────────────────────── MapAdapter ─────────────────────────────
 
   /** Runs [action] with the map on the owner thread, or returns [fallback] if there is none yet. */
-  private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = ownerThread.run {
+  private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = owner.run {
     map?.let(action) ?: fallback
   }
 
@@ -492,7 +532,7 @@ internal class DesktopMapSession(
     withMap(CameraPosition()) { it.camera.toCameraPosition() }
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
-    ownerThread.run {
+    owner.run {
       val map = map ?: return@run
       cameraGeneration++
       map.jumpTo(cameraPosition.toCameraOptions(layoutDirection))
@@ -507,7 +547,7 @@ internal class DesktopMapSession(
     tilt: Double,
     padding: PaddingValues,
   ) {
-    ownerThread.run {
+    owner.run {
       val map = map ?: return@run
       cameraGeneration++
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
@@ -567,7 +607,7 @@ internal class DesktopMapSession(
    */
   private suspend fun animate(duration: Duration, start: (MapHandle) -> Unit) {
     val generation =
-      ownerThread.run {
+      owner.run {
         val map = map ?: return@run null
         cameraGeneration++
         start(map)
@@ -579,13 +619,13 @@ internal class DesktopMapSession(
     try {
       delay(duration)
     } catch (cancellation: CancellationException) {
-      ownerThread.run { if (cameraGeneration == generation) map?.cancelTransitions() }
+      owner.run { if (cameraGeneration == generation) map?.cancelTransitions() }
       throw cancellation
     }
   }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
-    ownerThread.run {
+    owner.run {
       val map = map ?: return@run
       map.bounds =
         map.bounds.also {
@@ -607,7 +647,7 @@ internal class DesktopMapSession(
   override fun setMaxPitch(maxPitch: Double) = setBounds { it.maxPitch = maxPitch }
 
   private fun setBounds(update: (BoundOptions) -> Unit) {
-    ownerThread.run {
+    owner.run {
       val map = map ?: return@run
       map.bounds = map.bounds.also(update)
     }
@@ -648,7 +688,7 @@ internal class DesktopMapSession(
     // TODO(maplibre-native-ffi): Forward maximumFps once the C API exposes frame-rate control.
     // Until then it throttles how often renderUpdate is called rather than pacing MapLibre itself.
     maximumFps = value.maximumFps
-    ownerThread.run {
+    owner.run {
       val map = map ?: return@run
       map.debugOptions = buildSet {
         if (value.isTileBordersEnabled) add(DebugOption.TILE_BORDERS)
@@ -715,7 +755,7 @@ internal class DesktopMapSession(
   }
 
   fun moveBy(deltaX: Double, deltaY: Double) {
-    ownerThread.run {
+    owner.run {
       map?.moveBy(deltaX, deltaY)
       renderPending = true
     }
@@ -723,7 +763,7 @@ internal class DesktopMapSession(
   }
 
   fun scaleBy(scale: Double, anchor: DpOffset?) {
-    ownerThread.run {
+    owner.run {
       map?.scaleBy(scale, anchor?.toScreenPoint())
       renderPending = true
     }
@@ -731,7 +771,7 @@ internal class DesktopMapSession(
   }
 
   fun rotateBy(from: DpOffset, to: DpOffset) {
-    ownerThread.run {
+    owner.run {
       map?.rotateBy(from.toScreenPoint(), to.toScreenPoint())
       renderPending = true
     }
@@ -739,7 +779,7 @@ internal class DesktopMapSession(
   }
 
   fun pitchBy(delta: Double) {
-    ownerThread.run {
+    owner.run {
       map?.pitchBy(delta)
       renderPending = true
     }
@@ -747,7 +787,7 @@ internal class DesktopMapSession(
   }
 
   fun cancelTransitions() {
-    ownerThread.run {
+    owner.run {
       cameraGeneration++
       map?.cancelTransitions()
     }

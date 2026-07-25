@@ -63,7 +63,14 @@ internal fun DesktopMapSurface(
   val host = (hostResult as? HostCreation.Created)?.host
   val session = remember(host) { host?.let { DesktopMapHostSessionImpl(it) { frameRequest += 1 } } }
 
-  LaunchedEffect(state) { onStateChanged(state) }
+  LaunchedEffect(state) {
+    when (val current = state) {
+      is DesktopMapSurfaceState.Failed -> logger?.e(current.cause) { current.diagnostic }
+      is DesktopMapSurfaceState.Unavailable -> logger?.w { current.diagnostic }
+      else -> Unit
+    }
+    onStateChanged(state)
+  }
 
   DisposableEffect(host, hostResult, session, renderer) {
     state =
@@ -90,6 +97,8 @@ internal fun DesktopMapSurface(
         // host frees them.
         runCatching { renderer.onSurfaceLost() }
           .onFailure { logger?.e(it) { "Desktop map renderer failed to release its surface" } }
+        runCatching { renderer.close() }
+          .onFailure { logger?.e(it) { "Desktop map renderer failed to close" } }
         runCatching { host.close() }
           .onFailure { logger?.e(it) { "Desktop map host failed to close" } }
       }
