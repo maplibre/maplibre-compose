@@ -22,17 +22,19 @@ contributions are highly welcome.
 **Status:** Shovel ready 🪏
 
 The goal is to support Compose Desktop platforms (macOS, Windows, and Linux) on
-par with our current level of support for Android and iOS. These are complex
-platforms to support, because we have to integrate with the MapLibre Native C++
-core on macOS, Windows, and Linux, and bridge that integration to the JVM.
+par with our current level of support for Android and iOS.
 
 Approach:
 
-- Write Kotlin JVM bindings to
-  [MapLibre Native](https://maplibre.org/maplibre-native/cpp/api/) in C++ using
-  [SimpleJNI](https://github.com/gershnik/SimpleJNI).
-- Use those bindings to fill in missing functionality in the `desktopMain`
-  target of MapLibre Compose.
+- Consume the published
+  [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
+  Kotlin Multiplatform bindings instead of maintaining our own JNI bindings and
+  a vendored MapLibre Native checkout.
+- Build the desktop map on a replaceable Compose host/GPU integration boundary,
+  so the map implementation does not depend on Skiko internals.
+
+The full plan is in
+[DESKTOP_FFI_REWRITE.md](https://github.com/maplibre/maplibre-compose/blob/main/DESKTOP_FFI_REWRITE.md).
 
 Next steps:
 
@@ -42,9 +44,6 @@ Next steps:
   images, etc).
 - Add support for the offline manager.
 - Add support for platform location services on macOS, Windows, and Linux.
-- Fix or investigate map loading on Linux (currently segfaults for unknown
-  reason).
-- Improve stability on Windows.
 - Validate that display density is handled correctly on all three desktop
   platforms. On Linux, validate both Wayland and X11.
 
@@ -108,14 +107,11 @@ Investigation needed:
 The project would benefit from work to improve the experience of developing
 MapLibre Compose for desktop. The biggest pain points right now are:
 
-- Building MapLibre Native core from source in local development and every CI
-  run.
 - Regressions due to limited automatic tests on all platforms.
 - Brittle local development setup.
 
 Next steps:
 
-- [Build against the prebuilt MapLibre Native distribution.](https://github.com/maplibre/maplibre-compose/issues/568)
 - [Configure a reproducible build environment.](https://github.com/maplibre/maplibre-compose/issues/684)
 
 Investigation needed:
@@ -180,19 +176,20 @@ from the `MaplibreMap` UI `@Composable`.
 
 The goal is to streamline our MapLibre Native bindings by wrapping just the
 MapLibre Native C++ core on Android, iOS, and Desktop with a common Kotlin
-JVM+Native wrapper. Today, we wrap the MapLibre Native core for desktop, but use
-the MapLibre Native Android Java/Kotlin bindings on Android and MapLibre Native
-iOS Obj-C bindings on iOS. Each of these have different APIs, and so our
+JVM+Native wrapper. Today, desktop consumes
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi), but we
+use the MapLibre Native Android Java/Kotlin bindings on Android and MapLibre
+Native iOS Obj-C bindings on iOS. Each of these have different APIs, and so our
 Multiplatform APIs tend to be the lowest-common-denominator of them all.
 
 Research Areas:
 
-- Explore using our existing Desktop JNI bindings on Android, with code to
-  integrate with an Android Surface instead of an AWT Canvas.
-- Explore writing Kotlin Native cinterop bindings to the MapLibre Native core,
-  with code to integrate with a Metal layer on iOS.
-- Explore unifying those two sets of bindings with a single, thin,
-  `expect`/`actual` interface on top of MapLibre Native.
+- Explore using `maplibre-native-ffi` on Android, with code to integrate with an
+  Android Surface instead of an AWT Canvas.
+- Explore using its Kotlin/Native targets on iOS, with code to integrate with a
+  Metal layer.
+- Explore unifying those platforms behind a single, thin, `expect`/`actual`
+  interface on top of MapLibre Native.
 
 ## Long term
 

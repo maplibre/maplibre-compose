@@ -742,9 +742,27 @@ operating system before declaring the SPI usable.
 
 Update this section as the branch develops:
 
-- FFI snapshot version/commit used:
-- Compose/Skiko version used by the reflection adapter:
-- Runtime classifiers verified:
-- Cache/runtime sharing decision:
-- FFI gaps found:
-- Machine validation results:
+- FFI snapshot version/commit used: `0.1.0-SNAPSHOT`; binding
+  `0.1.0-20260725.055919-2`, Vulkan runtime `0.1.0-20260725.060227-2`.
+- Compose/Skiko version used by the reflection adapter: holding at Compose
+  Multiplatform 1.10.3 / skiko 0.9.37.4. All seven classes the FFI Compose
+  example reflects into (`SkiaLayer`, `ComposeWindow`, `MetalRedrawer`,
+  `Direct3DRedrawer`, `LinuxOpenGLRedrawer`, `LinuxOpenGLRedrawerKt`,
+  `AWTLinuxDrawingSurfaceKt`) exist at that version; member signatures are
+  unverified until the reflection contract test lands in step 4.
+- Runtime classifiers verified: `natives-linux-x64` loads and reports
+  `[VULKAN]`. Published but untested here: `natives-linux-arm64`,
+  `natives-windows-x64`, `natives-windows-arm64`, `natives-macos-arm64`.
+- Cache/runtime sharing decision: not yet made (step 7).
+- FFI gaps found: none yet.
+- Machine validation results: none yet.
+
+Toolchain facts measured against the published snapshot rather than assumed:
+
+- The binding is compiled to Java 24 bytecode (class file major 68), so the
+  desktop target cannot run below Java 24. The plan's Java 25 clears this.
+- The binding carries Kotlin metadata `mv 2.4.0` (built with Kotlin 2.4.10), but
+  this repo's Kotlin 2.3.21 compiles against it cleanly. **No Kotlin upgrade is
+  required**, so the rewrite does not drag a Kotlin/Compose bump along with it.
+- The `natives-*` classifier jar self-extracts with no library-path overrides;
+  the only JVM argument needed is `--enable-native-access=ALL-UNNAMED`.

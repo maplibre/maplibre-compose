@@ -30,27 +30,14 @@
             libxrandr
             libxrender
             libxtst
+            # MapLibre Native FFI renders through Vulkan on Linux and dlopens
+            # libvulkan.so.1 at runtime, so the loader has to be on
+            # LD_LIBRARY_PATH rather than just in `packages`.
+            vulkan-loader
           ];
         in
         {
-          default = (pkgs.mkShell.override { stdenv = pkgs.clangStdenv; }) {
-            packages = with pkgs; [
-              bzip2
-              cmake
-              curl
-              icu
-              libGL
-              libjpeg_turbo
-              libpng
-              libuv
-              libwebp
-              ninja
-              pkg-config
-              vulkan-headers
-              vulkan-loader
-              libx11
-            ];
-
+          default = pkgs.mkShell {
             LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath runtimeLibraries;
           };
         });

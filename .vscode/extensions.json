@@ -5,7 +5,6 @@
     "fwcd.kotlin",
     "redhat.java",
     "sswg.swift-lang",
-    "llvm-vs-code-extensions.vscode-clangd",
     "edwinhuish.better-comments-next"
   ]
 }

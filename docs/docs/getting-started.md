@@ -183,53 +183,18 @@ There are no longer any special steps required to use MapLibre Compose on Web.
     Desktop support is not yet at feature parity with Android and iOS.
     Check the [status table](index.md#status) for more info.
 
-On desktop, we use MapLibre Native via a JNI bindings module that bundles
-platform-specific native libraries. Add a runtime-only dependency for the
-platform you want to support, selecting exactly one capability matching your
-current OS/architecture combination.
+!!! warning
 
-```kotlin title="build.gradle.kts"
-fun detectTarget(): String {
-  val hostOs = when (val os = System.getProperty("os.name").lowercase()) {
-    "mac os x" -> "macos"
-    else -> os.split(" ").first()
-  }
-  val hostArch = when (val arch = System.getProperty("os.arch").lowercase()) {
-    "x86_64" -> "amd64"
-    "arm64" -> "aarch64"
-    else -> arch
-  }
-  val renderer = when (hostOs) {
-    "macos" -> "metal"
-    else -> "opengl"
-  }
-  return "${hostOs}-${hostArch}-${renderer}"
-}
+    Desktop is being rewritten on top of the published
+    [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
+    Kotlin Multiplatform bindings, replacing the JNI bindings module that
+    previously shipped with MapLibre Compose. The
+    `org.maplibre.compose:maplibre-native-bindings-jni` artifact and its
+    OS/architecture/renderer capabilities are no longer published.
 
-sourceSets {
-  val desktopMain by getting {
-    dependencies {
-      implementation(compose.desktop.currentOs)
-      implementation("org.maplibre.compose:maplibre-compose:{{ gradle.release_version }}")
-      runtimeOnly("org.maplibre.compose:maplibre-native-bindings-jni:{{ gradle.release_version }}") {
-        capabilities {
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-${detectTarget()}")
-        }
-      }
-    }
-  }
-}
-```
-
-The following targets are available now:
-
-- `macos-aarch64-metal`
-- `linux-amd64-opengl`
-- `linux-amd64-vulkan`
-- `windows-amd64-opengl`
-- `windows-amd64-vulkan`
-
-Other architectures and renderers will be added later.
+    Setup instructions land with the new implementation. See
+    [DESKTOP_FFI_REWRITE.md](https://github.com/maplibre/maplibre-compose/blob/main/DESKTOP_FFI_REWRITE.md)
+    for the plan. Note that the new desktop target requires Java 25.
 
 ## Display your first map
 

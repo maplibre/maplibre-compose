@@ -86,7 +86,6 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
-        implementation(project(":lib:maplibre-native-bindings"))
       }
     }
 

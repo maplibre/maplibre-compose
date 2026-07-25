@@ -137,14 +137,6 @@ kotlin {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
-
-        runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
-          capabilities {
-            requireCapability(
-              "org.maplibre.compose:maplibre-native-bindings-jni-${Configuration(project).hostOsArchRendererTriplet}"
-            )
-          }
-        }
       }
     }
 
@@ -189,16 +181,5 @@ compose.desktop {
       // packageVersion = project.ext["base_tag"].toString().replace("v", "")
       packageVersion = "1.0.0"
     }
-  }
-}
-
-tasks.withType<JavaExec>().configureEach {
-  if (System.getProperty("os.name").lowercase().contains("mac")) {
-    val homebrewPath = System.getenv("HOMEBREW_PREFIX")?.let { "$it/lib" } ?: ""
-    val existingPath = System.getenv("DYLD_FALLBACK_LIBRARY_PATH") ?: "/usr/local/lib:/usr/lib"
-    val vulkanSdkPath = System.getenv("VULKAN_SDK")?.let { "$it/lib" } ?: ""
-    val paths =
-      listOf(homebrewPath, vulkanSdkPath, existingPath).filter { it.isNotEmpty() }.joinToString(":")
-    environment("DYLD_FALLBACK_LIBRARY_PATH", paths)
   }
 }
