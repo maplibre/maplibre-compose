@@ -86,9 +86,9 @@ Desktop consumes the published
 Multiplatform bindings, so there is no C++ toolchain, CMake, or vendored
 MapLibre Native checkout to set up.
 
-This integration is currently being built; see
-[DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md). Desktop does not compile
-until the FFI-backed implementation lands.
+Desktop is validated on Linux. Windows and macOS are implemented but have not
+been run on real hardware yet; see
+[DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md).
 
 ## Run the demo
 

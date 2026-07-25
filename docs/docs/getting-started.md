@@ -183,21 +183,49 @@ There are no longer any special steps required to use MapLibre Compose on Web.
     Desktop support is not yet at feature parity with Android and iOS.
     Check the [status table](index.md#status) for more info.
 
-!!! warning
+Desktop uses the published
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
+Multiplatform bindings. The `org.maplibre.compose:maplibre-native-bindings-jni`
+artifact that previously shipped with MapLibre Compose, and its
+OS/architecture/renderer capabilities, are no longer published.
 
-    Desktop is being rewritten on top of the published
-    [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
-    Kotlin Multiplatform bindings, replacing the JNI bindings module that
-    previously shipped with MapLibre Compose. The
-    `org.maplibre.compose:maplibre-native-bindings-jni` artifact and its
-    OS/architecture/renderer capabilities are no longer published.
+Add the library plus a native runtime for each platform you ship. The library
+itself is backend-independent; the application chooses the runtime, exactly as
+it chooses an Android ABI.
 
-    Setup instructions land with the new implementation. See
-    [DESKTOP_FFI_REWRITE.md](https://github.com/maplibre/maplibre-compose/blob/main/DESKTOP_FFI_REWRITE.md)
-    for the plan.
+```kotlin title="build.gradle.kts"
+// Pick the pair matching the machine you are building for. MapLibre renders
+// with Vulkan on Linux and Windows and with Metal on macOS.
+val maplibreNativeFfiVersion = "<version>"
 
-Two requirements are already settled, and both differ from the previous desktop
-integration.
+sourceSets {
+  val desktopMain by getting {
+    dependencies {
+      implementation(compose.desktop.currentOs)
+      implementation("org.maplibre.compose:maplibre-compose:{{ gradle.release_version }}")
+
+      // Linux x64, for example. Classifiers: natives-linux-x64,
+      // natives-linux-arm64, natives-windows-x64, natives-windows-arm64,
+      // natives-macos-arm64.
+      runtimeOnly(
+        "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan-jvm:" +
+          "$maplibreNativeFfiVersion:natives-linux-x64"
+      )
+    }
+  }
+}
+```
+
+While MapLibre Native FFI is published as a snapshot, add its repository:
+
+```kotlin title="settings.gradle.kts"
+maven {
+  url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+  content { includeGroup("org.maplibre.nativeffi") }
+}
+```
+
+Two further requirements differ from the previous desktop integration.
 
 **Desktop requires Java 25.** The MapLibre Native FFI binding ships Java 24
 bytecode and uses the FFM API, so the desktop target cannot run on an older JVM.

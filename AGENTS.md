@@ -65,6 +65,6 @@ The library uses platform-specific implementations:
 - **Web**: MapLibre GL JS via `maplibre-js-bindings`
 - **Desktop**: MapLibre Native Core via the published
   [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
-  Kotlin Multiplatform bindings. See
-  [DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md); this integration is
-  currently being built and desktop does not compile yet.
+  Kotlin Multiplatform bindings. Validated on Linux; Windows and macOS are
+  implemented but not yet exercised on real hardware. See
+  [DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md).
