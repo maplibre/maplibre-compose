@@ -217,6 +217,23 @@ the absence causes.
 
 ---
 
+### A non-HTTP URI fails with `invalid authority` — **verified**
+
+The built-in network file source rejects any URI it does not recognize with
+`loading style failed: http: invalid authority`. That message names neither the
+URI nor the reason, and it is what every consumer sees the first time they point
+a style, sprite, glyph, or tile at a packaged resource — which on Compose
+Desktop is a `jar:file:` URI, i.e. the common case rather than an exotic one.
+
+_Workaround:_ MapLibre Compose installs a resource provider that intercepts
+non-network schemes and reads them itself.
+
+_Suggested fix:_ include the offending URI in the message and say that the
+scheme is unsupported. A consumer seeing `invalid authority` has no way to tell
+that the fix is to install a resource provider.
+
+---
+
 ## Ergonomics and documentation
 
 ### Options classes are mutable and lack `equals` — **reported**
