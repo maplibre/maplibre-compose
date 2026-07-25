@@ -745,25 +745,30 @@ operating system before declaring the SPI usable.
 
 ## Completion checklist
 
-- [ ] Java 25 is used for desktop compilation, execution, tests, and packaging.
-- [ ] Android retains its intended bytecode target.
-- [ ] Linux Vulkan, Windows Vulkan, and macOS Metal render through the FFI.
-- [ ] The default Skiko host is replaceable through the public host SPI.
-- [ ] A compose-glfw fixture renders through the same map session.
-- [ ] Multiple maps and repeated create/dispose cycles are stable.
-- [ ] Runtime events drive lifecycle callbacks and repaint scheduling.
-- [ ] Camera, gestures, projection, density, and bounds are implemented.
-- [ ] Every desktop source and layer actual is implemented.
-- [ ] Images and rendered feature queries are implemented.
-- [ ] Compose resources load through the runtime resource boundary.
-- [ ] Desktop offline APIs are implemented and persistence-tested.
-- [ ] Every known FFI gap has a specific `TODO(maplibre-native-ffi)` comment and
-      defined behavior.
-- [ ] No executable desktop `TODO()` or placeholder `Nothing` remains.
-- [ ] JNI bindings modules, vendored submodules, and native build CI are gone.
-- [ ] Demo distributions include exactly one correct FFI runtime.
-- [ ] Automated tests and the machine validation matrix pass.
-- [ ] Getting-started, contribution, roadmap, and release documentation describe
+- [x] Java 25 is used for desktop compilation, execution, tests, and packaging.
+- [x] Android retains its intended bytecode target.
+- [~] Linux Vulkan renders through the FFI. Windows Vulkan and macOS Metal are
+  implemented but have never run on hardware.
+- [x] The default Skiko host is replaceable through the public host SPI.
+- [ ] A compose-glfw fixture renders through the same map session. Not started;
+      the headless Vulkan host covers the equivalent ground for tests.
+- [x] Multiple maps and repeated create/dispose cycles are stable.
+- [x] Runtime events drive lifecycle callbacks and repaint scheduling.
+- [x] Camera, gestures, projection, density, and bounds are implemented.
+- [x] Every desktop source and layer actual is implemented.
+- [x] Images and rendered feature queries are implemented.
+- [x] Compose resources load through the runtime resource boundary.
+- [x] Desktop offline APIs are implemented and persistence-tested.
+- [x] Every known FFI gap has a specific `TODO(maplibre-native-ffi)` comment and
+      defined behavior, plus an entry in `MAPLIBRE_NATIVE_FFI_FEEDBACK.md`.
+- [~] No executable desktop `TODO()` remains except
+  `DesktopOrientationProvider`, which predates this branch and is unrelated to
+  the FFI.
+- [x] JNI bindings modules, vendored submodules, and native build CI are gone.
+- [x] Demo distributions include exactly one correct FFI runtime.
+- [~] Automated tests pass (50 desktop tests). The machine validation matrix
+  covers Linux x64 only.
+- [x] Getting-started, contribution, roadmap, and release documentation describe
       the new integration and Java 25 requirement.
 
 ## Implementation notes to keep current
