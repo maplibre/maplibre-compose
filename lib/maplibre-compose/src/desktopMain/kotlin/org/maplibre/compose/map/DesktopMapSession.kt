@@ -196,6 +196,16 @@ internal class DesktopMapSession(
 
   private var isGestureInProgress = false
 
+  /**
+   * Setup calls made before the map exists.
+   *
+   * The map is created lazily on the first frame, but `MaplibreMap` applies the initial camera,
+   * zoom range, pitch range, and bounds as soon as the adapter is handed to it — which is earlier.
+   * Without this those calls reach a null map and are dropped, so the map opens at MapLibre's
+   * default position rather than the one that was asked for.
+   */
+  private val deferredSetup = mutableListOf<(MapHandle) -> Unit>()
+
   /** The binding handed to the current style's sources and layers; replaced on every style load. */
   private var styleBinding: SessionStyleBinding? = null
 
@@ -383,11 +393,21 @@ internal class DesktopMapSession(
         it.scaleFactor = extent.scaleFactor
       }
 
-    return MapHandle.create(ensureRuntime(), options).also {
-      map = it
+    return MapHandle.create(ensureRuntime(), options).also { created ->
+      map = created
       mapExtent = extent
       mapScaleFactor = extent.scaleFactor
       renderPending = true
+      // Replayed in order, so the map opens where the caller asked rather than at MapLibre's
+      // default position.
+      if (deferredSetup.isNotEmpty()) {
+        val pending = deferredSetup.toList()
+        deferredSetup.clear()
+        pending.forEach { setup ->
+          runCatching { setup(created) }
+            .onFailure { logger?.e(it) { "Failed to apply deferred map setup" } }
+        }
+      }
     }
   }
 
@@ -588,6 +608,15 @@ internal class DesktopMapSession(
   // ───────────────────────────── MapAdapter ─────────────────────────────
 
   /** Runs [action] with the map on the owner thread, or returns [fallback] if there is none yet. */
+  /** Runs [action] against the map, or records it to run as soon as the map is created. */
+  private fun onMap(action: (MapHandle) -> Unit) {
+    owner.run {
+      val map = map
+      if (map == null) deferredSetup += action else action(map)
+    }
+    requestRender()
+  }
+
   private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = owner.run {
     map?.let(action) ?: fallback
   }
@@ -621,13 +650,12 @@ internal class DesktopMapSession(
     withMap(CameraPosition()) { it.camera.toCameraPosition() }
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
-    owner.run {
-      val map = map ?: return@run
+    onMap { map ->
       cameraGeneration++
       map.jumpTo(cameraPosition.toCameraOptions(layoutDirection))
       renderPending = true
+      isIdle = false
     }
-    requestRender()
   }
 
   override fun setCameraPosition(
@@ -714,8 +742,7 @@ internal class DesktopMapSession(
   }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
-    owner.run {
-      val map = map ?: return@run
+    onMap { map ->
       map.bounds =
         map.bounds.also {
           // An all-null BoundOptions is a no-op rather than a reset, so clearing means assigning
@@ -736,10 +763,7 @@ internal class DesktopMapSession(
   override fun setMaxPitch(maxPitch: Double) = setBounds { it.maxPitch = maxPitch }
 
   private fun setBounds(update: (BoundOptions) -> Unit) {
-    owner.run {
-      val map = map ?: return@run
-      map.bounds = map.bounds.also(update)
-    }
+    onMap { map -> map.bounds = map.bounds.also(update) }
   }
 
   override fun getVisibleBoundingBox(): BoundingBox =

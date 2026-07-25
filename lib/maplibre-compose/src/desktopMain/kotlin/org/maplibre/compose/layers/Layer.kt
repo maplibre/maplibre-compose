@@ -157,7 +157,7 @@ internal actual sealed class Layer(actual val id: String) {
     this.binding = binding
     // See sourceDescriptor: the source's own effect has not run yet on a fresh style composition.
     sourceDescriptor?.let { source -> if (!source.isAttached) source.attach(binding) }
-    binding.withMap { map ->
+    val added = binding.withMap { map ->
       try {
         map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId)
       } catch (error: MaplibreException) {
@@ -171,6 +171,10 @@ internal actual sealed class Layer(actual val id: String) {
           error,
         )
       }
+    }
+    check(added != null) {
+      "Layer '$id' was not added: its style is no longer loaded. It will not appear until the " +
+        "style reloads and the composition re-adds it."
     }
   }
 
