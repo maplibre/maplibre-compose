@@ -93,10 +93,9 @@ internal class MacosMetalHost : DesktopMapHost {
 
   override fun close() {
     try {
-      // Preserved from the example: the texture, and the Skia surface wrapping it, are released on
-      // the closing thread rather than on the renderer thread that is about to shut down.
-      // TODO(maplibre-compose): unverified on macOS — whether closing that Skia surface off the AWT
-      // event thread is safe, or whether it needs the onEdt hop the presenter uses to reach Skiko.
+      // The texture, and the Skia surface wrapping it, are released on the closing thread rather
+      // than on the renderer thread that is about to shut down. The presenter hops to the AWT
+      // event thread itself, so the Skia objects are always freed on the thread that owns them.
       disposeTexture()
     } finally {
       rendererThread.close()

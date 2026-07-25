@@ -5,19 +5,19 @@ import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 
-internal actual class BackgroundLayer actual constructor(id: String) : Layer() {
+internal actual class BackgroundLayer actual constructor(id: String) : Layer(id) {
 
-  override val impl: Nothing = TODO()
+  override val type: String = "background"
 
   actual fun setBackgroundColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProperty("background-color", color)
   }
 
   actual fun setBackgroundPattern(pattern: CompiledExpression<ImageValue>) {
-    TODO()
+    setPaintProperty("background-pattern", pattern)
   }
 
   actual fun setBackgroundOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("background-opacity", opacity)
   }
 }

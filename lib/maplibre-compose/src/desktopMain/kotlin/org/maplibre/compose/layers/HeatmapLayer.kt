@@ -8,32 +8,37 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.sources.Source
 
 internal actual class HeatmapLayer actual constructor(id: String, source: Source) :
-  FeatureLayer(source) {
-  override val impl = TODO()
+  FeatureLayer(id, source) {
 
-  actual override var sourceLayer: String = TODO()
+  override val type: String = "heatmap"
+
+  actual override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    setFilterExpression(filter)
   }
 
   actual fun setHeatmapRadius(radius: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProperty("heatmap-radius", radius)
   }
 
   actual fun setHeatmapWeight(weight: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("heatmap-weight", weight)
   }
 
   actual fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("heatmap-intensity", intensity)
   }
 
   actual fun setHeatmapColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProperty("heatmap-color", color)
   }
 
   actual fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("heatmap-opacity", opacity)
   }
 }

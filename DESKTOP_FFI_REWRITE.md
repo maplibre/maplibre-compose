@@ -765,7 +765,20 @@ Update this section as the branch develops:
 - Cache/runtime sharing decision: not yet made (step 7).
 - FFI gaps found: no visible-region API, no meters-per-pixel API, no maximum-FPS
   control, and no animation-completion signal. See "Confirmed FFI gaps" below.
-- Machine validation results: none yet.
+- Machine validation results: Linux x64 / Wayland+XWayland / Vulkan-to-OpenGL
+  rendered the demotiles style at commit 6a5088d3, confirmed by screenshot.
+- **Open regression:** desktop stopped rendering after the step 6 style work
+  landed. The runtime and map are created and no error is logged, but the frame
+  loop does not continue past the first frame; a thread dump shows the renderer
+  thread and the AWT event thread both parked and idle, so it is a lost wake-up
+  rather than a deadlock or a native failure. Two contributing causes are
+  already fixed and were not sufficient on their own: the pump now keeps
+  requesting frames until MapLibre reports `MAP_IDLE`, and `requestFrame` now
+  defers its Compose state write to a later event-loop turn instead of writing
+  it from inside the draw pass it was called from. Next step is to confirm
+  whether `DesktopMapSurface`'s `Canvas` is being invalidated at all —
+  instrument the draw lambda rather than the session, since the session's
+  `render` was never reached in the last run.
 
 Toolchain facts measured against the published snapshot rather than assumed:
 

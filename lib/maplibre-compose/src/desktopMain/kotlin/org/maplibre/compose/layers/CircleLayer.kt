@@ -12,60 +12,65 @@ import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 
 internal actual class CircleLayer actual constructor(id: String, source: Source) :
-  FeatureLayer(source) {
-  override val impl = TODO()
+  FeatureLayer(id, source) {
 
-  actual override var sourceLayer: String = TODO()
+  override val type: String = "circle"
+
+  actual override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    setFilterExpression(filter)
   }
 
   actual fun setCircleSortKey(sortKey: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProperty("circle-sort-key", sortKey)
   }
 
   actual fun setCircleRadius(radius: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProperty("circle-radius", radius)
   }
 
   actual fun setCircleColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProperty("circle-color", color)
   }
 
   actual fun setCircleBlur(blur: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("circle-blur", blur)
   }
 
   actual fun setCircleOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("circle-opacity", opacity)
   }
 
   actual fun setCircleTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProperty("circle-translate", translate)
   }
 
   actual fun setCircleTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProperty("circle-translate-anchor", translateAnchor)
   }
 
   actual fun setCirclePitchScale(pitchScale: CompiledExpression<CirclePitchScale>) {
-    TODO()
+    setPaintProperty("circle-pitch-scale", pitchScale)
   }
 
   actual fun setCirclePitchAlignment(pitchAlignment: CompiledExpression<CirclePitchAlignment>) {
-    TODO()
+    setPaintProperty("circle-pitch-alignment", pitchAlignment)
   }
 
   actual fun setCircleStrokeWidth(strokeWidth: CompiledExpression<DpValue>) {
-    TODO()
+    setPaintProperty("circle-stroke-width", strokeWidth)
   }
 
   actual fun setCircleStrokeColor(strokeColor: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProperty("circle-stroke-color", strokeColor)
   }
 
   actual fun setCircleStrokeOpacity(strokeOpacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("circle-stroke-opacity", strokeOpacity)
   }
 }

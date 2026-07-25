@@ -1,28 +1,170 @@
 package org.maplibre.compose.layers
 
-internal actual sealed class Layer {
-  abstract val impl: Nothing
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.util.toFfiJsonValue
+import org.maplibre.compose.util.toJsonElement
+import org.maplibre.compose.util.toStyleJson
+import org.maplibre.nativeffi.map.MapHandle
 
-  actual val id: String
-    get() = TODO()
+/** Style JSON keys that live at the top level of a layer rather than in layout or paint. */
+private val ROOT_KEYS =
+  setOf("id", "type", "source", "source-layer", "minzoom", "maxzoom", "filter")
+
+/**
+ * A style layer, as a live descriptor.
+ *
+ * Mirrors [org.maplibre.compose.sources.Source]: before the layer is added to a style, setters
+ * accumulate into the descriptor; adding emits one complete layer JSON object; afterwards setters
+ * go straight to MapLibre through `setLayerProperty` and `setLayerFilter`.
+ *
+ * Accumulating first is what makes a layer addable at any point in a composition. Emitting the
+ * whole object at once also avoids a partially-configured layer ever being visible, which is what
+ * happens if properties are set one at a time after adding.
+ */
+internal actual sealed class Layer(actual val id: String) {
+
+  /** The layer's `type` in the style spec, e.g. `fill`. */
+  protected abstract val type: String
+
+  /** The source this layer draws from, or null for layers that have none, such as background. */
+  protected open val sourceId: String? = null
+
+  private val layout = mutableMapOf<String, JsonElement>()
+  private val paint = mutableMapOf<String, JsonElement>()
+  private val root = mutableMapOf<String, JsonElement>()
+
+  internal var binding: StyleBinding = StyleBinding.UNLOADED
+    private set
+
+  internal val isAttached: Boolean
+    get() = binding.isLoaded
 
   actual var minZoom: Float
-    get() = TODO()
+    get() = (root["minzoom"] as? JsonPrimitive)?.content?.toFloatOrNull() ?: 0f
     set(value) {
-      TODO()
+      setRootProperty("minzoom", JsonPrimitive(value))
     }
 
   actual var maxZoom: Float
-    get() = TODO()
+    get() = (root["maxzoom"] as? JsonPrimitive)?.content?.toFloatOrNull() ?: 24f
     set(value) {
-      TODO()
+      setRootProperty("maxzoom", JsonPrimitive(value))
     }
 
   actual var visible: Boolean
-    get() = TODO()
+    get() = (layout["visibility"] as? JsonPrimitive)?.content != "none"
     set(value) {
-      TODO()
+      // The style spec has no boolean here; visibility is the string "visible" or "none".
+      setLayoutProperty("visibility", JsonPrimitive(if (value) "visible" else "none"))
     }
+
+  /** Sets a layout property, by style-spec name. */
+  protected fun setLayoutProperty(name: String, value: JsonElement) {
+    layout[name] = value
+    pushProperty(name, value)
+  }
+
+  /** Sets a paint property, by style-spec name. */
+  protected fun setPaintProperty(name: String, value: JsonElement) {
+    paint[name] = value
+    pushProperty(name, value)
+  }
+
+  /** Sets a layout property from a compiled expression. */
+  protected fun setLayoutProperty(name: String, value: CompiledExpression<*>) {
+    setLayoutProperty(name, value.toStyleJson())
+  }
+
+  /** Sets a paint property from a compiled expression. */
+  protected fun setPaintProperty(name: String, value: CompiledExpression<*>) {
+    setPaintProperty(name, value.toStyleJson())
+  }
+
+  /**
+   * Sets a top-level layer property, by style-spec name.
+   *
+   * Distinct from layout and paint because MapLibre reads these from the layer object itself; they
+   * have to be present in the JSON that creates the layer, not pushed afterwards.
+   */
+  protected fun setRootProperty(name: String, value: JsonElement) {
+    root[name] = value
+    pushProperty(name, value)
+  }
+
+  /**
+   * Sets this layer's filter.
+   *
+   * Filters have their own entry point rather than going through `setLayerProperty`, because
+   * MapLibre treats the filter as part of the layer rather than as a property of it.
+   */
+  protected fun setFilterExpression(filter: CompiledExpression<*>) {
+    val json = filter.toStyleJson()
+    root["filter"] = json
+    binding.withMap { map -> map.setLayerFilter(id, json.toFfiJsonValue()) }
+  }
+
+  private fun pushProperty(name: String, value: JsonElement) {
+    binding.withMap { map -> map.setLayerProperty(id, name, value.toFfiJsonValue()) }
+  }
+
+  /** The complete layer object, as the style spec defines it. */
+  internal fun toJson(): JsonObject = buildJsonObject {
+    // `id` and `type` first: MapLibre reads the type before the properties that depend on it.
+    put("id", id)
+    put("type", type)
+    sourceId?.let { put("source", it) }
+    root.forEach { (key, value) -> if (key in ROOT_KEYS) put(key, value) }
+    if (layout.isNotEmpty()) put("layout", JsonObject(layout))
+    if (paint.isNotEmpty()) put("paint", JsonObject(paint))
+  }
+
+  /**
+   * Adds this layer to a style directly below [beforeLayerId], or on top when that is empty.
+   *
+   * MapLibre has no "add on top" call; an empty anchor means the same thing, which is what the
+   * common [LayerManager] relies on for its append case.
+   */
+  internal fun attach(binding: StyleBinding, beforeLayerId: String) {
+    this.binding = binding
+    binding.withMap { map -> map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId) }
+  }
+
+  /**
+   * Binds this descriptor to a layer that is already in the style, without adding it.
+   *
+   * Used when reading back the base style: those layers already exist in MapLibre, so adding them
+   * again would duplicate them and change the draw order.
+   */
+  internal fun bindExisting(binding: StyleBinding) {
+    this.binding = binding
+  }
+
+  internal fun detach() {
+    binding.withMap { map -> map.removeStyleLayer(id) }
+    binding = StyleBinding.UNLOADED
+  }
+
+  /** Moves this layer to sit directly below [beforeLayerId], or on top when that is empty. */
+  internal fun moveTo(beforeLayerId: String) {
+    binding.withMap { map -> map.moveStyleLayer(id, beforeLayerId) }
+  }
+
+  /** Reads a property back from the live layer, falling back to the descriptor when detached. */
+  protected fun readProperty(name: String): JsonElement =
+    binding.withMap { map -> map.layerProperty(id, name)?.toJsonElement() }
+      ?: layout[name]
+      ?: paint[name]
+      ?: root[name]
+      ?: JsonNull
+
+  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.withMap(update) != null
 
   override fun toString() = "${this::class.simpleName}(id=\"$id\")"
 }

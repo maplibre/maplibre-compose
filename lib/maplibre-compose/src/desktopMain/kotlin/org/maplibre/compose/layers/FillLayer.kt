@@ -1,6 +1,9 @@
 package org.maplibre.compose.layers
 
+import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -8,47 +11,59 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toFfiJsonValue
 
 internal actual class FillLayer actual constructor(id: String, source: Source) :
-  FeatureLayer(source) {
+  FeatureLayer(id, source) {
 
-  override val impl = TODO()
+  override val type: String = "fill"
 
-  actual override var sourceLayer: String = TODO()
+  // `source-layer` is a root key, and the descriptor only accumulates layout and paint, so this can
+  // only be pushed to a live layer.
+  // TODO(maplibre-compose): record this in the layer descriptor too, so it is re-emitted when the
+  //   layer is added to another style.
+  actual override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      mutate { map ->
+        map.setLayerProperty(id, "source-layer", JsonPrimitive(value).toFfiJsonValue())
+      }
+    }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    // The style spec has no null filter; "unfiltered" is a filter that matches every feature.
+    setFilterExpression(if (filter == NullLiteral) BooleanLiteral.of(true) else filter)
   }
 
   actual fun setFillSortKey(sortKey: CompiledExpression<FloatValue>) {
-    TODO()
+    setLayoutProperty("fill-sort-key", sortKey)
   }
 
   actual fun setFillAntialias(antialias: CompiledExpression<BooleanValue>) {
-    TODO()
+    setPaintProperty("fill-antialias", antialias)
   }
 
   actual fun setFillOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("fill-opacity", opacity)
   }
 
   actual fun setFillColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProperty("fill-color", color)
   }
 
   actual fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProperty("fill-outline-color", outlineColor)
   }
 
   actual fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProperty("fill-translate", translate)
   }
 
   actual fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProperty("fill-translate-anchor", translateAnchor)
   }
 
   actual fun setFillPattern(pattern: CompiledExpression<ImageValue>) {
-    TODO()
+    setPaintProperty("fill-pattern", pattern)
   }
 }

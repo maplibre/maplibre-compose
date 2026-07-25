@@ -27,6 +27,9 @@ internal object SkikoReflection {
   const val LINUX_OPENGL_REDRAWER_HELPERS_CLASS =
     "org.jetbrains.skiko.redrawer.LinuxOpenGLRedrawerKt"
   const val AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS = "org.jetbrains.skiko.AWTLinuxDrawingSurfaceKt"
+  const val DIRECT3D_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.Direct3DContextHandler"
+  const val METAL_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.MetalContextHandler"
+  const val CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.ContextHandler"
 
   /** Every Skiko class the default host depends on. Checked by the reflection contract test. */
   val REQUIRED_CLASSES: List<String> =
@@ -38,6 +41,9 @@ internal object SkikoReflection {
       LINUX_OPENGL_REDRAWER_CLASS,
       LINUX_OPENGL_REDRAWER_HELPERS_CLASS,
       AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS,
+      DIRECT3D_CONTEXT_HANDLER_CLASS,
+      METAL_CONTEXT_HANDLER_CLASS,
+      CONTEXT_HANDLER_CLASS,
     )
 
   /** Finds the live `SkiaLayer` backing the current Compose window, if there is one. */

@@ -96,15 +96,24 @@ internal object SkikoOpenGlPresenter {
     return drew
   }
 
-  /** Drops the Skia wrapper for [textureName], which must happen before the texture is deleted. */
+  /**
+   * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
+   *
+   * Forced onto the AWT event thread because the Skia objects belong to the `DirectContext` that
+   * thread owns. The example got this guarantee from its quit handler, which always closed through
+   * the EDT; here the caller is a Compose `DisposableEffect`, whose applier thread is the EDT in
+   * practice but is not guaranteed to be. `onEdt` short-circuits when already there.
+   */
   fun forget(textureName: Int) {
-    presenters.remove(textureName)?.close()
+    SkikoReflection.onEdt { presenters.remove(textureName)?.close() }
   }
 
   fun close() {
-    val all = presenters.values.toList()
-    presenters.clear()
-    all.forEach { it.close() }
+    SkikoReflection.onEdt {
+      val all = presenters.values.toList()
+      presenters.clear()
+      all.forEach { it.close() }
+    }
   }
 
   private fun findDirectContext(): DirectContext? = SkikoReflection.onEdt {

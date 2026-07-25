@@ -31,6 +31,8 @@ import org.maplibre.compose.desktop.WglContextHandles
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toCameraOptions
@@ -164,6 +166,30 @@ internal class DesktopMapSession(
   private var cameraGeneration = 0L
 
   private var isGestureInProgress = false
+
+  /** The binding handed to the current style's sources and layers; replaced on every style load. */
+  private var styleBinding: SessionStyleBinding? = null
+
+  /**
+   * Routes a style's descriptors to this session's map, on its owner thread.
+   *
+   * Held by every source and layer in the style, so it has to keep working for as long as they do
+   * and then stop cleanly: once [unload] runs, writes are dropped instead of reaching a map whose
+   * style has been replaced.
+   */
+  private inner class SessionStyleBinding : StyleBinding {
+    private var loaded = true
+
+    override val isLoaded: Boolean
+      get() = loaded && !closed
+
+    fun unload() {
+      loaded = false
+    }
+
+    override fun <T> withMap(action: (MapHandle) -> T): T? =
+      if (!isLoaded) null else owner.run { map?.let(action) }
+  }
 
   private var maximumFps: Int? = null
   private var lastRenderTime = TimeSource.Monotonic.markNow()
@@ -427,9 +453,12 @@ internal class DesktopMapSession(
       }
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        // TODO(step 6): publish a SafeStyle over the FFI generic style API so user style content
-        // can compose. Until DesktopStyle exists there is nothing to hand back.
-        callbacks.onStyleChanged(this, null)
+        // A new style replaces every source and layer, so the previous binding is dead. Marking it
+        // unloaded is what makes descriptors that outlive it degrade rather than write into a
+        // style that no longer exists.
+        styleBinding?.unload()
+        val binding = SessionStyleBinding().also { styleBinding = it }
+        callbacks.onStyleChanged(this, DesktopStyle(binding))
       }
 
       RuntimeEventType.MAP_LOADING_FINISHED -> callbacks.onMapFinishedLoading(this)

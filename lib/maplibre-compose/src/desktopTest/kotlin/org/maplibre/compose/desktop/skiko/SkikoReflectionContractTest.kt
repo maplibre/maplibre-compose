@@ -66,6 +66,27 @@ class SkikoReflectionContractTest {
   }
 
   @Test
+  fun `the Direct3D redrawer exposes its device and context factory`() {
+    // Windows-only members, and Windows is the platform least likely to be exercised during
+    // development, so pinning them here is the only thing standing between a Skiko rename and a
+    // blank map that nobody sees until the machine matrix.
+    assertField(Class.forName(SkikoReflection.DIRECT3D_REDRAWER_CLASS), "device")
+    assertMethod(Class.forName(SkikoReflection.DIRECT3D_CONTEXT_HANDLER_CLASS), "makeContext")
+  }
+
+  @Test
+  fun `the Metal context handler exposes the device and context the host reads`() {
+    // macOS, like Windows, is a platform this project cannot exercise, so these are pinned for
+    // the same reason: a Skiko rename would otherwise surface only as a blank map.
+    assertField(Class.forName(SkikoReflection.METAL_CONTEXT_HANDLER_CLASS), "device")
+    assertField(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "context")
+    assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "getContext")
+    // Declared abstract on ContextHandler and implemented on ContextBasedContextHandler; the
+    // lookup walks superclasses, so asserting on the base is enough.
+    assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "initContext")
+  }
+
+  @Test
   fun `the Linux drawing surface helpers are callable`() {
     val helpers = Class.forName(SkikoReflection.AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS)
     assertStaticMethod(helpers, "lockLinuxDrawingSurface", parameterCount = 1)

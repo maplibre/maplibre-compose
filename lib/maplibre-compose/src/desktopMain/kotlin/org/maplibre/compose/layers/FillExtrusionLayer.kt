@@ -1,6 +1,9 @@
 package org.maplibre.compose.layers
 
+import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -8,46 +11,59 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.toFfiJsonValue
 
 internal actual class FillExtrusionLayer actual constructor(id: String, source: Source) :
-  FeatureLayer(source) {
-  override val impl = TODO()
+  FeatureLayer(id, source) {
 
-  actual override var sourceLayer: String = TODO()
+  override val type: String = "fill-extrusion"
+
+  // `source-layer` is a root key, and the descriptor only accumulates layout and paint, so this can
+  // only be pushed to a live layer.
+  // TODO(maplibre-compose): record this in the layer descriptor too, so it is re-emitted when the
+  //   layer is added to another style.
+  actual override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      mutate { map ->
+        map.setLayerProperty(id, "source-layer", JsonPrimitive(value).toFfiJsonValue())
+      }
+    }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    TODO()
+    // The style spec has no null filter; "unfiltered" is a filter that matches every feature.
+    setFilterExpression(if (filter == NullLiteral) BooleanLiteral.of(true) else filter)
   }
 
   actual fun setFillExtrusionOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("fill-extrusion-opacity", opacity)
   }
 
   actual fun setFillExtrusionColor(color: CompiledExpression<ColorValue>) {
-    TODO()
+    setPaintProperty("fill-extrusion-color", color)
   }
 
   actual fun setFillExtrusionTranslate(translate: CompiledExpression<DpOffsetValue>) {
-    TODO()
+    setPaintProperty("fill-extrusion-translate", translate)
   }
 
   actual fun setFillExtrusionTranslateAnchor(anchor: CompiledExpression<TranslateAnchor>) {
-    TODO()
+    setPaintProperty("fill-extrusion-translate-anchor", anchor)
   }
 
   actual fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue>) {
-    TODO()
+    setPaintProperty("fill-extrusion-pattern", pattern)
   }
 
   actual fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("fill-extrusion-height", height)
   }
 
   actual fun setFillExtrusionBase(base: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("fill-extrusion-base", base)
   }
 
   actual fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>) {
-    TODO()
+    setPaintProperty("fill-extrusion-vertical-gradient", verticalGradient)
   }
 }

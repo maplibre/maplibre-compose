@@ -7,38 +7,41 @@ import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.Source
 
 internal actual class RasterLayer actual constructor(id: String, actual val source: Source) :
-  Layer() {
-  override val impl = TODO()
+  Layer(id) {
+
+  override val type: String = "raster"
+
+  override val sourceId: String = source.id
 
   actual fun setRasterOpacity(opacity: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("raster-opacity", opacity)
   }
 
   actual fun setRasterHueRotate(hueRotate: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("raster-hue-rotate", hueRotate)
   }
 
   actual fun setRasterBrightnessMin(brightnessMin: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("raster-brightness-min", brightnessMin)
   }
 
   actual fun setRasterBrightnessMax(brightnessMax: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("raster-brightness-max", brightnessMax)
   }
 
   actual fun setRasterSaturation(saturation: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("raster-saturation", saturation)
   }
 
   actual fun setRasterContrast(contrast: CompiledExpression<FloatValue>) {
-    TODO()
+    setPaintProperty("raster-contrast", contrast)
   }
 
   actual fun setRasterResampling(resampling: CompiledExpression<RasterResampling>) {
-    TODO()
+    setPaintProperty("raster-resampling", resampling)
   }
 
   actual fun setRasterFadeDuration(fadeDuration: CompiledExpression<MillisecondsValue>) {
-    TODO()
+    setPaintProperty("raster-fade-duration", fadeDuration)
   }
 }

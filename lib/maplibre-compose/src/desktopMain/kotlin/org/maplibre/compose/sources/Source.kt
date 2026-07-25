@@ -1,13 +1,74 @@
 package org.maplibre.compose.sources
 
-public actual sealed class Source {
-  internal abstract val impl: Nothing
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.util.toFfiJsonValue
+import org.maplibre.nativeffi.map.MapHandle
 
-  internal actual val id: String
-    get() = TODO()
+/**
+ * A data source, as a live descriptor.
+ *
+ * Before the source is added to a style it holds its own definition, so a source can be created and
+ * configured during composition before any style exists. [attach] hands it to MapLibre, after which
+ * mutations go straight through and the descriptor records what was sent.
+ */
+public actual sealed class Source(internal actual val id: String) {
+
+  /**
+   * This source's definition as style JSON, used to add it and to answer reads before attachment.
+   */
+  internal abstract fun toJson(): JsonObject
+
+  internal var binding: StyleBinding = StyleBinding.UNLOADED
+    private set
+
+  /** Whether this source currently belongs to a loaded style. */
+  internal val isAttached: Boolean
+    get() = binding.isLoaded
 
   public actual val attributionHtml: String
-    get() = TODO()
+    get() = (toJson()["attribution"] as? JsonPrimitive)?.content.orEmpty()
+
+  /**
+   * Adds this source to a style and starts routing mutations to it.
+   *
+   * Uses the generic source JSON entry point rather than the typed per-kind calls, so one path
+   * covers every source family and stays in step with whatever the descriptor emits.
+   */
+  internal fun attach(binding: StyleBinding) {
+    this.binding = binding
+    binding.withMap { map -> map.addStyleSourceJson(id, toJson().toFfiJsonValue()) }
+  }
+
+  /**
+   * Binds this descriptor to a source that is already in the style, without adding it.
+   *
+   * Used when reading back the base style: those sources already exist in MapLibre, so adding them
+   * again would either duplicate them or be rejected.
+   */
+  internal fun bindExisting(binding: StyleBinding) {
+    this.binding = binding
+  }
+
+  /**
+   * Removes this source from its style.
+   *
+   * The descriptor survives, so the source can be added to a later style — which is what happens
+   * when the base style changes and the composition re-adds its content.
+   */
+  internal fun detach() {
+    binding.withMap { map -> map.removeStyleSource(id) }
+    binding = StyleBinding.UNLOADED
+  }
+
+  /**
+   * Applies [update] to the live source, reporting whether there was one to apply it to.
+   *
+   * Returns false when the style has unloaded. Callers surface that as a diagnostic rather than
+   * failing: a source outliving its style by a frame is normal during a style swap.
+   */
+  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.withMap(update) != null
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }
