@@ -231,8 +231,54 @@ internal class DesktopMapSession(
       loaded = false
     }
 
-    override fun <T> withMap(action: (MapHandle) -> T): T? =
-      if (!isLoaded) null else owner.run { map?.let(action) }
+    /**
+     * Runs [action] against the map and then wakes the render loop.
+     *
+     * The wake is the point. MapLibre only advances while its runtime is pumped, pumping only
+     * happens inside [render], and [render] only runs when something asks for a frame. Once
+     * MAP_IDLE arrives the loop parks, so a style mutation made after that sits in MapLibre's queue
+     * unobserved — the layer is genuinely added, and stays invisible until an unrelated pan or
+     * resize wakes the loop. Every source, layer, and image write crosses this one seam, so this is
+     * where the wake belongs rather than at each of the dozen call sites, where the next one added
+     * would silently forget it.
+     *
+     * The flags are set inside the owner hop because they are plain fields that every other writer
+     * touches from the owner thread; only [requestRender] is safe to call from the caller's thread,
+     * and it must be, because it must not run while the renderer thread is held.
+     */
+    override fun <T> withMap(action: (MapHandle) -> T): T? {
+      if (!isLoaded) return null
+      val result = owner.run {
+        val map = map ?: return@run null
+        action(map).also {
+          // Most mutations make mbgl notify us on its own, and that notification is drained
+          // early enough in the next frame to be seen. addSource, removeSource, and removeImage
+          // notify nothing at all, so without this they would render stale.
+          map.requestRepaint()
+          renderPending = true
+          isIdle = false
+        }
+      }
+      requestRender()
+      return result
+    }
+
+    override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
+      if (!isLoaded) return null
+      return owner.run {
+        val session = renderSession
+        if (session == null) {
+          logger?.d { "Ignoring a render session call: no session is attached yet" }
+          return@run null
+        }
+        try {
+          action(session)
+        } catch (error: MaplibreException) {
+          logger?.w(error) { "A render session call failed" }
+          null
+        }
+      }
+    }
   }
 
   private var maximumFps: Int? = null
@@ -806,8 +852,10 @@ internal class DesktopMapSession(
     // TODO(maplibre-native-ffi): Forward maximumFps once the C API exposes frame-rate control.
     // Until then it throttles how often renderUpdate is called rather than pacing MapLibre itself.
     maximumFps = value.maximumFps
-    owner.run {
-      val map = map ?: return@run
+    // onMap rather than a bare owner hop: it replays the setting if the map does not exist yet
+    // instead of dropping it, and it requests the frame that makes the overlay appear now rather
+    // than the next time the map happens to redraw.
+    onMap { map ->
       map.debugOptions = buildSet {
         if (value.isTileBordersEnabled) add(DebugOption.TILE_BORDERS)
         if (value.isTileTimestampsEnabled) add(DebugOption.TIMESTAMPS)
@@ -975,7 +1023,12 @@ internal class DesktopMapSession(
     owner.run {
       cameraGeneration++
       map?.cancelTransitions()
+      // Stopping mid-animation leaves a frame the user has not seen yet; without this the map
+      // holds the previous frame until the gesture that cancelled the transition moves it.
+      renderPending = true
+      isIdle = false
     }
+    requestRender()
   }
 }
 

@@ -205,15 +205,16 @@ size the texture from it.
 Each of these forces a local reimplementation. Listed roughly by how much pain
 the absence causes.
 
-| Missing                                           | Impact                                                                                                                                                           | Current workaround                                             |
-| ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
-| Visible region / four-corner query — **reported** | `latLngBoundsForCamera` is axis-aligned, so it is wrong for any rotated or pitched camera                                                                        | Project the four viewport corners with `latLngsForPixels`      |
-| Map size accessor — **verified**                  | Needed to project the corners above; `MapHandle` exposes no size                                                                                                 | Track logical size in the session and mirror every attach      |
-| Meters per pixel — **reported**                   | mbgl has it; consumers need it for scale bars                                                                                                                    | Reimplement mbgl's formula, noting the 512px tile size         |
-| Maximum frame rate — **reported**                 | No way to cap MapLibre's own pacing                                                                                                                              | Rate-limit `renderUpdate()` calls                              |
-| Animation completion signal — **reported**        | `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a finished ease, a cancellation, and a superseded transition, so a continuation cannot be resolved from it | Stamp each request with a generation and wait out the duration |
-| Runtime wake / has-pending-work — **reported**    | The owner thread cannot park; it must poll or native loading stalls silently                                                                                     | Drive the pump from the Compose frame clock                    |
-| Clear a resource provider — **reported**          | The provider is effectively set-once before any map exists                                                                                                       | Install it during runtime creation, before the map             |
+| Missing                                                   | Impact                                                                                                                                                           | Current workaround                                             |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------- |
+| Visible region / four-corner query — **reported**         | `latLngBoundsForCamera` is axis-aligned, so it is wrong for any rotated or pitched camera                                                                        | Project the four viewport corners with `latLngsForPixels`      |
+| Map size accessor — **verified**                          | Needed to project the corners above; `MapHandle` exposes no size                                                                                                 | Track logical size in the session and mirror every attach      |
+| Meters per pixel — **reported**                           | mbgl has it; consumers need it for scale bars                                                                                                                    | Reimplement mbgl's formula, noting the 512px tile size         |
+| Maximum frame rate — **reported**                         | No way to cap MapLibre's own pacing                                                                                                                              | Rate-limit `renderUpdate()` calls                              |
+| Animation completion signal — **reported**                | `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a finished ease, a cancellation, and a superseded transition, so a continuation cannot be resolved from it | Stamp each request with a generation and wait out the duration |
+| Runtime wake / has-pending-work — **reported**            | The owner thread cannot park; it must poll or native loading stalls silently                                                                                     | Drive the pump from the Compose frame clock                    |
+| Clear a resource provider — **reported**                  | The provider is effectively set-once before any map exists                                                                                                       | Install it during runtime creation, before the map             |
+| Feature extensions reachable from a source — **verified** | `queryFeatureExtension` exists only on `RenderSessionHandle`, so a `GeoJsonSource` cannot reach it without the host's render session                             | Thread render-session access through the style binding         |
 
 ---
 
@@ -233,6 +234,46 @@ scheme is unsupported. A consumer seeing `invalid authority` has no way to tell
 that the fix is to install a resource provider.
 
 ---
+
+### Cluster ids must be re-typed unsigned, and the mismatch is silent — **verified**
+
+`queryFeatureExtension(sourceId, feature, "supercluster", …)` reads the cluster
+id out of the feature's _properties_, and mbgl looks it up with
+`getProperty<uint64_t>` — an exact check against the stored variant alternative
+(`render_geojson_source.cpp:15-22`). Every general JSON conversion encodes an
+integer as signed, so a `cluster_id` that round-trips through
+`queryRenderedFeatures` and back arrives as the wrong alternative.
+
+The mismatch does not fail. The lookup misses, the call returns an empty result,
+and the status is OK — indistinguishable from a cluster that genuinely has no
+children. The same applies to the `limit` and `offset` arguments for `leaves`: a
+signed `limit` is ignored and mbgl silently substitutes its own default of ten,
+so the call still returns features and still looks correct.
+
+_Workaround:_ MapLibre Compose re-types `cluster_id`, `limit`, and `offset` as
+`JsonValue.UInt` in a conversion of its own, and a test asserts that `limit = 2`
+returns exactly two leaves — the only assertion that distinguishes a correctly
+typed limit from an ignored one.
+
+_Suggested fix:_ either accept any integral alternative on the C++ side, or have
+the binding coerce integers to the alternative the extension expects. Failing
+that, return a distinguishable status instead of an empty success.
+
+---
+
+### A rendered box query larger than the viewport can return nothing — **verified**
+
+Querying with a `ScreenBox` substantially larger than the map's own extent
+returns an empty result rather than everything visible, and only at some
+zoom/extent combinations: a 4096dp box over a 512×512 map at zoom 0 answers
+normally, while the same box over a larger map at zoom 4 answers with nothing.
+Over-covering is the obvious way to write "query everything on screen", so this
+is easy to reach and hard to attribute.
+
+_Workaround:_ query with the map's actual extent.
+
+_Suggested fix:_ clamp the query box to the viewport, or document that it must
+already be within it.
 
 ## Ergonomics and documentation
 

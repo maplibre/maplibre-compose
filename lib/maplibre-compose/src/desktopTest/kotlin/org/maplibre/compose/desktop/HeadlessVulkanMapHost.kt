@@ -87,7 +87,10 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
   private var context: HeadlessVulkanContext? = null
   private var texture: HeadlessVulkanTexture? = null
   private var generation = 0L
-  private var currentExtent = DesktopMapExtent.Empty
+
+  /** The extent the current texture was allocated at; the map's viewport, in logical pixels. */
+  var currentExtent: DesktopMapExtent = DesktopMapExtent.Empty
+    private set
 
   /**
    * Frames this host handed out.
@@ -96,6 +99,15 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
    * and would otherwise pass by doing nothing.
    */
   var acquiredFrames: Int = 0
+    private set
+
+  /**
+   * Frames MapLibre actually rendered into, as opposed to acquired and skipped.
+   *
+   * This is the signal for "did the map redraw": a state change that should be visible must produce
+   * one, and a change that produces none is invisible until something else wakes the loop.
+   */
+  var renderedFrames: Int = 0
     private set
 
   override val backends: DesktopBackendPair =
@@ -128,6 +140,7 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
   }
 
   override fun completeProducerAccess(frame: DesktopMapFrame) {
+    renderedFrames++
     rendererThread.run { context?.waitIdle() }
   }
 

@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.render.RenderSessionHandle
 
 /**
  * A source or layer's connection to the live style it belongs to.
@@ -25,6 +26,19 @@ internal interface StyleBinding {
    */
   fun <T> withMap(action: (MapHandle) -> T): T?
 
+  /**
+   * Runs [action] against the render session on the owner thread, if there is one.
+   *
+   * Separate from [withMap] because a few things — feature extensions, and the supercluster queries
+   * built on them — live on the render session rather than the map: they answer from what a render
+   * pass actually built, so MapLibre exposes them nowhere else.
+   *
+   * Returns null when the style has unloaded, when no render session is attached yet, or when the
+   * call failed. The handle must not escape [action]: the session is closed and re-attached on
+   * every resize.
+   */
+  fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
+
   companion object {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: StyleBinding =
@@ -32,6 +46,8 @@ internal interface StyleBinding {
         override val isLoaded: Boolean = false
 
         override fun <T> withMap(action: (MapHandle) -> T): T? = null
+
+        override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
       }
   }
 }

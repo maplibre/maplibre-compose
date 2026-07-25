@@ -1,0 +1,159 @@
+package org.maplibre.compose.map
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.test.ComposeUiTest
+import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.runComposeUiTest
+import co.touchlab.kermit.Logger
+import java.nio.file.Files
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.desktop.DesktopRuntimeOptions
+import org.maplibre.compose.desktop.HeadlessVulkanMapHostFactory
+import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
+import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.FeatureCollection
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.dsl.addFeature
+import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
+
+/**
+ * Proves that a style change actually redraws.
+ *
+ * `DesktopMapCompositionTest` shows a mutation reaches MapLibre; this shows whether the user ever
+ * sees it. MapLibre only advances while its runtime is pumped, pumping only happens inside a frame,
+ * and once the map goes idle nothing asks for another — so a mutation that requests no frame is
+ * invisible until something unrelated wakes the loop. That is exactly the reported symptom: a
+ * re-added layer appears only after the map is moved a little.
+ *
+ * Each test settles first, because a busy map hides the bug: a frame still in flight would render
+ * the mutation by accident.
+ */
+@OptIn(ExperimentalTestApi::class)
+class DesktopMapRepaintTest {
+
+  private val cacheDirectory = Files.createTempDirectory("maplibre-repaint-test")
+
+  private val runtimeOptions =
+    DesktopRuntimeOptions(
+      cachePath = cacheDirectory.resolve("cache.db"),
+      maximumCacheSizeBytes = null,
+    )
+
+  @AfterTest
+  fun cleanUp() {
+    cacheDirectory.toFile().deleteRecursively()
+  }
+
+  @Test
+  fun `adding a layer after the map settles redraws`() {
+    var visible by mutableStateOf(false)
+    runRepaintTest(mutate = { visible = true }) { ToggledLayer(visible) }
+  }
+
+  /** The other half of a toggle, and equally broken before the fix. */
+  @Test
+  fun `removing a layer after the map settles redraws`() {
+    var visible by mutableStateOf(true)
+    runRepaintTest(mutate = { visible = false }) { ToggledLayer(visible) }
+  }
+
+  /**
+   * Replacing a source's data, which is what a live GeoJSON feed does on every update.
+   *
+   * A stalled loop here means a moving map that stops moving whenever the user does.
+   */
+  @Test
+  fun `replacing source data after the map settles redraws`() {
+    var data by mutableStateOf(pointAt(longitude = 0.0))
+    runRepaintTest(mutate = { data = pointAt(longitude = 10.0) }) {
+      FillLayer(
+        id = "data-driven",
+        source = rememberGeoJsonSource(data = GeoJsonData.Features(data)),
+        color = const(Color.Red),
+      )
+    }
+  }
+
+  /**
+   * Composes [content], settles, runs [mutate], and asserts the map redrew.
+   *
+   * The assertion is on frames MapLibre actually rendered into, not frames acquired: the host hands
+   * out a frame whenever Compose draws, so only a completed render means the change is on screen.
+   */
+  private fun runRepaintTest(mutate: ComposeUiTest.() -> Unit, content: @Composable () -> Unit) =
+    runComposeUiTest {
+      val factory = HeadlessVulkanMapHostFactory.createOrNull()
+      if (factory == null) {
+        System.err.println("Skipping: no usable Vulkan implementation")
+        return@runComposeUiTest
+      }
+
+      setContent {
+        CompositionLocalProvider(
+          LocalDesktopMapHostFactory provides factory,
+          LocalDesktopRuntimeOptions provides runtimeOptions,
+        ) {
+          MaplibreMap(
+            modifier = Modifier,
+            baseStyle = BaseStyle.Empty,
+            logger = Logger.withTag("repaint-test"),
+            content = content,
+          )
+        }
+      }
+
+      waitForIdle()
+      val host = factory.created.single()
+      repeat(SETTLE_ROUNDS) { waitForIdle() }
+      val before = host.renderedFrames
+
+      mutate()
+      waitForIdle()
+
+      assertTrue(
+        host.renderedFrames > before,
+        "The change produced no new rendered frame ($before before, ${host.renderedFrames} " +
+          "after), so it would not appear until something else woke the render loop.",
+      )
+    }
+
+  @Composable
+  private fun ToggledLayer(visible: Boolean) {
+    if (visible) {
+      FillLayer(
+        id = "toggled",
+        source =
+          rememberGeoJsonSource(
+            data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
+          ),
+        color = const(Color.Red),
+      )
+    }
+  }
+
+  private fun pointAt(longitude: Double): FeatureCollection<Geometry, JsonObject?> =
+    buildFeatureCollection {
+      addFeature(geometry = Point(Position(longitude = longitude, latitude = 0.0)))
+    }
+
+  private companion object {
+    /** Enough idle rounds that any frame still in flight from startup has drained. */
+    const val SETTLE_ROUNDS = 5
+  }
+}

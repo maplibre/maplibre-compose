@@ -17,7 +17,10 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
+import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toFfiJsonValue
+import org.maplibre.compose.util.toGeoJsonFeature
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.nativeffi.geo.Feature as FfiFeature
 import org.maplibre.nativeffi.geo.FeatureIdentifier
@@ -25,9 +28,9 @@ import org.maplibre.nativeffi.geo.GeoJson as FfiGeoJson
 import org.maplibre.nativeffi.geo.Geometry as FfiGeometry
 import org.maplibre.nativeffi.geo.LatLng
 import org.maplibre.nativeffi.json.JsonValue
+import org.maplibre.nativeffi.query.FeatureExtensionResult
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
-import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.toJson
 
 public actual class GeoJsonSource : Source {
@@ -84,31 +87,95 @@ public actual class GeoJsonSource : Source {
   }
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
-    return "cluster_id" in feature.properties.orEmpty()
+    return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
   }
 
   public actual fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
-    // TODO(maplibre-native-ffi): the supercluster queries only exist as queryFeatureExtension on
-    //   RenderSessionHandle, which a source cannot reach through its style binding. MapHandle needs
-    //   a queryFeatureExtension taking a source id, a feature, an extension name, and a field name.
-    //   Until then a cluster reports no expansion zoom, so tapping one cannot zoom into it.
-    return 0.0
+    val result = queryClusterExtension(feature, EXPANSION_ZOOM_FIELD)
+    val value = (result as? FeatureExtensionResult.Value)?.value
+    return when (value) {
+      // MapLibre computes the zoom as a uint64_t, but the other numeric shapes are accepted so a
+      // future encoding change degrades instead of silently reporting the whole world.
+      is JsonValue.UInt -> value.value.toULong().toDouble()
+      is JsonValue.Int -> value.value.toDouble()
+      is JsonValue.DoubleValue -> value.value
+      else -> NO_EXPANSION_ZOOM
+    }
   }
 
   public actual fun getClusterChildren(
     feature: Feature<*, JsonObject?>
-  ): FeatureCollection<*, JsonObject?> {
-    // TODO(maplibre-native-ffi): see getClusterExpansionZoom.
-    return FeatureCollection<Geometry, JsonObject?>(emptyList())
-  }
+  ): FeatureCollection<*, JsonObject?> = queryClusterFeatures(feature, CHILDREN_FIELD, null)
 
   public actual fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
+  ): FeatureCollection<*, JsonObject?> =
+    queryClusterFeatures(
+      feature,
+      LEAVES_FIELD,
+      // Both must be unsigned, for the same reason cluster_id must be: MapLibre reads them with an
+      // exact type check. A signed limit is not rejected — it is ignored, and MapLibre quietly
+      // substitutes its own default of ten. It also ignores offset unless limit is present, so
+      // both are always sent.
+      JsonValue.ObjectValue(
+        listOf(
+          JsonValue.Member("limit", JsonValue.UInt(limit.coerceAtLeast(0))),
+          JsonValue.Member("offset", JsonValue.UInt(offset.coerceAtLeast(0))),
+        )
+      ),
+    )
+
+  /**
+   * Runs one supercluster query against the render session.
+   *
+   * The feature is converted before the owner hop, matching [setData] above: the map's owner thread
+   * should not be walking caller data while a frame waits on it.
+   *
+   * Returns null when the feature carries no cluster id, when no render session is attached yet, or
+   * when the query failed — all cases a caller turns into the same empty answer.
+   */
+  private fun queryClusterExtension(
+    feature: Feature<*, JsonObject?>,
+    field: String,
+    arguments: JsonValue? = null,
+  ): FeatureExtensionResult? {
+    val ffiFeature = feature.toFfiClusterFeature() ?: return null
+    return binding.withRenderSession { session ->
+      session.queryFeatureExtension(id, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
+    }
+  }
+
+  private fun queryClusterFeatures(
+    feature: Feature<*, JsonObject?>,
+    field: String,
+    arguments: JsonValue?,
   ): FeatureCollection<*, JsonObject?> {
-    // TODO(maplibre-native-ffi): see getClusterExpansionZoom.
-    return FeatureCollection<Geometry, JsonObject?>(emptyList())
+    val result = queryClusterExtension(feature, field, arguments)
+    val features =
+      when (result) {
+        is FeatureExtensionResult.FeatureCollection -> result.features.map { it.toGeoJsonFeature() }
+        else -> emptyList()
+      }
+    return FeatureCollection(features)
+  }
+
+  private companion object {
+    /** The only extension MapLibre answers for a GeoJSON source; anything else returns nothing. */
+    const val SUPERCLUSTER_EXTENSION = "supercluster"
+
+    const val EXPANSION_ZOOM_FIELD = "expansion-zoom"
+    const val CHILDREN_FIELD = "children"
+    const val LEAVES_FIELD = "leaves"
+
+    /**
+     * Reported when the cluster has no expansion zoom to give.
+     *
+     * Matches Android. Callers should compare against the current zoom rather than animating to
+     * this blindly, since zooming to it would show the whole world.
+     */
+    const val NO_EXPANSION_ZOOM = 0.0
   }
 }
 

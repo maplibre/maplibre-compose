@@ -4,8 +4,10 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.nativeffi.geo.Feature as FfiFeature
 import org.maplibre.nativeffi.geo.FeatureIdentifier
 import org.maplibre.nativeffi.geo.Geometry as FfiGeometry
+import org.maplibre.nativeffi.json.JsonValue
 import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.nativeffi.query.RenderedFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -38,18 +40,85 @@ internal fun renderedQueryOptions(
  * layers needs at least the source.
  */
 internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> {
+  val base = feature.toGeoJsonFeature()
   val properties = buildMap {
-    feature.properties.forEach { put(it.key, it.value.toJsonElement()) }
+    base.properties?.let { putAll(it) }
     sourceId?.let { put(SOURCE_ID_PROPERTY, JsonPrimitive(it)) }
     sourceLayerId?.let { put(SOURCE_LAYER_ID_PROPERTY, JsonPrimitive(it)) }
     state?.let { put(STATE_PROPERTY, it.toJsonElement()) }
   }
+  return Feature(geometry = base.geometry, properties = JsonObject(properties), id = base.id)
+}
 
-  return Feature(
-    geometry = feature.geometry.toGeoJson(),
-    properties = JsonObject(properties),
-    id = feature.identifier.toGeoJsonId(),
+/**
+ * Converts a plain MapLibre feature to the GeoJSON one the common API returns.
+ *
+ * Kept separate from the [QueriedFeature] overload because only a queried feature has a source to
+ * record: cluster children and leaves come back as bare features, and giving them the synthetic
+ * `${'$'}source` keys would be inventing information.
+ */
+internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> =
+  Feature(
+    geometry = geometry.toGeoJson(),
+    properties = JsonObject(properties.associate { it.key to it.value.toJsonElement() }),
+    id = identifier.toGeoJsonId(),
   )
+
+/**
+ * Converts a queried cluster feature back into the one `queryFeatureExtension` takes.
+ *
+ * Only `cluster_id` actually matters — mbgl reads it from the properties and ignores the geometry
+ * and the identifier entirely — but it has to arrive as an *unsigned* integer. mbgl looks it up
+ * with `getProperty<uint64_t>`, which is an exact check against the stored variant alternative,
+ * while the general conversion encodes every integer as signed. A signed `cluster_id` does not
+ * fail: the lookup simply misses, and the query returns an empty result with an OK status. That is
+ * why this is a conversion of its own rather than a call to [toFfiJsonValue].
+ *
+ * Returns null when there is no usable cluster id, so a caller can skip the query rather than run
+ * one that cannot match.
+ */
+internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
+  val clusterId = (properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.toUnsignedOrNull()
+  if (clusterId == null) return null
+
+  val members =
+    properties.orEmpty().mapNotNull { (key, value) ->
+      when (key) {
+        CLUSTER_ID_PROPERTY -> JsonValue.Member(key, JsonValue.UInt(clusterId))
+        // Synthetic keys this conversion added on the way out; they are not MapLibre's.
+        SOURCE_ID_PROPERTY,
+        SOURCE_LAYER_ID_PROPERTY,
+        STATE_PROPERTY -> null
+        else -> JsonValue.Member(key, value.toFfiJsonValue())
+      }
+    }
+
+  // Empty rather than the real geometry: mbgl reads only the properties here, and converting a
+  // geometry that will be discarded is work with a chance of being wrong.
+  return FfiFeature(
+    geometry = FfiGeometry.Empty,
+    properties = members,
+    identifier = FeatureIdentifier.Null,
+  )
+}
+
+/** The property MapLibre puts a cluster's id in, and the only one a cluster query reads. */
+internal const val CLUSTER_ID_PROPERTY = "cluster_id"
+
+/**
+ * Reads a non-negative integer, whatever shape it arrived in.
+ *
+ * The round trip through a rendered query normally yields an unquoted unsigned literal, but a
+ * caller may hand back a feature they built themselves, where the id could be quoted or have gone
+ * through a double.
+ */
+private fun JsonPrimitive.toUnsignedOrNull(): Long? {
+  content.toULongOrNull()?.let {
+    return it.toLong()
+  }
+  val asDouble = content.toDoubleOrNull() ?: return null
+  if (asDouble < 0.0 || asDouble != Math.floor(asDouble)) return null
+  return asDouble.toLong()
 }
 
 /** Property key carrying the source a queried feature came from. */
