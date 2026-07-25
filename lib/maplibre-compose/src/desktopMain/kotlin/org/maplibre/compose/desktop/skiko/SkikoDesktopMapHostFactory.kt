@@ -55,11 +55,10 @@ public object SkikoDesktopMapHostFactory : DesktopMapHostFactory {
       when (operatingSystem) {
         HostOperatingSystem.LINUX ->
           setOf(DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
-        // TODO(maplibre-compose): port the Windows Vulkan-to-Direct3D 12 and macOS Metal-to-Metal
-        // bridges from the maplibre-native-ffi Compose example. Declaring them unsupported until
-        // then produces an actionable diagnostic instead of a crash mid-frame.
-        HostOperatingSystem.MACOS,
-        HostOperatingSystem.WINDOWS,
+        HostOperatingSystem.WINDOWS ->
+          setOf(DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12))
+        HostOperatingSystem.MACOS ->
+          setOf(DesktopBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
         HostOperatingSystem.UNSUPPORTED -> emptySet()
       }
 
@@ -72,10 +71,20 @@ public object SkikoDesktopMapHostFactory : DesktopMapHostFactory {
         )
 
     return try {
-      when (pair.producer) {
-        MapRenderBackend.VULKAN -> DesktopMapHostResult.Created(LinuxVulkanOpenGlHost())
-        else -> DesktopMapHostResult.Unsupported("$description has no bridge for ${pair.producer}.")
-      }
+      // Only the Linux path has run on real hardware. The Windows and macOS bridges are ported
+      // from the maplibre-native-ffi Compose example and carry TODO(maplibre-compose) markers
+      // where the port could not be verified; they are validated on the machine matrix.
+      val host =
+        when (operatingSystem) {
+          HostOperatingSystem.LINUX -> LinuxVulkanOpenGlHost()
+          HostOperatingSystem.WINDOWS -> WindowsVulkanDirect3DHost()
+          HostOperatingSystem.MACOS -> MacosMetalHost()
+          HostOperatingSystem.UNSUPPORTED ->
+            return DesktopMapHostResult.Unsupported(
+              "$description does not run on this operating system."
+            )
+        }
+      DesktopMapHostResult.Created(host)
     } catch (error: Throwable) {
       if (error is VirtualMachineError) throw error
       DesktopMapHostResult.Failed("$description failed to create a $producer bridge", error)
