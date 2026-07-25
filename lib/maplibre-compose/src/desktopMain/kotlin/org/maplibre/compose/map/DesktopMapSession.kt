@@ -30,6 +30,7 @@ import org.maplibre.compose.desktop.VulkanImageTarget
 import org.maplibre.compose.desktop.WglContextHandles
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.resource.DesktopResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.style.StyleBinding
@@ -153,6 +154,7 @@ internal class DesktopMapSession(
   private var mapScaleFactor: Double = 0.0
 
   private var renderPending = false
+  private var hasRenderedAFrame = false
   private var pendingStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
   private var closed = false
@@ -242,6 +244,12 @@ internal class DesktopMapSession(
     val session = renderSession ?: return DesktopFrameResult.SKIPPED
     return try {
       session.renderUpdate()
+      if (!hasRenderedAFrame) {
+        hasRenderedAFrame = true
+        // A blank desktop map is the failure mode with the least to go on, so record the moment
+        // the first frame actually reaches the GPU. Its absence is the single most useful signal.
+        logger?.i { "Rendered the first map frame with $backend on ${Thread.currentThread().name}" }
+      }
       renderPending = false
       lastRenderTime = TimeSource.Monotonic.markNow()
       reportFrameRate()
@@ -298,6 +306,9 @@ internal class DesktopMapSession(
     runtime
       ?: RuntimeHandle.create(RuntimeOptions()).also {
         runtime = it
+        // Must precede map creation: MapLibre refuses to replace a resource provider once the
+        // runtime owns maps, and there is no way to clear one.
+        it.setResourceProvider(DesktopResourceProvider(logger))
         logger?.i { "Created MapLibre runtime on ${Thread.currentThread().name}" }
       }
 
