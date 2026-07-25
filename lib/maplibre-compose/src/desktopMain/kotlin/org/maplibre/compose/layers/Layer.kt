@@ -116,6 +116,12 @@ internal actual sealed class Layer(actual val id: String) {
    *
    * Filters have their own entry point rather than going through `setLayerProperty`, because
    * MapLibre treats the filter as part of the layer rather than as a property of it.
+   *
+   * An unset filter compiles to a null literal, which is correct and must stay null: mbgl reads an
+   * undefined filter as "match every feature", and anything else has to be a non-empty array. A
+   * scalar `true` looks like the obvious way to say "no filter" and is rejected outright — the
+   * whole layer fails to add with "filter value must be a non empty array". [toJson] drops the key
+   * when it is null, and a null pushed to an already-attached layer clears its filter.
    */
   protected fun setFilterExpression(filter: CompiledExpression<*>) {
     val json = filter.toStyleJson()

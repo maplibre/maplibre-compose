@@ -1,9 +1,7 @@
 package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
-import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.DpOffsetValue
@@ -31,8 +29,7 @@ internal actual class FillExtrusionLayer actual constructor(id: String, source: 
     }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
-    // The style spec has no null filter; "unfiltered" is a filter that matches every feature.
-    setFilterExpression(if (filter == NullLiteral) BooleanLiteral.of(true) else filter)
+    setFilterExpression(filter)
   }
 
   actual fun setFillExtrusionOpacity(opacity: CompiledExpression<FloatValue>) {

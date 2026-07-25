@@ -659,6 +659,32 @@ These tests provide headless coverage without Skiko reflection. Backend-specific
 CI images install the matching graphics loader and software or virtual GPU
 support where available.
 
+### Headless GPU tests
+
+`FakeDesktopMapHost` stops at the graphics boundary: it hands out invented
+handles, so MapLibre never attaches a render session and nothing below
+`render()` runs. Everything that only fails once MapLibre is asked to do the
+work — style JSON, layer validity, expression compilation, rendered queries —
+needs a real device, so `HeadlessVulkanMapHost` supplies one. It creates a
+genuine Vulkan instance, device, and `VkImage` with no window and no external
+memory extensions, which means it also runs on a software implementation such as
+lavapipe.
+
+Two vehicles use it:
+
+- `HeadlessMapFixture` drives a real `DesktopMapSession` frame by frame, with no
+  Compose at all. Used for anything that needs a rendered frame to assert on,
+  including rendered-feature queries.
+- `HeadlessVulkanMapHostFactory` provided through `LocalDesktopMapHostFactory`
+  runs `MaplibreMap` itself under `runComposeUiTest`, so the surface composable,
+  the session, the sources, and the layers all take their real paths.
+
+This is how the "filter value must be a non empty array" layer failure was
+found: an unset filter compiles to a null literal, which mbgl reads as "match
+everything", but a scalar `true` substituted for it is rejected and takes the
+whole layer with it. It reproduced in a test in under a second, having only
+shown up as a dialog in the demo app before.
+
 ### Compose UI tests
 
 With the fake host:

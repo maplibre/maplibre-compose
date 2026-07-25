@@ -37,11 +37,13 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.compose.util.renderedQueryOptions
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toEdgeInsets
+import org.maplibre.compose.util.toGeoJsonFeature
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toPosition
@@ -51,12 +53,15 @@ import org.maplibre.nativeffi.camera.BoundOptions
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
 import org.maplibre.nativeffi.error.InvalidStateException
+import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.geo.LatLng
 import org.maplibre.nativeffi.geo.LatLngBounds
+import org.maplibre.nativeffi.geo.ScreenBox
 import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
+import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
 import org.maplibre.nativeffi.render.OpenGLBorrowedTextureDescriptor
@@ -832,21 +837,51 @@ internal class DesktopMapSession(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> {
-    // TODO(step 6): implement with RenderSessionHandle.queryRenderedFeatures once the FFI feature
-    // and expression conversions exist.
-    logger?.w { "queryRenderedFeatures is not implemented on desktop yet" }
-    return emptyList()
-  }
+  ): List<Feature<Geometry, JsonObject?>> =
+    query(RenderedQueryGeometry.Point(offset.toScreenPoint()), layerIds, predicate)
 
   override fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> {
-    // TODO(step 6): as above.
-    logger?.w { "queryRenderedFeatures is not implemented on desktop yet" }
-    return emptyList()
+  ): List<Feature<Geometry, JsonObject?>> =
+    query(
+      RenderedQueryGeometry.Box(
+        ScreenBox(
+          min = DpOffset(rect.left, rect.top).toScreenPoint(),
+          max = DpOffset(rect.right, rect.bottom).toScreenPoint(),
+        )
+      ),
+      layerIds,
+      predicate,
+    )
+
+  /**
+   * Runs a rendered-feature query on the current render session.
+   *
+   * Rendered feature state belongs to the session rather than the map, so a query before the first
+   * frame or during surface loss has nothing to answer from. That returns empty with a debug log
+   * rather than throwing: a click landing in the gap between a resize and the next frame is
+   * ordinary, not a caller error.
+   */
+  private fun query(
+    geometry: RenderedQueryGeometry,
+    layerIds: Set<String>?,
+    predicate: CompiledExpression<BooleanValue>?,
+  ): List<Feature<Geometry, JsonObject?>> = owner.run {
+    val session = renderSession
+    if (session == null) {
+      logger?.d { "Ignoring a rendered feature query: no render session is attached yet" }
+      return@run emptyList()
+    }
+    try {
+      session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate)).map {
+        it.toGeoJsonFeature()
+      }
+    } catch (error: MaplibreException) {
+      logger?.w(error) { "Rendered feature query failed" }
+      emptyList()
+    }
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double {

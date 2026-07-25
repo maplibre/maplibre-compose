@@ -116,6 +116,13 @@ kotlin {
     desktopTest.dependencies {
       val platform = DesktopHostPlatform.current()
       runtimeOnly(platform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
+
+      // Same reason: the headless test host drives a real Vulkan device through LWJGL, which loads
+      // its natives from the classpath. Without these the tests silently skip.
+      // Core only: lwjgl-vulkan publishes natives for macOS alone, because everywhere else Vulkan
+      // comes from the system loader.
+      val lwjglVersion = libs.versions.lwjgl.get()
+      runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${platform.lwjglNativesClassifier}")
     }
 
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
