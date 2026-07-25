@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.DesktopMapSurface
 import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
+import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
 import org.maplibre.compose.desktop.MapRenderBackend
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
@@ -27,6 +28,7 @@ internal actual fun ComposableMapView(
   options: MapOptions,
 ) {
   val factory = LocalDesktopMapHostFactory.current
+  val runtimeOptions = LocalDesktopRuntimeOptions.current
   val layoutDirection = LocalLayoutDirection.current
 
   // Reading the runtime's backends is the one native call safe to make off the owner thread: it
@@ -34,12 +36,13 @@ internal actual fun ComposableMapView(
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
 
   val session =
-    remember(factory, layoutDirection) {
+    remember(factory, layoutDirection, runtimeOptions) {
       DesktopMapSession(
         callbacks = callbacks,
         logger = logger,
         renderBackend = preferredBackend(runtimeBackends),
         layoutDirection = layoutDirection,
+        runtimeOptions = runtimeOptions,
       )
     }
 

@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import java.nio.file.Files
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.math.PI
 import kotlin.math.cos
@@ -22,6 +23,7 @@ import org.maplibre.compose.desktop.DesktopMapFrame
 import org.maplibre.compose.desktop.DesktopMapHostSession
 import org.maplibre.compose.desktop.DesktopMapRenderer
 import org.maplibre.compose.desktop.DesktopRenderTarget
+import org.maplibre.compose.desktop.DesktopRuntimeOptions
 import org.maplibre.compose.desktop.EglContextHandles
 import org.maplibre.compose.desktop.MapRenderBackend
 import org.maplibre.compose.desktop.MetalTextureTarget
@@ -94,6 +96,7 @@ internal class DesktopMapSession(
   internal var logger: Logger?,
   renderBackend: MapRenderBackend,
   private val layoutDirection: LayoutDirection,
+  private val runtimeOptions: DesktopRuntimeOptions,
 ) : MapAdapter, DesktopMapRenderer {
 
   override val backend: MapRenderBackend = renderBackend
@@ -304,13 +307,23 @@ internal class DesktopMapSession(
 
   private fun ensureRuntime(): RuntimeHandle =
     runtime
-      ?: RuntimeHandle.create(RuntimeOptions()).also {
-        runtime = it
-        // Must precede map creation: MapLibre refuses to replace a resource provider once the
-        // runtime owns maps, and there is no way to clear one.
-        it.setResourceProvider(DesktopResourceProvider(logger))
-        logger?.i { "Created MapLibre runtime on ${Thread.currentThread().name}" }
-      }
+      ?: RuntimeHandle.create(
+          RuntimeOptions().also { options ->
+            // Created eagerly: MapLibre opens the database on runtime creation and fails if the
+            // directory is missing, which on a fresh machine it always is.
+            runCatching { runtimeOptions.cachePath.parent?.let(Files::createDirectories) }
+              .onFailure { logger?.w(it) { "Could not create the MapLibre cache directory" } }
+            options.cachePath = runtimeOptions.cachePath.toString()
+            options.maximumCacheSize = runtimeOptions.maximumCacheSizeBytes
+          }
+        )
+        .also {
+          runtime = it
+          // Must precede map creation: MapLibre refuses to replace a resource provider once the
+          // runtime owns maps, and there is no way to clear one.
+          it.setResourceProvider(DesktopResourceProvider(logger))
+          logger?.i { "Created MapLibre runtime on ${Thread.currentThread().name}" }
+        }
 
   private fun ensureMap(extent: DesktopMapExtent): MapHandle {
     val existing = map
