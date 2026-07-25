@@ -158,6 +158,12 @@ internal actual sealed class Layer(actual val id: String) {
    *
    * MapLibre has no "add on top" call; an empty anchor means the same thing, which is what the
    * common [LayerManager] relies on for its append case.
+   *
+   * TODO(maplibre-native-ffi): use a typed adder once one exists for these layers. The FFI offers
+   *   only `addColorReliefLayer`, `addHillshadeLayer`, and `addLocationIndicatorLayer` — nothing
+   *   for fill, line, circle, symbol, raster, heatmap, fill-extrusion, or background — so the
+   *   generic JSON entry point is the only way to add any layer this library supports. Property
+   *   updates already use `setLayerProperty`, which is the shape Android uses.
    */
   internal fun attach(binding: StyleBinding, beforeLayerId: String) {
     this.binding = binding
