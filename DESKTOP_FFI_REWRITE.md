@@ -774,6 +774,10 @@ Toolchain facts measured against the published snapshot rather than assumed:
 - The `natives-*` classifier jar self-extracts with no library-path overrides;
   the only JVM argument needed is `--enable-native-access=ALL-UNNAMED`.
 
+Rough edges found in the FFI itself are collected in
+[MAPLIBRE_NATIVE_FFI_FEEDBACK.md](./MAPLIBRE_NATIVE_FFI_FEEDBACK.md) for
+upstreaming, so the workarounds below can be removed rather than kept.
+
 ## Native semantics that constrain the implementation
 
 Read out of the FFI bindings, the C headers, and the working Compose example
