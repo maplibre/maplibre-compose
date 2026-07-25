@@ -44,6 +44,10 @@ kotlin {
 
     androidMain { dependsOn(maplibreNativeMain) }
 
+    // Desktop is backed by MapLibre Native too now, so it gets the offline controls.
+    val desktopMain by getting
+    desktopMain.dependsOn(maplibreNativeMain)
+
     jsMain { dependencies { implementation(libs.kotlin.wrappers.js) } }
 
     commonTest.dependencies {

@@ -1,7 +1,6 @@
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -12,7 +11,6 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.desktop.DesktopRuntimeOptions
@@ -32,46 +30,34 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 public actual fun rememberOfflineManager(): OfflineManager {
   val options = LocalDesktopRuntimeOptions.current
   val density = LocalDensity.current.density
-  val manager = remember(options) { DesktopOfflineManager.acquire(options) }
+  val manager = remember(options) { DesktopOfflineManager.forOptions(options) }
   // Packs record the density they were created at, because a downloaded raster tile is either the
   // right resolution for this display or it is not; there is no rescaling it later.
   SideEffect { manager.pixelRatio = density }
-  DisposableEffect(manager) { onDispose { DesktopOfflineManager.release(manager) } }
   return manager
 }
 
 /**
  * The desktop [OfflineManager], backed by a MapLibre runtime of its own.
  *
- * Instances are shared per [DesktopRuntimeOptions] and reference counted rather than created per
- * call site: every `rememberOfflineManager()` in a composition would otherwise be another thread,
- * another runtime, and another view of the same database.
+ * One instance per [DesktopRuntimeOptions], kept for the life of the process. Sharing is necessary
+ * because every `rememberOfflineManager()` call site would otherwise be another thread, another
+ * runtime, and another view of the same database.
+ *
+ * They are deliberately never disposed. mbgl holds download state in memory only, so closing the
+ * runtime destroys the in-flight downloads without an event — a user who starts a download and then
+ * navigates away from the screen that composed the manager would silently lose it, and the pack
+ * would come back reporting paused. Android and iOS are process singletons for the same reason, and
+ * matching them keeps offline behaving the same everywhere. The cost is one idle thread per
+ * distinct options value, which is bounded by configuration rather than by composition.
  */
 internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions) : OfflineManager {
 
   internal companion object {
-    private val instances = mutableMapOf<DesktopRuntimeOptions, Instance>()
+    private val instances = mutableMapOf<DesktopRuntimeOptions, DesktopOfflineManager>()
 
-    private class Instance(val manager: DesktopOfflineManager, var refCount: Int)
-
-    fun acquire(options: DesktopRuntimeOptions): DesktopOfflineManager =
-      synchronized(instances) {
-        val instance =
-          instances.getOrPut(options) { Instance(DesktopOfflineManager(options), refCount = 0) }
-        instance.refCount++
-        instance.manager
-      }
-
-    fun release(manager: DesktopOfflineManager) {
-      val disposable =
-        synchronized(instances) {
-          val entry = instances.entries.firstOrNull { it.value.manager === manager } ?: return
-          if (--entry.value.refCount > 0) return
-          instances.remove(entry.key)
-          entry.value.manager
-        }
-      disposable.dispose()
-    }
+    fun forOptions(options: DesktopRuntimeOptions): DesktopOfflineManager =
+      synchronized(instances) { instances.getOrPut(options) { DesktopOfflineManager(options) } }
   }
 
   private val logger = Logger.withTag("maplibre-compose")
@@ -163,9 +149,22 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     // limit when the runtime is created and nothing can change it afterwards. Recreating the
     // runtime here is not the same operation: it would stop every download in progress and drop
     // the observers the live packs depend on.
-    if (size == options.maximumCacheSizeBytes) return
+    val configured = options.maximumCacheSizeBytes
+    if (configured == null) {
+      // The runtime was created with MapLibre's own default and there is no way to read it back,
+      // so this cannot be verified as satisfied. Warn rather than throw: cross-platform code
+      // routinely calls this at startup, and it succeeds on Android and iOS.
+      logger.w {
+        "Ignoring setMaximumAmbientCacheSize($size): the desktop ambient cache size is fixed when " +
+          "the runtime is created. Set DesktopRuntimeOptions(maximumCacheSizeBytes = $size) " +
+          "through LocalDesktopRuntimeOptions to control it."
+      }
+      return
+    }
+    if (size == configured) return
     throw OfflineManagerException(
-      "The ambient cache size cannot be changed after the MapLibre runtime is created. Provide " +
+      "The ambient cache size is fixed at $configured bytes for this runtime and cannot be " +
+        "changed to $size afterwards. Provide " +
         "DesktopRuntimeOptions(maximumCacheSizeBytes = $size) through LocalDesktopRuntimeOptions " +
         "instead."
     )
@@ -193,12 +192,6 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
         publish { pack.metadataState.value = stored }
       },
     )
-  }
-
-  private fun dispose() {
-    runtime.shutdown()
-    // Nothing queued for the UI matters once the last composition using this manager is gone.
-    uiScope.cancel()
   }
 
   // ───────────────────────────── owner-thread bookkeeping ─────────────────────────────
@@ -230,9 +223,10 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
       submit(
         description = "change the download state of offline pack ${pack.regionId}",
         start = { it.startSetOfflineRegionDownloadState(pack.regionId, state) },
-        // TODO(maplibre-native-ffi): there is no equivalent of Android's
-        // setDeliverInactiveMessages, so pausing a pack produces no status event and its progress
-        // would go on claiming it is downloading. Reading the status back covers it.
+        // mbgl's setState does deliver a status event on every real transition, but it
+        // early-returns when the state is unchanged — pausing an already-inactive or just-finished
+        // pack produces nothing. Reading the status back covers that case, so a paused pack never
+        // goes on claiming it is downloading.
         finish = { _, _ -> refreshStatus(pack.regionId) },
       )
     if (!accepted) {

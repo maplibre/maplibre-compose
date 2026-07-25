@@ -169,18 +169,27 @@ internal class DesktopOfflineRuntime(
     runCatching { options.cachePath.parent?.let(Files::createDirectories) }
       .onFailure { logger.w(it) { "Could not create the MapLibre cache directory" } }
 
-    return RuntimeHandle.create(
+    val runtime =
+      RuntimeHandle.create(
         RuntimeOptions().also {
           it.cachePath = options.cachePath.toString()
           it.maximumCacheSize = options.maximumCacheSizeBytes
         }
       )
-      .also {
-        // Downloads fetch through the same resource stack a map does, so a pack whose style lives
-        // in the application's resources only resolves if the provider is installed here too.
-        it.setResourceProvider(DesktopResourceProvider(logger))
-        logger.i { "Created the MapLibre offline runtime on ${Thread.currentThread().name}" }
-      }
+    return try {
+      // Downloads fetch through the same resource stack a map does, so a pack whose style lives in
+      // the application's resources only resolves if the provider is installed here too.
+      runtime.setResourceProvider(DesktopResourceProvider(logger))
+      logger.i { "Created the MapLibre offline runtime on ${Thread.currentThread().name}" }
+      runtime
+    } catch (error: Throwable) {
+      // Anything after create must close the runtime on the way out. The caller's failure path
+      // never entered the try that owns teardown, so the native runtime, its scheduler, and its
+      // database connection would otherwise stay open for the life of the process.
+      runCatching { runtime.close() }
+        .onFailure { logger.e(it) { "Failed to close the offline runtime after a failed setup" } }
+      throw error
+    }
   }
 
   /** Drains events until the queue is momentarily empty, returning how many were handled. */

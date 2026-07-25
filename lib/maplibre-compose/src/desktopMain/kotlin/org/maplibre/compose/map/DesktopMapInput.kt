@@ -1,7 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
@@ -14,10 +13,12 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.isCtrlPressed
 import androidx.compose.ui.input.pointer.isSecondaryPressed
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+
+/** How far a press may move, in logical pixels, and still count as a click rather than a drag. */
+private const val CLICK_SLOP_PX = 4f
 
 /** How far the camera moves per keyboard pan, in logical pixels. */
 private const val KEYBOARD_PAN_STEP = 100.0
@@ -49,39 +50,64 @@ internal fun Modifier.desktopMapInput(
   density: Density,
 ): Modifier =
   this.pointerInput(session, options, density) {
-      awaitEachGesture {
-        val down = awaitFirstDown(requireUnconsumed = false)
-        // A drag takes over from any transition still in flight; without this the animation keeps
-        // fighting the pointer.
-        session.cancelTransitions()
-        var totalDrag = Offset.Zero
-        var isDragging = false
-
-        // Secondary button, or control with the primary button, rotates and pitches instead of
-        // panning — the convention the mobile SDKs use for two-finger drag.
-        val rotating = down.let {
-          val event = currentEvent
-          event.buttons.isSecondaryPressed || event.keyboardModifiers.isCtrlPressed
-        }
+      awaitPointerEventScope {
+        // Tracks the previous pressed position rather than using awaitFirstDown, so any button
+        // starts a drag. Waiting for a "first down" misses the secondary button, and reading the
+        // button state once at press time misses it too: whether the drag rotates is re-evaluated
+        // on every event, because the modifier or button can change mid-drag.
+        var previous: PointerInputChange? = null
+        var dragging = false
+        // A press that never moves far enough is a click, not a drag. Tracked in logical pixels so
+        // the threshold means the same thing at any display scale.
+        var pressOrigin: Offset? = null
+        var pressWasSecondary = false
 
         while (true) {
           val event = awaitPointerEvent()
-          val change = event.changes.firstOrNull { it.id == down.id } ?: break
-          if (!change.pressed) break
+          val current = event.changes.firstOrNull()?.takeIf { it.pressed }
 
-          val delta = change.positionChange()
-          if (delta != Offset.Zero) {
-            if (!isDragging) {
-              isDragging = true
-              session.onGestureStarted()
+          if (current == null) {
+            if (dragging) {
+              dragging = false
+              session.onGestureEnded()
+            } else {
+              // Released without ever exceeding the drag threshold, so this was a click.
+              pressOrigin?.let { origin ->
+                val where = origin.toLogicalDpOffset(density)
+                if (pressWasSecondary) session.onSecondaryClick(where)
+                else session.onPrimaryClick(where)
+              }
             }
-            totalDrag += delta
-            applyDrag(session, options, density, change, delta, rotating)
+            pressOrigin = null
+            previous = null
+            continue
           }
-          if (event.type == PointerEventType.Release) break
-        }
 
-        if (isDragging) session.onGestureEnded()
+          val last = previous
+          previous = current
+          if (last == null) {
+            pressOrigin = current.position
+            pressWasSecondary = event.buttons.isSecondaryPressed
+            // A new press takes over from any transition still in flight, which would otherwise
+            // keep animating against the pointer.
+            session.cancelTransitions()
+            continue
+          }
+
+          val delta = current.position - last.position
+          if (delta == Offset.Zero) continue
+
+          val fromOrigin = pressOrigin?.let { (current.position - it).getDistance() } ?: 0f
+          if (fromOrigin > CLICK_SLOP_PX * density.density) pressOrigin = null
+
+          if (!dragging) {
+            dragging = true
+            session.onGestureStarted()
+          }
+
+          val rotating = event.buttons.isSecondaryPressed || event.keyboardModifiers.isCtrlPressed
+          applyDrag(session, options, density, current, delta, rotating)
+        }
       }
     }
     .pointerInput(session, options, density) {

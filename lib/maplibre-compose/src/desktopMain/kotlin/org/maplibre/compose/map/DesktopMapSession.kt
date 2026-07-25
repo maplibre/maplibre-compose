@@ -279,7 +279,12 @@ internal class DesktopMapSession(
         hasRenderedAFrame = true
         // A blank desktop map is the failure mode with the least to go on, so record the moment
         // the first frame actually reaches the GPU. Its absence is the single most useful signal.
-        logger?.i { "Rendered the first map frame with $backend on ${Thread.currentThread().name}" }
+        // The extent is included because a blurry map almost always means the scale factor is
+        // wrong, and this is the one place both the logical and physical size are known.
+        logger?.i {
+          "Rendered the first map frame with $backend on ${Thread.currentThread().name}, " +
+            "extent ${frame.extent}"
+        }
       }
       renderPending = false
       lastRenderTime = TimeSource.Monotonic.markNow()
@@ -883,6 +888,28 @@ internal class DesktopMapSession(
       isIdle = false
     }
     requestRender()
+  }
+
+  /**
+   * Reports a click at [offset], in logical pixels.
+   *
+   * Projection happens on the owner thread and only the resulting immutable position crosses back,
+   * so the callback never touches a native handle.
+   */
+  fun onPrimaryClick(offset: DpOffset) {
+    val position = owner.run { map?.latLngForPixel(offset.toScreenPoint())?.toPosition() } ?: return
+    callbacks.onClick(this, position, offset)
+  }
+
+  /**
+   * Reports a secondary click at [offset] as a long click.
+   *
+   * Desktop has no press-and-hold convention, so the secondary button stands in for the long press
+   * the mobile SDKs use. This is what the previous desktop implementation did.
+   */
+  fun onSecondaryClick(offset: DpOffset) {
+    val position = owner.run { map?.latLngForPixel(offset.toScreenPoint())?.toPosition() } ?: return
+    callbacks.onLongClick(this, position, offset)
   }
 
   fun cancelTransitions() {

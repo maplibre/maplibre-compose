@@ -771,6 +771,25 @@ Update this section as the branch develops:
   changes this fails loudly instead of corrupting a user's cache.
 - FFI gaps found: no visible-region API, no meters-per-pixel API, no maximum-FPS
   control, and no animation-completion signal. See "Confirmed FFI gaps" below.
+- Known issue: offline status reads and status events publish to the same
+  Compose state with no ordering guard, so a resume can briefly show a stale
+  progress value before the next event corrects it. Cosmetic; needs a sequence
+  number per region.
+- Open bug: a demo layer fails to attach with "layer source does not exist".
+  Evidence gathered: the sources are added (`__MAPLIBRE_COMPOSE_source_0..2`),
+  then all three are _removed_, and only afterwards does the layer attach asking
+  for `source_0` — with no second "Adding source" in between. So the source add
+  is not being skipped by an unloaded style binding (that path now asserts and
+  did not fire); a later composition is attaching a layer whose source reference
+  was already released. Next step is to find who calls
+  `SourceManager.addReference`/`removeReference` around a StyleNode rebuild, and
+  whether desktop's synchronous add exposes an ordering that the mobile SDKs
+  tolerate because their add is deferred.
+- Display scale: Compose Desktop under XWayland reports density 1.0 on a 1.7x
+  display, so the map is rendered at 1x and upscaled by the compositor. The
+  extent is logged with the first frame and reads `scale=1.0`. Nothing in the
+  desktop path can fix this; validating fractional scaling needs compose-glfw,
+  Windows, or macOS.
 - Machine validation results: Linux x64 / Wayland+XWayland / Vulkan-to-OpenGL
   rendered the demotiles style at commit 6a5088d3, confirmed by screenshot.
 - Suspend/resume note: after the machine slept, the desktop map stopped

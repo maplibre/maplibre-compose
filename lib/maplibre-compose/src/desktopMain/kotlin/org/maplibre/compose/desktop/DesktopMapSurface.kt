@@ -95,8 +95,10 @@ internal fun DesktopMapSurface(
       if (host != null) {
         // Order matters: the renderer must drop its references to host-owned targets before the
         // host frees them.
-        runCatching { renderer.onSurfaceLost() }
-          .onFailure { logger?.e(it) { "Desktop map renderer failed to release its surface" } }
+        // close() before onSurfaceLost(), and close() subsumes it. The renderer reaches its owner
+        // thread through the host session, so tearing the surface down first strands every
+        // remaining native call on whatever thread disposal happens to run on — which the native
+        // layer rejects as a wrong-thread call, leaving the map and runtime open.
         runCatching { renderer.close() }
           .onFailure { logger?.e(it) { "Desktop map renderer failed to close" } }
         runCatching { host.close() }

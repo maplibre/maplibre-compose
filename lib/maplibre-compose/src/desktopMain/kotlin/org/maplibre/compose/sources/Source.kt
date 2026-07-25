@@ -38,7 +38,11 @@ public actual sealed class Source(internal actual val id: String) {
    */
   internal fun attach(binding: StyleBinding) {
     this.binding = binding
-    binding.withMap { map -> map.addStyleSourceJson(id, toJson().toFfiJsonValue()) }
+    val added = binding.withMap { map -> map.addStyleSourceJson(id, toJson().toFfiJsonValue()) }
+    check(added != null) {
+      "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
+        "fail to attach."
+    }
   }
 
   /**

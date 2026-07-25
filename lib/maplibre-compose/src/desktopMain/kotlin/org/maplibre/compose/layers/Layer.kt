@@ -11,6 +11,7 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.toFfiJsonValue
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toStyleJson
+import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
 
 /** Style JSON keys that live at the top level of a layer rather than in layout or paint. */
@@ -133,7 +134,21 @@ internal actual sealed class Layer(actual val id: String) {
    */
   internal fun attach(binding: StyleBinding, beforeLayerId: String) {
     this.binding = binding
-    binding.withMap { map -> map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId) }
+    binding.withMap { map ->
+      try {
+        map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId)
+      } catch (error: MaplibreException) {
+        // Rethrown with the layer and its source named. Native reports only "layer source does not
+        // exist", which does not say which layer or which source, and letting it escape kills the
+        // Compose thread that was applying style content.
+        throw IllegalStateException(
+          "Could not add layer '$id' of type '$type'" +
+            (sourceId?.let { " over source '$it'" } ?: "") +
+            ": ${error.message}",
+          error,
+        )
+      }
+    }
   }
 
   /**

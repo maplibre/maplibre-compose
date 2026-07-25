@@ -129,10 +129,9 @@ private fun Geometry.toFfiGeometry(): FfiGeometry =
     is Polygon -> FfiGeometry.Polygon(coordinates.map { it.toLatLngs() })
     is MultiPolygon ->
       FfiGeometry.MultiPolygon(coordinates.map { rings -> rings.map { it.toLatLngs() } })
+    // No else: the GeoJSON hierarchy is sealed, so a new member should break this build rather
+    // than reach a runtime error while downloading a region the caller did not ask for.
     is GeometryCollection<*> -> FfiGeometry.Collection(geometries.map { it.toFfiGeometry() })
-    // Unreachable today: every member of the sealed GeoJSON hierarchy is above. Failing loudly
-    // beats silently downloading a region the caller did not ask for if that ever changes.
-    else -> error("Unsupported GeoJSON geometry for an offline pack: $this")
   }
 
 private fun FfiGeometry.toGeoJsonGeometry(logger: Logger): Geometry =

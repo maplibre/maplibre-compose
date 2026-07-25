@@ -100,10 +100,15 @@ kotlin {
 
     val androidIosShared by creating { dependsOn(commonMain.get()) }
 
+    // Platforms backed by MapLibre Native, which is where the offline API exists. Mirrors the
+    // library's own maplibreNativeMain source set.
+    val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
+
     val desktopJsShared by creating { dependsOn(commonMain.get()) }
 
     androidMain {
       dependsOn(androidIosShared)
+      dependsOn(maplibreNativeShared)
       dependencies {
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
@@ -130,11 +135,13 @@ kotlin {
 
     iosMain {
       dependsOn(androidIosShared)
+      dependsOn(maplibreNativeShared)
       dependsOn(nonAndroidShared)
       dependencies { implementation(libs.ktor.client.darwin) }
     }
 
     desktopMain.apply {
+      dependsOn(maplibreNativeShared)
       dependsOn(nonAndroidShared)
       dependsOn(desktopJsShared)
       dependencies {
