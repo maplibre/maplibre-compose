@@ -6,6 +6,9 @@ upstreamed to
 [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) rather
 than left as permanent workarounds here.
 
+See [COMMON_API_GAPS.md](./COMMON_API_GAPS.md) for the other direction: things
+the FFI already provides that MapLibre Compose has no common API for.
+
 Every entry says what MapLibre Compose does today, so the workaround can be
 removed when the upstream fix lands.
 

@@ -784,7 +784,8 @@ operating system before declaring the SPI usable.
       capabilities with no common API to reach them — style light, projection
       mode, feature-state writes, custom geometry sources, location indicator
       layers, resource transforms, offline database merge, and still images.
-      Wiring any of those means designing a cross-platform API first.
+      Wiring any of those means designing a cross-platform API first, so they
+      are recorded in `COMMON_API_GAPS.md` rather than done here.
 - [~] Automated tests pass (50 desktop tests). The machine validation matrix
   covers Linux x64 only.
 - [x] Getting-started, contribution, roadmap, and release documentation describe
