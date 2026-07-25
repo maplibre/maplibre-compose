@@ -762,7 +762,13 @@ Update this section as the branch develops:
   bytecode 25 (`desktopJvmTarget`), Android bytecode unchanged at 11
   (`androidJvmTarget`). `buildSrc` pins 25 separately because it cannot read the
   root `gradle.properties`. Gradle 9.3 runs on Java 25.
-- Cache/runtime sharing decision: not yet made (step 7).
+- Cache/runtime sharing decision: **two runtimes can share one persistent cache
+  database**, measured by `SharedCacheDatabaseTest` rather than assumed. Two
+  runtimes on two threads opened the same cache file and both pumped without
+  error. The offline manager can therefore own a runtime of its own, and desktop
+  does not need a process-level runtime service with every map serialized onto
+  one owner thread. The test stays in the suite so a future FFI snapshot that
+  changes this fails loudly instead of corrupting a user's cache.
 - FFI gaps found: no visible-region API, no meters-per-pixel API, no maximum-FPS
   control, and no animation-completion signal. See "Confirmed FFI gaps" below.
 - Machine validation results: Linux x64 / Wayland+XWayland / Vulkan-to-OpenGL

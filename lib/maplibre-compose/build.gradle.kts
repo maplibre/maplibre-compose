@@ -111,6 +111,14 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
+    // Tests that reach the FFI need a native runtime, exactly as an application does. Selected
+    // for this host so the suite runs wherever it is checked out.
+    val desktopTest by getting
+    desktopTest.dependencies {
+      val platform = DesktopHostPlatform.current()
+      runtimeOnly(platform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
+    }
+
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
     androidDeviceTest.dependencies {
