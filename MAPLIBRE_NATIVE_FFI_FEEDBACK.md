@@ -315,7 +315,7 @@ already be within it.
 
 ## Ergonomics and documentation
 
-### Options classes are mutable and lack `equals` — **reported**
+### Options classes are mutable and lack `equals` — **verified**
 
 `CameraOptions`, `AnimationOptions`, `BoundOptions`, `CameraFitOptions`,
 `FreeCameraOptions`, `ViewportOptions`, `TileOptions`, and
@@ -323,6 +323,9 @@ already be within it.
 `copy`. `map.camera == previous` is reference equality and always false, so a
 naive state diff recomposes on every read, and handing one to UI code hands out
 a mutable native-facing object.
+
+Confirmed by reading: each is declared `public class`, not `public data class`,
+with `var` properties.
 
 _Workaround:_ convert to immutable snapshots on the owner thread.
 
@@ -361,13 +364,14 @@ clear.
 The field exists on the snapshot but is never populated, so code branching on it
 is dead.
 
-### Event types are value classes, not enums — **reported**
+### Event types are value classes, not enums — **verified**
 
 `RuntimeEventType`, `RuntimeEventSourceType`, `TileOperation`, `RenderMode`,
 `NetworkStatus`, `ResourceErrorReason`, and the offline operation kinds are
-`@JvmInline value class` wrappers over `Int`. Kotlin therefore gives no
-exhaustiveness checking on `when`, and an FFI upgrade that adds an event type
-compiles fine and silently falls through.
+`value class` wrappers over `Int` — confirmed at `RuntimeEventType.kt:7`,
+`public value class RuntimeEventType(public val nativeValue: Int)`. Kotlin
+therefore gives no exhaustiveness checking on `when`, and an FFI upgrade that
+adds an event type compiles fine and silently falls through.
 
 This may well be deliberate, to let unknown native values pass through. If so it
 is worth saying in the KDoc, because the cost is real.
@@ -375,10 +379,13 @@ is worth saying in the KDoc, because the cost is real.
 _Workaround:_ explicit translation table with a logged `else`, never
 `error("unreachable")`.
 
-### `RuntimeEvent.mapSource` is a weak reference — **reported**
+### `RuntimeEvent.mapSource` is a weak reference — **verified**
 
-If the consumer does not hold a strong reference to its `MapHandle`, GC can turn
-`mapSource` null and make every map event unattributable — an intermittent,
+`RuntimeHandle` tracks maps as `mutableMapOf<Long, WeakReference<MapHandle>>`
+(`jvmMain/.../runtime/RuntimeHandle.kt:26`, populated at `:333`), and
+`toRuntimeEvent` resolves `mapSource` through it at `:350`. So if the consumer
+does not hold a strong reference to its `MapHandle`, GC can turn `mapSource`
+null and make every map event unattributable — an intermittent,
 memory-pressure-dependent failure where the map simply stops repainting.
 
 _Suggested fix:_ document it, or carry a stable map id alongside the handle so
@@ -391,12 +398,19 @@ custom geometry sources. So it can throw from the map rather than the runtime,
 and skipping it while a map is live leaks binding-side state. Neither is
 discoverable from the name or signature.
 
-### `runOnce()` drains the whole queue — **reported**
+### `runOnce()` drains the whole queue — **verified**
 
-The header describes it as running one pending task; it is
-`uv_run(UV_RUN_NOWAIT)`, and the run loop's async handler drains everything
-pending in that iteration. A caller budgeting for one bounded task can be
-blocked for the length of a style parse.
+`runtime.h:705` says "Runs one pending owner-thread task for this runtime",
+which understates it substantially. The chain is `mln_runtime_run_once` ->
+`RunLoop::runOnce()` -> `uv_run(impl->loop, UV_RUN_NOWAIT)`
+(`run_loop.cpp:144-148`), and that iteration invokes the async handler
+`RunLoop::process()`, which is a `while (true)` draining both the high-priority
+and default queues until empty (`run_loop.hpp:118-135`). A caller budgeting for
+one bounded task can be blocked for the length of a style parse.
+
+The documented behavior would also be a problem in its own right: pumping one
+task per frame would couple MapLibre's progress to the display rate. It is worth
+knowing which of the two the API intends to promise.
 
 _Suggested fix:_ correct the documentation.
 
