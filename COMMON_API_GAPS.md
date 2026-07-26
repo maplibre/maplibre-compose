@@ -125,7 +125,10 @@ the smallest entry here.
 
 ## Map snapshots
 
-- FFI: `requestStillImage`, `readPremultipliedRgba8`
+- FFI: `requestStillImage`, `readPremultipliedRgba8`, and
+  [#282](https://github.com/maplibre/maplibre-native-ffi/pull/282), which adds a
+  synchronous render-to-completion so a consumer does not pump the loop frame by
+  frame across the language boundary
 
 Already on the roadmap as
 [#28](https://github.com/maplibre/maplibre-compose/issues/28), blocked on

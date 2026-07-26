@@ -46,6 +46,28 @@ about as often as it is right.
 
 Snapshot this was written against: binding `0.1.0-20260725.055919-2`.
 
+## Resolved upstream
+
+Entries deleted because maplibre-native-ffi fixed them. Kept as a list so it is
+clear what has already been absorbed, and so a workaround here can be removed
+when the fix reaches a snapshot we resolve.
+
+| Was                                                                                                               | Fixed by                                                         | State                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `renderUpdate()` reported "nothing to draw" by throwing, distinguishable only by its diagnostic string            | [#338](https://github.com/maplibre/maplibre-native-ffi/pull/338) | **merged 2026-07-26** — our workaround stays until a snapshot carries it; see `NO_RENDER_UPDATE_DIAGNOSTIC`                                      |
+| A rendered box query larger than the viewport returned nothing rather than everything                             | [#339](https://github.com/maplibre/maplibre-native-ffi/pull/339) | open                                                                                                                                             |
+| Option types had no `equals`, so a state diff on `map.camera` always recomposed                                   | [#342](https://github.com/maplibre/maplibre-native-ffi/pull/342) | open                                                                                                                                             |
+| `RenderTargetExtent` was logical while the texture was physical, with the rounding rule undocumented and no check | [#343](https://github.com/maplibre/maplibre-native-ffi/pull/343) | open — descriptors now state the physical size, the session rejects a mismatch, and `mln_render_target_extent_physical_size` exposes the formula |
+
+Not a fix but worth tracking:
+[#340](https://github.com/maplibre/maplibre-native-ffi/pull/340) documents the
+unsigned-JSON contract for supercluster queries without changing it, and
+[#282](https://github.com/maplibre/maplibre-native-ffi/pull/282) adds a
+synchronous still-render primitive relevant to
+[COMMON_API_GAPS.md](./COMMON_API_GAPS.md).
+
+---
+
 ---
 
 ## Error model
@@ -171,22 +193,16 @@ construction and recreate the map to change it.
 
 _Workaround:_ MapLibre Compose recreates the map when the display scale changes.
 
+[#343](https://github.com/maplibre/maplibre-native-ffi/pull/343) documents half
+the model — "the map viewport uses width and height, and the renderer uses
+scale_factor" — but not that the map's pixel ratio is a third thing, fixed at
+creation and unreachable from either. The asset-density consequence is what is
+left unstated.
+
 _Suggested fix:_ reject a `scaleFactor` in `attach*`/`resize` that disagrees
-with the map's, so the mismatch is loud, and document that the map's pixel ratio
-is immutable. Making it mutable is an upstream mbgl change, not an FFI one.
-
-### `RenderTargetExtent` is logical, the texture is physical, and Vulkan/OpenGL do not check — **verified**
-
-The descriptor extent is in logical pixels while the borrowed texture must be
-`ceil(logical * scaleFactor)` physical pixels. A mismatch is not validated and
-renders clipped or garbled output rather than throwing. The round trip is also
-not exact: `ceil(ceil(p / s) * s)` can exceed `p` by a pixel.
-
-_Suggested fix:_ validate the relationship where the texture dimensions are
-known, or expose the expected physical size from the descriptor so callers can
-size the texture from it.
-
----
+with the map's, so the mismatch is loud, and say that the map's pixel ratio is
+immutable and separate from the renderer's. Making it mutable is an upstream
+mbgl change, not an FFI one.
 
 ## Missing APIs
 
