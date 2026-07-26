@@ -739,8 +739,8 @@ internal class DesktopMapSession(
   ) =
     map.cameraForLatLngBounds(
       bounds = boundingBox.toLatLngBounds(),
-      // Passing the padding through fitOptions rather than accepting the returned zero insets,
-      // which would silently clear whatever padding the caller configured.
+      // The caller's padding goes in through fitOptions; the padding that comes back describes
+      // the fit that was computed, and applying it verbatim is what places the bounds correctly.
       fitOptions =
         CameraFitOptions().also {
           it.padding = padding.toEdgeInsets(layoutDirection)
@@ -859,8 +859,10 @@ internal class DesktopMapSession(
     }
 
   override fun setRenderSettings(value: RenderOptions) {
-    // TODO(maplibre-native-ffi): Forward maximumFps once the C API exposes frame-rate control.
-    // Until then it throttles how often renderUpdate is called rather than pacing MapLibre itself.
+    // Throttling our own renderUpdate calls is the whole implementation, not a stand-in for one.
+    // MapLibre produces no frames of its own here — a frame exists only because the host asked for
+    // one — so the call rate is the frame rate. Android and iOS cap it the same way, in their own
+    // language, rather than through anything the core provides.
     maximumFps = value.maximumFps
     // onMap rather than a bare owner hop: it replays the setting if the map does not exist yet
     // instead of dropping it, and it requests the frame that makes the overlay appear now rather
