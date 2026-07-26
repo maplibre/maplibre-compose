@@ -47,8 +47,11 @@ internal fun EdgeInsets.toPaddingValues(): PaddingValues =
 /**
  * Snapshots a camera into an immutable value.
  *
- * [CameraOptions] is a mutable class without `equals`, so handing one to Compose state would both
- * leak a mutable native-facing object and defeat state diffing.
+ * [CameraOptions] is a mutable builder for native calls, so handing one to Compose state would leak
+ * a native-facing object that a later call could mutate underneath it. The conversion is needed
+ * regardless, since the public API speaks [CameraPosition]; it is not standing in for anything
+ * missing upstream. (It once also existed because the options types had no `equals`, which defeated
+ * state diffing — fixed by https://github.com/maplibre/maplibre-native-ffi/pull/342.)
  */
 internal fun CameraOptions.toCameraPosition(): CameraPosition =
   CameraPosition(

@@ -224,22 +224,6 @@ that the fix is to install a resource provider.
 
 ## Ergonomics and documentation
 
-### Options classes are mutable and lack `equals` — **verified**
-
-`CameraOptions`, `AnimationOptions`, `BoundOptions`, `CameraFitOptions`,
-`FreeCameraOptions`, `ViewportOptions`, `TileOptions`, and
-`ProjectionModeOptions` are mutable classes without `equals`, `hashCode`, or
-`copy`. `map.camera == previous` is reference equality and always false, so a
-naive state diff recomposes on every read, and handing one to UI code hands out
-a mutable native-facing object.
-
-Confirmed by reading: each is declared `public class`, not `public data class`,
-with `var` properties.
-
-_Workaround:_ convert to immutable snapshots on the owner thread.
-
-_Suggested fix:_ make them data classes, or add read-only snapshot types.
-
 ### `easeTo(camera, null)` jumps, while `flyTo(camera, null)` animates — **verified**
 
 The header says only that a null animation "uses MapLibre Native's default
