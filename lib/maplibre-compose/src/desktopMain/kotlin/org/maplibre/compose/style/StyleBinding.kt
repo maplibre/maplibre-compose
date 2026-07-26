@@ -33,9 +33,12 @@ internal interface StyleBinding {
    * built on them — live on the render session rather than the map: they answer from what a render
    * pass actually built, so MapLibre exposes them nowhere else.
    *
-   * Returns null when the style has unloaded, when no render session is attached yet, or when the
-   * call failed. The handle must not escape [action]: the session is closed and re-attached on
-   * every resize.
+   * Returns null when the style has unloaded or no render session is attached yet — both routine,
+   * since a session exists only between the first frame and teardown, and is closed and reattached
+   * on every resize. Failures are not caught: past those two cases MapLibre only throws for a wrong
+   * thread, a handle used after close, or bad input, which are bugs rather than conditions.
+   *
+   * The handle must not escape [action]; it does not outlive the next resize.
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 

@@ -53,7 +53,6 @@ import org.maplibre.nativeffi.camera.BoundOptions
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
 import org.maplibre.nativeffi.error.InvalidStateException
-import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.geo.LatLng
 import org.maplibre.nativeffi.geo.LatLngBounds
 import org.maplibre.nativeffi.geo.ScreenBox
@@ -278,12 +277,12 @@ internal class DesktopMapSession(
           logger?.d { "Ignoring a render session call: no session is attached yet" }
           return@run null
         }
-        try {
-          action(session)
-        } catch (error: MaplibreException) {
-          logger?.w(error) { "A render session call failed" }
-          null
-        }
+        // Deliberately uncaught. The one routine reason a call cannot proceed — no session yet — is
+        // the check above; anything MapLibre throws past that point is a wrong thread, a handle
+        // used after close, or bad input, all of which are bugs here. Swallowing them would turn a
+        // broken query into one that silently answers nothing, which is exactly what made the
+        // cluster id typing bug so hard to find.
+        action(session)
       }
     }
   }
@@ -938,13 +937,10 @@ internal class DesktopMapSession(
       logger?.d { "Ignoring a rendered feature query: no render session is attached yet" }
       return@run emptyList()
     }
-    try {
-      session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate)).map {
-        it.toGeoJsonFeature()
-      }
-    } catch (error: MaplibreException) {
-      logger?.w(error) { "Rendered feature query failed" }
-      emptyList()
+    // Uncaught for the same reason as StyleBinding.withRenderSession: past the null check there is
+    // no failure here that is not a bug.
+    session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate)).map {
+      it.toGeoJsonFeature()
     }
   }
 
