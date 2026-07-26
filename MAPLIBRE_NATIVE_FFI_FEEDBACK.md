@@ -50,25 +50,6 @@ Snapshot this was written against: binding `0.1.0-20260725.055919-2`.
 
 ## Error model
 
-### `renderUpdate()` reports "nothing to draw" as an exception — **verified**
-
-`RenderSessionHandle.renderUpdate()` throws `InvalidStateException` when there
-is no pending update. That is the normal steady state of an idle map, not an
-error, and it is indistinguishable _by type_ from a genuinely detached or closed
-session. The only discriminator is the diagnostic string
-`"no map render update is available"`
-(`src/render/render_session_common.cpp:993`).
-
-A consumer that treats `InvalidStateException` as an error fails every map on
-its first frame, before the style has produced anything. One that swallows the
-type entirely spins forever on a dead session.
-
-_Workaround:_ string-match `MaplibreException.diagnostic`.
-
-_Suggested fix:_ return a value rather than throwing — `renderUpdate(): Boolean`
-or a `RenderUpdateResult` enum — or give the transient case its own status code
-and exception subtype.
-
 ### Stale owned-texture frame access throws a raw `IllegalStateException` — **verified**
 
 `OwnedTextureFrameHandleCore.kt:17` guards with `check(!isClosed())`, so using a

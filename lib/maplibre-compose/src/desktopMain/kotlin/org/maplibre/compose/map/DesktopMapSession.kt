@@ -78,7 +78,14 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
-/** Native diagnostic MapLibre reports when a render was requested with nothing to draw. */
+/**
+ * Native diagnostic MapLibre reports when a render was requested with nothing to draw.
+ *
+ * TODO(maplibre-native-ffi): delete once https://github.com/maplibre/maplibre-native-ffi/pull/338
+ *   lands and `renderUpdate()` returns whether a frame was rendered. The catch below becomes `if
+ *   (!session.renderUpdate()) return SKIPPED`, and every remaining InvalidStateException goes back
+ *   to meaning a real one.
+ */
 private const val NO_RENDER_UPDATE_DIAGNOSTIC = "no map render update is available"
 
 /** MapLibre projects with 512px tiles; the meters-per-pixel fallback depends on it. */
@@ -359,6 +366,8 @@ internal class DesktopMapSession(
       reportFrameRate()
       DesktopFrameResult.RENDERED
     } catch (error: InvalidStateException) {
+      // Matching on the diagnostic string because "nothing to draw" and "this session is closed"
+      // arrive as the same type today; see NO_RENDER_UPDATE_DIAGNOSTIC for the upstream fix.
       if (error.diagnostic == NO_RENDER_UPDATE_DIAGNOSTIC) {
         // Expected before the style produces its first update. Not an application error, and the
         // pending bit stays set so the next frame retries.
