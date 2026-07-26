@@ -489,8 +489,11 @@ internal class DesktopMapSession(
     // measured at four sizes.
     closeRenderSession()
 
-    // No map.resize exists, and none is needed: attaching sets the map size from the
-    // descriptor's logical extent.
+    // No map.resize exists, and none should: the map's size is the size of what it renders into,
+    // so attaching sets it from the descriptor's logical extent. A separate setter would only
+    // create a way to leave the two disagreeing, which renders one viewport into another's
+    // texture. The one thing genuinely missing is a getter, which is why mapExtent is tracked
+    // here.
     mapExtent = extent
 
     renderSession =

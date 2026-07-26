@@ -162,20 +162,6 @@ _Suggested fix:_ document this, and consider a drain-on-close option.
 
 ## Rendering
 
-### `MapHandle` has no `resize`, and `attach*` resizes as a side effect — **verified**
-
-There is no `MapHandle.resize`; the only `resize` is on `RenderSessionHandle`,
-which throws for borrowed targets. The map's size is actually set by
-`MapOptions` at creation and then by each `attach*` call, which forwards the
-descriptor's extent to `mbgl::Map::setSize`.
-
-Resizing the map as a side effect of attaching a render target is surprising,
-and it means there is no way to change the map size without touching the render
-session.
-
-_Suggested fix:_ add `MapHandle.setSize`, and document that `attach*` currently
-implies it.
-
 ### `pixelRatio` is fixed at map creation, and the `scaleFactor` in attach/resize never reaches it — **verified**
 
 `MapOptions.scaleFactor` becomes `mbgl::MapOptions::withPixelRatio` at creation
@@ -228,7 +214,7 @@ the absence causes.
 
 | Missing                                                   | Impact                                                                                                                                                                               | Current workaround                                             |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Map size accessor — **verified**                          | Needed to project the corners above; `MapHandle` exposes no size                                                                                                                     | Track logical size in the session and mirror every attach      |
+| Map size accessor — **verified**                          | Needed to project the corners above; `MapHandle` exposes no size, and the `attach*` docs do not mention that attaching sets it, so there is nothing to read it back from             | Track logical size in the session and mirror every attach      |
 | Animation completion signal — **verified**                | `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a finished ease, a cancellation, and a superseded transition, so a continuation cannot be resolved from it                     | Stamp each request with a generation and wait out the duration |
 | Runtime wake / has-pending-work — **verified**            | The owner thread cannot park; it must poll or native loading stalls silently                                                                                                         | Drive the pump from the Compose frame clock                    |
 | Clear a resource provider — **verified**                  | The provider is effectively set-once before any map exists                                                                                                                           | Install it during runtime creation, before the map             |
