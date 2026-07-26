@@ -96,19 +96,6 @@ _Workaround:_ `try`/`finally` teardown on the owner thread itself.
 _Suggested fix:_ register handles with a `java.lang.ref.Cleaner` as a safety
 net, logging loudly rather than silently reclaiming.
 
-### `MapProjectionHandle` is not a child of its map — **reported**
-
-Every other handle is retained by its parent, so the parent refuses to close
-while children are live. `MapProjectionHandle` is not: `MapHandle.close()`
-succeeds with projections outstanding, and the projection keeps working
-afterwards. Nothing closes it, and the leak is silent.
-
-_Workaround:_ MapLibre Compose avoids `createProjection()` entirely and uses
-`pixelForLatLng`/`latLngForPixel` on the map.
-
-_Suggested fix:_ make projections children like every other handle, or document
-the asymmetry prominently.
-
 ### `detach()` does not release the parent retention — **reported**
 
 A detached `RenderSessionHandle` still blocks `MapHandle.close()`. Given

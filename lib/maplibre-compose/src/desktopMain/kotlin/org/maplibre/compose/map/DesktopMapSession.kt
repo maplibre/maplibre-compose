@@ -875,6 +875,11 @@ internal class DesktopMapSession(
     // by the input handling in DesktopMapView rather than pushed into the map.
   }
 
+  // Projected against the live map rather than through MapHandle.createProjection. That returns a
+  // MapProjectionHandle, which is a snapshot: it copies the transform at creation and never follows
+  // the map afterwards. CameraProjection is a live view — it also answers rendered feature queries,
+  // which a snapshot cannot do at all — so a handle held across a camera move would quietly return
+  // stale coordinates.
   override fun positionFromScreenLocation(offset: DpOffset): Position =
     withMap(Position(0.0, 0.0)) { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
 

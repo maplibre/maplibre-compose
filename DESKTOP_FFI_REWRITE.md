@@ -785,7 +785,9 @@ operating system before declaring the SPI usable.
       mode, feature-state writes, custom geometry sources, location indicator
       layers, resource transforms, offline database merge, and still images.
       Wiring any of those means designing a cross-platform API first, so they
-      are recorded in `COMMON_API_GAPS.md` rather than done here.
+      are recorded in `COMMON_API_GAPS.md` rather than done here. Finally
+      `createProjection`, whose semantics do not match ours: it returns a
+      snapshot of the transform, while `CameraProjection` is a live view.
 - [~] Automated tests pass (50 desktop tests). The machine validation matrix
   covers Linux x64 only.
 - [x] Getting-started, contribution, roadmap, and release documentation describe
