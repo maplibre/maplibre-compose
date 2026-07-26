@@ -30,6 +30,11 @@ private constructor(
    *
    * Compose reports a zero size before first layout, so a map surface is normally empty for at
    * least one frame. Hosts and sessions skip work rather than treating it as an error.
+   *
+   * Not defensive programming: MapLibre rejects a zero extent outright, with `map dimensions and
+   * scale_factor must be positive` from map creation and `texture dimensions and scale_factor must
+   * be positive` from attach. Both are measured. Since the empty frame is routine rather than
+   * exceptional, it is checked for rather than caught.
    */
   public val isEmpty: Boolean
     get() =

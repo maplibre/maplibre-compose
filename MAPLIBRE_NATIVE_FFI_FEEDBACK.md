@@ -9,6 +9,28 @@ than left as permanent workarounds here.
 See [COMMON_API_GAPS.md](./COMMON_API_GAPS.md) for the other direction: things
 the FFI already provides that MapLibre Compose has no common API for.
 
+## What belongs here
+
+Two of maplibre-native-ffi's design decisions rule most candidates out, so check
+them before adding an entry.
+
+**It exposes MapLibre Native's core concepts, not conveniences.** Anything the
+Android and iOS SDKs build in their own language on top of those concepts is a
+consumer's job, and therefore ours. Meters-per-pixel and the visible region were
+both listed here once and are not anymore: the first is a stateless static in
+`mbgl::Projection` that both SDKs simply forward to, and the second has no core
+query at all — Android assembles it in Java from four corner projections. See
+`metersPerDpAtLatitude` and `getVisibleRegion` in `DesktopMapSession`.
+
+**The binding does not duplicate native validation.** Keeping a dozen call
+sites' requirements in sync in Kotlin would be its own bug source, so where
+native can reject something and the binding can turn that into a typed
+exception, that is the design working. Zero dimensions were listed here once and
+are not anymore: `MapHandle.create` and `attachVulkanBorrowedTexture` both throw
+`InvalidArgumentException` naming the constraint, measured. An entry needs
+something more than "the binding let it through" — a crash, a silent wrong
+answer, an untyped exception, or a diagnostic that does not say what failed.
+
 Every entry says what MapLibre Compose does today, so the workaround can be
 removed when the upstream fix lands.
 
@@ -43,29 +65,25 @@ _Suggested fix:_ return a value rather than throwing — `renderUpdate(): Boolea
 or a `RenderUpdateResult` enum — or give the transient case its own status code
 and exception subtype.
 
-### Stale frame access throws a raw `IllegalStateException` — **reported**
+### Stale owned-texture frame access throws a raw `IllegalStateException` — **verified**
 
-Frame handles and scoped `NativePointer`s throw `kotlin.IllegalStateException`
-after release, not a `MaplibreException` subtype. A consumer that wraps FFI
-calls in `catch (e: MaplibreException)` will not catch it, and on a render
-thread that can kill the thread and leak the session.
+`OwnedTextureFrameHandleCore.kt:17` guards with `check(!isClosed())`, so using a
+released owned-texture frame throws `kotlin.IllegalStateException` rather than a
+`MaplibreException` subtype. A consumer that wraps FFI calls in
+`catch (e: MaplibreException)` will not catch it, and on a render thread that
+can kill the thread and leak the session.
+
+This is a binding concern rather than a validation-duplication one: the binding
+has already decided to throw here, and throws a type inconsistent with the rest
+of itself. Handles proper behave correctly — using a closed
+`RenderSessionHandle` gives
+`InvalidStateException: RenderSessionHandle is already closed`, measured.
+
+MapLibre Compose does not exercise this: its hosts render into borrowed
+textures, so it never acquires an owned-texture frame.
 
 _Suggested fix:_ throw `InvalidStateException` for consistency with the rest of
 the binding.
-
-### Zero dimensions pass Kotlin validation and fail natively — **reported**
-
-`MapOptions.width`/`height` and `RenderTargetExtent` accept `0` in the Kotlin
-layer, and native then rejects it with `INVALID_ARGUMENT`. Compose reports a
-zero-size layout on first composition routinely, so this is a very common path.
-The Kotlin-side error message is also reported to be misleading about which
-constraint failed.
-
-_Workaround:_ MapLibre Compose treats a zero extent as "not renderable yet" and
-defers map creation and attach until layout is non-empty.
-
-_Suggested fix:_ validate `> 0` in the Kotlin `init`, where the error can name
-the property.
 
 ---
 
@@ -194,13 +212,6 @@ size the texture from it.
 
 Each of these forces a local reimplementation. Listed roughly by how much pain
 the absence causes.
-
-Convenience helpers are deliberately absent from this list. maplibre-native-ffi
-exposes MapLibre Native's core concepts; anything the Android and iOS SDKs build
-in their own language on top of those concepts is a consumer's job, and ours.
-Meters-per-pixel and the visible region were once listed here and are not
-anymore for exactly that reason — see `metersPerDpAtLatitude` and
-`getVisibleRegion` in `DesktopMapSession`.
 
 | Missing                                                   | Impact                                                                                                                                                                               | Current workaround                                             |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
