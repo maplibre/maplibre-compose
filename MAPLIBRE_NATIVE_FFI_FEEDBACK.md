@@ -195,11 +195,16 @@ size the texture from it.
 Each of these forces a local reimplementation. Listed roughly by how much pain
 the absence causes.
 
+Convenience helpers are deliberately absent from this list. maplibre-native-ffi
+exposes MapLibre Native's core concepts; anything the Android and iOS SDKs build
+in their own language on top of those concepts is a consumer's job, and ours.
+Meters-per-pixel and the visible region were once listed here and are not
+anymore for exactly that reason — see `metersPerDpAtLatitude` and
+`getVisibleRegion` in `DesktopMapSession`.
+
 | Missing                                                   | Impact                                                                                                                                                                               | Current workaround                                             |
 | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Visible region / four-corner query — **reported**         | `latLngBoundsForCamera` is axis-aligned, so it is wrong for any rotated or pitched camera                                                                                            | Project the four viewport corners with `latLngsForPixels`      |
 | Map size accessor — **verified**                          | Needed to project the corners above; `MapHandle` exposes no size                                                                                                                     | Track logical size in the session and mirror every attach      |
-| Meters per pixel — **reported**                           | mbgl has it; consumers need it for scale bars                                                                                                                                        | Reimplement mbgl's formula, noting the 512px tile size         |
 | Maximum frame rate — **reported**                         | No way to cap MapLibre's own pacing                                                                                                                                                  | Rate-limit `renderUpdate()` calls                              |
 | Animation completion signal — **reported**                | `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a finished ease, a cancellation, and a superseded transition, so a continuation cannot be resolved from it                     | Stamp each request with a generation and wait out the duration |
 | Runtime wake / has-pending-work — **reported**            | The owner thread cannot park; it must poll or native loading stalls silently                                                                                                         | Drive the pump from the Compose frame clock                    |

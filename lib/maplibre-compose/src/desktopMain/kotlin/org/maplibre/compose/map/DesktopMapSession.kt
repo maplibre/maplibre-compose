@@ -97,8 +97,15 @@ private const val MIN_PITCH_DEGREES = 0.0
 /** MapLibre rejects a pitch beyond this, so the drag is clamped rather than throwing. */
 private const val MAX_PITCH_DEGREES = 60.0
 
-/** Latitude beyond which Web Mercator is undefined. */
-private const val MERCATOR_MAX_LATITUDE = 85.051129
+/**
+ * Latitude beyond which Web Mercator is undefined; mbgl's `util::LATITUDE_MAX` to full precision.
+ */
+private const val MERCATOR_MAX_LATITUDE = 85.051128779806604
+
+/** Zoom bounds mbgl clamps to before projecting; `util::MIN_ZOOM` and `util::MAX_ZOOM`. */
+private const val MIN_PROJECTION_ZOOM = 0.0
+
+private const val MAX_PROJECTION_ZOOM = 25.5
 
 /**
  * Drives one MapLibre Native map on a desktop host surface.
@@ -826,9 +833,13 @@ internal class DesktopMapSession(
     withMap(
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
     ) { map ->
-      // TODO(maplibre-native-ffi): Use a native visible-region query once the C API exposes one.
-      // latLngBoundsForCamera is axis-aligned, so it is wrong for a rotated or pitched camera;
-      // projecting the four viewport corners is correct for both.
+      // Ours to own rather than an FFI gap: both mobile SDKs build the visible region in their
+      // own language from corner projections, because the core exposes no such query. Android's
+      // Projection.getVisibleRegion is pure Java over four fromScreenLocation calls, and iOS
+      // reaches it through convertRect:toLatLngBoundsFromView:.
+      //
+      // latLngBoundsForCamera is not a substitute: it is axis-aligned, so it is wrong for a
+      // rotated or pitched camera, while projecting the four corners is correct for both.
       val width = mapExtent.width.toDouble()
       val height = mapExtent.height.toDouble()
       val corners =
@@ -937,10 +948,20 @@ internal class DesktopMapSession(
     }
   }
 
+  /**
+   * Meters per logical pixel at [latitude], for the map's current zoom.
+   *
+   * Ours to own rather than an FFI gap. `mbgl::Projection::getMetersPerPixelAtLatitude` is a
+   * stateless static that takes a latitude and a zoom and touches no map, so both mobile SDKs
+   * implement this the same way: iOS forwards to it with `self.zoomLevel`, and Android's JNI shim
+   * does nothing else either. Supplying the map's zoom is the only part that needs a map.
+   *
+   * Transcribed rather than approximated, clamps included, because a scale bar drawn from a subtly
+   * different formula is wrong in a way nobody notices. Note the 512px tile size rather than the
+   * more common 256.
+   */
   override fun metersPerDpAtLatitude(latitude: Double): Double {
-    // TODO(maplibre-native-ffi): Use a native meters-per-pixel query once the C API exposes one.
-    // This is mbgl's own formula; note the 512px tile size rather than the more common 256.
-    val zoom = getCameraPosition().zoom
+    val zoom = getCameraPosition().zoom.coerceIn(MIN_PROJECTION_ZOOM, MAX_PROJECTION_ZOOM)
     val clamped = latitude.coerceIn(-MERCATOR_MAX_LATITUDE, MERCATOR_MAX_LATITUDE)
     return cos(clamped * PI / 180.0) * EARTH_CIRCUMFERENCE_METERS / (2.0.pow(zoom) * TILE_SIZE)
   }
