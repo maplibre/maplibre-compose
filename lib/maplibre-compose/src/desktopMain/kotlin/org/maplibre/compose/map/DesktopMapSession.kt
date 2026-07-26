@@ -53,6 +53,7 @@ import org.maplibre.nativeffi.camera.BoundOptions
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
 import org.maplibre.nativeffi.error.InvalidStateException
+import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.geo.LatLng
 import org.maplibre.nativeffi.geo.LatLngBounds
 import org.maplibre.nativeffi.geo.ScreenBox
@@ -599,7 +600,8 @@ internal class DesktopMapSession(
       RuntimeEventType.MAP_LOADING_FINISHED -> callbacks.onMapFinishedLoading(this)
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
-        // Style load failures arrive only as events, never as exceptions from the style setters.
+        // The only channel for a URL style's failure, and the second channel for a malformed
+        // inline one, which also throws from the setter. See applyPendingStyle.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
         logger?.e { "Map loading failed (code ${event.code}): $reason" }
         callbacks.onMapFailLoading(reason)
@@ -693,11 +695,23 @@ internal class DesktopMapSession(
       pendingStyle = null
       return
     }
-    when (style) {
-      is BaseStyle.Uri -> map.setStyleUrl(style.uri)
-      is BaseStyle.Json -> map.setStyleJson(style.json)
+    // setStyleJson parses inline, so a malformed style fails synchronously as well as queueing
+    // MAP_LOADING_FAILED; setStyleUrl only fetches, so it reports through the event alone. This
+    // runs inside the host's draw pass, where an escaping exception takes the frame with it — and
+    // a bad style is caller input, not a bug here. The queued event delivers onMapFailLoading on
+    // the next drain, so it is caught rather than reported again here.
+    try {
+      when (style) {
+        is BaseStyle.Uri -> map.setStyleUrl(style.uri)
+        is BaseStyle.Json -> map.setStyleJson(style.json)
+      }
+      appliedStyle = style
+    } catch (error: MaplibreException) {
+      // appliedStyle is deliberately not set: setting the same style again should retry rather
+      // than be skipped as already applied. pendingStyle is cleared either way, so a style that
+      // fails every time cannot spin the loop retrying it on every frame.
+      logger?.e(error) { "Failed to apply style $style" }
     }
-    appliedStyle = style
     pendingStyle = null
     renderPending = true
     isIdle = false

@@ -34,11 +34,15 @@ answer, an untyped exception, or a diagnostic that does not say what failed.
 Every entry says what MapLibre Compose does today, so the workaround can be
 removed when the upstream fix lands.
 
-**Confidence.** Entries marked **verified** were confirmed directly against the
-snapshot — a compiler error, a grep of the native source, or a run. Entries
-marked **reported** came from reading the bindings and headers and should be
-re-confirmed before filing upstream; a few adjacent claims from the same reading
-pass turned out to be wrong, so none of these should be filed unchecked.
+**Confidence.** Every remaining entry is marked **verified**: confirmed against
+the snapshot by a compiler error, a citation to the native source, or a probe
+that executed the behavior. Nothing here is unchecked reading.
+
+Getting there deleted six entries. Three were factually wrong, and three were
+true but out of scope under the rules above. Two more turned out to understate
+their bug rather than overstate it. If you add an entry from reading alone, mark
+it **reported** so the next pass knows to test it — and expect it to be wrong
+about as often as it is right.
 
 Snapshot this was written against: binding `0.1.0-20260725.055919-2`.
 
@@ -427,12 +431,30 @@ memory-pressure-dependent failure where the map simply stops repainting.
 _Suggested fix:_ document it, or carry a stable map id alongside the handle so
 attribution does not depend on liveness.
 
-### `pollEvent()` is not a pure read — **reported**
+### `pollEvent()` is not a pure read — **verified**
 
-On `MAP_STYLE_LOADED` it makes native calls on the source map to reap detached
-custom geometry sources. So it can throw from the map rather than the runtime,
-and skipping it while a map is live leaks binding-side state. Neither is
-discoverable from the name or signature.
+On `MAP_STYLE_LOADED` the binding calls back into the source map:
+`toRuntimeEvent` invokes `MapHandle.releaseDetachedCustomGeometrySources()`
+(`jvmMain/.../runtime/RuntimeHandle.kt:353`), which makes one
+`mln_map_get_style_source_type` call per tracked custom geometry source and
+closes the upcall stubs of those the new style dropped
+(`jvmMain/.../map/MapHandle.kt:709-718`). Nothing says so: the C contract for
+`mln_runtime_poll_event` describes only popping the queue (`runtime.h:718-747`),
+and the Kotlin declaration carries no KDoc.
+
+It is also the only place that state is released for the `setStyleUrl` path — an
+inline style can be cleared eagerly because it parses synchronously, while a URL
+style's old sources stay live until the fetch completes — so the release is
+conditional on the event being polled and on `mapSource` still resolving through
+the runtime's `WeakReference`.
+
+Two things this is _not_. It cannot throw in practice:
+`map_get_style_source_type` only validates the map handle and reports
+`found = false` for an unknown id (`src/map/map.cpp:3039-3067`), and a closed
+map is unregistered before it could be seen. And the loop is empty for a
+consumer that adds no custom geometry sources, which is MapLibre Compose today.
+
+_Suggested fix:_ document the side effect on `pollEvent`.
 
 ### `runOnce()` drains the whole queue — **verified**
 
@@ -456,16 +478,40 @@ _Suggested fix:_ correct the documentation.
 `CameraChangeMode` in `RuntimeEvent.code`, which the public header does not
 mention. Useful, but not safe to depend on as written.
 
-### `setStyleUrl` leaks tracked custom-source state that `setStyleJson` clears — **reported**
+### Style load failure reporting splits by setter, and only the C header says so — **verified**
 
-Switching styles by URL does not clear the binding's `CustomGeometrySourceState`
-and its upcall stubs; switching by JSON does. The asymmetry is invisible.
+`setStyleJson` throws for a malformed style _and also_ enqueues
+`MAP_LOADING_FAILED`; `setStyleUrl` never throws for a bad style and reports
+only through the event. Measured against a live map:
 
-### Style load failures arrive only as events — **reported**
+| call                                                                    | result                                                                                                                                   |
+| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `setStyleJson("{ this is not json")`                                    | throws `NativeErrorException: Failed to parse style: Missing a name for object member.`, then `MAP_LOADING_FAILED` with the same message |
+| `setStyleJson("[1,2,3]")`                                               | throws `NATIVE_ERROR (-5): Failed to parse style: style must be an object`, then `MAP_LOADING_FAILED`                                    |
+| `setStyleJson` with `"version": 42`, or a layer naming a missing source | no throw, no failure event, `MAP_STYLE_LOADED` — only a log line                                                                         |
+| `setStyleUrl("jar:file:/nope.json")`                                    | no throw; `MAP_LOADING_FAILED` `loading style failed: http: invalid authority`                                                           |
+| `setStyleUrl("file:///missing.json")`                                   | no throw; `MAP_LOADING_FAILED` `loading style failed:` (empty reason)                                                                    |
+| `setStyleUrl(<404>)`                                                    | no throw; `MAP_LOADING_FAILED` `loading style failed: HTTP status code 404`                                                              |
 
-`setStyleUrl`/`setStyleJson` never throw for a bad style; the failure comes back
-as `MAP_LOADING_FAILED`. Correct for an async load, but worth stating in the
-KDoc of the setters, since the natural assumption is the opposite.
+The split follows mbgl — `Style::Impl::loadJSON` parses inline
+(`third_party/.../style/style_impl.cpp:46`) while `loadURL` fetches first
+(`:55`) — and the C layer turns a failure recorded during the call into
+`MLN_STATUS_NATIVE_ERROR` (`src/map/map.cpp:2846-2853`, `:2866-2882`).
+`map.h:1081-1116` states all of it, down to "Malformed JSON can fail
+synchronously and still enqueue a loading-failed event". The Kotlin `expect`
+declarations state none of it, and the natural assumption from the signature is
+that neither setter throws — which is how MapLibre Compose came to call
+`setStyleJson` unguarded inside its draw pass, where a malformed
+`BaseStyle.Json` escaped the frame instead of being reported as a load failure.
+
+The event is the only copy of the failure: it is one-shot, and the per-map
+message the runtime keeps (`src/runtime/runtime.cpp:2582-2584`) has no getter in
+any header. That matches mbgl, which exposes `getLastError()` only on
+`Style::Impl`, so the mobile SDKs are event-only too — a getter would be out of
+scope to request.
+
+_Suggested fix:_ mirror the header's wording into the Kotlin KDoc for both
+setters.
 
 ### Camera types live in `camera`, not `map` — **verified**
 
