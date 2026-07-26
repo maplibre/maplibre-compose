@@ -37,6 +37,10 @@ internal interface StyleBinding {
    * built on them — live on the render session rather than the map: they answer from what a render
    * pass actually built, so MapLibre exposes them nowhere else.
    *
+   * Threading that access down to a source is the consumer's job by design. It is renderer-scoped
+   * in mbgl and not movable, and the Android SDK does the same thing by handing a renderer frontend
+   * to every source peer, so this is the shape rather than a gap worth filing.
+   *
    * Returns null when the style has unloaded or no render session is attached yet — both routine,
    * since a session exists only between the first frame and teardown, and is closed and reattached
    * on every resize. Failures are not caught: past those two cases MapLibre only throws for a wrong

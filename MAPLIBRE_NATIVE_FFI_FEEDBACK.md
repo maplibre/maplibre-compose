@@ -70,6 +70,55 @@ synchronous still-render primitive relevant to
 
 ---
 
+## Upstream triage
+
+Every finding below has been through maplibre-native-ffi's own triage. That was
+the point of the document, so what remains is a record rather than a queue: the
+prose entries are kept only where this repository still carries a workaround
+whose removal depends on the outcome.
+
+**Accepted, fix in flight.** Stale owned-texture frame throwing a raw
+`IllegalStateException` (.NET has the same bug); no JVM cleaner or finalizer —
+confirmed as a spec violation, with JVM and Android the only bindings that do
+not report leaks; `detach()` retaining the parent, which turned out wider than
+reported and affects Kotlin, Rust, Go, and Python; and the `invalid authority`
+diagnostic, whose message turned out to be theirs rather than mbgl's.
+
+Documentation fixes in the same wave: `runOnce()` draining the queue, closing a
+map discarding its queued events, the `easeTo`/`flyTo` default split — which
+affects all six animated entry points, not the two reported — the style-setter
+failure split, `CameraOptions.anchor` being input-only, the `pollEvent()` side
+effect, the `mapSource` weak reference, and event value classes being
+open-domain by design.
+
+**Accepted, queued.** `mln_map_get_size`, `mln_runtime_clear_resource_provider`,
+`MLN_BOUND_OPTION_UNBOUNDED`, GeoJSON source options, an animation completion
+signal, and `mln_camera_change_mode` with an event `code`/`payload` table.
+
+**Rejected, and worth not re-filing.** Typed layer adders: JSON-first insertion
+is stated policy, and the three typed adders that exist are for raster-DEM
+validation and the location indicator's per-frame setters rather than the start
+of a set. Feature extensions reachable from a source: renderer-scoped in mbgl
+and not movable, which is why Android threads a renderer frontend into every
+source peer. Also declined: drain-on-close for map events, a bounded-wait
+timeout on close, a has-pending-work predicate — not truthfully implementable,
+since the uv loop carries timers and fd watches — and a blocking run.
+
+**Where this report was wrong.** `RuntimeHandle.close()` does not spin; it
+blocks on a mutex, and the wait is documented on the callback typedef. The
+resource-provider half was unfounded. There is a real bug underneath, which they
+found rather than us: `destroy_runtime` holds the process-global registry mutex
+across that wait, so one slow transform callback stalls every `mln_*` call in
+the process. The `pixelRatio`/`scaleFactor` entry was written against an older
+head and is already fixed by #343, which added both the mismatch warning and the
+documentation.
+
+One structural correction to how this document described the project: it assumed
+bindings that do not exist. There are seven — dotnet, go, kotlin, python, rust,
+swift, and zig.
+
+---
+
 ## Error model
 
 ### Stale owned-texture frame access throws a raw `IllegalStateException` — **verified**
@@ -140,16 +189,6 @@ contract plus a diagnostic gap, not a deadlock.
 _Suggested fix:_ release the parent retention in `detach()` to match the C
 contract, or document that `close()` is the only call that releases it.
 
-### `RuntimeHandle.close()` can spin indefinitely — **verified**
-
-Close waits for in-flight resource-provider and resource-transform callbacks
-running on network threads, spinning on the owner thread. A provider that blocks
-— or that hops to a thread which is itself waiting on the owner thread — turns
-teardown into a deadlock or a busy core.
-
-_Suggested fix:_ bound the wait and report a timeout status, or expose a
-quiesce-and-cancel entry point to call before close.
-
 ### Closing a map silently discards its queued events — **verified**
 
 There is no flush and no terminal event. Any state a consumer mirrors from
@@ -165,59 +204,17 @@ _Suggested fix:_ document this, and consider a drain-on-close option.
 
 ## Rendering
 
-### `pixelRatio` is fixed at map creation, and the `scaleFactor` in attach/resize never reaches it — **verified**
-
-`MapOptions.scaleFactor` becomes `mbgl::MapOptions::withPixelRatio` at creation
-(`src/map/map.cpp:2702`) and nothing changes it afterwards. `attach*` and
-`RenderSessionHandle.resize` both take a `scaleFactor`, but forward only the
-logical width and height to `mbgl::Map::setSize`
-(`src/render/render_session_common.cpp:901`, `:967`). The session's renderer, by
-contrast, _is_ rebuilt from the new scale factor on resize (`:968`, `:1009`), so
-after a resize the renderer and the map disagree about pixel ratio, silently.
-
-The map's pixel ratio selects asset density: sprite `@2x`, raster `{ratio}` tile
-URLs, and symbol layout. Measured with one borrowed Vulkan session at
-`scaleFactor = 2.0` and two maps: `MapOptions.scaleFactor = 1.0` requested
-`sprite.json` and `.../0/0/0.png`; `2.0` requested `sprite@2x.json` and
-`.../0/0/0@2x.png`. Tile _selection_ was identical — only density differs.
-Attaching a session whose scale factor disagrees with the map's is accepted
-silently: 60 frames rendered, no exception, no log.
-
-Moving a window between displays of different density therefore yields a
-correctly sized framebuffer with the old density's assets, with no error.
-
-The immutability itself is inherited rather than invented here:
-`mbgl::Map::Impl::pixelRatio` is `const` (`map_impl.hpp:92`), and Android
-(`native_map_view.cpp:70`) and iOS (`MLNMapView.mm:710`) also fix it at
-construction and recreate the map to change it.
-
-_Workaround:_ MapLibre Compose recreates the map when the display scale changes.
-
-[#343](https://github.com/maplibre/maplibre-native-ffi/pull/343) documents half
-the model — "the map viewport uses width and height, and the renderer uses
-scale_factor" — but not that the map's pixel ratio is a third thing, fixed at
-creation and unreachable from either. The asset-density consequence is what is
-left unstated.
-
-_Suggested fix:_ reject a `scaleFactor` in `attach*`/`resize` that disagrees
-with the map's, so the mismatch is loud, and say that the map's pixel ratio is
-immutable and separate from the renderer's. Making it mutable is an upstream
-mbgl change, not an FFI one.
-
 ## Missing APIs
 
 Each of these forces a local reimplementation. Listed roughly by how much pain
 the absence causes.
 
-| Missing                                                   | Impact                                                                                                                                                                               | Current workaround                                             |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
-| Map size accessor — **verified**                          | Needed to project the corners above; `MapHandle` exposes no size, and the `attach*` docs do not mention that attaching sets it, so there is nothing to read it back from             | Track logical size in the session and mirror every attach      |
-| Animation completion signal — **verified**                | `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a finished ease, a cancellation, and a superseded transition, so a continuation cannot be resolved from it                     | Stamp each request with a generation and wait out the duration |
-| Runtime wake / has-pending-work — **verified**            | The owner thread cannot park; it must poll or native loading stalls silently                                                                                                         | Drive the pump from the Compose frame clock                    |
-| Clear a resource provider — **verified**                  | The provider is effectively set-once before any map exists                                                                                                                           | Install it during runtime creation, before the map             |
-| GeoJSON source options — **verified**                     | `addGeoJsonSourceUrl`/`addGeoJsonSourceData` take no options and there is no `GeoJsonSourceOptions` type, so the typed adders cannot create a clustered source at all                | Add every source through `addStyleSourceJson`                  |
-| Typed layer adders — **verified**                         | Only `addColorReliefLayer`, `addHillshadeLayer`, and `addLocationIndicatorLayer` exist; nothing typed for fill, line, circle, symbol, raster, heatmap, fill-extrusion, or background | Add every layer through `addStyleLayerJson`                    |
-| Feature extensions reachable from a source — **verified** | `queryFeatureExtension` exists only on `RenderSessionHandle`, so a `GeoJsonSource` cannot reach it without the host's render session                                                 | Thread render-session access through the style binding         |
+| Missing                                    | Impact                                                                                                                                                                   | Current workaround                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------- |
+| Map size accessor — **verified**           | Needed to project the corners above; `MapHandle` exposes no size, and the `attach*` docs do not mention that attaching sets it, so there is nothing to read it back from | Track logical size in the session and mirror every attach      |
+| Animation completion signal — **verified** | `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a finished ease, a cancellation, and a superseded transition, so a continuation cannot be resolved from it         | Stamp each request with a generation and wait out the duration |
+| Clear a resource provider — **verified**   | The provider is effectively set-once before any map exists                                                                                                               | Install it during runtime creation, before the map             |
+| GeoJSON source options — **verified**      | `addGeoJsonSourceUrl`/`addGeoJsonSourceData` take no options and there is no `GeoJsonSourceOptions` type, so the typed adders cannot create a clustered source at all    | Add every source through `addStyleSourceJson`                  |
 
 ---
 

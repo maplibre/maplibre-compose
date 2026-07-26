@@ -33,12 +33,13 @@ public actual sealed class Source(internal actual val id: String) {
   /**
    * Adds this source to a style and starts routing mutations to it.
    *
-   * TODO(maplibre-native-ffi): use the typed per-kind adders once they can express what the common
-   *   API offers. `addGeoJsonSourceUrl` and `addGeoJsonSourceData` take no options at all and there
-   *   is no `GeoJsonSourceOptions` type, so clustering, buffer, tolerance, and line metrics are
-   *   unreachable through them — a clustered source cannot be created that way. The generic JSON
-   *   entry point is the only one that carries `GeoJsonOptions`, and the other families use it too
-   *   so there is one attach path rather than two. Mutations already use the typed setters.
+   * TODO(maplibre-native-ffi): accepted upstream and queued; use the typed per-kind adders once
+   *   they can express what the common API offers. `addGeoJsonSourceUrl` and `addGeoJsonSourceData`
+   *   take no options at all and there is no `GeoJsonSourceOptions` type, so clustering, buffer,
+   *   tolerance, and line metrics are unreachable through them — a clustered source cannot be
+   *   created that way. The generic JSON entry point is the only one that carries `GeoJsonOptions`,
+   *   and the other families use it too so there is one attach path rather than two. Mutations
+   *   already use the typed setters.
    */
   internal fun attach(binding: StyleBinding) {
     this.binding = binding

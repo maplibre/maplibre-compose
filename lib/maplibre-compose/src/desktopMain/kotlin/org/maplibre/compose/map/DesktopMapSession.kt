@@ -443,8 +443,9 @@ internal class DesktopMapSession(
     if (existing != null && mapScaleFactor == extent.scaleFactor) return existing
 
     if (existing != null) {
-      // pixelRatio is fixed at creation, so a density change cannot be applied by resizing; the
-      // map has to be rebuilt or tile selection and symbol density stay at the old density.
+      // pixelRatio is fixed at creation — mbgl holds it const — so a density change cannot be
+      // applied by resizing or re-attaching; the map has to be rebuilt, or sprite and raster asset
+      // density stay at the old scale. Tile selection is unaffected, only density.
       logger?.i {
         "Display scale changed from $mapScaleFactor to ${extent.scaleFactor}; recreating the map"
       }
