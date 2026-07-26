@@ -104,8 +104,10 @@ class DesktopMapClusterTest {
     repeat(SETTLE_ROUNDS) { waitForIdle() }
 
     val session = assertNotNull(cameraState.map as? DesktopMapSession, "no desktop session")
-    // The real surface, not a guess: a box larger than the viewport comes back empty, so
-    // over-covering is not a safe way to avoid depending on the size.
+    // The real surface, not a guess. Over-covering is not a safe substitute today: a box larger
+    // than the viewport comes back empty rather than matching everything, which is fixed by
+    // https://github.com/maplibre/maplibre-native-ffi/pull/339. Querying the actual extent stays
+    // correct either way, so this does not need revisiting when that lands.
     val host = factory.created.single()
     val extent = host.currentExtent
     val hits =

@@ -79,6 +79,10 @@ internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?
  * FFI change removes it: as long as a cluster feature round-trips through GeoJSON, the tag has to
  * be restored on the way back.
  *
+ * The contract is spelled out upstream by https://github.com/maplibre/maplibre-native-ffi/pull/340,
+ * which documents that any other numeric type is treated as absent rather than rejected. That PR
+ * does not change the behavior, so this conversion is not a workaround waiting on it.
+ *
  * Returns null when there is no usable cluster id, so a caller can skip the query rather than run
  * one that cannot match.
  */

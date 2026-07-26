@@ -222,20 +222,6 @@ that the fix is to install a resource provider.
 
 ---
 
-### A rendered box query larger than the viewport can return nothing — **verified**
-
-Querying with a `ScreenBox` substantially larger than the map's own extent
-returns an empty result rather than everything visible, and only at some
-zoom/extent combinations: a 4096dp box over a 512×512 map at zoom 0 answers
-normally, while the same box over a larger map at zoom 4 answers with nothing.
-Over-covering is the obvious way to write "query everything on screen", so this
-is easy to reach and hard to attribute.
-
-_Workaround:_ query with the map's actual extent.
-
-_Suggested fix:_ clamp the query box to the viewport, or document that it must
-already be within it.
-
 ## Ergonomics and documentation
 
 ### Options classes are mutable and lack `equals` — **verified**
