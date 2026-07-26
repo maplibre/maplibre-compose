@@ -1,5 +1,6 @@
 package org.maplibre.compose.style
 
+import co.touchlab.kermit.Logger
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.render.RenderSessionHandle
 
@@ -17,6 +18,9 @@ import org.maplibre.nativeffi.render.RenderSessionHandle
 internal interface StyleBinding {
   /** Whether the style this binding belongs to is still loaded. */
   val isLoaded: Boolean
+
+  /** The session's logger, so a descriptor can report something it cannot otherwise surface. */
+  val logger: Logger?
 
   /**
    * Runs [action] against the map on its owner thread.
@@ -47,6 +51,8 @@ internal interface StyleBinding {
     val UNLOADED: StyleBinding =
       object : StyleBinding {
         override val isLoaded: Boolean = false
+
+        override val logger: Logger? = null
 
         override fun <T> withMap(action: (MapHandle) -> T): T? = null
 

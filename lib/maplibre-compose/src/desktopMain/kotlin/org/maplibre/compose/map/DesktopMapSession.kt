@@ -241,6 +241,9 @@ internal class DesktopMapSession(
     override val isLoaded: Boolean
       get() = loaded && !closed
 
+    override val logger: Logger?
+      get() = this@DesktopMapSession.logger
+
     fun unload() {
       loaded = false
     }

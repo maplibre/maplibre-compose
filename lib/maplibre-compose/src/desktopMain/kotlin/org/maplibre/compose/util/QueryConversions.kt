@@ -67,19 +67,20 @@ internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?
 /**
  * Converts a queried cluster feature back into the one `queryFeatureExtension` takes.
  *
- * Only `cluster_id` actually matters — mbgl reads it from the properties and ignores the geometry
- * and the identifier entirely — but it has to arrive as an *unsigned* integer. mbgl looks it up
- * with `getProperty<uint64_t>`, which is an exact check against the stored variant alternative,
- * while the general conversion encodes every integer as signed. A signed `cluster_id` does not
- * fail: the lookup simply misses, and the query returns an empty result with an OK status. That is
- * why this is a conversion of its own rather than a call to [toFfiJsonValue].
+ * Only `cluster_id` actually matters — MapLibre reads it from the properties and ignores the
+ * geometry and the identifier entirely — but it has to arrive as an *unsigned* integer. MapLibre
+ * looks it up with an exact check against the stored variant alternative, and the mismatch does not
+ * fail: the lookup simply misses and the query returns an empty result with a success status.
+ *
+ * The FFI is not where that is lost. Its `JsonValue` is a tagged union that keeps `UInt` and `Int`
+ * distinct in both directions, so a queried feature reaches Kotlin with the tag intact. It is lost
+ * *here*, because the public API hands callers a `Feature<Geometry, JsonObject?>` and kotlinx JSON
+ * has no unsigned integer to hold it in. So this is not a workaround for anything upstream, and no
+ * FFI change removes it: as long as a cluster feature round-trips through GeoJSON, the tag has to
+ * be restored on the way back.
  *
  * Returns null when there is no usable cluster id, so a caller can skip the query rather than run
  * one that cannot match.
- *
- * TODO(maplibre-native-ffi): delete this once the FFI takes a cluster id instead of a whole
- *   feature, or coerces these itself. It is the analogous layer to the Android and iOS platform
- *   bindings, both of which do this fixup by hand today. See MAPLIBRE_NATIVE_FFI_FEEDBACK.md.
  */
 internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
   val clusterId = (properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.toUnsignedOrNull()

@@ -99,7 +99,10 @@ public actual class GeoJsonSource : Source {
       is JsonValue.UInt -> value.value.toULong().toDouble()
       is JsonValue.Int -> value.value.toDouble()
       is JsonValue.DoubleValue -> value.value
-      else -> NO_EXPANSION_ZOOM
+      else -> {
+        reportMiss(EXPANSION_ZOOM_FIELD, result)
+        NO_EXPANSION_ZOOM
+      }
     }
   }
 
@@ -116,9 +119,9 @@ public actual class GeoJsonSource : Source {
       feature,
       LEAVES_FIELD,
       // Both must be unsigned, for the same reason cluster_id must be: MapLibre reads them with an
-      // exact type check. A signed limit is not rejected — it is ignored, and MapLibre quietly
-      // substitutes its own default of ten. It also ignores offset unless limit is present, so
-      // both are always sent. TODO(maplibre-native-ffi): see toFfiClusterFeature.
+      // exact type check against the stored variant. A signed limit is not rejected — it is
+      // ignored, and MapLibre quietly substitutes its own default of ten. It also ignores offset
+      // unless limit is present, so both are always sent.
       JsonValue.ObjectValue(
         listOf(
           JsonValue.Member("limit", JsonValue.UInt(limit.coerceAtLeast(0))),
@@ -156,9 +159,29 @@ public actual class GeoJsonSource : Source {
     val features =
       when (result) {
         is FeatureExtensionResult.FeatureCollection -> result.features.map { it.toGeoJsonFeature() }
-        else -> emptyList()
+        else -> {
+          reportMiss(field, result)
+          emptyList()
+        }
       }
     return FeatureCollection(features)
+  }
+
+  /**
+   * Reports a lookup that found no cluster, as distinct from a cluster with nothing to report.
+   *
+   * MapLibre answers a successful `children`/`leaves` query with a feature collection, even an
+   * empty one, and a *failed* one with a null value — so the two are distinguishable, and silently
+   * folding them together is how a mistyped `cluster_id` looks exactly like a childless cluster.
+   * Null is only reached with a cluster id that no longer exists in the source, which usually means
+   * the feature outlived the tile it came from.
+   */
+  private fun reportMiss(field: String, result: FeatureExtensionResult?) {
+    if (result == null) return
+    binding.logger?.w {
+      "Cluster '$field' query matched no cluster in source '$id'; the feature's cluster_id is " +
+        "probably stale. MapLibre answered with $result."
+    }
   }
 
   private companion object {
