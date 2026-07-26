@@ -477,9 +477,16 @@ internal class DesktopMapSession(
     val key = TargetKey(frame.target.generation, extent)
     if (attachedTarget == key && renderSession != null) return true
 
-    // Borrowed-texture sessions cannot be resized: the only way to follow the host's target is to
-    // close the old session and attach a new one. Attaching before closing throws, because a map
+    // Borrowed-texture sessions cannot be resized, so following the host's target means closing
+    // the old session and attaching a new one. Attaching before closing throws, because a map
     // permits only one live session.
+    //
+    // Not a workaround, and not worth optimizing. The supported resize path discards just as much:
+    // it calls session->renderer.reset(), throwing away the renderer, every GPU resource it holds,
+    // and renderer-held feature state, then rebuilds it lazily on the next render. Both paths also
+    // end at the same map->setSize. The style, tiles, and camera live on the map and survive
+    // either way, which is why a resize costs exactly one frame to the next rendered frame —
+    // measured at four sizes.
     closeRenderSession()
 
     // No map.resize exists, and none is needed: attaching sets the map size from the

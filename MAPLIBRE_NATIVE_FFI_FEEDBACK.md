@@ -162,24 +162,6 @@ _Suggested fix:_ document this, and consider a drain-on-close option.
 
 ## Rendering
 
-### Borrowed-texture sessions cannot be resized, and there is no re-attach — **verified**
-
-`RenderSessionHandle.resize()` throws `UnsupportedFeatureException` for borrowed
-targets, and there is no re-attach entry point. The only way to follow a host
-whose target changed is: close the session, replace the texture, build a new
-descriptor, attach again. Since a map permits only one live session, the order
-is forced — attach-then-close throws.
-
-This is the single most consequential behavior for a Compose integration,
-because a window resize is routine.
-
-_Workaround:_ MapLibre Compose keys a session on `(generation, extent)` and
-closes-then-attaches on any change.
-
-_Suggested fix:_ support in-place resize for borrowed targets where the backend
-allows it, or add an explicit `reattach(descriptor)` that makes the required
-sequence a single call.
-
 ### `MapHandle` has no `resize`, and `attach*` resizes as a side effect — **verified**
 
 There is no `MapHandle.resize`; the only `resize` is on `RenderSessionHandle`,
