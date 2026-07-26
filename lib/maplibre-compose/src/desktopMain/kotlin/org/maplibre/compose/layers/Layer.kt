@@ -159,12 +159,16 @@ internal actual sealed class Layer(actual val id: String) {
    * MapLibre has no "add on top" call; an empty anchor means the same thing, which is what the
    * common [LayerManager] relies on for its append case.
    *
-   * Added as style JSON because that is maplibre-native-ffi's stated policy, not for want of a
-   * typed adder. It offers only `addColorReliefLayer`, `addHillshadeLayer`, and
-   * `addLocationIndicatorLayer`, and those three exist for raster-DEM validation and the
-   * indicator's per-frame setters rather than as the start of a typed set — all three are
-   * JSON-expressible too. So this is the intended entry point, and asking for more typed adders has
-   * been declined upstream. Property updates use `setLayerProperty`, the shape Android uses.
+   * Added as style JSON because that is the intended entry point, not for want of a typed adder.
+   * Nearly every paint and layout property can be data-driven, so a typed adder would still take
+   * JSON for the property values unless the FFI modeled the whole expression language; what is left
+   * to type is the six-field skeleton. That is a thin win against mirroring every layer type in
+   * every binding and re-mirroring it whenever the style spec grows. The three typed adders that do
+   * exist — color relief, hillshade, location indicator — are there for raster-DEM validation and
+   * the indicator's per-frame setters, not as the start of a set, and all three are
+   * JSON-expressible too. Asking for more has been declined upstream.
+   *
+   * Property updates use `setLayerProperty`, the shape Android uses.
    */
   internal fun attach(binding: StyleBinding, beforeLayerId: String) {
     this.binding = binding
