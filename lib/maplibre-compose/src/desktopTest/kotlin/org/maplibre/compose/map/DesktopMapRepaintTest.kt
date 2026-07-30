@@ -36,10 +36,11 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
  * Proves that a style change actually redraws.
  *
  * `DesktopMapCompositionTest` shows a mutation reaches MapLibre; this shows whether the user ever
- * sees it. MapLibre only advances while its runtime is pumped, pumping only happens inside a frame,
- * and once the map goes idle nothing asks for another — so a mutation that requests no frame is
- * invisible until something unrelated wakes the loop. That is exactly the reported symptom: a
- * re-added layer appears only after the map is moved a little.
+ * sees it. A mutation that leaves MapLibre publishing no render update asks for no frame, and is
+ * then invisible until something unrelated draws — which is exactly the reported symptom: a
+ * re-added layer appears only after the map is moved a little. `addSource`, `removeSource`, and
+ * `removeImage` are the calls that notify nothing on their own, which is why the style binding
+ * requests a repaint for all of them.
  *
  * Each test settles first, because a busy map hides the bug: a frame still in flight would render
  * the mutation by accident.
@@ -118,14 +119,22 @@ class DesktopMapRepaintTest {
         }
       }
 
-      waitForIdle()
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { factory.created.isNotEmpty() }
       val host = factory.created.single()
-      repeat(SETTLE_ROUNDS) { waitForIdle() }
-      val before = host.renderedFrames
+      // Settled means "the map has drawn and then stopped drawing", which is a wait rather than a
+      // fixed number of idle rounds: the map advances on a thread of its own, so how long it takes
+      // to get there is a property of the machine.
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { host.renderedFrames > 0 }
+      var before = host.renderedFrames
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        val settled = host.renderedFrames == before
+        before = host.renderedFrames
+        settled
+      }
 
       mutate()
-      waitForIdle()
 
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { host.renderedFrames > before }
       assertTrue(
         host.renderedFrames > before,
         "The change produced no new rendered frame ($before before, ${host.renderedFrames} " +
@@ -153,7 +162,7 @@ class DesktopMapRepaintTest {
     }
 
   private companion object {
-    /** Enough idle rounds that any frame still in flight from startup has drained. */
-    const val SETTLE_ROUNDS = 5
+    /** Bound on waiting for the map to settle, and then to redraw. */
+    const val SETTLE_TIMEOUT_MILLIS = 30_000L
   }
 }

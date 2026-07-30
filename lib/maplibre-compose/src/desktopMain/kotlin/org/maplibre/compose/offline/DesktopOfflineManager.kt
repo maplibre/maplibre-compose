@@ -298,13 +298,35 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     }
   }
 
+  /**
+   * How many progress updates each region has produced, stamped on the owner thread.
+   *
+   * Two writers reach the same Compose state: the status events MapLibre pushes, and the explicit
+   * reads [refreshStatus] makes after a state change. Both hop to the UI dispatcher, which does not
+   * preserve the order they were produced in, so a resume could publish a stale value on top of a
+   * fresher one and leave it there until the next event. The sequence number is what makes the
+   * later value win.
+   */
+  private val progressSequenceByRegion = mutableMapOf<Long, Long>()
+
+  private val publishedProgressSequence = mutableMapOf<Long, Long>()
+
   private fun publishProgress(regionId: Long, progress: DownloadProgress) {
     val pack = packsById[regionId]
     if (pack == null) {
       logger.v { "Ignoring progress for offline region $regionId, which has no pack" }
       return
     }
-    publish { pack.progressState.value = progress }
+    val sequence = (progressSequenceByRegion[regionId] ?: 0L) + 1L
+    progressSequenceByRegion[regionId] = sequence
+    publish {
+      // Read and written only on the UI dispatcher, which is single-threaded, so this needs no
+      // lock of its own.
+      if (sequence > (publishedProgressSequence[regionId] ?: 0L)) {
+        publishedProgressSequence[regionId] = sequence
+        pack.progressState.value = progress
+      }
+    }
   }
 
   private fun publishPacks() {

@@ -278,30 +278,49 @@ supported, introduce a process-level runtime service and serialize its maps on
 one owner thread. Record the result next to the runtime factory; do not hide the
 choice inside the offline implementation.
 
-All calls touching runtime, map, projection, or render-session handles execute
-synchronously on the owner thread. Immutable copied results cross back to the
-Compose thread. Callbacks enter Compose state through the UI dispatcher.
+The runtime and map are on that owner thread; the **render session is not**.
+Since maplibre-native-ffi #399 a session's owner is whichever thread attached
+it, so the host's presenting thread attaches, renders, resizes and closes its
+own session against the map the owner thread publishes. Rendered feature queries
+and feature state go with the session, because that is where they live.
+
+Everything else touching runtime, map, or projection handles executes on the
+owner thread — blocking when the caller needs an answer, posted when it does
+not. Immutable copied results cross back to the Compose thread. Callbacks are
+invoked from the owner thread, and enter Compose state as snapshot writes.
+
+This split is why the map advances at all while nothing is drawing. Before it,
+the session had to pump inside the Compose draw pass, which coupled style
+parsing and tile loading to the display and needed a bit that kept asking for
+frames until MapLibre said it was idle. See `DesktopMapRuntimeLoop`.
 
 Creation order:
 
 1. Select the desktop host and backend.
-2. Create the host surface and establish its renderer-access dispatcher.
-3. Create `RuntimeHandle` on that dispatcher.
-4. Install resource provider and transform callbacks.
-5. Create `MapHandle`.
-6. Attach a render session when the first non-empty host target is available.
+2. Create the host surface.
+3. On the first non-empty extent, start the map runtime thread.
+4. Create `RuntimeHandle` on it, and install the resource provider with it.
+5. Create `MapHandle`, replay any setup made before it existed, publish it.
+6. Attach a render session, on the presenting thread, against the published map.
 7. Load the initial style and apply the requested camera/options.
 
 Close order:
 
 1. Stop accepting input and frame requests.
-2. Detach and close `RenderSessionHandle`.
+2. Close `RenderSessionHandle`, on the thread that attached it.
 3. Close projections and outstanding map-owned operations.
-4. Close `MapHandle`.
-5. Drain or cancel runtime-owned operations and callbacks.
-6. Close `RuntimeHandle`.
-7. Release producer render targets and contexts.
-8. Release consumer imports and host objects.
+4. Resolve anything awaiting an event that will not arrive.
+5. Close `MapHandle`.
+6. Drain or cancel runtime-owned operations and callbacks.
+7. Close `RuntimeHandle` and its wake source.
+8. Release producer render targets and contexts.
+9. Release consumer imports and host objects.
+
+Steps 2 and 5 are on different threads, so teardown is a handshake: the
+presenting thread closes the session, then joins the owner thread, which is what
+destroys the map. Native refuses to destroy a map that still has a session
+attached, and the owner thread waits — bounded — for that to have happened, so a
+presenting thread that already stopped cannot wedge teardown.
 
 Every close operation is idempotent at the Compose layer. Disposal, window
 close, recomposition with a new map key, and surface loss have tests. Cleaner
@@ -309,25 +328,30 @@ behavior in the binding remains a safety net rather than the normal lifecycle.
 
 ## Frame and event loop
 
-Use MapLibre's event queue as the source of map lifecycle and render
-invalidation. A frame tick:
+Two loops, and only one of them is a frame loop.
 
-1. runs `RuntimeHandle.runOnce()`;
-2. drains all available runtime events;
-3. updates Compose callbacks and the render-pending bit;
-4. attaches or resizes the render session if the target generation changed;
-5. calls `renderUpdate()` only when an update is pending;
-6. completes producer synchronization;
-7. asks the host to draw or present the most recently completed target.
+The owner thread parks in `RuntimeHandle.pump(timeout)` and is released by the
+runtime's wake flag — set by style, tile, offline and resource responses, by
+queued events, and by a `WakeSource` this side signals when it posts work. Each
+pass drains its task queue, pumps, and drains the event queue. The park is
+bounded rather than indefinite, because timers and ready sockets set the flag
+only when they queue owner-thread work.
 
-The initial implementation may request a Compose frame continuously while a map
-is active, matching the FFI example. Before completion, change this to an
-event-driven idle loop with frame-clock ticking only while:
+The presenting thread's frame tick:
 
-- MapLibre reports an update or `needsRepaint`;
-- a camera transition is active;
-- a resource or runtime task needs pumping;
-- the host surface has requested recovery or presentation.
+1. starts or replaces the runtime loop if the extent's scale factor changed;
+2. attaches or re-attaches the render session if the target generation changed;
+3. consumes the render-request bit, set by the owner thread when MapLibre
+   published an update;
+4. calls `renderUpdate()`, and re-requests a frame when it reports nothing was
+   drawn;
+5. completes producer synchronization;
+6. asks the host to draw or present the most recently completed target.
+
+Frames are requested rather than continuous: `MAP_RENDER_UPDATE_AVAILABLE` and a
+`needsRepaint` frame-finished are what ask for one. Note that camera transitions
+still need them — mbgl advances a transition from `onDidFinishRenderingFrame`
+while `transform.inTransition()`, so pumping alone does not move the camera.
 
 Measure idle CPU use and animated frame pacing. `RenderOptions.maximumFps`
 limits scheduling rather than sleeping on the native owner thread.
@@ -716,13 +740,13 @@ For each OS:
 Automated CI compilation is necessary but not sufficient for GPU interop. Track
 results for these environments before merging:
 
-| OS      | Architecture | Display/GPU coverage                                      | Initial backend |
-| ------- | ------------ | --------------------------------------------------------- | --------------- |
-| Linux   | x64          | X11 and Wayland; Mesa Intel/AMD; NVIDIA when available    | Vulkan          |
-| Linux   | arm64        | Wayland or X11 on a real ARM64 machine                    | Vulkan          |
-| Windows | x64          | integrated and discrete GPU; 100% and high DPI            | Vulkan          |
-| Windows | arm64        | real Windows ARM64 hardware when the runtime is published | Vulkan          |
-| macOS   | arm64        | Apple Silicon; Retina and external non-Retina display     | Metal           |
+| OS      | Architecture | Display/GPU coverage                                          | Initial backend |
+| ------- | ------------ | ------------------------------------------------------------- | --------------- |
+| Linux   | x64          | X11 and Wayland; Mesa Intel/AMD; NVIDIA when available        | Vulkan          |
+| Linux   | arm64        | Wayland or X11 on a real ARM64 machine                        | Vulkan          |
+| Windows | x64          | integrated and discrete GPU; 100% and high DPI                | Vulkan          |
+| Windows | arm64        | real Windows ARM64 hardware when the runtime is published     | Vulkan          |
+| macOS   | arm64        | Apple Silicon Retina, at 2.0 scale; external display untested | Metal           |
 
 Run:
 
@@ -751,8 +775,9 @@ operating system before declaring the SPI usable.
 
 - [x] Java 25 is used for desktop compilation, execution, tests, and packaging.
 - [x] Android retains its intended bytecode target.
-- [~] Linux Vulkan renders through the FFI. Windows Vulkan and macOS Metal are
-  implemented but have never run on hardware.
+- [~] Linux Vulkan and macOS Metal both render through the FFI on hardware, and
+  macOS runs the full GPU test suite on Vulkan over MoltenVK. Windows Vulkan is
+  implemented but has never run on hardware.
 - [x] The default Skiko host is replaceable through the public host SPI.
 - [ ] A compose-glfw fixture renders through the same map session. Not started;
       the headless Vulkan host covers the equivalent ground for tests.
@@ -776,20 +801,20 @@ operating system before declaring the SPI usable.
       remainder is unused for a stated reason: the typed `add*Source`/
       `add*Layer` entry points, because they cannot express what the common API
       offers — there is no typed adder for fill, line, circle, or symbol layers,
-      and the GeoJSON source adders take no options, so a clustered source is
-      impossible through them. Creation therefore goes through the generic style
-      JSON, while property updates use `setLayerProperty` and the typed source
-      setters, the same shape Android uses. Also unused: the owned-texture and
-      surface attach modes, because the hosts render into borrowed textures; and
-      capabilities with no common API to reach them — style light, projection
-      mode, feature-state writes, custom geometry sources, location indicator
-      layers, resource transforms, offline database merge, and still images.
-      Wiring any of those means designing a cross-platform API first, so they
-      are recorded in `COMMON_API_GAPS.md` rather than done here. Finally
-      `createProjection`, whose semantics do not match ours: it returns a
-      snapshot of the transform, while `CameraProjection` is a live view.
-- [~] Automated tests pass (50 desktop tests). The machine validation matrix
-  covers Linux x64 only.
+      and `GeoJsonSourceOptions` still has no `synchronousUpdate`. Creation
+      therefore goes through the generic style JSON, while property updates use
+      `setLayerProperty` and the typed source setters, the same shape Android
+      uses. Also unused: the owned-texture and surface attach modes, because the
+      hosts render into borrowed textures; and capabilities with no common API
+      to reach them — style light, projection mode, feature-state writes, custom
+      geometry sources, location indicator layers, resource transforms, offline
+      database merge, and still images. Wiring any of those means designing a
+      cross-platform API first, so they are recorded in `COMMON_API_GAPS.md`
+      rather than done here. Finally `createProjection`, whose semantics do not
+      match ours: it returns a snapshot of the transform, while
+      `CameraProjection` is a live view.
+- [~] Automated tests pass (62 desktop tests, none skipped). The machine
+  validation matrix covers Linux x64 and macOS arm64; Windows is untested.
 - [x] Getting-started, contribution, roadmap, and release documentation describe
       the new integration and Java 25 requirement.
 
@@ -798,7 +823,8 @@ operating system before declaring the SPI usable.
 Update this section as the branch develops:
 
 - FFI snapshot version/commit used: `0.1.0-SNAPSHOT`; binding
-  `0.1.0-20260725.055919-2`, Vulkan runtime `0.1.0-20260725.060227-2`.
+  `0.1.0-20260730.030702-40`, Vulkan runtime `0.1.0-20260730.031056-40`. The pin
+  floats, so this record is the only thing tying a result to a build.
 - Compose/Skiko version used by the reflection adapter: holding at Compose
   Multiplatform 1.10.3 / skiko 0.9.37.4. All seven classes the FFI Compose
   example reflects into (`SkiaLayer`, `ComposeWindow`, `MetalRedrawer`,
@@ -809,8 +835,16 @@ Update this section as the branch develops:
   map at runtime. Note Compose 1.10.3 spells the Skia canvas accessor
   `nativeCanvas`; `skiaCanvas` is the 1.11 name the FFI example uses.
 - Runtime classifiers verified: `natives-linux-x64` loads and reports
-  `[VULKAN]`. Published but untested here: `natives-linux-arm64`,
-  `natives-windows-x64`, `natives-windows-arm64`, `natives-macos-arm64`.
+  `[VULKAN]`; `natives-macos-arm64` does too, over MoltenVK, which is what the
+  desktop test suite runs on there. Published but untested here:
+  `natives-linux-arm64`, `natives-windows-x64`, `natives-windows-arm64`.
+- Desktop tests take the **Vulkan** runtime on every platform, including macOS
+  where an application ships Metal, because `HeadlessVulkanMapHost` has no Metal
+  equivalent and backend negotiation otherwise declines — leaving every
+  GPU-backed test asserting against a map that never rendered, and reporting
+  green. macOS has no system Vulkan loader, so `mise run bootstrap` installs
+  vulkan-loader and molten-vk; without them the tests skip rather than fail,
+  which reads the same way.
 - Java: toolchain 25 for every JVM compilation (`jvmToolchain`), desktop
   bytecode 25 (`desktopJvmTarget`), Android bytecode unchanged at 11
   (`androidJvmTarget`). `buildSrc` pins 25 separately because it cannot read the
@@ -822,12 +856,10 @@ Update this section as the branch develops:
   does not need a process-level runtime service with every map serialized onto
   one owner thread. The test stays in the suite so a future FFI snapshot that
   changes this fails loudly instead of corrupting a user's cache.
-- FFI gaps found: no visible-region API, no meters-per-pixel API, no maximum-FPS
-  control, and no animation-completion signal. See "Confirmed FFI gaps" below.
-- Known issue: offline status reads and status events publish to the same
-  Compose state with no ordering guard, so a resume can briefly show a stale
-  progress value before the next event corrects it. Cosmetic; needs a sequence
-  number per region.
+- FFI gaps remaining: `synchronousUpdate` on `GeoJsonSourceOptions`, stretchable
+  image content insets, the ambient cache size setter, and the offline tile
+  count limit. See `MAPLIBRE_NATIVE_FFI_FEEDBACK.md`. The visible region, meters
+  per pixel, and maximum FPS are ours rather than gaps; see "Ours to own" below.
 - Layer/source ordering: Compose adds a layer to the style _before_ the effect
   that adds its source. The applier inserts nodes and calls `onEndChanges`,
   which is where `LayerManager` reaches MapLibre, and only afterwards dispatches
@@ -844,6 +876,11 @@ Update this section as the branch develops:
   Windows, or macOS.
 - Machine validation results: Linux x64 / Wayland+XWayland / Vulkan-to-OpenGL
   rendered the demotiles style at commit 6a5088d3, confirmed by screenshot.
+  macOS arm64 / Metal-to-Metal rendered the demo's full style — every source,
+  layer, and painter — at 2.0 display scale,
+  `logical=800x572
+  physical=1600x1144`, on the two-thread implementation. The
+  Metal host bridge had never run on hardware before that.
 - Suspend/resume note: after the machine slept, the desktop map stopped
   rendering with both the renderer thread and the AWT event thread parked idle
   and no error logged. It was not a code regression — the same commit renders
@@ -852,10 +889,40 @@ Update this section as the branch develops:
   and recovery is on the machine matrix; this is the first evidence it needs
   real handling rather than the current "host reports a new generation"
   assumption.
-- Known issue for step 7: the demo logs
-  `loading style failed: http: invalid authority`. The built-in loader cannot
-  resolve the demo's non-HTTP style URI, which is what the desktop resource
-  adapter is for.
+- Style switching: two desktop deviations from the mobile adapters, together,
+  made the style selector crash with `Layer ID '...' not found in base style`
+  thrown out of the applier. The mechanism that is supposed to prevent it is
+  #269's: switching a style unloads the outgoing `SafeStyle`, and `LayerManager`
+  skips anchor validation against an unloaded style, so content briefly composed
+  into the dying node degrades to no-ops instead of throwing. Desktop never
+  reached that state in time. It only reported the style that _loaded_, never
+  that the previous one had gone — both mobile adapters call
+  `onStyleChanged(this, null)` from `setBaseStyle`, which is what performs the
+  unload. And it called `setBaseStyle` from a `LaunchedEffect`, which runs after
+  every composition has applied, where `AndroidView`'s `update` block runs
+  inside the parent's apply — before the content subcomposition applies its
+  inserts. So even once desktop reported the unload, it reported it too late.
+  Both are now fixed, and both are needed: the callback does the unloading, the
+  `SideEffect` does it early enough. Reproduced against the demo by switching to
+  OpenFreeMap Bright twelve seconds in — slowly, nothing racing — and confirmed
+  fixed the same way.
+- Camera across a map rebuild: `CameraState` re-applies its remembered position
+  when the **adapter identity** changes, which is what an Android configuration
+  change does. A desktop density change swaps the `MapHandle` inside one
+  long-lived session, so Compose never sees it and the new map's first
+  `onCameraMoved` overwrote the good value with MapLibre's default. The session
+  now keeps its own keyed map configuration — camera, bound limits, debug
+  overlays — and replays it onto every map it creates, reading the _live_ camera
+  rather than the last requested one, since the user has usually panned since.
+  The same record is what defers configuration made before the first map exists.
+- Threading: the runtime and map moved off the presenting thread onto
+  `DesktopMapRuntimeLoop` once maplibre-native-ffi #399 let a render session
+  have a different owner than its map. That deleted the `isIdle` bit, the
+  request-a-frame-until-MapLibre-says-stop loop, the repaint seam every style
+  mutation had to cross, and the run-inline-when-there-is-no-host branch that
+  was a wrong-thread hazard after surface loss. What it did not delete: a
+  transition still needs rendered frames, because mbgl advances one from
+  `onDidFinishRenderingFrame`.
 
 Toolchain facts measured against the published snapshot rather than assumed:
 
@@ -889,29 +956,38 @@ observable only by reading native source or by debugging a failure.
   stack trace pointing at the FFI boundary rather than the caller. The session
   adds its own owner-thread assertion.
 - Close order is mandatory and enforced: projections, then
-  `RenderSessionHandle`, then `MapHandle`, then `RuntimeHandle`, each on the
-  owner thread. A failed close leaves the handle live and must be retried;
-  swallowing the exception leaks native memory. There is no JVM finalizer or
-  cleaner, so teardown must be `try`/`finally` on the owner thread itself.
+  `RenderSessionHandle`, then `MapHandle`, then `RuntimeHandle`. Each closes on
+  the thread that owns it, which for the session is the thread that attached it
+  and need not be the map's. A failed close leaves the handle live and must be
+  retried; swallowing the exception leaks native memory. The binding registers
+  handles with a cleaner that _reports_ a leak rather than reclaiming it —
+  correctly, since destruction is owner-thread-bound — so teardown is still
+  `try`/`finally` on the owning thread.
 - `MapProjectionHandle` is the one handle that is _not_ a child of its parent:
   `MapHandle.close()` succeeds while projections are live and they keep working.
   They must be tracked and closed explicitly. A projection is also a frozen
   snapshot, so a cached one returns stale results after any camera change; use
   `pixelForLatLng` / `latLngForPixel` directly instead.
-- `RuntimeHandle.close()` can spin indefinitely waiting for in-flight
-  resource-provider callbacks running on network threads. Provider callbacks
-  must be non-blocking, and outstanding requests must be quiesced before close.
+- `RuntimeHandle.close()` blocks on in-flight resource-provider callbacks
+  running on network threads. Provider callbacks must be non-blocking, and
+  outstanding requests must be quiesced before close.
+- A `WakeSource` is its own native handle and outlives the runtime it came from,
+  so closing the runtime does not release it.
 
 ### Event pump
 
 - `pollEvent()` returns one event per call and `null` when the queue is empty
-  _at that instant_. The pump is one `runOnce()` followed by drain-until-null.
-  An empty queue is never a quiescence signal: offline events are enqueued from
-  a database thread and can appear mid-drain.
-- `runOnce()` never blocks and there is no wake, notify, or has-work query. The
-  owner loop cannot park on a blocking queue take, or native loading stalls with
-  no error. It also is not bounded to one task, so a single call can run for an
-  unbounded time.
+  _at that instant_. The pump is one `pump()` followed by drain-until-null. An
+  empty queue is never a quiescence signal: offline events are enqueued from a
+  database thread and can appear mid-drain.
+- `pump(timeout)` parks the owner thread and is released by the runtime's wake
+  flag, by a queued event, or by `WakeSource.signal()`. A zero timeout drains
+  and returns, which is what a caller pumping from a frame callback passes. The
+  park clears the flag _before_ it drains, so a host with a task queue of its
+  own must look at that queue before it parks, not only after. The drain is not
+  bounded to one task, so a single call can run for the length of a style parse
+  — and timers or ready sockets set the flag only when they queue owner-thread
+  work, so the timeout must be bounded rather than indefinite.
 - Event types are `@JvmInline value class` wrappers over `Int`, not enums, so
   `when` gets no exhaustiveness checking and unknown native values pass straight
   through. The translation table logs unknown types rather than failing.
@@ -930,22 +1006,24 @@ observable only by reading native source or by debugging a failure.
 
 ### Rendering
 
-- `renderUpdate()` reports "nothing to render" by throwing
-  `InvalidStateException`, the same type as a genuinely detached or closed
-  session. It is distinguished by its diagnostic text. Treating it as an error
-  fails every map on its first frame; swallowing all `InvalidStateException`
-  spins forever on a dead session.
+- `renderUpdate()` returns false when there was nothing to draw, which is
+  ordinary before the style's first update and after an attach until the owner
+  thread pumps the new size. Anything it throws is a real failure.
+- The render session's owner is the thread that attached it, which need not be
+  the map's owner thread. Every session call, close included, reports the
+  wrong-thread error from anywhere else.
 - **Borrowed-texture sessions cannot be resized.** `resize()` throws
   `UnsupportedFeatureException`, and there is no re-attach API. A size or scale
   change means: close the session, replace the host texture, build a new
   descriptor, attach again. This is what `DesktopRenderTarget.generation` exists
   to signal.
 - A map allows at most one live render session; attaching a second throws rather
-  than replacing. `detach()` does not release the parent retention, so a
-  detached handle still blocks `MapHandle.close()`.
-- `RenderTargetExtent` is **logical**. The borrowed texture must be
-  `ceil(logical * scaleFactor)` physical pixels, and nothing validates that it
-  is; a mismatch renders garbage silently rather than throwing.
+  than replacing. `detach()` releases the parent retention, as does `close()`.
+- `RenderTargetExtent` is **logical**, and a borrowed-texture descriptor states
+  its physical size separately because not every physical size is reachable from
+  a logical extent. MapLibre rejects a pair that does not agree, which is what
+  makes one rounding rule — `ceil(logical * scaleFactor)`, in `DesktopMapExtent`
+  — load-bearing.
 - `renderUpdate()` is synchronous to GPU completion, so no host-side fence is
   needed before sampling the target — but it blocks the owner thread for the
   whole frame.
@@ -961,34 +1039,43 @@ observable only by reading native source or by debugging a failure.
 - All projection input and output is in **logical** pixels with a top-left
   origin; `scaleFactor` participates nowhere. Multiplying pointer positions by
   density before projecting double-applies the scale on HiDPI displays.
-- There is no way to learn that a specific animation finished.
-  `MAP_CAMERA_DID_CHANGE` fires identically for a jump, a completed ease, a
-  cancellation, and a superseded transition, so the session stamps each
-  animation request with a generation and ignores stale completions.
-- `easeTo`/`flyTo` with a null animation is an instant jump, not a
-  default-length animation.
+- `AnimationOptions.transitionId` stamps a transition, and
+  `MAP_CAMERA_TRANSITION_FINISHED` reports that it released the camera — exactly
+  once, whether it ran to completion, was superseded, was cancelled, or was an
+  instant jump. It carries identity, not an outcome, so telling completion from
+  cancellation is still the caller's job. `MAP_CAMERA_DID_CHANGE` cannot do
+  this: it fires identically for all four.
+- `easeTo` with a null animation is an instant jump; `flyTo` with a null
+  animation derives a duration from a default velocity and genuinely animates.
 - `cameraForLatLngBounds(bounds, null)` returns padding of zero, so applying the
   result verbatim silently clears the map's edge insets.
-- Assigning an all-null `BoundOptions()` is a no-op, not a reset. Clearing a
-  bounds constraint requires assigning world bounds explicitly.
-- Camera and options objects are mutable and lack `equals`, so they are
-  converted to immutable snapshots on the owner thread before reaching Compose
-  state.
-- Animations advance only while the runtime is pumped, so the owner loop keeps
-  ticking while a transition is outstanding.
+- Assigning an all-null `BoundOptions()` is a no-op, not a reset; the field mask
+  is the contract. `BoundsConstraint.Unbounded` is the reset, and it is not the
+  same as world bounds, which clamp longitude and stop the map panning across
+  the antimeridian.
+- Option types compare by value, but they are still mutable, so they are
+  converted to immutable public snapshots on the owner thread before reaching
+  Compose state.
+- A transition advances per **rendered frame**, not per pump: mbgl re-enters
+  `onUpdate()` from `onDidFinishRenderingFrame` while `transform.inTransition()`
+  (`map_impl.cpp:270`). A map that is pumped but never drawn stops after the
+  first step.
 
-### Confirmed FFI gaps
+### Ours to own
 
-Each needs a `TODO(maplibre-native-ffi)` at its boundary and a local fallback:
+Not gaps, and not worth asking for: the core has no such query either, so both
+mobile SDKs build these in their own language.
 
-- **No visible-region API.** `latLngBoundsForCamera` is axis-aligned, so it is
-  wrong for a rotated or pitched camera. Fallback: project the four viewport
-  corners with `latLngsForPixels`. This requires tracking the map's logical size
-  ourselves, because `MapHandle` exposes no size accessor.
-- **No meters-per-pixel API.** Fallback: reimplement mbgl's formula, noting it
-  uses a 512px tile size, or derive it from two `latLngForPixel` calls.
-- **No maximum-FPS control.** Fallback: rate-limit `renderUpdate()` in the
-  session rather than sleeping the owner thread.
-- **No animation-completion signal.** Fallback: the generation counter above.
-- **No way to clear a resource provider**, and it must be installed before any
-  map exists. Ordering is: create runtime, set provider, create map.
+- **The visible region.** `latLngBoundsForCamera` is axis-aligned, so it is
+  wrong for a rotated or pitched camera. Project the four viewport corners with
+  `latLngsForPixels`, sized from `MapHandle.size`.
+- **Meters per pixel.** `mbgl::Projection::getMetersPerPixelAtLatitude` is a
+  stateless static that both SDKs forward to; transcribe it, noting the 512px
+  tile size.
+- **Maximum FPS.** MapLibre produces no frames of its own here, so the call rate
+  is the frame rate: rate-limit `renderUpdate()` rather than sleeping the owner
+  thread.
+
+Gaps that remain the FFI's are in
+[MAPLIBRE_NATIVE_FFI_FEEDBACK.md](./MAPLIBRE_NATIVE_FFI_FEEDBACK.md), each with
+a `TODO(maplibre-native-ffi)` at its boundary.

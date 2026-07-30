@@ -28,8 +28,8 @@ private val NETWORK_SCHEMES = setOf("http", "https")
  * reads them from the classpath or filesystem, and passes everything else through untouched so HTTP
  * keeps MapLibre's caching, retry, and revalidation behavior.
  *
- * Installed on the runtime before any map exists, because MapLibre refuses to replace a provider
- * once the runtime owns maps.
+ * Installed with the runtime, before any map exists, so no request can be issued before the
+ * provider that serves it.
  */
 internal class DesktopResourceProvider(private val logger: Logger?) : ResourceProviderCallback {
 

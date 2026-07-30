@@ -5,15 +5,18 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.nio.file.Files
-import kotlin.coroutines.cancellation.CancellationException
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
+import kotlin.coroutines.resume
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -32,7 +35,6 @@ import org.maplibre.compose.desktop.VulkanImageTarget
 import org.maplibre.compose.desktop.WglContextHandles
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.resource.DesktopResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesktopStyle
 import org.maplibre.compose.style.StyleBinding
@@ -50,17 +52,14 @@ import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenPoint
 import org.maplibre.nativeffi.camera.AnimationOptions
 import org.maplibre.nativeffi.camera.BoundOptions
+import org.maplibre.nativeffi.camera.BoundsConstraint
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
-import org.maplibre.nativeffi.error.InvalidStateException
 import org.maplibre.nativeffi.error.MaplibreException
-import org.maplibre.nativeffi.geo.LatLng
-import org.maplibre.nativeffi.geo.LatLngBounds
 import org.maplibre.nativeffi.geo.ScreenBox
 import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
 import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
@@ -71,22 +70,11 @@ import org.maplibre.nativeffi.render.VulkanBorrowedTextureDescriptor
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
-import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.RuntimeOptions
+import org.maplibre.nativeffi.style.StyleImageInfo
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
-
-/**
- * Native diagnostic MapLibre reports when a render was requested with nothing to draw.
- *
- * TODO(maplibre-native-ffi): delete once https://github.com/maplibre/maplibre-native-ffi/pull/338
- *   lands and `renderUpdate()` returns whether a frame was rendered. The catch below becomes `if
- *   (!session.renderUpdate()) return SKIPPED`, and every remaining InvalidStateException goes back
- *   to meaning a real one.
- */
-private const val NO_RENDER_UPDATE_DIAGNOSTIC = "no map render update is available"
 
 /** MapLibre projects with 512px tiles; the meters-per-pixel fallback depends on it. */
 private const val TILE_SIZE = 512.0
@@ -115,12 +103,30 @@ private const val MIN_PROJECTION_ZOOM = 0.0
 private const val MAX_PROJECTION_ZOOM = 25.5
 
 /**
+ * Configuration key for the camera.
+ *
+ * Named because two setters write it — a position and a bounds fit — and the later of the two must
+ * replace the earlier rather than both replaying onto a new map.
+ */
+private const val CAMERA_KEY = "camera"
+
+/**
  * Drives one MapLibre Native map on a desktop host surface.
  *
- * Owns the whole native chain — runtime, map, render session — on a single dedicated owner thread,
- * and exposes it to Compose through [MapAdapter]. Nothing native is created eagerly: the runtime is
- * bound to whichever thread creates it, so everything is built lazily inside [render], which the
- * host already calls on the owner thread.
+ * Two threads, deliberately. The runtime and the map belong to [DesktopMapRuntimeLoop], which parks
+ * in MapLibre's own pump, so style parsing, tile loads, and resource responses advance whether or
+ * not anything is drawing. The render session belongs to the host's renderer thread, which is where
+ * [render] runs: since maplibre-native-ffi #399 a session's owner is whichever thread attached it,
+ * so it does not have to be the map's.
+ *
+ * Camera transitions are the exception to "advances on its own": mbgl steps one from
+ * `onDidFinishRenderingFrame` while `transform.inTransition()`, so they still need frames. The
+ * cycle is self-sustaining once it starts, because a transition in progress publishes the next
+ * render update, which asks for the next frame.
+ *
+ * This class is the seam between them, and the [MapAdapter] Compose talks to. Everything that
+ * touches the map hops to the loop — blocking when the caller needs an answer, posting when it does
+ * not — and everything that touches the render session stays on the renderer thread.
  */
 internal class DesktopMapSession(
   internal var callbacks: MapAdapter.Callbacks,
@@ -133,97 +139,49 @@ internal class DesktopMapSession(
   override val backend: MapRenderBackend = renderBackend
 
   /**
-   * Dispatches native work onto the host's renderer thread.
-   *
-   * The session deliberately does not own a thread. MapLibre binds its runtime to the thread that
-   * creates it, and the host already calls [render] on its own renderer thread, so that thread must
-   * be the owner. Running a second thread here would bind the runtime somewhere the host never
-   * calls from, and every frame would fail with a wrong-thread error.
+   * Guards [loop] and [mapConfiguration] together, so a setting cannot be lost to a racing start.
    */
-  private val owner = OwnerDispatch()
+  private val stateLock = ReentrantLock()
 
-  private inner class OwnerDispatch {
-    /** The host thread the runtime is bound to, recorded on the first frame. */
-    var thread: Thread? = null
+  @Volatile private var loop: DesktopMapRuntimeLoop? = null
 
-    fun <T> run(action: () -> T): T {
-      // With no host yet there is no map either, so every caller's own null-guard makes running
-      // inline a no-op rather than a wrong-thread hazard.
-      val host = hostSession ?: return action()
-      return host.withRendererAccess(action)
-    }
-
-    fun assertOwnerThread(operation: String) {
-      val expected = thread ?: return
-      check(Thread.currentThread() === expected) {
-        "$operation must run on the map's owner thread (${expected.name}), but ran on " +
-          "${Thread.currentThread().name}. MapLibre enforces this natively, so the failure would " +
-          "otherwise surface as a WrongThreadException at the FFI boundary."
-      }
-    }
-  }
-
-  // Strong references, deliberately: RuntimeEvent.mapSource resolves through a WeakReference, so a
-  // collected MapHandle would make every map event unattributable.
-  private var runtime: RuntimeHandle? = null
-  private var map: MapHandle? = null
+  /** Renderer-thread state. The session is this handle's owner, so nothing else may touch it. */
   private var renderSession: RenderSessionHandle? = null
 
-  private var hostSession: DesktopMapHostSession? = null
+  @Volatile private var hostSession: DesktopMapHostSession? = null
 
   /** Identifies the target a render session is attached to; a change forces a re-attach. */
   private data class TargetKey(val generation: Long, val extent: DesktopMapExtent)
 
   private var attachedTarget: TargetKey? = null
 
-  /** The map's logical size, tracked because MapHandle exposes no size accessor. */
-  private var mapExtent: DesktopMapExtent = DesktopMapExtent.Empty
-
   /**
-   * The density the map was created with.
+   * Whether a frame is worth drawing.
    *
-   * MapLibre fixes pixelRatio at creation, so a change here means recreating the map rather than
-   * resizing it.
+   * Set by the map's owner thread when MapLibre publishes an update, consumed by the renderer
+   * thread before it renders — before rather than after, so a request published during a render is
+   * not discarded.
    */
-  private var mapScaleFactor: Double = 0.0
+  private val renderRequested = AtomicBoolean(true)
 
-  private var renderPending = false
   private var hasRenderedAFrame = false
 
-  /**
-   * Whether MapLibre has reported it has nothing left to do.
-   *
-   * MapLibre only advances while the runtime is pumped, and pumping only happens inside a frame, so
-   * the loop must keep asking for frames until MapLibre says it is finished. Without this, any
-   * frame that does not render ends the loop: a style switch loads, fails its first renderUpdate
-   * because parsing has not finished, and then nothing wakes the pump again. The visible symptom is
-   * that only every other style switch appears to apply, because the next switch's frame is what
-   * finally completes the previous one.
-   */
-  private var isIdle = false
-  private var pendingStyle: BaseStyle? = null
+  @Volatile private var closed = false
+  private var failureReported = false
+
+  /** Loop-thread state: the style asked for, and the one MapLibre accepted. */
+  @Volatile private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
-  private var closed = false
+
+  @Volatile private var isGestureInProgress = false
 
   /**
-   * Distinguishes a completed camera animation from a superseded one.
+   * The map's configuration, keyed so the last value for each setting wins.
    *
-   * MapLibre fires MAP_CAMERA_DID_CHANGE identically for a jump, a finished ease, a cancellation,
-   * and a transition replaced by a newer one, so the event alone cannot resolve a continuation.
+   * Everything a new map has to be told to match the old one: the camera, its limits, and the debug
+   * overlays. Replayed in insertion order onto every map this session creates. See [configureMap].
    */
-  private var cameraGeneration = 0L
-
-  private var isGestureInProgress = false
-
-  /**
-   * Setup calls made before the map exists.
-   *
-   * The map is created lazily on the first frame, but `MaplibreMap` applies the initial camera,
-   * zoom range, pitch range, and bounds as soon as the adapter is handed to it — which is earlier.
-   * Without this those calls reach a null map and are dropped, so the map opens at MapLibre's
-   * default position rather than the one that was asked for.
-   */
-  private val deferredSetup = mutableListOf<(MapHandle) -> Unit>()
+  private val mapConfiguration = LinkedHashMap<String, (MapHandle) -> Unit>()
 
   /** The binding handed to the current style's sources and layers; replaced on every style load. */
   private var styleBinding: SessionStyleBinding? = null
@@ -249,44 +207,27 @@ internal class DesktopMapSession(
     }
 
     /**
-     * Runs [action] against the map and then wakes the render loop.
+     * Runs [action] against the map on its owner thread.
      *
-     * The wake is the point. MapLibre only advances while its runtime is pumped, pumping only
-     * happens inside [render], and [render] only runs when something asks for a frame. Once
-     * MAP_IDLE arrives the loop parks, so a style mutation made after that sits in MapLibre's queue
-     * unobserved — the layer is genuinely added, and stays invisible until an unrelated pan or
-     * resize wakes the loop. Every source, layer, and image write crosses this one seam, so this is
-     * where the wake belongs rather than at each of the dozen call sites, where the next one added
-     * would silently forget it.
-     *
-     * The flags are set inside the owner hop because they are plain fields that every other writer
-     * touches from the owner thread; only [requestRender] is safe to call from the caller's thread,
-     * and it must be, because it must not run while the renderer thread is held.
+     * The repaint request is the part that is not obvious. Most mutations make mbgl notify us on
+     * its own, and the loop drains that notification on its next pump. `addSource`, `removeSource`,
+     * and `removeImage` notify nothing at all, so without this they would render stale. Every
+     * source, layer, and image write crosses this one seam, so this is where the request belongs
+     * rather than at each of the dozen call sites, where the next one added would silently forget
+     * it.
      */
     override fun <T> withMap(action: (MapHandle) -> T): T? {
       if (!isLoaded) return null
-      val result = owner.run {
-        val map = map ?: return@run null
-        action(map).also {
-          // Most mutations make mbgl notify us on its own, and that notification is drained
-          // early enough in the next frame to be seen. addSource, removeSource, and removeImage
-          // notify nothing at all, so without this they would render stale.
-          map.requestRepaint()
-          renderPending = true
-          isIdle = false
-        }
-      }
-      requestRender()
-      return result
+      return runOnMap { map -> action(map).also { map.requestRepaint() } }
     }
 
     override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
       if (!isLoaded) return null
-      return owner.run {
+      return withRendererAccess {
         val session = renderSession
         if (session == null) {
           logger?.d { "Ignoring a render session call: no session is attached yet" }
-          return@run null
+          return@withRendererAccess null
         }
         // Deliberately uncaught. The one routine reason a call cannot proceed — no session yet — is
         // the check above; anything MapLibre throws past that point is a wrong thread, a handle
@@ -318,32 +259,35 @@ internal class DesktopMapSession(
   override fun onSurfaceLost() {
     // The host is about to free the target these handles point at, so the render session must go
     // first. The map and runtime outlive surface loss and are reused if a surface returns.
-    runCatching { owner.run { closeRenderSession() } }
+    runCatching { closeRenderSession() }
       .onFailure { logger?.e(it) { "Failed to close the render session on surface loss" } }
     hostSession = null
   }
 
   override fun render(frame: DesktopMapFrame): DesktopFrameResult {
-    owner.thread = owner.thread ?: Thread.currentThread()
-    owner.assertOwnerThread("DesktopMapSession.render")
-    if (closed) return DesktopFrameResult.SKIPPED
+    if (closed || frame.extent.isEmpty) return DesktopFrameResult.SKIPPED
 
-    val runtime = ensureRuntime()
-    val map = ensureMap(frame.extent)
+    val loop = ensureLoop(frame.extent)
+    loop.failure?.let { error ->
+      if (!failureReported) {
+        failureReported = true
+        // Closed here for the same reason the example does: the host stops driving frames after a
+        // failure, so nothing else would close the render session, and the loop cannot destroy a
+        // map that still has one attached.
+        close()
+        throw IllegalStateException("The MapLibre map runtime failed", error)
+      }
+      return DesktopFrameResult.SKIPPED
+    }
 
-    // Pump unconditionally, render conditionally. Native progress — style parsing, tile loads,
-    // camera transitions — only happens while the runtime is pumped.
-    runtime.runOnce()
-    drainEvents(runtime)
-
-    applyPendingStyle(map)
-
-    // Scheduled before deciding whether to render, so an early return below cannot strand work
-    // that MapLibre still has in flight.
-    if (!isIdle || renderPending) requestRender()
+    // Null until the loop has created its map. It asks for a frame when it has, so there is
+    // nothing to schedule here.
+    val map = loop.map ?: return DesktopFrameResult.SKIPPED
 
     if (!ensureAttached(map, frame)) return DesktopFrameResult.SKIPPED
-    if (!renderPending) return DesktopFrameResult.SKIPPED
+    // Consumed before rendering, so an update the loop publishes during the render below is not
+    // discarded along with the one being drawn.
+    if (!renderRequested.getAndSet(false)) return DesktopFrameResult.SKIPPED
     if (!allowRenderNow()) {
       // Throttled rather than dropped: ask for another frame so the update is not lost.
       requestRender()
@@ -351,135 +295,129 @@ internal class DesktopMapSession(
     }
 
     val session = renderSession ?: return DesktopFrameResult.SKIPPED
-    return try {
-      session.renderUpdate()
-      if (!hasRenderedAFrame) {
-        hasRenderedAFrame = true
-        // A blank desktop map is the failure mode with the least to go on, so record the moment
-        // the first frame actually reaches the GPU. Its absence is the single most useful signal.
-        // The extent is included because a blurry map almost always means the scale factor is
-        // wrong, and this is the one place both the logical and physical size are known.
-        logger?.i {
-          "Rendered the first map frame with $backend on ${Thread.currentThread().name}, " +
-            "extent ${frame.extent}"
-        }
-      }
-      renderPending = false
-      lastRenderTime = TimeSource.Monotonic.markNow()
-      reportFrameRate()
-      DesktopFrameResult.RENDERED
-    } catch (error: InvalidStateException) {
-      // Matching on the diagnostic string because "nothing to draw" and "this session is closed"
-      // arrive as the same type today; see NO_RENDER_UPDATE_DIAGNOSTIC for the upstream fix.
-      if (error.diagnostic == NO_RENDER_UPDATE_DIAGNOSTIC) {
-        // Expected before the style produces its first update. Not an application error, and the
-        // pending bit stays set so the next frame retries.
-        DesktopFrameResult.SKIPPED
-      } else {
-        throw error
+    // A false return means MapLibre had nothing to draw, which is ordinary before the style
+    // produces its first update, and after an attach until the loop pumps the new size. Anything
+    // thrown past here is a genuine failure — a closed session, a wrong thread — and propagates.
+    if (!session.renderUpdate()) {
+      requestRender()
+      return DesktopFrameResult.SKIPPED
+    }
+
+    if (!hasRenderedAFrame) {
+      hasRenderedAFrame = true
+      // A blank desktop map is the failure mode with the least to go on, so record the moment
+      // the first frame actually reaches the GPU. Its absence is the single most useful signal.
+      // The extent is included because a blurry map almost always means the scale factor is
+      // wrong, and this is the one place both the logical and physical size are known.
+      logger?.i {
+        "Rendered the first map frame with $backend on ${Thread.currentThread().name}, " +
+          "extent ${frame.extent}"
       }
     }
+    lastRenderTime = TimeSource.Monotonic.markNow()
+    reportFrameRate()
+    return DesktopFrameResult.RENDERED
   }
 
   override fun close() {
     if (closed) return
     closed = true
     try {
-      owner.run {
-        // Order is mandatory and enforced natively: a handle that still has live children refuses
-        // to close, and a failed close leaves it live rather than half-torn-down. Each step gets
-        // its own finally so a failure early on cannot strand the rest.
-        try {
-          closeRenderSession()
-        } finally {
-          try {
-            runCatching { map?.close() }
-              .onFailure { logger?.e(it) { "Failed to close the MapLibre map" } }
-            map = null
-          } finally {
-            runCatching { runtime?.close() }
-              .onFailure { logger?.e(it) { "Failed to close the MapLibre runtime" } }
-            runtime = null
-          }
-        }
-      }
+      stopLoop()
     } finally {
       hostSession = null
     }
   }
 
-  private fun closeRenderSession() {
-    owner.assertOwnerThread("closeRenderSession")
-    runCatching { renderSession?.close() }
-      .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
-    renderSession = null
-    attachedTarget = null
+  /**
+   * Closes the render session and then the loop that owns the map.
+   *
+   * The order is mandatory and enforced natively: MapLibre refuses to destroy a map that still has
+   * a session attached, and the session can only be closed by the thread that attached it. So the
+   * session goes first, on the renderer thread, and only then is the loop joined.
+   */
+  private fun stopLoop() {
+    val stopping = stateLock.withLock { loop.also { loop = null } }
+    runCatching { closeRenderSession() }
+      .onFailure { logger?.e(it) { "Failed to close the render session" } }
+    stopping?.close()
+    // After the join, so the owner thread is gone and this is the only reader of that state.
+    resumeStrandedTransitions()
   }
 
-  // ───────────────────────────── native construction ─────────────────────────────
+  private fun closeRenderSession() {
+    withRendererAccess {
+      runCatching { renderSession?.close() }
+        .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
+      renderSession = null
+      attachedTarget = null
+    }
+  }
 
-  private fun ensureRuntime(): RuntimeHandle =
-    runtime
-      ?: RuntimeHandle.create(
-          RuntimeOptions().also { options ->
-            // Created eagerly: MapLibre opens the database on runtime creation and fails if the
-            // directory is missing, which on a fresh machine it always is.
-            runCatching { runtimeOptions.cachePath.parent?.let(Files::createDirectories) }
-              .onFailure { logger?.w(it) { "Could not create the MapLibre cache directory" } }
-            options.cachePath = runtimeOptions.cachePath.toString()
-            options.maximumCacheSize = runtimeOptions.maximumCacheSizeBytes
-          }
-        )
-        .also {
-          runtime = it
-          // Must precede map creation: MapLibre refuses to replace a resource provider once the
-          // runtime owns maps, and there is no way to clear one.
-          it.setResourceProvider(DesktopResourceProvider(logger))
-          logger?.i { "Created MapLibre runtime on ${Thread.currentThread().name}" }
-        }
+  // ───────────────────────────── the map's owner thread ─────────────────────────────
 
-  private fun ensureMap(extent: DesktopMapExtent): MapHandle {
-    val existing = map
-    if (existing != null && mapScaleFactor == extent.scaleFactor) return existing
+  /**
+   * Returns the loop for [extent], starting one or replacing it as needed.
+   *
+   * Called on the renderer thread, from [render], because that is where the first non-empty extent
+   * is known and where the render session that must be closed before a replacement lives.
+   */
+  private fun ensureLoop(extent: DesktopMapExtent): DesktopMapRuntimeLoop {
+    val existing = loop
+    if (existing != null && existing.scaleFactor == extent.scaleFactor) return existing
 
     if (existing != null) {
       // pixelRatio is fixed at creation — mbgl holds it const — so a density change cannot be
       // applied by resizing or re-attaching; the map has to be rebuilt, or sprite and raster asset
-      // density stay at the old scale. Tile selection is unaffected, only density.
+      // density stay at the old scale. Tile selection is unaffected, only density. Rebuilding the
+      // loop rather than the map alone keeps one map per runtime per thread.
       logger?.i {
-        "Display scale changed from $mapScaleFactor to ${extent.scaleFactor}; recreating the map"
+        "Display scale changed from ${existing.scaleFactor} to ${extent.scaleFactor}; " +
+          "recreating the map"
       }
-      closeRenderSession()
-      runCatching { existing.close() }
-        .onFailure { logger?.e(it) { "Failed to close the map while changing display scale" } }
-      map = null
+      // Where the camera is now, not where it was last asked to be: the user has probably panned
+      // since. Read before the loop stops, because afterwards there is nothing to read it from.
+      existing.call { it.camera.toCameraPosition() }?.let(::recordCamera)
+      stopLoop()
+      // The new map starts styleless, so the style has to be applied again rather than skipped as
+      // already applied.
       appliedStyle = null
-      pendingStyle = pendingStyle ?: appliedStyle
     }
 
-    val options =
-      MapOptions().also {
-        it.width = extent.width.coerceAtLeast(1)
-        it.height = extent.height.coerceAtLeast(1)
-        it.scaleFactor = extent.scaleFactor
-      }
-
-    return MapHandle.create(ensureRuntime(), options).also { created ->
-      map = created
-      mapExtent = extent
-      mapScaleFactor = extent.scaleFactor
-      renderPending = true
-      // Replayed in order, so the map opens where the caller asked rather than at MapLibre's
-      // default position.
-      if (deferredSetup.isNotEmpty()) {
-        val pending = deferredSetup.toList()
-        deferredSetup.clear()
-        pending.forEach { setup ->
-          runCatching { setup(created) }
-            .onFailure { logger?.e(it) { "Failed to apply deferred map setup" } }
-        }
-      }
+    val started =
+      DesktopMapRuntimeLoop(
+        extent = extent,
+        runtimeOptions = runtimeOptions,
+        logger = logger,
+        onMapCreated = ::onMapCreated,
+        onEvent = ::handleEvent,
+        onEventsDrained = ::flushTransitionResumes,
+        requestFrame = ::requestRender,
+      )
+    stateLock.withLock {
+      loop = started
+      // Snapshotted under the same lock that guards the recording, so a setting written while the
+      // loop is starting is either in this snapshot or posted to the started loop, never lost.
+      pendingConfiguration = mapConfiguration.values.toList()
     }
+    started.start()
+    return started
+  }
+
+  /** The configuration snapshot handed to a starting loop. Read on its thread, once. */
+  @Volatile private var pendingConfiguration: List<(MapHandle) -> Unit> = emptyList()
+
+  /** Runs on the loop's thread, once, before the map is published. */
+  private fun onMapCreated(map: MapHandle) {
+    // Replayed in order, so the map opens configured as the caller asked rather than at MapLibre's
+    // defaults — on the first map because the composable configures it before any extent exists,
+    // and on a replacement because a new map remembers nothing about the one it replaces.
+    val pending = pendingConfiguration
+    pendingConfiguration = emptyList()
+    pending.forEach { setup ->
+      runCatching { setup(map) }.onFailure { logger?.e(it) { "Failed to apply map configuration" } }
+    }
+    applyRequestedStyle(map)
   }
 
   /** Attaches or re-attaches the render session, returning whether one is usable. */
@@ -505,10 +443,8 @@ internal class DesktopMapSession(
     // No map.resize exists, and none should: the map's size is the size of what it renders into,
     // so attaching sets it from the descriptor's logical extent. A separate setter would only
     // create a way to leave the two disagreeing, which renders one viewport into another's
-    // texture. The one thing genuinely missing is a getter, which is why mapExtent is tracked
-    // here.
-    mapExtent = extent
-
+    // texture. The map publishes the result through MapHandle.size, applied on its owner thread
+    // at the next pump.
     renderSession =
       try {
         attachBorrowedTexture(map, frame.target, extent)
@@ -517,7 +453,9 @@ internal class DesktopMapSession(
         throw error
       }
     attachedTarget = key
-    renderPending = true
+    // The new texture holds nothing yet, and MapLibre keeps its latest update, so the frame this
+    // request buys is the one that fills it.
+    renderRequested.set(true)
     return true
   }
 
@@ -526,19 +464,25 @@ internal class DesktopMapSession(
     target: DesktopRenderTarget,
     extent: DesktopMapExtent,
   ): RenderSessionHandle {
-    // RenderTargetExtent is logical; the host allocated the texture at the matching physical size.
+    // RenderTargetExtent is logical, and a borrowed texture is sized by its owner, so the
+    // descriptor states the physical size rather than deriving it. MapLibre rejects a pair that
+    // does not agree, which is what makes DesktopMapExtent's single rounding rule load-bearing.
     val ffiExtent =
       RenderTargetExtent(
         width = extent.width.coerceAtLeast(1),
         height = extent.height.coerceAtLeast(1),
         scaleFactor = extent.scaleFactor,
       )
+    val physicalWidth = extent.physicalWidth.coerceAtLeast(1)
+    val physicalHeight = extent.physicalHeight.coerceAtLeast(1)
 
     return when (target) {
       is VulkanImageTarget ->
         map.attachVulkanBorrowedTexture(
           VulkanBorrowedTextureDescriptor(
               extent = ffiExtent,
+              physicalWidth = physicalWidth,
+              physicalHeight = physicalHeight,
               context = target.context.toFfi(),
               image = NativePointer.ofAddress(target.image.address),
               imageView = NativePointer.ofAddress(target.imageView.address),
@@ -552,6 +496,8 @@ internal class DesktopMapSession(
         map.attachMetalBorrowedTexture(
           MetalBorrowedTextureDescriptor(
             extent = ffiExtent,
+            physicalWidth = physicalWidth,
+            physicalHeight = physicalHeight,
             texture = NativePointer.ofAddress(target.texture.address),
           )
         )
@@ -561,6 +507,8 @@ internal class DesktopMapSession(
         map.attachOpenGLBorrowedTexture(
           OpenGLBorrowedTextureDescriptor(
             extent = ffiExtent,
+            physicalWidth = physicalWidth,
+            physicalHeight = physicalHeight,
             context =
               when (val context = target.context) {
                 is EglContextHandles -> context.toFfi()
@@ -574,57 +522,37 @@ internal class DesktopMapSession(
     }
   }
 
-  // ───────────────────────────── event pump ─────────────────────────────
+  // ───────────────────────────── events, on the map's owner thread ─────────────────────────────
 
-  private fun drainEvents(runtime: RuntimeHandle) {
-    val map = this.map
-    while (true) {
-      val event =
-        try {
-          runtime.pollEvent() ?: break
-        } catch (error: Throwable) {
-          // pollEvent is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
-          // throw from the map rather than the runtime.
-          logger?.e(error) { "Failed to poll a MapLibre runtime event" }
-          break
-        }
-      if (map != null && event.mapSource != null && event.mapSource !== map) continue
-      handleEvent(event)
-    }
-  }
-
+  /**
+   * Translates one runtime event.
+   *
+   * Runs on the map's owner thread, which is also where the callbacks below are invoked from — the
+   * same arrangement as before, when that thread happened to be the renderer's.
+   */
   private fun handleEvent(event: RuntimeEvent) {
     when (event.type) {
-      RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> {
-        renderPending = true
-        isIdle = false
-        requestRender()
-      }
+      RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
       RuntimeEventType.MAP_RENDER_FRAME_FINISHED -> {
         val payload = event.payload
-        if (payload is RuntimeEventPayload.RenderFrame) {
-          if (payload.needsRepaint) {
-            renderPending = true
-            requestRender()
-          }
-        }
+        if (payload is RuntimeEventPayload.RenderFrame && payload.needsRepaint) requestRender()
       }
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
-        // A new style replaces every source and layer, so the previous binding is dead. Marking it
-        // unloaded is what makes descriptors that outlive it degrade rather than write into a
+        // A new style replaces every source and layer, so the previous binding is dead. Marking
+        // it unloaded is what makes descriptors that outlive it degrade rather than write into a
         // style that no longer exists.
         styleBinding?.unload()
         val binding = SessionStyleBinding().also { styleBinding = it }
-        callbacks.onStyleChanged(this, DesktopStyle(binding))
+        callbacks.onStyleChanged(this, DesktopStyle(binding, ::imageScale))
       }
 
       RuntimeEventType.MAP_LOADING_FINISHED -> callbacks.onMapFinishedLoading(this)
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
         // The only channel for a URL style's failure, and the second channel for a malformed
-        // inline one, which also throws from the setter. See applyPendingStyle.
+        // inline one, which also throws from the setter. See applyRequestedStyle.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
         logger?.e { "Map loading failed (code ${event.code}): $reason" }
         callbacks.onMapFailLoading(reason)
@@ -643,6 +571,26 @@ internal class DesktopMapSession(
         callbacks.onCameraMoveEnded(this)
       }
 
+      RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
+        val payload = event.payload
+        if (payload !is RuntimeEventPayload.CameraTransitionFinished) {
+          logger?.w { "A camera transition finished without a payload naming it" }
+        } else {
+          val id = payload.transitionId
+          if (currentTransitionId == id) currentTransitionId = null
+          val waiter = transitionWaiters.remove(id)
+          if (waiter == null) {
+            // Expected after a cancellation: the caller withdrew before native finished.
+            logger?.v { "Ignoring the end of unknown camera transition $id" }
+          } else {
+            // Resumed after the drain rather than here: this event is queued immediately before
+            // the transition's MAP_CAMERA_DID_CHANGE, so a caller resumed now would read the
+            // camera one event too early.
+            pendingResumes += waiter
+          }
+        }
+      }
+
       RuntimeEventType.MAP_RENDER_ERROR ->
         logger?.e { "MapLibre render error: ${event.message.ifBlank { "unknown" }}" }
 
@@ -651,9 +599,10 @@ internal class DesktopMapSession(
         logger?.d { "Style image missing: ${event.message}" }
 
       // Known, and deliberately not acted on. Named so that the branch below means "an event
-      // this build has never seen" rather than "anything we happen not to use".
-      RuntimeEventType.MAP_IDLE -> isIdle = true
-
+      // this build has never seen" rather than "anything we happen not to use". MAP_IDLE in
+      // particular no longer drives anything: the owner thread pumps on its own, so there is no
+      // frame loop to park.
+      RuntimeEventType.MAP_IDLE,
       RuntimeEventType.MAP_LOADING_STARTED,
       RuntimeEventType.MAP_RENDER_FRAME_STARTED,
       RuntimeEventType.MAP_RENDER_MAP_STARTED,
@@ -669,7 +618,28 @@ internal class DesktopMapSession(
     }
   }
 
+  /**
+   * Reads back what MapLibre stored for a style image.
+   *
+   * Nothing in the public API needs this; it exists so a test can assert on the pixel ratio an
+   * image was uploaded with, which is otherwise only observable by looking at the map.
+   */
+  internal fun styleImageInfo(imageId: String): StyleImageInfo? = runOnMap {
+    it.styleImageInfo(imageId)
+  }
+
+  /**
+   * The scale style images are rasterized at, which is the map's own.
+   *
+   * Taken from the loop rather than the map because it is fixed for that map's lifetime — a density
+   * change builds a new loop — and because this is read while handling an event, where a blocking
+   * hop back onto the thread raising it would be pointless.
+   */
+  private fun imageScale(): Float = (loop?.scaleFactor ?: 1.0).toFloat()
+
+  /** Marks a frame worth drawing and asks the host for one. Safe from any thread. */
   private fun requestRender() {
+    renderRequested.set(true)
     hostSession?.requestFrame()
   }
 
@@ -687,42 +657,79 @@ internal class DesktopMapSession(
     if (elapsed > 0.0) callbacks.onFrame(1.0 / elapsed)
   }
 
+  // ───────────────────────────── dispatch ─────────────────────────────
+
+  /**
+   * Queues [action] for the map's owner thread, dropping it if there is no map.
+   *
+   * For things that act on the map as it is now — a pan, a zoom, cancelling a transition. There is
+   * nothing to pan before a map exists, and nothing worth replaying onto a later one.
+   */
+  private fun onMap(action: (MapHandle) -> Unit) {
+    loop?.post(action)
+  }
+
+  /**
+   * Records [action] as part of the map's configuration under [key], and applies it now if there is
+   * a map.
+   *
+   * For settings rather than actions, which have to survive two things a plain post does not. The
+   * composable configures the camera and its limits before the surface has an extent, so before any
+   * map exists; and a density change replaces the map underneath, which on Android would be a new
+   * `MapAdapter` and so re-applied by `CameraState`, but here is invisible to Compose. [key] is
+   * what makes the record last-write-wins rather than a growing log of every value ever set.
+   */
+  private fun configureMap(key: String, action: (MapHandle) -> Unit) {
+    val current = stateLock.withLock {
+      mapConfiguration[key] = action
+      loop
+    }
+    current?.post(action)
+  }
+
+  private fun recordCamera(position: CameraPosition) {
+    requestedCamera = position
+    configureMap(CAMERA_KEY) { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
+  }
+
+  /**
+   * Runs [action] on the map's owner thread and waits, or returns [fallback] if there is no map.
+   */
+  private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = loop?.call(action) ?: fallback
+
+  /** Runs [action] on the map's owner thread and waits, or returns null if there is no map. */
+  private fun <T> runOnMap(action: (MapHandle) -> T): T? = loop?.call(action)
+
+  /** Runs [action] on the host's renderer thread, where the render session lives. */
+  private fun <T> withRendererAccess(action: () -> T): T? {
+    val host = hostSession ?: return null
+    return host.withRendererAccess(action)
+  }
+
   // ───────────────────────────── MapAdapter ─────────────────────────────
 
-  /** Runs [action] with the map on the owner thread, or returns [fallback] if there is none yet. */
-  /** Runs [action] against the map, or records it to run as soon as the map is created. */
-  private fun onMap(action: (MapHandle) -> Unit) {
-    owner.run {
-      val map = map
-      if (map == null) deferredSetup += action else action(map)
-    }
-    requestRender()
-  }
-
-  private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = owner.run {
-    map?.let(action) ?: fallback
-  }
-
-  private fun requireMap(operation: String): Nothing =
-    error("$operation requires a live map; the desktop map has not been created yet")
-
   override fun setBaseStyle(style: BaseStyle) {
-    if (style == appliedStyle && style == pendingStyle) return
-    pendingStyle = style
-    requestRender()
+    if (style == requestedStyle) return
+    requestedStyle = style
+    // Reported before the new style is even requested, because the old one is already gone as far
+    // as its content is concerned. This is what unloads the previous `SafeStyle` and disposes the
+    // composition holding its sources and layers; without it that composition stays live and
+    // recomposes against a style node whose base layers belong to the style being replaced — so an
+    // anchor naming a layer of the *new* style fails to validate, and the crash lands in the
+    // applier, mid-insert. Both mobile adapters report it from `setBaseStyle` for this reason;
+    // desktop reported only the loaded style, which is why only desktop crashed on a style switch.
+    callbacks.onStyleChanged(this, null)
+    onMap(::applyRequestedStyle)
   }
 
-  private fun applyPendingStyle(map: MapHandle) {
-    val style = pendingStyle ?: return
-    if (style == appliedStyle) {
-      pendingStyle = null
-      return
-    }
+  /** Applies whatever style was last asked for, on the map's owner thread. */
+  private fun applyRequestedStyle(map: MapHandle) {
+    val style = requestedStyle ?: return
+    if (style == appliedStyle) return
     // setStyleJson parses inline, so a malformed style fails synchronously as well as queueing
-    // MAP_LOADING_FAILED; setStyleUrl only fetches, so it reports through the event alone. This
-    // runs inside the host's draw pass, where an escaping exception takes the frame with it — and
-    // a bad style is caller input, not a bug here. The queued event delivers onMapFailLoading on
-    // the next drain, so it is caught rather than reported again here.
+    // MAP_LOADING_FAILED; setStyleUrl only fetches, so it reports through the event alone. A bad
+    // style is caller input, not a bug here, and the queued event delivers onMapFailLoading on the
+    // next drain, so it is caught rather than reported again.
     try {
       when (style) {
         is BaseStyle.Uri -> map.setStyleUrl(style.uri)
@@ -731,25 +738,27 @@ internal class DesktopMapSession(
       appliedStyle = style
     } catch (error: MaplibreException) {
       // appliedStyle is deliberately not set: setting the same style again should retry rather
-      // than be skipped as already applied. pendingStyle is cleared either way, so a style that
-      // fails every time cannot spin the loop retrying it on every frame.
+      // than be skipped as already applied. Nothing re-posts this on its own, so a style that
+      // fails cannot spin the loop retrying it.
       logger?.e(error) { "Failed to apply style $style" }
     }
-    pendingStyle = null
-    renderPending = true
-    isIdle = false
   }
 
+  /**
+   * The camera a caller asked for before the map existed.
+   *
+   * `MaplibreMap` applies its first camera as soon as it has an adapter, which is before the first
+   * extent and so before there is a map to apply it to. Reading it back in that window answers with
+   * what was asked for rather than MapLibre's default, which is otherwise a null island the caller
+   * never requested.
+   */
+  @Volatile private var requestedCamera: CameraPosition? = null
+
   override fun getCameraPosition(): CameraPosition =
-    withMap(CameraPosition()) { it.camera.toCameraPosition() }
+    withMap(requestedCamera ?: CameraPosition()) { it.camera.toCameraPosition() }
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
-    onMap { map ->
-      cameraGeneration++
-      map.jumpTo(cameraPosition.toCameraOptions(layoutDirection))
-      renderPending = true
-      isIdle = false
-    }
+    recordCamera(cameraPosition)
   }
 
   override fun setCameraPosition(
@@ -758,13 +767,11 @@ internal class DesktopMapSession(
     tilt: Double,
     padding: PaddingValues,
   ) {
-    owner.run {
-      val map = map ?: return@run
-      cameraGeneration++
+    // Recorded as the fit rather than as a resolved camera: the fit depends on the viewport, and a
+    // map replaced because the viewport changed should be fitted to the new one.
+    configureMap(CAMERA_KEY) { map ->
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
-      renderPending = true
     }
-    requestRender()
   }
 
   private fun cameraForBounds(
@@ -787,11 +794,8 @@ internal class DesktopMapSession(
     )
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
-    animate(duration) { map ->
-      map.flyTo(
-        finalPosition.toCameraOptions(layoutDirection),
-        AnimationOptions().also { it.durationMs = duration.inWholeMilliseconds.toDouble() },
-      )
+    animate(duration) { map, animation ->
+      map.flyTo(finalPosition.toCameraOptions(layoutDirection), animation)
     }
   }
 
@@ -802,62 +806,132 @@ internal class DesktopMapSession(
     padding: PaddingValues,
     duration: Duration,
   ) {
-    animate(duration) { map ->
-      map.flyTo(
-        cameraForBounds(map, boundingBox, bearing, tilt, padding),
-        AnimationOptions().also { it.durationMs = duration.inWholeMilliseconds.toDouble() },
-      )
+    animate(duration) { map, animation ->
+      map.flyTo(cameraForBounds(map, boundingBox, bearing, tilt, padding), animation)
     }
   }
 
   /**
-   * Starts a camera transition and waits out its duration.
+   * Starts a camera transition and suspends until MapLibre reports that it released the camera.
    *
-   * There is no completion signal in the FFI, so the wait is by duration and a generation stamp
-   * guards against a superseding transition resolving this one.
+   * Resumes normally however the transition ended — run to completion, superseded by a later
+   * command, or cancelled — because the event carries identity rather than an outcome, and because
+   * that matches what Android reports through `CancelableCallback.onCancel`.
    */
-  private suspend fun animate(duration: Duration, start: (MapHandle) -> Unit) {
-    val generation =
-      owner.run {
-        val map = map ?: return@run null
-        cameraGeneration++
-        start(map)
-        renderPending = true
-        cameraGeneration
-      } ?: return
-    requestRender()
-
-    try {
-      delay(duration)
-    } catch (cancellation: CancellationException) {
-      owner.run { if (cameraGeneration == generation) map?.cancelTransitions() }
-      throw cancellation
+  private suspend fun animate(
+    duration: Duration,
+    start: (MapHandle, AnimationOptions) -> Unit,
+  ): Unit = suspendCancellableCoroutine { continuation ->
+    val started = runOnMap { map ->
+      val id = ++lastTransitionId
+      transitionWaiters[id] = continuation
+      currentTransitionId = id
+      try {
+        start(
+          map,
+          AnimationOptions().also {
+            it.durationMs = duration.inWholeMilliseconds.toDouble()
+            it.transitionId = id
+          },
+        )
+      } catch (error: Throwable) {
+        // A command MapLibre rejects starts no transition and emits no event, so a registration
+        // left behind here would never be resolved.
+        forgetTransition(id)
+        throw error
+      }
+      // Registered after the command rather than before, so an already-cancelled coroutine
+      // cancels the transition that was just started instead of leaving it running unwatched.
+      continuation.invokeOnCancellation { abandonTransition(id) }
+      true
     }
+    // No map means nothing to animate, and nothing that could ever resume this.
+    if (started != true) continuation.resume(Unit)
   }
 
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
+  /** Supplies transition ids. Owner-thread state, like the two maps below. */
+  private var lastTransitionId = 0L
+
+  /**
+   * The transition this session started most recently, cleared when its end is reported.
+   *
+   * MAP_CAMERA_TRANSITION_FINISHED says that a transition released the camera, not why, so this is
+   * what tells "my animation is still the one driving the camera" from "a later command took it
+   * over" — the question the old generation stamp existed to answer.
+   */
+  private var currentTransitionId: Long? = null
+
+  private val transitionWaiters = mutableMapOf<Long, CancellableContinuation<Unit>>()
+
+  /** Waiters whose transitions ended during the current event drain. Owner-thread state. */
+  private val pendingResumes = mutableListOf<CancellableContinuation<Unit>>()
+
+  /** Resumes them once the whole batch has been applied. */
+  private fun flushTransitionResumes() {
+    if (pendingResumes.isEmpty()) return
+    val resuming = pendingResumes.toList()
+    pendingResumes.clear()
+    resuming.forEach { waiter -> runCatching { waiter.resume(Unit) } }
+  }
+
+  private fun forgetTransition(id: Long) {
+    transitionWaiters.remove(id)
+    if (currentTransitionId == id) currentTransitionId = null
+  }
+
+  /** Drops a cancelled coroutine's registration, stopping the camera if the transition is ours. */
+  private fun abandonTransition(id: Long) {
     onMap { map ->
-      map.bounds =
-        map.bounds.also {
-          // An all-null BoundOptions is a no-op rather than a reset, so clearing means assigning
-          // the whole world explicitly.
-          it.bounds =
-            boundingBox?.toLatLngBounds()
-              ?: LatLngBounds(LatLng(-90.0, -180.0), LatLng(90.0, 180.0))
-        }
+      val wasCurrent = currentTransitionId == id
+      forgetTransition(id)
+      // Its finish event still arrives and finds no waiter, which is logged rather than treated as
+      // a fault. Guarded on being current so a late cancellation cannot stop a newer animation.
+      if (wasCurrent) map.cancelTransitions()
     }
   }
 
-  override fun setMaxZoom(maxZoom: Double) = setBounds { it.maxZoom = maxZoom }
+  /**
+   * Resolves everything awaiting a transition on a map that is going away.
+   *
+   * Closing a map discards its queued events, so no finish event will follow. Resumed rather than
+   * cancelled: the transition genuinely ended, and a CancellationException raised into a caller
+   * whose scope is still active would cancel that scope.
+   */
+  private fun resumeStrandedTransitions() {
+    val waiters = transitionWaiters.values.toList()
+    transitionWaiters.clear()
+    currentTransitionId = null
+    waiters.forEach { waiter -> runCatching { waiter.resume(Unit) } }
+  }
 
-  override fun setMinZoom(minZoom: Double) = setBounds { it.minZoom = minZoom }
+  override fun setCameraBoundingBox(boundingBox: BoundingBox?) =
+    setBounds("bounds.constraint") {
+      // Unbounded is not world bounds: world bounds clamp longitude to ±180 and stop the map
+      // panning across the antimeridian, which is not what "no bounding box" asks for.
+      it.bounds =
+        boundingBox?.let { box -> BoundsConstraint.Bounded(box.toLatLngBounds()) }
+          ?: BoundsConstraint.Unbounded
+    }
 
-  override fun setMinPitch(minPitch: Double) = setBounds { it.minPitch = minPitch }
+  override fun setMaxZoom(maxZoom: Double) = setBounds("bounds.maxZoom") { it.maxZoom = maxZoom }
 
-  override fun setMaxPitch(maxPitch: Double) = setBounds { it.maxPitch = maxPitch }
+  override fun setMinZoom(minZoom: Double) = setBounds("bounds.minZoom") { it.minZoom = minZoom }
 
-  private fun setBounds(update: (BoundOptions) -> Unit) {
-    onMap { map -> map.bounds = map.bounds.also(update) }
+  override fun setMinPitch(minPitch: Double) =
+    setBounds("bounds.minPitch") { it.minPitch = minPitch }
+
+  override fun setMaxPitch(maxPitch: Double) =
+    setBounds("bounds.maxPitch") { it.maxPitch = maxPitch }
+
+  /**
+   * Applies one field of the map's bound options, keyed so each field replays independently.
+   *
+   * `BoundOptions` is a field mask — an unset field leaves the map's current value alone — so
+   * recording the four limits and the constraint separately is what lets a replacement map be told
+   * only what was actually asked for.
+   */
+  private fun setBounds(key: String, update: (BoundOptions) -> Unit) {
+    configureMap(key) { map -> map.bounds = map.bounds.also(update) }
   }
 
   override fun getVisibleBoundingBox(): BoundingBox =
@@ -876,8 +950,9 @@ internal class DesktopMapSession(
       //
       // latLngBoundsForCamera is not a substitute: it is axis-aligned, so it is wrong for a
       // rotated or pitched camera, while projecting the four corners is correct for both.
-      val width = mapExtent.width.toDouble()
-      val height = mapExtent.height.toDouble()
+      val size = map.size
+      val width = size.width.toDouble()
+      val height = size.height.toDouble()
       val corners =
         map.latLngsForPixels(
           listOf(
@@ -901,10 +976,9 @@ internal class DesktopMapSession(
     // one — so the call rate is the frame rate. Android and iOS cap it the same way, in their own
     // language, rather than through anything the core provides.
     maximumFps = value.maximumFps
-    // onMap rather than a bare owner hop: it replays the setting if the map does not exist yet
-    // instead of dropping it, and it requests the frame that makes the overlay appear now rather
-    // than the next time the map happens to redraw.
-    onMap { map ->
+    // Configuration rather than an action: the overlays are a setting the composable states once,
+    // so a map that does not exist yet, or one that replaces this one, has to be told.
+    configureMap("debugOptions") { map ->
       map.debugOptions = buildSet {
         if (value.isTileBordersEnabled) add(DebugOption.TILE_BORDERS)
         if (value.isTileTimestampsEnabled) add(DebugOption.TIMESTAMPS)
@@ -970,18 +1044,19 @@ internal class DesktopMapSession(
     geometry: RenderedQueryGeometry,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> = owner.run {
-    val session = renderSession
-    if (session == null) {
-      logger?.d { "Ignoring a rendered feature query: no render session is attached yet" }
-      return@run emptyList()
-    }
-    // Uncaught for the same reason as StyleBinding.withRenderSession: past the null check there is
-    // no failure here that is not a bug.
-    session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate)).map {
-      it.toGeoJsonFeature()
-    }
-  }
+  ): List<Feature<Geometry, JsonObject?>> =
+    withRendererAccess {
+      val session = renderSession
+      if (session == null) {
+        logger?.d { "Ignoring a rendered feature query: no render session is attached yet" }
+        return@withRendererAccess emptyList()
+      }
+      // Uncaught for the same reason as StyleBinding.withRenderSession: past the null check there
+      // is no failure here that is not a bug.
+      session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate)).map {
+        it.toGeoJsonFeature()
+      }
+    } ?: emptyList()
 
   /**
    * Meters per logical pixel at [latitude], for the map's current zoom.
@@ -1012,19 +1087,11 @@ internal class DesktopMapSession(
   }
 
   fun moveBy(deltaX: Double, deltaY: Double) {
-    owner.run {
-      map?.moveBy(deltaX, deltaY)
-      renderPending = true
-    }
-    requestRender()
+    onMap { map -> map.moveBy(deltaX, deltaY) }
   }
 
   fun scaleBy(scale: Double, anchor: DpOffset?) {
-    owner.run {
-      map?.scaleBy(scale, anchor?.toScreenPoint())
-      renderPending = true
-    }
-    requestRender()
+    onMap { map -> map.scaleBy(scale, anchor?.toScreenPoint()) }
   }
 
   /**
@@ -1039,8 +1106,9 @@ internal class DesktopMapSession(
    * Deltas are in logical pixels.
    */
   fun rotateAndPitchBy(deltaX: Double, deltaY: Double) {
-    owner.run {
-      val map = map ?: return@run
+    // A delta rather than a target, applied on the owner thread, because reading the current
+    // camera and writing the new one has to happen together on the thread that owns the map.
+    onMap { map ->
       val camera = map.camera
       map.jumpTo(
         CameraOptions().also {
@@ -1052,10 +1120,7 @@ internal class DesktopMapSession(
             )
         }
       )
-      renderPending = true
-      isIdle = false
     }
-    requestRender()
   }
 
   /**
@@ -1065,7 +1130,7 @@ internal class DesktopMapSession(
    * so the callback never touches a native handle.
    */
   fun onPrimaryClick(offset: DpOffset) {
-    val position = owner.run { map?.latLngForPixel(offset.toScreenPoint())?.toPosition() } ?: return
+    val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
     callbacks.onClick(this, position, offset)
   }
 
@@ -1076,20 +1141,17 @@ internal class DesktopMapSession(
    * the mobile SDKs use. This is what the previous desktop implementation did.
    */
   fun onSecondaryClick(offset: DpOffset) {
-    val position = owner.run { map?.latLngForPixel(offset.toScreenPoint())?.toPosition() } ?: return
+    val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
     callbacks.onLongClick(this, position, offset)
   }
 
   fun cancelTransitions() {
-    owner.run {
-      cameraGeneration++
-      map?.cancelTransitions()
-      // Stopping mid-animation leaves a frame the user has not seen yet; without this the map
-      // holds the previous frame until the gesture that cancelled the transition moves it.
-      renderPending = true
-      isIdle = false
+    onMap { map ->
+      // Any outstanding transition ends here, and its finish event resumes whoever was awaiting
+      // it; clearing the id first is what stops a later cancellation from stopping a newer one.
+      currentTransitionId = null
+      map.cancelTransitions()
     }
-    requestRender()
   }
 }
 

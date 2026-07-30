@@ -42,9 +42,9 @@ class SharedCacheDatabaseTest {
           .get()
 
       // Pump both briefly so each actually touches the database rather than only opening it.
-      first.submit { repeat(20) { firstRuntime.runOnce() } }.get()
+      first.submit { repeat(20) { firstRuntime.pump(0) } }.get()
       secondResult.getOrNull()?.let { runtime ->
-        second.submit { repeat(20) { runtime.runOnce() } }.get()
+        second.submit { repeat(20) { runtime.pump(0) } }.get()
         second.submit { runtime.close() }.get()
       }
       first.submit { firstRuntime.close() }.get()

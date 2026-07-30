@@ -30,6 +30,7 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -100,27 +101,32 @@ class DesktopMapClusterTest {
       }
     }
 
-    // Clustering happens during tile building, so the frames are what produce a cluster to query.
-    repeat(SETTLE_ROUNDS) { waitForIdle() }
-
-    val session = assertNotNull(cameraState.map as? DesktopMapSession, "no desktop session")
-    // The real surface, not a guess. Over-covering is not a safe substitute today: a box larger
-    // than the viewport comes back empty rather than matching everything, which is fixed by
-    // https://github.com/maplibre/maplibre-native-ffi/pull/339. Querying the actual extent stays
-    // correct either way, so this does not need revisiting when that lands.
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { factory.created.isNotEmpty() }
     val host = factory.created.single()
-    val extent = host.currentExtent
-    val hits =
-      session.queryRenderedFeatures(
+    val session = assertNotNull(cameraState.map as? DesktopMapSession, "no desktop session")
+
+    // The real surface, not a guess: querying the actual extent is correct whatever the viewport
+    // clipping rules are.
+    fun queryAll(): List<Feature<Geometry, JsonObject?>> {
+      val extent = host.currentExtent
+      return session.queryRenderedFeatures(
         rect = DpRect(left = 0.dp, top = 0.dp, right = extent.width.dp, bottom = extent.height.dp),
         layerIds = null,
         predicate = null,
       )
+    }
+
+    // Clustering happens during tile building, so a cluster only exists once the map has rendered
+    // one. Waited for rather than counted in idle rounds: the map advances on a thread of its own,
+    // so how many Compose frames that takes is a property of the machine.
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { queryAll().any { source.isCluster(it) } }
+
+    val hits = queryAll()
     val cluster =
       assertNotNull(
         hits.firstOrNull { source.isCluster(it) },
-        "No cluster was rendered in ${extent.width}x${extent.height} after " +
-          "${host.renderedFrames} rendered frames; ${hits.size} hits were $hits",
+        "No cluster was rendered in ${host.currentExtent.width}x${host.currentExtent.height} " +
+          "after ${host.renderedFrames} rendered frames; ${hits.size} hits were $hits",
       )
 
     // The reported bug: a cluster reported no expansion zoom, and the demo animated to it, which
@@ -163,6 +169,6 @@ class DesktopMapClusterTest {
     /** Well below clusterMaxZoom, so the points are still clustered. */
     const val START_ZOOM = 4.0
 
-    const val SETTLE_ROUNDS = 30
+    const val SETTLE_TIMEOUT_MILLIS = 30_000L
   }
 }

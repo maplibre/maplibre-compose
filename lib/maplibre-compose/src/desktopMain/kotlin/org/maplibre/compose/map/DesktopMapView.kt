@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -51,7 +52,14 @@ internal actual fun ComposableMapView(
   session.callbacks = callbacks
   session.logger = logger
 
-  LaunchedEffect(session, style) { session.setBaseStyle(style) }
+  // Applied from the apply phase, not from a coroutine, because that is when `AndroidView`'s
+  // `update` block makes the same call — and the ordering is what keeps a style switch from
+  // crashing. Setting a base style unloads the outgoing `SafeStyle`, and `LayerManager` skips
+  // anchor validation against an unloaded style (see #269). From a LaunchedEffect that unload
+  // happens after every composition has applied, so the content subcomposition has already
+  // inserted its layers — anchored to the incoming style's layers, validated against the outgoing
+  // style's — and thrown. `setBaseStyle` ignores a repeat, so running every recomposition is free.
+  SideEffect { session.setBaseStyle(style) }
 
   LaunchedEffect(session, options, update) { update(session) }
 

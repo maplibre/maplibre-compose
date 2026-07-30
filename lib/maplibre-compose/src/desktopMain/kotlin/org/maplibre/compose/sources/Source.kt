@@ -33,13 +33,13 @@ public actual sealed class Source(internal actual val id: String) {
   /**
    * Adds this source to a style and starts routing mutations to it.
    *
-   * TODO(maplibre-native-ffi): accepted upstream and queued; use the typed per-kind adders once
-   *   they can express what the common API offers. `addGeoJsonSourceUrl` and `addGeoJsonSourceData`
-   *   take no options at all and there is no `GeoJsonSourceOptions` type, so clustering, buffer,
-   *   tolerance, and line metrics are unreachable through them — a clustered source cannot be
-   *   created that way. The generic JSON entry point is the only one that carries `GeoJsonOptions`,
-   *   and the other families use it too so there is one attach path rather than two. Mutations
-   *   already use the typed setters.
+   * Every family goes through the generic style JSON rather than the typed per-kind adders, which
+   * is a decision rather than a gap. The typed adders now take options, but `GeoJsonSourceOptions`
+   * still has no `synchronousUpdate`, and mbgl reads that one straight off the source JSON
+   * (`style/conversion/geojson_options.cpp`), so the JSON path is the only one that can express
+   * what `GeoJsonOptions` offers. The other families follow it so there is one attach path rather
+   * than two, and so a source read back from a base style replays through the same code that added
+   * it. Mutations do use the typed setters, where the FFI expresses everything.
    */
   internal fun attach(binding: StyleBinding) {
     this.binding = binding

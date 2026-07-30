@@ -25,7 +25,19 @@ import org.maplibre.nativeffi.style.StyleImageOptions
  * reconstructions are views, not owners: removing one removes it from the map, but the map is the
  * source of truth.
  */
-internal class DesktopStyle(private val binding: StyleBinding) : Style {
+internal class DesktopStyle(
+  private val binding: StyleBinding,
+  /**
+   * The display scale the images handed to [addImage] were rasterized at.
+   *
+   * `ImageManager` draws a painter through Compose's density, so a 16.dp icon is a 32x32 bitmap on
+   * a 2x display. MapLibre sizes a style image as `pixels / pixelRatio`, so telling it 1 there
+   * draws that icon at 32 logical pixels — every marker twice the size it should be, on exactly the
+   * displays where nothing else looks wrong. iOS passes the same scale into `toUIImage`, and
+   * Android gets it from the `Bitmap`'s own density.
+   */
+  private val getScale: () -> Float = { 1f },
+) : Style {
 
   override fun addImage(
     id: String,
@@ -33,6 +45,17 @@ internal class DesktopStyle(private val binding: StyleBinding) : Style {
     sdf: Boolean,
     resizeOptions: ImageResizeOptions?,
   ) {
+    if (resizeOptions != null) {
+      // Said rather than silently dropped: the image is uploaded whole, so it scales instead of
+      // stretching, and a nine-patch background comes out distorted with nothing to explain why.
+      // TODO(maplibre-native-ffi): Preserve stretchable image content insets once
+      // the C API and Kotlin StyleImageOptions expose them.
+      binding.logger?.w {
+        "Image '$id' asked for content insets, which desktop cannot preserve: " +
+          "maplibre-native-ffi's StyleImageOptions carries only pixelRatio and sdf. " +
+          "The image will scale rather than stretch."
+      }
+    }
     val pixels = image.toPremultipliedRgba8()
     binding.withMap { map ->
       map.setStyleImage(
@@ -41,9 +64,7 @@ internal class DesktopStyle(private val binding: StyleBinding) : Style {
         options =
           StyleImageOptions().also {
             it.sdf = sdf
-            // TODO(maplibre-native-ffi): Preserve stretchable image content insets once
-            // the C API and Kotlin StyleImageOptions expose them.
-            it.pixelRatio = 1f
+            it.pixelRatio = getScale()
           },
       )
     }

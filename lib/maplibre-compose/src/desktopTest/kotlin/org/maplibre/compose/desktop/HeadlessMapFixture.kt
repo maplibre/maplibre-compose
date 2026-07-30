@@ -8,6 +8,10 @@ import java.nio.file.Path
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.DesktopMapSession
 import org.maplibre.compose.map.MapAdapter
@@ -68,6 +72,16 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     session.onSurfaceAvailable(hostSession)
   }
 
+  /**
+   * Whether MapLibre has rendered at least once.
+   *
+   * The signal that the map exists and is attached, which a test needs before anything it does can
+   * reach a map: the runtime and map are created on their own thread, so the first frame after
+   * composition is not the one that renders.
+   */
+  var hasRendered: Boolean = false
+    internal set
+
   /** Renders one frame, exactly as [DesktopMapSurface] does inside its draw pass. */
   fun frame(extent: DesktopMapExtent = DEFAULT_EXTENT): DesktopFrameResult {
     frameRequested = false
@@ -75,27 +89,43 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     return try {
       host
         .withProducerAccess(frame) { session.render(frame) }
-        .also { if (it == DesktopFrameResult.RENDERED) host.completeProducerAccess(frame) }
+        .also {
+          if (it == DesktopFrameResult.RENDERED) {
+            host.completeProducerAccess(frame)
+            hasRendered = true
+          }
+        }
     } finally {
       host.releaseFrame(frame)
     }
   }
 
+  /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
+  fun pumpUntilRendered(extent: DesktopMapExtent = DEFAULT_EXTENT, timeout: Duration = 30.seconds) {
+    pumpUntil("the map to render its first frame", timeout, extent) { hasRendered }
+  }
+
   /**
    * Renders frames until [condition] holds, or fails.
    *
-   * MapLibre makes progress only while its runtime is pumped, and pumping only happens inside a
-   * frame, so waiting for anything asynchronous — a style load, a tile, a camera transition — means
-   * rendering frames at it.
+   * The runtime pumps itself on its own thread, but rendering is still the caller's job, and some
+   * of what a test waits for needs it: mbgl advances a camera transition from
+   * `onDidFinishRenderingFrame` while `transform.inTransition()`, so a transition that renders no
+   * frames stalls after its first step.
    */
-  fun pumpUntil(description: String, timeout: Duration = 30.seconds, condition: () -> Boolean) {
+  fun pumpUntil(
+    description: String,
+    timeout: Duration = 30.seconds,
+    extent: DesktopMapExtent = DEFAULT_EXTENT,
+    condition: () -> Boolean,
+  ) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
     var frames = 0
     while (!condition()) {
       check(deadline.hasNotPassedNow()) {
         "Timed out after $frames frames waiting for $description. Errors: $errors"
       }
-      frame()
+      frame(extent)
       frames++
       // A short sleep rather than a spin: most of the wait is network and worker threads, and a
       // tight loop starves them on a small machine.
@@ -111,10 +141,35 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     }
   }
 
+  /**
+   * Runs [block] on another thread while this one renders frames, and returns its result.
+   *
+   * Anything that suspends on the map's progress needs both halves at once: the caller cannot block
+   * the thread that renders and then wait for something that only advances when it does. A camera
+   * animation is the case that bites — see [pumpUntil].
+   */
+  fun <T> awaitWhileRendering(
+    description: String,
+    timeout: Duration = 30.seconds,
+    block: suspend () -> T,
+  ): T {
+    val work = CoroutineScope(Dispatchers.Default).async { block() }
+    pumpUntil(description, timeout) { work.isCompleted }
+    return runBlocking { work.await() }
+  }
+
+  /** The live style, once one has loaded. */
+  var style: Style? = null
+    private set
+
   /** Applies a style and pumps until it finishes loading. */
-  fun loadStyle(style: BaseStyle, timeout: Duration = 60.seconds) {
+  fun loadStyle(
+    style: BaseStyle,
+    timeout: Duration = 60.seconds,
+    extent: DesktopMapExtent = DEFAULT_EXTENT,
+  ) {
     session.setBaseStyle(style)
-    pumpUntil("style $style to load", timeout) { events.contains(STYLE_LOADED) }
+    pumpUntil("style $style to load", timeout, extent) { events.contains(STYLE_LOADED) }
   }
 
   override fun close() {
@@ -125,6 +180,7 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
 
   private inner class RecordingCallbacks : MapAdapter.Callbacks {
     override fun onStyleChanged(map: MapAdapter, style: Style?) {
+      this@HeadlessMapFixture.style = style
       events += if (style == null) "styleChanged(null)" else STYLE_LOADED
     }
 
@@ -167,6 +223,10 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     /** Big enough for tiles to be selected at zoom 0 and for a query to have something to hit. */
     val DEFAULT_EXTENT: DesktopMapExtent =
       DesktopMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 1.0)
+
+    /** The same logical size at a different density, which forces the map to be rebuilt. */
+    val RETINA_EXTENT: DesktopMapExtent =
+      DesktopMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 2.0)
 
     /**
      * Creates a fixture, or returns null when this machine has no usable Vulkan implementation.
