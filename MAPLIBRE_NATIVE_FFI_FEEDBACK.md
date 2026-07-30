@@ -44,6 +44,40 @@ as often as it is right.
 
 Snapshot this was written against: binding `0.1.0-20260730.030702-40`.
 
+## Lifecycle
+
+### Handle tables destroy live objects at process exit — **verified**
+
+The process-global handle tables are C++ statics, so their destructors run from
+`exit()` via `__cxa_finalize`. Destroying a live render session there destroys
+`mbgl::Renderer`, which takes a `gfx::BackendScope` against a graphics backend
+that no longer exists, and the process dies with a SIGSEGV _after_ the
+application has quit cleanly:
+
+```
+exit -> __cxa_finalize_ranges
+  HandleTable<mln_render_session_object>::~HandleTable()
+    __on_zero_shared() -> mbgl::Renderer::~Renderer()
+      gfx::BackendScope::BackendScope()      <- SIGSEGV
+```
+
+Measured on macOS/Metal by quitting the demo with Cmd+Q, which Compose Desktop
+does not dispose a composition for, so the session was still open. Any consumer
+that exits with a handle open gets this, and a leaked handle is exactly the case
+that is hardest to rule out — the binding's own leak cleaner exists because it
+happens.
+
+At exit there is nothing to reclaim: the process is going away and the driver
+releases its own resources. Destroying GPU objects at that point can only fail.
+
+_Workaround:_ MapLibre Compose closes live sessions from a JVM shutdown hook,
+which runs before the C runtime reaches these destructors. See
+`DesktopMapShutdown`. It cannot cover `Runtime.halt`, a native crash, or a
+signal.
+
+_Suggested fix:_ leak rather than destroy at process exit — detach the tables,
+or guard the destructor with a flag set once static teardown has begun.
+
 ## Missing APIs
 
 Each of these forces a local workaround, and each has a
