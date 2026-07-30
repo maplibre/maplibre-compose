@@ -50,7 +50,13 @@ internal class MacosMetalHost : DesktopMapHost {
     // it hops to the AWT event thread and waits, and the renderer thread must never be the one
     // blocked on the EDT.
     val metalDevice = if (extent.isEmpty) null else SkikoReflection.requireMetalDevice()
-    rendererThread.run { resizeOnRendererThread(extent, metalDevice) }
+    // Retiring the old texture obeys the same rule, which is why the renderer hop hands it back
+    // rather than releasing it: dropping its Skia wrapper also waits on the AWT event thread, and
+    // the event thread is usually the thread waiting on this hop — it is the one that draws, and
+    // drawing is what calls acquireFrame. Releasing inside the hop deadlocks both threads on the
+    // first window resize, which is how this was found.
+    val retired = rendererThread.run { resizeOnRendererThread(extent, metalDevice) }
+    retired?.let(::releaseTexture)
   }
 
   override fun acquireFrame(
@@ -96,22 +102,24 @@ internal class MacosMetalHost : DesktopMapHost {
       // The texture, and the Skia surface wrapping it, are released on the closing thread rather
       // than on the renderer thread that is about to shut down. The presenter hops to the AWT
       // event thread itself, so the Skia objects are always freed on the thread that owns them.
-      disposeTexture()
+      takeTexture()?.let(::releaseTexture)
     } finally {
       rendererThread.close()
     }
   }
 
+  /** Reallocates the texture, returning the one it replaced for the caller to release. */
   private fun resizeOnRendererThread(
     extent: DesktopMapExtent,
     metalDevice: SkikoMetalDevice? = null,
-  ) {
+  ): NativeHandle? {
     if (extent == currentExtent && !texture.isNull) {
-      return
+      return null
     }
-    recreateTexture(extent, metalDevice)
+    val retired = recreateTexture(extent, metalDevice)
     currentExtent = extent
     generation += 1
+    return retired
   }
 
   private fun target(extent: DesktopMapExtent, generation: Long): DesktopRenderTarget =
@@ -127,11 +135,13 @@ internal class MacosMetalHost : DesktopMapHost {
       generation = generation,
     )
 
-  private fun recreateTexture(extent: DesktopMapExtent, metalDevice: SkikoMetalDevice? = null) {
-    if (extent.isEmpty) {
-      disposeTexture()
-      return
-    }
+  /** Allocates the texture for [extent], returning the one it replaced, if any. */
+  private fun recreateTexture(
+    extent: DesktopMapExtent,
+    metalDevice: SkikoMetalDevice? = null,
+  ): NativeHandle? {
+    if (extent.isEmpty) return takeTexture()
+
     val oldTexture = texture
     val textureAddress =
       MacosMetalTexture.create(
@@ -140,22 +150,28 @@ internal class MacosMetalHost : DesktopMapHost {
         width = extent.physicalWidth,
         height = extent.physicalHeight,
       )
+    texture = NativeHandle(textureAddress)
+    pixelFormat = MacosMetalTexture.pixelFormat(textureAddress)
     // The allocation is skipped when the physical size did not change, in which case the old
     // texture comes back and must not be released. The generation still advances, because the
     // logical extent the session renders with did change.
-    if (textureAddress != oldTexture.address) {
-      releaseTexture(oldTexture)
-    }
-    texture = NativeHandle(textureAddress)
-    pixelFormat = MacosMetalTexture.pixelFormat(textureAddress)
+    return oldTexture.takeIf { !it.isNull && textureAddress != it.address }
   }
 
-  private fun disposeTexture() {
-    releaseTexture(texture)
+  /** Clears the current texture, returning it for the caller to release. */
+  private fun takeTexture(): NativeHandle? {
+    val retired = texture.takeIf { !it.isNull }
     texture = NativeHandle(0L)
     pixelFormat = 0
+    return retired
   }
 
+  /**
+   * Releases a retired texture, and the Skia surface wrapping it, on the calling thread.
+   *
+   * Never call this from the renderer thread. Both halves reach the AWT event thread and wait, so
+   * doing it there deadlocks against an event thread that is waiting on the renderer.
+   */
   private fun releaseTexture(texture: NativeHandle) {
     if (texture.isNull) {
       return

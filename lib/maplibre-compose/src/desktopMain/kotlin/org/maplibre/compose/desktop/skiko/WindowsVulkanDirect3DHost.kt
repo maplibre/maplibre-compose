@@ -126,19 +126,25 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
     // Reading it from there instead would post to the AWT event thread, which is usually the very
     // thread blocked waiting on this call.
     val device = if (extent.isEmpty) null else SkikoReflection.requireDirect3DDevice()
-    rendererThread.run { resizeOnRendererThread(extent, device) }
+    // Retiring the old texture obeys the same rule, which is why the renderer hop hands it back
+    // rather than releasing it: dropping its Skia wrapper also waits on the AWT event thread, and
+    // that is the thread waiting here — drawing is what calls acquireFrame.
+    val retired = rendererThread.run { resizeOnRendererThread(extent, device) }
+    retired?.let(::releaseDirect3DTexture)
   }
 
+  /** Reallocates the texture, returning the D3D texture it replaced for the caller to release. */
   private fun resizeOnRendererThread(
     extent: DesktopMapExtent,
     device: SkikoDirect3DDevice? = null,
-  ) {
+  ): NativeHandle? {
     if (extent == currentExtent && importedTexture != null) {
-      return
+      return null
     }
-    recreateTexture(extent, device)
+    val retired = recreateTexture(extent, device)
     currentExtent = extent
     generation += 1
+    return retired
   }
 
   override fun acquireFrame(
@@ -184,7 +190,9 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
 
   override fun close() {
     try {
-      disposeTexture()
+      // Released on the closing thread rather than the renderer thread that is about to shut down,
+      // for the same reason resize() hands its retired texture back.
+      retireTexture()?.let(::releaseDirect3DTexture)
     } finally {
       val closingVulkan = vulkan
       vulkan = null
@@ -199,11 +207,12 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
   private fun target(generation: Long): DesktopRenderTarget =
     checkNotNull(importedTexture) { "Windows Vulkan texture is not initialized" }.target(generation)
 
-  private fun recreateTexture(extent: DesktopMapExtent, device: SkikoDirect3DDevice? = null) {
-    if (extent.isEmpty) {
-      disposeTexture()
-      return
-    }
+  /** Allocates the texture for [extent], returning the D3D texture it replaced, if any. */
+  private fun recreateTexture(
+    extent: DesktopMapExtent,
+    device: SkikoDirect3DDevice? = null,
+  ): NativeHandle? {
+    if (extent.isEmpty) return retireTexture()
 
     // TODO(maplibre-compose): unverified on Windows — this fallback only runs if resize() did not
     // supply a device, which it always does today. If it ever did run on the renderer thread it
@@ -211,7 +220,7 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
     // implementation has it and removing guards on this path has bitten us before.
     val direct3DDevice = device ?: SkikoReflection.requireDirect3DDevice()
     val storageExtent = extent
-    disposeTexture()
+    val retired = retireTexture()
     direct3DTexture = WindowsDirect3DInterop.createSharedTexture(direct3DDevice, storageExtent)
     var sharedHandle = NULL
     try {
@@ -221,24 +230,45 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
       val context = vulkan ?: WindowsVulkanContext.create(sharedHandle).also { vulkan = it }
       importedTexture = context.importDirect3DTexture(sharedHandle, storageExtent, extent)
     } catch (error: RuntimeException) {
-      disposeTexture()
+      // The half-built texture goes now; the one it replaced still goes back to the caller, which
+      // releases it on the way out of resize().
+      retireTexture()?.let(::releaseDirect3DTexture)
       throw error
     } finally {
       // Importing duplicates the handle rather than taking ownership of it, unlike the file
       // descriptor on Linux, so this copy is always ours to close.
       WindowsDirect3DInterop.closeSharedHandle(sharedHandle)
     }
+    return retired
   }
 
-  private fun disposeTexture() {
+  /**
+   * Releases the Vulkan import and detaches the D3D texture, returning it for the caller.
+   *
+   * The Vulkan side belongs to the renderer thread, so it goes here. The D3D texture does not: its
+   * Skia wrapper has to be dropped on the AWT event thread, which is the thread usually waiting on
+   * the renderer. See [releaseDirect3DTexture].
+   */
+  private fun retireTexture(): NativeHandle? {
     importedTexture?.close()
     importedTexture = null
-    if (direct3DTexture.address != 0L) {
-      // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-      SkikoDirect3DPresenter.forget(direct3DTexture)
-      WindowsDirect3DInterop.release(direct3DTexture)
-      direct3DTexture = NativeHandle(0)
-    }
+    val retired = direct3DTexture.takeIf { it.address != 0L }
+    direct3DTexture = NativeHandle(0)
+    return retired
+  }
+
+  /**
+   * Releases a retired D3D texture, and the Skia surface wrapping it, on the calling thread.
+   *
+   * Never call this from the renderer thread. Dropping the Skia wrapper waits on the AWT event
+   * thread, and that thread is the one that draws — so it is usually the thread blocked on a
+   * renderer hop. Doing it inside the hop deadlocks both, which is what happened on macOS.
+   */
+  private fun releaseDirect3DTexture(texture: NativeHandle) {
+    if (texture.address == 0L) return
+    // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
+    SkikoDirect3DPresenter.forget(texture)
+    WindowsDirect3DInterop.release(texture)
   }
 
   private class HostFrame(

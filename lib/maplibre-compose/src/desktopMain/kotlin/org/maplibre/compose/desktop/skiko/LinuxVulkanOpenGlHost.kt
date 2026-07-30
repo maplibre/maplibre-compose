@@ -148,6 +148,12 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
   override fun resize(extent: DesktopMapExtent) {
     // Importing into GL needs Compose's context current, which only holds inside the draw
     // callback, so the reallocation happens lazily in acquireFrame.
+    //
+    // That also keeps this bridge clear of the deadlock the other two have to work around: every
+    // texture here is created and destroyed on the AWT event thread, so dropping a Skia wrapper
+    // finds itself already there and never waits. Reallocating on the renderer thread instead
+    // would wait on the event thread, which is the thread waiting on the renderer — the macOS and
+    // Windows hosts hand their retired texture back out of that hop for exactly this reason.
   }
 
   override fun acquireFrame(
