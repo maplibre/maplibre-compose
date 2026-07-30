@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
@@ -28,7 +27,6 @@ import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
-import org.maplibre.compose.util.toFfiJsonValue
 
 internal actual class SymbolLayer actual constructor(id: String, source: Source) :
   FeatureLayer(id, source) {
@@ -37,15 +35,10 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
 
   override val sourceId: String = source.id
 
-  // TODO(maplibre-native-ffi): the FFI has no source-layer setter, and `setLayerProperty` only
-  //   reaches layout and paint properties, so a change made after the layer is attached is
-  //   dropped. Attaching picks the value up because it goes out with the layer JSON.
   actual override var sourceLayer: String = ""
     set(value) {
       field = value
-      mutate { map ->
-        map.setLayerProperty(id, "source-layer", JsonPrimitive(value).toFfiJsonValue())
-      }
+      setSourceLayerProperty(value)
     }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {

@@ -30,9 +30,12 @@ internal actual sealed class FeatureLayer(id: String, actual val source: Source)
   /**
    * Writes the `source-layer` key for the [sourceLayer] override each subclass declares.
    *
-   * This is a root key rather than a paint or layout property, so it has to reach the JSON that
-   * creates the layer: a layer over a vector source that is missing it selects no features and
-   * draws nothing.
+   * Both halves matter. It is a root key rather than a paint or layout property, so it has to reach
+   * the JSON that creates the layer: a layer over a vector source that is missing it selects no
+   * features and draws nothing. And it does reach a live layer through `setLayerProperty` despite
+   * not being a paint or layout property, because mbgl's `Layer::setProperty` falls back to the
+   * common keys — `visibility`, `minzoom`, `maxzoom`, `filter`, `source-layer`, `source` — once the
+   * layer's own generated setter declines the name.
    */
   protected fun setSourceLayerProperty(sourceLayer: String) {
     setRootProperty("source-layer", JsonPrimitive(sourceLayer))

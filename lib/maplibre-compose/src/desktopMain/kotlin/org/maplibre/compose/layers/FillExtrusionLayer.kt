@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
@@ -9,23 +8,16 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
-import org.maplibre.compose.util.toFfiJsonValue
 
 internal actual class FillExtrusionLayer actual constructor(id: String, source: Source) :
   FeatureLayer(id, source) {
 
   override val type: String = "fill-extrusion"
 
-  // `source-layer` is a root key, and the descriptor only accumulates layout and paint, so this can
-  // only be pushed to a live layer.
-  // TODO(maplibre-compose): record this in the layer descriptor too, so it is re-emitted when the
-  //   layer is added to another style.
   actual override var sourceLayer: String = ""
     set(value) {
       field = value
-      mutate { map ->
-        map.setLayerProperty(id, "source-layer", JsonPrimitive(value).toFfiJsonValue())
-      }
+      setSourceLayerProperty(value)
     }
 
   actual override fun setFilter(filter: CompiledExpression<BooleanValue>) {
