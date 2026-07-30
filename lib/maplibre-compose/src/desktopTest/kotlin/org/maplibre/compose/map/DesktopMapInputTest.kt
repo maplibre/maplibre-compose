@@ -15,9 +15,11 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runComposeUiTest
 import co.touchlab.kermit.Logger
 import java.nio.file.Files
+import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
@@ -61,20 +63,46 @@ class DesktopMapInputTest {
 
   @Test
   fun `plus and minus zoom the map`() = runInputTest { camera ->
-    val start = camera.position.zoom
     onRoot().performKeyInput { pressKey(Key.Equals) }
-    waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > start }
+    // A step is a doubling, which is one zoom level, and it has to arrive rather than merely
+    // start: a transition only advances while frames render, so this fails if the loop stops
+    // asking for them mid-animation.
+    awaitZoom(camera, START_ZOOM + 1.0)
 
-    val zoomedIn = camera.position.zoom
     onRoot().performKeyInput { pressKey(Key.Minus) }
-    waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom < zoomedIn }
+    awaitZoom(camera, START_ZOOM)
   }
 
   @Test
   fun `double click zooms in`() = runInputTest { camera ->
-    val before = camera.position.zoom
     onRoot().performMouseInput { doubleClick() }
-    waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > before }
+    awaitZoom(camera, START_ZOOM + 1.0)
+  }
+
+  /**
+   * Discrete input eases rather than jumps, which is what every other MapLibre target does.
+   *
+   * Observed by sampling: an instant camera command is only ever seen at its destination, while an
+   * eased one is caught somewhere in between.
+   */
+  @Test
+  fun `double click eases rather than jumping`() = runInputTest { camera ->
+    val target = START_ZOOM + 1.0
+    var sawIntermediate = false
+
+    onRoot().performMouseInput { doubleClick() }
+    waitUntil(timeoutMillis = TIMEOUT) {
+      val zoom = camera.position.zoom
+      if (zoom > START_ZOOM + 0.01 && zoom < target - 0.01) sawIntermediate = true
+      zoom >= target - ZOOM_TOLERANCE
+    }
+
+    assertTrue(sawIntermediate, "the zoom went straight to $target, so it did not animate")
+  }
+
+  /** Waits for the camera to settle at [zoom], failing with the value it stopped at. */
+  private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: CameraState, zoom: Double) {
+    waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.zoom - zoom) < ZOOM_TOLERANCE }
   }
 
   /**
@@ -141,5 +169,7 @@ class DesktopMapInputTest {
 
     /** A zoom about the centre still drifts the target a hair through the projection. */
     const val TARGET_TOLERANCE = 1e-6
+
+    const val ZOOM_TOLERANCE = 0.001
   }
 }

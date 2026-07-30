@@ -20,6 +20,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlin.time.Duration.Companion.milliseconds
 
 /** How far a press may move, in logical pixels, and still count as a click rather than a drag. */
 private const val CLICK_SLOP_PX = 4f
@@ -29,6 +30,20 @@ private const val KEYBOARD_PAN_STEP = 100.0
 
 /** Zoom applied per keyboard step and per double click, as a scale multiplier. */
 private const val KEYBOARD_ZOOM_STEP = 2.0
+
+/**
+ * How long a discrete input takes to move the camera.
+ *
+ * Arrow keys and double click are steps rather than continuous input, so they ease rather than jump
+ * — which is what MapLibre does everywhere else. MapLibre GL JS eases both over 300ms, the mobile
+ * SDKs animate their double tap, and the old desktop implementation inherited MapLibre's own
+ * gesture handling through a SwingPanel and animated for the same reason. Only this rewrite made
+ * them instant, by calling the unanimated camera commands.
+ *
+ * Held keys repeat faster than this, and each repeat supersedes the last transition rather than
+ * queueing behind it, so holding an arrow key pans continuously instead of stepping.
+ */
+private val INPUT_ANIMATION_DURATION = 300.milliseconds
 
 /**
  * Zoom exponent per unit of scroll, applied as `2^(-scroll * factor)`.
@@ -88,7 +103,9 @@ internal fun Modifier.desktopMapInput(
         var pressWasSecondary = false
         var pressWasShifted = false
         // The previous click, for double-click detection. Compose has no click count on desktop,
-        // so it is time and distance, using the same thresholds tap gestures use.
+        // so it is time and distance. The threshold is Compose's own rather than the fixed 400ms
+        // the pre-rewrite implementation used; if double click starts feeling finicky, that
+        // difference is the first place to look.
         var lastClickAt: Long? = null
         var lastClickOrigin = Offset.Zero
 
@@ -120,6 +137,7 @@ internal fun Modifier.desktopMapInput(
                     session.scaleBy(
                       scale = if (pressWasShifted) 1.0 / KEYBOARD_ZOOM_STEP else KEYBOARD_ZOOM_STEP,
                       anchor = options.zoomAnchor(where),
+                      duration = INPUT_ANIMATION_DURATION,
                     )
                     // Cleared so a third click starts a new pair rather than zooming again.
                     lastClickAt = null
@@ -223,13 +241,13 @@ private fun pan(
   deltaY: Double,
 ): Boolean {
   if (!options.isKeyboardPanEnabled) return false
-  session.moveBy(deltaX, deltaY)
+  session.moveBy(deltaX, deltaY, INPUT_ANIMATION_DURATION)
   return true
 }
 
 private fun zoom(session: DesktopMapSession, options: GestureOptions, scale: Double): Boolean {
   if (!options.isKeyboardZoomEnabled) return false
-  session.scaleBy(scale, anchor = null)
+  session.scaleBy(scale, anchor = null, duration = INPUT_ANIMATION_DURATION)
   return true
 }
 

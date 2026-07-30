@@ -1086,13 +1086,32 @@ internal class DesktopMapSession(
     isGestureInProgress = false
   }
 
-  fun moveBy(deltaX: Double, deltaY: Double) {
-    onMap { map -> map.moveBy(deltaX, deltaY) }
+  /**
+   * Pans by a delta, over [duration].
+   *
+   * A zero duration is a jump, which is what a drag wants: it is already tracking the pointer, and
+   * animating toward a position the pointer has since left would lag behind it. A discrete input —
+   * an arrow key, a double click — has no such continuous source, so it eases instead. See
+   * [INPUT_ANIMATION_DURATION].
+   */
+  fun moveBy(deltaX: Double, deltaY: Double, duration: Duration = Duration.ZERO) {
+    onMap { map ->
+      if (duration == Duration.ZERO) map.moveBy(deltaX, deltaY)
+      else map.moveByAnimated(deltaX, deltaY, duration.toAnimationOptions())
+    }
   }
 
-  fun scaleBy(scale: Double, anchor: DpOffset?) {
-    onMap { map -> map.scaleBy(scale, anchor?.toScreenPoint()) }
+  /** Zooms by a factor about [anchor], over [duration]. See [moveBy] for why zero exists. */
+  fun scaleBy(scale: Double, anchor: DpOffset?, duration: Duration = Duration.ZERO) {
+    onMap { map ->
+      val point = anchor?.toScreenPoint()
+      if (duration == Duration.ZERO) map.scaleBy(scale, point)
+      else map.scaleByAnimated(scale, point, duration.toAnimationOptions())
+    }
   }
+
+  private fun Duration.toAnimationOptions() =
+    AnimationOptions().also { it.durationMs = inWholeMilliseconds.toDouble() }
 
   /**
    * Rotates and pitches together from one drag.
