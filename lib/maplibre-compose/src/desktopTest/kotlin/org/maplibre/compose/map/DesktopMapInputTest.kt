@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.click
@@ -16,6 +17,7 @@ import co.touchlab.kermit.Logger
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
@@ -75,44 +77,69 @@ class DesktopMapInputTest {
     waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > before }
   }
 
-  /** Composes a map, waits for it to render, focuses it with a click, then runs [body]. */
-  private fun runInputTest(body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit) =
-    runComposeUiTest {
-      val factory = HeadlessVulkanMapHostFactory.createOrNull() ?: return@runComposeUiTest
-      lateinit var cameraState: CameraState
+  /**
+   * `PositionLocked` promises rotation, tilt and zoom while the position stays put.
+   *
+   * A pointer-anchored zoom moves the camera target to keep the cursor's point still, so it is a
+   * way to pan with the pointer — which this preset is meant to forbid. Zoom has to keep working.
+   */
+  @Test
+  fun `position locked zooms without moving the camera`() =
+    runInputTest(gestures = GestureOptions.PositionLocked) { camera ->
+      val before = camera.position
+      // Off centre, so an anchored zoom would visibly drag the target toward it.
+      onRoot().performMouseInput { doubleClick(Offset(width * 0.2f, height * 0.2f)) }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > before.zoom }
 
-      setContent {
-        CompositionLocalProvider(
-          LocalDesktopMapHostFactory provides factory,
-          LocalDesktopRuntimeOptions provides runtimeOptions,
-        ) {
-          cameraState =
-            rememberCameraState(
-              firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
-            )
-          MaplibreMap(
-            modifier = Modifier.fillMaxSize(),
-            baseStyle = BaseStyle.Empty,
-            cameraState = cameraState,
-            logger = Logger.withTag("input-test"),
-          )
-        }
-      }
-
-      waitUntil(timeoutMillis = TIMEOUT) { factory.created.isNotEmpty() }
-      waitUntil(timeoutMillis = TIMEOUT) { factory.created.single().renderedFrames > 0 }
-      waitUntil(timeoutMillis = TIMEOUT) {
-        kotlin.math.abs(cameraState.position.zoom - START_ZOOM) < 0.001
-      }
-
-      // A click is what gives the map focus, so the keyboard cases depend on it too.
-      onRoot().performMouseInput { click() }
-
-      body(cameraState)
+      val after = camera.position
+      assertEquals(before.target.longitude, after.target.longitude, TARGET_TOLERANCE, "longitude")
+      assertEquals(before.target.latitude, after.target.latitude, TARGET_TOLERANCE, "latitude")
     }
+
+  /** Composes a map, waits for it to render, focuses it with a click, then runs [body]. */
+  private fun runInputTest(
+    gestures: GestureOptions = GestureOptions.Standard,
+    body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
+  ) = runComposeUiTest {
+    val factory = HeadlessVulkanMapHostFactory.createOrNull() ?: return@runComposeUiTest
+    lateinit var cameraState: CameraState
+
+    setContent {
+      CompositionLocalProvider(
+        LocalDesktopMapHostFactory provides factory,
+        LocalDesktopRuntimeOptions provides runtimeOptions,
+      ) {
+        cameraState =
+          rememberCameraState(
+            firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
+          )
+        MaplibreMap(
+          modifier = Modifier.fillMaxSize(),
+          baseStyle = BaseStyle.Empty,
+          cameraState = cameraState,
+          options = MapOptions(gestureOptions = gestures),
+          logger = Logger.withTag("input-test"),
+        )
+      }
+    }
+
+    waitUntil(timeoutMillis = TIMEOUT) { factory.created.isNotEmpty() }
+    waitUntil(timeoutMillis = TIMEOUT) { factory.created.single().renderedFrames > 0 }
+    waitUntil(timeoutMillis = TIMEOUT) {
+      kotlin.math.abs(cameraState.position.zoom - START_ZOOM) < 0.001
+    }
+
+    // A click is what gives the map focus, so the keyboard cases depend on it too.
+    onRoot().performMouseInput { click() }
+
+    body(cameraState)
+  }
 
   private companion object {
     const val TIMEOUT = 30_000L
     const val START_ZOOM = 4.0
+
+    /** A zoom about the centre still drifts the target a hair through the projection. */
+    const val TARGET_TOLERANCE = 1e-6
   }
 }

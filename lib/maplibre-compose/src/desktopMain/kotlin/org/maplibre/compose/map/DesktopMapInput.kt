@@ -119,7 +119,7 @@ internal fun Modifier.desktopMapInput(
                     // stays put. Shift inverts it, which is the convention every web map uses.
                     session.scaleBy(
                       scale = if (pressWasShifted) 1.0 / KEYBOARD_ZOOM_STEP else KEYBOARD_ZOOM_STEP,
-                      anchor = where,
+                      anchor = options.zoomAnchor(where),
                     )
                     // Cleared so a third click starts a new pair rather than zooming again.
                     lastClickAt = null
@@ -184,7 +184,7 @@ internal fun Modifier.desktopMapInput(
           // scroll zoom feel attached to the map rather than to the viewport.
           session.scaleBy(
             scale = Math.pow(2.0, -scrollY.toDouble() * SCROLL_ZOOM_FACTOR),
-            anchor = change.position.toLogicalDpOffset(density),
+            anchor = options.zoomAnchor(change.position.toLogicalDpOffset(density)),
           )
           change.consume()
         }
@@ -232,6 +232,19 @@ private fun zoom(session: DesktopMapSession, options: GestureOptions, scale: Dou
   session.scaleBy(scale, anchor = null)
   return true
 }
+
+/**
+ * Where a pointer-driven zoom should pivot: the pointer, or the viewport centre.
+ *
+ * Zooming about the pointer keeps the point under the cursor still, which is what makes the gesture
+ * feel attached to the map — but it does that by moving the camera's target, so it is a way to pan
+ * with the pointer. `PositionLocked` and `ZoomOnly` both promise that zoom stays available while
+ * the position does not move, and a pointer-anchored zoom quietly breaks that promise. When the
+ * pointer may not move the map, zoom pivots on the centre instead, which is what the keyboard zoom
+ * already does.
+ */
+private fun GestureOptions.zoomAnchor(pointer: DpOffset): DpOffset? =
+  if (isDragPanEnabled) pointer else null
 
 /** Converts a physical Compose position to the logical pixels MapLibre projects in. */
 private fun Offset.toLogicalDpOffset(density: Density): DpOffset =
