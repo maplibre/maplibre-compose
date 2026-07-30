@@ -120,7 +120,16 @@ internal class LayerManager(private val styleNode: StyleNode) {
 
   private fun Anchor.validate() {
     layerIdOrNull?.let { layerId ->
-      // hack: if the style unloaded before baseLayers was initialized, there's nothing to validate
+      // The unloaded case is not a corner case, it is every style switch: content composed against
+      // the incoming style is briefly still inserted into the outgoing style's node, so its anchors
+      // name layers this node has never had. Unloading the outgoing style is what marks that state,
+      // and skipping validation is what keeps it from throwing out of the applier mid-insert. See
+      // SafeStyle, which explains what the platforms have to do to reach this state in time.
+      //
+      // Note this throws from inside `addLayer`, before `userLayers` is updated — so if it ever
+      // does fire, the manager's list is left one short of Compose's child list, and every later
+      // `removeAt(oldIndex)` acts on the wrong node. One bad anchor becomes a run of
+      // IndexOutOfBoundsException that looks unrelated to the anchor.
       require(baseLayers.containsKey(layerId) || styleNode.style.isUnloaded) {
         "Layer ID '$layerId' not found in base style"
       }

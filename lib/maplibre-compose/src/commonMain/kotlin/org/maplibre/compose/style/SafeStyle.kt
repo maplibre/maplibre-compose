@@ -5,7 +5,37 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.ImageResizeOptions
 
+/**
+ * A style that tolerates being used after it has been replaced.
+ *
+ * Switching the base style leaves the outgoing style's content briefly still composed: the map's
+ * content is a subcomposition tied to the style that *loaded*, while the anchors and sources in
+ * that content come from application state, which has already moved to the incoming style. For the
+ * span of one style switch the two disagree, and every write the dying composition makes — removing
+ * its layers, re-adding them under the new anchors — is aimed at a style that is gone.
+ *
+ * [unload] is what makes that survivable rather than fatal. It is not a diagnostic: writes no-op
+ * afterwards, and [LayerManager] skips anchor validation entirely against an unloaded style,
+ * because an anchor naming a layer of the incoming style cannot be checked against the outgoing
+ * one. Added in #269 for exactly this.
+ *
+ * Two things follow, and both have cost a day each to rediscover:
+ * - **Every platform must unload the outgoing style when a new one is *requested*, not when the new
+ *   one has loaded.** The adapters do this by reporting `onStyleChanged(map, null)` from
+ *   `setBaseStyle`. Desktop did not, and crashed on every style switch.
+ * - **It has to happen before the content subcomposition applies its changes.** `AndroidView`'s
+ *   `update` block runs inside the parent composition's apply, which is early enough; a
+ *   `LaunchedEffect` runs after every composition has applied, which is not. Desktop used the
+ *   latter and still crashed after fixing the first point.
+ *
+ * So the correctness of a style switch rests on Compose's scheduling order, stated nowhere and
+ * checked by nothing. That is worth removing rather than documenting further: the underlying
+ * problem is that content is bound to the loaded style instead of the requested one, so the window
+ * exists at all. Making the content's target style explicit would make composing against a style
+ * the application has left unrepresentable, and this class and its escape hatch could go.
+ */
 internal class SafeStyle(private val delegate: Style) : Style {
+  /** See the class docs; skipping anchor validation depends on this, so it is load-bearing. */
   internal var isUnloaded = false
 
   internal fun unload() {
