@@ -6,6 +6,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
@@ -65,13 +66,17 @@ internal actual fun ComposableMapView(
 
   DisposableEffect(session) { onDispose { onReset() } }
 
+  // Held here rather than inside the modifier so it survives recomposition; the map takes focus
+  // when clicked, which is what lets the keyboard reach it.
+  val focusRequester = remember { FocusRequester() }
+
   DesktopMapSurface(
     renderer = session,
     runtimeBackends = runtimeBackends,
     factory = factory,
     // Input is attached here rather than inside the surface because gestures belong to the map,
     // not to the graphics host: every host gets identical behavior this way.
-    modifier = modifier.desktopMapInput(session, options.gestureOptions, density),
+    modifier = modifier.desktopMapInput(session, options.gestureOptions, density, focusRequester),
     logger = logger,
   )
 }
