@@ -111,16 +111,18 @@ kotlin {
     }
 
     // Tests that reach the FFI need a native runtime, exactly as an application does. Selected
-    // for this host so the suite runs wherever it is checked out.
+    // for this host so the suite runs wherever it is checked out — but always the Vulkan one,
+    // because the headless test host has no Metal equivalent. See testRuntimeDependency.
     val desktopTest by getting
     desktopTest.dependencies {
       val platform = DesktopHostPlatform.current()
-      runtimeOnly(platform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
+      runtimeOnly(platform.testRuntimeDependency(libs.versions.maplibre.nativeFfi.get()))
 
       // Same reason: the headless test host drives a real Vulkan device through LWJGL, which loads
       // its natives from the classpath. Without these the tests silently skip.
-      // Core only: lwjgl-vulkan publishes natives for macOS alone, because everywhere else Vulkan
-      // comes from the system loader.
+      // Core only: LWJGL loads Vulkan itself from the system loader on every platform. macOS has
+      // no system loader, so there it comes from `mise run bootstrap` — vulkan-loader over
+      // MoltenVK. Without it the GPU-backed tests skip rather than fail, which reads as green.
       val lwjglVersion = libs.versions.lwjgl.get()
       runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${platform.lwjglNativesClassifier}")
     }

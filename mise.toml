@@ -20,7 +20,20 @@ python = "3.14.4"
 postinstall = [
   "hk install --mise",
   "mise run _xcodes-select",
+  "mise run bootstrap",
 ]
+
+[tasks.bootstrap]
+description = "Install the system libraries mise cannot, for the platform this is run on."
+# The desktop GPU tests drive a real Vulkan device. Linux and Windows have a system Vulkan loader;
+# macOS does not, so it comes from Homebrew over MoltenVK. Without it HeadlessVulkanMapHost cannot
+# be created and every GPU-backed test skips — reporting green while asserting nothing.
+run = """
+if [ "$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
+  brew install --quiet vulkan-loader molten-vk
+fi
+"""
+run_windows = "exit /b 0"
 
 [tasks.check]
 description = "Run hk checks."

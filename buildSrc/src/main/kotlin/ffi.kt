@@ -41,6 +41,23 @@ enum class DesktopHostPlatform(
   /** Full dependency notation for this platform's native runtime. */
   fun runtimeDependency(version: String): String = "$runtimeModule:$version:$nativesClassifier"
 
+  /**
+   * Dependency notation for the runtime the headless GPU tests need.
+   *
+   * Always Vulkan, including on macOS where an application would ship Metal:
+   * `HeadlessVulkanMapHost` creates a real Vulkan device with no window, and there is no Metal
+   * equivalent of it. MapLibre has to render with the backend the host can bridge or backend
+   * negotiation declines and every GPU-backed test quietly asserts against a map that never
+   * rendered. What the tests cover — sessions, styles, layers, queries — is backend-independent, so
+   * this costs nothing but the Metal-specific host bridge, which no test exercises anyway.
+   *
+   * On macOS the Vulkan runtime runs on MoltenVK, which needs `lwjgl-vulkan`'s natives on the test
+   * classpath.
+   */
+  fun testRuntimeDependency(version: String): String =
+    "org.maplibre.nativeffi:maplibre-native-ffi-runtime-" +
+      "${RenderBackend.VULKAN.artifactInfix}-jvm:$version:$nativesClassifier"
+
   companion object {
     /**
      * The platform this build is running on.
