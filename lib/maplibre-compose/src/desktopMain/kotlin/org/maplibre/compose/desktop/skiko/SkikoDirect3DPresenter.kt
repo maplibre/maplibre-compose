@@ -2,7 +2,7 @@ package org.maplibre.compose.desktop.skiko
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
-import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.skiaCanvas
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
@@ -79,13 +79,7 @@ internal object SkikoDirect3DPresenter {
       val context = findDirectContext() ?: return@drawIntoCanvas
       val presenter =
         presenters.getOrPut(target.texture.address) { TexturePresenter(target.texture) }
-      presenter.draw(
-        composeCanvas.nativeCanvas,
-        context,
-        target,
-        scope.size.width,
-        scope.size.height,
-      )
+      presenter.draw(composeCanvas.skiaCanvas, context, target, scope.size.width, scope.size.height)
       drew = true
     }
     return drew
