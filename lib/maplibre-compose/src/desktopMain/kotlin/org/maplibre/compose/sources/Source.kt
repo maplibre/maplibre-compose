@@ -30,30 +30,39 @@ public actual sealed class Source(internal actual val id: String) {
   public actual val attributionHtml: String
     get() = (toJson()["attribution"] as? JsonPrimitive)?.content.orEmpty()
 
-  /**
-   * Adds this source to a style and starts routing mutations to it.
-   *
-   * Every family goes through the generic style JSON rather than the typed per-kind adders, which
-   * is a decision rather than a gap. The typed adders now take options, but `GeoJsonSourceOptions`
-   * still has no `synchronousUpdate`, and mbgl reads that one straight off the source JSON
-   * (`style/conversion/geojson_options.cpp`), so the JSON path is the only one that can express
-   * what `GeoJsonOptions` offers. The other families follow it so there is one attach path rather
-   * than two, and so a source read back from a base style replays through the same code that added
-   * it. Mutations do use the typed setters, where the FFI expresses everything.
-   */
+  /** Adds this source to a style and starts routing mutations to it. */
   internal fun attach(binding: StyleBinding) {
     this.binding = binding
     val added = binding.withMap { map ->
       // Idempotent, because a layer attaches its own source first when Compose has not run the
       // source's effect yet; the effect then attaches the same source again.
       if (!map.styleSourceExists(id)) {
-        map.addStyleSourceJson(id, toJson().toFfiJsonValue())
+        addTo(map)
       }
     }
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
     }
+  }
+
+  /**
+   * Creates this source on [map], on the map's owner thread.
+   *
+   * Style JSON is the default because a descriptor has to be able to produce its own definition
+   * anyway — [attributionHtml] reads it, and re-adding after a style change replays it — so
+   * creating from the same object keeps one representation of a source rather than two that can
+   * drift apart. It is a choice and no longer a gap: `GeoJsonSourceOptions` gained
+   * `synchronousUpdate` in maplibre-native-ffi#441, so the typed adders could now express every
+   * family the style spec can spell. Mutations use the typed setters regardless.
+   *
+   * What the style spec cannot spell is what overrides this. MapLibre Native accepts only `vector`,
+   * `raster`, `raster-dem`, `geojson`, and `image` from source JSON, so [ComputedSource] has no
+   * JSON form at all, and an [ImageSource] built from pixels has no URL to name them with. Both
+   * reach their typed `MapHandle` adder here instead.
+   */
+  internal open fun addTo(map: MapHandle) {
+    map.addStyleSourceJson(id, toJson().toFfiJsonValue())
   }
 
   /**

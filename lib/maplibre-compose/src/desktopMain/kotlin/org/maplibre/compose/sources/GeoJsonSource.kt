@@ -219,6 +219,16 @@ private fun GeoJsonData.toDataJson(): JsonElement =
   }
 
 /**
+ * Converts caller-supplied features into the FFI's geometry tree.
+ *
+ * Shared with [ComputedSource], whose tiles are handed over as the same typed tree. It goes through
+ * the serialized form for the reason [toDataJson] does: features carrying typed properties are
+ * encoded by the serializer SpatialK picks for them at runtime.
+ */
+internal fun FeatureCollection<*, *>.toFfiGeoJson(): FfiGeoJson =
+  Json.parseToJsonElement(toJson()).toFfiGeoJson()
+
+/**
  * Converts parsed GeoJSON into the FFI's geometry tree.
  *
  * Updating an attached source has no JSON entry point — `setGeoJsonSourceData` takes the typed tree
