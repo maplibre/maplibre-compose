@@ -43,6 +43,13 @@ public sealed interface DesktopRenderTarget {
    * The session re-attaches its render session whenever this changes, so a host must bump it any
    * time the handles it reports stop referring to the same allocation — after a resize that
    * reallocates, after surface loss, or when rotating through a pool.
+   *
+   * Bumping this does not license freeing the old allocation immediately. MapLibre only produces an
+   * update when it has one, so the frames just after a resize routinely skip, and the surface
+   * presents the last target that *was* rendered into rather than a blank one — which may be the
+   * target this generation replaced. A host must therefore keep a retired target readable until it
+   * has been asked to draw a different one. Freeing on the bump instead is not a leak-shaped bug:
+   * on macOS it hands Skia a released `MTLTexture` and traps inside `CFRetain`.
    */
   public val generation: Long
 }

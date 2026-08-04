@@ -115,7 +115,6 @@ internal fun DesktopMapSurface(
     }
     try {
       host.resize(extent)
-      drawState.onExtentChanged(extent)
       renderer.onSurfaceChanged(extent)
       session?.requestFrame()
     } catch (error: Throwable) {
@@ -304,13 +303,22 @@ private fun createHost(
 }
 
 private class DesktopMapDrawState {
-  private var extent = DesktopMapExtent.Empty
   private var nextFrameId = 1L
 
   /**
    * The last target that was rendered into, redrawn when the renderer skips a frame.
    *
-   * Cleared on resize, since a target allocated at the old extent would be drawn stretched.
+   * Deliberately survives a resize, which is a reversal. It used to be cleared, on the reasoning
+   * that a target allocated at the old extent would be drawn stretched — true, but the alternative
+   * turned out to be worse. A resize retargets the render session, and MapLibre has no update for
+   * the new size until its owner thread has pumped it, so the frames in between skip; with nothing
+   * to present, every one of them painted transparent. Under Compose Desktop that is rare enough to
+   * miss, because AWT coalesces resize events, but a compose-glfw window reports every intermediate
+   * size a drag passes through and the map visibly flickered through the window background for the
+   * whole drag. One frame of stretch beats a drag's worth of blank.
+   *
+   * The cost is a rule for hosts, recorded on [DesktopRenderTarget.generation]: a retired target
+   * has to stay presentable until a newer one has been drawn.
    */
   var lastCompletedTarget: DesktopRenderTarget? = null
 
@@ -325,13 +333,6 @@ private class DesktopMapDrawState {
   var frameFailures: Int = 0
     private set
 
-  fun onExtentChanged(next: DesktopMapExtent) {
-    if (next != extent) {
-      extent = next
-      lastCompletedTarget = null
-    }
-  }
-
   fun nextFrameId(): Long = nextFrameId++
 
   /** Counts a failed frame and reports which attempt at recovering it is. */
@@ -342,7 +343,6 @@ private class DesktopMapDrawState {
   }
 
   fun reset() {
-    extent = DesktopMapExtent.Empty
     lastCompletedTarget = null
     frameFailures = 0
   }

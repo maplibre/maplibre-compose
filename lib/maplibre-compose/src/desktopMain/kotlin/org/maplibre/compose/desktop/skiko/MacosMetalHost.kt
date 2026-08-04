@@ -30,6 +30,21 @@ internal class MacosMetalHost : DesktopMapHost {
   private var generation = 0L
   private var currentExtent = DesktopMapExtent.Empty
 
+  /**
+   * Textures this host has replaced but must still be able to present.
+   *
+   * See [DesktopRenderTarget.generation]: the surface keeps presenting the last target that was
+   * rendered into while MapLibre catches up with a new size, so a texture retired half a frame ago
+   * can still be handed back to [draw]. Releasing it on the generation bump, which is what this
+   * host used to do, hands Skia a released `MTLTexture` and traps inside `CFRetain` — reproducible
+   * by dragging a window edge, and found by the compose-glfw fixture, whose host reports every
+   * intermediate size rather than only the ones AWT does not coalesce away.
+   *
+   * Bounded by construction: a texture leaves this list as soon as [draw] is asked for a different
+   * one, so at most one resize's worth is held.
+   */
+  private val retiredTextures = ArrayDeque<NativeHandle>()
+
   override val backends: DesktopBackendPair =
     DesktopBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
 
@@ -65,7 +80,7 @@ internal class MacosMetalHost : DesktopMapHost {
     // drawing is what calls acquireFrame. Releasing inside the hop deadlocks both threads on the
     // first window resize, which is how this was found.
     val retired = rendererThread.run { resizeOnRendererThread(extent, metalDevice) }
-    retired?.let(::releaseTexture)
+    retired?.let(retiredTextures::addLast)
   }
 
   override fun acquireFrame(
@@ -103,6 +118,9 @@ internal class MacosMetalHost : DesktopMapHost {
     if (target !is MetalTextureTarget || target.texture.isNull) {
       return false
     }
+    // Freed here rather than at the resize that retired them, because this is the first moment the
+    // host knows which of them the surface has stopped presenting.
+    releaseRetiredTexturesExcept(target.texture)
     return SkikoMetalPresenter.draw(scope, target)
   }
 
@@ -111,9 +129,21 @@ internal class MacosMetalHost : DesktopMapHost {
       // The texture, and the Skia surface wrapping it, are released on the closing thread rather
       // than on the renderer thread that is about to shut down. The presenter hops to the AWT
       // event thread itself, so the Skia objects are always freed on the thread that owns them.
-      takeTexture()?.let(::releaseTexture)
+      takeTexture()?.let(retiredTextures::addLast)
+      releaseRetiredTexturesExcept(NativeHandle(0L))
     } finally {
       rendererThread.close()
+    }
+  }
+
+  /** Frees every retired texture except [keepAlive], which the surface is still presenting. */
+  private fun releaseRetiredTexturesExcept(keepAlive: NativeHandle) {
+    val iterator = retiredTextures.iterator()
+    while (iterator.hasNext()) {
+      val retired = iterator.next()
+      if (retired == keepAlive) continue
+      iterator.remove()
+      releaseTexture(retired)
     }
   }
 
