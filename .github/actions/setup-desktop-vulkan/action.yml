@@ -1,0 +1,95 @@
+name: Setup desktop Vulkan
+description: >-
+  Give the runner a Vulkan implementation the desktop GPU tests can drive.
+
+# The desktop test suite renders through a real Vulkan device (HeadlessVulkanMapHost), on every
+# platform including macOS, because the headless host has no Metal equivalent. Without a loader
+# and an ICD those tests fail, which is deliberate — they used to bail out instead, and a test
+# that returns before asserting is recorded as passed, so CI reported green while running none of
+# them. See HeadlessVulkanMapHost.create.
+#
+# A software implementation is enough and is what CI wants: lavapipe on Linux and Windows,
+# MoltenVK over the Homebrew loader on macOS. The recipes follow maplibre-native-ffi's own CI,
+# which solves the same problem for the same tests.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Mesa software drivers (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends --yes \
+          libegl-mesa0 \
+          libgl1-mesa-dri \
+          libvulkan1 \
+          mesa-utils \
+          mesa-utils-extra \
+          mesa-vulkan-drivers
+        {
+          echo "EGL_PLATFORM=surfaceless"
+          echo "LIBGL_ALWAYS_SOFTWARE=true"
+        } >> "$GITHUB_ENV"
+
+    # macOS ships no Vulkan loader at all, so both halves come from Homebrew: the loader, and
+    # MoltenVK as the ICD behind it. This is what `mise run bootstrap` installs for contributors.
+    - name: Install the Vulkan loader and MoltenVK (macOS)
+      if: runner.os == 'macOS'
+      shell: bash
+      run: brew install --quiet vulkan-loader molten-vk
+
+    - name: Install a Lavapipe ICD (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $ProgressPreference = "SilentlyContinue"
+
+        function Save-CheckedArchive($Url, $Path, $ExpectedHash) {
+          Invoke-WebRequest -Uri $Url -OutFile $Path
+          $actualHash = (Get-FileHash $Path -Algorithm SHA256).Hash
+          if ($actualHash -ne $ExpectedHash) {
+            throw "Archive hash mismatch for $Url`: expected $ExpectedHash, got $actualHash"
+          }
+        }
+
+        function Register-VulkanDriver($Manifest) {
+          $driverKey = "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers"
+          New-Item -Path $driverKey -Force | Out-Null
+          New-ItemProperty -Path $driverKey -Name $Manifest -PropertyType DWord -Value 0 -Force | Out-Null
+        }
+
+        if ($env:RUNNER_ARCH -eq "ARM64") {
+          $mesaVersion = "26.1.3"
+          $archiveName = "mesa-lavapipe-arm64-$mesaVersion.7z"
+          $expectedHash = "371EF5E595A0A3D7FF1965E336F98314EB2C7787FCB7953BC700DFCCC72DB457"
+          $mesaUrl = "https://github.com/mmozeiko/build-mesa/releases/download/$mesaVersion/$archiveName"
+          $manifestName = "lvp_icd.aarch64.json"
+        } else {
+          $mesaVersion = "26.1.3"
+          $archiveName = "mesa3d-$mesaVersion-release-msvc.7z"
+          $expectedHash = "6DD431F4620CEA73970B13E3FFA94F721F2A3924306B8A4283C97648CDB6EB9C"
+          $mesaUrl = "https://github.com/pal1000/mesa-dist-win/releases/download/$mesaVersion/$archiveName"
+          $manifestName = "lvp_icd.x86_64.json"
+        }
+
+        $mesaArchive = Join-Path $env:RUNNER_TEMP $archiveName
+        $mesaRoot = Join-Path $env:RUNNER_TEMP "lavapipe-$mesaVersion-$env:RUNNER_ARCH"
+        Save-CheckedArchive $mesaUrl $mesaArchive $expectedHash
+        7z x $mesaArchive "-o$mesaRoot" -y | Out-Null
+
+        $driverManifest = Get-ChildItem $mesaRoot -Recurse -Filter $manifestName |
+          Select-Object -First 1
+        if (-not $driverManifest) {
+          throw "Missing Lavapipe Vulkan ICD manifest $manifestName in $mesaArchive"
+        }
+
+        $driver = Get-ChildItem $mesaRoot -Recurse -Filter "vulkan_lvp.dll" |
+          Select-Object -First 1
+        if (-not $driver) {
+          throw "Missing Lavapipe Vulkan driver in $mesaArchive"
+        }
+
+        Register-VulkanDriver $driverManifest.FullName
+        "Path=$($driver.Directory.FullName);$env:Path" >> $env:GITHUB_ENV
