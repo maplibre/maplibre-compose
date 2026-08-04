@@ -98,9 +98,13 @@ private fun literalArray(inLiteral: Boolean, values: List<JsonElement>): JsonEle
  * the style spec defines `literal` as an operator and therefore requires the array form. The object
  * form would parse as an ordinary object with a `literal` key.
  *
- * TODO(maplibre-compose): confirm against a running map once a style with a map literal is
- *   exercised, and reconcile with Android/iOS if they turn out to be wrong rather than merely
- *   different.
+ * It cannot currently be confirmed against a running map, and not for want of trying: nothing can
+ * construct a map literal. [org.maplibre.compose.expressions.ast.MapLiteral] has a private
+ * constructor and an `internal` `of`, and `of` has no callers anywhere in the repository, so no
+ * public expression DSL entry point produces one. This branch is therefore unreachable on all three
+ * platforms, which is also why the divergence has never shown up as a bug. The array form stays
+ * because it is what the style spec requires of the raw JSON desktop writes; if a DSL entry point
+ * for map literals is ever added, that is the moment to test all three and reconcile them.
  */
 private fun literalObject(inLiteral: Boolean, values: Map<String, JsonElement>): JsonElement =
   if (inLiteral) JsonObject(values)

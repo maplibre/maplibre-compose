@@ -100,6 +100,46 @@ Switching between Mercator and globe projections.
 
 - FFI: `projectionMode`
 
+## Style transition options
+
+The style's global transition duration and delay, and whether symbol placement
+cross-fades. What every paint property's animation takes its default from, so
+this is the one setting that changes how the whole map feels when data updates.
+
+- FFI: `setStyleTransitionOptions`, `styleTransitionOptions`
+  ([#465](https://github.com/maplibre/maplibre-native-ffi/pull/465))
+
+Naturally a parameter on `MaplibreMap` or its style content, alongside the other
+per-map options.
+
+## HTTP header transforms
+
+A hook to add or rewrite request headers for every resource the map fetches —
+the usual home for an `Authorization` header or an API key that does not belong
+in a URL.
+
+- FFI: `setHttpHeaderTransform`, `clearHttpHeaderTransform`
+  ([#509](https://github.com/maplibre/maplibre-native-ffi/pull/509))
+
+Related to the resource-transform entry below, and worth designing with it: one
+rewrites the URL, the other the headers, and an application adding credentials
+needs whichever the server expects. Note the FFI reports this as unsupported on
+OpenHarmony, whose HTTP client cannot intercept redirects, so a common API has
+to tolerate a platform declining it.
+
+## Missing style images
+
+The event MapLibre raises when a style references a sprite that is not in the
+loaded image set, so an application can supply it on demand instead of shipping
+every icon up front. Desktop logs it today and can do nothing else, because
+there is no common callback to route it to — and neither the Android nor the iOS
+adapter exposes one either.
+
+- FFI: the `MAP_STYLE_IMAGE_MISSING` runtime event, paired with the existing
+  `setStyleImage`
+
+See the `MAP_STYLE_IMAGE_MISSING` branch in `DesktopMapSession.handleEvent`.
+
 ## Resource transform
 
 A hook to rewrite every resource URL before it is requested — how applications

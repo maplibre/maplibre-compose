@@ -788,8 +788,13 @@ operating system before declaring the SPI usable.
 - [x] Images and rendered feature queries are implemented.
 - [x] Compose resources load through the runtime resource boundary.
 - [x] Desktop offline APIs are implemented and persistence-tested.
-- [x] Every known FFI gap has a specific `TODO(maplibre-native-ffi)` comment and
-      defined behavior, plus an entry in `MAPLIBRE_NATIVE_FFI_FEEDBACK.md`.
+- [x] Every known FFI gap is closed. There is no longer a
+      `TODO(maplibre-native-ffi)` anywhere in the desktop source: three gaps
+      were fixed upstream in #441 and the fourth was declined there with
+      reasons, so each boundary now carries either a real implementation or a
+      settled explanation. `MAPLIBRE_NATIVE_FFI_FEEDBACK.md` is down to the
+      process-exit lifecycle crash, which is a workaround rather than a gap —
+      and which has still never been filed upstream.
 - [x] No executable desktop `TODO()` remains in anything the FFI backs.
       `DesktopOrientationProvider` is still a stub and stays one: device
       orientation is not something the FFI provides, so it is out of scope.
@@ -798,23 +803,44 @@ operating system before declaring the SPI usable.
 - [x] Every FFI capability the MapLibre Compose public API asks for is
       integrated. Audited by diffing the public surface of `MapHandle`,
       `RuntimeHandle`, and `RenderSessionHandle` against desktop call sites. The
-      remainder is unused for a stated reason: the typed `add*Source`/
-      `add*Layer` entry points, because they cannot express what the common API
-      offers — there is no typed adder for fill, line, circle, or symbol layers,
-      and `GeoJsonSourceOptions` still has no `synchronousUpdate`. Creation
-      therefore goes through the generic style JSON, while property updates use
-      `setLayerProperty` and the typed source setters, the same shape Android
-      uses. Also unused: the owned-texture and surface attach modes, because the
-      hosts render into borrowed textures; and capabilities with no common API
-      to reach them — style light, projection mode, feature-state writes, custom
-      geometry sources, location indicator layers, resource transforms, offline
-      database merge, and still images. Wiring any of those means designing a
-      cross-platform API first, so they are recorded in `COMMON_API_GAPS.md`
-      rather than done here. Finally `createProjection`, whose semantics do not
-      match ours: it returns a snapshot of the transform, while
-      `CameraProjection` is a live view.
-- [~] Automated tests pass (62 desktop tests, none skipped). The machine
+      remainder is unused for a stated reason. The typed `add*Layer` entry
+      points, because upstream declined to complete them
+      ([#361](https://github.com/maplibre/maplibre-native-ffi/issues/361),
+      closed "won't do"): typed adders exist only where typing buys something
+      beyond construction, and for the rest they would freeze a snapshot of the
+      style spec into the ABI. Creation therefore goes through the generic style
+      JSON, while property updates use `setLayerProperty` and the typed source
+      setters, the same shape Android uses.
+
+      Sources are the same JSON path, but now by choice rather than necessity:
+      `synchronousUpdate` landed in #441, so the JSON path is no longer the only
+      one that can express a GeoJSON source. It stays the default because a
+      descriptor has to produce its own JSON anyway — for `attributionHtml`, and
+      to replay itself after a style change — and one representation beats two.
+      The two families the style spec cannot spell at all override it and use
+      their typed adder: **custom geometry sources** and image sources carrying
+      pixels.
+
+      Also unused: the owned-texture and surface attach modes, because the hosts
+      render into borrowed textures; and capabilities with no common API to reach
+      them — style light, projection mode, feature-state writes, location
+      indicator layers, style transition options, HTTP header transforms, missing
+      style images, resource transforms, offline database merge, and still
+      images. Wiring any of those means designing a cross-platform API first, so
+      they are recorded in `COMMON_API_GAPS.md` rather than done here. Finally
+      `createProjection`, whose semantics do not match ours: it returns a snapshot
+      of the transform, while `CameraProjection` is a live view.
+- [~] Automated tests pass (105 desktop tests, none skipped). The machine
   validation matrix covers Linux x64 and macOS arm64; Windows is untested.
+
+      "None skipped" now means something. Every GPU-backed test used to open with
+      `HeadlessMapFixture.createOrNull() ?: return`, and a test that returns
+      before asserting is recorded by JUnit as **passed** — so a machine without a
+      Vulkan loader ran the whole suite green while executing none of it, and
+      nothing in the report distinguished that from real coverage. A working
+      loader is a requirement of this suite rather than a nice-to-have, so
+      `HeadlessVulkanMapHost.create()` now throws, naming `mise run bootstrap`.
+      The nullable factory is gone, which is what stops the pattern coming back.
 - [x] Getting-started, contribution, roadmap, and release documentation describe
       the new integration and Java 25 requirement.
 
@@ -823,8 +849,16 @@ operating system before declaring the SPI usable.
 Update this section as the branch develops:
 
 - FFI snapshot version/commit used: `0.1.0-SNAPSHOT`; binding
-  `0.1.0-20260730.030702-40`, Vulkan runtime `0.1.0-20260730.031056-40`. The pin
-  floats, so this record is the only thing tying a result to a build.
+  `0.1.0-20260803.074311-52`. The pin floats, so this record is the only thing
+  tying a result to a build — and the float is deliberate: maplibre-native-ffi
+  gets tagged only once MapLibre Compose is ready to ship against it.
+
+  Moving from build 40 to build 52 was not free. Three APIs changed shape and
+  the desktop target stopped compiling until each was migrated:
+  `RuntimeOptions.maximumCacheSize` was removed in favour of a runtime setter
+  (#441), `ResourceRequest.url` became `requestedUrl` plus `resolvedUrl` (#467),
+  and `RenderBackend` gained `WEBGPU`. That is the cost of the floating pin, and
+  it is worth recording that it is a real cost rather than a theoretical one.
 - Compose/Skiko version used by the reflection adapter: holding at Compose
   Multiplatform 1.10.3 / skiko 0.9.37.4. All seven classes the FFI Compose
   example reflects into (`SkiaLayer`, `ComposeWindow`, `MetalRedrawer`,
@@ -856,10 +890,25 @@ Update this section as the branch develops:
   does not need a process-level runtime service with every map serialized onto
   one owner thread. The test stays in the suite so a future FFI snapshot that
   changes this fails loudly instead of corrupting a user's cache.
-- FFI gaps remaining: `synchronousUpdate` on `GeoJsonSourceOptions`, stretchable
-  image content insets, the ambient cache size setter, and the offline tile
-  count limit. See `MAPLIBRE_NATIVE_FFI_FEEDBACK.md`. The visible region, meters
-  per pixel, and maximum FPS are ours rather than gaps; see "Ours to own" below.
+- FFI gaps remaining: **none in the map API.** `synchronousUpdate`, stretchable
+  image content insets, and the ambient cache size setter all landed in
+  maplibre-native-ffi #441; the offline tile count limit was declined in the
+  same PR, with reasons, which closes it rather than leaving it pending.
+  `MAPLIBRE_NATIVE_FFI_FEEDBACK.md` is down to one entry — the process-exit
+  lifecycle crash, which has still never been filed upstream. The visible
+  region, meters per pixel, and maximum FPS are ours rather than gaps; see "Ours
+  to own" below.
+- Base-style layer restore: a replaced base layer used to come back stripped of
+  its `filter` and `source-layer`, so a filtered layer redrew everything it was
+  meant to exclude and one over a vector source came back empty. Restoring the
+  whole reported object fixes it. Two things were learned doing so. The claim
+  that `Layer` had no protected way to write a root key was stale —
+  `setRootProperty` was already protected and `FeatureLayer` already used it —
+  so only the filter needed a JSON-taking path alongside the compiled-expression
+  one. And `metadata` is genuinely unrestorable, not merely unimplemented:
+  probing `styleLayerJson` for a layer whose style JSON declared one shows no
+  `metadata` key at all, because mbgl parses it and discards it. There is
+  nothing to restore, so nothing pretends to.
 - Layer/source ordering: Compose adds a layer to the style _before_ the effect
   that adds its source. The applier inserts nodes and calls `onEndChanges`,
   which is where `LayerManager` reaches MapLibre, and only afterwards dispatches
@@ -881,6 +930,15 @@ Update this section as the branch develops:
   `logical=800x572
   physical=1600x1144`, on the two-thread implementation. The
   Metal host bridge had never run on hardware before that.
+
+  Re-run on macOS arm64 against the build-52 snapshot, specifically to exercise
+  the retarget-on-resize path, which until then had only run on the headless
+  Vulkan host. The window was drag-resized in forty incremental steps, growing
+  1137x760 → 1375x872 and shrinking → 855x542, so every intermediate size was
+  hit. The map stayed sharp and correct throughout, and
+  `Rendered the first map frame` appears **exactly once** in the whole session —
+  which is the proof that every one of those sizes retargeted the live session
+  rather than attaching a new one. No host, texture, or deadlock diagnostics.
 - Suspend/resume note: after the machine slept, the desktop map stopped
   rendering with both the renderer thread and the AWT event thread parked idle
   and no error logged. It was not a code regression — the same commit renders
@@ -889,6 +947,21 @@ Update this section as the branch develops:
   and recovery is on the machine matrix; this is the first evidence it needs
   real handling rather than the current "host reports a new generation"
   assumption.
+- Frame failure recovery: a frame that throws is now read as a lost device and
+  retried. `DesktopMapSurface` runs the surface-loss path against the renderer —
+  which drops the render session and its target key — hands the surface back,
+  and asks for the frame that retries it, because an idle map publishes no
+  update that would ask for one on its own. Three consecutive failures latch the
+  surface into `Failed` with the attempt count in the diagnostic; a frame that
+  completes resets the budget. A failure the renderer marks fatal, meaning its
+  runtime is gone rather than its device, latches immediately: retrying it would
+  replace a reported failure with a blank map. This is what makes
+  `onSurfaceLost` reachable from the Compose path at all — disposal uses
+  `close()`, which subsumes it. What it does **not** cover is the half of the
+  suspend/resume report that says nothing was logged: if Skiko or AWT stops
+  delivering paint callbacks, or if a lost device draws nothing without
+  reporting an error, no frame throws and there is nothing here to notice.
+  Distinguishing those needs the machine that slept.
 - Style switching: two desktop deviations from the mobile adapters, together,
   made the style selector crash with `Layer ID '...' not found in base style`
   thrown out of the applier. The mechanism that is supposed to prevent it is
@@ -971,6 +1044,14 @@ observable only by reading native source or by debugging a failure.
 - `RuntimeHandle.close()` blocks on in-flight resource-provider callbacks
   running on network threads. Provider callbacks must be non-blocking, and
   outstanding requests must be quiesced before close.
+- The same rule, harder, for **custom geometry sources**: the binding wraps the
+  tile callback in a `CallbackGate` whose `close()` **spin-waits** for active
+  callbacks, and it is closed from `removeStyleSource` and `setStyleJson` — both
+  on the owner thread. So a `fetchTile` that hops to the owner thread and waits
+  deadlocks outright, and one that merely computes there stalls the next style
+  change for as long as the computation takes. `ComputedSource` therefore does
+  nothing on the callback thread but record the tile id and hand it to a
+  single-thread executor of its own.
 - A `WakeSource` is its own native handle and outlives the runtime it came from,
   so closing the runtime does not release it.
 
@@ -1012,11 +1093,27 @@ observable only by reading native source or by debugging a failure.
 - The render session's owner is the thread that attached it, which need not be
   the map's owner thread. Every session call, close included, reports the
   wrong-thread error from anywhere else.
-- **Borrowed-texture sessions cannot be resized.** `resize()` throws
-  `UnsupportedFeatureException`, and there is no re-attach API. A size or scale
-  change means: close the session, replace the host texture, build a new
-  descriptor, attach again. This is what `DesktopRenderTarget.generation` exists
-  to signal.
+- **Borrowed-texture sessions still cannot be resized** — `resize()` throws
+  `UnsupportedFeatureException`, because a borrowed texture is sized by its
+  owner — but since maplibre-native-ffi #485 they can be **retargeted**. A live
+  session takes a replacement texture through `set*BorrowedTextureTarget` and
+  keeps its renderer, and with it the tile pyramid, the glyph and image atlases,
+  symbol placement, and renderer-held feature state. So a size change is:
+  allocate the new host texture, build a new descriptor, hand it over. This is
+  what `DesktopRenderTarget.generation` signals, and `ensureAttached` follows it
+  in place.
+
+  The exception is a **scale factor** change, which must still close and attach:
+  a renderer compiles its shaders for one pixel ratio. That case also needs a
+  new map, since `MapHandle`'s `pixelRatio` is fixed at creation, so it is
+  handled by replacing the runtime loop rather than inside `ensureAttached`.
+
+  This supersedes an earlier note here arguing the close-and-attach path cost
+  nothing because the supported resize also called `renderer.reset()`. That was
+  true of build 40 and is not true now: every resize was discarding the tile
+  pyramid and refetching. `DesktopMapResizeTest` asserts on the session's attach
+  and retarget counts, because both paths render the same scene at the same size
+  and the difference is otherwise invisible.
 - A map allows at most one live render session; attaching a second throws rather
   than replacing. `detach()` releases the parent retention, as does `close()`.
 - `RenderTargetExtent` is **logical**, and a borrowed-texture descriptor states
