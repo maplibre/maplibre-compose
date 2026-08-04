@@ -36,11 +36,20 @@ internal class MacosMetalHost : DesktopMapHost {
   override val capabilities: DesktopHostCapabilities =
     DesktopHostCapabilities(
       backends = backends,
-      // Ported as-is: the example performs no fence or event handshake between MapLibre's command
-      // buffer and Skia's.
-      // TODO(maplibre-compose): unverified on macOS — whether MapLibre's Metal renderUpdate has
-      // finished on the GPU by the time draw() samples the texture, or whether that holds only
-      // because both sides happen to submit to the same device.
+      // The example performs no fence or event handshake between MapLibre's command buffer and
+      // Skia's, and none is needed: MapLibre's Metal texture backend commits its command buffer
+      // and then waits on it from inside renderUpdate, so the texture is finished on the GPU
+      // before that call returns and draw() can sample it. Traced through maplibre-native-ffi
+      // 2c397595 — render_session_common.cpp:1388 renders the update, renderer_impl.cpp:457
+      // presents the default renderable, mtl/command_encoder.cpp:30 forwards that to the
+      // renderable's swap(), and metal_texture_backend.mm:139 commits and waitUntilCompleted()s.
+      // The cost is that the renderer thread blocks for the whole frame, every frame.
+      //
+      // False is therefore the honest value rather than a gap: this flag reports what the host
+      // itself does, and the ordering above is the producer's doing, not something this bridge
+      // signals. The reverse direction is unfenced too — MapLibre overwriting the texture while
+      // Skia's previous frame may still be sampling it rests on the frame loop issuing render and
+      // draw from one thread, not on a guarantee from either API.
       supportsExplicitSynchronization = false,
       supportsResizeWithoutRecreate = false,
     )
@@ -195,7 +204,18 @@ internal class MacosMetalHost : DesktopMapHost {
  * Every entry point opens an autorelease pool: Metal's factory methods return autoreleased objects,
  * and these are called from threads that have no pool of their own.
  */
-private object MacosMetalTexture {
+internal object MacosMetalTexture {
+  /**
+   * Skiko's own Objective-C wrapper around the Metal device, under the name it registers with the
+   * runtime, and the property on it holding the `id<MTLDevice>`.
+   *
+   * Neither is published API — they are private to Skiko's `MetalRedrawer.mm` — so they are named
+   * here once and pinned by `MacosMetalDeviceContractTest`.
+   */
+  const val SKIKO_METAL_DEVICE_CLASS: String = "MetalDevice"
+
+  const val SKIKO_METAL_DEVICE_ADAPTER: String = "adapter"
+
   private const val MTL_TEXTURE_TYPE_2D = 2L
   private const val MTL_PIXEL_FORMAT_BGRA8_UNORM = 80L
   private const val MTL_TEXTURE_USAGE_SHADER_READ = 1L
@@ -220,10 +240,17 @@ private object MacosMetalTexture {
       }
 
       // Skiko's device object is its own Objective-C wrapper; `adapter` is what responds to
-      // `newTextureWithDescriptor:`, so it is the `id<MTLDevice>` inside it.
-      // TODO(maplibre-compose): unverified on macOS — that Skiko still names this property
-      // `adapter`; it is not part of any published API and only the example's usage attests to it.
-      val adapter = MacosObjectiveC.sendPointer(metalDevice, "adapter")
+      // `newTextureWithDescriptor:`, so it is the `id<MTLDevice>` inside it. Confirmed against the
+      // Skiko this project resolves by dumping the Objective-C metadata of
+      // libskiko-macos-arm64.dylib: class `MetalDevice` declares `adapter` with the encoded type
+      // `@"<MTLDevice>"`, alongside `queue`, `layer`, and `drawableHandle`.
+      //
+      // Still unpublished, so two things stand behind it. MacosMetalDeviceContractTest asks the
+      // Objective-C runtime the same question at build time, so a Skiko upgrade that renames the
+      // class or the property fails the build instead of blanking the map. And if it somehow got
+      // past that, MacosObjectiveC checks class_respondsToSelector before resolving an
+      // implementation, so the failure is an exception naming both rather than an aborted process.
+      val adapter = MacosObjectiveC.sendPointer(metalDevice, SKIKO_METAL_DEVICE_ADAPTER)
       val descriptor = MacosObjectiveC.allocInit("MTLTextureDescriptor")
       try {
         MacosObjectiveC.sendVoid(descriptor, "setTextureType:", MTL_TEXTURE_TYPE_2D)

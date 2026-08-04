@@ -109,10 +109,25 @@ internal object MacosObjectiveC {
    *
    * `object_getClass` on a class object returns its metaclass, so this resolves class methods such
    * as `alloc` as well as instance methods.
+   *
+   * The `class_respondsToSelector` question is asked first because `class_getMethodImplementation`
+   * does not answer it: for a selector the class does not implement it returns the runtime's
+   * `_objc_msgForward` trampoline rather than null, so the null check below can never fire for a
+   * misspelled or renamed selector. Calling that trampoline reaches `doesNotRecognizeSelector:`,
+   * which raises an Objective-C exception that unwinds through a JNI frame with no handler and
+   * aborts the process. Asking first turns the same mistake into a [DesktopHostException] naming
+   * the class and the selector, which is what the messages sent to Skiko's own Objective-C
+   * internals need: those are unpublished and can be renamed by a Skiko upgrade.
    */
   private fun implementation(receiver: Long, selector: Long): Long {
     check(receiver != NULL) { "Objective-C receiver is null" }
     val objectClass = ObjCRuntime.object_getClass(receiver)
+    if (!ObjCRuntime.class_respondsToSelector(objectClass, selector)) {
+      throw DesktopHostException(
+        "Objective-C class ${ObjCRuntime.class_getName(objectClass)} does not respond to " +
+          "'${ObjCRuntime.sel_getName(selector)}'"
+      )
+    }
     val implementation = ObjCRuntime.class_getMethodImplementation(objectClass, selector)
     check(implementation != NULL) {
       "Objective-C selector implementation not found: ${ObjCRuntime.sel_getName(selector)}"

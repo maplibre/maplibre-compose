@@ -76,8 +76,10 @@ class SkikoReflectionContractTest {
 
   @Test
   fun `the Metal context handler exposes the device and context the host reads`() {
-    // macOS, like Windows, is a platform this project cannot exercise, so these are pinned for
-    // the same reason: a Skiko rename would otherwise surface only as a blank map.
+    // No test drives the Metal host — the suite runs on Vulkan even on macOS — so these are
+    // pinned for the same reason as the Windows members: a Skiko rename would otherwise surface
+    // only as a blank map. MacosMetalDeviceContractTest continues the chain past Java, into the
+    // Objective-C object this device field holds.
     assertField(Class.forName(SkikoReflection.METAL_CONTEXT_HANDLER_CLASS), "device")
     assertField(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "context")
     assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "getContext")

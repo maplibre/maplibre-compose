@@ -71,9 +71,11 @@ public object SkikoDesktopMapHostFactory : DesktopMapHostFactory {
         )
 
     return try {
-      // Only the Linux path has run on real hardware. The Windows and macOS bridges are ported
-      // from the maplibre-native-ffi Compose example and carry TODO(maplibre-compose) markers
-      // where the port could not be verified; they are validated on the machine matrix.
+      // The Linux and macOS paths have both now run on real hardware; macOS as far as a live
+      // window that kept rendering, without re-attaching its render session, across drag resizes
+      // in both directions. Only the Windows bridge is still nothing but a port of the
+      // maplibre-native-ffi Compose example, and it carries the TODO(maplibre-compose) markers
+      // where that port could not be verified; it is validated on the machine matrix.
       val host =
         when (operatingSystem) {
           HostOperatingSystem.LINUX -> LinuxVulkanOpenGlHost()
