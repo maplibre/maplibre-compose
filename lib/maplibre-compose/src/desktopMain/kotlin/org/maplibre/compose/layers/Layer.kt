@@ -124,9 +124,21 @@ internal actual sealed class Layer(actual val id: String) {
    * when it is null, and a null pushed to an already-attached layer clears its filter.
    */
   protected fun setFilterExpression(filter: CompiledExpression<*>) {
-    val json = filter.toStyleJson()
-    root["filter"] = json
-    binding.withMap { map -> map.setLayerFilter(id, json.toFfiJsonValue()) }
+    setFilterJson(filter.toStyleJson())
+  }
+
+  /**
+   * Sets this layer's filter from style JSON that was never an expression here.
+   *
+   * [UnknownLayer] is the reason this exists: it restores a base-style layer from the JSON MapLibre
+   * reported, and that filter has no [CompiledExpression] behind it. Parsing one back out just to
+   * reach [setFilterExpression] would be a lossy detour through a representation the filter already
+   * left. The null contract is the same one described above, so both entry points meet here rather
+   * than each keeping their own copy of it.
+   */
+  protected fun setFilterJson(filter: JsonElement) {
+    root["filter"] = filter
+    binding.withMap { map -> map.setLayerFilter(id, filter.toFfiJsonValue()) }
   }
 
   private fun pushProperty(name: String, value: JsonElement) {

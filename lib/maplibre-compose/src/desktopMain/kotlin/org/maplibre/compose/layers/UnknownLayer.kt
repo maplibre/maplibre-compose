@@ -2,7 +2,6 @@ package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.floatOrNull
 
 /**
  * A layer that came from the style rather than from the composition, such as a base-style layer.
@@ -19,17 +18,32 @@ internal actual class UnknownLayer(id: String, internal val definition: JsonObje
 
   override val sourceId: String? = (definition["source"] as? JsonPrimitive)?.content
 
-  // TODO(maplibre-compose): `source-layer`, `filter`, and `metadata` are dropped, because [Layer]
-  //   exposes no protected way to write a root key and its filter setter takes a compiled
-  //   expression rather than JSON. Restoring a replaced base layer that had either one restores it
-  //   unfiltered and, over a vector source, empty. The full definition is kept here so this can be
-  //   fixed without changing what the style reads.
+  /**
+   * Replays the whole reported object rather than the few keys a layer usually carries.
+   *
+   * Every key matters because losing one is silent. A base layer restored without its `filter`
+   * draws everything the style wrote that filter to exclude, and one restored without its
+   * `source-layer` selects nothing from a vector source and draws nothing at all; neither reports
+   * an error anywhere. Naming keys individually is how that happened, so this names only the three
+   * that are handled elsewhere and passes everything else through.
+   *
+   * `id`, `type`, and `source` are those three: [toJson] writes them from this layer's own fields.
+   *
+   * The style spec's `metadata` is not among what arrives. MapLibre parses it and then does not
+   * keep it — a layer that declares metadata in the style JSON serializes back without it — so a
+   * restored layer cannot carry metadata no matter what this replays.
+   */
   init {
-    (definition["minzoom"] as? JsonPrimitive)?.floatOrNull?.let { minZoom = it }
-    (definition["maxzoom"] as? JsonPrimitive)?.floatOrNull?.let { maxZoom = it }
-    (definition["layout"] as? JsonObject)?.forEach { (name, value) ->
-      setLayoutProperty(name, value)
+    definition.forEach { (key, value) ->
+      when (key) {
+        "id",
+        "type",
+        "source" -> Unit
+        "filter" -> setFilterJson(value)
+        "layout" -> (value as? JsonObject)?.forEach { (name, v) -> setLayoutProperty(name, v) }
+        "paint" -> (value as? JsonObject)?.forEach { (name, v) -> setPaintProperty(name, v) }
+        else -> setRootProperty(key, value)
+      }
     }
-    (definition["paint"] as? JsonObject)?.forEach { (name, value) -> setPaintProperty(name, value) }
   }
 }
