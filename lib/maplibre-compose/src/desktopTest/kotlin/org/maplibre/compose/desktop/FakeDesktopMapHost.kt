@@ -19,8 +19,17 @@ internal class FakeDesktopMapHost(
       // Matches the real borrowed-texture hosts, which cannot resize in place.
       supportsResizeWithoutRecreate = false,
     ),
-  private val failOnAcquire: Boolean = false,
 ) : DesktopMapHost {
+
+  /**
+   * How many of the next acquires should throw, decremented as each one does.
+   *
+   * Acquire is where a lost device presents in the shipped hosts: it is the first call in a frame
+   * to touch the GPU, so it is the one that reports the target cannot be produced. A count rather
+   * than a flag because the interesting cases are "fails once and then works", which must recover,
+   * and [Int.MAX_VALUE] for "never works again", which must give up.
+   */
+  var failingAcquires: Int = 0
 
   /** Every call this host received, in order. */
   val calls: MutableList<String> = mutableListOf()
@@ -33,6 +42,15 @@ internal class FakeDesktopMapHost(
 
   /** Bumped whenever the target is reallocated, exactly as a real host does on resize. */
   var generation: Long = 0L
+    private set
+
+  /**
+   * Acquires attempted, including the ones that threw.
+   *
+   * Distinct from [acquiredFrames] on purpose: a test bounding retries has to count the calls that
+   * failed, which by definition produced no frame.
+   */
+  var acquireCount: Int = 0
     private set
 
   var acquiredFrames: Int = 0
@@ -64,7 +82,11 @@ internal class FakeDesktopMapHost(
     presentationTimeNanos: Long?,
   ): DesktopMapFrame {
     calls += "acquireFrame($frameId)"
-    if (failOnAcquire) throw IllegalStateException("fake host cannot acquire a frame")
+    acquireCount++
+    if (failingAcquires > 0) {
+      failingAcquires--
+      throw IllegalStateException("fake host lost its device and cannot acquire frame $frameId")
+    }
     if (extent != currentExtent) {
       currentExtent = extent
       generation++
@@ -144,6 +166,14 @@ internal class FakeDesktopMapHostFactory(
     setOf(DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)),
   override val description: String = "fake test host",
   private val result: ((MapRenderBackend) -> DesktopMapHostResult)? = null,
+  /**
+   * Applied to each host before it is handed out.
+   *
+   * The host is created during composition, and the surface acquires its first frame in the draw
+   * pass right after, so there is no moment afterwards in which a test could arm a failure before
+   * the frame that should hit it.
+   */
+  private val configureHost: (FakeDesktopMapHost) -> Unit = {},
 ) : DesktopMapHostFactory {
 
   val created: MutableList<FakeDesktopMapHost> = mutableListOf()
@@ -153,7 +183,7 @@ internal class FakeDesktopMapHostFactory(
       return it(producer)
     }
     val pair = supportedBackends.first { it.producer == producer }
-    val host = FakeDesktopMapHost(backends = pair)
+    val host = FakeDesktopMapHost(backends = pair).also(configureHost)
     created += host
     return DesktopMapHostResult.Created(host)
   }

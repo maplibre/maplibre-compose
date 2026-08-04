@@ -142,19 +142,11 @@ internal fun DesktopMapSurface(
       val currentState = state
       if (currentState is DesktopMapSurfaceState.Ready) {
         val frameId = drawState.nextFrameId()
-        val frame =
-          try {
-            host.acquireFrame(frameId, extent, System.nanoTime())
-          } catch (error: Throwable) {
-            state =
-              DesktopMapSurfaceState.Failed(
-                "Desktop map host failed to acquire frame $frameId",
-                error,
-              )
-            null
-          }
-
-        if (frame != null) {
+        // One try around the whole frame, because every call in it fails the same way for the same
+        // reason: whichever one touches the GPU first is the one that reports a device that is no
+        // longer there. Which of them it happens to be says nothing about how to recover.
+        try {
+          val frame = host.acquireFrame(frameId, extent, System.nanoTime())
           try {
             when (host.withProducerAccess(frame) { renderer.render(frame) }) {
               DesktopFrameResult.RENDERED -> {
@@ -164,18 +156,104 @@ internal fun DesktopMapSurface(
               DesktopFrameResult.SKIPPED -> Unit
             }
             drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
-          } catch (error: Throwable) {
-            state =
-              DesktopMapSurfaceState.Failed("Desktop map renderer failed on frame $frameId", error)
           } finally {
             runCatching { host.releaseFrame(frame) }
               .onFailure { logger?.e(it) { "Desktop map host failed to release frame $frameId" } }
           }
+          // Only a frame that got all the way through counts as proof that the pipeline works, so
+          // a skipped frame clears the budget too: it still acquired, rendered, and drew.
+          drawState.onFrameSucceeded()
+        } catch (error: Throwable) {
+          if (error is VirtualMachineError) throw error
+          state =
+            recoverFromFrameFailure(
+              ready = currentState,
+              renderer = renderer,
+              session = session,
+              drawState = drawState,
+              frameId = frameId,
+              error = error,
+              logger = logger,
+            )
         }
       }
     }
 
     if (!drew) drawRect(Color.Transparent)
+  }
+}
+
+/**
+ * How many consecutive frames may fail and be retried before the surface gives up.
+ *
+ * A device lost across a sleep/wake cycle needs exactly one rebuild, so a second consecutive
+ * failure is already evidence that the rebuild is not the answer. Three leaves room for a driver
+ * that reports the loss again while it resets, and still settles the question within a handful of
+ * frames. The bound is the whole point: an unbounded retry on a GPU that is genuinely gone would
+ * redraw and fail for as long as the window is open, which is a worse failure than a blank map
+ * because it also burns a core and floods the log.
+ */
+private const val MAX_FRAME_RECOVERY_ATTEMPTS = 3
+
+/**
+ * Rebuilds the render session after a frame failed, or latches the surface as failed.
+ *
+ * A frame that throws is not by itself proof of a broken GPU. Losing the graphics contexts
+ * underneath — which is what suspending the machine does — throws once, from whichever call reached
+ * the device first, and everything above it works again once the session is attached to a target
+ * that exists. Treating that first throw as terminal is what left the map blank after a sleep/wake
+ * cycle with both threads parked and one line in the log.
+ *
+ * Recovery is the surface-loss path because that is literally what happened: the target handles the
+ * renderer is holding now point at nothing, and [DesktopMapRenderer.onSurfaceLost] is the contract
+ * for saying so. Asking for a frame afterwards is the part that is easy to miss — frames are
+ * requested rather than continuous, and a map that is merely idle publishes no update to request
+ * one, so without it the retry that proves recovery worked never happens.
+ */
+private fun recoverFromFrameFailure(
+  ready: DesktopMapSurfaceState.Ready,
+  renderer: DesktopMapRenderer,
+  session: DesktopMapHostSession,
+  drawState: DesktopMapDrawState,
+  frameId: Long,
+  error: Throwable,
+  logger: Logger?,
+): DesktopMapSurfaceState {
+  if (error is DesktopMapFatalFrameException) {
+    return DesktopMapSurfaceState.Failed("Desktop map frame $frameId failed fatally", error)
+  }
+
+  val attempt = drawState.recordFrameFailure()
+  if (attempt > MAX_FRAME_RECOVERY_ATTEMPTS) {
+    return DesktopMapSurfaceState.Failed(
+      "Desktop map frame $frameId failed after $MAX_FRAME_RECOVERY_ATTEMPTS attempts to rebuild " +
+        "the render session",
+      error,
+    )
+  }
+
+  logger?.w(error) {
+    "Desktop map frame $frameId failed; rebuilding the render session " +
+      "(attempt $attempt of $MAX_FRAME_RECOVERY_ATTEMPTS)"
+  }
+  // Dropped before the renderer is told, because a target that failed is not one to present again:
+  // the host would be asked to draw a handle it is about to reallocate.
+  drawState.lastCompletedTarget = null
+  runCatching { renderer.onSurfaceLost() }
+    .onFailure { logger?.e(it) { "Desktop map renderer failed to release the lost surface" } }
+
+  return try {
+    renderer.onSurfaceAvailable(session)
+    // Asked for explicitly rather than left to onSurfaceAvailable, which is not obliged to request
+    // one. Nothing else will: the map has no new update to publish, so this frame is the retry.
+    session.requestFrame()
+    ready
+  } catch (rearmError: Throwable) {
+    if (rearmError is VirtualMachineError) throw rearmError
+    DesktopMapSurfaceState.Failed(
+      "Desktop map renderer failed to take the surface back after frame $frameId",
+      rearmError,
+    )
   }
 }
 
@@ -236,6 +314,17 @@ private class DesktopMapDrawState {
    */
   var lastCompletedTarget: DesktopRenderTarget? = null
 
+  /**
+   * Frames that failed since the last one that did not.
+   *
+   * Consecutive rather than cumulative, because the two describe different machines: a laptop
+   * closed and reopened twice a day fails twice and recovers twice, and should keep working, while
+   * a GPU that never comes back fails every frame from the same one onwards. Only the second is
+   * worth giving up on.
+   */
+  var frameFailures: Int = 0
+    private set
+
   fun onExtentChanged(next: DesktopMapExtent) {
     if (next != extent) {
       extent = next
@@ -245,9 +334,17 @@ private class DesktopMapDrawState {
 
   fun nextFrameId(): Long = nextFrameId++
 
+  /** Counts a failed frame and reports which attempt at recovering it is. */
+  fun recordFrameFailure(): Int = ++frameFailures
+
+  fun onFrameSucceeded() {
+    frameFailures = 0
+  }
+
   fun reset() {
     extent = DesktopMapExtent.Empty
     lastCompletedTarget = null
+    frameFailures = 0
   }
 }
 

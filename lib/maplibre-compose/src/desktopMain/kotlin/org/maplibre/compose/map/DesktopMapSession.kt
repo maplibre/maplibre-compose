@@ -22,6 +22,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.desktop.DesktopFrameResult
 import org.maplibre.compose.desktop.DesktopMapExtent
+import org.maplibre.compose.desktop.DesktopMapFatalFrameException
 import org.maplibre.compose.desktop.DesktopMapFrame
 import org.maplibre.compose.desktop.DesktopMapHostSession
 import org.maplibre.compose.desktop.DesktopMapRenderer
@@ -55,7 +56,9 @@ import org.maplibre.nativeffi.camera.BoundOptions
 import org.maplibre.nativeffi.camera.BoundsConstraint
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
+import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
+import org.maplibre.nativeffi.error.UnsupportedFeatureException
 import org.maplibre.nativeffi.geo.ScreenBox
 import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
@@ -162,6 +165,23 @@ internal class DesktopMapSession(
   private var attachedTarget: TargetKey? = null
 
   /**
+   * How many render sessions this session has attached, and how many targets it handed to a live
+   * one instead.
+   *
+   * Renderer-thread state, read by tests. The difference between the two is the whole point of
+   * following a new target in place — an attach rebuilds the renderer and refetches every tile,
+   * where a retarget keeps both — and it is not observable from the outside in any other way, since
+   * both paths end with the map rendering the same scene into the same size.
+   */
+  @Volatile
+  internal var attachCount: Int = 0
+    private set
+
+  @Volatile
+  internal var retargetCount: Int = 0
+    private set
+
+  /**
    * Whether a frame is worth drawing.
    *
    * Set by the map's owner thread when MapLibre publishes an update, consumed by the renderer
@@ -254,7 +274,23 @@ internal class DesktopMapSession(
   // ───────────────────────────── host surface lifecycle ─────────────────────────────
 
   override fun onSurfaceAvailable(session: DesktopMapHostSession) {
+    // A closed session has no map to draw and no thread to draw it on, so taking the surface would
+    // only leave a reference to a host that is about to be freed.
+    if (closed) {
+      logger?.w { "Ignoring a host surface offered to a closed map session" }
+      return
+    }
     hostSession = session
+    // Asked for here, and this is load-bearing on the second surface rather than the first.
+    //
+    // Frames are requested rather than continuous, and the only thing that requests one is the
+    // owner thread publishing a render update. A surface that returns after loss gets no such
+    // event: the map is idle, its camera is not moving, and MapLibre has nothing new to say — it
+    // is holding the same update it already produced. So without this the new surface is never
+    // drawn into and the map stays blank with both threads parked and nothing logged, which is
+    // exactly the symptom a sleep/wake cycle produced. MapLibre re-renders its retained update on
+    // demand, so one frame is all this needs to buy.
+    requestRender()
   }
 
   override fun onSurfaceChanged(extent: DesktopMapExtent) {
@@ -265,8 +301,14 @@ internal class DesktopMapSession(
   override fun onSurfaceLost() {
     // The host is about to free the target these handles point at, so the render session must go
     // first. The map and runtime outlive surface loss and are reused if a surface returns.
-    runCatching { closeRenderSession() }
-      .onFailure { logger?.e(it) { "Failed to close the render session on surface loss" } }
+    //
+    // Logged at info because this is the last thing that happens before a map goes quiet: if a
+    // surface never comes back, this line is the difference between a diagnosable report and "it
+    // stopped rendering after the machine slept".
+    logger?.i { "Host surface lost; closing the render session and waiting for a new one" }
+    // Before the host session is dropped, because that is the only route to the thread allowed to
+    // close the handle.
+    closeRenderSession()
     hostSession = null
   }
 
@@ -281,7 +323,11 @@ internal class DesktopMapSession(
         // failure, so nothing else would close the render session, and the loop cannot destroy a
         // map that still has one attached.
         close()
-        throw IllegalStateException("The MapLibre map runtime failed", error)
+        // Marked fatal so the surface latches instead of rebuilding its render session and trying
+        // again. The runtime this map needs is gone, and a fresh surface cannot bring it back —
+        // retrying would only replace a reported failure with a blank map, because every frame
+        // after the close returns SKIPPED without throwing anything for the surface to notice.
+        throw DesktopMapFatalFrameException("The MapLibre map runtime failed", error)
       }
       return DesktopFrameResult.SKIPPED
     }
@@ -345,20 +391,41 @@ internal class DesktopMapSession(
    */
   private fun stopLoop() {
     val stopping = stateLock.withLock { loop.also { loop = null } }
-    runCatching { closeRenderSession() }
-      .onFailure { logger?.e(it) { "Failed to close the render session" } }
+    closeRenderSession()
     stopping?.close()
     // After the join, so the owner thread is gone and this is the only reader of that state.
     resumeStrandedTransitions()
   }
 
+  /**
+   * Drops the render session, closing it if there is still a thread allowed to.
+   *
+   * The bookkeeping is cleared first and unconditionally, which is the part that matters after a
+   * lost device: making the host's context current can itself throw then, and a version of this
+   * that only forgot the handle once the close succeeded would leave [attachedTarget] naming a
+   * target that no longer exists. The next frame would either hand a dead session a replacement
+   * texture or attach a second session to a map that natively permits one — the first silently
+   * renders nothing, the second throws. Neither is recoverable, and both look like the map simply
+   * stopped.
+   *
+   * Never throws, so callers on a teardown or recovery path do not have to guard it.
+   */
   private fun closeRenderSession() {
-    withRendererAccess {
-      runCatching { renderSession?.close() }
-        .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
-      renderSession = null
-      attachedTarget = null
+    val handle = renderSession
+    renderSession = null
+    attachedTarget = null
+    if (handle == null) return
+
+    val host = hostSession
+    if (host == null) {
+      // Only reachable if the surface went away without saying so. The handle can only be closed
+      // by the thread that attached it, which is reached through the host, so all that is left is
+      // to say that it leaked rather than to close it from the wrong thread and crash.
+      logger?.w { "Leaking a MapLibre render session: its host surface is already gone" }
+      return
     }
+    runCatching { host.withRendererAccess { handle.close() } }
+      .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
   }
 
   // ───────────────────────────── the map's owner thread ─────────────────────────────
@@ -433,18 +500,27 @@ internal class DesktopMapSession(
     if (extent.isEmpty) return false
 
     val key = TargetKey(frame.target.generation, extent)
-    if (attachedTarget == key && renderSession != null) return true
+    val attached = attachedTarget
+    if (attached == key && renderSession != null) return true
 
-    // Borrowed-texture sessions cannot be resized, so following the host's target means closing
-    // the old session and attaching a new one. Attaching before closing throws, because a map
+    // Follow the host's new target in place where that is possible. A renderer compiles its shaders
+    // for one pixel ratio, so a scale-factor change starts a new renderer no matter which path is
+    // taken — and it also needs a new map, because MapHandle's pixelRatio is fixed at creation, so
+    // that case is already handled by the loop being replaced rather than here.
+    val live = renderSession
+    if (live != null && attached != null && attached.extent.scaleFactor == extent.scaleFactor) {
+      if (retargetBorrowedTexture(live, frame.target, extent)) {
+        attachedTarget = key
+        retargetCount++
+        // The replacement texture holds nothing yet, and MapLibre keeps its latest update, so the
+        // frame this request buys is the one that fills it.
+        renderRequested.set(true)
+        return true
+      }
+    }
+
+    // Nothing live to retarget, or it refused. Attaching before closing throws, because a map
     // permits only one live session.
-    //
-    // Not a workaround, and not worth optimizing. The supported resize path discards just as much:
-    // it calls session->renderer.reset(), throwing away the renderer, every GPU resource it holds,
-    // and renderer-held feature state, then rebuilds it lazily on the next render. Both paths also
-    // end at the same map->setSize. The style, tiles, and camera live on the map and survive
-    // either way, which is why a resize costs exactly one frame to the next rendered frame —
-    // measured at four sizes.
     closeRenderSession()
 
     // No map.resize exists, and none should: the map's size is the size of what it renders into,
@@ -460,6 +536,7 @@ internal class DesktopMapSession(
         throw error
       }
     attachedTarget = key
+    attachCount++
     // The new texture holds nothing yet, and MapLibre keeps its latest update, so the frame this
     // request buys is the one that fills it.
     renderRequested.set(true)
@@ -470,64 +547,116 @@ internal class DesktopMapSession(
     map: MapHandle,
     target: DesktopRenderTarget,
     extent: DesktopMapExtent,
-  ): RenderSessionHandle {
-    // RenderTargetExtent is logical, and a borrowed texture is sized by its owner, so the
-    // descriptor states the physical size rather than deriving it. MapLibre rejects a pair that
-    // does not agree, which is what makes DesktopMapExtent's single rounding rule load-bearing.
-    val ffiExtent =
-      RenderTargetExtent(
-        width = extent.width.coerceAtLeast(1),
-        height = extent.height.coerceAtLeast(1),
-        scaleFactor = extent.scaleFactor,
-      )
-    val physicalWidth = extent.physicalWidth.coerceAtLeast(1)
-    val physicalHeight = extent.physicalHeight.coerceAtLeast(1)
-
-    return when (target) {
-      is VulkanImageTarget ->
-        map.attachVulkanBorrowedTexture(
-          VulkanBorrowedTextureDescriptor(
-              extent = ffiExtent,
-              physicalWidth = physicalWidth,
-              physicalHeight = physicalHeight,
-              context = target.context.toFfi(),
-              image = NativePointer.ofAddress(target.image.address),
-              imageView = NativePointer.ofAddress(target.imageView.address),
-              format = target.format,
-              initialLayout = target.initialLayout,
-            )
-            .also { it.finalLayout = target.finalLayout }
-        )
-
-      is MetalTextureTarget ->
-        map.attachMetalBorrowedTexture(
-          MetalBorrowedTextureDescriptor(
-            extent = ffiExtent,
-            physicalWidth = physicalWidth,
-            physicalHeight = physicalHeight,
-            texture = NativePointer.ofAddress(target.texture.address),
-          )
-        )
-
+  ): RenderSessionHandle =
+    when (target) {
+      is VulkanImageTarget -> map.attachVulkanBorrowedTexture(target.toDescriptor(extent))
+      is MetalTextureTarget -> map.attachMetalBorrowedTexture(target.toDescriptor(extent))
       is OpenGlTextureTarget -> {
         target.makeContextCurrent()
-        map.attachOpenGLBorrowedTexture(
-          OpenGLBorrowedTextureDescriptor(
-            extent = ffiExtent,
-            physicalWidth = physicalWidth,
-            physicalHeight = physicalHeight,
-            context =
-              when (val context = target.context) {
-                is EglContextHandles -> context.toFfi()
-                is WglContextHandles -> context.toFfi()
-              },
-            texture = target.textureName,
-            target = target.textureTarget,
-          )
-        )
+        map.attachOpenGLBorrowedTexture(target.toDescriptor(extent))
       }
     }
+
+  /**
+   * Hands [target] to a live session, keeping its renderer, and reports whether it took it.
+   *
+   * Since maplibre-native-ffi #485 a borrowed-texture session can be given a replacement texture
+   * instead of being closed and re-attached, and it keeps the tile pyramid, the glyph and image
+   * atlases, symbol placement, and renderer-held feature state across the change. That is the whole
+   * reason to prefer this: a window resize used to throw all of it away and refetch.
+   *
+   * A replacement on another device or in another pixel format is refused, and refusal leaves the
+   * session rendering into the texture it already has — so this reports false and the caller falls
+   * back to closing and attaching, which is correct rather than fatal.
+   */
+  private fun retargetBorrowedTexture(
+    session: RenderSessionHandle,
+    target: DesktopRenderTarget,
+    extent: DesktopMapExtent,
+  ): Boolean {
+    try {
+      when (target) {
+        is VulkanImageTarget -> session.setVulkanBorrowedTextureTarget(target.toDescriptor(extent))
+        is MetalTextureTarget -> session.setMetalBorrowedTextureTarget(target.toDescriptor(extent))
+        is OpenGlTextureTarget -> {
+          target.makeContextCurrent()
+          session.setOpenGLBorrowedTextureTarget(target.toDescriptor(extent))
+        }
+      }
+    } catch (error: InvalidArgumentException) {
+      // A replacement belonging to another device. Documented as leaving this session rendering
+      // into the texture it has, so re-attaching is a recovery rather than a repair.
+      return refusedTarget(error)
+    } catch (error: UnsupportedFeatureException) {
+      // A replacement in another pixel format, for the same reason.
+      return refusedTarget(error)
+    }
+    return true
   }
+
+  /**
+   * Narrower than `catch (MaplibreException)` deliberately.
+   *
+   * These two are the refusals the FFI documents for a replacement target, and they are the only
+   * ones a re-attach can plausibly fix. Its siblings are not: `WrongThreadException` means this ran
+   * somewhere it must never run, and `InvalidStateException` means the session is already closed —
+   * both are bugs here, and both would be swallowed into a silent re-attach that appears to work.
+   */
+  private fun refusedTarget(error: MaplibreException): Boolean {
+    logger?.d(error) {
+      "The render session would not take the host's replacement target; re-attaching instead"
+    }
+    return false
+  }
+
+  /**
+   * The physical size a borrowed-texture descriptor states alongside its logical extent.
+   *
+   * `RenderTargetExtent` is logical, and a borrowed texture is sized by its owner, so the
+   * descriptor states the physical size rather than deriving it. MapLibre rejects a pair that does
+   * not agree, which is what makes DesktopMapExtent's single rounding rule load-bearing.
+   */
+  private fun DesktopMapExtent.toFfiExtent() =
+    RenderTargetExtent(
+      width = width.coerceAtLeast(1),
+      height = height.coerceAtLeast(1),
+      scaleFactor = scaleFactor,
+    )
+
+  private fun VulkanImageTarget.toDescriptor(extent: DesktopMapExtent) =
+    VulkanBorrowedTextureDescriptor(
+        extent = extent.toFfiExtent(),
+        physicalWidth = extent.physicalWidth.coerceAtLeast(1),
+        physicalHeight = extent.physicalHeight.coerceAtLeast(1),
+        context = context.toFfi(),
+        image = NativePointer.ofAddress(image.address),
+        imageView = NativePointer.ofAddress(imageView.address),
+        format = format,
+        initialLayout = initialLayout,
+      )
+      .also { it.finalLayout = finalLayout }
+
+  private fun MetalTextureTarget.toDescriptor(extent: DesktopMapExtent) =
+    MetalBorrowedTextureDescriptor(
+      extent = extent.toFfiExtent(),
+      physicalWidth = extent.physicalWidth.coerceAtLeast(1),
+      physicalHeight = extent.physicalHeight.coerceAtLeast(1),
+      texture = NativePointer.ofAddress(texture.address),
+    )
+
+  private fun OpenGlTextureTarget.toDescriptor(extent: DesktopMapExtent) =
+    OpenGLBorrowedTextureDescriptor(
+      extent = extent.toFfiExtent(),
+      physicalWidth = extent.physicalWidth.coerceAtLeast(1),
+      physicalHeight = extent.physicalHeight.coerceAtLeast(1),
+      context =
+        when (val handles = context) {
+          is EglContextHandles -> handles.toFfi()
+          is WglContextHandles -> handles.toFfi()
+        },
+      texture = textureName,
+      target = textureTarget,
+    )
 
   // ───────────────────────────── events, on the map's owner thread ─────────────────────────────
 
@@ -602,7 +731,12 @@ internal class DesktopMapSession(
         logger?.e { "MapLibre render error: ${event.message.ifBlank { "unknown" }}" }
 
       RuntimeEventType.MAP_STYLE_IMAGE_MISSING ->
-        // TODO(step 6): expose a style-image callback hook so applications can supply the image.
+        // Logged rather than acted on, and that is where it stops for now: supplying the image
+        // means a callback in the common API, and MapLibre Compose has none — neither the Android
+        // nor the iOS adapter exposes one either, so a desktop-only hook would be a surface no
+        // cross-platform code could call. Recorded in COMMON_API_GAPS.md instead. Logging it is
+        // still worth doing: a missing sprite otherwise shows up as symbols that silently do not
+        // draw, with nothing naming the image.
         logger?.d { "Style image missing: ${event.message}" }
 
       // Known, and deliberately not acted on. Named so that the branch below means "an event
@@ -1086,11 +1220,30 @@ internal class DesktopMapSession(
   // ───────────────────────────── input, called from Compose ─────────────────────────────
 
   fun onGestureStarted() {
-    isGestureInProgress = true
+    setGestureInProgress(true)
   }
 
   fun onGestureEnded() {
-    isGestureInProgress = false
+    setGestureInProgress(false)
+  }
+
+  /**
+   * Records that a gesture is or is not running, here and on the map.
+   *
+   * The local flag is what classifies a camera move as [CameraMoveReason.GESTURE], and it is read
+   * from the owner thread while Compose writes it, so it stays `@Volatile` rather than moving onto
+   * the map entirely. The map's own flag is what mbgl consults to treat the commands issued in
+   * between as one live gesture instead of a series of unrelated camera changes.
+   *
+   * The flag stays set until it is cleared, so every `true` needs its `false` — including the
+   * cancellation paths, which is why this is called from [onGestureEnded] rather than only from the
+   * end of a successful drag.
+   */
+  private fun setGestureInProgress(active: Boolean) {
+    isGestureInProgress = active
+    // Posted rather than blocking: the answer is not needed, and a gesture must never wait on the
+    // owner thread to finish a style parse before the pointer can move.
+    loop?.post { map -> map.isGestureInProgress = active }
   }
 
   /**

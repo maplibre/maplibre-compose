@@ -90,100 +90,109 @@ internal fun Modifier.desktopMapInput(
     .focusRequester(focusRequester)
     .focusable()
     .pointerInput(session, options, density) {
-      awaitPointerEventScope {
-        // Tracks the previous pressed position rather than using awaitFirstDown, so any button
-        // starts a drag. Waiting for a "first down" misses the secondary button, and reading the
-        // button state once at press time misses it too: whether the drag rotates is re-evaluated
-        // on every event, because the modifier or button can change mid-drag.
-        var previous: PointerInputChange? = null
-        var dragging = false
-        // A press that never moves far enough is a click, not a drag. Tracked in logical pixels so
-        // the threshold means the same thing at any display scale.
-        var pressOrigin: Offset? = null
-        var pressWasSecondary = false
-        var pressWasShifted = false
-        // The previous click, for double-click detection. Compose has no click count on desktop,
-        // so it is time and distance. The threshold is Compose's own rather than the fixed 400ms
-        // the pre-rewrite implementation used; if double click starts feeling finicky, that
-        // difference is the first place to look.
-        var lastClickAt: Long? = null
-        var lastClickOrigin = Offset.Zero
+      // The gesture flag is one MapLibre keeps until it is cleared, so a drag that ends by having
+      // its coroutine cancelled — disposal, a new key, losing the pointer — has to clear it here.
+      // The loop below only reaches its own release path when a pointer-up actually arrives.
+      var dragging = false
+      try {
+        awaitPointerEventScope {
+          // Tracks the previous pressed position rather than using awaitFirstDown, so any button
+          // starts a drag. Waiting for a "first down" misses the secondary button, and reading the
+          // button state once at press time misses it too: whether the drag rotates is re-evaluated
+          // on every event, because the modifier or button can change mid-drag.
+          var previous: PointerInputChange? = null
+          // A press that never moves far enough is a click, not a drag. Tracked in logical pixels
+          // so the threshold means the same thing at any display scale.
+          var pressOrigin: Offset? = null
+          var pressWasSecondary = false
+          var pressWasShifted = false
+          // The previous click, for double-click detection. Compose has no click count on desktop,
+          // so it is time and distance. The threshold is Compose's own rather than the fixed 400ms
+          // the pre-rewrite implementation used; if double click starts feeling finicky, that
+          // difference is the first place to look.
+          var lastClickAt: Long? = null
+          var lastClickOrigin = Offset.Zero
 
-        while (true) {
-          val event = awaitPointerEvent()
-          val current = event.changes.firstOrNull()?.takeIf { it.pressed }
+          while (true) {
+            val event = awaitPointerEvent()
+            val current = event.changes.firstOrNull()?.takeIf { it.pressed }
 
-          if (current == null) {
-            if (dragging) {
-              dragging = false
-              session.onGestureEnded()
-            } else {
-              // Released without ever exceeding the drag threshold, so this was a click.
-              pressOrigin?.let { origin ->
-                val where = origin.toLogicalDpOffset(density)
-                if (pressWasSecondary) {
-                  session.onSecondaryClick(where)
-                } else {
-                  val now = event.changes.firstOrNull()?.uptimeMillis ?: 0L
-                  val isDoubleClick =
-                    lastClickAt?.let { previousAt ->
-                      now - previousAt <= viewConfiguration.doubleTapTimeoutMillis &&
-                        (origin - lastClickOrigin).getDistance() <= CLICK_SLOP_PX * density.density
-                    } == true
-
-                  if (isDoubleClick && options.isDoubleClickZoomEnabled) {
-                    // Anchored at the pointer, like scroll zoom, so the point under the cursor
-                    // stays put. Shift inverts it, which is the convention every web map uses.
-                    session.scaleBy(
-                      scale = if (pressWasShifted) 1.0 / KEYBOARD_ZOOM_STEP else KEYBOARD_ZOOM_STEP,
-                      anchor = options.zoomAnchor(where),
-                      duration = INPUT_ANIMATION_DURATION,
-                    )
-                    // Cleared so a third click starts a new pair rather than zooming again.
-                    lastClickAt = null
+            if (current == null) {
+              if (dragging) {
+                dragging = false
+                session.onGestureEnded()
+              } else {
+                // Released without ever exceeding the drag threshold, so this was a click.
+                pressOrigin?.let { origin ->
+                  val where = origin.toLogicalDpOffset(density)
+                  if (pressWasSecondary) {
+                    session.onSecondaryClick(where)
                   } else {
-                    // The first click of a pair still reports, because it cannot be known yet
-                    // that a second is coming and swallowing it would make every click late.
-                    session.onPrimaryClick(where)
-                    lastClickAt = now
-                    lastClickOrigin = origin
+                    val now = event.changes.firstOrNull()?.uptimeMillis ?: 0L
+                    val isDoubleClick =
+                      lastClickAt?.let { previousAt ->
+                        now - previousAt <= viewConfiguration.doubleTapTimeoutMillis &&
+                          (origin - lastClickOrigin).getDistance() <=
+                            CLICK_SLOP_PX * density.density
+                      } == true
+
+                    if (isDoubleClick && options.isDoubleClickZoomEnabled) {
+                      // Anchored at the pointer, like scroll zoom, so the point under the cursor
+                      // stays put. Shift inverts it, which is the convention every web map uses.
+                      session.scaleBy(
+                        scale =
+                          if (pressWasShifted) 1.0 / KEYBOARD_ZOOM_STEP else KEYBOARD_ZOOM_STEP,
+                        anchor = options.zoomAnchor(where),
+                        duration = INPUT_ANIMATION_DURATION,
+                      )
+                      // Cleared so a third click starts a new pair rather than zooming again.
+                      lastClickAt = null
+                    } else {
+                      // The first click of a pair still reports, because it cannot be known yet
+                      // that a second is coming and swallowing it would make every click late.
+                      session.onPrimaryClick(where)
+                      lastClickAt = now
+                      lastClickOrigin = origin
+                    }
                   }
                 }
               }
+              pressOrigin = null
+              previous = null
+              continue
             }
-            pressOrigin = null
-            previous = null
-            continue
+
+            val last = previous
+            previous = current
+            if (last == null) {
+              pressOrigin = current.position
+              pressWasSecondary = event.buttons.isSecondaryPressed
+              pressWasShifted = event.keyboardModifiers.isShiftPressed
+              // Taking focus on press is what makes the keyboard handling above reachable.
+              runCatching { focusRequester.requestFocus() }
+              // A new press takes over from any transition still in flight, which would otherwise
+              // keep animating against the pointer.
+              session.cancelTransitions()
+              continue
+            }
+
+            val delta = current.position - last.position
+            if (delta == Offset.Zero) continue
+
+            val fromOrigin = pressOrigin?.let { (current.position - it).getDistance() } ?: 0f
+            if (fromOrigin > CLICK_SLOP_PX * density.density) pressOrigin = null
+
+            if (!dragging) {
+              dragging = true
+              session.onGestureStarted()
+            }
+
+            val rotating = event.buttons.isSecondaryPressed || event.keyboardModifiers.isCtrlPressed
+            applyDrag(session, options, density, current, delta, rotating)
           }
-
-          val last = previous
-          previous = current
-          if (last == null) {
-            pressOrigin = current.position
-            pressWasSecondary = event.buttons.isSecondaryPressed
-            pressWasShifted = event.keyboardModifiers.isShiftPressed
-            // Taking focus on press is what makes the keyboard handling above reachable.
-            runCatching { focusRequester.requestFocus() }
-            // A new press takes over from any transition still in flight, which would otherwise
-            // keep animating against the pointer.
-            session.cancelTransitions()
-            continue
-          }
-
-          val delta = current.position - last.position
-          if (delta == Offset.Zero) continue
-
-          val fromOrigin = pressOrigin?.let { (current.position - it).getDistance() } ?: 0f
-          if (fromOrigin > CLICK_SLOP_PX * density.density) pressOrigin = null
-
-          if (!dragging) {
-            dragging = true
-            session.onGestureStarted()
-          }
-
-          val rotating = event.buttons.isSecondaryPressed || event.keyboardModifiers.isCtrlPressed
-          applyDrag(session, options, density, current, delta, rotating)
         }
+      } finally {
+        if (dragging) session.onGestureEnded()
       }
     }
     .pointerInput(session, options, density) {

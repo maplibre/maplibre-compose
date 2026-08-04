@@ -46,3 +46,17 @@ public interface DesktopMapRenderer : AutoCloseable {
    */
   public fun onSurfaceLost() {}
 }
+
+/**
+ * Thrown from [DesktopMapRenderer.render] when no surface could make the map work again.
+ *
+ * A frame that throws is normally read as a lost device — that is what a sleep/wake cycle produces
+ * — and retried against a rebuilt render session. This says the failure is above the graphics
+ * layer, where the map's own runtime lives, so the surface stops instead of retrying something that
+ * has already given up.
+ *
+ * Internal because MapLibre Compose is the only implementor of [DesktopMapRenderer]; an application
+ * supplies a [DesktopMapHostFactory] instead.
+ */
+internal class DesktopMapFatalFrameException(message: String, cause: Throwable?) :
+  IllegalStateException(message, cause)
