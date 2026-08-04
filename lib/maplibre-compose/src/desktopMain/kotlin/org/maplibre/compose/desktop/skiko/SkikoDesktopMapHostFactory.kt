@@ -73,9 +73,13 @@ public object SkikoDesktopMapHostFactory : DesktopMapHostFactory {
     return try {
       // The Linux and macOS paths have both now run on real hardware; macOS as far as a live
       // window that kept rendering, without re-attaching its render session, across drag resizes
-      // in both directions. Only the Windows bridge is still nothing but a port of the
-      // maplibre-native-ffi Compose example, and it carries the TODO(maplibre-compose) markers
-      // where that port could not be verified; it is validated on the machine matrix.
+      // in both directions. The Windows bridge is still a port of the maplibre-native-ffi Compose
+      // example that no machine here has run — but it no longer carries anything unverified: the
+      // one hard-coded Skiko struct offset in it is derived from Skiko's own source at the version
+      // this project resolves, cross-checked against a second copy of the same pointer at runtime,
+      // and pinned by a test that fails on a Skiko bump. See SkikoDirect3DDeviceLayout. What
+      // remains for the machine matrix is whether the whole bridge draws, not whether it is
+      // reading the right memory.
       val host =
         when (operatingSystem) {
           HostOperatingSystem.LINUX -> LinuxVulkanOpenGlHost()

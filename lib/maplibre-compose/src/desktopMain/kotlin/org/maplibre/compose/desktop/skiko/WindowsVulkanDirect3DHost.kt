@@ -134,7 +134,7 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
   /** Reallocates the texture, returning the D3D texture it replaced for the caller to release. */
   private fun resizeOnRendererThread(
     extent: DesktopMapExtent,
-    device: SkikoDirect3DDevice? = null,
+    device: SkikoDirect3DDevice?,
   ): NativeHandle? {
     if (extent == currentExtent && importedTexture != null) {
       return null
@@ -208,15 +208,17 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
   /** Allocates the texture for [extent], returning the D3D texture it replaced, if any. */
   private fun recreateTexture(
     extent: DesktopMapExtent,
-    device: SkikoDirect3DDevice? = null,
+    device: SkikoDirect3DDevice?,
   ): NativeHandle? {
     if (extent.isEmpty) return retireTexture()
 
-    // TODO(maplibre-compose): unverified on Windows — this fallback only runs if resize() did not
-    // supply a device, which it always does today. If it ever did run on the renderer thread it
-    // would post to the AWT event thread and could deadlock; it is kept because the reference
-    // implementation has it and removing guards on this path has bitten us before.
-    val direct3DDevice = device ?: SkikoReflection.requireDirect3DDevice()
+    // An assertion, not a fallback: resize() resolves the device on its own thread exactly so that
+    // this hop never has to, and asking Skiko for one here would post to the AWT event thread,
+    // which is the thread waiting on this hop. Falling back to SkikoReflection was never something
+    // the reference implementation did either; recreateTexture in maplibre-native-ffi's
+    // WindowsVulkanD3d12Bridge.kt asserts in this same place, for this same reason.
+    val direct3DDevice =
+      checkNotNull(device) { "resize() resolves the Skiko Direct3D device before this hop" }
     val storageExtent = extent
     val retired = retireTexture()
     direct3DTexture = WindowsDirect3DInterop.createSharedTexture(direct3DDevice, storageExtent)
@@ -671,15 +673,6 @@ private object WindowsDirect3DInterop {
   private const val IID_ID3D12_RESOURCE_DATA3 = 0x4059
   private const val GENERIC_ALL = 0x10000000
 
-  /**
-   * Where Skiko's `DirectXDevice` wrapper keeps its `ID3D12Device`.
-   *
-   * TODO(maplibre-compose): unverified on Windows — this is a hard-coded offset into a struct Skiko
-   *   does not publish, taken from the reference implementation. If Skiko adds or reorders a field,
-   *   this reads a neighbouring pointer and the check below is the only thing that catches it.
-   */
-  private const val DIRECTX_DEVICE_RAW_DEVICE_OFFSET = 16L
-
   private const val D3D12_HEAP_TYPE_DEFAULT = 1
   private const val D3D12_HEAP_FLAG_SHARED = 0x1
   private const val D3D12_RESOURCE_DIMENSION_TEXTURE2D = 3
@@ -712,7 +705,7 @@ private object WindowsDirect3DInterop {
   ): NativeHandle {
     check(!extent.isEmpty) { "Cannot create a D3D12 texture for an empty extent" }
     Arena.ofConfined().use { arena ->
-      val rawDevice = rawDirect3DDevice(device)
+      val rawDevice = SkikoDirect3DDeviceLayout.rawDevice(device)
       val resourceOut = arena.allocate(ValueLayout.ADDRESS)
       checkHResult(
         invokeHResult(
@@ -786,16 +779,6 @@ private object WindowsDirect3DInterop {
     if (handle != NULL) {
       closeHandle.invokeWithArguments(address(handle))
     }
-  }
-
-  private fun rawDirect3DDevice(device: SkikoDirect3DDevice): Long {
-    val rawDevice =
-      address(device.ptr)
-        .reinterpret(DIRECTX_DEVICE_RAW_DEVICE_OFFSET + Long.SIZE_BYTES)
-        .get(ValueLayout.ADDRESS, DIRECTX_DEVICE_RAW_DEVICE_OFFSET)
-        .address()
-    check(rawDevice != NULL) { "Skiko Direct3D device wrapper did not expose ID3D12Device" }
-    return rawDevice
   }
 
   /** `D3D12_HEAP_PROPERTIES` for a default (device-local) heap on the single-adapter node. */
