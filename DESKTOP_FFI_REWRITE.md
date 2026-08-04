@@ -837,17 +837,42 @@ operating system before declaring the SPI usable.
 - [x] Multiple maps and repeated create/dispose cycles are stable.
 - [x] Runtime events drive lifecycle callbacks and repaint scheduling.
 - [x] Camera, gestures, projection, density, and bounds are implemented.
-- [x] Every desktop source and layer actual is implemented.
+- [x] Every desktop source and layer actual is implemented, and now tested
+      rather than merely present. `LayerPropertyRoundTripTest` writes every
+      declared setter on all nine layer types — 119 cases, each both before and
+      after attachment — and asserts what MapLibre reports back. That is what
+      found `iconOverlap`/`textOverlap` rejecting the whole layer, a live setter
+      throwing into the composition, and reconstructed base-style sources
+      carrying `SourceType(nativeValue=1)` as their type. Two limits are
+      recorded at their boundaries rather than claimed: some tileset fields are
+      parsed into something MapLibre never serializes, and a base-style source
+      cannot be re-added at all, because the FFI reports only its type,
+      volatility, and attribution.
 - [x] Images and rendered feature queries are implemented.
-- [x] Compose resources load through the runtime resource boundary.
-- [x] Desktop offline APIs are implemented and persistence-tested.
-- [x] Every known FFI gap is closed. There is no longer a
-      `TODO(maplibre-native-ffi)` anywhere in the desktop source: three gaps
-      were fixed upstream in #441 and the fourth was declined there with
-      reasons, so each boundary now carries either a real implementation or a
-      settled explanation. `MAPLIBRE_NATIVE_FFI_FEEDBACK.md` is down to the
-      process-exit lifecycle crash, which is a workaround rather than a gap —
-      and which has still never been filed upstream.
+- [x] Compose resources load through the runtime resource boundary, and the
+      provider no longer blocks the thread it is called on. It queues to a
+      worker instead, because `RuntimeHandle.close()` waits on in-flight
+      provider callbacks. Spaces, Unicode paths, packaged jars, missing
+      resources, cancellation, and shutdown with a read in flight all have tests
+      now; they did not before. Measured while doing it: `file:` never reaches
+      this provider, because mbgl routes it to its own local file source, so the
+      jar case is the one that proves the path end to end.
+- [x] Desktop offline APIs are implemented and persistence-tested — genuinely,
+      as of `DesktopOfflinePackTest`. Until then this box was ticked against no
+      test that created a pack at all. A pack now survives a manager dispose and
+      a reopen of the same cache path with its definition and metadata, as does
+      a deletion and a completed download's resource count.
+- [x] Every known FFI gap has a real implementation or a settled explanation at
+      its boundary. The four that blocked the rewrite are resolved: three fixed
+      upstream in #441, the fourth declined there with reasons.
+      `MAPLIBRE_NATIVE_FFI_FEEDBACK.md` is down to the process-exit lifecycle
+      crash — a workaround rather than a gap, and still never filed upstream.
+
+      Three new `TODO(maplibre-native-ffi)` markers appeared afterwards, which is
+      the layer round-trip tests doing their job rather than a regression: MapLibre
+      Native implements neither `icon-overlap` nor `text-overlap`, and the FFI
+      reports too little about a base-style source to re-add one. Those are limits
+      in what is underneath us, named where a reader meets them.
 - [x] No executable desktop `TODO()` remains in anything the FFI backs.
       `DesktopOrientationProvider` is still a stub and stays one: device
       orientation is not something the FFI provides, so it is out of scope.
@@ -883,8 +908,15 @@ operating system before declaring the SPI usable.
       they are recorded in `COMMON_API_GAPS.md` rather than done here. Finally
       `createProjection`, whose semantics do not match ours: it returns a snapshot
       of the transform, while `CameraProjection` is a live view.
-- [~] Automated tests pass (105 desktop tests, none skipped). The machine
-  validation matrix covers Linux x64 and macOS arm64; Windows is untested.
+- [~] Automated tests pass (162 desktop tests across 38 classes, none skipped).
+  The machine validation matrix covers Linux x64 and macOS arm64; Windows is
+  untested.
+
+      The count grew from 105 in one pass because an audit found the checklist was
+      claiming coverage the suite did not have — offline had no test that created
+      a pack, resources were tested only as string classification, and six layer
+      families and three source families had none at all. Treat a ticked box here
+      as a claim to check, not a result; three of them were wrong.
 
       "None skipped" now means something. Every GPU-backed test used to open with
       `HeadlessMapFixture.createOrNull() ?: return`, and a test that returns
