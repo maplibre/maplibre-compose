@@ -12,7 +12,6 @@ import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.CompiledFunctionCall
 import org.maplibre.compose.expressions.ast.CompiledListLiteral
-import org.maplibre.compose.expressions.ast.CompiledMapLiteral
 import org.maplibre.compose.expressions.ast.CompiledOptions
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
@@ -77,9 +76,6 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
     is CompiledListLiteral<*> ->
       literalArray(inLiteral, value.map { it.normalizeJsonLike(inLiteral = true) })
 
-    is CompiledMapLiteral<*> ->
-      literalObject(inLiteral, value.mapValues { (_, v) -> v.normalizeJsonLike(inLiteral = true) })
-
     // Options are always a plain object: they are named arguments to a function call, never a
     // value the style spec could mistake for an expression.
     is CompiledOptions<*> ->
@@ -89,23 +85,3 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
 private fun literalArray(inLiteral: Boolean, values: List<JsonElement>): JsonElement =
   if (inLiteral) JsonArray(values)
   else JsonArray(listOf(JsonPrimitive("literal"), JsonArray(values)))
-
-/**
- * Wraps a map literal.
- *
- * This deliberately differs from Android and iOS, which both emit `{"literal": {...}}` here. Those
- * hand the result to the platform SDK's own expression parser; desktop writes raw style JSON, where
- * the style spec defines `literal` as an operator and therefore requires the array form. The object
- * form would parse as an ordinary object with a `literal` key.
- *
- * It cannot currently be confirmed against a running map, and not for want of trying: nothing can
- * construct a map literal. [org.maplibre.compose.expressions.ast.MapLiteral] has a private
- * constructor and an `internal` `of`, and `of` has no callers anywhere in the repository, so no
- * public expression DSL entry point produces one. This branch is therefore unreachable on all three
- * platforms, which is also why the divergence has never shown up as a bug. The array form stays
- * because it is what the style spec requires of the raw JSON desktop writes; if a DSL entry point
- * for map literals is ever added, that is the moment to test all three and reconcile them.
- */
-private fun literalObject(inLiteral: Boolean, values: Map<String, JsonElement>): JsonElement =
-  if (inLiteral) JsonObject(values)
-  else JsonArray(listOf(JsonPrimitive("literal"), JsonObject(values)))

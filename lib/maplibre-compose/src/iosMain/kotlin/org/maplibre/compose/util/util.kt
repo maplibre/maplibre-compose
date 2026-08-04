@@ -37,7 +37,6 @@ import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.CompiledFunctionCall
 import org.maplibre.compose.expressions.ast.CompiledListLiteral
-import org.maplibre.compose.expressions.ast.CompiledMapLiteral
 import org.maplibre.compose.expressions.ast.CompiledOptions
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
@@ -179,17 +178,6 @@ private fun buildLiteralList(inLiteral: Boolean, block: MutableList<Any?>.() -> 
   }
 }
 
-private fun buildLiteralMap(
-  inLiteral: Boolean,
-  block: MutableMap<String, Any?>.() -> Unit,
-): Map<String, *> {
-  return if (inLiteral) {
-    buildMap { block() }
-  } else {
-    buildMap { put("literal", buildMap { block() }) }
-  }
-}
-
 private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): Any? =
   when (this) {
     NullLiteral -> null
@@ -225,9 +213,6 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): Any? =
 
     is CompiledListLiteral<*> ->
       buildLiteralList(inLiteral) { value.forEach { add(it.normalizeJsonLike(true)) } }
-
-    is CompiledMapLiteral<*> ->
-      buildLiteralMap(inLiteral) { value.forEach { (k, v) -> put(k, v.normalizeJsonLike(true)) } }
 
     is CompiledOptions<*> ->
       buildMap { value.forEach { (k, v) -> put(k, v.normalizeJsonLike(inLiteral)) } }
