@@ -1,0 +1,210 @@
+package org.maplibre.compose.resource
+
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertContains
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import org.maplibre.nativeffi.resource.ResourceErrorReason
+import org.maplibre.nativeffi.resource.ResourceResponse
+import org.maplibre.nativeffi.resource.ResourceResponseStatus
+
+/** Long enough that a wait failing here means the thing waited for is not going to happen. */
+private const val WAIT_SECONDS = 10L
+
+/**
+ * What the provider does with a request between taking it and answering it.
+ *
+ * The one thing that must hold is that taking a request does not read it: the callback arrives on a
+ * MapLibre network thread holding a lease that `RuntimeHandle.close()` spin-waits on, so a read
+ * performed there is teardown blocked for the length of the read. Everything else here is the
+ * consequence of answering later — a request cancelled in the meantime, and a provider shut down
+ * with reads still in flight.
+ *
+ * Driven through [DesktopResourceProvider.take] with a stand-in request, because the binding hands
+ * out `ResourceRequestHandle` only from inside its own callback and the type is final.
+ */
+class DesktopResourceRequestTest {
+
+  private val reads = CopyOnWriteArrayList<String>()
+  private val providers = mutableListOf<DesktopResourceProvider>()
+
+  @AfterTest
+  fun cleanUp() {
+    providers.forEach { it.close() }
+  }
+
+  private fun provider(read: (String, String) -> ResourceResponse) =
+    DesktopResourceProvider(
+        logger = null,
+        read = { url, requestedUrl ->
+          reads += url
+          read(url, requestedUrl)
+        },
+      )
+      .also { providers += it }
+
+  @Test
+  fun `taking a request returns before the resource is read`() {
+    val reading = CountDownLatch(1)
+    val finishRead = CountDownLatch(1)
+    val provider = provider { _, _ ->
+      reading.countDown()
+      finishRead.await(WAIT_SECONDS, TimeUnit.SECONDS)
+      ok("late")
+    }
+    val request = RecordedRequest()
+
+    provider.take(request, URL, URL)
+
+    // The read is running on the provider's thread and is holding still, so a `take` that read
+    // inline could not have reached this line.
+    assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
+    assertEquals(0, request.completions, "the request was answered before the read finished")
+    finishRead.countDown()
+    request.awaitAnswer()
+    assertEquals("late", request.response.bytes.decodeToString())
+    assertEquals(1, request.closes, "the request must be closed exactly once")
+  }
+
+  @Test
+  fun `a cancelled request is closed without being read`() {
+    val provider = provider { _, _ -> ok("unwanted") }
+    val request = RecordedRequest(cancelled = true)
+
+    provider.take(request, URL, URL)
+    provider.close()
+
+    assertEquals(emptyList(), reads.toList(), "a cancelled request must not be read")
+    assertEquals(0, request.completions)
+    assertEquals(1, request.closes, "a cancelled request still owns its handle and must close it")
+  }
+
+  @Test
+  fun `shutdown waits for a read that is already running`() {
+    val reading = CountDownLatch(1)
+    val finishRead = CountDownLatch(1)
+    val provider = provider { _, _ ->
+      reading.countDown()
+      finishRead.await(WAIT_SECONDS, TimeUnit.SECONDS)
+      ok("in flight")
+    }
+    val request = RecordedRequest()
+    provider.take(request, URL, URL)
+    assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
+
+    val closed = CountDownLatch(1)
+    Thread { provider.close().also { closed.countDown() } }.start()
+
+    assertFalse(
+      closed.await(200, TimeUnit.MILLISECONDS),
+      "close returned while a read was still running, so a completion could land on a closed runtime",
+    )
+    finishRead.countDown()
+    assertTrue(closed.await(WAIT_SECONDS, TimeUnit.SECONDS), "close never returned")
+    assertEquals(1, request.completions, "the in-flight request must still be answered")
+    assertEquals(1, request.closes)
+  }
+
+  @Test
+  fun `a request queued behind a running read is still answered by shutdown`() {
+    val reading = CountDownLatch(1)
+    val finishRead = CountDownLatch(1)
+    val provider = provider { _, _ ->
+      reading.countDown()
+      finishRead.await(WAIT_SECONDS, TimeUnit.SECONDS)
+      ok("queued")
+    }
+    val first = RecordedRequest()
+    val second = RecordedRequest()
+    provider.take(first, URL, URL)
+    assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
+    // Taken while the reader is occupied, so it is sitting in the queue when the shutdown begins.
+    provider.take(second, OTHER_URL, OTHER_URL)
+
+    val closed = CountDownLatch(1)
+    Thread { provider.close().also { closed.countDown() } }.start()
+    finishRead.countDown()
+
+    assertTrue(closed.await(WAIT_SECONDS, TimeUnit.SECONDS), "close never returned")
+    assertEquals(listOf(URL, OTHER_URL), reads.toList(), "the queued read must still have run")
+    assertEquals(1, second.completions, "a request the provider took must be answered")
+    assertEquals(1, second.closes)
+  }
+
+  @Test
+  fun `a request taken after shutdown is refused rather than queued`() {
+    val provider = provider { _, _ -> ok("never") }
+    provider.close()
+    val request = RecordedRequest()
+
+    provider.take(request, URL, URL)
+
+    // Answered inline, so nothing is left for a reader that no longer exists to answer.
+    assertEquals(emptyList(), reads.toList(), "a refused request must not be read")
+    assertEquals(1, request.completions, "an unanswered request leaves MapLibre waiting for it")
+    assertEquals(ResourceResponseStatus.ERROR, request.response.status)
+    assertEquals(ResourceErrorReason.OTHER, request.response.errorReason)
+    assertContains(request.response.errorMessage.orEmpty(), "shut down")
+    assertEquals(1, request.closes)
+  }
+
+  @Test
+  fun `a read that throws still closes the request`() {
+    // Nothing in the provider's own reader throws — it reports failures as responses — so this is
+    // about the handle: an exception escaping the reader thread would leave the native request
+    // alive until the binding's leak cleaner noticed it.
+    val provider = provider { _, _ -> throw IllegalStateException("the disk went away") }
+    val request = RecordedRequest()
+
+    provider.take(request, URL, URL)
+    provider.close()
+
+    assertEquals(0, request.completions)
+    assertEquals(1, request.closes)
+  }
+
+  private fun ok(body: String) =
+    ResourceResponse(ResourceResponseStatus.OK).also { it.bytes = body.toByteArray() }
+
+  /** A request the provider can take, recording what it did with it. */
+  private class RecordedRequest(private val cancelled: Boolean = false) : TakenResourceRequest {
+    private val responses = CopyOnWriteArrayList<ResourceResponse>()
+    private val answered = CountDownLatch(1)
+    private val closeCount = AtomicInteger()
+
+    override fun isCancelled(): Boolean = cancelled
+
+    override fun complete(response: ResourceResponse) {
+      responses += response
+      answered.countDown()
+    }
+
+    override fun close() {
+      closeCount.incrementAndGet()
+    }
+
+    val completions: Int
+      get() = responses.size
+
+    val closes: Int
+      get() = closeCount.get()
+
+    val response: ResourceResponse
+      get() = responses.single()
+
+    fun awaitAnswer() {
+      assertTrue(answered.await(WAIT_SECONDS, TimeUnit.SECONDS), "the request was never answered")
+    }
+  }
+
+  private companion object {
+    const val URL = "jar:file:/demo%20app.jar!/style.json"
+    const val OTHER_URL = "file:/demo/sprite.png"
+  }
+}

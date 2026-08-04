@@ -93,6 +93,9 @@ internal class DesktopMapRuntimeLoop(
    */
   private var cacheSizeRequest: AmbientCacheSizeRequest? = null
 
+  /** The provider serving this runtime's packaged resources. Owner-thread state; see [close]. */
+  private var resourceProvider: DesktopResourceProvider? = null
+
   /** Released by [close], so teardown can wait for it without polling. */
   private val stopSignal = CountDownLatch(1)
 
@@ -224,6 +227,9 @@ internal class DesktopMapRuntimeLoop(
         // Before the runtime, because RuntimeHandle.close() blocks on operations still in flight,
         // and cancelling a budget nothing will observe again is what should happen here.
         retireCacheSizeRequest()
+        // And the provider, which answers requests on a thread of its own: a read still running is
+        // a completion that would otherwise land on a runtime that is already gone.
+        quiesceResourceProvider()
         runCatching { runtime.close() }
           .onFailure { logger?.e(it) { "Failed to close the MapLibre runtime" } }
       }
@@ -262,7 +268,7 @@ internal class DesktopMapRuntimeLoop(
         AmbientCacheSizeRequest.start(runtime, runtimeOptions.maximumCacheSizeBytes, logger)
       // Installed with the runtime, before the map exists, so no resource a map requests can be
       // issued before the provider that serves it.
-      runtime.setResourceProvider(DesktopResourceProvider(logger))
+      resourceProvider = DesktopResourceProvider(logger).also(runtime::setResourceProvider)
       logger?.i { "Created MapLibre runtime on ${Thread.currentThread().name}" }
       runtime
     } catch (error: Throwable) {
@@ -270,6 +276,7 @@ internal class DesktopMapRuntimeLoop(
       // connection stay open for the life of the process. The cache-size operation goes first,
       // because closing a runtime with an operation outstanding is what it is guarding against.
       retireCacheSizeRequest()
+      quiesceResourceProvider()
       runCatching { runtime.close() }
         .onFailure { logger?.e(it) { "Failed to close the runtime after a failed setup" } }
       throw error
@@ -279,6 +286,12 @@ internal class DesktopMapRuntimeLoop(
   private fun retireCacheSizeRequest() {
     cacheSizeRequest?.close()
     cacheSizeRequest = null
+  }
+
+  private fun quiesceResourceProvider() {
+    runCatching { resourceProvider?.close() }
+      .onFailure { logger?.w(it) { "Failed to quiesce the MapLibre resource provider" } }
+    resourceProvider = null
   }
 
   private fun mapOptions() =

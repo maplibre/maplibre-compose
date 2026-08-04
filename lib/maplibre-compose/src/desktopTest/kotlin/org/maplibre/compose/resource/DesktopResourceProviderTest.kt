@@ -9,9 +9,9 @@ import kotlin.test.assertTrue
 /**
  * Which side of the resource boundary a URL falls on.
  *
- * `ResourceRequestHandle` is a final `expect class` with no constructible form, so the provider's
- * `handle` cannot be driven from a test. The decision it turns on is this function, which is where
- * the interesting behaviour lives anyway.
+ * The decision every request turns on, and the only part of the provider that is a pure function of
+ * the URL. What it does with the requests it keeps is in [DesktopResourceRequestTest], and what it
+ * reads for them is in [DesktopResourceReadTest].
  */
 class DesktopResourceProviderTest {
 
