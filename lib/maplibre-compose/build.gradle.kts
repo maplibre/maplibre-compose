@@ -84,7 +84,6 @@ kotlin {
     desktopMain.apply {
       dependencies {
         implementation(compose.desktop.currentOs)
-        implementation(libs.kotlinx.coroutines.swing)
         // The library depends on the backend-independent binding only. The
         // application selects the native runtime; see DesktopHostPlatform.
         implementation(libs.maplibre.nativeFfi)

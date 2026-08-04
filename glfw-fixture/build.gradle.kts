@@ -60,10 +60,12 @@ kotlin {
  * must be called on the main thread` from the GLFW thread, before the first frame. Removed, the
  * check finds no main dispatcher at all and permits any thread.
  *
- * Two things pull the dependency in: `:demo-app` declares it, and so does `:lib:maplibre-compose`.
- * The library one is the part worth fixing — see `DesktopOfflineManager`, which posts state updates
- * to `Dispatchers.Main` and therefore assumes AWT in a module that otherwise takes its host through
- * an SPI. The excluded build is the honest way to find out what else does.
+ * It now arrives only through `:demo-app`, which is an AWT application and legitimately wants a
+ * main dispatcher to exist. `:lib:maplibre-compose` used to declare it too, and that was the part
+ * worth fixing: `DesktopOfflineManager` hopped to `Dispatchers.Main` purely to write Compose state,
+ * which snapshot state does not require, so a module that otherwise takes its host through an SPI
+ * was quietly insisting the host be AWT. That is gone; this exclude now only has to out-rank an
+ * application's own choice, not the library's.
  */
 configurations.named("desktopRuntimeClasspath") {
   exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-swing")

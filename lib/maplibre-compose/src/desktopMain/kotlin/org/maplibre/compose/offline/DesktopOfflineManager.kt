@@ -8,10 +8,6 @@ import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.desktop.DesktopRuntimeOptions
 import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
@@ -62,9 +58,25 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
 
   private val logger = Logger.withTag("maplibre-compose")
 
-  /** Publishes to Compose state on the UI thread; native results arrive on the owner thread. */
-  private val uiScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-
+  /**
+   * Compose state, written from the owner thread.
+   *
+   * Snapshot state is safe to write from any thread — the write lands in the global snapshot and
+   * notifies, which is how the map path has always published from its own owner thread. This used
+   * to hop to `Dispatchers.Main` first, which cost the library a `kotlinx-coroutines-swing`
+   * dependency and therefore an assumption that the Compose host is AWT, in a module that otherwise
+   * takes its host through an SPI. A non-AWT host had to supply `Dispatchers.Main` itself or
+   * everything downstream of `androidx.lifecycle` broke; the compose-glfw fixture is how that was
+   * found.
+   *
+   * The hop also cost correctness. Two writers reach the same progress state — the status events
+   * MapLibre pushes and the explicit reads [refreshStatus] makes after a state change — and
+   * launching each on a dispatcher did not preserve the order they were produced in, so a resume
+   * could publish a stale value on top of a fresher one and leave it there until the next event.
+   * That needed a sequence number per region to arbitrate. Writing inline on the owner thread, the
+   * only thread that produces these, means the order is the production order and the arbitration is
+   * unnecessary.
+   */
   private val packsState = mutableStateOf(emptySet<OfflinePack>())
 
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
@@ -181,8 +193,8 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
       start = { it.startUpdateOfflineRegionMetadata(pack.regionId, ffiMetadata) },
       finish = { nativeRuntime, handle ->
         // Native echoes back what it stored, which is what the pack should show.
-        val stored = nativeRuntime.takeUpdateOfflineRegionMetadataResult(handle).metadata.copyOf()
-        publish { pack.metadataState.value = stored }
+        pack.metadataState.value =
+          nativeRuntime.takeUpdateOfflineRegionMetadataResult(handle).metadata.copyOf()
       },
     )
   }
@@ -291,45 +303,18 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     }
   }
 
-  /**
-   * How many progress updates each region has produced, stamped on the owner thread.
-   *
-   * Two writers reach the same Compose state: the status events MapLibre pushes, and the explicit
-   * reads [refreshStatus] makes after a state change. Both hop to the UI dispatcher, which does not
-   * preserve the order they were produced in, so a resume could publish a stale value on top of a
-   * fresher one and leave it there until the next event. The sequence number is what makes the
-   * later value win.
-   */
-  private val progressSequenceByRegion = mutableMapOf<Long, Long>()
-
-  private val publishedProgressSequence = mutableMapOf<Long, Long>()
-
   private fun publishProgress(regionId: Long, progress: DownloadProgress) {
     val pack = packsById[regionId]
     if (pack == null) {
       logger.v { "Ignoring progress for offline region $regionId, which has no pack" }
       return
     }
-    val sequence = (progressSequenceByRegion[regionId] ?: 0L) + 1L
-    progressSequenceByRegion[regionId] = sequence
-    publish {
-      // Read and written only on the UI dispatcher, which is single-threaded, so this needs no
-      // lock of its own.
-      if (sequence > (publishedProgressSequence[regionId] ?: 0L)) {
-        publishedProgressSequence[regionId] = sequence
-        pack.progressState.value = progress
-      }
-    }
+    pack.progressState.value = progress
   }
 
   private fun publishPacks() {
-    // Snapshotted on the owner thread so Compose never sees the mutable map behind it.
-    val snapshot = packsById.values.toSet()
-    publish { packsState.value = snapshot }
-  }
-
-  private fun publish(update: () -> Unit) {
-    uiScope.launch { update() }
+    // Snapshotted so Compose never sees the mutable map behind it.
+    packsState.value = packsById.values.toSet()
   }
 
   // ───────────────────────────── operation plumbing ─────────────────────────────
