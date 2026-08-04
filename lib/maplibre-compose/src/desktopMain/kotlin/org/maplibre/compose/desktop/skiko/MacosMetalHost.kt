@@ -50,7 +50,7 @@ internal class MacosMetalHost : DesktopMapHost {
 
   override val capabilities: DesktopHostCapabilities =
     DesktopHostCapabilities(
-      backends = backends,
+      backends = backends
       // The example performs no fence or event handshake between MapLibre's command buffer and
       // Skia's, and none is needed: MapLibre's Metal texture backend commits its command buffer
       // and then waits on it from inside renderUpdate, so the texture is finished on the GPU
@@ -65,8 +65,6 @@ internal class MacosMetalHost : DesktopMapHost {
       // signals. The reverse direction is unfenced too — MapLibre overwriting the texture while
       // Skia's previous frame may still be sampling it rests on the frame loop issuing render and
       // draw from one thread, not on a guarantee from either API.
-      supportsExplicitSynchronization = false,
-      supportsResizeWithoutRecreate = false,
     )
 
   override fun resize(extent: DesktopMapExtent) {

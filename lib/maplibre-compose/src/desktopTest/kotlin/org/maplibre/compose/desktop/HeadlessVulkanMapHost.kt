@@ -113,12 +113,7 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
   override val backends: DesktopBackendPair =
     DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 
-  override val capabilities: DesktopHostCapabilities =
-    DesktopHostCapabilities(
-      backends = backends,
-      supportsExplicitSynchronization = false,
-      supportsResizeWithoutRecreate = false,
-    )
+  override val capabilities: DesktopHostCapabilities = DesktopHostCapabilities(backends = backends)
 
   override fun resize(extent: DesktopMapExtent) {
     // Allocation happens in acquireFrame, matching the shipped hosts.

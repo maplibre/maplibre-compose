@@ -52,15 +52,5 @@ public data class DesktopBackendPair(
 @Immutable
 public data class DesktopHostCapabilities(
   /** The backends this host bridges. */
-  public val backends: DesktopBackendPair,
-  /**
-   * Whether the host synchronizes producer and consumer access explicitly, with fences or
-   * semaphores, rather than relying on driver-level ordering.
-   */
-  public val supportsExplicitSynchronization: Boolean,
-  /**
-   * Whether the host can resize its render target in place. When false, a resize invalidates the
-   * current target and the session must re-attach its render session.
-   */
-  public val supportsResizeWithoutRecreate: Boolean,
+  public val backends: DesktopBackendPair
 )

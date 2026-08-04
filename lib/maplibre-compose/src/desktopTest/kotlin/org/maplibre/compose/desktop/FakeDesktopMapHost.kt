@@ -14,10 +14,8 @@ internal class FakeDesktopMapHost(
     DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
   override val capabilities: DesktopHostCapabilities =
     DesktopHostCapabilities(
-      backends = backends,
-      supportsExplicitSynchronization = true,
+      backends = backends
       // Matches the real borrowed-texture hosts, which cannot resize in place.
-      supportsResizeWithoutRecreate = false,
     ),
 ) : DesktopMapHost {
 

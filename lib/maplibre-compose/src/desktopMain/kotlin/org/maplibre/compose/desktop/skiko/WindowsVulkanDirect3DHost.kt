@@ -114,11 +114,9 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
 
   override val capabilities: DesktopHostCapabilities =
     DesktopHostCapabilities(
-      backends = backends,
+      backends = backends
       // MapLibre's renderUpdate is synchronous to GPU completion and the host waits the Vulkan
       // device idle after producing, so no fence handshake is needed or performed.
-      supportsExplicitSynchronization = false,
-      supportsResizeWithoutRecreate = false,
     )
 
   override fun resize(extent: DesktopMapExtent) {
