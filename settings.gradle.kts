@@ -42,6 +42,7 @@ plugins { id("org.gradle.toolchains.foojay-resolver-convention") version ("1.0.0
 include(
   ":",
   ":demo-app",
+  ":glfw-fixture",
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",

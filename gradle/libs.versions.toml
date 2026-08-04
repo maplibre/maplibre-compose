@@ -4,6 +4,9 @@ accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
 androidx-activity = "1.11.0"
 bytesize = "2.2.1"
+# The alternative Compose host the desktop SPI fixture runs against. Built against Compose 1.11.1
+# and skiko 0.144.6, so it pins `gradle-compose` below rather than following it.
+composeGlfw = "0.2.0"
 htmlConverterCompose = "1.1.0"
 kermit = "2.1.0"
 kotlin-wrappers = "2026.4.13"
@@ -50,6 +53,7 @@ androidx-activity-compose = { module = "androidx.activity:activity-compose", ver
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
+composeGlfw = { module = "dev.sargunv:compose-glfw", version.ref = "composeGlfw" }
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }

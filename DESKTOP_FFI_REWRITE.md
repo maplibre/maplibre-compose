@@ -266,6 +266,54 @@ The fixture proves that:
 The fixture may remain a sample or move to the compose-glfw repository after the
 SPI stabilizes.
 
+Built, in `glfw-fixture/`, and validated on macOS arm64. It runs the whole demo
+application — not a lone map — because "the same public composable works" is
+only worth asserting against the style switcher, the gesture demos, and the
+offline screens as well. `:lib:maplibre-compose` does not depend on it; the
+dependency runs fixture → demo-app → library, so neither of the other two knows
+compose-glfw exists.
+
+The graphics half of the SPI came through unchanged: `GlfwMetalMapHost` is the
+same Metal-to-Metal bridge as `MacosMetalHost` with the reflection deleted,
+since compose-glfw publishes both the `MTLDevice` and Skia's `DirectContext` as
+fields of `MetalRenderContext`. No SPI type needed a change to accommodate it.
+What the fixture did find:
+
+- **A retired target can still be handed back to `draw`.** The surface presents
+  the last target that was rendered into while MapLibre catches up with a new
+  size, so freeing on the generation bump — which `MacosMetalHost` did — hands
+  Skia a released `MTLTexture` and traps inside `CFRetain`. Now stated on
+  `DesktopRenderTarget.generation` and honoured by both Metal hosts. The Linux
+  and Windows hosts were already safe by accident: their `draw` implementations
+  ignore the handles on the target they are passed and present their own current
+  texture.
+- **Clearing the last completed target on resize caused a flicker**, not just a
+  stretch. Every skipped frame during a drag painted transparent. AWT coalesces
+  resize events enough to hide it; a GLFW window reports every intermediate size
+  and the map flickered through the window background for the length of the
+  drag. Reversed in `DesktopMapDrawState`.
+- **`Dispatchers.Main` is the one place the library still assumes AWT.**
+  `:lib:maplibre-compose` declares `kotlinx-coroutines-swing` itself and
+  `DesktopOfflineManager` posts to `Dispatchers.Main`, so the desktop target
+  quietly requires the AWT event thread to exist even though its graphics host
+  is an SPI. It is not reachable through the SPI, and it is not only ours:
+  `androidx.lifecycle` decides which thread is "the main thread" by running a
+  block on `Dispatchers.Main`, so with coroutines-swing present every
+  `addObserver` from a GLFW thread throws and navigation cannot complete a
+  transition, while without it `repeatOnLifecycle` — which
+  `rememberUserLocationState` uses — fails outright. The fixture supplies its
+  own `MainDispatcherFactory` to close the gap; the durable fix belongs in
+  compose-glfw, which has a UI dispatcher already and only needs to register it.
+- **Two things every host must write from scratch**: a renderer thread, because
+  the SPI requires a stable one through `withRendererAccess` without supplying
+  one, and Objective-C messaging, because the SPI is defined in backend-neutral
+  handles and neither project publishes a helper. Roughly 140 lines, duplicated
+  knowingly.
+
+Not covered: fractional display scale. macOS reports a content scale of exactly
+2.0 on a Retina display whatever the display mode, so the case compose-glfw
+uniquely enables still needs a Linux/Wayland machine to exercise.
+
 ## Runtime, threading, and lifecycle
 
 Start with one runtime per map, on one dedicated owner thread per map. This
@@ -779,8 +827,13 @@ operating system before declaring the SPI usable.
   macOS runs the full GPU test suite on Vulkan over MoltenVK. Windows Vulkan is
   implemented but has never run on hardware.
 - [x] The default Skiko host is replaceable through the public host SPI.
-- [ ] A compose-glfw fixture renders through the same map session. Not started;
-      the headless Vulkan host covers the equivalent ground for tests.
+- [x] A compose-glfw fixture renders through the same map session.
+      `glfw-fixture` runs the whole demo application in a GLFW window on macOS
+      arm64, through the same `DesktopMapSession`, with no reflection and no AWT
+      in the graphics path. Resizes retarget the live session rather than
+      re-attaching — one `Rendered the first map frame` line per session, across
+      drag resizes in both directions. Two SPI fixes came out of it; see
+      "Alternative hosts".
 - [x] Multiple maps and repeated create/dispose cycles are stable.
 - [x] Runtime events drive lifecycle callbacks and repaint scheduling.
 - [x] Camera, gestures, projection, density, and bounds are implemented.

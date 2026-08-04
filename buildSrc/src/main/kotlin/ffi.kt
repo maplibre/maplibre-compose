@@ -38,6 +38,27 @@ enum class DesktopHostPlatform(
   val runtimeModule: String
     get() = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-${renderBackend.artifactInfix}-jvm"
 
+  /**
+   * Dependency notation for the compose-glfw runtime this platform needs.
+   *
+   * compose-glfw splits its host per operating system *and* per Compose consumer backend, and names
+   * the consumer rather than the producer: OpenGL on Linux, Metal on macOS, Direct3D on Windows.
+   * That is a different axis from [renderBackend], which names what MapLibre produces with — the
+   * two only coincide on macOS. Kept here with the FFI runtime selection so the desktop SPI fixture
+   * does not grow a second host detector.
+   */
+  fun composeGlfwRuntimeDependency(version: String): String =
+    "dev.sargunv:compose-glfw-$composeGlfwBackend-$os-$arch:$version"
+
+  private val composeGlfwBackend: String
+    get() =
+      when (os) {
+        "linux" -> "opengl"
+        "macos" -> "metal"
+        "windows" -> "direct3d"
+        else -> error("compose-glfw publishes no runtime for operating system '$os'")
+      }
+
   /** Full dependency notation for this platform's native runtime. */
   fun runtimeDependency(version: String): String = "$runtimeModule:$version:$nativesClassifier"
 
