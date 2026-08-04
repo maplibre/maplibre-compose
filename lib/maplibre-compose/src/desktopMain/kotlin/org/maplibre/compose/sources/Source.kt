@@ -4,6 +4,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.toFfiJsonValue
+import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
 
 /**
@@ -37,7 +38,19 @@ public actual sealed class Source(internal actual val id: String) {
       // Idempotent, because a layer attaches its own source first when Compose has not run the
       // source's effect yet; the effect then attaches the same source again.
       if (!map.styleSourceExists(id)) {
-        addTo(map)
+        try {
+          addTo(map)
+        } catch (error: MaplibreException) {
+          // Rethrown with the source named. Native reports only what was wrong with the definition
+          // — "source must have tiles" — which does not say whose, and letting it escape kills the
+          // Compose thread that was applying style content. The definition itself is deliberately
+          // not in the message: a GeoJSON source's is its entire dataset.
+          throw IllegalStateException(
+            "Could not add source '$id' of type " +
+              "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
+            error,
+          )
+        }
       }
     }
     check(added != null) {

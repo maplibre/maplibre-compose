@@ -9,6 +9,7 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.UnknownSource
+import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.util.ImageResizeOptions
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toPremultipliedRgba8
@@ -184,7 +185,9 @@ internal class DesktopStyle(
     UnknownSource(id, sourceDefinition(map, id)).also { it.bindExisting(binding) }
 
   private fun sourceDefinition(map: MapHandle, id: String): JsonObject = buildJsonObject {
-    map.styleSourceType(id)?.let { put("type", it.toString()) }
+    // Through toStyleSpecType rather than toString: see the note there on what the enum's default
+    // toString puts in a definition that is meant to be style JSON.
+    map.styleSourceType(id)?.toStyleSpecType()?.let { put("type", it) }
     map.styleSourceInfo(id)?.attribution?.let { put("attribution", it) }
   }
 

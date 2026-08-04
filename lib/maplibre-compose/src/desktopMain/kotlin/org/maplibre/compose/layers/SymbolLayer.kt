@@ -69,11 +69,25 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
     setLayoutProperty("icon-allow-overlap", allowOverlap)
   }
 
-  // Unlike Android and iOS, whose SDKs never exposed a setter for it, the style JSON path can carry
-  // `icon-overlap` straight through to the core, which has supported it since it superseded
-  // `icon-allow-overlap`.
+  /**
+   * Dropped, because MapLibre Native has never implemented it.
+   *
+   * The style spec added `icon-overlap` to supersede `icon-allow-overlap`, and the core does not
+   * know the name: a symbol layer carrying it is refused outright with "layer doesn't support this
+   * property", so writing it costs the whole layer rather than one property. Android and iOS leave
+   * their setter empty for the same reason; desktop reaching the core through style JSON does not
+   * change what the core accepts. Use `iconAllowOverlap`, which every backend does implement.
+   *
+   * TODO(maplibre-native-ffi): write this property once MapLibre Native's symbol layer implements
+   *   `icon-overlap`, including its `cooperative` value, which `icon-allow-overlap` cannot express.
+   */
   actual fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
-    setLayoutProperty("icon-overlap", overlap)
+    skipUnsupportedProperty(
+      "icon-overlap",
+      overlap,
+      "MapLibre Native does not implement it. Use iconAllowOverlap instead; note that it cannot " +
+        "express the 'cooperative' value.",
+    )
   }
 
   actual fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
@@ -246,9 +260,20 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
     setLayoutProperty("text-allow-overlap", allowOverlap)
   }
 
-  // See [setIconOverlap]: available here even though the mobile SDKs never bound it.
+  /**
+   * Dropped, for the same reason as [setIconOverlap]: MapLibre Native does not know `text-overlap`
+   * either, and a layer carrying it does not load at all. Use `textAllowOverlap`.
+   *
+   * TODO(maplibre-native-ffi): write this property once MapLibre Native's symbol layer implements
+   *   `text-overlap`.
+   */
   actual fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
-    setLayoutProperty("text-overlap", overlap)
+    skipUnsupportedProperty(
+      "text-overlap",
+      overlap,
+      "MapLibre Native does not implement it. Use textAllowOverlap instead; note that it cannot " +
+        "express the 'cooperative' value.",
+    )
   }
 
   actual fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {

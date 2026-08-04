@@ -7,6 +7,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.toFfiJsonValue
 import org.maplibre.compose.util.toJsonElement
@@ -141,8 +142,63 @@ internal actual sealed class Layer(actual val id: String) {
     binding.withMap { map -> map.setLayerFilter(id, filter.toFfiJsonValue()) }
   }
 
+  /**
+   * Sends a property to an already-attached layer, reporting a rejected value rather than throwing.
+   *
+   * MapLibre refuses a value it cannot use — an enum member it never implemented, a shape the
+   * property does not take — and this runs inside a Compose update block, so letting that out kills
+   * the composition applying the style. Android and iOS hand the same value to the same core and
+   * keep going with the property unset, and the cost of agreeing with them is one property not
+   * rendering rather than a live map going down on a recomposition.
+   *
+   * Adding a layer is deliberately not this forgiving: [attach] fails loudly, because a value
+   * MapLibre refuses there takes the entire layer with it and there is nothing left to degrade to.
+   */
   private fun pushProperty(name: String, value: JsonElement) {
-    binding.withMap { map -> map.setLayerProperty(id, name, value.toFfiJsonValue()) }
+    binding.withMap { map ->
+      try {
+        map.setLayerProperty(id, name, value.toFfiJsonValue())
+      } catch (error: MaplibreException) {
+        binding.logger?.w(error) {
+          "Layer '$id' of type '$type' kept its previous '$name': MapLibre rejected $value."
+        }
+      }
+    }
+  }
+
+  /**
+   * Style-spec property names this layer was asked for and did not write, with why not.
+   *
+   * Kept rather than reported and forgotten because a descriptor is usually configured before it is
+   * attached, and an unattached layer has no binding and therefore no logger to report through.
+   * [attach] drains this once the layer has a style.
+   */
+  private val unsupportedProperties = mutableMapOf<String, String>()
+
+  /**
+   * Drops a property MapLibre Native will not accept, and says so once.
+   *
+   * Writing one anyway is not the safer option it looks like. MapLibre rejects an unknown property
+   * name in a layer object by refusing the entire layer — "layer doesn't support this property" —
+   * so a single unsupported property does not degrade to a missing effect, it takes the whole layer
+   * off the map and throws out of the Compose applier that was adding it.
+   *
+   * @param value the value that was asked for. An unset optional property compiles to a null
+   *   literal, which asks for nothing; reporting those would put a warning in the log for every
+   *   layer in the composition rather than for the ones that wanted the property.
+   */
+  protected fun skipUnsupportedProperty(
+    name: String,
+    value: CompiledExpression<*>,
+    reason: String,
+  ) {
+    if (value == NullLiteral) return
+    if (unsupportedProperties.put(name, reason) != null) return
+    if (isAttached) reportUnsupportedProperty(name, reason)
+  }
+
+  private fun reportUnsupportedProperty(name: String, reason: String) {
+    binding.logger?.w { "Layer '$id' of type '$type' cannot set '$name': $reason" }
   }
 
   /**
@@ -205,6 +261,9 @@ internal actual sealed class Layer(actual val id: String) {
       "Layer '$id' was not added: its style is no longer loaded. It will not appear until the " +
         "style reloads and the composition re-adds it."
     }
+    // Reported here rather than where the property was set, because that is the first moment this
+    // layer has a logger to report through.
+    unsupportedProperties.forEach { (name, reason) -> reportUnsupportedProperty(name, reason) }
   }
 
   /**
