@@ -54,6 +54,23 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
 
     fun forOptions(options: DesktopRuntimeOptions): DesktopOfflineManager =
       synchronized(instances) { instances.getOrPut(options) { DesktopOfflineManager(options) } }
+
+    /**
+     * Stops the manager for [options], if there is one, and forgets it so that a later [forOptions]
+     * builds a fresh one against the same database. Reports whether its thread stopped within
+     * [timeoutMillis].
+     *
+     * Tests only, and deliberately not part of [OfflineManager]: production never disposes a
+     * manager, for the reasons in the class documentation. Restart persistence is not observable
+     * without it, though — the point of that test is that a pack outlives the runtime that created
+     * it, which requires the first runtime to actually close its database connection and a second
+     * one to read the file back rather than a cached instance handing over its in-memory map.
+     */
+    fun disposeForTest(options: DesktopRuntimeOptions, timeoutMillis: Long = 30_000): Boolean {
+      val manager = synchronized(instances) { instances.remove(options) } ?: return true
+      manager.runtime.shutdown()
+      return manager.runtime.awaitStopped(timeoutMillis)
+    }
   }
 
   private val logger = Logger.withTag("maplibre-compose")

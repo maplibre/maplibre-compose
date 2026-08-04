@@ -21,29 +21,19 @@ class DesktopOfflineManagerTest {
   private val options =
     DesktopRuntimeOptions(cachePath = directory.resolve("cache.db"), maximumCacheSizeBytes = null)
 
+  private val budgetedOptions =
+    DesktopRuntimeOptions(
+      cachePath = directory.resolve("budgeted-cache.db"),
+      maximumCacheSizeBytes = 8L * 1024 * 1024,
+    )
+
   @AfterTest
   fun cleanUp() {
+    // Managers live for the life of the process in production, so a test that does not dispose its
+    // own leaves a thread and an open database behind for every later test in the run.
+    DesktopOfflineManager.disposeForTest(options)
+    DesktopOfflineManager.disposeForTest(budgetedOptions)
     directory.toFile().deleteRecursively()
-  }
-
-  @Test
-  fun `creating a manager starts its runtime and lists packs`() = runBlocking {
-    val manager = DesktopOfflineManager.forOptions(options)
-
-    // Listing is what the offline screen does first, so it is what a crash on open would hit.
-    withTimeout(30_000) {
-      // The initial listing is asynchronous; the manager publishes into `packs` when it completes.
-      // Poll rather than await an event, because a failure to list would otherwise hang.
-      var waited = 0L
-      while (manager.packs.isEmpty() && waited < 10_000) {
-        kotlinx.coroutines.delay(100)
-        waited += 100
-      }
-    }
-
-    // An empty database legitimately has no packs; the assertion is that getting here did not
-    // throw.
-    assertTrue(manager.packs.isEmpty() || manager.packs.isNotEmpty())
   }
 
   /**
@@ -74,13 +64,7 @@ class DesktopOfflineManagerTest {
   @Test
   fun `changing the cache size completes on a runtime that was created with a budget`() =
     runBlocking {
-      val manager =
-        DesktopOfflineManager.forOptions(
-          DesktopRuntimeOptions(
-            cachePath = directory.resolve("budgeted-cache.db"),
-            maximumCacheSizeBytes = 8L * 1024 * 1024,
-          )
-        )
+      val manager = DesktopOfflineManager.forOptions(budgetedOptions)
 
       withTimeout(30_000) {
         manager.setMaximumAmbientCacheSize(4L * 1024 * 1024)
