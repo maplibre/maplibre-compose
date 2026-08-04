@@ -25,7 +25,7 @@ class DesktopMapQueryTest {
 
   @Test
   fun `a query at a covered point returns the feature`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
       // Rendering is what populates the queryable set, so the frames matter, not just the load.
@@ -45,7 +45,7 @@ class DesktopMapQueryTest {
 
   @Test
   fun `a query restricted to another layer returns nothing`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
       it.pump(frames = 30)
@@ -63,7 +63,7 @@ class DesktopMapQueryTest {
 
   @Test
   fun `a box query covering the map returns the feature`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
       it.pump(frames = 30)
@@ -82,7 +82,7 @@ class DesktopMapQueryTest {
   /** Queried before the first frame, which is what a click during startup does. */
   @Test
   fun `a query before any frame returns empty rather than throwing`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       assertTrue(
         it.session

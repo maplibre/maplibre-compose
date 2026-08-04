@@ -73,6 +73,27 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
   }
 
   /**
+   * Takes the surface away, as a host does when its device is lost.
+   *
+   * The host itself is deliberately left alone: what a sleep/wake cycle destroys is the render
+   * session and the target it points at, not the map, its style, or its camera, and the point of
+   * pairing this with [restoreSurface] is to prove that division holds.
+   */
+  fun loseSurface() {
+    session.onSurfaceLost()
+  }
+
+  /** Hands the surface back, and forgets that anything was ever rendered into the old one. */
+  fun restoreSurface() {
+    hasRendered = false
+    session.onSurfaceAvailable(hostSession)
+  }
+
+  /** How many render sessions the map session has attached, for asserting a re-attach happened. */
+  val attachCount: Int
+    get() = session.attachCount
+
+  /**
    * Whether MapLibre has rendered at least once.
    *
    * The signal that the map exists and is attached, which a test needs before anything it does can
@@ -229,12 +250,14 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
       DesktopMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 2.0)
 
     /**
-     * Creates a fixture, or returns null when this machine has no usable Vulkan implementation.
+     * Creates a fixture, failing if this machine has no usable Vulkan implementation.
      *
-     * Tests skip on null. A runner without a GPU or a software driver says nothing about the code.
+     * See [HeadlessVulkanMapHost.create] for why this fails rather than letting tests bail out: a
+     * test that returns before asserting is recorded as passed, so an unusable machine would report
+     * the same green suite as a working one.
      */
-    fun createOrNull(): HeadlessMapFixture? {
-      val host = HeadlessVulkanMapHost.createOrNull() ?: return null
+    fun create(): HeadlessMapFixture {
+      val host = HeadlessVulkanMapHost.create()
       val directory = Files.createTempDirectory("maplibre-headless-test")
       return try {
         HeadlessMapFixture(host, directory)

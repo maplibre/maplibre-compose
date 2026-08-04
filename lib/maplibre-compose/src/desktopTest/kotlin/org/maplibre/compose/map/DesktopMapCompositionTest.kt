@@ -231,11 +231,7 @@ class DesktopMapCompositionTest {
     body: ComposeUiTest.(MutableList<String>) -> Unit,
     content: @Composable (MutableList<String>) -> Unit,
   ) = runComposeUiTest {
-    val factory = HeadlessVulkanMapHostFactory.createOrNull()
-    if (factory == null) {
-      System.err.println("Skipping: no usable Vulkan implementation")
-      return@runComposeUiTest
-    }
+    val factory = HeadlessVulkanMapHostFactory.create()
     val errors = mutableListOf<String>()
     setContent {
       CompositionLocalProvider(

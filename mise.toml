@@ -27,7 +27,9 @@ postinstall = [
 description = "Install the system libraries mise cannot, for the platform this is run on."
 # The desktop GPU tests drive a real Vulkan device. Linux and Windows have a system Vulkan loader;
 # macOS does not, so it comes from Homebrew over MoltenVK. Without it HeadlessVulkanMapHost cannot
-# be created and every GPU-backed test skips — reporting green while asserting nothing.
+# be created and every GPU-backed test fails, naming this task. That is deliberate: those tests
+# used to bail out instead, which JUnit records as passed, so an unusable machine reported the same
+# green suite as a working one.
 run = """
 if [ "$(uname -s)" = "Darwin" ] && command -v brew >/dev/null 2>&1; then
   brew install --quiet vulkan-loader molten-vk

@@ -189,20 +189,31 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
 
   companion object {
     /**
-     * Creates a host, or returns null when this machine has no usable Vulkan implementation.
+     * Creates a host, or fails.
      *
-     * Null rather than an exception, so a test can skip instead of failing: a CI runner without a
-     * GPU or a software driver is a fact about the runner, not about the code under test.
+     * A working Vulkan implementation is a requirement of this suite, not a nice-to-have, and
+     * saying so with an exception is the whole point. The alternative — returning null so callers
+     * can bail out early — reads as a skip but is not one: a test that returns before asserting is
+     * recorded by JUnit as **passed**. A machine without a Vulkan loader would then run every
+     * GPU-backed test green while executing none of them, which is worse than a red suite because
+     * nothing distinguishes it from real coverage.
+     *
+     * On macOS that means the Homebrew `vulkan-loader` and `molten-vk` that `mise run bootstrap`
+     * installs; Linux and Windows have a system loader.
      */
-    fun createOrNull(): HeadlessVulkanMapHost? {
+    fun create(): HeadlessVulkanMapHost {
       val host = HeadlessVulkanMapHost()
       return try {
         host.rendererThread.run { host.recreateTexture(PROBE_EXTENT) }
         host
       } catch (error: Throwable) {
         runCatching { host.close() }
-        System.err.println("Skipping: no usable Vulkan implementation (${error.message})")
-        null
+        throw IllegalStateException(
+          "No usable Vulkan implementation, so the desktop GPU tests cannot run. On macOS, " +
+            "`mise run bootstrap` installs vulkan-loader and molten-vk; elsewhere install the " +
+            "system Vulkan loader. Probe failed with: ${error.message}",
+          error,
+        )
       }
     }
 

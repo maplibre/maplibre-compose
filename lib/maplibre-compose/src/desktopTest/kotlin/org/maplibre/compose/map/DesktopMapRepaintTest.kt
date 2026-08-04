@@ -99,11 +99,7 @@ class DesktopMapRepaintTest {
    */
   private fun runRepaintTest(mutate: ComposeUiTest.() -> Unit, content: @Composable () -> Unit) =
     runComposeUiTest {
-      val factory = HeadlessVulkanMapHostFactory.createOrNull()
-      if (factory == null) {
-        System.err.println("Skipping: no usable Vulkan implementation")
-        return@runComposeUiTest
-      }
+      val factory = HeadlessVulkanMapHostFactory.create()
 
       setContent {
         CompositionLocalProvider(

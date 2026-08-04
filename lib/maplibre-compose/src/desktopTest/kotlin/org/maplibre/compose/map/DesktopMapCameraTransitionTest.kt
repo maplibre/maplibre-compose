@@ -32,7 +32,7 @@ class DesktopMapCameraTransitionTest {
 
   @Test
   fun `an animation completes and lands on its target`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.startAtOrigin()
 
@@ -51,7 +51,7 @@ class DesktopMapCameraTransitionTest {
   /** A zero-duration animation emits its event during the call, so it must not deadlock. */
   @Test
   fun `a zero duration animation completes`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.startAtOrigin()
 
@@ -64,7 +64,7 @@ class DesktopMapCameraTransitionTest {
   /** A transition another command takes over still resumes its caller, as it does on Android. */
   @Test
   fun `a superseded animation resumes rather than hanging`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.startAtOrigin()
 
@@ -83,7 +83,7 @@ class DesktopMapCameraTransitionTest {
   /** Cancelling the coroutine must stop the camera and leave the next animation working. */
   @Test
   fun `cancelling an animation stops the camera and leaves nothing registered`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.startAtOrigin()
 
@@ -116,7 +116,7 @@ class DesktopMapCameraTransitionTest {
   /** Closing the map discards its queued events, so an outstanding animation must be released. */
   @Test
   fun `closing the session resumes an outstanding animation`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.startAtOrigin()
 
@@ -143,7 +143,7 @@ class DesktopMapCameraTransitionTest {
    */
   @Test
   fun `a density change preserves the camera`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.startAtOrigin()
       // Panned after the last setCameraPosition, so a session replaying the requested camera rather

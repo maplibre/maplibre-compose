@@ -66,11 +66,7 @@ class DesktopMapClusterTest {
 
   @Test
   fun `a clustered source answers the supercluster queries`() = runComposeUiTest {
-    val factory = HeadlessVulkanMapHostFactory.createOrNull()
-    if (factory == null) {
-      System.err.println("Skipping: no usable Vulkan implementation")
-      return@runComposeUiTest
-    }
+    val factory = HeadlessVulkanMapHostFactory.create()
 
     lateinit var source: GeoJsonSource
     lateinit var cameraState: CameraState

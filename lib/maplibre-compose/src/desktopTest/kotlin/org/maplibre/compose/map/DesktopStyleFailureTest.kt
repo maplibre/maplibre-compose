@@ -18,7 +18,7 @@ class DesktopStyleFailureTest {
 
   @Test
   fun `a malformed inline style is reported rather than thrown`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
 
@@ -35,7 +35,7 @@ class DesktopStyleFailureTest {
   /** The same contract for the fetching setter, which reports only through the event. */
   @Test
   fun `an unreachable style url is reported rather than thrown`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.session.setBaseStyle(BaseStyle.Uri("https://example.invalid/style.json"))
 
@@ -48,7 +48,7 @@ class DesktopStyleFailureTest {
   /** A failing style must not spin the render loop retrying itself on every frame. */
   @Test
   fun `a failed style is not retried on every frame`() {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
       it.pump(frames = 10)

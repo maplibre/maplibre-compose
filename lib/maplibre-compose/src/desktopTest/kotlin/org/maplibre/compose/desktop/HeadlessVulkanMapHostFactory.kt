@@ -20,23 +20,21 @@ internal class HeadlessVulkanMapHostFactory : DesktopMapHostFactory {
     if (producer != MapRenderBackend.VULKAN) {
       return DesktopMapHostResult.Unsupported("$producer is not supported headlessly")
     }
-    val host =
-      HeadlessVulkanMapHost.createOrNull()
-        ?: return DesktopMapHostResult.Unsupported("no usable Vulkan implementation")
+    val host = HeadlessVulkanMapHost.create()
     created += host
     return DesktopMapHostResult.Created(host)
   }
 
   companion object {
     /**
-     * Creates a factory, or returns null when this machine has no usable Vulkan implementation.
+     * Creates a factory, failing if this machine has no usable Vulkan implementation.
      *
-     * Probed up front so a test can skip before composing anything, rather than discovering it as a
-     * surface that silently never becomes ready.
+     * Probed up front rather than on the first frame, so a missing loader is an error naming itself
+     * instead of a surface that silently never becomes ready. See [HeadlessVulkanMapHost.create]
+     * for why this fails rather than skipping.
      */
-    fun createOrNull(): HeadlessVulkanMapHostFactory? {
-      val probe = HeadlessVulkanMapHost.createOrNull() ?: return null
-      probe.close()
+    fun create(): HeadlessVulkanMapHostFactory {
+      HeadlessVulkanMapHost.create().close()
       return HeadlessVulkanMapHostFactory()
     }
   }

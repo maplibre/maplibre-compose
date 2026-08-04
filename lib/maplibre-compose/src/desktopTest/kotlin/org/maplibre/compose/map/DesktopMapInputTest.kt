@@ -129,7 +129,7 @@ class DesktopMapInputTest {
     gestures: GestureOptions = GestureOptions.Standard,
     body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
   ) = runComposeUiTest {
-    val factory = HeadlessVulkanMapHostFactory.createOrNull() ?: return@runComposeUiTest
+    val factory = HeadlessVulkanMapHostFactory.create()
     lateinit var cameraState: CameraState
 
     setContent {

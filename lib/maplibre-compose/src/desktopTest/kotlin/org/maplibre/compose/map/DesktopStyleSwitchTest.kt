@@ -58,7 +58,7 @@ class DesktopStyleSwitchTest {
 
   @Test
   fun `rotating the base style with content composed over it`() = runComposeUiTest {
-    val factory = HeadlessVulkanMapHostFactory.createOrNull() ?: return@runComposeUiTest
+    val factory = HeadlessVulkanMapHostFactory.create()
     val errors = mutableListOf<String>()
     var loadsFinished = 0
     var style by mutableStateOf(STYLES[0])
