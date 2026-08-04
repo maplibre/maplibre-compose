@@ -144,39 +144,32 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
   }
 
   override suspend fun setMaximumAmbientCacheSize(size: Long) {
-    // TODO(maplibre-native-ffi): there is no runtime call for mbgl's
-    // DatabaseFileSource::setMaximumAmbientCacheSize; RuntimeOptions.maximumCacheSize fixes the
-    // limit when the runtime is created and nothing can change it afterwards. Recreating the
-    // runtime here is not the same operation: it would stop every download in progress and drop
-    // the observers the live packs depend on.
-    val configured = options.maximumCacheSizeBytes
-    if (configured == null) {
-      // The runtime was created with MapLibre's own default and there is no way to read it back,
-      // so this cannot be verified as satisfied. Warn rather than throw: cross-platform code
-      // routinely calls this at startup, and it succeeds on Android and iOS.
-      logger.w {
-        "Ignoring setMaximumAmbientCacheSize($size): the desktop ambient cache size is fixed when " +
-          "the runtime is created. Set DesktopRuntimeOptions(maximumCacheSizeBytes = $size) " +
-          "through LocalDesktopRuntimeOptions to control it."
-      }
-      return
-    }
-    if (size == configured) return
-    throw OfflineManagerException(
-      "The ambient cache size is fixed at $configured bytes for this runtime and cannot be " +
-        "changed to $size afterwards. Provide " +
-        "DesktopRuntimeOptions(maximumCacheSizeBytes = $size) through LocalDesktopRuntimeOptions " +
-        "instead."
+    // The same native call the creation-time DesktopRuntimeOptions.maximumCacheSizeBytes goes
+    // through, so a runtime that was handed a budget up front can still be re-budgeted here.
+    // Lowering it evicts ambient resources to fit, which is why this is an operation with a
+    // completion to wait for rather than a number being stored; offline packs are left alone.
+    runOperation(
+      description = "set the maximum ambient cache size to $size bytes",
+      start = { it.startSetMaximumAmbientCacheSize(size) },
+      finish = { _, _ -> },
     )
   }
 
   override fun setTileCountLimit(limit: Long) {
-    // TODO(maplibre-native-ffi): there is no runtime call for mbgl's
-    // setOfflineMapboxTileCountLimit, so desktop downloads keep MapLibre's built-in limit. The
-    // limit is still observed: exceeding it arrives as OFFLINE_REGION_TILE_COUNT_LIMIT_EXCEEDED
-    // and becomes DownloadProgress.TileLimitExceeded.
-    logger.w {
-      "Desktop cannot set the offline tile count limit to $limit; MapLibre's own limit applies"
+    // maplibre-native-ffi deliberately does not expose mbgl's setOfflineMapboxTileCountLimit, and
+    // that is a settled decision rather than a gap: the limit counts only canonical Mapbox tile
+    // URLs, so it is already a no-op for an ordinary MapLibre style, and the native call reports
+    // neither completion nor error — the one thing every other offline operation here is built
+    // around. Desktop downloads therefore keep MapLibre's built-in limit. That limit is still
+    // observed: exceeding it arrives as OFFLINE_REGION_TILE_COUNT_LIMIT_EXCEEDED and becomes
+    // DownloadProgress.TileLimitExceeded.
+    //
+    // Reported at info rather than warned, because there is nothing the caller can do about it and
+    // nothing it needs to do: cross-platform code calls this once at startup, where a warning that
+    // will never stop appearing is noise rather than a signal.
+    logger.i {
+      "Ignoring setTileCountLimit($limit) on desktop; MapLibre's own offline tile count limit " +
+        "applies, and it counts only Mapbox-hosted tiles"
     }
   }
 

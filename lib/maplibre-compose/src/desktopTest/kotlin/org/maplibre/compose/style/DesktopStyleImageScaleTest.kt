@@ -28,7 +28,7 @@ class DesktopStyleImageScaleTest {
   }
 
   private fun assertUploadedPixelRatio(extent: DesktopMapExtent, expected: Float) {
-    val fixture = HeadlessMapFixture.createOrNull() ?: return
+    val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = extent)
 

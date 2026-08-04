@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.Density
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -12,6 +13,8 @@ import org.maplibre.compose.util.ImageResizeOptions
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toPremultipliedRgba8
 import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.style.ImageContent
+import org.maplibre.nativeffi.style.ImageStretch
 import org.maplibre.nativeffi.style.StyleImageOptions
 
 /**
@@ -45,18 +48,11 @@ internal class DesktopStyle(
     sdf: Boolean,
     resizeOptions: ImageResizeOptions?,
   ) {
-    if (resizeOptions != null) {
-      // Said rather than silently dropped: the image is uploaded whole, so it scales instead of
-      // stretching, and a nine-patch background comes out distorted with nothing to explain why.
-      // TODO(maplibre-native-ffi): Preserve stretchable image content insets once
-      // the C API and Kotlin StyleImageOptions expose them.
-      binding.logger?.w {
-        "Image '$id' asked for content insets, which desktop cannot preserve: " +
-          "maplibre-native-ffi's StyleImageOptions carries only pixelRatio and sdf. " +
-          "The image will scale rather than stretch."
-      }
-    }
+    val scale = getScale()
     val pixels = image.toPremultipliedRgba8()
+    // The stretchable region and the content box are the same four numbers, as on Android: the
+    // whole middle of the image stretches, and label padding is measured against that same middle.
+    val box = resizeOptions?.let { contentBox(id, image, it, scale) }
     binding.withMap { map ->
       map.setStyleImage(
         imageId = id,
@@ -64,11 +60,66 @@ internal class DesktopStyle(
         options =
           StyleImageOptions().also {
             it.sdf = sdf
-            it.pixelRatio = getScale()
+            it.pixelRatio = scale
+            it.stretchX = box?.let { content -> listOf(ImageStretch(content.left, content.right)) }
+            it.stretchY = box?.let { content -> listOf(ImageStretch(content.top, content.bottom)) }
+            it.content = box
           },
       )
     }
   }
+
+  /**
+   * Turns [resizeOptions] into a content box in image pixels, or null when it does not fit [image].
+   *
+   * The insets are distances in from each edge, so the far edges are measured back from the image's
+   * size, and every conversion goes through the same [scale] the bitmap was rasterized at — a 2x
+   * bitmap is twice as many pixels across, and converting its insets at 1x would place them at half
+   * the distance in.
+   *
+   * A box whose sides meet or cross is dropped with a warning rather than thrown for, because it is
+   * reachable without anyone writing anything wrong: insets are [androidx.compose.ui.unit.Dp] and a
+   * caller-supplied bitmap is a fixed number of pixels, so 6.dp insets on a 16x16 bitmap fit at 1x
+   * and cross at 2x. Throwing would make that a display-dependent crash out of a Compose applier,
+   * for a mis-fit that costs a stretch. Passing it through is not an option either: MapLibre's
+   * `computeStretchSum` totals zero for an axis of zero-width intervals, and `getIconQuads` then
+   * divides the box offsets by it, which is why the native binding rejects such an interval
+   * outright — and an exception raised inside a style mutation is not one we can attribute.
+   */
+  private fun contentBox(
+    id: String,
+    image: ImageBitmap,
+    resizeOptions: ImageResizeOptions,
+    scale: Float,
+  ): ImageContent? {
+    val box =
+      with(Density(scale)) {
+        ImageContent(
+          left = resizeOptions.left.toPx(),
+          top = resizeOptions.top.toPx(),
+          right = image.width - resizeOptions.right.toPx(),
+          bottom = image.height - resizeOptions.bottom.toPx(),
+        )
+      }
+    if (box.left < box.right && box.top < box.bottom) return box
+    binding.logger?.w {
+      "Image '$id' asked for content insets that leave nothing to stretch: at scale $scale they " +
+        "put the box at $box in a ${image.width}x${image.height} image. The image will be " +
+        "uploaded whole, so it scales rather than stretches."
+    }
+    return null
+  }
+
+  /**
+   * Reads back the stretchable intervals MapLibre stored for an image.
+   *
+   * Nothing in the public API needs this; it exists so a test can assert on the numbers themselves,
+   * which [org.maplibre.nativeffi.style.StyleImageInfo] reports only the count of.
+   */
+  internal fun imageStretches(id: String): Pair<List<ImageStretch>, List<ImageStretch>>? =
+    binding.withMap { map ->
+      map.styleImageStretches(id)
+    }
 
   override fun removeImage(id: String) {
     binding.withMap { map -> map.removeStyleImage(id) }
