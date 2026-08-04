@@ -97,11 +97,20 @@ private fun loadRuntimeBackends(logger: Logger?): Set<MapRenderBackend> =
     emptySet()
   }
 
+/**
+ * The MapLibre Compose producer backend this FFI backend corresponds to, or null when desktop has
+ * no host bridge for it.
+ *
+ * Null is the designed answer rather than a gap: [loadRuntimeBackends] drops it, and negotiation
+ * reports what the runtime offered against what the host supports. WebGPU is the case today — the
+ * FFI builds it for the browser, and no desktop host consumes it.
+ */
 private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
   when (this) {
     RenderBackend.METAL -> MapRenderBackend.METAL
     RenderBackend.VULKAN -> MapRenderBackend.VULKAN
     RenderBackend.OPENGL -> MapRenderBackend.OPENGL
+    RenderBackend.WEBGPU -> null
   }
 
 /**

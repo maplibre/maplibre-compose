@@ -79,6 +79,12 @@ internal class DesktopOfflineRuntime(
   /** Owner-thread state. Never read or written from anywhere else. */
   private val pending = mutableMapOf<Long, PendingOperation>()
 
+  /**
+   * The ambient cache budget being applied. Owner-thread state, kept out of [pending] because it is
+   * this class's own bookkeeping rather than a caller's operation.
+   */
+  private var cacheSizeRequest: AmbientCacheSizeRequest? = null
+
   private val thread =
     Thread(::runLoop, "maplibre-compose-offline").apply {
       // The pump must never keep a shutting-down application alive; disposal is what stops it.
@@ -210,13 +216,12 @@ internal class DesktopOfflineRuntime(
       .onFailure { logger.w(it) { "Could not create the MapLibre cache directory" } }
 
     val runtime =
-      RuntimeHandle.create(
-        RuntimeOptions().also {
-          it.cachePath = options.cachePath.toString()
-          it.maximumCacheSize = options.maximumCacheSizeBytes
-        }
-      )
+      RuntimeHandle.create(RuntimeOptions().also { it.cachePath = options.cachePath.toString() })
     return try {
+      // Started before the provider, so the budget is in force before any response can be cached
+      // against it. The answer arrives as an event, which drainEvents retires.
+      cacheSizeRequest =
+        AmbientCacheSizeRequest.start(runtime, options.maximumCacheSizeBytes, logger)
       // Downloads fetch through the same resource stack a map does, so a pack whose style lives in
       // the application's resources only resolves if the provider is installed here too.
       runtime.setResourceProvider(DesktopResourceProvider(logger))
@@ -225,7 +230,9 @@ internal class DesktopOfflineRuntime(
     } catch (error: Throwable) {
       // Anything after create must close the runtime on the way out. The caller's failure path
       // never entered the try that owns teardown, so the native runtime, its scheduler, and its
-      // database connection would otherwise stay open for the life of the process.
+      // database connection would otherwise stay open for the life of the process. The cache-size
+      // operation goes first, because an outstanding one is what a runtime close blocks on.
+      retireCacheSizeRequest()
       runCatching { runtime.close() }
         .onFailure { logger.e(it) { "Failed to close the offline runtime after a failed setup" } }
       throw error
@@ -242,7 +249,9 @@ internal class DesktopOfflineRuntime(
           logger.e(error) { "Failed to poll a MapLibre offline runtime event" }
           break
         }
-      if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
+      if (cacheSizeRequest?.consume(event) == true) {
+        cacheSizeRequest = null
+      } else if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
         completeOperation(runtime, event)
       } else {
         runCatching { onEvent(event) }
@@ -311,11 +320,18 @@ internal class DesktopOfflineRuntime(
         .onFailure { logger.e(it) { "Failed to cancel the operation to ${operation.description}" } }
     }
 
+    retireCacheSizeRequest()
+
     // Last, and only after its children: a runtime whose close fails stays live and leaves its
     // thread unable to host another one, which is why this thread ends here rather than being
     // reused.
     runCatching { runtime.close() }
       .onFailure { logger.e(it) { "Failed to close the MapLibre offline runtime" } }
+  }
+
+  private fun retireCacheSizeRequest() {
+    cacheSizeRequest?.close()
+    cacheSizeRequest = null
   }
 
   private fun rejectQueuedTasks(reason: Throwable) {

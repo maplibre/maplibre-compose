@@ -1,0 +1,82 @@
+package org.maplibre.compose.offline
+
+import co.touchlab.kermit.Logger
+import org.maplibre.nativeffi.error.MaplibreStatus
+import org.maplibre.nativeffi.runtime.OfflineOperationHandle
+import org.maplibre.nativeffi.runtime.RuntimeEvent
+import org.maplibre.nativeffi.runtime.RuntimeEventPayload
+import org.maplibre.nativeffi.runtime.RuntimeHandle
+
+/**
+ * The ambient cache budget being applied to a runtime that was just created.
+ *
+ * The budget used to be a creation-time `RuntimeOptions` field. maplibre-native-ffi replaced it
+ * with a runtime operation, which is the shape mbgl always had
+ * (`DatabaseFileSource::setMaximumAmbientCacheSize`), so applying it is no longer part of creating
+ * the runtime: it has to be started, awaited through the event pump, and closed like any other
+ * offline operation. Closing one before its completion arrives cancels it, so this outlives the
+ * call that started it.
+ *
+ * Both desktop runtime loops own one, because both open the cache database, and a budget that
+ * applied only to whichever loop happened to start first would depend on composition order.
+ */
+internal class AmbientCacheSizeRequest
+private constructor(
+  private val handle: OfflineOperationHandle<Unit>,
+  private val sizeBytes: Long,
+  private val logger: Logger?,
+) {
+
+  /**
+   * Reports whether [event] completed this request, retiring it when it did.
+   *
+   * A failure is logged rather than raised: the runtime is usable either way, and the caller that
+   * configured the budget is long gone by the time the answer arrives.
+   */
+  fun consume(event: RuntimeEvent): Boolean {
+    val payload = event.payload as? RuntimeEventPayload.OfflineOperationCompleted ?: return false
+    if (payload.operationId != handle.id) return false
+    if (payload.resultStatus == MaplibreStatus.OK.nativeCode) {
+      logger?.d { "Ambient cache size set to $sizeBytes bytes" }
+    } else {
+      val detail = event.message.ifBlank { "status ${payload.resultStatus}" }
+      logger?.w { "Could not set the ambient cache size to $sizeBytes bytes: $detail" }
+    }
+    close()
+    return true
+  }
+
+  /**
+   * Drops the request.
+   *
+   * Correct once the completion has arrived, and during teardown, where cancelling is what should
+   * happen. Not correct before then: it would cancel a budget the application asked for.
+   */
+  fun close() {
+    runCatching { handle.close() }
+      .onFailure { logger?.w(it) { "Failed to close the ambient cache size operation" } }
+  }
+
+  companion object {
+    /**
+     * Starts applying [sizeBytes] to [runtime], or returns null when there is nothing to apply.
+     *
+     * Runs on the runtime's owner thread, before anything else uses it, so the budget is in force
+     * before the first response is cached against it.
+     */
+    fun start(runtime: RuntimeHandle, sizeBytes: Long?, logger: Logger?): AmbientCacheSizeRequest? {
+      if (sizeBytes == null) return null
+      return try {
+        AmbientCacheSizeRequest(
+          handle = runtime.startSetMaximumAmbientCacheSize(sizeBytes),
+          sizeBytes = sizeBytes,
+          logger = logger,
+        )
+      } catch (error: Throwable) {
+        // Reported rather than fatal: a runtime that kept MapLibre's default budget still works.
+        logger?.w(error) { "Could not ask for an ambient cache size of $sizeBytes bytes" }
+        null
+      }
+    }
+  }
+}
