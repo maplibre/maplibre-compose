@@ -9,13 +9,9 @@ import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
 
 /**
- * Turning a resource URI into bytes, against files that exist and files that do not.
- *
- * This is the whole of what the provider does with a request it takes, separated from the request
- * so it can be driven directly: the binding's request handle cannot be constructed outside its own
- * callback. The cases are the ones an application actually ships — a path with a space in it, a
- * path outside ASCII, and a resource inside a jar — plus the ways each of them can be absent, since
- * a missing style has to be reported as missing rather than as unreadable.
+ * Turning a resource URI into bytes, against files that exist and files that do not. Driven
+ * directly rather than through a request, because the binding's request handle cannot be
+ * constructed outside its own callback.
  */
 class DesktopResourceReadTest {
 
@@ -45,8 +41,6 @@ class DesktopResourceReadTest {
 
   @Test
   fun `a file whose path is not ASCII is read`() {
-    // The directory name is the fixture's own, which is where the non-ASCII characters are: an
-    // application's resources sit under whatever the user named their home directory.
     val url = fixture.file("スタイル/style.json", "{\"name\":\"地図\"}")
 
     val response = read(url)
@@ -76,8 +70,7 @@ class DesktopResourceReadTest {
 
   @Test
   fun `a read resource is not offered for revalidation`() {
-    // Nothing can change a packaged resource while the process runs, so asking MapLibre to
-    // revalidate one would buy a request per resource per session for an answer that cannot differ.
+    // Nothing can change a packaged resource while the process runs.
     val response = read(fixture.file("style.json", "{}"))
 
     assertFalse(response.mustRevalidate)
@@ -106,8 +99,7 @@ class DesktopResourceReadTest {
 
   @Test
   fun `a jar that does not exist is reported as missing, not as unreadable`() {
-    // The JDK reports this one from java.nio rather than as a FileNotFoundException, so it reached
-    // the catch-all and was reported as an unspecified error until this test was written.
+    // The JDK reports this one from java.nio rather than as a FileNotFoundException.
     val url = fixture.jarUri(fixture.root.resolve("never built.jar"), "style.json")
 
     val response = read(url)
@@ -118,8 +110,7 @@ class DesktopResourceReadTest {
 
   @Test
   fun `a URL that is not a URI is reported rather than thrown`() {
-    // An unencoded space is the way this happens in practice: a caller that pasted a path into a
-    // `file:` URL instead of asking a Path for its URI.
+    // An unencoded space: a caller pasted a path into a `file:` URL instead of asking a Path.
     val response = read("file:/home/someone/my styles/style.json")
 
     assertEquals(ResourceResponseStatus.ERROR, response.status)
@@ -128,8 +119,7 @@ class DesktopResourceReadTest {
 
   @Test
   fun `a failure names both URLs when the loader resolved a different one`() {
-    // The style names one URL and MapLibre may resolve another; a message carrying only the
-    // resolved one leaves nothing to search the style for.
+    // The style names one URL and MapLibre may resolve another.
     val requested = "maplibre://styles/absent.json"
     val resolved = fixture.missing("absent.json")
 

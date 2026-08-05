@@ -39,14 +39,10 @@ import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 /**
- * Exercises the supercluster queries against a real clustered source.
- *
- * These only answer from a render pass, so they need a rendered frame — and the cluster feature has
- * to come from an actual rendered query rather than being hand-built, because the round trip is
- * where the bug lives. MapLibre looks the cluster id up with an exact unsigned-integer type check,
- * so an id that comes back encoded as a signed integer does not fail: the lookup misses and the
- * query returns an empty result with a success status. Nothing but an end-to-end assertion catches
- * that.
+ * Exercises the supercluster queries against a real clustered source. They answer only from a
+ * render pass, and the cluster feature must come from a rendered query rather than being
+ * hand-built: MapLibre matches the cluster id with an exact unsigned-integer type check, and a
+ * mistyped id misses silently with a success status.
  */
 @OptIn(ExperimentalTestApi::class)
 class DesktopMapClusterTest {
@@ -101,8 +97,6 @@ class DesktopMapClusterTest {
     val host = factory.created.single()
     val session = assertNotNull(cameraState.map as? DesktopMapSession, "no desktop session")
 
-    // The real surface, not a guess: querying the actual extent is correct whatever the viewport
-    // clipping rules are.
     fun queryAll(): List<Feature<Geometry, JsonObject?>> {
       val extent = host.currentExtent
       return session.queryRenderedFeatures(
@@ -113,8 +107,7 @@ class DesktopMapClusterTest {
     }
 
     // Clustering happens during tile building, so a cluster only exists once the map has rendered
-    // one. Waited for rather than counted in idle rounds: the map advances on a thread of its own,
-    // so how many Compose frames that takes is a property of the machine.
+    // one, on a thread of its own rather than after any fixed number of Compose frames.
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { queryAll().any { source.isCluster(it) } }
 
     val hits = queryAll()
@@ -125,8 +118,6 @@ class DesktopMapClusterTest {
           "after ${host.renderedFrames} rendered frames; ${hits.size} hits were $hits",
       )
 
-    // The reported bug: a cluster reported no expansion zoom, and the demo animated to it, which
-    // showed the whole world.
     val expansionZoom = source.getClusterExpansionZoom(cluster)
     assertTrue(
       expansionZoom > START_ZOOM,
@@ -138,9 +129,8 @@ class DesktopMapClusterTest {
       "Expected the cluster to report children",
     )
 
-    // The limit is the assertion that matters. MapLibre reads it with the same exact unsigned
-    // check as the cluster id and silently substitutes its own default of ten when the type is
-    // wrong — so a wrongly typed limit still returns every leaf and looks like it worked.
+    // MapLibre reads the limit with the same exact unsigned check as the cluster id, and silently
+    // substitutes its own default of ten when the type is wrong.
     assertEquals(
       2,
       source.getClusterLeaves(cluster, limit = 2, offset = 0).features.size,

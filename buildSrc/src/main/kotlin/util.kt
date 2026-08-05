@@ -14,8 +14,8 @@ fun Project.getAndroidJvmTarget(): JvmTarget = getJvmTarget("androidJvmTarget")
 fun Project.getDesktopJvmTarget(): JvmTarget = getJvmTarget("desktopJvmTarget")
 
 /**
- * JVM arguments required by any JVM that loads the MapLibre Native FFI runtime. Without this, the
- * FFM downcalls the binding relies on are refused at runtime.
+ * Required by any JVM that loads the MapLibre Native FFI runtime; without them its FFM downcalls
+ * are refused.
  */
 val NATIVE_ACCESS_JVM_ARGS = listOf("--enable-native-access=ALL-UNNAMED")
 

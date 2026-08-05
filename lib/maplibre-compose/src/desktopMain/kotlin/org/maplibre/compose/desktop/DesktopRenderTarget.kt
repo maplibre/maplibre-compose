@@ -5,13 +5,10 @@ import androidx.compose.runtime.Immutable
 /**
  * A borrowed native handle, as an opaque address.
  *
- * The host owns whatever this points at. MapLibre Compose only forwards it into MapLibre Native and
- * never frees, retains, or dereferences it, so the host is free to recycle the underlying object
- * once it reports a new [DesktopRenderTarget.generation].
+ * The host owns whatever this points at; MapLibre Compose never frees, retains, or dereferences it.
  */
 @JvmInline
 public value class NativeHandle(public val address: Long) {
-  /** Whether this handle is null. */
   public val isNull: Boolean
     get() = address == 0L
 
@@ -34,22 +31,14 @@ public sealed interface DesktopRenderTarget {
   /** The backend MapLibre must render with to use this target. */
   public val backend: MapRenderBackend
 
-  /** The size of this target. */
   public val extent: DesktopMapExtent
 
   /**
    * Identifies the underlying target object.
    *
-   * The session re-attaches its render session whenever this changes, so a host must bump it any
-   * time the handles it reports stop referring to the same allocation — after a resize that
-   * reallocates, after surface loss, or when rotating through a pool.
-   *
-   * Bumping this does not license freeing the old allocation immediately. MapLibre only produces an
-   * update when it has one, so the frames just after a resize routinely skip, and the surface
-   * presents the last target that *was* rendered into rather than a blank one — which may be the
-   * target this generation replaced. A host must therefore keep a retired target readable until it
-   * has been asked to draw a different one. Freeing on the bump instead is not a leak-shaped bug:
-   * on macOS it hands Skia a released `MTLTexture` and traps inside `CFRetain`.
+   * A host must bump this any time the handles it reports stop referring to the same allocation —
+   * after a reallocating resize, after surface loss, or when rotating through a pool — and must
+   * keep the retired allocation readable until it has been asked to draw a different one.
    */
   public val generation: Long
 }

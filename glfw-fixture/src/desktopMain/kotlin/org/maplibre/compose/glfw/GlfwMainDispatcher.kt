@@ -14,29 +14,17 @@ import kotlinx.coroutines.internal.MainDispatcherFactory
 /**
  * `Dispatchers.Main`, pointed at the thread compose-glfw runs its UI on.
  *
- * Nothing about maps needs this. It is here because running the *demo* rather than a lone map drags
- * in `androidx.lifecycle`, and that library decides which thread is "the main thread" by running a
- * block on `Dispatchers.Main` and remembering where it lands. On desktop the only implementation
- * anyone ships is `kotlinx-coroutines-swing`, which answers "the AWT event thread" — so under a
- * GLFW host every `addObserver` call throws, and navigation-compose cannot complete a single
- * transition. Removing that dependency instead leaves `Dispatchers.Main` missing, which
- * `repeatOnLifecycle` treats as fatal, and MapLibre Compose's own `rememberUserLocationState` uses
- * `repeatOnLifecycle`. Both ends of that are measured, not assumed.
- *
- * So a Compose host that is not AWT has to bring its own main dispatcher, and compose-glfw does not
- * publish one: it has a perfectly good UI dispatcher internally, but nothing registers it with
- * kotlinx-coroutines. This is the smallest thing that closes the gap from outside, and it is the
- * clearest candidate to push upstream — a `MainDispatcherFactory` belongs in compose-glfw, where it
- * would need no installation step at all.
+ * `androidx.lifecycle` decides which thread is the main one by running a block on
+ * `Dispatchers.Main`; the only desktop implementation anyone ships is `kotlinx-coroutines-swing`,
+ * which answers "the AWT event thread", and compose-glfw publishes no dispatcher of its own. A
+ * `MainDispatcherFactory` in compose-glfw would make this unnecessary.
  */
 @OptIn(InternalCoroutinesApi::class)
 internal object GlfwMainDispatcher : MainCoroutineDispatcher() {
 
   /**
-   * The thread GLFW owns, which on macOS is the process's first thread.
-   *
-   * Captured rather than discovered, because the interesting question — "am I already on the UI
-   * thread?" — has to be answerable before anything has been dispatched.
+   * The thread GLFW owns, which on macOS is the process's first thread. Captured rather than
+   * discovered, so "am I already on the UI thread?" is answerable before anything is dispatched.
    */
   @Volatile private var uiThread: Thread? = null
 
@@ -54,13 +42,7 @@ internal object GlfwMainDispatcher : MainCoroutineDispatcher() {
     if (target != null) target.dispatch(context, block) else pending.add(context to block)
   }
 
-  /**
-   * Points this dispatcher at the running Compose scene.
-   *
-   * The scene's dispatcher is reached through the ordinary `rememberCoroutineScope()` rather than
-   * through anything private: Compose runs effects on the same dispatcher it runs the frame on, so
-   * the interceptor in that scope's context *is* compose-glfw's UI dispatcher, one wrapper deep.
-   */
+  /** Points this dispatcher at the running Compose scene. */
   fun install(dispatcher: CoroutineDispatcher, thread: Thread) {
     uiThread = thread
     delegate = dispatcher
@@ -75,12 +57,8 @@ internal object GlfwMainDispatcher : MainCoroutineDispatcher() {
       get() = this
 
     /**
-     * False on the UI thread, which is the whole reason this variant exists.
-     *
-     * `androidx.lifecycle` learns the main thread with `runBlocking(Dispatchers.Main.immediate)`.
-     * Dispatching that would park the UI thread waiting for work only the UI thread can run, so it
-     * has to execute inline; answering false here is what makes it do so, and what makes the
-     * library conclude that the GLFW thread is the main one.
+     * False on the UI thread: `androidx.lifecycle` probes with
+     * `runBlocking(Dispatchers.Main.immediate)`, which deadlocks unless it runs inline.
      */
     override fun isDispatchNeeded(context: CoroutineContext): Boolean =
       Thread.currentThread() !== uiThread
@@ -108,9 +86,8 @@ internal class GlfwMainDispatcherFactory : MainDispatcherFactory {
 /**
  * Hands the running Compose scene's dispatcher to [GlfwMainDispatcher].
  *
- * Call this above any content that uses lifecycle-aware APIs. It runs during composition rather
- * than from an effect on purpose: navigation registers its lifecycle observers as it composes, so
- * an effect would run too late by exactly one pass.
+ * Call this above any content that uses lifecycle-aware APIs. It runs during composition, not from
+ * an effect: navigation registers its lifecycle observers as it composes.
  */
 @Composable
 internal fun InstallGlfwMainDispatcher() {

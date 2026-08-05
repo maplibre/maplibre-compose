@@ -24,12 +24,8 @@ public actual class ImageSource : Source {
   private var url: String
 
   /**
-   * The pixels this source draws, in the form MapLibre takes them, or null when a URL names them
-   * instead.
-   *
-   * Kept converted rather than as an [ImageBitmap] because the descriptor is replayed: a style
-   * change re-adds every source, and the conversion should not be repeated on the owner thread each
-   * time. It is the same pixels a second time in memory, which is what being re-addable costs.
+   * The pixels this source draws, or null when a URL names them. Kept pre-converted because a style
+   * change re-adds every source and the conversion would otherwise repeat on the owner thread.
    */
   private var image: PremultipliedRgba8Image?
 
@@ -46,11 +42,8 @@ public actual class ImageSource : Source {
   }
 
   /**
-   * Adds the source with its pixels when it has them.
-   *
-   * Source JSON can only name a URL, so a source added from [toJson] here would be added empty and
-   * would send MapLibre after the empty placeholder URL; the pixels would arrive only with the next
-   * [setImage], which is a frame later and has to be re-issued after every style reload.
+   * Adds the source with its pixels when it has them; source JSON can only name a URL, so a
+   * pixel-backed source added from [toJson] would be added empty.
    */
   override fun addTo(map: MapHandle) {
     val pixels = image
@@ -58,12 +51,7 @@ public actual class ImageSource : Source {
     else map.addImageSourceImage(id, bounds.toCorners().map { it.toLatLng() }, pixels)
   }
 
-  /**
-   * The URL form of this source.
-   *
-   * Only [addTo] and [attributionHtml] read it, and [addTo] only for a source that has a URL, so
-   * the empty `url` a pixel-backed source reports here never reaches MapLibre.
-   */
+  /** The URL form of this source; a pixel-backed source reports an empty `url` here. */
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "image")
     put("url", url)
@@ -71,11 +59,8 @@ public actual class ImageSource : Source {
   }
 
   /**
-   * The corners MapLibre holds for this source, or null when its style has unloaded.
-   *
-   * Nothing in the public API needs this; it exists so a test can assert that the four corners
-   * arrive in the order MapLibre expects them. [addTo] builds that list itself, and a rotated or
-   * mirrored quad is not something MapLibre rejects — it just draws the image wrong.
+   * The corners MapLibre holds for this source, or null when its style has unloaded. Exists so a
+   * test can assert the corner order, which MapLibre does not validate.
    */
   internal fun attachedCorners(): List<Position>? = binding.withMap { map ->
     map.imageSourceCoordinates(id)?.map { it.toPosition() }
@@ -88,8 +73,8 @@ public actual class ImageSource : Source {
   }
 
   public actual fun setImage(image: ImageBitmap) {
-    // MapLibre drops the URL when it is handed pixels, so the descriptor drops it too; otherwise a
-    // re-add after a style change would resurrect the image the URL used to point at.
+    // MapLibre drops the URL when handed pixels, so the descriptor must too, or a re-add after a
+    // style change would resurrect the old image.
     url = ""
     val pixels = image.toPremultipliedRgba8()
     this.image = pixels
@@ -98,8 +83,7 @@ public actual class ImageSource : Source {
 
   public actual fun setUri(uri: String) {
     url = uri
-    // Dropped for the mirror of the reason above: a re-add after a style change must fetch the URL
-    // the caller just asked for rather than re-uploading the pixels it replaced.
+    // Mirror of setImage: a re-add must fetch the new URL, not re-upload the replaced pixels.
     image = null
     mutate { map -> map.setImageSourceUrl(id, uri) }
   }

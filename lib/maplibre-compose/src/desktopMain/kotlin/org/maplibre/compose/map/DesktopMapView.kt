@@ -35,8 +35,7 @@ internal actual fun ComposableMapView(
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
 
-  // Reading the runtime's backends is the one native call safe to make off the owner thread: it
-  // only inspects what the loaded library was built with.
+  // Safe to call off the owner thread: it only inspects what the loaded library was built with.
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
 
   val session =
@@ -53,39 +52,29 @@ internal actual fun ComposableMapView(
   session.callbacks = callbacks
   session.logger = logger
 
-  // Applied from the apply phase, not from a coroutine, because that is when `AndroidView`'s
-  // `update` block makes the same call — and the ordering is what keeps a style switch from
-  // crashing. Setting a base style unloads the outgoing `SafeStyle`, and `LayerManager` skips
-  // anchor validation against an unloaded style (see #269). From a LaunchedEffect that unload
-  // happens after every composition has applied, so the content subcomposition has already
-  // inserted its layers — anchored to the incoming style's layers, validated against the outgoing
-  // style's — and thrown. `setBaseStyle` ignores a repeat, so running every recomposition is free.
+  // Must run in the apply phase, not from a coroutine: the unload has to precede the content
+  // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
 
   LaunchedEffect(session, options, update) { update(session) }
 
   DisposableEffect(session) { onDispose { onReset() } }
 
-  // Held here rather than inside the modifier so it survives recomposition; the map takes focus
-  // when clicked, which is what lets the keyboard reach it.
+  // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }
 
   DesktopMapSurface(
     renderer = session,
     runtimeBackends = runtimeBackends,
     factory = factory,
-    // Input is attached here rather than inside the surface because gestures belong to the map,
-    // not to the graphics host: every host gets identical behavior this way.
     modifier = modifier.desktopMapInput(session, options.gestureOptions, density, focusRequester),
     logger = logger,
   )
 }
 
 /**
- * Reports which backends the packaged MapLibre Native FFI runtime was built with.
- *
- * Returns an empty set rather than throwing when no runtime is on the classpath; backend
- * negotiation turns that into a diagnostic naming the missing dependency.
+ * Reports which backends the packaged MapLibre Native FFI runtime was built with. Empty rather than
+ * throwing when no runtime is on the classpath; negotiation reports that as a diagnostic.
  */
 private fun loadRuntimeBackends(logger: Logger?): Set<MapRenderBackend> =
   try {
@@ -99,11 +88,7 @@ private fun loadRuntimeBackends(logger: Logger?): Set<MapRenderBackend> =
 
 /**
  * The MapLibre Compose producer backend this FFI backend corresponds to, or null when desktop has
- * no host bridge for it.
- *
- * Null is the designed answer rather than a gap: [loadRuntimeBackends] drops it, and negotiation
- * reports what the runtime offered against what the host supports. WebGPU is the case today — the
- * FFI builds it for the browser, and no desktop host consumes it.
+ * no host bridge for it — WebGPU today, which the FFI builds only for the browser.
  */
 private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
   when (this) {
@@ -114,10 +99,8 @@ private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
   }
 
 /**
- * Picks the backend the session will ask the host for.
- *
- * The host factory has the final say during negotiation; this only has to name something the
- * runtime can actually do, so the ordering matches the negotiator's preference.
+ * Picks the backend the session will ask the host for. The host factory has the final say during
+ * negotiation; this only has to name something the runtime can actually do.
  */
 private fun preferredBackend(runtimeBackends: Set<MapRenderBackend>): MapRenderBackend =
   when {

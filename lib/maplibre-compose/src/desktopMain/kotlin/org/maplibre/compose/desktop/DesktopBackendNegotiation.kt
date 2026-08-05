@@ -1,11 +1,6 @@
 package org.maplibre.compose.desktop
 
-/**
- * Order in which producer backends are chosen when more than one is usable.
- *
- * Metal outranks Vulkan on the only platform that offers both, and Vulkan outranks OpenGL
- * everywhere, matching MapLibre Native's own direction of travel.
- */
+/** Order in which producer backends are chosen when more than one is usable. */
 internal val PRODUCER_BACKEND_PREFERENCE: List<MapRenderBackend> =
   listOf(MapRenderBackend.METAL, MapRenderBackend.VULKAN, MapRenderBackend.OPENGL)
 
@@ -17,10 +12,8 @@ internal sealed interface BackendSelection {
 }
 
 /**
- * Picks the backend pair to render with, or explains why there isn't one.
- *
- * Kept free of FFI and Compose types so it can be tested without a graphics stack: callers pass in
- * what the runtime reported.
+ * Picks the backend pair to render with, or explains why there isn't one. Kept free of FFI and
+ * Compose types so it can be tested without a graphics stack.
  *
  * @param runtimeBackends what the loaded FFI runtime was built with, from
  *   `Maplibre.supportedRenderBackends()`
@@ -48,10 +41,7 @@ internal fun selectBackends(
   )
 }
 
-/**
- * Explains why no backend pair was usable, in the terms someone can act on: what the runtime has,
- * what the host can bridge, and which dependency is most likely missing.
- */
+/** Explains why no backend pair was usable, and which dependency is most likely missing. */
 private fun buildBackendDiagnostic(
   runtimeBackends: Set<MapRenderBackend>,
   factory: DesktopMapHostFactory,

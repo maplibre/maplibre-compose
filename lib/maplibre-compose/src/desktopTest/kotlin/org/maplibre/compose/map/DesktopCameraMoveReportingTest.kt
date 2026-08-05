@@ -9,15 +9,10 @@ import org.maplibre.compose.style.BaseStyle
 /**
  * Pins what a camera move means to a consumer: the gesture, not the jump.
  *
- * MapLibre's own camera events are per change, and a drag is many changes — one jump per pointer
- * sample, each with its own will-change and did-change. Reported literally, `isCameraMoving` goes
- * true and false again inside a single drain of the event queue, which is between two Compose
- * frames, and Compose only shows a reader the value at recomposition. A flag that flickers below
- * frame rate reads as permanently false, so a consumer watching for a gesture never sees one. That
- * is not a subtle degradation: the Material 3 attribution button is supposed to collapse when the
- * user moves the map, and it simply did not.
- *
- * Android and iOS report one move per gesture, so this is also what the common API means by it.
+ * MapLibre's own camera events are per change, and a drag is many changes. Reported literally,
+ * `isCameraMoving` flickers true and false between two Compose frames, so a reader that only sees
+ * the value at recomposition never observes the gesture. Android and iOS report one move per
+ * gesture, which is what the common API means.
  */
 class DesktopCameraMoveReportingTest {
 
@@ -62,9 +57,8 @@ class DesktopCameraMoveReportingTest {
   }
 
   /**
-   * The other half, and the reason this is not simply "never end a move": a programmatic camera
-   * change is one change, so it has to report a complete move on its own. Nothing brackets it the
-   * way a gesture is bracketed, so a move suppressed here would never end at all.
+   * A programmatic camera change is a single change with nothing bracketing it the way a gesture
+   * is, so a move suppressed here would never end at all.
    */
   @Test
   fun `a programmatic move reports a complete move on its own`() {

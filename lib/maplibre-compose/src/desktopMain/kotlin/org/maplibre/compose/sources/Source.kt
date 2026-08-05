@@ -8,11 +8,9 @@ import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
 
 /**
- * A data source, as a live descriptor.
- *
- * Before the source is added to a style it holds its own definition, so a source can be created and
- * configured during composition before any style exists. [attach] hands it to MapLibre, after which
- * mutations go straight through and the descriptor records what was sent.
+ * A data source, as a live descriptor. Before [attach] it holds its own definition, so it can be
+ * created and configured during composition before any style exists; after, mutations go straight
+ * through to MapLibre.
  */
 public actual sealed class Source(internal actual val id: String) {
 
@@ -41,10 +39,8 @@ public actual sealed class Source(internal actual val id: String) {
         try {
           addTo(map)
         } catch (error: MaplibreException) {
-          // Rethrown with the source named. Native reports only what was wrong with the definition
-          // — "source must have tiles" — which does not say whose, and letting it escape kills the
-          // Compose thread that was applying style content. The definition itself is deliberately
-          // not in the message: a GeoJSON source's is its entire dataset.
+          // Native reports what was wrong with the definition but never whose. The definition
+          // itself is left out: a GeoJSON source's is its entire dataset.
           throw IllegalStateException(
             "Could not add source '$id' of type " +
               "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
@@ -62,48 +58,28 @@ public actual sealed class Source(internal actual val id: String) {
   /**
    * Creates this source on [map], on the map's owner thread.
    *
-   * Style JSON is the default because a descriptor has to be able to produce its own definition
-   * anyway — [attributionHtml] reads it, and re-adding after a style change replays it — so
-   * creating from the same object keeps one representation of a source rather than two that can
-   * drift apart. It is a choice and no longer a gap: `GeoJsonSourceOptions` gained
-   * `synchronousUpdate` in maplibre-native-ffi#441, so the typed adders could now express every
-   * family the style spec can spell. Mutations use the typed setters regardless.
-   *
-   * What the style spec cannot spell is what overrides this. MapLibre Native accepts only `vector`,
-   * `raster`, `raster-dem`, `geojson`, and `image` from source JSON, so [ComputedSource] has no
-   * JSON form at all, and an [ImageSource] built from pixels has no URL to name them with. Both
-   * reach their typed `MapHandle` adder here instead.
+   * Overridden by sources the style spec cannot spell: MapLibre Native accepts only `vector`,
+   * `raster`, `raster-dem`, `geojson`, and `image` from source JSON, so [ComputedSource] and a
+   * pixel-backed [ImageSource] use their typed `MapHandle` adder instead.
    */
   internal open fun addTo(map: MapHandle) {
     map.addStyleSourceJson(id, toJson().toFfiJsonValue())
   }
 
-  /**
-   * Binds this descriptor to a source that is already in the style, without adding it.
-   *
-   * Used when reading back the base style: those sources already exist in MapLibre, so adding them
-   * again would either duplicate them or be rejected.
-   */
+  /** Binds this descriptor to a source already in the style, without adding it. */
   internal fun bindExisting(binding: StyleBinding) {
     this.binding = binding
   }
 
-  /**
-   * Removes this source from its style.
-   *
-   * The descriptor survives, so the source can be added to a later style — which is what happens
-   * when the base style changes and the composition re-adds its content.
-   */
+  /** Removes this source from its style; the descriptor survives for a later style. */
   internal fun detach() {
     binding.withMap { map -> map.removeStyleSource(id) }
     binding = StyleBinding.UNLOADED
   }
 
   /**
-   * Applies [update] to the live source, reporting whether there was one to apply it to.
-   *
-   * Returns false when the style has unloaded. Callers surface that as a diagnostic rather than
-   * failing: a source outliving its style by a frame is normal during a style swap.
+   * Applies [update] to the live source. Returns false when the style has unloaded, which is normal
+   * for a frame during a style swap.
    */
   protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.withMap(update) != null
 

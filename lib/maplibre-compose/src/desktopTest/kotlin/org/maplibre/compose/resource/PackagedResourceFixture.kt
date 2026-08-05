@@ -7,11 +7,9 @@ import java.util.jar.JarOutputStream
 import java.util.zip.ZipEntry
 
 /**
- * Real files to resolve, in the two shapes an application ships resources in.
- *
- * Everything here is on disk rather than asserted as a string, because what the provider is being
- * asked to get right is the encode/decode round trip between a URI and a filesystem: a path holding
- * a space and a non-ASCII character survives every string comparison and still fails to open.
+ * Real files to resolve, in the two shapes an application ships resources in. On disk rather than
+ * asserted as strings: what is being tested is the encode/decode round trip between a URI and a
+ * filesystem, which a string comparison cannot catch.
  */
 internal class PackagedResourceFixture : AutoCloseable {
 
@@ -30,11 +28,8 @@ internal class PackagedResourceFixture : AutoCloseable {
   }
 
   /**
-   * Builds a real jar holding [entries] and returns the `jar:file:` URI of [entryPath].
-   *
-   * A real jar rather than a stub, because a `jar:` URL is resolved by a different JDK handler than
-   * a `file:` one — it splits the URL at `!/`, opens the outer file, and decodes the entry name
-   * separately — and only an actual archive exercises that.
+   * Builds a real jar holding [entries] and returns the `jar:file:` URI of [entryPath]. A real jar
+   * rather than a stub: `jar:` URLs go through a different JDK handler than `file:` ones.
    */
   fun jarEntry(jarName: String, entryPath: String, entries: Map<String, String>): String {
     val jar = root.resolve(jarName)

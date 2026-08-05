@@ -12,13 +12,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.DesktopStyle
 
 /**
- * A base-style source read back out of the map, which is all `getSource` can return for one.
- *
- * A style loaded from JSON or a URL has no Kotlin objects behind it, so every source it declares is
- * rebuilt from what MapLibre reports. The reconstruction is a real object with a real definition —
- * [Source.attributionHtml] answers from it, and adding it to a style hands it straight back to
- * MapLibre — so what goes into that definition has to be style JSON rather than merely a JSON
- * object that reads plausibly.
+ * A base-style source read back out of the map, which is all `getSource` can return for one. Its
+ * definition is handed straight back to MapLibre on re-add, so it has to be real style JSON.
  */
 class UnknownSourceRestoreTest {
 
@@ -31,10 +26,9 @@ class UnknownSourceRestoreTest {
 
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
 
-      // Equality against the whole definition rather than the type alone, so what is *not* there is
-      // covered too: the definition is what MapLibre would be handed back, and a key invented here
-      // is as wrong as a key missing. MapLibre reports the type as an enum whose default `toString`
-      // is `SourceType(nativeValue=1)`, which passes for a definition right up until it is used.
+      // MapLibre reports the type as an enum whose default `toString` is
+      // `SourceType(nativeValue=1)` and passes for a definition right up until it is used, so the
+      // whole definition is compared.
       assertEquals(
         Json.parseToJsonElement("""{"type":"vector","attribution":"$ATTRIBUTION"}"""),
         source.definition,
@@ -45,13 +39,8 @@ class UnknownSourceRestoreTest {
   }
 
   /**
-   * Re-adding a base-style source is refused, and says which source and why.
-   *
-   * It cannot work today and the reason is in the FFI rather than here: MapLibre reports a source's
-   * type, volatility, and attribution, and nothing else, so a reconstructed tiled source has no
-   * `tiles` and no `url` to fetch from. What is being asserted is that the refusal is legible —
-   * native says only "source must have tiles", which names neither the source nor the style — and
-   * that it fails rather than quietly installing a source that never loads a tile.
+   * Re-adding a base-style source is refused, and says which source and why. MapLibre reports only
+   * a source's type, volatility, and attribution, so a reconstructed tiled source has no `tiles`.
    */
   @Test
   fun `re-adding a base-style source fails with a message that names it`() {
@@ -79,13 +68,8 @@ class UnknownSourceRestoreTest {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
       val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
 
-      // By id and type together: listing the sources is what a caller enumerates a style with, and
-      // a raster source reported as a vector one is a source nothing can be built over correctly.
-      //
-      // The third entry is MapLibre's own: every map carries an annotation source whether or not
-      // anything uses it, and it has no style-spec type because the style spec has no such source.
-      // It is reported rather than hidden — it is genuinely in the style — with no type rather than
-      // with an invented one.
+      // The third entry is MapLibre's own annotation source, present in every map; it is reported
+      // with no type because the style spec has no such source.
       assertEquals(
         mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster", ANNOTATION_SOURCE_ID to null),
         style.getSources().associate { source ->
@@ -105,10 +89,8 @@ class UnknownSourceRestoreTest {
     const val ATTRIBUTION = "&copy; Nobody"
 
     /**
-     * Two sources of different types and no layer over either.
-     *
-     * Unused on purpose: one test removes a source, and MapLibre will not let go of one a layer
-     * still draws from. The hosts do not resolve, so no tile is ever requested.
+     * Two sources of different types, with no layer over either: MapLibre will not remove a source
+     * a layer still draws from. The hosts do not resolve, so no tile is ever requested.
      */
     val VECTOR_STYLE =
       """

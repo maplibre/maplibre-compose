@@ -6,25 +6,12 @@ import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.system.macosx.ObjCRuntime
 
 /**
- * Pins the Objective-C members of Skiko's Metal device wrapper that the macOS host messages.
+ * Pins the Objective-C members of Skiko's Metal device wrapper that the macOS host messages. That
+ * class is private to Skiko's `MetalRedrawer.mm`, appears in no header, and would be renamed
+ * silently by a Skiko upgrade — so a failure here means update [MacosMetalTexture], not a bug.
  *
- * [SkikoReflectionContractTest] does this for the Java members the bridge reflects into, but the
- * macOS bridge does not stop at Java: `SkikoReflection.requireMetalDevice` yields a pointer to
- * Skiko's own Objective-C object, and the `id<MTLDevice>` the host allocates its texture on is read
- * out of that by sending it `adapter`. That class is private to Skiko's `MetalRedrawer.mm`, appears
- * in no header or published API, and would be renamed silently by a Skiko upgrade.
- *
- * The Objective-C runtime can answer this without a GPU, a window, or a Skia context: loading
- * Skiko's native library registers its classes, and `class_respondsToSelector` is then a pure
- * lookup. So this runs in the ordinary headless suite even though nothing else exercises the Metal
- * host — the desktop tests deliberately run on Vulkan.
- *
- * Off macOS there is no Skiko dylib carrying these symbols and nothing to assert, so the body is
- * skipped rather than the test: a suite that reports a skip on every non-macOS machine trains
- * people to ignore skips.
- *
- * A failure here is not necessarily a bug in MapLibre Compose. It means Skiko renamed something,
- * and [MacosMetalTexture] needs updating to match.
+ * The Objective-C runtime answers this without a GPU, a window, or a Skia context. Off macOS the
+ * body is skipped rather than the test, so no machine reports a routine skip.
  */
 class MacosMetalDeviceContractTest {
 
@@ -50,10 +37,8 @@ class MacosMetalDeviceContractTest {
         "reach the MTLDevice it allocates its texture on; update MacosMetalTexture.",
     )
 
-    // The name surviving is not enough: the host hands what comes back to
-    // `newTextureWithDescriptor:`, so the property has to still be the device and not, say, the
-    // command queue. Objective-C records the declared type in the property attribute string, which
-    // is `T@"<MTLDevice>",&,V_adapter` for this one.
+    // The name surviving is not enough; the property has to still be the device. Objective-C
+    // records the declared type in the attribute string: `T@"<MTLDevice>",&,V_adapter` here.
     val property =
       ObjCRuntime.class_getProperty(deviceClass, MacosMetalTexture.SKIKO_METAL_DEVICE_ADAPTER)
     val attributes =
@@ -70,11 +55,8 @@ class MacosMetalDeviceContractTest {
     System.getProperty("os.name").orEmpty().lowercase().contains("mac")
 
   /**
-   * Loads Skiko's native library and returns the version that supplied it.
-   *
-   * The class metadata this test reads is registered with the Objective-C runtime by `dlopen`, so
-   * the library has to be in the process first. `Library.load` only unpacks and loads it; it starts
-   * no window and creates no device, which is why this stays a headless test.
+   * Loads Skiko's native library and returns the version that supplied it. The class metadata this
+   * test reads is registered with the Objective-C runtime by `dlopen`, so it must be loaded first.
    */
   private fun loadSkikoNativeLibrary(): String {
     val library = Class.forName("org.jetbrains.skiko.Library")

@@ -15,8 +15,7 @@ import org.maplibre.compose.desktop.skiko.SkikoDesktopMapHostFactory
  * }
  * ```
  *
- * This is `static`: changing it recreates the map's host rather than recomposing it, which is the
- * intended behavior since the GPU objects on both sides of the bridge belong to the host.
+ * This is `static`: changing it recreates the map's host rather than recomposing it.
  */
 public val LocalDesktopMapHostFactory: ProvidableCompositionLocal<DesktopMapHostFactory> =
   staticCompositionLocalOf {

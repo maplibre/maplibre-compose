@@ -5,14 +5,9 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.expressions.dsl.const
 
 /**
- * Guards the unattached path of [VectorSource.querySourceFeatures].
- *
- * Source feature queries answer from what a render pass built, so a source that has never been
- * added to a style has nothing to answer from. That has to be an empty result rather than a throw:
- * a query racing style load is ordinary, not a caller error.
- *
- * The populated path is deliberately not covered here — it needs a real vector tileset, and a test
- * that reaches the network is worse than no test. It is verified through the demo app instead.
+ * Guards the unattached path of [VectorSource.querySourceFeatures]: a query racing style load is
+ * ordinary, so it must be empty rather than a throw. The populated path needs a real tileset and is
+ * covered through the demo app.
  */
 class VectorSourceQueryTest {
 

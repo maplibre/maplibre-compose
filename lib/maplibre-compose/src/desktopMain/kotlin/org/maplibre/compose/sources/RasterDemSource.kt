@@ -11,8 +11,7 @@ import kotlinx.serialization.json.putJsonArray
 
 public actual class RasterDemSource : Source {
 
-  // A tiled source has no mutable properties in the common API, so its definition is fixed at
-  // construction and the descriptor is just this object.
+  // A tiled source has no mutable properties in the common API, so its definition is fixed here.
   private val json: JsonObject
 
   public actual constructor(id: String, uri: String, tileSize: Int) : super(id) {
@@ -37,8 +36,8 @@ public actual class RasterDemSource : Source {
       put("tileSize", tileSize)
       put(
         "encoding",
-        // MapLibre Native understands only mapbox and terrarium, and it rejects the source outright
-        // on any other value, so a custom encoding decodes as Mapbox rather than not loading.
+        // MapLibre Native rejects the source outright on anything but mapbox or terrarium, so a
+        // custom encoding decodes as Mapbox rather than not loading.
         // https://github.com/maplibre/maplibre-native/issues/2783
         when (demEncoding) {
           is RasterDemEncoding.Custom -> RasterDemEncoding.Mapbox.value

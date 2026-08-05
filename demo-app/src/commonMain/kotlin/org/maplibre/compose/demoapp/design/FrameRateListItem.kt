@@ -10,15 +10,8 @@ import kotlin.math.roundToLong
 import org.maplibre.compose.demoapp.FrameRateState
 
 /**
- * Shows how fast the map is actually drawing.
- *
- * The number to expect is zero. Frames are requested, not continuous: a map that has finished
- * loading and is not being moved has nothing to draw, so anything above zero on a still map is the
- * map doing work it was not asked for. The running total is there for the same reason — a rate that
- * dips between samples still shows up as a count that climbs.
- *
- * Sampling only runs while this is on screen, so the total is frames drawn while watching rather
- * than for the life of the map.
+ * Shows how fast the map is actually drawing. The number to expect is zero: frames are requested
+ * rather than continuous, so anything above zero on a still map is work it was not asked for.
  */
 @Composable
 fun FrameRateListItem(state: FrameRateState, modifier: Modifier = Modifier) {

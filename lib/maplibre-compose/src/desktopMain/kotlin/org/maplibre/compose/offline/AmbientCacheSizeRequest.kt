@@ -10,15 +10,8 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 /**
  * The ambient cache budget being applied to a runtime that was just created.
  *
- * The budget used to be a creation-time `RuntimeOptions` field. maplibre-native-ffi replaced it
- * with a runtime operation, which is the shape mbgl always had
- * (`DatabaseFileSource::setMaximumAmbientCacheSize`), so applying it is no longer part of creating
- * the runtime: it has to be started, awaited through the event pump, and closed like any other
- * offline operation. Closing one before its completion arrives cancels it, so this outlives the
- * call that started it.
- *
- * Both desktop runtime loops own one, because both open the cache database, and a budget that
- * applied only to whichever loop happened to start first would depend on composition order.
+ * Applying it is an offline operation awaited through the event pump, and closing the handle before
+ * its completion arrives cancels it, so this outlives the call that started it.
  */
 internal class AmbientCacheSizeRequest
 private constructor(
@@ -28,10 +21,8 @@ private constructor(
 ) {
 
   /**
-   * Reports whether [event] completed this request, retiring it when it did.
-   *
-   * A failure is logged rather than raised: the runtime is usable either way, and the caller that
-   * configured the budget is long gone by the time the answer arrives.
+   * Reports whether [event] completed this request, retiring it when it did. A failure is logged
+   * rather than raised; the runtime is usable either way.
    */
   fun consume(event: RuntimeEvent): Boolean {
     val payload = event.payload as? RuntimeEventPayload.OfflineOperationCompleted ?: return false
@@ -47,10 +38,8 @@ private constructor(
   }
 
   /**
-   * Drops the request.
-   *
-   * Correct once the completion has arrived, and during teardown, where cancelling is what should
-   * happen. Not correct before then: it would cancel a budget the application asked for.
+   * Drops the request. Only call this once the completion has arrived, or during teardown; earlier
+   * it cancels a budget the application asked for.
    */
   fun close() {
     runCatching { handle.close() }
@@ -60,9 +49,7 @@ private constructor(
   companion object {
     /**
      * Starts applying [sizeBytes] to [runtime], or returns null when there is nothing to apply.
-     *
-     * Runs on the runtime's owner thread, before anything else uses it, so the budget is in force
-     * before the first response is cached against it.
+     * Must run on the runtime's owner thread before anything else uses it.
      */
     fun start(runtime: RuntimeHandle, sizeBytes: Long?, logger: Logger?): AmbientCacheSizeRequest? {
       if (sizeBytes == null) return null

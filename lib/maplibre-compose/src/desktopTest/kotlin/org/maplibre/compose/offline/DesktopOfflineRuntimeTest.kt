@@ -13,11 +13,8 @@ import org.maplibre.compose.desktop.DesktopRuntimeOptions
 /**
  * The offline runtime's owner thread parks in MapLibre's pump and is released by a wake.
  *
- * It used to poll — eight milliseconds while busy, a hundred while idle — because nothing could
- * wake it. `RuntimeHandle.pump` plus a `WakeSource` replaced that, and the difference is only
- * observable under a park long enough that waiting it out would not look like success. Every test
- * here uses a one-minute park: if the wake is missing, or is signalled somewhere it cannot be seen,
- * they fail rather than pass late.
+ * Every test here uses a one-minute park, so a wake that is missing or signalled somewhere it
+ * cannot be seen fails the test rather than passing late.
  */
 class DesktopOfflineRuntimeTest {
 
@@ -62,8 +59,8 @@ class DesktopOfflineRuntimeTest {
   }
 
   /**
-   * A task posted before the loop has acquired its wake source sets no wake flag, so the loop has
-   * to drain the queue before it parks for the first time.
+   * A task posted before the loop acquires its wake source sets no wake flag, so the loop has to
+   * drain the queue before its first park.
    */
   @Test
   fun `a task posted before the wake source exists still runs promptly`() {
@@ -94,10 +91,8 @@ class DesktopOfflineRuntimeTest {
   }
 
   /**
-   * Runs one task and then waits for the loop to be inside its park.
-   *
-   * Without this the loop drains the queue on its way to the first park and the wake is never
-   * exercised, so a test that skips it passes with the signalling removed.
+   * Runs one task and then waits for the loop to be inside its park. Without this the loop drains
+   * the queue on its way to the first park and the wake is never exercised.
    */
   private fun DesktopOfflineRuntime.parkAfterWarmup() {
     val warmedUp = CountDownLatch(1)
@@ -106,8 +101,6 @@ class DesktopOfflineRuntimeTest {
       warmedUp.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
       "the loop never ran its first task",
     )
-    // The loop's next call is the pump, so this only has to outlast a few instructions. It is
-    // three orders of magnitude below the park it is proving something about.
     Thread.sleep(PARK_ENTRY_MILLIS)
   }
 

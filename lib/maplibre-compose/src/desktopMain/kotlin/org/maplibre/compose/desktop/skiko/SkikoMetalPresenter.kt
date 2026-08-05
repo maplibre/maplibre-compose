@@ -20,23 +20,15 @@ import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
 import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
 
 /**
- * How many snapshots to hold alive after handing them to Compose.
- *
- * Compose records draw commands and replays them later, so an image closed immediately after
- * `drawImageRect` can be sampled after it is gone. Retaining a short ring keeps recorded frames
- * valid without unbounded growth.
+ * How many snapshots to hold alive after handing them to Compose. Compose records draw commands and
+ * replays them later, so an image closed right after `drawImageRect` can be sampled after it is
+ * gone.
  */
 private const val RETAINED_IMAGE_COUNT = 8
 
 /**
- * Draws MapLibre's Metal texture into Compose's Skia canvas on macOS.
- *
- * Compose owns the Metal device and Skia's [DirectContext]; MapLibre rendered into a texture
- * allocated on that same device, so presenting is only a matter of wrapping the texture as a Skia
- * surface and compositing it. There is no import, no copy, and no context to make current — Metal
- * objects are not bound to a thread the way OpenGL contexts are.
- *
- * Ported from the `maplibre-native-ffi` Compose example, which is the reference for this path.
+ * Draws MapLibre's Metal texture into Compose's Skia canvas on macOS, by wrapping the texture as a
+ * Skia surface on the [DirectContext] Compose owns. No import, copy, or context to make current.
  */
 internal object SkikoMetalPresenter {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
@@ -55,11 +47,7 @@ internal object SkikoMetalPresenter {
 
   /**
    * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
-   *
-   * Forced onto the AWT event thread because the Skia objects belong to the `DirectContext` that
-   * thread owns. The example got this guarantee from its quit handler, which always closed through
-   * the EDT; here the caller is a Compose `DisposableEffect`, whose applier thread is the EDT in
-   * practice but is not guaranteed to be. `onEdt` short-circuits when already there.
+   * Forced onto the AWT event thread, which owns the `DirectContext` these objects belong to.
    */
   fun forget(texture: NativeHandle) {
     SkikoReflection.onEdt { presenters.remove(texture.address)?.close() }

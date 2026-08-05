@@ -5,19 +5,11 @@ import kotlin.test.assertNotNull
 import kotlin.test.fail
 
 /**
- * Pins the Compose Desktop and Skiko internals the default host reflects into.
+ * Pins the Compose Desktop and Skiko internals the default host reflects into, so that a Compose
+ * upgrade that moves one fails here rather than as a blank map at runtime. Only existence is
+ * asserted, so this runs headlessly on any platform whichever backend that platform uses.
  *
- * Compose exposes no supported way to reach its graphics context, so the default host reads it
- * reflectively. That makes a Compose upgrade able to break map rendering with no compile error and
- * no test failure anywhere else — the failure would first appear as a blank map at runtime, on
- * whichever platform the moved member belonged to.
- *
- * This test fails at build time instead. It starts no map, creates no GPU resources, and touches no
- * native library: it only asserts that the classes and members exist, so it runs headlessly on any
- * platform regardless of which backend that platform actually uses.
- *
- * A failure here is not necessarily a bug in MapLibre Compose. It means Compose or Skiko moved
- * something, and the host in `SkikoReflection` and its presenters needs updating to match.
+ * A failure means Compose or Skiko moved something and `SkikoReflection` needs updating to match.
  */
 class SkikoReflectionContractTest {
 
@@ -67,19 +59,13 @@ class SkikoReflectionContractTest {
 
   @Test
   fun `the Direct3D redrawer exposes its device and context factory`() {
-    // Windows-only members, and Windows is the platform least likely to be exercised during
-    // development, so pinning them here is the only thing standing between a Skiko rename and a
-    // blank map that nobody sees until the machine matrix.
     assertField(Class.forName(SkikoReflection.DIRECT3D_REDRAWER_CLASS), "device")
     assertMethod(Class.forName(SkikoReflection.DIRECT3D_CONTEXT_HANDLER_CLASS), "makeContext")
   }
 
   @Test
   fun `the Metal context handler exposes the device and context the host reads`() {
-    // No test drives the Metal host — the suite runs on Vulkan even on macOS — so these are
-    // pinned for the same reason as the Windows members: a Skiko rename would otherwise surface
-    // only as a blank map. MacosMetalDeviceContractTest continues the chain past Java, into the
-    // Objective-C object this device field holds.
+    // No test drives the Metal host: the suite runs on Vulkan even on macOS.
     assertField(Class.forName(SkikoReflection.METAL_CONTEXT_HANDLER_CLASS), "device")
     assertField(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "context")
     assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "getContext")

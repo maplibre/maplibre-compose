@@ -44,7 +44,7 @@ kotlin {
 
     androidMain { dependsOn(maplibreNativeMain) }
 
-    // Desktop is backed by MapLibre Native too now, so it gets the offline controls.
+    // Desktop is backed by MapLibre Native, so it gets the offline controls.
     val desktopMain by getting
     desktopMain.dependsOn(maplibreNativeMain)
 

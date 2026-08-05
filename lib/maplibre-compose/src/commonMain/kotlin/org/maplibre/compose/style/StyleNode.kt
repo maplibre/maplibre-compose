@@ -26,12 +26,8 @@ internal class StyleNode(var style: SafeStyle, internal var logger: Logger?) : M
   }
 
   override fun onEndChanges() {
-    // Only layers. Sources reload themselves when the set changes, which is not here: a source is
-    // referenced and released from a DisposableEffect, and Compose dispatches those after the
-    // applier's end-of-changes hook. Reloading here polled for a change that had not happened yet
-    // and would be picked up by the next commit anyway — so on desktop, where reading the source
-    // list means a blocking hop to the map's owner thread, an animating layer paid for a full
-    // source enumeration on every frame it recomposed.
+    // Only layers: sources are referenced and released from a DisposableEffect, which Compose
+    // dispatches after this hook, so applying them here would always be a frame early.
     layerManager.applyChanges()
   }
 }

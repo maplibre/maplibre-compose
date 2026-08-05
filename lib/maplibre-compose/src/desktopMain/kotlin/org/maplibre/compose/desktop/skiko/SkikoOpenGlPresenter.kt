@@ -33,11 +33,8 @@ import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
 import org.maplibre.compose.desktop.skiko.SkikoReflection.staticInvoke
 
 /**
- * How many snapshots to hold alive after handing them to Compose.
- *
- * Compose records draw commands and replays them later, so an image closed immediately after
- * `drawImageRect` can be sampled after it is gone. Retaining a short ring keeps recorded frames
- * valid without unbounded growth.
+ * How many snapshots to hold alive after handing them to Compose, which replays recorded draw
+ * commands later and would otherwise sample an image closed right after `drawImageRect`.
  */
 private const val RETAINED_IMAGE_COUNT = 8
 
@@ -92,11 +89,7 @@ internal object SkikoOpenGlPresenter {
 
   /**
    * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
-   *
-   * Forced onto the AWT event thread because the Skia objects belong to the `DirectContext` that
-   * thread owns. The example got this guarantee from its quit handler, which always closed through
-   * the EDT; here the caller is a Compose `DisposableEffect`, whose applier thread is the EDT in
-   * practice but is not guaranteed to be. `onEdt` short-circuits when already there.
+   * Forced onto the AWT event thread, which owns the `DirectContext` the Skia objects belong to.
    */
   fun forget(textureName: Int) {
     SkikoReflection.onEdt { presenters.remove(textureName)?.close() }

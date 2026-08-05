@@ -66,24 +66,12 @@ import org.maplibre.spatialk.geojson.Geometry
 /**
  * Sets each desktop layer setter and reads the value back off the live map.
  *
- * Nothing else catches what these break. A layer setter writes a name and a value into style JSON,
- * and MapLibre answers a name it does not recognize by refusing the whole layer, while it answers a
- * value of the wrong shape by clamping, ignoring, or substituting a default. Neither reaches the
- * caller: `addStyleLayerJson` is the only call that can fail, and after that the map draws
- * something plausible and says nothing. So the assertion has to be the value MapLibre itself
- * reports, read back through `layerProperty`.
+ * MapLibre silently clamps, ignores, or defaults a value of the wrong shape, so the assertion has
+ * to be what it reports back through `layerProperty`. Every property is exercised on both paths a
+ * descriptor has to the map: accumulated into the JSON that creates the layer, and set per-property
+ * on the live layer afterwards.
  *
- * Every property is exercised twice, because a descriptor has two paths to the map. Before the
- * layer is added, setters accumulate into one JSON object that creates the layer; afterwards each
- * setter calls `setLayerProperty` on the live layer. A property can work on one path and not the
- * other — the JSON path is validated wholesale at add time and the live path per property — so
- * covering only the first would miss half of it.
- *
- * The expected values are what MapLibre returns, not what was written: it re-serializes from its
- * own parsed representation. Colours come back as `["rgba", …]` arrays with 0-255 channels rather
- * than as the CSS strings that were sent, a data-driven number is wrapped in a `["number", …]`
- * coercion, and a `format` expression comes back as the formatted-section object it parsed to. Each
- * is MapLibre restating the same value, so the test states them the same way.
+ * Expected values are MapLibre's own re-serialization, not what was written.
  */
 class LayerPropertyRoundTripTest {
 
@@ -140,13 +128,6 @@ class LayerPropertyRoundTripTest {
     }
   }
 
-  /**
-   * A raster layer over a [RasterSource], which is the only way either is reachable.
-   *
-   * The tiles are never fetched — the host does not resolve — and none of this needs them: a
-   * layer's paint properties are parsed and stored when the layer is added, not when a tile
-   * arrives.
-   */
   @Test
   fun `raster layer properties reach MapLibre`() {
     assertPropertiesRoundTrip(RASTER_CASES) { style ->
@@ -162,7 +143,6 @@ class LayerPropertyRoundTripTest {
     }
   }
 
-  /** A hillshade layer over a [RasterDemSource]: the same pairing as the raster case above. */
   @Test
   fun `hillshade layer properties reach MapLibre`() {
     assertPropertiesRoundTrip(HILLSHADE_CASES) { style ->
@@ -180,12 +160,8 @@ class LayerPropertyRoundTripTest {
   }
 
   /**
-   * The keys every layer has, which do not travel with the paint and layout properties.
-   *
-   * `layerProperty` does not answer for any of them — it reads the layer's own generated
-   * properties, and these five are handled by the layer base class — so they are read through the
-   * calls that do. `source-layer` matters most: a layer over a vector source that loses it selects
-   * no features and draws an empty layer, with no error anywhere.
+   * The keys handled by the layer base class rather than by the generated properties, so
+   * `layerProperty` does not answer for them and they are read through the calls that do.
    */
   @Test
   fun `the common layer keys reach MapLibre before and after attach`() {
@@ -237,14 +213,11 @@ class LayerPropertyRoundTripTest {
 
   /**
    * Runs every case twice against one map: once written before the layer is added, once after.
-   *
-   * Failures are collected rather than thrown at the first mismatch. A table of fifty properties is
-   * useful only if one run says which of them are wrong; stopping at the first turns an audit into
-   * fifty runs.
+   * Failures are collected rather than thrown at the first mismatch.
    *
    * @param prepare adds whatever sources the layer type needs to [DesktopStyle] and returns a
-   *   factory for the layer under test. Each case gets its own layer, so a property that MapLibre
-   *   rejects cannot be masked by another property on the same layer.
+   *   factory for the layer under test. Each case gets its own layer so one rejected property
+   *   cannot mask another.
    */
   private fun <L : Layer> assertPropertiesRoundTrip(
     cases: List<Case<L>>,
@@ -309,7 +282,6 @@ class LayerPropertyRoundTripTest {
 
     fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
 
-    /** An empty GeoJSON source, which is all a layer needs in order to be added over one. */
     fun addFeatureSource(style: DesktopStyle): Source =
       GeoJsonSource(
           id = SOURCE_ID,
@@ -404,9 +376,8 @@ class LayerPropertyRoundTripTest {
         Case("heatmap-radius", "12.0") { it.setHeatmapRadius(const(12.dp).c()) },
         Case("heatmap-weight", "0.5") { it.setHeatmapWeight(const(0.5f).c()) },
         Case("heatmap-intensity", "2.0") { it.setHeatmapIntensity(const(2f).c()) },
-        // A colour ramp, because MapLibre rejects a constant here outright: "color ramp must be an
-        // expression". The interpolation input has to be heatmap-density, which is the only input
-        // this property accepts.
+        // MapLibre rejects a constant here ("color ramp must be an expression") and accepts only
+        // heatmap-density as the interpolation input.
         Case(
           "heatmap-color",
           """["interpolate",["linear"],["heatmap-density"],
@@ -443,9 +414,7 @@ class LayerPropertyRoundTripTest {
         Case("line-blur", "1.0") { it.setLineBlur(const(1.dp).c()) },
         Case("line-dasharray", "[2.0,4.0]") { it.setLineDasharray(const(listOf(2, 4)).c()) },
         Case("line-pattern", """["image","dash"]""") { it.setLinePattern(image("dash").c()) },
-        // Like heatmap-color, a ramp rather than a constant, and over line-progress: a gradient
-        // runs
-        // along the line rather than with the zoom level.
+        // Like heatmap-color, a ramp rather than a constant, and only over line-progress.
         Case(
           "line-gradient",
           """["interpolate",["linear"],["line-progress"],
@@ -474,8 +443,7 @@ class LayerPropertyRoundTripTest {
         Case("raster-resampling", "\"nearest\"") {
           it.setRasterResampling(const(RasterResampling.Nearest).c())
         },
-        // Milliseconds, and the only property whose Kotlin type is a Duration: a fade written in
-        // seconds would be 1000 times too short and nothing would say so.
+        // Milliseconds; the only property whose Kotlin type is a Duration.
         Case("raster-fade-duration", "250.0") {
           it.setRasterFadeDuration(const(250.milliseconds).c())
         },
@@ -483,8 +451,7 @@ class LayerPropertyRoundTripTest {
 
     val HILLSHADE_CASES =
       listOf<Case<HillshadeLayer>>(
-        // Reported inside an array: MapLibre Native's hillshade takes a list of light sources, and
-        // a single direction or colour is the one-element case rather than a scalar.
+        // Reported inside an array: MapLibre Native's hillshade takes a list of light sources.
         Case("hillshade-illumination-direction", "[200.0]") {
           it.setHillshadeIlluminationDirection(const(200f).c())
         },
@@ -511,8 +478,7 @@ class LayerPropertyRoundTripTest {
         },
         Case("symbol-spacing", "30.0") { it.setSymbolSpacing(const(30.dp).c()) },
         Case("symbol-avoid-edges", "true") { it.setSymbolAvoidEdges(const(true).c()) },
-        // Data-driven rather than constant, which is the case the whole expression encoder exists
-        // for. MapLibre wraps it in the coercion the property's type implies.
+        // Data-driven: MapLibre wraps it in the coercion the property's type implies.
         Case("symbol-sort-key", """["number",["get","rank"]]""") {
           it.setSymbolSortKey(Feature["rank"].cast<FloatValue>().c())
         },
@@ -528,7 +494,6 @@ class LayerPropertyRoundTripTest {
         Case("icon-size", "1.5") { it.setIconSize(const(1.5f).c()) },
         Case("icon-text-fit", "\"both\"") { it.setIconTextFit(const(IconTextFit.Both).c()) },
         // Style order is top, right, bottom, left, which is not the order PaddingValues reads in.
-        // Swapping them is invisible on a symmetric padding and wrong on every other.
         Case("icon-text-fit-padding", "[2.0,3.0,4.0,1.0]") {
           it.setIconTextFitPadding(const(PaddingValues.Absolute(1.dp, 2.dp, 3.dp, 4.dp)).c())
         },
@@ -568,8 +533,7 @@ class LayerPropertyRoundTripTest {
         Case("text-rotation-alignment", "\"viewport\"") {
           it.setTextRotationAlignment(const(TextRotationAlignment.Viewport).c())
         },
-        // A `format` expression comes back as the sections object MapLibre parsed it into, with the
-        // per-span options it did not receive left null.
+        // A `format` expression comes back as the sections object MapLibre parsed it into.
         Case(
           "text-field",
           """{"sections":[{"text":"Hello","fontStack":null,"textColor":null,"scale":null,
@@ -613,16 +577,13 @@ class LayerPropertyRoundTripTest {
         Case("text-allow-overlap", "true") { it.setTextAllowOverlap(const(true).c()) },
         Case("text-ignore-placement", "true") { it.setTextIgnorePlacement(const(true).c()) },
         Case("text-optional", "true") { it.setTextOptional(const(true).c()) },
-        // Zoom-driven, which is what the other half of the expression encoder is for.
         Case("text-opacity", """["interpolate",["linear"],["zoom"],0.0,0.0,10.0,1.0]""") {
           it.setTextOpacity(
             interpolate(linear(), zoom(), 0f to const(0f), 10f to const(1f)).cast<FloatValue>().c()
           )
         },
-        // Colour with a fractional alpha, which is the lossy case: MapLibre stores colours
-        // premultiplied as floats, so a channel comes back a rounding step away from the byte that
-        // was sent. Stated exactly rather than rounded away, because the loss is the fact worth
-        // recording.
+        // MapLibre stores colours premultiplied as floats, so a fractional alpha comes back a
+        // rounding step off the byte that was sent.
         Case("text-color", """["rgba",17.0,34.0,51.000003814697266,0.5]""") {
           it.setTextColor(const(Color(0x80112233)).c())
         },

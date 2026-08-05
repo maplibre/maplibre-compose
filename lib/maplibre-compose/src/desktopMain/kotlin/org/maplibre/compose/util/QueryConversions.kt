@@ -20,7 +20,6 @@ import org.maplibre.spatialk.geojson.MultiPolygon
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Polygon
 
-/** Builds the FFI query options from the layer and predicate a caller supplied. */
 internal fun renderedQueryOptions(
   layerIds: Set<String>?,
   predicate: CompiledExpression<BooleanValue>?,
@@ -33,11 +32,8 @@ internal fun renderedQueryOptions(
 }
 
 /**
- * Converts a queried feature to the GeoJSON one the common API returns.
- *
- * Source id, source layer id, and feature state are preserved as properties rather than dropped:
- * the common `Feature` has nowhere else to carry them, and a caller distinguishing hits across
- * layers needs at least the source.
+ * Converts a queried feature to the GeoJSON one the common API returns. Source id, source layer id,
+ * and feature state ride along as synthetic properties, since `Feature` has nowhere else for them.
  */
 internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> {
   val base = feature.toGeoJsonFeature()
@@ -51,11 +47,9 @@ internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObj
 }
 
 /**
- * Converts a plain MapLibre feature to the GeoJSON one the common API returns.
- *
- * Kept separate from the [QueriedFeature] overload because only a queried feature has a source to
- * record: cluster children and leaves come back as bare features, and giving them the synthetic
- * `${'$'}source` keys would be inventing information.
+ * Converts a plain MapLibre feature to the GeoJSON one the common API returns. Unlike the
+ * [QueriedFeature] overload, it adds no synthetic `${'$'}source` keys; a bare feature has no
+ * source.
  */
 internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> =
   Feature(
@@ -65,26 +59,12 @@ internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?
   )
 
 /**
- * Converts a queried cluster feature back into the one `queryFeatureExtension` takes.
+ * Converts a queried cluster feature back into the one `queryFeatureExtension` takes, restoring the
+ * unsigned tag on `cluster_id` that kotlinx JSON cannot carry. MapLibre matches the variant
+ * alternative exactly and treats any other numeric type as absent, returning an empty result with a
+ * success status (see https://github.com/maplibre/maplibre-native-ffi/pull/340).
  *
- * Only `cluster_id` actually matters — MapLibre reads it from the properties and ignores the
- * geometry and the identifier entirely — but it has to arrive as an *unsigned* integer. MapLibre
- * looks it up with an exact check against the stored variant alternative, and the mismatch does not
- * fail: the lookup simply misses and the query returns an empty result with a success status.
- *
- * The FFI is not where that is lost. Its `JsonValue` is a tagged union that keeps `UInt` and `Int`
- * distinct in both directions, so a queried feature reaches Kotlin with the tag intact. It is lost
- * *here*, because the public API hands callers a `Feature<Geometry, JsonObject?>` and kotlinx JSON
- * has no unsigned integer to hold it in. So this is not a workaround for anything upstream, and no
- * FFI change removes it: as long as a cluster feature round-trips through GeoJSON, the tag has to
- * be restored on the way back.
- *
- * The contract is spelled out upstream by https://github.com/maplibre/maplibre-native-ffi/pull/340,
- * which documents that any other numeric type is treated as absent rather than rejected. That PR
- * does not change the behavior, so this conversion is not a workaround waiting on it.
- *
- * Returns null when there is no usable cluster id, so a caller can skip the query rather than run
- * one that cannot match.
+ * Returns null when there is no usable cluster id.
  */
 internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
   val clusterId = (properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.toUnsignedOrNull()
@@ -102,8 +82,7 @@ internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
       }
     }
 
-  // Empty rather than the real geometry: mbgl reads only the properties here, and converting a
-  // geometry that will be discarded is work with a chance of being wrong.
+  // Empty rather than the real geometry: mbgl reads only the properties here.
   return FfiFeature(
     geometry = FfiGeometry.Empty,
     properties = members,
@@ -115,11 +94,8 @@ internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
 internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 
 /**
- * Reads a non-negative integer, whatever shape it arrived in.
- *
- * The round trip through a rendered query normally yields an unquoted unsigned literal, but a
- * caller may hand back a feature they built themselves, where the id could be quoted or have gone
- * through a double.
+ * Reads a non-negative integer, whatever shape it arrived in: a caller-built feature may carry the
+ * id quoted or as a double.
  */
 private fun JsonPrimitive.toUnsignedOrNull(): Long? {
   content.toULongOrNull()?.let {
@@ -163,9 +139,7 @@ private fun FfiGeometry.toGeoJson(): GeoJsonGeometry =
     is FfiGeometry.MultiPolygon ->
       MultiPolygon(polygons.map { polygon -> polygon.map { ring -> ring.map { it.toPosition() } } })
     is FfiGeometry.Collection -> GeometryCollection(geometries.map { it.toGeoJson() })
-    // Only reachable when the FFI is newer than this build. An empty collection keeps the rest of
-    // the query result usable rather than failing the whole call for one unrecognized shape.
+    // Degrade to an empty collection so one unrecognized shape does not fail the whole query.
     is FfiGeometry.Unknown -> GeometryCollection(emptyList())
-    // Same reasoning as Unknown: keep the rest of the result usable.
     is FfiGeometry.Empty -> GeometryCollection(emptyList())
   }

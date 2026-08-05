@@ -9,27 +9,13 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 /**
- * Pins the layout of Skiko's native `DirectXDevice`, which the Windows host reads by byte offset.
+ * Pins the layout of Skiko's native `DirectXDevice`, which the Windows host reads by byte offset. A
+ * C++ struct carries no runtime metadata, so the offsets can only be checked indirectly: by pinning
+ * the Skiko version they were read from, and by exercising their cross-check against a struct built
+ * here.
  *
- * [SkikoReflectionContractTest] can assert that a Java member still exists, and
- * [MacosMetalDeviceContractTest] can ask the Objective-C runtime the same question about a class
- * with no Java form. Neither trick reaches a plain C++ struct: `DirectXDevice` carries no metadata
- * at runtime, so nothing on this machine can be interrogated about where its `ID3D12Device` sits.
- * The only checks available are therefore indirect, and this test makes both of them.
- *
- * The first is that Skiko has not moved off the version whose source the offsets were read from.
- * The derivation is recorded on [SkikoDirect3DDeviceLayout]; a Skiko bump invalidates it and has to
- * fail here, because on any machine we build on it would otherwise fail nowhere at all — Windows is
- * the platform least likely to be exercised during development, and the symptom there is a blank
- * map.
- *
- * The second is that the cross-check protecting the offsets behaves, which can be tested properly
- * because it is arithmetic on a struct rather than anything that needs a GPU: this builds a
- * `DirectXDevice` of its own and hands it over.
- *
- * A failure of the version assertion is not a bug in MapLibre Compose. It means Skiko was upgraded
- * and someone has to re-read `skiko/src/awtMain/cpp/windows/directXRedrawer.cc` and the Skia
- * headers it includes, then update [SkikoDirect3DDeviceLayout] to match.
+ * A failed version assertion means Skiko was upgraded, and someone has to re-read
+ * `skiko/src/awtMain/cpp/windows/directXRedrawer.cc` and update [SkikoDirect3DDeviceLayout].
  */
 class WindowsDirect3DDeviceLayoutTest {
 
@@ -51,8 +37,7 @@ class WindowsDirect3DDeviceLayoutTest {
   @Test
   fun `the device is read when both copies of it agree`() {
     Arena.ofConfined().use { arena ->
-      // Any recognisable non-null value does: nothing dereferences it, the point is only that the
-      // two offsets are where Skiko's two assignments land.
+      // Any recognisable non-null value does; nothing dereferences it.
       val device = 0x0000_7FFA_1234_5678L
       val struct = directXDevice(arena, backendContextDevice = device, deviceField = device)
 
@@ -63,8 +48,6 @@ class WindowsDirect3DDeviceLayoutTest {
   @Test
   fun `a struct whose two copies disagree is refused`() {
     Arena.ofConfined().use { arena ->
-      // What an inserted or reordered field looks like from here: one read still finds the device
-      // and the other finds whatever moved into its place.
       val struct =
         directXDevice(
           arena,
@@ -84,9 +67,8 @@ class WindowsDirect3DDeviceLayoutTest {
   @Test
   fun `a struct Skiko has not filled in yet is refused`() {
     Arena.ofConfined().use { arena ->
-      // Skiko allocates DirectXDevice before the swap chain exists, so a caller can reach a real
-      // struct that simply has no device in it yet. That is a different diagnosis from a layout
-      // change and must not be reported as one.
+      // Skiko allocates DirectXDevice before the swap chain exists, so an all-zero struct is not a
+      // layout change and must not be reported as one.
       val struct = directXDevice(arena, backendContextDevice = 0L, deviceField = 0L)
 
       val error = assertFailsWith<DesktopHostException> { SkikoDirect3DDeviceLayout.read(struct) }

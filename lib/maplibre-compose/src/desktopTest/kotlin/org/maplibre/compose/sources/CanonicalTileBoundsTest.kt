@@ -6,11 +6,8 @@ import kotlin.test.assertTrue
 import org.maplibre.nativeffi.geo.CanonicalTileId
 
 /**
- * The tile-to-bounds conversion a computed source answers from.
- *
- * MapLibre asks for a tile and hands the caller a bounding box, so this is the only place the two
- * coordinate systems meet. It is worth its own test because a mistake here is invisible in a
- * rendered map: features would still be computed and still be drawn, just for the wrong ground.
+ * The tile-to-bounds conversion a computed source answers from. A mistake here is invisible in a
+ * rendered map: features are still computed and drawn, just for the wrong ground.
  */
 class CanonicalTileBoundsTest {
 
@@ -38,11 +35,7 @@ class CanonicalTileBoundsTest {
     assertEquals(0.0, southEast.northeast.latitude, TOLERANCE, "north")
   }
 
-  /**
-   * Rows are evenly spaced in Mercator y rather than in latitude, which is the whole reason the
-   * conversion is not a division. Mercator stretches the high latitudes, so the row that reaches
-   * the pole is the one that spans the fewest degrees of it.
-   */
+  /** Rows are evenly spaced in Mercator y rather than in latitude. */
   @Test
   fun `a zoom two row spans fewer degrees near the pole than at the equator`() {
     val polar = CanonicalTileId(z = 2, x = 0, y = 0).toBoundingBox()

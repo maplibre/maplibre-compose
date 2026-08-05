@@ -10,16 +10,9 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * What a map keeps when its surface goes away and comes back.
- *
- * The division the desktop implementation is built on is that the runtime, the map, its style and
- * its camera live on the map's own thread, and only the render session belongs to the host's. That
- * is what makes losing a surface survivable at all — but nothing proved it, because until now
- * nothing ever drove `onSurfaceLost` and got a surface back afterwards.
- *
- * A real GPU rather than the fake host, because the interesting half is native: the session has to
- * close, the map has to accept a second attach, and the style and camera have to still be there
- * when it does. None of that is exercised by a host that hands out invented handles.
+ * What a map keeps when its surface goes away and comes back: only the render session belongs to
+ * the host, so the map, its style and its camera must survive. Uses a real GPU because the half
+ * under test is native.
  */
 class DesktopSurfaceLossTest {
 
@@ -39,8 +32,7 @@ class DesktopSurfaceLossTest {
       it.loseSurface()
       it.restoreSurface()
 
-      // The whole point: the map is idle, so nothing but the restore itself will ever ask for the
-      // frame that re-attaches. Before this worked, the fixture would spin here until it timed out.
+      // The map is idle, so nothing but the restore itself will ask for the re-attaching frame.
       it.pumpUntilRendered()
 
       assertEquals(
@@ -73,11 +65,9 @@ class DesktopSurfaceLossTest {
   }
 
   /**
-   * Losing a surface that never comes back, and then closing.
-   *
-   * Teardown is a handshake — the session goes first, on the thread that attached it, and only then
-   * can the map be destroyed — so a map that already gave its session up has to close without
-   * closing anything twice or waiting for a thread that is gone.
+   * Losing a surface that never comes back, and then closing. Teardown closes the render session on
+   * the thread that attached it before destroying the map, so a map that already gave its session
+   * up must close without closing twice or waiting on a thread that is gone.
    */
   @Test
   fun `a map whose surface is lost closes cleanly`() {

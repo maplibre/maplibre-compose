@@ -22,7 +22,7 @@ import org.maplibre.spatialk.geojson.Geometry
 public actual class VectorSource : Source {
 
   // A tiled source has no mutable properties in the common API, so its definition is fixed at
-  // construction and the descriptor is just this object.
+  // construction.
   private val json: JsonObject
 
   public actual constructor(id: String, uri: String) : super(id) {
@@ -58,8 +58,8 @@ public actual class VectorSource : Source {
             ?.toStyleJson()
             ?.toFfiJsonValue()
       }
-    // Empty rather than an exception when no session is attached: this answers from what a render
-    // pass built, so asking before the first frame is ordinary rather than a caller error.
+    // Empty rather than an exception when no session is attached; querying before the first frame
+    // is ordinary.
     return binding
       .withRenderSession { session -> session.querySourceFeatures(id, options) }
       .orEmpty()

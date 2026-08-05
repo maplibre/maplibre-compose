@@ -100,8 +100,8 @@ kotlin {
 
     val androidIosShared by creating { dependsOn(commonMain.get()) }
 
-    // Platforms backed by MapLibre Native, which is where the offline API exists. Mirrors the
-    // library's own maplibreNativeMain source set.
+    // Platforms backed by MapLibre Native, where the offline API exists; mirrors the library's own
+    // maplibreNativeMain source set.
     val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
 
     val desktopJsShared by creating { dependsOn(commonMain.get()) }
@@ -150,10 +150,8 @@ kotlin {
         implementation(libs.ktor.client.okhttp)
         runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
 
-        // LWJGL resolves its natives from the classpath, so the application picks
-        // the pair matching its host exactly as it does for the FFI runtime.
-        // `variantOf` is not available in a KMP source-set dependency block, so
-        // these are spelled out.
+        // `variantOf` is not available in a KMP source-set dependency block, so the host-matching
+        // LWJGL natives are spelled out.
         val lwjglVersion = libs.versions.lwjgl.get()
         val lwjglNatives = desktopHostPlatform.lwjglNativesClassifier
         runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives")
@@ -198,9 +196,8 @@ compose.desktop {
 
     nativeDistributions {
       // jpackage runs jlink against this JDK, so it decides the Java version inside the installed
-      // application. Without it the packaged app takes whatever JDK Gradle happens to run on,
-      // which can be older than the 24 the MapLibre Native FFI binding requires — a mismatch that
-      // only appears once a user installs and launches it.
+      // application; without it the packaged app takes whatever JDK Gradle runs on, which can be
+      // older than the 24 the MapLibre Native FFI binding requires.
       javaHome =
         javaToolchains
           .launcherFor {

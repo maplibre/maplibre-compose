@@ -6,13 +6,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/**
- * Which side of the resource boundary a URL falls on.
- *
- * The decision every request turns on, and the only part of the provider that is a pure function of
- * the URL. What it does with the requests it keeps is in [DesktopResourceRequestTest], and what it
- * reads for them is in [DesktopResourceReadTest].
- */
+/** Which side of the resource boundary a URL falls on. */
 class DesktopResourceProviderTest {
 
   @Test
@@ -28,11 +22,9 @@ class DesktopResourceProviderTest {
 
   @Test
   fun `an alias scheme is only MapLibre's once it has been resolved`() {
-    // maplibre-native-ffi #467 split the provider's URL in two, and this pair is why it matters. A
-    // style naming `maplibre://maps/style` arrives with the alias intact as the requested URL and
-    // the demotiles URL as the resolved one. Before the split there was only the alias: this
-    // provider claimed it, could not open it, and reported a resource error for a style that loads
-    // fine. Deciding on the resolved URL is what fixes that, so both halves are asserted.
+    // maplibre-native-ffi #467 split the provider's URL in two: `maplibre://maps/style` arrives as
+    // the requested URL and the demotiles URL as the resolved one, and ownership is decided on the
+    // resolved URL.
     assertFalse(isMapLibresToFetch("maplibre://maps/style"))
     assertTrue(isMapLibresToFetch("https://demotiles.maplibre.org/style.json"))
   }

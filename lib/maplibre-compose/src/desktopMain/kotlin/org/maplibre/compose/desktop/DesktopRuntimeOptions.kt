@@ -15,13 +15,8 @@ import java.nio.file.Paths
 @Immutable
 public data class DesktopRuntimeOptions(
   /**
-   * Where the ambient tile and resource cache lives.
-   *
-   * Defaults to a per-user application data directory rather than the working directory: a cache
-   * written next to wherever the application happened to be launched from is invisible to the user,
-   * is not shared between runs started from different places, and ends up committed to source
-   * control often enough that the previous desktop implementation needed a `.gitignore` entry for
-   * it.
+   * Where the ambient tile and resource cache lives. Defaults to this platform's per-user
+   * application data directory, not the working directory.
    */
   public val cachePath: Path = defaultCachePath(),
 
@@ -34,7 +29,6 @@ public data class DesktopRuntimeOptions(
   public val maximumCacheSizeBytes: Long? = null,
 ) {
   public companion object {
-    /** The default used when no options are provided. */
     public val Default: DesktopRuntimeOptions = DesktopRuntimeOptions()
   }
 }
@@ -45,12 +39,7 @@ public val LocalDesktopRuntimeOptions: ProvidableCompositionLocal<DesktopRuntime
     DesktopRuntimeOptions.Default
   }
 
-/**
- * The per-user cache directory for this platform.
- *
- * Follows each platform's own convention rather than inventing one, so the cache lands where a user
- * or an uninstaller would look for it.
- */
+/** The per-user cache directory for this platform, following each platform's own convention. */
 private fun defaultCachePath(): Path {
   val os = System.getProperty("os.name")?.lowercase().orEmpty()
   val home = System.getProperty("user.home") ?: "."

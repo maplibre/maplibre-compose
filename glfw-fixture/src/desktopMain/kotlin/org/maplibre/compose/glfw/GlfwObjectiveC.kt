@@ -9,14 +9,8 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
 import org.lwjgl.system.macosx.ObjCRuntime
 
 /**
- * The Objective-C messaging the fixture's Metal bridge needs.
- *
- * This is a near-copy of the default host's `MacosObjectiveC`, and the duplication is a finding
- * rather than an oversight: the desktop host SPI is defined entirely in terms of backend-neutral
- * handles, so it exports nothing for talking to a platform graphics API, and neither compose-glfw
- * nor MapLibre Compose publishes its own messaging helper. Any second Metal host therefore starts
- * by writing this file again. Ninety lines is a cheap enough answer that it is not obviously worth
- * fixing, but it is the largest single thing a non-Skiko host has to bring with it.
+ * The Objective-C messaging the fixture's Metal bridge needs; a near-copy of the default host's
+ * `MacosObjectiveC`.
  *
  * Messages are dispatched by resolving the selector's implementation and calling that function
  * pointer, rather than by calling `objc_msgSend`, which has no single C prototype and on arm64 is
@@ -34,11 +28,8 @@ internal object GlfwObjectiveC {
   }
 
   /**
-   * Opens an autorelease pool that drains when the returned handle is closed.
-   *
-   * Metal hands back autoreleased objects from most of its factory methods, and the renderer thread
-   * this fixture creates has no pool of its own, so without one every object leaks until exit and
-   * the runtime logs a warning per object.
+   * Opens an autorelease pool that drains when the returned handle is closed. Metal's factory
+   * methods return autoreleased objects, and this fixture's renderer thread has no pool of its own.
    */
   fun autoreleasePool(): AutoreleasePool = AutoreleasePool(allocInit("NSAutoreleasePool"))
 
@@ -55,10 +46,8 @@ internal object GlfwObjectiveC {
   }
 
   /**
-   * Sends a message returning `NSUInteger`.
-   *
-   * Pointer-sized integers and pointers come back in the same register, so this is the pointer path
-   * under a name that reads as what the call site means.
+   * Sends a message returning `NSUInteger`; the pointer path under another name, since
+   * pointer-sized integers and pointers come back in the same register.
    */
   fun sendLong(receiver: Long, selectorName: String): Long = sendPointer(receiver, selectorName)
 
@@ -88,12 +77,9 @@ internal object GlfwObjectiveC {
     selectors.getOrPut(name) { ObjCRuntime.sel_registerName(name) }
 
   /**
-   * The function pointer implementing [selector] for [receiver].
-   *
-   * `class_respondsToSelector` is asked first because `class_getMethodImplementation` does not
-   * answer it: for a selector the class does not implement it returns the runtime's forwarding
-   * trampoline rather than null, and calling that reaches `doesNotRecognizeSelector:`, whose
-   * Objective-C exception unwinds through a JNI frame with no handler and aborts the process.
+   * The function pointer implementing [selector] for [receiver]. `class_respondsToSelector` is
+   * asked first because `class_getMethodImplementation` returns the forwarding trampoline rather
+   * than null, and calling that aborts the process from a JNI frame.
    */
   private fun implementation(receiver: Long, selector: Long): Long {
     check(receiver != NULL) { "Objective-C receiver is null" }

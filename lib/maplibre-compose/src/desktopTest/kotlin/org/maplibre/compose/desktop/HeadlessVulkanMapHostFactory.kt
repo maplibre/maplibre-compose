@@ -1,10 +1,8 @@
 package org.maplibre.compose.desktop
 
 /**
- * Supplies [HeadlessVulkanMapHost]s to a composition under test.
- *
- * Provide it through `LocalDesktopMapHostFactory` and `MaplibreMap` runs its real desktop path —
- * the surface composable, the session, the style, the layers, and MapLibre itself — with no window.
+ * Supplies [HeadlessVulkanMapHost]s to a composition under test. Provide it through
+ * `LocalDesktopMapHostFactory` and `MaplibreMap` runs its real desktop path with no window.
  */
 internal class HeadlessVulkanMapHostFactory : DesktopMapHostFactory {
 
@@ -27,11 +25,8 @@ internal class HeadlessVulkanMapHostFactory : DesktopMapHostFactory {
 
   companion object {
     /**
-     * Creates a factory, failing if this machine has no usable Vulkan implementation.
-     *
-     * Probed up front rather than on the first frame, so a missing loader is an error naming itself
-     * instead of a surface that silently never becomes ready. See [HeadlessVulkanMapHost.create]
-     * for why this fails rather than skipping.
+     * Creates a factory, probing Vulkan up front so a missing loader fails by name rather than as a
+     * surface that never becomes ready. See [HeadlessVulkanMapHost.create].
      */
     fun create(): HeadlessVulkanMapHostFactory {
       HeadlessVulkanMapHost.create().close()

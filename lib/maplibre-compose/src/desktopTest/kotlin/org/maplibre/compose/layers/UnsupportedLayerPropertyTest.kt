@@ -31,17 +31,10 @@ import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
 /**
- * What a layer does with a property MapLibre Native will not take.
- *
- * There are two of those, and they fail differently. A property whose *name* the core does not know
- * makes it refuse the whole layer — one unknown key and nothing draws — so the descriptor must not
- * write it at all. A property whose name is known but whose *value* is not, such as an enum member
- * the core never implemented, is refused on its own; the layer survives, and the only question is
- * whether the refusal escapes into the Compose applier that was setting it.
- *
- * Neither is hypothetical: `icon-overlap` is the first and `text-rotation-alignment:
- * viewport-glyph` is the second, both reachable from the public composable API without writing
- * anything invalid.
+ * What a layer does with a property MapLibre Native will not take. The two cases fail differently:
+ * an unknown property *name* makes the core refuse the whole layer, so the descriptor must not
+ * write it at all; an unknown *value* is refused on its own and must not escape into the Compose
+ * applier. `icon-overlap` and `text-rotation-alignment: viewport-glyph` are the respective cases.
  */
 class UnsupportedLayerPropertyTest {
 
@@ -63,15 +56,14 @@ class UnsupportedLayerPropertyTest {
       layer.setTextAllowOverlap(const(true).compile(ExpressionContext.None))
       layer.setIconOverlap(const("cooperative").compile(ExpressionContext.None))
       layer.setTextOverlap(const(SymbolOverlap.Always).compile(ExpressionContext.None))
-      // The assertion is that this returns: a layer object carrying `icon-overlap` is refused with
-      // "layer doesn't support this property", and attach turns that into an exception thrown out
-      // of the composition that was adding the layer.
+      // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
+      // refused wholesale, and attach turns that into a throw.
       style.addLayer(layer)
 
       layer.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
-        // MapLibre answers for a property it holds no value for, and the answer is a JSON null
-        // rather than nothing at all, so that is what "was never written" looks like here.
+        // MapLibre answers JSON null for a property it holds no value for, so that is what "was
+        // never written" looks like here.
         assertEquals(
           JsonNull,
           map.layerProperty("labels", "icon-overlap")?.toJsonElement(),
@@ -82,8 +74,6 @@ class UnsupportedLayerPropertyTest {
           map.layerProperty("labels", "text-overlap")?.toJsonElement(),
           "text-overlap should not be written",
         )
-        // The properties that do work are untouched, so dropping one is not dropping the layer's
-        // configuration: these two are what a caller is told to use instead.
         assertEquals(
           JsonPrimitive(true),
           map.layerProperty("labels", "icon-allow-overlap")?.toJsonElement(),
@@ -94,8 +84,6 @@ class UnsupportedLayerPropertyTest {
         )
       }
 
-      // Dropped silently is still dropped, so each one says so once, and only once the layer has a
-      // style to report through.
       assertEquals(
         listOf(
           "Layer 'labels' of type 'symbol' cannot set 'icon-overlap'",
@@ -104,8 +92,6 @@ class UnsupportedLayerPropertyTest {
         warnings().map { warning -> warning.substringBefore(": MapLibre") },
       )
 
-      // The same setter on the live layer, which is the other half of the descriptor's split: it
-      // must not reach `setLayerProperty` either, where MapLibre rejects the name outright.
       layer.setIconOverlap(const("never").compile(ExpressionContext.None))
       assertEquals(
         JsonNull,
@@ -125,9 +111,7 @@ class UnsupportedLayerPropertyTest {
       val source = addSource(style)
 
       // What every SymbolLayer composable does: an optional property nobody set compiles to a null
-      // literal and is handed to the setter anyway. Warning about those would put two lines in the
-      // log for every symbol layer in every composition, which is how a real warning stops being
-      // read.
+      // literal and is handed to the setter anyway.
       val layer = SymbolLayer("labels", source)
       layer.setIconOverlap(nil().cast<StringValue>().compile(ExpressionContext.None))
       layer.setTextOverlap(nil().cast<SymbolOverlap>().compile(ExpressionContext.None))
@@ -151,11 +135,8 @@ class UnsupportedLayerPropertyTest {
       )
       style.addLayer(layer)
 
-      // `viewport-glyph` is in the style spec and not in MapLibre Native, which knows only map,
-      // viewport, and auto. It arrives through the public API as an ordinary enum member, so a
-      // caller has no way to know they are about to be told "value must be a valid enumeration
-      // value" — and on a live layer that answer used to come back as an exception thrown out of
-      // the Compose update block, taking down a map that was already running.
+      // `viewport-glyph` is in the style spec but not in MapLibre Native, which knows only map,
+      // viewport, and auto, yet it arrives through the public API as an ordinary enum member.
       layer.setTextRotationAlignment(
         const(TextRotationAlignment.ViewportGlyph).compile(ExpressionContext.None)
       )
@@ -178,7 +159,6 @@ class UnsupportedLayerPropertyTest {
     }
   }
 
-  /** The warnings this library emitted, which is where a dropped property is accounted for. */
   private fun warnings(): List<String> = CAPTURED.filter { it.startsWith("Layer ") }
 
   private fun addSource(style: DesktopStyle): Source =
@@ -191,11 +171,8 @@ class UnsupportedLayerPropertyTest {
 
   private companion object {
     /**
-     * Warnings the library logged, captured process-wide.
-     *
-     * Kermit's writers are global and cannot be removed, so this is installed once and read by
-     * whichever test cleared it last. The desktop suite runs in one JVM with no parallel forks, so
-     * that is a test-local list in practice.
+     * Warnings the library logged. Kermit's writers are global and cannot be removed, so this is
+     * installed once; the desktop suite runs in one JVM with no parallel forks.
      */
     val CAPTURED = CopyOnWriteArrayList<String>()
 

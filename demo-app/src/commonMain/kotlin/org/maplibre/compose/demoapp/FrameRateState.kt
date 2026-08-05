@@ -16,16 +16,10 @@ private const val SAMPLE_MILLIS = 500L
 /**
  * How many frames the map has actually drawn, sampled over time.
  *
- * This counts frames rather than believing the rate the map reports, because the number worth
- * seeing is the one an idle map produces. `onFrame` reports `1 / (time since the previous frame)`,
- * which is only ever the instantaneous rate of a frame that did happen — a map that stops drawing
- * stops reporting, so the last value it gave just sits there looking like a healthy 60. Counting
- * into a window falls to zero instead, which is what an idle map should read.
- *
- * [record] runs on whichever thread presents the map, so the count it keeps is deliberately not
- * Compose state: writing snapshot state once per frame would recompose whatever displays it at
- * frame rate, and on a map already suspected of drawing too much that is a feedback loop, not a
- * measurement. The plain counter is written by that one thread and sampled by [track].
+ * Counts frames rather than using the rate `onFrame` reports, which is instantaneous and so stays
+ * high once an idle map stops drawing. The counter is deliberately not snapshot state: [record]
+ * runs once per frame on the presenting thread, and writing state there would recompose at frame
+ * rate.
  */
 @Stable
 class FrameRateState {
@@ -42,8 +36,7 @@ class FrameRateState {
 
   /** Called once per rendered frame, from the presenting thread. */
   fun record() {
-    // One writer, so a plain increment loses nothing; the read side is a sample, not a total that
-    // anything depends on being exact.
+    // One writer, so a plain increment loses nothing.
     frames++
   }
 

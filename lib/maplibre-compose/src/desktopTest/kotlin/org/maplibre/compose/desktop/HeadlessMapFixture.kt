@@ -23,13 +23,8 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * Runs a real [DesktopMapSession] against [HeadlessVulkanMapHost], with no window and no Compose.
  *
- * This is the full desktop stack below the composables: a MapLibre runtime, a map, a style, a
- * render session on a real GPU, and frames driven by [pump]. Tests that assert on style JSON,
- * layers, or rendered-feature queries need all of it, because those only fail once MapLibre itself
- * is asked to do the work.
- *
- * Frames are driven explicitly rather than by a loop of their own: a test that says how many frames
- * it wants can fail with a clear message instead of hanging.
+ * Frames are driven explicitly by the caller rather than by a loop of the fixture's own, so a test
+ * that says how many frames it wants fails with a clear message instead of hanging.
  */
 internal class HeadlessMapFixture
 private constructor(private val host: HeadlessVulkanMapHost, private val cacheDirectory: Path) :
@@ -73,11 +68,8 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
   }
 
   /**
-   * Takes the surface away, as a host does when its device is lost.
-   *
-   * The host itself is deliberately left alone: what a sleep/wake cycle destroys is the render
-   * session and the target it points at, not the map, its style, or its camera, and the point of
-   * pairing this with [restoreSurface] is to prove that division holds.
+   * Takes the surface away, as a host does when its device is lost. The host itself is deliberately
+   * left alone: only the render session and its target go, not the map, its style, or its camera.
    */
   fun loseSurface() {
     session.onSurfaceLost()
@@ -94,11 +86,8 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     get() = session.attachCount
 
   /**
-   * Whether MapLibre has rendered at least once.
-   *
-   * The signal that the map exists and is attached, which a test needs before anything it does can
-   * reach a map: the runtime and map are created on their own thread, so the first frame after
-   * composition is not the one that renders.
+   * Whether MapLibre has rendered at least once, which is how a test knows the map exists and is
+   * attached: the runtime and map are created on their own thread, so the first frame is not it.
    */
   var hasRendered: Boolean = false
     internal set
@@ -129,10 +118,9 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
   /**
    * Renders frames until [condition] holds, or fails.
    *
-   * The runtime pumps itself on its own thread, but rendering is still the caller's job, and some
-   * of what a test waits for needs it: mbgl advances a camera transition from
-   * `onDidFinishRenderingFrame` while `transform.inTransition()`, so a transition that renders no
-   * frames stalls after its first step.
+   * Rendering is the caller's job: mbgl advances a camera transition from
+   * `onDidFinishRenderingFrame`, so a transition that renders no frames stalls after its first
+   * step.
    */
   fun pumpUntil(
     description: String,
@@ -148,8 +136,7 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
       }
       frame(extent)
       frames++
-      // A short sleep rather than a spin: most of the wait is network and worker threads, and a
-      // tight loop starves them on a small machine.
+      // A short sleep rather than a spin: a tight loop starves the network and worker threads.
       Thread.sleep(POLL_INTERVAL_MILLIS)
     }
   }
@@ -158,12 +145,8 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
    * Renders for [duration], but only when the session asks for a frame, and reports how many it
    * drew.
    *
-   * This is the one loop shape that can measure whether a map is at rest, because it is the one a
-   * real host uses: a desktop frame happens when [DesktopMapHostSession.requestFrame] invalidates
-   * the surface, not on a clock. Drawing unconditionally instead — which is what a Compose UI
-   * test's frame pump does — feeds the map frames it never asked for, and since a rendered frame is
-   * itself something MapLibre can respond to, the loop then sustains itself and reads as a map that
-   * will not settle. Counting frames under an unconditional pump measures the pump.
+   * Only an on-demand loop can measure whether a map is at rest: a rendered frame is itself
+   * something MapLibre can respond to, so an unconditional pump sustains and measures itself.
    */
   fun renderOnDemand(duration: Duration): Int {
     val deadline = TimeSource.Monotonic.markNow() + duration
@@ -196,9 +179,8 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
   /**
    * Runs [block] on another thread while this one renders frames, and returns its result.
    *
-   * Anything that suspends on the map's progress needs both halves at once: the caller cannot block
-   * the thread that renders and then wait for something that only advances when it does. A camera
-   * animation is the case that bites — see [pumpUntil].
+   * Anything that suspends on the map's progress needs both halves at once, since the caller cannot
+   * block the rendering thread and then wait for something that only advances when it renders.
    */
   fun <T> awaitWhileRendering(
     description: String,
@@ -245,8 +227,6 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     }
 
     override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-      // The reason is part of the event, not a detail: it is what tells a consumer the user did
-      // this rather than the application, and it is only observable here.
       events += "cameraMoveStarted($reason)"
     }
 
@@ -282,13 +262,7 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     val RETINA_EXTENT: DesktopMapExtent =
       DesktopMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 2.0)
 
-    /**
-     * Creates a fixture, failing if this machine has no usable Vulkan implementation.
-     *
-     * See [HeadlessVulkanMapHost.create] for why this fails rather than letting tests bail out: a
-     * test that returns before asserting is recorded as passed, so an unusable machine would report
-     * the same green suite as a working one.
-     */
+    /** Creates a fixture, failing if this machine has no usable Vulkan implementation. */
     fun create(): HeadlessMapFixture {
       val host = HeadlessVulkanMapHost.create()
       val directory = Files.createTempDirectory("maplibre-headless-test")

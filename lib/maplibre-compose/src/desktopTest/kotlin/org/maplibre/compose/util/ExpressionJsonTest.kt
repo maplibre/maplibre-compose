@@ -34,14 +34,11 @@ class ExpressionJsonTest {
 
   @Test
   fun `encodes a colour in the style spec's rgba form`() {
-    // The style spec takes colours as CSS strings, and the alpha stays fractional while the
-    // channels are 0-255. Android and iOS produce the same string, so a map renders identically.
+    // The style spec takes colours as CSS strings: channels are 0-255 and alpha stays fractional.
     assertEquals("\"rgba(255, 0, 0, 1.0)\"", json(ColorLiteral.of(Color.Red)))
     assertEquals("\"rgba(0, 255, 0, 0.0)\"", json(ColorLiteral.of(Color.Green.copy(alpha = 0f))))
 
-    // Compose quantizes alpha to 8 bits, so a nominal 0.5 round-trips as 128/255. The encoder
-    // reports what Color actually holds rather than the value that was asked for; Android does
-    // the same, which is what keeps the platforms rendering identically.
+    // Compose quantizes alpha to 8 bits, so a nominal 0.5 round-trips as 128/255.
     assertEquals(
       "\"rgba(0, 0, 255, 0.5019608)\"",
       json(ColorLiteral.of(Color.Blue.copy(alpha = 0.5f))),
@@ -69,8 +66,8 @@ class ExpressionJsonTest {
 
   @Test
   fun `does not double-wrap an array already inside a literal`() {
-    // isLiteralArg marks the argument positions that are already literal context; wrapping again
-    // would produce ["literal", ["literal", ...]] and change the value.
+    // isLiteralArg marks argument positions already in literal context; wrapping again would
+    // produce ["literal", ["literal", ...]] and change the value.
     val expression =
       CompiledFunctionCall.of(
         "literal",

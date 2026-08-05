@@ -123,9 +123,8 @@ object ClusteredPointsDemo : Demo {
           ?.let {
             coroutineScope.launch {
               val current = state.cameraState.position
-              // Never zoom out. A cluster that cannot report an expansion zoom answers with a
-              // sentinel — 0 on Android and desktop, -1 on iOS — and animating to it would throw
-              // the user out to the whole world instead of doing nothing.
+              // Never zoom out: a cluster that cannot report an expansion zoom answers with a
+              // sentinel, 0 on Android and desktop and -1 on iOS.
               val expansionZoom = bikeSource.getClusterExpansionZoom(it)
               state.cameraState.animateTo(
                 current.copy(

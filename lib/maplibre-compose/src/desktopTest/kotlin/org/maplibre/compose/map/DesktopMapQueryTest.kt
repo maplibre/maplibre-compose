@@ -12,14 +12,9 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.SOURCE_ID_PROPERTY
 
 /**
- * Exercises rendered-feature queries against a real, rendered map.
- *
- * A query only answers from what the render session actually rasterized, so nothing short of a real
- * GPU and a real frame can test it: a fake host returns an empty result no matter what the
+ * Exercises rendered-feature queries against a real, rendered map. A query only answers from what
+ * the render session actually rasterized, so a fake host returns an empty result no matter what the
  * conversion code does.
- *
- * The style is inline rather than fetched, so the test neither needs the network nor depends on
- * what a remote style happens to contain today.
  */
 class DesktopMapQueryTest {
 
@@ -28,7 +23,7 @@ class DesktopMapQueryTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
-      // Rendering is what populates the queryable set, so the frames matter, not just the load.
+      // Rendering, not loading, is what populates the queryable set.
       it.pump(frames = 30)
 
       val features =
@@ -37,8 +32,7 @@ class DesktopMapQueryTest {
       assertTrue(features.isNotEmpty(), "Expected a hit at the map center. Errors: ${it.errors}")
       val feature = features.first()
       assertEquals("world", feature.properties?.get("name")?.jsonPrimitive?.content)
-      // The source id has nowhere else to live on a GeoJSON Feature, so the conversion carries it
-      // as a property; a caller distinguishing hits across sources depends on it.
+      // The source id has nowhere else to live on a GeoJSON Feature, so it rides as a property.
       assertEquals("test", feature.properties?.get(SOURCE_ID_PROPERTY)?.jsonPrimitive?.content)
     }
   }
@@ -96,10 +90,7 @@ class DesktopMapQueryTest {
     /** The center of [HeadlessMapFixture.DEFAULT_EXTENT], in the logical pixels a query takes. */
     val CENTER = DpOffset(256.dp, 256.dp)
 
-    /**
-     * A polygon covering most of the world, so the center of the viewport is a hit at any zoom the
-     * map might settle on.
-     */
+    /** A polygon covering most of the world, so the viewport center is a hit at any zoom. */
     val WORLD_POLYGON_STYLE =
       """
       {

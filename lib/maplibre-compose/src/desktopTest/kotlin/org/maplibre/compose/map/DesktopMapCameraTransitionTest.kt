@@ -18,15 +18,9 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * A camera animation completes on MapLibre's own signal rather than on a timer.
  *
- * The earlier implementation waited out the requested duration, because the binding had no way to
- * say a transition had ended. `AnimationOptions.transitionId` plus MAP_CAMERA_TRANSITION_FINISHED
- * replaced that, and the difference is observable: the event arrives however the transition ended —
- * run to completion, superseded, or cancelled — where a timer only ever reported the first, and it
- * arrives when the camera has actually got there rather than when the clock says it should have.
- *
- * Every test here renders while it waits. mbgl advances a transition from
+ * Every test here renders while it waits: mbgl advances a transition from
  * `onDidFinishRenderingFrame` while `transform.inTransition()`, so one that renders no frames stops
- * after its first step — pumping the runtime is not enough on its own.
+ * after its first step.
  */
 class DesktopMapCameraTransitionTest {
 
@@ -134,12 +128,9 @@ class DesktopMapCameraTransitionTest {
   }
 
   /**
-   * A density change rebuilds the map, and the camera has to come with it.
-   *
-   * On Android a configuration change hands `CameraState` a new `MapAdapter`, and it re-applies its
-   * remembered position. Desktop replaces the map inside one long-lived adapter, which Compose
-   * cannot see, so the session has to carry the camera across itself — and the camera it carries is
-   * where the map is now, not where it was last told to go.
+   * A density change rebuilds the map inside one long-lived adapter, which Compose cannot see, so
+   * the session has to carry the camera across itself — where the map is now, not where it was last
+   * told to go.
    */
   @Test
   fun `a density change preserves the camera`() {
@@ -175,8 +166,8 @@ class DesktopMapCameraTransitionTest {
   /** Puts the map at a known camera and waits for the owner thread to have applied it. */
   private fun HeadlessMapFixture.startAtOrigin() {
     session.setCameraPosition(START)
-    // The rendered frame first: before the map exists the session answers a camera read with what
-    // was last asked for, which would satisfy the check below without a map to animate.
+    // Render first: before the map exists a camera read answers with what was last asked for, which
+    // would satisfy the check below without a map to animate.
     pumpUntilRendered()
     pumpUntil("the map to reach its starting camera") {
       abs(session.getCameraPosition().zoom - START.zoom) < 0.001

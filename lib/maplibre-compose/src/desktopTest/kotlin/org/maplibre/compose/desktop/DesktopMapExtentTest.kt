@@ -29,9 +29,8 @@ class DesktopMapExtentTest {
 
   @Test
   fun `keeps logical and physical size self-consistent at fractional scale`() {
-    // The round trip is not exact at fractional scale, so the invariant that matters is that the
-    // physical size the host allocates always equals ceil(logical * scale) — a mismatch renders
-    // garbage silently rather than throwing.
+    // The round trip is not exact at fractional scale; the invariant is that the physical size the
+    // host allocates always equals ceil(logical * scale).
     for (scale in listOf(1.25, 1.5, 1.75, 2.25, 2.5)) {
       for (physical in listOf(801, 1000, 1023, 1919, 2561)) {
         val extent = DesktopMapExtent.fromPhysical(physical, physical, scale)

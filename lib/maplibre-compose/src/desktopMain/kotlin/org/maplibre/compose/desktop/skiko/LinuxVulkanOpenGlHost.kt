@@ -137,13 +137,9 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
 
   override fun resize(extent: DesktopMapExtent) {
     // Importing into GL needs Compose's context current, which only holds inside the draw
-    // callback, so the reallocation happens lazily in acquireFrame.
-    //
-    // That also keeps this bridge clear of the deadlock the other two have to work around: every
-    // texture here is created and destroyed on the AWT event thread, so dropping a Skia wrapper
-    // finds itself already there and never waits. Reallocating on the renderer thread instead
-    // would wait on the event thread, which is the thread waiting on the renderer — the macOS and
-    // Windows hosts hand their retired texture back out of that hop for exactly this reason.
+    // callback, so the reallocation happens lazily in acquireFrame. Reallocating on the renderer
+    // thread instead would deadlock: it would wait on the AWT event thread, which is already
+    // waiting on the renderer.
   }
 
   override fun acquireFrame(
@@ -240,10 +236,8 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
 }
 
 /**
- * The device UUIDs Compose's OpenGL context can import memory from.
- *
- * Vulkan and OpenGL must be on the same physical device for the export/import to work, and a
- * machine with a discrete plus integrated GPU will otherwise happily pick the wrong one.
+ * The device UUIDs Compose's OpenGL context can import memory from. Vulkan and OpenGL must be on
+ * the same physical device for the export/import to work.
  */
 internal fun currentOpenGlDeviceUuids(): Set<String> {
   val capabilities = ensureCapabilities()
@@ -448,10 +442,8 @@ private constructor(private val context: LinuxVulkanContext, private val extent:
   fun memorySize(): Long = memorySize
 
   /**
-   * Exports the image memory as a file descriptor.
-   *
-   * Ownership transfers to the caller: importing it into GL consumes it, and a failed import must
-   * close it.
+   * Exports the image memory as a file descriptor. Ownership transfers to the caller: importing it
+   * into GL consumes it, and a failed import must close it.
    */
   fun exportFd(): Int {
     MemoryStack.stackPush().use { stack ->
@@ -602,11 +594,9 @@ private constructor(
   private var textureName = 0
 
   /**
-   * The GL view of this texture, for presenting only.
-   *
-   * The context handles are zero and the make-current hook is a no-op because MapLibre never sees
-   * this target: it renders through the Vulkan side, and Compose already owns the GL context this
-   * texture belongs to.
+   * The GL view of this texture, for presenting only. The context handles are zero and the
+   * make-current hook is a no-op because MapLibre renders through the Vulkan side and Compose
+   * already owns this GL context.
    */
   fun target(generation: Long): OpenGlTextureTarget =
     OpenGlTextureTarget(

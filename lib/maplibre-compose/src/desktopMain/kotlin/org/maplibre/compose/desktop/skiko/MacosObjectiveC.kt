@@ -12,18 +12,11 @@ import org.lwjgl.system.macosx.ObjCRuntime
  * The little bit of Objective-C messaging the macOS host needs, without a native library of our
  * own.
  *
- * MapLibre Compose ships no JNI code, so the handful of Metal calls the host makes — allocating a
- * texture, reading its pixel format, releasing it — are sent as Objective-C messages through
- * LWJGL's `ObjCRuntime` bindings.
+ * Messages are dispatched by calling the selector's implementation directly rather than through
+ * `objc_msgSend`, which has no single C prototype: the correct entry point depends on the return
+ * type, and on arm64 it is not callable through a generic `invokeP…` binding.
  *
- * Messages are dispatched by looking up the selector's implementation with
- * `class_getMethodImplementation` and calling that function pointer directly, rather than by
- * calling `objc_msgSend`. That is deliberate: `objc_msgSend` has no single C prototype — the
- * correct entry point and calling convention depend on the return type, and on arm64 it is not even
- * callable through a generic `invokeP…` binding. Calling the IMP directly, with the `(self, _cmd,
- * …)` arguments Objective-C would have passed, sidesteps that entirely.
- *
- * Ported from the `maplibre-native-ffi` Compose example, which is the reference for this path.
+ * Ported from the `maplibre-native-ffi` Compose example.
  */
 internal object MacosObjectiveC {
   private val selectors = mutableMapOf<String, Long>()
@@ -39,11 +32,9 @@ internal object MacosObjectiveC {
   }
 
   /**
-   * Opens an autorelease pool that drains when the returned handle is closed.
-   *
-   * Metal returns autoreleased objects from most of its factory methods, and a thread with no pool
-   * on its stack leaks them (and logs a warning per object). Every entry point into Objective-C
-   * from a thread MapLibre Compose owns wraps itself in one of these.
+   * Opens an autorelease pool that drains when the returned handle is closed. Metal returns
+   * autoreleased objects from most factory methods, and a thread with no pool on its stack leaks
+   * them.
    */
   fun autoreleasePool(): AutoreleasePool = AutoreleasePool(allocInit("NSAutoreleasePool"))
 
@@ -60,12 +51,7 @@ internal object MacosObjectiveC {
     return JNI.invokePPPP(receiver, selector, argument, implementation(receiver, selector))
   }
 
-  /**
-   * Sends a message returning `NSUInteger`.
-   *
-   * Pointer-sized integers and pointers come back through the same register, so this is the pointer
-   * path under another name; it exists so call sites read as what they mean.
-   */
+  /** Sends a message returning `NSUInteger`, which comes back through the pointer register. */
   fun sendLong(receiver: Long, selectorName: String): Long = sendPointer(receiver, selectorName)
 
   fun sendVoid(receiver: Long, selectorName: String) {
@@ -88,10 +74,9 @@ internal object MacosObjectiveC {
     }
 
   /**
-   * Ensures the framework defining [className] is loaded before it is looked up.
-   *
-   * `objc_getClass` only sees classes already registered with the runtime, and a JVM process that
-   * has not touched Metal yet has not loaded `Metal.framework`.
+   * Ensures the framework defining [className] is loaded before it is looked up: `objc_getClass`
+   * only sees registered classes, and a JVM that has not touched Metal has not loaded
+   * `Metal.framework`.
    */
   private fun loadFrameworkForClass(className: String) {
     when {
@@ -105,19 +90,12 @@ internal object MacosObjectiveC {
     selectors.getOrPut(name) { ObjCRuntime.sel_registerName(name) }
 
   /**
-   * The function pointer implementing [selector] for [receiver].
+   * The function pointer implementing [selector] for [receiver]. `object_getClass` on a class
+   * object returns its metaclass, so class methods such as `alloc` resolve here too.
    *
-   * `object_getClass` on a class object returns its metaclass, so this resolves class methods such
-   * as `alloc` as well as instance methods.
-   *
-   * The `class_respondsToSelector` question is asked first because `class_getMethodImplementation`
-   * does not answer it: for a selector the class does not implement it returns the runtime's
-   * `_objc_msgForward` trampoline rather than null, so the null check below can never fire for a
-   * misspelled or renamed selector. Calling that trampoline reaches `doesNotRecognizeSelector:`,
-   * which raises an Objective-C exception that unwinds through a JNI frame with no handler and
-   * aborts the process. Asking first turns the same mistake into a [DesktopHostException] naming
-   * the class and the selector, which is what the messages sent to Skiko's own Objective-C
-   * internals need: those are unpublished and can be renamed by a Skiko upgrade.
+   * `class_respondsToSelector` must be checked first: for an unimplemented selector
+   * `class_getMethodImplementation` returns the `_objc_msgForward` trampoline rather than null, and
+   * calling that aborts the process through a JNI frame with no exception handler.
    */
   private fun implementation(receiver: Long, selector: Long): Long {
     check(receiver != NULL) { "Objective-C receiver is null" }

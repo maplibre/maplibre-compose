@@ -18,19 +18,9 @@ import org.maplibre.nativeffi.runtime.WakeSource
 /**
  * How long a park lasts before the loop pumps regardless of any wake.
  *
- * The runtime's wake flag covers style, tile, and resource responses, queued events, and this
- * loop's own [WakeSource], and every one of those returns the pump immediately — so this is a
- * backstop rather than the cadence, and measuring an idle map bears that out: the pump rate there
- * follows MapLibre's own events, not this bound.
- *
- * A negative value would park until a wake arrives, and that was tried: the desktop suite passes on
- * it, a real map loads its style, tiles, and sprites on it, and MapLibre arms no timer or socket on
- * the map's own run loop for the pump to service. The bound stays anyway, because what it protects
- * against is the case where that stops being true. `mln_runtime_pump` services the owner run loop's
- * timers and file descriptors, and its contract says they set the wake flag only when they queue
- * owner-thread work — so anything armed there directly would go unserviced until something
- * unrelated happened to wake the thread, and the symptom would be a map that quietly stops making
- * progress. Ten no-op wakes a second is a cheap price for not having that failure mode.
+ * A backstop, not the cadence: run-loop timers and file descriptors set the wake flag only when
+ * they queue owner-thread work, so anything armed directly on the owner run loop needs this bound
+ * to be serviced at all.
  */
 private const val PUMP_PARK_MILLIS = 100L
 
@@ -41,21 +31,14 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
  * The thread that owns one map's MapLibre runtime and map handle, and the only place calls on
  * either happen.
  *
- * The map is deliberately not on the thread that presents it. MapLibre advances only while its
- * runtime is pumped, so a map pumped from a Compose draw pass makes no progress unless something is
- * asking for frames — which is why the earlier implementation had to keep requesting frames until
- * MapLibre said it was idle, and why a style mutation made after that needed its own wake. Here the
- * loop parks inside the native pump and takes its cadence from MapLibre's own work, so style
- * parsing, tile loads, and resource responses advance whether or not anything is drawing.
+ * The map is deliberately not on the presenting thread: the loop parks inside the native pump, so
+ * style parsing, tile loads, and resource responses advance whether or not anything is drawing.
+ * Camera transitions are the exception — mbgl steps them from `onDidFinishRenderingFrame`, so
+ * moving the camera still takes a rendered frame.
  *
- * Camera transitions are the exception, and not one this loop can remove: mbgl steps a transition
- * from `onDidFinishRenderingFrame` while `transform.inTransition()`, so it still takes a rendered
- * frame to move the camera.
- *
- * The render session is not this loop's. Since maplibre-native-ffi #399 a session's owner is
- * whichever thread attached it, so the presenting thread attaches, renders, and closes its own
- * session against the map published here. Native refuses to destroy a map that still has one
- * attached, which is why teardown waits for that thread to close it.
+ * The render session is not this loop's: since maplibre-native-ffi #399 a session's owner is
+ * whichever thread attached it, and native refuses to destroy a map that still has one attached, so
+ * teardown waits for the presenting thread to close it.
  *
  * A runtime belongs to the thread that created it and there may be only one per thread, so this is
  * a plain [Thread] rather than a dispatcher or a pooled executor.
@@ -73,9 +56,7 @@ internal class DesktopMapRuntimeLoop(
   private val onEventsDrained: () -> Unit,
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
-  /**
-   * Injectable so a test can park long enough that a missing wake fails rather than passes late.
-   */
+  /** Injectable so a test can park long enough that a missing wake fails rather than passing. */
   private val parkMillis: Long = PUMP_PARK_MILLIS,
 ) : AutoCloseable {
 
@@ -85,8 +66,8 @@ internal class DesktopMapRuntimeLoop(
   private val tasks = LinkedBlockingQueue<OwnerTask>()
 
   /**
-   * Guards [accepting] and [wake] together, so that a task cannot be queued after the queue has
-   * been drained for the last time, and a signal cannot race the wake source's close.
+   * Guards [accepting] and [wake] together: nothing may be queued after the final drain, and
+   * nothing may signal a wake source that is closing.
    */
   private val acceptLock = ReentrantLock()
   private var accepting = true
@@ -94,12 +75,9 @@ internal class DesktopMapRuntimeLoop(
 
   @Volatile private var stopRequested = false
 
-  /**
-   * The runtime and everything retired before it. Owner-thread state; see [DesktopRuntimeOwner].
-   */
+  /** Owner-thread state: the runtime and everything retired before it. */
   private var runtimeOwner: DesktopRuntimeOwner? = null
 
-  /** Released by [close], so teardown can wait for it without polling. */
   private val stopSignal = CountDownLatch(1)
 
   /** The map, once it exists. Null before creation and after teardown begins. */
@@ -118,8 +96,7 @@ internal class DesktopMapRuntimeLoop(
 
   private val thread =
     Thread(::runLoop, "maplibre-compose-map").apply {
-      // The pump must never keep a shutting-down application alive; disposal is what stops it. A
-      // parking pump also ignores interruption, so close() is the only way to stop this thread.
+      // A parking pump ignores interruption, so close() is the only way to stop this thread.
       isDaemon = true
     }
 
@@ -131,9 +108,8 @@ internal class DesktopMapRuntimeLoop(
    * Runs [action] on the owner thread and waits for its result.
    *
    * Returns null when there is no map to run against, or when the loop stopped before the work
-   * could run — the same "there is nothing to answer with" the callers already handle. Running
-   * inline when the caller is already the owner thread is what lets an event handler read the map
-   * back without deadlocking on itself.
+   * could run. Runs inline when the caller is already the owner thread, so an event handler can
+   * read the map back without deadlocking on itself.
    */
   fun <T> call(action: (MapHandle) -> T): T? {
     if (Thread.currentThread() === thread) return map?.let(action)
@@ -167,17 +143,15 @@ internal class DesktopMapRuntimeLoop(
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false
     tasks.add(OwnerTask(run, abandon))
-    // Signalled under the lock so it cannot race the source's close, which would throw. This is
-    // safe in the direction that matters: the owner thread never holds this lock across a pump.
+    // Signalled under the lock so it cannot race the source's close, which would throw; safe
+    // because the owner thread never holds this lock across a pump.
     wake?.signal()
     true
   }
 
   /**
-   * Stops the loop and waits for it to finish.
-   *
-   * The caller must have closed its render session first: native refuses to destroy a map that
-   * still has one attached, and this joins the thread that destroys it.
+   * Stops the loop and waits for it to finish. The caller must have closed its render session
+   * first: native refuses to destroy a map that still has one attached.
    */
   override fun close() {
     stopRequested = true
@@ -212,8 +186,7 @@ internal class DesktopMapRuntimeLoop(
       created = MapHandle.create(runtime, mapOptions())
       onMapCreated(created)
       map = created
-      // The renderer cannot attach until a map exists, and nothing else will tell it that one now
-      // does.
+      // The renderer cannot attach until a map exists, and nothing else will tell it one now does.
       requestFrame()
       pump(runtime, created)
     } catch (error: Throwable) {
@@ -221,17 +194,15 @@ internal class DesktopMapRuntimeLoop(
       fail(error)
     } finally {
       map = null
-      // The renderer owns the session and only learns of a failure on a later frame. Native
-      // refuses to destroy a map that still has one attached, so wait for the renderer to close
-      // it — bounded, so a renderer that already stopped cannot wedge teardown.
+      // Native refuses to destroy a map with a session still attached, so wait for the renderer to
+      // close it — bounded, so a renderer that already stopped cannot wedge teardown.
       awaitShutdown()
       rejectQueuedTasks()
       try {
         runCatching { created?.close() }
           .onFailure { logger?.e(it) { "Failed to close the MapLibre map" } }
       } finally {
-        // Retires the cache budget and the resource provider, in that order, before the runtime
-        // they would otherwise make wait. See DesktopRuntimeOwner.close.
+        // Retires the cache budget and the resource provider, in that order, before the runtime.
         owner.close()
         runtimeOwner = null
       }
@@ -242,9 +213,8 @@ internal class DesktopMapRuntimeLoop(
     val source = runtime.acquireWakeSource()
     acceptLock.withLock { wake = source }
     while (!stopRequested) {
-      // Queued work first. A task posted before the source was published set no wake flag, and the
-      // pump below clears the flag before it drains, so checking the queue only after a pump
-      // returns is what would leave such a task parked behind.
+      // Queued work first: a task posted before the source was published set no wake flag, so
+      // draining only after a pump returns would leave it parked behind.
       runTasks(map)
       if (stopRequested) break
       check(!acceptLock.isHeldByCurrentThread) { "the pump must not run under acceptLock" }
@@ -272,8 +242,7 @@ internal class DesktopMapRuntimeLoop(
           break
         }
       if (event.mapSource != null && event.mapSource !== map) continue
-      // Runtime-owned bookkeeping, not something the session should see: this loop started the
-      // operation, so this loop retires it.
+      // Runtime-owned bookkeeping, not something the session should see.
       if (runtimeOwner?.consumeEvent(event) == true) continue
       runCatching { onEvent(event) }
         .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
@@ -305,25 +274,22 @@ internal class DesktopMapRuntimeLoop(
   private fun fail(error: Throwable) {
     failure = failure ?: error
     rejectQueuedTasks()
-    // The renderer republishes the failure, but only from a frame, and a loop that failed will
-    // never ask for one again.
+    // The renderer republishes the failure, but only from a frame.
     runCatching { requestFrame() }
   }
 
   private fun rejectQueuedTasks() {
-    // Stop accepting first, so the drain below cannot race a task that would then never run, and
-    // take the wake source out in the same breath so nothing can signal one that is about to close.
+    // Stop accepting and take the wake source out under the same lock, so the drain cannot race a
+    // task that would then never run and nothing can signal a source that is about to close.
     val source = acceptLock.withLock {
       accepting = false
       wake.also { wake = null }
     }
     val abandoned = mutableListOf<OwnerTask>()
     tasks.drainTo(abandoned)
-    // Released rather than run: a caller blocked in call() is waiting on this and would otherwise
-    // never be resumed.
+    // Released rather than run: a caller blocked in call() would otherwise never be resumed.
     abandoned.forEach { runCatching { it.abandon() } }
-    // A wake source is its own native handle and outlives its runtime, so closing the runtime does
-    // not release it; the leak cleaner reports one that is dropped.
+    // A wake source is its own native handle, so closing the runtime does not release it.
     source?.let { closing ->
       runCatching { closing.close() }
         .onFailure { logger?.w(it) { "Failed to close the map runtime's wake source" } }

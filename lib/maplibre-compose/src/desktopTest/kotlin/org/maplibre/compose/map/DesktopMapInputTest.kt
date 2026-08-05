@@ -30,14 +30,7 @@ import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
-/**
- * Keyboard and double-click input reach the map.
- *
- * The keyboard handling existed and was unreachable: key events only go to a focused node, and
- * nothing made the map focusable or ever asked for focus, so arrow keys and +/- did nothing at all.
- * Double-click zoom was never written, though its option and its zoom step both were. Both are
- * things a unit test catches and a compiler never will.
- */
+/** Keyboard and double-click input reach the map. */
 @OptIn(ExperimentalTestApi::class)
 class DesktopMapInputTest {
 
@@ -64,9 +57,7 @@ class DesktopMapInputTest {
   @Test
   fun `plus and minus zoom the map`() = runInputTest { camera ->
     onRoot().performKeyInput { pressKey(Key.Equals) }
-    // A step is a doubling, which is one zoom level, and it has to arrive rather than merely
-    // start: a transition only advances while frames render, so this fails if the loop stops
-    // asking for them mid-animation.
+    // The zoom has to arrive, not merely start: a transition only advances while frames render.
     awaitZoom(camera, START_ZOOM + 1.0)
 
     onRoot().performKeyInput { pressKey(Key.Minus) }
@@ -79,12 +70,6 @@ class DesktopMapInputTest {
     awaitZoom(camera, START_ZOOM + 1.0)
   }
 
-  /**
-   * Discrete input eases rather than jumps, which is what every other MapLibre target does.
-   *
-   * Observed by sampling: an instant camera command is only ever seen at its destination, while an
-   * eased one is caught somewhere in between.
-   */
   @Test
   fun `double click eases rather than jumping`() = runInputTest { camera ->
     val target = START_ZOOM + 1.0
@@ -105,12 +90,7 @@ class DesktopMapInputTest {
     waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.zoom - zoom) < ZOOM_TOLERANCE }
   }
 
-  /**
-   * `PositionLocked` promises rotation, tilt and zoom while the position stays put.
-   *
-   * A pointer-anchored zoom moves the camera target to keep the cursor's point still, so it is a
-   * way to pan with the pointer — which this preset is meant to forbid. Zoom has to keep working.
-   */
+  /** `PositionLocked` must still zoom, but without the pointer anchoring that would pan. */
   @Test
   fun `position locked zooms without moving the camera`() =
     runInputTest(gestures = GestureOptions.PositionLocked) { camera ->

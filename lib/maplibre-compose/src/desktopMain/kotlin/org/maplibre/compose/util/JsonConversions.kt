@@ -10,13 +10,7 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
 import org.maplibre.nativeffi.json.JsonValue
 
-/**
- * Conversions between kotlinx-serialization JSON and the FFI's JSON tree.
- *
- * The desktop style implementation is built on MapLibre's generic JSON style API, so every layer,
- * source, filter, and expression crosses this boundary. Keeping the conversion in one place is what
- * stops layer setters and query code from growing their own subtly different encodings.
- */
+/** Conversions between kotlinx-serialization JSON and the FFI's JSON tree. */
 
 /** Converts an FFI value to kotlinx JSON. */
 internal fun JsonValue.toJsonElement(): JsonElement =
@@ -62,6 +56,5 @@ private fun JsonPrimitive.toFfiJsonValue(): JsonValue {
   doubleOrNull?.let {
     return JsonValue.DoubleValue(it)
   }
-  // An unquoted primitive that is neither boolean nor numeric can only be a malformed literal.
   return JsonValue.StringValue(content)
 }

@@ -8,8 +8,7 @@ import kotlin.math.max
  * The size of a desktop map surface, in both logical and physical pixels.
  *
  * MapLibre Native takes a logical size plus a scale factor, while GPU render targets are allocated
- * in physical pixels. Carrying both together, derived once, keeps the two from drifting apart under
- * fractional display scaling — a mismatch of a single pixel produces a visibly stretched map.
+ * in physical pixels; deriving both once keeps them from drifting apart under fractional scaling.
  */
 @Immutable
 public class DesktopMapExtent
@@ -29,12 +28,8 @@ private constructor(
    * Whether this extent describes nothing renderable.
    *
    * Compose reports a zero size before first layout, so a map surface is normally empty for at
-   * least one frame. Hosts and sessions skip work rather than treating it as an error.
-   *
-   * Not defensive programming: MapLibre rejects a zero extent outright, with `map dimensions and
-   * scale_factor must be positive` from map creation and `texture dimensions and scale_factor must
-   * be positive` from attach. Both are measured. Since the empty frame is routine rather than
-   * exceptional, it is checked for rather than caught.
+   * least one frame. MapLibre rejects such an extent outright, so hosts and sessions skip work
+   * rather than passing it on.
    */
   public val isEmpty: Boolean
     get() =
@@ -72,9 +67,8 @@ private constructor(
     public val Empty: DesktopMapExtent = DesktopMapExtent(0, 0, 1.0, 0, 0)
 
     /**
-     * Builds an extent from a logical size and scale factor, deriving the physical size.
-     *
-     * Use this when Compose gave you a size in dp-equivalent logical pixels.
+     * Builds an extent from a logical (dp-equivalent) size and scale factor, deriving the physical
+     * size.
      */
     public fun fromLogical(width: Int, height: Int, scaleFactor: Double): DesktopMapExtent {
       val scale = normalizeScale(scaleFactor)
@@ -89,11 +83,11 @@ private constructor(
     }
 
     /**
-     * Builds an extent from a physical size and scale factor, deriving the logical size.
+     * Builds an extent from a physical size and scale factor, as `onSizeChanged` reports it,
+     * deriving the logical size.
      *
-     * Use this when Compose gave you a size in physical pixels, which is what `onSizeChanged`
-     * reports. The physical size is then re-derived from the rounded logical size so that the two
-     * agree exactly, at the cost of being up to one pixel from the size that was passed in.
+     * The physical size is re-derived from the rounded logical size so the two agree exactly, so it
+     * may end up one pixel from the size passed in.
      */
     public fun fromPhysical(
       physicalWidth: Int,

@@ -12,16 +12,7 @@ import javax.swing.SwingUtilities
 /**
  * Reaches into Compose Desktop's Skiko internals for the GPU objects it does not expose.
  *
- * Compose Desktop offers no supported way to obtain the graphics context it renders with, so the
- * default host reads it reflectively. Every reflective access in MapLibre Compose lives in this
- * file: no map, style, input, or resource code reflects into Skiko, so when Compose gains a
- * supported hook only this file changes.
- *
- * Failures are reported as [DesktopHostException] naming the expected and observed classes, so a
- * Compose upgrade that moves something produces a diagnostic rather than a `NoSuchFieldException`.
- *
- * [SkikoDirect3DDeviceLayout], below, continues the same job past the point where reflection can
- * follow: one of the things read here is a pointer to a C++ object with no Java members.
+ * Every reflective access in MapLibre Compose lives in this file.
  */
 internal object SkikoReflection {
   const val SKIA_LAYER_CLASS = "org.jetbrains.skiko.SkiaLayer"
@@ -51,14 +42,12 @@ internal object SkikoReflection {
       CONTEXT_HANDLER_CLASS,
     )
 
-  /** Finds the live `SkiaLayer` backing the current Compose window, if there is one. */
   fun findSkiaLayer(): Any? = findSkiaLayerComponent() ?: findComposeWindowSkiaLayer()
 
   fun requireSkiaLayer(): Any =
     findSkiaLayer()
       ?: throw DesktopHostException("Could not find a live $SKIA_LAYER_CLASS. ${describeWindows()}")
 
-  /** The redrawer for [layer], checked against [expectedClass]. */
   fun requireRedrawer(layer: Any, expectedClass: String): Any {
     val redrawer =
       layer.invokeNoArg("getRedrawer\$skiko")
@@ -77,11 +66,8 @@ internal object SkikoReflection {
       ?: throw DesktopHostException("$redrawerClass.contextHandler was null")
 
   /**
-   * The Direct3D device Compose renders with on Windows.
-   *
-   * Skiko keeps this on the redrawer rather than the context handler, and only after the first
-   * frame has initialized the swap chain, so a null or zero pointer here means the host was asked
-   * for a device before Compose had one.
+   * The Direct3D device Compose renders with on Windows. Skiko keeps it on the redrawer, and only
+   * after the first frame has initialized the swap chain.
    */
   fun requireDirect3DDevice(): SkikoDirect3DDevice = onEdt {
     val layer = requireSkiaLayer()
@@ -93,17 +79,13 @@ internal object SkikoReflection {
     SkikoDirect3DDevice(ptr)
   }
 
-  /** The context handler of the Metal redrawer backing [layer]. */
   fun requireMetalContextHandler(layer: Any): Any =
     requireContextHandler(requireRedrawer(layer, METAL_REDRAWER_CLASS), METAL_REDRAWER_CLASS)
 
   /**
-   * The Metal device Compose renders with on macOS.
-   *
-   * MapLibre must allocate its texture on the same device Skia will sample it from, so the host
-   * borrows Skiko's rather than creating one. Skiko stores it as a `MetalDevice` value class, which
-   * the JVM sees as a plain `long` field once inlined — hence the widening below, which also covers
-   * the boxed shape in case a future Skiko stops inlining it.
+   * The Metal device Compose renders with on macOS; MapLibre must allocate its texture on the same
+   * device Skia samples from. Skiko's `MetalDevice` value class inlines to a `long`, but the boxed
+   * shape is handled too.
    */
   fun requireMetalDevice(): SkikoMetalDevice = onEdt {
     val contextHandler = requireMetalContextHandler(requireSkiaLayer())
@@ -224,51 +206,32 @@ internal object SkikoReflection {
 }
 
 /**
- * Skiko's native Metal device object, as a borrowed pointer.
- *
- * This is Skiko's own wrapper object, not the `id<MTLDevice>` itself; the device is reached from it
- * by sending `adapter`. Skiko owns it, so it is never retained or released here.
+ * Skiko's own Metal device wrapper (not the `id<MTLDevice>`, which is reached by sending
+ * `adapter`), as a borrowed pointer. Skiko owns it; never retain or release it here.
  */
 internal data class SkikoMetalDevice(val ptr: Long)
 
 /**
- * Skiko's native Direct3D device object, as a borrowed pointer.
- *
- * This is Skiko's own `DirectXDevice` wrapper, not the `ID3D12Device` itself; the device is read
- * out of it by [SkikoDirect3DDeviceLayout]. Skiko owns it, so it is never addrefed or released
- * here.
+ * Skiko's own `DirectXDevice` wrapper (not the `ID3D12Device`, which [SkikoDirect3DDeviceLayout]
+ * reads out of it), as a borrowed pointer. Skiko owns it; never addref or release it here.
  */
 internal data class SkikoDirect3DDevice(val ptr: Long)
 
 /**
- * Reads the `ID3D12Device` out of Skiko's native `DirectXDevice`, which has no Java form at all.
+ * Reads the `ID3D12Device` out of Skiko's native `DirectXDevice`, which has no Java form, so its
+ * fields must be located by byte offset.
  *
- * `Direct3DRedrawer.device` is a `long` holding a pointer to a C++ object declared in Skiko's
- * `skiko/src/awtMain/cpp/windows/directXRedrawer.cc`, so unlike everything else in this file there
- * is no member to reflect on and the field has to be located by byte offset. The offsets below were
- * read off that source at the tag matching [VERIFIED_SKIKO_VERSION] rather than guessed.
- * `DirectXDevice` declares no virtual members, so there is no vtable pointer ahead of its fields;
- * it begins with `HWND hWnd` at 0 and a `GrD3DBackendContext` at 8. Skia declares that struct in
- * `include/gpu/ganesh/d3d/GrD3DBackendContext.h` as `fAdapter`, `fDevice`, `fQueue`,
- * `fMemoryAllocator`, `fProtectedContext`, where each `gr_cp` and `sk_sp` wraps exactly one pointer
- * and the trailing enum pads out to a pointer — putting `fDevice` at 16 and ending the struct at
- * 48, where `DirectXDevice` declares its own `device` member.
+ * Offsets were read off Skiko's `skiko/src/awtMain/cpp/windows/directXRedrawer.cc` and Skia's
+ * `include/gpu/ganesh/d3d/GrD3DBackendContext.h` at [VERIFIED_SKIKO_VERSION]: `DirectXDevice` is
+ * non-virtual, `HWND hWnd` at 0, `GrD3DBackendContext` at 8 (`fAdapter`, `fDevice`, `fQueue`,
+ * `fMemoryAllocator`, `fProtectedContext`, one pointer each), `device` at 48.
  *
- * Two offsets are read because Skiko assigns both from the same local when it creates the device,
- * so a correct read is one where they agree. That is what makes this safer than a single offset
- * with a null check: adding, removing, or reordering a field anywhere in either struct lands the
- * two reads on different members, and two unrelated members holding the same value is a
- * coincidence. The pair disagreeing is then a named diagnostic rather than a COM call through
- * whatever object happened to be next in memory.
- *
- * Nothing here can be confirmed without a Windows machine, so the standing guard is
- * `WindowsDirect3DDeviceLayoutTest`, which fails the build when Skiko moves off the version these
- * offsets were derived from.
+ * Skiko assigns both copies of the device from the same local, so reading both and requiring
+ * agreement detects a layout change. `WindowsDirect3DDeviceLayoutTest` fails the build when Skiko
+ * moves off [VERIFIED_SKIKO_VERSION].
  */
 internal object SkikoDirect3DDeviceLayout {
-  /**
-   * The Skiko whose `directXRedrawer.cc` and vendored Skia headers these offsets were read from.
-   */
+  /** The Skiko version whose sources these offsets were read from. */
   const val VERIFIED_SKIKO_VERSION: String = "0.144.6"
 
   /** `DirectXDevice::backendContext::fDevice`. */
@@ -284,12 +247,7 @@ internal object SkikoDirect3DDeviceLayout {
   fun rawDevice(device: SkikoDirect3DDevice): Long =
     read(MemorySegment.ofAddress(device.ptr).reinterpret(READ_SIZE))
 
-  /**
-   * Reads both copies out of [struct] and returns them if they agree.
-   *
-   * Split out from [rawDevice] so a test can hand it a struct it built itself; reinterpreting a
-   * bare address is the one part that needs a real Skiko device behind it.
-   */
+  /** Reads both copies out of [struct] and returns them if they agree. */
   fun read(struct: MemorySegment): Long {
     val fromBackendContext =
       struct.get(ValueLayout.ADDRESS, BACKEND_CONTEXT_DEVICE_OFFSET).address()

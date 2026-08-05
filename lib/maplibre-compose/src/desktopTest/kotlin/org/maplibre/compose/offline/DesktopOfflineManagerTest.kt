@@ -8,12 +8,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.desktop.DesktopRuntimeOptions
 
-/**
- * Exercises the offline manager without a UI.
- *
- * The manager owns a runtime, a thread, and a database, and none of that needs a window — so a
- * crash on opening the offline screen should be reproducible here rather than only by clicking.
- */
+/** Exercises the offline manager without a UI. */
 class DesktopOfflineManagerTest {
 
   private val directory = Files.createTempDirectory("maplibre-offline-test")
@@ -29,18 +24,16 @@ class DesktopOfflineManagerTest {
 
   @AfterTest
   fun cleanUp() {
-    // Managers live for the life of the process in production, so a test that does not dispose its
-    // own leaves a thread and an open database behind for every later test in the run.
+    // Managers otherwise live for the life of the process, leaving a thread and an open database
+    // behind for every later test in the run.
     DesktopOfflineManager.disposeForTest(options)
     DesktopOfflineManager.disposeForTest(budgetedOptions)
     directory.toFile().deleteRecursively()
   }
 
   /**
-   * Nothing can read the budget back — mbgl keeps it on the database file source and exposes no
-   * getter — so what is asserted is that the operation runs to completion, not that an eviction
-   * happened. That is still the interesting half: the call is asynchronous, and an implementation
-   * that never started it, or that lost its completion event, would hang here instead of returning.
+   * mbgl exposes no getter for the budget, so this asserts only that the asynchronous call runs to
+   * completion — one that was never started, or whose completion event was lost, hangs here.
    */
   @Test
   fun `changing the maximum ambient cache size completes, twice, with different budgets`() =
@@ -49,17 +42,14 @@ class DesktopOfflineManagerTest {
 
       withTimeout(30_000) {
         manager.setMaximumAmbientCacheSize(16L * 1024 * 1024)
-        // Lowering is the direction that evicts, and zero is what a caller turning ambient caching
-        // off passes, so it is the value most likely to be handled specially somewhere.
+        // Zero is what a caller turning ambient caching off passes.
         manager.setMaximumAmbientCacheSize(0)
       }
     }
 
   /**
-   * A runtime created with a budget already applies one through the same native call, from
-   * [AmbientCacheSizeRequest], and that request retires the first completion event whose id matches
-   * its own. This is therefore the arrangement in which a caller's own operation could go missing
-   * on the way back.
+   * A runtime created with a budget already made this native call once, so this is the arrangement
+   * in which a caller's completion event could be retired by the earlier request's id.
    */
   @Test
   fun `changing the cache size completes on a runtime that was created with a budget`() =
@@ -68,8 +58,8 @@ class DesktopOfflineManagerTest {
 
       withTimeout(30_000) {
         manager.setMaximumAmbientCacheSize(4L * 1024 * 1024)
-        // A second, unrelated operation after it, because a completion consumed by the wrong owner
-        // shows up as the *next* operation never finishing rather than as this one failing.
+        // A completion consumed by the wrong owner shows up as the *next* operation never
+        // finishing, so a second unrelated operation is what detects it.
         manager.invalidateAmbientCache()
       }
     }

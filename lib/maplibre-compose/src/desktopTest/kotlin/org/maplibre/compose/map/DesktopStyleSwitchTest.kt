@@ -33,12 +33,8 @@ import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 /**
- * Rotating the base style, with user content composed over it.
- *
- * The style selector demo crashes doing this, so the question is what the composition does that
- * loading one style does not: every source and layer the user composed belongs to the style that
- * just went away, and has to be re-added to the one that replaced it — in order, against a base
- * style whose own layers are different.
+ * Rotating the base style with user content composed over it: every composed source and layer has
+ * to be re-added, in order, against a base style whose own layers are different.
  */
 @OptIn(ExperimentalTestApi::class)
 class DesktopStyleSwitchTest {
@@ -77,16 +73,14 @@ class DesktopStyleSwitchTest {
           onMapLoadFinished = { loadsFinished++ },
         ) {
           val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-          // Two layers on one source, at different anchors, which is what the demo composes and
-          // what makes the re-add order matter.
+          // Two layers on one source at different anchors, so the re-add order matters.
           CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
-          // Anchored below a layer of the base style, and — as the demo does — a different layer
-          // for each style, so the anchor changes in the same recomposition as the style itself.
+          // A different base-style anchor per style, so the anchor changes in the same
+          // recomposition as the style itself.
           Anchor.At(style.anchor) {
             FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-            // Comes and goes across the rotation. A layer added while the anchor is unresolvable
-            // used to leave the manager's list one short of Compose's tree, so this removal took
-            // out the wrong node and eventually ran off the end of the list.
+            // Comes and goes across the rotation, covering removal of a layer that was added while
+            // its anchor was unresolvable.
             if (extraLayer) {
               FillLayer(id = "user-extra", source = points, color = const(Color.Green))
             }
@@ -97,9 +91,8 @@ class DesktopStyleSwitchTest {
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { factory.created.isNotEmpty() }
     val host = factory.created.single()
-    // Each style is allowed to finish loading before the next is chosen, which is what a user
-    // clicking through the style list does. Switching mid-load is a different race, worth its own
-    // test rather than hiding inside this one.
+    // Each style finishes loading before the next is chosen; switching mid-load is a separate race
+    // this test deliberately does not cover.
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       loadsFinished > 0 && host.renderedFrames > 0
     }
@@ -133,9 +126,7 @@ class DesktopStyleSwitchTest {
 
     /**
      * Styles with different layer sets, so a re-add lands against a different base each time.
-     *
-     * Inline rather than the demo's remote styles: the fault should not need the network, and if it
-     * does that is worth knowing too.
+     * Inline rather than remote, so the test does not need the network.
      */
     val STYLES =
       listOf(

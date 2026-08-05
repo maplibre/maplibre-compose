@@ -22,12 +22,8 @@ import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Drives a computed source through a real map.
- *
- * Nothing short of this tests it. MapLibre decides which tiles it wants, asks for them on threads
- * of its own, and only shows the answer if it arrived on the map's owner thread instead — so a
- * source that never gets asked, one that answers on the wrong thread, and one that answers
- * correctly are distinguishable only by whether features come back out of a rendered query.
+ * Drives a computed source through a real map, since a source that is never asked and one that
+ * answers on the wrong thread are only distinguishable by a rendered query.
  */
 class ComputedSourceTest {
 
@@ -51,16 +47,14 @@ class ComputedSourceTest {
       assertEquals(SOURCE_ID, feature.properties?.get(SOURCE_ID_PROPERTY)?.jsonPrimitive?.content)
       assertEquals(emptyList(), it.errors, "the map should report nothing")
 
-      // The world at zoom 0 is one tile, so this is also the assertion that the bounds handed to
-      // the caller are the tile's own rather than, say, the viewport's.
+      // The world at zoom 0 is one tile, so this also asserts the bounds are the tile's own.
       val world = requests.first { request -> request.zoom == 0 }
       assertEquals(-180.0, world.bounds.southwest.longitude, TOLERANCE, "west")
       assertEquals(180.0, world.bounds.northeast.longitude, TOLERANCE, "east")
       assertEquals(-MERCATOR_LIMIT, world.bounds.southwest.latitude, TOLERANCE, "south")
       assertEquals(MERCATOR_LIMIT, world.bounds.northeast.latitude, TOLERANCE, "north")
 
-      // The point of the whole arrangement: the caller's function runs on neither the thread
-      // MapLibre asked from nor the one the map is owned by.
+      // The caller's function runs on neither MapLibre's requesting thread nor the map's owner.
       assertTrue(
         requests.all { request -> request.thread == "maplibre-computed-source-$SOURCE_ID" },
         "getFeatures ran somewhere unexpected: ${requests.map { r -> r.thread }.distinct()}",
@@ -115,8 +109,8 @@ class ComputedSourceTest {
 
       source.setData(zoomLevel = 0, x = 0, y = 0, data = cover(WORLD, SECOND_NAME))
 
-      // Asserted by waiting rather than after a fixed number of frames: the data is tiled on a
-      // worker before anything can query it, and how long that takes is a property of the machine.
+      // Waited on rather than checked after a fixed number of frames: the data is tiled on a
+      // worker before anything can query it.
       it.pumpUntil("the supplied features to replace the computed ones") {
         it.queryCenter().any { feature ->
           feature.properties?.get("name")?.jsonPrimitive?.content == SECOND_NAME
@@ -125,7 +119,6 @@ class ComputedSourceTest {
     }
   }
 
-  /** Loads an empty style, adds a computed source to it, and gives it a layer to draw with. */
   private fun HeadlessMapFixture.attachComputedSource(): ComputedSource {
     loadStyle(BaseStyle.Empty)
     val style = assertIs<DesktopStyle>(this.style, "the style should have reached the callbacks")
@@ -142,7 +135,7 @@ class ComputedSourceTest {
   private fun HeadlessMapFixture.queryCenter() =
     session.queryRenderedFeatures(offset = CENTER, layerIds = null, predicate = null)
 
-  /** One polygon filling [bounds], so every point of the tile that was asked for is a hit. */
+  /** One polygon filling [bounds], so every point of the requested tile is a hit. */
   private fun cover(bounds: BoundingBox, name: String): FeatureCollection<*, *> {
     val west = bounds.southwest.longitude
     val east = bounds.northeast.longitude

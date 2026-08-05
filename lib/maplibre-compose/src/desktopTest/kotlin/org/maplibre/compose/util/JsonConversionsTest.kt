@@ -35,8 +35,7 @@ class JsonConversionsTest {
 
   @Test
   fun `keeps integers integral`() {
-    // MapLibre distinguishes 5 from 5.0 for some properties, so a zoom stop or index must not
-    // silently widen to a double on the way through.
+    // MapLibre distinguishes 5 from 5.0 for some properties.
     assertIs<JsonValue.Int>(JsonPrimitive(5).toFfiJsonValue())
     assertIs<JsonValue.DoubleValue>(JsonPrimitive(5.5).toFfiJsonValue())
     assertEquals(JsonPrimitive(5), JsonValue.Int(5).toJsonElement())
@@ -60,8 +59,7 @@ class JsonConversionsTest {
 
   @Test
   fun `preserves object key order`() {
-    // Layer JSON is assembled key by key, and MapLibre reads `type` before the properties that
-    // depend on it, so a reordering conversion would be a real hazard.
+    // MapLibre reads `type` before the properties that depend on it.
     val json = buildJsonObject {
       put("id", "a")
       put("type", "fill")

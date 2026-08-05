@@ -65,21 +65,12 @@ import org.maplibre.compose.desktop.skiko.vulkanInstanceExtensions
 import org.maplibre.compose.desktop.skiko.vulkanStringBuffer
 
 /**
- * A [DesktopMapHost] that renders on a real GPU with no window.
- *
- * [FakeDesktopMapHost] stops at the graphics boundary: it hands out invented handles, so MapLibre
- * never attaches a render session and nothing below `render()` is exercised. This host closes that
- * gap. It creates a genuine Vulkan device and a genuine `VkImage`, so MapLibre attaches, parses the
- * style, loads tiles, rasterizes, and answers rendered-feature queries exactly as it does under a
- * window — the only thing missing is the compositing step, which is why [draw] does nothing.
- *
- * That makes it the vehicle for testing the whole desktop stack: a bug in style JSON, layer
- * ordering, expression compilation, or query conversion surfaces here, in a test, instead of only
- * as a dialog in the demo app.
+ * A [DesktopMapHost] that renders on a real GPU with no window: a genuine Vulkan device and
+ * `VkImage`, so MapLibre attaches and rasterizes as it does under a window. Nothing composites the
+ * result, so [draw] does nothing.
  *
  * Unlike the shipped Linux host this asks for no external-memory extensions, because nothing
- * imports the image. It therefore runs on any Vulkan implementation, including a software one such
- * as lavapipe, which is what makes it viable in CI.
+ * imports the image, so it runs on a software Vulkan implementation such as lavapipe in CI.
  */
 internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
 
@@ -92,21 +83,11 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
   var currentExtent: DesktopMapExtent = DesktopMapExtent.Empty
     private set
 
-  /**
-   * Frames this host handed out.
-   *
-   * Asserted on by tests: a composition that never acquires a frame never reaches MapLibre at all,
-   * and would otherwise pass by doing nothing.
-   */
+  /** Frames this host handed out; a composition acquiring none never reached MapLibre at all. */
   var acquiredFrames: Int = 0
     private set
 
-  /**
-   * Frames MapLibre actually rendered into, as opposed to acquired and skipped.
-   *
-   * This is the signal for "did the map redraw": a state change that should be visible must produce
-   * one, and a change that produces none is invisible until something else wakes the loop.
-   */
+  /** Frames MapLibre actually rendered into, as opposed to acquired and skipped. */
   var renderedFrames: Int = 0
     private set
 
@@ -182,17 +163,8 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
 
   companion object {
     /**
-     * Creates a host, or fails.
-     *
-     * A working Vulkan implementation is a requirement of this suite, not a nice-to-have, and
-     * saying so with an exception is the whole point. The alternative — returning null so callers
-     * can bail out early — reads as a skip but is not one: a test that returns before asserting is
-     * recorded by JUnit as **passed**. A machine without a Vulkan loader would then run every
-     * GPU-backed test green while executing none of them, which is worse than a red suite because
-     * nothing distinguishes it from real coverage.
-     *
-     * On macOS that means the Homebrew `vulkan-loader` and `molten-vk` that `mise run bootstrap`
-     * installs; Linux and Windows have a system loader.
+     * Creates a host, throwing if no Vulkan implementation is usable. Deliberately not a nullable
+     * "skip": a test that returns before asserting is recorded by JUnit as passed.
      */
     fun create(): HeadlessVulkanMapHost {
       val host = HeadlessVulkanMapHost()

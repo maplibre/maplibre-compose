@@ -28,8 +28,7 @@ object RenderOptionsDemo : Demo {
         steps = 20,
       )
 
-      // Desktop exposes MapLibre's debug overlays individually rather than as one switch, because
-      // the FFI takes them as a set of flags and they are useful separately when debugging tiles.
+      // Desktop exposes the debug overlays individually; the FFI takes them as a set of flags.
       SwitchListItem(
         text = "Tile borders",
         checked = state.renderOptions.isTileBordersEnabled,

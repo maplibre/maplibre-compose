@@ -7,15 +7,7 @@ import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
 import org.maplibre.nativeffi.offline.OfflineRegionStatus
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 
-/**
- * How a native offline status or error becomes the [DownloadProgress] common code switches on.
- *
- * These are the two translations a live download runs through on every event, and the states they
- * have to distinguish do not all hold still against a real database: a resumed download reports an
- * error and a status change in the same drain, and completion arrives while the region is still
- * marked active. Constructing the native values directly is what makes each case something to
- * assert rather than something to catch.
- */
+/** How a native offline status or error becomes the [DownloadProgress] common code switches on. */
 class OfflineProgressMappingTest {
 
   private val logger = Logger.withTag("offline-progress-mapping-test")
@@ -49,8 +41,7 @@ class OfflineProgressMappingTest {
 
   /**
    * MapLibre leaves a finished region marked active — it stops fetching without changing its
-   * download state — so completion has to win over the state, or a pack that has everything it
-   * needs goes on reporting that it is downloading.
+   * download state — so completion has to win over the state.
    */
   @Test
   fun `a complete region is complete even while it is still marked active`() {
@@ -74,8 +65,7 @@ class OfflineProgressMappingTest {
 
   /**
    * The strings are the MapLibre Android SDK's `OfflineRegionError` reasons, which is what common
-   * code compares against; spelling them differently here would make the same failure look like a
-   * different one depending on the platform.
+   * code compares against.
    */
   @Test
   fun `error reasons use the same names every platform reports`() {

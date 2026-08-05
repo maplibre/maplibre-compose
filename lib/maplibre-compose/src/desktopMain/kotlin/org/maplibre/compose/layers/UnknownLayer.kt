@@ -19,19 +19,11 @@ internal actual class UnknownLayer(id: String, internal val definition: JsonObje
   override val sourceId: String? = (definition["source"] as? JsonPrimitive)?.content
 
   /**
-   * Replays the whole reported object rather than the few keys a layer usually carries.
+   * Replays every reported key rather than a known list, because dropping one is silent: a layer
+   * restored without its `filter` or `source-layer` draws wrongly with no error. Only `id`, `type`,
+   * and `source` are skipped, since [toJson] writes those from this layer's own fields.
    *
-   * Every key matters because losing one is silent. A base layer restored without its `filter`
-   * draws everything the style wrote that filter to exclude, and one restored without its
-   * `source-layer` selects nothing from a vector source and draws nothing at all; neither reports
-   * an error anywhere. Naming keys individually is how that happened, so this names only the three
-   * that are handled elsewhere and passes everything else through.
-   *
-   * `id`, `type`, and `source` are those three: [toJson] writes them from this layer's own fields.
-   *
-   * The style spec's `metadata` is not among what arrives. MapLibre parses it and then does not
-   * keep it — a layer that declares metadata in the style JSON serializes back without it — so a
-   * restored layer cannot carry metadata no matter what this replays.
+   * MapLibre does not report `metadata` back, so a restored layer cannot carry it.
    */
   init {
     definition.forEach { (key, value) ->

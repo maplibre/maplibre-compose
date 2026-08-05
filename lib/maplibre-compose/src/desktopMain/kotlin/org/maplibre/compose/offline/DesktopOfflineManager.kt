@@ -27,8 +27,7 @@ public actual fun rememberOfflineManager(): OfflineManager {
   val options = LocalDesktopRuntimeOptions.current
   val density = LocalDensity.current.density
   val manager = remember(options) { DesktopOfflineManager.forOptions(options) }
-  // Packs record the density they were created at, because a downloaded raster tile is either the
-  // right resolution for this display or it is not; there is no rescaling it later.
+  // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
   SideEffect { manager.pixelRatio = density }
   return manager
 }
@@ -36,16 +35,9 @@ public actual fun rememberOfflineManager(): OfflineManager {
 /**
  * The desktop [OfflineManager], backed by a MapLibre runtime of its own.
  *
- * One instance per [DesktopRuntimeOptions], kept for the life of the process. Sharing is necessary
- * because every `rememberOfflineManager()` call site would otherwise be another thread, another
- * runtime, and another view of the same database.
- *
- * They are deliberately never disposed. mbgl holds download state in memory only, so closing the
- * runtime destroys the in-flight downloads without an event — a user who starts a download and then
- * navigates away from the screen that composed the manager would silently lose it, and the pack
- * would come back reporting paused. Android and iOS are process singletons for the same reason, and
- * matching them keeps offline behaving the same everywhere. The cost is one idle thread per
- * distinct options value, which is bounded by configuration rather than by composition.
+ * One instance per [DesktopRuntimeOptions], kept for the life of the process and never disposed:
+ * mbgl holds download state in memory only, so closing the runtime silently destroys in-flight
+ * downloads.
  */
 internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions) : OfflineManager {
 
@@ -56,15 +48,9 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
       synchronized(instances) { instances.getOrPut(options) { DesktopOfflineManager(options) } }
 
     /**
-     * Stops the manager for [options], if there is one, and forgets it so that a later [forOptions]
-     * builds a fresh one against the same database. Reports whether its thread stopped within
-     * [timeoutMillis].
-     *
-     * Tests only, and deliberately not part of [OfflineManager]: production never disposes a
-     * manager, for the reasons in the class documentation. Restart persistence is not observable
-     * without it, though — the point of that test is that a pack outlives the runtime that created
-     * it, which requires the first runtime to actually close its database connection and a second
-     * one to read the file back rather than a cached instance handing over its in-memory map.
+     * Tests only: stops the manager for [options], if there is one, and forgets it so that a later
+     * [forOptions] builds a fresh one against the same database. Reports whether its thread stopped
+     * within [timeoutMillis].
      */
     fun disposeForTest(options: DesktopRuntimeOptions, timeoutMillis: Long = 30_000): Boolean {
       val manager = synchronized(instances) { instances.remove(options) } ?: return true
@@ -76,23 +62,8 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
   private val logger = Logger.withTag("maplibre-compose")
 
   /**
-   * Compose state, written from the owner thread.
-   *
-   * Snapshot state is safe to write from any thread — the write lands in the global snapshot and
-   * notifies, which is how the map path has always published from its own owner thread. This used
-   * to hop to `Dispatchers.Main` first, which cost the library a `kotlinx-coroutines-swing`
-   * dependency and therefore an assumption that the Compose host is AWT, in a module that otherwise
-   * takes its host through an SPI. A non-AWT host had to supply `Dispatchers.Main` itself or
-   * everything downstream of `androidx.lifecycle` broke; the compose-glfw fixture is how that was
-   * found.
-   *
-   * The hop also cost correctness. Two writers reach the same progress state — the status events
-   * MapLibre pushes and the explicit reads [refreshStatus] makes after a state change — and
-   * launching each on a dispatcher did not preserve the order they were produced in, so a resume
-   * could publish a stale value on top of a fresher one and leave it there until the next event.
-   * That needed a sequence number per region to arbitrate. Writing inline on the owner thread, the
-   * only thread that produces these, means the order is the production order and the arbitration is
-   * unnecessary.
+   * Compose state, written inline on the owner thread — never hopped to a dispatcher, which would
+   * both assume an AWT host and lose the production order of status updates.
    */
   private val packsState = mutableStateOf(emptySet<OfflinePack>())
 
@@ -173,10 +144,7 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
   }
 
   override suspend fun setMaximumAmbientCacheSize(size: Long) {
-    // The same native call the creation-time DesktopRuntimeOptions.maximumCacheSizeBytes goes
-    // through, so a runtime that was handed a budget up front can still be re-budgeted here.
-    // Lowering it evicts ambient resources to fit, which is why this is an operation with a
-    // completion to wait for rather than a number being stored; offline packs are left alone.
+    // Lowering the budget evicts ambient resources to fit; offline packs are left alone.
     runOperation(
       description = "set the maximum ambient cache size to $size bytes",
       start = { it.startSetMaximumAmbientCacheSize(size) },
@@ -185,17 +153,8 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
   }
 
   override fun setTileCountLimit(limit: Long) {
-    // maplibre-native-ffi deliberately does not expose mbgl's setOfflineMapboxTileCountLimit, and
-    // that is a settled decision rather than a gap: the limit counts only canonical Mapbox tile
-    // URLs, so it is already a no-op for an ordinary MapLibre style, and the native call reports
-    // neither completion nor error — the one thing every other offline operation here is built
-    // around. Desktop downloads therefore keep MapLibre's built-in limit. That limit is still
-    // observed: exceeding it arrives as OFFLINE_REGION_TILE_COUNT_LIMIT_EXCEEDED and becomes
-    // DownloadProgress.TileLimitExceeded.
-    //
-    // Reported at info rather than warned, because there is nothing the caller can do about it and
-    // nothing it needs to do: cross-platform code calls this once at startup, where a warning that
-    // will never stop appearing is noise rather than a signal.
+    // maplibre-native-ffi does not expose mbgl's setOfflineMapboxTileCountLimit; it applies only to
+    // canonical Mapbox tile URLs. MapLibre's own limit still reports as TileLimitExceeded.
     logger.i {
       "Ignoring setTileCountLimit($limit) on desktop; MapLibre's own offline tile count limit " +
         "applies, and it counts only Mapbox-hosted tiles"
@@ -220,9 +179,7 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
 
   /**
    * Adopts a region MapLibre reported, or returns null when its definition cannot be represented.
-   *
-   * Runs on the owner thread. There is at most one [OfflinePack] per region, because only the
-   * newest would receive updates to its state.
+   * Runs on the owner thread; there is at most one [OfflinePack] per region.
    */
   private fun registerRegion(info: OfflineRegionInfo): OfflinePack? {
     val existing = packsById[info.id]
@@ -233,8 +190,7 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     packsById[info.id] = pack
     publishPacks()
 
-    // Status events only arrive for observed regions, and a pack that has never been told anything
-    // reads as Unknown, so both are set up as soon as the pack exists.
+    // Status events only arrive for observed regions, and an unreported pack reads as Unknown.
     observe(info.id)
     refreshStatus(info.id)
     return pack
@@ -245,10 +201,8 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
       submit(
         description = "change the download state of offline pack ${pack.regionId}",
         start = { it.startSetOfflineRegionDownloadState(pack.regionId, state) },
-        // mbgl's setState does deliver a status event on every real transition, but it
-        // early-returns when the state is unchanged — pausing an already-inactive or just-finished
-        // pack produces nothing. Reading the status back covers that case, so a paused pack never
-        // goes on claiming it is downloading.
+        // mbgl's setState early-returns when the state is unchanged, emitting no status event, so
+        // the status is read back explicitly.
         finish = { _, _ -> refreshStatus(pack.regionId) },
       )
     if (!accepted) {
@@ -313,9 +267,8 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
       }
 
       else ->
-        // Event types are value classes over Int rather than enums, so an FFI upgrade can deliver
-        // a type this build has never seen, and a runtime without maps still reports map events.
-        // Logging beats failing.
+        // Event types are value classes over Int, so an FFI upgrade can deliver a type this build
+        // has never seen.
         logger.v { "Ignoring MapLibre event ${event.type} on the offline runtime" }
     }
   }
@@ -355,8 +308,7 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     runtime.post(
       task = { nativeRuntime ->
         val handle = start(nativeRuntime)
-        // Correlation is by operation id: the completion event carries the id this handle was
-        // given, and nothing else identifies which of several in-flight operations finished.
+        // Operation id is the only thing correlating a completion event with its in-flight handle.
         runtime.register(
           description = description,
           handle = handle,
@@ -389,12 +341,11 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
         start = start,
         finish = finish,
         onStarted = { handle ->
-          // Cancelling must leave nothing registered: the operation is dropped and its handle
-          // closed on the owner thread, so neither outlives the caller.
+          // Cancelling must leave nothing registered; discard drops and closes on the owner thread.
           continuation.invokeOnCancellation { runtime.discard(handle) }
         },
-        // A cancelled continuation has already been completed; resuming it again would report the
-        // failure to the caller's exception handler instead of dropping it.
+        // Resuming an already-cancelled continuation would report the failure to the caller's
+        // exception handler instead of dropping it.
         onResult = { result -> if (continuation.isActive) continuation.resumeWith(result) },
       )
     if (!accepted) {

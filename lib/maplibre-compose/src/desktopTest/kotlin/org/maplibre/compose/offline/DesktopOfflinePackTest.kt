@@ -18,13 +18,9 @@ import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * The offline pack lifecycle, against a real MapLibre database in a temporary directory.
- *
- * No map and no GPU: every call here goes to the offline manager's own runtime, which is the whole
- * reason offline management is usable before a map exists. Nothing leaves the machine either. A
- * download that is meant to succeed reads a style from a file, which the desktop resource provider
- * serves and which names no sources, so it is one resource and it finishes in milliseconds; a
- * download that is meant to fail points at a closed port on the loopback interface.
+ * The offline pack lifecycle, against a real MapLibre database in a temporary directory. No map and
+ * no GPU, and nothing leaves the machine: a download meant to succeed reads a source-less style
+ * from a file, and one meant to fail points at a closed port on the loopback interface.
  */
 class DesktopOfflinePackTest {
 
@@ -35,8 +31,8 @@ class DesktopOfflinePackTest {
 
   @AfterTest
   fun cleanUp() {
-    // Before deleting the directory, so the database is closed rather than pulled out from under a
-    // live runtime, and so each test leaves no thread behind for the next one.
+    // Must precede the delete, so the database is closed rather than pulled out from under a live
+    // runtime.
     DesktopOfflineManager.disposeForTest(options)
     directory.toFile().deleteRecursively()
   }
@@ -50,9 +46,8 @@ class DesktopOfflinePackTest {
 
       val pack = withTimeout(OPERATION_TIMEOUT_MILLIS) { manager.create(definition, metadata) }
 
-      // The pack is built from what MapLibre echoed back out of the region it stored, not from the
-      // definition that was passed in, so this is a round trip through the database's own columns:
-      // an unrepresentable definition comes back null and a lossy one comes back different.
+      // The pack is built from what MapLibre echoed back out of the stored region, not from the
+      // definition passed in, so this is a round trip through the database's own columns.
       assertEquals(definition, pack.definition)
       assertContentEquals(metadata, pack.metadata)
       assertEquals(setOf(pack), manager.packs, "the created pack should be listed immediately")
@@ -71,8 +66,8 @@ class DesktopOfflinePackTest {
 
     assertContentEquals(updated, pack.metadata)
 
-    // The manager copies the caller's array on the way in and copies native's echo on the way out,
-    // so a caller that reuses its buffer cannot change what the pack reports afterwards.
+    // The manager copies in both directions, so a caller reusing its buffer cannot change what the
+    // pack reports.
     updated[0] = '!'.code.toByte()
     assertContentEquals("after, and longer than before".encodeToByteArray(), pack.metadata)
   }
@@ -99,12 +94,9 @@ class DesktopOfflinePackTest {
   }
 
   /**
-   * The claim offline support is built on: a pack is in the database, not in the process.
-   *
    * Disposal is test-only — see [DesktopOfflineManager.disposeForTest] — because production keeps
-   * one manager per options value for the life of the process. Without it this test would be handed
-   * the same instance and its in-memory pack list back, and would pass without anything having been
-   * read from disk.
+   * one manager per options value for the life of the process; without it this test would get the
+   * same instance and its in-memory pack list back, having read nothing from disk.
    */
   @Test
   fun `a pack survives closing the manager and reopening the same database`() = runBlocking {
@@ -131,11 +123,8 @@ class DesktopOfflinePackTest {
   }
 
   /**
-   * The other definition MapLibre stores, and the one with more to lose in the database.
-   *
-   * A shape is written and read back through the geometry conversions in both directions, and "no
-   * maximum zoom" is spelled as an infinity that an Int cannot hold, so it has to survive as a null
-   * rather than as whatever `Double.POSITIVE_INFINITY.toInt()` produces.
+   * MapLibre spells "no maximum zoom" as an infinity an Int cannot hold, so it has to survive as a
+   * null rather than as whatever `Double.POSITIVE_INFINITY.toInt()` produces.
    */
   @Test
   fun `a shape pack with no maximum zoom survives a reopen`() = runBlocking {
@@ -189,22 +178,16 @@ class DesktopOfflinePackTest {
         second.packs.any { it.regionId == kept.regionId }
       }
       // The listing registers every region it found in one owner-thread callback, so a surviving
-      // second region would land within instructions of the first rather than seconds later. This
-      // waits far longer than that before concluding it is not coming.
+      // second region would land right after the first.
       delay(SETTLE_MILLIS)
 
       assertEquals(listOf(kept.regionId), second.packs.map { it.regionId })
     }
 
   /**
-   * The download state machine: paused, downloading and failing, paused again.
-   *
-   * The style is served from a loopback port with nothing listening on it, which keeps the download
-   * running without a network and without a tile server. That matters more than it sounds: a style
-   * that is merely *missing* is a permanent failure, so MapLibre finishes the download it cannot
-   * make progress on and deactivates the region — measured, and the reason this test does not use a
-   * `file:` URL for the failing case. A refused connection is retried instead, so the download
-   * stays active and its error is what the pack reports between retries.
+   * The style points at a closed loopback port rather than a missing `file:` URL: MapLibre treats a
+   * missing style as a permanent failure and deactivates the region, while a refused connection is
+   * retried, so the download stays active and reports its error between retries.
    */
   @Test
   fun `resuming a pack starts downloading and pausing reports it paused again`() = runBlocking {
@@ -214,16 +197,15 @@ class DesktopOfflinePackTest {
         manager.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
       }
 
-    // A new pack is registered with an explicit status read, because a pack that has been told
-    // nothing reads as Unknown, and a paused pack fetches nothing.
+    // A pack that has been told nothing reads as Unknown, and a paused pack fetches nothing, so
+    // registration issues an explicit status read.
     val initial = awaitHealthy(pack, "the new pack's status") { true }
     assertEquals(DownloadStatus.Paused, initial.status)
 
     manager.resume(pack)
 
     // A paused pack issues no requests at all, so an error arriving is itself the evidence that
-    // resuming reached MapLibre. The reason is asserted too, because a download that fails for a
-    // reason the user could act on is the difference between "no signal" and "you are offline".
+    // resuming reached MapLibre.
     await({
       "the resumed pack to report a failed fetch, but it reported ${pack.downloadProgress}"
     }) {
@@ -233,8 +215,6 @@ class DesktopOfflinePackTest {
 
     manager.pause(pack)
 
-    // Pausing stops the retries, so this is the state the pack settles in rather than one it passes
-    // through, and getting here at all means the error it was reporting was replaced.
     val paused =
       awaitHealthy(pack, "the paused pack to report itself paused") {
         it.status == DownloadStatus.Paused
@@ -243,13 +223,8 @@ class DesktopOfflinePackTest {
   }
 
   /**
-   * A finished download is worth nothing if the next run cannot tell that it finished.
-   *
    * The status a reopened manager publishes comes from the database rather than from the download
-   * that did the work, which is a different code path in MapLibre and the one every restart takes.
-   * Measured because the inactive path could plausibly report a complete pack as merely paused — it
-   * counts stored rows rather than a plan — and an offline screen that shows a finished pack as
-   * paused invites the user to download it all over again.
+   * that did the work — a different MapLibre code path, and the one every restart takes.
    */
   @Test
   fun `a finished pack still reads as complete after a reopen`() = runBlocking {
@@ -272,8 +247,7 @@ class DesktopOfflinePackTest {
 
   /**
    * The ambient cache and offline packs share a database and a resource table, and clearing one is
-   * documented not to touch the other. That is worth measuring rather than trusting, because the
-   * failure mode is a user losing a download they took a plane trip for.
+   * documented not to touch the other.
    */
   @Test
   fun `clearing the ambient cache leaves a pack's downloaded resources in place`() = runBlocking {
@@ -294,9 +268,8 @@ class DesktopOfflinePackTest {
   }
 
   /**
-   * Invalidation exists to make a pack revalidate against the server on its next download, so what
-   * it must not do is throw the pack's resources away in the meantime — offline is exactly the
-   * state in which they cannot be fetched again.
+   * Invalidation marks a pack for revalidation on its next download; it must not discard the
+   * resources in the meantime.
    */
   @Test
   fun `invalidating a pack keeps its downloaded resources`() = runBlocking {
@@ -332,12 +305,9 @@ class DesktopOfflinePackTest {
   }
 
   /**
-   * Reads the pack's status back from the database rather than trusting what is already published.
-   *
-   * The published value is cleared first because the assertions that use this are about a count
-   * *not* changing, which a stale read would satisfy just as well as a fresh one. Pausing is what
-   * asks for the read: [DesktopOfflineManager.setDownloadState] always follows a state change with
-   * an explicit status query.
+   * Reads the pack's status back from the database, clearing the published value first so a stale
+   * read cannot satisfy an assertion about a count *not* changing. Pausing is what asks for the
+   * read: [DesktopOfflineManager.setDownloadState] follows a state change with a status query.
    */
   private suspend fun rereadStatus(
     manager: DesktopOfflineManager,
@@ -349,16 +319,15 @@ class DesktopOfflinePackTest {
   }
 
   private fun writeStyle(name: String): String {
-    // No sources and no layers: MapLibre has exactly one resource to fetch, which makes "the
-    // download finished" a fact this test can wait for rather than a race with a tile server.
+    // No sources and no layers, so MapLibre has exactly one resource to fetch.
     val file = directory.resolve(name)
     Files.writeString(file, """{"version":8,"name":"offline test","sources":{},"layers":[]}""")
     return file.toUri().toString()
   }
 
   /**
-   * A style URL on a loopback port that was bound only long enough to be sure it is free, so
-   * connecting to it is refused rather than answered or left hanging. Nothing leaves the machine.
+   * A style URL on a loopback port bound only long enough to be sure it is free, so connecting to
+   * it is refused rather than answered or left hanging.
    */
   private fun unreachableStyleUrl(): String {
     val port = ServerSocket(0).use { it.localPort }
@@ -378,9 +347,6 @@ class DesktopOfflinePackTest {
     description: String,
     predicate: (DownloadProgress.Healthy) -> Boolean,
   ): DownloadProgress.Healthy {
-    // The progress the pack was last seen reporting goes into the failure message, because "it
-    // never got there" and "it got somewhere else" are different bugs and the timeout alone cannot
-    // tell them apart.
     await({ "$description, but it last reported ${pack.downloadProgress}" }) {
       (pack.downloadProgress as? DownloadProgress.Healthy)?.let(predicate) == true
     }
@@ -402,11 +368,7 @@ class DesktopOfflinePackTest {
   }
 
   private companion object {
-    /**
-     * Generous, because every one of these operations is a database round trip on a machine that
-     * may be running other tests; a real failure fails by assertion rather than by waiting this
-     * out.
-     */
+    /** Generous: every one of these operations is a database round trip on a busy machine. */
     const val OPERATION_TIMEOUT_MILLIS = 30_000L
 
     const val POLL_MILLIS = 20L

@@ -8,8 +8,7 @@ import java.util.concurrent.atomic.AtomicReference
  * The thread a host serializes its graphics work on.
  *
  * MapLibre's runtime binds to whichever thread creates it, so the host has to offer one consistent
- * thread and keep offering it. This is that thread; the map session's owner thread is this one, via
- * `withRendererAccess`.
+ * thread and keep offering it.
  */
 internal class HostRendererThread(name: String) : AutoCloseable {
   private val threadRef = AtomicReference<Thread?>()

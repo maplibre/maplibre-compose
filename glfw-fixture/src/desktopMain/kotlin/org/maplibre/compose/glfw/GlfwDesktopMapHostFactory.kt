@@ -14,16 +14,11 @@ import org.maplibre.compose.desktop.DesktopMapHostResult
 import org.maplibre.compose.desktop.MapRenderBackend
 
 /**
- * A [DesktopMapHostFactory] backed by a compose-glfw window's own graphics context.
+ * A [DesktopMapHostFactory] backed by a compose-glfw window's own graphics context, reaching into
+ * no AWT or Skiko internals.
  *
- * The whole factory is a [RenderContext] and a `when` over its three subtypes. That is the claim
- * the SPI makes and this fixture is here to check: a host supplies GPU objects and a way to draw
- * them, and the map does not care where they came from. Nothing below this line reaches into AWT,
- * Skiko internals, or `ComposeWindow`.
- *
- * Only the Metal path is implemented. The two others are named rather than omitted so the
- * diagnostic a Linux or Windows user gets says "this fixture has not written that bridge yet"
- * instead of "no backend".
+ * Only the Metal path is implemented; the others are named rather than omitted so the diagnostic
+ * says the bridge is unwritten instead of "no backend".
  */
 public class GlfwDesktopMapHostFactory(private val renderContext: RenderContext) :
   DesktopMapHostFactory {
@@ -36,8 +31,8 @@ public class GlfwDesktopMapHostFactory(private val renderContext: RenderContext)
       when (renderContext) {
         is MetalRenderContext ->
           setOf(DesktopBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
-        // Deliberately empty rather than declared-and-failing: negotiation prints what each side
-        // offered, and claiming a pair this fixture cannot build would make that report a lie.
+        // Deliberately empty rather than declared-and-failing: negotiation reports what each side
+        // offered.
         is OpenGlRenderContext,
         is Direct3DRenderContext -> emptySet()
       }
@@ -67,14 +62,10 @@ public class GlfwDesktopMapHostFactory(private val renderContext: RenderContext)
 /**
  * The [DesktopMapHostFactory] for the compose-glfw window this composable is running in.
  *
- * Keyed on the render context rather than remembered unconditionally, because compose-glfw replaces
- * it when it has to rebuild a window's graphics stack. That is the one place where the SPI's
- * "changing the factory recreates the host" rule does the work: a new context produces a new
- * factory, which produces a new host, which drops every stale native handle at once.
- *
- * The catch, and it is a compose-glfw gap rather than an SPI one, is that
+ * Keyed on the render context, which compose-glfw replaces when it rebuilds a window's graphics
+ * stack, so that a new context recreates the host and drops every stale native handle. Note that
  * `HostWindow.renderContext` is a plain mutable field rather than Compose state, so a replacement
- * does not by itself recompose. Nothing in this fixture has provoked one.
+ * does not by itself recompose.
  */
 @Composable
 public fun rememberGlfwDesktopMapHostFactory(): DesktopMapHostFactory {

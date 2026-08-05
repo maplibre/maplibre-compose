@@ -70,17 +70,11 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
   }
 
   /**
-   * Dropped, because MapLibre Native has never implemented it.
-   *
-   * The style spec added `icon-overlap` to supersede `icon-allow-overlap`, and the core does not
-   * know the name: a symbol layer carrying it is refused outright with "layer doesn't support this
-   * property", so writing it costs the whole layer rather than one property. Android and iOS leave
-   * their setter empty for the same reason; desktop reaching the core through style JSON does not
-   * change what the core accepts. Use `iconAllowOverlap`, which every backend does implement.
+   * Dropped: MapLibre Native does not know `icon-overlap`, and a layer carrying it is refused
+   * outright rather than ignoring the one property. Use `iconAllowOverlap`.
    *
    * TODO: write this property once MapLibre Native implements `icon-overlap`, including its
-   *   `cooperative` value, which `icon-allow-overlap` cannot express. The gap is the core's, not
-   *   the FFI's, and Android and iOS carry the same note against their own SDKs.
+   *   `cooperative` value, which `icon-allow-overlap` cannot express.
    */
   actual fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
     skipUnsupportedProperty(
@@ -262,11 +256,10 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
   }
 
   /**
-   * Dropped, for the same reason as [setIconOverlap]: MapLibre Native does not know `text-overlap`
-   * either, and a layer carrying it does not load at all. Use `textAllowOverlap`.
+   * Dropped, as [setIconOverlap]: MapLibre Native does not know `text-overlap` either. Use
+   * `textAllowOverlap`.
    *
-   * TODO: write this property once MapLibre Native implements `text-overlap`. As above, the gap is
-   *   the core's rather than the FFI's.
+   * TODO: write this property once MapLibre Native implements `text-overlap`.
    */
   actual fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
     skipUnsupportedProperty(

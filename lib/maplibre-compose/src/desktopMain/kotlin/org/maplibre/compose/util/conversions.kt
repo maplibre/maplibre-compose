@@ -14,9 +14,8 @@ import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
-// MapLibre Native works in logical pixels with a top-left origin, and Compose's dp are the same
-// logical units, so these conversions are unit-preserving rather than density-scaled. Multiplying
-// by density here would double-apply the scale factor on any HiDPI display.
+// MapLibre Native works in logical pixels, the same units as Compose's dp, so these conversions are
+// unit-preserving; scaling by density here would double-apply it on a HiDPI display.
 
 internal fun LatLng.toPosition(): Position = Position(longitude = longitude, latitude = latitude)
 
@@ -45,13 +44,8 @@ internal fun EdgeInsets.toPaddingValues(): PaddingValues =
   PaddingValues(start = left.dp, top = top.dp, end = right.dp, bottom = bottom.dp)
 
 /**
- * Snapshots a camera into an immutable value.
- *
- * [CameraOptions] is a mutable builder for native calls, so handing one to Compose state would leak
- * a native-facing object that a later call could mutate underneath it. The conversion is needed
- * regardless, since the public API speaks [CameraPosition]; it is not standing in for anything
- * missing upstream. (It once also existed because the options types had no `equals`, which defeated
- * state diffing — fixed by https://github.com/maplibre/maplibre-native-ffi/pull/342.)
+ * Snapshots a camera into an immutable value. [CameraOptions] is a mutable builder for native
+ * calls, so a later call could mutate one held in Compose state underneath it.
  */
 internal fun CameraOptions.toCameraPosition(): CameraPosition =
   CameraPosition(

@@ -3,11 +3,8 @@ package org.maplibre.compose.offline
 import androidx.compose.runtime.mutableStateOf
 
 /**
- * A desktop offline pack.
- *
- * The pack holds no native handle. MapLibre identifies an offline region by an id, and every call
- * that touches one has to run on the manager's owner thread, so the pack is a Compose-facing view
- * of a region and the manager does the work.
+ * A desktop offline pack: a Compose-facing view of a region, holding no native handle. Every call
+ * touching a region has to run on the manager's owner thread, so the manager does the work.
  */
 public actual class OfflinePack
 internal constructor(
@@ -17,8 +14,7 @@ internal constructor(
   initialMetadata: ByteArray?,
 ) {
 
-  // Written from the UI dispatcher with values already copied on the owner thread, so Compose only
-  // ever sees immutable snapshots of native state.
+  // Written from the UI dispatcher with values already copied on the owner thread.
   internal val metadataState = mutableStateOf(initialMetadata)
   internal val progressState = mutableStateOf<DownloadProgress>(DownloadProgress.Unknown)
 

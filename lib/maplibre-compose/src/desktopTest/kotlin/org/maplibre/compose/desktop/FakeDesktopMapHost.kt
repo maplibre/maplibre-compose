@@ -3,11 +3,8 @@ package org.maplibre.compose.desktop
 import androidx.compose.ui.graphics.drawscope.DrawScope
 
 /**
- * An in-memory [DesktopMapHost] that produces frames without a GPU.
- *
- * Lets everything above the graphics boundary — lifecycle ordering, backend negotiation, frame
- * invalidation, resize, surface loss — be tested headlessly. It records the calls it receives so
- * tests can assert on ordering rather than only on end state.
+ * An in-memory [DesktopMapHost] that produces frames without a GPU. Records the calls it receives,
+ * so tests can assert on ordering rather than only on end state.
  */
 internal class FakeDesktopMapHost(
   override val backends: DesktopBackendPair =
@@ -15,12 +12,8 @@ internal class FakeDesktopMapHost(
 ) : DesktopMapHost {
 
   /**
-   * How many of the next acquires should throw, decremented as each one does.
-   *
-   * Acquire is where a lost device presents in the shipped hosts: it is the first call in a frame
-   * to touch the GPU, so it is the one that reports the target cannot be produced. A count rather
-   * than a flag because the interesting cases are "fails once and then works", which must recover,
-   * and [Int.MAX_VALUE] for "never works again", which must give up.
+   * How many of the next acquires should throw, decremented as each one does. A count so a test can
+   * arm "fails once, then recovers" or [Int.MAX_VALUE] for "never works again".
    */
   var failingAcquires: Int = 0
 
@@ -37,12 +30,7 @@ internal class FakeDesktopMapHost(
   var generation: Long = 0L
     private set
 
-  /**
-   * Acquires attempted, including the ones that threw.
-   *
-   * Distinct from [acquiredFrames] on purpose: a test bounding retries has to count the calls that
-   * failed, which by definition produced no frame.
-   */
+  /** Acquires attempted, including the ones that threw; [acquiredFrames] counts only successes. */
   var acquireCount: Int = 0
     private set
 
@@ -160,11 +148,8 @@ internal class FakeDesktopMapHostFactory(
   override val description: String = "fake test host",
   private val result: ((MapRenderBackend) -> DesktopMapHostResult)? = null,
   /**
-   * Applied to each host before it is handed out.
-   *
-   * The host is created during composition, and the surface acquires its first frame in the draw
-   * pass right after, so there is no moment afterwards in which a test could arm a failure before
-   * the frame that should hit it.
+   * Applied to each host before it is handed out — the only chance to arm a failure, since the
+   * first frame is acquired in the draw pass right after the host is created.
    */
   private val configureHost: (FakeDesktopMapHost) -> Unit = {},
 ) : DesktopMapHostFactory {

@@ -25,8 +25,7 @@ import org.maplibre.spatialk.geojson.Position
  * Whether downloaded packs include CJK glyphs.
  *
  * True on desktop, unlike Android and iOS, because those platforms render ideographs from a local
- * system font and MapLibre Native's desktop map has no local-font option. Excluding them here would
- * leave CJK labels blank in exactly the offline case the pack exists for.
+ * system font and MapLibre Native's desktop map has no local-font option.
  */
 private const val INCLUDE_IDEOGRAPHS = true
 
@@ -53,11 +52,9 @@ internal fun OfflinePackDefinition.toFfiRegionDefinition(pixelRatio: Float): Ffi
   }
 
 /**
- * The common representation of a region MapLibre already has in its database, or null when this
- * build cannot represent it.
- *
- * Null is reachable: the FFI reports a definition it does not recognize as `Unknown`, which carries
- * no style URL and so cannot become an [OfflinePackDefinition].
+ * The common representation of a region MapLibre already has in its database, or null when the FFI
+ * reports it as `Unknown`, which carries no style URL and so cannot become an
+ * [OfflinePackDefinition].
  */
 internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger): OfflinePackDefinition? =
   when (this) {
@@ -95,7 +92,7 @@ internal fun OfflineRegionStatus.toDownloadProgress(logger: Logger): DownloadPro
         downloadState == OfflineRegionDownloadState.INACTIVE -> DownloadStatus.Paused
         else -> {
           // Download states are value classes over Int rather than enums, so a newer native runtime
-          // can report one this build has never seen. Paused is the honest guess.
+          // can report one this build has never seen.
           logger.w { "Unrecognized offline download state $downloadState; reporting it as paused" }
           DownloadStatus.Paused
         }
@@ -105,10 +102,8 @@ internal fun OfflineRegionStatus.toDownloadProgress(logger: Logger): DownloadPro
   )
 
 /**
- * The failure reason as [DownloadProgress.Error] spells it.
- *
- * These are the MapLibre Android SDK's `OfflineRegionError` reason strings, so common code that
- * switches on [DownloadProgress.Error.reason] behaves the same on every platform.
+ * The failure reason as [DownloadProgress.Error] spells it: the MapLibre Android SDK's
+ * `OfflineRegionError` reason strings, so common code sees the same values on every platform.
  */
 internal fun ResourceErrorReason.toDownloadErrorReason(): String =
   when (this) {
@@ -129,8 +124,7 @@ private fun Geometry.toFfiGeometry(): FfiGeometry =
     is Polygon -> FfiGeometry.Polygon(coordinates.map { it.toLatLngs() })
     is MultiPolygon ->
       FfiGeometry.MultiPolygon(coordinates.map { rings -> rings.map { it.toLatLngs() } })
-    // No else: the GeoJSON hierarchy is sealed, so a new member should break this build rather
-    // than reach a runtime error while downloading a region the caller did not ask for.
+    // No else: the GeoJSON hierarchy is sealed, so a new member should break this build.
     is GeometryCollection<*> -> FfiGeometry.Collection(geometries.map { it.toFfiGeometry() })
   }
 
@@ -145,8 +139,8 @@ private fun FfiGeometry.toGeoJsonGeometry(logger: Logger): Geometry =
       MultiPolygon(polygons.map { rings -> rings.map { it.toPositions() } })
     is FfiGeometry.Collection -> GeometryCollection(geometries.map { it.toGeoJsonGeometry(logger) })
     else -> {
-      // Empty and Unknown have no GeoJSON spelling. An empty collection keeps the pack listed and
-      // deletable rather than hiding a region that is still using disk.
+      // Empty and Unknown have no GeoJSON spelling; an empty collection keeps the pack listed and
+      // deletable.
       logger.w { "Offline region shape $this has no GeoJSON equivalent; reporting it as empty" }
       GeometryCollection<Geometry>(emptyList())
     }

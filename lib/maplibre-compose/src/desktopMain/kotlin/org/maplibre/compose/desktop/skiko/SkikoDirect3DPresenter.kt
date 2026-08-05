@@ -18,30 +18,22 @@ import org.maplibre.compose.desktop.TextureOrigin
 import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
 import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
 
-/**
- * `DXGI_FORMAT_B8G8R8A8_UNORM`.
- *
- * Compose's Direct3D 12 swap chain is BGRA, so the shared texture is allocated BGRA too and both
- * sides agree on the channel order without a conversion pass.
- */
+/** `DXGI_FORMAT_B8G8R8A8_UNORM`, matching Compose's BGRA Direct3D 12 swap chain. */
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
 
 /**
  * How many snapshots to hold alive after handing them to Compose.
  *
  * Compose records draw commands and replays them later, so an image closed immediately after
- * `drawImageRect` can be sampled after it is gone. Retaining a short ring keeps recorded frames
- * valid without unbounded growth.
+ * `drawImageRect` can be sampled after it is gone.
  */
 private const val RETAINED_IMAGE_COUNT = 8
 
 /**
  * An `ID3D12Resource` texture to composite into Compose's scene.
  *
- * This is presentation-only and never reaches the map: MapLibre has no Direct3D backend, so nothing
- * on the producer side of the bridge can render into one of these. It is the *consumer* view of a
- * texture MapLibre rendered into through some other API, which is why it is not a
- * `DesktopRenderTarget`.
+ * Presentation-only, and not a `DesktopRenderTarget`: MapLibre has no Direct3D backend to render
+ * into one of these.
  */
 internal data class Direct3DTextureTarget(
   /** `ID3D12Resource`. */
@@ -57,9 +49,9 @@ internal data class Direct3DTextureTarget(
   /**
    * The [org.maplibre.compose.desktop.DesktopRenderTarget.generation] this texture corresponds to.
    *
-   * Presenters are keyed by texture address rather than by generation; a host that reallocates must
-   * call [SkikoDirect3DPresenter.forget] before releasing the old texture, or a recycled address
-   * would resolve to a presenter wrapping freed memory.
+   * Presenters are keyed by texture address, so a host that reallocates must call
+   * [SkikoDirect3DPresenter.forget] before releasing the old texture or a recycled address resolves
+   * to a presenter wrapping freed memory.
    */
   val generation: Long,
 )
@@ -89,9 +81,7 @@ internal object SkikoDirect3DPresenter {
    * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
    *
    * Forced onto the AWT event thread because the Skia objects belong to the `DirectContext` that
-   * thread owns. The example got this guarantee from its quit handler, which always closed through
-   * the EDT; here the caller is a Compose `DisposableEffect`, whose applier thread is the EDT in
-   * practice but is not guaranteed to be. `onEdt` short-circuits when already there.
+   * thread owns.
    */
   fun forget(texture: NativeHandle) {
     SkikoReflection.onEdt { presenters.remove(texture.address)?.close() }
@@ -113,9 +103,8 @@ internal object SkikoDirect3DPresenter {
     (handler.getField("context") as? DirectContext)
       ?: run {
         handler.invokeDeclaredNoArg("initContext")
-        // Unlike the OpenGL handler, whose accessor is `getContext`, Skiko's Direct3D handler
-        // exposes only the protected factory `makeContext`. Calling it builds a second
-        // DirectContext rather than returning Compose's, which is why it is the last resort.
+        // Skiko's Direct3D handler exposes only the protected factory `makeContext`, which builds a
+        // second DirectContext rather than returning Compose's — hence the last resort.
         (handler.getField("context") as? DirectContext)
           ?: handler.invokeDeclaredNoArg("makeContext") as? DirectContext
       }

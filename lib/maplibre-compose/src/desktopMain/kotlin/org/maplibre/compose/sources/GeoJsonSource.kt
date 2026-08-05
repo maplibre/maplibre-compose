@@ -37,8 +37,7 @@ public actual class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
 
-  // Held in its parsed form because toJson is not just an attachment step: reading attributionHtml
-  // calls it, and so does every re-add after a style change.
+  // Held parsed because toJson runs again on every re-add after a style change.
   private var data: JsonElement
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
@@ -79,8 +78,7 @@ public actual class GeoJsonSource : Source {
     if (data is GeoJsonData.Uri) {
       mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
     } else {
-      // Converted here rather than inside the lambda, so the map's owner thread does not walk the
-      // data.
+      // Converted outside the lambda so the map's owner thread does not walk the data.
       val geoJson = this.data.toFfiGeoJson()
       mutate { map -> map.setGeoJsonSourceData(id, geoJson) }
     }
@@ -94,8 +92,7 @@ public actual class GeoJsonSource : Source {
     val result = queryClusterExtension(feature, EXPANSION_ZOOM_FIELD)
     val value = (result as? FeatureExtensionResult.Value)?.value
     return when (value) {
-      // MapLibre computes the zoom as a uint64_t, but the other numeric shapes are accepted so a
-      // future encoding change degrades instead of silently reporting the whole world.
+      // MapLibre computes the zoom as a uint64_t; other numeric shapes are accepted defensively.
       is JsonValue.UInt -> value.value.toULong().toDouble()
       is JsonValue.Int -> value.value.toDouble()
       is JsonValue.DoubleValue -> value.value
@@ -118,11 +115,9 @@ public actual class GeoJsonSource : Source {
     queryClusterFeatures(
       feature,
       LEAVES_FIELD,
-      // Both must be unsigned, for the same reason cluster_id must be: MapLibre reads them with an
-      // exact type check against the stored variant. A signed limit is not rejected — it is
-      // ignored, and MapLibre quietly substitutes its own default of ten. It also ignores offset
-      // unless limit is present, so both are always sent. Documented upstream by
-      // https://github.com/maplibre/maplibre-native-ffi/pull/340.
+      // Both must be unsigned: MapLibre type-checks them exactly and silently falls back to its own
+      // default of ten otherwise, and it ignores offset unless limit is present.
+      // https://github.com/maplibre/maplibre-native-ffi/pull/340
       JsonValue.ObjectValue(
         listOf(
           JsonValue.Member("limit", JsonValue.UInt(limit.coerceAtLeast(0))),
@@ -132,13 +127,8 @@ public actual class GeoJsonSource : Source {
     )
 
   /**
-   * Runs one supercluster query against the render session.
-   *
-   * The feature is converted before the owner hop, matching [setData] above: the map's owner thread
-   * should not be walking caller data while a frame waits on it.
-   *
-   * Returns null when the feature carries no cluster id, when no render session is attached yet, or
-   * when the query failed — all cases a caller turns into the same empty answer.
+   * Runs one supercluster query against the render session. Returns null when the feature carries
+   * no cluster id, when no render session is attached yet, or when the query failed.
    */
   private fun queryClusterExtension(
     feature: Feature<*, JsonObject?>,
@@ -169,13 +159,9 @@ public actual class GeoJsonSource : Source {
   }
 
   /**
-   * Reports a lookup that found no cluster, as distinct from a cluster with nothing to report.
-   *
-   * MapLibre answers a successful `children`/`leaves` query with a feature collection, even an
-   * empty one, and a *failed* one with a null value — so the two are distinguishable, and silently
-   * folding them together is how a mistyped `cluster_id` looks exactly like a childless cluster.
-   * Null is only reached with a cluster id that no longer exists in the source, which usually means
-   * the feature outlived the tile it came from.
+   * Reports a lookup that found no cluster, as distinct from a cluster with nothing to report:
+   * MapLibre answers a successful query with a feature collection, even an empty one, and a failed
+   * one with a null value.
    */
   private fun reportMiss(field: String, result: FeatureExtensionResult?) {
     if (result == null) return
@@ -193,12 +179,7 @@ public actual class GeoJsonSource : Source {
     const val CHILDREN_FIELD = "children"
     const val LEAVES_FIELD = "leaves"
 
-    /**
-     * Reported when the cluster has no expansion zoom to give.
-     *
-     * Matches Android. Callers should compare against the current zoom rather than animating to
-     * this blindly, since zooming to it would show the whole world.
-     */
+    /** Reported when the cluster has no expansion zoom to give; matches Android. */
     const val NO_EXPANSION_ZOOM = 0.0
   }
 }
@@ -206,10 +187,6 @@ public actual class GeoJsonSource : Source {
 /**
  * The `data` member of a GeoJSON source, which the style spec allows to be either a URL string or
  * an inline GeoJSON object.
- *
- * In-memory data goes through its serialized form so that features carrying typed properties are
- * encoded by the serializer SpatialK picks for them at runtime, which is the same route the Android
- * and iOS actuals take.
  */
 private fun GeoJsonData.toDataJson(): JsonElement =
   when (this) {
@@ -219,20 +196,15 @@ private fun GeoJsonData.toDataJson(): JsonElement =
   }
 
 /**
- * Converts caller-supplied features into the FFI's geometry tree.
- *
- * Shared with [ComputedSource], whose tiles are handed over as the same typed tree. It goes through
- * the serialized form for the reason [toDataJson] does: features carrying typed properties are
- * encoded by the serializer SpatialK picks for them at runtime.
+ * Converts caller-supplied features into the FFI's geometry tree, via the serialized form so typed
+ * properties are encoded by the serializer SpatialK picks for them at runtime.
  */
 internal fun FeatureCollection<*, *>.toFfiGeoJson(): FfiGeoJson =
   Json.parseToJsonElement(toJson()).toFfiGeoJson()
 
 /**
- * Converts parsed GeoJSON into the FFI's geometry tree.
- *
- * Updating an attached source has no JSON entry point — `setGeoJsonSourceData` takes the typed tree
- * — so the data has to be walked rather than handed over as it arrived.
+ * Converts parsed GeoJSON into the FFI's geometry tree; `setGeoJsonSourceData` has no JSON entry
+ * point, so the data has to be walked rather than handed over as it arrived.
  */
 private fun JsonElement.toFfiGeoJson(): FfiGeoJson {
   val obj =
@@ -273,10 +245,8 @@ private fun JsonObject.toFfiGeometry(): FfiGeometry {
 }
 
 /**
- * A feature identifier, which RFC 7946 allows to be a string or a number.
- *
- * Integers keep their integer form: MapLibre matches identifiers by type as well as by value, so a
- * feature whose id arrives as 5.0 does not match a `["==", ["id"], 5]` filter.
+ * A feature identifier, which RFC 7946 allows to be a string or a number. Integers keep their
+ * integer form: MapLibre matches identifiers by type as well as by value.
  */
 private fun JsonElement?.toFfiFeatureIdentifier(): FeatureIdentifier {
   val primitive = this as? JsonPrimitive ?: return FeatureIdentifier.Null

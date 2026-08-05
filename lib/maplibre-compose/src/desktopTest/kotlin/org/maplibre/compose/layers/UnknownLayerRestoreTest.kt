@@ -15,11 +15,8 @@ import org.maplibre.compose.util.toJsonElement
  * Takes a base-style layer out of a loaded style and puts it back, which is what an
  * [Anchor.Replace] does when its last replacement leaves.
  *
- * The layer that comes back is rebuilt from JSON MapLibre reported rather than from anything the
- * composition holds, so every key it fails to replay is lost for the rest of that style's life —
- * and lost quietly. A filter that does not come back draws the features the style excluded; a
- * `source-layer` that does not come back selects nothing out of a vector source and draws an empty
- * layer. Neither raises an error, so only reading the live layer afterwards catches it.
+ * The restored layer is rebuilt from JSON MapLibre reported, and any key it fails to replay is lost
+ * without an error, so the assertions read the live layer.
  */
 class UnknownLayerRestoreTest {
 
@@ -27,8 +24,6 @@ class UnknownLayerRestoreTest {
   fun `a reconstructed layer emits back every key MapLibre reported`() {
     val definition = Json.parseToJsonElement(REPORTED_LINE_LAYER).jsonObject
 
-    // Equality against the definition itself, rather than a list of keys to check: a key added to
-    // [REPORTED_LINE_LAYER] is then covered whether or not anyone remembers to assert on it.
     assertEquals(definition, UnknownLayer("roads", definition).toJson())
   }
 
@@ -40,16 +35,12 @@ class UnknownLayerRestoreTest {
       val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
 
       val original = assertNotNull(style.getLayer(ROADS))
-      // Read through the live map rather than the style JSON, and read it before the replacement,
-      // so what is asserted afterwards is what MapLibre itself had rather than what the test
-      // believes it wrote.
       val binding = original.binding
       val filterBefore =
         assertNotNull(binding.withMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
       assertEquals("transportation", binding.withMap { map -> map.layerSourceLayer(ROADS) })
 
-      // The exact sequence LayerManager runs: the replacement goes in above the layer it replaces,
-      // the original comes out, and later the original goes back below the replacement.
+      // The exact sequence LayerManager runs.
       val replacement = BackgroundLayer("user-replacement")
       style.addLayerAbove(ROADS, replacement)
       style.removeLayer(original)
@@ -75,9 +66,7 @@ class UnknownLayerRestoreTest {
       style.removeLayer(original)
       style.addLayer(original)
 
-      // The descriptor is written pre-attach and emitted as one object on add; this is the other
-      // half of the split, where a setter has to reach the live layer instead. A restored layer
-      // that kept a stale binding would take the write silently and leave the map unchanged.
+      // A restored layer that kept a stale binding would take this write silently.
       original.minZoom = 7f
 
       assertEquals(7.0, binding.withMap { map -> map.layerMinZoom(ROADS) })
@@ -88,12 +77,8 @@ class UnknownLayerRestoreTest {
     const val ROADS = "roads"
 
     /**
-     * A layer object in the shape `styleLayerJson` reports one, keys and number forms included.
-     *
-     * Taken from what MapLibre returned for the `roads` layer of [VECTOR_STYLE] rather than written
-     * by hand, so the JSON test and the live one are looking at the same thing. Note what is
-     * missing: the style declares `metadata` on that layer and MapLibre does not report it back, so
-     * there is none to restore.
+     * What MapLibre actually returned for the `roads` layer of [VECTOR_STYLE], keys and number
+     * forms included. Note the missing `metadata`: MapLibre does not report it back.
      */
     val REPORTED_LINE_LAYER =
       """
@@ -111,12 +96,8 @@ class UnknownLayerRestoreTest {
         .trimIndent()
 
     /**
-     * A vector source and a filtered layer over it, which is the combination that breaks.
-     *
-     * The tiles are never fetched: the layer's `minzoom` is above the zoom the map settles on, so
-     * MapLibre asks the source for nothing, and the test needs the layer's definition rather than
-     * its contents. The unreachable host is deliberate — a test that reaches the network is worse
-     * than no test.
+     * A vector source and a filtered layer over it. The host is unresolvable on purpose, and the
+     * layer's `minzoom` keeps MapLibre from requesting tiles at all.
      */
     val VECTOR_STYLE =
       """

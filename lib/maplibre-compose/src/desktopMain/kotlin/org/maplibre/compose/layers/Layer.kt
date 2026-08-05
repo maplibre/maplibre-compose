@@ -22,13 +22,8 @@ private val ROOT_KEYS =
 /**
  * A style layer, as a live descriptor.
  *
- * Mirrors [org.maplibre.compose.sources.Source]: before the layer is added to a style, setters
- * accumulate into the descriptor; adding emits one complete layer JSON object; afterwards setters
- * go straight to MapLibre through `setLayerProperty` and `setLayerFilter`.
- *
- * Accumulating first is what makes a layer addable at any point in a composition. Emitting the
- * whole object at once also avoids a partially-configured layer ever being visible, which is what
- * happens if properties are set one at a time after adding.
+ * Before the layer is added to a style, setters accumulate into the descriptor; adding emits one
+ * complete layer JSON object; afterwards setters go straight to MapLibre.
  */
 internal actual sealed class Layer(actual val id: String) {
 
@@ -41,11 +36,8 @@ internal actual sealed class Layer(actual val id: String) {
   /**
    * The source descriptor this layer draws from, when it has one.
    *
-   * Needed because Compose adds a layer to the style before the effect that adds its source runs:
-   * the applier inserts nodes and calls `onEndChanges` — which is where layers reach MapLibre — and
-   * only afterwards dispatches remember-observers, where `SourceReferenceEffect` lives. MapLibre's
-   * mobile SDKs tolerate a layer naming a source that does not exist yet; the C API rejects it
-   * outright, so the layer attaches its source first.
+   * The C API rejects a layer naming a source that does not exist yet, and Compose adds a layer
+   * before the effect that adds its source runs, so [attach] attaches this source first.
    */
   internal open val sourceDescriptor: org.maplibre.compose.sources.Source?
     get() = null
@@ -79,33 +71,27 @@ internal actual sealed class Layer(actual val id: String) {
       setLayoutProperty("visibility", JsonPrimitive(if (value) "visible" else "none"))
     }
 
-  /** Sets a layout property, by style-spec name. */
   protected fun setLayoutProperty(name: String, value: JsonElement) {
     layout[name] = value
     pushProperty(name, value)
   }
 
-  /** Sets a paint property, by style-spec name. */
   protected fun setPaintProperty(name: String, value: JsonElement) {
     paint[name] = value
     pushProperty(name, value)
   }
 
-  /** Sets a layout property from a compiled expression. */
   protected fun setLayoutProperty(name: String, value: CompiledExpression<*>) {
     setLayoutProperty(name, value.toStyleJson())
   }
 
-  /** Sets a paint property from a compiled expression. */
   protected fun setPaintProperty(name: String, value: CompiledExpression<*>) {
     setPaintProperty(name, value.toStyleJson())
   }
 
   /**
-   * Sets a top-level layer property, by style-spec name.
-   *
-   * Distinct from layout and paint because MapLibre reads these from the layer object itself; they
-   * have to be present in the JSON that creates the layer, not pushed afterwards.
+   * Sets a top-level layer property, by style-spec name. MapLibre reads these from the layer object
+   * itself, so they must be present in the JSON that creates the layer, not pushed afterwards.
    */
   protected fun setRootProperty(name: String, value: JsonElement) {
     root[name] = value
@@ -113,29 +99,20 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * Sets this layer's filter.
+   * Sets this layer's filter. Filters go through `setLayerFilter` rather than `setLayerProperty`
+   * because MapLibre treats the filter as part of the layer rather than as a property of it.
    *
-   * Filters have their own entry point rather than going through `setLayerProperty`, because
-   * MapLibre treats the filter as part of the layer rather than as a property of it.
-   *
-   * An unset filter compiles to a null literal, which is correct and must stay null: mbgl reads an
-   * undefined filter as "match every feature", and anything else has to be a non-empty array. A
-   * scalar `true` looks like the obvious way to say "no filter" and is rejected outright — the
-   * whole layer fails to add with "filter value must be a non empty array". [toJson] drops the key
-   * when it is null, and a null pushed to an already-attached layer clears its filter.
+   * An unset filter compiles to a null literal and must stay null: mbgl reads an undefined filter
+   * as "match every feature", and anything else has to be a non-empty array — a scalar `true` fails
+   * the whole layer with "filter value must be a non empty array".
    */
   protected fun setFilterExpression(filter: CompiledExpression<*>) {
     setFilterJson(filter.toStyleJson())
   }
 
   /**
-   * Sets this layer's filter from style JSON that was never an expression here.
-   *
-   * [UnknownLayer] is the reason this exists: it restores a base-style layer from the JSON MapLibre
-   * reported, and that filter has no [CompiledExpression] behind it. Parsing one back out just to
-   * reach [setFilterExpression] would be a lossy detour through a representation the filter already
-   * left. The null contract is the same one described above, so both entry points meet here rather
-   * than each keeping their own copy of it.
+   * Sets this layer's filter from style JSON, for [UnknownLayer], which restores a base-style layer
+   * from reported JSON and has no [CompiledExpression] behind its filter. Same null contract.
    */
   protected fun setFilterJson(filter: JsonElement) {
     root["filter"] = filter
@@ -143,16 +120,9 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * Sends a property to an already-attached layer, reporting a rejected value rather than throwing.
-   *
-   * MapLibre refuses a value it cannot use — an enum member it never implemented, a shape the
-   * property does not take — and this runs inside a Compose update block, so letting that out kills
-   * the composition applying the style. Android and iOS hand the same value to the same core and
-   * keep going with the property unset, and the cost of agreeing with them is one property not
-   * rendering rather than a live map going down on a recomposition.
-   *
-   * Adding a layer is deliberately not this forgiving: [attach] fails loudly, because a value
-   * MapLibre refuses there takes the entire layer with it and there is nothing left to degrade to.
+   * Sends a property to an already-attached layer, logging a value MapLibre rejects rather than
+   * throwing: this runs inside a Compose update block, so an escaping exception would kill the
+   * composition applying the style. [attach] deliberately does throw instead.
    */
   private fun pushProperty(name: String, value: JsonElement) {
     binding.withMap { map ->
@@ -167,25 +137,17 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * Style-spec property names this layer was asked for and did not write, with why not.
-   *
-   * Kept rather than reported and forgotten because a descriptor is usually configured before it is
-   * attached, and an unattached layer has no binding and therefore no logger to report through.
-   * [attach] drains this once the layer has a style.
+   * Style-spec property names this layer was asked for and did not write, with why not. An
+   * unattached layer has no logger to report through, so [attach] drains this once it has a style.
    */
   private val unsupportedProperties = mutableMapOf<String, String>()
 
   /**
-   * Drops a property MapLibre Native will not accept, and says so once.
-   *
-   * Writing one anyway is not the safer option it looks like. MapLibre rejects an unknown property
-   * name in a layer object by refusing the entire layer — "layer doesn't support this property" —
-   * so a single unsupported property does not degrade to a missing effect, it takes the whole layer
-   * off the map and throws out of the Compose applier that was adding it.
+   * Drops a property MapLibre Native will not accept, and says so once. Writing it anyway is not an
+   * option: MapLibre refuses the entire layer over one unknown property name.
    *
    * @param value the value that was asked for. An unset optional property compiles to a null
-   *   literal, which asks for nothing; reporting those would put a warning in the log for every
-   *   layer in the composition rather than for the ones that wanted the property.
+   *   literal, which asks for nothing and so is not reported.
    */
   protected fun skipUnsupportedProperty(
     name: String,
@@ -204,10 +166,8 @@ internal actual sealed class Layer(actual val id: String) {
   /**
    * The complete layer object, as the style spec defines it.
    *
-   * Null-valued properties are omitted rather than written. An unset optional property compiles to
-   * a null literal, but the style spec has no null: MapLibre rejects the whole layer with "layer
-   * doesn't support this property" rather than treating it as absent. They are still pushed to an
-   * already-attached layer, where null is how a property is reset to its default.
+   * Null-valued properties are omitted: the style spec has no null, and MapLibre rejects the whole
+   * layer over one. They are still pushed to an attached layer, where null resets to the default.
    */
   internal fun toJson(): JsonObject = buildJsonObject {
     // `id` and `type` first: MapLibre reads the type before the properties that depend on it.
@@ -222,21 +182,8 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * Adds this layer to a style directly below [beforeLayerId], or on top when that is empty.
-   *
-   * MapLibre has no "add on top" call; an empty anchor means the same thing, which is what the
-   * common [LayerManager] relies on for its append case.
-   *
-   * Added as style JSON because that is the intended entry point, not for want of a typed adder.
-   * Nearly every paint and layout property can be data-driven, so a typed adder would still take
-   * JSON for the property values unless the FFI modeled the whole expression language; what is left
-   * to type is the six-field skeleton. That is a thin win against mirroring every layer type in
-   * every binding and re-mirroring it whenever the style spec grows. The three typed adders that do
-   * exist — color relief, hillshade, location indicator — are there for raster-DEM validation and
-   * the indicator's per-frame setters, not as the start of a set, and all three are
-   * JSON-expressible too. Asking for more has been declined upstream.
-   *
-   * Property updates use `setLayerProperty`, the shape Android uses.
+   * Adds this layer to a style directly below [beforeLayerId], or on top when that is empty:
+   * MapLibre has no "add on top" call, and an empty anchor means the same thing.
    */
   internal fun attach(binding: StyleBinding, beforeLayerId: String) {
     this.binding = binding
@@ -246,9 +193,7 @@ internal actual sealed class Layer(actual val id: String) {
       try {
         map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId)
       } catch (error: MaplibreException) {
-        // Rethrown with the layer and its source named. Native reports only "layer source does not
-        // exist", which does not say which layer or which source, and letting it escape kills the
-        // Compose thread that was applying style content.
+        // Native reports only "layer source does not exist", naming neither.
         throw IllegalStateException(
           "Could not add layer '$id' of type '$type'" +
             (sourceId?.let { " over source '$it'" } ?: "") +
@@ -261,16 +206,12 @@ internal actual sealed class Layer(actual val id: String) {
       "Layer '$id' was not added: its style is no longer loaded. It will not appear until the " +
         "style reloads and the composition re-adds it."
     }
-    // Reported here rather than where the property was set, because that is the first moment this
-    // layer has a logger to report through.
     unsupportedProperties.forEach { (name, reason) -> reportUnsupportedProperty(name, reason) }
   }
 
   /**
-   * Binds this descriptor to a layer that is already in the style, without adding it.
-   *
-   * Used when reading back the base style: those layers already exist in MapLibre, so adding them
-   * again would duplicate them and change the draw order.
+   * Binds this descriptor to a layer already in the style, without adding it. Used when reading
+   * back the base style, where adding again would duplicate the layer and change the draw order.
    */
   internal fun bindExisting(binding: StyleBinding) {
     this.binding = binding

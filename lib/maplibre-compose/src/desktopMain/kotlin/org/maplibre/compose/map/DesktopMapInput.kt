@@ -32,24 +32,14 @@ private const val KEYBOARD_PAN_STEP = 100.0
 private const val KEYBOARD_ZOOM_STEP = 2.0
 
 /**
- * How long a discrete input takes to move the camera.
- *
- * Arrow keys and double click are steps rather than continuous input, so they ease rather than jump
- * — which is what MapLibre does everywhere else. MapLibre GL JS eases both over 300ms, the mobile
- * SDKs animate their double tap, and the old desktop implementation inherited MapLibre's own
- * gesture handling through a SwingPanel and animated for the same reason. Only this rewrite made
- * them instant, by calling the unanimated camera commands.
- *
- * Held keys repeat faster than this, and each repeat supersedes the last transition rather than
- * queueing behind it, so holding an arrow key pans continuously instead of stepping.
+ * How long a discrete input (arrow key, double click) takes to ease the camera, matching MapLibre
+ * GL JS. A repeat supersedes the transition still in flight, so a held arrow key pans continuously.
  */
 private val INPUT_ANIMATION_DURATION = 300.milliseconds
 
 /**
- * Zoom exponent per unit of scroll, applied as `2^(-scroll * factor)`.
- *
- * Matches the maplibre-native-ffi Compose example; a plain multiplier per notch feels wrong because
- * zoom is logarithmic.
+ * Zoom exponent per unit of scroll, applied as `2^(-scroll * factor)`. Matches the
+ * maplibre-native-ffi Compose example.
  */
 private const val SCROLL_ZOOM_FACTOR = 0.25
 
@@ -57,11 +47,8 @@ private const val SCROLL_ZOOM_FACTOR = 0.25
  * Wires Compose pointer and keyboard input to a [DesktopMapSession].
  *
  * MapLibre Native deliberately does not own platform gestures, so desktop input is implemented here
- * rather than forwarded. Keeping it independent of the host factory means AWT, compose-glfw, and
- * any future host behave identically.
- *
- * Pointer positions arrive as physical Compose pixels and are converted once, here, to the logical
- * pixels MapLibre projects in. Converting again further down would double-apply the display scale.
+ * rather than forwarded. Pointer positions arrive as physical Compose pixels and are converted
+ * once, here, to the logical pixels MapLibre projects in.
  */
 internal fun Modifier.desktopMapInput(
   session: DesktopMapSession,
@@ -70,10 +57,8 @@ internal fun Modifier.desktopMapInput(
   focusRequester: FocusRequester,
 ): Modifier =
   this
-    // Key events only reach a focused node, so without these the keyboard handling below is
-    // unreachable — which is what it was. The map takes focus when clicked, the same bargain a
-    // web map makes: the keyboard works once you have interacted with the map, and typing
-    // elsewhere on the page is not stolen before then.
+    // Key events only reach a focused node; the map takes focus on press, so the keyboard works
+    // only once the user has interacted with the map.
     .onKeyEvent { event ->
       if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
       when (event.key) {
@@ -90,26 +75,22 @@ internal fun Modifier.desktopMapInput(
     .focusRequester(focusRequester)
     .focusable()
     .pointerInput(session, options, density) {
-      // The gesture flag is one MapLibre keeps until it is cleared, so a drag that ends by having
-      // its coroutine cancelled — disposal, a new key, losing the pointer — has to clear it here.
-      // The loop below only reaches its own release path when a pointer-up actually arrives.
+      // MapLibre keeps the gesture flag until it is cleared, so a drag ended by coroutine
+      // cancellation rather than a pointer-up must clear it in the finally below.
       var dragging = false
       try {
         awaitPointerEventScope {
-          // Tracks the previous pressed position rather than using awaitFirstDown, so any button
-          // starts a drag. Waiting for a "first down" misses the secondary button, and reading the
-          // button state once at press time misses it too: whether the drag rotates is re-evaluated
-          // on every event, because the modifier or button can change mid-drag.
+          // Tracks the previous pressed position rather than using awaitFirstDown, so that the
+          // secondary button also starts a drag and rotation is re-evaluated on every event
+          // (button and modifier can change mid-drag).
           var previous: PointerInputChange? = null
-          // A press that never moves far enough is a click, not a drag. Tracked in logical pixels
-          // so the threshold means the same thing at any display scale.
+          // Cleared once the pointer travels past the click slop; null means "no longer a click".
+          // Compared in logical pixels so the threshold means the same thing at any display scale.
           var pressOrigin: Offset? = null
           var pressWasSecondary = false
           var pressWasShifted = false
-          // The previous click, for double-click detection. Compose has no click count on desktop,
-          // so it is time and distance. The threshold is Compose's own rather than the fixed 400ms
-          // the pre-rewrite implementation used; if double click starts feeling finicky, that
-          // difference is the first place to look.
+          // Compose has no click count on desktop, so double click is time plus distance. The
+          // timeout is Compose's own, not the fixed 400ms the pre-rewrite implementation used.
           var lastClickAt: Long? = null
           var lastClickOrigin = Offset.Zero
 
@@ -122,7 +103,6 @@ internal fun Modifier.desktopMapInput(
                 dragging = false
                 session.onGestureEnded()
               } else {
-                // Released without ever exceeding the drag threshold, so this was a click.
                 pressOrigin?.let { origin ->
                   val where = origin.toLogicalDpOffset(density)
                   if (pressWasSecondary) {
@@ -137,8 +117,8 @@ internal fun Modifier.desktopMapInput(
                       } == true
 
                     if (isDoubleClick && options.isDoubleClickZoomEnabled) {
-                      // Anchored at the pointer, like scroll zoom, so the point under the cursor
-                      // stays put. Shift inverts it, which is the convention every web map uses.
+                      // Anchored at the pointer so the point under the cursor stays put; shift
+                      // inverts the direction, as web maps do.
                       session.scaleBy(
                         scale =
                           if (pressWasShifted) 1.0 / KEYBOARD_ZOOM_STEP else KEYBOARD_ZOOM_STEP,
@@ -148,8 +128,8 @@ internal fun Modifier.desktopMapInput(
                       // Cleared so a third click starts a new pair rather than zooming again.
                       lastClickAt = null
                     } else {
-                      // The first click of a pair still reports, because it cannot be known yet
-                      // that a second is coming and swallowing it would make every click late.
+                      // The first click of a pair still reports; withholding it until the
+                      // double-click timeout would make every click late.
                       session.onPrimaryClick(where)
                       lastClickAt = now
                       lastClickOrigin = origin
@@ -170,8 +150,7 @@ internal fun Modifier.desktopMapInput(
               pressWasShifted = event.keyboardModifiers.isShiftPressed
               // Taking focus on press is what makes the keyboard handling above reachable.
               runCatching { focusRequester.requestFocus() }
-              // A new press takes over from any transition still in flight, which would otherwise
-              // keep animating against the pointer.
+              // A transition still in flight would keep animating against the pointer.
               session.cancelTransitions()
               continue
             }
@@ -197,8 +176,7 @@ internal fun Modifier.desktopMapInput(
     }
     .pointerInput(session, options, density) {
       awaitEachGesture {
-        // Scroll is a separate gesture loop: it arrives without a preceding press, so it cannot be
-        // folded into the drag loop above.
+        // A separate loop because scroll arrives without a preceding press.
         while (true) {
           val event = awaitPointerEvent()
           if (event.type != PointerEventType.Scroll) continue
@@ -207,8 +185,7 @@ internal fun Modifier.desktopMapInput(
           val scrollY = change.scrollDelta.y
           if (scrollY == 0f) continue
 
-          // Anchored at the pointer so the point under the cursor stays put, which is what makes
-          // scroll zoom feel attached to the map rather than to the viewport.
+          // Anchored at the pointer so the point under the cursor stays put.
           session.scaleBy(
             scale = Math.pow(2.0, -scrollY.toDouble() * SCROLL_ZOOM_FACTOR),
             anchor = options.zoomAnchor(change.position.toLogicalDpOffset(density)),
@@ -228,7 +205,6 @@ private fun applyDrag(
 ) {
   if (rotating) {
     if (!options.isDragRotateTiltEnabled) return
-    // One call, so bearing and pitch move together from a single drag.
     session.rotateAndPitchBy(
       deltaX = (delta.x / density.density).toDouble(),
       deltaY = (delta.y / density.density).toDouble(),
@@ -261,14 +237,8 @@ private fun zoom(session: DesktopMapSession, options: GestureOptions, scale: Dou
 }
 
 /**
- * Where a pointer-driven zoom should pivot: the pointer, or the viewport centre.
- *
- * Zooming about the pointer keeps the point under the cursor still, which is what makes the gesture
- * feel attached to the map — but it does that by moving the camera's target, so it is a way to pan
- * with the pointer. `PositionLocked` and `ZoomOnly` both promise that zoom stays available while
- * the position does not move, and a pointer-anchored zoom quietly breaks that promise. When the
- * pointer may not move the map, zoom pivots on the centre instead, which is what the keyboard zoom
- * already does.
+ * Where a pointer-driven zoom should pivot: the pointer, or the viewport centre. Anchoring at the
+ * pointer moves the camera target, so when panning is disabled zoom pivots on the centre instead.
  */
 private fun GestureOptions.zoomAnchor(pointer: DpOffset): DpOffset? =
   if (isDragPanEnabled) pointer else null

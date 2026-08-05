@@ -18,13 +18,9 @@ import org.maplibre.nativeffi.resource.ResourceResponseStatus
 private const val WAIT_SECONDS = 10L
 
 /**
- * What the provider does with a request between taking it and answering it.
- *
- * The one thing that must hold is that taking a request does not read it: the callback arrives on a
- * MapLibre network thread holding a lease that `RuntimeHandle.close()` spin-waits on, so a read
- * performed there is teardown blocked for the length of the read. Everything else here is the
- * consequence of answering later — a request cancelled in the meantime, and a provider shut down
- * with reads still in flight.
+ * What the provider does with a request between taking it and answering it. Taking a request must
+ * not read it: the callback arrives on a MapLibre network thread holding a lease that
+ * `RuntimeHandle.close()` spin-waits on.
  *
  * Driven through [DesktopResourceProvider.take] with a stand-in request, because the binding hands
  * out `ResourceRequestHandle` only from inside its own callback and the type is final.
@@ -62,8 +58,6 @@ class DesktopResourceRequestTest {
 
     provider.take(request, URL, URL)
 
-    // The read is running on the provider's thread and is holding still, so a `take` that read
-    // inline could not have reached this line.
     assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
     assertEquals(0, request.completions, "the request was answered before the read finished")
     finishRead.countDown()
@@ -124,7 +118,6 @@ class DesktopResourceRequestTest {
     val second = RecordedRequest()
     provider.take(first, URL, URL)
     assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
-    // Taken while the reader is occupied, so it is sitting in the queue when the shutdown begins.
     provider.take(second, OTHER_URL, OTHER_URL)
 
     val closed = CountDownLatch(1)
@@ -145,7 +138,6 @@ class DesktopResourceRequestTest {
 
     provider.take(request, URL, URL)
 
-    // Answered inline, so nothing is left for a reader that no longer exists to answer.
     assertEquals(emptyList(), reads.toList(), "a refused request must not be read")
     assertEquals(1, request.completions, "an unanswered request leaves MapLibre waiting for it")
     assertEquals(ResourceResponseStatus.ERROR, request.response.status)
@@ -156,9 +148,8 @@ class DesktopResourceRequestTest {
 
   @Test
   fun `a read that throws still closes the request`() {
-    // Nothing in the provider's own reader throws — it reports failures as responses — so this is
-    // about the handle: an exception escaping the reader thread would leave the native request
-    // alive until the binding's leak cleaner noticed it.
+    // An exception escaping the reader thread would leave the native request alive until the
+    // binding's leak cleaner noticed it.
     val provider = provider { _, _ -> throw IllegalStateException("the disk went away") }
     val request = RecordedRequest()
 

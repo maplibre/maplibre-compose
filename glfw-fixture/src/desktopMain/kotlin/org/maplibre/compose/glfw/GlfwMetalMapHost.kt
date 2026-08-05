@@ -14,24 +14,12 @@ import org.maplibre.compose.desktop.NativeHandle
 import org.maplibre.compose.desktop.TextureOrigin
 
 /**
- * Bridges MapLibre's Metal rendering into a compose-glfw window on macOS.
+ * Bridges MapLibre's Metal rendering into a compose-glfw window on macOS. Same shape as the default
+ * macOS host, but the `MTLDevice` and Skia `DirectContext` come from [MetalRenderContext], so there
+ * is no reflection and no AWT event thread to route allocations around.
  *
- * Structurally this is the same bridge the default host runs — allocate an `id<MTLTexture>` on the
- * device Compose draws with, let MapLibre render into it, wrap it as a Skia surface to composite it
- * — because that is what Metal-to-Metal is. What differs is where the two ends come from: both the
- * `MTLDevice` and Skia's `DirectContext` arrive as fields of compose-glfw's [MetalRenderContext],
- * so nothing here reflects into anything, and nothing here knows what a `ComposeWindow` is.
- *
- * The other visible difference is what is missing. The default host has to route every allocation
- * and every release around the AWT event thread, because reading Skiko's device and dropping a Skia
- * wrapper both block on it, and the renderer thread is usually the thread the event thread is
- * waiting for. None of that applies here, so `resize` is one hop instead of two and there is no
- * deadlock to avoid.
- *
- * Synchronization matches the default macOS host, for the same measured reason: this bridge inserts
- * no fence or event of its own, and MapLibre's Metal texture backend commits its command buffer and
- * waits on it from inside `renderUpdate`, so the texture is finished before `withProducerAccess`
- * returns and `draw` can sample it.
+ * Unfenced, like the default host: MapLibre's Metal texture backend commits and waits on its
+ * command buffer inside `renderUpdate`.
  */
 internal class GlfwMetalMapHost(renderContext: MetalRenderContext) : DesktopMapHost {
   private val device = renderContext.device
@@ -66,11 +54,8 @@ internal class GlfwMetalMapHost(renderContext: MetalRenderContext) : DesktopMapH
   }
 
   /**
-   * Runs [action] on the renderer thread, inside an autorelease pool.
-   *
-   * MapLibre's Metal backend returns autoreleased command buffers and encoders from `renderUpdate`,
-   * and the FFI documentation requires that call to happen inside a pool. The renderer thread is
-   * one this fixture created, so it has none of its own.
+   * Runs [action] on the renderer thread, inside an autorelease pool. The FFI requires
+   * `renderUpdate` to run inside a pool, and this thread has none of its own.
    */
   override fun <T> withProducerAccess(frame: DesktopMapFrame, action: () -> T): T =
     rendererThread.run {
@@ -86,8 +71,7 @@ internal class GlfwMetalMapHost(renderContext: MetalRenderContext) : DesktopMapH
 
   override fun close() {
     try {
-      // Retired rather than freed directly, so that the Skia wrappers and the textures they wrap go
-      // in the one order that is safe, through the one path that knows it.
+      // Retired rather than freed directly, so the Skia wrapper is dropped before its texture.
       takeTexture()?.let(presenter::retire)
       presenter.close()
     } finally {
@@ -115,9 +99,7 @@ internal class GlfwMetalMapHost(renderContext: MetalRenderContext) : DesktopMapH
           )
         texture = NativeHandle(address)
         pixelFormat = GlfwMetalTexture.pixelFormat(address)
-        // The allocation is skipped when the physical size did not change, in which case the old
-        // texture comes back and must not be retired. The generation still advances below, because
-        // the logical extent the session renders with did change.
+        // create() reuses the old texture when the physical size is unchanged; don't retire it.
         oldTexture.takeIf { !it.isNull && address != it.address }
       }
 
@@ -130,8 +112,6 @@ internal class GlfwMetalMapHost(renderContext: MetalRenderContext) : DesktopMapH
     MetalTextureTarget(
       texture = texture.takeIf { !it.isNull } ?: error("Metal texture allocation returned null"),
       pixelFormat = pixelFormat,
-      // Metal textures are addressed from the top left, and this host allocates this one itself, so
-      // the row order is never in question.
       origin = TextureOrigin.TOP_LEFT,
       extent = extent,
       generation = generation,

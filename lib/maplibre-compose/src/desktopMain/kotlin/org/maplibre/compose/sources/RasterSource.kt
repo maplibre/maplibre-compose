@@ -12,7 +12,7 @@ import kotlinx.serialization.json.putJsonArray
 public actual class RasterSource : Source {
 
   // A tiled source has no mutable properties in the common API, so its definition is fixed at
-  // construction and the descriptor is just this object.
+  // construction.
   private val json: JsonObject
 
   public actual constructor(id: String, uri: String, tileSize: Int) : super(id) {

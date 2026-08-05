@@ -14,13 +14,9 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
 /**
- * How long a park lasts before the loop pumps regardless of any wake.
- *
- * The runtime's wake flag covers style, tile, offline, and resource responses, queued events, and
- * this class's own [WakeSource], and every one of those returns the pump immediately — so this is a
- * backstop rather than the cadence. It is bounded rather than indefinite because timers and ready
- * sockets set the flag only when they queue owner-thread work, so a download waiting out a retry
- * has nothing to signal with.
+ * How long a park lasts before the loop pumps regardless of any wake. A backstop rather than the
+ * cadence: timers and ready sockets set the wake flag only when they queue owner-thread work, so a
+ * download waiting out a retry has nothing to signal with.
  */
 private const val PUMP_PARK_MILLIS = 100L
 
@@ -29,11 +25,11 @@ private const val PUMP_PARK_MILLIS = 100L
  * calls happen.
  *
  * A runtime belongs to the thread that created it, there may be only one per thread, and that
- * thread may not be the AWT event thread, a coroutine dispatcher thread, or any other pooled thread
- * that something else might also put a runtime on. The offline manager therefore owns a thread of
- * its own rather than borrowing one; a map's renderer thread will not do, because offline
- * management outlives any particular map. Two runtimes may share one cache database — measured, not
- * assumed, by `SharedCacheDatabaseTest` — so this costs a thread, not correctness.
+ * thread may not be the AWT event thread or any other pooled thread that something else might also
+ * put a runtime on. Hence a dedicated thread rather than a borrowed one: offline management
+ * outlives any particular map, so a map's renderer thread will not do. Two runtimes sharing one
+ * cache database is safe, measured by `SharedCacheDatabaseTest`, so this costs a thread and not
+ * correctness.
  */
 internal class DesktopOfflineRuntime(
   private val options: DesktopRuntimeOptions,
@@ -58,17 +54,15 @@ internal class DesktopOfflineRuntime(
   private val tasks = LinkedBlockingQueue<OwnerTask>()
 
   /**
-   * Guards [accepting] and [wake] together, so that a task cannot be queued after the queue has
-   * been drained for the last time, and a signal cannot race the wake source's close.
+   * Guards [accepting] and [wake] together: no task may be queued after the final drain, and no
+   * signal may race the wake source's close.
    */
   private val acceptLock = ReentrantLock()
   private var accepting = true
 
   /**
-   * Releases the owner thread from a parked pump. Acquired on that thread; signalled from any.
-   *
-   * Held under [acceptLock] because signalling a *closed* source throws, so the only safe way to
-   * retire it is to stop accepting and take it out in the same critical section.
+   * Releases the owner thread from a parked pump. Acquired on that thread; signalled from any, but
+   * always under [acceptLock] because signalling a *closed* source throws.
    */
   private var wake: WakeSource? = null
 
@@ -84,9 +78,8 @@ internal class DesktopOfflineRuntime(
 
   private val thread =
     Thread(::runLoop, "maplibre-compose-offline").apply {
-      // The pump must never keep a shutting-down application alive; disposal is what stops it.
-      // A parking pump also ignores interruption, so shutdown() is the only way to stop this
-      // thread — interrupting it does nothing.
+      // The pump must never keep a shutting-down application alive, and a parking pump ignores
+      // interruption: shutdown() is the only way to stop this thread.
       isDaemon = true
     }
 
@@ -103,8 +96,7 @@ internal class DesktopOfflineRuntime(
   /** Asks the owner thread to tear down. Returns immediately; nothing is awaited. */
   fun shutdown() {
     stopRequested = true
-    // A signal rather than a queued task: it releases a parked pump without going through the
-    // queue, and it still works once the accept gate has closed, where post would do nothing.
+    // A signal, not a queued task: it still works after the accept gate closes; post would not.
     acceptLock.withLock { wake?.signal() }
   }
 
@@ -118,8 +110,8 @@ internal class DesktopOfflineRuntime(
     acceptLock.withLock {
       if (!accepting) return false
       tasks.add(OwnerTask(task, reject))
-      // Signalled under the lock so it cannot race the source's close, which would throw. This is
-      // safe in the direction that matters: the owner thread never holds this lock across a pump.
+      // Signalled under the lock so it cannot race the source's close, which would throw. The
+      // owner thread never holds this lock across a pump.
       wake?.signal()
       true
     }
@@ -177,8 +169,7 @@ internal class DesktopOfflineRuntime(
 
     val source =
       try {
-        // Owner-thread affine: acquireWakeSource validates the thread natively, so this cannot be
-        // hoisted into start().
+        // Owner-thread affine (validated natively), so this cannot be hoisted into start().
         runtime.acquireWakeSource()
       } catch (error: Throwable) {
         logger.e(error) { "Could not acquire a wake source for the MapLibre offline runtime" }
@@ -189,15 +180,13 @@ internal class DesktopOfflineRuntime(
 
     try {
       while (!stopRequested) {
-        // Queued work first. A task posted before the source was published set no wake flag, and
-        // the pump below clears the flag before it drains, so checking the queue only after a pump
-        // returns is what would leave such a task parked behind.
+        // Queued work first: a task posted before the wake source was published set no flag, so
+        // draining only after a pump returns would leave it parked behind.
         runTasks(runtime)
         if (stopRequested) break
         check(!acceptLock.isHeldByCurrentThread) { "the pump must not run under acceptLock" }
         // The runtime makes no progress on its own: no event is delivered and no download advances
-        // except inside a pump. Parking here rather than on the task queue is what lets native
-        // work, a queued event, or a posted task all release the same wait.
+        // except inside a pump.
         runtime.pump(parkMillis)
         drainEvents(runtime)
       }
@@ -252,7 +241,6 @@ internal class DesktopOfflineRuntime(
     }
   }
 
-  /** Runs every queued task. */
   private fun runTasks(runtime: RuntimeHandle) {
     while (true) {
       runTask(runtime, tasks.poll() ?: break)
@@ -264,8 +252,8 @@ internal class DesktopOfflineRuntime(
       task.run(runtime)
     } catch (error: Throwable) {
       logger.e(error) { "An offline runtime task failed" }
-      // The task may have failed before it could report anything, so the caller is told here. A
-      // caller that already heard ignores this.
+      // The task may have failed before reporting anything; a caller that already heard ignores
+      // this.
       runCatching { task.reject(error) }
     }
   }
@@ -278,8 +266,7 @@ internal class DesktopOfflineRuntime(
     rejectQueuedTasks(disposed)
 
     // Closing the runtime discards every queued event, so anything still waiting for its
-    // OFFLINE_OPERATION_COMPLETED would wait forever. Each one is failed explicitly instead, and
-    // nothing is awaited here.
+    // OFFLINE_OPERATION_COMPLETED must be failed explicitly here or it waits forever.
     val outstanding = pending.values.toList()
     pending.clear()
     outstanding.forEach { operation ->
@@ -289,17 +276,15 @@ internal class DesktopOfflineRuntime(
         .onFailure { logger.e(it) { "Failed to cancel the operation to ${operation.description}" } }
     }
 
-    // Last, and only after its children: the cache budget and the resource provider are retired
-    // first, then the runtime, which a failed close leaves live and its thread unable to host
-    // another one -- which is why this thread ends here rather than being reused. This used to
-    // close the runtime directly and never quiesced the provider at all; see DesktopRuntimeOwner.
+    // Last, and only after its children: the cache budget and the resource provider retire first,
+    // then the runtime.
     runtimeOwner?.close()
     runtimeOwner = null
   }
 
   private fun rejectQueuedTasks(reason: Throwable) {
-    // Stop accepting first, so the drain below cannot race a task that would then never run, and
-    // take the wake source out in the same breath so nothing can signal one that is about to close.
+    // Stop accepting first so the drain cannot race a task that would then never run, and take the
+    // wake source out in the same critical section so nothing can signal one that is closing.
     val source = acceptLock.withLock {
       accepting = false
       wake.also { wake = null }
@@ -307,8 +292,7 @@ internal class DesktopOfflineRuntime(
     val abandoned = mutableListOf<OwnerTask>()
     tasks.drainTo(abandoned)
     abandoned.forEach { runCatching { it.reject(reason) } }
-    // A wake source is its own native handle and outlives its runtime, so closing the runtime does
-    // not release it; the leak cleaner reports one that is dropped.
+    // A wake source is its own native handle: closing the runtime does not release it.
     source?.let { closing ->
       runCatching { closing.close() }
         .onFailure { logger.w(it) { "Failed to close the offline runtime's wake source" } }

@@ -10,16 +10,8 @@ import org.maplibre.compose.demoapp.DemoApp
 import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
 
 /**
- * The demo application, in a GLFW window instead of an AWT one.
- *
- * This file is the entire integration. It is the same `DemoApp` the Compose Desktop demo runs,
- * unchanged and unaware of any of this; the only difference between the two is which
- * `DesktopMapHostFactory` is in scope. That is the claim the host SPI makes, and running the whole
- * demo rather than a lone map is what makes the claim worth anything — the style switcher, the
- * gesture demos, and the offline screens all go through this host too.
- *
- * `InstallGlfwMainDispatcher` is the one line that is not about maps at all; see its documentation
- * for why a non-AWT Compose host currently has to supply `Dispatchers.Main` itself.
+ * The same `DemoApp` the Compose Desktop demo runs, in a GLFW window instead of an AWT one; the
+ * only difference is which `DesktopMapHostFactory` is in scope.
  *
  * Run it with `./gradlew :glfw-fixture:runGlfwFixture`. On macOS the launcher must pass
  * `-XstartOnFirstThread`; the Gradle task does.

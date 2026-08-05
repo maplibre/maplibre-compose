@@ -19,37 +19,25 @@ import org.maplibre.compose.desktop.NativeHandle
 import org.maplibre.compose.desktop.TextureOrigin
 
 /**
- * How many snapshots to hold alive after handing them to Compose.
- *
- * Compose records draw commands and replays them later, so an image closed immediately after
- * `drawImageRect` can be sampled after it is gone. Retaining a short ring keeps recorded frames
- * valid without unbounded growth.
+ * How many snapshots to hold alive after handing them to Compose. Compose records draw commands and
+ * replays them later, so an image closed immediately after `drawImageRect` can be sampled after it
+ * is gone.
  */
 private const val RETAINED_IMAGE_COUNT = 8
 
 /**
  * Draws MapLibre's Metal texture into the Compose scene compose-glfw is rendering.
  *
- * The default host has to find Skia's [DirectContext] by reflecting into a `SkiaLayer` on the AWT
- * event thread, and then hop back to that thread every time it wants to free a Skia object.
- * compose-glfw hands the same [DirectContext] over as a field of `MetalRenderContext`, so this
- * class is handed it at construction and never asks the host anything again — which is the single
- * biggest difference between the two bridges, and the reason this one is roughly half the size.
- *
- * Not thread-safe by design: everything here runs on the GLFW main thread, which is the only thread
+ * Not thread-safe by design: everything here runs on the GLFW main thread, the only thread
  * compose-glfw renders its scene from and therefore the only one that may touch the context.
  */
 internal class GlfwMetalPresenter(private val context: DirectContext) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
   /**
-   * Textures whose Skia wrappers are still alive, waiting for a thread that may free them.
-   *
-   * A queue rather than a direct call because a texture is retired by the host's renderer thread,
-   * during a resize, and Skia objects belong to whichever thread owns the [DirectContext]. The
-   * default host solves the same problem by hopping to the AWT event thread; compose-glfw exposes
-   * no equivalent "run this on the host thread" hook, so the work is deferred to the next draw
-   * instead. There is always a next draw: a resize is followed by a frame request.
+   * Textures whose Skia wrappers are still alive, waiting for a thread that may free them. A
+   * texture is retired by the host's renderer thread, but Skia objects belong to whichever thread
+   * owns the [DirectContext], so freeing is deferred to the next draw.
    */
   private val retired = ConcurrentLinkedQueue<Long>()
 
@@ -78,18 +66,10 @@ internal class GlfwMetalPresenter(private val context: DirectContext) : AutoClos
   }
 
   /**
-   * Frees retired textures, except one the caller is about to draw.
-   *
-   * The exception is the rule `DesktopRenderTarget.generation` now states, and this fixture is what
-   * put it there. The surface keeps presenting the last target that was rendered into while
-   * MapLibre catches up with a new size, so a texture retired inside `acquireFrame` can be handed
-   * straight back to this method in the same frame. Freeing it on the generation bump, which is
-   * what this host did first, means `BackendRenderTarget.makeMetal` calls `CFRetain` on a released
-   * `MTLTexture` and traps — `EXC_BREAKPOINT` on the main thread, within a minute of a session that
-   * has a couple of window resizes in it.
-   *
-   * Deferring costs one extra texture and cannot loop: the next target with a different address
-   * releases it.
+   * Frees retired textures, except one the caller is about to draw: a texture retired inside
+   * `acquireFrame` can be presented again in the same frame, and freeing it early makes
+   * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap. See
+   * `DesktopRenderTarget.generation`.
    */
   private fun releaseRetired(keepAlive: Long) {
     if (retired.isEmpty()) return

@@ -12,18 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
-/**
- * A frame that fails once must not blank the map forever.
- *
- * This is the sleep/wake failure, reproduced without a machine that sleeps. Losing the graphics
- * contexts under the map makes the next frame throw, and the surface used to read that single throw
- * as terminal: it latched into `Failed`, stopped drawing, and left a map that was otherwise
- * perfectly alive showing nothing, with both its threads parked and one line in the log.
- *
- * The fake host is the right vehicle because none of this is about the GPU. What is under test is
- * whether the surface tells the renderer the surface was lost, gives it back, and asks for the
- * frame that proves it worked — and whether it knows when to stop.
- */
+/** A frame that fails once must not blank the map forever, and retries must be bounded. */
 @OptIn(ExperimentalTestApi::class)
 class DesktopMapSurfaceRecoveryTest {
 
@@ -70,13 +59,7 @@ class DesktopMapSurfaceRecoveryTest {
     )
   }
 
-  /**
-   * A device that never comes back.
-   *
-   * The count is the assertion that matters. A surface that retried forever would still look
-   * healthy in every other respect — it would just redraw and fail for as long as the window is
-   * open — so the only way to see the bound is to count the calls it made.
-   */
+  /** A device that never comes back; only the call count can show the retry bound. */
   @Test
   fun `a host that fails every acquire gives up after the retry bound`() = runComposeUiTest {
     val renderer = RecordingRenderer()
@@ -87,8 +70,6 @@ class DesktopMapSurfaceRecoveryTest {
     waitUntil(timeoutMillis = TIMEOUT_MILLIS) { latest is DesktopMapSurfaceState.Failed }
 
     val host = factory.created.single()
-    // One frame that failed, then one retry per attempt the bound allows, and nothing after the
-    // surface latched.
     assertEquals(
       MAX_RECOVERY_ATTEMPTS + 1,
       host.acquireCount,
@@ -105,7 +86,6 @@ class DesktopMapSurfaceRecoveryTest {
       "the diagnostic should say how many attempts were made: ${failed.diagnostic}",
     )
 
-    // Nothing further, even after the composition has had every chance to draw again.
     waitForIdle()
     assertEquals(
       MAX_RECOVERY_ATTEMPTS + 1,
@@ -115,12 +95,8 @@ class DesktopMapSurfaceRecoveryTest {
   }
 
   /**
-   * A failure a new surface cannot fix.
-   *
-   * The map's own runtime dying is reported through the same channel as a lost device — a throw out
-   * of `render` — and looks identical from here. Retrying it would replace a reported failure with
-   * a blank map, because a session that has closed itself skips every frame afterwards without
-   * throwing anything for the surface to notice.
+   * A failure a new surface cannot fix: a session that has closed itself skips every later frame
+   * silently, so retrying would replace a reported failure with a blank map.
    */
   @Test
   fun `a fatal renderer failure latches without retrying`() = runComposeUiTest {
@@ -145,8 +121,7 @@ class DesktopMapSurfaceRecoveryTest {
         renderer = renderer,
         runtimeBackends = setOf(MapRenderBackend.VULKAN),
         factory = factory,
-        // A fixed size, because a surface with no extent never acquires a frame and every test here
-        // would pass by doing nothing.
+        // A surface with no extent never acquires a frame, so every test here would pass vacuously.
         modifier = Modifier.size(64.dp),
         logger = Logger.withTag("surface-recovery-test"),
         onStateChanged = onStateChanged,
@@ -154,13 +129,7 @@ class DesktopMapSurfaceRecoveryTest {
     }
   }
 
-  /**
-   * A renderer that records what the surface did to it, and fails on demand.
-   *
-   * Deliberately not a [org.maplibre.compose.map.DesktopMapSession]: the question is what the
-   * surface does with a failure, and a real session would answer it with a MapLibre runtime, a
-   * thread, and a style load in the way.
-   */
+  /** A renderer that records what the surface did to it, and fails on demand. */
   private class RecordingRenderer(
     private var failingRenders: Int = 0,
     private val fatal: Boolean = false,
@@ -168,7 +137,7 @@ class DesktopMapSurfaceRecoveryTest {
 
     override val backend: MapRenderBackend = MapRenderBackend.VULKAN
 
-    /** Surface lifecycle calls in order, which is what recovery is made of. */
+    /** Surface lifecycle calls in order. */
     val lifecycle: MutableList<String> = mutableListOf()
 
     var renderedFrames: Int = 0

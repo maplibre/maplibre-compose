@@ -13,10 +13,7 @@ actual constructor(locale: Locale, maximumFractionDigits: Int) {
     NSNumberFormatter().also {
       it.numberStyle = NSNumberFormatterDecimalStyle
       it.maximumFractionDigits = maximumFractionDigits.toULong()
-      // Rebuilt from the language tag rather than read off the Compose locale, whose
-      // `platformLocale` became internal in Compose 1.11. The tag is the public accessor and
-      // NSLocale accepts a BCP-47 identifier, so this is the same locale by a supported route
-      // rather than a fallback.
+      // Rebuilt from the BCP-47 tag because Compose 1.11 made `platformLocale` internal.
       it.locale = NSLocale(localeIdentifier = locale.toLanguageTag())
     }
 

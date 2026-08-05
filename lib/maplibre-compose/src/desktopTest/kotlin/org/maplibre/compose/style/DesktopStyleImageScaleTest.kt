@@ -8,12 +8,8 @@ import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.HeadlessMapFixture
 
 /**
- * A style image is uploaded with the scale it was rasterized at.
- *
- * MapLibre sizes a style image as `pixels / pixelRatio`, and `ImageManager` draws a painter through
- * Compose's density — so a 16.dp icon is a 32x32 bitmap on a 2x display. Uploading that with a
- * pixel ratio of 1 draws it at 32 logical pixels: every marker twice the size it should be, on
- * exactly the displays where nothing else looks wrong, which is how it was reported.
+ * A style image is uploaded with the scale it was rasterized at: MapLibre sizes a style image as
+ * `pixels / pixelRatio`, so a wrong ratio draws every icon at the wrong size on hi-dpi displays.
  */
 class DesktopStyleImageScaleTest {
 
@@ -38,8 +34,7 @@ class DesktopStyleImageScaleTest {
       val info =
         assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be in the style")
       assertEquals(expected, info.pixelRatio, "pixel ratio")
-      // The upload itself is unscaled; only the ratio it is tagged with changes, which is what
-      // makes MapLibre draw it at SIZE / pixelRatio logical pixels.
+      // The upload itself is unscaled; only the ratio it is tagged with changes.
       assertEquals(SIZE, info.width, "width")
     }
   }

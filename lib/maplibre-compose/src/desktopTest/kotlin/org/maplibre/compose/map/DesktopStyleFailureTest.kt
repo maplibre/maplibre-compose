@@ -6,13 +6,12 @@ import org.maplibre.compose.desktop.HeadlessMapFixture
 import org.maplibre.compose.style.BaseStyle
 
 /**
- * A style that fails to load must be reported, not thrown out of the frame.
+ * A style that fails to load must be reported, not thrown out of the frame, since applying a style
+ * happens inside the host's draw pass.
  *
- * The two setters report differently and neither signature says so. `setStyleJson` parses inline,
- * so a malformed style throws from the setter *and* queues a loading-failed event; `setStyleUrl`
- * only starts a fetch, so it reports through the event alone. Applying a style happens inside the
- * host's draw pass, so the throwing case would otherwise take the frame with it — for what is
- * caller input rather than a bug in the map.
+ * The two setters report differently: `setStyleJson` parses inline, so a malformed style throws
+ * from the setter *and* queues a loading-failed event, while `setStyleUrl` only starts a fetch and
+ * reports through the event alone.
  */
 class DesktopStyleFailureTest {
 
@@ -45,7 +44,6 @@ class DesktopStyleFailureTest {
     }
   }
 
-  /** A failing style must not spin the render loop retrying itself on every frame. */
   @Test
   fun `a failed style is not retried on every frame`() {
     val fixture = HeadlessMapFixture.create()

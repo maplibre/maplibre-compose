@@ -15,10 +15,9 @@ import org.maplibre.nativeffi.style.ImageStretch
 /**
  * Content insets survive the trip into MapLibre as a stretch box in image pixels.
  *
- * The insets a caller gives are distances in from each edge in [androidx.compose.ui.unit.Dp], and
- * what MapLibre stores is an interval per axis plus a content box in pixels — two conversions that
- * are easy to get right at 1x and wrong everywhere else. These read the numbers back off the map
- * rather than trusting that the upload did not throw.
+ * Callers give distances in from each edge in [androidx.compose.ui.unit.Dp]; MapLibre stores an
+ * interval per axis plus a content box in pixels, a conversion that is easy to get right at 1x and
+ * wrong everywhere else.
  */
 class DesktopStyleImageInsetsTest {
 
@@ -54,8 +53,7 @@ class DesktopStyleImageInsetsTest {
       it.loadStyle(BaseStyle.Empty, extent = HeadlessMapFixture.RETINA_EXTENT)
       val style = assertIs<DesktopStyle>(it.style, "the style should have reached the callbacks")
 
-      // The same logical image as above: a 2x display rasterizes it into twice as many pixels, so
-      // the insets have to land twice as far in to describe the same border.
+      // The same logical image as above at 2x, so the insets have to land twice as far in.
       style.addImage(
         IMAGE_ID,
         ImageBitmap(64, 64),
@@ -81,8 +79,8 @@ class DesktopStyleImageInsetsTest {
       it.loadStyle(BaseStyle.Empty, extent = HeadlessMapFixture.DEFAULT_EXTENT)
       val style = assertIs<DesktopStyle>(it.style, "the style should have reached the callbacks")
 
-      // 20 + 20 in from the sides of a 32-pixel image crosses over: the left edge of the box lands
-      // to the right of its right edge, which MapLibre would divide by zero over.
+      // 20 + 20 in from the sides of a 32-pixel image crosses over, which MapLibre would divide by
+      // zero over.
       style.addImage(
         IMAGE_ID,
         ImageBitmap(32, 32),
@@ -94,9 +92,8 @@ class DesktopStyleImageInsetsTest {
         assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should still be uploaded")
       assertNull(info.content, "content box")
       assertEquals(0L, info.stretchXCount, "horizontal stretch count")
-      // The vertical axis is dropped with the horizontal one: half a nine-patch is not a thing
-      // MapLibre draws, and one axis of stretch on an image asking for both is a worse lie than
-      // none.
+      // The vertical axis is dropped with the horizontal one: MapLibre does not draw half a
+      // nine-patch.
       assertEquals(0L, info.stretchYCount, "vertical stretch count")
       assertEquals(
         emptyList<ImageStretch>() to emptyList(),

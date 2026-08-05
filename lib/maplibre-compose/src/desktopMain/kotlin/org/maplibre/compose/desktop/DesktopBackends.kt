@@ -6,8 +6,7 @@ import androidx.compose.runtime.Immutable
  * A graphics backend MapLibre Native can render a map with.
  *
  * MapLibre is the *producer*: it renders into a target that Compose later draws. Which backends are
- * available depends on the MapLibre Native FFI runtime the application packaged, not on this
- * library.
+ * available depends on the MapLibre Native FFI runtime the application packaged.
  */
 public enum class MapRenderBackend {
   METAL,
@@ -30,8 +29,8 @@ public enum class ComposeRenderBackend {
 /**
  * One producer/consumer combination a [DesktopMapHostFactory] can bridge.
  *
- * A host does not support backends independently: bridging Vulkan to OpenGL is different work from
- * bridging Vulkan to Direct3D 12, so support is declared per pair.
+ * Support is declared per pair, since bridging Vulkan to OpenGL is different work from bridging
+ * Vulkan to Direct3D 12.
  */
 @Immutable
 public data class DesktopBackendPair(

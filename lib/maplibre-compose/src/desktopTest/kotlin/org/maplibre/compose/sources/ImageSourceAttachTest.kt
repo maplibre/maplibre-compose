@@ -18,24 +18,17 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * An image source built from a bitmap arrives with its pixels rather than with a placeholder URL.
  *
- * The failure this guards against is silent from the outside: source JSON can only name a URL, so a
- * pixel-backed source added that way is added empty, and the image appears only once something
- * calls `setImage` afterwards. MapLibre reports the difference in one place — it tries to fetch the
- * empty URL and logs `Failed to load source`, with no event and no error the map surfaces — so the
- * test reads its log.
- *
- * Both sources are attached to the same map so the assertion cannot pass vacuously. The URL-less
- * one is the control: it is exactly what the bitmap constructor used to build, its record is what
- * the test waits for, and its arrival is what says the map got far enough to have complained about
- * the other one too.
+ * MapLibre surfaces no event or error for this, only a `Failed to load source` log line, so the
+ * test reads its log. The URL-less source is the control: its complaint is what says the map got
+ * far enough to have complained about the bitmap source too.
  */
 class ImageSourceAttachTest {
 
   private val records = ConcurrentLinkedQueue<LogRecord>()
 
   init {
-    // Process-global, and the desktop suite runs in one JVM without parallel forks, so it is
-    // installed for the length of one test and taken out again. False keeps native logging.
+    // Process-global; safe only because the desktop suite runs in one JVM without parallel forks.
+    // Returning false keeps native logging.
     Maplibre.setLogCallback { record ->
       records += record
       false
@@ -60,8 +53,7 @@ class ImageSourceAttachTest {
       style.addSource(fromUrl)
 
       it.pumpUntil("MapLibre to reject the empty placeholder URL") { failedToLoad(URL_SOURCE_ID) }
-      // A few more frames after the control's complaint, so a late one about the other source is
-      // not simply being outrun.
+      // A few more frames, so a late complaint about the bitmap source is not simply outrun.
       it.pump(frames = 10)
 
       assertTrue(
@@ -69,8 +61,8 @@ class ImageSourceAttachTest {
         "The bitmap source should never have been fetched. MapLibre said: " +
           records.map { record -> record.message },
       )
-      // The corners are built by hand for the typed adder, and MapLibre accepts any four it is
-      // given, so their order is only observable by reading them back.
+      // MapLibre accepts any four corners it is given, so their order is only observable by
+      // reading them back.
       assertEquals(
         listOf(WORLD.topLeft, WORLD.topRight, WORLD.bottomRight, WORLD.bottomLeft),
         fromBitmap.attachedCorners(),

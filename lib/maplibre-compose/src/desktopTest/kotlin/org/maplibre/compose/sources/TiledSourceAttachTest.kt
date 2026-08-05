@@ -17,18 +17,9 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * The tiled sources, and the layer types that only exist to draw one.
  *
- * A tiled source is a JSON object handed to MapLibre once, and almost nothing about it is visible
- * afterwards: `styleSourceInfo` reports the type, the volatility, and the attribution, and that is
- * all. So the assertions are what those three can carry plus the fact that MapLibre accepted the
- * object at all — it validates source JSON on the way in and refuses an object it cannot read,
- * which is what makes a misspelled key or a wrongly-shaped value detectable here.
- *
- * A raster layer and a hillshade layer are tested with their sources rather than apart from them,
- * because neither can exist without one: MapLibre's C API refuses a layer whose source is missing,
- * and a hillshade layer is the only reason a raster-DEM source exists.
- *
- * Tiles are never fetched. The template host does not resolve, and nothing here waits on one: a
- * source's definition is parsed when it is added, long before any tile is requested.
+ * MapLibre reports back only a source's type, volatility, and attribution, so the assertions are
+ * those plus the fact that it accepted the JSON at all. No tiles are fetched: a source's definition
+ * is parsed when it is added, long before any tile is requested.
  */
 class TiledSourceAttachTest {
 
@@ -39,8 +30,7 @@ class TiledSourceAttachTest {
       it.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
 
-      // Every TileSetOptions field at once, and none at its default, so a field written under the
-      // wrong key or in the wrong shape is rejected here rather than ignored.
+      // Every TileSetOptions field at once, none at its default.
       val fromTiles =
         RasterSource(
           id = "tiles",
@@ -65,8 +55,7 @@ class TiledSourceAttachTest {
       layer.onMap { map ->
         assertEquals(SourceType.RASTER, map.styleSourceType("tiles"))
         assertEquals(SourceType.RASTER, map.styleSourceType("url"))
-        // The one TileSetOptions field MapLibre reports back, so the only proof that any of them
-        // arrived rather than being quietly dropped.
+        // The one TileSetOptions field MapLibre reports back.
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
         assertEquals("tiles", map.layerSourceId("raster"))
       }
@@ -97,9 +86,7 @@ class TiledSourceAttachTest {
       style.addLayer(layer)
 
       layer.onMap { map ->
-        // Distinct from RASTER, and the distinction is the point: a hillshade layer over a plain
-        // raster source draws nothing, so a raster-DEM source that arrives as a raster source is a
-        // blank map with no error to explain it.
+        // A hillshade layer over a plain RASTER source draws nothing, with no error to explain it.
         assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem"))
         assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem-url"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("dem")?.attribution)
@@ -147,9 +134,8 @@ class TiledSourceAttachTest {
       val witness = RasterSource(id = "witness", tiles = listOf(TILE_TEMPLATE), tileSize = 256)
       style.addSource(witness)
 
-      // What a style change does: the composition's sources are detached from the old style and
-      // re-added to the new one, so a descriptor that consumed its definition on the way in would
-      // come back empty the second time.
+      // A style change detaches sources and re-adds them, so a descriptor must not consume its
+      // definition on the way in.
       val source =
         RasterSource(
           id = "tiles",
@@ -159,8 +145,8 @@ class TiledSourceAttachTest {
         )
       style.addSource(source)
       style.removeSource(source)
-      // Read through a source that stayed, because a detached descriptor has no binding: asking the
-      // removed one whether it is still there answers null whether it is or not.
+      // Read through the witness: a detached descriptor has no binding, so it answers null either
+      // way.
       assertEquals(
         false,
         witness.onMap { map -> map.styleSourceExists("tiles") },
@@ -177,13 +163,8 @@ class TiledSourceAttachTest {
   }
 
   /**
-   * The TileJSON fields, whose shapes MapLibre accepts without reporting them back.
-   *
-   * Read from the descriptor rather than from the map because there is nowhere else to read them:
-   * MapLibre parses `bounds`, `scheme`, and the zoom range into a tileset it does not serialize.
-   * They matter anyway — `bounds` in the wrong order describes a region on the other side of the
-   * world and the source simply never selects a tile — so the object handed over is asserted
-   * directly.
+   * Asserted against the descriptor rather than the map: MapLibre parses `bounds`, `scheme`, and
+   * the zoom range into a tileset it never reports back.
    */
   @Test
   fun `tile set options are written in the shapes the style spec defines`() {
@@ -223,10 +204,8 @@ class TiledSourceAttachTest {
   }
 
   /**
-   * A custom DEM encoding decodes as Mapbox rather than not loading at all.
-   *
    * MapLibre Native understands only `mapbox` and `terrarium` and refuses the source outright on
-   * anything else, which would take every layer over it with it. See
+   * anything else. See
    * [maplibre-native#2783](https://github.com/maplibre/maplibre-native/issues/2783).
    */
   @Test

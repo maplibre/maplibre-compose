@@ -40,15 +40,8 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Composes real maps against a real GPU, with no window.
- *
- * This is the layer the headless manager tests cannot reach. `DesktopOfflineManagerTest` proves the
- * offline manager starts and lists packs, but the demo app crashed on *opening* the offline screen
- * — which means the fault is in the composition around the manager, not in the manager. Only a test
- * that actually composes the same content can catch that, so this one does.
- *
- * Every test skips when Vulkan is unavailable, because a runner without a GPU or a software driver
- * says nothing about the code under test.
+ * Composes real maps against a real GPU, with no window. Every test skips when Vulkan is
+ * unavailable.
  */
 @OptIn(ExperimentalTestApi::class)
 class DesktopMapCompositionTest {
@@ -79,13 +72,7 @@ class DesktopMapCompositionTest {
     )
   }
 
-  /**
-   * The exact shape the offline demo composes.
-   *
-   * A pack source with no packs is the state the screen opens in, so the empty case is the one that
-   * matters: an empty `FeatureCollection` still has to produce valid source JSON, and the `switch`
-   * still has to compile even though no feature will ever be matched against it.
-   */
+  /** The exact shape the offline demo composes, in the no-packs state the screen opens in. */
   @Test
   fun `the offline demo layer composes without error`() = runHeadlessMapTest { errors ->
     MaplibreMap(
@@ -132,11 +119,8 @@ class DesktopMapCompositionTest {
   }
 
   /**
-   * A layer that leaves and re-enters the composition.
-   *
-   * This is what toggling a demo does, and it is a distinct path from the first add: the layer and
-   * its source are removed from the style and then have to be recreated in the right order. A
-   * failure here shows up to a user as a layer that disappears and never comes back.
+   * A layer that leaves and re-enters the composition: a distinct path from the first add, since
+   * the layer and its source have to be recreated in the right order.
    */
   @Test
   fun `a layer removed and re-added comes back`() {
@@ -169,12 +153,8 @@ class DesktopMapCompositionTest {
   }
 
   /**
-   * The camera position a map is composed with.
-   *
-   * `MaplibreMap` applies the initial camera as soon as it has an adapter, which is before the map
-   * exists — the map is created lazily on the first frame. The session defers those calls and
-   * replays them, and this is what proves the replay happens: without it the map opens at
-   * MapLibre's default position instead of the one that was asked for.
+   * `MaplibreMap` applies the initial camera before the map exists — it is created lazily on the
+   * first frame — so this covers the session's deferral and replay of those calls.
    */
   @Test
   fun `the first camera position reaches the map`() {
@@ -213,20 +193,13 @@ class DesktopMapCompositionTest {
   }
 
   /**
-   * Composes [content] on a headless map and fails if anything reported an error.
-   *
-   * Uncaught exceptions in composition already fail the test on their own; the collected errors
-   * cover the ones MapLibre reports asynchronously instead of throwing.
+   * Composes [content] on a headless map and fails if anything reported an error. The collected
+   * errors cover the ones MapLibre reports asynchronously instead of throwing.
    */
   private fun runHeadlessMapTest(content: @Composable (MutableList<String>) -> Unit) =
     runHeadlessMapTest(body = {}, content = content)
 
-  /**
-   * As above, but [body] runs after the first composition settles.
-   *
-   * Use it for anything that has to change and then settle again — a layer appearing, a camera
-   * arriving — since a single composition cannot show that.
-   */
+  /** As above, but [body] runs after the first composition settles. */
   private fun runHeadlessMapTest(
     body: ComposeUiTest.(MutableList<String>) -> Unit,
     content: @Composable (MutableList<String>) -> Unit,
@@ -245,8 +218,8 @@ class DesktopMapCompositionTest {
     body(errors)
     waitForIdle()
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
-    // Without this the test would pass by doing nothing: a surface that never lays out never
-    // acquires a frame, and a map that never gets a frame never creates a runtime or a style.
+    // Without this the test would pass by doing nothing: a map that never gets a frame never
+    // creates a runtime or a style.
     assertTrue(
       factory.created.any { it.acquiredFrames > 0 },
       "No frame reached MapLibre; the map never rendered.",

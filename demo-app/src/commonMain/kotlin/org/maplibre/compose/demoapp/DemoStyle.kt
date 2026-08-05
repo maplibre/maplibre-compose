@@ -11,14 +11,8 @@ interface DemoStyle {
   val anchorBelowSymbols: Anchor
 
   /**
-   * The font stack a demo's own symbol layers should ask for.
-   *
-   * Belongs to the style rather than to the demo, because a font stack is only a name until some
-   * glyph endpoint serves it, and each of these styles points at a different one that spells the
-   * same font differently: Protomaps and OpenFreeMap serve `Noto Sans Regular`, Versatiles serves
-   * `noto_sans_regular`, and Americana serves its own family. A demo that hardcodes one renders
-   * text on whichever styles happen to agree with it and logs a 404 for every glyph range on the
-   * rest.
+   * The font stack a demo's own symbol layers should ask for. Per-style, because each style's glyph
+   * endpoint serves a different set of font names.
    */
   val textFont: List<String>
     get() = listOf("Noto Sans Regular")
@@ -75,8 +69,7 @@ enum class OtherStyles(
   override val anchorBelowSymbols: Anchor = Anchor.Top,
   override val textFont: List<String> = listOf("Noto Sans Regular"),
 ) : DemoStyle {
-  // A raster style with no `glyphs` endpoint at all, so no font stack can be served for it and a
-  // demo's own labels cannot draw. Nothing here can fix that; the value is inert.
+  // A raster style with no `glyphs` endpoint, so no font stack works here and the value is inert.
   OpenStreetMaps(
     displayName = "OpenStreetMaps Carto",
     base = BaseStyle.Uri(Res.getUri("files/styles/osm-raster.json")),

@@ -16,14 +16,9 @@ kotlin {
     val desktopMain by getting
 
     desktopMain.dependencies {
-      // The point of this module: it depends on the library, and the library does not depend on
-      // it. Everything below the SPI line — compose-glfw, LWJGL, the Metal bridge — is the
-      // fixture's, and `:lib:maplibre-compose` never sees any of it.
+      // Everything below the SPI line — compose-glfw, LWJGL, the Metal bridge — belongs to this
+      // fixture; neither `:lib:maplibre-compose` nor `:demo-app` may depend on it.
       implementation(project(":lib:maplibre-compose"))
-      // The fixture runs the real demo app rather than a cut-down one, because "the same public
-      // MaplibreMap composable works" is only worth asserting against the whole thing: every demo,
-      // every gesture, the style switcher, and the offline screens all go through this host. The
-      // dependency points this way so that `:demo-app` keeps knowing nothing about compose-glfw.
       implementation(project(":demo-app"))
       implementation(libs.composeGlfw)
       implementation(libs.jetbrains.compose.foundation)
@@ -32,15 +27,12 @@ kotlin {
       // Objective-C messaging for the Metal bridge, the same way the default host does it.
       implementation(libs.lwjgl.core)
 
-      // compose-glfw ships one runtime per operating system and Compose backend, carrying GLFW,
-      // Skiko, and the LWJGL natives the host needs. It is a runtime concern exactly like the FFI
-      // runtime below.
+      // compose-glfw ships one runtime per operating system and Compose backend.
       runtimeOnly(desktopHostPlatform.composeGlfwRuntimeDependency(libs.versions.composeGlfw.get()))
       runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
 
-      // LWJGL resolves its natives from the classpath. compose-glfw's runtime brings its own set,
-      // but this fixture calls `org.lwjgl.system.JNI` and `ObjCRuntime` itself, so it names the
-      // core natives rather than relying on a transitive it does not control.
+      // LWJGL resolves its natives from the classpath, and this fixture calls `JNI`/`ObjCRuntime`
+      // itself, so it names the core natives rather than relying on compose-glfw's transitive set.
       val lwjglVersion = libs.versions.lwjgl.get()
       runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${desktopHostPlatform.lwjglNativesClassifier}")
     }
@@ -48,36 +40,19 @@ kotlin {
 }
 
 /**
- * Keeps AWT's coroutine main dispatcher off the fixture's classpath.
- *
- * This is the one line here that is not about graphics, and it is a finding rather than a
- * workaround of convenience. `androidx.lifecycle`, which the demo reaches through
- * navigation-compose, enforces that lifecycle observers are added on "the main thread", and on
- * desktop it decides which thread that is by running a block on `Dispatchers.Main` and remembering
- * the thread it landed on. `kotlinx-coroutines-swing` registers the AWT event thread as that
- * dispatcher, and compose-glfw registers nothing — it has a UI dispatcher of its own but keeps it
- * internal — so with both on the classpath every navigation transition throws `Method addObserver
- * must be called on the main thread` from the GLFW thread, before the first frame. Removed, the
- * check finds no main dispatcher at all and permits any thread.
- *
- * It now arrives only through `:demo-app`, which is an AWT application and legitimately wants a
- * main dispatcher to exist. `:lib:maplibre-compose` used to declare it too, and that was the part
- * worth fixing: `DesktopOfflineManager` hopped to `Dispatchers.Main` purely to write Compose state,
- * which snapshot state does not require, so a module that otherwise takes its host through an SPI
- * was quietly insisting the host be AWT. That is gone; this exclude now only has to out-rank an
- * application's own choice, not the library's.
+ * Keeps AWT's coroutine main dispatcher (pulled in by `:demo-app`) off the fixture's classpath.
+ * `androidx.lifecycle` treats whichever thread `Dispatchers.Main` lands on as the main thread, so
+ * with it present every navigation transition throws `addObserver must be called on the main
+ * thread` from the GLFW thread. With no main dispatcher at all the check permits any thread.
  */
 configurations.named("desktopRuntimeClasspath") {
   exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-swing")
 }
 
 /**
- * Runs the fixture.
- *
- * A plain `JavaExec` rather than the Compose Desktop application plugin, because that plugin exists
- * to package an AWT/Skiko application and this fixture is the thing proving the map does not need
- * one. The two JVM arguments are both mandatory: GLFW must own AppKit's first thread on macOS, and
- * the MapLibre Native FFI binding is refused native access without the second.
+ * Runs the fixture. A plain `JavaExec` rather than the Compose Desktop application plugin, which
+ * packages an AWT/Skiko application. Both JVM arguments are mandatory: GLFW must own AppKit's first
+ * thread on macOS, and the FFI binding is refused native access without the other.
  */
 val runGlfwFixture by
   tasks.registering(JavaExec::class) {

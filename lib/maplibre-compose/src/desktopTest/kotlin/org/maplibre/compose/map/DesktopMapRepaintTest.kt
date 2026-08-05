@@ -33,17 +33,11 @@ import org.maplibre.spatialk.geojson.dsl.addFeature
 import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 /**
- * Proves that a style change actually redraws.
+ * Proves that a style change actually redraws, not just that it reaches MapLibre.
  *
- * `DesktopMapCompositionTest` shows a mutation reaches MapLibre; this shows whether the user ever
- * sees it. A mutation that leaves MapLibre publishing no render update asks for no frame, and is
- * then invisible until something unrelated draws — which is exactly the reported symptom: a
- * re-added layer appears only after the map is moved a little. `addSource`, `removeSource`, and
- * `removeImage` are the calls that notify nothing on their own, which is why the style binding
- * requests a repaint for all of them.
- *
- * Each test settles first, because a busy map hides the bug: a frame still in flight would render
- * the mutation by accident.
+ * `addSource`, `removeSource`, and `removeImage` publish no render update on their own, so the
+ * style binding requests a repaint for them. Each test settles first, because a frame still in
+ * flight would render the mutation by accident.
  */
 @OptIn(ExperimentalTestApi::class)
 class DesktopMapRepaintTest {
@@ -67,18 +61,12 @@ class DesktopMapRepaintTest {
     runRepaintTest(mutate = { visible = true }) { ToggledLayer(visible) }
   }
 
-  /** The other half of a toggle, and equally broken before the fix. */
   @Test
   fun `removing a layer after the map settles redraws`() {
     var visible by mutableStateOf(true)
     runRepaintTest(mutate = { visible = false }) { ToggledLayer(visible) }
   }
 
-  /**
-   * Replacing a source's data, which is what a live GeoJSON feed does on every update.
-   *
-   * A stalled loop here means a moving map that stops moving whenever the user does.
-   */
   @Test
   fun `replacing source data after the map settles redraws`() {
     var data by mutableStateOf(pointAt(longitude = 0.0))
@@ -94,8 +82,8 @@ class DesktopMapRepaintTest {
   /**
    * Composes [content], settles, runs [mutate], and asserts the map redrew.
    *
-   * The assertion is on frames MapLibre actually rendered into, not frames acquired: the host hands
-   * out a frame whenever Compose draws, so only a completed render means the change is on screen.
+   * The assertion counts frames MapLibre rendered into, not frames acquired: the host hands out a
+   * frame whenever Compose draws.
    */
   private fun runRepaintTest(mutate: ComposeUiTest.() -> Unit, content: @Composable () -> Unit) =
     runComposeUiTest {
@@ -117,9 +105,8 @@ class DesktopMapRepaintTest {
 
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { factory.created.isNotEmpty() }
       val host = factory.created.single()
-      // Settled means "the map has drawn and then stopped drawing", which is a wait rather than a
-      // fixed number of idle rounds: the map advances on a thread of its own, so how long it takes
-      // to get there is a property of the machine.
+      // The map advances on a thread of its own, so settling is a wait rather than a fixed number
+      // of idle rounds.
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { host.renderedFrames > 0 }
       var before = host.renderedFrames
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
@@ -158,7 +145,6 @@ class DesktopMapRepaintTest {
     }
 
   private companion object {
-    /** Bound on waiting for the map to settle, and then to redraw. */
     const val SETTLE_TIMEOUT_MILLIS = 30_000L
   }
 }

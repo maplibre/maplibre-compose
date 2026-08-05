@@ -2,8 +2,7 @@
  * The desktop platforms MapLibre Native FFI publishes a native runtime for.
  *
  * The FFI ships one artifact per render backend, each carrying per-platform natives under a
- * classifier. An application picks exactly one. Keeping the detection here means the demo, tests,
- * documentation, and downstream examples do not grow separate detectors that drift apart.
+ * classifier; an application picks exactly one.
  */
 enum class DesktopHostPlatform(
   private val os: String,
@@ -26,10 +25,8 @@ enum class DesktopHostPlatform(
     get() = "natives-$os-$arch"
 
   /**
-   * Classifier of the LWJGL natives jar for this platform, e.g. `natives-linux`.
-   *
-   * LWJGL names x64 differently from MapLibre Native FFI: it omits the architecture entirely rather
-   * than spelling it `-x64`, so the two classifiers cannot be shared.
+   * Classifier of the LWJGL natives jar for this platform, e.g. `natives-linux`. LWJGL omits the
+   * architecture entirely for x64 rather than spelling it `-x64`.
    */
   val lwjglNativesClassifier: String
     get() = if (arch == "x64") "natives-$os" else "natives-$os-$arch"
@@ -39,13 +36,8 @@ enum class DesktopHostPlatform(
     get() = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-${renderBackend.artifactInfix}-jvm"
 
   /**
-   * Dependency notation for the compose-glfw runtime this platform needs.
-   *
-   * compose-glfw splits its host per operating system *and* per Compose consumer backend, and names
-   * the consumer rather than the producer: OpenGL on Linux, Metal on macOS, Direct3D on Windows.
-   * That is a different axis from [renderBackend], which names what MapLibre produces with — the
-   * two only coincide on macOS. Kept here with the FFI runtime selection so the desktop SPI fixture
-   * does not grow a second host detector.
+   * Dependency notation for the compose-glfw runtime this platform needs. Its backend names the
+   * Compose consumer, a different axis from [renderBackend]; the two only coincide on macOS.
    */
   fun composeGlfwRuntimeDependency(version: String): String =
     "dev.sargunv:compose-glfw-$composeGlfwBackend-$os-$arch:$version"
@@ -63,29 +55,16 @@ enum class DesktopHostPlatform(
   fun runtimeDependency(version: String): String = "$runtimeModule:$version:$nativesClassifier"
 
   /**
-   * Dependency notation for the runtime the headless GPU tests need.
-   *
-   * Always Vulkan, including on macOS where an application would ship Metal:
-   * `HeadlessVulkanMapHost` creates a real Vulkan device with no window, and there is no Metal
-   * equivalent of it. MapLibre has to render with the backend the host can bridge or backend
-   * negotiation declines and every GPU-backed test quietly asserts against a map that never
-   * rendered. What the tests cover — sessions, styles, layers, queries — is backend-independent, so
-   * this costs nothing but the Metal-specific host bridge, which no test exercises anyway.
-   *
-   * On macOS the Vulkan runtime runs on MoltenVK, which needs `lwjgl-vulkan`'s natives on the test
-   * classpath.
+   * Dependency notation for the runtime the headless GPU tests need. Always Vulkan, even on macOS:
+   * `HeadlessVulkanMapHost` has no Metal equivalent, and there it runs on MoltenVK, which needs
+   * `lwjgl-vulkan`'s natives on the test classpath.
    */
   fun testRuntimeDependency(version: String): String =
     "org.maplibre.nativeffi:maplibre-native-ffi-runtime-" +
       "${RenderBackend.VULKAN.artifactInfix}-jvm:$version:$nativesClassifier"
 
   companion object {
-    /**
-     * The platform this build is running on.
-     *
-     * Throws rather than guessing: a wrong native runtime fails at map creation with a confusing
-     * error, long after the build that chose it.
-     */
+    /** The platform this build is running on; throws rather than guessing at an unknown host. */
     fun current(): DesktopHostPlatform {
       val osName = System.getProperty("os.name").lowercase()
       val archName = System.getProperty("os.arch").lowercase()
