@@ -178,24 +178,9 @@ There are no longer any special steps required to use MapLibre Compose on Web.
 
 ## Set up Desktop (JVM)
 
-!!! warning
-
-    Desktop support is not yet at feature parity with Android and iOS.
-    Check the [status table](index.md#status) for more info.
-
-Desktop uses the published
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
-Multiplatform bindings. The `org.maplibre.compose:maplibre-native-bindings-jni`
-artifact that previously shipped with MapLibre Compose, and its
-OS/architecture/renderer capabilities, are no longer published.
-
-Add the library plus a native runtime for each platform you ship. The library
-itself is backend-independent; the application chooses the runtime, exactly as
-it chooses an Android ABI.
+Add the library plus a native runtime for each platform you ship.
 
 ```kotlin title="build.gradle.kts"
-// Pick the pair matching the machine you are building for. MapLibre renders
-// with Vulkan on Linux and Windows and with Metal on macOS.
 val maplibreNativeFfiVersion = "<version>"
 
 sourceSets {
@@ -216,25 +201,12 @@ sourceSets {
 }
 ```
 
-While MapLibre Native FFI is published as a snapshot, add its repository:
+**Desktop requires Java 25.** The MapLibre Native FFI binding uses the FFM API,
+so the desktop target cannot run on an older JVM.
 
-```kotlin title="settings.gradle.kts"
-maven {
-  url = uri("https://central.sonatype.com/repository/maven-snapshots/")
-  content { includeGroup("org.maplibre.nativeffi") }
-}
-```
-
-Two further requirements differ from the previous desktop integration.
-
-**Desktop requires Java 25.** The MapLibre Native FFI binding ships Java 24
-bytecode and uses the FFM API, so the desktop target cannot run on an older JVM.
-Android is unaffected and keeps its existing bytecode target.
-
-**The JVM needs native access.** MapLibre Native FFI makes FFM downcalls, which
-the JVM refuses unless the module performing them is granted native access. If
-you package your application with Compose Desktop's `nativeDistributions`, add
-the argument to your application configuration:
+**The JVM needs native access.** MapLibre Native FFI makes FFM downcall. If you
+package your application with Compose Desktop's `nativeDistributions`, add the
+argument to your application configuration:
 
 ```kotlin title="build.gradle.kts"
 compose.desktop {
