@@ -7,16 +7,18 @@ import org.maplibre.nativeffi.style.SourceType
  * A source that came from the style rather than from the composition, such as a base-style source.
  *
  * @param definition what MapLibre reports about the source: its `type` and, where the style
- *   declares one, its `attribution`. That is the whole of what it reports, which is what
- *   [attributionHtml] answers from.
+ *   declares one, its `attribution`.
  *
- * A base-style source cannot be added to another style, because this is not enough to build one
- * from: MapLibre refuses a tiled source with no `tiles` and no `url`, and it reports neither. The
- * attempt fails with a diagnostic naming the source rather than silently producing an empty one.
+ * Only the attribution is ever read back, by [attributionHtml]. Nothing re-adds one of these: a
+ * base-style source is referenced by id, and `SourceManager.addReference` rejects any source whose
+ * id belongs to the base style, so this definition never reaches `addStyleSourceJson`. A thin
+ * definition therefore costs nothing.
  *
- * TODO(maplibre-native-ffi): keep the rest of the definition once the FFI reports it. `SourceInfo`
- *   carries the type, the volatility, and the attribution, and a source's URL, tile list, zoom
- *   range, scheme, and bounds are not reachable through any other call.
+ * Which is also why the FFI reporting more of one would not change anything here. `SourceInfo` now
+ * carries a source's URL, tile list, zoom range, scheme, bounds, tile size, and encoding, and none
+ * of it has a consumer: reading a source's configuration is not something MapLibre Compose offers
+ * on any platform, and adding it would be a common API decision rather than a desktop one. See
+ * COMMON_API_GAPS.md.
  */
 public actual class UnknownSource
 internal constructor(id: String, internal val definition: JsonObject) : Source(id) {

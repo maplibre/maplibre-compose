@@ -11,8 +11,8 @@ a snapshot we resolve and the workaround here is deleted; the deletion is the
 record, and git history is where the argument lives. Everything reported during
 the first pass — the error model, lifecycle, event-pump, and documentation
 entries, and every one of the missing APIs — has now been resolved upstream and
-removed from here, leaving one entry: a lifecycle crash that has not been filed
-yet.
+removed from here, as has the process-exit lifecycle crash. What is left is one
+documentation entry.
 
 See [COMMON_API_GAPS.md](./COMMON_API_GAPS.md) for the other direction: things
 the FFI already provides that MapLibre Compose has no common API for.
@@ -44,45 +44,6 @@ executed the behavior. If you add an entry from reading alone, mark it
 as often as it is right.
 
 Snapshot this was written against: binding `0.1.0-20260803.074311-52`.
-
-## Lifecycle
-
-### Handle tables destroy live objects at process exit — **verified**
-
-The process-global handle tables are C++ statics, so their destructors run from
-`exit()` via `__cxa_finalize`. Destroying a live render session there destroys
-`mbgl::Renderer`, which takes a `gfx::BackendScope` against a graphics backend
-that no longer exists, and the process dies with a SIGSEGV _after_ the
-application has quit cleanly:
-
-```
-exit -> __cxa_finalize_ranges
-  HandleTable<mln_render_session_object>::~HandleTable()
-    __on_zero_shared() -> mbgl::Renderer::~Renderer()
-      gfx::BackendScope::BackendScope()      <- SIGSEGV
-```
-
-Measured on macOS/Metal by quitting the demo with Cmd+Q, which Compose Desktop
-does not dispose a composition for, so the session was still open. Any consumer
-that exits with a handle open gets this, and a leaked handle is exactly the case
-that is hardest to rule out — the binding's own leak cleaner exists because it
-happens.
-
-At exit there is nothing to reclaim: the process is going away and the driver
-releases its own resources. Destroying GPU objects at that point can only fail.
-
-_Workaround:_ MapLibre Compose closes live sessions from a JVM shutdown hook,
-which runs before the C runtime reaches these destructors. See
-`DesktopMapShutdown`. It cannot cover `Runtime.halt`, a native crash, or a
-signal.
-
-_Suggested fix:_ leak rather than destroy at process exit — detach the tables,
-or guard the destructor with a flag set once static teardown has begun.
-
-_Status:_ **not yet filed upstream.** This is the only entry left in this
-document, and it is the one that has never been turned into an issue — searching
-maplibre-native-ffi for it finds nothing. It should be, since the workaround
-here cannot be made complete.
 
 ## Documentation
 

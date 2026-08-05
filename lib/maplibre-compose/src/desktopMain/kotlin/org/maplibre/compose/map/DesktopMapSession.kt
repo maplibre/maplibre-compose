@@ -148,12 +148,6 @@ internal class DesktopMapSession(
 
   override val backend: MapRenderBackend = renderBackend
 
-  init {
-    // Registered from construction rather than when native handles appear: the window between the
-    // two is short, but a session that never gets a surface still has a runtime to close.
-    DesktopMapShutdown.register(this)
-  }
-
   /**
    * Guards [loop] and [mapConfiguration] together, so a setting cannot be lost to a racing start.
    */
@@ -390,7 +384,6 @@ internal class DesktopMapSession(
       stopLoop()
     } finally {
       hostSession = null
-      DesktopMapShutdown.unregister(this)
     }
   }
 
