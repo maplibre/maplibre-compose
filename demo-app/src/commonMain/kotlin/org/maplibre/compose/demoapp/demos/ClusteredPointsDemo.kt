@@ -144,7 +144,7 @@ object ClusteredPointsDemo : Demo {
       source = bikeSource,
       filter = feature.has("point_count"),
       textField = feature["point_count_abbreviated"].asString(),
-      textFont = const(listOf("Noto Sans Regular")),
+      textFont = const(state.selectedStyle.textFont),
       textColor = const(MaterialTheme.colorScheme.onBackground),
     )
 
