@@ -6,9 +6,12 @@ repositories {
   google()
 }
 
-// Keep in sync with `jvmToolchain` in the root gradle.properties, which buildSrc
-// cannot read because it is a separate build.
-kotlin { jvmToolchain(25) }
+java {
+  sourceCompatibility = JavaVersion.VERSION_21
+  targetCompatibility = JavaVersion.VERSION_21
+}
+
+kotlin { compilerOptions { jvmTarget = org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_21 } }
 
 dependencies {
   pluginImplementation(libs.plugins.android.application)
