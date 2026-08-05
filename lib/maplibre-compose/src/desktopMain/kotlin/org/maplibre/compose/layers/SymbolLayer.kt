@@ -78,8 +78,9 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
    * their setter empty for the same reason; desktop reaching the core through style JSON does not
    * change what the core accepts. Use `iconAllowOverlap`, which every backend does implement.
    *
-   * TODO(maplibre-native-ffi): write this property once MapLibre Native's symbol layer implements
-   *   `icon-overlap`, including its `cooperative` value, which `icon-allow-overlap` cannot express.
+   * TODO: write this property once MapLibre Native implements `icon-overlap`, including its
+   *   `cooperative` value, which `icon-allow-overlap` cannot express. The gap is the core's, not
+   *   the FFI's, and Android and iOS carry the same note against their own SDKs.
    */
   actual fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
     skipUnsupportedProperty(
@@ -264,8 +265,8 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
    * Dropped, for the same reason as [setIconOverlap]: MapLibre Native does not know `text-overlap`
    * either, and a layer carrying it does not load at all. Use `textAllowOverlap`.
    *
-   * TODO(maplibre-native-ffi): write this property once MapLibre Native's symbol layer implements
-   *   `text-overlap`.
+   * TODO: write this property once MapLibre Native implements `text-overlap`. As above, the gap is
+   *   the core's rather than the FFI's.
    */
   actual fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
     skipUnsupportedProperty(
