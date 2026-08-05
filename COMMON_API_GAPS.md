@@ -3,12 +3,10 @@
 Capabilities MapLibre Native FFI provides that MapLibre Compose has no
 cross-platform API for.
 
-This is a staging document, in the same spirit as
-[MAPLIBRE_NATIVE_FFI_FEEDBACK.md](./MAPLIBRE_NATIVE_FFI_FEEDBACK.md): a place to
-write findings down while they are fresh, to be converted into issues rather
-than lived in. The difference is direction — `MAPLIBRE_NATIVE_FFI_FEEDBACK.md`
-is what we want _from_ maplibre-native-ffi, and this is what we could build
-_with_ it.
+This is a staging document: a place to write findings down while they are fresh,
+to be converted into issues rather than lived in. Its counterpart tracked what
+we wanted _from_ maplibre-native-ffi and is gone, because nothing is left open
+against it. This is the other direction — what we could build _with_ it.
 
 ## When these land
 

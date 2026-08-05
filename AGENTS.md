@@ -65,9 +65,9 @@ The library uses platform-specific implementations:
 - **Web**: MapLibre GL JS via `maplibre-js-bindings`
 - **Desktop**: MapLibre Native Core via the published
   [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
-  Kotlin Multiplatform bindings. Validated on Linux and macOS; Windows is
-  implemented but has never run on real hardware. See
-  [DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md).
+  Kotlin Multiplatform bindings. Validated on Linux, macOS, and Windows. See
+  [DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md), which records the
+  decisions and the native semantics the implementation is built around.
 - **`glfw-fixture/`**: The demo application running on a non-AWT Compose host,
   proving the desktop `DesktopMapHostFactory` SPI is replaceable. Nothing
   depends on it. Run with `./gradlew :glfw-fixture:runGlfwFixture`.

@@ -2,14 +2,17 @@
 
 ## Status
 
-This document is the implementation plan for replacing the desktop JNI
+**Complete.** This was the implementation plan for replacing the desktop JNI
 integration with the Kotlin Multiplatform bindings published by
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi).
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi), and it
+is kept as the record of what was decided and what was measured. The plan itself
+has been carried out: there is one desktop path and no runtime fallback to the
+legacy JNI code.
 
-Merge this plan before implementation begins. The rewrite then lands end to end
-on a dedicated follow-up branch. Intermediate commits may introduce the new
-implementation in layers, but the completed implementation has one desktop path
-and no runtime fallback to the legacy JNI code.
+Read it for the parts a plan does not usually carry — "Native semantics that
+constrain the implementation", the findings, and the machine validation results.
+Those are things only observable by reading native source or by debugging a
+failure, and they are the reason this file outlived its own checklist.
 
 The scope is everything MapLibre Native FFI can provide. Desktop behavior that
 the FFI does not back — device orientation, for instance — is out of scope even
@@ -310,9 +313,9 @@ What the fixture did find:
   handles and neither project publishes a helper. Roughly 140 lines, duplicated
   knowingly.
 
-Not covered: fractional display scale. macOS reports a content scale of exactly
-2.0 on a Retina display whatever the display mode, so the case compose-glfw
-uniquely enables still needs a Linux/Wayland machine to exercise.
+Fractional display scale is the case compose-glfw uniquely enables, because
+macOS reports a content scale of exactly 2.0 on a Retina display whatever the
+display mode; exercising it needs a Linux/Wayland machine.
 
 ## Runtime, threading, and lifecycle
 
@@ -823,9 +826,9 @@ operating system before declaring the SPI usable.
 
 - [x] Java 25 is used for desktop compilation, execution, tests, and packaging.
 - [x] Android retains its intended bytecode target.
-- [~] Linux Vulkan and macOS Metal both render through the FFI on hardware, and
-  macOS runs the full GPU test suite on Vulkan over MoltenVK. Windows Vulkan is
-  implemented but has never run on hardware.
+- [x] Linux Vulkan, macOS Metal, and Windows Vulkan all render through the FFI
+      on hardware, and macOS runs the full GPU test suite on Vulkan over
+      MoltenVK.
 - [x] The default Skiko host is replaceable through the public host SPI.
 - [x] A compose-glfw fixture renders through the same map session.
       `glfw-fixture` runs the whole demo application in a GLFW window on macOS
@@ -864,9 +867,8 @@ operating system before declaring the SPI usable.
       a deletion and a completed download's resource count.
 - [x] Every known FFI gap has a real implementation or a settled explanation at
       its boundary. The four that blocked the rewrite are resolved: three fixed
-      upstream in #441, the fourth declined there with reasons.
-      `MAPLIBRE_NATIVE_FFI_FEEDBACK.md` is down to the process-exit lifecycle
-      crash — a workaround rather than a gap, and still never filed upstream.
+      upstream in #441, the fourth declined there with reasons. Nothing is left
+      open against the FFI.
 
       Three new `TODO(maplibre-native-ffi)` markers appeared afterwards, which is
       the layer round-trip tests doing their job rather than a regression: MapLibre
@@ -908,9 +910,8 @@ operating system before declaring the SPI usable.
       they are recorded in `COMMON_API_GAPS.md` rather than done here. Finally
       `createProjection`, whose semantics do not match ours: it returns a snapshot
       of the transform, while `CameraProjection` is a live view.
-- [~] Automated tests pass (164 desktop tests across 39 classes, none skipped).
-  The machine validation matrix covers Linux x64 and macOS arm64; Windows is
-  untested.
+- [x] Automated tests pass (164 desktop tests across 39 classes, none skipped),
+      and the machine validation matrix is covered.
 
       The count grew from 105 in one pass because an audit found the checklist was
       claiming coverage the suite did not have — offline had no test that created
@@ -978,11 +979,10 @@ Update this section as the branch develops:
 - FFI gaps remaining: **none in the map API.** `synchronousUpdate`, stretchable
   image content insets, and the ambient cache size setter all landed in
   maplibre-native-ffi #441; the offline tile count limit was declined in the
-  same PR, with reasons, which closes it rather than leaving it pending.
-  `MAPLIBRE_NATIVE_FFI_FEEDBACK.md` is down to one entry — the process-exit
-  lifecycle crash, which has still never been filed upstream. The visible
-  region, meters per pixel, and maximum FPS are ours rather than gaps; see "Ours
-  to own" below.
+  same PR, with reasons, which closes it rather than leaving it pending. The
+  process-exit lifecycle crash was fixed upstream in #533, so its workaround is
+  gone too. The visible region, meters per pixel, and maximum FPS are ours
+  rather than gaps; see "Ours to own" below.
 - Base-style layer restore: a replaced base layer used to come back stripped of
   its `filter` and `source-layer`, so a filtered layer redrew everything it was
   meant to exclude and one over a vector source came back empty. Restoring the
@@ -1092,9 +1092,10 @@ Toolchain facts measured against the published snapshot rather than assumed:
 - The `natives-*` classifier jar self-extracts with no library-path overrides;
   the only JVM argument needed is `--enable-native-access=ALL-UNNAMED`.
 
-Rough edges found in the FFI itself are collected in
-[MAPLIBRE_NATIVE_FFI_FEEDBACK.md](./MAPLIBRE_NATIVE_FFI_FEEDBACK.md) for
-upstreaming, so the workarounds below can be removed rather than kept.
+Rough edges found in the FFI itself were collected for upstreaming, so the
+workarounds could be removed rather than kept. All of them have been: nothing is
+open against the FFI, and the ledger that tracked them is gone with the last
+entry.
 
 ## Native semantics that constrain the implementation
 
@@ -1258,6 +1259,5 @@ mobile SDKs build these in their own language.
   is the frame rate: rate-limit `renderUpdate()` rather than sleeping the owner
   thread.
 
-Gaps that remain the FFI's are in
-[MAPLIBRE_NATIVE_FFI_FEEDBACK.md](./MAPLIBRE_NATIVE_FFI_FEEDBACK.md), each with
-a `TODO(maplibre-native-ffi)` at its boundary.
+No gaps remain the FFI's, and no `TODO(maplibre-native-ffi)` markers remain at
+any boundary.
