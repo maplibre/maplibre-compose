@@ -106,6 +106,13 @@ private const val MIN_PROJECTION_ZOOM = 0.0
 private const val MAX_PROJECTION_ZOOM = 25.5
 
 /**
+ * The fraction of a capped frame interval a frame may arrive early and still be drawn.
+ *
+ * See [DesktopMapSession.allowRenderNow], which is the only thing that reads it.
+ */
+private const val FRAME_INTERVAL_SLACK = 0.1
+
+/**
  * Configuration key for the camera.
  *
  * Named because two setters write it — a position and a bounds fit — and the later of the two must
@@ -340,7 +347,12 @@ internal class DesktopMapSession(
     // Consumed before rendering, so an update the loop publishes during the render below is not
     // discarded along with the one being drawn.
     if (!renderRequested.getAndSet(false)) return DesktopFrameResult.SKIPPED
-    if (!allowRenderNow()) {
+    // Taken before the render and kept, so the interval the cap measures runs from one frame's
+    // start to the next's. Measuring from the end of the last render instead makes every interval
+    // short by however long that render took, which at a cap near the display's own rate is enough
+    // to reject every second frame.
+    val renderStart = TimeSource.Monotonic.markNow()
+    if (!allowRenderNow(renderStart)) {
       // Throttled rather than dropped: ask for another frame so the update is not lost.
       requestRender()
       return DesktopFrameResult.SKIPPED
@@ -366,7 +378,7 @@ internal class DesktopMapSession(
           "extent ${frame.extent}"
       }
     }
-    lastRenderTime = TimeSource.Monotonic.markNow()
+    lastRenderTime = renderStart
     reportFrameRate()
     return DesktopFrameResult.RENDERED
   }
@@ -784,11 +796,28 @@ internal class DesktopMapSession(
     hostSession?.requestFrame()
   }
 
-  private fun allowRenderNow(): Boolean {
+  /**
+   * Whether a frame starting at [now] is far enough from the last one to draw under the cap.
+   *
+   * The cap can only take the map below the rate the host presents at, because a map frame happens
+   * inside a host frame — so it is a filter over an arriving cadence, not a clock of its own. That
+   * makes the comparison a beat problem: a cap set to the display's own rate asks for exactly the
+   * interval the frames already arrive at, and any interval measured even a microsecond short
+   * rejects the frame, leaving the next one to arrive two periods later. Every second frame is
+   * dropped and the map runs at half the rate that was asked for.
+   *
+   * [FRAME_INTERVAL_SLACK] is what stops that. It is a fraction of the requested interval rather
+   * than a fixed duration because the tolerance that matters scales with the interval: a tenth of a
+   * 120fps period is under a millisecond, while allowing that same absolute slack at 15fps would be
+   * meaningless. It cannot let the map exceed the cap by more than that fraction, because the host
+   * has no frame to give in between.
+   */
+  private fun allowRenderNow(now: TimeSource.Monotonic.ValueTimeMark): Boolean {
     val fps = maximumFps ?: return true
     if (fps <= 0) return true
     val minimumInterval = 1.0 / fps
-    return lastRenderTime.elapsedNow().toDouble(DurationUnit.SECONDS) >= minimumInterval
+    val elapsed = (now - lastRenderTime).toDouble(DurationUnit.SECONDS)
+    return elapsed >= minimumInterval * (1.0 - FRAME_INTERVAL_SLACK)
   }
 
   private fun reportFrameRate() {
