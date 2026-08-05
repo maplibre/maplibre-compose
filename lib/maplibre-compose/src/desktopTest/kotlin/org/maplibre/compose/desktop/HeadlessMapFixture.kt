@@ -6,6 +6,7 @@ import co.touchlab.kermit.Logger
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
@@ -151,6 +152,37 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
       // A short sleep rather than a spin: most of the wait is network and worker threads, and a
       // tight loop starves them on a small machine.
       Thread.sleep(POLL_INTERVAL_MILLIS)
+    }
+  }
+
+  /**
+   * Renders for [duration], but only when the session asks for a frame, and reports how many it
+   * drew.
+   *
+   * This is the one loop shape that can measure whether a map is at rest, because it is the one a
+   * real host uses: a desktop frame happens when [DesktopMapHostSession.requestFrame] invalidates
+   * the surface, not on a clock. Drawing unconditionally instead — which is what a Compose UI
+   * test's frame pump does — feeds the map frames it never asked for, and since a rendered frame is
+   * itself something MapLibre can respond to, the loop then sustains itself and reads as a map that
+   * will not settle. Counting frames under an unconditional pump measures the pump.
+   */
+  fun renderOnDemand(duration: Duration): Int {
+    val deadline = TimeSource.Monotonic.markNow() + duration
+    var rendered = 0
+    while (deadline.hasNotPassedNow()) {
+      if (frameRequested && frame() == DesktopFrameResult.RENDERED) rendered++
+      Thread.sleep(POLL_INTERVAL_MILLIS)
+    }
+    return rendered
+  }
+
+  /** Renders on demand until nothing has been asked for across [quiet], or fails. */
+  fun settle(quiet: Duration = 500.milliseconds, timeout: Duration = 30.seconds) {
+    val deadline = TimeSource.Monotonic.markNow() + timeout
+    while (renderOnDemand(quiet) > 0) {
+      check(deadline.hasNotPassedNow()) {
+        "Timed out waiting for the map to stop asking for frames. Errors: $errors"
+      }
     }
   }
 
