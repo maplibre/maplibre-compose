@@ -21,8 +21,7 @@ internal sealed interface DesktopMapSurfaceState {
   data object Initializing : DesktopMapSurfaceState
 
   /** A host is live and frames can be produced. */
-  data class Ready(val backends: DesktopBackendPair, val capabilities: DesktopHostCapabilities) :
-    DesktopMapSurfaceState
+  data class Ready(val backends: DesktopBackendPair) : DesktopMapSurfaceState
 
   /** No usable backend, or the host factory declined. Not an error the application can retry. */
   data class Unavailable(val diagnostic: String) : DesktopMapSurfaceState
@@ -79,7 +78,7 @@ internal fun DesktopMapSurface(
           checkNotNull(session)
           renderer.onSurfaceAvailable(session)
           session.requestFrame()
-          DesktopMapSurfaceState.Ready(hostResult.host.backends, hostResult.host.capabilities)
+          DesktopMapSurfaceState.Ready(hostResult.host.backends)
         }
         is HostCreation.Unavailable -> {
           logger?.w { hostResult.diagnostic }
@@ -354,9 +353,6 @@ private class DesktopMapHostSessionImpl(
 ) : DesktopMapHostSession {
   override val backends: DesktopBackendPair
     get() = host.backends
-
-  override val capabilities: DesktopHostCapabilities
-    get() = host.capabilities
 
   override fun requestFrame() {
     onRequestFrame()

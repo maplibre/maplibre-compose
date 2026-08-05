@@ -60,7 +60,6 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
   private val hostSession =
     object : DesktopMapHostSession {
       override val backends: DesktopBackendPair = host.backends
-      override val capabilities: DesktopHostCapabilities = host.capabilities
 
       override fun requestFrame() {
         frameRequested = true

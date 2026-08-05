@@ -101,7 +101,6 @@ import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeRenderBackend
 import org.maplibre.compose.desktop.DesktopBackendPair
-import org.maplibre.compose.desktop.DesktopHostCapabilities
 import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.DesktopMapFrame
 import org.maplibre.compose.desktop.DesktopMapHost
@@ -135,13 +134,6 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
 
   override val backends: DesktopBackendPair =
     DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
-
-  override val capabilities: DesktopHostCapabilities =
-    DesktopHostCapabilities(
-      backends = backends
-      // MapLibre's renderUpdate is synchronous to GPU completion and the bridge waits the device
-      // idle after producing, so no fence handshake is needed or performed.
-    )
 
   override fun resize(extent: DesktopMapExtent) {
     // Importing into GL needs Compose's context current, which only holds inside the draw

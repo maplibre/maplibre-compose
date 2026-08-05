@@ -3,7 +3,6 @@ package org.maplibre.compose.desktop.skiko
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.desktop.ComposeRenderBackend
 import org.maplibre.compose.desktop.DesktopBackendPair
-import org.maplibre.compose.desktop.DesktopHostCapabilities
 import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.DesktopMapFrame
 import org.maplibre.compose.desktop.DesktopMapHost
@@ -22,6 +21,20 @@ import org.maplibre.compose.desktop.TextureOrigin
  * only one whose producer and consumer share an API.
  *
  * Ported from the `maplibre-native-ffi` Compose example, which is the reference for this path.
+ *
+ * It inserts no fence or event handshake between MapLibre's command buffer and Skia's, and needs
+ * none: MapLibre's Metal texture backend commits its command buffer and then waits on it from
+ * inside `renderUpdate`, so the texture is finished on the GPU before that call returns and `draw`
+ * can sample it. Traced through maplibre-native-ffi 2c397595 — `render_session_common.cpp:1388`
+ * renders the update, `renderer_impl.cpp:457` presents the default renderable,
+ * `mtl/command_encoder.cpp:30` forwards that to the renderable's `swap()`, and
+ * `metal_texture_backend.mm:139` commits and `waitUntilCompleted()`s. The cost is that the renderer
+ * thread blocks for the whole frame, every frame.
+ *
+ * That ordering is the producer's doing rather than anything this bridge signals, and the reverse
+ * direction is unfenced too: MapLibre overwriting the texture while Skia's previous frame may still
+ * be sampling it rests on the frame loop issuing render and draw from one thread, not on a
+ * guarantee from either API.
  */
 internal class MacosMetalHost : DesktopMapHost {
   private val rendererThread = HostRendererThread("maplibre-macos-metal-renderer")
@@ -47,25 +60,6 @@ internal class MacosMetalHost : DesktopMapHost {
 
   override val backends: DesktopBackendPair =
     DesktopBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
-
-  override val capabilities: DesktopHostCapabilities =
-    DesktopHostCapabilities(
-      backends = backends
-      // The example performs no fence or event handshake between MapLibre's command buffer and
-      // Skia's, and none is needed: MapLibre's Metal texture backend commits its command buffer
-      // and then waits on it from inside renderUpdate, so the texture is finished on the GPU
-      // before that call returns and draw() can sample it. Traced through maplibre-native-ffi
-      // 2c397595 — render_session_common.cpp:1388 renders the update, renderer_impl.cpp:457
-      // presents the default renderable, mtl/command_encoder.cpp:30 forwards that to the
-      // renderable's swap(), and metal_texture_backend.mm:139 commits and waitUntilCompleted()s.
-      // The cost is that the renderer thread blocks for the whole frame, every frame.
-      //
-      // False is therefore the honest value rather than a gap: this flag reports what the host
-      // itself does, and the ordering above is the producer's doing, not something this bridge
-      // signals. The reverse direction is unfenced too — MapLibre overwriting the texture while
-      // Skia's previous frame may still be sampling it rests on the frame loop issuing render and
-      // draw from one thread, not on a guarantee from either API.
-    )
 
   override fun resize(extent: DesktopMapExtent) {
     // Skiko's device is read on the caller's thread rather than inside the renderer thread: reading

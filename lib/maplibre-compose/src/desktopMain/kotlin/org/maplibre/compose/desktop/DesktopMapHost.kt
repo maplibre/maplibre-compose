@@ -32,9 +32,6 @@ public interface DesktopMapHostSession {
   /** The backends in use. */
   public val backends: DesktopBackendPair
 
-  /** What this host can do. */
-  public val capabilities: DesktopHostCapabilities
-
   /**
    * Asks the host to schedule another frame.
    *
@@ -65,9 +62,6 @@ public interface DesktopMapHostSession {
 public interface DesktopMapHost : AutoCloseable {
   /** The backends this host bridges. */
   public val backends: DesktopBackendPair
-
-  /** What this host can do. */
-  public val capabilities: DesktopHostCapabilities
 
   /**
    * Resizes the host's render target.

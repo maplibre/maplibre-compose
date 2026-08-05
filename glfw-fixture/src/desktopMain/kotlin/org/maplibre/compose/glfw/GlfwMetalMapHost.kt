@@ -4,7 +4,6 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import dev.sargunv.composeglfw.MetalRenderContext
 import org.maplibre.compose.desktop.ComposeRenderBackend
 import org.maplibre.compose.desktop.DesktopBackendPair
-import org.maplibre.compose.desktop.DesktopHostCapabilities
 import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.DesktopMapFrame
 import org.maplibre.compose.desktop.DesktopMapHost
@@ -28,6 +27,11 @@ import org.maplibre.compose.desktop.TextureOrigin
  * wrapper both block on it, and the renderer thread is usually the thread the event thread is
  * waiting for. None of that applies here, so `resize` is one hop instead of two and there is no
  * deadlock to avoid.
+ *
+ * Synchronization matches the default macOS host, for the same measured reason: this bridge inserts
+ * no fence or event of its own, and MapLibre's Metal texture backend commits its command buffer and
+ * waits on it from inside `renderUpdate`, so the texture is finished before `withProducerAccess`
+ * returns and `draw` can sample it.
  */
 internal class GlfwMetalMapHost(renderContext: MetalRenderContext) : DesktopMapHost {
   private val device = renderContext.device
@@ -41,19 +45,6 @@ internal class GlfwMetalMapHost(renderContext: MetalRenderContext) : DesktopMapH
 
   override val backends: DesktopBackendPair =
     DesktopBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
-
-  override val capabilities: DesktopHostCapabilities =
-    DesktopHostCapabilities(
-      backends = backends
-      // False for the same measured reason the default macOS host reports false: this bridge
-      // inserts no fence or event of its own. MapLibre's Metal texture backend commits its command
-      // buffer and waits on it from inside renderUpdate, so the texture is finished before
-      // withProducerAccess returns and draw() can sample it — but that ordering is the producer's
-      // doing, not something this host signals, and this flag reports what the host does.
-      // A texture cannot change size, so any extent change produces a new generation. The session
-      // reads that and retargets the live render session rather than re-attaching, as long as the
-      // scale factor held, which is what keeps the tile pyramid across a drag resize.
-    )
 
   override fun resize(extent: DesktopMapExtent) {
     val retiredTexture = rendererThread.run { resizeOnRendererThread(extent) }

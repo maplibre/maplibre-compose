@@ -42,15 +42,3 @@ public data class DesktopBackendPair(
 ) {
   override fun toString(): String = "$producer -> $consumer"
 }
-
-/**
- * What a live [DesktopMapHost] can do, beyond simply producing frames.
- *
- * The map session uses these to decide how defensively it has to behave; a host that cannot resize
- * without recreating its target, for example, forces a target generation change on every resize.
- */
-@Immutable
-public data class DesktopHostCapabilities(
-  /** The backends this host bridges. */
-  public val backends: DesktopBackendPair
-)

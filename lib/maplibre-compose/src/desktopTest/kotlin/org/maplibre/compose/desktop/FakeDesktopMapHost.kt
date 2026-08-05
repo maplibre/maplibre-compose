@@ -11,12 +11,7 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
  */
 internal class FakeDesktopMapHost(
   override val backends: DesktopBackendPair =
-    DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
-  override val capabilities: DesktopHostCapabilities =
-    DesktopHostCapabilities(
-      backends = backends
-      // Matches the real borrowed-texture hosts, which cannot resize in place.
-    ),
+    DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 ) : DesktopMapHost {
 
   /**
