@@ -245,7 +245,9 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     }
 
     override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-      events += "cameraMoveStarted"
+      // The reason is part of the event, not a detail: it is what tells a consumer the user did
+      // this rather than the application, and it is only observable here.
+      events += "cameraMoveStarted($reason)"
     }
 
     override fun onCameraMoved(map: MapAdapter) {

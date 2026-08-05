@@ -203,6 +203,14 @@ internal class DesktopMapSession(
   @Volatile private var isGestureInProgress = false
 
   /**
+   * The reason a camera move was last reported as started, or null if none is outstanding.
+   *
+   * Owner-thread state: every read and write is from an event handler or from work posted to that
+   * thread, which is what lets it be a plain field. See [beginCameraMove].
+   */
+  private var reportedMoveReason: CameraMoveReason? = null
+
+  /**
    * The map's configuration, keyed so the last value for each setting wins.
    *
    * Everything a new map has to be told to match the old one: the camera, its limits, and the debug
@@ -699,17 +707,16 @@ internal class DesktopMapSession(
         callbacks.onMapFailLoading(reason)
       }
 
-      RuntimeEventType.MAP_CAMERA_WILL_CHANGE ->
-        callbacks.onCameraMoveStarted(
-          this,
-          if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC,
-        )
+      RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
 
       RuntimeEventType.MAP_CAMERA_IS_CHANGING -> callbacks.onCameraMoved(this)
 
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
         callbacks.onCameraMoved(this)
-        callbacks.onCameraMoveEnded(this)
+        // Not the end of anything, during a gesture. A drag is a stream of jumps, and MapLibre
+        // raises a will-change and a did-change for each one, so ending the move here would report
+        // a move that started and finished between two pointer samples. See endCameraMove.
+        if (!isGestureInProgress) endCameraMove()
       }
 
       RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
@@ -762,6 +769,38 @@ internal class DesktopMapSession(
         // type this build has never seen. Logging beats failing.
         logger?.v { "Unrecognized MapLibre event type ${event.type}" }
     }
+  }
+
+  /**
+   * Reports that the camera started moving, unless that has already been reported.
+   *
+   * MapLibre's camera events are per change, and a gesture is many changes: a drag issues a jump
+   * for every pointer sample, each with its own will-change and did-change. Reported literally,
+   * that makes `isCameraMoving` true and false again within one drain of the event queue, which is
+   * between two Compose frames — and Compose only ever shows a reader the value at recomposition,
+   * so a flag that flickers below frame rate reads as permanently false. Anything watching for a
+   * gesture, such as the Material 3 attribution button collapsing when the map is moved, then never
+   * sees one.
+   *
+   * So a move here spans the gesture rather than the jump, which is also what the Android and iOS
+   * SDKs report and therefore what the common API means. The reason is re-reported when it changes
+   * so that a gesture taking over from an animation is not left labelled `PROGRAMMATIC` — the flag
+   * is set from the UI thread while these events are handled on the owner thread, so the first
+   * change of a drag can genuinely arrive before the gesture is known.
+   */
+  private fun beginCameraMove() {
+    val reason =
+      if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
+    if (reportedMoveReason == reason) return
+    reportedMoveReason = reason
+    callbacks.onCameraMoveStarted(this, reason)
+  }
+
+  /** Reports that the camera stopped moving, if it was reported as moving. */
+  private fun endCameraMove() {
+    if (reportedMoveReason == null) return
+    reportedMoveReason = null
+    callbacks.onCameraMoveEnded(this)
   }
 
   /**
@@ -1265,7 +1304,13 @@ internal class DesktopMapSession(
     isGestureInProgress = active
     // Posted rather than blocking: the answer is not needed, and a gesture must never wait on the
     // owner thread to finish a style parse before the pointer can move.
-    loop?.post { map -> map.isGestureInProgress = active }
+    loop?.post { map ->
+      map.isGestureInProgress = active
+      // The end of the gesture is the end of the move, because the jumps it was made of stopped
+      // reporting their own ends when it began. Posted with the flag rather than done here so it
+      // runs on the thread that owns that bookkeeping, and after every jump the gesture queued.
+      if (!active) endCameraMove()
+    }
   }
 
   /**
