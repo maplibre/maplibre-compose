@@ -746,7 +746,8 @@ internal class DesktopMapSession(
         // Logged rather than acted on, and that is where it stops for now: supplying the image
         // means a callback in the common API, and MapLibre Compose has none — neither the Android
         // nor the iOS adapter exposes one either, so a desktop-only hook would be a surface no
-        // cross-platform code could call. Recorded in COMMON_API_GAPS.md instead. Logging it is
+        // cross-platform code could call. Recorded in .agents/docs/COMMON_API_GAPS.md instead.
+        // Logging it is
         // still worth doing: a missing sprite otherwise shows up as symbols that silently do not
         // draw, with nothing naming the image.
         logger?.d { "Style image missing: ${event.message}" }

@@ -18,7 +18,7 @@ import org.maplibre.nativeffi.style.SourceType
  * carries a source's URL, tile list, zoom range, scheme, bounds, tile size, and encoding, and none
  * of it has a consumer: reading a source's configuration is not something MapLibre Compose offers
  * on any platform, and adding it would be a common API decision rather than a desktop one. See
- * COMMON_API_GAPS.md.
+ * .agents/docs/COMMON_API_GAPS.md.
  */
 public actual class UnknownSource
 internal constructor(id: String, internal val definition: JsonObject) : Source(id) {

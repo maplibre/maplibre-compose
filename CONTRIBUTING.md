@@ -89,12 +89,9 @@ MapLibre Native checkout to set up.
 The desktop tests do drive a real GPU, through a headless Vulkan device. Linux
 and Windows have a system Vulkan loader; macOS does not, so `mise run bootstrap`
 installs one over MoltenVK. Run it — or `brew install vulkan-loader molten-vk` —
-before trusting a green desktop suite on a Mac: without a loader those tests
-skip rather than fail, which looks the same in the output.
-
-Desktop is validated on Linux, and its test suite also runs on macOS. Windows is
-implemented but has not been run on real hardware yet; see
-[DESKTOP_FFI_REWRITE.md](./DESKTOP_FFI_REWRITE.md).
+before trusting a green desktop suite on a Mac. Those tests assume a working
+loader and fail without one rather than skipping, so a machine that cannot run
+them says so instead of reporting the same green as one that can.
 
 ## Run the demo
 

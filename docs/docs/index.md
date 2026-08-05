@@ -36,6 +36,7 @@ to express an interactive map API in Compose.
 | Add images to the style                           |   :white_check_mark:   |   :white_check_mark:   |   :white_check_mark:   |          :x:           |    :x:     |
 | Add Material 3 controls                           |   :white_check_mark:   |   :white_check_mark:   |   :white_check_mark:   |          :x:           |    :x:     |
 | Download offline regions                          |   :white_check_mark:   |   :white_check_mark:   |   :white_check_mark:   |          :x:           |    :x:     |
+| Show the user's location                          |   :white_check_mark:   |   :white_check_mark:   |          :x:           |          :x:           |    :x:     |
 | Snapshot the map as an image                      |          :x:           |          :x:           |          :x:           |          :x:           |    :x:     |
 
 [compose]: https://www.jetbrains.com/compose-multiplatform/
