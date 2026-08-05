@@ -20,8 +20,17 @@ import org.maplibre.nativeffi.runtime.WakeSource
  *
  * The runtime's wake flag covers style, tile, and resource responses, queued events, and this
  * loop's own [WakeSource], and every one of those returns the pump immediately — so this is a
- * backstop rather than the cadence. It is bounded rather than indefinite because timers and ready
- * sockets set the flag only when they queue owner-thread work.
+ * backstop rather than the cadence, and measuring an idle map bears that out: the pump rate there
+ * follows MapLibre's own events, not this bound.
+ *
+ * A negative value would park until a wake arrives, and that was tried: the desktop suite passes on
+ * it, a real map loads its style, tiles, and sprites on it, and MapLibre arms no timer or socket on
+ * the map's own run loop for the pump to service. The bound stays anyway, because what it protects
+ * against is the case where that stops being true. `mln_runtime_pump` services the owner run loop's
+ * timers and file descriptors, and its contract says they set the wake flag only when they queue
+ * owner-thread work — so anything armed there directly would go unserviced until something
+ * unrelated happened to wake the thread, and the symptom would be a map that quietly stops making
+ * progress. Ten no-op wakes a second is a cheap price for not having that failure mode.
  */
 private const val PUMP_PARK_MILLIS = 100L
 
