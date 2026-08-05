@@ -22,6 +22,7 @@ internal class SourceManager(private val node: StyleNode) {
     counter.increment(source) {
       node.logger?.i { "Adding source ${source.id}" }
       node.style.addSource(source)
+      state?.reloadSources()
     }
   }
 
@@ -34,9 +35,5 @@ internal class SourceManager(private val node: StyleNode) {
       node.style.removeSource(source)
       state?.reloadSources()
     }
-  }
-
-  internal fun applyChanges() {
-    state?.reloadSources()
   }
 }
