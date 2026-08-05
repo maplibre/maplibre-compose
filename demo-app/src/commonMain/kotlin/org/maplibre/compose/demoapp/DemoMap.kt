@@ -72,6 +72,7 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
             state.mapClickEvents.add(MapClickEvent(position, offset))
             ClickResult.Pass
           },
+          onFrame = { state.frameRateState.record() },
           options =
             MapOptions(
               ornamentOptions =

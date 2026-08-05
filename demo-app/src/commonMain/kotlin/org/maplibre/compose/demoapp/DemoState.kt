@@ -76,6 +76,8 @@ class DemoState(
 
   val mapClickEvents = mutableStateListOf<MapClickEvent>()
 
+  val frameRateState = FrameRateState()
+
   val demos =
     (listOf(
       StyleSelectorDemo,

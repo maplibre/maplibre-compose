@@ -5,6 +5,7 @@ import androidx.compose.ui.Modifier
 import kotlin.math.roundToInt
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
+import org.maplibre.compose.demoapp.design.FrameRateListItem
 import org.maplibre.compose.demoapp.design.SegmentedButtonListItem
 import org.maplibre.compose.demoapp.design.SliderListItem
 import org.maplibre.compose.demoapp.design.SwitchListItem
@@ -16,6 +17,8 @@ object RenderOptionsDemo : Demo {
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
     CardColumn {
+      FrameRateListItem(state.frameRateState)
+
       SegmentedButtonListItem(
         options = RenderOptions.RenderMode.entries,
         selectedOption = state.renderOptions.renderMode,
