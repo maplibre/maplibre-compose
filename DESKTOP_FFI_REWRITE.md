@@ -908,7 +908,7 @@ operating system before declaring the SPI usable.
       they are recorded in `COMMON_API_GAPS.md` rather than done here. Finally
       `createProjection`, whose semantics do not match ours: it returns a snapshot
       of the transform, while `CameraProjection` is a live view.
-- [~] Automated tests pass (162 desktop tests across 38 classes, none skipped).
+- [~] Automated tests pass (164 desktop tests across 39 classes, none skipped).
   The machine validation matrix covers Linux x64 and macOS arm64; Windows is
   untested.
 

@@ -11,8 +11,7 @@ a snapshot we resolve and the workaround here is deleted; the deletion is the
 record, and git history is where the argument lives. Everything reported during
 the first pass — the error model, lifecycle, event-pump, and documentation
 entries, and every one of the missing APIs — has now been resolved upstream and
-removed from here, as has the process-exit lifecycle crash. What is left is one
-documentation entry.
+removed from here, as has the process-exit lifecycle crash. Nothing is open.
 
 See [COMMON_API_GAPS.md](./COMMON_API_GAPS.md) for the other direction: things
 the FFI already provides that MapLibre Compose has no common API for.
@@ -47,28 +46,15 @@ Snapshot this was written against: binding `0.1.0-20260803.074311-52`.
 
 ## Documentation
 
-### The Metal borrowed-texture GPU-completion guarantee is undocumented — **verified**
-
-`mln_metal_borrowed_texture_attach` does not say whether a render is complete on
-the GPU when `render_update` returns, so a host cannot tell whether it needs a
-fence before sampling the texture. Its OpenGL sibling does say
-(`include/maplibre_native_c/texture.h:536-539`); the Metal entry point
-(`texture.h:394-426`) is silent.
-
-The guarantee does hold. Traced at commit `2c397595`:
-`render_session_render_update` (`src/render/render_session_common.cpp:1388`) →
-`Renderer::render` → `encoder->present`
-(`third_party/maplibre-native/src/mbgl/renderer/renderer_impl.cpp:457`) →
-`swap()` (`.../src/mbgl/mtl/command_encoder.cpp:30`) →
-`commandBuffer->commit(); commandBuffer->waitUntilCompleted();`
-(`src/render/metal/metal_texture_backend.mm:132-143`).
-
-A consumer that assumes the opposite adds a redundant fence; one that assumes it
-without checking is right by luck. Either way it should not require reading the
-`.mm`.
-
-_Suggested fix:_ document it on the Metal attach entry point, matching the
-wording already on the OpenGL one.
+None open. The one entry here asked for the Metal borrowed-texture attach entry
+point to document what its OpenGL sibling already does: whether a render is
+complete on the GPU when `render_update` returns, which decides whether a host
+needs a fence before sampling the texture. The guarantee holds — traced at
+`2c397595` from `render_session_common.cpp:1388` through
+`metal_texture_backend.mm:132-143` — and it is now written down in
+`MacosMetalHost`'s own documentation, so the cost of it being undocumented
+upstream is a host author reading the `.mm` rather than anything wrong here.
+Dropped rather than fixed: upstream is not polishing documentation yet.
 
 ## Missing APIs
 
