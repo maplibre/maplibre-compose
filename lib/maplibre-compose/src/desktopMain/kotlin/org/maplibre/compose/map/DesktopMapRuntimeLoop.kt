@@ -1,7 +1,6 @@
 package org.maplibre.compose.map
 
 import co.touchlab.kermit.Logger
-import java.nio.file.Files
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -9,13 +8,11 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.DesktopRuntimeOptions
-import org.maplibre.compose.offline.AmbientCacheSizeRequest
-import org.maplibre.compose.resource.DesktopResourceProvider
+import org.maplibre.compose.resource.DesktopRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.RuntimeOptions
 import org.maplibre.nativeffi.runtime.WakeSource
 
 /**
@@ -89,12 +86,9 @@ internal class DesktopMapRuntimeLoop(
   @Volatile private var stopRequested = false
 
   /**
-   * The ambient cache budget being applied. Owner-thread state; retired by its completion event.
+   * The runtime and everything retired before it. Owner-thread state; see [DesktopRuntimeOwner].
    */
-  private var cacheSizeRequest: AmbientCacheSizeRequest? = null
-
-  /** The provider serving this runtime's packaged resources. Owner-thread state; see [close]. */
-  private var resourceProvider: DesktopResourceProvider? = null
+  private var runtimeOwner: DesktopRuntimeOwner? = null
 
   /** Released by [close], so teardown can wait for it without polling. */
   private val stopSignal = CountDownLatch(1)
@@ -192,14 +186,17 @@ internal class DesktopMapRuntimeLoop(
   }
 
   private fun runLoop() {
-    val runtime =
+    val owner =
       try {
-        createRuntime()
+        DesktopRuntimeOwner.open(runtimeOptions, logger, "MapLibre runtime").also {
+          runtimeOwner = it
+        }
       } catch (error: Throwable) {
         logger?.e(error) { "Could not create the MapLibre runtime" }
         fail(error)
         return
       }
+    val runtime = owner.runtime
 
     var created: MapHandle? = null
     try {
@@ -224,14 +221,10 @@ internal class DesktopMapRuntimeLoop(
         runCatching { created?.close() }
           .onFailure { logger?.e(it) { "Failed to close the MapLibre map" } }
       } finally {
-        // Before the runtime, because RuntimeHandle.close() blocks on operations still in flight,
-        // and cancelling a budget nothing will observe again is what should happen here.
-        retireCacheSizeRequest()
-        // And the provider, which answers requests on a thread of its own: a read still running is
-        // a completion that would otherwise land on a runtime that is already gone.
-        quiesceResourceProvider()
-        runCatching { runtime.close() }
-          .onFailure { logger?.e(it) { "Failed to close the MapLibre runtime" } }
+        // Retires the cache budget and the resource provider, in that order, before the runtime
+        // they would otherwise make wait. See DesktopRuntimeOwner.close.
+        owner.close()
+        runtimeOwner = null
       }
     }
   }
@@ -249,49 +242,6 @@ internal class DesktopMapRuntimeLoop(
       runtime.pump(parkMillis)
       drainEvents(runtime, map)
     }
-  }
-
-  private fun createRuntime(): RuntimeHandle {
-    // Created eagerly: MapLibre opens the database when the runtime is created and fails if the
-    // directory is missing, which on a fresh machine it always is.
-    runCatching { runtimeOptions.cachePath.parent?.let(Files::createDirectories) }
-      .onFailure { logger?.w(it) { "Could not create the MapLibre cache directory" } }
-
-    val runtime =
-      RuntimeHandle.create(
-        RuntimeOptions().also { it.cachePath = runtimeOptions.cachePath.toString() }
-      )
-    return try {
-      // Started before the provider, so the budget is in force before any response can be cached
-      // against it. The answer arrives as an event, which drainEvents retires.
-      cacheSizeRequest =
-        AmbientCacheSizeRequest.start(runtime, runtimeOptions.maximumCacheSizeBytes, logger)
-      // Installed with the runtime, before the map exists, so no resource a map requests can be
-      // issued before the provider that serves it.
-      resourceProvider = DesktopResourceProvider(logger).also(runtime::setResourceProvider)
-      logger?.i { "Created MapLibre runtime on ${Thread.currentThread().name}" }
-      runtime
-    } catch (error: Throwable) {
-      // Anything after create must close the runtime on the way out, or its scheduler and database
-      // connection stay open for the life of the process. The cache-size operation goes first,
-      // because closing a runtime with an operation outstanding is what it is guarding against.
-      retireCacheSizeRequest()
-      quiesceResourceProvider()
-      runCatching { runtime.close() }
-        .onFailure { logger?.e(it) { "Failed to close the runtime after a failed setup" } }
-      throw error
-    }
-  }
-
-  private fun retireCacheSizeRequest() {
-    cacheSizeRequest?.close()
-    cacheSizeRequest = null
-  }
-
-  private fun quiesceResourceProvider() {
-    runCatching { resourceProvider?.close() }
-      .onFailure { logger?.w(it) { "Failed to quiesce the MapLibre resource provider" } }
-    resourceProvider = null
   }
 
   private fun mapOptions() =
@@ -315,10 +265,7 @@ internal class DesktopMapRuntimeLoop(
       if (event.mapSource != null && event.mapSource !== map) continue
       // Runtime-owned bookkeeping, not something the session should see: this loop started the
       // operation, so this loop retires it.
-      if (cacheSizeRequest?.consume(event) == true) {
-        cacheSizeRequest = null
-        continue
-      }
+      if (runtimeOwner?.consumeEvent(event) == true) continue
       runCatching { onEvent(event) }
         .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
     }

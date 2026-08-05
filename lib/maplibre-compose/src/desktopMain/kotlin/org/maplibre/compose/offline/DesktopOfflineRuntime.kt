@@ -1,18 +1,16 @@
 package org.maplibre.compose.offline
 
 import co.touchlab.kermit.Logger
-import java.nio.file.Files
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import org.maplibre.compose.desktop.DesktopRuntimeOptions
-import org.maplibre.compose.resource.DesktopResourceProvider
+import org.maplibre.compose.resource.DesktopRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.RuntimeOptions
 import org.maplibre.nativeffi.runtime.WakeSource
 
 /**
@@ -80,10 +78,9 @@ internal class DesktopOfflineRuntime(
   private val pending = mutableMapOf<Long, PendingOperation>()
 
   /**
-   * The ambient cache budget being applied. Owner-thread state, kept out of [pending] because it is
-   * this class's own bookkeeping rather than a caller's operation.
+   * The runtime and everything retired before it. Owner-thread state; see [DesktopRuntimeOwner].
    */
-  private var cacheSizeRequest: AmbientCacheSizeRequest? = null
+  private var runtimeOwner: DesktopRuntimeOwner? = null
 
   private val thread =
     Thread(::runLoop, "maplibre-compose-offline").apply {
@@ -164,7 +161,9 @@ internal class DesktopOfflineRuntime(
   private fun runLoop() {
     val runtime =
       try {
-        createRuntime()
+        DesktopRuntimeOwner.open(options, logger, "MapLibre offline runtime")
+          .also { runtimeOwner = it }
+          .runtime
       } catch (error: Throwable) {
         logger.e(error) { "Could not create the MapLibre runtime for offline management" }
         rejectQueuedTasks(
@@ -209,36 +208,6 @@ internal class DesktopOfflineRuntime(
     }
   }
 
-  private fun createRuntime(): RuntimeHandle {
-    // Created eagerly: MapLibre opens the database when the runtime is created and fails if the
-    // directory is missing, which on a fresh machine it always is.
-    runCatching { options.cachePath.parent?.let(Files::createDirectories) }
-      .onFailure { logger.w(it) { "Could not create the MapLibre cache directory" } }
-
-    val runtime =
-      RuntimeHandle.create(RuntimeOptions().also { it.cachePath = options.cachePath.toString() })
-    return try {
-      // Started before the provider, so the budget is in force before any response can be cached
-      // against it. The answer arrives as an event, which drainEvents retires.
-      cacheSizeRequest =
-        AmbientCacheSizeRequest.start(runtime, options.maximumCacheSizeBytes, logger)
-      // Downloads fetch through the same resource stack a map does, so a pack whose style lives in
-      // the application's resources only resolves if the provider is installed here too.
-      runtime.setResourceProvider(DesktopResourceProvider(logger))
-      logger.i { "Created the MapLibre offline runtime on ${Thread.currentThread().name}" }
-      runtime
-    } catch (error: Throwable) {
-      // Anything after create must close the runtime on the way out. The caller's failure path
-      // never entered the try that owns teardown, so the native runtime, its scheduler, and its
-      // database connection would otherwise stay open for the life of the process. The cache-size
-      // operation goes first, because an outstanding one is what a runtime close blocks on.
-      retireCacheSizeRequest()
-      runCatching { runtime.close() }
-        .onFailure { logger.e(it) { "Failed to close the offline runtime after a failed setup" } }
-      throw error
-    }
-  }
-
   /** Drains events until the queue is momentarily empty. */
   private fun drainEvents(runtime: RuntimeHandle) {
     while (true) {
@@ -249,8 +218,8 @@ internal class DesktopOfflineRuntime(
           logger.e(error) { "Failed to poll a MapLibre offline runtime event" }
           break
         }
-      if (cacheSizeRequest?.consume(event) == true) {
-        cacheSizeRequest = null
+      if (runtimeOwner?.consumeEvent(event) == true) {
+        // This loop's own bookkeeping, not a caller's operation.
       } else if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
         completeOperation(runtime, event)
       } else {
@@ -320,18 +289,12 @@ internal class DesktopOfflineRuntime(
         .onFailure { logger.e(it) { "Failed to cancel the operation to ${operation.description}" } }
     }
 
-    retireCacheSizeRequest()
-
-    // Last, and only after its children: a runtime whose close fails stays live and leaves its
-    // thread unable to host another one, which is why this thread ends here rather than being
-    // reused.
-    runCatching { runtime.close() }
-      .onFailure { logger.e(it) { "Failed to close the MapLibre offline runtime" } }
-  }
-
-  private fun retireCacheSizeRequest() {
-    cacheSizeRequest?.close()
-    cacheSizeRequest = null
+    // Last, and only after its children: the cache budget and the resource provider are retired
+    // first, then the runtime, which a failed close leaves live and its thread unable to host
+    // another one -- which is why this thread ends here rather than being reused. This used to
+    // close the runtime directly and never quiesced the provider at all; see DesktopRuntimeOwner.
+    runtimeOwner?.close()
+    runtimeOwner = null
   }
 
   private fun rejectQueuedTasks(reason: Throwable) {
