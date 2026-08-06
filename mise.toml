@@ -18,9 +18,9 @@ python = "3.14.4"
 
 [hooks]
 postinstall = [
-  "hk install --mise",
-  "mise run _xcodes-select",
-  "mise run bootstrap",
+  { run = "hk install --mise" },
+  { task = "_xcodes-select" },
+  { task = "bootstrap" },
 ]
 
 [tasks.bootstrap]
