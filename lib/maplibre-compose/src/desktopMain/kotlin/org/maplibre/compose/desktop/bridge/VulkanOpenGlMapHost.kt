@@ -131,8 +131,8 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter()
   private var vulkan: LinuxVulkanContext? = null
-  private var exported: LinuxExportedVulkanTexture? = null
-  private var imported: LinuxOpenGlImportedTexture? = null
+  private var texture: LinuxSharedTexture? = null
+  private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
   private var generation = 0L
   private var currentExtent = DesktopMapExtent.Empty
 
@@ -149,13 +149,14 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
     extent: DesktopMapExtent,
     presentationTimeNanos: Long?,
   ): DesktopMapFrame {
-    if (imported == null || exported == null || extent != currentExtent) {
+    if (texture == null || extent != currentExtent) {
       recreateTexture(extent)
     }
     return DesktopMapFrame(
       frameId = frameId,
       extent = extent,
-      target = requireNotNull(exported) { "Vulkan texture is not initialized" }.target(generation),
+      target =
+        requireNotNull(texture) { "Vulkan texture is not initialized" }.exported.target(generation),
       presentationTimeNanos = presentationTimeNanos,
     )
   }
@@ -171,10 +172,14 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
 
   override fun draw(scope: DrawScope, target: DesktopRenderTarget): Boolean {
     if (target !is VulkanImageTarget) return false
-    val texture = imported ?: return false
+    val sharedTexture =
+      if (target.generation == generation) texture else retiredTextures[target.generation]
+    val imported = sharedTexture?.imported ?: return false
     val context = gpuHost.currentContext() as? OpenGlComposeGpuContext ?: return false
     // Already inside the Compose draw callback, so Compose's context is current on this thread.
-    return presenter.draw(scope, context.skiaContext, texture.target(target.generation))
+    val drew = presenter.draw(scope, context.skiaContext, imported.target(target.generation))
+    if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
+    return drew
   }
 
   override fun close() {
@@ -183,7 +188,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
       // current and no GL objects left to free; the driver reclaims them with the context.
       runCatching {
         gpuHost.withOpenGlContext {
-          disposeTexture()
+          disposeAllTextures()
           presenter.close()
         }
       }
@@ -200,21 +205,20 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
 
   private fun recreateTexture(extent: DesktopMapExtent) {
     if (extent.isEmpty) {
-      disposeTexture()
+      disposeAllTextures()
       currentExtent = DesktopMapExtent.Empty
       generation += 1
       return
     }
 
-    disposeTexture()
     val context =
       vulkan ?: LinuxVulkanContext.create(currentOpenGlDeviceUuids()).also { vulkan = it }
     val newExported = context.createExportedTexture(extent)
     try {
       val newImported =
         LinuxOpenGlImportedTexture.create(newExported.exportFd(), newExported.memorySize(), extent)
-      exported = newExported
-      imported = newImported
+      texture?.let { retiredTextures[generation] = it }
+      texture = LinuxSharedTexture(newExported, newImported)
       currentExtent = extent
       generation += 1
     } catch (error: RuntimeException) {
@@ -223,16 +227,37 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
     }
   }
 
-  /** Frees both views of the shared allocation. Compose's GL context must be current. */
-  private fun disposeTexture() {
-    imported?.let { texture ->
-      // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-      presenter.forget(texture.textureName)
-      texture.close()
+  /**
+   * Frees retired allocations other than [exceptGeneration]. Compose's GL context must be current.
+   */
+  private fun disposeRetiredTextures(exceptGeneration: Long? = null) {
+    val iterator = retiredTextures.iterator()
+    while (iterator.hasNext()) {
+      val entry = iterator.next()
+      if (entry.key != exceptGeneration) {
+        entry.value.close()
+        iterator.remove()
+      }
     }
-    imported = null
-    exported?.close()
-    exported = null
+  }
+
+  /** Frees every view of every shared allocation. Compose's GL context must be current. */
+  private fun disposeAllTextures() {
+    texture?.close()
+    texture = null
+    disposeRetiredTextures()
+  }
+
+  private inner class LinuxSharedTexture(
+    val exported: LinuxExportedVulkanTexture,
+    val imported: LinuxOpenGlImportedTexture,
+  ) : AutoCloseable {
+    override fun close() {
+      // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
+      presenter.forget(imported.textureName)
+      imported.close()
+      exported.close()
+    }
   }
 }
 
@@ -628,6 +653,9 @@ private constructor(
 
     var importedFd = false
     try {
+      // Compose and the bridge share this context, whose error flag is sticky. Establish ownership
+      // of every error reported below before checking any of our own calls.
+      clearGlErrors()
       memoryObject = glCreateMemoryObjectsEXT()
       glMemoryObjectParameteriEXT(memoryObject, GL_DEDICATED_MEMORY_OBJECT_EXT, GL_TRUE)
       glImportMemoryFdEXT(memoryObject, memorySize, GL_HANDLE_TYPE_OPAQUE_FD_EXT, fd)

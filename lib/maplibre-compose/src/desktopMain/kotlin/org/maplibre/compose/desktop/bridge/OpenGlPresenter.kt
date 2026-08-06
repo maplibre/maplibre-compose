@@ -219,6 +219,17 @@ internal class OpenGlPresenter : AutoCloseable {
 internal fun ensureCapabilities() =
   runCatching { GL.getCapabilities() }.getOrNull() ?: GL.createCapabilities()
 
+/**
+ * Drops errors left by code that used this shared context before the bridge entered it.
+ *
+ * OpenGL's error flag is sticky and belongs to the context, not the caller. Without an explicit
+ * boundary, [checkGl] can blame the bridge's first call for an error produced earlier by Compose or
+ * its window host.
+ */
+internal fun clearGlErrors() {
+  while (glGetError() != GL_NO_ERROR) Unit
+}
+
 internal fun checkGl(operation: String) {
   val error = glGetError()
   check(error == GL_NO_ERROR) { "$operation failed with GL error 0x${error.toString(16)}" }
