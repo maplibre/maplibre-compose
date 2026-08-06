@@ -178,28 +178,37 @@ There are no longer any special steps required to use MapLibre Compose on Web.
 
 ## Set up Desktop (JVM)
 
-Add the library plus a native runtime for each platform you ship.
+Alongside the library, add a runtime: the native libraries for one platform and
+one render backend.
 
 ```kotlin title="build.gradle.kts"
-val maplibreNativeFfiVersion = "<version>"
-
 sourceSets {
   val desktopMain by getting {
     dependencies {
       implementation(compose.desktop.currentOs)
       implementation("org.maplibre.compose:maplibre-compose:{{ gradle.release_version }}")
 
-      // Linux x64, for example. Classifiers: natives-linux-x64,
-      // natives-linux-arm64, natives-windows-x64, natives-windows-arm64,
-      // natives-macos-arm64.
+      // Linux x64, for example.
       runtimeOnly(
-        "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan-jvm:" +
-          "$maplibreNativeFfiVersion:natives-linux-x64"
+        "org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:" +
+          "{{ gradle.release_version }}"
       )
     }
   }
 }
 ```
+
+Available runtimes:
+
+| Platform      | Runtime                                         |
+| ------------- | ----------------------------------------------- |
+| Linux x64     | `maplibre-compose-runtime-vulkan-linux-x64`     |
+| Linux arm64   | `maplibre-compose-runtime-vulkan-linux-arm64`   |
+| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64`    |
+| Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
+| Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
+
+To ship several platforms, select the runtime from the host you build on.
 
 **Desktop requires Java 25.** The MapLibre Native FFI binding uses the FFM API,
 so the desktop target cannot run on an older JVM.

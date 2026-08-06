@@ -24,13 +24,7 @@ kotlin {
       implementation(libs.jetbrains.compose.ui)
 
       runtimeOnly(desktopHostPlatform.composeGlfwRuntimeDependency(libs.versions.composeGlfw.get()))
-      runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
-
-      // LWJGL resolves its natives from the classpath, and the map's GPU bridge calls
-      // `JNI`/`ObjCRuntime`, so this names the core natives rather than relying on compose-glfw's
-      // transitive set.
-      val lwjglVersion = libs.versions.lwjgl.get()
-      runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${desktopHostPlatform.lwjglNativesClassifier}")
+      runtimeOnly(project(":lib:${desktopHostPlatform.defaultRuntimeArtifactId}"))
     }
   }
 }

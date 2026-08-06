@@ -148,14 +148,8 @@ kotlin {
         implementation(compose.desktop.currentOs)
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
-        runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
 
-        // `variantOf` is not available in a KMP source-set dependency block, so the host-matching
-        // LWJGL natives are spelled out.
-        val lwjglVersion = libs.versions.lwjgl.get()
-        val lwjglNatives = desktopHostPlatform.lwjglNativesClassifier
-        runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNatives")
-        runtimeOnly("org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNatives")
+        runtimeOnly(project(":lib:${desktopHostPlatform.defaultRuntimeArtifactId}"))
       }
     }
 

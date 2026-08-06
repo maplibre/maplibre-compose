@@ -7,7 +7,13 @@
 enum class DesktopHostPlatform(
   private val os: String,
   private val arch: String,
-  val renderBackend: RenderBackend,
+
+  /**
+   * The one backend `ComposeGpuMapHostFactory` can bridge here today, not a property of the
+   * platform: the FFI offers OpenGL and Vulkan everywhere, and an application chooses by choosing a
+   * runtime.
+   */
+  val defaultRenderBackend: RenderBackend,
 ) {
   LinuxX64("linux", "x64", RenderBackend.VULKAN),
   LinuxArm64("linux", "arm64", RenderBackend.VULKAN),
@@ -31,13 +37,32 @@ enum class DesktopHostPlatform(
   val lwjglNativesClassifier: String
     get() = if (arch == "x64") "natives-$os" else "natives-$os-$arch"
 
-  /** Module carrying this platform's render backend, without a version. */
-  val runtimeModule: String
-    get() = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-${renderBackend.artifactInfix}-jvm"
+  /** Names this platform in an artifact id, e.g. `linux-x64`. */
+  val artifactSuffix: String
+    get() = "$os-$arch"
+
+  /** Our runtime artifact for [backend] on this platform. */
+  fun runtimeArtifactId(backend: RenderBackend): String =
+    "maplibre-compose-runtime-${backend.artifactInfix}-$artifactSuffix"
+
+  /** Our runtime artifact for [defaultRenderBackend]. */
+  val defaultRuntimeArtifactId: String
+    get() = runtimeArtifactId(defaultRenderBackend)
+
+  /** Module carrying [backend]'s native runtime, without a version. */
+  fun runtimeModule(backend: RenderBackend): String =
+    "org.maplibre.nativeffi:maplibre-native-ffi-runtime-${backend.artifactInfix}-jvm"
+
+  /**
+   * Whether the Compose side of the handoff presents through OpenGL, and so needs LWJGL's OpenGL
+   * natives. Follows the platform rather than the map's backend: Skiko and compose-glfw agree.
+   */
+  private val presentsThroughOpenGl: Boolean
+    get() = os == "linux"
 
   /**
    * Dependency notation for the compose-glfw runtime this platform needs. Its backend names the
-   * Compose consumer, a different axis from [renderBackend]; the two only coincide on macOS.
+   * Compose consumer, a different axis from the map's own; the two only coincide on macOS.
    */
   fun composeGlfwRuntimeDependency(version: String): String =
     "dev.sargunv:compose-glfw-$composeGlfwBackend-$os-$arch:$version"
@@ -51,8 +76,23 @@ enum class DesktopHostPlatform(
         else -> error("compose-glfw publishes no runtime for operating system '$os'")
       }
 
-  /** Full dependency notation for this platform's native runtime. */
-  fun runtimeDependency(version: String): String = "$runtimeModule:$version:$nativesClassifier"
+  /** Full dependency notation for [backend]'s native runtime on this platform. */
+  fun runtimeDependency(backend: RenderBackend, version: String): String =
+    "${runtimeModule(backend)}:$version:$nativesClassifier"
+
+  /**
+   * Every native artifact an application needs to run a map with [backend] here: the FFI's runtime
+   * for that backend, and the LWJGL natives whichever Compose host loads.
+   */
+  fun runtimeDependencies(
+    backend: RenderBackend,
+    ffiVersion: String,
+    lwjglVersion: String,
+  ): List<String> = buildList {
+    add(runtimeDependency(backend, ffiVersion))
+    add("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNativesClassifier")
+    if (presentsThroughOpenGl) add("org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNativesClassifier")
+  }
 
   /**
    * Dependency notation for the runtime the headless GPU tests need. Always Vulkan, even on macOS:
@@ -60,8 +100,7 @@ enum class DesktopHostPlatform(
    * `lwjgl-vulkan`'s natives on the test classpath.
    */
   fun testRuntimeDependency(version: String): String =
-    "org.maplibre.nativeffi:maplibre-native-ffi-runtime-" +
-      "${RenderBackend.VULKAN.artifactInfix}-jvm:$version:$nativesClassifier"
+    runtimeDependency(RenderBackend.VULKAN, version)
 
   companion object {
     /** The platform this build is running on; throws rather than guessing at an unknown host. */

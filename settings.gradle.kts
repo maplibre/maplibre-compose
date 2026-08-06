@@ -48,4 +48,9 @@ include(
   ":lib:maplibre-compose-material3",
   ":lib:maplibre-js-bindings",
   ":lib:maplibre-compose-gms",
+  ":lib:maplibre-compose-runtime-vulkan-linux-x64",
+  ":lib:maplibre-compose-runtime-vulkan-linux-arm64",
+  ":lib:maplibre-compose-runtime-metal-macos-arm64",
+  ":lib:maplibre-compose-runtime-vulkan-windows-x64",
+  ":lib:maplibre-compose-runtime-vulkan-windows-arm64",
 )

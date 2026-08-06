@@ -96,10 +96,9 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
 
-        // The default Skiko host needs direct Vulkan/OpenGL access; the natives are the app's
-        // concern.
+        // The default Skiko host needs direct Vulkan/OpenGL access; the natives come from the
+        // runtime artifact the application picks.
         implementation(libs.lwjgl.core)
-        implementation(libs.lwjgl.egl)
         implementation(libs.lwjgl.opengl)
         implementation(libs.lwjgl.vulkan)
       }
@@ -121,6 +120,9 @@ kotlin {
     desktopTest.dependencies {
       val platform = DesktopHostPlatform.current()
       runtimeOnly(platform.testRuntimeDependency(libs.versions.maplibre.nativeFfi.get()))
+
+      // Only the EGL interop test binds EGL directly; nothing in the library does.
+      implementation(libs.lwjgl.egl)
 
       // Core only: LWJGL loads Vulkan itself from the system loader, which on macOS comes from
       // `mise run bootstrap`. Without it the GPU-backed tests skip rather than fail.
