@@ -69,3 +69,8 @@ run_windows = "gradlew.bat :demo-app:jsBrowserDevelopmentRun"
 description = "Run the desktop demo"
 run = "./gradlew :demo-app:run"
 run_windows = "gradlew.bat :demo-app:run"
+
+[tasks."run:glfw"]
+description = "Run the compose-glfw desktop host fixture"
+run = "./gradlew :glfw-fixture:runGlfwFixture"
+run_windows = "gradlew.bat :glfw-fixture:runGlfwFixture"
