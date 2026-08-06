@@ -103,6 +103,7 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   private var vulkan: WindowsVulkanContext? = null
   private var direct3DTexture = NativeHandle(0)
   private var importedTexture: WindowsVulkanImportedDirect3DTexture? = null
+  private val retiredTextures = mutableMapOf<Long, Direct3DTextureTarget>()
   private var generation = 0L
   private var currentExtent = MlnFfiMapExtent.Empty
 
@@ -114,17 +115,18 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     // the GPU thread, which is usually the thread blocked on this call.
     val device =
       if (extent.isEmpty) null else gpuHost.requireContext<Direct3D12ComposeGpuContext>().device
-    // Retired textures come back instead of being released on the renderer thread, for the same
-    // reason: dropping the Skia wrapper also waits on the GPU thread.
+    // Retired textures come back to the GPU thread, where they remain presentable until Compose
+    // has drawn a newer generation. A resize can race ahead of the draw that presents the last
+    // completed frame, and releasing that frame here would make the map flash transparent.
     val retired = rendererThread.run { resizeOnRendererThread(extent, device) }
-    retired?.let(::releaseDirect3DTexture)
+    retired?.let { retiredTextures[it.generation] = it }
   }
 
-  /** Reallocates the texture, returning the D3D texture it replaced for the caller to release. */
+  /** Reallocates the texture, returning the presentation target it replaced. */
   private fun resizeOnRendererThread(
     extent: MlnFfiMapExtent,
     device: NativeHandle?,
-  ): NativeHandle? {
+  ): Direct3DTextureTarget? {
     if (extent == currentExtent && importedTexture != null) {
       return null
     }
@@ -160,26 +162,22 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
-    if (target !is VulkanImageTarget || direct3DTexture.address == 0L) {
-      return false
-    }
+    if (target !is VulkanImageTarget) return false
+    val direct3DTarget =
+      if (target.generation == generation) presentationTarget()
+      else retiredTextures[target.generation]
+    if (direct3DTarget == null) return false
     val context = gpuHost.currentContext() as? Direct3D12ComposeGpuContext ?: return false
-    return presenter.draw(
-      scope,
-      context.skiaContext,
-      Direct3DTextureTarget(
-        texture = direct3DTexture,
-        // Skia wraps the D3D12 resource, so it needs the allocated size, not the render size.
-        extent = importedTexture?.storageExtent ?: target.extent,
-        generation = target.generation,
-      ),
-    )
+    val drew = presenter.draw(scope, context.skiaContext, direct3DTarget)
+    if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
+    return drew
   }
 
   override fun close() {
     try {
       // Released on the closing thread, never the renderer thread; see releaseDirect3DTexture.
-      retireTexture()?.let(::releaseDirect3DTexture)
+      retireTexture()?.let { releaseDirect3DTexture(it.texture) }
+      disposeRetiredTextures()
       presenter.close()
     } finally {
       val closingVulkan = vulkan
@@ -195,8 +193,11 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   private fun target(generation: Long): MlnFfiRenderTarget =
     checkNotNull(importedTexture) { "Windows Vulkan texture is not initialized" }.target(generation)
 
-  /** Allocates the texture for [extent], returning the D3D texture it replaced, if any. */
-  private fun recreateTexture(extent: MlnFfiMapExtent, device: NativeHandle?): NativeHandle? {
+  /** Allocates the texture for [extent], returning the presentation target it replaced, if any. */
+  private fun recreateTexture(
+    extent: MlnFfiMapExtent,
+    device: NativeHandle?,
+  ): Direct3DTextureTarget? {
     if (extent.isEmpty) return retireTexture()
 
     // An assertion, not a fallback: asking the host for a device here would hop to the GPU thread,
@@ -215,7 +216,7 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
       importedTexture = context.importDirect3DTexture(sharedHandle, storageExtent, extent)
     } catch (error: RuntimeException) {
       // The half-built texture goes now; the one it replaced still goes back to the caller.
-      retireTexture()?.let(::releaseDirect3DTexture)
+      retireTexture()?.let { releaseDirect3DTexture(it.texture) }
       throw error
     } finally {
       // Vulkan duplicates the handle rather than taking ownership, so this copy is always ours.
@@ -225,15 +226,38 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   }
 
   /**
-   * Releases the Vulkan import on the renderer thread and detaches the D3D texture, returning it
-   * for the caller to hand to [releaseDirect3DTexture] off the renderer thread.
+   * Releases the Vulkan import on the renderer thread and detaches the D3D texture, returning the
+   * presentation target for the caller to retain or release off the renderer thread.
    */
-  private fun retireTexture(): NativeHandle? {
+  private fun retireTexture(): Direct3DTextureTarget? {
+    val retired = presentationTarget()
     importedTexture?.close()
     importedTexture = null
-    val retired = direct3DTexture.takeIf { it.address != 0L }
     direct3DTexture = NativeHandle(0)
     return retired
+  }
+
+  /** The current D3D resource in the shape Skia needs to present it. */
+  private fun presentationTarget(): Direct3DTextureTarget? {
+    if (direct3DTexture.address == 0L) return null
+    return Direct3DTextureTarget(
+      texture = direct3DTexture,
+      // Skia wraps the D3D12 resource, so it needs the allocated size, not the render size.
+      extent = importedTexture?.storageExtent ?: currentExtent,
+      generation = generation,
+    )
+  }
+
+  /** Releases retired generations other than the one Compose just presented. */
+  private fun disposeRetiredTextures(exceptGeneration: Long? = null) {
+    val iterator = retiredTextures.iterator()
+    while (iterator.hasNext()) {
+      val entry = iterator.next()
+      if (entry.key != exceptGeneration) {
+        releaseDirect3DTexture(entry.value.texture)
+        iterator.remove()
+      }
+    }
   }
 
   /**
