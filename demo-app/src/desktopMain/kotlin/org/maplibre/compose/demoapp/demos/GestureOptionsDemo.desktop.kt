@@ -59,6 +59,14 @@ object GestureOptionsDemo : Demo {
           state.gestureOptions = state.gestureOptions.copy(isKeyboardZoomEnabled = isChecked)
         },
       )
+
+      SwitchListItem(
+        text = "Shift + arrow keys to rotate/tilt",
+        checked = state.gestureOptions.isKeyboardRotateTiltEnabled,
+        onCheckedChange = { isChecked ->
+          state.gestureOptions = state.gestureOptions.copy(isKeyboardRotateTiltEnabled = isChecked)
+        },
+      )
     }
   }
 }

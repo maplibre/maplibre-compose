@@ -85,12 +85,6 @@ private const val TILE_SIZE = 512.0
 
 private const val EARTH_CIRCUMFERENCE_METERS = 2.0 * PI * 6378137.0
 
-/** Degrees of bearing per logical pixel of horizontal drag. */
-private const val DRAG_ROTATE_DEGREES_PER_PIXEL = 0.5
-
-/** Degrees of pitch per logical pixel of vertical drag. */
-private const val DRAG_PITCH_DEGREES_PER_PIXEL = 0.5
-
 private const val MIN_PITCH_DEGREES = 0.0
 
 /** MapLibre rejects a pitch beyond this, so the drag is clamped rather than throwing. */
@@ -1158,25 +1152,29 @@ internal class MlnFfiMapSession(
     AnimationOptions().also { it.durationMs = inWholeMilliseconds.toDouble() }
 
   /**
-   * Rotates and pitches together from one drag; deltas are in logical pixels.
+   * Rotates and pitches together by a delta in degrees, over [duration]. See [moveBy] for why zero
+   * exists.
    *
-   * A single `jumpTo` rather than the FFI's two-point `rotateBy`, which derives an angle between
-   * two pointer positions for a two-finger gesture and would rotate around the wrong centre here.
+   * A single camera update rather than the FFI's two-point `rotateBy`, which derives an angle
+   * between two pointer positions for a two-finger gesture and would rotate around the wrong centre
+   * here.
    */
-  fun rotateAndPitchBy(deltaX: Double, deltaY: Double) {
+  fun rotateAndPitchBy(
+    bearingDelta: Double,
+    pitchDelta: Double,
+    duration: Duration = Duration.ZERO,
+  ) {
     // Reading the current camera and writing the new one must happen together on the owner thread.
     onMap { map ->
       val camera = map.camera
-      map.jumpTo(
+      val target =
         CameraOptions().also {
-          it.bearing = (camera.bearing ?: 0.0) + deltaX * DRAG_ROTATE_DEGREES_PER_PIXEL
+          it.bearing = (camera.bearing ?: 0.0) + bearingDelta
           it.pitch =
-            ((camera.pitch ?: 0.0) - deltaY * DRAG_PITCH_DEGREES_PER_PIXEL).coerceIn(
-              MIN_PITCH_DEGREES,
-              MAX_PITCH_DEGREES,
-            )
+            ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
         }
-      )
+      if (duration == Duration.ZERO) map.jumpTo(target)
+      else map.easeTo(target, duration.toAnimationOptions())
     }
   }
 

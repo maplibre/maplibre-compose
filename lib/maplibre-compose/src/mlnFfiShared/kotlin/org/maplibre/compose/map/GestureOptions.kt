@@ -1,7 +1,12 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
+/** Which gestures the map responds to, and how far each one moves the camera. */
 @Immutable
 public actual data class GestureOptions(
   val isDragPanEnabled: Boolean = true,
@@ -10,6 +15,43 @@ public actual data class GestureOptions(
   val isDoubleClickZoomEnabled: Boolean = true,
   val isKeyboardPanEnabled: Boolean = true,
   val isKeyboardZoomEnabled: Boolean = true,
+  val isKeyboardRotateTiltEnabled: Boolean = true,
+
+  /**
+   * How far a mouse may move while pressed and still click rather than drag.
+   *
+   * Touch and stylus use Compose's own touch slop instead, which is finger-sized and comes from the
+   * host. Its mouse equivalent, an eighth of a dp, is a threshold for starting a drag rather than
+   * for keeping a click, and is tight enough that ordinary jitter would lose the click.
+   */
+  val clickSlop: Dp = 3.dp,
+
+  /** Zoom levels per keyboard step and per double click. */
+  val zoomStep: Double = 1.0,
+
+  /** Zoom levels per unit of scroll. One wheel notch is a unit; trackpads report fractions. */
+  val scrollZoomStep: Double = 0.15,
+
+  /** Degrees of bearing per dp of horizontal drag. */
+  val dragRotateDegreesPerDp: Double = 0.8,
+
+  /** Degrees of pitch per dp of vertical drag; negative, so dragging up tilts up. */
+  val dragPitchDegreesPerDp: Double = -0.5,
+
+  /** How far the camera pans per arrow key. */
+  val keyboardPanStep: Dp = 100.dp,
+
+  /** Degrees of bearing per shift and left or right. */
+  val keyboardRotateStep: Double = 15.0,
+
+  /** Degrees of pitch per shift and up or down. */
+  val keyboardPitchStep: Double = 10.0,
+
+  /**
+   * How long a discrete input (arrow key, double click) takes to ease the camera. A repeat
+   * supersedes the transition still in flight, so a held arrow key pans continuously.
+   */
+  val animationDuration: Duration = 300.milliseconds,
 ) {
   public actual companion object Companion {
     public actual val Standard: GestureOptions = GestureOptions()
@@ -18,13 +60,14 @@ public actual data class GestureOptions(
       GestureOptions(isDragPanEnabled = false, isKeyboardPanEnabled = false)
 
     public actual val RotationLocked: GestureOptions =
-      GestureOptions(isDragRotateTiltEnabled = false)
+      GestureOptions(isDragRotateTiltEnabled = false, isKeyboardRotateTiltEnabled = false)
 
     public actual val ZoomOnly: GestureOptions =
       GestureOptions(
         isDragPanEnabled = false,
         isKeyboardPanEnabled = false,
         isDragRotateTiltEnabled = false,
+        isKeyboardRotateTiltEnabled = false,
       )
 
     public actual val AllDisabled: GestureOptions =
@@ -35,6 +78,7 @@ public actual data class GestureOptions(
         isDoubleClickZoomEnabled = false,
         isKeyboardPanEnabled = false,
         isKeyboardZoomEnabled = false,
+        isKeyboardRotateTiltEnabled = false,
       )
   }
 }

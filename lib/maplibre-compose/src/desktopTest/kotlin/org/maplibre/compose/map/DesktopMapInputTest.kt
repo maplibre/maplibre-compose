@@ -8,11 +8,14 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
+import androidx.compose.ui.test.moveBy
+import androidx.compose.ui.test.moveTo
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.withKeyDown
 import co.touchlab.kermit.Logger
 import java.nio.file.Files
 import kotlin.math.abs
@@ -28,13 +31,17 @@ import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
-/** Keyboard and double-click input reach the map. */
+/** Keyboard and pointer input reach the map, and a click stays distinct from a drag. */
 @OptIn(ExperimentalTestApi::class)
 class DesktopMapInputTest {
 
   private val cacheDirectory = Files.createTempDirectory("maplibre-input-test")
+
+  /** Every click the map reported, including the one [runInputTest] uses to take focus. */
+  private val clicks = mutableListOf<Position>()
 
   private val runtimeOptions =
     MlnFfiRuntimeOptions(
@@ -85,6 +92,58 @@ class DesktopMapInputTest {
     assertTrue(sawIntermediate, "the zoom went straight to $target, so it did not animate")
   }
 
+  @Test
+  fun `shift and arrow keys rotate and tilt`() = runInputTest { camera ->
+    onRoot().performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionRight) } }
+    waitUntil(timeoutMillis = TIMEOUT) { camera.position.bearing > 0.0 }
+
+    onRoot().performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionUp) } }
+    waitUntil(timeoutMillis = TIMEOUT) { camera.position.tilt > 0.0 }
+  }
+
+  /**
+   * A press that moves a hair is still a click. The slop only earns its keep if it gates the start
+   * of the drag: gating anything later leaves a press that jittered by a pixel dragging the map and
+   * reporting nothing.
+   */
+  @Test
+  fun `a press that jitters within the slop still clicks`() = runInputTest { camera ->
+    val longitudeBefore = camera.position.target.longitude
+    val clicksBefore = clicks.size
+
+    onRoot().performMouseInput {
+      // Away from the focus click, so this does not read as the second half of a double click.
+      moveTo(Offset(width * 0.25f, height * 0.25f))
+      press()
+      moveBy(Offset(1f, 0f))
+      release()
+    }
+
+    waitUntil(timeoutMillis = TIMEOUT) { clicks.size > clicksBefore }
+    assertEquals(
+      longitudeBefore,
+      camera.position.target.longitude,
+      TARGET_TOLERANCE,
+      "the jitter panned the map",
+    )
+  }
+
+  @Test
+  fun `a press past the slop drags instead of clicking`() = runInputTest { camera ->
+    val longitudeBefore = camera.position.target.longitude
+    val clicksBefore = clicks.size
+
+    onRoot().performMouseInput {
+      moveTo(Offset(width * 0.25f, height * 0.25f))
+      press()
+      moveBy(Offset(60f, 0f))
+      release()
+    }
+
+    waitUntil(timeoutMillis = TIMEOUT) { camera.position.target.longitude != longitudeBefore }
+    assertEquals(clicksBefore, clicks.size, "the drag reported a click")
+  }
+
   /** Waits for the camera to settle at [zoom], failing with the value it stopped at. */
   private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: CameraState, zoom: Double) {
     waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.zoom - zoom) < ZOOM_TOLERANCE }
@@ -126,6 +185,10 @@ class DesktopMapInputTest {
           baseStyle = BaseStyle.Empty,
           cameraState = cameraState,
           options = MapOptions(gestureOptions = gestures),
+          onMapClick = { position, _ ->
+            clicks.add(position)
+            ClickResult.Pass
+          },
           logger = Logger.withTag("input-test"),
         )
       }
