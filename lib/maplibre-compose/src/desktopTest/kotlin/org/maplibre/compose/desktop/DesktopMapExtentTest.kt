@@ -28,15 +28,16 @@ class DesktopMapExtentTest {
   }
 
   @Test
-  fun `keeps logical and physical size self-consistent at fractional scale`() {
-    // The round trip is not exact at fractional scale; the invariant is that the physical size the
-    // host allocates always equals ceil(logical * scale).
-    for (scale in listOf(1.25, 1.5, 1.75, 2.25, 2.5)) {
-      for (physical in listOf(801, 1000, 1023, 1919, 2561)) {
+  fun `preserves the host physical size at fractional scale`() {
+    // 1.7f reproduces GLFW's scale precisely: widening it to Double produces 1.700000047..., so
+    // recalculating ceil(960 * scale) would incorrectly turn a 1632-pixel framebuffer into 1633.
+    for (scale in listOf(1.25, 1.5, 1.7f.toDouble(), 1.75, 2.25, 2.5)) {
+      for (physical in listOf(801, 1000, 1023, 1088, 1632, 1919, 2561)) {
         val extent = DesktopMapExtent.fromPhysical(physical, physical, scale)
-        val expected = kotlin.math.ceil(extent.width * scale).toInt()
+        val expectedLogical = kotlin.math.ceil(physical / scale).toInt()
 
-        assertEquals(expected, extent.physicalWidth, "physical width for $physical at scale $scale")
+        assertEquals(expectedLogical, extent.width, "logical width for $physical at scale $scale")
+        assertEquals(physical, extent.physicalWidth, "physical width at scale $scale")
         assertTrue(
           extent.width > 0 && extent.physicalWidth > 0,
           "extent must stay renderable for $physical at scale $scale",

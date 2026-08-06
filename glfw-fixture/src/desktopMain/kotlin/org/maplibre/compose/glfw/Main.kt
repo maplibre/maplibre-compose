@@ -1,7 +1,12 @@
 package org.maplibre.compose.glfw
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import dev.sargunv.composeglfw.LocalWindow
 import dev.sargunv.composeglfw.Window
 import dev.sargunv.composeglfw.glfwApplication
 import dev.sargunv.composeglfw.rememberWindowState
@@ -22,6 +27,29 @@ fun main() = glfwApplication {
     state = rememberWindowState(size = DpSize(960.dp, 640.dp)),
   ) {
     InstallGlfwMainDispatcher()
+    LogGlfwScale()
     ProvideMapHost(rememberGlfwComposeGpuHost()) { DemoApp() }
+  }
+}
+
+/** Logs every value involved in turning GLFW window units into MapLibre render-target pixels. */
+@Composable
+private fun LogGlfwScale() {
+  val host = LocalWindow.current.info
+  val compose = LocalWindowInfo.current
+  val density = LocalDensity.current.density
+  val framebufferScaleX = host.framebufferWidth.toDouble() / host.windowWidth.coerceAtLeast(1)
+  val framebufferScaleY = host.framebufferHeight.toDouble() / host.windowHeight.coerceAtLeast(1)
+
+  LaunchedEffect(host, compose.containerSize, density) {
+    println(
+      "MapLibre GLFW scale: server=${host.displayServer}, " +
+        "window=${host.windowWidth}x${host.windowHeight} logical, " +
+        "framebuffer=${host.framebufferWidth}x${host.framebufferHeight} physical, " +
+        "framebufferScale=${"%.3f".format(framebufferScaleX)}x${"%.3f".format(framebufferScaleY)}, " +
+        "contentScale=${"%.3f".format(host.contentScale)}, " +
+        "composeDensity=${"%.3f".format(density)}, " +
+        "composeContainer=${compose.containerSize.width}x${compose.containerSize.height} px"
+    )
   }
 }

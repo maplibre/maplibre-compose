@@ -86,8 +86,9 @@ private constructor(
      * Builds an extent from a physical size and scale factor, as `onSizeChanged` reports it,
      * deriving the logical size.
      *
-     * The physical size is re-derived from the rounded logical size so the two agree exactly, so it
-     * may end up one pixel from the size passed in.
+     * The physical size remains exactly what the host reported. In particular, re-deriving it from
+     * the logical size would magnify floating-point noise in a fractional scale factor and could
+     * make the map texture one pixel larger than the Compose canvas.
      */
     fun fromPhysical(
       physicalWidth: Int,
@@ -98,7 +99,13 @@ private constructor(
       if (physicalWidth <= 0 || physicalHeight <= 0) return Empty
       val logicalWidth = max(1, ceil(physicalWidth / scale).toInt())
       val logicalHeight = max(1, ceil(physicalHeight / scale).toInt())
-      return fromLogical(logicalWidth, logicalHeight, scale)
+      return DesktopMapExtent(
+        width = logicalWidth,
+        height = logicalHeight,
+        scaleFactor = scale,
+        physicalWidth = physicalWidth,
+        physicalHeight = physicalHeight,
+      )
     }
 
     private fun normalizeScale(scaleFactor: Double): Double =
