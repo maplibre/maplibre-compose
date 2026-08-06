@@ -119,18 +119,16 @@ kotlin {
     val desktopTest by getting
     desktopTest.dependencies {
       val platform = DesktopHostPlatform.current()
-      runtimeOnly(platform.testRuntimeDependency(libs.versions.maplibre.nativeFfi.get()))
+      platform
+        .runtimeDependencies(
+          backend = DesktopHostPlatform.RenderBackend.VULKAN,
+          ffiVersion = libs.versions.maplibre.nativeFfi.get(),
+          lwjglVersion = libs.versions.lwjgl.get(),
+        )
+        .forEach { runtimeOnly(it) }
 
       // Only the EGL interop test binds EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
-
-      // LWJGL needs its JNI core everywhere. macOS has no system Vulkan implementation, so its
-      // Vulkan natives also carry MoltenVK for the headless GPU tests.
-      val lwjglVersion = libs.versions.lwjgl.get()
-      runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${platform.lwjglNativesClassifier}")
-      if (platform == DesktopHostPlatform.MacosArm64) {
-        runtimeOnly("org.lwjgl:lwjgl-vulkan:$lwjglVersion:${platform.lwjglNativesClassifier}")
-      }
     }
 
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }

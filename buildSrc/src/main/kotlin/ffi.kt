@@ -92,15 +92,10 @@ enum class DesktopHostPlatform(
     add(runtimeDependency(backend, ffiVersion))
     add("org.lwjgl:lwjgl:$lwjglVersion:$lwjglNativesClassifier")
     if (presentsThroughOpenGl) add("org.lwjgl:lwjgl-opengl:$lwjglVersion:$lwjglNativesClassifier")
+    if (backend == RenderBackend.VULKAN && os == "macos") {
+      add("org.lwjgl:lwjgl-vulkan:$lwjglVersion:$lwjglNativesClassifier")
+    }
   }
-
-  /**
-   * Dependency notation for the runtime the headless GPU tests need. Always Vulkan, even on macOS:
-   * `HeadlessVulkanMapHost` has no Metal equivalent, and there it runs on MoltenVK, which needs
-   * `lwjgl-vulkan`'s natives on the test classpath.
-   */
-  fun testRuntimeDependency(version: String): String =
-    runtimeDependency(RenderBackend.VULKAN, version)
 
   companion object {
     /** The platform this build is running on; throws rather than guessing at an unknown host. */
