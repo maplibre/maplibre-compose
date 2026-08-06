@@ -4,11 +4,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.serialization.json.Json
-import org.maplibre.compose.desktop.HeadlessMapFixture
 import org.maplibre.compose.layers.HillshadeLayer
 import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.onMap
 import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -28,7 +28,7 @@ class TiledSourceAttachTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       // Every TileSetOptions field at once, none at its default.
       val fromTiles =
@@ -68,7 +68,7 @@ class TiledSourceAttachTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       val fromTiles =
         RasterDemSource(
@@ -101,7 +101,7 @@ class TiledSourceAttachTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       val fromTiles =
         VectorSource(
@@ -127,7 +127,7 @@ class TiledSourceAttachTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       // Stays in the style for the length of the test, so there is always a live binding to read
       // the map through.

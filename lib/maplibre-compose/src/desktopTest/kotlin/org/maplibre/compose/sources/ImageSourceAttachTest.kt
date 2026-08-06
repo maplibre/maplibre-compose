@@ -7,9 +7,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
-import org.maplibre.compose.desktop.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.log.LogRecord
@@ -45,7 +45,7 @@ class ImageSourceAttachTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertIs<DesktopStyle>(it.style, "the style should have reached the callbacks")
+      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
 
       val fromBitmap = ImageSource(BITMAP_SOURCE_ID, WORLD, ImageBitmap(4, 4))
       val fromUrl = ImageSource(URL_SOURCE_ID, WORLD, uri = "")

@@ -11,11 +11,11 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
-import org.maplibre.compose.desktop.DesktopComposeGpuHost
-import org.maplibre.compose.desktop.DesktopHostException
-import org.maplibre.compose.desktop.DesktopMapExtent
-import org.maplibre.compose.desktop.NativeHandle
-import org.maplibre.compose.desktop.TextureOrigin
+import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.mlnffi.TextureOrigin
 
 /** `DXGI_FORMAT_B8G8R8A8_UNORM`, matching Compose's BGRA Direct3D 12 swap chain. */
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
@@ -31,7 +31,7 @@ private const val RETAINED_IMAGE_COUNT = 8
 /**
  * An `ID3D12Resource` texture to composite into Compose's scene.
  *
- * Presentation-only, and not a `DesktopRenderTarget`: MapLibre has no Direct3D backend to render
+ * Presentation-only, and not a `MlnFfiRenderTarget`: MapLibre has no Direct3D backend to render
  * into one of these.
  */
 internal data class Direct3DTextureTarget(
@@ -44,9 +44,9 @@ internal data class Direct3DTextureTarget(
   /** Row order of [texture]. */
   val origin: TextureOrigin = TextureOrigin.TOP_LEFT,
   /** The size [texture] was allocated at, which is what Skia has to wrap. */
-  val extent: DesktopMapExtent,
+  val extent: MlnFfiMapExtent,
   /**
-   * The [org.maplibre.compose.desktop.DesktopRenderTarget.generation] this texture corresponds to.
+   * The [org.maplibre.compose.desktop.MlnFfiRenderTarget.generation] this texture corresponds to.
    *
    * Presenters are keyed by texture address, so a host that reallocates must call
    * [Direct3D12Presenter.forget] before releasing the old texture or a recycled address resolves to
@@ -61,7 +61,7 @@ internal data class Direct3DTextureTarget(
  * Compose owns the Direct3D device and Skia's [DirectContext]; this wraps the shared texture the
  * map was rendered into as a Skia surface and composites it.
  */
-internal class Direct3D12Presenter(private val gpuHost: DesktopComposeGpuHost) : AutoCloseable {
+internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
   fun draw(scope: DrawScope, skiaContext: DirectContext, target: Direct3DTextureTarget): Boolean {
@@ -99,7 +99,7 @@ internal class Direct3D12Presenter(private val gpuHost: DesktopComposeGpuHost) :
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
     private var contextIdentity = 0
-    private var extent = DesktopMapExtent.Empty
+    private var extent = MlnFfiMapExtent.Empty
     private var colorFormat = SurfaceColorFormat.BGRA_8888
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
@@ -116,7 +116,7 @@ internal class Direct3D12Presenter(private val gpuHost: DesktopComposeGpuHost) :
       ensureSurface(context, target)
       val currentSurface =
         surface
-          ?: throw DesktopHostException("Skia could not wrap Direct3D texture ${texture.address}")
+          ?: throw MlnFfiHostException("Skia could not wrap Direct3D texture ${texture.address}")
 
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
       val image = currentSurface.makeImageSnapshot()
@@ -167,7 +167,7 @@ internal class Direct3D12Presenter(private val gpuHost: DesktopComposeGpuHost) :
           colorSpace = null,
           surfaceProps = null,
         )
-          ?: throw DesktopHostException(
+          ?: throw MlnFfiHostException(
             "Skia could not wrap Direct3D texture ${texture.address} as a render target"
           )
     }
@@ -180,7 +180,7 @@ internal class Direct3D12Presenter(private val gpuHost: DesktopComposeGpuHost) :
     override fun close() {
       closeGpuResources()
       contextIdentity = 0
-      extent = DesktopMapExtent.Empty
+      extent = MlnFfiMapExtent.Empty
       colorFormat = SurfaceColorFormat.BGRA_8888
       origin = TextureOrigin.TOP_LEFT
     }

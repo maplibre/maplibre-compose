@@ -12,7 +12,7 @@ import kotlin.test.fail
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -27,20 +27,20 @@ class DesktopOfflinePackTest {
   private val directory = Files.createTempDirectory("maplibre-offline-pack-test")
 
   private val options =
-    DesktopRuntimeOptions(cachePath = directory.resolve("cache.db"), maximumCacheSizeBytes = null)
+    MlnFfiRuntimeOptions(cachePath = directory.resolve("cache.db"), maximumCacheSizeBytes = null)
 
   @AfterTest
   fun cleanUp() {
     // Must precede the delete, so the database is closed rather than pulled out from under a live
     // runtime.
-    DesktopOfflineManager.disposeForTest(options)
+    MlnFfiOfflineManager.disposeForTest(options)
     directory.toFile().deleteRecursively()
   }
 
   @Test
   fun `a created pack is listed with the definition and metadata it was created with`() =
     runBlocking {
-      val manager = DesktopOfflineManager.forOptions(options)
+      val manager = MlnFfiOfflineManager.forOptions(options)
       val definition = tilePyramid(writeStyle("listed.json"))
       val metadata = "listed by the pack lifecycle test".encodeToByteArray()
 
@@ -55,7 +55,7 @@ class DesktopOfflinePackTest {
 
   @Test
   fun `updating metadata replaces what the pack reports`() = runBlocking {
-    val manager = DesktopOfflineManager.forOptions(options)
+    val manager = MlnFfiOfflineManager.forOptions(options)
     val pack =
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
         manager.create(tilePyramid(writeStyle("metadata.json")), "before".encodeToByteArray())
@@ -74,7 +74,7 @@ class DesktopOfflinePackTest {
 
   @Test
   fun `a deleted pack is no longer listed`() = runBlocking {
-    val manager = DesktopOfflineManager.forOptions(options)
+    val manager = MlnFfiOfflineManager.forOptions(options)
     val definition = tilePyramid(writeStyle("deleted.json"))
     val kept =
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
@@ -94,7 +94,7 @@ class DesktopOfflinePackTest {
   }
 
   /**
-   * Disposal is test-only — see [DesktopOfflineManager.disposeForTest] — because production keeps
+   * Disposal is test-only — see [MlnFfiOfflineManager.disposeForTest] — because production keeps
    * one manager per options value for the life of the process; without it this test would get the
    * same instance and its in-memory pack list back, having read nothing from disk.
    */
@@ -103,15 +103,15 @@ class DesktopOfflinePackTest {
     val definition = tilePyramid(writeStyle("restart.json"))
     val metadata = "written before the restart".encodeToByteArray()
 
-    val first = DesktopOfflineManager.forOptions(options)
+    val first = MlnFfiOfflineManager.forOptions(options)
     val created = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, metadata) }
 
     assertTrue(
-      DesktopOfflineManager.disposeForTest(options),
+      MlnFfiOfflineManager.disposeForTest(options),
       "the first manager's runtime thread should have stopped",
     )
 
-    val second = DesktopOfflineManager.forOptions(options)
+    val second = MlnFfiOfflineManager.forOptions(options)
     assertNotSame(first, second, "disposing should make forOptions build a new manager")
 
     await("the reopened manager to list the pack it inherited") { second.packs.isNotEmpty() }
@@ -146,11 +146,11 @@ class DesktopOfflinePackTest {
         maxZoom = null,
       )
 
-    val first = DesktopOfflineManager.forOptions(options)
+    val first = MlnFfiOfflineManager.forOptions(options)
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
-    assertTrue(DesktopOfflineManager.disposeForTest(options), "the first manager should stop")
+    assertTrue(MlnFfiOfflineManager.disposeForTest(options), "the first manager should stop")
 
-    val second = DesktopOfflineManager.forOptions(options)
+    val second = MlnFfiOfflineManager.forOptions(options)
     await("the reopened manager to list the shape pack") { second.packs.isNotEmpty() }
 
     assertEquals(definition, second.packs.single().definition)
@@ -160,7 +160,7 @@ class DesktopOfflinePackTest {
   fun `deleting a pack survives closing the manager and reopening the same database`() =
     runBlocking {
       val definition = tilePyramid(writeStyle("restart-delete.json"))
-      val first = DesktopOfflineManager.forOptions(options)
+      val first = MlnFfiOfflineManager.forOptions(options)
       val kept =
         withTimeout(OPERATION_TIMEOUT_MILLIS) {
           first.create(definition, "kept".encodeToByteArray())
@@ -171,9 +171,9 @@ class DesktopOfflinePackTest {
         }
       withTimeout(OPERATION_TIMEOUT_MILLIS) { first.delete(removed) }
 
-      assertTrue(DesktopOfflineManager.disposeForTest(options), "the first manager should stop")
+      assertTrue(MlnFfiOfflineManager.disposeForTest(options), "the first manager should stop")
 
-      val second = DesktopOfflineManager.forOptions(options)
+      val second = MlnFfiOfflineManager.forOptions(options)
       await("the reopened manager to list the pack that was kept") {
         second.packs.any { it.regionId == kept.regionId }
       }
@@ -191,7 +191,7 @@ class DesktopOfflinePackTest {
    */
   @Test
   fun `resuming a pack starts downloading and pausing reports it paused again`() = runBlocking {
-    val manager = DesktopOfflineManager.forOptions(options)
+    val manager = MlnFfiOfflineManager.forOptions(options)
     val pack =
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
         manager.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
@@ -228,15 +228,15 @@ class DesktopOfflinePackTest {
    */
   @Test
   fun `a finished pack still reads as complete after a reopen`() = runBlocking {
-    val first = DesktopOfflineManager.forOptions(options)
+    val first = MlnFfiOfflineManager.forOptions(options)
     val downloaded = downloadedPack(first, "finished.json")
     awaitHealthy(downloaded, "the pack to report itself complete") {
       it.status == DownloadStatus.Complete
     }
 
-    assertTrue(DesktopOfflineManager.disposeForTest(options), "the first manager should stop")
+    assertTrue(MlnFfiOfflineManager.disposeForTest(options), "the first manager should stop")
 
-    val second = DesktopOfflineManager.forOptions(options)
+    val second = MlnFfiOfflineManager.forOptions(options)
     await("the reopened manager to list the finished pack") { second.packs.isNotEmpty() }
     val restored = second.packs.single()
 
@@ -251,7 +251,7 @@ class DesktopOfflinePackTest {
    */
   @Test
   fun `clearing the ambient cache leaves a pack's downloaded resources in place`() = runBlocking {
-    val manager = DesktopOfflineManager.forOptions(options)
+    val manager = MlnFfiOfflineManager.forOptions(options)
     val pack = downloadedPack(manager, "ambient-clear.json")
     val downloaded =
       awaitHealthy(pack, "the pack to finish downloading") { it.completedResourceCount > 0 }
@@ -273,7 +273,7 @@ class DesktopOfflinePackTest {
    */
   @Test
   fun `invalidating a pack keeps its downloaded resources`() = runBlocking {
-    val manager = DesktopOfflineManager.forOptions(options)
+    val manager = MlnFfiOfflineManager.forOptions(options)
     val pack = downloadedPack(manager, "invalidate.json")
     val downloaded =
       awaitHealthy(pack, "the pack to finish downloading") { it.completedResourceCount > 0 }
@@ -293,7 +293,7 @@ class DesktopOfflinePackTest {
 
   /** Creates a pack over a local style and starts it; the caller waits for the part it needs. */
   private suspend fun downloadedPack(
-    manager: DesktopOfflineManager,
+    manager: MlnFfiOfflineManager,
     styleName: String,
   ): OfflinePack {
     val pack =
@@ -307,10 +307,10 @@ class DesktopOfflinePackTest {
   /**
    * Reads the pack's status back from the database, clearing the published value first so a stale
    * read cannot satisfy an assertion about a count *not* changing. Pausing is what asks for the
-   * read: [DesktopOfflineManager.setDownloadState] follows a state change with a status query.
+   * read: [MlnFfiOfflineManager.setDownloadState] follows a state change with a status query.
    */
   private suspend fun rereadStatus(
-    manager: DesktopOfflineManager,
+    manager: MlnFfiOfflineManager,
     pack: OfflinePack,
   ): DownloadProgress.Healthy {
     pack.progressState.value = DownloadProgress.Unknown

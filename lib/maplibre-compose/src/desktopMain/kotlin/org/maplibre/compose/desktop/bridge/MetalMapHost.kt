@@ -1,19 +1,19 @@
 package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
-import org.maplibre.compose.desktop.ComposeRenderBackend
-import org.maplibre.compose.desktop.DesktopBackendPair
-import org.maplibre.compose.desktop.DesktopComposeGpuHost
-import org.maplibre.compose.desktop.DesktopHostException
-import org.maplibre.compose.desktop.DesktopMapExtent
-import org.maplibre.compose.desktop.DesktopMapFrame
-import org.maplibre.compose.desktop.DesktopMapHost
-import org.maplibre.compose.desktop.DesktopRenderTarget
-import org.maplibre.compose.desktop.MapRenderBackend
+import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
-import org.maplibre.compose.desktop.MetalTextureTarget
-import org.maplibre.compose.desktop.NativeHandle
-import org.maplibre.compose.desktop.TextureOrigin
+import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.mlnffi.MetalTextureTarget
+import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapHost
+import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
  * Bridges MapLibre's Metal rendering into a Compose scene drawn with Metal: an `id<MTLTexture>` is
@@ -26,19 +26,19 @@ import org.maplibre.compose.desktop.TextureOrigin
  * Correctness of the reverse direction rests on the frame loop issuing render and draw from a
  * single thread.
  */
-internal class MetalMapHost(private val gpuHost: DesktopComposeGpuHost) : DesktopMapHost {
+internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-metal-renderer")
   private val presenter = MetalPresenter(gpuHost)
 
   private var texture = NativeHandle(0L)
   private var pixelFormat = 0L
   private var generation = 0L
-  private var currentExtent = DesktopMapExtent.Empty
+  private var currentExtent = MlnFfiMapExtent.Empty
 
-  override val backends: DesktopBackendPair =
-    DesktopBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
+  override val backends: RenderBackendPair =
+    RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
 
-  override fun resize(extent: DesktopMapExtent) {
+  override fun resize(extent: MlnFfiMapExtent) {
     // Reading the context hops to the GPU thread and waits, so it must not happen on the renderer
     // thread, which the GPU thread may itself be waiting on.
     val device =
@@ -50,11 +50,11 @@ internal class MetalMapHost(private val gpuHost: DesktopComposeGpuHost) : Deskto
 
   override fun acquireFrame(
     frameId: Long,
-    extent: DesktopMapExtent,
+    extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): DesktopMapFrame {
+  ): MlnFfiMapFrame {
     if (texture.isNull || extent != currentExtent) resize(extent)
-    return DesktopMapFrame(
+    return MlnFfiMapFrame(
       frameId = frameId,
       extent = extent,
       target = target(extent, generation),
@@ -66,14 +66,14 @@ internal class MetalMapHost(private val gpuHost: DesktopComposeGpuHost) : Deskto
    * Runs [action] on the renderer thread, inside an autorelease pool. The FFI requires
    * `renderUpdate` to run inside a pool, and this thread has none of its own.
    */
-  override fun <T> withProducerAccess(frame: DesktopMapFrame, action: () -> T): T =
+  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
     rendererThread.run {
       ObjectiveC.runInAutoreleasePool(action)
     }
 
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
-  override fun draw(scope: DrawScope, target: DesktopRenderTarget): Boolean {
+  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is MetalTextureTarget || target.texture.isNull) return false
     val context = gpuHost.currentContext() as? MetalComposeGpuContext ?: return false
     return presenter.draw(scope, context.skiaContext, target)
@@ -92,7 +92,7 @@ internal class MetalMapHost(private val gpuHost: DesktopComposeGpuHost) : Deskto
    * Reallocates the texture for [extent], returning the one it replaced for the caller to retire.
    */
   private fun resizeOnRendererThread(
-    extent: DesktopMapExtent,
+    extent: MlnFfiMapExtent,
     device: NativeHandle?,
   ): NativeHandle? {
     if (extent == currentExtent && !texture.isNull) return null
@@ -124,11 +124,11 @@ internal class MetalMapHost(private val gpuHost: DesktopComposeGpuHost) : Deskto
     return retiredTexture
   }
 
-  private fun target(extent: DesktopMapExtent, generation: Long): DesktopRenderTarget =
+  private fun target(extent: MlnFfiMapExtent, generation: Long): MlnFfiRenderTarget =
     MetalTextureTarget(
       texture =
         texture.takeIf { !it.isNull }
-          ?: throw DesktopHostException("Metal texture allocation returned null"),
+          ?: throw MlnFfiHostException("Metal texture allocation returned null"),
       pixelFormat = pixelFormat,
       origin = TextureOrigin.TOP_LEFT,
       extent = extent,
@@ -184,7 +184,7 @@ internal object MetalTexture {
         ObjectiveC.sendVoid(descriptor, "setStorageMode:", MTL_STORAGE_MODE_PRIVATE)
         val texture = ObjectiveC.sendPointer(device, "newTextureWithDescriptor:", descriptor)
         if (texture == 0L) {
-          throw DesktopHostException("Metal texture allocation returned null")
+          throw MlnFfiHostException("Metal texture allocation returned null")
         }
         texture
       } finally {

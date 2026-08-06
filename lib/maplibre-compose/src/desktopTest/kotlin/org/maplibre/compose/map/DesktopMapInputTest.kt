@@ -23,10 +23,10 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
-import org.maplibre.compose.desktop.HeadlessVulkanMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
+import org.maplibre.compose.mlnffi.HeadlessVulkanMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
@@ -37,7 +37,7 @@ class DesktopMapInputTest {
   private val cacheDirectory = Files.createTempDirectory("maplibre-input-test")
 
   private val runtimeOptions =
-    DesktopRuntimeOptions(
+    MlnFfiRuntimeOptions(
       cachePath = cacheDirectory.resolve("cache.db"),
       maximumCacheSizeBytes = null,
     )
@@ -114,8 +114,8 @@ class DesktopMapInputTest {
 
     setContent {
       CompositionLocalProvider(
-        LocalDesktopMapHostFactory provides factory,
-        LocalDesktopRuntimeOptions provides runtimeOptions,
+        LocalMlnFfiMapHostFactory provides factory,
+        LocalMlnFfiRuntimeOptions provides runtimeOptions,
       ) {
         cameraState =
           rememberCameraState(

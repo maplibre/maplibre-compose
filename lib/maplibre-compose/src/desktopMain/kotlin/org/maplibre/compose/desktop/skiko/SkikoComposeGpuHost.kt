@@ -2,16 +2,16 @@ package org.maplibre.compose.desktop.skiko
 
 import org.jetbrains.skia.DirectContext
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeRenderBackend
-import org.maplibre.compose.desktop.DesktopComposeGpuHost
+import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MetalComposeGpuContext
-import org.maplibre.compose.desktop.NativeHandle
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
 import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
 import org.maplibre.compose.desktop.skiko.SkikoReflection.staticInvoke
+import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.NativeHandle
 
 /** Operating systems the default host distinguishes between. */
 internal enum class HostOperatingSystem {
@@ -44,14 +44,13 @@ internal enum class HostOperatingSystem {
 }
 
 /**
- * The default [DesktopComposeGpuHost]: Compose Desktop's own window, whose GPU context comes from
- * Skiko.
+ * The default [ComposeGpuHost]: Compose Desktop's own window, whose GPU context comes from Skiko.
  *
  * Compose Desktop exposes no supported hook for any of this, so it is read reflectively; all of
  * that is confined to [SkikoReflection]. An application running its own Compose windowing supplies
- * its own host through `LocalDesktopComposeGpuHost` instead, and needs no reflection at all.
+ * its own host through `LocalComposeGpuHost` instead, and needs no reflection at all.
  */
-public object SkikoComposeGpuHost : DesktopComposeGpuHost {
+public object SkikoComposeGpuHost : ComposeGpuHost {
 
   private val operatingSystem = HostOperatingSystem.current()
 

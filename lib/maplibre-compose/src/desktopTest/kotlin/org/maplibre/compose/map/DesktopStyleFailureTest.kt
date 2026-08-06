@@ -2,7 +2,7 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import org.maplibre.compose.desktop.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.style.BaseStyle
 
 /**

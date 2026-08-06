@@ -7,9 +7,9 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.desktop.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.MlnFfiStyle
 
 /**
  * A base-style source read back out of the map, which is all `getSource` can return for one. Its
@@ -22,7 +22,7 @@ class UnknownSourceRestoreTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
 
@@ -47,7 +47,7 @@ class UnknownSourceRestoreTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
       style.removeSource(source)
@@ -66,7 +66,7 @@ class UnknownSourceRestoreTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       // The third entry is MapLibre's own annotation source, present in every map; it is reported
       // with no type because the style spec has no such source.

@@ -11,8 +11,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.desktop.HeadlessMapFixture
-import org.maplibre.compose.desktop.HeadlessMapFixture.Companion.RETINA_EXTENT
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.HeadlessMapFixture.Companion.RETINA_EXTENT
 import org.maplibre.spatialk.geojson.Position
 
 /**

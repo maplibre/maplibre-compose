@@ -8,7 +8,7 @@ import java.lang.foreign.ValueLayout
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import javax.swing.SwingUtilities
-import org.maplibre.compose.desktop.DesktopHostException
+import org.maplibre.compose.mlnffi.MlnFfiHostException
 
 /**
  * Reaches into Compose Desktop's Skiko internals for the GPU objects it does not expose.
@@ -56,14 +56,14 @@ internal object SkikoReflection {
 
   fun requireSkiaLayer(): Any =
     findSkiaLayer()
-      ?: throw DesktopHostException("Could not find a live $SKIA_LAYER_CLASS. ${describeWindows()}")
+      ?: throw MlnFfiHostException("Could not find a live $SKIA_LAYER_CLASS. ${describeWindows()}")
 
   fun requireRedrawer(layer: Any, expectedClass: String): Any {
     val redrawer =
       layer.invokeNoArg("getRedrawer\$skiko")
-        ?: throw DesktopHostException("$SKIA_LAYER_CLASS.getRedrawer\$skiko returned null")
+        ?: throw MlnFfiHostException("$SKIA_LAYER_CLASS.getRedrawer\$skiko returned null")
     if (!Class.forName(expectedClass).isAssignableFrom(redrawer.javaClass)) {
-      throw DesktopHostException(
+      throw MlnFfiHostException(
         "Skiko redrawer was ${redrawer.javaClass.name}, expected $expectedClass. " +
           "Compose is probably rendering with a different backend than the map host assumed."
       )
@@ -73,7 +73,7 @@ internal object SkikoReflection {
 
   fun requireContextHandler(redrawer: Any, redrawerClass: String): Any =
     redrawer.getField("contextHandler")
-      ?: throw DesktopHostException("$redrawerClass.contextHandler was null")
+      ?: throw MlnFfiHostException("$redrawerClass.contextHandler was null")
 
   /**
    * The Direct3D device Compose renders with on Windows. Skiko keeps it on the redrawer, and only
@@ -104,7 +104,7 @@ internal object SkikoReflection {
         else ->
           device.getField("ptr") as? Long
             ?: device.invokeNoArg("getPtr") as? Long
-            ?: throw DesktopHostException(
+            ?: throw MlnFfiHostException(
               "${device.javaClass.name} did not expose the Skiko MetalDevice pointer"
             )
       }
@@ -254,13 +254,13 @@ internal object SkikoDirect3DDeviceLayout {
       struct.get(ValueLayout.ADDRESS, BACKEND_CONTEXT_DEVICE_OFFSET).address()
     val fromDeviceField = struct.get(ValueLayout.ADDRESS, DEVICE_OFFSET).address()
     if (fromBackendContext == 0L && fromDeviceField == 0L) {
-      throw DesktopHostException(
+      throw MlnFfiHostException(
         "Skiko's DirectXDevice holds no ID3D12Device. The host was probably asked for the " +
           "Direct3D device before Compose finished creating it."
       )
     }
     if (fromBackendContext != fromDeviceField) {
-      throw DesktopHostException(
+      throw MlnFfiHostException(
         "Skiko's DirectXDevice gave two different ID3D12Device pointers: " +
           "0x${fromBackendContext.toULong().toString(16)} at $BACKEND_CONTEXT_DEVICE_OFFSET and " +
           "0x${fromDeviceField.toULong().toString(16)} at $DEVICE_OFFSET. Skiko has changed the " +

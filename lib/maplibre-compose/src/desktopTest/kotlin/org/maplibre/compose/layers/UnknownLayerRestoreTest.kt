@@ -6,9 +6,9 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
-import org.maplibre.compose.desktop.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.toJsonElement
 
 /**
@@ -32,7 +32,7 @@ class UnknownLayerRestoreTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       val original = assertNotNull(style.getLayer(ROADS))
       val binding = original.binding
@@ -59,7 +59,7 @@ class UnknownLayerRestoreTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
       val original = assertNotNull(style.getLayer(ROADS))
       val binding = original.binding

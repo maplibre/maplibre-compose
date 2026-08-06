@@ -99,22 +99,22 @@ import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
-import org.maplibre.compose.desktop.ComposeRenderBackend
-import org.maplibre.compose.desktop.DesktopBackendPair
-import org.maplibre.compose.desktop.DesktopComposeGpuHost
-import org.maplibre.compose.desktop.DesktopHostException
-import org.maplibre.compose.desktop.DesktopMapExtent
-import org.maplibre.compose.desktop.DesktopMapFrame
-import org.maplibre.compose.desktop.DesktopMapHost
-import org.maplibre.compose.desktop.DesktopRenderTarget
-import org.maplibre.compose.desktop.EglContextHandles
-import org.maplibre.compose.desktop.MapRenderBackend
-import org.maplibre.compose.desktop.NativeHandle
+import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
-import org.maplibre.compose.desktop.OpenGlTextureTarget
-import org.maplibre.compose.desktop.TextureOrigin
-import org.maplibre.compose.desktop.VulkanContextHandles
-import org.maplibre.compose.desktop.VulkanImageTarget
+import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.EglContextHandles
+import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapHost
+import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.mlnffi.OpenGlTextureTarget
+import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.mlnffi.TextureOrigin
+import org.maplibre.compose.mlnffi.VulkanContextHandles
+import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
@@ -127,17 +127,17 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
  *
  * Ported from the `maplibre-native-ffi` Compose example, which is the reference for this path.
  */
-internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) : DesktopMapHost {
+internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter()
   private var vulkan: LinuxVulkanContext? = null
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
   private var generation = 0L
-  private var currentExtent = DesktopMapExtent.Empty
+  private var currentExtent = MlnFfiMapExtent.Empty
 
-  override val backends: DesktopBackendPair =
-    DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
+  override val backends: RenderBackendPair =
+    RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 
   // No resize() override: importing into GL needs Compose's context current, which only holds
   // inside the draw callback, so the reallocation happens lazily in acquireFrame. Reallocating from
@@ -146,13 +146,13 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
 
   override fun acquireFrame(
     frameId: Long,
-    extent: DesktopMapExtent,
+    extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): DesktopMapFrame {
+  ): MlnFfiMapFrame {
     if (texture == null || extent != currentExtent) {
       recreateTexture(extent)
     }
-    return DesktopMapFrame(
+    return MlnFfiMapFrame(
       frameId = frameId,
       extent = extent,
       target =
@@ -161,16 +161,16 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
     )
   }
 
-  override fun completeProducerAccess(frame: DesktopMapFrame) {
+  override fun completeProducerAccess(frame: MlnFfiMapFrame) {
     rendererThread.run { vulkan?.waitIdle() }
   }
 
-  override fun <T> withProducerAccess(frame: DesktopMapFrame, action: () -> T): T =
+  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
     rendererThread.run(action)
 
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
-  override fun draw(scope: DrawScope, target: DesktopRenderTarget): Boolean {
+  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is VulkanImageTarget) return false
     val sharedTexture =
       if (target.generation == generation) texture else retiredTextures[target.generation]
@@ -203,10 +203,10 @@ internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) :
     }
   }
 
-  private fun recreateTexture(extent: DesktopMapExtent) {
+  private fun recreateTexture(extent: MlnFfiMapExtent) {
     if (extent.isEmpty) {
       disposeAllTextures()
-      currentExtent = DesktopMapExtent.Empty
+      currentExtent = MlnFfiMapExtent.Empty
       generation += 1
       return
     }
@@ -300,7 +300,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
         getDeviceProcAddr = NativeHandle(vulkanFunctionAddress("vkGetDeviceProcAddr")),
       )
 
-  fun createExportedTexture(extent: DesktopMapExtent): LinuxExportedVulkanTexture =
+  fun createExportedTexture(extent: MlnFfiMapExtent): LinuxExportedVulkanTexture =
     LinuxExportedVulkanTexture.create(this, extent)
 
   fun waitIdle() {
@@ -376,7 +376,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
       }
       val uuidRequirement =
         if (requiredDeviceUuids.isEmpty()) "" else " and matches Compose's OpenGL device UUID"
-      throw DesktopHostException(
+      throw MlnFfiHostException(
         "No Vulkan device supports graphics, " +
           "$VK_KHR_EXTERNAL_MEMORY_FD_EXTENSION_NAME$uuidRequirement"
       )
@@ -458,7 +458,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
 
 /** A `VkImage` whose memory is exportable to OpenGL as a file descriptor. */
 internal class LinuxExportedVulkanTexture
-private constructor(private val context: LinuxVulkanContext, private val extent: DesktopMapExtent) :
+private constructor(private val context: LinuxVulkanContext, private val extent: MlnFfiMapExtent) :
   AutoCloseable {
   private var image = NULL
   private var memory = NULL
@@ -595,7 +595,7 @@ private constructor(private val context: LinuxVulkanContext, private val extent:
   }
 
   companion object {
-    fun create(context: LinuxVulkanContext, extent: DesktopMapExtent): LinuxExportedVulkanTexture {
+    fun create(context: LinuxVulkanContext, extent: MlnFfiMapExtent): LinuxExportedVulkanTexture {
       val texture = LinuxExportedVulkanTexture(context, extent)
       try {
         texture.create()
@@ -613,7 +613,7 @@ internal class LinuxOpenGlImportedTexture
 private constructor(
   private val fd: Int,
   private val memorySize: Long,
-  private val extent: DesktopMapExtent,
+  private val extent: MlnFfiMapExtent,
   private val origin: TextureOrigin,
 ) : AutoCloseable {
   private var memoryObject = 0
@@ -706,7 +706,7 @@ private constructor(
     fun create(
       fd: Int,
       memorySize: Long,
-      extent: DesktopMapExtent,
+      extent: MlnFfiMapExtent,
       origin: TextureOrigin = TextureOrigin.TOP_LEFT,
     ): LinuxOpenGlImportedTexture {
       val imported = LinuxOpenGlImportedTexture(fd, memorySize, extent, origin)

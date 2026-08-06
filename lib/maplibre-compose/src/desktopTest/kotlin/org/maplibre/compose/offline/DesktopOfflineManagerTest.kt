@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
 /** Exercises the offline manager without a UI. */
 class DesktopOfflineManagerTest {
@@ -14,10 +14,10 @@ class DesktopOfflineManagerTest {
   private val directory = Files.createTempDirectory("maplibre-offline-test")
 
   private val options =
-    DesktopRuntimeOptions(cachePath = directory.resolve("cache.db"), maximumCacheSizeBytes = null)
+    MlnFfiRuntimeOptions(cachePath = directory.resolve("cache.db"), maximumCacheSizeBytes = null)
 
   private val budgetedOptions =
-    DesktopRuntimeOptions(
+    MlnFfiRuntimeOptions(
       cachePath = directory.resolve("budgeted-cache.db"),
       maximumCacheSizeBytes = 8L * 1024 * 1024,
     )
@@ -26,8 +26,8 @@ class DesktopOfflineManagerTest {
   fun cleanUp() {
     // Managers otherwise live for the life of the process, leaving a thread and an open database
     // behind for every later test in the run.
-    DesktopOfflineManager.disposeForTest(options)
-    DesktopOfflineManager.disposeForTest(budgetedOptions)
+    MlnFfiOfflineManager.disposeForTest(options)
+    MlnFfiOfflineManager.disposeForTest(budgetedOptions)
     directory.toFile().deleteRecursively()
   }
 
@@ -38,7 +38,7 @@ class DesktopOfflineManagerTest {
   @Test
   fun `changing the maximum ambient cache size completes, twice, with different budgets`() =
     runBlocking {
-      val manager = DesktopOfflineManager.forOptions(options)
+      val manager = MlnFfiOfflineManager.forOptions(options)
 
       withTimeout(30_000) {
         manager.setMaximumAmbientCacheSize(16L * 1024 * 1024)
@@ -54,7 +54,7 @@ class DesktopOfflineManagerTest {
   @Test
   fun `changing the cache size completes on a runtime that was created with a budget`() =
     runBlocking {
-      val manager = DesktopOfflineManager.forOptions(budgetedOptions)
+      val manager = MlnFfiOfflineManager.forOptions(budgetedOptions)
 
       withTimeout(30_000) {
         manager.setMaximumAmbientCacheSize(4L * 1024 * 1024)
@@ -68,7 +68,7 @@ class DesktopOfflineManagerTest {
   fun `the same options return the same manager`() {
     // One runtime and one thread per options value; a second call site must not start another.
     assertTrue(
-      DesktopOfflineManager.forOptions(options) === DesktopOfflineManager.forOptions(options)
+      MlnFfiOfflineManager.forOptions(options) === MlnFfiOfflineManager.forOptions(options)
     )
   }
 }

@@ -73,19 +73,19 @@ import org.lwjgl.vulkan.VkMemoryRequirements
 import org.lwjgl.vulkan.VkMemoryWin32HandlePropertiesKHR
 import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkQueue
-import org.maplibre.compose.desktop.ComposeRenderBackend
-import org.maplibre.compose.desktop.DesktopBackendPair
-import org.maplibre.compose.desktop.DesktopComposeGpuHost
-import org.maplibre.compose.desktop.DesktopHostException
-import org.maplibre.compose.desktop.DesktopMapExtent
-import org.maplibre.compose.desktop.DesktopMapFrame
-import org.maplibre.compose.desktop.DesktopMapHost
-import org.maplibre.compose.desktop.DesktopRenderTarget
+import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
-import org.maplibre.compose.desktop.MapRenderBackend
-import org.maplibre.compose.desktop.NativeHandle
-import org.maplibre.compose.desktop.VulkanContextHandles
-import org.maplibre.compose.desktop.VulkanImageTarget
+import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapHost
+import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.mlnffi.VulkanContextHandles
+import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 /**
  * Bridges MapLibre's Vulkan rendering into Compose's Direct3D 12 context on Windows.
@@ -97,20 +97,19 @@ import org.maplibre.compose.desktop.VulkanImageTarget
  *
  * Ported from the `maplibre-native-ffi` Compose example.
  */
-internal class VulkanDirect3D12MapHost(private val gpuHost: DesktopComposeGpuHost) :
-  DesktopMapHost {
+internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-renderer")
   private val presenter = Direct3D12Presenter(gpuHost)
   private var vulkan: WindowsVulkanContext? = null
   private var direct3DTexture = NativeHandle(0)
   private var importedTexture: WindowsVulkanImportedDirect3DTexture? = null
   private var generation = 0L
-  private var currentExtent = DesktopMapExtent.Empty
+  private var currentExtent = MlnFfiMapExtent.Empty
 
-  override val backends: DesktopBackendPair =
-    DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12)
+  override val backends: RenderBackendPair =
+    RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12)
 
-  override fun resize(extent: DesktopMapExtent) {
+  override fun resize(extent: MlnFfiMapExtent) {
     // The device must be read on the caller's thread; reading it from the renderer thread hops to
     // the GPU thread, which is usually the thread blocked on this call.
     val device =
@@ -123,7 +122,7 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: DesktopComposeGpuHos
 
   /** Reallocates the texture, returning the D3D texture it replaced for the caller to release. */
   private fun resizeOnRendererThread(
-    extent: DesktopMapExtent,
+    extent: MlnFfiMapExtent,
     device: NativeHandle?,
   ): NativeHandle? {
     if (extent == currentExtent && importedTexture != null) {
@@ -137,13 +136,13 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: DesktopComposeGpuHos
 
   override fun acquireFrame(
     frameId: Long,
-    extent: DesktopMapExtent,
+    extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): DesktopMapFrame {
+  ): MlnFfiMapFrame {
     if (importedTexture == null || extent != currentExtent) {
       resize(extent)
     }
-    return DesktopMapFrame(
+    return MlnFfiMapFrame(
       frameId = frameId,
       extent = extent,
       target = target(generation),
@@ -151,16 +150,16 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: DesktopComposeGpuHos
     )
   }
 
-  override fun completeProducerAccess(frame: DesktopMapFrame) {
+  override fun completeProducerAccess(frame: MlnFfiMapFrame) {
     rendererThread.run { vulkan?.waitIdle() }
   }
 
-  override fun <T> withProducerAccess(frame: DesktopMapFrame, action: () -> T): T =
+  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
     rendererThread.run(action)
 
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
-  override fun draw(scope: DrawScope, target: DesktopRenderTarget): Boolean {
+  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is VulkanImageTarget || direct3DTexture.address == 0L) {
       return false
     }
@@ -193,11 +192,11 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: DesktopComposeGpuHos
     }
   }
 
-  private fun target(generation: Long): DesktopRenderTarget =
+  private fun target(generation: Long): MlnFfiRenderTarget =
     checkNotNull(importedTexture) { "Windows Vulkan texture is not initialized" }.target(generation)
 
   /** Allocates the texture for [extent], returning the D3D texture it replaced, if any. */
-  private fun recreateTexture(extent: DesktopMapExtent, device: NativeHandle?): NativeHandle? {
+  private fun recreateTexture(extent: MlnFfiMapExtent, device: NativeHandle?): NativeHandle? {
     if (extent.isEmpty) return retireTexture()
 
     // An assertion, not a fallback: asking the host for a device here would hop to the GPU thread,
@@ -274,8 +273,8 @@ private class WindowsVulkanContext private constructor(private val sharedHandle:
 
   fun importDirect3DTexture(
     sharedHandle: Long,
-    storageExtent: DesktopMapExtent,
-    renderExtent: DesktopMapExtent,
+    storageExtent: MlnFfiMapExtent,
+    renderExtent: MlnFfiMapExtent,
   ): WindowsVulkanImportedDirect3DTexture =
     WindowsVulkanImportedDirect3DTexture.create(this, sharedHandle, storageExtent, renderExtent)
 
@@ -353,7 +352,7 @@ private class WindowsVulkanContext private constructor(private val sharedHandle:
           return
         }
       }
-      throw DesktopHostException(
+      throw MlnFfiHostException(
         "No Vulkan device supports graphics, $VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME, and " +
           "importing Compose's Direct3D 12 texture"
       )
@@ -471,8 +470,8 @@ private constructor(
   private val context: WindowsVulkanContext,
   private val sharedHandle: Long,
   /** The size the D3D12 resource was allocated at, which is what the `VkImage` must match. */
-  val storageExtent: DesktopMapExtent,
-  private val renderExtent: DesktopMapExtent,
+  val storageExtent: MlnFfiMapExtent,
+  private val renderExtent: MlnFfiMapExtent,
 ) : AutoCloseable {
   private var image = NULL
   private var memory = NULL
@@ -606,8 +605,8 @@ private constructor(
     fun create(
       context: WindowsVulkanContext,
       sharedHandle: Long,
-      storageExtent: DesktopMapExtent,
-      renderExtent: DesktopMapExtent,
+      storageExtent: MlnFfiMapExtent,
+      renderExtent: MlnFfiMapExtent,
     ): WindowsVulkanImportedDirect3DTexture {
       val texture =
         WindowsVulkanImportedDirect3DTexture(context, sharedHandle, storageExtent, renderExtent)
@@ -664,7 +663,7 @@ private object WindowsDirect3DInterop {
    */
   fun createSharedTexture(
     device: NativeHandle,
-    extent: DesktopMapExtent,
+    extent: MlnFfiMapExtent,
     dxgiFormat: Int = DXGI_FORMAT_B8G8R8A8_UNORM,
   ): NativeHandle {
     check(!extent.isEmpty) { "Cannot create a D3D12 texture for an empty extent" }
@@ -755,7 +754,7 @@ private object WindowsDirect3DInterop {
   }
 
   /** `D3D12_RESOURCE_DESC` for a single-sampled, single-mip 2D texture. */
-  private fun textureDesc(arena: Arena, extent: DesktopMapExtent, dxgiFormat: Int): MemorySegment {
+  private fun textureDesc(arena: Arena, extent: MlnFfiMapExtent, dxgiFormat: Int): MemorySegment {
     val desc = arena.allocate(56)
     desc.set(ValueLayout.JAVA_INT, 0, D3D12_RESOURCE_DIMENSION_TEXTURE2D)
     desc.set(ValueLayout.JAVA_LONG, 8, 0)

@@ -16,12 +16,12 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
-import org.maplibre.compose.desktop.HeadlessVulkanMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.mlnffi.HeadlessVulkanMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -45,7 +45,7 @@ class DesktopMapRepaintTest {
   private val cacheDirectory = Files.createTempDirectory("maplibre-repaint-test")
 
   private val runtimeOptions =
-    DesktopRuntimeOptions(
+    MlnFfiRuntimeOptions(
       cachePath = cacheDirectory.resolve("cache.db"),
       maximumCacheSizeBytes = null,
     )
@@ -91,8 +91,8 @@ class DesktopMapRepaintTest {
 
       setContent {
         CompositionLocalProvider(
-          LocalDesktopMapHostFactory provides factory,
-          LocalDesktopRuntimeOptions provides runtimeOptions,
+          LocalMlnFfiMapHostFactory provides factory,
+          LocalMlnFfiRuntimeOptions provides runtimeOptions,
         ) {
           MaplibreMap(
             modifier = Modifier,

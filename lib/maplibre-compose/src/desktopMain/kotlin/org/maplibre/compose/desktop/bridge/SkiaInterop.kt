@@ -1,7 +1,7 @@
 package org.maplibre.compose.desktop.bridge
 
 import org.jetbrains.skia.SurfaceOrigin
-import org.maplibre.compose.desktop.TextureOrigin
+import org.maplibre.compose.mlnffi.TextureOrigin
 
 internal fun TextureOrigin.toSkiaOrigin(): SurfaceOrigin =
   when (this) {

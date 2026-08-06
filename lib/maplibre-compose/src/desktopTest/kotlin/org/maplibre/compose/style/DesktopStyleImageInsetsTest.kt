@@ -7,7 +7,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import org.maplibre.compose.desktop.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.util.ImageResizeOptions
 import org.maplibre.nativeffi.style.ImageContent
 import org.maplibre.nativeffi.style.ImageStretch
@@ -26,7 +26,7 @@ class DesktopStyleImageInsetsTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = HeadlessMapFixture.DEFAULT_EXTENT)
-      val style = assertIs<DesktopStyle>(it.style, "the style should have reached the callbacks")
+      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
 
       style.addImage(
         IMAGE_ID,
@@ -51,7 +51,7 @@ class DesktopStyleImageInsetsTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = HeadlessMapFixture.RETINA_EXTENT)
-      val style = assertIs<DesktopStyle>(it.style, "the style should have reached the callbacks")
+      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
 
       // The same logical image as above at 2x, so the insets have to land twice as far in.
       style.addImage(
@@ -77,7 +77,7 @@ class DesktopStyleImageInsetsTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = HeadlessMapFixture.DEFAULT_EXTENT)
-      val style = assertIs<DesktopStyle>(it.style, "the style should have reached the callbacks")
+      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
 
       // 20 + 20 in from the sides of a 32-pixel image crosses over, which MapLibre would divide by
       // zero over.

@@ -4,8 +4,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
-import org.maplibre.compose.desktop.DesktopMapExtent
-import org.maplibre.compose.desktop.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 
 /**
  * A style image is uploaded with the scale it was rasterized at: MapLibre sizes a style image as
@@ -23,7 +23,7 @@ class DesktopStyleImageScaleTest {
     assertUploadedPixelRatio(HeadlessMapFixture.RETINA_EXTENT, expected = 2f)
   }
 
-  private fun assertUploadedPixelRatio(extent: DesktopMapExtent, expected: Float) {
+  private fun assertUploadedPixelRatio(extent: MlnFfiMapExtent, expected: Float) {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = extent)

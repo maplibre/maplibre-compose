@@ -12,12 +12,12 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
-import org.maplibre.compose.desktop.DesktopComposeGpuHost
-import org.maplibre.compose.desktop.DesktopHostException
-import org.maplibre.compose.desktop.DesktopMapExtent
-import org.maplibre.compose.desktop.MetalTextureTarget
-import org.maplibre.compose.desktop.NativeHandle
-import org.maplibre.compose.desktop.TextureOrigin
+import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.mlnffi.MetalTextureTarget
+import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
  * How many snapshots to hold alive after handing them to Compose. Compose records draw commands and
@@ -33,7 +33,7 @@ private const val RETAINED_IMAGE_COUNT = 8
  * Every Skia object here belongs to that context's thread, which is also the thread [draw] runs on,
  * so freeing is deferred until a draw rather than done wherever a texture happened to be retired.
  */
-internal class MetalPresenter(private val gpuHost: DesktopComposeGpuHost) : AutoCloseable {
+internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
   /** Textures whose Skia wrappers are still alive, waiting for a thread that may free them. */
@@ -75,7 +75,7 @@ internal class MetalPresenter(private val gpuHost: DesktopComposeGpuHost) : Auto
    * Frees retired textures, except one the caller is about to draw: a texture retired inside
    * `acquireFrame` can be presented again in the same frame, and freeing it early makes
    * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap. See
-   * [org.maplibre.compose.desktop.DesktopRenderTarget.generation].
+   * [org.maplibre.compose.desktop.MlnFfiRenderTarget.generation].
    */
   private fun releaseRetired(keepAlive: Long) {
     if (retired.isEmpty()) return
@@ -95,7 +95,7 @@ internal class MetalPresenter(private val gpuHost: DesktopComposeGpuHost) : Auto
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
     private var contextIdentity = 0
-    private var extent = DesktopMapExtent.Empty
+    private var extent = MlnFfiMapExtent.Empty
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
@@ -110,7 +110,7 @@ internal class MetalPresenter(private val gpuHost: DesktopComposeGpuHost) : Auto
     ) {
       ensureSurface(context, target)
       val currentSurface =
-        surface ?: throw DesktopHostException("Skia could not wrap Metal texture ${target.texture}")
+        surface ?: throw MlnFfiHostException("Skia could not wrap Metal texture ${target.texture}")
 
       // MapLibre overwrote every pixel; telling Skia the old contents are gone lets it skip
       // reloading them into its own render pass.
@@ -160,7 +160,7 @@ internal class MetalPresenter(private val gpuHost: DesktopComposeGpuHost) : Auto
           colorSpace = null,
           surfaceProps = null,
         )
-          ?: throw DesktopHostException(
+          ?: throw MlnFfiHostException(
             "Skia could not wrap Metal texture ${target.texture} as a render target"
           )
     }
@@ -173,7 +173,7 @@ internal class MetalPresenter(private val gpuHost: DesktopComposeGpuHost) : Auto
     override fun close() {
       closeGpuResources()
       contextIdentity = 0
-      extent = DesktopMapExtent.Empty
+      extent = MlnFfiMapExtent.Empty
       origin = TextureOrigin.TOP_LEFT
     }
 

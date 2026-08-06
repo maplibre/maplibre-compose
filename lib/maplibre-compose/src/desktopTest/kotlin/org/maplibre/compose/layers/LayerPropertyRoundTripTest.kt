@@ -11,7 +11,6 @@ import kotlin.test.assertNotNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.desktop.HeadlessMapFixture
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.Feature
@@ -47,6 +46,7 @@ import org.maplibre.compose.expressions.value.TextRotationAlignment
 import org.maplibre.compose.expressions.value.TextTransform
 import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -56,7 +56,7 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.style.StyleLayerVisibility
@@ -168,7 +168,7 @@ class LayerPropertyRoundTripTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
       val source = addFeatureSource(style)
 
       val beforeAttach = SymbolLayer("before", source)
@@ -215,18 +215,18 @@ class LayerPropertyRoundTripTest {
    * Runs every case twice against one map: once written before the layer is added, once after.
    * Failures are collected rather than thrown at the first mismatch.
    *
-   * @param prepare adds whatever sources the layer type needs to [DesktopStyle] and returns a
+   * @param prepare adds whatever sources the layer type needs to [MlnFfiStyle] and returns a
    *   factory for the layer under test. Each case gets its own layer so one rejected property
    *   cannot mask another.
    */
   private fun <L : Layer> assertPropertiesRoundTrip(
     cases: List<Case<L>>,
-    prepare: (DesktopStyle) -> (String) -> L,
+    prepare: (MlnFfiStyle) -> (String) -> L,
   ) {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
       val makeLayer = prepare(style)
 
       val failures = buildList {
@@ -242,7 +242,7 @@ class LayerPropertyRoundTripTest {
   }
 
   private fun <L : Layer> check(
-    style: DesktopStyle,
+    style: MlnFfiStyle,
     layer: L,
     case: Case<L>,
     attachFirst: Boolean,
@@ -282,7 +282,7 @@ class LayerPropertyRoundTripTest {
 
     fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
 
-    fun addFeatureSource(style: DesktopStyle): Source =
+    fun addFeatureSource(style: MlnFfiStyle): Source =
       GeoJsonSource(
           id = SOURCE_ID,
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),

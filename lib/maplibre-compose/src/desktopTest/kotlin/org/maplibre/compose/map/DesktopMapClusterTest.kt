@@ -19,12 +19,12 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
-import org.maplibre.compose.desktop.HeadlessVulkanMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.mlnffi.HeadlessVulkanMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -50,7 +50,7 @@ class DesktopMapClusterTest {
   private val cacheDirectory = Files.createTempDirectory("maplibre-cluster-test")
 
   private val runtimeOptions =
-    DesktopRuntimeOptions(
+    MlnFfiRuntimeOptions(
       cachePath = cacheDirectory.resolve("cache.db"),
       maximumCacheSizeBytes = null,
     )
@@ -69,8 +69,8 @@ class DesktopMapClusterTest {
 
     setContent {
       CompositionLocalProvider(
-        LocalDesktopMapHostFactory provides factory,
-        LocalDesktopRuntimeOptions provides runtimeOptions,
+        LocalMlnFfiMapHostFactory provides factory,
+        LocalMlnFfiRuntimeOptions provides runtimeOptions,
       ) {
         cameraState =
           rememberCameraState(
@@ -95,7 +95,7 @@ class DesktopMapClusterTest {
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { factory.created.isNotEmpty() }
     val host = factory.created.single()
-    val session = assertNotNull(cameraState.map as? DesktopMapSession, "no desktop session")
+    val session = assertNotNull(cameraState.map as? MlnFfiMapSession, "no desktop session")
 
     fun queryAll(): List<Feature<Geometry, JsonObject?>> {
       val extent = host.currentExtent

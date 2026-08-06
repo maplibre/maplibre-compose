@@ -20,16 +20,16 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
-import org.maplibre.compose.desktop.HeadlessVulkanMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
-import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.mlnffi.HeadlessVulkanMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.sources.GeoJsonData
@@ -49,7 +49,7 @@ class DesktopMapCompositionTest {
   private val cacheDirectory = Files.createTempDirectory("maplibre-composition-test")
 
   private val runtimeOptions =
-    DesktopRuntimeOptions(
+    MlnFfiRuntimeOptions(
       cachePath = cacheDirectory.resolve("cache.db"),
       maximumCacheSizeBytes = null,
     )
@@ -208,8 +208,8 @@ class DesktopMapCompositionTest {
     val errors = mutableListOf<String>()
     setContent {
       CompositionLocalProvider(
-        LocalDesktopMapHostFactory provides factory,
-        LocalDesktopRuntimeOptions provides runtimeOptions,
+        LocalMlnFfiMapHostFactory provides factory,
+        LocalMlnFfiRuntimeOptions provides runtimeOptions,
       ) {
         content(errors)
       }

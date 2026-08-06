@@ -12,19 +12,19 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.desktop.HeadlessMapFixture
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.TextRotationAlignment
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -48,7 +48,7 @@ class UnsupportedLayerPropertyTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
       val source = addSource(style)
 
       val layer = SymbolLayer("labels", source)
@@ -107,7 +107,7 @@ class UnsupportedLayerPropertyTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
       val source = addSource(style)
 
       // What every SymbolLayer composable does: an optional property nobody set compiles to a null
@@ -126,7 +126,7 @@ class UnsupportedLayerPropertyTest {
     val fixture = HeadlessMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? DesktopStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
       val source = addSource(style)
 
       val layer = SymbolLayer("labels", source)
@@ -161,7 +161,7 @@ class UnsupportedLayerPropertyTest {
 
   private fun warnings(): List<String> = CAPTURED.filter { it.startsWith("Layer ") }
 
-  private fun addSource(style: DesktopStyle): Source =
+  private fun addSource(style: MlnFfiStyle): Source =
     GeoJsonSource(
         id = "features",
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),

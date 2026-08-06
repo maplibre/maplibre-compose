@@ -7,7 +7,7 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_NOW
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlerror
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
 import org.lwjgl.system.macosx.ObjCRuntime
-import org.maplibre.compose.desktop.DesktopHostException
+import org.maplibre.compose.mlnffi.MlnFfiHostException
 
 /**
  * The little bit of Objective-C messaging the macOS host needs, without a native library of our
@@ -102,7 +102,7 @@ internal object ObjectiveC {
     check(receiver != NULL) { "Objective-C receiver is null" }
     val objectClass = ObjCRuntime.object_getClass(receiver)
     if (!ObjCRuntime.class_respondsToSelector(objectClass, selector)) {
-      throw DesktopHostException(
+      throw MlnFfiHostException(
         "Objective-C class ${ObjCRuntime.class_getName(objectClass)} does not respond to " +
           "'${ObjCRuntime.sel_getName(selector)}'"
       )

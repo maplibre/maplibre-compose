@@ -25,9 +25,9 @@ import org.lwjgl.opengl.GL30.glDeleteFramebuffers
 import org.lwjgl.opengl.GL30.glFramebufferTexture2D
 import org.lwjgl.opengl.GL30.glGenFramebuffers
 import org.lwjgl.opengl.GL30.glGetInteger
-import org.maplibre.compose.desktop.DesktopHostException
-import org.maplibre.compose.desktop.OpenGlTextureTarget
-import org.maplibre.compose.desktop.TextureOrigin
+import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.OpenGlTextureTarget
+import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
  * How many snapshots to hold alive after handing them to Compose, which replays recorded draw
@@ -98,7 +98,7 @@ internal class OpenGlPresenter : AutoCloseable {
     ) {
       ensureSurface(context, target)
       val currentSurface =
-        surface ?: throw DesktopHostException("Skia could not wrap OpenGL texture $textureName")
+        surface ?: throw MlnFfiHostException("Skia could not wrap OpenGL texture $textureName")
 
       // MapLibre left arbitrary GL state behind; Skia caches its own view of that state and will
       // render incorrectly unless told to re-read it.
@@ -154,7 +154,7 @@ internal class OpenGlPresenter : AutoCloseable {
           colorSpace = null,
           surfaceProps = null,
         )
-          ?: throw DesktopHostException(
+          ?: throw MlnFfiHostException(
             "Skia could not wrap OpenGL framebuffer $framebuffer for texture $textureName"
           )
     }

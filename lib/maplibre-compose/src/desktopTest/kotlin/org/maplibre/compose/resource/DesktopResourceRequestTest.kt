@@ -22,13 +22,13 @@ private const val WAIT_SECONDS = 10L
  * not read it: the callback arrives on a MapLibre network thread holding a lease that
  * `RuntimeHandle.close()` spin-waits on.
  *
- * Driven through [DesktopResourceProvider.take] with a stand-in request, because the binding hands
+ * Driven through [MlnFfiResourceProvider.take] with a stand-in request, because the binding hands
  * out `ResourceRequestHandle` only from inside its own callback and the type is final.
  */
 class DesktopResourceRequestTest {
 
   private val reads = CopyOnWriteArrayList<String>()
-  private val providers = mutableListOf<DesktopResourceProvider>()
+  private val providers = mutableListOf<MlnFfiResourceProvider>()
 
   @AfterTest
   fun cleanUp() {
@@ -36,7 +36,7 @@ class DesktopResourceRequestTest {
   }
 
   private fun provider(read: (String, String) -> ResourceResponse) =
-    DesktopResourceProvider(
+    MlnFfiResourceProvider(
         logger = null,
         read = { url, requestedUrl ->
           reads += url

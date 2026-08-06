@@ -2,6 +2,8 @@ package org.maplibre.compose.desktop
 
 import androidx.compose.runtime.Immutable
 import org.jetbrains.skia.DirectContext
+import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.NativeHandle
 
 /**
  * The GPU context a Compose host draws with.
@@ -71,7 +73,7 @@ public class Direct3D12ComposeGpuContext(
  * The extension point for applications running their own Compose windowing: report the context, and
  * say which thread owns it. Install one with [ProvideMapHost].
  */
-public interface DesktopComposeGpuHost {
+public interface ComposeGpuHost {
   /** A short description of this host, used in diagnostics. */
   public val description: String
 
@@ -104,8 +106,8 @@ public interface DesktopComposeGpuHost {
   public fun runOnGpuThread(action: Runnable)
 }
 
-/** Runs [action] on [DesktopComposeGpuHost.runOnGpuThread] and returns its result. */
-internal fun <T> DesktopComposeGpuHost.onGpuThread(action: () -> T): T {
+/** Runs [action] on [ComposeGpuHost.runOnGpuThread] and returns its result. */
+internal fun <T> ComposeGpuHost.onGpuThread(action: () -> T): T {
   var result: Result<T>? = null
   runOnGpuThread { result = runCatching(action) }
   return checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()

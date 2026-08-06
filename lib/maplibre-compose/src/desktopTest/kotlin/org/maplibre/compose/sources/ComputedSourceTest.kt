@@ -10,10 +10,10 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import org.maplibre.compose.desktop.HeadlessMapFixture
 import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.DesktopStyle
+import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.SOURCE_ID_PROPERTY
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -121,7 +121,7 @@ class ComputedSourceTest {
 
   private fun HeadlessMapFixture.attachComputedSource(): ComputedSource {
     loadStyle(BaseStyle.Empty)
-    val style = assertIs<DesktopStyle>(this.style, "the style should have reached the callbacks")
+    val style = assertIs<MlnFfiStyle>(this.style, "the style should have reached the callbacks")
     val source =
       ComputedSource(id = SOURCE_ID, options = ComputedSourceOptions()) { bounds, zoom ->
         requests += Request(zoom, bounds, Thread.currentThread().name)

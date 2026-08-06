@@ -3,8 +3,8 @@ package org.maplibre.compose.map
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertTrue
-import org.maplibre.compose.desktop.HeadlessMapFixture
-import org.maplibre.compose.desktop.RgbaPixel
+import org.maplibre.compose.mlnffi.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.RgbaPixel
 import org.maplibre.compose.style.BaseStyle
 
 /** Proves that a reported render actually writes the expected color into the Vulkan target. */

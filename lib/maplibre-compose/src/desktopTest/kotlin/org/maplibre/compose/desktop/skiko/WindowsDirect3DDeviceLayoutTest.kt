@@ -7,7 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
-import org.maplibre.compose.desktop.DesktopHostException
+import org.maplibre.compose.mlnffi.MlnFfiHostException
 
 /**
  * Pins the layout of Skiko's native `DirectXDevice`, which the Windows host reads by byte offset. A
@@ -56,7 +56,7 @@ class WindowsDirect3DDeviceLayoutTest {
           deviceField = 0x0000_7FFA_8765_4321L,
         )
 
-      val error = assertFailsWith<DesktopHostException> { SkikoDirect3DDeviceLayout.read(struct) }
+      val error = assertFailsWith<MlnFfiHostException> { SkikoDirect3DDeviceLayout.read(struct) }
       assertTrue(
         error.message.orEmpty().contains(SkikoDirect3DDeviceLayout.VERIFIED_SKIKO_VERSION),
         "The mismatch has one likely cause and the message should name it, but it said: " +
@@ -72,7 +72,7 @@ class WindowsDirect3DDeviceLayoutTest {
       // layout change and must not be reported as one.
       val struct = directXDevice(arena, backendContextDevice = 0L, deviceField = 0L)
 
-      val error = assertFailsWith<DesktopHostException> { SkikoDirect3DDeviceLayout.read(struct) }
+      val error = assertFailsWith<MlnFfiHostException> { SkikoDirect3DDeviceLayout.read(struct) }
       assertTrue(
         !error.message.orEmpty().contains(SkikoDirect3DDeviceLayout.VERIFIED_SKIKO_VERSION),
         "An unfilled device should not be blamed on a Skiko upgrade, but it said: ${error.message}",

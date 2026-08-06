@@ -8,7 +8,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
 /**
  * The offline runtime's owner thread parks in MapLibre's pump and is released by a wake.
@@ -21,9 +21,9 @@ class DesktopOfflineRuntimeTest {
   private val directory = Files.createTempDirectory("maplibre-offline-runtime-test")
 
   private val options =
-    DesktopRuntimeOptions(cachePath = directory.resolve("cache.db"), maximumCacheSizeBytes = null)
+    MlnFfiRuntimeOptions(cachePath = directory.resolve("cache.db"), maximumCacheSizeBytes = null)
 
-  private val runtimes = mutableListOf<DesktopOfflineRuntime>()
+  private val runtimes = mutableListOf<MlnFfiOfflineRuntime>()
 
   @AfterTest
   fun cleanUp() {
@@ -31,8 +31,8 @@ class DesktopOfflineRuntimeTest {
     directory.toFile().deleteRecursively()
   }
 
-  private fun startRuntime(): DesktopOfflineRuntime =
-    DesktopOfflineRuntime(
+  private fun startRuntime(): MlnFfiOfflineRuntime =
+    MlnFfiOfflineRuntime(
         options = options,
         logger = Logger.withTag("offline-runtime-test"),
         onEvent = {},
@@ -92,7 +92,7 @@ class DesktopOfflineRuntimeTest {
    * Runs one task and then waits for the loop to be inside its park. Without this the loop drains
    * the queue on its way to the first park and the wake is never exercised.
    */
-  private fun DesktopOfflineRuntime.parkAfterWarmup() {
+  private fun MlnFfiOfflineRuntime.parkAfterWarmup() {
     val warmedUp = CountDownLatch(1)
     post(task = { warmedUp.countDown() }, reject = {})
     assertTrue(

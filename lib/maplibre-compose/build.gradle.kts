@@ -65,11 +65,22 @@ kotlin {
 
     // used to expose APIs only available on targets backed by MapLibre Native
     // (e.g. all but browser targets, which use MapLibre JS)
-    create("maplibreNativeMain") {
-      dependsOn(commonMain.get())
-      androidMain.get().dependsOn(this)
-      iosMain.get().dependsOn(this)
+    val maplibreNativeMain =
+      create("maplibreNativeMain") {
+        dependsOn(commonMain.get())
+        androidMain.get().dependsOn(this)
+        iosMain.get().dependsOn(this)
+      }
+
+    // used to share the integration with the MapLibre Native FFI binding, as opposed to the
+    // MapLibre Android and iOS SDKs. Desktop is its only target today.
+    create("mlnFfiShared") {
+      dependsOn(maplibreNativeMain)
       desktopMain.dependsOn(this)
+      dependencies {
+        // Backend-independent binding only; the application selects the native runtime.
+        implementation(libs.maplibre.nativeFfi)
+      }
     }
 
     iosMain {}
@@ -84,8 +95,6 @@ kotlin {
     desktopMain.apply {
       dependencies {
         implementation(compose.desktop.currentOs)
-        // Backend-independent binding only; the application selects the native runtime.
-        implementation(libs.maplibre.nativeFfi)
 
         // The default Skiko host needs direct Vulkan/OpenGL access; the natives are the app's
         // concern.

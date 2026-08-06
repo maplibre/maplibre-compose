@@ -60,17 +60,17 @@ import org.lwjgl.system.Pointer.POINTER_SIZE
 import org.lwjgl.system.libffi.LibFFI.ffi_type_pointer
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeRenderBackend
-import org.maplibre.compose.desktop.DesktopComposeGpuHost
-import org.maplibre.compose.desktop.DesktopFrameResult
-import org.maplibre.compose.desktop.DesktopMapExtent
-import org.maplibre.compose.desktop.DesktopMapHostSession
-import org.maplibre.compose.desktop.DesktopRenderTarget
-import org.maplibre.compose.desktop.DesktopRuntimeOptions
+import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
-import org.maplibre.compose.desktop.RgbaPixel
-import org.maplibre.compose.map.DesktopMapSession
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.MlnFfiFrameResult
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
+import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.RgbaPixel
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.spatialk.geojson.Position
@@ -140,7 +140,7 @@ class LinuxVulkanOpenGlInteropTest {
     )
   }
 
-  private class EglGpuHost(private val egl: EglTestContext) : DesktopComposeGpuHost {
+  private class EglGpuHost(private val egl: EglTestContext) : ComposeGpuHost {
     private val ownerThread = Thread.currentThread()
     private val context =
       OpenGlComposeGpuContext(egl.directContext) { action -> egl.withCurrent { action.run() } }
@@ -191,16 +191,16 @@ class LinuxVulkanOpenGlInteropTest {
       }
 
     private val renderer =
-      DesktopMapSession(
+      MlnFfiMapSession(
         callbacks = callbacks,
         logger = null,
         renderBackend = host.backends.producer,
         layoutDirection = LayoutDirection.Ltr,
-        runtimeOptions = DesktopRuntimeOptions(cachePath = cacheDirectory.resolve("cache.db")),
+        runtimeOptions = MlnFfiRuntimeOptions(cachePath = cacheDirectory.resolve("cache.db")),
       )
 
     private val hostSession =
-      object : DesktopMapHostSession {
+      object : MlnFfiMapHostSession {
         override val backends = host.backends
 
         override fun requestFrame() {}
@@ -212,11 +212,11 @@ class LinuxVulkanOpenGlInteropTest {
       renderer.onSurfaceAvailable(hostSession)
     }
 
-    fun renderStyle(style: BaseStyle, extent: DesktopMapExtent): DesktopRenderTarget {
+    fun renderStyle(style: BaseStyle, extent: MlnFfiMapExtent): MlnFfiRenderTarget {
       val expectedStyleLoads = styleLoads + 1
       renderer.setBaseStyle(style)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
-      var rendered: DesktopRenderTarget? = null
+      var rendered: MlnFfiRenderTarget? = null
       var rendersAfterLoad = 0
       while (styleLoads < expectedStyleLoads || rendersAfterLoad < SETTLE_RENDER_COUNT) {
         check(deadline.hasNotPassedNow()) {
@@ -226,7 +226,7 @@ class LinuxVulkanOpenGlInteropTest {
         val frame = host.acquireFrame(nextFrameId++, extent, null)
         try {
           val result = host.withProducerAccess(frame) { renderer.render(frame) }
-          if (result == DesktopFrameResult.RENDERED) {
+          if (result == MlnFfiFrameResult.RENDERED) {
             host.completeProducerAccess(frame)
             if (styleLoads >= expectedStyleLoads) {
               rendersAfterLoad++
@@ -294,7 +294,7 @@ class LinuxVulkanOpenGlInteropTest {
       return action()
     }
 
-    fun drawAndRead(host: VulkanOpenGlMapHost, target: DesktopRenderTarget): RgbaPixel {
+    fun drawAndRead(host: VulkanOpenGlMapHost, target: MlnFfiRenderTarget): RgbaPixel {
       destination.canvas.clear(0xff00ff00.toInt())
       var drew = false
       CanvasDrawScope().draw(
@@ -448,8 +448,8 @@ class LinuxVulkanOpenGlInteropTest {
 
     val TEST_TIMEOUT = 30.seconds
 
-    val FIRST_EXTENT = DesktopMapExtent.fromLogical(256, 192, 1.0)
-    val SECOND_EXTENT = DesktopMapExtent.fromLogical(320, 240, 1.0)
+    val FIRST_EXTENT = MlnFfiMapExtent.fromLogical(256, 192, 1.0)
+    val SECOND_EXTENT = MlnFfiMapExtent.fromLogical(320, 240, 1.0)
 
     val FIRST_PIXEL = RgbaPixel(red = 0x33, green = 0x66, blue = 0x99, alpha = 0xff)
     val SECOND_PIXEL = RgbaPixel(red = 0x99, green = 0x33, blue = 0x66, alpha = 0xff)
