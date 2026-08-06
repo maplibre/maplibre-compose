@@ -19,6 +19,7 @@ import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.makeGLWithInterface
+import org.junit.Assume.assumeTrue
 import org.lwjgl.egl.EGL
 import org.lwjgl.egl.EGL10.EGL_ALPHA_SIZE
 import org.lwjgl.egl.EGL10.EGL_BLUE_SIZE
@@ -79,50 +80,55 @@ import org.maplibre.spatialk.geojson.Position
 class LinuxVulkanOpenGlInteropTest {
 
   @Test
-  fun `an inherited GL error does not poison the first memory import`() = onLinux {
-    EglTestContext.create().use { egl ->
-      val host = VulkanOpenGlMapHost(EglGpuHost(egl))
-      try {
-        egl.withCurrent {
-          clearGlErrors()
-          // OpenGL errors are sticky. This is the error compose-glfw left for the bridge to
-          // misattribute to glImportMemoryFdEXT before the bridge established its own boundary.
-          glEnable(Int.MIN_VALUE)
-          val frame = host.acquireFrame(1, FIRST_EXTENT, null)
-          host.releaseFrame(frame)
+  fun `an inherited GL error does not poison the first memory import`() =
+    onLinux("importing a Vulkan memory fd into OpenGL is a Linux-only path") {
+      EglTestContext.create().use { egl ->
+        val host = VulkanOpenGlMapHost(EglGpuHost(egl))
+        try {
+          egl.withCurrent {
+            clearGlErrors()
+            // OpenGL errors are sticky. This is the error compose-glfw left for the bridge to
+            // misattribute to glImportMemoryFdEXT before the bridge established its own boundary.
+            glEnable(Int.MIN_VALUE)
+            val frame = host.acquireFrame(1, FIRST_EXTENT, null)
+            host.releaseFrame(frame)
+          }
+        } finally {
+          host.close()
         }
-      } finally {
-        host.close()
       }
     }
-  }
 
   @Test
-  fun `a resize can still present the last completed generation`() = onLinux {
-    EglTestContext.create().use { egl ->
-      val host = VulkanOpenGlMapHost(EglGpuHost(egl))
-      try {
-        val first =
+  fun `a resize can still present the last completed generation`() =
+    onLinux("the Vulkan to OpenGL bridge this resizes exists only on Linux") {
+      EglTestContext.create().use { egl ->
+        val host = VulkanOpenGlMapHost(EglGpuHost(egl))
+        try {
+          val first =
+            InteropMap(host).use { map ->
+              egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
+            }
           InteropMap(host).use { map ->
-            egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
+            val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, SECOND_EXTENT) }
+
+            val oldPixel = egl.withCurrent { egl.drawAndRead(host, first) }
+            assertNear(FIRST_PIXEL, oldPixel)
+
+            val newPixel = egl.withCurrent { egl.drawAndRead(host, second) }
+            assertNear(SECOND_PIXEL, newPixel)
           }
-        InteropMap(host).use { map ->
-          val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, SECOND_EXTENT) }
-
-          val oldPixel = egl.withCurrent { egl.drawAndRead(host, first) }
-          assertNear(FIRST_PIXEL, oldPixel)
-
-          val newPixel = egl.withCurrent { egl.drawAndRead(host, second) }
-          assertNear(SECOND_PIXEL, newPixel)
+        } finally {
+          host.close()
         }
-      } finally {
-        host.close()
       }
     }
-  }
 
-  private inline fun onLinux(block: () -> Unit) {
-    if (!System.getProperty("os.name").lowercase().contains("linux")) return
+  /**
+   * Runs [block] on Linux only, skipping elsewhere rather than reporting a pass it did not earn.
+   */
+  private inline fun onLinux(reason: String, block: () -> Unit) {
+    assumeTrue(reason, System.getProperty("os.name").orEmpty().lowercase().contains("linux"))
     block()
   }
 
