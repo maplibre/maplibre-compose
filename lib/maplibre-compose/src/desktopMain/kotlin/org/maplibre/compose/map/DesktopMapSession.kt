@@ -115,9 +115,9 @@ private const val CAMERA_KEY = "camera"
  * Drives one MapLibre Native map on a desktop host surface.
  *
  * The runtime and the map belong to [DesktopMapRuntimeLoop]'s thread; the render session belongs to
- * the host's renderer thread, which is where [render] runs (since maplibre-native-ffi #399 a
- * session's owner is whichever thread attached it). Everything that touches the map hops to the
- * loop; everything that touches the render session stays on the renderer thread.
+ * the host's renderer thread, which is where [render] runs and so which attached it. Everything
+ * that touches the map hops to the loop; everything that touches the render session stays on the
+ * renderer thread.
  *
  * Camera transitions still need frames: mbgl steps one from `onDidFinishRenderingFrame` while
  * `transform.inTransition()`. The cycle is self-sustaining once started, since a transition in
@@ -240,7 +240,7 @@ internal class DesktopMapSession(
   private val frameTimer = TimeSource.Monotonic
   private var lastFrameTime = frameTimer.markNow()
 
-  // ───────────────────────────── host surface lifecycle ─────────────────────────────
+  // region host surface lifecycle
 
   override fun onSurfaceAvailable(session: DesktopMapHostSession) {
     if (closed) {
@@ -368,7 +368,9 @@ internal class DesktopMapSession(
       .onFailure { logger?.e(it) { "Failed to close the MapLibre render session" } }
   }
 
-  // ───────────────────────────── the map's owner thread ─────────────────────────────
+  // endregion
+
+  // region the map's owner thread
 
   /**
    * Returns the loop for [extent], starting one or replacing it as needed. Renderer thread only.
@@ -569,7 +571,9 @@ internal class DesktopMapSession(
       target = textureTarget,
     )
 
-  // ───────────────────────────── events, on the map's owner thread ─────────────────────────────
+  // endregion
+
+  // region events, on the map's owner thread
 
   /** Translates one runtime event. Runs on the map's owner thread, as do the callbacks it makes. */
   private fun handleEvent(event: RuntimeEvent) {
@@ -637,8 +641,15 @@ internal class DesktopMapSession(
         // .agents/docs/COMMON_API_GAPS.md.
         logger?.d { "Style image missing: ${event.message}" }
 
-      // Known and deliberately not acted on, named so the branch below means "an event this build
+      // Nothing in MapAdapter.Callbacks corresponds to these, so acting on them would mean
+      // inventing API. Named rather than omitted, so the branch below means "an event this build
       // has never seen".
+      //
+      // MAP_IDLE and MAP_LOADING_STARTED: the callbacks report a style load's outcome, not its
+      // phases, and frames are driven by MapLibre asking to be drawn rather than by going idle.
+      // The MAP_RENDER_* pair and MAP_TILE_ACTION are per-frame and per-tile telemetry, and the
+      // one frame figure the callbacks want comes from MAP_RENDER_FRAME_FINISHED above.
+      // The MAP_STILL_IMAGE_* pair answers a still-image request this session never makes.
       RuntimeEventType.MAP_IDLE,
       RuntimeEventType.MAP_LOADING_STARTED,
       RuntimeEventType.MAP_RENDER_FRAME_STARTED,
@@ -718,7 +729,9 @@ internal class DesktopMapSession(
     if (elapsed > 0.0) callbacks.onFrame(1.0 / elapsed)
   }
 
-  // ───────────────────────────── dispatch ─────────────────────────────
+  // endregion
+
+  // region dispatch
 
   /**
    * Queues [action] for the map's owner thread, dropping it if there is no map. For actions on the
@@ -763,7 +776,9 @@ internal class DesktopMapSession(
     return host.withRendererAccess(action)
   }
 
-  // ───────────────────────────── MapAdapter ─────────────────────────────
+  // endregion
+
+  // region MapAdapter
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
@@ -839,7 +854,7 @@ internal class DesktopMapSession(
     )
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
-    animate(duration) { map, animation ->
+    startTransitionAwaitingRelease(duration) { map, animation ->
       map.flyTo(finalPosition.toCameraOptions(layoutDirection), animation)
     }
   }
@@ -851,7 +866,7 @@ internal class DesktopMapSession(
     padding: PaddingValues,
     duration: Duration,
   ) {
-    animate(duration) { map, animation ->
+    startTransitionAwaitingRelease(duration) { map, animation ->
       map.flyTo(cameraForBounds(map, boundingBox, bearing, tilt, padding), animation)
     }
   }
@@ -860,7 +875,7 @@ internal class DesktopMapSession(
    * Starts a camera transition and suspends until MapLibre reports that it released the camera.
    * Resumes normally however the transition ended, as Android's `CancelableCallback.onCancel` does.
    */
-  private suspend fun animate(
+  private suspend fun startTransitionAwaitingRelease(
     duration: Duration,
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
@@ -1088,7 +1103,9 @@ internal class DesktopMapSession(
     return cos(clamped * PI / 180.0) * EARTH_CIRCUMFERENCE_METERS / (2.0.pow(zoom) * TILE_SIZE)
   }
 
-  // ───────────────────────────── input, called from Compose ─────────────────────────────
+  // endregion
+
+  // region input, called from Compose
 
   fun onGestureStarted() {
     setGestureInProgress(true)
@@ -1184,6 +1201,7 @@ internal class DesktopMapSession(
       map.cancelTransitions()
     }
   }
+  // endregion
 }
 
 private fun org.maplibre.compose.desktop.VulkanContextHandles.toFfi() =

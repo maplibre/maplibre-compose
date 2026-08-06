@@ -7,14 +7,6 @@ import org.maplibre.compose.sources.Source
 
 internal actual sealed class FeatureLayer(id: String, actual val source: Source) : Layer(id) {
 
-  /**
-   * Exists only to match the common `expect` constructor; throws, because a layer with no id cannot
-   * be added to a style. Subclasses use the id-carrying constructor above.
-   */
-  protected actual constructor(source: Source) : this("", source) {
-    error("A desktop feature layer must be constructed with its layer id")
-  }
-
   override val sourceId: String
     get() = source.id
 

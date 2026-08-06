@@ -39,17 +39,23 @@ public val LocalDesktopRuntimeOptions: ProvidableCompositionLocal<DesktopRuntime
     DesktopRuntimeOptions.Default
   }
 
-/** The per-user cache directory for this platform, following each platform's own convention. */
+/**
+ * The per-user cache directory for this platform.
+ *
+ * `XDG_CACHE_HOME` wins wherever it is set, macOS and Windows included: a user who exports it has
+ * said where their caches go, and honouring it only on Linux would ignore that. Otherwise each
+ * platform's own convention applies, with the XDG spec's documented fallback last.
+ */
 private fun defaultCachePath(): Path {
   val os = System.getProperty("os.name")?.lowercase().orEmpty()
   val home = System.getProperty("user.home") ?: "."
   val base =
-    when {
-      os.contains("mac") -> Paths.get(home, "Library", "Caches")
-      os.contains("windows") ->
-        System.getenv("LOCALAPPDATA")?.let(Paths::get) ?: Paths.get(home, "AppData", "Local")
-      // Linux and anything else: the XDG base directory spec, with its documented fallback.
-      else -> System.getenv("XDG_CACHE_HOME")?.let(Paths::get) ?: Paths.get(home, ".cache")
-    }
+    System.getenv("XDG_CACHE_HOME")?.takeIf { it.isNotBlank() }?.let(Paths::get)
+      ?: when {
+        os.contains("mac") -> Paths.get(home, "Library", "Caches")
+        os.contains("windows") ->
+          System.getenv("LOCALAPPDATA")?.let(Paths::get) ?: Paths.get(home, "AppData", "Local")
+        else -> Paths.get(home, ".cache")
+      }
   return base.resolve("maplibre-compose").resolve("maplibre-cache.db")
 }

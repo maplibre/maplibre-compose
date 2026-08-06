@@ -289,7 +289,7 @@ class DesktopOfflinePackTest {
     assertEquals(setOf(pack), manager.packs, "an invalidated pack should still be listed")
   }
 
-  // ───────────────────────────── fixtures ─────────────────────────────
+  // region fixtures
 
   /** Creates a pack over a local style and starts it; the caller waits for the part it needs. */
   private suspend fun downloadedPack(
@@ -376,4 +376,5 @@ class DesktopOfflinePackTest {
     /** Long enough that "it never arrived" is a conclusion rather than a guess. */
     const val SETTLE_MILLIS = 2_000L
   }
+  // endregion
 }

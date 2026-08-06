@@ -24,8 +24,9 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * Whether downloaded packs include CJK glyphs.
  *
- * True on desktop, unlike Android and iOS, because those platforms render ideographs from a local
- * system font and MapLibre Native's desktop map has no local-font option.
+ * True here, unlike Android and iOS, because those platforms render ideographs from a local system
+ * font. MapLibre Native's renderer takes a local font family too, but maplibre-native-ffi does not
+ * expose it, so the glyphs have to come down with the pack.
  */
 private const val INCLUDE_IDEOGRAPHS = true
 

@@ -4,7 +4,7 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.sources.Source
 
-internal expect sealed class FeatureLayer(source: Source) : Layer {
+internal expect sealed class FeatureLayer : Layer {
   val source: Source
   abstract var sourceLayer: String
 

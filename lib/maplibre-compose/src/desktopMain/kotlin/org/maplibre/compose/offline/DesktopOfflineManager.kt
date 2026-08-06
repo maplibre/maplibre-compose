@@ -175,7 +175,7 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     )
   }
 
-  // ───────────────────────────── owner-thread bookkeeping ─────────────────────────────
+  // region owner-thread bookkeeping
 
   /**
    * Adopts a region MapLibre reported, or returns null when its definition cannot be represented.
@@ -242,7 +242,9 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     )
   }
 
-  // ───────────────────────────── event pump callbacks ─────────────────────────────
+  // endregion
+
+  // region event pump callbacks
 
   /** Called on the owner thread for every runtime event that is not an operation completion. */
   private fun handleEvent(event: RuntimeEvent) {
@@ -287,7 +289,9 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
     packsState.value = packsById.values.toSet()
   }
 
-  // ───────────────────────────── operation plumbing ─────────────────────────────
+  // endregion
+
+  // region operation plumbing
 
   /**
    * Starts an offline operation on the owner thread and reports its outcome there.
@@ -380,4 +384,5 @@ internal class DesktopOfflineManager(private val options: DesktopRuntimeOptions)
         )
       }
     }
+  // endregion
 }

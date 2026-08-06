@@ -16,8 +16,6 @@ kotlin {
     val desktopMain by getting
 
     desktopMain.dependencies {
-      // Everything below the SPI line — compose-glfw, LWJGL, the Metal bridge — belongs to this
-      // fixture; neither `:lib:maplibre-compose` nor `:demo-app` may depend on it.
       implementation(project(":lib:maplibre-compose"))
       implementation(project(":demo-app"))
       implementation(libs.composeGlfw)
@@ -27,7 +25,6 @@ kotlin {
       // Objective-C messaging for the Metal bridge, the same way the default host does it.
       implementation(libs.lwjgl.core)
 
-      // compose-glfw ships one runtime per operating system and Compose backend.
       runtimeOnly(desktopHostPlatform.composeGlfwRuntimeDependency(libs.versions.composeGlfw.get()))
       runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
 
@@ -37,16 +34,6 @@ kotlin {
       runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${desktopHostPlatform.lwjglNativesClassifier}")
     }
   }
-}
-
-/**
- * Keeps AWT's coroutine main dispatcher (pulled in by `:demo-app`) off the fixture's classpath.
- * `androidx.lifecycle` treats whichever thread `Dispatchers.Main` lands on as the main thread, so
- * with it present every navigation transition throws `addObserver must be called on the main
- * thread` from the GLFW thread. With no main dispatcher at all the check permits any thread.
- */
-configurations.named("desktopRuntimeClasspath") {
-  exclude(group = "org.jetbrains.kotlinx", module = "kotlinx-coroutines-swing")
 }
 
 /**
