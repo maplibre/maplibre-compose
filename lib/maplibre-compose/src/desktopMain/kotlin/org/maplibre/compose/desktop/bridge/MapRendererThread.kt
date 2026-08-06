@@ -1,18 +1,16 @@
-package org.maplibre.compose.glfw
+package org.maplibre.compose.desktop.bridge
 
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * The thread this host serializes its graphics work on.
+ * The thread a host serializes its graphics work on.
  *
- * MapLibre's runtime binds to whichever thread first reaches it, so a host must offer one
- * consistent thread through `withRendererAccess`. It cannot be the GLFW main thread: MapLibre's
- * Metal backend commits its command buffer and waits on it inside `renderUpdate`, which would block
- * event pumping on the GPU.
+ * MapLibre's runtime binds to whichever thread creates it, so the host has to offer one consistent
+ * thread and keep offering it.
  */
-internal class GlfwRendererThread(name: String) : AutoCloseable {
+internal class MapRendererThread(name: String) : AutoCloseable {
   private val threadRef = AtomicReference<Thread?>()
 
   private val executor = Executors.newSingleThreadExecutor { task ->
@@ -23,8 +21,10 @@ internal class GlfwRendererThread(name: String) : AutoCloseable {
   }
 
   /**
-   * Runs [action] on this thread and waits for it. Must stay re-entrant: a camera mutation requests
-   * a frame while already on this thread, and a nested submit would deadlock the executor.
+   * Runs [action] on this thread and waits for it.
+   *
+   * Re-entrant, which is load-bearing: a camera mutation requests a frame while already on this
+   * thread, and a nested submit to a single-threaded executor would deadlock.
    */
   fun <T> run(action: () -> T): T {
     if (Thread.currentThread() === threadRef.get()) return action()

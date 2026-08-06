@@ -11,9 +11,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.DesktopMapSurface
+import org.maplibre.compose.desktop.LocalDesktopComposeGpuHost
 import org.maplibre.compose.desktop.LocalDesktopMapHostFactory
 import org.maplibre.compose.desktop.LocalDesktopRuntimeOptions
 import org.maplibre.compose.desktop.MapRenderBackend
+import org.maplibre.compose.desktop.bridge.ComposeGpuMapHostFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
 import org.maplibre.nativeffi.Maplibre
@@ -30,7 +32,9 @@ internal actual fun ComposableMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapOptions,
 ) {
-  val factory = LocalDesktopMapHostFactory.current
+  val gpuHost = LocalDesktopComposeGpuHost.current
+  val factory =
+    LocalDesktopMapHostFactory.current ?: remember(gpuHost) { ComposeGpuMapHostFactory(gpuHost) }
   val runtimeOptions = LocalDesktopRuntimeOptions.current
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current

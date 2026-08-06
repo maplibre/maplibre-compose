@@ -8,12 +8,12 @@ import org.lwjgl.system.macosx.ObjCRuntime
 /**
  * Pins the Objective-C members of Skiko's Metal device wrapper that the macOS host messages. That
  * class is private to Skiko's `MetalRedrawer.mm`, appears in no header, and would be renamed
- * silently by a Skiko upgrade — so a failure here means update [MacosMetalTexture], not a bug.
+ * silently by a Skiko upgrade — so a failure here means update [SkikoComposeGpuHost], not a bug.
  *
  * The Objective-C runtime answers this without a GPU, a window, or a Skia context. Off macOS the
  * body is skipped rather than the test, so no machine reports a routine skip.
  */
-class MacosMetalDeviceContractTest {
+class SkikoMetalDeviceContractTest {
 
   @Test
   fun `Skiko's Metal device wrapper still exposes the adapter property`() {
@@ -21,31 +21,31 @@ class MacosMetalDeviceContractTest {
 
     val skikoVersion = loadSkikoNativeLibrary()
 
-    val deviceClass = ObjCRuntime.objc_getClass(MacosMetalTexture.SKIKO_METAL_DEVICE_CLASS)
+    val deviceClass = ObjCRuntime.objc_getClass(SkikoReflection.SKIKO_METAL_DEVICE_CLASS)
     assertTrue(
       deviceClass != NULL,
       "Skiko $skikoVersion no longer registers the Objective-C class " +
-        "'${MacosMetalTexture.SKIKO_METAL_DEVICE_CLASS}'. The macOS map host reads Compose's " +
-        "MTLDevice out of it; update MacosMetalTexture.",
+        "'${SkikoReflection.SKIKO_METAL_DEVICE_CLASS}'. The macOS map host reads Compose's " +
+        "MTLDevice out of it; update SkikoComposeGpuHost.",
     )
 
-    val adapter = ObjCRuntime.sel_registerName(MacosMetalTexture.SKIKO_METAL_DEVICE_ADAPTER)
+    val adapter = ObjCRuntime.sel_registerName(SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER)
     assertTrue(
       ObjCRuntime.class_respondsToSelector(deviceClass, adapter),
-      "Skiko $skikoVersion's '${MacosMetalTexture.SKIKO_METAL_DEVICE_CLASS}' no longer responds " +
-        "to '${MacosMetalTexture.SKIKO_METAL_DEVICE_ADAPTER}'. The macOS map host sends that to " +
-        "reach the MTLDevice it allocates its texture on; update MacosMetalTexture.",
+      "Skiko $skikoVersion's '${SkikoReflection.SKIKO_METAL_DEVICE_CLASS}' no longer responds " +
+        "to '${SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER}'. The macOS map host sends that to " +
+        "reach the MTLDevice it allocates its texture on; update SkikoComposeGpuHost.",
     )
 
     // The name surviving is not enough; the property has to still be the device. Objective-C
     // records the declared type in the attribute string: `T@"<MTLDevice>",&,V_adapter` here.
     val property =
-      ObjCRuntime.class_getProperty(deviceClass, MacosMetalTexture.SKIKO_METAL_DEVICE_ADAPTER)
+      ObjCRuntime.class_getProperty(deviceClass, SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER)
     val attributes =
       property.takeIf { it != NULL }?.let { ObjCRuntime.property_getAttributes(it) }.orEmpty()
     assertTrue(
       attributes.contains("@\"<MTLDevice>\""),
-      "Skiko $skikoVersion declares '${MacosMetalTexture.SKIKO_METAL_DEVICE_ADAPTER}' as " +
+      "Skiko $skikoVersion declares '${SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER}' as " +
         "'$attributes', not as an id<MTLDevice>. The macOS map host allocates its texture on " +
         "whatever this returns.",
     )

@@ -15,9 +15,7 @@ internal class HeadlessVulkanMapHostFactory : DesktopMapHostFactory {
   val created: MutableList<HeadlessVulkanMapHost> = mutableListOf()
 
   override fun create(producer: MapRenderBackend): DesktopMapHostResult {
-    if (producer != MapRenderBackend.VULKAN) {
-      return DesktopMapHostResult.Unsupported("$producer is not supported headlessly")
-    }
+    check(producer == MapRenderBackend.VULKAN) { "$producer is not supported headlessly" }
     val host = HeadlessVulkanMapHost.create()
     created += host
     return DesktopMapHostResult.Created(host)

@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
+import org.maplibre.compose.desktop.DesktopHostException
 
 /**
  * Pins the layout of Skiko's native `DirectXDevice`, which the Windows host reads by byte offset. A

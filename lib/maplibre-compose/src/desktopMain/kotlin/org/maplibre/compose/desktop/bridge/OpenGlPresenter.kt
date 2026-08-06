@@ -1,4 +1,4 @@
-package org.maplibre.compose.desktop.skiko
+package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -12,7 +12,6 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
-import org.jetbrains.skia.SurfaceOrigin
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.GL_NO_ERROR
 import org.lwjgl.opengl.GL11.glGetError
@@ -26,11 +25,9 @@ import org.lwjgl.opengl.GL30.glDeleteFramebuffers
 import org.lwjgl.opengl.GL30.glFramebufferTexture2D
 import org.lwjgl.opengl.GL30.glGenFramebuffers
 import org.lwjgl.opengl.GL30.glGetInteger
+import org.maplibre.compose.desktop.DesktopHostException
 import org.maplibre.compose.desktop.OpenGlTextureTarget
 import org.maplibre.compose.desktop.TextureOrigin
-import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
-import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
-import org.maplibre.compose.desktop.skiko.SkikoReflection.staticInvoke
 
 /**
  * How many snapshots to hold alive after handing them to Compose, which replays recorded draw
@@ -43,45 +40,27 @@ private const val RETAINED_IMAGE_COUNT = 8
  *
  * Compose owns the GL context and Skia's [DirectContext]; this wraps the texture MapLibre rendered
  * into as a Skia surface and composites it.
+ *
+ * Every method must be called on the GPU thread with Compose's GL context current — see
+ * [withOpenGlContext] — because the Skia objects belong to that context and GL calls go wherever
+ * the calling thread's context points.
  */
-internal object SkikoOpenGlPresenter {
+internal class OpenGlPresenter : AutoCloseable {
   private val presenters = mutableMapOf<Int, TexturePresenter>()
 
-  /** Runs [action] with Compose's OpenGL context current, on the AWT event thread. */
-  fun <T> withContext(action: () -> T): T = SkikoReflection.onEdt {
-    val layer = SkikoReflection.requireSkiaLayer()
-    val redrawer =
-      SkikoReflection.requireRedrawer(layer, SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
-    val backedLayer =
-      layer.getField("backedLayer")
-        ?: throw DesktopHostException("${SkikoReflection.SKIA_LAYER_CLASS}.backedLayer was null")
-    val context =
-      redrawer.getField("context") as? Long
-        ?: throw DesktopHostException(
-          "${SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS}.context was null"
-        )
-    check(context != 0L) { "${SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS}.context was zero" }
-
-    val surfaceHelpers = Class.forName(SkikoReflection.AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS)
-    val drawingSurface = surfaceHelpers.staticInvoke("lockLinuxDrawingSurface", backedLayer)
-    try {
-      Class.forName(SkikoReflection.LINUX_OPENGL_REDRAWER_HELPERS_CLASS)
-        .staticInvoke("access\$makeCurrent", drawingSurface, context)
-      ensureCapabilities()
-      action()
-    } finally {
-      surfaceHelpers.staticInvoke("unlockLinuxDrawingSurface", drawingSurface)
-    }
-  }
-
-  fun draw(scope: DrawScope, target: OpenGlTextureTarget): Boolean {
+  fun draw(scope: DrawScope, skiaContext: DirectContext, target: OpenGlTextureTarget): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
-      val context = findDirectContext() ?: return@drawIntoCanvas
       ensureCapabilities()
       val presenter =
         presenters.getOrPut(target.textureName) { TexturePresenter(target.textureName) }
-      presenter.draw(composeCanvas.skiaCanvas, context, target, scope.size.width, scope.size.height)
+      presenter.draw(
+        composeCanvas.skiaCanvas,
+        skiaContext,
+        target,
+        scope.size.width,
+        scope.size.height,
+      )
       drew = true
     }
     return drew
@@ -89,32 +68,15 @@ internal object SkikoOpenGlPresenter {
 
   /**
    * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
-   * Forced onto the AWT event thread, which owns the `DirectContext` the Skia objects belong to.
    */
   fun forget(textureName: Int) {
-    SkikoReflection.onEdt { presenters.remove(textureName)?.close() }
+    presenters.remove(textureName)?.close()
   }
 
-  fun close() {
-    SkikoReflection.onEdt {
-      val all = presenters.values.toList()
-      presenters.clear()
-      all.forEach { it.close() }
-    }
-  }
-
-  private fun findDirectContext(): DirectContext? = SkikoReflection.onEdt {
-    val layer = SkikoReflection.requireSkiaLayer()
-    val redrawer =
-      SkikoReflection.requireRedrawer(layer, SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
-    val handler =
-      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
-    (handler.getField("context") as? DirectContext)
-      ?: run {
-        handler.invokeDeclaredNoArg("initContext")
-        (handler.getField("context") as? DirectContext)
-          ?: handler.invokeDeclaredNoArg("getContext") as? DirectContext
-      }
+  override fun close() {
+    val all = presenters.values.toList()
+    presenters.clear()
+    all.forEach { it.close() }
   }
 
   private class TexturePresenter(private val textureName: Int) : AutoCloseable {
@@ -253,12 +215,6 @@ internal object SkikoOpenGlPresenter {
     }
   }
 }
-
-private fun TextureOrigin.toSkiaOrigin(): SurfaceOrigin =
-  when (this) {
-    TextureOrigin.TOP_LEFT -> SurfaceOrigin.TOP_LEFT
-    TextureOrigin.BOTTOM_LEFT -> SurfaceOrigin.BOTTOM_LEFT
-  }
 
 internal fun ensureCapabilities() =
   runCatching { GL.getCapabilities() }.getOrNull() ?: GL.createCapabilities()

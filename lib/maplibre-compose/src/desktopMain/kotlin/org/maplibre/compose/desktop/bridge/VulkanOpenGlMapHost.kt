@@ -1,4 +1,4 @@
-package org.maplibre.compose.desktop.skiko
+package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.lwjgl.opengl.EXTMemoryObject.GL_DEDICATED_MEMORY_OBJECT_EXT
@@ -101,6 +101,8 @@ import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeRenderBackend
 import org.maplibre.compose.desktop.DesktopBackendPair
+import org.maplibre.compose.desktop.DesktopComposeGpuHost
+import org.maplibre.compose.desktop.DesktopHostException
 import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.DesktopMapFrame
 import org.maplibre.compose.desktop.DesktopMapHost
@@ -108,6 +110,7 @@ import org.maplibre.compose.desktop.DesktopRenderTarget
 import org.maplibre.compose.desktop.EglContextHandles
 import org.maplibre.compose.desktop.MapRenderBackend
 import org.maplibre.compose.desktop.NativeHandle
+import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlTextureTarget
 import org.maplibre.compose.desktop.TextureOrigin
 import org.maplibre.compose.desktop.VulkanContextHandles
@@ -124,8 +127,9 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
  *
  * Ported from the `maplibre-native-ffi` Compose example, which is the reference for this path.
  */
-internal class LinuxVulkanOpenGlHost : DesktopMapHost {
-  private val rendererThread = HostRendererThread("maplibre-linux-vulkan-renderer")
+internal class VulkanOpenGlMapHost(private val gpuHost: DesktopComposeGpuHost) : DesktopMapHost {
+  private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
+  private val presenter = OpenGlPresenter()
   private var vulkan: LinuxVulkanContext? = null
   private var exported: LinuxExportedVulkanTexture? = null
   private var imported: LinuxOpenGlImportedTexture? = null
@@ -135,12 +139,10 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
   override val backends: DesktopBackendPair =
     DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 
-  override fun resize(extent: DesktopMapExtent) {
-    // Importing into GL needs Compose's context current, which only holds inside the draw
-    // callback, so the reallocation happens lazily in acquireFrame. Reallocating on the renderer
-    // thread instead would deadlock: it would wait on the AWT event thread, which is already
-    // waiting on the renderer.
-  }
+  // No resize() override: importing into GL needs Compose's context current, which only holds
+  // inside the draw callback, so the reallocation happens lazily in acquireFrame. Reallocating from
+  // resize() instead would deadlock, since it runs on the renderer thread while the GPU thread
+  // waits on that renderer.
 
   override fun acquireFrame(
     frameId: Long,
@@ -150,7 +152,7 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
     if (imported == null || exported == null || extent != currentExtent) {
       recreateTexture(extent)
     }
-    return HostFrame(
+    return DesktopMapFrame(
       frameId = frameId,
       extent = extent,
       target = requireNotNull(exported) { "Vulkan texture is not initialized" }.target(generation),
@@ -170,12 +172,21 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
   override fun draw(scope: DrawScope, target: DesktopRenderTarget): Boolean {
     if (target !is VulkanImageTarget) return false
     val texture = imported ?: return false
-    return SkikoOpenGlPresenter.draw(scope, texture.target(target.generation))
+    val context = gpuHost.currentContext() as? OpenGlComposeGpuContext ?: return false
+    // Already inside the Compose draw callback, so Compose's context is current on this thread.
+    return presenter.draw(scope, context.skiaContext, texture.target(target.generation))
   }
 
   override fun close() {
     try {
-      disposeTexture(consumerContextCurrent = false)
+      // At window close the Compose surface may already be gone, so there is no context to make
+      // current and no GL objects left to free; the driver reclaims them with the context.
+      runCatching {
+        gpuHost.withOpenGlContext {
+          disposeTexture()
+          presenter.close()
+        }
+      }
     } finally {
       val closing = vulkan
       vulkan = null
@@ -189,13 +200,13 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
 
   private fun recreateTexture(extent: DesktopMapExtent) {
     if (extent.isEmpty) {
-      disposeTexture(consumerContextCurrent = true)
+      disposeTexture()
       currentExtent = DesktopMapExtent.Empty
       generation += 1
       return
     }
 
-    disposeTexture(consumerContextCurrent = true)
+    disposeTexture()
     val context =
       vulkan ?: LinuxVulkanContext.create(currentOpenGlDeviceUuids()).also { vulkan = it }
     val newExported = context.createExportedTexture(extent)
@@ -212,27 +223,17 @@ internal class LinuxVulkanOpenGlHost : DesktopMapHost {
     }
   }
 
-  private fun disposeTexture(consumerContextCurrent: Boolean) {
+  /** Frees both views of the shared allocation. Compose's GL context must be current. */
+  private fun disposeTexture() {
     imported?.let { texture ->
-      if (consumerContextCurrent) {
-        texture.close()
-      } else {
-        // At window close the Skia layer is already disposed, so there is no context to make
-        // current and no GL objects left to free; the driver reclaims them with the context.
-        runCatching { SkikoOpenGlPresenter.withContext { texture.close() } }
-      }
+      // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
+      presenter.forget(texture.textureName)
+      texture.close()
     }
     imported = null
     exported?.close()
     exported = null
   }
-
-  private class HostFrame(
-    override val frameId: Long,
-    override val extent: DesktopMapExtent,
-    override val target: DesktopRenderTarget,
-    override val presentationTimeNanos: Long?,
-  ) : DesktopMapFrame
 }
 
 /**
@@ -591,7 +592,10 @@ private constructor(
   private val origin: TextureOrigin,
 ) : AutoCloseable {
   private var memoryObject = 0
-  private var textureName = 0
+
+  /** The GL name of the imported texture, which the presenter keys its Skia wrapper on. */
+  var textureName: Int = 0
+    private set
 
   /**
    * The GL view of this texture, for presenting only. The context handles are zero and the
@@ -660,8 +664,6 @@ private constructor(
       ensureCapabilities()
       glFinish()
       if (textureName != 0) {
-        // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-        SkikoOpenGlPresenter.forget(textureName)
         glDeleteTextures(textureName)
         textureName = 0
       }

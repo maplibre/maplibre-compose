@@ -4,7 +4,7 @@ package org.maplibre.compose.desktop
 internal val PRODUCER_BACKEND_PREFERENCE: List<MapRenderBackend> =
   listOf(MapRenderBackend.METAL, MapRenderBackend.VULKAN, MapRenderBackend.OPENGL)
 
-/** The outcome of intersecting the loaded FFI runtime's backends with a host factory's. */
+/** The outcome of intersecting the loaded FFI runtime's backends with the host bridge's. */
 internal sealed interface BackendSelection {
   data class Selected(val backends: DesktopBackendPair) : BackendSelection
 
@@ -17,17 +17,18 @@ internal sealed interface BackendSelection {
  *
  * @param runtimeBackends what the loaded FFI runtime was built with, from
  *   `Maplibre.supportedRenderBackends()`
- * @param factory the host factory selected through [LocalDesktopMapHostFactory]
+ * @param hostBackends what the bridge into the Compose host can carry
+ * @param hostDescription names the host in diagnostics
  * @param operatingSystem for diagnostics, e.g. the `os.name` system property
  * @param architecture for diagnostics, e.g. the `os.arch` system property
  */
 internal fun selectBackends(
   runtimeBackends: Set<MapRenderBackend>,
-  factory: DesktopMapHostFactory,
+  hostBackends: Set<DesktopBackendPair>,
+  hostDescription: String,
   operatingSystem: String,
   architecture: String,
 ): BackendSelection {
-  val hostBackends = factory.supportedBackends
   val usable = hostBackends.filter { it.producer in runtimeBackends }
 
   val selected = PRODUCER_BACKEND_PREFERENCE.firstNotNullOfOrNull { preferred ->
@@ -37,36 +38,40 @@ internal fun selectBackends(
   if (selected != null) return BackendSelection.Selected(selected)
 
   return BackendSelection.Unavailable(
-    buildBackendDiagnostic(runtimeBackends, factory, operatingSystem, architecture)
+    buildBackendDiagnostic(
+      runtimeBackends,
+      hostBackends,
+      hostDescription,
+      operatingSystem,
+      architecture,
+    )
   )
 }
 
 /** Explains why no backend pair was usable, and which dependency is most likely missing. */
 private fun buildBackendDiagnostic(
   runtimeBackends: Set<MapRenderBackend>,
-  factory: DesktopMapHostFactory,
+  hostBackends: Set<DesktopBackendPair>,
+  hostDescription: String,
   operatingSystem: String,
   architecture: String,
 ): String {
-  val hostBackends = factory.supportedBackends
-
   val cause =
     when {
       runtimeBackends.isEmpty() && hostBackends.isEmpty() ->
-        "No MapLibre Native FFI runtime is on the classpath and ${factory.description} cannot " +
-          "bridge any backend on this machine."
+        "No MapLibre Native FFI runtime is on the classpath and no MapLibre backend can be " +
+          "bridged into $hostDescription on this machine."
       runtimeBackends.isEmpty() ->
         "No MapLibre Native FFI runtime is on the classpath. Add a runtimeOnly dependency on " +
           "org.maplibre.nativeffi:maplibre-native-ffi-runtime-<backend>-jvm with the " +
           "natives-<os>-<arch> classifier for this platform."
       hostBackends.isEmpty() ->
-        "${factory.description} cannot bridge any backend on this machine. If you supplied a " +
-          "custom DesktopMapHostFactory, check its supportedBackends."
+        "No MapLibre backend can be bridged into $hostDescription on this machine."
       else ->
         "The packaged MapLibre Native FFI runtime renders with " +
-          "${runtimeBackends.describe()}, but ${factory.description} can only bridge " +
-          "${hostBackends.map { it.producer }.toSet().describe()}. Package the runtime matching " +
-          "a backend the host can bridge."
+          "${runtimeBackends.describe()}, but only " +
+          "${hostBackends.map { it.producer }.toSet().describe()} can be bridged into " +
+          "$hostDescription. Package the runtime matching a backend the host can bridge."
     }
 
   return buildString {
@@ -74,8 +79,8 @@ private fun buildBackendDiagnostic(
     appendLine(cause)
     appendLine("  operating system: $operatingSystem ($architecture)")
     appendLine("  FFI runtime backends: ${runtimeBackends.describe()}")
-    appendLine("  host factory: ${factory.description}")
-    append("  host factory backends: ")
+    appendLine("  Compose host: $hostDescription")
+    append("  bridgeable backends: ")
     append(
       if (hostBackends.isEmpty()) "none"
       else hostBackends.sortedBy { it.toString() }.joinToString { it.toString() }

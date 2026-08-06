@@ -74,7 +74,7 @@ internal class FakeDesktopMapHost(
     }
     acquiredFrames++
     liveFrames += frameId
-    return FakeFrame(
+    return DesktopMapFrame(
       frameId = frameId,
       extent = extent,
       target =
@@ -132,13 +132,6 @@ internal class FakeDesktopMapHost(
     calls += "close"
     closed = true
   }
-
-  private class FakeFrame(
-    override val frameId: Long,
-    override val extent: DesktopMapExtent,
-    override val target: DesktopRenderTarget,
-    override val presentationTimeNanos: Long?,
-  ) : DesktopMapFrame
 }
 
 /** A [DesktopMapHostFactory] producing [FakeDesktopMapHost]s. */

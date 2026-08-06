@@ -8,6 +8,7 @@ import java.lang.foreign.ValueLayout
 import java.lang.reflect.Field
 import java.lang.reflect.Method
 import javax.swing.SwingUtilities
+import org.maplibre.compose.desktop.DesktopHostException
 
 /**
  * Reaches into Compose Desktop's Skiko internals for the GPU objects it does not expose.
@@ -26,6 +27,15 @@ internal object SkikoReflection {
   const val DIRECT3D_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.Direct3DContextHandler"
   const val METAL_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.MetalContextHandler"
   const val CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.ContextHandler"
+
+  /**
+   * Skiko's Objective-C wrapper around the Metal device, and the selector on it that answers with
+   * the `id<MTLDevice>` underneath. Neither is published API (private to Skiko's
+   * `MetalRedrawer.mm`), so both are pinned by `SkikoMetalDeviceContractTest`.
+   */
+  const val SKIKO_METAL_DEVICE_CLASS: String = "MetalDevice"
+
+  const val SKIKO_METAL_DEVICE_ADAPTER: String = "adapter"
 
   /** Every Skiko class the default host depends on. Checked by the reflection contract test. */
   val REQUIRED_CLASSES: List<String> =
@@ -67,16 +77,12 @@ internal object SkikoReflection {
 
   /**
    * The Direct3D device Compose renders with on Windows. Skiko keeps it on the redrawer, and only
-   * after the first frame has initialized the swap chain.
+   * after the first frame has initialized the swap chain — until then this is null.
    */
-  fun requireDirect3DDevice(): SkikoDirect3DDevice = onEdt {
-    val layer = requireSkiaLayer()
-    val redrawer = requireRedrawer(layer, DIRECT3D_REDRAWER_CLASS)
-    val ptr =
-      redrawer.getField("device") as? Long
-        ?: throw DesktopHostException("$DIRECT3D_REDRAWER_CLASS.device was null")
-    if (ptr == 0L) throw DesktopHostException("$DIRECT3D_REDRAWER_CLASS.device was zero")
-    SkikoDirect3DDevice(ptr)
+  fun findDirect3DDevice(redrawer: Any): SkikoDirect3DDevice? {
+    val ptr = redrawer.getField("device") as? Long ?: return null
+    if (ptr == 0L) return null
+    return SkikoDirect3DDevice(ptr)
   }
 
   fun requireMetalContextHandler(layer: Any): Any =
@@ -86,15 +92,12 @@ internal object SkikoReflection {
    * The Metal device Compose renders with on macOS; MapLibre must allocate its texture on the same
    * device Skia samples from. Skiko's `MetalDevice` value class inlines to a `long`, but the boxed
    * shape is handled too.
+   *
+   * Null before Skiko has created it, which the caller reports as a context that does not exist yet
+   * rather than as a failure.
    */
-  fun requireMetalDevice(): SkikoMetalDevice = onEdt {
-    val contextHandler = requireMetalContextHandler(requireSkiaLayer())
-    val device =
-      contextHandler.getField("device")
-        ?: throw DesktopHostException(
-          "${contextHandler.javaClass.name}.device was null; " +
-            "Skiko has not created the Metal device yet"
-        )
+  fun findMetalDevice(contextHandler: Any): SkikoMetalDevice? {
+    val device = contextHandler.getField("device") ?: return null
     val ptr =
       when (device) {
         is Long -> device
@@ -105,10 +108,8 @@ internal object SkikoReflection {
               "${device.javaClass.name} did not expose the Skiko MetalDevice pointer"
             )
       }
-    if (ptr == 0L) {
-      throw DesktopHostException("${contextHandler.javaClass.name}.device.ptr was zero")
-    }
-    SkikoMetalDevice(ptr)
+    if (ptr == 0L) return null
+    return SkikoMetalDevice(ptr)
   }
 
   /** Runs [block] on the AWT event thread, where Skiko's internals are safe to touch. */

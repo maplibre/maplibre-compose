@@ -16,7 +16,7 @@ public value class NativeHandle(public val address: Long) {
 }
 
 /** Whether a texture's first row is its top or its bottom. */
-public enum class TextureOrigin {
+internal enum class TextureOrigin {
   TOP_LEFT,
   BOTTOM_LEFT,
 }
@@ -27,11 +27,11 @@ public enum class TextureOrigin {
  * These are *borrowed* targets: the host allocates, recycles, and frees them, and MapLibre renders
  * into whichever one the current frame carries.
  */
-public sealed interface DesktopRenderTarget {
+internal sealed interface DesktopRenderTarget {
   /** The backend MapLibre must render with to use this target. */
-  public val backend: MapRenderBackend
+  val backend: MapRenderBackend
 
-  public val extent: DesktopMapExtent
+  val extent: DesktopMapExtent
 
   /**
    * Identifies the underlying target object.
@@ -40,45 +40,45 @@ public sealed interface DesktopRenderTarget {
    * after a reallocating resize, after surface loss, or when rotating through a pool — and must
    * keep the retired allocation readable until it has been asked to draw a different one.
    */
-  public val generation: Long
+  val generation: Long
 }
 
 /** Vulkan instance and device handles MapLibre needs to render into a Vulkan target. */
 @Immutable
-public data class VulkanContextHandles(
+internal data class VulkanContextHandles(
   /** `VkInstance`. */
-  public val instance: NativeHandle,
+  val instance: NativeHandle,
   /** `VkPhysicalDevice`. */
-  public val physicalDevice: NativeHandle,
+  val physicalDevice: NativeHandle,
   /** `VkDevice`. */
-  public val device: NativeHandle,
+  val device: NativeHandle,
   /** `VkQueue` for graphics work. */
-  public val graphicsQueue: NativeHandle,
+  val graphicsQueue: NativeHandle,
   /** Queue family index of [graphicsQueue]. */
-  public val graphicsQueueFamilyIndex: Int,
+  val graphicsQueueFamilyIndex: Int,
   /** `PFN_vkGetInstanceProcAddr`. */
-  public val getInstanceProcAddr: NativeHandle,
+  val getInstanceProcAddr: NativeHandle,
   /** `PFN_vkGetDeviceProcAddr`. */
-  public val getDeviceProcAddr: NativeHandle,
+  val getDeviceProcAddr: NativeHandle,
 )
 
 /** A `VkImage` MapLibre renders into. */
 @Immutable
-public data class VulkanImageTarget(
+internal data class VulkanImageTarget(
   /** The Vulkan context owning [image]. */
-  public val context: VulkanContextHandles,
+  val context: VulkanContextHandles,
   /** `VkImage`. */
-  public val image: NativeHandle,
+  val image: NativeHandle,
   /** `VkImageView` over [image]. */
-  public val imageView: NativeHandle,
+  val imageView: NativeHandle,
   /** `VkFormat` of [image]. */
-  public val format: Int,
+  val format: Int,
   /** `VkImageLayout` the host leaves [image] in before MapLibre renders. */
-  public val initialLayout: Int,
+  val initialLayout: Int,
   /** `VkImageLayout` MapLibre must leave [image] in for the host to consume it. */
-  public val finalLayout: Int,
+  val finalLayout: Int,
   /** Queue family owning [image] across the producer/consumer handoff. */
-  public val queueFamilyIndex: Int,
+  val queueFamilyIndex: Int,
   override val extent: DesktopMapExtent,
   override val generation: Long,
 ) : DesktopRenderTarget {
@@ -88,13 +88,13 @@ public data class VulkanImageTarget(
 
 /** An `id<MTLTexture>` MapLibre renders into. */
 @Immutable
-public data class MetalTextureTarget(
+internal data class MetalTextureTarget(
   /** `id<MTLTexture>`. */
-  public val texture: NativeHandle,
+  val texture: NativeHandle,
   /** `MTLPixelFormat` of [texture]. */
-  public val pixelFormat: Long,
+  val pixelFormat: Long,
   /** Row order of [texture]. */
-  public val origin: TextureOrigin,
+  val origin: TextureOrigin,
   override val extent: DesktopMapExtent,
   override val generation: Long,
 ) : DesktopRenderTarget {
@@ -103,30 +103,30 @@ public data class MetalTextureTarget(
 }
 
 /** Platform context handles MapLibre needs to render into an OpenGL target. */
-public sealed interface OpenGlContextHandles
+internal sealed interface OpenGlContextHandles
 
 /** EGL context handles, used on Linux. */
 @Immutable
-public data class EglContextHandles(
+internal data class EglContextHandles(
   /** `EGLDisplay`. */
-  public val display: NativeHandle,
+  val display: NativeHandle,
   /** `EGLConfig`. */
-  public val config: NativeHandle,
+  val config: NativeHandle,
   /** `EGLContext` MapLibre's context should share objects with. */
-  public val shareContext: NativeHandle,
+  val shareContext: NativeHandle,
   /** `eglGetProcAddress`. */
-  public val getProcAddress: NativeHandle,
+  val getProcAddress: NativeHandle,
 ) : OpenGlContextHandles
 
 /** WGL context handles, used on Windows. */
 @Immutable
-public data class WglContextHandles(
+internal data class WglContextHandles(
   /** `HDC`. */
-  public val deviceContext: NativeHandle,
+  val deviceContext: NativeHandle,
   /** `HGLRC` MapLibre's context should share objects with. */
-  public val shareContext: NativeHandle,
+  val shareContext: NativeHandle,
   /** `wglGetProcAddress`. */
-  public val getProcAddress: NativeHandle,
+  val getProcAddress: NativeHandle,
 ) : OpenGlContextHandles
 
 /**
@@ -136,24 +136,24 @@ public data class WglContextHandles(
  * thread, so the target carries [makeContextCurrent] rather than a context handle alone.
  */
 @Immutable
-public data class OpenGlTextureTarget(
+internal data class OpenGlTextureTarget(
   /** Platform context handles for the context [textureName] belongs to. */
-  public val context: OpenGlContextHandles,
+  val context: OpenGlContextHandles,
   /** GL texture name. */
-  public val textureName: Int,
+  val textureName: Int,
   /** GL texture target, such as `GL_TEXTURE_2D`. */
-  public val textureTarget: Int,
+  val textureTarget: Int,
   /** GL sized internal format of the texture. */
-  public val format: Int,
+  val format: Int,
   /** Row order of the texture. */
-  public val origin: TextureOrigin,
+  val origin: TextureOrigin,
   /**
    * Makes the context owning this texture current on the calling thread.
    *
    * The session calls this before any OpenGL work touching the target. It must be safe to call when
    * the context is already current.
    */
-  public val makeContextCurrent: () -> Unit,
+  val makeContextCurrent: () -> Unit,
   override val extent: DesktopMapExtent,
   override val generation: Long,
 ) : DesktopRenderTarget {

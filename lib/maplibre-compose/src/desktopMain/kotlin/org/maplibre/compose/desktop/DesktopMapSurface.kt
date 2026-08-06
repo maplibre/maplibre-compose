@@ -23,7 +23,7 @@ internal sealed interface DesktopMapSurfaceState {
   /** A host is live and frames can be produced. */
   data class Ready(val backends: DesktopBackendPair) : DesktopMapSurfaceState
 
-  /** No usable backend, or the host factory declined. Not an error the application can retry. */
+  /** No backend the host and the runtime both support. Not an error the application can retry. */
   data class Unavailable(val diagnostic: String) : DesktopMapSurfaceState
 
   /** A host existed but something went wrong. */
@@ -66,22 +66,23 @@ internal fun DesktopMapSurface(
     onStateChanged(state)
   }
 
-  DisposableEffect(host, hostResult, session, renderer) {
+  val creation = hostResult
+  DisposableEffect(host, creation, session, renderer) {
     state =
-      when (hostResult) {
+      when (creation) {
         is HostCreation.Created -> {
           checkNotNull(session)
           renderer.onSurfaceAvailable(session)
           session.requestFrame()
-          DesktopMapSurfaceState.Ready(hostResult.host.backends)
+          DesktopMapSurfaceState.Ready(creation.host.backends)
         }
         is HostCreation.Unavailable -> {
-          logger?.w { hostResult.diagnostic }
-          DesktopMapSurfaceState.Unavailable(hostResult.diagnostic)
+          logger?.w { creation.diagnostic }
+          DesktopMapSurfaceState.Unavailable(creation.diagnostic)
         }
         is HostCreation.Failed -> {
-          logger?.e(hostResult.cause) { hostResult.diagnostic }
-          DesktopMapSurfaceState.Failed(hostResult.diagnostic, hostResult.cause)
+          logger?.e(creation.cause) { creation.diagnostic }
+          DesktopMapSurfaceState.Failed(creation.diagnostic, creation.cause)
         }
       }
 
@@ -240,7 +241,8 @@ private fun createHost(
   val selection =
     selectBackends(
       runtimeBackends = runtimeBackends,
-      factory = factory,
+      hostBackends = factory.supportedBackends,
+      hostDescription = factory.description,
       operatingSystem = System.getProperty("os.name") ?: "unknown",
       architecture = System.getProperty("os.arch") ?: "unknown",
     )
@@ -261,7 +263,6 @@ private fun createHost(
   return try {
     when (val result = factory.create(backends.producer)) {
       is DesktopMapHostResult.Created -> HostCreation.Created(result.host)
-      is DesktopMapHostResult.Unsupported -> HostCreation.Unavailable(result.diagnostic)
       is DesktopMapHostResult.Failed -> HostCreation.Failed(result.diagnostic, result.cause)
     }
   } catch (error: Throwable) {

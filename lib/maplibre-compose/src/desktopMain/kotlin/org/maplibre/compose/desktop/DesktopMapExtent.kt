@@ -11,18 +11,18 @@ import kotlin.math.max
  * in physical pixels; deriving both once keeps them from drifting apart under fractional scaling.
  */
 @Immutable
-public class DesktopMapExtent
+internal class DesktopMapExtent
 private constructor(
   /** Width in logical pixels, as Compose measures it. */
-  public val width: Int,
+  val width: Int,
   /** Height in logical pixels, as Compose measures it. */
-  public val height: Int,
+  val height: Int,
   /** Display scale factor; physical pixels per logical pixel. */
-  public val scaleFactor: Double,
+  val scaleFactor: Double,
   /** Width in physical pixels, as the GPU allocates it. */
-  public val physicalWidth: Int,
+  val physicalWidth: Int,
   /** Height in physical pixels, as the GPU allocates it. */
-  public val physicalHeight: Int,
+  val physicalHeight: Int,
 ) {
   /**
    * Whether this extent describes nothing renderable.
@@ -31,7 +31,7 @@ private constructor(
    * least one frame. MapLibre rejects such an extent outright, so hosts and sessions skip work
    * rather than passing it on.
    */
-  public val isEmpty: Boolean
+  val isEmpty: Boolean
     get() =
       width <= 0 ||
         height <= 0 ||
@@ -62,15 +62,15 @@ private constructor(
     "DesktopMapExtent(logical=${width}x$height, physical=${physicalWidth}x$physicalHeight, " +
       "scale=$scaleFactor)"
 
-  public companion object {
+  companion object {
     /** An extent with no renderable area. */
-    public val Empty: DesktopMapExtent = DesktopMapExtent(0, 0, 1.0, 0, 0)
+    val Empty: DesktopMapExtent = DesktopMapExtent(0, 0, 1.0, 0, 0)
 
     /**
      * Builds an extent from a logical (dp-equivalent) size and scale factor, deriving the physical
      * size.
      */
-    public fun fromLogical(width: Int, height: Int, scaleFactor: Double): DesktopMapExtent {
+    fun fromLogical(width: Int, height: Int, scaleFactor: Double): DesktopMapExtent {
       val scale = normalizeScale(scaleFactor)
       if (width <= 0 || height <= 0) return Empty
       return DesktopMapExtent(
@@ -89,7 +89,7 @@ private constructor(
      * The physical size is re-derived from the rounded logical size so the two agree exactly, so it
      * may end up one pixel from the size passed in.
      */
-    public fun fromPhysical(
+    fun fromPhysical(
       physicalWidth: Int,
       physicalHeight: Int,
       scaleFactor: Double,

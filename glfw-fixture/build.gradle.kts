@@ -22,14 +22,13 @@ kotlin {
       implementation(libs.jetbrains.compose.foundation)
       implementation(libs.jetbrains.compose.runtime)
       implementation(libs.jetbrains.compose.ui)
-      // Objective-C messaging for the Metal bridge, the same way the default host does it.
-      implementation(libs.lwjgl.core)
 
       runtimeOnly(desktopHostPlatform.composeGlfwRuntimeDependency(libs.versions.composeGlfw.get()))
       runtimeOnly(desktopHostPlatform.runtimeDependency(libs.versions.maplibre.nativeFfi.get()))
 
-      // LWJGL resolves its natives from the classpath, and this fixture calls `JNI`/`ObjCRuntime`
-      // itself, so it names the core natives rather than relying on compose-glfw's transitive set.
+      // LWJGL resolves its natives from the classpath, and the map's GPU bridge calls
+      // `JNI`/`ObjCRuntime`, so this names the core natives rather than relying on compose-glfw's
+      // transitive set.
       val lwjglVersion = libs.versions.lwjgl.get()
       runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${desktopHostPlatform.lwjglNativesClassifier}")
     }

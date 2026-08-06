@@ -54,15 +54,15 @@ import org.lwjgl.vulkan.VkMemoryAllocateInfo
 import org.lwjgl.vulkan.VkMemoryRequirements
 import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkQueue
-import org.maplibre.compose.desktop.skiko.HostRendererThread
-import org.maplibre.compose.desktop.skiko.checkVulkan
-import org.maplibre.compose.desktop.skiko.ensureVulkanFunctionProvider
-import org.maplibre.compose.desktop.skiko.findVulkanDeviceLocalMemoryType
-import org.maplibre.compose.desktop.skiko.findVulkanGraphicsQueueFamily
-import org.maplibre.compose.desktop.skiko.vulkanDeviceExtensions
-import org.maplibre.compose.desktop.skiko.vulkanFunctionAddress
-import org.maplibre.compose.desktop.skiko.vulkanInstanceExtensions
-import org.maplibre.compose.desktop.skiko.vulkanStringBuffer
+import org.maplibre.compose.desktop.bridge.MapRendererThread
+import org.maplibre.compose.desktop.bridge.checkVulkan
+import org.maplibre.compose.desktop.bridge.ensureVulkanFunctionProvider
+import org.maplibre.compose.desktop.bridge.findVulkanDeviceLocalMemoryType
+import org.maplibre.compose.desktop.bridge.findVulkanGraphicsQueueFamily
+import org.maplibre.compose.desktop.bridge.vulkanDeviceExtensions
+import org.maplibre.compose.desktop.bridge.vulkanFunctionAddress
+import org.maplibre.compose.desktop.bridge.vulkanInstanceExtensions
+import org.maplibre.compose.desktop.bridge.vulkanStringBuffer
 
 /**
  * A [DesktopMapHost] that renders on a real GPU with no window: a genuine Vulkan device and
@@ -74,7 +74,7 @@ import org.maplibre.compose.desktop.skiko.vulkanStringBuffer
  */
 internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
 
-  private val rendererThread = HostRendererThread("maplibre-headless-vulkan")
+  private val rendererThread = MapRendererThread("maplibre-headless-vulkan")
   private var context: HeadlessVulkanContext? = null
   private var texture: HeadlessVulkanTexture? = null
   private var generation = 0L
@@ -105,7 +105,7 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
   ): DesktopMapFrame = rendererThread.run {
     if (texture == null || extent != currentExtent) recreateTexture(extent)
     acquiredFrames++
-    HostFrame(
+    DesktopMapFrame(
       frameId = frameId,
       extent = extent,
       target = requireNotNull(texture) { "Vulkan texture is not initialized" }.target(generation),
@@ -153,13 +153,6 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
     currentExtent = extent
     generation += 1
   }
-
-  private class HostFrame(
-    override val frameId: Long,
-    override val extent: DesktopMapExtent,
-    override val target: DesktopRenderTarget,
-    override val presentationTimeNanos: Long?,
-  ) : DesktopMapFrame
 
   companion object {
     /**

@@ -1,0 +1,87 @@
+package org.maplibre.compose.desktop.bridge
+
+import org.maplibre.compose.desktop.ComposeGpuContext
+import org.maplibre.compose.desktop.ComposeRenderBackend
+import org.maplibre.compose.desktop.DesktopBackendPair
+import org.maplibre.compose.desktop.DesktopComposeGpuHost
+import org.maplibre.compose.desktop.DesktopHostException
+import org.maplibre.compose.desktop.DesktopMapHostFactory
+import org.maplibre.compose.desktop.DesktopMapHostResult
+import org.maplibre.compose.desktop.MapRenderBackend
+import org.maplibre.compose.desktop.OpenGlComposeGpuContext
+import org.maplibre.compose.desktop.onGpuThread
+
+/** Builds the bridge from MapLibre Native into whatever [gpuHost] draws with. */
+internal class ComposeGpuMapHostFactory(private val gpuHost: DesktopComposeGpuHost) :
+  DesktopMapHostFactory {
+
+  override val description: String
+    get() = gpuHost.description
+
+  override val supportedBackends: Set<DesktopBackendPair> =
+    when (gpuHost.backend) {
+      ComposeRenderBackend.METAL ->
+        setOf(DesktopBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
+      ComposeRenderBackend.OPENGL ->
+        setOf(DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
+      ComposeRenderBackend.DIRECT3D12 ->
+        setOf(DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12))
+    }
+
+  override fun create(producer: MapRenderBackend): DesktopMapHostResult =
+    try {
+      // The Direct3D 12 bridge has never run on real hardware; see SkikoDirect3DDeviceLayout.
+      val host =
+        when (gpuHost.backend) {
+          ComposeRenderBackend.METAL -> MetalMapHost(gpuHost)
+          ComposeRenderBackend.OPENGL -> VulkanOpenGlMapHost(gpuHost)
+          ComposeRenderBackend.DIRECT3D12 -> VulkanDirect3D12MapHost(gpuHost)
+        }
+      DesktopMapHostResult.Created(host)
+    } catch (error: Throwable) {
+      if (error is VirtualMachineError) throw error
+      DesktopMapHostResult.Failed("$description failed to bridge $producer into Compose", error)
+    }
+}
+
+/**
+ * This host's context right now, or null when it has none yet.
+ *
+ * Read at each use rather than captured, because a host does not necessarily have one to give when
+ * its map is built: Compose backends commonly create their Skia context while producing the first
+ * frame. Null means the caller skips this frame.
+ */
+internal fun DesktopComposeGpuHost.currentContext(): ComposeGpuContext? = onGpuThread {
+  gpuContext()
+}
+
+/** This host's context as [T], or a failure naming what it reported instead. */
+internal inline fun <reified T : ComposeGpuContext> DesktopComposeGpuHost.requireContext(): T {
+  val context =
+    currentContext() ?: throw DesktopHostException("$description reports no GPU context")
+  return context as? T
+    ?: throw DesktopHostException(
+      "$description switched from ${T::class.simpleName} to ${context::class.simpleName}"
+    )
+}
+
+/**
+ * Runs [action] on the GPU thread with Compose's OpenGL context current, which is what every GL
+ * call touching the shared texture needs.
+ *
+ * Scoped on both axes because Compose Desktop's is: making Skiko's context current locks the
+ * window's drawing surface, and the surface has to stay locked until the context is released again.
+ */
+internal fun <T> DesktopComposeGpuHost.withOpenGlContext(
+  action: (OpenGlComposeGpuContext) -> T
+): T = onGpuThread {
+  val context = requireContext<OpenGlComposeGpuContext>()
+  var result: Result<T>? = null
+  context.withContextCurrent {
+    result = runCatching {
+      ensureCapabilities()
+      action(context)
+    }
+  }
+  checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()
+}

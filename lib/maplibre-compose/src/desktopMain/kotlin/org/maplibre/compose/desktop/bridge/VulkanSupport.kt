@@ -1,4 +1,4 @@
-package org.maplibre.compose.desktop.skiko
+package org.maplibre.compose.desktop.bridge
 
 import java.nio.ByteBuffer
 import org.lwjgl.PointerBuffer
@@ -15,10 +15,6 @@ import org.lwjgl.vulkan.VkExtensionProperties
 import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties
 import org.lwjgl.vulkan.VkQueueFamilyProperties
-
-/** Raised when a desktop map host cannot be built or used. */
-internal class DesktopHostException(message: String, cause: Throwable? = null) :
-  RuntimeException(message, cause)
 
 internal fun checkVulkan(status: Int, operation: String) {
   check(status == VK_SUCCESS) { "$operation failed with Vulkan status $status" }

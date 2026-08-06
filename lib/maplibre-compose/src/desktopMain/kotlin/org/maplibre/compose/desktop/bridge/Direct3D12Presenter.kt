@@ -1,4 +1,4 @@
-package org.maplibre.compose.desktop.skiko
+package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
@@ -11,12 +11,11 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
-import org.jetbrains.skia.SurfaceOrigin
+import org.maplibre.compose.desktop.DesktopComposeGpuHost
+import org.maplibre.compose.desktop.DesktopHostException
 import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.NativeHandle
 import org.maplibre.compose.desktop.TextureOrigin
-import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
-import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
 
 /** `DXGI_FORMAT_B8G8R8A8_UNORM`, matching Compose's BGRA Direct3D 12 swap chain. */
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
@@ -50,8 +49,8 @@ internal data class Direct3DTextureTarget(
    * The [org.maplibre.compose.desktop.DesktopRenderTarget.generation] this texture corresponds to.
    *
    * Presenters are keyed by texture address, so a host that reallocates must call
-   * [SkikoDirect3DPresenter.forget] before releasing the old texture or a recycled address resolves
-   * to a presenter wrapping freed memory.
+   * [Direct3D12Presenter.forget] before releasing the old texture or a recycled address resolves to
+   * a presenter wrapping freed memory.
    */
   val generation: Long,
 )
@@ -62,16 +61,21 @@ internal data class Direct3DTextureTarget(
  * Compose owns the Direct3D device and Skia's [DirectContext]; this wraps the shared texture the
  * map was rendered into as a Skia surface and composites it.
  */
-internal object SkikoDirect3DPresenter {
+internal class Direct3D12Presenter(private val gpuHost: DesktopComposeGpuHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
-  fun draw(scope: DrawScope, target: Direct3DTextureTarget): Boolean {
+  fun draw(scope: DrawScope, skiaContext: DirectContext, target: Direct3DTextureTarget): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
-      val context = findDirectContext() ?: return@drawIntoCanvas
       val presenter =
         presenters.getOrPut(target.texture.address) { TexturePresenter(target.texture) }
-      presenter.draw(composeCanvas.skiaCanvas, context, target, scope.size.width, scope.size.height)
+      presenter.draw(
+        composeCanvas.skiaCanvas,
+        skiaContext,
+        target,
+        scope.size.width,
+        scope.size.height,
+      )
       drew = true
     }
     return drew
@@ -79,35 +83,18 @@ internal object SkikoDirect3DPresenter {
 
   /**
    * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
-   *
-   * Forced onto the AWT event thread because the Skia objects belong to the `DirectContext` that
-   * thread owns.
+   * Forced onto the GPU thread, which owns the Skia objects wrapping it.
    */
   fun forget(texture: NativeHandle) {
-    SkikoReflection.onEdt { presenters.remove(texture.address)?.close() }
+    gpuHost.runOnGpuThread { presenters.remove(texture.address)?.close() }
   }
 
-  fun close() {
-    SkikoReflection.onEdt {
+  override fun close() {
+    gpuHost.runOnGpuThread {
       val all = presenters.values.toList()
       presenters.clear()
       all.forEach { it.close() }
     }
-  }
-
-  private fun findDirectContext(): DirectContext? = SkikoReflection.onEdt {
-    val layer = SkikoReflection.requireSkiaLayer()
-    val redrawer = SkikoReflection.requireRedrawer(layer, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
-    val handler =
-      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
-    (handler.getField("context") as? DirectContext)
-      ?: run {
-        handler.invokeDeclaredNoArg("initContext")
-        // Skiko's Direct3D handler exposes only the protected factory `makeContext`, which builds a
-        // second DirectContext rather than returning Compose's — hence the last resort.
-        (handler.getField("context") as? DirectContext)
-          ?: handler.invokeDeclaredNoArg("makeContext") as? DirectContext
-      }
   }
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
@@ -207,9 +194,3 @@ internal object SkikoDirect3DPresenter {
     }
   }
 }
-
-private fun TextureOrigin.toSkiaOrigin(): SurfaceOrigin =
-  when (this) {
-    TextureOrigin.TOP_LEFT -> SurfaceOrigin.TOP_LEFT
-    TextureOrigin.BOTTOM_LEFT -> SurfaceOrigin.BOTTOM_LEFT
-  }

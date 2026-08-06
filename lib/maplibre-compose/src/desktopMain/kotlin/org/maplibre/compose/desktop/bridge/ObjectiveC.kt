@@ -1,4 +1,4 @@
-package org.maplibre.compose.desktop.skiko
+package org.maplibre.compose.desktop.bridge
 
 import org.lwjgl.system.JNI
 import org.lwjgl.system.MemoryUtil.NULL
@@ -7,6 +7,7 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_NOW
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlerror
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
 import org.lwjgl.system.macosx.ObjCRuntime
+import org.maplibre.compose.desktop.DesktopHostException
 
 /**
  * The little bit of Objective-C messaging the macOS host needs, without a native library of our
@@ -18,7 +19,7 @@ import org.lwjgl.system.macosx.ObjCRuntime
  *
  * Ported from the `maplibre-native-ffi` Compose example.
  */
-internal object MacosObjectiveC {
+internal object ObjectiveC {
   private val selectors = mutableMapOf<String, Long>()
   private val classes = mutableMapOf<String, Long>()
   private val frameworks = mutableMapOf<String, Long>()

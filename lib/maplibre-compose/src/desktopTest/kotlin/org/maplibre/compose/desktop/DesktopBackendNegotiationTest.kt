@@ -13,7 +13,8 @@ class DesktopBackendNegotiationTest {
   ): BackendSelection =
     selectBackends(
       runtimeBackends = runtimeBackends,
-      factory = FakeDesktopMapHostFactory(supportedBackends = hostBackends),
+      hostBackends = hostBackends,
+      hostDescription = "fake test host",
       operatingSystem = "Linux",
       architecture = "amd64",
     )
@@ -99,7 +100,7 @@ class DesktopBackendNegotiationTest {
       negotiate(runtimeBackends = setOf(MapRenderBackend.VULKAN), hostBackends = emptySet())
 
     val diagnostic = assertIs<BackendSelection.Unavailable>(selection).diagnostic
-    assertContains(diagnostic, "cannot bridge any backend")
+    assertContains(diagnostic, "No MapLibre backend can be bridged into fake test host")
   }
 
   @Test
@@ -123,7 +124,7 @@ class DesktopBackendNegotiationTest {
     val diagnostic = assertIs<BackendSelection.Unavailable>(selection).diagnostic
     assertContains(diagnostic, "operating system: Linux (amd64)")
     assertContains(diagnostic, "FFI runtime backends: none")
-    assertContains(diagnostic, "host factory: fake test host")
-    assertContains(diagnostic, "host factory backends: none")
+    assertContains(diagnostic, "Compose host: fake test host")
+    assertContains(diagnostic, "bridgeable backends: none")
   }
 }

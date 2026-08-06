@@ -1,4 +1,4 @@
-package org.maplibre.compose.desktop.skiko
+package org.maplibre.compose.desktop.bridge
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.lang.foreign.Arena
@@ -75,10 +75,13 @@ import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeRenderBackend
 import org.maplibre.compose.desktop.DesktopBackendPair
+import org.maplibre.compose.desktop.DesktopComposeGpuHost
+import org.maplibre.compose.desktop.DesktopHostException
 import org.maplibre.compose.desktop.DesktopMapExtent
 import org.maplibre.compose.desktop.DesktopMapFrame
 import org.maplibre.compose.desktop.DesktopMapHost
 import org.maplibre.compose.desktop.DesktopRenderTarget
+import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MapRenderBackend
 import org.maplibre.compose.desktop.NativeHandle
 import org.maplibre.compose.desktop.VulkanContextHandles
@@ -94,8 +97,10 @@ import org.maplibre.compose.desktop.VulkanImageTarget
  *
  * Ported from the `maplibre-native-ffi` Compose example.
  */
-internal class WindowsVulkanDirect3DHost : DesktopMapHost {
-  private val rendererThread = HostRendererThread("maplibre-windows-vulkan-renderer")
+internal class VulkanDirect3D12MapHost(private val gpuHost: DesktopComposeGpuHost) :
+  DesktopMapHost {
+  private val rendererThread = MapRendererThread("maplibre-windows-vulkan-renderer")
+  private val presenter = Direct3D12Presenter(gpuHost)
   private var vulkan: WindowsVulkanContext? = null
   private var direct3DTexture = NativeHandle(0)
   private var importedTexture: WindowsVulkanImportedDirect3DTexture? = null
@@ -106,11 +111,12 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
     DesktopBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12)
 
   override fun resize(extent: DesktopMapExtent) {
-    // Skiko's device must be read on the caller's thread; reading it from the renderer thread posts
-    // to the AWT event thread, which is usually the thread blocked on this call.
-    val device = if (extent.isEmpty) null else SkikoReflection.requireDirect3DDevice()
+    // The device must be read on the caller's thread; reading it from the renderer thread hops to
+    // the GPU thread, which is usually the thread blocked on this call.
+    val device =
+      if (extent.isEmpty) null else gpuHost.requireContext<Direct3D12ComposeGpuContext>().device
     // Retired textures come back instead of being released on the renderer thread, for the same
-    // reason: dropping the Skia wrapper also waits on the AWT event thread.
+    // reason: dropping the Skia wrapper also waits on the GPU thread.
     val retired = rendererThread.run { resizeOnRendererThread(extent, device) }
     retired?.let(::releaseDirect3DTexture)
   }
@@ -118,7 +124,7 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
   /** Reallocates the texture, returning the D3D texture it replaced for the caller to release. */
   private fun resizeOnRendererThread(
     extent: DesktopMapExtent,
-    device: SkikoDirect3DDevice?,
+    device: NativeHandle?,
   ): NativeHandle? {
     if (extent == currentExtent && importedTexture != null) {
       return null
@@ -137,7 +143,7 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
     if (importedTexture == null || extent != currentExtent) {
       resize(extent)
     }
-    return HostFrame(
+    return DesktopMapFrame(
       frameId = frameId,
       extent = extent,
       target = target(generation),
@@ -158,8 +164,10 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
     if (target !is VulkanImageTarget || direct3DTexture.address == 0L) {
       return false
     }
-    return SkikoDirect3DPresenter.draw(
+    val context = gpuHost.currentContext() as? Direct3D12ComposeGpuContext ?: return false
+    return presenter.draw(
       scope,
+      context.skiaContext,
       Direct3DTextureTarget(
         texture = direct3DTexture,
         // Skia wraps the D3D12 resource, so it needs the allocated size, not the render size.
@@ -173,6 +181,7 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
     try {
       // Released on the closing thread, never the renderer thread; see releaseDirect3DTexture.
       retireTexture()?.let(::releaseDirect3DTexture)
+      presenter.close()
     } finally {
       val closingVulkan = vulkan
       vulkan = null
@@ -188,16 +197,13 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
     checkNotNull(importedTexture) { "Windows Vulkan texture is not initialized" }.target(generation)
 
   /** Allocates the texture for [extent], returning the D3D texture it replaced, if any. */
-  private fun recreateTexture(
-    extent: DesktopMapExtent,
-    device: SkikoDirect3DDevice?,
-  ): NativeHandle? {
+  private fun recreateTexture(extent: DesktopMapExtent, device: NativeHandle?): NativeHandle? {
     if (extent.isEmpty) return retireTexture()
 
-    // An assertion, not a fallback: asking Skiko for a device here would post to the AWT event
-    // thread, which is the thread waiting on this hop.
+    // An assertion, not a fallback: asking the host for a device here would hop to the GPU thread,
+    // which is the thread waiting on this hop.
     val direct3DDevice =
-      checkNotNull(device) { "resize() resolves the Skiko Direct3D device before this hop" }
+      checkNotNull(device) { "resize() resolves the Direct3D device before this hop" }
     val storageExtent = extent
     val retired = retireTexture()
     direct3DTexture = WindowsDirect3DInterop.createSharedTexture(direct3DDevice, storageExtent)
@@ -234,22 +240,15 @@ internal class WindowsVulkanDirect3DHost : DesktopMapHost {
   /**
    * Releases a retired D3D texture, and the Skia surface wrapping it, on the calling thread.
    *
-   * Never call this from the renderer thread: dropping the Skia wrapper waits on the AWT event
-   * thread, which is usually the thread blocked on a renderer hop.
+   * Never call this from the renderer thread: dropping the Skia wrapper waits on the GPU thread,
+   * which is usually the thread blocked on a renderer hop.
    */
   private fun releaseDirect3DTexture(texture: NativeHandle) {
     if (texture.address == 0L) return
     // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
-    SkikoDirect3DPresenter.forget(texture)
+    presenter.forget(texture)
     WindowsDirect3DInterop.release(texture)
   }
-
-  private class HostFrame(
-    override val frameId: Long,
-    override val extent: DesktopMapExtent,
-    override val target: DesktopRenderTarget,
-    override val presentationTimeNanos: Long?,
-  ) : DesktopMapFrame
 }
 
 /** The Vulkan instance, device, and queue MapLibre renders with on Windows. */
@@ -664,13 +663,13 @@ private object WindowsDirect3DInterop {
    * render target once wrapped.
    */
   fun createSharedTexture(
-    device: SkikoDirect3DDevice,
+    device: NativeHandle,
     extent: DesktopMapExtent,
     dxgiFormat: Int = DXGI_FORMAT_B8G8R8A8_UNORM,
   ): NativeHandle {
     check(!extent.isEmpty) { "Cannot create a D3D12 texture for an empty extent" }
     Arena.ofConfined().use { arena ->
-      val rawDevice = SkikoDirect3DDeviceLayout.rawDevice(device)
+      val rawDevice = device.address
       val resourceOut = arena.allocate(ValueLayout.ADDRESS)
       checkHResult(
         invokeHResult(
