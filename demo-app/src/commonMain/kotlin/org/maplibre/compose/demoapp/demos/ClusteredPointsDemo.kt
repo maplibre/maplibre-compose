@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,6 +76,8 @@ object ClusteredPointsDemo : Demo {
         try {
           data = getLimeBikeStatusAsGeoJson()
           //        isLoading = false
+        } catch (e: CancellationException) {
+          throw e
         } catch (e: Exception) {
           e.printStackTrace()
         }
@@ -184,9 +187,11 @@ object ClusteredPointsDemo : Demo {
 
   private suspend fun getLimeBikeStatusAsGeoJson(): String {
     val bodyString =
-      HttpClient()
-        .get("https://data.lime.bike/api/partners/v2/gbfs/seattle/free_bike_status.json")
-        .bodyAsText()
+      HttpClient().use { client ->
+        client
+          .get("https://data.lime.bike/api/partners/v2/gbfs/seattle/free_bike_status.json")
+          .bodyAsText()
+      }
     val body = Json.parseToJsonElement(bodyString).jsonObject
     val bikes = body["data"]!!.jsonObject["bikes"]!!.jsonArray.map { it.jsonObject }
     val features = bikes.map { bike ->
