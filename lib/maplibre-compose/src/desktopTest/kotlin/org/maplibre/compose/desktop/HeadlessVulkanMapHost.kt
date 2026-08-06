@@ -2,11 +2,17 @@ package org.maplibre.compose.desktop
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.lwjgl.system.MemoryStack
+import org.lwjgl.system.MemoryUtil
 import org.lwjgl.system.MemoryUtil.NULL
 import org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR
 import org.lwjgl.vulkan.KHRPortabilityEnumeration.VK_KHR_PORTABILITY_ENUMERATION_EXTENSION_NAME
 import org.lwjgl.vulkan.KHRPortabilitySubset.VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME
+import org.lwjgl.vulkan.VK10.VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT
+import org.lwjgl.vulkan.VK10.VK_ACCESS_TRANSFER_READ_BIT
 import org.lwjgl.vulkan.VK10.VK_API_VERSION_1_0
+import org.lwjgl.vulkan.VK10.VK_BUFFER_USAGE_TRANSFER_DST_BIT
+import org.lwjgl.vulkan.VK10.VK_COMMAND_BUFFER_LEVEL_PRIMARY
+import org.lwjgl.vulkan.VK10.VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT
 import org.lwjgl.vulkan.VK10.VK_FORMAT_R8G8B8A8_UNORM
 import org.lwjgl.vulkan.VK10.VK_IMAGE_ASPECT_COLOR_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_LAYOUT_GENERAL
@@ -15,37 +21,72 @@ import org.lwjgl.vulkan.VK10.VK_IMAGE_TILING_OPTIMAL
 import org.lwjgl.vulkan.VK10.VK_IMAGE_TYPE_2D
 import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_SAMPLED_BIT
+import org.lwjgl.vulkan.VK10.VK_IMAGE_USAGE_TRANSFER_SRC_BIT
 import org.lwjgl.vulkan.VK10.VK_IMAGE_VIEW_TYPE_2D
+import org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+import org.lwjgl.vulkan.VK10.VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT
+import org.lwjgl.vulkan.VK10.VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT
+import org.lwjgl.vulkan.VK10.VK_PIPELINE_STAGE_TRANSFER_BIT
+import org.lwjgl.vulkan.VK10.VK_QUEUE_FAMILY_IGNORED
 import org.lwjgl.vulkan.VK10.VK_SAMPLE_COUNT_1_BIT
 import org.lwjgl.vulkan.VK10.VK_SHARING_MODE_EXCLUSIVE
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_APPLICATION_INFO
+import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO
+import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO
+import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO
+import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO
+import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO
 import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO
+import org.lwjgl.vulkan.VK10.VK_STRUCTURE_TYPE_SUBMIT_INFO
+import org.lwjgl.vulkan.VK10.vkAllocateCommandBuffers
 import org.lwjgl.vulkan.VK10.vkAllocateMemory
+import org.lwjgl.vulkan.VK10.vkBeginCommandBuffer
+import org.lwjgl.vulkan.VK10.vkBindBufferMemory
 import org.lwjgl.vulkan.VK10.vkBindImageMemory
+import org.lwjgl.vulkan.VK10.vkCmdCopyImageToBuffer
+import org.lwjgl.vulkan.VK10.vkCmdPipelineBarrier
+import org.lwjgl.vulkan.VK10.vkCreateBuffer
+import org.lwjgl.vulkan.VK10.vkCreateCommandPool
 import org.lwjgl.vulkan.VK10.vkCreateDevice
 import org.lwjgl.vulkan.VK10.vkCreateImage
 import org.lwjgl.vulkan.VK10.vkCreateImageView
 import org.lwjgl.vulkan.VK10.vkCreateInstance
+import org.lwjgl.vulkan.VK10.vkDestroyBuffer
+import org.lwjgl.vulkan.VK10.vkDestroyCommandPool
 import org.lwjgl.vulkan.VK10.vkDestroyDevice
 import org.lwjgl.vulkan.VK10.vkDestroyImage
 import org.lwjgl.vulkan.VK10.vkDestroyImageView
 import org.lwjgl.vulkan.VK10.vkDestroyInstance
 import org.lwjgl.vulkan.VK10.vkDeviceWaitIdle
+import org.lwjgl.vulkan.VK10.vkEndCommandBuffer
 import org.lwjgl.vulkan.VK10.vkEnumeratePhysicalDevices
 import org.lwjgl.vulkan.VK10.vkFreeMemory
+import org.lwjgl.vulkan.VK10.vkGetBufferMemoryRequirements
 import org.lwjgl.vulkan.VK10.vkGetDeviceQueue
 import org.lwjgl.vulkan.VK10.vkGetImageMemoryRequirements
+import org.lwjgl.vulkan.VK10.vkGetPhysicalDeviceMemoryProperties
+import org.lwjgl.vulkan.VK10.vkMapMemory
+import org.lwjgl.vulkan.VK10.vkQueueSubmit
+import org.lwjgl.vulkan.VK10.vkQueueWaitIdle
+import org.lwjgl.vulkan.VK10.vkUnmapMemory
 import org.lwjgl.vulkan.VkApplicationInfo
+import org.lwjgl.vulkan.VkBufferCreateInfo
+import org.lwjgl.vulkan.VkBufferImageCopy
+import org.lwjgl.vulkan.VkCommandBuffer
+import org.lwjgl.vulkan.VkCommandBufferAllocateInfo
+import org.lwjgl.vulkan.VkCommandBufferBeginInfo
+import org.lwjgl.vulkan.VkCommandPoolCreateInfo
 import org.lwjgl.vulkan.VkDevice
 import org.lwjgl.vulkan.VkDeviceCreateInfo
 import org.lwjgl.vulkan.VkDeviceQueueCreateInfo
 import org.lwjgl.vulkan.VkExtent3D
 import org.lwjgl.vulkan.VkImageCreateInfo
+import org.lwjgl.vulkan.VkImageMemoryBarrier
 import org.lwjgl.vulkan.VkImageSubresourceRange
 import org.lwjgl.vulkan.VkImageViewCreateInfo
 import org.lwjgl.vulkan.VkInstance
@@ -53,7 +94,9 @@ import org.lwjgl.vulkan.VkInstanceCreateInfo
 import org.lwjgl.vulkan.VkMemoryAllocateInfo
 import org.lwjgl.vulkan.VkMemoryRequirements
 import org.lwjgl.vulkan.VkPhysicalDevice
+import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties
 import org.lwjgl.vulkan.VkQueue
+import org.lwjgl.vulkan.VkSubmitInfo
 import org.maplibre.compose.desktop.bridge.MapRendererThread
 import org.maplibre.compose.desktop.bridge.checkVulkan
 import org.maplibre.compose.desktop.bridge.ensureVulkanFunctionProvider
@@ -120,6 +163,10 @@ internal class HeadlessVulkanMapHost private constructor() : DesktopMapHost {
 
   override fun releaseFrame(frame: DesktopMapFrame) {
     // The single texture is reused across frames, so there is nothing per-frame to release.
+  }
+
+  fun readPixel(x: Int, y: Int): RgbaPixel = rendererThread.run {
+    requireNotNull(texture).readPixel(x, y)
   }
 
   override fun <T> withProducerAccess(frame: DesktopMapFrame, action: () -> T): T =
@@ -213,7 +260,7 @@ internal class HeadlessVulkanContext private constructor() : AutoCloseable {
   private fun instance(): VkInstance =
     checkNotNull(instance) { "Vulkan instance is not initialized" }
 
-  private fun graphicsQueue(): VkQueue =
+  fun graphicsQueue(): VkQueue =
     checkNotNull(graphicsQueue) { "Vulkan graphics queue is not initialized" }
 
   private fun createInstance() {
@@ -345,6 +392,133 @@ private constructor(
       generation = generation,
     )
 
+  fun readPixel(x: Int, y: Int): RgbaPixel {
+    require(x in 0..<extent.physicalWidth && y in 0..<extent.physicalHeight) {
+      "Pixel ($x, $y) is outside ${extent.physicalWidth}x${extent.physicalHeight}"
+    }
+    val device = context.device()
+    var buffer = NULL
+    var bufferMemory = NULL
+    var commandPool = NULL
+    try {
+      MemoryStack.stackPush().use { stack ->
+        val bufferInfo =
+          VkBufferCreateInfo.calloc(stack)
+            .sType(VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO)
+            .size(4)
+            .usage(VK_BUFFER_USAGE_TRANSFER_DST_BIT)
+            .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
+        val bufferOut = stack.mallocLong(1)
+        checkVulkan(vkCreateBuffer(device, bufferInfo, null, bufferOut), "vkCreateBuffer")
+        buffer = bufferOut[0]
+
+        val requirements = VkMemoryRequirements.calloc(stack)
+        vkGetBufferMemoryRequirements(device, buffer, requirements)
+        val allocateInfo =
+          VkMemoryAllocateInfo.calloc(stack)
+            .sType(VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO)
+            .allocationSize(requirements.size())
+            .memoryTypeIndex(
+              findHostVisibleMemoryType(context.physicalDevice(), requirements.memoryTypeBits())
+            )
+        val memoryOut = stack.mallocLong(1)
+        checkVulkan(vkAllocateMemory(device, allocateInfo, null, memoryOut), "vkAllocateMemory")
+        bufferMemory = memoryOut[0]
+        checkVulkan(vkBindBufferMemory(device, buffer, bufferMemory, 0), "vkBindBufferMemory")
+
+        val poolInfo =
+          VkCommandPoolCreateInfo.calloc(stack)
+            .sType(VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO)
+            .queueFamilyIndex(context.handles.graphicsQueueFamilyIndex)
+        val poolOut = stack.mallocLong(1)
+        checkVulkan(vkCreateCommandPool(device, poolInfo, null, poolOut), "vkCreateCommandPool")
+        commandPool = poolOut[0]
+
+        val allocateCommand =
+          VkCommandBufferAllocateInfo.calloc(stack)
+            .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO)
+            .commandPool(commandPool)
+            .level(VK_COMMAND_BUFFER_LEVEL_PRIMARY)
+            .commandBufferCount(1)
+        val commandOut = stack.mallocPointer(1)
+        checkVulkan(
+          vkAllocateCommandBuffers(device, allocateCommand, commandOut),
+          "vkAllocateCommandBuffers",
+        )
+        val command = VkCommandBuffer(commandOut[0], device)
+        val begin =
+          VkCommandBufferBeginInfo.calloc(stack)
+            .sType(VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO)
+            .flags(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT)
+        checkVulkan(vkBeginCommandBuffer(command, begin), "vkBeginCommandBuffer")
+
+        val barrier =
+          VkImageMemoryBarrier.calloc(1, stack)
+            .sType(VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER)
+            .srcAccessMask(VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT)
+            .dstAccessMask(VK_ACCESS_TRANSFER_READ_BIT)
+            .oldLayout(VK_IMAGE_LAYOUT_GENERAL)
+            .newLayout(VK_IMAGE_LAYOUT_GENERAL)
+            .srcQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+            .dstQueueFamilyIndex(VK_QUEUE_FAMILY_IGNORED)
+            .image(image)
+        barrier
+          .subresourceRange()
+          .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+          .baseMipLevel(0)
+          .levelCount(1)
+          .baseArrayLayer(0)
+          .layerCount(1)
+        vkCmdPipelineBarrier(
+          command,
+          VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+          VK_PIPELINE_STAGE_TRANSFER_BIT,
+          0,
+          null,
+          null,
+          barrier,
+        )
+
+        val copy = VkBufferImageCopy.calloc(1, stack).bufferOffset(0)
+        copy
+          .imageSubresource()
+          .aspectMask(VK_IMAGE_ASPECT_COLOR_BIT)
+          .mipLevel(0)
+          .baseArrayLayer(0)
+          .layerCount(1)
+        copy.imageOffset().set(x, y, 0)
+        copy.imageExtent().set(1, 1, 1)
+        vkCmdCopyImageToBuffer(command, image, VK_IMAGE_LAYOUT_GENERAL, buffer, copy)
+        checkVulkan(vkEndCommandBuffer(command), "vkEndCommandBuffer")
+
+        val submit =
+          VkSubmitInfo.calloc(1, stack)
+            .sType(VK_STRUCTURE_TYPE_SUBMIT_INFO)
+            .pCommandBuffers(stack.pointers(command.address()))
+        checkVulkan(vkQueueSubmit(context.graphicsQueue(), submit, NULL), "vkQueueSubmit")
+        checkVulkan(vkQueueWaitIdle(context.graphicsQueue()), "vkQueueWaitIdle")
+
+        val mappedOut = stack.mallocPointer(1)
+        checkVulkan(vkMapMemory(device, bufferMemory, 0, 4, 0, mappedOut), "vkMapMemory")
+        try {
+          val bytes = MemoryUtil.memByteBuffer(mappedOut[0], 4)
+          return RgbaPixel(
+            red = bytes[0].toInt() and 0xff,
+            green = bytes[1].toInt() and 0xff,
+            blue = bytes[2].toInt() and 0xff,
+            alpha = bytes[3].toInt() and 0xff,
+          )
+        } finally {
+          vkUnmapMemory(device, bufferMemory)
+        }
+      }
+    } finally {
+      if (commandPool != NULL) vkDestroyCommandPool(device, commandPool, null)
+      if (buffer != NULL) vkDestroyBuffer(device, buffer, null)
+      if (bufferMemory != NULL) vkFreeMemory(device, bufferMemory, null)
+    }
+  }
+
   private fun create() {
     MemoryStack.stackPush().use { stack ->
       val imageInfo =
@@ -362,7 +536,11 @@ private constructor(
           .arrayLayers(1)
           .samples(VK_SAMPLE_COUNT_1_BIT)
           .tiling(VK_IMAGE_TILING_OPTIMAL)
-          .usage(VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT or VK_IMAGE_USAGE_SAMPLED_BIT)
+          .usage(
+            VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT or
+              VK_IMAGE_USAGE_SAMPLED_BIT or
+              VK_IMAGE_USAGE_TRANSFER_SRC_BIT
+          )
           .sharingMode(VK_SHARING_MODE_EXCLUSIVE)
           .initialLayout(VK_IMAGE_LAYOUT_UNDEFINED)
       val imageOut = stack.mallocLong(1)
@@ -438,4 +616,20 @@ private constructor(
       }
     }
   }
+}
+
+internal data class RgbaPixel(val red: Int, val green: Int, val blue: Int, val alpha: Int)
+
+private fun findHostVisibleMemoryType(device: VkPhysicalDevice, typeBits: Int): Int {
+  MemoryStack.stackPush().use { stack ->
+    val properties = VkPhysicalDeviceMemoryProperties.calloc(stack)
+    vkGetPhysicalDeviceMemoryProperties(device, properties)
+    val required = VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT or VK_MEMORY_PROPERTY_HOST_COHERENT_BIT
+    for (index in 0..<properties.memoryTypeCount()) {
+      val supported = (typeBits and (1 shl index)) != 0
+      val flags = properties.memoryTypes(index).propertyFlags()
+      if (supported && flags and required == required) return index
+    }
+  }
+  error("No host-visible coherent Vulkan memory type found")
 }

@@ -110,6 +110,9 @@ private constructor(private val host: HeadlessVulkanMapHost, private val cacheDi
     }
   }
 
+  /** Reads one rendered RGBA pixel back from the host's Vulkan image. */
+  fun readPixel(x: Int, y: Int): RgbaPixel = host.readPixel(x, y)
+
   /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
   fun pumpUntilRendered(extent: DesktopMapExtent = DEFAULT_EXTENT, timeout: Duration = 30.seconds) {
     pumpUntil("the map to render its first frame", timeout, extent) { hasRendered }
