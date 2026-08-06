@@ -16,13 +16,13 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
 /**
- * How long a park lasts before the loop pumps regardless of any wake.
+ * Parks in the native pump until a wake arrives, rather than on a bound.
  *
- * A backstop, not the cadence: run-loop timers and file descriptors set the wake flag only when
- * they queue owner-thread work, so anything armed directly on the owner run loop needs this bound
- * to be serviced at all.
+ * Nothing arms a timer or file descriptor on the map's own run loop — the renderer, the thread
+ * pool, and the file sources each have their own — so the wake flag is the only thing that ever has
+ * progress to report, and a bound would only add empty pumps.
  */
-private const val PUMP_PARK_MILLIS = 100L
+private const val PUMP_PARK_MILLIS = -1L
 
 /** Bound on waiting for the render session to be closed before the map is destroyed. */
 private const val SHUTDOWN_WAIT_MILLIS = 5_000L
@@ -36,12 +36,13 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
  * Camera transitions are the exception — mbgl steps them from `onDidFinishRenderingFrame`, so
  * moving the camera still takes a rendered frame.
  *
- * The render session is not this loop's: since maplibre-native-ffi #399 a session's owner is
- * whichever thread attached it, and native refuses to destroy a map that still has one attached, so
- * teardown waits for the presenting thread to close it.
+ * The render session is not this loop's: a session's owner is whichever thread attached it, and
+ * native refuses to destroy a map that still has one attached, so teardown waits for the presenting
+ * thread to close it.
  *
  * A runtime belongs to the thread that created it and there may be only one per thread, so this is
- * a plain [Thread] rather than a dispatcher or a pooled executor.
+ * a plain [Thread] rather than a dispatcher or a pooled executor. maplibre-native-ffi#433 proposes
+ * an owner thread inside the C API, which would retire this class.
  */
 internal class DesktopMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
@@ -56,8 +57,6 @@ internal class DesktopMapRuntimeLoop(
   private val onEventsDrained: () -> Unit,
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
-  /** Injectable so a test can park long enough that a missing wake fails rather than passing. */
-  private val parkMillis: Long = PUMP_PARK_MILLIS,
 ) : AutoCloseable {
 
   /** Work for the owner thread, with the release path it must take if it never gets to run. */
@@ -218,7 +217,7 @@ internal class DesktopMapRuntimeLoop(
       runTasks(map)
       if (stopRequested) break
       check(!acceptLock.isHeldByCurrentThread) { "the pump must not run under acceptLock" }
-      runtime.pump(parkMillis)
+      runtime.pump(PUMP_PARK_MILLIS)
       drainEvents(runtime, map)
     }
   }

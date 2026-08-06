@@ -36,7 +36,6 @@ class DesktopOfflineRuntimeTest {
         options = options,
         logger = Logger.withTag("offline-runtime-test"),
         onEvent = {},
-        parkMillis = LONG_PARK_MILLIS,
       )
       .also {
         runtimes += it
@@ -44,7 +43,7 @@ class DesktopOfflineRuntimeTest {
       }
 
   @Test
-  fun `a task posted to a parked loop runs without waiting the park out`() {
+  fun `a task posted to a parked loop wakes it`() {
     val runtime = startRuntime()
     runtime.parkAfterWarmup()
 
@@ -53,8 +52,8 @@ class DesktopOfflineRuntimeTest {
 
     assertTrue(
       ran.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
-      "The task did not run within ${RESPONSE_TIMEOUT_MILLIS}ms against a ${LONG_PARK_MILLIS}ms " +
-        "park, so the wake source is not what released the pump.",
+      "The task did not run within ${RESPONSE_TIMEOUT_MILLIS}ms, so the wake source is not what " +
+        "released the pump.",
     )
   }
 
@@ -71,13 +70,13 @@ class DesktopOfflineRuntimeTest {
 
     assertTrue(
       ran.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
-      "A task posted during startup waited out the park instead of being drained before it.",
+      "A task posted during startup was left parked behind instead of drained before the park.",
     )
   }
 
   /** Shutdown signals the wake source directly, because the accept gate may already be closed. */
   @Test
-  fun `shutdown stops a parked thread without waiting the park out`() {
+  fun `shutdown wakes a parked thread`() {
     val runtime = startRuntime()
     runtime.parkAfterWarmup()
 
@@ -85,8 +84,7 @@ class DesktopOfflineRuntimeTest {
 
     assertTrue(
       runtime.awaitStopped(RESPONSE_TIMEOUT_MILLIS),
-      "The runtime thread did not stop within ${RESPONSE_TIMEOUT_MILLIS}ms against a " +
-        "${LONG_PARK_MILLIS}ms park.",
+      "The runtime thread did not stop within ${RESPONSE_TIMEOUT_MILLIS}ms.",
     )
   }
 
@@ -121,9 +119,6 @@ class DesktopOfflineRuntimeTest {
   }
 
   private companion object {
-    /** Long enough that a test passing by timeout would take a minute and be obvious. */
-    const val LONG_PARK_MILLIS = 60_000L
-
     const val RESPONSE_TIMEOUT_MILLIS = 5_000L
 
     /** Enough for the loop to get from running a task to being inside the pump. */

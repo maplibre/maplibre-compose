@@ -14,11 +14,9 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
 /**
- * How long a park lasts before the loop pumps regardless of any wake. A backstop rather than the
- * cadence: timers and ready sockets set the wake flag only when they queue owner-thread work, so a
- * download waiting out a retry has nothing to signal with.
+ * Parks until a wake arrives, for the same reason the map loop does; see `DesktopMapRuntimeLoop`.
  */
-private const val PUMP_PARK_MILLIS = 100L
+private const val PUMP_PARK_MILLIS = -1L
 
 /**
  * The thread that owns the offline manager's MapLibre runtime, and the only place native offline
@@ -35,10 +33,6 @@ internal class DesktopOfflineRuntime(
   private val options: DesktopRuntimeOptions,
   private val logger: Logger,
   private val onEvent: (RuntimeEvent) -> Unit,
-  /**
-   * Injectable so a test can park long enough that a missing wake fails rather than passes late.
-   */
-  private val parkMillis: Long = PUMP_PARK_MILLIS,
 ) {
 
   /** Work for the owner thread, with the failure path it must take if it never gets to run. */
@@ -187,7 +181,7 @@ internal class DesktopOfflineRuntime(
         check(!acceptLock.isHeldByCurrentThread) { "the pump must not run under acceptLock" }
         // The runtime makes no progress on its own: no event is delivered and no download advances
         // except inside a pump.
-        runtime.pump(parkMillis)
+        runtime.pump(PUMP_PARK_MILLIS)
         drainEvents(runtime)
       }
     } catch (error: Throwable) {
