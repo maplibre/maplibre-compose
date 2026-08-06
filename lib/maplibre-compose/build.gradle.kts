@@ -124,10 +124,13 @@ kotlin {
       // Only the EGL interop test binds EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
 
-      // Core only: LWJGL loads Vulkan itself from the system loader, which on macOS comes from
-      // `mise run bootstrap`. Without it the GPU-backed tests skip rather than fail.
+      // LWJGL needs its JNI core everywhere. macOS has no system Vulkan implementation, so its
+      // Vulkan natives also carry MoltenVK for the headless GPU tests.
       val lwjglVersion = libs.versions.lwjgl.get()
       runtimeOnly("org.lwjgl:lwjgl:$lwjglVersion:${platform.lwjglNativesClassifier}")
+      if (platform == DesktopHostPlatform.MacosArm64) {
+        runtimeOnly("org.lwjgl:lwjgl-vulkan:$lwjglVersion:${platform.lwjglNativesClassifier}")
+      }
     }
 
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
