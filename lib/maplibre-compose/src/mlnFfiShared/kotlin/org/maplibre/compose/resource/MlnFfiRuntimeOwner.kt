@@ -9,8 +9,10 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
 
 /**
- * A MapLibre runtime together with the two things that have to outlive its creation and be retired
- * before its close: the ambient cache budget, and the resource provider.
+ * A MapLibre runtime together with the two things that have to outlive its creation and begin
+ * teardown before its close: the ambient cache budget, and the resource provider. Provider-owned
+ * request handles remain valid until the provider releases them, even if a slow read outlasts the
+ * runtime.
  *
  * Owner-thread state throughout: a runtime belongs to the thread that created it, so this is
  * created, pumped, and closed on that one thread.
@@ -36,16 +38,17 @@ private constructor(
   }
 
   /**
-   * Retires everything the runtime close would otherwise trip over, then closes it.
+   * Starts teardown of everything attached to the runtime, then closes it.
    *
    * Order matters: `RuntimeHandle.close` blocks on in-flight operations, so the cache-size request
-   * is cancelled first and the provider — which answers on a thread of its own — is quiesced next.
+   * is cancelled first and the provider stops accepting reads next. Its drain is bounded; request
+   * handles held by slower reads safely outlive the runtime and observe cancellation afterward.
    */
   override fun close() {
     cacheSizeRequest?.close()
     cacheSizeRequest = null
     runCatching { provider.close() }
-      .onFailure { logger?.w(it) { "Failed to quiesce the resource provider" } }
+      .onFailure { logger?.w(it) { "Failed to drain the resource provider" } }
     runCatching { runtime.close() }
       .onFailure { logger?.e(it) { "Failed to close the MapLibre runtime" } }
   }

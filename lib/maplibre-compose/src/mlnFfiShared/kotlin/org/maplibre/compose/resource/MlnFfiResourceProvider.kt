@@ -26,15 +26,17 @@ private val NETWORK_SCHEMES = setOf("http", "https")
 /** How long the reader thread waits for more work before it goes away. */
 private const val READER_IDLE_SECONDS = 30L
 
-/** How long [MlnFfiResourceProvider.close] waits for reads that are already running. */
-private const val QUIESCE_TIMEOUT_SECONDS = 5L
+/** How long [MlnFfiResourceProvider.close] gives accepted reads to finish normally. */
+private const val DRAIN_TIMEOUT_SECONDS = 5L
 
 /**
  * Resolves the `jar:file:` and `file:` resource URIs Compose hands out for packaged resources,
  * which MapLibre Native cannot fetch itself; everything else passes through so HTTP keeps
  * MapLibre's caching, retry, and revalidation behavior.
  *
- * Installed with the runtime; its owner must [close] it before closing that runtime.
+ * Installed with the runtime; its owner [close]s it first to give accepted reads time to finish.
+ * Provider-owned [ResourceRequestHandle] instances remain valid independently of runtime teardown,
+ * so a later attempt to answer safely observes cancellation before releasing its handle.
  */
 internal class MlnFfiResourceProvider(
   private val logger: Logger?,
@@ -128,26 +130,27 @@ internal class MlnFfiResourceProvider(
   }
 
   /**
-   * Stops taking reads and waits for the ones already queued, so the runtime can be closed. Queued
-   * reads run rather than being dropped: only this provider can answer a request it took.
+   * Stops taking reads and gives accepted reads a bounded opportunity to finish before runtime
+   * teardown. Reads that outlast the timeout keep their provider-owned request handles; late
+   * completion is rejected after native cancellation, and [serve] still releases each handle.
    */
   override fun close() {
     acceptLock.withLock {
       accepting = false
       reader.shutdown()
     }
-    val quiesced =
+    val drained =
       try {
-        reader.awaitTermination(QUIESCE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+        reader.awaitTermination(DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
       } catch (interruption: InterruptedException) {
         Thread.currentThread().interrupt()
-        logger?.w(interruption) { "Interrupted while quiescing resource reads" }
+        logger?.w(interruption) { "Interrupted while draining resource reads" }
         false
       }
-    if (!quiesced) {
+    if (!drained) {
       logger?.e {
-        "Resource reads did not finish within ${QUIESCE_TIMEOUT_SECONDS}s; " +
-          "closing the runtime with ${reader.queue.size + reader.activeCount} still outstanding"
+        "Resource reads did not finish within ${DRAIN_TIMEOUT_SECONDS}s; continuing runtime " +
+          "shutdown while ${reader.queue.size + reader.activeCount} reads retain cancellable handles"
       }
     }
   }
