@@ -119,7 +119,7 @@ jobs:
           submodules: recursive
       - uses: ./.github/actions/setup-cmake
       - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew desktopTest
+      - run: ./gradlew desktopTest --info
 
   build-docs:
     runs-on: macos-latest
