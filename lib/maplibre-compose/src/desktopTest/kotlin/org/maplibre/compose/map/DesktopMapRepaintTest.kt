@@ -15,6 +15,8 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
@@ -105,14 +107,18 @@ class DesktopMapRepaintTest {
 
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { factory.created.isNotEmpty() }
       val host = factory.created.single()
-      // The map advances on a thread of its own, so settling is a wait rather than a fixed number
-      // of idle rounds.
+      // The map advances on a thread of its own, so settling means observing a real quiet window.
+      // Comparing two adjacent reads can succeed before an already-queued startup frame lands.
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { host.renderedFrames > 0 }
       var before = host.renderedFrames
+      var unchangedSince = TimeSource.Monotonic.markNow()
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        val settled = host.renderedFrames == before
-        before = host.renderedFrames
-        settled
+        val current = host.renderedFrames
+        if (current != before) {
+          before = current
+          unchangedSince = TimeSource.Monotonic.markNow()
+        }
+        unchangedSince.elapsedNow() >= QUIET_WINDOW
       }
 
       mutate()
@@ -146,5 +152,8 @@ class DesktopMapRepaintTest {
 
   private companion object {
     const val SETTLE_TIMEOUT_MILLIS = 30_000L
+
+    /** Long enough to outlast work already queued by the initial style composition. */
+    val QUIET_WINDOW = 250.milliseconds
   }
 }

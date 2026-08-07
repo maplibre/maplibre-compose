@@ -5,12 +5,17 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.doubleOrNull
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.Feature
@@ -262,9 +267,30 @@ class LayerPropertyRoundTripTest {
     val actual =
       layer.binding.withMap { map -> map.layerProperty(layer.id, case.property)?.toJsonElement() }
     val expected = Json.parseToJsonElement(case.expected)
-    return if (actual == expected) emptyList()
+    return if (actual != null && actual.equivalentTo(expected)) emptyList()
     else listOf("${case.property} $path: expected $expected but MapLibre reports $actual")
   }
+
+  /** Compares style JSON semantically, allowing harmless native floating-point round-off. */
+  private fun JsonElement.equivalentTo(expected: JsonElement): Boolean =
+    when {
+      this is JsonPrimitive && expected is JsonPrimitive -> {
+        val actualNumber = doubleOrNull
+        val expectedNumber = expected.doubleOrNull
+        if (actualNumber != null && expectedNumber != null) {
+          abs(actualNumber - expectedNumber) <= NUMBER_TOLERANCE
+        } else {
+          this == expected
+        }
+      }
+      this is JsonArray && expected is JsonArray ->
+        size == expected.size &&
+          zip(expected).all { (actual, wanted) -> actual.equivalentTo(wanted) }
+      this is JsonObject && expected is JsonObject ->
+        keys == expected.keys &&
+          all { (key, actual) -> actual.equivalentTo(expected.getValue(key)) }
+      else -> this == expected
+    }
 
   /** A property to write, and the value MapLibre should report for it afterwards. */
   private class Case<in L : Layer>(
@@ -275,6 +301,8 @@ class LayerPropertyRoundTripTest {
   )
 
   private companion object {
+    const val NUMBER_TOLERANCE = 1e-5
+
     const val SOURCE_ID = "features"
 
     /** Unresolvable on purpose: a test that reaches the network is worse than no test. */
@@ -584,7 +612,7 @@ class LayerPropertyRoundTripTest {
         },
         // MapLibre stores colours premultiplied as floats, so a fractional alpha comes back a
         // rounding step off the byte that was sent.
-        Case("text-color", """["rgba",17.0,34.0,51.000003814697266,0.5]""") {
+        Case("text-color", """["rgba",17.0,34.0,51.0,0.5]""") {
           it.setTextColor(const(Color(0x80112233)).c())
         },
         Case("text-halo-color", """["rgba",255.0,255.0,255.0,1.0]""") {

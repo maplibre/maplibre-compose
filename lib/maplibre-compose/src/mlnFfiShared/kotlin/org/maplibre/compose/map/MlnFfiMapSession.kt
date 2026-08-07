@@ -689,6 +689,9 @@ internal class MlnFfiMapSession(
     it.styleImageInfo(imageId)
   }
 
+  /** The live style's layer order, for diagnostics and integration tests. */
+  internal fun currentStyleLayerIds(): List<String> = runOnMap { it.styleLayerIds() }.orEmpty()
+
   /**
    * The scale style images are rasterized at. Taken from the loop, not the map, because it is fixed
    * for that map's lifetime and this is read while handling an event on the owner thread.

@@ -125,16 +125,24 @@ class DesktopMapCompositionTest {
   @Test
   fun `a layer removed and re-added comes back`() {
     var visible by mutableStateOf(true)
+    lateinit var cameraState: CameraState
     runHeadlessMapTest(
       body = {
+        val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+        waitUntil { "toggled" in session.currentStyleLayerIds() }
+
         visible = false
-        waitForIdle()
+        waitUntil { "toggled" !in session.currentStyleLayerIds() }
+
         visible = true
+        waitUntil { "toggled" in session.currentStyleLayerIds() }
       }
     ) { errors ->
+      cameraState = rememberCameraState()
       MaplibreMap(
         modifier = Modifier,
         baseStyle = BaseStyle.Empty,
+        cameraState = cameraState,
         logger = Logger.withTag("composition-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       ) {

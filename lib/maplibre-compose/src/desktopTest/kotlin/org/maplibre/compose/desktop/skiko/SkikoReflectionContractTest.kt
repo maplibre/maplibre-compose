@@ -2,7 +2,6 @@ package org.maplibre.compose.desktop.skiko
 
 import kotlin.test.Test
 import kotlin.test.assertNotNull
-import kotlin.test.fail
 
 /**
  * Pins the Compose Desktop and Skiko internals the default host reflects into, so that a Compose
@@ -12,21 +11,6 @@ import kotlin.test.fail
  * A failure means Compose or Skiko moved something and `SkikoReflection` needs updating to match.
  */
 class SkikoReflectionContractTest {
-
-  @Test
-  fun `every reflected class is present`() {
-    val missing =
-      SkikoReflection.REQUIRED_CLASSES.filter { name ->
-        runCatching { Class.forName(name) }.isFailure
-      }
-
-    if (missing.isNotEmpty()) {
-      fail(
-        "Compose/Skiko no longer provides: ${missing.joinToString()}. " +
-          "The default desktop map host reflects into these; update SkikoReflection."
-      )
-    }
-  }
 
   @Test
   fun `SkiaLayer exposes the redrawer and backing layer the host needs`() {

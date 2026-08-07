@@ -12,8 +12,11 @@ import co.touchlab.kermit.Logger
 import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
@@ -59,15 +62,18 @@ class DesktopStyleSwitchTest {
     var loadsFinished = 0
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
+    lateinit var cameraState: CameraState
 
     setContent {
       CompositionLocalProvider(
         LocalMlnFfiMapHostFactory provides factory,
         LocalMlnFfiRuntimeOptions provides runtimeOptions,
       ) {
+        cameraState = rememberCameraState()
         MaplibreMap(
           modifier = Modifier,
           baseStyle = style.base,
+          cameraState = cameraState,
           logger = Logger.withTag("style-switch-test"),
           onMapLoadFailed = { errors += "mapLoadFailed: $it" },
           onMapLoadFinished = { loadsFinished++ },
@@ -96,6 +102,8 @@ class DesktopStyleSwitchTest {
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       loadsFinished > 0 && host.renderedFrames > 0
     }
+    val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+    assertStyleLayers(session, style, extraLayer)
 
     repeat(ROTATIONS) { round ->
       val loadsBefore = loadsFinished
@@ -105,13 +113,37 @@ class DesktopStyleSwitchTest {
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         loadsFinished > loadsBefore && host.renderedFrames > framesBefore
       }
+      assertStyleLayers(session, style, extraLayer)
     }
 
     assertTrue(errors.isEmpty(), "Rotating the style reported errors: $errors")
   }
 
+  private fun androidx.compose.ui.test.ComposeUiTest.assertStyleLayers(
+    session: MlnFfiMapSession,
+    style: DemoStyle,
+    extraLayer: Boolean,
+  ) {
+    val expected = buildList {
+      add(style.baseLayerIds.first())
+      add("user-fill")
+      if (extraLayer) add("user-extra")
+      add(style.baseLayerIds.last())
+      add("user-circles")
+    }
+    fun relevantLayers(): List<String> =
+      session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
+
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { relevantLayers() == expected }
+    assertEquals(expected, relevantLayers(), "live style layer order")
+  }
+
   /** A style and the base-style layer content anchors itself below, as the demo pairs them. */
-  private data class DemoStyle(val base: BaseStyle, val anchor: Anchor)
+  private data class DemoStyle(
+    val base: BaseStyle,
+    val anchor: Anchor,
+    val baseLayerIds: List<String>,
+  )
 
   private fun pointAt(longitude: Double): FeatureCollection<Geometry, JsonObject?> =
     buildFeatureCollection {
@@ -123,6 +155,9 @@ class DesktopStyleSwitchTest {
 
     /** Enough rounds that a fault which needs a second or third switch still shows up. */
     const val ROTATIONS = 6
+
+    val RELEVANT_LAYER_IDS =
+      setOf("bg-a", "labels-a", "bg-b", "labels-b", "user-fill", "user-extra", "user-circles")
 
     /**
      * Styles with different layer sets, so a re-add lands against a different base each time.
@@ -141,6 +176,7 @@ class DesktopStyleSwitchTest {
               """
             ),
           anchor = Anchor.Below("labels-a"),
+          baseLayerIds = listOf("bg-a", "labels-a"),
         ),
         DemoStyle(
           base =
@@ -153,6 +189,7 @@ class DesktopStyleSwitchTest {
               """
             ),
           anchor = Anchor.Below("labels-b"),
+          baseLayerIds = listOf("bg-b", "labels-b"),
         ),
       )
   }

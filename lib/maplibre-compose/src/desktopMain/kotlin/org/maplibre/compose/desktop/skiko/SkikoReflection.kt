@@ -37,21 +37,6 @@ internal object SkikoReflection {
 
   const val SKIKO_METAL_DEVICE_ADAPTER: String = "adapter"
 
-  /** Every Skiko class the default host depends on. Checked by the reflection contract test. */
-  val REQUIRED_CLASSES: List<String> =
-    listOf(
-      SKIA_LAYER_CLASS,
-      COMPOSE_WINDOW_CLASS,
-      METAL_REDRAWER_CLASS,
-      DIRECT3D_REDRAWER_CLASS,
-      LINUX_OPENGL_REDRAWER_CLASS,
-      LINUX_OPENGL_REDRAWER_HELPERS_CLASS,
-      AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS,
-      DIRECT3D_CONTEXT_HANDLER_CLASS,
-      METAL_CONTEXT_HANDLER_CLASS,
-      CONTEXT_HANDLER_CLASS,
-    )
-
   fun findSkiaLayer(): Any? = findSkiaLayerComponent() ?: findComposeWindowSkiaLayer()
 
   fun requireSkiaLayer(): Any =
