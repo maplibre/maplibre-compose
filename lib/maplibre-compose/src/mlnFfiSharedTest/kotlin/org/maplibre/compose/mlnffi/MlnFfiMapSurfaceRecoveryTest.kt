@@ -148,6 +148,33 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
+  fun a_resize_failure_closes_the_renderer_immediately() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory()
+    val size = mutableStateOf(64.dp)
+    var latest: MlnFfiMapSurfaceState = MlnFfiMapSurfaceState.Initializing
+
+    setContent {
+      MlnFfiMapSurface(
+        renderer = renderer,
+        runtimeBackends = setOf(MapRenderBackend.VULKAN),
+        factory = factory,
+        modifier = Modifier.size(size.value),
+        onStateChanged = { latest = it },
+      )
+    }
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+
+    renderer.failingSurfaceChanges = 1
+    size.value = 96.dp
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { latest is MlnFfiMapSurfaceState.Failed }
+
+    assertEquals(1, renderer.closeCount, "a failed resize should stop the renderer immediately")
+    waitForIdle()
+    assertEquals(1, renderer.closeCount, "the failed surface should close the renderer only once")
+  }
+
+  @Test
   fun an_unavailable_host_still_closes_the_renderer() = runFfiComposeUiTest {
     val renderer = RecordingRenderer()
     val factory = FakeMlnFfiMapHostFactory(supportedBackends = emptySet())
@@ -207,6 +234,17 @@ class MlnFfiMapSurfaceRecoveryTest {
 
     var closeCount: Int = 0
       private set
+
+    var failingSurfaceChanges: Int = 0
+
+    override fun onSurfaceChanged(extent: MlnFfiMapExtent) {
+      if (failingSurfaceChanges > 0) {
+        failingSurfaceChanges--
+        throw IllegalStateException(
+          "the renderer cannot resize to ${extent.width}x${extent.height}"
+        )
+      }
+    }
 
     override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
       lifecycle += "onSurfaceAvailable"

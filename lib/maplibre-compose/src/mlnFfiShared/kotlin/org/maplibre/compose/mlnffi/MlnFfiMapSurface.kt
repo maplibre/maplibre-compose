@@ -115,6 +115,7 @@ internal fun MlnFfiMapSurface(
           "Map host failed to resize to ${extent.width}x${extent.height}",
           error,
         )
+      drawState.closeRenderer(renderer, logger)
     }
   }
 
