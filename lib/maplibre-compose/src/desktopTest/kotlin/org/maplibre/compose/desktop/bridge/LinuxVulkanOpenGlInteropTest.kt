@@ -14,6 +14,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
@@ -283,7 +285,7 @@ class LinuxVulkanOpenGlInteropTest {
             Surface.makeRenderTarget(
               directContext,
               false,
-              ImageInfo.makeN32Premul(DRAW_WIDTH, DRAW_HEIGHT),
+              ImageInfo(DRAW_WIDTH, DRAW_HEIGHT, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
             )
           ) {
             "Skia could not create the EGL test render target"

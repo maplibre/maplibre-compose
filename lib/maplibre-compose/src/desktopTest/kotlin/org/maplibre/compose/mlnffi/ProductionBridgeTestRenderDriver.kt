@@ -13,6 +13,8 @@ import java.lang.invoke.MethodHandles
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
@@ -206,7 +208,11 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
     }
     destination?.close()
     destination =
-      Surface.makeRenderTarget(context.skiaContext, false, ImageInfo.makeN32Premul(width, height))
+      Surface.makeRenderTarget(
+        context.skiaContext,
+        false,
+        ImageInfo(width, height, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
+      )
     destinationWidth = width
     destinationHeight = height
     return checkNotNull(destination)
