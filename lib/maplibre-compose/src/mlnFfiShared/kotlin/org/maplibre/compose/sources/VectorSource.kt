@@ -46,9 +46,11 @@ public actual class VectorSource : Source {
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
   ): List<Feature<Geometry, JsonObject?>> {
+    if (sourceLayerIds.isEmpty()) return emptyList()
+
     val options =
       SourceFeatureQueryOptions().also {
-        it.sourceLayerIds = sourceLayerIds.takeIf { ids -> ids.isNotEmpty() }?.toList()
+        it.sourceLayerIds = sourceLayerIds.toList()
         // A trivial predicate is dropped rather than sent, matching Android: MapLibre reads an
         // absent filter as "match everything", and a scalar true is not a valid filter.
         it.filter =

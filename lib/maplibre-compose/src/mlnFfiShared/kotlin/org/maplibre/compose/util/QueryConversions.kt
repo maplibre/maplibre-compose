@@ -120,7 +120,7 @@ private fun FeatureIdentifier.toGeoJsonId(): JsonPrimitive? =
     is FeatureIdentifier.Null -> null
     // Rendered as unsigned, because the C ABI carries uint64_t in a Long's bit pattern and a large
     // id would otherwise read back negative.
-    is FeatureIdentifier.UInt -> JsonPrimitive(value.toULong().toString())
+    is FeatureIdentifier.UInt -> JsonPrimitive(value.toULong())
     is FeatureIdentifier.Int -> JsonPrimitive(value)
     is FeatureIdentifier.DoubleValue -> JsonPrimitive(value)
     is FeatureIdentifier.StringValue -> JsonPrimitive(value)

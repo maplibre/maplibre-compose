@@ -1,7 +1,6 @@
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
@@ -28,8 +27,16 @@ public actual fun rememberOfflineManager(): OfflineManager {
   val density = LocalDensity.current.density
   val manager = remember(options) { MlnFfiOfflineManager.forOptions(options) }
   // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
-  SideEffect { manager.pixelRatio = density }
-  return manager
+  return remember(manager, density) { DensityScopedOfflineManager(manager, density) }
+}
+
+/** Captures the calling window's density while sharing the process-lifetime native runtime. */
+private class DensityScopedOfflineManager(
+  private val manager: MlnFfiOfflineManager,
+  private val pixelRatio: Float,
+) : OfflineManager by manager {
+  override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack =
+    manager.create(definition, metadata, pixelRatio)
 }
 
 /**
@@ -73,8 +80,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
 
-  @Volatile internal var pixelRatio: Float = 1f
-
   private val runtime = MlnFfiOfflineRuntime(options, logger, ::handleEvent)
 
   override val packs: Set<OfflinePack>
@@ -96,6 +101,14 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {
+    return create(definition, metadata, pixelRatio = 1f)
+  }
+
+  internal suspend fun create(
+    definition: OfflinePackDefinition,
+    metadata: ByteArray,
+    pixelRatio: Float,
+  ): OfflinePack {
     val ffiDefinition = definition.toFfiRegionDefinition(pixelRatio)
     // Copied because the caller still owns the array it passed and native reads it later.
     val ffiMetadata = metadata.copyOf()
@@ -120,6 +133,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override suspend fun delete(pack: OfflinePack) {
+    requireOwned(pack)
     runOperation(
       description = "delete offline pack ${pack.regionId}",
       start = { it.startDeleteOfflineRegion(pack.regionId) },
@@ -131,6 +145,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override suspend fun invalidate(pack: OfflinePack) {
+    requireOwned(pack)
     runOperation(
       description = "invalidate offline pack ${pack.regionId}",
       start = { it.startInvalidateOfflineRegion(pack.regionId) },
@@ -166,6 +181,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
 
   /** Backs [OfflinePack.setMetadata]; the pack itself holds no native state. */
   internal suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray) {
+    requireOwned(pack)
     val ffiMetadata = metadata.copyOf()
     runOperation(
       description = "update the metadata of offline pack ${pack.regionId}",
@@ -200,6 +216,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   private fun setDownloadState(pack: OfflinePack, state: OfflineRegionDownloadState) {
+    requireOwned(pack)
     val accepted =
       submit(
         description = "change the download state of offline pack ${pack.regionId}",
@@ -219,6 +236,12 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
       start = { it.startSetOfflineRegionObserved(regionId, true) },
       finish = { _, _ -> },
     )
+  }
+
+  private fun requireOwned(pack: OfflinePack) {
+    if (pack.manager !== this) {
+      throw OfflineManagerException("The offline pack belongs to a different manager")
+    }
   }
 
   private fun refreshStatus(regionId: Long) {

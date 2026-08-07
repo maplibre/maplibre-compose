@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -110,6 +111,29 @@ class MlnFfiMapSurfaceRecoveryTest {
     assertEquals(1, factory.created.single().acquireCount, "a fatal failure should not be retried")
   }
 
+  @Test
+  fun an_unavailable_host_still_closes_the_renderer() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory(supportedBackends = emptySet())
+    val showSurface = mutableStateOf(true)
+
+    setContent {
+      if (showSurface.value) {
+        MlnFfiMapSurface(
+          renderer = renderer,
+          runtimeBackends = setOf(MapRenderBackend.VULKAN),
+          factory = factory,
+          modifier = Modifier.size(64.dp),
+        )
+      }
+    }
+    waitForIdle()
+    showSurface.value = false
+    waitForIdle()
+
+    assertEquals(1, renderer.closeCount)
+  }
+
   private fun ComposeUiTest.setSurfaceContent(
     renderer: MlnFfiMapRenderer,
     factory: MlnFfiMapHostFactory,
@@ -145,6 +169,9 @@ class MlnFfiMapSurfaceRecoveryTest {
     var surfaceLostCount: Int = 0
       private set
 
+    var closeCount: Int = 0
+      private set
+
     override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
       lifecycle += "onSurfaceAvailable"
     }
@@ -165,7 +192,9 @@ class MlnFfiMapSurfaceRecoveryTest {
       return MlnFfiFrameResult.RENDERED
     }
 
-    override fun close() {}
+    override fun close() {
+      closeCount++
+    }
   }
 
   private companion object {

@@ -33,22 +33,44 @@ internal object GlfwMainDispatcher : MainCoroutineDispatcher() {
 
   /** Work that arrived before [install]. Drained in order the moment a delegate exists. */
   private val pending = ConcurrentLinkedQueue<Pair<CoroutineContext, Runnable>>()
+  private val installationLock = Any()
 
   override val immediate: MainCoroutineDispatcher
     get() = Immediate
 
   override fun dispatch(context: CoroutineContext, block: Runnable) {
-    val target = delegate
-    if (target != null) target.dispatch(context, block) else pending.add(context to block)
+    delegate?.let {
+      it.dispatch(context, block)
+      return
+    }
+    val target =
+      synchronized(installationLock) {
+        delegate
+          ?: run {
+            pending.add(context to block)
+            null
+          }
+      }
+    target?.dispatch(context, block)
   }
 
   /** Points this dispatcher at the running Compose scene. */
   fun install(dispatcher: CoroutineDispatcher, thread: Thread) {
     uiThread = thread
-    delegate = dispatcher
     while (true) {
-      val (context, block) = pending.poll() ?: return
-      dispatcher.dispatch(context, block)
+      val queued =
+        synchronized(installationLock) {
+          if (pending.isEmpty()) {
+            delegate = dispatcher
+            return
+          }
+          buildList {
+            while (true) {
+              add(pending.poll() ?: break)
+            }
+          }
+        }
+      queued.forEach { (context, block) -> dispatcher.dispatch(context, block) }
     }
   }
 

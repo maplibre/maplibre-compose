@@ -6,6 +6,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.ThreadPoolExecutor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicLong
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.pow
@@ -38,7 +39,8 @@ public actual class ComputedSource : Source {
    * Tiles MapLibre has asked for and has not cancelled. Concurrent because MapLibre worker threads
    * add and cancel entries while the map's owner thread takes them.
    */
-  private val requestedTiles = ConcurrentHashMap.newKeySet<CanonicalTileId>()
+  private val requestedTiles = ConcurrentHashMap<CanonicalTileId, Long>()
+  private val nextRequest = AtomicLong()
 
   /**
    * The one thread this source computes and delivers tiles on. Blocking MapLibre's callback thread
@@ -55,9 +57,10 @@ public actual class ComputedSource : Source {
   private val callback =
     object : CustomGeometrySourceCallback {
       override fun fetchTile(tileId: CanonicalTileId) {
-        requestedTiles.add(tileId)
+        val request = nextRequest.incrementAndGet()
+        requestedTiles[tileId] = request
         // A queue insertion is all that happens under MapLibre's callback lease; see [worker].
-        worker.execute { answer(tileId) }
+        worker.execute { answer(tileId, request) }
       }
 
       override fun cancelTile(tileId: CanonicalTileId) {
@@ -104,14 +107,14 @@ public actual class ComputedSource : Source {
   }
 
   /** Computes one tile and delivers it. Runs on [worker]. */
-  private fun answer(tileId: CanonicalTileId) {
-    if (tileId !in requestedTiles) return
+  private fun answer(tileId: CanonicalTileId, request: Long) {
+    if (requestedTiles[tileId] != request) return
     val data =
       try {
         getFeatures(tileId.toBoundingBox(), tileId.z).toFfiGeoJson()
       } catch (error: Throwable) {
         if (error is VirtualMachineError) throw error
-        requestedTiles.remove(tileId)
+        requestedTiles.remove(tileId, request)
         // Reported rather than propagated; the tile stays blank until something invalidates it.
         binding.logger?.e(error) { "Computing tile $tileId of source '$id' failed" }
         return
@@ -119,7 +122,9 @@ public actual class ComputedSource : Source {
     // The cancellation check shares the owner-thread hop with the write, so nothing can cancel
     // between deciding to write and writing.
     binding.withMap { map ->
-      if (requestedTiles.remove(tileId)) map.setCustomGeometrySourceTileData(id, tileId, data)
+      if (requestedTiles.remove(tileId, request)) {
+        map.setCustomGeometrySourceTileData(id, tileId, data)
+      }
     }
   }
 

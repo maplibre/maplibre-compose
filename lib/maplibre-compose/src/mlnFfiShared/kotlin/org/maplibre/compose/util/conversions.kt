@@ -45,7 +45,7 @@ internal fun PaddingValues.toEdgeInsets(layoutDirection: LayoutDirection): EdgeI
   )
 
 internal fun EdgeInsets.toPaddingValues(): PaddingValues =
-  PaddingValues(start = left.dp, top = top.dp, end = right.dp, bottom = bottom.dp)
+  PaddingValues.Absolute(left = left.dp, top = top.dp, right = right.dp, bottom = bottom.dp)
 
 /**
  * Snapshots a camera into an immutable value. [CameraOptions] is a mutable builder for native

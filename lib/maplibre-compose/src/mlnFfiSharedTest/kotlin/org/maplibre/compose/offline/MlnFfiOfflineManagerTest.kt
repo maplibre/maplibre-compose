@@ -2,11 +2,14 @@ package org.maplibre.compose.offline
 
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 /** Exercises the offline manager without a UI. */
 class MlnFfiOfflineManagerTest {
@@ -70,5 +73,22 @@ class MlnFfiOfflineManagerTest {
     assertTrue(
       MlnFfiOfflineManager.forOptions(options) === MlnFfiOfflineManager.forOptions(options)
     )
+  }
+
+  @Test
+  fun a_manager_rejects_a_pack_owned_by_another_manager() {
+    val manager = MlnFfiOfflineManager.forOptions(options)
+    val otherManager = MlnFfiOfflineManager.forOptions(budgetedOptions)
+    val foreignPack = OfflinePack(otherManager, 1, DEFINITION, initialMetadata = null)
+
+    assertFailsWith<OfflineManagerException> { manager.resume(foreignPack) }
+  }
+
+  private companion object {
+    val DEFINITION =
+      OfflinePackDefinition.TilePyramid(
+        styleUrl = "https://example.invalid/style.json",
+        bounds = BoundingBox(southwest = Position(-1.0, -1.0), northeast = Position(1.0, 1.0)),
+      )
   }
 }

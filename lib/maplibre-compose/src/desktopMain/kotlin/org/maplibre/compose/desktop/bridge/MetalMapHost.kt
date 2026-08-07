@@ -34,6 +34,7 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
   private var pixelFormat = 0L
   private var generation = 0L
   private var currentExtent = MlnFfiMapExtent.Empty
+  private var currentDevice = NativeHandle(0L)
 
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
@@ -41,8 +42,11 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
   override fun resize(extent: MlnFfiMapExtent) {
     // Reading the context hops to the GPU thread and waits, so it must not happen on the renderer
     // thread, which the GPU thread may itself be waiting on.
-    val device =
-      if (extent.isEmpty) null else gpuHost.requireContext<MetalComposeGpuContext>().device
+    val device = if (extent.isEmpty) null else currentDeviceOrNull() ?: return
+    resize(extent, device)
+  }
+
+  private fun resize(extent: MlnFfiMapExtent, device: NativeHandle?) {
     // Retired rather than freed here, for the same reason: the Skia wrapper around the old texture
     // belongs to the GPU thread, so the presenter frees both at the next draw.
     rendererThread.run { resizeOnRendererThread(extent, device) }?.let(presenter::retire)
@@ -53,7 +57,10 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrame {
-    if (texture.isNull || extent != currentExtent) resize(extent)
+    val device = currentDeviceOrNull()
+    if (device != null && (texture.isNull || extent != currentExtent || device != currentDevice)) {
+      resize(extent, device)
+    }
     return MlnFfiMapFrame(
       frameId = frameId,
       extent = extent,
@@ -95,7 +102,7 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
     extent: MlnFfiMapExtent,
     device: NativeHandle?,
   ): NativeHandle? {
-    if (extent == currentExtent && !texture.isNull) return null
+    if (extent == currentExtent && !texture.isNull && device == currentDevice) return null
 
     val retiredTexture =
       if (extent.isEmpty) {
@@ -106,14 +113,16 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
         val gpuDevice =
           checkNotNull(device) { "resize() resolves the Metal device before this hop" }
         val oldTexture = texture
+        val reusableTexture = oldTexture.takeIf { gpuDevice == currentDevice } ?: NativeHandle(0L)
         val address =
           MetalTexture.create(
             device = gpuDevice.address,
-            oldTexture = oldTexture.address,
+            oldTexture = reusableTexture.address,
             width = extent.physicalWidth,
             height = extent.physicalHeight,
           )
         texture = NativeHandle(address)
+        currentDevice = gpuDevice
         pixelFormat = MetalTexture.pixelFormat(address)
         // create() reuses the old texture when the physical size is unchanged; don't retire it.
         oldTexture.takeIf { !it.isNull && address != it.address }
@@ -139,8 +148,18 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
   private fun takeTexture(): NativeHandle? {
     val retiredTexture = texture.takeIf { !it.isNull }
     texture = NativeHandle(0L)
+    currentDevice = NativeHandle(0L)
     pixelFormat = 0L
     return retiredTexture
+  }
+
+  private fun currentDeviceOrNull(): NativeHandle? {
+    val context = gpuHost.currentContext() ?: return null
+    return (context as? MetalComposeGpuContext)?.device
+      ?: throw MlnFfiHostException(
+        "${gpuHost.description} switched from MetalComposeGpuContext to " +
+          context::class.simpleName
+      )
   }
 }
 

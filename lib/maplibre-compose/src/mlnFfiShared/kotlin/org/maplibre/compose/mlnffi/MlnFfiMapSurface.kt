@@ -87,11 +87,12 @@ internal fun MlnFfiMapSurface(
       }
 
     onDispose {
+      // Even an unavailable or failed host leaves a renderer with queued map work to abandon.
+      runCatching { renderer.close() }
+        .onFailure { logger?.e(it) { "Map renderer failed to close" } }
       if (host != null) {
         // The renderer must close before the host: it drops its references to host-owned targets,
         // and it reaches its owner thread through the still-live host session.
-        runCatching { renderer.close() }
-          .onFailure { logger?.e(it) { "Map renderer failed to close" } }
         runCatching { host.close() }.onFailure { logger?.e(it) { "Map host failed to close" } }
       }
       drawState.reset()

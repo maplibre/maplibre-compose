@@ -8,7 +8,7 @@ import androidx.compose.runtime.mutableStateOf
  */
 public actual class OfflinePack
 internal constructor(
-  private val manager: MlnFfiOfflineManager,
+  internal val manager: MlnFfiOfflineManager,
   internal val regionId: Long,
   public actual val definition: OfflinePackDefinition,
   initialMetadata: ByteArray?,

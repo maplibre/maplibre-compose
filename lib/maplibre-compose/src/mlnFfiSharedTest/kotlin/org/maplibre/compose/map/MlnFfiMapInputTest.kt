@@ -397,6 +397,31 @@ class MlnFfiMapInputTest {
       assertEquals(before.target.latitude, after.target.latitude, TARGET_TOLERANCE, "latitude")
     }
 
+  @Test
+  fun position_locked_rotates_without_moving_the_camera() =
+    runInputTest(
+      gestures = GestureOptions.PositionLocked.copy(isRotateVelocityEnabled = false),
+      focusWithMouse = false,
+    ) { camera ->
+      val before = camera.position
+      val anchor = Offset(onRoot().fetchSemanticsNode().size.width * 0.3f, 240f)
+
+      onRoot().performTouchInput {
+        down(0, anchor - Offset(70f, 0f))
+        down(1, anchor + Offset(70f, 0f))
+        updatePointerTo(0, anchor - Offset(0f, 70f))
+        updatePointerTo(1, anchor + Offset(0f, 70f))
+        move(delayMillis = 20)
+        up(0)
+        up(1)
+      }
+
+      waitUntil(timeoutMillis = TIMEOUT) { camera.position.bearing != before.bearing }
+      val after = camera.position
+      assertEquals(before.target.longitude, after.target.longitude, TARGET_TOLERANCE, "longitude")
+      assertEquals(before.target.latitude, after.target.latitude, TARGET_TOLERANCE, "latitude")
+    }
+
   /** Composes a map, waits for it to render, focuses it with a click, then runs [body]. */
   private fun runInputTest(
     gestures: GestureOptions = GestureOptions.Standard,

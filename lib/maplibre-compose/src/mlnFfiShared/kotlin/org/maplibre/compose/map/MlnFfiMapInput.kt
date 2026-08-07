@@ -552,8 +552,13 @@ private class MapPointerGesture(
           abs(rotation) >= ROTATION_EPSILON_DEGREES
       ) {
         // Turning the fingers clockwise rotates the map clockwise, which decreases map bearing.
-        session.rotateAndPitchBy(bearingDelta = -rotation, pitchDelta = 0.0, anchor = anchor)
-        lastTwoFingerAnchor = anchor
+        val rotationAnchor = options.zoomAnchor(anchor)
+        session.rotateAndPitchBy(
+          bearingDelta = -rotation,
+          pitchDelta = 0.0,
+          anchor = rotationAnchor,
+        )
+        lastTwoFingerAnchor = rotationAnchor
         lastTwoFingerCentroidPixels = current.centroid
         lastClassicRotationDegrees = -rotation
         changed = true

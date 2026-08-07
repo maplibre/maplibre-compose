@@ -202,7 +202,7 @@ internal class MlnFfiMapSession(
    * writes are dropped instead of reaching a map whose style has been replaced.
    */
   private inner class SessionStyleBinding : StyleBinding {
-    private var loaded = true
+    @Volatile private var loaded = true
 
     override val isLoaded: Boolean
       get() = loaded && !closed
@@ -812,6 +812,7 @@ internal class MlnFfiMapSession(
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
+    styleBinding?.unload()
     requestedStyle = style
     // Reported before the new style is requested, as both mobile adapters do: this disposes the
     // composition holding the old style's sources and layers, which would otherwise recompose

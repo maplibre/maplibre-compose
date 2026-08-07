@@ -34,7 +34,10 @@ This library is published via [Maven Central][maven], and snapshot builds of
         name = "Central Portal Snapshots"
         url = uri("https://central.sonatype.com/repository/maven-snapshots/")
         mavenContent { snapshotsOnly() }
-        content { includeGroup("org.maplibre.compose") }
+        content {
+          includeGroup("org.maplibre.compose")
+          includeGroup("org.maplibre.nativeffi")
+        }
       }
     }
     ```

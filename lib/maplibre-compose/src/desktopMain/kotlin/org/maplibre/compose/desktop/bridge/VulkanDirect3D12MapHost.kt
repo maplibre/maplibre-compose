@@ -114,7 +114,15 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     // The device must be read on the caller's thread; reading it from the renderer thread hops to
     // the GPU thread, which is usually the thread blocked on this call.
     val device =
-      if (extent.isEmpty) null else gpuHost.requireContext<Direct3D12ComposeGpuContext>().device
+      if (extent.isEmpty) null
+      else {
+        val context = gpuHost.currentContext() ?: return
+        (context as? Direct3D12ComposeGpuContext)?.device
+          ?: throw MlnFfiHostException(
+            "${gpuHost.description} switched from Direct3D12ComposeGpuContext to " +
+              context::class.simpleName
+          )
+      }
     // Retired textures come back to the GPU thread, where they remain presentable until Compose
     // has drawn a newer generation. A resize can race ahead of the draw that presents the last
     // completed frame, and releasing that frame here would make the map flash transparent.
