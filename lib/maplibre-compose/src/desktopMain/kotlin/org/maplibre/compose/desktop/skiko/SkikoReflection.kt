@@ -148,9 +148,12 @@ internal object SkikoReflection {
       it.get(this)
     }
 
-  fun Class<*>.staticInvoke(name: String, vararg args: Any?): Any? =
-    methods.firstOrNull { it.name == name && it.parameterCount == args.size }?.invoke(null, *args)
-      ?: throw NoSuchMethodException("$name/${args.size} on ${this.name}")
+  fun Class<*>.staticInvoke(name: String, vararg args: Any?): Any? {
+    val method =
+      methods.firstOrNull { it.name == name && it.parameterCount == args.size }
+        ?: throw NoSuchMethodException("$name/${args.size} on ${this.name}")
+    return method.invoke(null, *args)
+  }
 
   fun Class<*>.findField(name: String): Field {
     var current: Class<*>? = this

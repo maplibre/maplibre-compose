@@ -2,6 +2,7 @@ package org.maplibre.compose.desktop.skiko
 
 import kotlin.test.Test
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 
 /**
  * Pins the Compose Desktop and Skiko internals the default host reflects into, so that a Compose
@@ -11,6 +12,11 @@ import kotlin.test.assertNotNull
  * A failure means Compose or Skiko moved something and `SkikoReflection` needs updating to match.
  */
 class SkikoReflectionContractTest {
+
+  @Test
+  fun `static invocation accepts the null result of a void method`() {
+    assertNull(with(SkikoReflection) { Thread::class.java.staticInvoke("yield") })
+  }
 
   @Test
   fun `SkiaLayer exposes the redrawer and backing layer the host needs`() {
