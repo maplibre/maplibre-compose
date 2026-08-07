@@ -25,6 +25,16 @@ runs:
           echo "LIBGL_ALWAYS_SOFTWARE=true"
         } >> "$GITHUB_ENV"
 
+    - name: Install the Vulkan runtime (Windows)
+      if: runner.os == 'Windows'
+      uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
+      with:
+        vulkan_version: 1.4.341.1
+        cache: true
+        stripdown: true
+        # dzn is an ICD, not the vulkan-1.dll loader that LWJGL opens.
+        install_runtime: true
+
     - name: Install a dzn ICD (Windows)
       if: runner.os == 'Windows'
       shell: pwsh
@@ -79,3 +89,19 @@ runs:
         Register-VulkanDriver $driverManifest.FullName
         "VK_DRIVER_FILES=$($driverManifest.FullName)" >> $env:GITHUB_ENV
         "Path=$($driver.Directory.FullName);$env:Path" >> $env:GITHUB_ENV
+
+    - name: Expose the Vulkan loader (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $architecture = if ($env:RUNNER_ARCH -eq "ARM64") { "arm64" } else { "x64" }
+        $candidates = @("runtime\$architecture", "Bin", "bin") |
+          ForEach-Object { Join-Path $env:VULKAN_SDK $_ }
+        $directory = $candidates |
+          Where-Object { Test-Path (Join-Path $_ "vulkan-1.dll") } |
+          Select-Object -First 1
+        if ($directory) {
+          $directory | Out-File -FilePath $env:GITHUB_PATH -Append
+        } elseif (-not (Get-Command vulkan-1.dll -ErrorAction SilentlyContinue)) {
+          throw "No vulkan-1.dll in $($candidates -join ', ') or on PATH"
+        }
