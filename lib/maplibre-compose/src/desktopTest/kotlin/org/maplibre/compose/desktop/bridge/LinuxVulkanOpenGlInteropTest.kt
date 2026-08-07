@@ -551,7 +551,7 @@ class LinuxVulkanOpenGlInteropTest {
     fun solidStyle(color: String) =
       BaseStyle.Json(
         """
-        {"version":8,"sources":{},"layers":[
+        {"version":8,"transition":{"duration":0,"delay":0},"sources":{},"layers":[
           {"id":"background","type":"background","paint":{"background-color":"$color"}}
         ]}
         """

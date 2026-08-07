@@ -233,15 +233,15 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
     }
   }
 
-  /** Drops objects whose OpenGL names cannot be used or deleted in the replacement context. */
+  /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
   private fun abandonContext() {
     presenter.abandon()
-    texture?.abandon()
+    // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
+    // until the next producer frame retargets it. The old allocation is retired so that drawing
+    // the replacement frame releases it only after that retarget has completed.
+    texture?.let { retiredTextures[generation] = it }
     texture = null
-    retiredTextures.values.forEach(LinuxSharedTexture::abandon)
-    retiredTextures.clear()
-    vulkan?.close()
-    vulkan = null
+    retiredTextures.values.forEach(LinuxSharedTexture::abandonImported)
     currentExtent = MlnFfiMapExtent.Empty
   }
 
@@ -277,9 +277,8 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
       exported.close()
     }
 
-    fun abandon() {
+    fun abandonImported() {
       imported.abandon()
-      exported.close()
     }
   }
 }
