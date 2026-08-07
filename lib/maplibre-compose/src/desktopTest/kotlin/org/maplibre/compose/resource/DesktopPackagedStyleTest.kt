@@ -5,7 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.maplibre.compose.mlnffi.HeadlessMapFixture
+import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 
 /** A style loaded by a real map from the URI shapes an application ships one in. */
@@ -42,7 +42,7 @@ class DesktopPackagedStyleTest {
   }
 
   private fun assertStyleLoads(url: String, layerId: String) {
-    HeadlessMapFixture.create().use { fixture ->
+    BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Uri(url))
 
       assertEquals(emptyList(), fixture.errors, "the map reported errors loading $url")

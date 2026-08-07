@@ -114,14 +114,22 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    // Tests that reach the FFI need a native runtime, and always the Vulkan one: the headless test
-    // host has no Metal equivalent.
+    // Behavioral contracts for the shared MapLibre Native FFI integration. Every platform that
+    // consumes mlnFfiShared must execute this source set; the platform test source supplies only
+    // runtime, render-host, storage, and Compose-runner adapters.
+    create("mlnFfiSharedTest") {
+      dependsOn(commonTest.get())
+      getByName("desktopTest").dependsOn(this)
+    }
+
+    // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
+    // test process; a CI matrix adds processes for additional applicable backends.
     val desktopTest by getting
     desktopTest.dependencies {
       val platform = DesktopHostPlatform.current()
       platform
         .runtimeDependencies(
-          backend = DesktopHostPlatform.RenderBackend.VULKAN,
+          backend = platform.defaultRenderBackend,
           ffiVersion = libs.versions.maplibre.nativeFfi.get(),
           lwjglVersion = libs.versions.lwjgl.get(),
         )

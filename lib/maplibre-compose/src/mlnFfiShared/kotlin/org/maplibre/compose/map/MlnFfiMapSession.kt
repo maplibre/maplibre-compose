@@ -1211,6 +1211,7 @@ internal class MlnFfiMapSession(
     bearingDelta: Double,
     pitchDelta: Double,
     duration: Duration = Duration.ZERO,
+    anchor: DpOffset? = null,
   ) {
     // Reading the current camera and writing the new one must happen together on the owner thread.
     onMap { map ->
@@ -1220,6 +1221,7 @@ internal class MlnFfiMapSession(
           it.bearing = (camera.bearing ?: 0.0) + bearingDelta
           it.pitch =
             ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
+          it.anchor = anchor?.toScreenPoint()
         }
       if (duration == Duration.ZERO) map.jumpTo(target)
       else map.easeTo(target, duration.toAnimationOptions())

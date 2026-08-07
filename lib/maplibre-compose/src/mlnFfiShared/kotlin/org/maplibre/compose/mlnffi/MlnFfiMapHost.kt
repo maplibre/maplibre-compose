@@ -119,8 +119,8 @@ internal sealed interface MlnFfiMapHostResult {
 /**
  * Replaces the host a map would otherwise build for the platform it is running on.
  *
- * Null, and meant to stay null outside this library's own tests: it exists so the render path can
- * be driven headlessly, with no window and no GPU context to hand out.
+ * Null, and meant to stay null outside this library's own tests: it lets tests supply a controlled
+ * production bridge without changing application host discovery.
  */
 internal val LocalMlnFfiMapHostFactory: ProvidableCompositionLocal<MlnFfiMapHostFactory?> =
   staticCompositionLocalOf {

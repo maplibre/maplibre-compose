@@ -182,8 +182,10 @@ gestures for those mobile platforms, so the focus here is on desktop and web.
 
 Desktop now has a working set, tuned to match MapLibre GL JS: drag to pan,
 scroll and double-click to zoom, right-drag or ctrl-drag to rotate and tilt, and
-keyboard control throughout. What is left is covering the input devices and
-accessibility needs it does not yet reach, multi-touch among them.
+keyboard control throughout. Touchscreens on the Desktop FFI host use
+Android-style pan, pinch, rotate, shove, quick-zoom, and velocity gestures. What
+is left is covering input devices such as multi-touch trackpads and the
+accessibility needs the current controls do not yet reach.
 
 Research Areas:
 

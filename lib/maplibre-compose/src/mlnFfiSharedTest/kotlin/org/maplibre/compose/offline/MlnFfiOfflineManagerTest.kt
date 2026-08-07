@@ -1,0 +1,74 @@
+package org.maplibre.compose.offline
+
+import kotlin.test.AfterTest
+import kotlin.test.Test
+import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+
+/** Exercises the offline manager without a UI. */
+class MlnFfiOfflineManagerTest {
+
+  private val cachePath = FfiTestPlatform.createCachePath()
+  private val directory = requireNotNull(cachePath.parent).toFile()
+
+  private val options = MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
+
+  private val budgetedOptions =
+    MlnFfiRuntimeOptions(
+      cachePath = directory.resolve("budgeted-cache.db").toPath(),
+      maximumCacheSizeBytes = 8L * 1024 * 1024,
+    )
+
+  @AfterTest
+  fun cleanUp() {
+    // Managers otherwise live for the life of the process, leaving a thread and an open database
+    // behind for every later test in the run.
+    MlnFfiOfflineManager.disposeForTest(options)
+    MlnFfiOfflineManager.disposeForTest(budgetedOptions)
+    FfiTestPlatform.deleteCachePath(cachePath)
+  }
+
+  /**
+   * mbgl exposes no getter for the budget, so this asserts only that the asynchronous call runs to
+   * completion — one that was never started, or whose completion event was lost, hangs here.
+   */
+  @Test
+  fun changing_the_maximum_ambient_cache_size_completes_twice_with_different_budgets() =
+    runBlocking {
+      val manager = MlnFfiOfflineManager.forOptions(options)
+
+      withTimeout(30_000) {
+        manager.setMaximumAmbientCacheSize(16L * 1024 * 1024)
+        // Zero is what a caller turning ambient caching off passes.
+        manager.setMaximumAmbientCacheSize(0)
+      }
+    }
+
+  /**
+   * A runtime created with a budget already made this native call once, so this is the arrangement
+   * in which a caller's completion event could be retired by the earlier request's id.
+   */
+  @Test
+  fun changing_the_cache_size_completes_on_a_runtime_that_was_created_with_a_budget() =
+    runBlocking {
+      val manager = MlnFfiOfflineManager.forOptions(budgetedOptions)
+
+      withTimeout(30_000) {
+        manager.setMaximumAmbientCacheSize(4L * 1024 * 1024)
+        // A completion consumed by the wrong owner shows up as the *next* operation never
+        // finishing, so a second unrelated operation is what detects it.
+        manager.invalidateAmbientCache()
+      }
+    }
+
+  @Test
+  fun the_same_options_return_the_same_manager() {
+    // One runtime and one thread per options value; a second call site must not start another.
+    assertTrue(
+      MlnFfiOfflineManager.forOptions(options) === MlnFfiOfflineManager.forOptions(options)
+    )
+  }
+}

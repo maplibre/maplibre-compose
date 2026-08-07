@@ -1,0 +1,53 @@
+package org.maplibre.compose.resource
+
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+
+/** Which side of the resource boundary a URL falls on. */
+class MlnFfiResourceProviderTest {
+
+  @Test
+  fun http_and_https_are_maplibre_s_so_they_keep_its_caching_and_revalidation() {
+    assertTrue(isMapLibresToFetch("https://demotiles.maplibre.org/style.json"))
+    assertTrue(isMapLibresToFetch("http://example.invalid/tiles/0/0/0.pbf"))
+  }
+
+  @Test
+  fun scheme_case_does_not_decide_ownership() {
+    assertTrue(isMapLibresToFetch("HTTPS://demotiles.maplibre.org/style.json"))
+  }
+
+  @Test
+  fun an_alias_scheme_is_only_maplibre_s_once_it_has_been_resolved() {
+    // maplibre-native-ffi #467 split the provider's URL in two: `maplibre://maps/style` arrives as
+    // the requested URL and the demotiles URL as the resolved one, and ownership is decided on the
+    // resolved URL.
+    assertFalse(isMapLibresToFetch("maplibre://maps/style"))
+    assertTrue(isMapLibresToFetch("https://demotiles.maplibre.org/style.json"))
+  }
+
+  @Test
+  fun packaged_resource_uris_are_ours() {
+    assertFalse(isMapLibresToFetch("jar:file:/app/lib/demo.jar!/style.json"))
+    assertFalse(isMapLibresToFetch("file:/home/someone/style.json"))
+  }
+
+  @Test
+  fun a_url_with_no_scheme_is_maplibre_s_because_nothing_here_could_resolve_it() {
+    assertTrue(isMapLibresToFetch("style.json"))
+    assertTrue(isMapLibresToFetch(""))
+  }
+
+  @Test
+  fun an_unparseable_url_has_no_scheme() {
+    assertNull(schemeOf("http://[not a host]/x"))
+  }
+
+  @Test
+  fun schemeof_lowercases_so_callers_can_compare_against_lowercase_names() {
+    assertEquals("jar", schemeOf("JAR:file:/app.jar!/style.json"))
+  }
+}

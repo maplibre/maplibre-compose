@@ -6,6 +6,7 @@ import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.demoapp.design.SwitchListItem
 
+/** Controls every pointer family supported by the Desktop gesture engine. */
 object GestureOptionsDemo : Demo {
   override val name = "Configure gestures"
 
@@ -21,6 +22,14 @@ object GestureOptionsDemo : Demo {
       )
 
       SwitchListItem(
+        text = "Pinch to zoom",
+        checked = state.gestureOptions.isPinchZoomEnabled,
+        onCheckedChange = { isChecked ->
+          state.gestureOptions = state.gestureOptions.copy(isPinchZoomEnabled = isChecked)
+        },
+      )
+
+      SwitchListItem(
         text = "Scroll wheel to zoom",
         checked = state.gestureOptions.isScrollZoomEnabled,
         onCheckedChange = { isChecked ->
@@ -29,7 +38,7 @@ object GestureOptionsDemo : Demo {
       )
 
       SwitchListItem(
-        text = "Double-click to zoom",
+        text = "Double-click or double-tap to zoom",
         checked = state.gestureOptions.isDoubleClickZoomEnabled,
         onCheckedChange = { isChecked ->
           state.gestureOptions = state.gestureOptions.copy(isDoubleClickZoomEnabled = isChecked)
@@ -37,7 +46,31 @@ object GestureOptionsDemo : Demo {
       )
 
       SwitchListItem(
-        text = "Drag to rotate/tilt",
+        text = "Quick zoom",
+        checked = state.gestureOptions.isQuickZoomEnabled,
+        onCheckedChange = { isChecked ->
+          state.gestureOptions = state.gestureOptions.copy(isQuickZoomEnabled = isChecked)
+        },
+      )
+
+      SwitchListItem(
+        text = "Two-finger rotate",
+        checked = state.gestureOptions.isTwoFingerRotateEnabled,
+        onCheckedChange = { isChecked ->
+          state.gestureOptions = state.gestureOptions.copy(isTwoFingerRotateEnabled = isChecked)
+        },
+      )
+
+      SwitchListItem(
+        text = "Two-finger tilt",
+        checked = state.gestureOptions.isTwoFingerTiltEnabled,
+        onCheckedChange = { isChecked ->
+          state.gestureOptions = state.gestureOptions.copy(isTwoFingerTiltEnabled = isChecked)
+        },
+      )
+
+      SwitchListItem(
+        text = "Mouse drag to rotate or tilt",
         checked = state.gestureOptions.isDragRotateTiltEnabled,
         onCheckedChange = { isChecked ->
           state.gestureOptions = state.gestureOptions.copy(isDragRotateTiltEnabled = isChecked)
@@ -61,7 +94,7 @@ object GestureOptionsDemo : Demo {
       )
 
       SwitchListItem(
-        text = "Shift + arrow keys to rotate/tilt",
+        text = "Shift + arrow keys to rotate or tilt",
         checked = state.gestureOptions.isKeyboardRotateTiltEnabled,
         onCheckedChange = { isChecked ->
           state.gestureOptions = state.gestureOptions.copy(isKeyboardRotateTiltEnabled = isChecked)
