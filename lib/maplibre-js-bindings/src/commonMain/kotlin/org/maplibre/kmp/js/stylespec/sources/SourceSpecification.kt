@@ -10,4 +10,8 @@ package org.maplibre.kmp.js.stylespec.sources
 public sealed external interface SourceSpecification {
   /** The source type: "geojson", "vector", "raster", "raster-dem", "image", or "video". */
   public var type: String
+
+  public var id: String
+
+  public var attribution: String?
 }

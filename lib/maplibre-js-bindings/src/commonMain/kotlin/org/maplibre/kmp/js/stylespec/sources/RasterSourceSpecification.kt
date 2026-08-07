@@ -41,7 +41,7 @@ public external interface RasterSourceSpecification : SourceSpecification {
   public var scheme: String?
 
   /** Contains an attribution to be displayed when map is shown to a user. */
-  public var attribution: String?
+  public override var attribution: String?
 
   /** A setting to determine whether a source's tiles are cached locally. */
   public var volatile: Boolean?

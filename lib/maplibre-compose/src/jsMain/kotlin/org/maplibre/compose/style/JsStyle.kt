@@ -8,6 +8,8 @@ import org.maplibre.kmp.js.map.Map
 
 internal class JsStyle(internal val impl: Map) : Style {
 
+  private val sourceCache = mutableMapOf<String, Source>()
+
   override fun addImage(
     id: String,
     image: ImageBitmap,
@@ -18,16 +20,23 @@ internal class JsStyle(internal val impl: Map) : Style {
   override fun removeImage(id: String) {}
 
   override fun getSource(id: String): Source? {
-    return null
+    return sourceCache[id]
   }
 
   override fun getSources(): List<Source> {
-    return emptyList()
+    return sourceCache.values.toList()
   }
 
-  override fun addSource(source: Source) {}
+  override fun addSource(source: Source) {
+    impl.addSource(source.id, source.spec)
+    impl.getSource(source.id)?.let { source.bind(it) }
+    sourceCache[source.id] = source
+  }
 
-  override fun removeSource(source: Source) {}
+  override fun removeSource(source: Source) {
+    impl.removeSource(source.id)
+    sourceCache.remove(source.id)
+  }
 
   override fun getLayer(id: String): Layer? {
     return null
