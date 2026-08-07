@@ -119,6 +119,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       failed.diagnostic.contains("$MAX_RECOVERY_ATTEMPTS attempts"),
       "the diagnostic should say how many attempts were made: ${failed.diagnostic}",
     )
+    assertEquals(1, renderer.closeCount, "giving up should stop the renderer immediately")
 
     waitForIdle()
     assertEquals(
@@ -143,6 +144,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
     assertEquals(0, renderer.surfaceLostCount, "a fatal failure should not rebuild the surface")
     assertEquals(1, factory.created.single().acquireCount, "a fatal failure should not be retried")
+    assertEquals(1, renderer.closeCount, "a fatal failure should stop the renderer immediately")
   }
 
   @Test

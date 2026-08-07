@@ -90,8 +90,7 @@ internal fun MlnFfiMapSurface(
 
     onDispose {
       // Even an unavailable or failed host leaves a renderer with queued map work to abandon.
-      runCatching { renderer.close() }
-        .onFailure { logger?.e(it) { "Map renderer failed to close" } }
+      drawState.closeRenderer(renderer, logger)
       if (host != null) {
         // The renderer must close before the host: it drops its references to host-owned targets,
         // and it reaches its owner thread through the still-live host session.
@@ -152,7 +151,7 @@ internal fun MlnFfiMapSurface(
           drawState.onFrameSucceeded()
         } catch (error: Throwable) {
           if (error is VirtualMachineError) throw error
-          state =
+          val recovered =
             recoverFromFrameFailure(
               ready = currentState,
               renderer = renderer,
@@ -162,6 +161,10 @@ internal fun MlnFfiMapSurface(
               error = error,
               logger = logger,
             )
+          state = recovered
+          if (recovered is MlnFfiMapSurfaceState.Failed) {
+            drawState.closeRenderer(renderer, logger)
+          }
         }
       }
     }
@@ -275,6 +278,7 @@ private fun createHost(
 
 private class MlnFfiMapDrawState {
   private var nextFrameId = 1L
+  private var rendererClosed = false
 
   /**
    * The last target that was rendered into, redrawn when the renderer skips a frame.
@@ -298,9 +302,17 @@ private class MlnFfiMapDrawState {
     frameFailures = 0
   }
 
+  /** Stops map work once a failed surface can no longer produce the frames it depends on. */
+  fun closeRenderer(renderer: MlnFfiMapRenderer, logger: Logger?) {
+    if (rendererClosed) return
+    rendererClosed = true
+    runCatching { renderer.close() }.onFailure { logger?.e(it) { "Map renderer failed to close" } }
+  }
+
   fun reset() {
     lastCompletedTarget = null
     frameFailures = 0
+    rendererClosed = false
   }
 }
 

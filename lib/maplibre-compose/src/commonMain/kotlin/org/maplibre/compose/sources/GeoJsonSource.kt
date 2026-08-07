@@ -78,7 +78,7 @@ public sealed interface GeoJsonData {
  *   is intended for small, frequently updated sources such as live positions. Enabling it can
  *   reduce update latency but may hurt frame rate. At the moment this has an effect only on
  *   Android; other platforms ignore it. iOS support is currently blocked by
- *   [#738](https://github.com/maplibre/maplibre-compose/issues/738#issuecomment-3716900291).
+ *   [#738](https://github.com/maplibre/maplibre-compose/issues/738).
  */
 @Immutable
 public data class GeoJsonOptions(

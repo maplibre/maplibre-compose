@@ -391,10 +391,11 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
     private var shared: Direct3D12TestGpuEnvironment? = null
     private var disposalGeneration = 0L
 
-    fun create(): Direct3D12TestGpuEnvironment = synchronized(sharedLock) {
-      disposalGeneration += 1
-      shared ?: createShared().also { shared = it }
-    }
+    fun create(): Direct3D12TestGpuEnvironment =
+      synchronized(sharedLock) {
+        disposalGeneration += 1
+        shared ?: createShared().also { shared = it }
+      }
 
     /**
      * Leaves a short reuse window between methods, then disposes the last window so AWT does not

@@ -120,7 +120,7 @@ private const val CAMERA_KEY = "camera"
  * progress publishes the next render update, which asks for the next frame.
  */
 internal class MlnFfiMapSession(
-  internal var callbacks: MapAdapter.Callbacks,
+  @Volatile internal var callbacks: MapAdapter.Callbacks,
   internal var logger: Logger?,
   renderBackend: MapRenderBackend,
   private val layoutDirection: LayoutDirection,

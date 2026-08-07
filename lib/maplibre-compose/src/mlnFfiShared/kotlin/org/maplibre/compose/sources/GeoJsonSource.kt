@@ -256,6 +256,10 @@ private fun JsonElement?.toFfiFeatureIdentifier(): FeatureIdentifier {
   primitive.longOrNull?.let {
     return FeatureIdentifier.Int(it)
   }
+  primitive.content.toULongOrNull()?.let {
+    // uint64_t crosses the binding as the same bits in a signed Long.
+    return FeatureIdentifier.UInt(it.toLong())
+  }
   primitive.doubleOrNull?.let {
     return FeatureIdentifier.DoubleValue(it)
   }

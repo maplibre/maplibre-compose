@@ -95,7 +95,9 @@ private constructor(private var preparedDriver: FfiTestRenderDriver?) : MlnFfiMa
 
   companion object {
     fun prepare(): CurrentRuntimeTestMapHostFactory {
-      check(!EventQueue.isDispatchThread()) { "The Desktop test bridge must be prepared off the EDT" }
+      check(!EventQueue.isDispatchThread()) {
+        "The Desktop test bridge must be prepared off the EDT"
+      }
       return CurrentRuntimeTestMapHostFactory(FfiTestPlatform.createRenderDriver())
     }
   }

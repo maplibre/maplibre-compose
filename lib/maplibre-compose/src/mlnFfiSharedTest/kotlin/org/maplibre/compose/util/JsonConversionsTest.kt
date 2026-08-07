@@ -58,6 +58,15 @@ class JsonConversionsTest {
   }
 
   @Test
+  fun writes_an_unsigned_integer_past_long_max_value_as_unsigned() {
+    val value =
+      assertIs<JsonValue.UInt>(Json.parseToJsonElement("18446744073709551615").toFfiJsonValue())
+
+    assertEquals(-1L, value.value)
+    assertEquals("18446744073709551615", value.toJsonElement().toString())
+  }
+
+  @Test
   fun preserves_object_key_order() {
     // MapLibre reads `type` before the properties that depend on it.
     val json = buildJsonObject {

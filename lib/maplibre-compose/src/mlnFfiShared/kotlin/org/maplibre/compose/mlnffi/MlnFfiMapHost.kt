@@ -68,8 +68,8 @@ internal interface MlnFfiMapHost : AutoCloseable {
   fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T = action()
 
   /**
-   * Signals that the producer finished rendering into [frame] and the consumer may read it; where a
-   * host inserts whatever fence its backends require. Called only when the renderer reported
+   * Signals that the producer finished rendering into [frame]. The implementation must ensure the
+   * consumer can safely read the result. Called only when the renderer reported
    * [MlnFfiFrameResult.RENDERED].
    */
   fun completeProducerAccess(frame: MlnFfiMapFrame) {}

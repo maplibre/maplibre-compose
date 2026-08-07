@@ -273,7 +273,9 @@ private class MapPointerGesture(
     pressedType = change.type
     pressStartedAtMillis = change.uptimeMillis
     quickZoomCandidate =
-      change.type != PointerType.Mouse && isDoubleClick(change.position, change.uptimeMillis)
+      change.type != PointerType.Mouse &&
+        options.isQuickZoomEnabled &&
+        isDoubleClick(change.position, change.uptimeMillis)
     quickZoomOriginY = change.position.y
     quickZoomAppliedDelta = 0.0
     lastQuickZoomSpanDeltaPixels = 0.0
@@ -628,6 +630,13 @@ private class MapPointerGesture(
     quickZoomCandidate = false
     twoFingerTap = null
     mode = Mode.NONE
+
+    if (
+      (!gestureInProgress && completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) ||
+        origin != null
+    ) {
+      event.changes.forEach(PointerInputChange::consume)
+    }
 
     if (gestureInProgress) endDrag(continuationDuration ?: Duration.ZERO)
     else if (completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) {

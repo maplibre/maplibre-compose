@@ -53,6 +53,10 @@ private fun JsonPrimitive.toFfiJsonValue(): JsonValue {
   longOrNull?.let {
     return JsonValue.Int(it)
   }
+  content.toULongOrNull()?.let {
+    // uint64_t crosses the binding as the same bits in a signed Long.
+    return JsonValue.UInt(it.toLong())
+  }
   doubleOrNull?.let {
     return JsonValue.DoubleValue(it)
   }

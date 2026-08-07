@@ -18,13 +18,6 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 /**
  * Bridges MapLibre's Metal rendering into a Compose scene drawn with Metal: an `id<MTLTexture>` is
  * allocated on the same `id<MTLDevice>` Compose renders with, and Skia wraps that texture.
- *
- * There is no fence in either direction. MapLibre's Metal texture backend commits and
- * `waitUntilCompleted()`s inside `renderUpdate` — traced through maplibre-native-ffi 2c397595, from
- * `render_session_common.cpp:1388` to `renderer_impl.cpp:457` to `mtl/command_encoder.cpp:30` to
- * `metal_texture_backend.mm:139` — so the renderer thread blocks for the whole frame, every frame.
- * Correctness of the reverse direction rests on the frame loop issuing render and draw from a
- * single thread.
  */
 internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-metal-renderer")

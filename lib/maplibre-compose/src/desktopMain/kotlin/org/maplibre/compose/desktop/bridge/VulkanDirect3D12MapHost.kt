@@ -106,6 +106,7 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   private val retiredTextures = mutableMapOf<Long, Direct3DTextureTarget>()
   private var generation = 0L
   private var currentExtent = MlnFfiMapExtent.Empty
+  private var currentDevice = NativeHandle(0)
 
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12)
@@ -113,16 +114,11 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   override fun resize(extent: MlnFfiMapExtent) {
     // The device must be read on the caller's thread; reading it from the renderer thread hops to
     // the GPU thread, which is usually the thread blocked on this call.
-    val device =
-      if (extent.isEmpty) null
-      else {
-        val context = gpuHost.currentContext() ?: return
-        (context as? Direct3D12ComposeGpuContext)?.device
-          ?: throw MlnFfiHostException(
-            "${gpuHost.description} switched from Direct3D12ComposeGpuContext to " +
-              context::class.simpleName
-          )
-      }
+    val device = if (extent.isEmpty) null else currentDeviceOrNull() ?: return
+    resize(extent, device)
+  }
+
+  private fun resize(extent: MlnFfiMapExtent, device: NativeHandle?) {
     // Retired textures come back to the GPU thread, where they remain presentable until Compose
     // has drawn a newer generation. A resize can race ahead of the draw that presents the last
     // completed frame, and releasing that frame here would make the map flash transparent.
@@ -135,10 +131,17 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     extent: MlnFfiMapExtent,
     device: NativeHandle?,
   ): Direct3DTextureTarget? {
-    if (extent == currentExtent && importedTexture != null) {
+    if (extent == currentExtent && importedTexture != null && device == currentDevice) {
       return null
     }
-    val retired = recreateTexture(extent, device)
+    val deviceChanged = !currentDevice.isNull && device != currentDevice
+    val retired = retireTexture()
+    if (deviceChanged) {
+      val closing = vulkan
+      vulkan = null
+      closing?.close()
+    }
+    recreateTexture(extent, device)
     currentExtent = extent
     generation += 1
     return retired
@@ -149,8 +152,12 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrame {
-    if (importedTexture == null || extent != currentExtent) {
-      resize(extent)
+    val device = currentDeviceOrNull()
+    if (
+      device != null &&
+        (importedTexture == null || extent != currentExtent || device != currentDevice)
+    ) {
+      resize(extent, device)
     }
     return MlnFfiMapFrame(
       frameId = frameId,
@@ -201,20 +208,17 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   private fun target(generation: Long): MlnFfiRenderTarget =
     checkNotNull(importedTexture) { "Windows Vulkan texture is not initialized" }.target(generation)
 
-  /** Allocates the texture for [extent], returning the presentation target it replaced, if any. */
-  private fun recreateTexture(
-    extent: MlnFfiMapExtent,
-    device: NativeHandle?,
-  ): Direct3DTextureTarget? {
-    if (extent.isEmpty) return retireTexture()
+  /** Allocates the texture for [extent] after the previous target has been retired. */
+  private fun recreateTexture(extent: MlnFfiMapExtent, device: NativeHandle?) {
+    if (extent.isEmpty) return
 
     // An assertion, not a fallback: asking the host for a device here would hop to the GPU thread,
     // which is the thread waiting on this hop.
     val direct3DDevice =
       checkNotNull(device) { "resize() resolves the Direct3D device before this hop" }
     val storageExtent = extent
-    val retired = retireTexture()
     direct3DTexture = WindowsDirect3DInterop.createSharedTexture(direct3DDevice, storageExtent)
+    currentDevice = direct3DDevice
     var sharedHandle = NULL
     try {
       sharedHandle = WindowsDirect3DInterop.createSharedHandle(direct3DTexture)
@@ -223,14 +227,13 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
       val context = vulkan ?: WindowsVulkanContext.create(sharedHandle).also { vulkan = it }
       importedTexture = context.importDirect3DTexture(sharedHandle, storageExtent, extent)
     } catch (error: RuntimeException) {
-      // The half-built texture goes now; the one it replaced still goes back to the caller.
+      // The half-built texture goes now; the one it replaced already went back to the caller.
       retireTexture()?.let { releaseDirect3DTexture(it.texture) }
       throw error
     } finally {
       // Vulkan duplicates the handle rather than taking ownership, so this copy is always ours.
       WindowsDirect3DInterop.closeSharedHandle(sharedHandle)
     }
-    return retired
   }
 
   /**
@@ -242,7 +245,17 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     importedTexture?.close()
     importedTexture = null
     direct3DTexture = NativeHandle(0)
+    currentDevice = NativeHandle(0)
     return retired
+  }
+
+  private fun currentDeviceOrNull(): NativeHandle? {
+    val context = gpuHost.currentContext() ?: return null
+    return (context as? Direct3D12ComposeGpuContext)?.device
+      ?: throw MlnFfiHostException(
+        "${gpuHost.description} switched from Direct3D12ComposeGpuContext to " +
+          context::class.simpleName
+      )
   }
 
   /** The current D3D resource in the shape Skia needs to present it. */

@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -175,6 +177,19 @@ class MlnFfiMapInputTest {
   }
 
   @Test
+  fun a_map_click_does_not_also_click_its_parent() {
+    val parentClicks = AtomicInteger()
+
+    runInputTest(focusWithMouse = false, parentOnClick = parentClicks::incrementAndGet) {
+      onRoot().performMouseInput { click(center) }
+      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
+      waitForIdle()
+
+      assertEquals(0, parentClicks.get())
+    }
+  }
+
+  @Test
   fun one_finger_pans_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
       val before = camera.position.target.longitude
@@ -307,6 +322,31 @@ class MlnFfiMapInputTest {
     }
 
   @Test
+  fun a_double_tap_drag_pans_when_quick_zoom_is_disabled() =
+    runInputTest(
+      gestures =
+        GestureOptions(
+          isQuickZoomEnabled = false,
+          isFlingEnabled = false,
+          isPinchZoomVelocityEnabled = false,
+        ),
+      focusWithMouse = false,
+    ) { camera ->
+      val before = camera.position
+      onRoot().performTouchInput {
+        click(center)
+        down(0, center)
+        moveTo(0, center + Offset(80f, 0f), delayMillis = 100)
+        up(0)
+      }
+
+      waitUntil(timeoutMillis = TIMEOUT) {
+        camera.position.target.longitude != before.target.longitude
+      }
+      assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
   fun quick_zoom_uses_the_resized_viewport() {
     val mapHeight = mutableStateOf(500.dp)
     val gestures = GestureOptions(isPinchZoomVelocityEnabled = false)
@@ -427,6 +467,7 @@ class MlnFfiMapInputTest {
     gestures: GestureOptions = GestureOptions.Standard,
     focusWithMouse: Boolean = true,
     mapModifier: @Composable () -> Modifier = { Modifier.fillMaxSize() },
+    parentOnClick: (() -> Unit)? = null,
     body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInteger()
@@ -437,18 +478,22 @@ class MlnFfiMapInputTest {
         rememberCameraState(
           firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
         )
-      MaplibreMap(
-        modifier = mapModifier(),
-        baseStyle = BaseStyle.Empty,
-        cameraState = cameraState,
-        options = MapOptions(gestureOptions = gestures),
-        onMapClick = { position, _ ->
-          clicks.add(position)
-          ClickResult.Pass
-        },
-        onFrame = { frames.incrementAndGet() },
-        logger = Logger.withTag("input-test"),
-      )
+      val content: @Composable () -> Unit = {
+        MaplibreMap(
+          modifier = mapModifier(),
+          baseStyle = BaseStyle.Empty,
+          cameraState = cameraState,
+          options = MapOptions(gestureOptions = gestures),
+          onMapClick = { position, _ ->
+            clicks.add(position)
+            ClickResult.Pass
+          },
+          onFrame = { frames.incrementAndGet() },
+          logger = Logger.withTag("input-test"),
+        )
+      }
+      if (parentOnClick == null) content()
+      else Box(Modifier.fillMaxSize().clickable(onClick = parentOnClick)) { content() }
     }
 
     waitUntil(timeoutMillis = TIMEOUT) { frames.get() > 0 }
