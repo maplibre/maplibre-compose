@@ -85,6 +85,14 @@ private constructor(
   private val environment: DesktopTestGpuEnvironment,
   private val bridge: MlnFfiMapHost,
 ) : FfiTestRenderDriver, MlnFfiMapHost by bridge {
+  override fun acquireFrame(
+    frameId: Long,
+    extent: MlnFfiMapExtent,
+    presentationTimeNanos: Long?,
+  ): MlnFfiMapFrame = environment.withContext {
+    bridge.acquireFrame(frameId, extent, presentationTimeNanos)
+  }
+
   override fun present(target: MlnFfiRenderTarget): Boolean = environment.present(bridge, target)
 
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean = present(target)
@@ -142,7 +150,7 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
   private var destinationWidth = 0
   private var destinationHeight = 0
 
-  protected abstract fun <T> withContext(action: (ComposeGpuContext) -> T): T
+  abstract fun <T> withContext(action: (ComposeGpuContext) -> T): T
 
   fun present(bridge: MlnFfiMapHost, target: MlnFfiRenderTarget): Boolean = withContext { context ->
     val width = target.extent.physicalWidth

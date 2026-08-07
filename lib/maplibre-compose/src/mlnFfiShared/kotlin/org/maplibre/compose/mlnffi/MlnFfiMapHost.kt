@@ -55,7 +55,8 @@ internal interface MlnFfiMapHost : AutoCloseable {
 
   /**
    * Acquires the next frame to render into. Throws if no target can be produced; the caller reports
-   * that as surface failure rather than retrying.
+   * that as surface failure rather than retrying. Called from the consumer's draw callback, so the
+   * host may use the consumer graphics context that is current there.
    */
   fun acquireFrame(
     frameId: Long,
@@ -129,4 +130,7 @@ internal val LocalMlnFfiMapHostFactory: ProvidableCompositionLocal<MlnFfiMapHost
 
 /** Observes surface lifecycle changes; null outside diagnostics and library integration tests. */
 internal val LocalMlnFfiMapSurfaceStateObserver:
-  ProvidableCompositionLocal<((MlnFfiMapSurfaceState) -> Unit)?> = staticCompositionLocalOf { null }
+  ProvidableCompositionLocal<((MlnFfiMapSurfaceState) -> Unit)?> =
+  staticCompositionLocalOf {
+    null
+  }
