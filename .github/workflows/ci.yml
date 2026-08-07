@@ -125,7 +125,7 @@ jobs:
           fetch-depth: 0
       - uses: ./.github/actions/setup-desktop-vulkan
       - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew desktopTest
+      - run: ./gradlew desktopTest --info
 
   build-docs:
     timeout-minutes: 30
