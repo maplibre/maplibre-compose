@@ -2,15 +2,9 @@ name: Setup desktop Vulkan
 description: >-
   Give the runner a Vulkan implementation the desktop GPU tests can drive.
 
-# The desktop test suite renders through a real Vulkan device (HeadlessVulkanMapHost), on every
-# platform including macOS, because the headless host has no Metal equivalent. Without a loader
-# and an ICD those tests fail, which is deliberate — they used to bail out instead, and a test
-# that returns before asserting is recorded as passed, so CI reported green while running none of
-# them. See HeadlessVulkanMapHost.create.
-#
-# A software implementation is enough and is what CI wants: lavapipe on Linux and Windows,
-# MoltenVK over the Homebrew loader on macOS. The recipes follow maplibre-native-ffi's own CI,
-# which solves the same problem for the same tests.
+# The desktop GPU tests render through a real Vulkan device (HeadlessVulkanMapHost) and fail
+# rather than skip without one, so CI supplies a software implementation: lavapipe on Linux and
+# Windows. macOS needs nothing here; LWJGL's Vulkan natives bundle MoltenVK.
 
 runs:
   using: composite
@@ -31,13 +25,6 @@ runs:
           echo "EGL_PLATFORM=surfaceless"
           echo "LIBGL_ALWAYS_SOFTWARE=true"
         } >> "$GITHUB_ENV"
-
-    # macOS ships no Vulkan loader at all, so both halves come from Homebrew: the loader, and
-    # MoltenVK as the ICD behind it. This is what `mise run bootstrap` installs for contributors.
-    - name: Install the Vulkan loader and MoltenVK (macOS)
-      if: runner.os == 'macOS'
-      shell: bash
-      run: brew install --quiet vulkan-loader molten-vk
 
     - name: Install a Lavapipe ICD (Windows)
       if: runner.os == 'Windows'

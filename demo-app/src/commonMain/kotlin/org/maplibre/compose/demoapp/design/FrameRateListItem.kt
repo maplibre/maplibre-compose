@@ -10,8 +10,10 @@ import kotlin.math.roundToLong
 import org.maplibre.compose.demoapp.FrameRateState
 
 /**
- * Shows how fast the map is actually drawing. The number to expect is zero: frames are requested
- * rather than continuous, so anything above zero on a still map is work it was not asked for.
+ * Shows how fast the map is actually drawing. Frames are requested rather than continuous, so on a
+ * still map the number to expect is zero; anything above is work the map was not asked for. The
+ * exception is animated layers (see `AnimatedLayerDemo`), which request a frame per tick and hold a
+ * steady nonzero rate by design.
  */
 @Composable
 fun FrameRateListItem(state: FrameRateState, modifier: Modifier = Modifier) {
