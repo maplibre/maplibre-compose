@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.foundation.layout.size
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
@@ -10,11 +11,44 @@ import co.touchlab.kermit.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 
 /** A frame that fails once must not blank the map forever, and retries must be bounded. */
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapSurfaceRecoveryTest {
+
+  @Test
+  fun a_host_creation_failure_reaches_the_surface_state_observer_immediately() =
+    runFfiComposeUiTest {
+      val cause = IllegalStateException("deliberate host creation failure")
+      val factory =
+        object : MlnFfiMapHostFactory {
+          override val description = "deliberately failing test host"
+          override val supportedBackends =
+            setOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
+
+          override fun create(producer: MapRenderBackend): MlnFfiMapHostResult =
+            MlnFfiMapHostResult.Failed("could not create the deliberate test host", cause)
+        }
+      var observed: MlnFfiMapSurfaceState = MlnFfiMapSurfaceState.Initializing
+
+      setContent {
+        CompositionLocalProvider(LocalMlnFfiMapSurfaceStateObserver provides { observed = it }) {
+          MlnFfiMapSurface(
+            renderer = RecordingRenderer(),
+            runtimeBackends = setOf(MapRenderBackend.VULKAN),
+            factory = factory,
+            modifier = Modifier.size(64.dp),
+          )
+        }
+      }
+      waitUntil(timeoutMillis = 1_000) { observed is MlnFfiMapSurfaceState.Failed }
+
+      val failed = assertIs<MlnFfiMapSurfaceState.Failed>(observed)
+      assertEquals("could not create the deliberate test host", failed.diagnostic)
+      assertSame(cause, failed.cause)
+    }
 
   @Test
   fun a_host_that_fails_one_acquire_recovers_and_renders_a_later_frame() = runFfiComposeUiTest {

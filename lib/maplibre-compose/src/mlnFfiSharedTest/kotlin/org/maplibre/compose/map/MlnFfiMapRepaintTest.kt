@@ -18,10 +18,10 @@ import kotlin.time.TimeSource
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
-import org.maplibre.compose.mlnffi.FfiTestMapContent
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
+import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -86,16 +86,14 @@ class MlnFfiMapRepaintTest {
     runFfiComposeUiTest {
       val frames = AtomicInteger()
 
-      setContent {
-        FfiTestMapContent(runtimeOptions) {
-          MaplibreMap(
-            modifier = Modifier,
-            baseStyle = BaseStyle.Empty,
-            logger = Logger.withTag("repaint-test"),
-            onFrame = { frames.incrementAndGet() },
-            content = content,
-          )
-        }
+      setFfiTestMapContent(runtimeOptions) {
+        MaplibreMap(
+          modifier = Modifier,
+          baseStyle = BaseStyle.Empty,
+          logger = Logger.withTag("repaint-test"),
+          onFrame = { frames.incrementAndGet() },
+          content = content,
+        )
       }
 
       // The map advances on a thread of its own, so settling means observing a real quiet window.

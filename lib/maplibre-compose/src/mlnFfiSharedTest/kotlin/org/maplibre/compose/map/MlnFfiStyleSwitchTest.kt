@@ -19,10 +19,10 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.FillLayer
-import org.maplibre.compose.mlnffi.FfiTestMapContent
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
+import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -59,30 +59,28 @@ class MlnFfiStyleSwitchTest {
     var extraLayer by mutableStateOf(false)
     lateinit var cameraState: CameraState
 
-    setContent {
-      FfiTestMapContent(runtimeOptions) {
-        cameraState = rememberCameraState()
-        MaplibreMap(
-          modifier = Modifier,
-          baseStyle = style.base,
-          cameraState = cameraState,
-          logger = Logger.withTag("style-switch-test"),
-          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-          onMapLoadFinished = { loadsFinished++ },
-          onFrame = { frames.incrementAndGet() },
-        ) {
-          val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-          // Two layers on one source at different anchors, so the re-add order matters.
-          CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
-          // A different base-style anchor per style, so the anchor changes in the same
-          // recomposition as the style itself.
-          Anchor.At(style.anchor) {
-            FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-            // Comes and goes across the rotation, covering removal of a layer that was added while
-            // its anchor was unresolvable.
-            if (extraLayer) {
-              FillLayer(id = "user-extra", source = points, color = const(Color.Green))
-            }
+    setFfiTestMapContent(runtimeOptions) {
+      cameraState = rememberCameraState()
+      MaplibreMap(
+        modifier = Modifier,
+        baseStyle = style.base,
+        cameraState = cameraState,
+        logger = Logger.withTag("style-switch-test"),
+        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        onMapLoadFinished = { loadsFinished++ },
+        onFrame = { frames.incrementAndGet() },
+      ) {
+        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+        // Two layers on one source at different anchors, so the re-add order matters.
+        CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
+        // A different base-style anchor per style, so the anchor changes in the same
+        // recomposition as the style itself.
+        Anchor.At(style.anchor) {
+          FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
+          // Comes and goes across the rotation, covering removal of a layer that was added while
+          // its anchor was unresolvable.
+          if (extraLayer) {
+            FillLayer(id = "user-extra", source = points, color = const(Color.Green))
           }
         }
       }

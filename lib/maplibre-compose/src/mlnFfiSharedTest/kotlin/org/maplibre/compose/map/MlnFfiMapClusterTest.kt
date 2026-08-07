@@ -20,10 +20,10 @@ import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
-import org.maplibre.compose.mlnffi.FfiTestMapContent
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
+import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -63,27 +63,25 @@ class MlnFfiMapClusterTest {
     lateinit var source: GeoJsonSource
     lateinit var cameraState: CameraState
 
-    setContent {
-      FfiTestMapContent(runtimeOptions) {
-        cameraState =
-          rememberCameraState(
-            firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
+    setFfiTestMapContent(runtimeOptions) {
+      cameraState =
+        rememberCameraState(
+          firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
+        )
+      MaplibreMap(
+        modifier = Modifier.fillMaxSize(),
+        baseStyle = BaseStyle.Empty,
+        cameraState = cameraState,
+        logger = Logger.withTag("cluster-test"),
+        onFrame = { frames.incrementAndGet() },
+      ) {
+        source =
+          rememberGeoJsonSource(
+            data = GeoJsonData.Features(nearbyPoints()),
+            // Zoomed out far enough that all three points fall inside one cluster.
+            options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
           )
-        MaplibreMap(
-          modifier = Modifier.fillMaxSize(),
-          baseStyle = BaseStyle.Empty,
-          cameraState = cameraState,
-          logger = Logger.withTag("cluster-test"),
-          onFrame = { frames.incrementAndGet() },
-        ) {
-          source =
-            rememberGeoJsonSource(
-              data = GeoJsonData.Features(nearbyPoints()),
-              // Zoomed out far enough that all three points fall inside one cluster.
-              options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
-            )
-          CircleLayer(id = "clusters", source = source, color = const(Color.Red))
-        }
+        CircleLayer(id = "clusters", source = source, color = const(Color.Red))
       }
     }
 

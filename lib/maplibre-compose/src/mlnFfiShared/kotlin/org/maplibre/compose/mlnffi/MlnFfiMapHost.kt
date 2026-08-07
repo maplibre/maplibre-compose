@@ -126,3 +126,7 @@ internal val LocalMlnFfiMapHostFactory: ProvidableCompositionLocal<MlnFfiMapHost
   staticCompositionLocalOf {
     null
   }
+
+/** Observes surface lifecycle changes; null outside diagnostics and library integration tests. */
+internal val LocalMlnFfiMapSurfaceStateObserver:
+  ProvidableCompositionLocal<((MlnFfiMapSurfaceState) -> Unit)?> = staticCompositionLocalOf { null }

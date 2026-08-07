@@ -36,10 +36,10 @@ import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
-import org.maplibre.compose.mlnffi.FfiTestMapContent
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
+import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
@@ -432,25 +432,23 @@ class MlnFfiMapInputTest {
     val frames = AtomicInteger()
     lateinit var cameraState: CameraState
 
-    setContent {
-      FfiTestMapContent(runtimeOptions) {
-        cameraState =
-          rememberCameraState(
-            firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
-          )
-        MaplibreMap(
-          modifier = mapModifier(),
-          baseStyle = BaseStyle.Empty,
-          cameraState = cameraState,
-          options = MapOptions(gestureOptions = gestures),
-          onMapClick = { position, _ ->
-            clicks.add(position)
-            ClickResult.Pass
-          },
-          onFrame = { frames.incrementAndGet() },
-          logger = Logger.withTag("input-test"),
+    setFfiTestMapContent(runtimeOptions) {
+      cameraState =
+        rememberCameraState(
+          firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
         )
-      }
+      MaplibreMap(
+        modifier = mapModifier(),
+        baseStyle = BaseStyle.Empty,
+        cameraState = cameraState,
+        options = MapOptions(gestureOptions = gestures),
+        onMapClick = { position, _ ->
+          clicks.add(position)
+          ClickResult.Pass
+        },
+        onFrame = { frames.incrementAndGet() },
+        logger = Logger.withTag("input-test"),
+      )
     }
 
     waitUntil(timeoutMillis = TIMEOUT) { frames.get() > 0 }

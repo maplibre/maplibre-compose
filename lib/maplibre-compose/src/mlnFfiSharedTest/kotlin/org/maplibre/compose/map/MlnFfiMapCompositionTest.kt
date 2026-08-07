@@ -28,10 +28,10 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.FillLayer
-import org.maplibre.compose.mlnffi.FfiTestMapContent
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
+import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
 import org.maplibre.compose.sources.GeoJsonData
@@ -287,9 +287,7 @@ class MlnFfiMapCompositionTest {
   ) = runFfiComposeUiTest {
     val errors = CopyOnWriteArrayList<String>()
     val frames = AtomicInteger()
-    setContent {
-      FfiTestMapContent(runtimeOptions) { content(errors) { frames.incrementAndGet() } }
-    }
+    setFfiTestMapContent(runtimeOptions) { content(errors) { frames.incrementAndGet() } }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.get() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
     body(errors)

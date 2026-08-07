@@ -41,6 +41,7 @@ internal fun MlnFfiMapSurface(
   onStateChanged: (MlnFfiMapSurfaceState) -> Unit = {},
 ) {
   val density = LocalDensity.current
+  val stateObserver = LocalMlnFfiMapSurfaceStateObserver.current
   var extent by remember { mutableStateOf(MlnFfiMapExtent.Empty) }
   var frameRequest by remember { mutableLongStateOf(0L) }
   var state by remember {
@@ -64,6 +65,7 @@ internal fun MlnFfiMapSurface(
       else -> Unit
     }
     onStateChanged(state)
+    stateObserver?.invoke(state)
   }
 
   val creation = hostResult
