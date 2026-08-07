@@ -237,7 +237,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private var maximumFps: Int? = null
+  @Volatile private var maximumFps: Int? = null
   private var lastRenderTime = TimeSource.Monotonic.markNow()
 
   private val frameTimer = TimeSource.Monotonic
@@ -399,6 +399,7 @@ internal class MlnFfiMapSession(
       }
       // Where the camera is now, not where it was last asked to be, and read before the loop stops.
       existing.call { it.camera.toCameraPosition() }?.let(::recordCamera)
+      styleBinding?.unload()
       stopLoop()
       // The new map starts styleless, so the style must not be skipped as already applied.
       appliedStyle = null

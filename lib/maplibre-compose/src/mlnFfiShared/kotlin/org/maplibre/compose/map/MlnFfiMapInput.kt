@@ -223,6 +223,7 @@ private class MapPointerGesture(
   private var quickZoomAppliedDelta = 0.0
   private var lastQuickZoomSpanDeltaPixels = 0.0
   private var longClickJob: Job? = null
+  private var longClickHandled = false
 
   private var lastClickAt: Long? = null
   private var lastClickOrigin = Offset.Zero
@@ -271,6 +272,7 @@ private class MapPointerGesture(
     pressedShifted = event.keyboardModifiers.isShiftPressed
     pressedType = change.type
     pressStartedAtMillis = change.uptimeMillis
+    longClickHandled = false
     quickZoomCandidate =
       change.type != PointerType.Mouse &&
         options.isQuickZoomEnabled &&
@@ -290,10 +292,13 @@ private class MapPointerGesture(
     session.cancelTransitions()
 
     if (change.type != PointerType.Mouse && !quickZoomCandidate) {
+      // Claim the touch press before parent recognizers reach their long-click timeout.
+      change.consume()
       val origin = change.position
       longClickJob = scope.launch {
         delay(longClickTimeoutMillis)
         if (clickOrigin == origin && !gestureInProgress && mode == Mode.SINGLE) {
+          longClickHandled = true
           clickOrigin = null
           continuation.finish(session::onGestureEnded)
           session.onSecondaryClick(origin.toLogicalDpOffset(density))
@@ -610,6 +615,7 @@ private class MapPointerGesture(
   /** A pointer-up ends a drag, or completes a click if the press never travelled past the slop. */
   private fun onRelease(event: PointerEvent) {
     val origin = clickOrigin
+    val handledLongClick = longClickHandled
     val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
     cancelLongClick()
     val continuationDuration =
@@ -627,13 +633,15 @@ private class MapPointerGesture(
     twoFingerPanning = false
     scaleAlongsideRotation = false
     clickOrigin = null
+    longClickHandled = false
     quickZoomCandidate = false
     twoFingerTap = null
     mode = Mode.NONE
 
     if (
       (!gestureInProgress && completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) ||
-        origin != null
+        origin != null ||
+        handledLongClick
     ) {
       event.changes.forEach(PointerInputChange::consume)
     }
@@ -865,6 +873,7 @@ private class MapPointerGesture(
   /** Clears session state if this pointer-input coroutine is replaced or disposed. */
   fun cancel() {
     cancelLongClick()
+    longClickHandled = false
     deferredTwoFingerVelocity = null
     cancelPendingTouchClick()
     if (gestureInProgress) {

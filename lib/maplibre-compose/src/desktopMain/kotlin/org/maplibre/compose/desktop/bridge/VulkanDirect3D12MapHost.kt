@@ -124,29 +124,36 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     // Retired textures come back to the GPU thread, where they remain presentable until Compose
     // has drawn a newer generation. A resize can race ahead of the draw that presents the last
     // completed frame, and releasing that frame here would make the map flash transparent.
-    val retired = rendererThread.run { resizeOnRendererThread(extent, device) }
-    retired?.let { retiredTextures[it.generation] = it }
+    val result = rendererThread.run { resizeOnRendererThread(extent, device) }
+    if (result.failure != null) {
+      result.retired.forEach { releaseDirect3DTexture(it.texture) }
+      throw result.failure
+    }
+    result.retired.singleOrNull()?.let { retiredTextures[it.generation] = it }
   }
 
-  /** Reallocates the texture, returning the presentation target it replaced. */
-  private fun resizeOnRendererThread(
-    extent: MlnFfiMapExtent,
-    device: NativeHandle?,
-  ): Direct3DTextureTarget? {
+  /** Reallocates the texture, detaching every target the caller must release or retain. */
+  private fun resizeOnRendererThread(extent: MlnFfiMapExtent, device: NativeHandle?): ResizeResult {
     if (extent == currentExtent && importedTexture != null && device == currentDevice) {
-      return null
+      return ResizeResult()
     }
     val deviceChanged = !currentDevice.isNull && device != currentDevice
-    val retired = retireTexture()
+    val retired = mutableListOf<Direct3DTextureTarget>()
+    retireTexture()?.let(retired::add)
     if (deviceChanged) {
       val closing = vulkan
       vulkan = null
       closing?.close()
     }
-    recreateTexture(extent, device)
+    try {
+      recreateTexture(extent, device)
+    } catch (error: Throwable) {
+      retireTexture()?.let(retired::add)
+      return ResizeResult(retired, error)
+    }
     currentExtent = extent
     generation += 1
-    return retired
+    return ResizeResult(retired)
   }
 
   override fun acquireFrame(
@@ -232,10 +239,6 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
       // context cannot be created before there is a texture to share.
       val context = vulkan ?: WindowsVulkanContext.create(sharedHandle).also { vulkan = it }
       importedTexture = context.importDirect3DTexture(sharedHandle, storageExtent, extent)
-    } catch (error: RuntimeException) {
-      // The half-built texture goes now; the one it replaced already went back to the caller.
-      retireTexture()?.let { releaseDirect3DTexture(it.texture) }
-      throw error
     } finally {
       // Vulkan duplicates the handle rather than taking ownership, so this copy is always ours.
       WindowsDirect3DInterop.closeSharedHandle(sharedHandle)
@@ -307,6 +310,11 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     presenter.forget(texture)
     WindowsDirect3DInterop.release(texture)
   }
+
+  private data class ResizeResult(
+    val retired: List<Direct3DTextureTarget> = emptyList(),
+    val failure: Throwable? = null,
+  )
 }
 
 /** The Vulkan instance, device, and queue MapLibre renders with on Windows. */

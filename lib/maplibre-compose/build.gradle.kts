@@ -126,15 +126,6 @@ kotlin {
     // test process; a CI matrix adds processes for additional applicable backends.
     val desktopTest by getting
     desktopTest.dependencies {
-      val platform = DesktopHostPlatform.current()
-      platform
-        .runtimeDependencies(
-          backend = platform.defaultRenderBackend,
-          ffiVersion = libs.versions.maplibre.nativeFfi.get(),
-          lwjglVersion = libs.versions.lwjgl.get(),
-        )
-        .forEach { runtimeOnly(it) }
-
       // Only the EGL interop test binds EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
     }
@@ -146,6 +137,21 @@ kotlin {
       implementation(libs.androidx.composeUi.testManifest)
     }
   }
+}
+
+configurations.named("desktopTestRuntimeOnly") {
+  dependencies.addAllLater(
+    providers.provider {
+      val platform = DesktopHostPlatform.current()
+      platform
+        .runtimeDependencies(
+          backend = platform.defaultRenderBackend,
+          ffiVersion = libs.versions.maplibre.nativeFfi.get(),
+          lwjglVersion = libs.versions.lwjgl.get(),
+        )
+        .map(project.dependencies::create)
+    }
+  )
 }
 
 compose.resources { packageOfResClass = "org.maplibre.compose.generated" }

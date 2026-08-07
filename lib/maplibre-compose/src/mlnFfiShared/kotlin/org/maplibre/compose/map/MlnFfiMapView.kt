@@ -11,11 +11,13 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
+import org.maplibre.compose.mlnffi.BackendSelection
 import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
+import org.maplibre.compose.mlnffi.selectBackends
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -39,13 +41,26 @@ internal fun MlnFfiMapView(
 
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
+  val renderBackend =
+    remember(factory, runtimeBackends) {
+      val selection =
+        selectBackends(
+          runtimeBackends = runtimeBackends,
+          hostBackends = factory.supportedBackends,
+          hostDescription = factory.description,
+          operatingSystem = System.getProperty("os.name") ?: "unknown",
+          architecture = System.getProperty("os.arch") ?: "unknown",
+        )
+      (selection as? BackendSelection.Selected)?.backends?.producer
+        ?: preferredBackend(runtimeBackends)
+    }
 
   val session =
-    remember(factory, layoutDirection, runtimeOptions) {
+    remember(factory, renderBackend, layoutDirection, runtimeOptions) {
       MlnFfiMapSession(
         callbacks = callbacks,
         logger = logger,
-        renderBackend = preferredBackend(runtimeBackends),
+        renderBackend = renderBackend,
         layoutDirection = layoutDirection,
         runtimeOptions = runtimeOptions,
       )
@@ -110,8 +125,8 @@ private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
   }
 
 /**
- * Picks the backend the session will ask the host for. The host factory has the final say during
- * negotiation; this only has to name something the runtime can actually do.
+ * Picks a fallback for an unavailable surface, so the session can still accept and abandon queued
+ * map work cleanly.
  */
 private fun preferredBackend(runtimeBackends: Set<MapRenderBackend>): MapRenderBackend =
   when {

@@ -2,10 +2,15 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.MlnFfiStyle
 
 /**
  * A resize must retarget the live session (maplibre-native-ffi #485) rather than re-attach, which
@@ -80,6 +85,28 @@ class MlnFfiMapResizeTest {
         fixture.session.attachCount > attaches,
         "a scale factor change must attach rather than retarget",
       )
+    }
+  }
+
+  @Test
+  fun a_scale_factor_change_unloads_descriptors_from_the_replaced_map() {
+    val fixture = BridgeMapFixture.create()
+    fixture.use {
+      fixture.loadStyle(BaseStyle.Json(EMPTY_STYLE))
+      val style = assertNotNull(fixture.style as? MlnFfiStyle)
+      val source =
+        RasterSource(
+          id = "old-map-source",
+          tiles = listOf("https://example.com/{z}/{x}/{y}.png"),
+          options = TileSetOptions(),
+          tileSize = 256,
+        )
+      style.addSource(source)
+      assertTrue(source.isAttached)
+
+      fixture.frame(BridgeMapFixture.RETINA_EXTENT)
+
+      assertFalse(source.isAttached, "a descriptor must stop writing to the replaced map")
     }
   }
 

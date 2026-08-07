@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -55,6 +56,7 @@ class MlnFfiMapInputTest {
 
   /** Every click the map reported, including the one [runInputTest] uses to take focus. */
   private val clicks = mutableListOf<Position>()
+  private val longClicks = mutableListOf<Position>()
 
   private val runtimeOptions =
     MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
@@ -187,6 +189,22 @@ class MlnFfiMapInputTest {
       waitForIdle()
 
       assertEquals(0, parentClicks.get())
+    }
+  }
+
+  @Test
+  fun a_map_long_click_does_not_also_long_click_its_parent() {
+    val parentLongClicks = AtomicInteger()
+
+    runInputTest(focusWithMouse = false, parentOnLongClick = parentLongClicks::incrementAndGet) {
+      val map = onRoot()
+      map.performTouchInput { down(0, center) }
+      mainClock.advanceTimeBy(1_000)
+      waitUntil(timeoutMillis = TIMEOUT) { longClicks.size == 1 }
+      map.performTouchInput { up(0) }
+      waitForIdle()
+
+      assertEquals(0, parentLongClicks.get())
     }
   }
 
@@ -489,6 +507,7 @@ class MlnFfiMapInputTest {
     focusWithMouse: Boolean = true,
     mapModifier: @Composable () -> Modifier = { Modifier.fillMaxSize() },
     parentOnClick: (() -> Unit)? = null,
+    parentOnLongClick: (() -> Unit)? = null,
     body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInteger()
@@ -509,12 +528,25 @@ class MlnFfiMapInputTest {
             clicks.add(position)
             ClickResult.Pass
           },
+          onMapLongClick = { position, _ ->
+            longClicks.add(position)
+            ClickResult.Pass
+          },
           onFrame = { frames.incrementAndGet() },
           logger = Logger.withTag("input-test"),
         )
       }
-      if (parentOnClick == null) content()
-      else Box(Modifier.fillMaxSize().clickable(onClick = parentOnClick)) { content() }
+      when {
+        parentOnLongClick != null ->
+          Box(
+            Modifier.fillMaxSize().combinedClickable(onClick = {}, onLongClick = parentOnLongClick)
+          ) {
+            content()
+          }
+        parentOnClick != null ->
+          Box(Modifier.fillMaxSize().clickable(onClick = parentOnClick)) { content() }
+        else -> content()
+      }
     }
 
     waitUntil(timeoutMillis = TIMEOUT) { frames.get() > 0 }
