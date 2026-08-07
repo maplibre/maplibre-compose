@@ -11,7 +11,9 @@ import dev.sargunv.composeglfw.Window
 import dev.sargunv.composeglfw.glfwApplication
 import dev.sargunv.composeglfw.rememberWindowState
 import org.maplibre.compose.demoapp.DemoApp
+import org.maplibre.compose.desktop.DesktopRuntimeOptions
 import org.maplibre.compose.desktop.ProvideMapHost
+import org.maplibre.compose.desktop.desktopCachePath
 
 /**
  * The same `DemoApp` the Compose Desktop demo runs, in a GLFW window instead of an AWT one; the
@@ -28,7 +30,13 @@ fun main() = glfwApplication {
   ) {
     InstallGlfwMainDispatcher()
     LogGlfwScale()
-    ProvideMapHost(rememberGlfwComposeGpuHost()) { DemoApp() }
+    ProvideMapHost(
+      host = rememberGlfwComposeGpuHost(),
+      runtimeOptions =
+        DesktopRuntimeOptions(cachePath = desktopCachePath("org.maplibre.compose.glfw-fixture")),
+    ) {
+      DemoApp()
+    }
   }
 }
 
