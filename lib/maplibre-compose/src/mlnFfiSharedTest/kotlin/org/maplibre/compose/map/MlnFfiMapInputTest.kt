@@ -1,15 +1,21 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.doubleClick
 import androidx.compose.ui.test.moveBy
 import androidx.compose.ui.test.moveTo
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performMouseInput
@@ -18,6 +24,7 @@ import androidx.compose.ui.test.pinch
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.withKeyDown
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.abs
@@ -25,6 +32,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
@@ -298,6 +306,78 @@ class MlnFfiMapInputTest {
       waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom < START_ZOOM - 0.25 }
     }
 
+  @Test
+  fun quick_zoom_uses_the_resized_viewport() {
+    val mapHeight = mutableStateOf(500.dp)
+    val gestures = GestureOptions(isPinchZoomVelocityEnabled = false)
+
+    runInputTest(
+      gestures = gestures,
+      focusWithMouse = false,
+      mapModifier = { Modifier.fillMaxWidth().height(mapHeight.value).testTag(RESIZABLE_MAP_TAG) },
+    ) { camera ->
+      val map = onNodeWithTag(RESIZABLE_MAP_TAG)
+      val initialHeight = map.fetchSemanticsNode().size.height
+      // Start the pointer-input coroutine while the map still has its original dimensions.
+      map.performMouseInput { click(center) }
+
+      mapHeight.value = 250.dp
+      waitUntil(timeoutMillis = TIMEOUT) { map.fetchSemanticsNode().size.height < initialHeight }
+      val resizedHeight = map.fetchSemanticsNode().size.height
+      val displacement = resizedHeight / 4f
+      val before = camera.position
+
+      map.performTouchInput {
+        click(center)
+        down(0, center)
+        moveTo(0, center + Offset(0f, displacement), delayMillis = 100)
+        up(0)
+      }
+
+      val expectedZoom =
+        before.zoom + displacement / resizedHeight * gestures.quickZoomMaxZoomChange
+      waitUntil(timeoutMillis = TIMEOUT) {
+        abs(camera.position.zoom - expectedZoom) < ZOOM_TOLERANCE
+      }
+      assertEquals(before.target.longitude, camera.position.target.longitude, 1e-5, "longitude")
+      assertEquals(before.target.latitude, camera.position.target.latitude, 1e-5, "latitude")
+    }
+  }
+
+  @Test
+  fun mouse_wheel_cancels_touch_zoom_momentum() =
+    runInputTest(
+      gestures = GestureOptions(animationDuration = Duration.ZERO),
+      focusWithMouse = false,
+    ) { camera ->
+      val map = onRoot()
+      val viewportHeight = map.fetchSemanticsNode().size.height
+      val displacement = viewportHeight / 4f
+      val expectedZoom = START_ZOOM + displacement / viewportHeight * 4.0 + 1.0
+
+      mainClock.autoAdvance = false
+      try {
+        map.performTouchInput {
+          click(center)
+          down(0, center)
+          moveTo(0, center + Offset(0f, displacement), delayMillis = 100)
+          up(0)
+        }
+        map.performMouseInput {
+          moveTo(center)
+          scroll(-1f)
+        }
+        mainClock.advanceTimeBy(2_000)
+      } finally {
+        mainClock.autoAdvance = true
+      }
+
+      waitUntil(timeoutMillis = TIMEOUT) {
+        abs(camera.position.zoom - expectedZoom) < ZOOM_TOLERANCE
+      }
+      assertEquals(expectedZoom, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
   /** Waits for the camera to settle at [zoom], failing with the value it stopped at. */
   private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: CameraState, zoom: Double) {
     waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.zoom - zoom) < ZOOM_TOLERANCE }
@@ -321,6 +401,7 @@ class MlnFfiMapInputTest {
   private fun runInputTest(
     gestures: GestureOptions = GestureOptions.Standard,
     focusWithMouse: Boolean = true,
+    mapModifier: @Composable () -> Modifier = { Modifier.fillMaxSize() },
     body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInteger()
@@ -333,7 +414,7 @@ class MlnFfiMapInputTest {
             firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
           )
         MaplibreMap(
-          modifier = Modifier.fillMaxSize(),
+          modifier = mapModifier(),
           baseStyle = BaseStyle.Empty,
           cameraState = cameraState,
           options = MapOptions(gestureOptions = gestures),
@@ -363,6 +444,7 @@ class MlnFfiMapInputTest {
   private companion object {
     const val TIMEOUT = 30_000L
     const val START_ZOOM = 4.0
+    const val RESIZABLE_MAP_TAG = "resizable-map"
 
     /** A zoom about the centre still drifts the target a hair through the projection. */
     const val TARGET_TOLERANCE = 1e-6
