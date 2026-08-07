@@ -376,11 +376,55 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
 
   override fun close() {
     closeDestination()
-    EventQueue.invokeAndWait { window.dispose() }
+    scheduleDisposal(this)
   }
 
   companion object {
-    fun create(): Direct3D12TestGpuEnvironment {
+    /**
+     * Skiko tears a window's Direct3D device down asynchronously after [ComposeWindow.dispose].
+     * Replacing the window between test methods can therefore race the next device's startup and
+     * crash the test VM in the native graphics driver. Keep one consumer device for the worker;
+     * every fixture still closes its destination surface and production bridge independently.
+     */
+    private const val DISPOSAL_DELAY_MILLIS = 1_000L
+    private val sharedLock = Any()
+    private var shared: Direct3D12TestGpuEnvironment? = null
+    private var disposalGeneration = 0L
+
+    fun create(): Direct3D12TestGpuEnvironment = synchronized(sharedLock) {
+      disposalGeneration += 1
+      shared ?: createShared().also { shared = it }
+    }
+
+    /**
+     * Leaves a short reuse window between methods, then disposes the last window so AWT does not
+     * keep the Gradle worker alive. A new fixture invalidates the pending disposal before reuse.
+     */
+    private fun scheduleDisposal(environment: Direct3D12TestGpuEnvironment) {
+      val scheduledGeneration = synchronized(sharedLock) { ++disposalGeneration }
+      Thread(
+          {
+            Thread.sleep(DISPOSAL_DELAY_MILLIS)
+            val shouldDispose =
+              synchronized(sharedLock) {
+                if (shared === environment && disposalGeneration == scheduledGeneration) {
+                  shared = null
+                  true
+                } else {
+                  false
+                }
+              }
+            if (shouldDispose) {
+              runCatching { EventQueue.invokeAndWait { environment.window.dispose() } }
+            }
+          },
+          "maplibre-direct3d-test-disposal",
+        )
+        .apply { isDaemon = true }
+        .start()
+    }
+
+    private fun createShared(): Direct3D12TestGpuEnvironment {
       lateinit var window: ComposeWindow
       EventQueue.invokeAndWait {
         window = ComposeWindow()
@@ -401,7 +445,7 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
         }
         return environment
       } catch (error: Throwable) {
-        environment.close()
+        EventQueue.invokeAndWait { window.dispose() }
         throw error
       }
     }
