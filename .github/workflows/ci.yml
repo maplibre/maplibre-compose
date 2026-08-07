@@ -6,6 +6,10 @@ on:
   pull_request:
   workflow_dispatch:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   format:
     timeout-minutes: 15
@@ -69,13 +73,13 @@ jobs:
           script: ./gradlew connectedDebugAndroidTest
 
   test-ios:
+    timeout-minutes: 45
     strategy:
       matrix:
         include:
           - runner: macos-26
             os_version: ^26
     name: test-ios (${{ matrix.os_version }})
-    timeout-minutes: 45
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -87,6 +91,7 @@ jobs:
         with:
           os: iOS
           os_version: ${{ matrix.os_version }}
+          wait_for_boot: true
       - run: |
           ./gradlew iosSimulatorArm64Test -- --device ${{ steps.setup-simulator.outputs.udid }}
 

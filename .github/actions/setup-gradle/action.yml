@@ -7,8 +7,23 @@ runs:
       with:
         distribution: zulu
         java-version: 25
-    - uses: gradle/actions/setup-gradle@50e97c2cd7a37755bbfafc9c5b7cafaece252f6e # v6.1.0
+    - uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       with:
         build-scan-publish: true
         build-scan-terms-of-use-url: https://gradle.com/terms-of-service
         build-scan-terms-of-use-agree: yes
+    - name: Prepare Gradle wrapper
+      shell: bash
+      run: |
+        for attempt in 1 2 3; do
+          if ./gradlew --version; then
+            exit 0
+          fi
+
+          echo "::warning::Gradle wrapper setup failed (attempt ${attempt}/3)"
+          rm -rf -- "${GRADLE_USER_HOME:?}/wrapper/dists"
+          if ((attempt < 3)); then
+            sleep $((attempt * 5))
+          fi
+        done
+        exit 1
