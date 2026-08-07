@@ -198,6 +198,16 @@ sourceSets {
 }
 ```
 
+Provide each AWT window so MapLibre uses that window's GPU context:
+
+```kotlin title="Main.kt"
+fun main() = singleWindowApplication {
+  ProvideMapHost(rememberAwtComposeGpuHost(window)) {
+    App()
+  }
+}
+```
+
 Available runtimes:
 
 | Platform      | Runtime                                         |

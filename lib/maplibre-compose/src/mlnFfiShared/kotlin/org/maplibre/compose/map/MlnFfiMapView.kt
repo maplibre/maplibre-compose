@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
@@ -52,6 +53,7 @@ internal fun MlnFfiMapView(
 
   session.callbacks = callbacks
   session.logger = logger
+  val currentOnReset = rememberUpdatedState(onReset)
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
@@ -59,7 +61,7 @@ internal fun MlnFfiMapView(
 
   LaunchedEffect(session, options, update) { update(session) }
 
-  DisposableEffect(session) { onDispose { onReset() } }
+  DisposableEffect(session) { onDispose { currentOnReset.value() } }
 
   // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }

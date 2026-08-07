@@ -91,7 +91,7 @@ class RenderBackendNegotiationTest {
 
     val diagnostic = assertIs<BackendSelection.Unavailable>(selection).diagnostic
     assertContains(diagnostic, "No MapLibre Native FFI runtime is on the classpath")
-    assertContains(diagnostic, "maplibre-native-ffi-runtime")
+    assertContains(diagnostic, "maplibre-compose-runtime-<backend>-<os>-<arch>")
   }
 
   @Test

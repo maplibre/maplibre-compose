@@ -96,7 +96,7 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
 
-        // The default Skiko host needs direct Vulkan/OpenGL access; the natives come from the
+        // The AWT Compose host needs direct Vulkan/OpenGL access; the natives come from the
         // runtime artifact the application picks.
         implementation(libs.lwjgl.core)
         implementation(libs.lwjgl.opengl)

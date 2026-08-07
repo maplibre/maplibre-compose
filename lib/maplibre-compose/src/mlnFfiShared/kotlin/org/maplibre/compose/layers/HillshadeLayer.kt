@@ -13,6 +13,9 @@ internal actual class HillshadeLayer actual constructor(id: String, actual val s
 
   override val sourceId: String = source.id
 
+  override val sourceDescriptor: Source
+    get() = source
+
   actual fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatValue>) {
     setPaintProperty("hillshade-illumination-direction", direction)
   }

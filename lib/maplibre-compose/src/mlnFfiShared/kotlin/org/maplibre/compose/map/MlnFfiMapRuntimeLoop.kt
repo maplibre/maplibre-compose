@@ -137,7 +137,8 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   /** Queues [action] for the owner thread, reporting whether it was accepted. */
-  fun post(action: (MapHandle) -> Unit): Boolean = submit(run = action, abandon = {})
+  fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
+    submit(run = action, abandon = abandon)
 
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false

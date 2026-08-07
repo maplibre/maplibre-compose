@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -15,7 +16,9 @@ import java.nio.file.Files
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
@@ -160,6 +163,35 @@ class DesktopMapCompositionTest {
     }
   }
 
+  @Test
+  fun `disposing after replacing the camera state resets the replacement`() {
+    var visible by mutableStateOf(true)
+    var cameraState by mutableStateOf(CameraState(CameraPosition()))
+    val replacement = CameraState(CameraPosition(zoom = 3.0))
+
+    runHeadlessMapTest(
+      body = {
+        waitUntil { cameraState.map != null }
+        cameraState = replacement
+        waitUntil { replacement.map != null }
+
+        visible = false
+        waitUntil { replacement.map == null }
+        assertNull(replacement.map)
+      }
+    ) { errors ->
+      if (visible) {
+        MaplibreMap(
+          modifier = Modifier,
+          baseStyle = BaseStyle.Empty,
+          cameraState = cameraState,
+          logger = Logger.withTag("composition-test"),
+          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        )
+      }
+    }
+  }
+
   /**
    * `MaplibreMap` applies the initial camera before the map exists — it is created lazily on the
    * first frame — so this covers the session's deferral and replay of those calls.
@@ -197,6 +229,46 @@ class DesktopMapCompositionTest {
         logger = Logger.withTag("composition-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       )
+    }
+  }
+
+  @Test
+  fun `an animation requested as the camera attaches waits for the native map`() {
+    val finalPosition =
+      CameraPosition(target = Position(longitude = 12.4924, latitude = 41.8902), zoom = 9.0)
+    val cameraState = CameraState(CameraPosition())
+    var animationFinished by mutableStateOf(false)
+
+    runHeadlessMapTest(
+      body = {
+        waitUntil(timeoutMillis = 10_000) { animationFinished }
+        val actual = requireNotNull(cameraState.map).getCameraPosition()
+        assertEquals(
+          finalPosition.target.longitude,
+          actual.target.longitude,
+          POSITION_TOLERANCE,
+          "longitude",
+        )
+        assertEquals(
+          finalPosition.target.latitude,
+          actual.target.latitude,
+          POSITION_TOLERANCE,
+          "latitude",
+        )
+        assertEquals(finalPosition.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
+      }
+    ) { errors ->
+      MaplibreMap(
+        modifier = Modifier,
+        baseStyle = BaseStyle.Empty,
+        cameraState = cameraState,
+        logger = Logger.withTag("composition-test"),
+        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+      )
+      LaunchedEffect(cameraState) {
+        cameraState.animateTo(finalPosition, 50.milliseconds)
+        animationFinished = true
+      }
     }
   }
 

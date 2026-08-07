@@ -46,10 +46,10 @@ class TiledSourceAttachTest {
           tileSize = 512,
         )
       val fromUrl = RasterSource(id = "url", uri = TILEJSON_URL, tileSize = 256)
-      style.addSource(fromTiles)
       style.addSource(fromUrl)
 
       val layer = RasterLayer("raster", fromTiles)
+      // The layer must attach a fresh source before MapLibre validates the layer JSON.
       style.addLayer(layer)
 
       layer.onMap { map ->
@@ -79,10 +79,10 @@ class TiledSourceAttachTest {
           demEncoding = RasterDemEncoding.Terrarium,
         )
       val fromUrl = RasterDemSource(id = "dem-url", uri = TILEJSON_URL, tileSize = 256)
-      style.addSource(fromTiles)
       style.addSource(fromUrl)
 
       val layer = HillshadeLayer("hillshade", fromTiles)
+      // The layer must attach a fresh source before MapLibre validates the layer JSON.
       style.addLayer(layer)
 
       layer.onMap { map ->

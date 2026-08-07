@@ -6,6 +6,7 @@ import androidx.compose.ui.Modifier
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.LocalComposeGpuHost
 import org.maplibre.compose.desktop.bridge.ComposeGpuMapHostFactory
+import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
 
@@ -20,9 +21,13 @@ internal actual fun ComposableMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapOptions,
 ) {
-  val gpuHost = LocalComposeGpuHost.current
+  val hostFactory =
+    LocalMlnFfiMapHostFactory.current
+      ?: LocalComposeGpuHost.current.let { gpuHost ->
+        remember(gpuHost) { ComposeGpuMapHostFactory(gpuHost) }
+      }
   MlnFfiMapView(
-    hostFactory = remember(gpuHost) { ComposeGpuMapHostFactory(gpuHost) },
+    hostFactory = hostFactory,
     modifier = modifier,
     style = style,
     update = update,

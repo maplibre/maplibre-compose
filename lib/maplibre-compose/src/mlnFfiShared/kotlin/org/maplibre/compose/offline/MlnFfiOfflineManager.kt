@@ -307,6 +307,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     description: String,
     start: (RuntimeHandle) -> OfflineOperationHandle<T>,
     finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
+    isCancelled: () -> Boolean = { false },
     onStarted: (OfflineOperationHandle<T>) -> Unit = {},
     onResult: (Result<R>) -> Unit = { result ->
       result.onFailure { logger.e(it) { "Failed to $description" } }
@@ -334,6 +335,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
         onStarted(handle)
       },
       reject = { error -> onResult(Result.failure(error.toOfflineManagerException(description))) },
+      isCancelled = isCancelled,
     )
 
   /** The suspending form of [submit], cancellable down to the native operation. */
@@ -347,6 +349,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
         description = description,
         start = start,
         finish = finish,
+        isCancelled = { !continuation.isActive },
         onStarted = { handle ->
           // Cancelling must leave nothing registered; discard drops and closes on the owner thread.
           continuation.invokeOnCancellation { runtime.discard(handle) }

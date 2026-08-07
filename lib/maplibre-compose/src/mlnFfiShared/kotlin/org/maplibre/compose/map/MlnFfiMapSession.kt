@@ -9,6 +9,7 @@ import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.pow
@@ -134,6 +135,13 @@ internal class MlnFfiMapSession(
   private val stateLock = ReentrantLock()
 
   @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
+
+  /**
+   * One-shot map actions accepted before the first render creates a loop. Guarded by [stateLock].
+   */
+  private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
+
+  private val pendingMapActions = mutableListOf<PendingMapAction>()
 
   /** Renderer-thread state. The session is this handle's owner, so nothing else may touch it. */
   private var renderSession: RenderSessionHandle? = null
@@ -331,7 +339,15 @@ internal class MlnFfiMapSession(
    * MapLibre refuses to destroy a map that still has a session attached.
    */
   private fun stopLoop() {
-    val stopping = stateLock.withLock { loop.also { loop = null } }
+    val abandoned = mutableListOf<PendingMapAction>()
+    val stopping = stateLock.withLock {
+      val current = loop
+      loop = null
+      abandoned += pendingMapActions
+      pendingMapActions.clear()
+      current
+    }
+    abandoned.forEach { it.abandon() }
     closeRenderSession()
     stopping?.close()
     // After the join, so the owner thread is gone and this is the only reader of that state.
@@ -398,11 +414,15 @@ internal class MlnFfiMapSession(
         onEventsDrained = ::flushTransitionResumes,
         requestFrame = ::requestRender,
       )
-    stateLock.withLock {
+    val deferredActions = stateLock.withLock {
       loop = started
       // Under the same lock as the recording, so a setting written while the loop starts is either
       // in this snapshot or posted to the started loop, never lost.
       pendingConfiguration = mapConfiguration.values.toList()
+      pendingMapActions.toList().also { pendingMapActions.clear() }
+    }
+    deferredActions.forEach { action ->
+      if (!started.post(action.run, action.abandon)) action.abandon()
     }
     started.start()
     return started
@@ -740,6 +760,18 @@ internal class MlnFfiMapSession(
   }
 
   /**
+   * Queues a one-shot action until a map exists, including before the first render creates its
+   * loop.
+   */
+  private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
+    val current = stateLock.withLock {
+      if (closed) return false
+      loop.also { if (it == null) pendingMapActions += PendingMapAction(action, abandon) }
+    }
+    return current?.post(action, abandon) ?: true
+  }
+
+  /**
    * Records [action] as part of the map's configuration under [key], and applies it now if there is
    * a map.
    *
@@ -877,31 +909,42 @@ internal class MlnFfiMapSession(
     duration: Duration,
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
-    val started = runOnMap { map ->
-      val id = ++lastTransitionId
-      transitionWaiters[id] = continuation
-      currentTransitionId = id
-      try {
-        start(
-          map,
-          AnimationOptions().also {
-            it.durationMs = duration.inWholeMilliseconds.toDouble()
-            it.transitionId = id
-          },
-        )
-      } catch (error: Throwable) {
-        // A command MapLibre rejects starts no transition and emits no event, so a registration
-        // left behind here would never be resolved.
-        forgetTransition(id)
-        throw error
-      }
-      // After the command, so an already-cancelled coroutine cancels the transition that was just
-      // started instead of leaving it running unwatched.
-      continuation.invokeOnCancellation { abandonTransition(id) }
-      true
+    val queued =
+      postWhenMapExists(
+        action = { map -> startTransitionOnMap(map, duration, start, continuation) },
+        abandon = { if (continuation.isActive) continuation.resume(Unit) },
+      )
+    if (!queued && continuation.isActive) continuation.resume(Unit)
+  }
+
+  /** Starts a queued transition once its map exists. Owner-thread only. */
+  private fun startTransitionOnMap(
+    map: MapHandle,
+    duration: Duration,
+    start: (MapHandle, AnimationOptions) -> Unit,
+    continuation: CancellableContinuation<Unit>,
+  ) {
+    // Cancellation while this waits for the first loop must not start a native transition.
+    if (!continuation.isActive) return
+    val id = ++lastTransitionId
+    transitionWaiters[id] = continuation
+    currentTransitionId = id
+    try {
+      start(
+        map,
+        AnimationOptions().also {
+          it.durationMs = duration.inWholeMilliseconds.toDouble()
+          it.transitionId = id
+        },
+      )
+    } catch (error: Throwable) {
+      // A rejected command emits no event, so its continuation must be removed and failed here.
+      forgetTransition(id)
+      if (continuation.isActive) continuation.resumeWithException(error)
+      return
     }
-    // No map means nothing to animate, and nothing that could ever resume this.
-    if (started != true) continuation.resume(Unit)
+    // If cancellation won the race with native start, immediately cancel the new transition.
+    continuation.invokeOnCancellation { abandonTransition(id) }
   }
 
   /** Supplies transition ids. Owner-thread state, like the two maps below. */
@@ -1123,12 +1166,14 @@ internal class MlnFfiMapSession(
     isGestureInProgress = active
     // Posted rather than blocking: a gesture must never wait on the owner thread to finish a style
     // parse before the pointer can move.
-    loop?.post { map ->
-      map.isGestureInProgress = active
-      // The end of the gesture is the end of the move, since its jumps stopped reporting their own
-      // ends when it began. Posted so it runs after every jump the gesture queued.
-      if (!active) endCameraMove()
-    }
+    loop?.post(
+      action = { map ->
+        map.isGestureInProgress = active
+        // The end of the gesture is the end of the move, since its jumps stopped reporting their
+        // own ends when it began. Posted so it runs after every jump the gesture queued.
+        if (!active) endCameraMove()
+      }
+    )
   }
 
   /**

@@ -36,7 +36,11 @@ internal class MlnFfiOfflineRuntime(
 ) {
 
   /** Work for the owner thread, with the failure path it must take if it never gets to run. */
-  private class OwnerTask(val run: (RuntimeHandle) -> Unit, val reject: (Throwable) -> Unit)
+  private class OwnerTask(
+    val run: (RuntimeHandle) -> Unit,
+    val reject: (Throwable) -> Unit,
+    val isCancelled: () -> Boolean,
+  )
 
   private class PendingOperation(
     val description: String,
@@ -96,17 +100,21 @@ internal class MlnFfiOfflineRuntime(
    * Queues [task] for the owner thread.
    *
    * Returns false when the runtime is already gone, in which case [reject] is not called and the
-   * caller reports the failure itself. Otherwise exactly one of [task] and [reject] runs.
+   * caller reports the failure itself. Otherwise exactly one of [task] and [reject] runs, unless
+   * [isCancelled] is true when the owner thread reaches it, in which case both are skipped.
    */
-  fun post(task: (RuntimeHandle) -> Unit, reject: (Throwable) -> Unit): Boolean =
-    acceptLock.withLock {
-      if (!accepting) return false
-      tasks.add(OwnerTask(task, reject))
-      // Signalled under the lock so it cannot race the source's close, which would throw. The
-      // owner thread never holds this lock across a pump.
-      wake?.signal()
-      true
-    }
+  fun post(
+    task: (RuntimeHandle) -> Unit,
+    reject: (Throwable) -> Unit,
+    isCancelled: () -> Boolean = { false },
+  ): Boolean = acceptLock.withLock {
+    if (!accepting) return false
+    tasks.add(OwnerTask(task, reject, isCancelled))
+    // Signalled under the lock so it cannot race the source's close, which would throw. The
+    // owner thread never holds this lock across a pump.
+    wake?.signal()
+    true
+  }
 
   /**
    * Records an operation to be completed when its `OFFLINE_OPERATION_COMPLETED` event names it.
@@ -241,6 +249,9 @@ internal class MlnFfiOfflineRuntime(
 
   private fun runTask(runtime: RuntimeHandle, task: OwnerTask) {
     try {
+      // Check at the execution boundary so a queued cancellation cannot start a destructive native
+      // operation whose result nobody is waiting for.
+      if (task.isCancelled()) return
       task.run(runtime)
     } catch (error: Throwable) {
       logger.e(error) { "An offline runtime task failed" }

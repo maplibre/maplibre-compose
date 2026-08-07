@@ -37,11 +37,11 @@ internal object SkikoReflection {
 
   const val SKIKO_METAL_DEVICE_ADAPTER: String = "adapter"
 
-  fun findSkiaLayer(): Any? = findSkiaLayerComponent() ?: findComposeWindowSkiaLayer()
-
-  fun requireSkiaLayer(): Any =
-    findSkiaLayer()
-      ?: throw MlnFfiHostException("Could not find a live $SKIA_LAYER_CLASS. ${describeWindows()}")
+  /** Finds only the Skia layer owned by [window], once that window is displayable. */
+  fun findSkiaLayer(window: Window): Any? {
+    if (!window.isDisplayable) return null
+    return findSkiaLayerComponent(window) ?: findComposeWindowSkiaLayer(window)
+  }
 
   fun requireRedrawer(layer: Any, expectedClass: String): Any {
     val redrawer =
@@ -105,39 +105,20 @@ internal object SkikoReflection {
     return result!!.getOrThrow()
   }
 
-  fun describeWindows(): String =
-    Window.getWindows().joinToString(prefix = "Windows: ", separator = " | ") { window ->
-      buildString {
-        append(window.javaClass.name)
-        append("(displayable=${window.isDisplayable}, showing=${window.isShowing})")
-        append(" children=[")
-        append(window.walkComponents().drop(1).take(12).joinToString { it.javaClass.name })
-        append("]")
-      }
-    }
+  private fun findSkiaLayerComponent(window: Window): Any? =
+    window.walkComponents().firstOrNull { isSkiaLayer(it) }
 
-  private fun findSkiaLayerComponent(): Any? =
-    Window.getWindows()
-      .asSequence()
-      .filter { it.isDisplayable }
-      .flatMap { it.walkComponents() }
-      .firstOrNull { isSkiaLayer(it) }
-
-  private fun findComposeWindowSkiaLayer(): Any? =
-    Window.getWindows()
-      .asSequence()
-      .filter { it.isDisplayable && it.javaClass.name == COMPOSE_WINDOW_CLASS }
-      .mapNotNull { window ->
-        runCatching {
-            val composePanel = window.getField("composePanel") ?: return@mapNotNull null
-            val content =
-              composePanel.invokeDeclaredNoArg("getContentComponent") ?: return@mapNotNull null
-            if (isSkiaLayer(content)) content
-            else (content as? Component)?.walkComponents()?.firstOrNull { isSkiaLayer(it) }
-          }
-          .getOrNull()
+  private fun findComposeWindowSkiaLayer(window: Window): Any? {
+    if (window.javaClass.name != COMPOSE_WINDOW_CLASS) return null
+    return runCatching {
+        val composePanel = window.getField("composePanel") ?: return@runCatching null
+        val content =
+          composePanel.invokeDeclaredNoArg("getContentComponent") ?: return@runCatching null
+        if (isSkiaLayer(content)) content
+        else (content as? Component)?.walkComponents()?.firstOrNull { isSkiaLayer(it) }
       }
-      .firstOrNull()
+      .getOrNull()
+  }
 
   private fun isSkiaLayer(value: Any): Boolean = Class.forName(SKIA_LAYER_CLASS).isInstance(value)
 

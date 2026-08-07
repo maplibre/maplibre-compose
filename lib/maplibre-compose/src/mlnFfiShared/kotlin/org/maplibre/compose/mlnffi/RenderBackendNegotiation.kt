@@ -63,8 +63,8 @@ private fun buildBackendDiagnostic(
           "bridged into $hostDescription on this machine."
       runtimeBackends.isEmpty() ->
         "No MapLibre Native FFI runtime is on the classpath. Add a runtimeOnly dependency on " +
-          "org.maplibre.nativeffi:maplibre-native-ffi-runtime-<backend>-jvm with the " +
-          "natives-<os>-<arch> classifier for this platform."
+          "the matching org.maplibre.compose:maplibre-compose-runtime-<backend>-<os>-<arch> " +
+          "artifact for this platform."
       hostBackends.isEmpty() ->
         "No MapLibre backend can be bridged into $hostDescription on this machine."
       else ->
