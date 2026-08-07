@@ -110,7 +110,7 @@ class MlnFfiMapInputTest {
       moveTo(Offset(width * 0.25f, height * 0.25f))
       scroll(-1f)
     }
-    awaitZoom(camera, START_ZOOM + 1.0)
+    awaitZoom(camera, START_ZOOM + GestureOptions.Standard.scrollZoomStep)
   }
 
   @Test
@@ -410,7 +410,7 @@ class MlnFfiMapInputTest {
       focusWithMouse = false,
     ) { camera ->
       val map = onRoot()
-      val expectedZoom = START_ZOOM + 1.0
+      val expectedZoom = START_ZOOM + GestureOptions.Standard.scrollZoomStep
 
       mainClock.autoAdvance = false
       try {

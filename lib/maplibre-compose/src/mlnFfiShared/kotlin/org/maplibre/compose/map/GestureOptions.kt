@@ -45,7 +45,7 @@ public actual data class GestureOptions(
   val zoomStep: Double = 1.0,
 
   /** Zoom levels per unit of scroll. One wheel notch is a unit; trackpads report fractions. */
-  val scrollZoomStep: Double = 1.0,
+  val scrollZoomStep: Double = 0.15,
 
   /** Degrees of bearing per dp of horizontal drag. */
   val dragRotateDegreesPerDp: Double = 0.8,

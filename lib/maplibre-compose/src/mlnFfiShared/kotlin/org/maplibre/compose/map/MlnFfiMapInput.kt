@@ -149,6 +149,8 @@ private fun Modifier.scrollZoom(
         val scroll = change.scrollDelta.y
         if (scroll == 0f) continue
 
+        // Compose Desktop reports AWT wheel rotation here, not screen pixels. Keep the zoom amount
+        // independent of display density; density only converts the pointer anchor below.
         // Anchored at the pointer so the point under it stays put.
         continuation.finish(session::onGestureEnded)
         session.cancelTransitions()
