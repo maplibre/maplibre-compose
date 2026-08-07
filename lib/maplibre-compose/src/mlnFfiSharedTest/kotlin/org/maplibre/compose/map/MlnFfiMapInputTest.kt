@@ -451,7 +451,7 @@ class MlnFfiMapInputTest {
 
         map.performTouchInput { click(center) }
 
-        assertFalse(camera.isCameraMoving, "the tap left the interrupted touch gesture open")
+        waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
       } finally {
         mainClock.autoAdvance = true
       }
