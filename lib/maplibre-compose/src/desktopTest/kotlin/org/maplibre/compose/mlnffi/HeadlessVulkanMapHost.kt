@@ -214,9 +214,8 @@ internal class HeadlessVulkanMapHost private constructor() : MlnFfiMapHost {
       } catch (error: Throwable) {
         runCatching { host.close() }
         throw IllegalStateException(
-          "No usable Vulkan implementation, so the desktop GPU tests cannot run. On macOS, " +
-            "`mise run bootstrap` installs vulkan-loader and molten-vk; elsewhere install the " +
-            "system Vulkan loader. Probe failed with: ${error.message}",
+          "No usable Vulkan implementation, so the desktop GPU tests cannot run. " +
+            "Probe failed with: ${error.message}",
           error,
         )
       }

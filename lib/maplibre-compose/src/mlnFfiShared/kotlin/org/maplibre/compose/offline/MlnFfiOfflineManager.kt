@@ -42,6 +42,9 @@ public actual fun rememberOfflineManager(): OfflineManager {
 internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) : OfflineManager {
 
   internal companion object {
+    // TODO(common API): Replace this process-lifetime cache with an explicit application-scoped
+    // owner that can close each options-specific runtime without tying downloads to a screen's
+    // composition lifecycle. See .agents/docs/COMMON_API_GAPS.md.
     private val instances = mutableMapOf<MlnFfiRuntimeOptions, MlnFfiOfflineManager>()
 
     fun forOptions(options: MlnFfiRuntimeOptions): MlnFfiOfflineManager =

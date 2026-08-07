@@ -68,6 +68,19 @@ falls out of `AndroidView`'s `update` block running inside the parent's apply. A
 shared integration should make this the common layer's job rather than something
 each platform rediscovers.
 
+**Offline manager ownership has no lifecycle.** The FFI integration keeps one
+offline manager, dedicated thread, and native runtime alive for every distinct
+`MlnFfiRuntimeOptions` value passed to `rememberOfflineManager`. This preserves
+downloads when the composable that acquired the manager leaves composition,
+because MapLibre holds active download state in memory, but dynamically changing
+options retains every previous runtime until process exit. The shared
+integration should replace the global cache with an explicit application-scoped
+owner: one that can outlive navigation, can be created once per options value,
+and can be closed deliberately when the application is prepared to stop that
+runtime's active downloads. Composition-level disposal, weak references, and
+automatic eviction are not substitutes because each can silently interrupt a
+download.
+
 ## Style light
 
 Position, color, intensity, and anchor of the style's light source, which fill

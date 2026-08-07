@@ -86,12 +86,10 @@ Desktop consumes the published
 Multiplatform bindings, so there is no C++ toolchain, CMake, or vendored
 MapLibre Native checkout to set up.
 
-The desktop tests do drive a real GPU, through a headless Vulkan device. Linux
-and Windows have a system Vulkan loader; macOS does not, so `mise run bootstrap`
-installs one over MoltenVK. Run it — or `brew install vulkan-loader molten-vk` —
-before trusting a green desktop suite on a Mac. Those tests assume a working
-loader and fail without one rather than skipping, so a machine that cannot run
-them says so instead of reporting the same green as one that can.
+The desktop tests drive a real GPU through a headless Vulkan device. The test
+runtime supplies MoltenVK through LWJGL on macOS and installs a software Vulkan
+driver in CI on Linux and Windows. The tests fail rather than skip when no
+Vulkan implementation is usable.
 
 ## Run the demo
 
