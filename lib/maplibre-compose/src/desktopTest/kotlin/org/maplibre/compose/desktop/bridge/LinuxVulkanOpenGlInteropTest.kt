@@ -14,6 +14,8 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
@@ -50,7 +52,12 @@ import org.lwjgl.egl.EGL14.EGL_DEFAULT_DISPLAY
 import org.lwjgl.egl.EGL14.EGL_OPENGL_API
 import org.lwjgl.egl.EGL14.EGL_OPENGL_BIT
 import org.lwjgl.opengl.GL
+import org.lwjgl.opengl.GL11.GL_RENDERER
+import org.lwjgl.opengl.GL11.GL_VENDOR
+import org.lwjgl.opengl.GL11.GL_VERSION
 import org.lwjgl.opengl.GL11.glEnable
+import org.lwjgl.opengl.GL11.glGetString
+import org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION
 import org.lwjgl.system.APIUtil.apiCreateCIF
 import org.lwjgl.system.Callback
 import org.lwjgl.system.CallbackI
@@ -271,6 +278,11 @@ class LinuxVulkanOpenGlInteropTest {
       createEglContext()
       withCurrent {
         capabilities = GL.createCapabilities()
+        println(
+          "EGL test OpenGL: vendor=${glGetString(GL_VENDOR)}, " +
+            "renderer=${glGetString(GL_RENDERER)}, version=${glGetString(GL_VERSION)}, " +
+            "shadingLanguage=${glGetString(GL_SHADING_LANGUAGE_VERSION)}"
+        )
         procAddressCallback =
           object : GlProcAddressCallback() {
             override fun invoke(context: Long, name: Long): Long = neglGetProcAddress(name)
@@ -283,7 +295,7 @@ class LinuxVulkanOpenGlInteropTest {
             Surface.makeRenderTarget(
               directContext,
               false,
-              ImageInfo.makeN32Premul(DRAW_WIDTH, DRAW_HEIGHT),
+              ImageInfo(DRAW_WIDTH, DRAW_HEIGHT, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
             )
           ) {
             "Skia could not create the EGL test render target"

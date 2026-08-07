@@ -13,6 +13,8 @@ import java.lang.invoke.MethodHandles
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import org.jetbrains.skia.Bitmap
+import org.jetbrains.skia.ColorAlphaType
+import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
@@ -48,6 +50,11 @@ import org.lwjgl.egl.EGL14.EGL_DEFAULT_DISPLAY
 import org.lwjgl.egl.EGL14.EGL_OPENGL_API
 import org.lwjgl.egl.EGL14.EGL_OPENGL_BIT
 import org.lwjgl.opengl.GL
+import org.lwjgl.opengl.GL11.GL_RENDERER
+import org.lwjgl.opengl.GL11.GL_VENDOR
+import org.lwjgl.opengl.GL11.GL_VERSION
+import org.lwjgl.opengl.GL11.glGetString
+import org.lwjgl.opengl.GL20.GL_SHADING_LANGUAGE_VERSION
 import org.lwjgl.system.APIUtil.apiCreateCIF
 import org.lwjgl.system.Callback
 import org.lwjgl.system.CallbackI
@@ -206,7 +213,11 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
     }
     destination?.close()
     destination =
-      Surface.makeRenderTarget(context.skiaContext, false, ImageInfo.makeN32Premul(width, height))
+      Surface.makeRenderTarget(
+        context.skiaContext,
+        false,
+        ImageInfo(width, height, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
+      )
     destinationWidth = width
     destinationHeight = height
     return checkNotNull(destination)
@@ -474,6 +485,11 @@ private class EglTestContext private constructor() : AutoCloseable {
     createEglContext()
     withCurrent {
       capabilities = GL.createCapabilities()
+      println(
+        "EGL test OpenGL: vendor=${glGetString(GL_VENDOR)}, " +
+          "renderer=${glGetString(GL_RENDERER)}, version=${glGetString(GL_VERSION)}, " +
+          "shadingLanguage=${glGetString(GL_SHADING_LANGUAGE_VERSION)}"
+      )
       procAddressCallback =
         object : GlProcAddressCallback() {
           override fun invoke(context: Long, name: Long): Long = neglGetProcAddress(name)
