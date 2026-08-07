@@ -68,9 +68,29 @@ internal class AwtComposeGpuHost(private val window: Window) : ComposeGpuHost {
         "MapLibre Compose has no desktop GPU bridge for ${System.getProperty("os.name")}."
       }
 
-  /** Skiko's internals are only safe to touch on the AWT event thread, which also draws. */
+  /**
+   * Skiko updates pictures on the AWT event thread, then Metal and Direct3D replay them on a render
+   * worker. Their render lock keeps shared textures and the Skia context out of both threads at
+   * once. Linux replays on the event thread itself.
+   */
   override fun runOnGpuThread(action: Runnable) {
-    SkikoReflection.onEdt { action.run() }
+    SkikoReflection.onEdt {
+      val layer = SkikoReflection.findSkiaLayer(window)
+      val renderLock =
+        when (operatingSystem) {
+          HostOperatingSystem.MACOS ->
+            layer?.let {
+              SkikoReflection.requireRenderLock(it, SkikoReflection.METAL_REDRAWER_CLASS)
+            }
+          HostOperatingSystem.WINDOWS ->
+            layer?.let {
+              SkikoReflection.requireRenderLock(it, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
+            }
+          HostOperatingSystem.LINUX,
+          HostOperatingSystem.UNSUPPORTED -> null
+        }
+      if (renderLock == null) action.run() else synchronized(renderLock) { action.run() }
+    }
   }
 
   /**

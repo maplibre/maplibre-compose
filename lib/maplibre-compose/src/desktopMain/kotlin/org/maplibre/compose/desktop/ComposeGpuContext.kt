@@ -97,11 +97,10 @@ public interface ComposeGpuHost {
   public fun gpuContext(): ComposeGpuContext?
 
   /**
-   * Runs [action] on the thread that owns this host's Skia context, and waits for it.
+   * Runs [action] with exclusive access to this host's Skia context, and waits for it.
    *
-   * Skia objects wrapping MapLibre's target are created and freed there, so this must be the same
-   * thread that draws the Compose scene. It must run [action] directly when the caller is already
-   * on that thread, and must propagate whatever [action] throws.
+   * The action must not overlap Compose replaying a frame. It must run directly when the caller
+   * already has exclusive access, and must propagate whatever [action] throws.
    */
   public fun runOnGpuThread(action: Runnable)
 }

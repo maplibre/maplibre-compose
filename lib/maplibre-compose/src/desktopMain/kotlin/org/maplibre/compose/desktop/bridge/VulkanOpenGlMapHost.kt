@@ -100,7 +100,6 @@ import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeGpuHost
-import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -130,6 +129,7 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter()
+  private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: LinuxVulkanContext? = null
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
@@ -139,20 +139,18 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 
-  // No resize() override: importing into GL needs Compose's context current, which only holds
-  // inside the draw callback, so the reallocation happens lazily in acquireFrame. Reallocating from
-  // resize() instead would deadlock, since it runs on the renderer thread while the GPU thread
-  // waits on that renderer.
+  // Importing into GL needs Compose's context current, so reallocation happens in acquireFrame.
+  // resize() can run on the renderer thread while the GPU thread waits for it and cannot provide
+  // that context.
 
   override fun acquireFrame(
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame {
-    if (texture == null || extent != currentExtent) {
-      recreateTexture(extent)
-    }
-    return MlnFfiMapFrame(
+  ): MlnFfiMapFrame = gpuHost.withOpenGlContext { context ->
+    frameCompletion.prepare(context.skiaContext, ::abandonContext)
+    if (texture == null || extent != currentExtent) recreateTexture(extent)
+    MlnFfiMapFrame(
       frameId = frameId,
       extent = extent,
       target =
@@ -172,18 +170,26 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
 
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is VulkanImageTarget) return false
-    val sharedTexture =
-      if (target.generation == generation) texture else retiredTextures[target.generation]
-    val imported = sharedTexture?.imported ?: return false
-    val context = gpuHost.currentContext() as? OpenGlComposeGpuContext ?: return false
-    // Already inside the Compose draw callback, so Compose's context is current on this thread.
-    val drew = presenter.draw(scope, context.skiaContext, imported.target(target.generation))
-    if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
-    return drew
+    return gpuHost.withOpenGlContext { context ->
+      frameCompletion.prepare(context.skiaContext, ::abandonContext)
+      val sharedTexture =
+        if (target.generation == generation) texture else retiredTextures[target.generation]
+      val imported = sharedTexture?.imported ?: return@withOpenGlContext false
+      val drew =
+        presenter.draw(
+          scope,
+          context.skiaContext,
+          imported.target(target.generation),
+          frameCompletion,
+        )
+      if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
+      drew
+    }
   }
 
   override fun close() {
     try {
+      frameCompletion.abandon()
       // At window close the Compose surface may already be gone, so there is no context to make
       // current and no GL objects left to free; the driver reclaims them with the context.
       runCatching {
@@ -227,6 +233,18 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
     }
   }
 
+  /** Drops objects whose OpenGL names cannot be used or deleted in the replacement context. */
+  private fun abandonContext() {
+    presenter.abandon()
+    texture?.abandon()
+    texture = null
+    retiredTextures.values.forEach(LinuxSharedTexture::abandon)
+    retiredTextures.clear()
+    vulkan?.close()
+    vulkan = null
+    currentExtent = MlnFfiMapExtent.Empty
+  }
+
   /**
    * Frees retired allocations other than [exceptGeneration]. Compose's GL context must be current.
    */
@@ -256,6 +274,11 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
       // Skia holds a surface wrapping this texture; it must be dropped before the texture is.
       presenter.forget(imported.textureName)
       imported.close()
+      exported.close()
+    }
+
+    fun abandon() {
+      imported.abandon()
       exported.close()
     }
   }
@@ -700,6 +723,12 @@ private constructor(
         memoryObject = 0
       }
     }
+  }
+
+  /** Forgets names allocated by a lost context, which the replacement context must not delete. */
+  fun abandon() {
+    textureName = 0
+    memoryObject = 0
   }
 
   companion object {

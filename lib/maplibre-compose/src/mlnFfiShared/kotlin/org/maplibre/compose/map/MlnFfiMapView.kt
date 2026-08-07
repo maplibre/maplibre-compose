@@ -65,7 +65,7 @@ internal fun MlnFfiMapView(
 
   // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }
-  val touchMomentum = remember(session) { TouchMomentum() }
+  val continuation = remember(session) { GestureContinuation() }
 
   MlnFfiMapSurface(
     renderer = session,
@@ -77,7 +77,7 @@ internal fun MlnFfiMapView(
         options.gestureOptions,
         density,
         focusRequester,
-        touchMomentum,
+        continuation,
       ),
     logger = logger,
   )

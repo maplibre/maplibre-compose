@@ -18,6 +18,7 @@ import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.makeGLWithInterface
 import org.lwjgl.egl.EGL
@@ -160,15 +161,19 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
     val surface = destination(context, width, height)
     surface.canvas.clear(0x00000000)
     var drew = false
-    CanvasDrawScope().draw(
-      Density(target.extent.scaleFactor.toFloat()),
-      LayoutDirection.Ltr,
-      surface.canvas.asComposeCanvas(),
-      Size(width.toFloat(), height.toFloat()),
-    ) {
-      drew = bridge.draw(this, target)
+    PictureRecorder().use { recorder ->
+      val recording = recorder.beginRecording(0f, 0f, width.toFloat(), height.toFloat())
+      CanvasDrawScope().draw(
+        Density(target.extent.scaleFactor.toFloat()),
+        LayoutDirection.Ltr,
+        recording.asComposeCanvas(),
+        Size(width.toFloat(), height.toFloat()),
+      ) {
+        drew = bridge.draw(this, target)
+      }
+      recorder.finishRecordingAsPicture().use(surface.canvas::drawPicture)
     }
-    if (drew) surface.flushAndSubmit(syncCpu = true)
+    if (drew) surface.flushAndSubmit()
     drew
   }
 

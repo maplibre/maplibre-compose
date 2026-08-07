@@ -75,6 +75,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
+import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
@@ -100,6 +101,7 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-renderer")
   private val presenter = Direct3D12Presenter(gpuHost)
+  private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: WindowsVulkanContext? = null
   private var direct3DTexture = NativeHandle(0)
   private var importedTexture: WindowsVulkanImportedDirect3DTexture? = null
@@ -152,7 +154,8 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrame {
-    val device = currentDeviceOrNull()
+    val context = withPreparedContext { it }
+    val device = context?.device
     if (
       device != null &&
         (importedTexture == null || extent != currentExtent || device != currentDevice)
@@ -182,14 +185,17 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
       if (target.generation == generation) presentationTarget()
       else retiredTextures[target.generation]
     if (direct3DTarget == null) return false
-    val context = gpuHost.currentContext() as? Direct3D12ComposeGpuContext ?: return false
-    val drew = presenter.draw(scope, context.skiaContext, direct3DTarget)
+    val drew =
+      withPreparedContext { context ->
+        presenter.draw(scope, context.skiaContext, direct3DTarget, frameCompletion)
+      } ?: false
     if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
     return drew
   }
 
   override fun close() {
     try {
+      frameCompletion.abandon()
       // Released on the closing thread, never the renderer thread; see releaseDirect3DTexture.
       retireTexture()?.let { releaseDirect3DTexture(it.texture) }
       disposeRetiredTextures()
@@ -250,13 +256,21 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   }
 
   private fun currentDeviceOrNull(): NativeHandle? {
-    val context = gpuHost.currentContext() ?: return null
-    return (context as? Direct3D12ComposeGpuContext)?.device
-      ?: throw MlnFfiHostException(
-        "${gpuHost.description} switched from Direct3D12ComposeGpuContext to " +
-          context::class.simpleName
-      )
+    return withPreparedContext { it.device }
   }
+
+  private fun <T> withPreparedContext(action: (Direct3D12ComposeGpuContext) -> T): T? =
+    gpuHost.onGpuThread {
+      val context = gpuHost.gpuContext() ?: return@onGpuThread null
+      val direct3DContext =
+        context as? Direct3D12ComposeGpuContext
+          ?: throw MlnFfiHostException(
+            "${gpuHost.description} switched from Direct3D12ComposeGpuContext to " +
+              context::class.simpleName
+          )
+      frameCompletion.prepare(direct3DContext.skiaContext, presenter::resetContext)
+      action(direct3DContext)
+    }
 
   /** The current D3D resource in the shape Skia needs to present it. */
   private fun presentationTarget(): Direct3DTextureTarget? {

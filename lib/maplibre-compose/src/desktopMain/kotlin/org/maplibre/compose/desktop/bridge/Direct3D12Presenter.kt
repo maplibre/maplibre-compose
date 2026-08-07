@@ -6,7 +6,6 @@ import androidx.compose.ui.graphics.skiaCanvas
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
-import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
@@ -19,14 +18,6 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 
 /** `DXGI_FORMAT_B8G8R8A8_UNORM`, matching Compose's BGRA Direct3D 12 swap chain. */
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
-
-/**
- * How many snapshots to hold alive after handing them to Compose.
- *
- * Compose records draw commands and replays them later, so an image closed immediately after
- * `drawImageRect` can be sampled after it is gone.
- */
-private const val RETAINED_IMAGE_COUNT = 8
 
 /**
  * An `ID3D12Resource` texture to composite into Compose's scene.
@@ -64,7 +55,12 @@ internal data class Direct3DTextureTarget(
 internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
-  fun draw(scope: DrawScope, skiaContext: DirectContext, target: Direct3DTextureTarget): Boolean {
+  fun draw(
+    scope: DrawScope,
+    skiaContext: DirectContext,
+    target: Direct3DTextureTarget,
+    completion: ComposeFrameCompletion,
+  ): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
       val presenter =
@@ -76,6 +72,7 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
         scope.size.width,
         scope.size.height,
       )
+      completion.frameRecorded(presenter::preserveFrame)
       drew = true
     }
     return drew
@@ -83,28 +80,33 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
 
   /**
    * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
-   * Forced onto the GPU thread, which owns the Skia objects wrapping it.
+   * Forced through the host's exclusive context boundary, which owns the Skia wrappers.
    */
   fun forget(texture: NativeHandle) {
     gpuHost.runOnGpuThread { presenters.remove(texture.address)?.close() }
   }
 
+  /** Releases wrappers created by a Skia context that the host replaced. */
+  fun resetContext() {
+    gpuHost.runOnGpuThread(::closePresenters)
+  }
+
   override fun close() {
-    gpuHost.runOnGpuThread {
-      val all = presenters.values.toList()
-      presenters.clear()
-      all.forEach { it.close() }
-    }
+    gpuHost.runOnGpuThread(::closePresenters)
+  }
+
+  private fun closePresenters() {
+    val all = presenters.values.toList()
+    presenters.clear()
+    all.forEach { it.close() }
   }
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
-    private var contextIdentity = 0
     private var extent = MlnFfiMapExtent.Empty
     private var colorFormat = SurfaceColorFormat.BGRA_8888
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
-    private val retainedImages = ArrayDeque<Image>()
 
     fun draw(
       canvas: org.jetbrains.skia.Canvas,
@@ -119,24 +121,26 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
           ?: throw MlnFfiHostException("Skia could not wrap Direct3D texture ${texture.address}")
 
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      val image = currentSurface.makeImageSnapshot()
-      retain(image)
-      canvas.drawImageRect(
-        image = image,
-        src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-        dst = Rect.makeWH(destinationWidth, destinationHeight),
-        samplingMode = SamplingMode.LINEAR,
-        paint = null,
-        strict = true,
-      )
+      currentSurface.makeImageSnapshot().use { image ->
+        canvas.drawImageRect(
+          image = image,
+          src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+          dst = Rect.makeWH(destinationWidth, destinationHeight),
+          samplingMode = SamplingMode.LINEAR,
+          paint = null,
+          strict = true,
+        )
+      }
+    }
+
+    fun preserveFrame() {
+      surface?.notifyContentWillChange(ContentChangeMode.RETAIN)
     }
 
     private fun ensureSurface(context: DirectContext, target: Direct3DTextureTarget) {
-      val nextIdentity = System.identityHashCode(context)
       if (
         surface != null &&
           renderTarget != null &&
-          contextIdentity == nextIdentity &&
           extent == target.extent &&
           colorFormat == target.colorFormat &&
           origin == target.origin
@@ -145,7 +149,6 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
       }
 
       closeGpuResources()
-      contextIdentity = nextIdentity
       extent = target.extent
       colorFormat = target.colorFormat
       origin = target.origin
@@ -172,21 +175,14 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
           )
     }
 
-    private fun retain(image: Image) {
-      retainedImages.addLast(image)
-      while (retainedImages.size > RETAINED_IMAGE_COUNT) retainedImages.removeFirst().close()
-    }
-
     override fun close() {
       closeGpuResources()
-      contextIdentity = 0
       extent = MlnFfiMapExtent.Empty
       colorFormat = SurfaceColorFormat.BGRA_8888
       origin = TextureOrigin.TOP_LEFT
     }
 
     private fun closeGpuResources() {
-      while (retainedImages.isNotEmpty()) retainedImages.removeFirst().close()
       surface?.close()
       surface = null
       renderTarget?.close()

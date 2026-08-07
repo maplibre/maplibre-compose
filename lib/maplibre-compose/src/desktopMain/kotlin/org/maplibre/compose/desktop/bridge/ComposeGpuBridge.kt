@@ -30,7 +30,6 @@ internal class ComposeGpuMapHostFactory(private val gpuHost: ComposeGpuHost) :
 
   override fun create(producer: MapRenderBackend): MlnFfiMapHostResult =
     try {
-      // The Direct3D 12 bridge has never run on real hardware; see SkikoDirect3DDeviceLayout.
       val host =
         when (gpuHost.backend) {
           ComposeRenderBackend.METAL -> MetalMapHost(gpuHost)

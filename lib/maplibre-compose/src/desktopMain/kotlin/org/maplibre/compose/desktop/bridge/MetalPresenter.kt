@@ -7,7 +7,6 @@ import java.util.concurrent.ConcurrentLinkedQueue
 import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
-import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
@@ -20,18 +19,11 @@ import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
- * How many snapshots to hold alive after handing them to Compose. Compose records draw commands and
- * replays them later, so an image closed right after `drawImageRect` can be sampled after it is
- * gone.
- */
-private const val RETAINED_IMAGE_COUNT = 8
-
-/**
  * Draws MapLibre's Metal texture into the Compose scene, by wrapping it as a Skia surface on the
  * context Compose already draws with. No import, no copy, and no context to make current.
  *
- * Every Skia object here belongs to that context's thread, which is also the thread [draw] runs on,
- * so freeing is deferred until a draw rather than done wherever a texture happened to be retired.
+ * Every Skia object here is accessed inside the host's exclusive context boundary, so freeing is
+ * deferred until that boundary rather than done wherever a texture happened to be retired.
  */
 internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
@@ -39,7 +31,12 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
   /** Textures whose Skia wrappers are still alive, waiting for a thread that may free them. */
   private val retired = ConcurrentLinkedQueue<Long>()
 
-  fun draw(scope: DrawScope, skiaContext: DirectContext, target: MetalTextureTarget): Boolean {
+  fun draw(
+    scope: DrawScope,
+    skiaContext: DirectContext,
+    target: MetalTextureTarget,
+    completion: ComposeFrameCompletion,
+  ): Boolean {
     releaseRetired(keepAlive = target.texture.address)
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
@@ -52,6 +49,7 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
         scope.size.width,
         scope.size.height,
       )
+      completion.frameRecorded(presenter::preserveFrame)
       drew = true
     }
     return drew
@@ -62,13 +60,22 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
     if (!texture.isNull) retired.add(texture.address)
   }
 
+  /** Releases wrappers created by a Skia context that the host replaced. */
+  fun resetContext() {
+    gpuHost.runOnGpuThread { closePresenters() }
+  }
+
   override fun close() {
     gpuHost.runOnGpuThread {
       releaseRetired(keepAlive = 0L)
-      val all = presenters.values.toList()
-      presenters.clear()
-      all.forEach { it.close() }
+      closePresenters()
     }
+  }
+
+  private fun closePresenters() {
+    val all = presenters.values.toList()
+    presenters.clear()
+    all.forEach { it.close() }
   }
 
   /**
@@ -94,12 +101,10 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
   }
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
-    private var contextIdentity = 0
     private var extent = MlnFfiMapExtent.Empty
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
-    private val retainedImages = ArrayDeque<Image>()
 
     fun draw(
       canvas: org.jetbrains.skia.Canvas,
@@ -115,24 +120,26 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
       // MapLibre overwrote every pixel; telling Skia the old contents are gone lets it skip
       // reloading them into its own render pass.
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      val image = currentSurface.makeImageSnapshot()
-      retain(image)
-      canvas.drawImageRect(
-        image = image,
-        src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-        dst = Rect.makeWH(destinationWidth, destinationHeight),
-        samplingMode = SamplingMode.LINEAR,
-        paint = null,
-        strict = true,
-      )
+      currentSurface.makeImageSnapshot().use { image ->
+        canvas.drawImageRect(
+          image = image,
+          src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+          dst = Rect.makeWH(destinationWidth, destinationHeight),
+          samplingMode = SamplingMode.LINEAR,
+          paint = null,
+          strict = true,
+        )
+      }
+    }
+
+    fun preserveFrame() {
+      surface?.notifyContentWillChange(ContentChangeMode.RETAIN)
     }
 
     private fun ensureSurface(context: DirectContext, target: MetalTextureTarget) {
-      val nextIdentity = System.identityHashCode(context)
       if (
         surface != null &&
           renderTarget != null &&
-          contextIdentity == nextIdentity &&
           extent == target.extent &&
           origin == target.origin
       ) {
@@ -140,7 +147,6 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
       }
 
       closeGpuResources()
-      contextIdentity = nextIdentity
       extent = target.extent
       origin = target.origin
       renderTarget =
@@ -165,20 +171,13 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
           )
     }
 
-    private fun retain(image: Image) {
-      retainedImages.addLast(image)
-      while (retainedImages.size > RETAINED_IMAGE_COUNT) retainedImages.removeFirst().close()
-    }
-
     override fun close() {
       closeGpuResources()
-      contextIdentity = 0
       extent = MlnFfiMapExtent.Empty
       origin = TextureOrigin.TOP_LEFT
     }
 
     private fun closeGpuResources() {
-      while (retainedImages.isNotEmpty()) retainedImages.removeFirst().close()
       surface?.close()
       surface = null
       renderTarget?.close()

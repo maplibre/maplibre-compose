@@ -3,6 +3,7 @@ package org.maplibre.compose.desktop.bridge
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
+import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalTextureTarget
@@ -22,6 +23,7 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-metal-renderer")
   private val presenter = MetalPresenter(gpuHost)
+  private val frameCompletion = ComposeFrameCompletion()
 
   private var texture = NativeHandle(0L)
   private var pixelFormat = 0L
@@ -50,7 +52,8 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrame {
-    val device = currentDeviceOrNull()
+    val context = withPreparedContext { it }
+    val device = context?.device
     if (device != null && (texture.isNull || extent != currentExtent || device != currentDevice)) {
       resize(extent, device)
     }
@@ -75,12 +78,14 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
 
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is MetalTextureTarget || target.texture.isNull) return false
-    val context = gpuHost.currentContext() as? MetalComposeGpuContext ?: return false
-    return presenter.draw(scope, context.skiaContext, target)
+    return withPreparedContext { context ->
+      presenter.draw(scope, context.skiaContext, target, frameCompletion)
+    } ?: false
   }
 
   override fun close() {
     try {
+      frameCompletion.abandon()
       takeTexture()?.let(presenter::retire)
       presenter.close()
     } finally {
@@ -147,13 +152,21 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
   }
 
   private fun currentDeviceOrNull(): NativeHandle? {
-    val context = gpuHost.currentContext() ?: return null
-    return (context as? MetalComposeGpuContext)?.device
-      ?: throw MlnFfiHostException(
-        "${gpuHost.description} switched from MetalComposeGpuContext to " +
-          context::class.simpleName
-      )
+    return withPreparedContext { it.device }
   }
+
+  private fun <T> withPreparedContext(action: (MetalComposeGpuContext) -> T): T? =
+    gpuHost.onGpuThread {
+      val context = gpuHost.gpuContext() ?: return@onGpuThread null
+      val metalContext =
+        context as? MetalComposeGpuContext
+          ?: throw MlnFfiHostException(
+            "${gpuHost.description} switched from MetalComposeGpuContext to " +
+              context::class.simpleName
+          )
+      frameCompletion.prepare(metalContext.skiaContext, presenter::resetContext)
+      action(metalContext)
+    }
 }
 
 /**

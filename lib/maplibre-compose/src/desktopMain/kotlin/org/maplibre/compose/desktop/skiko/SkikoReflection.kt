@@ -60,6 +60,11 @@ internal object SkikoReflection {
     redrawer.getField("contextHandler")
       ?: throw MlnFfiHostException("$redrawerClass.contextHandler was null")
 
+  /** The monitor Skiko holds while Metal or Direct3D replays and submits a frame. */
+  fun requireRenderLock(layer: Any, redrawerClass: String): Any =
+    requireRedrawer(layer, redrawerClass).getField("drawLock")
+      ?: throw MlnFfiHostException("$redrawerClass.drawLock was null")
+
   /**
    * The Direct3D device Compose renders with on Windows. Skiko keeps it on the redrawer, and only
    * after the first frame has initialized the swap chain — until then this is null.

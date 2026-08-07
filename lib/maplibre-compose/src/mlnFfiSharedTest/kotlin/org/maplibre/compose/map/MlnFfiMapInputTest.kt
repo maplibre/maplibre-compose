@@ -33,6 +33,7 @@ import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraPosition
@@ -385,28 +386,27 @@ class MlnFfiMapInputTest {
   }
 
   @Test
-  fun mouse_wheel_cancels_touch_zoom_momentum() =
+  fun mouse_wheel_finishes_an_interrupted_touch_fling() =
     runInputTest(
       gestures = GestureOptions(animationDuration = Duration.ZERO),
       focusWithMouse = false,
     ) { camera ->
       val map = onRoot()
-      val viewportHeight = map.fetchSemanticsNode().size.height
-      val displacement = viewportHeight / 4f
-      val expectedZoom = START_ZOOM + displacement / viewportHeight * 4.0 + 1.0
+      val expectedZoom = START_ZOOM + 1.0
 
       mainClock.autoAdvance = false
       try {
         map.performTouchInput {
-          click(center)
-          down(0, center)
-          moveTo(0, center + Offset(0f, displacement), delayMillis = 100)
-          up(0)
+          swipe(center - Offset(100f, 0f), center + Offset(100f, 0f), durationMillis = 100)
         }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "the released touch gesture did not start momentum")
         map.performMouseInput {
           moveTo(center)
           scroll(-1f)
         }
+        assertFalse(camera.isCameraMoving, "the wheel left the interrupted touch gesture open")
         mainClock.advanceTimeBy(2_000)
       } finally {
         mainClock.autoAdvance = true
@@ -416,6 +416,27 @@ class MlnFfiMapInputTest {
         abs(camera.position.zoom - expectedZoom) < ZOOM_TOLERANCE
       }
       assertEquals(expectedZoom, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_tap_finishes_an_interrupted_touch_fling() =
+    runInputTest(focusWithMouse = false) { camera ->
+      val map = onRoot()
+      mainClock.autoAdvance = false
+      try {
+        map.performTouchInput {
+          swipe(center - Offset(100f, 0f), center + Offset(100f, 0f), durationMillis = 100)
+        }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "the released touch gesture did not start momentum")
+
+        map.performTouchInput { click(center) }
+
+        assertFalse(camera.isCameraMoving, "the tap left the interrupted touch gesture open")
+      } finally {
+        mainClock.autoAdvance = true
+      }
     }
 
   /** Waits for the camera to settle at [zoom], failing with the value it stopped at. */

@@ -7,7 +7,6 @@ import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.FramebufferFormat
-import org.jetbrains.skia.Image
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
@@ -30,12 +29,6 @@ import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
- * How many snapshots to hold alive after handing them to Compose, which replays recorded draw
- * commands later and would otherwise sample an image closed right after `drawImageRect`.
- */
-private const val RETAINED_IMAGE_COUNT = 8
-
-/**
  * Draws MapLibre's OpenGL texture into Compose's Skia canvas on Linux.
  *
  * Compose owns the GL context and Skia's [DirectContext]; this wraps the texture MapLibre rendered
@@ -48,7 +41,12 @@ private const val RETAINED_IMAGE_COUNT = 8
 internal class OpenGlPresenter : AutoCloseable {
   private val presenters = mutableMapOf<Int, TexturePresenter>()
 
-  fun draw(scope: DrawScope, skiaContext: DirectContext, target: OpenGlTextureTarget): Boolean {
+  fun draw(
+    scope: DrawScope,
+    skiaContext: DirectContext,
+    target: OpenGlTextureTarget,
+    completion: ComposeFrameCompletion,
+  ): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
       ensureCapabilities()
@@ -61,6 +59,7 @@ internal class OpenGlPresenter : AutoCloseable {
         scope.size.width,
         scope.size.height,
       )
+      completion.frameRecorded(presenter::preserveFrame)
       drew = true
     }
     return drew
@@ -73,6 +72,13 @@ internal class OpenGlPresenter : AutoCloseable {
     presenters.remove(textureName)?.close()
   }
 
+  /** Drops wrappers whose OpenGL names belonged to a context that no longer exists. */
+  fun abandon() {
+    val all = presenters.values.toList()
+    presenters.clear()
+    all.forEach { it.abandon() }
+  }
+
   override fun close() {
     val all = presenters.values.toList()
     presenters.clear()
@@ -80,14 +86,12 @@ internal class OpenGlPresenter : AutoCloseable {
   }
 
   private class TexturePresenter(private val textureName: Int) : AutoCloseable {
-    private var contextIdentity = 0
     private var width = 0
     private var height = 0
     private var origin = TextureOrigin.TOP_LEFT
     private var framebuffer = 0
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
-    private val retainedImages = ArrayDeque<Image>()
 
     fun draw(
       canvas: org.jetbrains.skia.Canvas,
@@ -104,25 +108,27 @@ internal class OpenGlPresenter : AutoCloseable {
       // render incorrectly unless told to re-read it.
       context.resetGLAll()
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      val image = currentSurface.makeImageSnapshot()
-      retain(image)
-      canvas.drawImageRect(
-        image = image,
-        src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-        dst = Rect.makeWH(destinationWidth, destinationHeight),
-        samplingMode = SamplingMode.LINEAR,
-        paint = null,
-        strict = true,
-      )
+      currentSurface.makeImageSnapshot().use { image ->
+        canvas.drawImageRect(
+          image = image,
+          src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+          dst = Rect.makeWH(destinationWidth, destinationHeight),
+          samplingMode = SamplingMode.LINEAR,
+          paint = null,
+          strict = true,
+        )
+      }
+    }
+
+    fun preserveFrame() {
+      surface?.notifyContentWillChange(ContentChangeMode.RETAIN)
     }
 
     private fun ensureSurface(context: DirectContext, target: OpenGlTextureTarget) {
-      val nextIdentity = System.identityHashCode(context)
       if (
         surface != null &&
           renderTarget != null &&
           framebuffer != 0 &&
-          contextIdentity == nextIdentity &&
           width == target.extent.physicalWidth &&
           height == target.extent.physicalHeight &&
           origin == target.origin
@@ -131,7 +137,6 @@ internal class OpenGlPresenter : AutoCloseable {
       }
 
       closeGpuResources()
-      contextIdentity = nextIdentity
       width = target.extent.physicalWidth
       height = target.extent.physicalHeight
       origin = target.origin
@@ -186,21 +191,25 @@ internal class OpenGlPresenter : AutoCloseable {
       }
     }
 
-    private fun retain(image: Image) {
-      retainedImages.addLast(image)
-      while (retainedImages.size > RETAINED_IMAGE_COUNT) retainedImages.removeFirst().close()
-    }
-
     override fun close() {
       closeGpuResources()
-      contextIdentity = 0
+      width = 0
+      height = 0
+      origin = TextureOrigin.TOP_LEFT
+    }
+
+    fun abandon() {
+      surface?.close()
+      surface = null
+      renderTarget?.close()
+      renderTarget = null
+      framebuffer = 0
       width = 0
       height = 0
       origin = TextureOrigin.TOP_LEFT
     }
 
     private fun closeGpuResources() {
-      while (retainedImages.isNotEmpty()) retainedImages.removeFirst().close()
       surface?.close()
       surface = null
       renderTarget?.close()

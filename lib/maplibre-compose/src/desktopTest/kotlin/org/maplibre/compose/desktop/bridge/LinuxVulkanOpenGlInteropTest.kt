@@ -19,6 +19,8 @@ import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
+import org.jetbrains.skia.Picture
+import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.makeGLWithInterface
 import org.junit.Assume.assumeTrue
@@ -126,6 +128,55 @@ class LinuxVulkanOpenGlInteropTest {
       }
     }
 
+  @Test
+  fun `a replacement Compose context gets a new shared target`() =
+    onLinux("the Vulkan to OpenGL bridge this replaces exists only on Linux") {
+      EglTestContext.create().use { firstEgl ->
+        EglTestContext.create().use { secondEgl ->
+          val gpuHost = EglGpuHost(firstEgl)
+          val host = VulkanOpenGlMapHost(gpuHost)
+          try {
+            InteropMap(host).use { map ->
+              val first = firstEgl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
+              assertNear(FIRST_PIXEL, firstEgl.withCurrent { firstEgl.drawAndRead(host, first) })
+
+              gpuHost.replaceContext(secondEgl)
+              val second = secondEgl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
+              assertNear(
+                SECOND_PIXEL,
+                secondEgl.withCurrent { secondEgl.drawAndRead(host, second) },
+              )
+            }
+          } finally {
+            host.close()
+          }
+        }
+      }
+    }
+
+  @Test
+  fun `a recorded frame keeps its pixels when the shared target is reused`() =
+    onLinux("the Vulkan to OpenGL bridge this records exists only on Linux") {
+      EglTestContext.create().use { egl ->
+        val host = VulkanOpenGlMapHost(EglGpuHost(egl))
+        try {
+          InteropMap(host).use { map ->
+            val first = egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
+            egl.withCurrent {
+              egl.record(host, first).use { recordedFirst ->
+                val second = map.renderStyle(SECOND_STYLE, FIRST_EXTENT)
+
+                assertNear(FIRST_PIXEL, egl.drawAndRead(recordedFirst))
+                assertNear(SECOND_PIXEL, egl.drawAndRead(host, second))
+              }
+            }
+          }
+        } finally {
+          host.close()
+        }
+      }
+    }
+
   /**
    * Runs [block] on Linux only, skipping elsewhere rather than reporting a pass it did not earn.
    */
@@ -148,15 +199,18 @@ class LinuxVulkanOpenGlInteropTest {
     )
   }
 
-  private class EglGpuHost(private val egl: EglTestContext) : ComposeGpuHost {
+  private class EglGpuHost(egl: EglTestContext) : ComposeGpuHost {
     private val ownerThread = Thread.currentThread()
-    private val context =
-      OpenGlComposeGpuContext(egl.directContext) { action -> egl.withCurrent { action.run() } }
+    private var context = egl.asComposeContext()
 
     override val description: String = "the test EGL OpenGL context"
     override val backend: ComposeRenderBackend = ComposeRenderBackend.OPENGL
 
     override fun gpuContext(): ComposeGpuContext = context
+
+    fun replaceContext(egl: EglTestContext) {
+      context = egl.asComposeContext()
+    }
 
     override fun runOnGpuThread(action: Runnable) {
       check(Thread.currentThread() === ownerThread) {
@@ -164,6 +218,9 @@ class LinuxVulkanOpenGlInteropTest {
       }
       action.run()
     }
+
+    private fun EglTestContext.asComposeContext() =
+      OpenGlComposeGpuContext(directContext) { action -> withCurrent { action.run() } }
   }
 
   private class InteropMap(private val host: VulkanOpenGlMapHost) : AutoCloseable {
@@ -314,6 +371,32 @@ class LinuxVulkanOpenGlInteropTest {
         drew = host.draw(this, target)
       }
       assertTrue(drew, "The OpenGL host did not draw generation ${target.generation}")
+      return readDestination()
+    }
+
+    fun record(host: VulkanOpenGlMapHost, target: MlnFfiRenderTarget): Picture =
+      PictureRecorder().use { recorder ->
+        val canvas = recorder.beginRecording(0f, 0f, DRAW_WIDTH.toFloat(), DRAW_HEIGHT.toFloat())
+        var drew = false
+        CanvasDrawScope().draw(
+          Density(1f),
+          LayoutDirection.Ltr,
+          canvas.asComposeCanvas(),
+          Size(DRAW_WIDTH.toFloat(), DRAW_HEIGHT.toFloat()),
+        ) {
+          drew = host.draw(this, target)
+        }
+        assertTrue(drew, "The OpenGL host did not record generation ${target.generation}")
+        recorder.finishRecordingAsPicture()
+      }
+
+    fun drawAndRead(picture: Picture): RgbaPixel {
+      destination.canvas.clear(0xff00ff00.toInt())
+      destination.canvas.drawPicture(picture)
+      return readDestination()
+    }
+
+    private fun readDestination(): RgbaPixel {
       destination.flushAndSubmit()
 
       Bitmap().use { bitmap ->

@@ -52,19 +52,19 @@ internal fun Modifier.mlnFfiMapInput(
   options: GestureOptions,
   density: Density,
   focusRequester: FocusRequester,
-  touchMomentum: TouchMomentum,
+  continuation: GestureContinuation,
 ): Modifier =
-  this.keyboardInput(session, options, touchMomentum)
+  this.keyboardInput(session, options, continuation)
     .focusRequester(focusRequester)
     .focusable()
-    .pointerGestures(session, options, density, focusRequester, touchMomentum)
-    .scrollZoom(session, options, density, touchMomentum)
+    .pointerGestures(session, options, density, focusRequester, continuation)
+    .scrollZoom(session, options, density, continuation)
 
 /** Arrow keys pan, shift and an arrow key rotates or tilts, and `+` and `-` zoom. */
 private fun Modifier.keyboardInput(
   session: MlnFfiMapSession,
   options: GestureOptions,
-  touchMomentum: TouchMomentum,
+  continuation: GestureContinuation,
 ): Modifier =
   // Key events only reach a focused node; the map takes focus on press, so the keyboard works only
   // once the user has interacted with the map.
@@ -75,23 +75,23 @@ private fun Modifier.keyboardInput(
     when (event.key) {
       Key.DirectionLeft ->
         if (shifted)
-          session.rotateAndTilt(options, touchMomentum, bearingDelta = -options.keyboardRotateStep)
-        else session.pan(options, touchMomentum, panStep, 0.0)
+          session.rotateAndTilt(options, continuation, bearingDelta = -options.keyboardRotateStep)
+        else session.pan(options, continuation, panStep, 0.0)
       Key.DirectionRight ->
         if (shifted)
-          session.rotateAndTilt(options, touchMomentum, bearingDelta = options.keyboardRotateStep)
-        else session.pan(options, touchMomentum, -panStep, 0.0)
+          session.rotateAndTilt(options, continuation, bearingDelta = options.keyboardRotateStep)
+        else session.pan(options, continuation, -panStep, 0.0)
       Key.DirectionUp ->
         if (shifted)
-          session.rotateAndTilt(options, touchMomentum, pitchDelta = options.keyboardPitchStep)
-        else session.pan(options, touchMomentum, 0.0, panStep)
+          session.rotateAndTilt(options, continuation, pitchDelta = options.keyboardPitchStep)
+        else session.pan(options, continuation, 0.0, panStep)
       Key.DirectionDown ->
         if (shifted)
-          session.rotateAndTilt(options, touchMomentum, pitchDelta = -options.keyboardPitchStep)
-        else session.pan(options, touchMomentum, 0.0, -panStep)
+          session.rotateAndTilt(options, continuation, pitchDelta = -options.keyboardPitchStep)
+        else session.pan(options, continuation, 0.0, -panStep)
       Key.Plus,
-      Key.Equals -> session.zoom(options, touchMomentum, options.zoomStep)
-      Key.Minus -> session.zoom(options, touchMomentum, -options.zoomStep)
+      Key.Equals -> session.zoom(options, continuation, options.zoomStep)
+      Key.Minus -> session.zoom(options, continuation, -options.zoomStep)
       else -> false
     }
   }
@@ -101,9 +101,9 @@ private fun Modifier.pointerGestures(
   options: GestureOptions,
   density: Density,
   focusRequester: FocusRequester,
-  touchMomentum: TouchMomentum,
+  continuation: GestureContinuation,
 ): Modifier =
-  pointerInput(session, options, density, touchMomentum) {
+  pointerInput(session, options, density, continuation) {
     val scope = CoroutineScope(currentCoroutineContext())
     val gesture =
       MapPointerGesture(
@@ -121,7 +121,7 @@ private fun Modifier.pointerGestures(
         doubleClickTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis,
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
-        touchMomentum = touchMomentum,
+        continuation = continuation,
       )
     try {
       awaitPointerEventScope { while (true) gesture.onPointerEvent(awaitPointerEvent()) }
@@ -136,7 +136,7 @@ private fun Modifier.scrollZoom(
   session: MlnFfiMapSession,
   options: GestureOptions,
   density: Density,
-  touchMomentum: TouchMomentum,
+  continuation: GestureContinuation,
 ): Modifier =
   // Separate from the press loop because scroll arrives without a preceding press.
   pointerInput(session, options, density) {
@@ -150,7 +150,7 @@ private fun Modifier.scrollZoom(
         if (scroll == 0f) continue
 
         // Anchored at the pointer so the point under it stays put.
-        touchMomentum.cancel()
+        continuation.finish(session::onGestureEnded)
         session.cancelTransitions()
         session.scaleBy(
           scale = zoomLevelsToScale(-scroll.toDouble() * options.scrollZoomStep),
@@ -182,7 +182,7 @@ private class MapPointerGesture(
   private val doubleClickTimeoutMillis: Long,
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
-  private val touchMomentum: TouchMomentum,
+  private val continuation: GestureContinuation,
 ) {
   private var gestureInProgress = false
   private var mode = Mode.NONE
@@ -208,7 +208,6 @@ private class MapPointerGesture(
   private var lastClassicRotationDegrees = 0.0
   private var twoFingerTap: TwoFingerTapCandidate? = null
   private var deferredTwoFingerVelocity: (() -> Duration?)? = null
-  private var gestureEndJob: Job? = null
 
   /**
    * Where the press began, cleared once the drag starts; null means the press is no longer a
@@ -284,7 +283,7 @@ private class MapPointerGesture(
     singleVelocity.addPointerInputChange(change)
     if (quickZoomCandidate) cancelPendingTouchClick()
     deferredTwoFingerVelocity = null
-    cancelMomentumForNewGesture()
+    continuation.interrupt()
     // Taking focus on press is what makes the keyboard handling reachable.
     runCatching { focusRequester.requestFocus() }
     // A transition still in flight would keep animating against the pointer.
@@ -296,6 +295,7 @@ private class MapPointerGesture(
         delay(longClickTimeoutMillis)
         if (clickOrigin == origin && !gestureInProgress && mode == Mode.SINGLE) {
           clickOrigin = null
+          continuation.finish(session::onGestureEnded)
           session.onSecondaryClick(origin.toLogicalDpOffset(density))
         }
       }
@@ -413,7 +413,7 @@ private class MapPointerGesture(
       scaleAlongsideRotation = false
       twoFingerVelocity.resetTracking()
       twoFingerVelocity.addPointerInputChange(first)
-      cancelMomentumForNewGesture()
+      continuation.interrupt()
       deferredTwoFingerVelocity = null
       if (first.type != PointerType.Mouse && second.type != PointerType.Mouse) {
         twoFingerTap =
@@ -638,14 +638,20 @@ private class MapPointerGesture(
       event.changes.forEach(PointerInputChange::consume)
     }
 
-    if (gestureInProgress) endDrag(continuationDuration ?: Duration.ZERO)
-    else if (completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) {
+    if (gestureInProgress) {
+      endDrag(continuationDuration ?: Duration.ZERO)
+      return
+    }
+    continuation.finish(session::onGestureEnded)
+    if (completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) {
       session.scaleBy(
         scale = zoomLevelsToScale(-options.zoomStep),
         anchor = options.zoomAnchor(completedTwoFingerTap.centroid.toLogicalDpOffset(density)),
         duration = options.animationDuration,
       )
-    } else if (origin != null) onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L)
+    } else if (origin != null) {
+      onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L)
+    }
   }
 
   private fun onClick(origin: Offset, timeMillis: Long) {
@@ -790,18 +796,18 @@ private class MapPointerGesture(
 
   /** Android's scale velocity animator interpolates absolute zoom with a decelerate curve. */
   private fun animateScaleVelocity(
-    continuation: ClassicAndroidGestureMath.ScaleVelocity,
+    velocity: ClassicAndroidGestureMath.ScaleVelocity,
     anchor: DpOffset?,
   ) {
-    touchMomentum.launchScale(scope) {
-      val durationNanos = continuation.duration.inWholeNanoseconds.coerceAtLeast(1L)
+    continuation.launchScale(scope) {
+      val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
       val startedAt = withFrameNanos { it }
       var previousEasedProgress = 0.0
       do {
         val now = withFrameNanos { it }
         val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
         val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
-        val frameZoomDelta = continuation.zoomDelta * (easedProgress - previousEasedProgress)
+        val frameZoomDelta = velocity.zoomDelta * (easedProgress - previousEasedProgress)
         if (frameZoomDelta != 0.0) session.scaleBy(zoomLevelsToScale(frameZoomDelta), anchor)
         previousEasedProgress = easedProgress
       } while (progress < 1.0)
@@ -809,17 +815,17 @@ private class MapPointerGesture(
   }
 
   private fun animateRotationVelocity(
-    continuation: ClassicAndroidGestureMath.RotationVelocity,
+    velocity: ClassicAndroidGestureMath.RotationVelocity,
     anchor: DpOffset?,
   ) {
-    touchMomentum.launchRotation(scope) {
-      val durationNanos = continuation.duration.inWholeNanoseconds.coerceAtLeast(1L)
+    continuation.launchRotation(scope) {
+      val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
       val startedAt = withFrameNanos { it }
       do {
         val now = withFrameNanos { it }
         val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
         // Android's default DecelerateInterpolator leaves (1 - t)^2 of the animated value.
-        val frameDelta = continuation.initialDegreesPerFrame * (1.0 - progress).pow(2.0)
+        val frameDelta = velocity.initialDegreesPerFrame * (1.0 - progress).pow(2.0)
         if (frameDelta != 0.0) session.rotateAndPitchBy(frameDelta, 0.0, anchor = anchor)
       } while (progress < 1.0)
     }
@@ -842,13 +848,8 @@ private class MapPointerGesture(
     cancelLongClick()
     if (!gestureInProgress) return
     gestureInProgress = false
-    gestureEndJob?.cancel()
     if (followUpDuration > Duration.ZERO) {
-      gestureEndJob = scope.launch {
-        delay(followUpDuration.inWholeMilliseconds)
-        gestureEndJob = null
-        session.onGestureEnded()
-      }
+      continuation.finishAfter(scope, followUpDuration, session::onGestureEnded)
     } else {
       session.onGestureEnded()
     }
@@ -857,28 +858,22 @@ private class MapPointerGesture(
   private fun beginGesture() {
     cancelLongClick()
     if (gestureInProgress) return
-    gestureEndJob?.cancel()
-    gestureEndJob = null
     gestureInProgress = true
-    session.onGestureStarted()
-  }
-
-  /** Cancels a released gesture's inertia without closing the move a new gesture is taking over. */
-  private fun cancelMomentumForNewGesture() {
-    touchMomentum.cancel()
+    if (!continuation.resume()) session.onGestureStarted()
   }
 
   /** Clears session state if this pointer-input coroutine is replaced or disposed. */
   fun cancel() {
-    val sessionGestureOpen = gestureInProgress || gestureEndJob != null
     cancelLongClick()
-    cancelMomentumForNewGesture()
-    gestureEndJob?.cancel()
-    gestureEndJob = null
     deferredTwoFingerVelocity = null
     cancelPendingTouchClick()
-    gestureInProgress = false
-    if (sessionGestureOpen) session.onGestureEnded()
+    if (gestureInProgress) {
+      gestureInProgress = false
+      continuation.cancel()
+      session.onGestureEnded()
+    } else {
+      continuation.finish(session::onGestureEnded)
+    }
   }
 
   private fun cancelLongClick() {
@@ -990,10 +985,11 @@ private class MapPointerGesture(
   }
 }
 
-/** Velocity continuations shared by touch, wheel, and keyboard modifier nodes. */
-internal class TouchMomentum {
+/** Owns every continuation of a pointer gesture after the pointers are released. */
+internal class GestureContinuation {
   private var scaleVelocityJob: Job? = null
   private var rotationVelocityJob: Job? = null
+  private var finishJob: Job? = null
 
   fun launchScale(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
     scaleVelocityJob?.cancel()
@@ -1005,45 +1001,75 @@ internal class TouchMomentum {
     rotationVelocityJob = scope.launch(block = block)
   }
 
-  fun cancel() {
+  /** Stops camera motion while leaving its gesture open for a possible pointer takeover. */
+  fun interrupt() {
     scaleVelocityJob?.cancel()
     scaleVelocityJob = null
     rotationVelocityJob?.cancel()
     rotationVelocityJob = null
   }
+
+  /** Takes over an open gesture, returning whether a new start event is unnecessary. */
+  fun resume(): Boolean {
+    val wasOpen = finishJob != null
+    finishJob?.cancel()
+    finishJob = null
+    return wasOpen
+  }
+
+  fun finishAfter(scope: CoroutineScope, duration: Duration, onFinished: () -> Unit) {
+    finishJob?.cancel()
+    finishJob = scope.launch {
+      delay(duration.inWholeMilliseconds)
+      finishJob = null
+      onFinished()
+    }
+  }
+
+  /** Stops the continuation and closes its gesture, if one remains open. */
+  fun finish(onFinished: () -> Unit) {
+    interrupt()
+    if (resume()) onFinished()
+  }
+
+  /** Stops all continuation work without emitting an end event. */
+  fun cancel() {
+    interrupt()
+    resume()
+  }
 }
 
 private fun MlnFfiMapSession.pan(
   options: GestureOptions,
-  touchMomentum: TouchMomentum,
+  continuation: GestureContinuation,
   deltaX: Double,
   deltaY: Double,
 ): Boolean {
   if (!options.isKeyboardPanEnabled) return false
-  touchMomentum.cancel()
+  continuation.finish(::onGestureEnded)
   moveBy(deltaX, deltaY, options.animationDuration)
   return true
 }
 
 private fun MlnFfiMapSession.zoom(
   options: GestureOptions,
-  touchMomentum: TouchMomentum,
+  continuation: GestureContinuation,
   levelDelta: Double,
 ): Boolean {
   if (!options.isKeyboardZoomEnabled) return false
-  touchMomentum.cancel()
+  continuation.finish(::onGestureEnded)
   scaleBy(zoomLevelsToScale(levelDelta), anchor = null, duration = options.animationDuration)
   return true
 }
 
 private fun MlnFfiMapSession.rotateAndTilt(
   options: GestureOptions,
-  touchMomentum: TouchMomentum,
+  continuation: GestureContinuation,
   bearingDelta: Double = 0.0,
   pitchDelta: Double = 0.0,
 ): Boolean {
   if (!options.isKeyboardRotateTiltEnabled) return false
-  touchMomentum.cancel()
+  continuation.finish(::onGestureEnded)
   rotateAndPitchBy(bearingDelta, pitchDelta, options.animationDuration)
   return true
 }
