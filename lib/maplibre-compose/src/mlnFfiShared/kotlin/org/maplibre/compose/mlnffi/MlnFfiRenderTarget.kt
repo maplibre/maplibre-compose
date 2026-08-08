@@ -105,7 +105,7 @@ internal data class MetalTextureTarget(
 /** Platform context handles MapLibre needs to render into an OpenGL target. */
 internal sealed interface OpenGlContextHandles
 
-/** EGL context handles, used on Linux. */
+/** EGL context handles, used by EGL hosts. */
 @Immutable
 internal data class EglContextHandles(
   /** `EGLDisplay`. */
@@ -118,7 +118,7 @@ internal data class EglContextHandles(
   val getProcAddress: NativeHandle,
 ) : OpenGlContextHandles
 
-/** WGL context handles, used on Windows. */
+/** WGL context handles, used by WGL hosts. */
 @Immutable
 internal data class WglContextHandles(
   /** `HDC`. */
@@ -154,6 +154,20 @@ internal data class OpenGlTextureTarget(
    * the context is already current.
    */
   val makeContextCurrent: () -> Unit,
+  override val extent: MlnFfiMapExtent,
+  override val generation: Long,
+) : MlnFfiRenderTarget {
+  override val backend: MapRenderBackend
+    get() = MapRenderBackend.OPENGL
+}
+
+/** A platform-native OpenGL surface MapLibre renders into and presents directly. */
+@Immutable
+internal data class OpenGlSurfaceTarget(
+  /** Platform context handles for [surface]. */
+  val context: OpenGlContextHandles,
+  /** Provider-native surface handle, or zero when the context identifies a WebGL canvas. */
+  val surface: NativeHandle,
   override val extent: MlnFfiMapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {
