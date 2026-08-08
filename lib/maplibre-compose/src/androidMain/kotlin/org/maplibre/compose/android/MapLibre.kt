@@ -1,0 +1,22 @@
+package org.maplibre.compose.android
+
+import android.content.Context
+import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
+import org.maplibre.compose.mlnffi.MlnFfiApplication
+
+/** Process-wide entry point for configuring MapLibre Compose on Android. */
+public object MapLibre {
+  /**
+   * Installs [options] for every map and offline operation in this process.
+   *
+   * Call this once from application startup, before composing a map or using offline APIs. The
+   * first call wins; repeating the same normalized configuration is a no-op.
+   */
+  public fun configure(
+    context: Context,
+    options: AndroidRuntimeOptions = AndroidRuntimeOptions(androidCacheFile(context)),
+  ) {
+    AndroidMlnFfiPlatform.initialize(context)
+    MlnFfiApplication.configure(options.toMlnFfiRuntimeOptions())
+  }
+}

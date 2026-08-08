@@ -38,16 +38,14 @@ Next steps:
   is the last piece. Device heading is not something MapLibre Native provides on
   desktop, so a desktop map will show position without a compass direction.
 
-### [Native core integration on Android and iOS](https://github.com/maplibre/maplibre-compose/issues/572)
+### [Native core integration on iOS](https://github.com/maplibre/maplibre-compose/issues/572)
 
 **Status:** Needs Exploration 🔍
 
-The goal is to wrap just the MapLibre Native C++ core on Android, iOS, and
-desktop with one common Kotlin JVM+Native wrapper. Desktop consumes
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi), but
-Android uses MapLibre Native's Java/Kotlin bindings and iOS its Obj-C ones. Each
-has a different API, so our multiplatform API tends toward the
-lowest-common-denominator of all three.
+The goal is to wrap just the MapLibre Native C++ core on iOS with the same
+Kotlin Multiplatform binding Android and Desktop now consume. iOS still uses
+MapLibre Native's Obj-C bindings, which keeps its implementation separate from
+the shared Android and Desktop path.
 
 The desktop work above is the evidence this is worth doing: it is a full map
 implementation on the FFI, and several capabilities MapLibre Native offers are
@@ -56,8 +54,6 @@ them.
 
 Research Areas:
 
-- Explore using `maplibre-native-ffi` on Android, with code to integrate with an
-  Android Surface instead of an AWT Canvas.
 - Explore using its Kotlin/Native targets on iOS, with code to integrate with a
   Metal layer.
 - Explore unifying those platforms behind a single, thin, `expect`/`actual`
@@ -182,9 +178,9 @@ gestures for those mobile platforms, so the focus here is on desktop and web.
 
 Desktop now has a working set, tuned to match MapLibre GL JS: drag to pan,
 scroll and double-click to zoom, right-drag or ctrl-drag to rotate and tilt, and
-keyboard control throughout. Touchscreens on the Desktop FFI host use
-Android-style pan, pinch, rotate, shove, quick-zoom, and velocity gestures. What
-is left is covering input devices such as multi-touch trackpads and the
+keyboard control throughout. Touchscreens on the Desktop and Android FFI hosts
+use Android-style pan, pinch, rotate, shove, quick-zoom, and velocity gestures.
+What is left is covering input devices such as multi-touch trackpads and the
 accessibility needs the current controls do not yet reach.
 
 Research Areas:
@@ -232,10 +228,10 @@ which `maplibre-native-ffi` can now produce by reading a rendered map back to
 the CPU.
 
 These are deliberately not being built yet. Doing any of them today means
-writing the same feature four times — against the Android SDK, the iOS SDK,
-`maplibre-native-ffi`, and MapLibre GL JS — and throwing three of those away
-once the native core integration above lands. They become one implementation
-each afterwards, which is why that work comes first.
+writing the same feature three times — against the iOS SDK,
+`maplibre-native-ffi`, and MapLibre GL JS — and throwing two of those away once
+the native core integration above lands. They become one implementation each
+afterwards, which is why that work comes first.
 
 Snapshots carry one extra requirement, since we would like to style them the
 same way interactive maps are styled: the style API has to be usable without a

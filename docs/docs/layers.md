@@ -25,9 +25,8 @@ MaplibreMap {
 ```
 
 For small, frequently updated in-memory GeoJSON sources, you can opt into
-synchronous updates. This currently has an effect only on Android; other
-platforms ignore the option for now. Under the hood, this maps to MapLibre
-Native Android's [GeoJsonOptions.withSynchronousUpdate()][android-sync-update]:
+synchronous updates. This currently has an effect on Android and Desktop; other
+platforms ignore the option for now:
 
 ```kotlin
 MaplibreMap {
@@ -80,4 +79,3 @@ from propagating to subsequent listeners.
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/
 [spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/
-[android-sync-update]: https://maplibre.org/maplibre-native/android/api/-map-libre%20-native%20-android/org.maplibre.android.style.sources/-geo-json-options/with-synchronous-update.html
