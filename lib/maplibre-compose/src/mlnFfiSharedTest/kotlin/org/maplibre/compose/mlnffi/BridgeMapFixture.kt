@@ -3,7 +3,7 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.nio.file.Path
+import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -29,7 +29,7 @@ import org.maplibre.spatialk.geojson.Position
 internal class BridgeMapFixture
 private constructor(
   private val driver: FfiTestRenderDriver,
-  private val cachePath: Path,
+  private val cacheFile: File,
   private val initialExtent: MlnFfiMapExtent,
 ) : AutoCloseable {
 
@@ -49,7 +49,7 @@ private constructor(
       renderBackend = driver.backends.producer,
       scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,
-      cachePath = cachePath,
+      cacheFile = cacheFile,
     )
 
   private val hostSession =
@@ -221,7 +221,7 @@ private constructor(
   override fun close() {
     runCatching { session.close() }
     runCatching { driver.close() }
-    FfiTestPlatform.deleteCachePath(cachePath)
+    FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   private inner class RecordingCallbacks : MapAdapter.Callbacks {
@@ -278,12 +278,12 @@ private constructor(
     fun create(initialExtent: MlnFfiMapExtent = DEFAULT_EXTENT): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
-      val cachePath = FfiTestPlatform.createCachePath()
+      val cacheFile = FfiTestPlatform.createCacheFile()
       return try {
-        BridgeMapFixture(driver, cachePath, initialExtent)
+        BridgeMapFixture(driver, cacheFile, initialExtent)
       } catch (error: Throwable) {
         runCatching { driver.close() }
-        FfiTestPlatform.deleteCachePath(cachePath)
+        FfiTestPlatform.deleteCacheFile(cacheFile)
         throw error
       }
     }

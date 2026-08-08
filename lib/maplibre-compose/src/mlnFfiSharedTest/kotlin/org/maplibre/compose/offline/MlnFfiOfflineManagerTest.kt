@@ -13,14 +13,14 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 /** Exercises the application cache's offline manager without a UI. */
 class MlnFfiOfflineManagerTest {
 
-  private val cachePath = FfiTestPlatform.createCachePath()
-  private val directory = requireNotNull(cachePath.parent).toFile()
+  private val cacheFile = FfiTestPlatform.createCacheFile()
+  private val directory = requireNotNull(cacheFile.parentFile)
 
-  private val options = MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
+  private val options = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
 
   private val budgetedOptions =
     MlnFfiRuntimeOptions(
-      cachePath = directory.resolve("budgeted-cache.db").toPath(),
+      cacheFile = directory.resolve("budgeted-cache.db"),
       maximumCacheSizeBytes = 8L * 1024 * 1024,
     )
 
@@ -29,7 +29,7 @@ class MlnFfiOfflineManagerTest {
   @AfterTest
   fun cleanUp() {
     managers.forEach { it.closeForTest() }
-    FfiTestPlatform.deleteCachePath(cachePath)
+    FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   /** A lost native completion would leave this suspending call hung. */

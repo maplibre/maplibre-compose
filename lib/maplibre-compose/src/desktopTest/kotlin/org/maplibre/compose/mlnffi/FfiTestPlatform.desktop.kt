@@ -1,7 +1,7 @@
 package org.maplibre.compose.mlnffi
 
+import java.io.File
 import java.nio.file.Files
-import java.nio.file.Path
 import org.junit.Assume.assumeTrue
 import org.maplibre.nativeffi.Maplibre
 
@@ -12,13 +12,13 @@ internal actual object FfiTestPlatform {
     Maplibre.loadNativeLibrary()
   }
 
-  actual fun createCachePath(): Path {
+  actual fun createCacheFile(): File {
     initialize()
-    return Files.createTempDirectory("maplibre-ffi-test").resolve("cache.db")
+    return Files.createTempDirectory("maplibre-ffi-test").resolve("cache.db").toFile()
   }
 
-  actual fun deleteCachePath(path: Path) {
-    path.parent.toFile().deleteRecursively()
+  actual fun deleteCacheFile(file: File) {
+    file.parentFile?.deleteRecursively()
   }
 
   actual fun createRenderDriver(): FfiTestRenderDriver {

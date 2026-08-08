@@ -61,7 +61,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
 
-  private val runtime = MlnFfiOfflineRuntime(options.cachePath, logger, ::handleEvent)
+  private val runtime = MlnFfiOfflineRuntime(options.cacheFile, logger, ::handleEvent)
 
   /** The application has one writer; this prevents concurrent suspending calls from overlapping. */
   private val cacheBudgetMutex = Mutex()

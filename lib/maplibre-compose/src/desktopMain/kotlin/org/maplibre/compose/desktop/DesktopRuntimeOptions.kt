@@ -58,6 +58,6 @@ internal fun absoluteEnvironmentPath(value: String?): Path? =
   value?.takeIf { it.isNotBlank() }?.let(Paths::get)?.takeIf(Path::isAbsolute)
 
 internal fun DesktopRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
-  MlnFfiRuntimeOptions(cachePath, maximumCacheSizeBytes)
+  MlnFfiRuntimeOptions(cachePath.toFile(), maximumCacheSizeBytes)
 
 private val APPLICATION_ID = Regex("[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*")

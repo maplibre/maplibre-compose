@@ -1,8 +1,7 @@
 package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
-import java.nio.file.Files
-import java.nio.file.Path
+import java.io.File
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
 
@@ -40,16 +39,22 @@ private constructor(
      * Creates a runtime and everything that hangs off it, or throws having closed whatever it got
      * as far as. [what] names the runtime in log lines.
      */
-    fun open(rawCachePath: Path, getLogger: () -> Logger?, what: String): MlnFfiRuntimeOwner {
-      val cachePath = rawCachePath.toAbsolutePath().normalize()
+    fun open(rawCacheFile: File, getLogger: () -> Logger?, what: String): MlnFfiRuntimeOwner {
+      val cacheFile = rawCacheFile.absoluteFile.normalize()
       // MapLibre opens the database as the runtime is created, and fails if the directory is
       // missing.
-      runCatching { cachePath.parent?.let(Files::createDirectories) }
+      runCatching {
+          cacheFile.parentFile?.let { directory ->
+            check(directory.mkdirs() || directory.isDirectory) {
+              "Could not create the MapLibre cache directory $directory"
+            }
+          }
+        }
         .onFailure { getLogger()?.w(it) { "Could not create the MapLibre cache directory" } }
 
       val runtime =
         try {
-          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cachePath.toString() })
+          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.path })
         } catch (error: Throwable) {
           throw error
         }

@@ -1,7 +1,7 @@
 package org.maplibre.compose.map
 
 import co.touchlab.kermit.Logger
-import java.nio.file.Path
+import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
@@ -47,7 +47,7 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
   private val extent: MlnFfiMapExtent,
-  private val cachePath: Path,
+  private val cacheFile: File,
   private val getLogger: () -> Logger?,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
@@ -175,7 +175,7 @@ internal class MlnFfiMapRuntimeLoop(
   private fun runLoop() {
     val owner =
       try {
-        MlnFfiRuntimeOwner.open(cachePath, getLogger, "MapLibre runtime").also { runtimeOwner = it }
+        MlnFfiRuntimeOwner.open(cacheFile, getLogger, "MapLibre runtime").also { runtimeOwner = it }
       } catch (error: Throwable) {
         logger?.e(error) { "Could not create the MapLibre runtime" }
         fail(error)

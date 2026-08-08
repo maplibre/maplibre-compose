@@ -18,19 +18,19 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
  */
 class MlnFfiOfflineRuntimeTest {
 
-  private val cachePath = FfiTestPlatform.createCachePath()
+  private val cacheFile = FfiTestPlatform.createCacheFile()
 
   private val runtimes = mutableListOf<MlnFfiOfflineRuntime>()
 
   @AfterTest
   fun cleanUp() {
     runtimes.forEach { it.shutdown() }
-    FfiTestPlatform.deleteCachePath(cachePath)
+    FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   private fun startRuntime(): MlnFfiOfflineRuntime =
     MlnFfiOfflineRuntime(
-        cachePath = cachePath,
+        cacheFile = cacheFile,
         logger = Logger.withTag("offline-runtime-test"),
         onEvent = {},
       )

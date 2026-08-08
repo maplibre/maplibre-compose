@@ -53,18 +53,18 @@ import org.maplibre.spatialk.geojson.Position
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapInputTest {
 
-  private val cachePath = FfiTestPlatform.createCachePath()
+  private val cacheFile = FfiTestPlatform.createCacheFile()
 
   /** Every click the map reported, including the one [runInputTest] uses to take focus. */
   private val clicks = mutableListOf<Position>()
   private val longClicks = mutableListOf<Position>()
 
   private val runtimeOptions =
-    MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
+    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCachePath(cachePath)
+    FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   @Test

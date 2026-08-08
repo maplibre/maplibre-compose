@@ -1,6 +1,6 @@
 package org.maplibre.compose.offline
 
-import java.nio.file.Path
+import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
@@ -21,7 +21,7 @@ class MlnFfiSharedCacheDatabaseTest {
 
   @Test
   fun two_runtimes_can_open_the_same_cache_database() {
-    val cache = FfiTestPlatform.createCachePath()
+    val cache = FfiTestPlatform.createCacheFile()
 
     val first = Executors.newSingleThreadExecutor()
     val second = Executors.newSingleThreadExecutor()
@@ -51,10 +51,10 @@ class MlnFfiSharedCacheDatabaseTest {
       second.shutdown()
       first.awaitTermination(10, TimeUnit.SECONDS)
       second.awaitTermination(10, TimeUnit.SECONDS)
-      FfiTestPlatform.deleteCachePath(cache)
+      FfiTestPlatform.deleteCacheFile(cache)
     }
   }
 
-  private fun createRuntime(cachePath: Path): RuntimeHandle =
-    RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cachePath.toString() })
+  private fun createRuntime(cacheFile: File): RuntimeHandle =
+    RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.path })
 }

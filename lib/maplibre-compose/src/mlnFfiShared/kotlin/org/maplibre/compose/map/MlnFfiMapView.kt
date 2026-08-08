@@ -52,7 +52,7 @@ internal fun MlnFfiMapView(
         renderBackend = hostFactory.backends.producer,
         scaleFactor = scaleFactor,
         layoutDirection = layoutDirection,
-        cachePath = applicationOptions.cachePath,
+        cacheFile = applicationOptions.cacheFile,
       )
     }
 
