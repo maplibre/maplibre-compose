@@ -39,9 +39,9 @@ internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObj
   val base = feature.toGeoJsonFeature()
   val properties = buildMap {
     base.properties?.let { putAll(it) }
-    sourceId?.let { put(SOURCE_ID_PROPERTY, JsonPrimitive(it)) }
-    sourceLayerId?.let { put(SOURCE_LAYER_ID_PROPERTY, JsonPrimitive(it)) }
-    state?.let { put(STATE_PROPERTY, it.toJsonElement()) }
+    sourceId?.let { putIfAbsent(SOURCE_ID_PROPERTY, JsonPrimitive(it)) }
+    sourceLayerId?.let { putIfAbsent(SOURCE_LAYER_ID_PROPERTY, JsonPrimitive(it)) }
+    state?.let { putIfAbsent(STATE_PROPERTY, it.toJsonElement()) }
   }
   return Feature(geometry = base.geometry, properties = JsonObject(properties), id = base.id)
 }

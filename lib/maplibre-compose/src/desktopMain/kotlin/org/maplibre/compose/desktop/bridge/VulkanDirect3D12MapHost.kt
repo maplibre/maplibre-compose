@@ -160,13 +160,10 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame {
-    val context = withPreparedContext { it }
-    val device = context?.device
-    if (
-      device != null &&
-        (importedTexture == null || extent != currentExtent || device != currentDevice)
-    ) {
+  ): MlnFfiMapFrame? {
+    val context = withPreparedContext { it } ?: return null
+    val device = context.device
+    if (importedTexture == null || extent != currentExtent || device != currentDevice) {
       resize(extent, device)
     }
     return MlnFfiMapFrame(

@@ -69,14 +69,25 @@ internal inline fun <reified T : ComposeGpuContext> ComposeGpuHost.requireContex
  * window's drawing surface, and the surface has to stay locked until the context is released again.
  */
 internal fun <T> ComposeGpuHost.withOpenGlContext(action: (OpenGlComposeGpuContext) -> T): T =
-  onGpuThread {
-    val context = requireContext<OpenGlComposeGpuContext>()
-    var result: Result<T>? = null
-    context.withContextCurrent {
-      result = runCatching {
-        ensureCapabilities()
-        action(context)
-      }
+  withOpenGlContextOrNull(action)
+    ?: throw MlnFfiHostException("$description reports no GPU context")
+
+/** [withOpenGlContext], but null means this host has no context for the current frame yet. */
+internal fun <T> ComposeGpuHost.withOpenGlContextOrNull(
+  action: (OpenGlComposeGpuContext) -> T
+): T? = onGpuThread {
+  val reported = gpuContext() ?: return@onGpuThread null
+  val context =
+    reported as? OpenGlComposeGpuContext
+      ?: throw MlnFfiHostException(
+        "$description switched from OpenGlComposeGpuContext to ${reported::class.simpleName}"
+      )
+  var result: Result<T>? = null
+  context.withContextCurrent {
+    result = runCatching {
+      ensureCapabilities()
+      action(context)
     }
-    checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()
   }
+  checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()
+}

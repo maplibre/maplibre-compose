@@ -147,7 +147,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame = gpuHost.withOpenGlContext { context ->
+  ): MlnFfiMapFrame? = gpuHost.withOpenGlContextOrNull { context ->
     frameCompletion.prepare(context.skiaContext, ::abandonContext)
     if (texture == null || extent != currentExtent) recreateTexture(extent)
     MlnFfiMapFrame(
@@ -170,11 +170,11 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
 
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is VulkanImageTarget) return false
-    return gpuHost.withOpenGlContext { context ->
+    return gpuHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
       val sharedTexture =
         if (target.generation == generation) texture else retiredTextures[target.generation]
-      val imported = sharedTexture?.imported ?: return@withOpenGlContext false
+      val imported = sharedTexture?.imported ?: return@withOpenGlContextOrNull false
       val drew =
         presenter.draw(
           scope,
@@ -184,7 +184,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
         )
       if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
       drew
-    }
+    } ?: false
   }
 
   override fun close() {
@@ -663,18 +663,18 @@ private constructor(
     )
 
   private fun create() {
-    val capabilities = ensureCapabilities()
-    check(capabilities.GL_EXT_memory_object) {
-      "Compose's OpenGL context does not expose GL_EXT_memory_object, which is required to " +
-        "import MapLibre's Vulkan image"
-    }
-    check(capabilities.GL_EXT_memory_object_fd) {
-      "Compose's OpenGL context does not expose GL_EXT_memory_object_fd, which is required to " +
-        "import MapLibre's Vulkan image"
-    }
-
     var importedFd = false
     try {
+      val capabilities = ensureCapabilities()
+      check(capabilities.GL_EXT_memory_object) {
+        "Compose's OpenGL context does not expose GL_EXT_memory_object, which is required to " +
+          "import MapLibre's Vulkan image"
+      }
+      check(capabilities.GL_EXT_memory_object_fd) {
+        "Compose's OpenGL context does not expose GL_EXT_memory_object_fd, which is required to " +
+          "import MapLibre's Vulkan image"
+      }
+
       // Compose and the bridge share this context, whose error flag is sticky. Establish ownership
       // of every error reported below before checking any of our own calls.
       clearGlErrors()

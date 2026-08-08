@@ -94,7 +94,7 @@ class LinuxVulkanOpenGlInteropTest {
             // OpenGL errors are sticky. This is the error compose-glfw left for the bridge to
             // misattribute to glImportMemoryFdEXT before the bridge established its own boundary.
             glEnable(Int.MIN_VALUE)
-            val frame = host.acquireFrame(1, FIRST_EXTENT, null)
+            val frame = requireNotNull(host.acquireFrame(1, FIRST_EXTENT, null))
             host.releaseFrame(frame)
           }
         } finally {
@@ -288,7 +288,7 @@ class LinuxVulkanOpenGlInteropTest {
           "Timed out rendering style $style at $extent; failure: $failure"
         }
         failure?.let { error(it) }
-        val frame = host.acquireFrame(nextFrameId++, extent, null)
+        val frame = requireNotNull(host.acquireFrame(nextFrameId++, extent, null))
         try {
           val result = host.withProducerAccess(frame) { renderer.render(frame) }
           if (result == MlnFfiFrameResult.RENDERED) {

@@ -135,7 +135,13 @@ internal class MlnFfiStyle(
 
   override fun addLayerAbove(id: String, layer: Layer) {
     // "Above id" is "below whatever currently sits above id", which is the next layer along.
-    val anchor = binding.withMap { map -> map.styleLayerIds().nextAfter(id) } ?: ""
+    val anchor =
+      binding.withMap { map ->
+        val ids = map.styleLayerIds()
+        val index = ids.indexOf(id)
+        require(index >= 0) { "Layer ID '$id' not found in base style" }
+        ids.getOrNull(index + 1).orEmpty()
+      } ?: return
     layer.attach(binding, beforeLayerId = anchor)
   }
 
@@ -144,7 +150,14 @@ internal class MlnFfiStyle(
   }
 
   override fun addLayerAt(index: Int, layer: Layer) {
-    val anchor = binding.withMap { map -> map.styleLayerIds().getOrNull(index) } ?: ""
+    val anchor =
+      binding.withMap { map ->
+        val ids = map.styleLayerIds()
+        require(index in 0..ids.size) {
+          "Layer index $index is outside the valid range 0..${ids.size}"
+        }
+        ids.getOrNull(index).orEmpty()
+      } ?: return
     layer.attach(binding, beforeLayerId = anchor)
   }
 
@@ -171,10 +184,4 @@ internal class MlnFfiStyle(
         ?: buildJsonObject { map.styleLayerType(id)?.let { put("type", it) } }
     return UnknownLayer(id, definition).also { it.bindExisting(binding) }
   }
-}
-
-/** The id directly after [id], or null when [id] is last or absent. */
-private fun List<String>.nextAfter(id: String): String? {
-  val index = indexOf(id)
-  return if (index < 0 || index + 1 >= size) null else this[index + 1]
 }

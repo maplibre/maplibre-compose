@@ -12,6 +12,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.normalized
+import org.maplibre.compose.resource.MlnFfiCacheDatabaseRegistry
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -183,7 +184,9 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     runOperation(
       description = "set the maximum ambient cache size to $size bytes",
       start = { it.startSetMaximumAmbientCacheSize(size) },
-      finish = { _, _ -> },
+      finish = { _, _ ->
+        MlnFfiCacheDatabaseRegistry.updateEffectiveMaximumCacheSize(options.cachePath, size)
+      },
     )
   }
 

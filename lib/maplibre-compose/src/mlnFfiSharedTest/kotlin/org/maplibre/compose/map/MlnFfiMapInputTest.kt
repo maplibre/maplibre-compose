@@ -34,9 +34,9 @@ import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
@@ -111,6 +111,21 @@ class MlnFfiMapInputTest {
       scroll(-1f)
     }
     awaitZoom(camera, START_ZOOM + GestureOptions.Standard.scrollZoomStep)
+  }
+
+  @Test
+  fun mouse_wheel_reports_a_gesture_camera_move() = runInputTest { camera ->
+    mainClock.autoAdvance = false
+    try {
+      onRoot().performMouseInput { scroll(-1f) }
+
+      waitUntil(timeoutMillis = TIMEOUT) { camera.moveReason == CameraMoveReason.GESTURE }
+
+      mainClock.advanceTimeByFrame()
+      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    } finally {
+      mainClock.autoAdvance = true
+    }
   }
 
   @Test
@@ -424,7 +439,8 @@ class MlnFfiMapInputTest {
           moveTo(center)
           scroll(-1f)
         }
-        assertFalse(camera.isCameraMoving, "the wheel left the interrupted touch gesture open")
+        mainClock.advanceTimeByFrame()
+        waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
         mainClock.advanceTimeBy(2_000)
       } finally {
         mainClock.autoAdvance = true

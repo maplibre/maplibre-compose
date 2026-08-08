@@ -91,7 +91,10 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
   /** Renders one frame, exactly as [MlnFfiMapSurface] does inside its draw pass. */
   fun frame(extent: MlnFfiMapExtent = DEFAULT_EXTENT): MlnFfiFrameResult {
     frameRequested = false
-    val frame = driver.acquireFrame(frameId++, extent, null)
+    val frame =
+      requireNotNull(driver.acquireFrame(frameId++, extent, null)) {
+        "The production ${driver.backends} bridge had no test GPU context"
+      }
     return try {
       driver
         .withProducerAccess(frame) { session.render(frame) }

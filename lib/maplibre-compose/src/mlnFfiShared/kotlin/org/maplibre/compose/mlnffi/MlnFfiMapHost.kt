@@ -54,15 +54,17 @@ internal interface MlnFfiMapHost : AutoCloseable {
   fun resize(extent: MlnFfiMapExtent) {}
 
   /**
-   * Acquires the next frame to render into. Throws if no target can be produced; the caller reports
-   * that as surface failure rather than retrying. Called from the consumer's draw callback, so the
-   * host may use the consumer graphics context that is current there.
+   * Acquires the next frame to render into. Returns null when the consumer graphics context does
+   * not exist yet; the caller skips that frame and asks for another without entering failure
+   * recovery. Throws when a context exists but no target can be produced. Called from the
+   * consumer's draw callback, so the host may use the consumer graphics context that is current
+   * there.
    */
   fun acquireFrame(
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame
+  ): MlnFfiMapFrame?
 
   /** Runs [action] with the producer side able to render into [frame]'s target. */
   fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T = action()

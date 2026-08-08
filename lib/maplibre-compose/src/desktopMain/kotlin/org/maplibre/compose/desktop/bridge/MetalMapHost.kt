@@ -51,10 +51,10 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame {
-    val context = withPreparedContext { it }
-    val device = context?.device
-    if (device != null && (texture.isNull || extent != currentExtent || device != currentDevice)) {
+  ): MlnFfiMapFrame? {
+    val context = withPreparedContext { it } ?: return null
+    val device = context.device
+    if (texture.isNull || extent != currentExtent || device != currentDevice) {
       resize(extent, device)
     }
     return MlnFfiMapFrame(

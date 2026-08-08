@@ -32,11 +32,12 @@ class MlnFfiMapSurfaceRecoveryTest {
             MlnFfiMapHostResult.Failed("could not create the deliberate test host", cause)
         }
       var observed: MlnFfiMapSurfaceState = MlnFfiMapSurfaceState.Initializing
+      val renderer = RecordingRenderer()
 
       setContent {
         CompositionLocalProvider(LocalMlnFfiMapSurfaceStateObserver provides { observed = it }) {
           MlnFfiMapSurface(
-            renderer = RecordingRenderer(),
+            renderer = renderer,
             runtimeBackends = setOf(MapRenderBackend.VULKAN),
             factory = factory,
             modifier = Modifier.size(64.dp),
@@ -48,6 +49,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       val failed = assertIs<MlnFfiMapSurfaceState.Failed>(observed)
       assertEquals("could not create the deliberate test host", failed.diagnostic)
       assertSame(cause, failed.cause)
+      assertEquals(1, renderer.closeCount, "terminal host creation should stop map work")
     }
 
   @Test
@@ -75,6 +77,24 @@ class MlnFfiMapSurfaceRecoveryTest {
       "a recovered frame should not have latched the surface: $states",
     )
   }
+
+  @Test
+  fun a_host_without_a_context_skips_past_the_failure_bound_and_then_renders() =
+    runFfiComposeUiTest {
+      val renderer = RecordingRenderer()
+      val factory =
+        FakeMlnFfiMapHostFactory(
+          configureHost = { it.notReadyAcquires = MAX_RECOVERY_ATTEMPTS + 2 }
+        )
+      val states = mutableListOf<MlnFfiMapSurfaceState>()
+
+      setSurfaceContent(renderer, factory) { states += it }
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+
+      assertEquals(0, renderer.surfaceLostCount)
+      assertEquals(MAX_RECOVERY_ATTEMPTS + 3, factory.created.single().acquireCount)
+      assertTrue(states.none { it is MlnFfiMapSurfaceState.Failed })
+    }
 
   /** The other half of a frame: the renderer, rather than the host, is what throws. */
   @Test
@@ -175,7 +195,7 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
-  fun an_unavailable_host_still_closes_the_renderer() = runFfiComposeUiTest {
+  fun an_unavailable_host_closes_the_renderer_immediately() = runFfiComposeUiTest {
     val renderer = RecordingRenderer()
     val factory = FakeMlnFfiMapHostFactory(supportedBackends = emptySet())
     val showSurface = mutableStateOf(true)
@@ -191,10 +211,11 @@ class MlnFfiMapSurfaceRecoveryTest {
       }
     }
     waitForIdle()
+    assertEquals(1, renderer.closeCount)
+
     showSurface.value = false
     waitForIdle()
-
-    assertEquals(1, renderer.closeCount)
+    assertEquals(1, renderer.closeCount, "disposal should not close the renderer twice")
   }
 
   private fun ComposeUiTest.setSurfaceContent(

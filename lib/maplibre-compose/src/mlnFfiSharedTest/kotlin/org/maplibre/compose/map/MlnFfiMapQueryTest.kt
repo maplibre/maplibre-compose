@@ -38,6 +38,24 @@ class MlnFfiMapQueryTest {
   }
 
   @Test
+  fun queried_feature_metadata_does_not_replace_source_properties() {
+    BridgeMapFixture.create().use {
+      it.loadStyle(BaseStyle.Json(COLLIDING_PROPERTIES_STYLE))
+      it.pump(frames = 30)
+
+      val feature =
+        it.session.queryRenderedFeatures(offset = CENTER, layerIds = null, predicate = null).first()
+
+      assertEquals("original-source", feature.properties?.get("\$source")?.jsonPrimitive?.content)
+      assertEquals(
+        "original-source-layer",
+        feature.properties?.get("\$sourceLayer")?.jsonPrimitive?.content,
+      )
+      assertEquals("original-state", feature.properties?.get("\$state")?.jsonPrimitive?.content)
+    }
+  }
+
+  @Test
   fun a_query_restricted_to_another_layer_returns_nothing() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
@@ -123,5 +141,11 @@ class MlnFfiMapQueryTest {
       }
       """
         .trimIndent()
+
+    val COLLIDING_PROPERTIES_STYLE =
+      WORLD_POLYGON_STYLE.replace(
+        """"properties": { "name": "world" }""",
+        """"properties": {"name":"world","${'$'}source":"original-source","${'$'}sourceLayer":"original-source-layer","${'$'}state":"original-state"}""",
+      )
   }
 }

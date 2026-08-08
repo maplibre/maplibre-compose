@@ -51,4 +51,26 @@ class MlnFfiCacheDatabaseRegistryTest {
     MlnFfiCacheDatabaseRegistry.acquire(MlnFfiRuntimeOptions(path, maximumCacheSizeBytes = 1024))
       .close()
   }
+
+  @Test
+  fun a_budget_mutation_is_reapplied_by_later_runtimes_without_changing_configuration_identity() {
+    val path = Paths.get("build", "cache-registry-mutation-test.db")
+    val configured = MlnFfiRuntimeOptions(path, maximumCacheSizeBytes = 1024)
+    val first = MlnFfiCacheDatabaseRegistry.acquire(configured)
+    try {
+      MlnFfiCacheDatabaseRegistry.updateEffectiveMaximumCacheSize(path, 2048)
+
+      val second = MlnFfiCacheDatabaseRegistry.acquire(configured)
+      try {
+        assertEquals(2048, second.options.maximumCacheSizeBytes)
+      } finally {
+        second.close()
+      }
+      assertFailsWith<IllegalStateException> {
+        MlnFfiCacheDatabaseRegistry.acquire(configured.copy(maximumCacheSizeBytes = 2048))
+      }
+    } finally {
+      first.close()
+    }
+  }
 }

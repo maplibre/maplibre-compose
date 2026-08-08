@@ -139,7 +139,8 @@ private fun Modifier.scrollZoom(
   continuation: GestureContinuation,
 ): Modifier =
   // Separate from the press loop because scroll arrives without a preceding press.
-  pointerInput(session, options, density) {
+  pointerInput(session, options, density, continuation) {
+    val scope = CoroutineScope(currentCoroutineContext())
     awaitEachGesture {
       while (true) {
         val event = awaitPointerEvent()
@@ -152,12 +153,16 @@ private fun Modifier.scrollZoom(
         // Compose Desktop reports AWT wheel rotation here, not screen pixels. Keep the zoom amount
         // independent of display density; density only converts the pointer anchor below.
         // Anchored at the pointer so the point under it stays put.
-        continuation.finish(session::onGestureEnded)
+        continuation.interrupt()
+        if (!continuation.resume()) session.onGestureStarted()
         session.cancelTransitions()
         session.scaleBy(
           scale = zoomLevelsToScale(-scroll.toDouble() * options.scrollZoomStep),
           anchor = options.zoomAnchor(change.position.toLogicalDpOffset(density)),
         )
+        // Keep the bracket open until MapLibre has reported this jump, and coalesce a wheel burst
+        // into one gesture by replacing this pending finish on every scroll event.
+        continuation.finishAfterFrame(scope, session::onGestureEnded)
         change.consume()
       }
     }
@@ -1032,6 +1037,16 @@ internal class GestureContinuation {
     finishJob?.cancel()
     finishJob = scope.launch {
       delay(duration.inWholeMilliseconds)
+      finishJob = null
+      onFinished()
+    }
+  }
+
+  /** Closes a discrete gesture after its owner-thread camera events have had a frame to arrive. */
+  fun finishAfterFrame(scope: CoroutineScope, onFinished: () -> Unit) {
+    finishJob?.cancel()
+    finishJob = scope.launch {
+      withFrameNanos {}
       finishJob = null
       onFinished()
     }

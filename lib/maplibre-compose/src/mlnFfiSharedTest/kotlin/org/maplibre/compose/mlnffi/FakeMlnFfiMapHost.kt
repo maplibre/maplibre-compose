@@ -17,6 +17,9 @@ internal class FakeMlnFfiMapHost(
    */
   var failingAcquires: Int = 0
 
+  /** How many acquires should report that the consumer context does not exist yet. */
+  var notReadyAcquires: Int = 0
+
   /** Every call this host received, in order. */
   val calls: MutableList<String> = mutableListOf()
 
@@ -61,9 +64,13 @@ internal class FakeMlnFfiMapHost(
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame {
+  ): MlnFfiMapFrame? {
     calls += "acquireFrame($frameId)"
     acquireCount++
+    if (notReadyAcquires > 0) {
+      notReadyAcquires--
+      return null
+    }
     if (failingAcquires > 0) {
       failingAcquires--
       throw IllegalStateException("fake host lost its device and cannot acquire frame $frameId")
