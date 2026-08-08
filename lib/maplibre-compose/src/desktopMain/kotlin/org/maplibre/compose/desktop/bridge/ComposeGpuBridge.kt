@@ -18,17 +18,17 @@ internal class ComposeGpuMapHostFactory(private val gpuHost: ComposeGpuHost) :
   override val description: String
     get() = gpuHost.description
 
-  override val supportedBackends: Set<RenderBackendPair> =
+  override val backends: RenderBackendPair =
     when (gpuHost.backend) {
       ComposeRenderBackend.METAL ->
-        setOf(RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
+        RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
       ComposeRenderBackend.OPENGL ->
-        setOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
+        RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
       ComposeRenderBackend.DIRECT3D12 ->
-        setOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12))
+        RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12)
     }
 
-  override fun create(producer: MapRenderBackend): MlnFfiMapHostResult =
+  override fun create(): MlnFfiMapHostResult =
     try {
       val host =
         when (gpuHost.backend) {
@@ -39,7 +39,10 @@ internal class ComposeGpuMapHostFactory(private val gpuHost: ComposeGpuHost) :
       MlnFfiMapHostResult.Created(host)
     } catch (error: Throwable) {
       if (error is VirtualMachineError) throw error
-      MlnFfiMapHostResult.Failed("$description failed to bridge $producer into Compose", error)
+      MlnFfiMapHostResult.Failed(
+        "$description failed to bridge ${backends.producer} into Compose",
+        error,
+      )
     }
 }
 

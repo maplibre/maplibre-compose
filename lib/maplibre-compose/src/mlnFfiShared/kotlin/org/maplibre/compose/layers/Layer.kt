@@ -46,6 +46,7 @@ internal actual sealed class Layer(actual val id: String) {
   private val paint = mutableMapOf<String, JsonElement>()
   private val root = mutableMapOf<String, JsonElement>()
 
+  @Volatile
   internal var binding: StyleBinding = StyleBinding.UNLOADED
     private set
 
@@ -116,7 +117,7 @@ internal actual sealed class Layer(actual val id: String) {
    */
   protected fun setFilterJson(filter: JsonElement) {
     root["filter"] = filter
-    binding.withMap { map -> map.setLayerFilter(id, filter.toFfiJsonValue()) }
+    binding.mutateMap { map -> map.setLayerFilter(id, filter.toFfiJsonValue()) }
   }
 
   /**
@@ -125,7 +126,7 @@ internal actual sealed class Layer(actual val id: String) {
    * composition applying the style. [attach] deliberately does throw instead.
    */
   private fun pushProperty(name: String, value: JsonElement) {
-    binding.withMap { map ->
+    binding.mutateMap { map ->
       try {
         map.setLayerProperty(id, name, value.toFfiJsonValue())
       } catch (error: MaplibreException) {
@@ -193,7 +194,7 @@ internal actual sealed class Layer(actual val id: String) {
     // See sourceDescriptor: the source's own effect has not run yet on a fresh style composition.
     // Always ask it to attach: Source verifies exact binding identity even when it is live already.
     sourceDescriptor?.attach(binding)
-    val added = binding.withMap { map ->
+    val added = binding.mutateMap { map ->
       try {
         map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId)
       } catch (error: MaplibreException) {
@@ -230,24 +231,25 @@ internal actual sealed class Layer(actual val id: String) {
     require(binding === expectedBinding) {
       "Layer '$id' does not belong to the style trying to remove it"
     }
-    binding.withMap { map -> map.removeStyleLayer(id) }
+    binding.mutateMap { map -> map.removeStyleLayer(id) }
     binding = StyleBinding.UNLOADED
   }
 
   /** Moves this layer to sit directly below [beforeLayerId], or on top when that is empty. */
   internal fun moveTo(beforeLayerId: String) {
-    binding.withMap { map -> map.moveStyleLayer(id, beforeLayerId) }
+    binding.mutateMap { map -> map.moveStyleLayer(id, beforeLayerId) }
   }
 
   /** Reads a property back from the live layer, falling back to the descriptor when detached. */
   protected fun readProperty(name: String): JsonElement =
-    binding.withMap { map -> map.layerProperty(id, name)?.toJsonElement() }
+    binding.readMap { map -> map.layerProperty(id, name)?.toJsonElement() }
       ?: layout[name]
       ?: paint[name]
       ?: root[name]
       ?: JsonNull
 
-  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.withMap(update) != null
+  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean =
+    binding.mutateMap(update) != null
 
   override fun toString() = "${this::class.simpleName}(id=\"$id\")"
 }

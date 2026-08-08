@@ -1,7 +1,5 @@
 package org.maplibre.compose.mlnffi
 
-import androidx.compose.runtime.ProvidableCompositionLocal
-import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.drawscope.DrawScope
 
 /**
@@ -104,18 +102,14 @@ internal interface MlnFfiMapHostFactory {
   /** A short description of this factory, used in diagnostics. */
   val description: String
 
-  /**
-   * The producer/consumer combinations this factory can bridge on the current machine. May be
-   * empty, which produces a diagnostic rather than an exception.
-   */
-  val supportedBackends: Set<RenderBackendPair>
+  /** The one producer/consumer combination this factory bridges on the current machine. */
+  val backends: RenderBackendPair
 
   /**
-   * Creates a host rendering with [producer], which always appears in [supportedBackends]. Prefer
-   * returning [MlnFfiMapHostResult.Failed] over throwing, so the failure reaches the user as a
-   * diagnostic.
+   * Creates a host for [backends]. Prefer returning [MlnFfiMapHostResult.Failed] over throwing, so
+   * the failure reaches the user as a diagnostic.
    */
-  fun create(producer: MapRenderBackend): MlnFfiMapHostResult
+  fun create(): MlnFfiMapHostResult
 }
 
 /** The outcome of [MlnFfiMapHostFactory.create]. */
@@ -126,21 +120,3 @@ internal sealed interface MlnFfiMapHostResult {
   /** This factory should have been able to create a host, but failed. */
   data class Failed(val diagnostic: String, val cause: Throwable? = null) : MlnFfiMapHostResult
 }
-
-/**
- * Replaces the host a map would otherwise build for the platform it is running on.
- *
- * Null, and meant to stay null outside this library's own tests: it lets tests supply a controlled
- * production bridge without changing application host discovery.
- */
-internal val LocalMlnFfiMapHostFactory: ProvidableCompositionLocal<MlnFfiMapHostFactory?> =
-  staticCompositionLocalOf {
-    null
-  }
-
-/** Observes surface lifecycle changes; null outside diagnostics and library integration tests. */
-internal val LocalMlnFfiMapSurfaceStateObserver:
-  ProvidableCompositionLocal<((MlnFfiMapSurfaceState) -> Unit)?> =
-  staticCompositionLocalOf {
-    null
-  }

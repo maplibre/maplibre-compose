@@ -62,7 +62,7 @@ public actual class ImageSource : Source {
    * The corners MapLibre holds for this source, or null when its style has unloaded. Exists so a
    * test can assert the corner order, which MapLibre does not validate.
    */
-  internal fun attachedCorners(): List<Position>? = binding.withMap { map ->
+  internal fun attachedCorners(): List<Position>? = binding.readMap { map ->
     map.imageSourceCoordinates(id)?.map { it.toPosition() }
   }
 

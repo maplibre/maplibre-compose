@@ -277,6 +277,7 @@ class LinuxVulkanOpenGlInteropTest {
       }
 
     init {
+      renderer.start()
       renderer.onSurfaceAvailable(hostSession)
     }
 

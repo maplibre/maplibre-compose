@@ -48,7 +48,7 @@ class MlnFfiStyleImageInsetsTest {
 
   @Test
   fun insets_on_a_retina_map_scale_with_the_bitmap() {
-    val fixture = BridgeMapFixture.create()
+    val fixture = BridgeMapFixture.create(BridgeMapFixture.RETINA_EXTENT)
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RETINA_EXTENT)
       val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")

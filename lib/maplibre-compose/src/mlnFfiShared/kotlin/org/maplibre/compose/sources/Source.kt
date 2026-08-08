@@ -19,6 +19,7 @@ public actual sealed class Source(internal actual val id: String) {
    */
   internal abstract fun toJson(): JsonObject
 
+  @Volatile
   internal var binding: StyleBinding = StyleBinding.UNLOADED
     private set
 
@@ -35,12 +36,12 @@ public actual sealed class Source(internal actual val id: String) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
     }
-    val added = binding.withMap { map ->
+    val added = binding.mutateMap { map ->
       // A layer attaches its source before the source effect runs. Identity tracking makes that
       // second reference idempotent without mistaking an unrelated native source with the same ID
       // for this descriptor.
       val claimed = binding.claimSource(id, this)
-      if (!claimed) return@withMap
+      if (!claimed) return@mutateMap
       try {
         addTo(map)
       } catch (error: Throwable) {
@@ -89,7 +90,7 @@ public actual sealed class Source(internal actual val id: String) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
-    binding.withMap { map ->
+    binding.mutateMap { map ->
       map.removeStyleSource(id)
       binding.releaseSource(id, this)
     }
@@ -100,7 +101,8 @@ public actual sealed class Source(internal actual val id: String) {
    * Applies [update] to the live source. Returns false when the style has unloaded, which is normal
    * for a frame during a style swap.
    */
-  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.withMap(update) != null
+  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean =
+    binding.mutateMap(update) != null
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }

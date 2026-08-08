@@ -24,7 +24,7 @@ class MlnFfiStyleImageScaleTest {
   }
 
   private fun assertUploadedPixelRatio(extent: MlnFfiMapExtent, expected: Float) {
-    val fixture = BridgeMapFixture.create()
+    val fixture = BridgeMapFixture.create(extent)
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = extent)
 

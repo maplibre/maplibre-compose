@@ -13,7 +13,6 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.BridgeMapFixture.Companion.RETINA_EXTENT
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -135,42 +134,6 @@ class MlnFfiMapCameraTransitionTest {
         endedBeforeClose + 1,
         it.events.count { event -> event == "cameraMoveEnded" },
         "teardown should close the outstanding camera move exactly once: ${it.events}",
-      )
-    }
-  }
-
-  /**
-   * A density change rebuilds the map inside one long-lived adapter, which Compose cannot see, so
-   * the session has to carry the camera across itself — where the map is now, not where it was last
-   * told to go.
-   */
-  @Test
-  fun a_density_change_preserves_the_camera() {
-    val fixture = BridgeMapFixture.create()
-    fixture.use {
-      it.startAtOrigin()
-      // Panned after the last setCameraPosition, so a session replaying the requested camera rather
-      // than the live one fails here.
-      it.session.moveBy(deltaX = 64.0, deltaY = 0.0)
-      it.pumpUntil("the pan to apply") {
-        it.session.getCameraPosition().target.longitude != START.target.longitude
-      }
-      val panned = it.session.getCameraPosition()
-
-      it.hasRendered = false
-      it.pumpUntilRendered(extent = RETINA_EXTENT)
-
-      val afterRebuild = it.session.getCameraPosition()
-      assertNear(panned.zoom, afterRebuild.zoom, "zoom should survive the rebuild")
-      assertNear(
-        panned.target.longitude,
-        afterRebuild.target.longitude,
-        "longitude should survive the rebuild",
-      )
-      assertNear(
-        panned.target.latitude,
-        afterRebuild.target.latitude,
-        "latitude should survive the rebuild",
       )
     }
   }

@@ -106,9 +106,6 @@ private const val MAX_PROJECTION_ZOOM = 25.5
 /** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
 private const val FRAME_INTERVAL_SLACK = 0.1
 
-/** Shared by the position and bounds-fit setters, so the later of the two replaces the earlier. */
-private const val CAMERA_KEY = "camera"
-
 /** Monotonic identity that orders gesture begin, camera work, and deferred completion. */
 @JvmInline internal value class GestureToken(val value: Long)
 
@@ -128,22 +125,20 @@ internal class MlnFfiMapSession(
   @Volatile internal var callbacks: MapAdapter.Callbacks,
   @Volatile internal var logger: Logger?,
   renderBackend: MapRenderBackend,
+  scaleFactor: Double = 1.0,
   private val layoutDirection: LayoutDirection,
   private val cachePath: Path,
 ) : MapAdapter, MlnFfiMapRenderer {
 
   override val backend: MapRenderBackend = renderBackend
+  private val initialExtent = MlnFfiMapExtent.fromLogical(1, 1, scaleFactor)
 
-  /**
-   * Guards [loop] and [mapConfiguration] together, so a setting cannot be lost to a racing start.
-   */
+  /** Guards loop startup and actions accepted before it. */
   private val stateLock = ReentrantLock()
 
   @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
 
-  /**
-   * One-shot map actions accepted before the first render creates a loop. Guarded by [stateLock].
-   */
+  /** One-shot map actions accepted before this session starts. Guarded by [stateLock]. */
   private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
 
   private val pendingMapActions = mutableListOf<PendingMapAction>()
@@ -197,14 +192,8 @@ internal class MlnFfiMapSession(
    */
   private var reportedMoveReason: CameraMoveReason? = null
 
-  /**
-   * The map's configuration, keyed so the last value for each setting wins, replayed in insertion
-   * order onto every map this session creates. See [configureMap].
-   */
-  private val mapConfiguration = LinkedHashMap<String, (MapHandle) -> Unit>()
-
   /** The binding handed to the current style's sources and layers; replaced on every style load. */
-  private var styleBinding: SessionStyleBinding? = null
+  @Volatile private var styleBinding: SessionStyleBinding? = null
 
   /**
    * Routes a style's descriptors to this session's map, on its owner thread. Once [unload] runs,
@@ -222,7 +211,6 @@ internal class MlnFfiMapSession(
 
     fun unload() {
       loaded = false
-      sourcesById.clear()
     }
 
     override fun claimSource(id: String, descriptor: Source): Boolean {
@@ -243,7 +231,12 @@ internal class MlnFfiMapSession(
      * Runs [action] against the map on its owner thread, requesting a repaint: `addSource`,
      * `removeSource`, and `removeImage` notify mbgl of nothing, so they would render stale.
      */
-    override fun <T> withMap(action: (MapHandle) -> T): T? {
+    override fun <T> readMap(action: (MapHandle) -> T): T? {
+      if (!isLoaded) return null
+      return runOnMap(action)
+    }
+
+    override fun <T> mutateMap(action: (MapHandle) -> T): T? {
       if (!isLoaded) return null
       return runOnMap { map -> action(map).also { map.requestRepaint() } }
     }
@@ -298,7 +291,7 @@ internal class MlnFfiMapSession(
   override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult {
     if (closed || frame.extent.isEmpty) return MlnFfiFrameResult.SKIPPED
 
-    val loop = ensureLoop(frame.extent)
+    val loop = loop ?: return MlnFfiFrameResult.SKIPPED
     loop.failure?.let { error ->
       if (!failureReported) {
         failureReported = true
@@ -359,6 +352,33 @@ internal class MlnFfiMapSession(
     }
   }
 
+  /** Starts this session's owner loop independently of the first renderable surface. */
+  fun start() {
+    val started = stateLock.withLock {
+      check(!closed) { "Cannot start a closed map session" }
+      loop?.let {
+        return
+      }
+      val created =
+        MlnFfiMapRuntimeLoop(
+          extent = initialExtent,
+          cachePath = cachePath,
+          logger = logger,
+          onMapCreated = ::onMapCreated,
+          onEvent = ::handleEvent,
+          onEventsDrained = ::onEventsDrained,
+          requestFrame = ::requestRender,
+        )
+      pendingMapActions.forEach { action ->
+        if (!created.post(action.run, action.abandon)) action.abandon()
+      }
+      pendingMapActions.clear()
+      loop = created
+      created
+    }
+    started.start()
+  }
+
   /**
    * Closes the render session and then the loop that owns the map. The order is enforced natively:
    * MapLibre refuses to destroy a map that still has a session attached.
@@ -417,62 +437,8 @@ internal class MlnFfiMapSession(
 
   // region the map's owner thread
 
-  /**
-   * Returns the loop for [extent], starting one or replacing it as needed. Renderer thread only.
-   */
-  private fun ensureLoop(extent: MlnFfiMapExtent): MlnFfiMapRuntimeLoop {
-    val existing = loop
-    if (existing != null && existing.scaleFactor == extent.scaleFactor) return existing
-
-    if (existing != null) {
-      // pixelRatio is fixed at creation — mbgl holds it const — so a density change cannot be
-      // applied by resizing or re-attaching; the map has to be rebuilt.
-      logger?.i {
-        "Display scale changed from ${existing.scaleFactor} to ${extent.scaleFactor}; " +
-          "recreating the map"
-      }
-      // Where the camera is now, not where it was last asked to be, and read before the loop stops.
-      existing.call { it.camera.toCameraPosition() }?.let(::recordCamera)
-      styleBinding?.unload()
-      stopLoop()
-      // The new map starts styleless, so the style must not be skipped as already applied.
-      appliedStyle = null
-    }
-
-    val started =
-      MlnFfiMapRuntimeLoop(
-        extent = extent,
-        cachePath = cachePath,
-        logger = logger,
-        onMapCreated = ::onMapCreated,
-        onEvent = ::handleEvent,
-        onEventsDrained = ::onEventsDrained,
-        requestFrame = ::requestRender,
-      )
-    val deferredActions = stateLock.withLock {
-      loop = started
-      // Under the same lock as the recording, so a setting written while the loop starts is either
-      // in this snapshot or posted to the started loop, never lost.
-      pendingConfiguration = mapConfiguration.values.toList()
-      pendingMapActions.toList().also { pendingMapActions.clear() }
-    }
-    deferredActions.forEach { action ->
-      if (!started.post(action.run, action.abandon)) action.abandon()
-    }
-    started.start()
-    return started
-  }
-
-  /** The configuration snapshot handed to a starting loop. Read on its thread, once. */
-  @Volatile private var pendingConfiguration: List<(MapHandle) -> Unit> = emptyList()
-
   /** Runs on the loop's thread, once, before the map is published. */
   private fun onMapCreated(map: MapHandle) {
-    val pending = pendingConfiguration
-    pendingConfiguration = emptyList()
-    pending.forEach { setup ->
-      runCatching { setup(map) }.onFailure { logger?.e(it) { "Failed to apply map configuration" } }
-    }
     applyRequestedStyle(map)
   }
 
@@ -786,10 +752,7 @@ internal class MlnFfiMapSession(
 
   // region dispatch
 
-  /**
-   * Queues [action] for the map's owner thread, dropping it if there is no map. For actions on the
-   * map as it is now — a pan, a zoom, a cancel — as opposed to settings; see [configureMap].
-   */
+  /** Queues [action] for the map's owner thread, dropping it if there is no map. */
   private fun onMap(action: (MapHandle) -> Unit) {
     loop?.post(action)
   }
@@ -798,10 +761,7 @@ internal class MlnFfiMapSession(
   internal fun postOwnerTaskForTest(action: () -> Unit): Boolean =
     loop?.post(action = { action() }) ?: false
 
-  /**
-   * Queues a one-shot action until a map exists, including before the first render creates its
-   * loop.
-   */
+  /** Queues a one-shot action until a map exists, including before the session starts. */
   private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
     val current = stateLock.withLock {
       if (closed) return false
@@ -810,25 +770,14 @@ internal class MlnFfiMapSession(
     return current?.post(action, abandon) ?: true
   }
 
-  /**
-   * Records [action] as part of the map's configuration under [key], and applies it now if there is
-   * a map.
-   *
-   * Settings must survive being set before any map exists, and a density change replacing the map
-   * underneath — which, unlike Android, is invisible to Compose. [key] makes the record
-   * last-write-wins rather than a growing log of every value ever set.
-   */
-  private fun configureMap(key: String, action: (MapHandle) -> Unit) {
-    val current = stateLock.withLock {
-      mapConfiguration[key] = action
-      loop
-    }
-    current?.post(action)
+  /** Applies configuration now, or queues it during the short asynchronous startup window. */
+  private fun configureMap(action: (MapHandle) -> Unit) {
+    postWhenMapExists(action, abandon = {})
   }
 
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
-    configureMap(CAMERA_KEY) { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
+    configureMap { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
   }
 
   /**
@@ -901,9 +850,7 @@ internal class MlnFfiMapSession(
   ) {
     // Recorded as the fit rather than a resolved camera, so a map replaced because the viewport
     // changed is fitted to the new one.
-    configureMap(CAMERA_KEY) { map ->
-      map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
-    }
+    configureMap { map -> map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding)) }
   }
 
   private fun cameraForBounds(
@@ -1038,31 +985,28 @@ internal class MlnFfiMapSession(
     waiters.forEach { waiter -> runCatching { waiter.resume(Unit) } }
   }
 
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) =
-    setBounds("bounds.constraint") {
-      // Unbounded is not world bounds: world bounds clamp longitude to ±180 and stop the map
-      // panning across the antimeridian.
-      it.bounds =
-        boundingBox?.let { box -> BoundsConstraint.Bounded(box.toLatLngBounds()) }
-          ?: BoundsConstraint.Unbounded
-    }
+  override fun setCameraBoundingBox(boundingBox: BoundingBox?) = setBounds {
+    // Unbounded is not world bounds: world bounds clamp longitude to ±180 and stop the map
+    // panning across the antimeridian.
+    it.bounds =
+      boundingBox?.let { box -> BoundsConstraint.Bounded(box.toLatLngBounds()) }
+        ?: BoundsConstraint.Unbounded
+  }
 
-  override fun setMaxZoom(maxZoom: Double) = setBounds("bounds.maxZoom") { it.maxZoom = maxZoom }
+  override fun setMaxZoom(maxZoom: Double) = setBounds { it.maxZoom = maxZoom }
 
-  override fun setMinZoom(minZoom: Double) = setBounds("bounds.minZoom") { it.minZoom = minZoom }
+  override fun setMinZoom(minZoom: Double) = setBounds { it.minZoom = minZoom }
 
-  override fun setMinPitch(minPitch: Double) =
-    setBounds("bounds.minPitch") { it.minPitch = minPitch }
+  override fun setMinPitch(minPitch: Double) = setBounds { it.minPitch = minPitch }
 
-  override fun setMaxPitch(maxPitch: Double) =
-    setBounds("bounds.maxPitch") { it.maxPitch = maxPitch }
+  override fun setMaxPitch(maxPitch: Double) = setBounds { it.maxPitch = maxPitch }
 
   /**
-   * Applies one field of the map's bound options, keyed so each field replays independently.
-   * `BoundOptions` is a field mask, so a replacement map is told only what was actually asked for.
+   * Applies one field of the map's bound options. `BoundOptions` is a field mask, so only the
+   * requested field changes.
    */
-  private fun setBounds(key: String, update: (BoundOptions) -> Unit) {
-    configureMap(key) { map -> map.bounds = map.bounds.also(update) }
+  private fun setBounds(update: (BoundOptions) -> Unit) {
+    configureMap { map -> map.bounds = map.bounds.also(update) }
   }
 
   override fun getVisibleBoundingBox(): BoundingBox =
@@ -1100,7 +1044,7 @@ internal class MlnFfiMapSession(
     // MapLibre produces no frames of its own here, so throttling our renderUpdate calls is the
     // whole implementation, as it is on Android and iOS.
     maximumFps = value.maximumFps
-    configureMap("debugOptions") { map ->
+    configureMap { map ->
       map.debugOptions = buildSet {
         if (value.isTileBordersEnabled) add(DebugOption.TILE_BORDERS)
         if (value.isTileTimestampsEnabled) add(DebugOption.TIMESTAMPS)

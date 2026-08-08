@@ -27,8 +27,11 @@ import org.maplibre.spatialk.geojson.Position
  * that says how many frames it wants fails with a clear message instead of hanging.
  */
 internal class BridgeMapFixture
-private constructor(private val driver: FfiTestRenderDriver, private val cachePath: Path) :
-  AutoCloseable {
+private constructor(
+  private val driver: FfiTestRenderDriver,
+  private val cachePath: Path,
+  private val initialExtent: MlnFfiMapExtent,
+) : AutoCloseable {
 
   /** Everything the session reported back, in order, so tests can assert on lifecycle. */
   val events: MutableList<String> = mutableListOf()
@@ -44,6 +47,7 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
       callbacks = RecordingCallbacks(),
       logger = Logger.withTag("bridge-map"),
       renderBackend = driver.backends.producer,
+      scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,
       cachePath = cachePath,
     )
@@ -60,6 +64,7 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
     }
 
   init {
+    session.start()
     session.onSurfaceAvailable(hostSession)
   }
 
@@ -89,7 +94,7 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
     internal set
 
   /** Renders one frame, exactly as [MlnFfiMapSurface] does inside its draw pass. */
-  fun frame(extent: MlnFfiMapExtent = DEFAULT_EXTENT): MlnFfiFrameResult {
+  fun frame(extent: MlnFfiMapExtent = initialExtent): MlnFfiFrameResult {
     frameRequested = false
     val frame =
       when (val acquisition = driver.acquireFrame(frameId++, extent, null)) {
@@ -118,7 +123,7 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
   fun readPixel(x: Int, y: Int): RgbaPixel = driver.readPixel(x, y)
 
   /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
-  fun pumpUntilRendered(extent: MlnFfiMapExtent = DEFAULT_EXTENT, timeout: Duration = 30.seconds) {
+  fun pumpUntilRendered(extent: MlnFfiMapExtent = initialExtent, timeout: Duration = 30.seconds) {
     pumpUntil("the map to render its first frame", timeout, extent) { hasRendered }
   }
 
@@ -132,7 +137,7 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
   fun pumpUntil(
     description: String,
     timeout: Duration = 30.seconds,
-    extent: MlnFfiMapExtent = DEFAULT_EXTENT,
+    extent: MlnFfiMapExtent = initialExtent,
     condition: () -> Boolean,
   ) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
@@ -270,12 +275,12 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
       MlnFfiMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 2.0)
 
     /** Creates a fixture for the one native runtime packaged into this test process. */
-    fun create(): BridgeMapFixture {
+    fun create(initialExtent: MlnFfiMapExtent = DEFAULT_EXTENT): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
       val cachePath = FfiTestPlatform.createCachePath()
       return try {
-        BridgeMapFixture(driver, cachePath)
+        BridgeMapFixture(driver, cachePath, initialExtent)
       } catch (error: Throwable) {
         runCatching { driver.close() }
         FfiTestPlatform.deleteCachePath(cachePath)

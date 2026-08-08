@@ -44,7 +44,7 @@ internal class MlnFfiStyle(
     val pixels = image.toPremultipliedRgba8()
     // The stretchable region and the content box are the same four numbers, as on Android.
     val box = resizeOptions?.let { contentBox(id, image, it, scale) }
-    binding.withMap { map ->
+    binding.mutateMap { map ->
       map.setStyleImage(
         imageId = id,
         image = pixels,
@@ -97,20 +97,20 @@ internal class MlnFfiStyle(
    * [org.maplibre.nativeffi.style.StyleImageInfo] reports only their count.
    */
   internal fun imageStretches(id: String): Pair<List<ImageStretch>, List<ImageStretch>>? =
-    binding.withMap { map ->
+    binding.readMap { map ->
       map.styleImageStretches(id)
     }
 
   override fun removeImage(id: String) {
-    binding.withMap { map -> map.removeStyleImage(id) }
+    binding.mutateMap { map -> map.removeStyleImage(id) }
   }
 
-  override fun getSource(id: String): Source? = binding.withMap { map ->
+  override fun getSource(id: String): Source? = binding.readMap { map ->
     if (!map.styleSourceExists(id)) null else reconstructSource(map, id)
   }
 
   override fun getSources(): List<Source> =
-    binding.withMap { map -> map.styleSourceIds().map { reconstructSource(map, it) } }.orEmpty()
+    binding.readMap { map -> map.styleSourceIds().map { reconstructSource(map, it) } }.orEmpty()
 
   override fun addSource(source: Source) {
     source.attach(binding)
@@ -120,12 +120,12 @@ internal class MlnFfiStyle(
     source.detach(binding)
   }
 
-  override fun getLayer(id: String): Layer? = binding.withMap { map ->
+  override fun getLayer(id: String): Layer? = binding.readMap { map ->
     if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
   }
 
   override fun getLayers(): List<Layer> =
-    binding.withMap { map -> map.styleLayerIds().map { reconstructLayer(map, it) } }.orEmpty()
+    binding.readMap { map -> map.styleLayerIds().map { reconstructLayer(map, it) } }.orEmpty()
 
   /** Adds [layer] on top of every existing layer. */
   override fun addLayer(layer: Layer) {
@@ -136,7 +136,7 @@ internal class MlnFfiStyle(
   override fun addLayerAbove(id: String, layer: Layer) {
     // "Above id" is "below whatever currently sits above id", which is the next layer along.
     val anchor =
-      binding.withMap { map ->
+      binding.readMap { map ->
         val ids = map.styleLayerIds()
         val index = ids.indexOf(id)
         require(index >= 0) { "Layer ID '$id' not found in base style" }
@@ -151,7 +151,7 @@ internal class MlnFfiStyle(
 
   override fun addLayerAt(index: Int, layer: Layer) {
     val anchor =
-      binding.withMap { map ->
+      binding.readMap { map ->
         val ids = map.styleLayerIds()
         require(index in 0..ids.size) {
           "Layer index $index is outside the valid range 0..${ids.size}"

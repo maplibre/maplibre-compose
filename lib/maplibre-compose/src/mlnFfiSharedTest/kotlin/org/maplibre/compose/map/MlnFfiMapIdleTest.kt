@@ -29,6 +29,28 @@ class MlnFfiMapIdleTest {
     }
   }
 
+  @Test
+  fun reading_style_contents_does_not_request_a_frame() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
+      fixture.settle()
+
+      requireNotNull(fixture.style).also { style ->
+        style.getSources()
+        style.getLayers()
+        style.getSource("missing")
+        style.getLayer("missing")
+      }
+
+      val drawn = fixture.renderOnDemand(IDLE_WINDOW)
+      assertTrue(
+        drawn <= IDLE_FRAME_ALLOWANCE,
+        "Style reads made a settled map draw $drawn frames across $IDLE_WINDOW.",
+      )
+    }
+  }
+
   /**
    * mbgl advances a camera transition from `onDidFinishRenderingFrame`, so it drives frames on its
    * own; one that ends without clearing that request leaves the map drawing forever.

@@ -161,8 +161,8 @@ internal class FakeMlnFfiMapHost(
 
 /** A [MlnFfiMapHostFactory] producing [FakeMlnFfiMapHost]s. */
 internal class FakeMlnFfiMapHostFactory(
-  override val supportedBackends: Set<RenderBackendPair> =
-    setOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)),
+  override val backends: RenderBackendPair =
+    RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
   override val description: String = "fake test host",
   private val result: ((MapRenderBackend) -> MlnFfiMapHostResult)? = null,
   /**
@@ -174,12 +174,11 @@ internal class FakeMlnFfiMapHostFactory(
 
   val created: MutableList<FakeMlnFfiMapHost> = mutableListOf()
 
-  override fun create(producer: MapRenderBackend): MlnFfiMapHostResult {
+  override fun create(): MlnFfiMapHostResult {
     result?.let {
-      return it(producer)
+      return it(backends.producer)
     }
-    val pair = supportedBackends.first { it.producer == producer }
-    val host = FakeMlnFfiMapHost(backends = pair).also(configureHost)
+    val host = FakeMlnFfiMapHost(backends = backends).also(configureHost)
     created += host
     return MlnFfiMapHostResult.Created(host)
   }

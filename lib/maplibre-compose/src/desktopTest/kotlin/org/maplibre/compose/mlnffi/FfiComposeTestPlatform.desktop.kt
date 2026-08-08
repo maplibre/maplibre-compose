@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.runComposeUiTest
 import java.awt.EventQueue
+import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
@@ -29,7 +30,6 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
     setContent {
       CompositionLocalProvider(
         LocalMlnFfiMapHostFactory provides preparedFactory,
-        LocalMlnFfiMapSurfaceStateObserver provides ::failOnUnusableSurface,
         content = content,
       )
     }
@@ -40,41 +40,29 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   }
 }
 
-private fun failOnUnusableSurface(state: MlnFfiMapSurfaceState) {
-  when (state) {
-    is MlnFfiMapSurfaceState.Failed -> throw AssertionError(state.diagnostic, state.cause)
-    is MlnFfiMapSurfaceState.Unavailable -> throw AssertionError(state.diagnostic)
-    MlnFfiMapSurfaceState.Initializing,
-    is MlnFfiMapSurfaceState.Ready -> Unit
-  }
-}
-
 /** Creates a production bridge for whichever runtime this Desktop test process packages. */
 private class CurrentRuntimeTestMapHostFactory
 private constructor(private var preparedDriver: FfiTestRenderDriver?) : MlnFfiMapHostFactory {
-  override val supportedBackends: Set<RenderBackendPair> =
-    Maplibre.supportedRenderBackends().mapTo(mutableSetOf()) {
-      when (it) {
-        RenderBackend.METAL -> RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
-        RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.VULKAN, composeBackend())
-        else -> error("No Desktop test map host for $it")
+  override val backends: RenderBackendPair =
+    Maplibre.supportedRenderBackends()
+      .map {
+        when (it) {
+          RenderBackend.METAL ->
+            RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
+          RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.VULKAN, composeBackend())
+          else -> error("No Desktop test map host for $it")
+        }
       }
-    }
+      .single()
 
-  override val description: String = "production ${supportedBackends.single()} test bridge"
+  override val description: String = "production $backends test bridge"
 
-  override fun create(producer: MapRenderBackend): MlnFfiMapHostResult {
+  override fun create(): MlnFfiMapHostResult {
     val driver =
       preparedDriver
         ?: return MlnFfiMapHostResult.Failed(
           "The prepared Desktop test bridge was already consumed; each test map may create one host"
         )
-    if (driver.backends.producer != producer) {
-      closePendingDriver()
-      return MlnFfiMapHostResult.Failed(
-        "Packaged runtime created ${driver.backends.producer}, not requested $producer"
-      )
-    }
     preparedDriver = null
     return MlnFfiMapHostResult.Created(driver)
   }

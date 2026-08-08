@@ -265,7 +265,7 @@ class LayerPropertyRoundTripTest {
       return listOf("${case.property} $path: MapLibre refused it: ${error.message}")
     }
     val actual =
-      layer.binding.withMap { map -> map.layerProperty(layer.id, case.property)?.toJsonElement() }
+      layer.binding.readMap { map -> map.layerProperty(layer.id, case.property)?.toJsonElement() }
     val expected = Json.parseToJsonElement(case.expected)
     return if (actual != null && actual.equivalentTo(expected)) emptyList()
     else listOf("${case.property} $path: expected $expected but MapLibre reports $actual")

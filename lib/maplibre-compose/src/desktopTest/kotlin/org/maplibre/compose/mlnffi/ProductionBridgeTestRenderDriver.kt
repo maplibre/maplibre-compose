@@ -127,11 +127,11 @@ private constructor(
       val environment = DesktopTestGpuEnvironment.create()
       return try {
         val factory = ComposeGpuMapHostFactory(environment.gpuHost)
-        check(factory.supportedBackends.any { it.producer == producer }) {
+        check(factory.backends.producer == producer) {
           "${factory.description} cannot bridge packaged runtime $producer"
         }
         val bridge =
-          when (val result = factory.create(producer)) {
+          when (val result = factory.create()) {
             is MlnFfiMapHostResult.Created -> result.host
             is MlnFfiMapHostResult.Failed ->
               throw IllegalStateException(result.diagnostic, result.cause)

@@ -6,7 +6,6 @@ import androidx.compose.ui.Modifier
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.LocalComposeGpuHost
 import org.maplibre.compose.desktop.bridge.ComposeGpuMapHostFactory
-import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
 

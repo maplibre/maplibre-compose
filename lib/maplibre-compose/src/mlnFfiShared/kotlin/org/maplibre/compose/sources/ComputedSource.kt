@@ -3,10 +3,9 @@
 package org.maplibre.compose.sources
 
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.pow
@@ -14,6 +13,7 @@ import kotlin.math.sinh
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.resource.startMlnFfiBlockingWork
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.geo.CanonicalTileId
 import org.maplibre.nativeffi.map.MapHandle
@@ -22,9 +22,6 @@ import org.maplibre.nativeffi.style.CustomGeometrySourceOptions
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Position
-
-/** How long the tile thread waits for more work before it goes away. */
-private const val WORKER_IDLE_SECONDS = 30L
 
 /**
  * A source whose tiles this application generates: MapLibre decides which tiles it needs, asks
@@ -42,25 +39,17 @@ public actual class ComputedSource : Source {
   private val requestedTiles = ConcurrentHashMap<CanonicalTileId, Long>()
   private val nextRequest = AtomicLong()
 
-  /**
-   * The one thread this source computes and delivers tiles on. Blocking MapLibre's callback thread
-   * on the owner thread would deadlock against `CallbackGate.close`, and every `MapHandle` call is
-   * owner-thread-affine, so both halves happen here instead. Daemon with a zero core size: a
-   * computed source is not reliably detached before it is dropped, so it must never need an
-   * explicit shutdown.
-   */
-  private val worker =
-    ThreadPoolExecutor(0, 1, WORKER_IDLE_SECONDS, TimeUnit.SECONDS, LinkedBlockingQueue()) { task ->
-      Thread(task, "maplibre-computed-source-$id").also { it.isDaemon = true }
-    }
+  /** Keeps this source's application callback serialized without owning a worker executor. */
+  private val computeLock = ReentrantLock(true)
 
   private val callback =
     object : CustomGeometrySourceCallback {
       override fun fetchTile(tileId: CanonicalTileId) {
         val request = nextRequest.incrementAndGet()
         requestedTiles[tileId] = request
-        // A queue insertion is all that happens under MapLibre's callback lease; see [worker].
-        worker.execute { answer(tileId, request) }
+        startMlnFfiBlockingWork("maplibre-computed-source-$id") {
+          computeLock.withLock { answer(tileId, request) }
+        }
       }
 
       override fun cancelTile(tileId: CanonicalTileId) {
@@ -106,7 +95,7 @@ public actual class ComputedSource : Source {
     put("wrap", options.wrap)
   }
 
-  /** Computes one tile and delivers it. Runs on [worker]. */
+  /** Computes one tile and delivers it away from MapLibre's callback thread. */
   private fun answer(tileId: CanonicalTileId, request: Long) {
     if (requestedTiles[tileId] != request) return
     val data =
@@ -121,7 +110,7 @@ public actual class ComputedSource : Source {
       }
     // The cancellation check shares the owner-thread hop with the write, so nothing can cancel
     // between deciding to write and writing.
-    binding.withMap { map ->
+    binding.mutateMap { map ->
       if (requestedTiles.remove(tileId, request)) {
         map.setCustomGeometrySourceTileData(id, tileId, data)
       }

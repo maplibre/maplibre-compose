@@ -21,11 +21,14 @@ internal interface StyleBinding {
    * Runs [action] against the map on its owner thread. Returns null if the style has unloaded;
    * reads should then fall back to the descriptor.
    */
-  fun <T> withMap(action: (MapHandle) -> T): T?
+  fun <T> readMap(action: (MapHandle) -> T): T?
+
+  /** Runs a mutation and requests a repaint after native accepts it. */
+  fun <T> mutateMap(action: (MapHandle) -> T): T?
 
   /**
-   * Runs [action] against the render session on the owner thread, if there is one. Separate from
-   * [withMap] because feature extensions and the supercluster queries built on them are
+   * Runs [action] against the render session on its renderer thread, if there is one. Separate from
+   * map access because feature extensions and the supercluster queries built on them are
    * renderer-scoped in mbgl and exposed nowhere else.
    *
    * Returns null when the style has unloaded or no render session is attached yet — a session
@@ -51,7 +54,9 @@ internal interface StyleBinding {
 
         override val logger: Logger? = null
 
-        override fun <T> withMap(action: (MapHandle) -> T): T? = null
+        override fun <T> readMap(action: (MapHandle) -> T): T? = null
+
+        override fun <T> mutateMap(action: (MapHandle) -> T): T? = null
 
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
 

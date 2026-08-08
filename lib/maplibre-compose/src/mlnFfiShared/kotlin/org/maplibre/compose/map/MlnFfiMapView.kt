@@ -11,13 +11,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
-import org.maplibre.compose.mlnffi.BackendSelection
-import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
+import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
-import org.maplibre.compose.mlnffi.selectBackends
+import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -34,33 +33,23 @@ internal fun MlnFfiMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapOptions,
 ) {
-  val factory = LocalMlnFfiMapHostFactory.current ?: hostFactory
   val applicationOptions = MlnFfiApplication.options
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
 
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
-  val renderBackend =
-    remember(factory, runtimeBackends) {
-      val selection =
-        selectBackends(
-          runtimeBackends = runtimeBackends,
-          hostBackends = factory.supportedBackends,
-          hostDescription = factory.description,
-          operatingSystem = System.getProperty("os.name") ?: "unknown",
-          architecture = System.getProperty("os.arch") ?: "unknown",
-        )
-      (selection as? BackendSelection.Selected)?.backends?.producer
-        ?: preferredBackend(runtimeBackends)
-    }
+  val scaleFactor = density.density.toDouble()
+  val hostResult =
+    remember(hostFactory, runtimeBackends, scaleFactor) { createHost(runtimeBackends, hostFactory) }
 
   val session =
-    remember(factory, renderBackend, layoutDirection, applicationOptions) {
+    remember(hostFactory.backends, scaleFactor, layoutDirection, applicationOptions) {
       MlnFfiMapSession(
         callbacks = callbacks,
         logger = logger,
-        renderBackend = renderBackend,
+        renderBackend = hostFactory.backends.producer,
+        scaleFactor = scaleFactor,
         layoutDirection = layoutDirection,
         cachePath = applicationOptions.cachePath,
       )
@@ -76,7 +65,13 @@ internal fun MlnFfiMapView(
 
   LaunchedEffect(session, options, update) { update(session) }
 
-  DisposableEffect(session) { onDispose { currentOnReset.value() } }
+  DisposableEffect(session) {
+    session.start()
+    onDispose {
+      session.close()
+      currentOnReset.value()
+    }
+  }
 
   // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }
@@ -84,8 +79,7 @@ internal fun MlnFfiMapView(
 
   MlnFfiMapSurface(
     renderer = session,
-    runtimeBackends = runtimeBackends,
-    factory = factory,
+    hostResult = hostResult,
     modifier =
       modifier.mlnFfiMapInput(
         session,
@@ -96,6 +90,28 @@ internal fun MlnFfiMapView(
       ),
     logger = logger,
   )
+}
+
+private fun createHost(
+  runtimeBackends: Set<MapRenderBackend>,
+  factory: MlnFfiMapHostFactory,
+): MlnFfiMapHostResult {
+  val diagnostic =
+    backendDiagnostic(
+      runtimeBackends = runtimeBackends,
+      hostBackends = factory.backends,
+      hostDescription = factory.description,
+      operatingSystem = System.getProperty("os.name") ?: "unknown",
+      architecture = System.getProperty("os.arch") ?: "unknown",
+    )
+  if (diagnostic != null) return MlnFfiMapHostResult.Failed(diagnostic)
+
+  return try {
+    factory.create()
+  } catch (error: Throwable) {
+    if (error is VirtualMachineError) throw error
+    MlnFfiMapHostResult.Failed("${factory.description} threw while creating a map host", error)
+  }
 }
 
 /**
@@ -122,15 +138,4 @@ private fun RenderBackend.toComposeBackend(): MapRenderBackend? =
     RenderBackend.VULKAN -> MapRenderBackend.VULKAN
     RenderBackend.OPENGL -> MapRenderBackend.OPENGL
     RenderBackend.WEBGPU -> null
-  }
-
-/**
- * Picks a fallback for an unavailable surface, so the session can still accept and abandon queued
- * map work cleanly.
- */
-private fun preferredBackend(runtimeBackends: Set<MapRenderBackend>): MapRenderBackend =
-  when {
-    MapRenderBackend.METAL in runtimeBackends -> MapRenderBackend.METAL
-    MapRenderBackend.VULKAN in runtimeBackends -> MapRenderBackend.VULKAN
-    else -> MapRenderBackend.OPENGL
   }

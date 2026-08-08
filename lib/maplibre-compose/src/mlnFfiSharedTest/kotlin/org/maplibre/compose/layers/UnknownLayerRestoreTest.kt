@@ -37,8 +37,8 @@ class UnknownLayerRestoreTest {
       val original = assertNotNull(style.getLayer(ROADS))
       val binding = original.binding
       val filterBefore =
-        assertNotNull(binding.withMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
-      assertEquals("transportation", binding.withMap { map -> map.layerSourceLayer(ROADS) })
+        assertNotNull(binding.readMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
+      assertEquals("transportation", binding.readMap { map -> map.layerSourceLayer(ROADS) })
 
       // The exact sequence LayerManager runs.
       val replacement = BackgroundLayer("user-replacement")
@@ -47,10 +47,10 @@ class UnknownLayerRestoreTest {
       assertNull(style.getLayer(ROADS), "The replaced layer should be out of the style")
       style.addLayerBelow(replacement.id, original)
 
-      assertEquals(filterBefore, binding.withMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
-      assertEquals("transportation", binding.withMap { map -> map.layerSourceLayer(ROADS) })
-      assertEquals("vec", binding.withMap { map -> map.layerSourceId(ROADS) })
-      assertEquals(14.0, binding.withMap { map -> map.layerMinZoom(ROADS) })
+      assertEquals(filterBefore, binding.readMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
+      assertEquals("transportation", binding.readMap { map -> map.layerSourceLayer(ROADS) })
+      assertEquals("vec", binding.readMap { map -> map.layerSourceId(ROADS) })
+      assertEquals(14.0, binding.readMap { map -> map.layerMinZoom(ROADS) })
     }
   }
 
@@ -69,7 +69,7 @@ class UnknownLayerRestoreTest {
       // A restored layer that kept a stale binding would take this write silently.
       original.minZoom = 7f
 
-      assertEquals(7.0, binding.withMap { map -> map.layerMinZoom(ROADS) })
+      assertEquals(7.0, binding.readMap { map -> map.layerMinZoom(ROADS) })
     }
   }
 
