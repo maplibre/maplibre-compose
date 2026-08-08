@@ -5,7 +5,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.nio.file.Path
+import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
@@ -127,7 +127,7 @@ internal class MlnFfiMapSession(
   renderBackend: MapRenderBackend,
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
-  private val cachePath: Path,
+  private val cacheFile: File,
 ) : MapAdapter, MlnFfiMapRenderer {
 
   override val backend: MapRenderBackend = renderBackend
@@ -357,7 +357,7 @@ internal class MlnFfiMapSession(
       val created =
         MlnFfiMapRuntimeLoop(
           extent = initialExtent,
-          cachePath = cachePath,
+          cacheFile = cacheFile,
           getLogger = { logger },
           onMapCreated = ::onMapCreated,
           onEvent = ::handleEvent,

@@ -49,17 +49,17 @@ import org.maplibre.spatialk.geojson.Position
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapCompositionTest {
 
-  private val cachePath = FfiTestPlatform.createCachePath()
+  private val cacheFile = FfiTestPlatform.createCacheFile()
 
   private val runtimeOptions =
-    MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
+    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
 
   /** Camera round trips lose a little precision through the projection; this is generous. */
   private val POSITION_TOLERANCE = 1e-4
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCachePath(cachePath)
+    FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   @Test

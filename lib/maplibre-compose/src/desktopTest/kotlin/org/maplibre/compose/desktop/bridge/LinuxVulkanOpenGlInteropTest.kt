@@ -264,7 +264,7 @@ class LinuxVulkanOpenGlInteropTest {
         logger = null,
         renderBackend = host.backends.producer,
         layoutDirection = LayoutDirection.Ltr,
-        cachePath = cacheDirectory.resolve("cache.db"),
+        cacheFile = cacheDirectory.resolve("cache.db").toFile(),
       )
 
     private val hostSession =

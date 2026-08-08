@@ -46,14 +46,14 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapClusterTest {
 
-  private val cachePath = FfiTestPlatform.createCachePath()
+  private val cacheFile = FfiTestPlatform.createCacheFile()
 
   private val runtimeOptions =
-    MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
+    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCachePath(cachePath)
+    FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   @Test

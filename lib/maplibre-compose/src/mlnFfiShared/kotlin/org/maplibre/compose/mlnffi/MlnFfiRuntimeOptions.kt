@@ -1,20 +1,20 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
-import java.nio.file.Path
+import java.io.File
 import org.maplibre.compose.offline.MlnFfiOfflineManager
 
 /** Platform-resolved configuration for a MapLibre Native FFI runtime. */
 @Immutable
 internal data class MlnFfiRuntimeOptions(
-  val cachePath: Path,
+  val cacheFile: File,
   val maximumCacheSizeBytes: Long? = null,
 )
 
 /** Uses one stable lexical identity for a cache database without requiring it to exist yet. */
 internal fun MlnFfiRuntimeOptions.normalized(): MlnFfiRuntimeOptions {
-  val normalizedPath = cachePath.toAbsolutePath().normalize()
-  return if (normalizedPath == cachePath) this else copy(cachePath = normalizedPath)
+  val normalizedFile = cacheFile.absoluteFile.normalize()
+  return if (normalizedFile == cacheFile) this else copy(cacheFile = normalizedFile)
 }
 
 /** The one process-wide MapLibre Native configuration and the runtime that owns its cache. */
@@ -59,4 +59,4 @@ internal object MlnFfiApplication {
 }
 
 private fun MlnFfiRuntimeOptions.describe(): String =
-  "cachePath='$cachePath', maximumCacheSizeBytes=$maximumCacheSizeBytes"
+  "cacheFile='$cacheFile', maximumCacheSizeBytes=$maximumCacheSizeBytes"

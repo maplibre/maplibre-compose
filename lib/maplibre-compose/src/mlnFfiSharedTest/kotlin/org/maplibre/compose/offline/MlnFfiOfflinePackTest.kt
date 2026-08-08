@@ -24,10 +24,10 @@ import org.maplibre.spatialk.geojson.Position
  */
 class MlnFfiOfflinePackTest {
 
-  private val cachePath = FfiTestPlatform.createCachePath()
-  private val directory = requireNotNull(cachePath.parent).toFile()
+  private val cacheFile = FfiTestPlatform.createCacheFile()
+  private val directory = requireNotNull(cacheFile.parentFile)
 
-  private val options = MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
+  private val options = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
   private val managers = mutableListOf<MlnFfiOfflineManager>()
 
   @AfterTest
@@ -35,7 +35,7 @@ class MlnFfiOfflinePackTest {
     // Must precede the delete, so the database is closed rather than pulled out from under a live
     // runtime.
     managers.forEach { it.closeForTest() }
-    FfiTestPlatform.deleteCachePath(cachePath)
+    FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
   @Test

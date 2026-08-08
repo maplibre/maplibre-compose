@@ -1,7 +1,7 @@
 package org.maplibre.compose.offline
 
 import co.touchlab.kermit.Logger
-import java.nio.file.Path
+import java.io.File
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
@@ -31,7 +31,7 @@ private const val PUMP_PARK_MILLIS = -1L
  * correctness.
  */
 internal class MlnFfiOfflineRuntime(
-  private val cachePath: Path,
+  private val cacheFile: File,
   private val logger: Logger,
   private val onEvent: (RuntimeEvent) -> Unit,
 ) {
@@ -156,7 +156,7 @@ internal class MlnFfiOfflineRuntime(
   private fun runLoop() {
     val runtime =
       try {
-        MlnFfiRuntimeOwner.open(cachePath, { logger }, "MapLibre offline runtime")
+        MlnFfiRuntimeOwner.open(cacheFile, { logger }, "MapLibre offline runtime")
           .also { runtimeOwner = it }
           .runtime
       } catch (error: Throwable) {
