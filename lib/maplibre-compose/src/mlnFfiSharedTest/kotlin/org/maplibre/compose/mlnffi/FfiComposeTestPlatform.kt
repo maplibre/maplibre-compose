@@ -9,8 +9,8 @@ import androidx.compose.ui.test.ExperimentalTestApi
 internal expect fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
 
 /**
- * Installs map [content] with platform runtime options and a test render host prepared off the UI
- * thread.
+ * Configures the application cache and installs map [content] with a test render host prepared off
+ * the UI thread.
  */
 @ExperimentalTestApi
 internal expect fun ComposeUiTest.setFfiTestMapContent(

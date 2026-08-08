@@ -9,7 +9,6 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
 /**
  * The offline runtime's owner thread parks in MapLibre's pump and is released by a wake.
@@ -21,8 +20,6 @@ class MlnFfiOfflineRuntimeTest {
 
   private val cachePath = FfiTestPlatform.createCachePath()
 
-  private val options = MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
-
   private val runtimes = mutableListOf<MlnFfiOfflineRuntime>()
 
   @AfterTest
@@ -33,7 +30,7 @@ class MlnFfiOfflineRuntimeTest {
 
   private fun startRuntime(): MlnFfiOfflineRuntime =
     MlnFfiOfflineRuntime(
-        options = options,
+        cachePath = cachePath,
         logger = Logger.withTag("offline-runtime-test"),
         onEvent = {},
       )

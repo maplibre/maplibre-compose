@@ -1,12 +1,11 @@
 package org.maplibre.compose.offline
 
 import co.touchlab.kermit.Logger
+import java.nio.file.Path
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.CompletableDeferred
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
@@ -32,7 +31,7 @@ private const val PUMP_PARK_MILLIS = -1L
  * correctness.
  */
 internal class MlnFfiOfflineRuntime(
-  private val options: MlnFfiRuntimeOptions,
+  private val cachePath: Path,
   private val logger: Logger,
   private val onEvent: (RuntimeEvent) -> Unit,
 ) {
@@ -68,9 +67,6 @@ internal class MlnFfiOfflineRuntime(
 
   @Volatile private var stopRequested = false
 
-  /** Completed only after startup owns (or has applied) the initial cache-budget write. */
-  private val started = CompletableDeferred<Unit>()
-
   /** Owner-thread state. Never read or written from anywhere else. */
   private val pending = mutableMapOf<Long, PendingOperation>()
 
@@ -86,13 +82,6 @@ internal class MlnFfiOfflineRuntime(
 
   fun start() {
     thread.start()
-  }
-
-  /**
-   * Suspends cache mutations until startup has entered the event pump with its permit queued first.
-   */
-  suspend fun awaitStarted() {
-    started.await()
   }
 
   /** Waits for the owner thread to finish, reporting whether it did. For tests and diagnostics. */
@@ -167,11 +156,10 @@ internal class MlnFfiOfflineRuntime(
   private fun runLoop() {
     val runtime =
       try {
-        MlnFfiRuntimeOwner.open(options, logger, "MapLibre offline runtime")
+        MlnFfiRuntimeOwner.open(cachePath, logger, "MapLibre offline runtime")
           .also { runtimeOwner = it }
           .runtime
       } catch (error: Throwable) {
-        started.completeExceptionally(error)
         logger.e(error) { "Could not create the MapLibre runtime for offline management" }
         rejectQueuedTasks(
           OfflineManagerException(
@@ -187,13 +175,11 @@ internal class MlnFfiOfflineRuntime(
         // Owner-thread affine (validated natively), so this cannot be hoisted into start().
         runtime.acquireWakeSource()
       } catch (error: Throwable) {
-        started.completeExceptionally(error)
         logger.e(error) { "Could not acquire a wake source for the MapLibre offline runtime" }
         teardown(runtime)
         return
       }
     acceptLock.withLock { wake = source }
-    started.complete(Unit)
 
     try {
       while (!stopRequested) {
@@ -224,9 +210,7 @@ internal class MlnFfiOfflineRuntime(
           logger.e(error) { "Failed to poll a MapLibre offline runtime event" }
           break
         }
-      if (runtimeOwner?.consumeEvent(event) == true) {
-        // This loop's own bookkeeping, not a caller's operation.
-      } else if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
+      if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
         completeOperation(runtime, event)
       } else {
         runCatching { onEvent(event) }
@@ -299,8 +283,7 @@ internal class MlnFfiOfflineRuntime(
         .onFailure { logger.e(it) { "Failed to cancel the operation to ${operation.description}" } }
     }
 
-    // Last, and only after its children: the cache budget and the resource provider retire first,
-    // then the runtime.
+    // Last, and only after its children: the provider retires before the runtime.
     runtimeOwner?.close()
     runtimeOwner = null
   }

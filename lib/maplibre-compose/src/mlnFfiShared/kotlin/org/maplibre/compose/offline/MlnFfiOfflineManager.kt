@@ -5,17 +5,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
-import java.nio.file.Path
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.CountDownLatch
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
-import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
-import org.maplibre.compose.mlnffi.normalized
-import org.maplibre.compose.resource.MlnFfiCacheDatabaseRegistry
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -29,9 +26,8 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 
 @Composable
 public actual fun rememberOfflineManager(): OfflineManager {
-  val options = LocalMlnFfiRuntimeOptions.current
   val density = LocalDensity.current.density
-  val manager = remember(options) { MlnFfiOfflineManager.forOptions(options) }
+  val manager = MlnFfiApplication.offlineManager
   // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
   return remember(manager, density) { DensityScopedOfflineManager(manager, density) }
 }
@@ -48,47 +44,10 @@ private class DensityScopedOfflineManager(
 /**
  * The MapLibre Native FFI [OfflineManager], backed by a MapLibre runtime of its own.
  *
- * One instance per normalized cache database path, kept for the life of the process and never
- * disposed: mbgl holds download state in memory only, so closing the runtime silently destroys
- * in-flight downloads.
+ * The process-wide application instance is never disposed: mbgl holds download state in memory
+ * only, so closing the runtime silently destroys in-flight downloads.
  */
 internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) : OfflineManager {
-
-  internal companion object {
-    // TODO(common API): Replace this process-lifetime cache with an explicit application-scoped
-    // owner that can close each cache-specific runtime without tying downloads to a screen's
-    // composition lifecycle. See .agents/docs/COMMON_API_GAPS.md.
-    private val instances = mutableMapOf<Path, MlnFfiOfflineManager>()
-
-    fun forOptions(rawOptions: MlnFfiRuntimeOptions): MlnFfiOfflineManager {
-      val options = rawOptions.normalized()
-      return synchronized(instances) {
-        val existing = instances[options.cachePath]
-        if (existing != null) {
-          check(existing.options.maximumCacheSizeBytes == options.maximumCacheSizeBytes) {
-            "Offline manager for '${options.cachePath}' already uses ambient-cache budget " +
-              "${existing.options.maximumCacheSizeBytes ?: "MapLibre's default"}, but " +
-              "${options.maximumCacheSizeBytes ?: "MapLibre's default"} was requested"
-          }
-          existing
-        } else {
-          MlnFfiOfflineManager(options).also { instances[options.cachePath] = it }
-        }
-      }
-    }
-
-    /**
-     * Tests only: stops the manager for [options], if there is one, and forgets it so that a later
-     * [forOptions] builds a fresh one against the same database. Reports whether its thread stopped
-     * within [timeoutMillis].
-     */
-    fun disposeForTest(options: MlnFfiRuntimeOptions, timeoutMillis: Long = 30_000): Boolean {
-      val path = options.normalized().cachePath
-      val manager = synchronized(instances) { instances.remove(path) } ?: return true
-      manager.runtime.shutdown()
-      return manager.runtime.awaitStopped(timeoutMillis)
-    }
-  }
 
   private val logger = Logger.withTag("maplibre-compose")
 
@@ -101,13 +60,45 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
 
-  private val runtime = MlnFfiOfflineRuntime(options, logger, ::handleEvent)
+  private val runtime = MlnFfiOfflineRuntime(options.cachePath, logger, ::handleEvent)
+
+  /** The application has one writer; this prevents concurrent suspending calls from overlapping. */
+  private val cacheBudgetMutex = Mutex()
 
   override val packs: Set<OfflinePack>
     get() = packsState.value
 
   init {
     runtime.start()
+    val initialSize = options.maximumCacheSizeBytes
+    if (initialSize != null) {
+      val settled = CountDownLatch(1)
+      val accepted =
+        submit(
+          description = "set the initial maximum ambient cache size to $initialSize bytes",
+          start = { it.startSetMaximumAmbientCacheSize(initialSize) },
+          finish = { _, _ -> },
+          onResult = { result ->
+            result
+              .onSuccess { logger.d { "Ambient cache size set to $initialSize bytes" } }
+              .onFailure {
+                logger.w(it) { "Could not set the ambient cache size to $initialSize bytes" }
+              }
+            settled.countDown()
+          },
+        )
+      if (!accepted) settled.countDown()
+      try {
+        settled.await()
+      } catch (interruption: InterruptedException) {
+        Thread.currentThread().interrupt()
+        runtime.shutdown()
+        throw IllegalStateException(
+          "Interrupted while applying MapLibre's cache budget",
+          interruption,
+        )
+      }
+    }
     submit(
       description = "list the offline packs",
       start = { it.startOfflineRegions() },
@@ -154,7 +145,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override suspend fun delete(pack: OfflinePack) {
-    requireOwned(pack)
     runOperation(
       description = "delete offline pack ${pack.regionId}",
       start = { it.startDeleteOfflineRegion(pack.regionId) },
@@ -166,7 +156,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   override suspend fun invalidate(pack: OfflinePack) {
-    requireOwned(pack)
     runOperation(
       description = "invalidate offline pack ${pack.regionId}",
       start = { it.startInvalidateOfflineRegion(pack.regionId) },
@@ -184,22 +173,19 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
 
   override suspend fun setMaximumAmbientCacheSize(size: Long) {
     // Lowering the budget evicts ambient resources to fit; offline packs are left alone.
-    runtime.awaitStarted()
-    val permit =
-      runInterruptible(Dispatchers.IO) {
-        MlnFfiCacheDatabaseRegistry.acquireWritePermit(options.cachePath)
-      }
-    try {
+    cacheBudgetMutex.withLock {
       runOperation(
         description = "set the maximum ambient cache size to $size bytes",
         start = { it.startSetMaximumAmbientCacheSize(size) },
-        finish = { _, _ -> permit.commit(size) },
-        cleanup = permit::close,
+        finish = { _, _ -> },
       )
-    } finally {
-      // Also covers cancellation between acquiring the permit and installing operation cleanup.
-      permit.close()
     }
+  }
+
+  /** Stops this otherwise process-lifetime owner. Tests only. */
+  internal fun closeForTest(timeoutMillis: Long = 30_000): Boolean {
+    runtime.shutdown()
+    return runtime.awaitStopped(timeoutMillis)
   }
 
   override fun setTileCountLimit(limit: Long) {
@@ -213,7 +199,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
 
   /** Backs [OfflinePack.setMetadata]; the pack itself holds no native state. */
   internal suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray) {
-    requireOwned(pack)
     val ffiMetadata = metadata.copyOf()
     runOperation(
       description = "update the metadata of offline pack ${pack.regionId}",
@@ -248,7 +233,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   private fun setDownloadState(pack: OfflinePack, state: OfflineRegionDownloadState) {
-    requireOwned(pack)
     val accepted =
       submit(
         description = "change the download state of offline pack ${pack.regionId}",
@@ -268,12 +252,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
       start = { it.startSetOfflineRegionObserved(regionId, true) },
       finish = { _, _ -> },
     )
-  }
-
-  private fun requireOwned(pack: OfflinePack) {
-    if (pack.manager !== this) {
-      throw OfflineManagerException("The offline pack belongs to a different manager")
-    }
   }
 
   private fun refreshStatus(regionId: Long) {
@@ -364,15 +342,10 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
     isCancelled: () -> Boolean = { false },
     onStarted: (OfflineOperationHandle<T>) -> Unit = {},
-    cleanup: () -> Unit = {},
     onResult: (Result<R>) -> Unit = { result ->
       result.onFailure { logger.e(it) { "Failed to $description" } }
     },
   ): Boolean {
-    val cleaned = AtomicBoolean(false)
-    fun cleanUpOnce() {
-      if (cleaned.compareAndSet(false, true)) cleanup()
-    }
     return runtime.post(
       task = { nativeRuntime ->
         val handle = start(nativeRuntime)
@@ -388,29 +361,13 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
               } catch (error: Throwable) {
                 Result.failure(error.toOfflineManagerException(description))
               }
-            try {
-              onResult(result)
-            } finally {
-              cleanUpOnce()
-            }
+            onResult(result)
           },
-          discard = { reason ->
-            try {
-              onResult(Result.failure(reason))
-            } finally {
-              cleanUpOnce()
-            }
-          },
+          discard = { reason -> onResult(Result.failure(reason)) },
         )
         onStarted(handle)
       },
-      reject = { error ->
-        try {
-          onResult(Result.failure(error.toOfflineManagerException(description)))
-        } finally {
-          cleanUpOnce()
-        }
-      },
+      reject = { error -> onResult(Result.failure(error.toOfflineManagerException(description))) },
       isCancelled = isCancelled,
     )
   }
@@ -420,14 +377,12 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     description: String,
     start: (RuntimeHandle) -> OfflineOperationHandle<T>,
     finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
-    cleanup: () -> Unit = {},
   ): R = suspendCancellableCoroutine { continuation ->
     val accepted =
       submit(
         description = description,
         start = start,
         finish = finish,
-        cleanup = cleanup,
         isCancelled = { !continuation.isActive },
         onStarted = { handle ->
           // Cancelling must leave nothing registered; discard drops and closes on the owner thread.
@@ -438,7 +393,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
         onResult = { result -> if (continuation.isActive) continuation.resumeWith(result) },
       )
     if (!accepted) {
-      cleanup()
       continuation.resumeWithException(
         OfflineManagerException("Cannot $description: the offline manager has been disposed")
       )

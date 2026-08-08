@@ -12,6 +12,7 @@ import dev.sargunv.composeglfw.glfwApplication
 import dev.sargunv.composeglfw.rememberWindowState
 import org.maplibre.compose.demoapp.DemoApp
 import org.maplibre.compose.desktop.DesktopRuntimeOptions
+import org.maplibre.compose.desktop.MapLibre
 import org.maplibre.compose.desktop.ProvideMapHost
 import org.maplibre.compose.desktop.desktopCachePath
 
@@ -22,20 +23,19 @@ import org.maplibre.compose.desktop.desktopCachePath
  * Run it with `./gradlew :glfw-fixture:runGlfwFixture`. On macOS the launcher must pass
  * `-XstartOnFirstThread`; the Gradle task does.
  */
-fun main() = glfwApplication {
-  Window(
-    onCloseRequest = ::exitApplication,
-    title = "MapLibre Compose on compose-glfw",
-    state = rememberWindowState(size = DpSize(960.dp, 640.dp)),
-  ) {
-    InstallGlfwMainDispatcher()
-    LogGlfwScale()
-    ProvideMapHost(
-      host = rememberGlfwComposeGpuHost(),
-      runtimeOptions =
-        DesktopRuntimeOptions(cachePath = desktopCachePath("org.maplibre.compose.glfw-fixture")),
+fun main() {
+  MapLibre.configure(
+    DesktopRuntimeOptions(cachePath = desktopCachePath("org.maplibre.compose.glfw-fixture"))
+  )
+  glfwApplication {
+    Window(
+      onCloseRequest = ::exitApplication,
+      title = "MapLibre Compose on compose-glfw",
+      state = rememberWindowState(size = DpSize(960.dp, 640.dp)),
     ) {
-      DemoApp()
+      InstallGlfwMainDispatcher()
+      LogGlfwScale()
+      ProvideMapHost(host = rememberGlfwComposeGpuHost()) { DemoApp() }
     }
   }
 }

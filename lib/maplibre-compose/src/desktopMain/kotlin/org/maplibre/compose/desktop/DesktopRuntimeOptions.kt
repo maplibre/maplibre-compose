@@ -6,10 +6,10 @@ import java.nio.file.Paths
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
 /**
- * How desktop MapLibre Native runtimes are configured.
+ * Process-wide configuration for MapLibre Native on desktop.
  *
- * The options are installed by [ProvideMapHost] and read when a runtime is created. Changing them
- * recreates the map.
+ * Install it once with [MapLibre.configure] before opening any maps. Repeating the same
+ * configuration is harmless; attempting to replace it fails.
  */
 @Immutable
 public data class DesktopRuntimeOptions(
@@ -25,8 +25,7 @@ public data class DesktopRuntimeOptions(
    * Maximum ambient cache size in bytes, or null for MapLibre's own default.
    *
    * This bounds only the ambient cache — tiles kept opportunistically as the user pans. Offline
-   * regions are not ambient and are not evicted to satisfy it. All concurrently live runtimes that
-   * use the same absolute, normalized [cachePath] must specify the same value.
+   * regions are not ambient and are not evicted to satisfy it.
    */
   public val maximumCacheSizeBytes: Long? = null,
 )

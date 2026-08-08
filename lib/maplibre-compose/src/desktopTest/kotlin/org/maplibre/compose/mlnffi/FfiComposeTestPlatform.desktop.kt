@@ -11,7 +11,11 @@ import org.maplibre.nativeffi.render.RenderBackend
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
-  runComposeUiTest { block() }
+  try {
+    runComposeUiTest { block() }
+  } finally {
+    MlnFfiApplication.resetForTest()
+  }
 }
 
 @OptIn(ExperimentalTestApi::class)
@@ -19,13 +23,13 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
   runtimeOptions: MlnFfiRuntimeOptions,
   content: @Composable () -> Unit,
 ) {
+  MlnFfiApplication.configure(runtimeOptions)
   val preparedFactory = CurrentRuntimeTestMapHostFactory.prepare()
   try {
     setContent {
       CompositionLocalProvider(
         LocalMlnFfiMapHostFactory provides preparedFactory,
         LocalMlnFfiMapSurfaceStateObserver provides ::failOnUnusableSurface,
-        LocalMlnFfiRuntimeOptions provides runtimeOptions,
         content = content,
       )
     }

@@ -1,13 +1,13 @@
 package org.maplibre.compose.map
 
 import co.touchlab.kermit.Logger
+import java.nio.file.Path
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
@@ -47,7 +47,7 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
   private val extent: MlnFfiMapExtent,
-  private val runtimeOptions: MlnFfiRuntimeOptions,
+  private val cachePath: Path,
   private val logger: Logger?,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
@@ -171,9 +171,7 @@ internal class MlnFfiMapRuntimeLoop(
   private fun runLoop() {
     val owner =
       try {
-        MlnFfiRuntimeOwner.open(runtimeOptions, logger, "MapLibre runtime").also {
-          runtimeOwner = it
-        }
+        MlnFfiRuntimeOwner.open(cachePath, logger, "MapLibre runtime").also { runtimeOwner = it }
       } catch (error: Throwable) {
         logger?.e(error) { "Could not create the MapLibre runtime" }
         fail(error)
@@ -202,7 +200,7 @@ internal class MlnFfiMapRuntimeLoop(
         runCatching { created?.close() }
           .onFailure { logger?.e(it) { "Failed to close the MapLibre map" } }
       } finally {
-        // Retires the cache budget and the resource provider, in that order, before the runtime.
+        // Retires the resource provider before the runtime that owns it.
         owner.close()
         runtimeOwner = null
       }
@@ -242,8 +240,6 @@ internal class MlnFfiMapRuntimeLoop(
           break
         }
       if (event.mapSource != null && event.mapSource !== map) continue
-      // Runtime-owned bookkeeping, not something the session should see.
-      if (runtimeOwner?.consumeEvent(event) == true) continue
       runCatching { onEvent(event) }
         .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
     }

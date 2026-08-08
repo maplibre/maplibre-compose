@@ -28,19 +28,20 @@ class MlnFfiOfflinePackTest {
   private val directory = requireNotNull(cachePath.parent).toFile()
 
   private val options = MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null)
+  private val managers = mutableListOf<MlnFfiOfflineManager>()
 
   @AfterTest
   fun cleanUp() {
     // Must precede the delete, so the database is closed rather than pulled out from under a live
     // runtime.
-    MlnFfiOfflineManager.disposeForTest(options)
+    managers.forEach { it.closeForTest() }
     FfiTestPlatform.deleteCachePath(cachePath)
   }
 
   @Test
   fun a_created_pack_is_listed_with_the_definition_and_metadata_it_was_created_with() =
     runBlocking {
-      val manager = MlnFfiOfflineManager.forOptions(options)
+      val manager = manager()
       val definition = tilePyramid(writeStyle("listed.json"))
       val metadata = "listed by the pack lifecycle test".encodeToByteArray()
 
@@ -55,7 +56,7 @@ class MlnFfiOfflinePackTest {
 
   @Test
   fun updating_metadata_replaces_what_the_pack_reports() = runBlocking {
-    val manager = MlnFfiOfflineManager.forOptions(options)
+    val manager = manager()
     val pack =
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
         manager.create(tilePyramid(writeStyle("metadata.json")), "before".encodeToByteArray())
@@ -74,7 +75,7 @@ class MlnFfiOfflinePackTest {
 
   @Test
   fun a_deleted_pack_is_no_longer_listed() = runBlocking {
-    val manager = MlnFfiOfflineManager.forOptions(options)
+    val manager = manager()
     val definition = tilePyramid(writeStyle("deleted.json"))
     val kept =
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
@@ -94,25 +95,21 @@ class MlnFfiOfflinePackTest {
   }
 
   /**
-   * Disposal is test-only — see [MlnFfiOfflineManager.disposeForTest] — because production keeps
-   * one manager per options value for the life of the process; without it this test would get the
-   * same instance and its in-memory pack list back, having read nothing from disk.
+   * Production keeps its application manager for the life of the process. This test creates and
+   * closes isolated owners directly so it can exercise database persistence.
    */
   @Test
   fun a_pack_survives_closing_the_manager_and_reopening_the_same_database() = runBlocking {
     val definition = tilePyramid(writeStyle("restart.json"))
     val metadata = "written before the restart".encodeToByteArray()
 
-    val first = MlnFfiOfflineManager.forOptions(options)
+    val first = manager()
     val created = withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, metadata) }
 
-    assertTrue(
-      MlnFfiOfflineManager.disposeForTest(options),
-      "the first manager's runtime thread should have stopped",
-    )
+    assertTrue(first.closeForTest(), "the first manager's runtime thread should have stopped")
 
-    val second = MlnFfiOfflineManager.forOptions(options)
-    assertNotSame(first, second, "disposing should make forOptions build a new manager")
+    val second = manager()
+    assertNotSame(first, second)
 
     await("the reopened manager to list the pack it inherited") { second.packs.isNotEmpty() }
 
@@ -146,11 +143,11 @@ class MlnFfiOfflinePackTest {
         maxZoom = null,
       )
 
-    val first = MlnFfiOfflineManager.forOptions(options)
+    val first = manager()
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, ByteArray(0)) }
-    assertTrue(MlnFfiOfflineManager.disposeForTest(options), "the first manager should stop")
+    assertTrue(first.closeForTest(), "the first manager should stop")
 
-    val second = MlnFfiOfflineManager.forOptions(options)
+    val second = manager()
     await("the reopened manager to list the shape pack") { second.packs.isNotEmpty() }
 
     assertEquals(definition, second.packs.single().definition)
@@ -159,7 +156,7 @@ class MlnFfiOfflinePackTest {
   @Test
   fun deleting_a_pack_survives_closing_the_manager_and_reopening_the_same_database() = runBlocking {
     val definition = tilePyramid(writeStyle("restart-delete.json"))
-    val first = MlnFfiOfflineManager.forOptions(options)
+    val first = manager()
     val kept =
       withTimeout(OPERATION_TIMEOUT_MILLIS) { first.create(definition, "kept".encodeToByteArray()) }
     val removed =
@@ -168,9 +165,9 @@ class MlnFfiOfflinePackTest {
       }
     withTimeout(OPERATION_TIMEOUT_MILLIS) { first.delete(removed) }
 
-    assertTrue(MlnFfiOfflineManager.disposeForTest(options), "the first manager should stop")
+    assertTrue(first.closeForTest(), "the first manager should stop")
 
-    val second = MlnFfiOfflineManager.forOptions(options)
+    val second = manager()
     await("the reopened manager to list the pack that was kept") {
       second.packs.any { it.regionId == kept.regionId }
     }
@@ -188,7 +185,7 @@ class MlnFfiOfflinePackTest {
    */
   @Test
   fun resuming_a_pack_starts_downloading_and_pausing_reports_it_paused_again() = runBlocking {
-    val manager = MlnFfiOfflineManager.forOptions(options)
+    val manager = manager()
     val pack =
       withTimeout(OPERATION_TIMEOUT_MILLIS) {
         manager.create(tilePyramid(unreachableStyleUrl()), ByteArray(0))
@@ -225,15 +222,15 @@ class MlnFfiOfflinePackTest {
    */
   @Test
   fun a_finished_pack_still_reads_as_complete_after_a_reopen() = runBlocking {
-    val first = MlnFfiOfflineManager.forOptions(options)
+    val first = manager()
     val downloaded = downloadedPack(first, "finished.json")
     awaitHealthy(downloaded, "the pack to report itself complete") {
       it.status == DownloadStatus.Complete
     }
 
-    assertTrue(MlnFfiOfflineManager.disposeForTest(options), "the first manager should stop")
+    assertTrue(first.closeForTest(), "the first manager should stop")
 
-    val second = MlnFfiOfflineManager.forOptions(options)
+    val second = manager()
     await("the reopened manager to list the finished pack") { second.packs.isNotEmpty() }
     val restored = second.packs.single()
 
@@ -248,7 +245,7 @@ class MlnFfiOfflinePackTest {
    */
   @Test
   fun clearing_the_ambient_cache_leaves_a_pack_s_downloaded_resources_in_place() = runBlocking {
-    val manager = MlnFfiOfflineManager.forOptions(options)
+    val manager = manager()
     val pack = downloadedPack(manager, "ambient-clear.json")
     val downloaded =
       awaitHealthy(pack, "the pack to finish downloading") { it.completedResourceCount > 0 }
@@ -270,7 +267,7 @@ class MlnFfiOfflinePackTest {
    */
   @Test
   fun invalidating_a_pack_keeps_its_downloaded_resources() = runBlocking {
-    val manager = MlnFfiOfflineManager.forOptions(options)
+    val manager = manager()
     val pack = downloadedPack(manager, "invalidate.json")
     val downloaded =
       awaitHealthy(pack, "the pack to finish downloading") { it.completedResourceCount > 0 }
@@ -287,6 +284,9 @@ class MlnFfiOfflinePackTest {
   }
 
   // region fixtures
+
+  private fun manager(): MlnFfiOfflineManager =
+    MlnFfiOfflineManager(options).also { managers += it }
 
   /** Creates a pack over a local style and starts it; the caller waits for the part it needs. */
   private suspend fun downloadedPack(

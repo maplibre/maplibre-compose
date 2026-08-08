@@ -13,8 +13,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.BackendSelection
 import org.maplibre.compose.mlnffi.LocalMlnFfiMapHostFactory
-import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.selectBackends
@@ -35,7 +35,7 @@ internal fun MlnFfiMapView(
   options: MapOptions,
 ) {
   val factory = LocalMlnFfiMapHostFactory.current ?: hostFactory
-  val runtimeOptions = LocalMlnFfiRuntimeOptions.current
+  val applicationOptions = MlnFfiApplication.options
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
 
@@ -56,13 +56,13 @@ internal fun MlnFfiMapView(
     }
 
   val session =
-    remember(factory, renderBackend, layoutDirection, runtimeOptions) {
+    remember(factory, renderBackend, layoutDirection, applicationOptions) {
       MlnFfiMapSession(
         callbacks = callbacks,
         logger = logger,
         renderBackend = renderBackend,
         layoutDirection = layoutDirection,
-        runtimeOptions = runtimeOptions,
+        cachePath = applicationOptions.cachePath,
       )
     }
 

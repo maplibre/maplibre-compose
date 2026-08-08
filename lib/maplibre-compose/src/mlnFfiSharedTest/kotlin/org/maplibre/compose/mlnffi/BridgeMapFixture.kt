@@ -45,7 +45,7 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
       logger = Logger.withTag("bridge-map"),
       renderBackend = driver.backends.producer,
       layoutDirection = LayoutDirection.Ltr,
-      runtimeOptions = MlnFfiRuntimeOptions(cachePath = cachePath, maximumCacheSizeBytes = null),
+      cachePath = cachePath,
     )
 
   private val hostSession =

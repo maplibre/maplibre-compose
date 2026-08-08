@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
@@ -34,7 +35,6 @@ import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
@@ -129,7 +129,7 @@ internal class MlnFfiMapSession(
   @Volatile internal var logger: Logger?,
   renderBackend: MapRenderBackend,
   private val layoutDirection: LayoutDirection,
-  private val runtimeOptions: MlnFfiRuntimeOptions,
+  private val cachePath: Path,
 ) : MapAdapter, MlnFfiMapRenderer {
 
   override val backend: MapRenderBackend = renderBackend
@@ -442,7 +442,7 @@ internal class MlnFfiMapSession(
     val started =
       MlnFfiMapRuntimeLoop(
         extent = extent,
-        runtimeOptions = runtimeOptions,
+        cachePath = cachePath,
         logger = logger,
         onMapCreated = ::onMapCreated,
         onEvent = ::handleEvent,

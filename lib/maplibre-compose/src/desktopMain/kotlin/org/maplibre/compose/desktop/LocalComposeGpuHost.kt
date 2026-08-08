@@ -7,7 +7,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import java.awt.Window
 import org.maplibre.compose.desktop.skiko.AwtComposeGpuHost
-import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
 
 /**
  * The [ComposeGpuHost] maps in this composition render against.
@@ -38,21 +37,12 @@ public fun rememberAwtComposeGpuHost(window: Window): ComposeGpuHost =
  * ```kotlin
  * ProvideMapHost(
  *   host = rememberMyComposeGpuHost(),
- *   runtimeOptions = DesktopRuntimeOptions(cachePath = desktopCachePath("com.example.myapp")),
  * ) {
  *   MaplibreMap()
  * }
  * ```
  */
 @Composable
-public fun ProvideMapHost(
-  host: ComposeGpuHost,
-  runtimeOptions: DesktopRuntimeOptions,
-  content: @Composable () -> Unit,
-) {
-  CompositionLocalProvider(
-    LocalComposeGpuHost provides host,
-    LocalMlnFfiRuntimeOptions provides runtimeOptions.toMlnFfiRuntimeOptions(),
-    content = content,
-  )
+public fun ProvideMapHost(host: ComposeGpuHost, content: @Composable () -> Unit) {
+  CompositionLocalProvider(LocalComposeGpuHost provides host, content = content)
 }
