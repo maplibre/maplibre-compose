@@ -4,11 +4,7 @@ import co.touchlab.kermit.Logger
 import java.io.FileNotFoundException
 import java.net.URI
 import java.net.URISyntaxException
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadPoolExecutor
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import java.util.concurrent.atomic.AtomicBoolean
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
 import org.maplibre.nativeffi.resource.ResourceProviderDecision
@@ -23,20 +19,13 @@ import org.maplibre.nativeffi.resource.ResourceResponseStatus
  */
 private val NETWORK_SCHEMES = setOf("http", "https")
 
-/** How long the reader thread waits for more work before it goes away. */
-private const val READER_IDLE_SECONDS = 30L
-
-/** How long [MlnFfiResourceProvider.close] gives accepted reads to finish normally. */
-private const val DRAIN_TIMEOUT_SECONDS = 5L
-
 /**
  * Resolves the `jar:file:` and `file:` resource URIs Compose hands out for packaged resources,
  * which MapLibre Native cannot fetch itself; everything else passes through so HTTP keeps
  * MapLibre's caching, retry, and revalidation behavior.
  *
- * Installed with the runtime; its owner [close]s it first to give accepted reads time to finish.
- * Provider-owned [ResourceRequestHandle] instances remain valid independently of runtime teardown,
- * so a later attempt to answer safely observes cancellation before releasing its handle.
+ * Installed with the runtime. Provider-owned [ResourceRequestHandle] instances remain valid
+ * independently of runtime teardown, so accepted reads can safely finish after [close].
  */
 internal class MlnFfiResourceProvider(
   private val logger: Logger?,
@@ -46,24 +35,7 @@ internal class MlnFfiResourceProvider(
   },
 ) : ResourceProviderCallback, AutoCloseable {
 
-  /**
-   * The one thread this provider reads on. Reads must not run on the MapLibre network thread that
-   * [handle] arrives on: it holds a callback lease that `RuntimeHandle.close()` spin-waits for.
-   *
-   * Daemon with a zero core size, so an unclosed provider (the offline runtime installs one) never
-   * holds the process open.
-   */
-  private val reader =
-    ThreadPoolExecutor(0, 1, READER_IDLE_SECONDS, TimeUnit.SECONDS, LinkedBlockingQueue()) { task ->
-      Thread(task, "maplibre-compose-resource-reader").also { it.isDaemon = true }
-    }
-
-  /**
-   * Guards [accepting] and the queue insertion together, so no read is queued onto a shut-down
-   * reader.
-   */
-  private val acceptLock = ReentrantLock()
-  private var accepting = true
+  private val accepting = AtomicBoolean(true)
 
   override fun handle(
     request: ResourceRequest,
@@ -80,17 +52,16 @@ internal class MlnFfiResourceProvider(
 
   /** Queues [request] for the reader, or refuses it if this provider is shutting down. */
   fun take(request: TakenResourceRequest, url: String, requestedUrl: String) {
-    val queued = acceptLock.withLock {
-      if (!accepting) false
-      else {
-        reader.execute { serve(request, url, requestedUrl) }
-        true
-      }
+    if (!accepting.get()) {
+      refuse(request, url, requestedUrl)
+      return
     }
-    if (!queued) refuse(request, url, requestedUrl)
+    startMlnFfiBlockingWork("maplibre-compose-resource-reader") {
+      serve(request, url, requestedUrl)
+    }
   }
 
-  /** Reads one resource and answers with it. Runs on [reader]. */
+  /** Reads one resource and answers with it. Runs away from MapLibre's callback thread. */
   private fun serve(request: TakenResourceRequest, url: String, requestedUrl: String) {
     try {
       request.use { open ->
@@ -129,30 +100,9 @@ internal class MlnFfiResourceProvider(
     }
   }
 
-  /**
-   * Stops taking reads and gives accepted reads a bounded opportunity to finish before runtime
-   * teardown. Reads that outlast the timeout keep their provider-owned request handles; late
-   * completion is rejected after native cancellation, and [serve] still releases each handle.
-   */
+  /** Stops taking new reads. Accepted reads own their handles and finish independently. */
   override fun close() {
-    acceptLock.withLock {
-      accepting = false
-      reader.shutdown()
-    }
-    val drained =
-      try {
-        reader.awaitTermination(DRAIN_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-      } catch (interruption: InterruptedException) {
-        Thread.currentThread().interrupt()
-        logger?.w(interruption) { "Interrupted while draining resource reads" }
-        false
-      }
-    if (!drained) {
-      logger?.e {
-        "Resource reads did not finish within ${DRAIN_TIMEOUT_SECONDS}s; continuing runtime " +
-          "shutdown while ${reader.queue.size + reader.activeCount} reads retain cancellable handles"
-      }
-    }
+    accepting.set(false)
   }
 }
 
@@ -176,7 +126,7 @@ private class FfiResourceRequest(private val handle: ResourceRequestHandle) : Ta
 
 /**
  * Reads [url] into a response, reporting every failure as one rather than throwing. Blocks, so it
- * must run on the provider's own reader thread.
+ * must run away from MapLibre's callback thread.
  */
 internal fun readResource(url: String, requestedUrl: String, logger: Logger?): ResourceResponse =
   try {

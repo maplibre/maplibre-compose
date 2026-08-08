@@ -24,6 +24,14 @@ internal object MlnFfiApplication {
   @Volatile private var state: State? = null
 
   fun configure(rawOptions: MlnFfiRuntimeOptions) {
+    configure(rawOptions, ::MlnFfiOfflineManager)
+  }
+
+  /** Manager factory is injectable only so startup publication can be tested without native I/O. */
+  internal fun configure(
+    rawOptions: MlnFfiRuntimeOptions,
+    createOfflineManager: (MlnFfiRuntimeOptions) -> MlnFfiOfflineManager,
+  ) {
     val options = rawOptions.normalized()
     synchronized(this) {
       val existing = state
@@ -34,7 +42,7 @@ internal object MlnFfiApplication {
         return
       }
 
-      state = State(options, MlnFfiOfflineManager(options))
+      state = State(options, createOfflineManager(options))
     }
   }
 

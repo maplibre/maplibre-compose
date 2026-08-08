@@ -8,7 +8,6 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceResponse
@@ -72,7 +71,7 @@ class MlnFfiResourceRequestTest {
     val request = RecordedRequest(cancelled = true)
 
     provider.take(request, URL, URL)
-    provider.close()
+    request.awaitClose()
 
     assertEquals(emptyList(), reads.toList(), "a cancelled request must not be read")
     assertEquals(0, request.completions)
@@ -80,7 +79,7 @@ class MlnFfiResourceRequestTest {
   }
 
   @Test
-  fun shutdown_waits_for_a_read_that_is_already_running() {
+  fun shutdown_returns_while_an_accepted_read_finishes_independently() {
     val reading = CountDownLatch(1)
     val finishRead = CountDownLatch(1)
     val provider = provider { _, _ ->
@@ -95,18 +94,16 @@ class MlnFfiResourceRequestTest {
     val closed = CountDownLatch(1)
     Thread { provider.close().also { closed.countDown() } }.start()
 
-    assertFalse(
-      closed.await(200, TimeUnit.MILLISECONDS),
-      "close returned while a read was still running, so a completion could land on a closed runtime",
-    )
+    assertTrue(closed.await(WAIT_SECONDS, TimeUnit.SECONDS), "close should not wait for reads")
+    assertEquals(0, request.completions)
     finishRead.countDown()
-    assertTrue(closed.await(WAIT_SECONDS, TimeUnit.SECONDS), "close never returned")
+    request.awaitAnswer()
     assertEquals(1, request.completions, "the in-flight request must still be answered")
     assertEquals(1, request.closes)
   }
 
   @Test
-  fun a_request_queued_behind_a_running_read_is_still_answered_by_shutdown() {
+  fun accepted_reads_are_independent_and_still_finish_after_shutdown() {
     val reading = CountDownLatch(1)
     val finishRead = CountDownLatch(1)
     val provider = provider { _, _ ->
@@ -125,7 +122,8 @@ class MlnFfiResourceRequestTest {
     finishRead.countDown()
 
     assertTrue(closed.await(WAIT_SECONDS, TimeUnit.SECONDS), "close never returned")
-    assertEquals(listOf(URL, OTHER_URL), reads.toList(), "the queued read must still have run")
+    second.awaitAnswer()
+    assertEquals(setOf(URL, OTHER_URL), reads.toSet(), "both accepted reads must run")
     assertEquals(1, second.completions, "a request the provider took must be answered")
     assertEquals(1, second.closes)
   }
@@ -154,7 +152,7 @@ class MlnFfiResourceRequestTest {
     val request = RecordedRequest()
 
     provider.take(request, URL, URL)
-    provider.close()
+    request.awaitClose()
 
     assertEquals(0, request.completions)
     assertEquals(1, request.closes)
@@ -191,6 +189,12 @@ class MlnFfiResourceRequestTest {
 
     fun awaitAnswer() {
       assertTrue(answered.await(WAIT_SECONDS, TimeUnit.SECONDS), "the request was never answered")
+    }
+
+    fun awaitClose() {
+      val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WAIT_SECONDS)
+      while (closes == 0 && System.nanoTime() < deadline) Thread.onSpinWait()
+      assertEquals(1, closes, "the request was never closed")
     }
   }
 

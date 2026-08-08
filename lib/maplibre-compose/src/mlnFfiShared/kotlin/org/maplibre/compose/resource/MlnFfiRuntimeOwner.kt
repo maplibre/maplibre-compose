@@ -27,7 +27,7 @@ private constructor(
    */
   override fun close() {
     runCatching { provider.close() }
-      .onFailure { logger?.w(it) { "Failed to drain the resource provider" } }
+      .onFailure { logger?.w(it) { "Failed to close the resource provider" } }
     runCatching { runtime.close() }
       .onFailure { logger?.e(it) { "Failed to close the MapLibre runtime" } }
   }

@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -70,35 +71,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
 
   init {
     runtime.start()
-    val initialSize = options.maximumCacheSizeBytes
-    if (initialSize != null) {
-      val settled = CountDownLatch(1)
-      val accepted =
-        submit(
-          description = "set the initial maximum ambient cache size to $initialSize bytes",
-          start = { it.startSetMaximumAmbientCacheSize(initialSize) },
-          finish = { _, _ -> },
-          onResult = { result ->
-            result
-              .onSuccess { logger.d { "Ambient cache size set to $initialSize bytes" } }
-              .onFailure {
-                logger.w(it) { "Could not set the ambient cache size to $initialSize bytes" }
-              }
-            settled.countDown()
-          },
-        )
-      if (!accepted) settled.countDown()
-      try {
-        settled.await()
-      } catch (interruption: InterruptedException) {
-        Thread.currentThread().interrupt()
-        runtime.shutdown()
-        throw IllegalStateException(
-          "Interrupted while applying MapLibre's cache budget",
-          interruption,
-        )
-      }
-    }
+    awaitConfiguredRuntime()
     submit(
       description = "list the offline packs",
       start = { it.startOfflineRegions() },
@@ -110,6 +83,56 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
         }
       },
     )
+  }
+
+  /** Does not let process-wide configuration publish a runtime whose startup or budget failed. */
+  private fun awaitConfiguredRuntime() {
+    val settled = CountDownLatch(1)
+    val completed = AtomicBoolean()
+    var outcome: Result<Unit>? = null
+    fun complete(result: Result<Unit>) {
+      if (completed.compareAndSet(false, true)) {
+        outcome = result
+        settled.countDown()
+      }
+    }
+
+    val initialSize = options.maximumCacheSizeBytes
+    val accepted =
+      if (initialSize == null) {
+        runtime.post(
+          task = { complete(Result.success(Unit)) },
+          reject = { complete(Result.failure(it)) },
+        )
+      } else {
+        submit(
+          description = "set the initial maximum ambient cache size to $initialSize bytes",
+          start = { it.startSetMaximumAmbientCacheSize(initialSize) },
+          finish = { _, _ -> },
+          onResult = { result -> complete(result) },
+        )
+      }
+    if (!accepted) {
+      complete(
+        Result.failure(OfflineManagerException("The offline runtime rejected configuration"))
+      )
+    }
+
+    try {
+      settled.await()
+    } catch (interruption: InterruptedException) {
+      Thread.currentThread().interrupt()
+      failStartup("Interrupted while configuring MapLibre's offline runtime", interruption)
+    }
+    val failure = checkNotNull(outcome).exceptionOrNull()
+    if (failure != null) failStartup("Could not configure MapLibre's offline runtime", failure)
+    if (initialSize != null) logger.d { "Ambient cache size set to $initialSize bytes" }
+  }
+
+  private fun failStartup(message: String, cause: Throwable): Nothing {
+    runtime.shutdown()
+    runCatching { runtime.awaitStopped(30_000) }
+    throw IllegalStateException(message, cause)
   }
 
   override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {

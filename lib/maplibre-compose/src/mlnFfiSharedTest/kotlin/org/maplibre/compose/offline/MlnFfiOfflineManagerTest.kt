@@ -2,6 +2,7 @@ package org.maplibre.compose.offline
 
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertFailsWith
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
@@ -52,6 +53,13 @@ class MlnFfiOfflineManagerTest {
         .map { megabytes -> async { manager.setMaximumAmbientCacheSize(megabytes * 1024 * 1024) } }
         .awaitAll()
       manager.invalidateAmbientCache()
+    }
+  }
+
+  @Test
+  fun an_initial_cache_budget_failure_fails_manager_construction() {
+    assertFailsWith<IllegalStateException> {
+      MlnFfiOfflineManager(options.copy(maximumCacheSizeBytes = -1))
     }
   }
 
