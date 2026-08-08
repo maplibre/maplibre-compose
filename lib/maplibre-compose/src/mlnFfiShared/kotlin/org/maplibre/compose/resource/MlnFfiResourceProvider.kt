@@ -133,7 +133,7 @@ private class FfiResourceRequest(private val handle: ResourceRequestHandle) : Ta
  */
 internal fun readResource(url: String, requestedUrl: String, logger: Logger?): ResourceResponse =
   try {
-    val bytes = URI(url).toURL().openStream().use { it.readBytes() }
+    val bytes = readPlatformResourceBytes(url)
     ResourceResponse(ResourceResponseStatus.OK).also {
       it.bytes = bytes
       // Packaged resources cannot change while the process runs.
@@ -141,15 +141,24 @@ internal fun readResource(url: String, requestedUrl: String, logger: Logger?): R
     }
   } catch (error: FileNotFoundException) {
     failure(url, requestedUrl, ResourceErrorReason.NOT_FOUND, "not found", error, logger)
-  } catch (error: java.nio.file.NoSuchFileException) {
-    // A `jar:` URL whose jar is missing fails from java.nio, not with a FileNotFoundException.
-    failure(url, requestedUrl, ResourceErrorReason.NOT_FOUND, "not found", error, logger)
   } catch (error: URISyntaxException) {
     failure(url, requestedUrl, ResourceErrorReason.OTHER, "is not a valid URI", error, logger)
   } catch (error: Throwable) {
     if (error is VirtualMachineError) throw error
-    failure(url, requestedUrl, ResourceErrorReason.OTHER, "could not be read", error, logger)
+    // `NoSuchFileException` starts at Android API 26, so keep it out of Android bytecode while
+    // preserving the desktop result for a jar whose backing file is missing.
+    val reason =
+      if (error::class.qualifiedName == "java.nio.file.NoSuchFileException") {
+        ResourceErrorReason.NOT_FOUND
+      } else {
+        ResourceErrorReason.OTHER
+      }
+    val what = if (reason == ResourceErrorReason.NOT_FOUND) "not found" else "could not be read"
+    failure(url, requestedUrl, reason, what, error, logger)
   }
+
+/** Reads a resource through the platform's packaged-resource and URL mechanisms. */
+internal expect fun readPlatformResourceBytes(url: String): ByteArray
 
 private fun failure(
   url: String,
