@@ -4,20 +4,24 @@ on:
   push:
     tags: [v*.*.*]
 
+permissions:
+  contents: read
+
 jobs:
   publish-maven:
-    runs-on: macos-latest
+    timeout-minutes: 60
+    runs-on: macos-26
     environment:
       name: maven-central-maplibre
       url: https://central.sonatype.com/namespace/org.maplibre.compose
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # .mise/bin/version-args reads the release tag off the checkout.
           fetch-depth: 0
-      - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
-      - uses: ./.github/actions/setup-gradle
-      - run: |
-          ./gradlew publishAndReleaseToMavenCentral --no-configuration-cache
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+      - run: mise run publish:release
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername:
             ${{ secrets.MAVEN_CENTRAL_USERNAME }}
@@ -30,20 +34,26 @@ jobs:
   publish-pages:
     needs:
       - publish-maven
-    runs-on: macos-latest
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
     permissions:
+      # A job-level block replaces the workflow-level one, so checkout needs this.
+      contents: read
       pages: write
       id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deploy-pages.outputs.page_url }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # .mise/bin/version-args reads the release tag off the checkout.
           fetch-depth: 0
-      - run: git fetch --tags --force # https://github.com/actions/checkout/issues/290
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew generateDocs
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          python-cache: "true"
+      - run: mise run build:docs
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: build/docs

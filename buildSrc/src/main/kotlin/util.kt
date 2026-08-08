@@ -4,14 +4,12 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
-private fun Project.getJvmTarget(property: String): JvmTarget {
-  val target = properties[property]!!.toString().toInt()
-  return JvmTarget.valueOf("JVM_$target")
-}
+private fun Project.getJvmTarget(catalogEntry: String): JvmTarget =
+  JvmTarget.valueOf("JVM_${catalogVersionInt(catalogEntry)}")
 
-fun Project.getAndroidJvmTarget(): JvmTarget = getJvmTarget("androidJvmTarget")
+fun Project.getAndroidJvmTarget(): JvmTarget = getJvmTarget("java-androidTarget")
 
-fun Project.getDesktopJvmTarget(): JvmTarget = getJvmTarget("desktopJvmTarget")
+fun Project.getDesktopJvmTarget(): JvmTarget = getJvmTarget("java-desktopTarget")
 
 /**
  * Required by any JVM that loads the MapLibre Native FFI runtime; without them its FFM downcalls
@@ -26,7 +24,7 @@ fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
         url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
         products = { add("MapLibre", exportToKotlin = true) },
         packageName = "maplibre-gl-native-distribution",
-        version = project.properties["maplibreIosVersion"]!!.toString(),
+        version = project.catalogVersion("maplibre-ios"),
       )
     }
   }

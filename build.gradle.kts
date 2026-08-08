@@ -15,14 +15,12 @@ mkdocs {
 }
 
 tasks.withType<MkdocsTask>().configureEach {
-  val releaseVersion = ext["base_tag"].toString().replace("v", "")
-  val snapshotVersion = "${ext["next_patch_version"]}-SNAPSHOT"
   extras.set(
     mapOf(
-      "release_version" to releaseVersion,
-      "snapshot_version" to snapshotVersion,
+      "release_version" to providers.gradleProperty("maplibreReleaseVersion").get(),
+      "snapshot_version" to providers.gradleProperty("maplibreSnapshotVersion").get(),
       "maplibre_android_version" to libs.versions.maplibre.android.sdk.get(),
-      "maplibre_ios_version" to project.properties["maplibreIosVersion"]!!.toString(),
+      "maplibre_ios_version" to libs.versions.maplibre.ios.get(),
       "maplibre_js_version" to libs.versions.maplibre.js.get(),
     )
   )
@@ -30,18 +28,13 @@ tasks.withType<MkdocsTask>().configureEach {
 
 dokka { moduleName = "MapLibre Compose API Reference" }
 
-tasks.register("generateDocs") {
+tasks.register<Sync>("generateDocs") {
   dependsOn("dokkaGenerate", "mkdocsBuild")
-  doLast {
-    copy {
-      from(layout.buildDirectory.dir("mkdocs"))
-      into(layout.buildDirectory.dir("docs"))
-    }
-    copy {
-      from(layout.buildDirectory.dir("dokka/html"))
-      into(layout.buildDirectory.dir("docs/api"))
-    }
-  }
+  into(layout.buildDirectory.dir("docs"))
+  from(layout.buildDirectory.dir("mkdocs"))
+  from(layout.buildDirectory.dir("dokka/html")) { into("api") }
+  // docs/api/index.html is a placeholder MkDocs routes to; Dokka's index wins.
+  duplicatesStrategy = DuplicatesStrategy.INCLUDE
 }
 
 dependencies {

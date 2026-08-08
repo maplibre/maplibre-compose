@@ -1,0 +1,174 @@
+#!/usr/bin/env bash
+# Boots a headless Android emulator and waits until it is ready. Idempotent.
+set -euo pipefail
+
+api_level=${1:?usage: boot-android-emulator <api-level>}
+
+# An arm64 host needs an arm64 image to use its native accelerator.
+case "$(uname -m)" in
+  arm64 | aarch64) abi=arm64-v8a ;;
+  *) abi=x86_64 ;;
+esac
+image="system-images;android-${api_level};default;${abi}"
+serial=emulator-5554
+# The ABI is in the name so a device built for another host is never reused.
+avd_name="maplibre-compose-${api_level}-${abi}"
+sdk_root="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")"
+project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+state_dir="$project_root/build/android-emulator"
+pid_file="$state_dir/emulator.pid"
+log_file="$state_dir/emulator.log"
+# In the build tree, not ~/.android: removing the tree removes the device.
+export ANDROID_AVD_HOME="$state_dir/avd"
+
+adb="$sdk_root/platform-tools/adb"
+
+# A device that is still coming up answers adb and then blocks in `shell`
+# forever, so every probe is bounded. `timeout` is absent on macOS.
+adb_probe() {
+  local seconds=$1
+  shift
+  local output status waited=0 pid
+  output="$(mktemp)"
+  "$adb" -s "$serial" "$@" >"$output" 2>/dev/null &
+  pid=$!
+  while ((waited < seconds)) && kill -0 "$pid" 2>/dev/null; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -KILL "$pid" 2>/dev/null || true
+    wait "$pid" 2>/dev/null || true
+    rm -f "$output"
+    return 1
+  fi
+  status=0
+  wait "$pid" || status=$?
+  if ((status == 0)); then
+    tr -d '\r' <"$output"
+  fi
+  rm -f "$output"
+  return "$status"
+}
+
+boot_completed() {
+  [[ -x "$adb" ]] || return 1
+  [[ "$(adb_probe 20 shell getprop sys.boot_completed || true)" == 1 ]]
+}
+
+booted_avd() {
+  boot_completed || return 1
+  adb_probe 20 emu avd name | head -n1
+}
+
+running_avd="$(booted_avd || true)"
+if [[ "$running_avd" == "$avd_name" ]]; then
+  echo "Android emulator for API $api_level ($abi) is ready at $serial."
+  exit 0
+fi
+if [[ -n "$running_avd" ]] ||
+  { [[ -x "$adb" ]] && adb_probe 20 devices | grep -q "^$serial"; }; then
+  echo "Replacing the emulator on $serial with $avd_name."
+  "$project_root/.mise/bin/stop-android-emulator"
+fi
+
+sdkmanager=
+avdmanager=
+for tools_dir in "$sdk_root"/cmdline-tools/latest/bin "$sdk_root"/cmdline-tools/*/bin; do
+  if [[ -x "$tools_dir/sdkmanager" ]]; then
+    sdkmanager="$tools_dir/sdkmanager"
+    avdmanager="$tools_dir/avdmanager"
+    break
+  fi
+done
+if [[ -z "$sdkmanager" ]]; then
+  echo "No sdkmanager under $sdk_root/cmdline-tools." >&2
+  echo "Install the Android SDK command-line tools there, or let mise pin an SDK" >&2
+  echo "of its own with \`mise -E android install\`." >&2
+  exit 1
+fi
+
+missing=()
+for entry in "platform-tools|platform-tools" "emulator|emulator" "$image|${image//;//}"; do
+  if [[ ! -d "$sdk_root/${entry#*|}" ]]; then
+    missing+=("${entry%%|*}")
+  fi
+done
+if ((${#missing[@]})); then
+  echo "Installing Android SDK packages: ${missing[*]}"
+  accepts="$(printf 'y\n%.0s' "${missing[@]}")"
+  "$sdkmanager" --sdk_root="$sdk_root" --install "${missing[@]}" <<<"$accepts"
+fi
+
+mkdir -p "$ANDROID_AVD_HOME" "$state_dir"
+if [[ ! -d "$ANDROID_AVD_HOME/$avd_name.avd" ]]; then
+  # Leave the device profile to avdmanager: a modern handset profile hangs the
+  # older API levels, which never reach their shell service. `no` declines the
+  # custom hardware prompt.
+  "$avdmanager" create avd --name "$avd_name" --package "$image" <<<"no"
+fi
+
+if [[ -f "$pid_file" ]]; then
+  pid=$(<"$pid_file")
+  if [[ "$pid" =~ ^[0-9]+$ ]] &&
+    kill -0 "$pid" 2>/dev/null &&
+    ps -p "$pid" -o args= | grep -q "$avd_name"; then
+    echo "Waiting for Android emulator process $pid."
+  else
+    rm -f "$pid_file"
+  fi
+fi
+
+if [[ ! -f "$pid_file" ]]; then
+  # Do not add `-memory`: raising guest RAM above what the AVD specifies panics
+  # the older guest kernels in their goldfish driver probe seconds into boot.
+  launcher=(
+    "$sdk_root/emulator/emulator"
+    -avd "$avd_name"
+    # Fixed, so $serial always names this emulator rather than the next free port.
+    -port "${serial#emulator-}"
+    -no-window
+    -no-audio
+    -no-boot-anim
+    -no-snapshot
+    -no-metrics
+    -gpu swiftshader_indirect
+    -camera-back none
+    -camera-front none
+  )
+  # No -accel: the default finds KVM here, Hypervisor.framework on macOS, and
+  # WHPX on Windows. Only a missing /dev/kvm is worth warning about.
+  if [[ "$(uname -s)" == "Linux" && ! (-r /dev/kvm && -w /dev/kvm) ]]; then
+    echo "KVM is inaccessible; falling back to software emulation." >&2
+  fi
+  if command -v setsid >/dev/null 2>&1; then
+    nohup setsid "${launcher[@]}" </dev/null >"$log_file" 2>&1 &
+  else
+    nohup "${launcher[@]}" </dev/null >"$log_file" 2>&1 &
+  fi
+  pid=$!
+  printf '%s\n' "$pid" >"$pid_file"
+  echo "Started Android emulator process $pid."
+fi
+
+pid=$(<"$pid_file")
+timeout_seconds=900
+deadline=$((SECONDS + timeout_seconds))
+while ((SECONDS < deadline)); do
+  if ! kill -0 "$pid" 2>/dev/null; then
+    echo "Android emulator exited before it became ready." >&2
+    tail -100 "$log_file" >&2
+    rm -f "$pid_file"
+    exit 1
+  fi
+  if boot_completed; then
+    echo "Android emulator for API $api_level ($abi) is ready at $serial."
+    adb_probe 20 shell input keyevent 82 >/dev/null || true
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Android emulator did not become ready within $timeout_seconds seconds." >&2
+tail -100 "$log_file" >&2
+exit 1

@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Installs the Android SDK packages the build needs, which accepts their
+# licenses. Runs as the `android-sdk` post-install step and as a task.
+
+# The JDK arrives as an argument: a post-install step gets the tool's paths, not
+# the repository's environment.
+if [[ $# -ne 1 ]]; then
+  echo "usage: ${0##*/} <java-version>" >&2
+  exit 2
+fi
+
+java_version="$1"
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+sdk_root="${MISE_TOOL_INSTALL_PATH:-}"
+if [[ -z "$sdk_root" ]]; then
+  sdk_root="$("$script_dir/android-sdk-root")"
+fi
+
+# mise installs the command-line tools under their version; other SDKs use
+# `latest`, which sorts last.
+sdkmanager="$sdk_root/cmdline-tools/${MISE_TOOL_VERSION:-}/bin/sdkmanager"
+if [[ -z "${MISE_TOOL_VERSION:-}" ]]; then
+  sdkmanager=""
+  while IFS= read -r candidate; do
+    sdkmanager="$candidate"
+  done < <(find "$sdk_root/cmdline-tools" -mindepth 3 -maxdepth 3 -path '*/bin/sdkmanager' 2>/dev/null | sort)
+fi
+if [[ ! -x "$sdkmanager" ]]; then
+  echo "${0##*/}: no sdkmanager under $sdk_root/cmdline-tools" >&2
+  echo "Install the Android SDK command-line tools there, or let mise pin an SDK" >&2
+  echo "of its own with \`mise -E android install\`." >&2
+  exit 1
+fi
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+catalog_version() {
+  sed -n "s/^$1 = \"\\([0-9][0-9]*\\)\"\$/\\1/p" \
+    "$repository_root/gradle/libs.versions.toml" | head -n1
+}
+
+compile_sdk="$(catalog_version android-compileSdk)"
+if [[ -z "$compile_sdk" ]]; then
+  echo "${0##*/}: could not read android-compileSdk from gradle/libs.versions.toml" >&2
+  exit 1
+fi
+
+# Paired with the directory that proves each is installed, so a rerun starts no
+# JVM and reaches no network.
+packages=(
+  "platforms;android-${compile_sdk}|platforms/android-${compile_sdk}"
+  "build-tools;${compile_sdk}.0.0|build-tools/${compile_sdk}.0.0"
+  "platform-tools|platform-tools"
+)
+
+missing=()
+for entry in "${packages[@]}"; do
+  if [[ ! -d "$sdk_root/${entry#*|}" ]]; then
+    missing+=("${entry%%|*}")
+  fi
+done
+
+if [[ ${#missing[@]} -eq 0 ]]; then
+  exit 0
+fi
+
+echo "Installing Android SDK packages: ${missing[*]}"
+# A here-string, not `yes |`: the SIGPIPE would become the pipeline's status.
+accepts="$(printf 'y\n%.0s' "${missing[@]}")"
+mise exec --no-deps "core:java@$java_version" -- \
+  "$sdkmanager" --sdk_root="$sdk_root" --install "${missing[@]}" <<<"$accepts"

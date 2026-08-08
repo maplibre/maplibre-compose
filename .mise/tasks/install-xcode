@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# [MISE] description="Install and select the Xcode version this repository pins."
+# [MISE] shell="bash"
+
+# Xcode is a multi-gigabyte download, so this is a task rather than a postinstall
+# hook: a contributor who never builds for Apple platforms never pays for it, and
+# a machine that cannot install it can still run every other task.
+
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "Xcode installs on macOS only; nothing to do on $(uname -s)." >&2
+  exit 0
+fi
+
+if ! command -v xcodes >/dev/null 2>&1; then
+  echo "error: xcodes is not on PATH" >&2
+  echo "Install it with: mise install xcodes" >&2
+  exit 1
+fi
+
+# `xcodes install` with no argument reads .xcode-version.
+xcodes install
+xcodes select

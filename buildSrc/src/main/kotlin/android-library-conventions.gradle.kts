@@ -9,8 +9,8 @@ plugins {
 kotlin {
   @Suppress("UnstableApiUsage")
   androidLibrary {
-    minSdk = project.properties["androidMinSdk"]!!.toString().toInt()
-    compileSdk = project.properties["androidCompileSdk"]!!.toString().toInt()
+    minSdk = catalogVersionInt("android-minSdk")
+    compileSdk = catalogVersionInt("android-compileSdk")
 
     // https://youtrack.jetbrains.com/issue/CMP-8232
     experimentalProperties["android.experimental.kmp.enableAndroidResources"] = true

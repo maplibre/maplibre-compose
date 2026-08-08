@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# SwiftFormat ships no Windows build this backend can install, so leave Swift
+# files alone there rather than failing the whole check. `hygiene` runs on Linux
+# and enforces the formatting.
+set -euo pipefail
+
+if [[ "${OS:-}" == "Windows_NT" ]]; then
+  cat
+  exit 0
+fi
+
+exec swiftformat "$@"
