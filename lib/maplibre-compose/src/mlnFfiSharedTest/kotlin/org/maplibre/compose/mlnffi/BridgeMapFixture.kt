@@ -92,8 +92,10 @@ private constructor(private val driver: FfiTestRenderDriver, private val cachePa
   fun frame(extent: MlnFfiMapExtent = DEFAULT_EXTENT): MlnFfiFrameResult {
     frameRequested = false
     val frame =
-      requireNotNull(driver.acquireFrame(frameId++, extent, null)) {
-        "The production ${driver.backends} bridge had no test GPU context"
+      when (val acquisition = driver.acquireFrame(frameId++, extent, null)) {
+        is MlnFfiMapFrameAcquisition.Acquired -> acquisition.frame
+        MlnFfiMapFrameAcquisition.NotReady ->
+          error("The production ${driver.backends} bridge had no test GPU context")
       }
     return try {
       driver

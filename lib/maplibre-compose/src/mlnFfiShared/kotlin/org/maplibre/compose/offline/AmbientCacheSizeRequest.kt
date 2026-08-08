@@ -1,6 +1,7 @@
 package org.maplibre.compose.offline
 
 import co.touchlab.kermit.Logger
+import org.maplibre.compose.resource.MlnFfiCacheDatabaseWritePermit
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
@@ -18,6 +19,7 @@ private constructor(
   private val handle: OfflineOperationHandle<Unit>,
   private val sizeBytes: Long,
   private val logger: Logger?,
+  private val writePermit: MlnFfiCacheDatabaseWritePermit,
 ) {
 
   /**
@@ -42,8 +44,12 @@ private constructor(
    * it cancels a budget the application asked for.
    */
   fun close() {
-    runCatching { handle.close() }
-      .onFailure { logger?.w(it) { "Failed to close the ambient cache size operation" } }
+    try {
+      runCatching { handle.close() }
+        .onFailure { logger?.w(it) { "Failed to close the ambient cache size operation" } }
+    } finally {
+      writePermit.close()
+    }
   }
 
   companion object {
@@ -51,17 +57,24 @@ private constructor(
      * Starts applying [sizeBytes] to [runtime], or returns null when there is nothing to apply.
      * Must run on the runtime's owner thread before anything else uses it.
      */
-    fun start(runtime: RuntimeHandle, sizeBytes: Long?, logger: Logger?): AmbientCacheSizeRequest? {
+    fun start(
+      runtime: RuntimeHandle,
+      writePermit: MlnFfiCacheDatabaseWritePermit,
+      logger: Logger?,
+    ): AmbientCacheSizeRequest? {
+      val sizeBytes = writePermit.effectiveMaximumCacheSizeBytes
       if (sizeBytes == null) return null
       return try {
         AmbientCacheSizeRequest(
           handle = runtime.startSetMaximumAmbientCacheSize(sizeBytes),
           sizeBytes = sizeBytes,
           logger = logger,
+          writePermit = writePermit,
         )
       } catch (error: Throwable) {
         // Reported rather than fatal: a runtime that kept MapLibre's default budget still works.
         logger?.w(error) { "Could not ask for an ambient cache size of $sizeBytes bytes" }
+        writePermit.close()
         null
       }
     }

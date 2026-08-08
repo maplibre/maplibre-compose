@@ -96,6 +96,30 @@ class MlnFfiMapSurfaceRecoveryTest {
       assertTrue(states.none { it is MlnFfiMapSurfaceState.Failed })
     }
 
+  @Test
+  fun not_ready_between_failures_neither_spends_nor_resets_the_recovery_budget() =
+    runFfiComposeUiTest {
+      val renderer = RecordingRenderer()
+      val factory =
+        FakeMlnFfiMapHostFactory(
+          configureHost = { host ->
+            repeat(MAX_RECOVERY_ATTEMPTS) {
+              host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.FAILURE
+              host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.NOT_READY
+            }
+            host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.FAILURE
+          }
+        )
+      var latest: MlnFfiMapSurfaceState = MlnFfiMapSurfaceState.Initializing
+
+      setSurfaceContent(renderer, factory) { latest = it }
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { latest is MlnFfiMapSurfaceState.Failed }
+
+      assertEquals(MAX_RECOVERY_ATTEMPTS * 2 + 1, factory.created.single().acquireCount)
+      assertEquals(MAX_RECOVERY_ATTEMPTS, renderer.surfaceLostCount)
+      assertEquals(1, renderer.closeCount)
+    }
+
   /** The other half of a frame: the renderer, rather than the host, is what throws. */
   @Test
   fun a_renderer_that_fails_one_frame_recovers_and_renders_a_later_frame() = runFfiComposeUiTest {

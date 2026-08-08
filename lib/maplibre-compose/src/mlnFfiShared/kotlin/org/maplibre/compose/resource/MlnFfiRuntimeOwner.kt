@@ -63,6 +63,13 @@ private constructor(
     fun open(options: MlnFfiRuntimeOptions, logger: Logger?, what: String): MlnFfiRuntimeOwner {
       val cacheLease = MlnFfiCacheDatabaseRegistry.acquire(options)
       val normalizedOptions = cacheLease.options
+      val cacheWritePermit =
+        try {
+          cacheLease.acquireWritePermit()
+        } catch (error: Throwable) {
+          cacheLease.close()
+          throw error
+        }
       // MapLibre opens the database as the runtime is created, and fails if the directory is
       // missing.
       runCatching { normalizedOptions.cachePath.parent?.let(Files::createDirectories) }
@@ -74,6 +81,7 @@ private constructor(
             RuntimeOptions().also { it.cachePath = normalizedOptions.cachePath.toString() }
           )
         } catch (error: Throwable) {
+          cacheWritePermit.close()
           cacheLease.close()
           throw error
         }
@@ -82,14 +90,15 @@ private constructor(
           MlnFfiResourceProvider(logger)
         } catch (error: Throwable) {
           runCatching { runtime.close() }
+          cacheWritePermit.close()
           cacheLease.close()
           throw error
         }
       val owner = MlnFfiRuntimeOwner(runtime, provider, logger, cacheLease)
       return try {
         // Started before the provider so the budget is in force before any response can be cached.
-        owner.cacheSizeRequest =
-          AmbientCacheSizeRequest.start(runtime, normalizedOptions.maximumCacheSizeBytes, logger)
+        owner.cacheSizeRequest = AmbientCacheSizeRequest.start(runtime, cacheWritePermit, logger)
+        if (owner.cacheSizeRequest == null) cacheWritePermit.close()
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)

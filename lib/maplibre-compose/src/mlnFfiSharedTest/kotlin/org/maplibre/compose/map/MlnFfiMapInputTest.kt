@@ -71,6 +71,7 @@ class MlnFfiMapInputTest {
     val before = camera.position.target.longitude
     onRoot().performKeyInput { pressKey(Key.DirectionRight) }
     waitUntil(timeoutMillis = TIMEOUT) { camera.position.target.longitude != before }
+    assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
   }
 
   @Test
@@ -87,6 +88,7 @@ class MlnFfiMapInputTest {
   fun double_click_zooms_in() = runInputTest { camera ->
     onRoot().performMouseInput { doubleClick() }
     awaitZoom(camera, START_ZOOM + 1.0)
+    assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
   }
 
   @Test
@@ -319,6 +321,7 @@ class MlnFfiMapInputTest {
         up(1)
       }
       awaitZoom(camera, START_ZOOM - 1.0)
+      assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
     }
 
   @Test
@@ -326,6 +329,7 @@ class MlnFfiMapInputTest {
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput { doubleClick() }
       awaitZoom(camera, START_ZOOM + 1.0)
+      assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
       mainClock.advanceTimeBy(1_000)
       waitForIdle()
       assertEquals(0, clicks.size, "a double tap leaked its first tap as a map click")

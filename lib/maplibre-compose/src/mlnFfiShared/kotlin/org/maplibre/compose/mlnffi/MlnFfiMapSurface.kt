@@ -136,27 +136,30 @@ internal fun MlnFfiMapSurface(
       if (currentState is MlnFfiMapSurfaceState.Ready) {
         val frameId = drawState.nextFrameId()
         try {
-          val frame = host.acquireFrame(frameId, extent, System.nanoTime())
-          if (frame == null) {
-            // A documented startup state, not a lost device. Ask until Compose creates its context.
-            drawState.onFrameSucceeded()
-            session.requestFrame()
-          } else {
-            try {
-              when (host.withProducerAccess(frame) { renderer.render(frame) }) {
-                MlnFfiFrameResult.RENDERED -> {
-                  host.completeProducerAccess(frame)
-                  drawState.lastCompletedTarget = frame.target
-                }
-                MlnFfiFrameResult.SKIPPED -> Unit
-              }
-              drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
-            } finally {
-              runCatching { host.releaseFrame(frame) }
-                .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
+          when (val acquisition = host.acquireFrame(frameId, extent, System.nanoTime())) {
+            MlnFfiMapFrameAcquisition.NotReady -> {
+              // A documented startup state, not a lost device. It neither spends nor resets the
+              // recovery budget; ask until Compose creates its context.
+              session.requestFrame()
             }
-            // A skipped renderer frame still acquired and drew, so it clears the budget too.
-            drawState.onFrameSucceeded()
+            is MlnFfiMapFrameAcquisition.Acquired -> {
+              val frame = acquisition.frame
+              try {
+                when (host.withProducerAccess(frame) { renderer.render(frame) }) {
+                  MlnFfiFrameResult.RENDERED -> {
+                    host.completeProducerAccess(frame)
+                    drawState.lastCompletedTarget = frame.target
+                  }
+                  MlnFfiFrameResult.SKIPPED -> Unit
+                }
+                drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
+              } finally {
+                runCatching { host.releaseFrame(frame) }
+                  .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
+              }
+              // A skipped renderer frame still acquired and drew, so it clears the budget too.
+              drawState.onFrameSucceeded()
+            }
           }
         } catch (error: Throwable) {
           if (error is VirtualMachineError) throw error

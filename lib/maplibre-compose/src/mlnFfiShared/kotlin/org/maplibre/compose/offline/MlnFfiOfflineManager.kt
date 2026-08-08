@@ -6,8 +6,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -181,13 +184,22 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
 
   override suspend fun setMaximumAmbientCacheSize(size: Long) {
     // Lowering the budget evicts ambient resources to fit; offline packs are left alone.
-    runOperation(
-      description = "set the maximum ambient cache size to $size bytes",
-      start = { it.startSetMaximumAmbientCacheSize(size) },
-      finish = { _, _ ->
-        MlnFfiCacheDatabaseRegistry.updateEffectiveMaximumCacheSize(options.cachePath, size)
-      },
-    )
+    runtime.awaitStarted()
+    val permit =
+      runInterruptible(Dispatchers.IO) {
+        MlnFfiCacheDatabaseRegistry.acquireWritePermit(options.cachePath)
+      }
+    try {
+      runOperation(
+        description = "set the maximum ambient cache size to $size bytes",
+        start = { it.startSetMaximumAmbientCacheSize(size) },
+        finish = { _, _ -> permit.commit(size) },
+        cleanup = permit::close,
+      )
+    } finally {
+      // Also covers cancellation between acquiring the permit and installing operation cleanup.
+      permit.close()
+    }
   }
 
   override fun setTileCountLimit(limit: Long) {
@@ -352,11 +364,16 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
     isCancelled: () -> Boolean = { false },
     onStarted: (OfflineOperationHandle<T>) -> Unit = {},
+    cleanup: () -> Unit = {},
     onResult: (Result<R>) -> Unit = { result ->
       result.onFailure { logger.e(it) { "Failed to $description" } }
     },
-  ): Boolean =
-    runtime.post(
+  ): Boolean {
+    val cleaned = AtomicBoolean(false)
+    fun cleanUpOnce() {
+      if (cleaned.compareAndSet(false, true)) cleanup()
+    }
+    return runtime.post(
       task = { nativeRuntime ->
         val handle = start(nativeRuntime)
         // Operation id is the only thing correlating a completion event with its in-flight handle.
@@ -371,27 +388,46 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
               } catch (error: Throwable) {
                 Result.failure(error.toOfflineManagerException(description))
               }
-            onResult(result)
+            try {
+              onResult(result)
+            } finally {
+              cleanUpOnce()
+            }
           },
-          discard = { reason -> onResult(Result.failure(reason)) },
+          discard = { reason ->
+            try {
+              onResult(Result.failure(reason))
+            } finally {
+              cleanUpOnce()
+            }
+          },
         )
         onStarted(handle)
       },
-      reject = { error -> onResult(Result.failure(error.toOfflineManagerException(description))) },
+      reject = { error ->
+        try {
+          onResult(Result.failure(error.toOfflineManagerException(description)))
+        } finally {
+          cleanUpOnce()
+        }
+      },
       isCancelled = isCancelled,
     )
+  }
 
   /** The suspending form of [submit], cancellable down to the native operation. */
   private suspend fun <T, R> runOperation(
     description: String,
     start: (RuntimeHandle) -> OfflineOperationHandle<T>,
     finish: (RuntimeHandle, OfflineOperationHandle<T>) -> R,
+    cleanup: () -> Unit = {},
   ): R = suspendCancellableCoroutine { continuation ->
     val accepted =
       submit(
         description = description,
         start = start,
         finish = finish,
+        cleanup = cleanup,
         isCancelled = { !continuation.isActive },
         onStarted = { handle ->
           // Cancelling must leave nothing registered; discard drops and closes on the owner thread.
@@ -402,6 +438,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
         onResult = { result -> if (continuation.isActive) continuation.resumeWith(result) },
       )
     if (!accepted) {
+      cleanup()
       continuation.resumeWithException(
         OfflineManagerException("Cannot $description: the offline manager has been disposed")
       )

@@ -140,7 +140,6 @@ private fun Modifier.scrollZoom(
 ): Modifier =
   // Separate from the press loop because scroll arrives without a preceding press.
   pointerInput(session, options, density, continuation) {
-    val scope = CoroutineScope(currentCoroutineContext())
     awaitEachGesture {
       while (true) {
         val event = awaitPointerEvent()
@@ -154,15 +153,14 @@ private fun Modifier.scrollZoom(
         // independent of display density; density only converts the pointer anchor below.
         // Anchored at the pointer so the point under it stays put.
         continuation.interrupt()
-        if (!continuation.resume()) session.onGestureStarted()
+        val token = continuation.resume() ?: session.onGestureStarted()
         session.cancelTransitions()
         session.scaleBy(
           scale = zoomLevelsToScale(-scroll.toDouble() * options.scrollZoomStep),
           anchor = options.zoomAnchor(change.position.toLogicalDpOffset(density)),
+          gestureToken = token,
         )
-        // Keep the bracket open until MapLibre has reported this jump, and coalesce a wheel burst
-        // into one gesture by replacing this pending finish on every scroll event.
-        continuation.finishAfterFrame(scope, session::onGestureEnded)
+        session.onGestureEnded(token)
         change.consume()
       }
     }
@@ -192,6 +190,7 @@ private class MapPointerGesture(
   private val continuation: GestureContinuation,
 ) {
   private var gestureInProgress = false
+  private var gestureToken: GestureToken? = null
   private var mode = Mode.NONE
 
   /** The last sample of the one-pointer phase, or null outside one. */
@@ -376,6 +375,7 @@ private class MapPointerGesture(
         scale = zoomLevelsToScale(targetDelta - quickZoomAppliedDelta),
         // Android quick zoom is deliberately centred rather than finger anchored.
         anchor = viewportCenter(currentViewportSize),
+        gestureToken = gestureToken,
       )
       lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
       quickZoomAppliedDelta = targetDelta
@@ -388,12 +388,13 @@ private class MapPointerGesture(
         session.rotateAndPitchBy(
           bearingDelta = deltaX * options.dragRotateDegreesPerDp,
           pitchDelta = deltaY * options.dragPitchDegreesPerDp,
+          gestureToken = gestureToken,
         )
         changed = true
       } else if (!rotating && options.isDragPanEnabled) {
         if (singleMotion != SingleMotion.PAN) singleVelocity.resetTracking()
         singleMotion = SingleMotion.PAN
-        session.moveBy(deltaX, deltaY)
+        session.moveBy(deltaX, deltaY, gestureToken = gestureToken)
         changed = true
       }
     }
@@ -536,6 +537,7 @@ private class MapPointerGesture(
         session.rotateAndPitchBy(
           bearingDelta = 0.0,
           pitchDelta = centroidDelta.y.toDouble() * options.twoFingerTiltDegreesPerPixel,
+          gestureToken = gestureToken,
         )
         changed = true
       }
@@ -545,6 +547,7 @@ private class MapPointerGesture(
         session.moveBy(
           centroidDelta.x.toDouble() / density.density,
           centroidDelta.y.toDouble() / density.density,
+          gestureToken = gestureToken,
         )
         changed = true
       }
@@ -554,7 +557,11 @@ private class MapPointerGesture(
           scale.isFinite() &&
           abs(scale - 1.0) >= SCALE_EPSILON
       ) {
-        session.scaleBy(ClassicAndroidGestureMath.pinchScale(scale), options.zoomAnchor(anchor))
+        session.scaleBy(
+          ClassicAndroidGestureMath.pinchScale(scale),
+          options.zoomAnchor(anchor),
+          gestureToken = gestureToken,
+        )
         lastSpanDeltaPixels = abs(current.distance - previous.distance) * 2.0
         lastScaleWasOut = scale < 1.0
         lastTwoFingerAnchor = options.zoomAnchor(anchor)
@@ -571,6 +578,7 @@ private class MapPointerGesture(
           bearingDelta = -rotation,
           pitchDelta = 0.0,
           anchor = rotationAnchor,
+          gestureToken = gestureToken,
         )
         lastTwoFingerAnchor = rotationAnchor
         lastTwoFingerCentroidPixels = current.centroid
@@ -659,11 +667,14 @@ private class MapPointerGesture(
     }
     continuation.finish(session::onGestureEnded)
     if (completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) {
-      session.scaleBy(
-        scale = zoomLevelsToScale(-options.zoomStep),
-        anchor = options.zoomAnchor(completedTwoFingerTap.centroid.toLogicalDpOffset(density)),
-        duration = options.animationDuration,
-      )
+      session.discreteGesture { token ->
+        scaleBy(
+          scale = zoomLevelsToScale(-options.zoomStep),
+          anchor = options.zoomAnchor(completedTwoFingerTap.centroid.toLogicalDpOffset(density)),
+          duration = options.animationDuration,
+          gestureToken = token,
+        )
+      }
     } else if (origin != null) {
       onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L)
     }
@@ -678,11 +689,14 @@ private class MapPointerGesture(
 
     if (isDoubleClick(origin, timeMillis) && options.isDoubleClickZoomEnabled) {
       // Anchored at the pointer so the point under it stays put; shift inverts the direction.
-      session.scaleBy(
-        scale = zoomLevelsToScale(if (pressedShifted) -options.zoomStep else options.zoomStep),
-        anchor = options.zoomAnchor(where),
-        duration = options.animationDuration,
-      )
+      session.discreteGesture { token ->
+        scaleBy(
+          scale = zoomLevelsToScale(if (pressedShifted) -options.zoomStep else options.zoomStep),
+          anchor = options.zoomAnchor(where),
+          duration = options.animationDuration,
+          gestureToken = token,
+        )
+      }
       // Cleared so a third click starts a new pair rather than zooming again.
       lastClickAt = null
       cancelPendingTouchClick()
@@ -747,7 +761,12 @@ private class MapPointerGesture(
             (velocity.y / density.density).toDouble(),
             session.getCameraPosition().tilt,
           ) ?: return null
-        session.moveBy(fling.offsetXDp, fling.offsetYDp, fling.duration)
+        session.moveBy(
+          fling.offsetXDp,
+          fling.offsetYDp,
+          fling.duration,
+          gestureToken = gestureToken,
+        )
         fling.duration
       }
       SingleMotion.QUICK_ZOOM -> {
@@ -814,6 +833,7 @@ private class MapPointerGesture(
     velocity: ClassicAndroidGestureMath.ScaleVelocity,
     anchor: DpOffset?,
   ) {
+    val token = gestureToken
     continuation.launchScale(scope) {
       val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
       val startedAt = withFrameNanos { it }
@@ -823,7 +843,9 @@ private class MapPointerGesture(
         val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
         val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
         val frameZoomDelta = velocity.zoomDelta * (easedProgress - previousEasedProgress)
-        if (frameZoomDelta != 0.0) session.scaleBy(zoomLevelsToScale(frameZoomDelta), anchor)
+        if (frameZoomDelta != 0.0) {
+          session.scaleBy(zoomLevelsToScale(frameZoomDelta), anchor, gestureToken = token)
+        }
         previousEasedProgress = easedProgress
       } while (progress < 1.0)
     }
@@ -833,6 +855,7 @@ private class MapPointerGesture(
     velocity: ClassicAndroidGestureMath.RotationVelocity,
     anchor: DpOffset?,
   ) {
+    val token = gestureToken
     continuation.launchRotation(scope) {
       val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
       val startedAt = withFrameNanos { it }
@@ -841,7 +864,9 @@ private class MapPointerGesture(
         val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
         // Android's default DecelerateInterpolator leaves (1 - t)^2 of the animated value.
         val frameDelta = velocity.initialDegreesPerFrame * (1.0 - progress).pow(2.0)
-        if (frameDelta != 0.0) session.rotateAndPitchBy(frameDelta, 0.0, anchor = anchor)
+        if (frameDelta != 0.0) {
+          session.rotateAndPitchBy(frameDelta, 0.0, anchor = anchor, gestureToken = token)
+        }
       } while (progress < 1.0)
     }
   }
@@ -863,10 +888,12 @@ private class MapPointerGesture(
     cancelLongClick()
     if (!gestureInProgress) return
     gestureInProgress = false
+    val token = gestureToken ?: return
+    gestureToken = null
     if (followUpDuration > Duration.ZERO) {
-      continuation.finishAfter(scope, followUpDuration, session::onGestureEnded)
+      continuation.finishAfter(scope, followUpDuration, token, session::onGestureEnded)
     } else {
-      session.onGestureEnded()
+      session.onGestureEnded(token)
     }
   }
 
@@ -874,7 +901,7 @@ private class MapPointerGesture(
     cancelLongClick()
     if (gestureInProgress) return
     gestureInProgress = true
-    if (!continuation.resume()) session.onGestureStarted()
+    gestureToken = continuation.resume() ?: session.onGestureStarted()
   }
 
   /** Clears session state if this pointer-input coroutine is replaced or disposed. */
@@ -886,7 +913,8 @@ private class MapPointerGesture(
     if (gestureInProgress) {
       gestureInProgress = false
       continuation.cancel()
-      session.onGestureEnded()
+      gestureToken?.let(session::onGestureEnded)
+      gestureToken = null
     } else {
       continuation.finish(session::onGestureEnded)
     }
@@ -1006,6 +1034,7 @@ internal class GestureContinuation {
   private var scaleVelocityJob: Job? = null
   private var rotationVelocityJob: Job? = null
   private var finishJob: Job? = null
+  private var openToken: GestureToken? = null
 
   fun launchScale(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
     scaleVelocityJob?.cancel()
@@ -1025,37 +1054,35 @@ internal class GestureContinuation {
     rotationVelocityJob = null
   }
 
-  /** Takes over an open gesture, returning whether a new start event is unnecessary. */
-  fun resume(): Boolean {
-    val wasOpen = finishJob != null
+  /** Takes over a gesture whose velocity continuation has not ended yet. */
+  fun resume(): GestureToken? {
+    val token = openToken
     finishJob?.cancel()
     finishJob = null
-    return wasOpen
+    openToken = null
+    return token
   }
 
-  fun finishAfter(scope: CoroutineScope, duration: Duration, onFinished: () -> Unit) {
+  fun finishAfter(
+    scope: CoroutineScope,
+    duration: Duration,
+    token: GestureToken,
+    onFinished: (GestureToken) -> Unit,
+  ) {
     finishJob?.cancel()
+    openToken = token
     finishJob = scope.launch {
       delay(duration.inWholeMilliseconds)
       finishJob = null
-      onFinished()
-    }
-  }
-
-  /** Closes a discrete gesture after its owner-thread camera events have had a frame to arrive. */
-  fun finishAfterFrame(scope: CoroutineScope, onFinished: () -> Unit) {
-    finishJob?.cancel()
-    finishJob = scope.launch {
-      withFrameNanos {}
-      finishJob = null
-      onFinished()
+      openToken = null
+      onFinished(token)
     }
   }
 
   /** Stops the continuation and closes its gesture, if one remains open. */
-  fun finish(onFinished: () -> Unit) {
+  fun finish(onFinished: (GestureToken) -> Unit) {
     interrupt()
-    if (resume()) onFinished()
+    resume()?.let(onFinished)
   }
 
   /** Stops all continuation work without emitting an end event. */
@@ -1073,7 +1100,7 @@ private fun MlnFfiMapSession.pan(
 ): Boolean {
   if (!options.isKeyboardPanEnabled) return false
   continuation.finish(::onGestureEnded)
-  moveBy(deltaX, deltaY, options.animationDuration)
+  discreteGesture { token -> moveBy(deltaX, deltaY, options.animationDuration, token) }
   return true
 }
 
@@ -1084,7 +1111,14 @@ private fun MlnFfiMapSession.zoom(
 ): Boolean {
   if (!options.isKeyboardZoomEnabled) return false
   continuation.finish(::onGestureEnded)
-  scaleBy(zoomLevelsToScale(levelDelta), anchor = null, duration = options.animationDuration)
+  discreteGesture { token ->
+    scaleBy(
+      zoomLevelsToScale(levelDelta),
+      anchor = null,
+      duration = options.animationDuration,
+      gestureToken = token,
+    )
+  }
   return true
 }
 
@@ -1096,8 +1130,19 @@ private fun MlnFfiMapSession.rotateAndTilt(
 ): Boolean {
   if (!options.isKeyboardRotateTiltEnabled) return false
   continuation.finish(::onGestureEnded)
-  rotateAndPitchBy(bearingDelta, pitchDelta, options.animationDuration)
+  discreteGesture { token ->
+    rotateAndPitchBy(bearingDelta, pitchDelta, options.animationDuration, gestureToken = token)
+  }
   return true
+}
+
+/** Queues a discrete input's begin, camera command, and token-matched end in that order. */
+private inline fun MlnFfiMapSession.discreteGesture(
+  command: MlnFfiMapSession.(GestureToken) -> Unit
+) {
+  val token = onGestureStarted()
+  command(token)
+  onGestureEnded(token)
 }
 
 /** A zoom level delta as the scale multiplier the session takes; a level is a doubling. */

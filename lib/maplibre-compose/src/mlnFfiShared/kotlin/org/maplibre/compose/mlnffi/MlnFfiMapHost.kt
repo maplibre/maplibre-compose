@@ -22,6 +22,14 @@ internal data class MlnFfiMapFrame(
   val presentationTimeNanos: Long?,
 )
 
+/** The explicit outcome of asking a host for a frame. */
+internal sealed interface MlnFfiMapFrameAcquisition {
+  data class Acquired(val frame: MlnFfiMapFrame) : MlnFfiMapFrameAcquisition
+
+  /** The consumer context does not exist yet; retry without changing recovery state. */
+  data object NotReady : MlnFfiMapFrameAcquisition
+}
+
 /** The map session's view of its host, handed to [MlnFfiMapRenderer.onSurfaceAvailable]. */
 internal interface MlnFfiMapHostSession {
   val backends: RenderBackendPair
@@ -54,17 +62,17 @@ internal interface MlnFfiMapHost : AutoCloseable {
   fun resize(extent: MlnFfiMapExtent) {}
 
   /**
-   * Acquires the next frame to render into. Returns null when the consumer graphics context does
-   * not exist yet; the caller skips that frame and asks for another without entering failure
-   * recovery. Throws when a context exists but no target can be produced. Called from the
-   * consumer's draw callback, so the host may use the consumer graphics context that is current
-   * there.
+   * Acquires the next frame to render into. Returns [MlnFfiMapFrameAcquisition.NotReady] when the
+   * consumer graphics context does not exist yet; the caller skips that frame and asks for another
+   * without entering failure recovery. Throws when a context exists but no target can be produced.
+   * Called from the consumer's draw callback, so the host may use the consumer graphics context
+   * that is current there.
    */
   fun acquireFrame(
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame?
+  ): MlnFfiMapFrameAcquisition
 
   /** Runs [action] with the producer side able to render into [frame]'s target. */
   fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T = action()

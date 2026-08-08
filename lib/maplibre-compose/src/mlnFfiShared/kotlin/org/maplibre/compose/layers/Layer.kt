@@ -190,9 +190,9 @@ internal actual sealed class Layer(actual val id: String) {
       "Layer '$id' already belongs to another loaded style; create a separate layer instance for " +
         "each map"
     }
-    this.binding = binding
     // See sourceDescriptor: the source's own effect has not run yet on a fresh style composition.
-    sourceDescriptor?.let { source -> if (!source.isAttached) source.attach(binding) }
+    // Always ask it to attach: Source verifies exact binding identity even when it is live already.
+    sourceDescriptor?.attach(binding)
     val added = binding.withMap { map ->
       try {
         map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId)
@@ -210,6 +210,8 @@ internal actual sealed class Layer(actual val id: String) {
       "Layer '$id' was not added: its style is no longer loaded. It will not appear until the " +
         "style reloads and the composition re-adds it."
     }
+    // Published only after native accepted the complete layer definition.
+    this.binding = binding
     unsupportedProperties.forEach { (name, reason) -> reportUnsupportedProperty(name, reason) }
   }
 

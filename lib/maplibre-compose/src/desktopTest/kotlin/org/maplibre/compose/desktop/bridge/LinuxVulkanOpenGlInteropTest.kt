@@ -10,6 +10,7 @@ import java.lang.invoke.MethodHandles
 import java.nio.file.Files
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -72,6 +73,7 @@ import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -94,7 +96,9 @@ class LinuxVulkanOpenGlInteropTest {
             // OpenGL errors are sticky. This is the error compose-glfw left for the bridge to
             // misattribute to glImportMemoryFdEXT before the bridge established its own boundary.
             glEnable(Int.MIN_VALUE)
-            val frame = requireNotNull(host.acquireFrame(1, FIRST_EXTENT, null))
+            val frame =
+              assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(1, FIRST_EXTENT, null))
+                .frame
             host.releaseFrame(frame)
           }
         } finally {
@@ -288,7 +292,11 @@ class LinuxVulkanOpenGlInteropTest {
           "Timed out rendering style $style at $extent; failure: $failure"
         }
         failure?.let { error(it) }
-        val frame = requireNotNull(host.acquireFrame(nextFrameId++, extent, null))
+        val frame =
+          assertIs<MlnFfiMapFrameAcquisition.Acquired>(
+              host.acquireFrame(nextFrameId++, extent, null)
+            )
+            .frame
         try {
           val result = host.withProducerAccess(frame) { renderer.render(frame) }
           if (result == MlnFfiFrameResult.RENDERED) {

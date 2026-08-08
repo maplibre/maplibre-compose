@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -24,12 +26,12 @@ class MlnFfiCameraMoveReportingTest {
       fixture.settle()
       fixture.events.clear()
 
-      fixture.session.onGestureStarted()
+      val token = fixture.session.onGestureStarted()
       repeat(DRAG_SAMPLES) {
-        fixture.session.moveBy(DRAG_STEP_DP, DRAG_STEP_DP)
+        fixture.session.moveBy(DRAG_STEP_DP, DRAG_STEP_DP, gestureToken = token)
         fixture.pump(FRAMES_PER_SAMPLE)
       }
-      fixture.session.onGestureEnded()
+      fixture.session.onGestureEnded(token)
       fixture.pump(FRAMES_PER_SAMPLE)
 
       val events = fixture.events.toList()
@@ -89,8 +91,8 @@ class MlnFfiCameraMoveReportingTest {
       fixture.settle()
       fixture.events.clear()
 
-      fixture.session.onGestureStarted()
-      fixture.session.moveBy(DRAG_STEP_DP, DRAG_STEP_DP)
+      val token = fixture.session.onGestureStarted()
+      fixture.session.moveBy(DRAG_STEP_DP, DRAG_STEP_DP, gestureToken = token)
       fixture.pump(FRAMES_PER_SAMPLE)
       fixture.session.close()
       fixture.session.close()
@@ -105,6 +107,52 @@ class MlnFfiCameraMoveReportingTest {
         1,
         events.count { it == "cameraMoveEnded" },
         "terminal teardown should end that move exactly once: $events",
+      )
+    }
+  }
+
+  @Test
+  fun a_backlogged_owner_thread_orders_newer_gesture_tokens_and_ignores_stale_ends() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
+      fixture.settle()
+      fixture.events.clear()
+
+      val entered = CountDownLatch(1)
+      val release = CountDownLatch(1)
+      assertTrue(
+        fixture.session.postOwnerTaskForTest {
+          entered.countDown()
+          check(release.await(5, TimeUnit.SECONDS))
+        }
+      )
+      assertTrue(entered.await(5, TimeUnit.SECONDS))
+
+      val stale = fixture.session.onGestureStarted()
+      fixture.session.moveBy(DRAG_STEP_DP, 0.0, gestureToken = stale)
+      val latest = fixture.session.onGestureStarted()
+      fixture.session.moveBy(0.0, DRAG_STEP_DP, gestureToken = latest)
+      fixture.session.onGestureEnded(latest)
+      fixture.session.onGestureEnded(stale)
+      release.countDown()
+      fixture.pump(FRAMES_PER_SAMPLE * 2)
+
+      val events = fixture.events.toList()
+      assertEquals(
+        1,
+        events.count { it == "cameraMoveStarted(GESTURE)" },
+        "both queued commands should form one gesture-attributed move: $events",
+      )
+      assertEquals(
+        1,
+        events.count { it == "cameraMoveEnded" },
+        "move ended more than once: $events",
+      )
+      assertEquals(
+        "cameraMoveEnded",
+        events.last(),
+        "the stale end won over the latest token: $events",
       )
     }
   }

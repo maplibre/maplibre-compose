@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import co.touchlab.kermit.Logger
+import org.maplibre.compose.sources.Source
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.render.RenderSessionHandle
 
@@ -33,6 +34,15 @@ internal interface StyleBinding {
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 
+  /**
+   * Reserves [id] for [descriptor] before native attachment. Returns false when this exact
+   * descriptor already owns it, making the layer-before-source composition path idempotent.
+   */
+  fun claimSource(id: String, descriptor: Source): Boolean
+
+  /** Releases a reservation made by [descriptor], after detach or a failed native attachment. */
+  fun releaseSource(id: String, descriptor: Source)
+
   companion object {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: StyleBinding =
@@ -44,6 +54,11 @@ internal interface StyleBinding {
         override fun <T> withMap(action: (MapHandle) -> T): T? = null
 
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
+
+        override fun claimSource(id: String, descriptor: Source): Boolean =
+          error("Cannot claim a source on an unloaded style")
+
+        override fun releaseSource(id: String, descriptor: Source) = Unit
       }
   }
 }

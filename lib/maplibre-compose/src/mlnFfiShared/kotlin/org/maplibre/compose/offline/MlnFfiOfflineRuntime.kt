@@ -4,6 +4,8 @@ import co.touchlab.kermit.Logger
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
@@ -66,6 +68,9 @@ internal class MlnFfiOfflineRuntime(
 
   @Volatile private var stopRequested = false
 
+  /** Completed only after startup owns (or has applied) the initial cache-budget write. */
+  private val started = CompletableDeferred<Unit>()
+
   /** Owner-thread state. Never read or written from anywhere else. */
   private val pending = mutableMapOf<Long, PendingOperation>()
 
@@ -81,6 +86,13 @@ internal class MlnFfiOfflineRuntime(
 
   fun start() {
     thread.start()
+  }
+
+  /**
+   * Suspends cache mutations until startup has entered the event pump with its permit queued first.
+   */
+  suspend fun awaitStarted() {
+    started.await()
   }
 
   /** Waits for the owner thread to finish, reporting whether it did. For tests and diagnostics. */
@@ -101,7 +113,8 @@ internal class MlnFfiOfflineRuntime(
    *
    * Returns false when the runtime is already gone, in which case [reject] is not called and the
    * caller reports the failure itself. Otherwise exactly one of [task] and [reject] runs, unless
-   * [isCancelled] is true when the owner thread reaches it, in which case both are skipped.
+   * [isCancelled] is true when the owner thread reaches it, in which case [reject] receives a
+   * cancellation so resources reserved before posting can be released.
    */
   fun post(
     task: (RuntimeHandle) -> Unit,
@@ -139,8 +152,9 @@ internal class MlnFfiOfflineRuntime(
     val posted =
       post(
         task = {
-          pending.remove(handle.id)
-          closeQuietly(handle, "a cancelled offline operation")
+          val operation = pending.remove(handle.id) ?: return@post
+          closeQuietly(operation.handle, "a cancelled offline operation")
+          operation.discard(CancellationException("The offline operation was cancelled"))
         },
         // Teardown already closed every outstanding handle.
         reject = {},
@@ -157,6 +171,7 @@ internal class MlnFfiOfflineRuntime(
           .also { runtimeOwner = it }
           .runtime
       } catch (error: Throwable) {
+        started.completeExceptionally(error)
         logger.e(error) { "Could not create the MapLibre runtime for offline management" }
         rejectQueuedTasks(
           OfflineManagerException(
@@ -172,11 +187,13 @@ internal class MlnFfiOfflineRuntime(
         // Owner-thread affine (validated natively), so this cannot be hoisted into start().
         runtime.acquireWakeSource()
       } catch (error: Throwable) {
+        started.completeExceptionally(error)
         logger.e(error) { "Could not acquire a wake source for the MapLibre offline runtime" }
         teardown(runtime)
         return
       }
     acceptLock.withLock { wake = source }
+    started.complete(Unit)
 
     try {
       while (!stopRequested) {
@@ -251,7 +268,10 @@ internal class MlnFfiOfflineRuntime(
     try {
       // Check at the execution boundary so a queued cancellation cannot start a destructive native
       // operation whose result nobody is waiting for.
-      if (task.isCancelled()) return
+      if (task.isCancelled()) {
+        task.reject(CancellationException("The offline operation was cancelled before it started"))
+        return
+      }
       task.run(runtime)
     } catch (error: Throwable) {
       logger.e(error) { "An offline runtime task failed" }

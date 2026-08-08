@@ -106,6 +106,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
@@ -147,17 +148,22 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame? = gpuHost.withOpenGlContextOrNull { context ->
-    frameCompletion.prepare(context.skiaContext, ::abandonContext)
-    if (texture == null || extent != currentExtent) recreateTexture(extent)
-    MlnFfiMapFrame(
-      frameId = frameId,
-      extent = extent,
-      target =
-        requireNotNull(texture) { "Vulkan texture is not initialized" }.exported.target(generation),
-      presentationTimeNanos = presentationTimeNanos,
-    )
-  }
+  ): MlnFfiMapFrameAcquisition =
+    gpuHost.withOpenGlContextOrNull { context ->
+      frameCompletion.prepare(context.skiaContext, ::abandonContext)
+      if (texture == null || extent != currentExtent) recreateTexture(extent)
+      MlnFfiMapFrameAcquisition.Acquired(
+        MlnFfiMapFrame(
+          frameId = frameId,
+          extent = extent,
+          target =
+            requireNotNull(texture) { "Vulkan texture is not initialized" }
+              .exported
+              .target(generation),
+          presentationTimeNanos = presentationTimeNanos,
+        )
+      )
+    } ?: MlnFfiMapFrameAcquisition.NotReady
 
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
     rendererThread.run { vulkan?.waitIdle() }

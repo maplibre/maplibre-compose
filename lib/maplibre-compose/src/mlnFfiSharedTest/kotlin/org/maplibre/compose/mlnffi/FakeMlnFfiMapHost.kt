@@ -11,6 +11,15 @@ internal class FakeMlnFfiMapHost(
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 ) : MlnFfiMapHost {
 
+  enum class AcquireOutcome {
+    ACQUIRED,
+    NOT_READY,
+    FAILURE,
+  }
+
+  /** Optional deterministic outcome script, consumed before the counter-based controls below. */
+  val acquireOutcomes: ArrayDeque<AcquireOutcome> = ArrayDeque()
+
   /**
    * How many of the next acquires should throw, decremented as each one does. A count so a test can
    * arm "fails once, then recovers" or [Int.MAX_VALUE] for "never works again".
@@ -64,12 +73,19 @@ internal class FakeMlnFfiMapHost(
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame? {
+  ): MlnFfiMapFrameAcquisition {
     calls += "acquireFrame($frameId)"
     acquireCount++
+    when (acquireOutcomes.removeFirstOrNull()) {
+      AcquireOutcome.NOT_READY -> return MlnFfiMapFrameAcquisition.NotReady
+      AcquireOutcome.FAILURE ->
+        throw IllegalStateException("fake host lost its device and cannot acquire frame $frameId")
+      AcquireOutcome.ACQUIRED,
+      null -> Unit
+    }
     if (notReadyAcquires > 0) {
       notReadyAcquires--
-      return null
+      return MlnFfiMapFrameAcquisition.NotReady
     }
     if (failingAcquires > 0) {
       failingAcquires--
@@ -81,31 +97,33 @@ internal class FakeMlnFfiMapHost(
     }
     acquiredFrames++
     liveFrames += frameId
-    return MlnFfiMapFrame(
-      frameId = frameId,
-      extent = extent,
-      target =
-        VulkanImageTarget(
-          context =
-            VulkanContextHandles(
-              instance = NativeHandle(1),
-              physicalDevice = NativeHandle(2),
-              device = NativeHandle(3),
-              graphicsQueue = NativeHandle(4),
-              graphicsQueueFamilyIndex = 0,
-              getInstanceProcAddr = NativeHandle(5),
-              getDeviceProcAddr = NativeHandle(6),
-            ),
-          image = NativeHandle(100 + frameId),
-          imageView = NativeHandle(200 + frameId),
-          format = 37,
-          initialLayout = 0,
-          finalLayout = 1,
-          queueFamilyIndex = 0,
-          extent = extent,
-          generation = generation,
-        ),
-      presentationTimeNanos = presentationTimeNanos,
+    return MlnFfiMapFrameAcquisition.Acquired(
+      MlnFfiMapFrame(
+        frameId = frameId,
+        extent = extent,
+        target =
+          VulkanImageTarget(
+            context =
+              VulkanContextHandles(
+                instance = NativeHandle(1),
+                physicalDevice = NativeHandle(2),
+                device = NativeHandle(3),
+                graphicsQueue = NativeHandle(4),
+                graphicsQueueFamilyIndex = 0,
+                getInstanceProcAddr = NativeHandle(5),
+                getDeviceProcAddr = NativeHandle(6),
+              ),
+            image = NativeHandle(100 + frameId),
+            imageView = NativeHandle(200 + frameId),
+            format = 37,
+            initialLayout = 0,
+            finalLayout = 1,
+            queueFamilyIndex = 0,
+            extent = extent,
+            generation = generation,
+          ),
+        presentationTimeNanos = presentationTimeNanos,
+      )
     )
   }
 

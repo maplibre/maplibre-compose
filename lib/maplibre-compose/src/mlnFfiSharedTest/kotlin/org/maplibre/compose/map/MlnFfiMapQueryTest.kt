@@ -6,10 +6,11 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.util.SOURCE_ID_PROPERTY
 
 /**
  * Exercises rendered-feature queries against a real, rendered map. A query only answers from what
@@ -31,9 +32,7 @@ class MlnFfiMapQueryTest {
 
       assertTrue(features.isNotEmpty(), "Expected a hit at the map center. Errors: ${it.errors}")
       val feature = features.first()
-      assertEquals("world", feature.properties?.get("name")?.jsonPrimitive?.content)
-      // The source id has nowhere else to live on a GeoJSON Feature, so it rides as a property.
-      assertEquals("test", feature.properties?.get(SOURCE_ID_PROPERTY)?.jsonPrimitive?.content)
+      assertEquals(buildJsonObject { put("name", "world") }, feature.properties)
     }
   }
 

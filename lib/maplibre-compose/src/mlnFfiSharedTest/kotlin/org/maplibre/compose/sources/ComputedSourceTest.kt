@@ -15,7 +15,6 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
-import org.maplibre.compose.util.SOURCE_ID_PROPERTY
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -44,7 +43,7 @@ class ComputedSourceTest {
 
       val feature = it.queryCenter().first()
       assertEquals(FIRST_NAME, feature.properties?.get("name")?.jsonPrimitive?.content)
-      assertEquals(SOURCE_ID, feature.properties?.get(SOURCE_ID_PROPERTY)?.jsonPrimitive?.content)
+      assertEquals(setOf("name"), feature.properties?.keys)
       assertEquals(emptyList(), it.errors, "the map should report nothing")
 
       // The world at zoom 0 is one tile, so this also asserts the bounds are the tile's own.

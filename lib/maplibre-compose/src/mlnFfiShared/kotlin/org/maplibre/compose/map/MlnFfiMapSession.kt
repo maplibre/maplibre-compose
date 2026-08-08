@@ -6,6 +6,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
 import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlin.coroutines.resume
@@ -38,6 +39,7 @@ import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.StyleBinding
@@ -107,6 +109,9 @@ private const val FRAME_INTERVAL_SLACK = 0.1
 /** Shared by the position and bounds-fit setters, so the later of the two replaces the earlier. */
 private const val CAMERA_KEY = "camera"
 
+/** Monotonic identity that orders gesture begin, camera work, and deferred completion. */
+@JvmInline internal value class GestureToken(val value: Long)
+
 /**
  * Drives one MapLibre Native map on a host surface.
  *
@@ -121,7 +126,7 @@ private const val CAMERA_KEY = "camera"
  */
 internal class MlnFfiMapSession(
   @Volatile internal var callbacks: MapAdapter.Callbacks,
-  internal var logger: Logger?,
+  @Volatile internal var logger: Logger?,
   renderBackend: MapRenderBackend,
   private val layoutDirection: LayoutDirection,
   private val runtimeOptions: MlnFfiRuntimeOptions,
@@ -180,7 +185,11 @@ internal class MlnFfiMapSession(
   @Volatile private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
 
-  @Volatile private var isGestureInProgress = false
+  /** Gesture attribution is owner-thread state; input threads communicate only through tokens. */
+  private var isGestureInProgress = false
+  private val nextGestureToken = AtomicLong(0L)
+  private var activeGestureToken: GestureToken? = null
+  private var pendingGestureEndToken: GestureToken? = null
 
   /**
    * The reason a camera move was last reported as started, or null if none is outstanding.
@@ -203,6 +212,7 @@ internal class MlnFfiMapSession(
    */
   private inner class SessionStyleBinding : StyleBinding {
     @Volatile private var loaded = true
+    private val sourcesById = mutableMapOf<String, Source>()
 
     override val isLoaded: Boolean
       get() = loaded && !closed
@@ -212,6 +222,21 @@ internal class MlnFfiMapSession(
 
     fun unload() {
       loaded = false
+      sourcesById.clear()
+    }
+
+    override fun claimSource(id: String, descriptor: Source): Boolean {
+      val existing = sourcesById[id]
+      check(existing == null || existing === descriptor) {
+        "Source ID '$id' is already owned by a different live source descriptor"
+      }
+      if (existing != null) return false
+      sourcesById[id] = descriptor
+      return true
+    }
+
+    override fun releaseSource(id: String, descriptor: Source) {
+      if (sourcesById[id] === descriptor) sourcesById.remove(id)
     }
 
     /**
@@ -355,6 +380,8 @@ internal class MlnFfiMapSession(
       // After the join, so the owner thread is gone and this is the only reader of that state.
       if (endOutstandingMove) {
         isGestureInProgress = false
+        activeGestureToken = null
+        pendingGestureEndToken = null
         endCameraMove()
       }
       resumeStrandedTransitions()
@@ -419,7 +446,7 @@ internal class MlnFfiMapSession(
         logger = logger,
         onMapCreated = ::onMapCreated,
         onEvent = ::handleEvent,
-        onEventsDrained = ::flushTransitionResumes,
+        onEventsDrained = ::onEventsDrained,
         requestFrame = ::requestRender,
       )
     val deferredActions = stateLock.withLock {
@@ -767,6 +794,10 @@ internal class MlnFfiMapSession(
     loop?.post(action)
   }
 
+  /** Test seam for intentionally backlogging owner-thread work without touching the native map. */
+  internal fun postOwnerTaskForTest(action: () -> Unit): Boolean =
+    loop?.post(action = { action() }) ?: false
+
   /**
    * Queues a one-shot action until a map exists, including before the first render creates its
    * loop.
@@ -842,7 +873,8 @@ internal class MlnFfiMapSession(
       }
       appliedStyle = style
     } catch (error: MaplibreException) {
-      // appliedStyle is deliberately not set, so setting the same style again retries.
+      // Keep appliedStyle unset so rebuilding the map retries. Equal assignments to this same map
+      // remain intentionally deduplicated by setBaseStyle.
       logger?.e(error) { "Failed to apply style $style" }
     }
   }
@@ -1157,48 +1189,75 @@ internal class MlnFfiMapSession(
 
   // region input, called from Compose
 
-  fun onGestureStarted() {
-    setGestureInProgress(true)
-  }
-
-  fun onGestureEnded() {
-    setGestureInProgress(false)
-  }
+  /** Allocates a newer gesture identity. Its begin is queued with its first camera command. */
+  fun onGestureStarted(): GestureToken = GestureToken(nextGestureToken.incrementAndGet())
 
   /**
-   * Records that a gesture is or is not running, here and on the map. The local flag classifies a
-   * camera move as [CameraMoveReason.GESTURE]; the map's own flag is what mbgl consults to treat
-   * the commands in between as one gesture. Both stay set until cleared, so every `true` needs a
-   * `false`, including on cancellation paths.
+   * Queues a token-matched end. The owner loop applies it only after the native events produced by
+   * all preceding camera work have been drained.
    */
-  private fun setGestureInProgress(active: Boolean) {
-    isGestureInProgress = active
-    // Posted rather than blocking: a gesture must never wait on the owner thread to finish a style
-    // parse before the pointer can move.
-    loop?.post(
-      action = { map ->
-        map.isGestureInProgress = active
-        // The end of the gesture is the end of the move, since its jumps stopped reporting their
-        // own ends when it began. Posted so it runs after every jump the gesture queued.
-        if (!active) endCameraMove()
-      }
-    )
+  fun onGestureEnded(token: GestureToken) {
+    loop?.post(action = { if (activeGestureToken == token) pendingGestureEndToken = token })
+  }
+
+  /** Begins [token] immediately before its first camera command, all on the owner thread. */
+  private fun activateGesture(map: MapHandle, token: GestureToken) {
+    val active = activeGestureToken
+    if (active != null && token.value < active.value) return
+    if (active == token) return
+    activeGestureToken = token
+    pendingGestureEndToken = null
+    isGestureInProgress = true
+    map.isGestureInProgress = true
+  }
+
+  /** Runs after the runtime event queue is momentarily empty. Owner thread only. */
+  private fun finishPendingGesture(map: MapHandle) {
+    val token = pendingGestureEndToken ?: return
+    pendingGestureEndToken = null
+    if (activeGestureToken != token) return
+    activeGestureToken = null
+    isGestureInProgress = false
+    map.isGestureInProgress = false
+    endCameraMove()
+  }
+
+  private fun onEventsDrained(map: MapHandle) {
+    finishPendingGesture(map)
+    flushTransitionResumes()
+  }
+
+  private fun onMap(gestureToken: GestureToken?, action: (MapHandle) -> Unit) {
+    onMap { map ->
+      gestureToken?.let { activateGesture(map, it) }
+      action(map)
+    }
   }
 
   /**
    * Pans by a delta, over [duration]. A zero duration is a jump, which is what a drag wants; a
    * discrete input such as an arrow key eases instead.
    */
-  fun moveBy(deltaX: Double, deltaY: Double, duration: Duration = Duration.ZERO) {
-    onMap { map ->
+  fun moveBy(
+    deltaX: Double,
+    deltaY: Double,
+    duration: Duration = Duration.ZERO,
+    gestureToken: GestureToken? = null,
+  ) {
+    onMap(gestureToken) { map ->
       if (duration == Duration.ZERO) map.moveBy(deltaX, deltaY)
       else map.moveByAnimated(deltaX, deltaY, duration.toAnimationOptions())
     }
   }
 
   /** Zooms by a factor about [anchor], over [duration]. See [moveBy] for why zero exists. */
-  fun scaleBy(scale: Double, anchor: DpOffset?, duration: Duration = Duration.ZERO) {
-    onMap { map ->
+  fun scaleBy(
+    scale: Double,
+    anchor: DpOffset?,
+    duration: Duration = Duration.ZERO,
+    gestureToken: GestureToken? = null,
+  ) {
+    onMap(gestureToken) { map ->
       val point = anchor?.toScreenPoint()
       if (duration == Duration.ZERO) map.scaleBy(scale, point)
       else map.scaleByAnimated(scale, point, duration.toAnimationOptions())
@@ -1221,9 +1280,10 @@ internal class MlnFfiMapSession(
     pitchDelta: Double,
     duration: Duration = Duration.ZERO,
     anchor: DpOffset? = null,
+    gestureToken: GestureToken? = null,
   ) {
     // Reading the current camera and writing the new one must happen together on the owner thread.
-    onMap { map ->
+    onMap(gestureToken) { map ->
       val camera = map.camera
       val target =
         CameraOptions().also {

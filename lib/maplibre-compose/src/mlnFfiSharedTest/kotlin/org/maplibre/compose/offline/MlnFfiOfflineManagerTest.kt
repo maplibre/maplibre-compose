@@ -5,10 +5,14 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.yield
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.resource.MlnFfiCacheDatabaseRegistry
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -66,6 +70,26 @@ class MlnFfiOfflineManagerTest {
         // finishing, so a second unrelated operation is what detects it.
         manager.invalidateAmbientCache()
       }
+    }
+
+  @Test
+  fun cancelling_a_size_change_waiting_for_the_database_permit_does_not_block_the_next_change() =
+    runBlocking {
+      val manager = MlnFfiOfflineManager.forOptions(options)
+      // Proves startup has established the registry lease before the test takes its permit.
+      withTimeout(30_000) { manager.invalidateAmbientCache() }
+      val held = MlnFfiCacheDatabaseRegistry.acquireWritePermit(cachePath)
+      try {
+        val cancelled = launch { manager.setMaximumAmbientCacheSize(16L * 1024 * 1024) }
+        withTimeout(30_000) {
+          while (MlnFfiCacheDatabaseRegistry.queuedWriteCount(cachePath) == 0) yield()
+        }
+        cancelled.cancelAndJoin()
+      } finally {
+        held.close()
+      }
+
+      withTimeout(30_000) { manager.setMaximumAmbientCacheSize(8L * 1024 * 1024) }
     }
 
   @Test

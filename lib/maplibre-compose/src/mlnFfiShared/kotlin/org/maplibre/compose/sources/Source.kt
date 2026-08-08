@@ -35,14 +35,17 @@ public actual sealed class Source(internal actual val id: String) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
     }
-    this.binding = binding
     val added = binding.withMap { map ->
-      // Idempotent, because a layer attaches its own source first when Compose has not run the
-      // source's effect yet; the effect then attaches the same source again.
-      if (!map.styleSourceExists(id)) {
-        try {
-          addTo(map)
-        } catch (error: MaplibreException) {
+      // A layer attaches its source before the source effect runs. Identity tracking makes that
+      // second reference idempotent without mistaking an unrelated native source with the same ID
+      // for this descriptor.
+      val claimed = binding.claimSource(id, this)
+      if (!claimed) return@withMap
+      try {
+        addTo(map)
+      } catch (error: Throwable) {
+        binding.releaseSource(id, this)
+        if (error is MaplibreException) {
           // Native reports what was wrong with the definition but never whose. The definition
           // itself is left out: a GeoJSON source's is its entire dataset.
           throw IllegalStateException(
@@ -51,12 +54,15 @@ public actual sealed class Source(internal actual val id: String) {
             error,
           )
         }
+        throw error
       }
     }
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
     }
+    // Published only after the owner-thread reservation and native attachment both succeeded.
+    this.binding = binding
   }
 
   /**
@@ -83,7 +89,10 @@ public actual sealed class Source(internal actual val id: String) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
-    binding.withMap { map -> map.removeStyleSource(id) }
+    binding.withMap { map ->
+      map.removeStyleSource(id)
+      binding.releaseSource(id, this)
+    }
     binding = StyleBinding.UNLOADED
   }
 

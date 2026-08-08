@@ -92,10 +92,8 @@ private constructor(
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame = environment.withContext {
-    requireNotNull(bridge.acquireFrame(frameId, extent, presentationTimeNanos)) {
-      "The production ${bridge.backends} bridge had no test GPU context"
-    }
+  ): MlnFfiMapFrameAcquisition = environment.withContext {
+    bridge.acquireFrame(frameId, extent, presentationTimeNanos)
   }
 
   override fun present(target: MlnFfiRenderTarget): Boolean = environment.present(bridge, target)

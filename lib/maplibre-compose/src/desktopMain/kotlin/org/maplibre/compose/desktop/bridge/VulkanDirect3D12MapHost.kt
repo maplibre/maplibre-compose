@@ -81,6 +81,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
@@ -160,17 +161,19 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame? {
-    val context = withPreparedContext { it } ?: return null
+  ): MlnFfiMapFrameAcquisition {
+    val context = withPreparedContext { it } ?: return MlnFfiMapFrameAcquisition.NotReady
     val device = context.device
     if (importedTexture == null || extent != currentExtent || device != currentDevice) {
       resize(extent, device)
     }
-    return MlnFfiMapFrame(
-      frameId = frameId,
-      extent = extent,
-      target = target(generation),
-      presentationTimeNanos = presentationTimeNanos,
+    return MlnFfiMapFrameAcquisition.Acquired(
+      MlnFfiMapFrame(
+        frameId = frameId,
+        extent = extent,
+        target = target(generation),
+        presentationTimeNanos = presentationTimeNanos,
+      )
     )
   }
 

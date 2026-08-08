@@ -10,6 +10,7 @@ import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
+import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.NativeHandle
@@ -51,17 +52,19 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
     frameId: Long,
     extent: MlnFfiMapExtent,
     presentationTimeNanos: Long?,
-  ): MlnFfiMapFrame? {
-    val context = withPreparedContext { it } ?: return null
+  ): MlnFfiMapFrameAcquisition {
+    val context = withPreparedContext { it } ?: return MlnFfiMapFrameAcquisition.NotReady
     val device = context.device
     if (texture.isNull || extent != currentExtent || device != currentDevice) {
       resize(extent, device)
     }
-    return MlnFfiMapFrame(
-      frameId = frameId,
-      extent = extent,
-      target = target(extent, generation),
-      presentationTimeNanos = presentationTimeNanos,
+    return MlnFfiMapFrameAcquisition.Acquired(
+      MlnFfiMapFrame(
+        frameId = frameId,
+        extent = extent,
+        target = target(extent, generation),
+        presentationTimeNanos = presentationTimeNanos,
+      )
     )
   }
 

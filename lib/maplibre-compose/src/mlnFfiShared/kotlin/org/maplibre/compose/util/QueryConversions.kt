@@ -31,26 +31,11 @@ internal fun renderedQueryOptions(
   }
 }
 
-/**
- * Converts a queried feature to the GeoJSON one the common API returns. Source id, source layer id,
- * and feature state ride along as synthetic properties, since `Feature` has nowhere else for them.
- */
-internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> {
-  val base = feature.toGeoJsonFeature()
-  val properties = buildMap {
-    base.properties?.let { putAll(it) }
-    sourceId?.let { putIfAbsent(SOURCE_ID_PROPERTY, JsonPrimitive(it)) }
-    sourceLayerId?.let { putIfAbsent(SOURCE_LAYER_ID_PROPERTY, JsonPrimitive(it)) }
-    state?.let { putIfAbsent(STATE_PROPERTY, it.toJsonElement()) }
-  }
-  return Feature(geometry = base.geometry, properties = JsonObject(properties), id = base.id)
-}
+/** Converts a queried feature without adding query metadata to caller-owned GeoJSON properties. */
+internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> =
+  feature.toGeoJsonFeature()
 
-/**
- * Converts a plain MapLibre feature to the GeoJSON one the common API returns. Unlike the
- * [QueriedFeature] overload, it adds no synthetic `${'$'}source` keys; a bare feature has no
- * source.
- */
+/** Converts a plain MapLibre feature to the GeoJSON one the common API returns. */
 internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> =
   Feature(
     geometry = geometry.toGeoJson(),
@@ -71,13 +56,9 @@ internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
   if (clusterId == null) return null
 
   val members =
-    properties.orEmpty().mapNotNull { (key, value) ->
+    properties.orEmpty().map { (key, value) ->
       when (key) {
         CLUSTER_ID_PROPERTY -> JsonValue.Member(key, JsonValue.UInt(clusterId))
-        // Synthetic keys this conversion added on the way out; they are not MapLibre's.
-        SOURCE_ID_PROPERTY,
-        SOURCE_LAYER_ID_PROPERTY,
-        STATE_PROPERTY -> null
         else -> JsonValue.Member(key, value.toFfiJsonValue())
       }
     }
@@ -105,15 +86,6 @@ private fun JsonPrimitive.toUnsignedOrNull(): Long? {
   if (asDouble < 0.0 || asDouble != Math.floor(asDouble)) return null
   return asDouble.toLong()
 }
-
-/** Property key carrying the source a queried feature came from. */
-internal const val SOURCE_ID_PROPERTY = "\$source"
-
-/** Property key carrying the source layer a queried feature came from. */
-internal const val SOURCE_LAYER_ID_PROPERTY = "\$sourceLayer"
-
-/** Property key carrying the feature state at query time. */
-internal const val STATE_PROPERTY = "\$state"
 
 private fun FeatureIdentifier.toGeoJsonId(): JsonPrimitive? =
   when (this) {

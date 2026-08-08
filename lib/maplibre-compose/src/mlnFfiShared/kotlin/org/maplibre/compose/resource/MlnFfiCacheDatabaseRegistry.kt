@@ -1,6 +1,7 @@
 package org.maplibre.compose.resource
 
 import java.nio.file.Path
+import java.util.concurrent.Semaphore
 import java.util.concurrent.atomic.AtomicBoolean
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.normalized
@@ -18,7 +19,9 @@ internal object MlnFfiCacheDatabaseRegistry {
     val configuredMaximumCacheSizeBytes: Long?,
     var effectiveMaximumCacheSizeBytes: Long?,
     var leases: Int,
-  )
+  ) {
+    val writePermit = Semaphore(1, true)
+  }
 
   private val entries = mutableMapOf<Path, Entry>()
 
@@ -42,27 +45,49 @@ internal object MlnFfiCacheDatabaseRegistry {
             options.maximumCacheSizeBytes.describeBudget()
         }
         existing.leases++
-        return MlnFfiCacheDatabaseLease(
-          options.copy(maximumCacheSizeBytes = existing.effectiveMaximumCacheSizeBytes)
-        ) {
-          release(options.cachePath)
-        }
+        return lease(options, existing)
       }
     }
-    return MlnFfiCacheDatabaseLease(options) { release(options.cachePath) }
+    return synchronized(entries) { lease(options, checkNotNull(entries[options.cachePath])) }
   }
 
-  /** Keeps runtimes opened later from reapplying the configuration that preceded this mutation. */
-  fun updateEffectiveMaximumCacheSize(path: Path, sizeBytes: Long) {
-    synchronized(entries) {
-      val normalizedPath = path.toAbsolutePath().normalize()
-      val entry =
+  /** Acquires this database's fair, process-wide cache-budget write permit. */
+  fun acquireWritePermit(path: Path): MlnFfiCacheDatabaseWritePermit {
+    val normalizedPath = path.toAbsolutePath().normalize()
+    val entry =
+      synchronized(entries) {
         checkNotNull(entries[normalizedPath]) {
           "Cache database '$normalizedPath' has no live runtime to update"
         }
-      entry.effectiveMaximumCacheSizeBytes = sizeBytes
-    }
+      }
+    entry.writePermit.acquire()
+    return writePermit(entry)
   }
+
+  /** Number of writers waiting behind the active permit; deterministic test/diagnostic seam. */
+  internal fun queuedWriteCount(path: Path): Int {
+    val normalizedPath = path.toAbsolutePath().normalize()
+    return synchronized(entries) { entries[normalizedPath]?.writePermit?.queueLength ?: 0 }
+  }
+
+  private fun lease(options: MlnFfiRuntimeOptions, entry: Entry): MlnFfiCacheDatabaseLease =
+    MlnFfiCacheDatabaseLease(
+      options = options,
+      acquireWritePermitAction = {
+        entry.writePermit.acquire()
+        writePermit(entry)
+      },
+      release = { release(options.cachePath) },
+    )
+
+  private fun writePermit(entry: Entry): MlnFfiCacheDatabaseWritePermit =
+    MlnFfiCacheDatabaseWritePermit(
+      readEffectiveSize = { synchronized(entries) { entry.effectiveMaximumCacheSizeBytes } },
+      commitEffectiveSize = { size ->
+        synchronized(entries) { entry.effectiveMaximumCacheSizeBytes = size }
+      },
+      release = entry.writePermit::release,
+    )
 
   private fun release(path: Path) {
     synchronized(entries) {
@@ -77,9 +102,39 @@ internal object MlnFfiCacheDatabaseRegistry {
 /** One live runtime's claim on a normalized cache database configuration. */
 internal class MlnFfiCacheDatabaseLease(
   val options: MlnFfiRuntimeOptions,
+  private val acquireWritePermitAction: () -> MlnFfiCacheDatabaseWritePermit,
   private val release: () -> Unit,
 ) : AutoCloseable {
   private val closed = AtomicBoolean(false)
+
+  fun acquireWritePermit(): MlnFfiCacheDatabaseWritePermit {
+    check(!closed.get()) { "Cannot mutate the cache budget through a closed runtime lease" }
+    return acquireWritePermitAction()
+  }
+
+  override fun close() {
+    if (closed.compareAndSet(false, true)) release()
+  }
+}
+
+/** Exclusive ownership of one cache-budget mutation, including its native completion. */
+internal class MlnFfiCacheDatabaseWritePermit(
+  private val readEffectiveSize: () -> Long?,
+  private val commitEffectiveSize: (Long) -> Unit,
+  private val release: () -> Unit,
+) : AutoCloseable {
+  private val closed = AtomicBoolean(false)
+
+  val effectiveMaximumCacheSizeBytes: Long?
+    get() {
+      check(!closed.get()) { "Cannot read a released cache-budget permit" }
+      return readEffectiveSize()
+    }
+
+  fun commit(sizeBytes: Long) {
+    check(!closed.get()) { "Cannot commit through a released cache-budget permit" }
+    commitEffectiveSize(sizeBytes)
+  }
 
   override fun close() {
     if (closed.compareAndSet(false, true)) release()
