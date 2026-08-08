@@ -139,9 +139,26 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
-  fun fatal_renderer_failure_stops_without_retrying() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer(failingRenders = 1, fatal = true)
+  fun unexpected_renderer_failure_stops_without_retrying() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer(failingRenders = 1, unexpectedFailure = true)
     val factory = FakeMlnFfiMapHostFactory()
+
+    setSurfaceContent(renderer, factory)
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+
+    assertEquals(0, renderer.surfaceLostCount)
+    assertEquals(1, factory.created.single().acquireCount)
+  }
+
+  @Test
+  fun unexpected_host_failure_stops_without_retrying() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory =
+      FakeMlnFfiMapHostFactory(
+        configureHost = { host ->
+          host.acquireOutcomes += FakeMlnFfiMapHost.AcquireOutcome.UNEXPECTED_FAILURE
+        }
+      )
 
     setSurfaceContent(renderer, factory)
     waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
@@ -183,7 +200,7 @@ class MlnFfiMapSurfaceRecoveryTest {
 
   private class RecordingRenderer(
     private var failingRenders: Int = 0,
-    private val fatal: Boolean = false,
+    private val unexpectedFailure: Boolean = false,
     private val requestAnotherFrame: Boolean = false,
   ) : MlnFfiMapRenderer {
     override val backend: MapRenderBackend = MapRenderBackend.VULKAN
@@ -221,7 +238,8 @@ class MlnFfiMapSurfaceRecoveryTest {
       if (failingRenders > 0) {
         failingRenders--
         val error = "renderer lost its device on frame ${frame.frameId}"
-        throw if (fatal) MlnFfiFatalFrameException(error, null) else IllegalStateException(error)
+        throw if (unexpectedFailure) IllegalStateException(error)
+        else MlnFfiRecoverableFrameException(error, null)
       }
       renderedFrames++
       if (requestAnotherFrame) hostSession?.requestFrame()

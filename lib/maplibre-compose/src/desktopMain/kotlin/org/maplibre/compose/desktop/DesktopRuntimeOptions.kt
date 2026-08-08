@@ -43,15 +43,19 @@ public fun desktopCachePath(applicationId: String): Path {
   val os = System.getProperty("os.name")?.lowercase().orEmpty()
   val home = System.getProperty("user.home") ?: "."
   val base =
-    System.getenv("XDG_CACHE_HOME")?.takeIf { it.isNotBlank() }?.let(Paths::get)
+    absoluteEnvironmentPath(System.getenv("XDG_CACHE_HOME"))
       ?: when {
         os.contains("mac") -> Paths.get(home, "Library", "Caches")
         os.contains("windows") ->
-          System.getenv("LOCALAPPDATA")?.let(Paths::get) ?: Paths.get(home, "AppData", "Local")
+          absoluteEnvironmentPath(System.getenv("LOCALAPPDATA"))
+            ?: Paths.get(home, "AppData", "Local")
         else -> Paths.get(home, ".cache")
       }
   return base.resolve(applicationId).resolve("maplibre-cache.db")
 }
+
+internal fun absoluteEnvironmentPath(value: String?): Path? =
+  value?.takeIf { it.isNotBlank() }?.let(Paths::get)?.takeIf(Path::isAbsolute)
 
 internal fun DesktopRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
   MlnFfiRuntimeOptions(cachePath, maximumCacheSizeBytes)

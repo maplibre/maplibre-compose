@@ -128,7 +128,7 @@ internal fun MlnFfiMapSurface(
 
 private const val MAX_FRAME_RECOVERY_ATTEMPTS = 3
 
-/** Rebuilds the render session after a frame failed, or reports that recovery is exhausted. */
+/** Rebuilds after an explicitly recoverable graphics failure, or reports that recovery is done. */
 private fun recoverFromFrameFailure(
   renderer: MlnFfiMapRenderer,
   session: MlnFfiMapHostSession,
@@ -137,8 +137,8 @@ private fun recoverFromFrameFailure(
   error: Throwable,
   logger: Logger?,
 ): Boolean {
-  if (error is MlnFfiFatalFrameException) {
-    logger?.e(error) { "Map frame $frameId failed fatally" }
+  if (error !is MlnFfiRecoverableFrameException) {
+    logger?.e(error) { "Map frame $frameId failed with an unrecoverable error" }
     return false
   }
 

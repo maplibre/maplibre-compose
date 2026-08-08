@@ -28,12 +28,15 @@ private val NETWORK_SCHEMES = setOf("http", "https")
  * independently of runtime teardown, so accepted reads can safely finish after [close].
  */
 internal class MlnFfiResourceProvider(
-  private val logger: Logger?,
+  private val getLogger: () -> Logger?,
   /** Turns a URL into a response. Test seam: a fake can hold a read open mid-shutdown. */
   private val read: (url: String, requestedUrl: String) -> ResourceResponse = { url, requestedUrl ->
-    readResource(url, requestedUrl, logger)
+    readResource(url, requestedUrl, getLogger())
   },
 ) : ResourceProviderCallback, AutoCloseable {
+
+  private val logger: Logger?
+    get() = getLogger()
 
   private val accepting = AtomicBoolean(true)
 

@@ -15,6 +15,7 @@ internal class FakeMlnFfiMapHost(
     ACQUIRED,
     NOT_READY,
     FAILURE,
+    UNEXPECTED_FAILURE,
   }
 
   /** Optional deterministic outcome script, consumed before the counter-based controls below. */
@@ -79,7 +80,12 @@ internal class FakeMlnFfiMapHost(
     when (acquireOutcomes.removeFirstOrNull()) {
       AcquireOutcome.NOT_READY -> return MlnFfiMapFrameAcquisition.NotReady
       AcquireOutcome.FAILURE ->
-        throw IllegalStateException("fake host lost its device and cannot acquire frame $frameId")
+        throw MlnFfiRecoverableFrameException(
+          "fake host lost its device and cannot acquire frame $frameId",
+          null,
+        )
+      AcquireOutcome.UNEXPECTED_FAILURE ->
+        throw IllegalStateException("fake host has a programming error on frame $frameId")
       AcquireOutcome.ACQUIRED,
       null -> Unit
     }
@@ -89,7 +95,10 @@ internal class FakeMlnFfiMapHost(
     }
     if (failingAcquires > 0) {
       failingAcquires--
-      throw IllegalStateException("fake host lost its device and cannot acquire frame $frameId")
+      throw MlnFfiRecoverableFrameException(
+        "fake host lost its device and cannot acquire frame $frameId",
+        null,
+      )
     }
     if (extent != currentExtent) {
       currentExtent = extent

@@ -37,15 +37,16 @@ public actual sealed class Source(internal actual val id: String) {
         "for each map"
     }
     val added = binding.mutateMap { map ->
-      // A layer attaches its source before the source effect runs. Identity tracking makes that
-      // second reference idempotent without mistaking an unrelated native source with the same ID
-      // for this descriptor.
-      val claimed = binding.claimSource(id, this)
-      if (!claimed) return@mutateMap
+      // A layer may attach its source before the source effect runs, or use a descriptor read from
+      // the base style. Exact binding identity makes those paths idempotent. Any other descriptor
+      // with this ID is rejected here, on the owner thread and before native mutation.
+      if (this.binding === binding && map.styleSourceExists(id)) return@mutateMap false
+      check(!map.styleSourceExists(id)) {
+        "Source ID '$id' is already owned by a different live source descriptor"
+      }
       try {
         addTo(map)
       } catch (error: Throwable) {
-        binding.releaseSource(id, this)
         if (error is MaplibreException) {
           // Native reports what was wrong with the definition but never whose. The definition
           // itself is left out: a GeoJSON source's is its entire dataset.
@@ -57,12 +58,14 @@ public actual sealed class Source(internal actual val id: String) {
         }
         throw error
       }
+      true
     }
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
     }
-    // Published only after the owner-thread reservation and native attachment both succeeded.
+    if (!added) return
+    // Published only after native attachment succeeded.
     this.binding = binding
   }
 
@@ -90,10 +93,7 @@ public actual sealed class Source(internal actual val id: String) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
-    binding.mutateMap { map ->
-      map.removeStyleSource(id)
-      binding.releaseSource(id, this)
-    }
+    binding.mutateMap { map -> map.removeStyleSource(id) }
     binding = StyleBinding.UNLOADED
   }
 

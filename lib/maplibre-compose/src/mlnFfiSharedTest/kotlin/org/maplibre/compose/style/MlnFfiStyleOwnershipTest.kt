@@ -141,11 +141,42 @@ class MlnFfiStyleOwnershipTest {
     }
   }
 
+  @Test
+  fun a_layer_can_use_a_source_read_from_the_base_style() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BASE_SOURCE_STYLE)
+      val style = requireNotNull(fixture.style)
+      val source = requireNotNull(style.getSource("base-source"))
+
+      style.addLayer(FillLayer("over-base-source", source))
+
+      assertNotNull(style.getLayer("over-base-source"))
+      assertNotNull(style.getSource("base-source"))
+    }
+  }
+
   private companion object {
     fun emptySource(id: String) =
       GeoJsonSource(id, GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
 
     val REPLACEMENT_STYLE =
       BaseStyle.Json("""{"version":8,"name":"replacement","sources":{},"layers":[]}""")
+
+    val BASE_SOURCE_STYLE =
+      BaseStyle.Json(
+        """
+        {
+          "version": 8,
+          "sources": {
+            "base-source": {
+              "type": "geojson",
+              "data": { "type": "FeatureCollection", "features": [] }
+            }
+          },
+          "layers": []
+        }
+        """
+          .trimIndent()
+      )
   }
 }

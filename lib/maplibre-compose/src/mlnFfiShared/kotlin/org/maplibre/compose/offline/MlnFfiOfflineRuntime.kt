@@ -156,7 +156,7 @@ internal class MlnFfiOfflineRuntime(
   private fun runLoop() {
     val runtime =
       try {
-        MlnFfiRuntimeOwner.open(cachePath, logger, "MapLibre offline runtime")
+        MlnFfiRuntimeOwner.open(cachePath, { logger }, "MapLibre offline runtime")
           .also { runtimeOwner = it }
           .runtime
       } catch (error: Throwable) {

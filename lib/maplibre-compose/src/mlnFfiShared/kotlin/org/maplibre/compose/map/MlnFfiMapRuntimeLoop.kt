@@ -48,7 +48,7 @@ internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
   private val extent: MlnFfiMapExtent,
   private val cachePath: Path,
-  private val logger: Logger?,
+  private val getLogger: () -> Logger?,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
   /** Runs on the owner thread for every event this loop's runtime raises. */
@@ -58,6 +58,10 @@ internal class MlnFfiMapRuntimeLoop(
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
 ) : AutoCloseable {
+
+  /** Reads the session's current logger rather than retaining the one it started with. */
+  private val logger: Logger?
+    get() = getLogger()
 
   /** Work for the owner thread, with the release path it must take if it never gets to run. */
   private class OwnerTask(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
@@ -171,7 +175,7 @@ internal class MlnFfiMapRuntimeLoop(
   private fun runLoop() {
     val owner =
       try {
-        MlnFfiRuntimeOwner.open(cachePath, logger, "MapLibre runtime").also { runtimeOwner = it }
+        MlnFfiRuntimeOwner.open(cachePath, getLogger, "MapLibre runtime").also { runtimeOwner = it }
       } catch (error: Throwable) {
         logger?.e(error) { "Could not create the MapLibre runtime" }
         fail(error)

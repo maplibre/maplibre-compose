@@ -1,9 +1,11 @@
 package org.maplibre.compose.desktop
 
+import java.nio.file.Paths
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
+import kotlin.test.assertNull
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 
@@ -23,6 +25,16 @@ class DesktopRuntimeOptionsTest {
   fun application_ids_cannot_escape_the_cache_directory() {
     assertFailsWith<IllegalArgumentException> { desktopCachePath("../another-app") }
     assertFailsWith<IllegalArgumentException> { desktopCachePath("com/example/app") }
+  }
+
+  @Test
+  fun cache_environment_paths_must_be_absolute() {
+    val absolute = Paths.get(System.getProperty("user.home")).toAbsolutePath()
+
+    assertNull(absoluteEnvironmentPath(null))
+    assertNull(absoluteEnvironmentPath(""))
+    assertNull(absoluteEnvironmentPath("relative/cache"))
+    assertEquals(absolute, absoluteEnvironmentPath(absolute.toString()))
   }
 
   @Test

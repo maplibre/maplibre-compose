@@ -339,6 +339,7 @@ private class MapPointerGesture(
           if (abs(displacement.x) <= scaleSlopPx) return
           clickOrigin = null
           lastClickAt = null
+          quickZoomCandidate = false
           cancelPendingTouchClick()
           return
         }
@@ -360,6 +361,7 @@ private class MapPointerGesture(
     var changed = false
 
     if (quickZoomCandidate && options.isQuickZoomEnabled) {
+      deferredTwoFingerVelocity = null
       mode = Mode.QUICK_ZOOM
       singleMotion = SingleMotion.QUICK_ZOOM
       // The second tap now belongs to this drag; a later tap must start a fresh pair.
@@ -383,6 +385,9 @@ private class MapPointerGesture(
     } else {
       // Read every mouse event rather than only the press, so releasing ctrl switches to panning.
       if (rotating && options.isDragRotateTiltEnabled) {
+        // Moving the remaining finger takes over from deferred pinch/rotation velocity. If it
+        // merely lifts, onRelease still starts that two-finger continuation instead.
+        deferredTwoFingerVelocity = null
         if (singleMotion != SingleMotion.ROTATE_TILT) singleVelocity.resetTracking()
         singleMotion = SingleMotion.ROTATE_TILT
         session.rotateAndPitchBy(
@@ -392,6 +397,7 @@ private class MapPointerGesture(
         )
         changed = true
       } else if (!rotating && options.isDragPanEnabled) {
+        deferredTwoFingerVelocity = null
         if (singleMotion != SingleMotion.PAN) singleVelocity.resetTracking()
         singleMotion = SingleMotion.PAN
         session.moveBy(deltaX, deltaY, gestureToken = gestureToken)
@@ -667,8 +673,8 @@ private class MapPointerGesture(
     }
     continuation.finish(session::onGestureEnded)
     if (completedTwoFingerTap != null && options.isTwoFingerTapZoomEnabled) {
-      session.discreteGesture { token ->
-        scaleBy(
+      session.discreteGesture(continuation) { token ->
+        scaleByAwaitingTransition(
           scale = zoomLevelsToScale(-options.zoomStep),
           anchor = options.zoomAnchor(completedTwoFingerTap.centroid.toLogicalDpOffset(density)),
           duration = options.animationDuration,
@@ -689,8 +695,8 @@ private class MapPointerGesture(
 
     if (isDoubleClick(origin, timeMillis) && options.isDoubleClickZoomEnabled) {
       // Anchored at the pointer so the point under it stays put; shift inverts the direction.
-      session.discreteGesture { token ->
-        scaleBy(
+      session.discreteGesture(continuation) { token ->
+        scaleByAwaitingTransition(
           scale = zoomLevelsToScale(if (pressedShifted) -options.zoomStep else options.zoomStep),
           anchor = options.zoomAnchor(where),
           duration = options.animationDuration,
@@ -1030,9 +1036,10 @@ private class MapPointerGesture(
 }
 
 /** Owns every continuation of a pointer gesture after the pointers are released. */
-internal class GestureContinuation {
+internal class GestureContinuation(private val scope: CoroutineScope) {
   private var scaleVelocityJob: Job? = null
   private var rotationVelocityJob: Job? = null
+  private var discreteTransitionJob: Job? = null
   private var finishJob: Job? = null
   private var openToken: GestureToken? = null
 
@@ -1046,12 +1053,19 @@ internal class GestureContinuation {
     rotationVelocityJob = scope.launch(block = block)
   }
 
+  fun launchDiscreteTransition(block: suspend CoroutineScope.() -> Unit) {
+    discreteTransitionJob?.cancel()
+    discreteTransitionJob = scope.launch(block = block)
+  }
+
   /** Stops camera motion while leaving its gesture open for a possible pointer takeover. */
   fun interrupt() {
     scaleVelocityJob?.cancel()
     scaleVelocityJob = null
     rotationVelocityJob?.cancel()
     rotationVelocityJob = null
+    discreteTransitionJob?.cancel()
+    discreteTransitionJob = null
   }
 
   /** Takes over a gesture whose velocity continuation has not ended yet. */
@@ -1100,7 +1114,9 @@ private fun MlnFfiMapSession.pan(
 ): Boolean {
   if (!options.isKeyboardPanEnabled) return false
   continuation.finish(::onGestureEnded)
-  discreteGesture { token -> moveBy(deltaX, deltaY, options.animationDuration, token) }
+  discreteGesture(continuation) { token ->
+    moveByAwaitingTransition(deltaX, deltaY, options.animationDuration, token)
+  }
   return true
 }
 
@@ -1111,8 +1127,8 @@ private fun MlnFfiMapSession.zoom(
 ): Boolean {
   if (!options.isKeyboardZoomEnabled) return false
   continuation.finish(::onGestureEnded)
-  discreteGesture { token ->
-    scaleBy(
+  discreteGesture(continuation) { token ->
+    scaleByAwaitingTransition(
       zoomLevelsToScale(levelDelta),
       anchor = null,
       duration = options.animationDuration,
@@ -1130,19 +1146,30 @@ private fun MlnFfiMapSession.rotateAndTilt(
 ): Boolean {
   if (!options.isKeyboardRotateTiltEnabled) return false
   continuation.finish(::onGestureEnded)
-  discreteGesture { token ->
-    rotateAndPitchBy(bearingDelta, pitchDelta, options.animationDuration, gestureToken = token)
+  discreteGesture(continuation) { token ->
+    rotateAndPitchByAwaitingTransition(
+      bearingDelta,
+      pitchDelta,
+      options.animationDuration,
+      gestureToken = token,
+    )
   }
   return true
 }
 
-/** Queues a discrete input's begin, camera command, and token-matched end in that order. */
-private inline fun MlnFfiMapSession.discreteGesture(
-  command: MlnFfiMapSession.(GestureToken) -> Unit
+/** Keeps a discrete input attributed as a gesture until its native transition releases camera. */
+private fun MlnFfiMapSession.discreteGesture(
+  continuation: GestureContinuation,
+  command: suspend MlnFfiMapSession.(GestureToken) -> Unit,
 ) {
   val token = onGestureStarted()
-  command(token)
-  onGestureEnded(token)
+  continuation.launchDiscreteTransition {
+    try {
+      this@discreteGesture.command(token)
+    } finally {
+      onGestureEnded(token)
+    }
+  }
 }
 
 /** A zoom level delta as the scale multiplier the session takes; a level is a doubling. */

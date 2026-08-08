@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -44,7 +45,7 @@ internal fun MlnFfiMapView(
     remember(hostFactory, runtimeBackends, scaleFactor) { createHost(runtimeBackends, hostFactory) }
 
   val session =
-    remember(hostFactory.backends, scaleFactor, layoutDirection, applicationOptions) {
+    remember(hostFactory.backends, scaleFactor, applicationOptions) {
       MlnFfiMapSession(
         callbacks = callbacks,
         logger = logger,
@@ -57,6 +58,7 @@ internal fun MlnFfiMapView(
 
   session.callbacks = callbacks
   session.logger = logger
+  session.layoutDirection = layoutDirection
   val currentOnReset = rememberUpdatedState(onReset)
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
@@ -75,7 +77,8 @@ internal fun MlnFfiMapView(
 
   // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }
-  val continuation = remember(session) { GestureContinuation() }
+  val inputScope = rememberCoroutineScope()
+  val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
   MlnFfiMapSurface(
     renderer = session,

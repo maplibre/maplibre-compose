@@ -34,6 +34,7 @@ import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraMoveReason
@@ -95,15 +96,20 @@ class MlnFfiMapInputTest {
   fun double_click_eases_rather_than_jumping() = runInputTest { camera ->
     val target = START_ZOOM + 1.0
     var sawIntermediate = false
+    var endedWhileIntermediate = false
 
     onRoot().performMouseInput { doubleClick() }
     waitUntil(timeoutMillis = TIMEOUT) {
       val zoom = camera.position.zoom
-      if (zoom > START_ZOOM + 0.01 && zoom < target - 0.01) sawIntermediate = true
+      if (zoom > START_ZOOM + 0.01 && zoom < target - 0.01) {
+        sawIntermediate = true
+        if (!camera.isCameraMoving) endedWhileIntermediate = true
+      }
       zoom >= target - ZOOM_TOLERANCE
     }
 
     assertTrue(sawIntermediate, "the zoom went straight to $target, so it did not animate")
+    assertFalse(endedWhileIntermediate, "the gesture ended while its zoom was still easing")
   }
 
   @Test
@@ -312,6 +318,43 @@ class MlnFfiMapInputTest {
     }
 
   @Test
+  fun one_finger_takeover_discards_deferred_pinch_velocity() =
+    runInputTest(
+      gestures =
+        GestureOptions.Standard.copy(isFlingEnabled = false, isRotateVelocityEnabled = false),
+      focusWithMouse = false,
+    ) { camera ->
+      val map = onRoot()
+      map.performTouchInput {
+        down(0, center - Offset(40f, 0f))
+        down(1, center + Offset(40f, 0f))
+        updatePointerTo(0, center - Offset(120f, 0f))
+        updatePointerTo(1, center + Offset(120f, 0f))
+        move(delayMillis = 30)
+        up(1)
+      }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > START_ZOOM + 0.5 }
+
+      val longitudeBeforeTakeover = camera.position.target.longitude
+      map.performTouchInput { moveTo(0, center + Offset(100f, 0f), delayMillis = 100) }
+      waitUntil(timeoutMillis = TIMEOUT) {
+        camera.position.target.longitude != longitudeBeforeTakeover
+      }
+      val zoomAtTakeover = camera.position.zoom
+
+      map.performTouchInput { up(0) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+
+      assertEquals(
+        zoomAtTakeover,
+        camera.position.zoom,
+        ZOOM_TOLERANCE,
+        "releasing the one-finger pan resumed stale pinch momentum",
+      )
+    }
+
+  @Test
   fun two_finger_tap_zooms_out() =
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
@@ -357,6 +400,29 @@ class MlnFfiMapInputTest {
         up(0)
       }
       waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom < START_ZOOM - 0.25 }
+    }
+
+  @Test
+  fun horizontal_motion_disqualifies_quick_zoom_for_the_rest_of_the_press() =
+    runInputTest(focusWithMouse = false) { camera ->
+      val before = camera.position
+      onRoot().performTouchInput {
+        click(center)
+        down(0, center)
+        moveTo(0, center + Offset(100f, 0f), delayMillis = 50)
+        moveTo(0, center + Offset(100f, 100f), delayMillis = 50)
+        up(0)
+      }
+      mainClock.advanceTimeBy(500)
+      waitForIdle()
+
+      assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
+      assertEquals(
+        before.target.longitude,
+        camera.position.target.longitude,
+        TARGET_TOLERANCE,
+        "a rejected quick zoom became a pan",
+      )
     }
 
   @Test

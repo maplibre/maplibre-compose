@@ -1,14 +1,17 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
@@ -16,6 +19,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonObject
@@ -178,6 +182,35 @@ class MlnFfiMapCompositionTest {
       }
     ) { errors, onFrame ->
       if (visible) {
+        MaplibreMap(
+          modifier = Modifier,
+          baseStyle = BaseStyle.Empty,
+          cameraState = cameraState,
+          logger = Logger.withTag("composition-test"),
+          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+          onFrame = { onFrame() },
+        )
+      }
+    }
+  }
+
+  @Test
+  fun changing_layout_direction_keeps_the_live_session_and_host() {
+    var layoutDirection by mutableStateOf(LayoutDirection.Ltr)
+    val cameraState = CameraState(CameraPosition())
+
+    runBridgeMapTest(
+      body = {
+        val session = requireNotNull(cameraState.map as? MlnFfiMapSession)
+
+        layoutDirection = LayoutDirection.Rtl
+        waitForIdle()
+
+        assertSame(session, cameraState.map)
+        assertEquals(LayoutDirection.Rtl, session.layoutDirection)
+      }
+    ) { errors, onFrame ->
+      CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
         MaplibreMap(
           modifier = Modifier,
           baseStyle = BaseStyle.Empty,

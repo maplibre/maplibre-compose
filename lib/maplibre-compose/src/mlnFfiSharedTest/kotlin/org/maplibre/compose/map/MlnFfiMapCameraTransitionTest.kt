@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -13,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -23,6 +26,45 @@ import org.maplibre.spatialk.geojson.Position
  * after its first step.
  */
 class MlnFfiMapCameraTransitionTest {
+
+  @Test
+  fun a_bounds_fit_requested_before_the_first_frame_uses_the_real_viewport() {
+    val fixture = BridgeMapFixture.create()
+    fixture.use {
+      // An owner-thread read makes map creation deterministic without attaching a render target.
+      it.session.getCameraPosition()
+      it.session.setCameraPosition(BOUNDS, bearing = 0.0, tilt = 0.0, padding = PaddingValues(0.dp))
+      it.session.getCameraPosition()
+
+      it.pumpUntilRendered()
+      it.pumpUntil("the deferred bounds fit to be applied") {
+        it.session.getCameraPosition().zoom > 1.0
+      }
+      val deferredFit = it.session.getCameraPosition()
+
+      it.session.setCameraPosition(START)
+      it.pumpUntil("the camera to reset") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) < 0.01
+      }
+      it.session.setCameraPosition(BOUNDS, bearing = 0.0, tilt = 0.0, padding = PaddingValues(0.dp))
+      it.pumpUntil("the attached bounds fit to be applied") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
+      }
+      val attachedFit = it.session.getCameraPosition()
+
+      assertNear(attachedFit.zoom, deferredFit.zoom, "the first fit used the 1x1 startup viewport")
+      assertNear(
+        attachedFit.target.longitude,
+        deferredFit.target.longitude,
+        "the first fit chose the wrong longitude",
+      )
+      assertNear(
+        attachedFit.target.latitude,
+        deferredFit.target.latitude,
+        "the first fit chose the wrong latitude",
+      )
+    }
+  }
 
   @Test
   fun an_animation_completes_and_lands_on_its_target() {
@@ -158,6 +200,11 @@ class MlnFfiMapCameraTransitionTest {
   private companion object {
     val START = CameraPosition(target = Position(0.0, 0.0), zoom = 2.0)
     val TARGET = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
+    val BOUNDS =
+      BoundingBox(
+        southwest = Position(longitude = -5.0, latitude = -5.0),
+        northeast = Position(longitude = 5.0, latitude = 5.0),
+      )
 
     fun assertNear(expected: Double, actual: Double, message: String) {
       assertTrue(abs(expected - actual) < 0.01, "$message (expected $expected, was $actual)")

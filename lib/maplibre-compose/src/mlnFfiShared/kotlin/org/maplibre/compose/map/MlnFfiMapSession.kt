@@ -28,18 +28,17 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalTextureTarget
-import org.maplibre.compose.mlnffi.MlnFfiFatalFrameException
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
+import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.StyleBinding
@@ -62,6 +61,7 @@ import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
 import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
+import org.maplibre.nativeffi.error.NativeErrorException
 import org.maplibre.nativeffi.error.UnsupportedFeatureException
 import org.maplibre.nativeffi.geo.ScreenBox
 import org.maplibre.nativeffi.geo.ScreenPoint
@@ -126,7 +126,7 @@ internal class MlnFfiMapSession(
   @Volatile internal var logger: Logger?,
   renderBackend: MapRenderBackend,
   scaleFactor: Double = 1.0,
-  private val layoutDirection: LayoutDirection,
+  @Volatile internal var layoutDirection: LayoutDirection,
   private val cachePath: Path,
 ) : MapAdapter, MlnFfiMapRenderer {
 
@@ -142,6 +142,12 @@ internal class MlnFfiMapSession(
   private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
 
   private val pendingMapActions = mutableListOf<PendingMapAction>()
+
+  /** Bounds fits accepted before the first real render target. Guarded by [stateLock]. */
+  private val pendingViewportActions = mutableListOf<PendingMapAction>()
+
+  /** Guarded by [stateLock]; once true, the map has dimensions suitable for fitting bounds. */
+  private var hasAttachedViewport = false
 
   /** Renderer-thread state. The session is this handle's owner, so nothing else may touch it. */
   private var renderSession: RenderSessionHandle? = null
@@ -201,7 +207,6 @@ internal class MlnFfiMapSession(
    */
   private inner class SessionStyleBinding : StyleBinding {
     @Volatile private var loaded = true
-    private val sourcesById = mutableMapOf<String, Source>()
 
     override val isLoaded: Boolean
       get() = loaded && !closed
@@ -211,20 +216,6 @@ internal class MlnFfiMapSession(
 
     fun unload() {
       loaded = false
-    }
-
-    override fun claimSource(id: String, descriptor: Source): Boolean {
-      val existing = sourcesById[id]
-      check(existing == null || existing === descriptor) {
-        "Source ID '$id' is already owned by a different live source descriptor"
-      }
-      if (existing != null) return false
-      sourcesById[id] = descriptor
-      return true
-    }
-
-    override fun releaseSource(id: String, descriptor: Source) {
-      if (sourcesById[id] === descriptor) sourcesById.remove(id)
     }
 
     /**
@@ -298,9 +289,7 @@ internal class MlnFfiMapSession(
         // The host stops driving frames after a failure, so nothing else would close the render
         // session, and the loop cannot destroy a map that still has one attached.
         close()
-        // Fatal so the surface latches instead of rebuilding its render session and retrying into a
-        // runtime that cannot come back.
-        throw MlnFfiFatalFrameException("The MapLibre map runtime failed", error)
+        throw IllegalStateException("The MapLibre map runtime failed", error)
       }
       return MlnFfiFrameResult.SKIPPED
     }
@@ -325,7 +314,13 @@ internal class MlnFfiMapSession(
     val session = renderSession ?: return MlnFfiFrameResult.SKIPPED
     // A false return means MapLibre had nothing to draw, which is ordinary before the style's first
     // update and after an attach until the loop pumps the new size.
-    if (!session.renderUpdate()) {
+    val updated =
+      try {
+        session.renderUpdate()
+      } catch (error: NativeErrorException) {
+        throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
+      }
+    if (!updated) {
       requestRender()
       return MlnFfiFrameResult.SKIPPED
     }
@@ -363,7 +358,7 @@ internal class MlnFfiMapSession(
         MlnFfiMapRuntimeLoop(
           extent = initialExtent,
           cachePath = cachePath,
-          logger = logger,
+          getLogger = { logger },
           onMapCreated = ::onMapCreated,
           onEvent = ::handleEvent,
           onEventsDrained = ::onEventsDrained,
@@ -390,6 +385,8 @@ internal class MlnFfiMapSession(
       loop = null
       abandoned += pendingMapActions
       pendingMapActions.clear()
+      abandoned += pendingViewportActions
+      pendingViewportActions.clear()
       current
     }
     abandoned.forEach { it.abandon() }
@@ -478,6 +475,7 @@ internal class MlnFfiMapSession(
       }
     attachedTarget = key
     attachCount++
+    publishAttachedViewport()
     // The new texture holds nothing yet; this request buys the frame that fills it.
     renderRequested.set(true)
     return true
@@ -775,6 +773,37 @@ internal class MlnFfiMapSession(
     postWhenMapExists(action, abandon = {})
   }
 
+  /** Applies work only after MapLibre has the real viewport required to resolve it. */
+  private fun configureMapWithViewport(action: (MapHandle) -> Unit) {
+    postWhenViewportExists(action, abandon = {})
+  }
+
+  /** Queues [action] until the first render target has supplied the map's real dimensions. */
+  private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
+    val current = stateLock.withLock {
+      if (closed) return false
+      if (!hasAttachedViewport) {
+        pendingViewportActions += PendingMapAction(action, abandon)
+        return true
+      }
+      loop
+    }
+    return current?.post(action, abandon) ?: false
+  }
+
+  /** Releases first-viewport work after attachment, without running map work on the renderer. */
+  private fun publishAttachedViewport() {
+    val (current, pending) =
+      stateLock.withLock {
+        if (closed || hasAttachedViewport) return
+        hasAttachedViewport = true
+        loop to pendingViewportActions.toList().also { pendingViewportActions.clear() }
+      }
+    pending.forEach { action ->
+      if (current?.post(action.run, action.abandon) != true) action.abandon()
+    }
+  }
+
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
     configureMap { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
@@ -850,7 +879,9 @@ internal class MlnFfiMapSession(
   ) {
     // Recorded as the fit rather than a resolved camera, so a map replaced because the viewport
     // changed is fitted to the new one.
-    configureMap { map -> map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding)) }
+    configureMapWithViewport { map ->
+      map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
+    }
   }
 
   private fun cameraForBounds(
@@ -884,7 +915,7 @@ internal class MlnFfiMapSession(
     padding: PaddingValues,
     duration: Duration,
   ) {
-    startTransitionAwaitingRelease(duration) { map, animation ->
+    startTransitionAwaitingRelease(duration, requiresViewport = true) { map, animation ->
       map.flyTo(cameraForBounds(map, boundingBox, bearing, tilt, padding), animation)
     }
   }
@@ -895,12 +926,13 @@ internal class MlnFfiMapSession(
    */
   private suspend fun startTransitionAwaitingRelease(
     duration: Duration,
+    requiresViewport: Boolean = false,
     start: (MapHandle, AnimationOptions) -> Unit,
   ): Unit = suspendCancellableCoroutine { continuation ->
     val queued =
-      postWhenMapExists(
-        action = { map -> startTransitionOnMap(map, duration, start, continuation) },
-        abandon = { if (continuation.isActive) continuation.resume(Unit) },
+      (if (requiresViewport) ::postWhenViewportExists else ::postWhenMapExists)(
+        { map -> startTransitionOnMap(map, duration, start, continuation) },
+        { if (continuation.isActive) continuation.resume(Unit) },
       )
     if (!queued && continuation.isActive) continuation.resume(Unit)
   }
@@ -1194,6 +1226,19 @@ internal class MlnFfiMapSession(
     }
   }
 
+  /** Runs a discrete gesture's animated pan until native releases the camera. */
+  suspend fun moveByAwaitingTransition(
+    deltaX: Double,
+    deltaY: Double,
+    duration: Duration,
+    gestureToken: GestureToken,
+  ) {
+    startTransitionAwaitingRelease(duration) { map, animation ->
+      activateGesture(map, gestureToken)
+      map.moveByAnimated(deltaX, deltaY, animation)
+    }
+  }
+
   /** Zooms by a factor about [anchor], over [duration]. See [moveBy] for why zero exists. */
   fun scaleBy(
     scale: Double,
@@ -1205,6 +1250,19 @@ internal class MlnFfiMapSession(
       val point = anchor?.toScreenPoint()
       if (duration == Duration.ZERO) map.scaleBy(scale, point)
       else map.scaleByAnimated(scale, point, duration.toAnimationOptions())
+    }
+  }
+
+  /** Runs a discrete gesture's animated zoom until native releases the camera. */
+  suspend fun scaleByAwaitingTransition(
+    scale: Double,
+    anchor: DpOffset?,
+    duration: Duration,
+    gestureToken: GestureToken,
+  ) {
+    startTransitionAwaitingRelease(duration) { map, animation ->
+      activateGesture(map, gestureToken)
+      map.scaleByAnimated(scale, anchor?.toScreenPoint(), animation)
     }
   }
 
@@ -1238,6 +1296,27 @@ internal class MlnFfiMapSession(
         }
       if (duration == Duration.ZERO) map.jumpTo(target)
       else map.easeTo(target, duration.toAnimationOptions())
+    }
+  }
+
+  /** Runs a discrete gesture's animated rotation or tilt until native releases the camera. */
+  suspend fun rotateAndPitchByAwaitingTransition(
+    bearingDelta: Double,
+    pitchDelta: Double,
+    duration: Duration,
+    gestureToken: GestureToken,
+  ) {
+    startTransitionAwaitingRelease(duration) { map, animation ->
+      activateGesture(map, gestureToken)
+      val camera = map.camera
+      map.easeTo(
+        CameraOptions().also {
+          it.bearing = (camera.bearing ?: 0.0) + bearingDelta
+          it.pitch =
+            ((camera.pitch ?: 0.0) + pitchDelta).coerceIn(MIN_PITCH_DEGREES, MAX_PITCH_DEGREES)
+        },
+        animation,
+      )
     }
   }
 

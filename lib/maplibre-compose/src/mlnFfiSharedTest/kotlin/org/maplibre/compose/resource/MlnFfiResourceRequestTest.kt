@@ -36,7 +36,7 @@ class MlnFfiResourceRequestTest {
 
   private fun provider(read: (String, String) -> ResourceResponse) =
     MlnFfiResourceProvider(
-        logger = null,
+        getLogger = { null },
         read = { url, requestedUrl ->
           reads += url
           read(url, requestedUrl)
@@ -62,7 +62,7 @@ class MlnFfiResourceRequestTest {
     finishRead.countDown()
     request.awaitAnswer()
     assertEquals("late", request.response.bytes.decodeToString())
-    assertEquals(1, request.closes, "the request must be closed exactly once")
+    request.awaitClose()
   }
 
   @Test
@@ -99,7 +99,7 @@ class MlnFfiResourceRequestTest {
     finishRead.countDown()
     request.awaitAnswer()
     assertEquals(1, request.completions, "the in-flight request must still be answered")
-    assertEquals(1, request.closes)
+    request.awaitClose()
   }
 
   @Test
@@ -125,7 +125,7 @@ class MlnFfiResourceRequestTest {
     second.awaitAnswer()
     assertEquals(setOf(URL, OTHER_URL), reads.toSet(), "both accepted reads must run")
     assertEquals(1, second.completions, "a request the provider took must be answered")
-    assertEquals(1, second.closes)
+    second.awaitClose()
   }
 
   @Test

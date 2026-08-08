@@ -43,11 +43,6 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
   fun onSurfaceLost() {}
 }
 
-/**
- * Thrown from [MlnFfiMapRenderer.render] when no surface could make the map work again.
- *
- * A frame that throws is otherwise read as a lost device and retried against a rebuilt render
- * session; this says the failure is above the graphics layer, so the surface stops instead.
- */
-internal class MlnFfiFatalFrameException(message: String, cause: Throwable?) :
+/** A graphics failure for which rebuilding the render session can produce a usable later frame. */
+internal open class MlnFfiRecoverableFrameException(message: String, cause: Throwable?) :
   IllegalStateException(message, cause)

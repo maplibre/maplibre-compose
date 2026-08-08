@@ -17,8 +17,11 @@ internal class MlnFfiRuntimeOwner
 private constructor(
   val runtime: RuntimeHandle,
   private val provider: MlnFfiResourceProvider,
-  private val logger: Logger?,
+  private val getLogger: () -> Logger?,
 ) : AutoCloseable {
+  private val logger: Logger?
+    get() = getLogger()
+
   /**
    * Starts teardown of everything attached to the runtime, then closes it.
    *
@@ -37,12 +40,12 @@ private constructor(
      * Creates a runtime and everything that hangs off it, or throws having closed whatever it got
      * as far as. [what] names the runtime in log lines.
      */
-    fun open(rawCachePath: Path, logger: Logger?, what: String): MlnFfiRuntimeOwner {
+    fun open(rawCachePath: Path, getLogger: () -> Logger?, what: String): MlnFfiRuntimeOwner {
       val cachePath = rawCachePath.toAbsolutePath().normalize()
       // MapLibre opens the database as the runtime is created, and fails if the directory is
       // missing.
       runCatching { cachePath.parent?.let(Files::createDirectories) }
-        .onFailure { logger?.w(it) { "Could not create the MapLibre cache directory" } }
+        .onFailure { getLogger()?.w(it) { "Could not create the MapLibre cache directory" } }
 
       val runtime =
         try {
@@ -52,17 +55,17 @@ private constructor(
         }
       val provider =
         try {
-          MlnFfiResourceProvider(logger)
+          MlnFfiResourceProvider(getLogger = getLogger)
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error
         }
-      val owner = MlnFfiRuntimeOwner(runtime, provider, logger)
+      val owner = MlnFfiRuntimeOwner(runtime, provider, getLogger)
       return try {
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)
-        logger?.i { "Created the $what on ${Thread.currentThread().name}" }
+        getLogger()?.i { "Created the $what on ${Thread.currentThread().name}" }
         owner
       } catch (error: Throwable) {
         // Unwinds in the same order a successful close uses, or the runtime's scheduler and
