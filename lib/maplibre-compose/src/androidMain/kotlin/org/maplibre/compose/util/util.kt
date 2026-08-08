@@ -26,7 +26,6 @@ import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.CompiledFunctionCall
 import org.maplibre.compose.expressions.ast.CompiledListLiteral
-import org.maplibre.compose.expressions.ast.CompiledMapLiteral
 import org.maplibre.compose.expressions.ast.CompiledOptions
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
@@ -102,14 +101,6 @@ private fun buildLiteralArray(inLiteral: Boolean, block: JsonArray.() -> Unit): 
   }
 }
 
-private fun buildLiteralObject(inLiteral: Boolean, block: JsonObject.() -> Unit): JsonObject {
-  return if (inLiteral) {
-    JsonObject().apply(block)
-  } else {
-    JsonObject().apply { add("literal", JsonObject().apply(block)) }
-  }
-}
-
 private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonElement =
   when (this) {
     NullLiteral -> JsonNull.INSTANCE
@@ -145,11 +136,6 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
 
     is CompiledListLiteral<*> ->
       buildLiteralArray(inLiteral) { value.forEach { add(it.normalizeJsonLike(true)) } }
-
-    is CompiledMapLiteral<*> ->
-      buildLiteralObject(inLiteral) {
-        value.forEach { (k, v) -> add(k, v.normalizeJsonLike(true)) }
-      }
 
     is CompiledOptions<*> ->
       JsonObject().apply { value.forEach { (k, v) -> add(k, v.normalizeJsonLike(inLiteral)) } }

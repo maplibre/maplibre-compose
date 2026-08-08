@@ -32,7 +32,7 @@ kotlin {
     it.configureSpmMaplibre(project)
   }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
+  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js(IR) { browser() }
 
@@ -65,12 +65,22 @@ kotlin {
 
     // used to expose APIs only available on targets backed by MapLibre Native
     // (e.g. all but browser targets, which use MapLibre JS)
-    create("maplibreNativeMain") {
-      dependsOn(commonMain.get())
-      androidMain.get().dependsOn(this)
-      iosMain.get().dependsOn(this)
-      // TODO: when we're ready to support the offline manager on desktop
-      // desktopMain.dependsOn(this)
+    val maplibreNativeMain =
+      create("maplibreNativeMain") {
+        dependsOn(commonMain.get())
+        androidMain.get().dependsOn(this)
+        iosMain.get().dependsOn(this)
+      }
+
+    // used to share the integration with the MapLibre Native FFI binding, as opposed to the
+    // MapLibre Android and iOS SDKs. Desktop is its only target today.
+    create("mlnFfiShared") {
+      dependsOn(maplibreNativeMain)
+      desktopMain.dependsOn(this)
+      dependencies {
+        // Backend-independent binding only; the application selects the native runtime.
+        implementation(libs.maplibre.nativeFfi)
+      }
     }
 
     iosMain {}
@@ -85,8 +95,12 @@ kotlin {
     desktopMain.apply {
       dependencies {
         implementation(compose.desktop.currentOs)
-        implementation(libs.kotlinx.coroutines.swing)
-        implementation(project(":lib:maplibre-native-bindings"))
+
+        // The AWT Compose host needs direct Vulkan/OpenGL access; the natives come from the
+        // runtime artifact the application picks.
+        implementation(libs.lwjgl.core)
+        implementation(libs.lwjgl.opengl)
+        implementation(libs.lwjgl.vulkan)
       }
     }
 
@@ -100,6 +114,22 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
+    // Behavioral contracts for the shared MapLibre Native FFI integration. Every platform that
+    // consumes mlnFfiShared must execute this source set; the platform test source supplies only
+    // runtime, render-host, storage, and Compose-runner adapters.
+    create("mlnFfiSharedTest") {
+      dependsOn(commonTest.get())
+      getByName("desktopTest").dependsOn(this)
+    }
+
+    // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
+    // test process; a CI matrix adds processes for additional applicable backends.
+    val desktopTest by getting
+    desktopTest.dependencies {
+      // Only the EGL interop test binds EGL directly; nothing in the library does.
+      implementation(libs.lwjgl.egl)
+    }
+
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
     androidDeviceTest.dependencies {
@@ -107,6 +137,21 @@ kotlin {
       implementation(libs.androidx.composeUi.testManifest)
     }
   }
+}
+
+configurations.named("desktopTestRuntimeOnly") {
+  dependencies.addAllLater(
+    providers.provider {
+      val platform = DesktopHostPlatform.current()
+      platform
+        .runtimeDependencies(
+          backend = platform.defaultRenderBackend,
+          ffiVersion = libs.versions.maplibre.nativeFfi.get(),
+          lwjglVersion = libs.versions.lwjgl.get(),
+        )
+        .map(project.dependencies::create)
+    }
+  )
 }
 
 compose.resources { packageOfResClass = "org.maplibre.compose.generated" }

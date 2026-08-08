@@ -26,7 +26,8 @@ internal class StyleNode(var style: SafeStyle, internal var logger: Logger?) : M
   }
 
   override fun onEndChanges() {
-    sourceManager.applyChanges()
+    // Only layers: sources are referenced and released from a DisposableEffect, which Compose
+    // dispatches after this hook, so applying them here would always be a frame early.
     layerManager.applyChanges()
   }
 }

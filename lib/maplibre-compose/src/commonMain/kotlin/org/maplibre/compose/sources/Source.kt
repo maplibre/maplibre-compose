@@ -5,7 +5,12 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import org.maplibre.compose.style.LocalStyleNode
 
-/** A data source for map data */
+/**
+ * A data source for map data.
+ *
+ * One instance may belong to only one loaded map style at a time. Create or remember a separate
+ * source inside each [MaplibreMap][org.maplibre.compose.map.MaplibreMap] that uses it.
+ */
 public expect sealed class Source {
   internal val id: String
   public val attributionHtml: String

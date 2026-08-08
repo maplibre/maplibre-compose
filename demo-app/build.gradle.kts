@@ -34,9 +34,13 @@ android {
   testOptions { animationsDisabled = true }
 }
 
+val desktopHostPlatform = DesktopHostPlatform.current()
+
 kotlin {
+  jvmToolchain(properties["jvmToolchain"]!!.toString().toInt())
+
   androidTarget {
-    compilerOptions { jvmTarget = project.getJvmTarget() }
+    compilerOptions { jvmTarget = project.getAndroidJvmTarget() }
     @OptIn(ExperimentalKotlinGradlePluginApi::class)
     instrumentedTestVariant.sourceSetTree.set(KotlinSourceSetTree.test)
   }
@@ -49,7 +53,7 @@ kotlin {
     it.configureSpmMaplibre(project)
   }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
+  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js(IR) {
     browser { commonWebpackConfig { outputFileName = "app.js" } }
@@ -96,10 +100,15 @@ kotlin {
 
     val androidIosShared by creating { dependsOn(commonMain.get()) }
 
+    // Platforms backed by MapLibre Native, where the offline API exists; mirrors the library's own
+    // maplibreNativeMain source set.
+    val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
+
     val desktopJsShared by creating { dependsOn(commonMain.get()) }
 
     androidMain {
       dependsOn(androidIosShared)
+      dependsOn(maplibreNativeShared)
       dependencies {
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
@@ -126,11 +135,13 @@ kotlin {
 
     iosMain {
       dependsOn(androidIosShared)
+      dependsOn(maplibreNativeShared)
       dependsOn(nonAndroidShared)
       dependencies { implementation(libs.ktor.client.darwin) }
     }
 
     desktopMain.apply {
+      dependsOn(maplibreNativeShared)
       dependsOn(nonAndroidShared)
       dependsOn(desktopJsShared)
       dependencies {
@@ -138,13 +149,7 @@ kotlin {
         implementation(libs.kotlinx.coroutines.swing)
         implementation(libs.ktor.client.okhttp)
 
-        runtimeOnly(project(":lib:maplibre-native-bindings-jni")) {
-          capabilities {
-            requireCapability(
-              "org.maplibre.compose:maplibre-native-bindings-jni-${Configuration(project).hostOsArchRendererTriplet}"
-            )
-          }
-        }
+        runtimeOnly(project(":lib:${desktopHostPlatform.defaultRuntimeArtifactId}"))
       }
     }
 
@@ -181,24 +186,30 @@ composeCompiler { reportsDestination = layout.buildDirectory.dir("compose/report
 compose.desktop {
   application {
     mainClass = "org.maplibre.compose.demoapp.MainKt"
+    jvmArgs += NATIVE_ACCESS_JVM_ARGS
 
     nativeDistributions {
+      // jpackage runs jlink against this JDK, so it decides the Java version inside the installed
+      // application; without it the packaged app takes whatever JDK Gradle runs on, which can be
+      // older than the 24 the MapLibre Native FFI binding requires.
+      javaHome =
+        javaToolchains
+          .launcherFor {
+            languageVersion.set(
+              JavaLanguageVersion.of(properties["jvmToolchain"]!!.toString().toInt())
+            )
+          }
+          .get()
+          .metadata
+          .installationPath
+          .asFile
+          .absolutePath
+
       targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
       packageName = "org.maplibre.compose.demoapp"
       // https://youtrack.jetbrains.com/issue/CMP-2360
       // packageVersion = project.ext["base_tag"].toString().replace("v", "")
       packageVersion = "1.0.0"
     }
-  }
-}
-
-tasks.withType<JavaExec>().configureEach {
-  if (System.getProperty("os.name").lowercase().contains("mac")) {
-    val homebrewPath = System.getenv("HOMEBREW_PREFIX")?.let { "$it/lib" } ?: ""
-    val existingPath = System.getenv("DYLD_FALLBACK_LIBRARY_PATH") ?: "/usr/local/lib:/usr/lib"
-    val vulkanSdkPath = System.getenv("VULKAN_SDK")?.let { "$it/lib" } ?: ""
-    val paths =
-      listOf(homebrewPath, vulkanSdkPath, existingPath).filter { it.isNotEmpty() }.joinToString(":")
-    environment("DYLD_FALLBACK_LIBRARY_PATH", paths)
   }
 }

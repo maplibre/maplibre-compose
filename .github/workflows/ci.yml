@@ -12,6 +12,7 @@ concurrency:
 
 jobs:
   format:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -28,6 +29,7 @@ jobs:
           git diff --exit-code
 
   lint-hk:
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -39,6 +41,7 @@ jobs:
       - run: mise check
 
   lint-android:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -48,6 +51,7 @@ jobs:
       - run: ./gradlew lint
 
   test-android:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -92,6 +96,7 @@ jobs:
           ./gradlew iosSimulatorArm64Test -- --device ${{ steps.setup-simulator.outputs.udid }}
 
   test-js:
+    timeout-minutes: 20
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -105,23 +110,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # TODO add alternative architectures
-          - runner: macos-latest # aarch64
-          - runner: ubuntu-latest # amd64
-          - runner: windows-latest # amd64
+          - runner: macos-26 # arm64
+          - runner: ubuntu-24.04 # x64
+          - runner: ubuntu-24.04-arm # arm64
+          - runner: windows-2022 # x64
+          - runner: windows-11-arm # arm64
+    timeout-minutes: 30
     runs-on: ${{ matrix.runner }}
     steps:
-      - if: ${{ matrix.runner == 'windows-latest' }}
+      - if: ${{ startsWith(matrix.runner, 'windows-') }}
         run: git config --global core.longpaths true
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          submodules: recursive
-      - uses: ./.github/actions/setup-cmake
+      - uses: ./.github/actions/setup-desktop-vulkan
       - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew desktopTest
+      - run: ./gradlew desktopTest --info
 
   build-docs:
+    timeout-minutes: 30
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -134,6 +141,7 @@ jobs:
           path: build/docs
 
   build-android-app:
+    timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -162,6 +170,7 @@ jobs:
           - runner: windows-latest # amd64
             artifact_type: msi
             artifact_name: demo-app-desktop-windows-amd64
+    timeout-minutes: 30
     runs-on: ${{ matrix.runner }}
     name: build-desktop-app (${{ matrix.runner }})
     steps:
@@ -170,8 +179,6 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
-          submodules: recursive
-      - uses: ./.github/actions/setup-cmake
       - uses: ./.github/actions/setup-gradle
       - run: ./gradlew :demo-app:packageDistributionForCurrentOS
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -180,34 +187,6 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path:
             "demo-app/build/compose/binaries/main/${{ matrix.artifact_type }}/*"
-
-  build-natives:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # test-desktop and build-desktop-app already build the host default renderers:
-          # macOS metal, Linux OpenGL, and Windows OpenGL. Keep this matrix to the
-          # additional released native variants so CI covers releases without duplicate builds.
-          - variant: linux-amd64-vulkan
-            renderer: vulkan
-            runner: ubuntu-latest # amd64
-          - variant: windows-amd64-vulkan
-            renderer: vulkan
-            runner: windows-latest # amd64
-    runs-on: ${{ matrix.runner }}
-    name: build-natives (${{ matrix.variant }})
-    steps:
-      - if: ${{ matrix.runner == 'windows-latest' }}
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          submodules: recursive
-      - uses: ./.github/actions/setup-cmake
-      - uses: ./.github/actions/setup-gradle
-      - run: |
-          ./gradlew :lib:maplibre-native-bindings-jni:buildNative -PdesktopRenderer=${{ matrix.renderer }}
 
   all-good:
     needs:
@@ -221,7 +200,7 @@ jobs:
       - build-docs
       - build-android-app
       - build-desktop-app
-      - build-natives
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - run: echo 'All checks passed!'

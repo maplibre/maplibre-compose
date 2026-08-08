@@ -1,0 +1,187 @@
+package org.maplibre.compose.desktop.bridge
+
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.skiaCanvas
+import java.util.concurrent.ConcurrentLinkedQueue
+import org.jetbrains.skia.BackendRenderTarget
+import org.jetbrains.skia.ContentChangeMode
+import org.jetbrains.skia.DirectContext
+import org.jetbrains.skia.Rect
+import org.jetbrains.skia.SamplingMode
+import org.jetbrains.skia.Surface
+import org.jetbrains.skia.SurfaceColorFormat
+import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.mlnffi.MetalTextureTarget
+import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapExtent
+import org.maplibre.compose.mlnffi.NativeHandle
+import org.maplibre.compose.mlnffi.TextureOrigin
+
+/**
+ * Draws MapLibre's Metal texture into the Compose scene, by wrapping it as a Skia surface on the
+ * context Compose already draws with. No import, no copy, and no context to make current.
+ *
+ * Every Skia object here is accessed inside the host's exclusive context boundary, so freeing is
+ * deferred until that boundary rather than done wherever a texture happened to be retired.
+ */
+internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
+  private val presenters = mutableMapOf<Long, TexturePresenter>()
+
+  /** Textures whose Skia wrappers are still alive, waiting for a thread that may free them. */
+  private val retired = ConcurrentLinkedQueue<Long>()
+
+  fun draw(
+    scope: DrawScope,
+    skiaContext: DirectContext,
+    target: MetalTextureTarget,
+    completion: ComposeFrameCompletion,
+  ): Boolean {
+    releaseRetired(keepAlive = target.texture.address)
+    var drew = false
+    scope.drawIntoCanvas { composeCanvas ->
+      val presenter =
+        presenters.getOrPut(target.texture.address) { TexturePresenter(target.texture) }
+      presenter.draw(
+        composeCanvas.skiaCanvas,
+        skiaContext,
+        target,
+        scope.size.width,
+        scope.size.height,
+      )
+      completion.frameRecorded(presenter::preserveFrame)
+      drew = true
+    }
+    return drew
+  }
+
+  /** Hands a texture back once nothing will render into it again. Safe from any thread. */
+  fun retire(texture: NativeHandle) {
+    if (!texture.isNull) retired.add(texture.address)
+  }
+
+  /** Releases wrappers created by a Skia context that the host replaced. */
+  fun resetContext() {
+    gpuHost.runOnGpuThread { closePresenters() }
+  }
+
+  override fun close() {
+    gpuHost.runOnGpuThread {
+      releaseRetired(keepAlive = 0L)
+      closePresenters()
+    }
+  }
+
+  private fun closePresenters() {
+    val all = presenters.values.toList()
+    presenters.clear()
+    all.forEach { it.close() }
+  }
+
+  /**
+   * Frees retired textures, except one the caller is about to draw: a texture retired inside
+   * `acquireFrame` can be presented again in the same frame, and freeing it early makes
+   * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap. See
+   * [org.maplibre.compose.desktop.MlnFfiRenderTarget.generation].
+   */
+  private fun releaseRetired(keepAlive: Long) {
+    if (retired.isEmpty()) return
+    var deferred: Long? = null
+    while (true) {
+      val address = retired.poll() ?: break
+      if (address == keepAlive) {
+        deferred = address
+        continue
+      }
+      // Order matters: Skia holds a surface wrapping this texture, so that has to go first.
+      presenters.remove(address)?.close()
+      MetalTexture.dispose(address)
+    }
+    deferred?.let(retired::add)
+  }
+
+  private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
+    private var extent = MlnFfiMapExtent.Empty
+    private var origin = TextureOrigin.TOP_LEFT
+    private var renderTarget: BackendRenderTarget? = null
+    private var surface: Surface? = null
+
+    fun draw(
+      canvas: org.jetbrains.skia.Canvas,
+      context: DirectContext,
+      target: MetalTextureTarget,
+      destinationWidth: Float,
+      destinationHeight: Float,
+    ) {
+      ensureSurface(context, target)
+      val currentSurface =
+        surface ?: throw MlnFfiHostException("Skia could not wrap Metal texture ${target.texture}")
+
+      // MapLibre overwrote every pixel; telling Skia the old contents are gone lets it skip
+      // reloading them into its own render pass.
+      currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
+      currentSurface.makeImageSnapshot().use { image ->
+        canvas.drawImageRect(
+          image = image,
+          src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+          dst = Rect.makeWH(destinationWidth, destinationHeight),
+          samplingMode = SamplingMode.LINEAR,
+          paint = null,
+          strict = true,
+        )
+      }
+    }
+
+    fun preserveFrame() {
+      surface?.notifyContentWillChange(ContentChangeMode.RETAIN)
+    }
+
+    private fun ensureSurface(context: DirectContext, target: MetalTextureTarget) {
+      if (
+        surface != null &&
+          renderTarget != null &&
+          extent == target.extent &&
+          origin == target.origin
+      ) {
+        return
+      }
+
+      closeGpuResources()
+      extent = target.extent
+      origin = target.origin
+      renderTarget =
+        BackendRenderTarget.makeMetal(
+          width = target.extent.physicalWidth,
+          height = target.extent.physicalHeight,
+          texturePtr = texture.address,
+        )
+      surface =
+        Surface.makeFromBackendRenderTarget(
+          context = context,
+          rt = checkNotNull(renderTarget),
+          origin = origin.toSkiaOrigin(),
+          // The host allocates BGRA8Unorm, which is Metal's native layer format; asking Skia for
+          // anything else here silently produces swapped channels rather than an error.
+          colorFormat = SurfaceColorFormat.BGRA_8888,
+          colorSpace = null,
+          surfaceProps = null,
+        )
+          ?: throw MlnFfiHostException(
+            "Skia could not wrap Metal texture ${target.texture} as a render target"
+          )
+    }
+
+    override fun close() {
+      closeGpuResources()
+      extent = MlnFfiMapExtent.Empty
+      origin = TextureOrigin.TOP_LEFT
+    }
+
+    private fun closeGpuResources() {
+      surface?.close()
+      surface = null
+      renderTarget?.close()
+      renderTarget = null
+    }
+  }
+}

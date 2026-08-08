@@ -1,15 +1,9 @@
 # Contributing
 
-## Clone the repo with submodules
+## Clone the repo
 
 ```bash
-git clone --recurse-submodules --shallow-submodules https://github.com/maplibre/maplibre-compose.git
-```
-
-Or if you already have the repo cloned, run:
-
-```bash
-git submodule update --init --recursive --depth=1
+git clone https://github.com/maplibre/maplibre-compose.git
 ```
 
 ## Find or file an issue to work on
@@ -87,32 +81,15 @@ Install XCode to build for Apple platforms. Mise will do this for you with
 
 ### Building for Desktop
 
-For desktop, we build a C++ library that includes
-[MapLibre Native Core](https://maplibre.org/maplibre-native/docs/book/introduction.html).
-You'll need to have your developer environment set up to build MapLibre Native.
+Desktop consumes the published
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
+Multiplatform bindings, so there is no C++ toolchain, CMake, or vendored
+MapLibre Native checkout to set up.
 
-- [macOS requirements](https://maplibre.org/maplibre-native/docs/book/platforms/macos/index.html)
-  - Install XCode, and use the matching clang version provided by XCode rather
-    than from homebrew. `/usr/bin/clang --version` and `clang --version` should
-    match.
-  - If building the Vulkan backend, set the `VULKAN_SDK` environment variable to
-    the MoltenVK prefix (`export VULKAN_SDK="$(brew --prefix molten-vk)"`).
-- [Linux requirements](https://maplibre.org/maplibre-native/docs/book/platforms/linux/index.html#requirements)
-  - On a Linux system with Nix, enter the Nix development shell before building:
-    ```bash
-    nix develop
-    ```
-    This provides the Linux native compiler and system libraries required to
-    build MapLibre Native. If you prefer not to use Nix, follow or adapt the
-    Ubuntu instructions in the page linked above.
-- [Windows requirements (MSVS2022)](https://maplibre.org/maplibre-native/docs/book/platforms/windows/build-msvc.html#prerequisites)
-  - When cloning the repo, pass `--config core.longpaths=true` to Git to avoid
-    issues with long file paths.
-  - Install Visual Studio 2022 with the following workloads:
-    - `Desktop development with C++`
-  - Use the _Native Tools Command Prompt for VS 2022_ for the right architecture
-    (x64 or arm64 depending on your machine) to run the build scripts.
-  - Developing MapLibre Compose with MSYS2 has not been tested.
+The desktop tests drive a real GPU through a headless Vulkan device. The test
+runtime supplies MoltenVK through LWJGL on macOS and installs a software Vulkan
+driver in CI on Linux and Windows. The tests fail rather than skip when no
+Vulkan implementation is usable.
 
 ## Run the demo
 

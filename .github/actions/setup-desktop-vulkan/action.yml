@@ -1,0 +1,107 @@
+name: Setup desktop Vulkan
+description: >-
+  Give Linux and Windows runners Vulkan implementations compatible with their production bridge.
+
+# Linux presents Lavapipe output through Mesa OpenGL. Windows uses dzn so Vulkan can import the
+# D3D12 resource created by Skiko. macOS tests the Metal runtime and needs no Vulkan setup.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Mesa software drivers (Linux)
+      if: runner.os == 'Linux'
+      shell: bash
+      run: |
+        sudo apt-get update
+        sudo apt-get install --no-install-recommends --yes \
+          libegl-mesa0 \
+          libgl1-mesa-dri \
+          libvulkan1 \
+          mesa-utils \
+          mesa-utils-extra \
+          mesa-vulkan-drivers
+        {
+          echo "EGL_PLATFORM=surfaceless"
+          echo "LIBGL_ALWAYS_SOFTWARE=true"
+        } >> "$GITHUB_ENV"
+
+    - name: Install the Vulkan runtime (Windows)
+      if: runner.os == 'Windows'
+      uses: jakoch/install-vulkan-sdk-action@37effcfa045411f8bfbbda26df2fd1b3bf3436fa # v1.6.0
+      with:
+        vulkan_version: 1.4.341.1
+        cache: true
+        stripdown: true
+        # dzn is an ICD, not the vulkan-1.dll loader that LWJGL opens.
+        install_runtime: true
+
+    - name: Install a dzn ICD (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $ProgressPreference = "SilentlyContinue"
+
+        function Save-CheckedArchive($Url, $Path, $ExpectedHash) {
+          Invoke-WebRequest -Uri $Url -OutFile $Path
+          $actualHash = (Get-FileHash $Path -Algorithm SHA256).Hash
+          if ($actualHash -ne $ExpectedHash) {
+            throw "Archive hash mismatch for $Url`: expected $ExpectedHash, got $actualHash"
+          }
+        }
+
+        function Register-VulkanDriver($Manifest) {
+          $driverKey = "HKLM:\SOFTWARE\Khronos\Vulkan\Drivers"
+          New-Item -Path $driverKey -Force | Out-Null
+          New-ItemProperty -Path $driverKey -Name $Manifest -PropertyType DWord -Value 0 -Force | Out-Null
+        }
+
+        $mesaVersion = "26.1.3"
+        if ($env:RUNNER_ARCH -eq "ARM64") {
+          $architecture = "arm64"
+          $expectedHash = "9F235A7A1195B91DC4140133D614FC7BA26A804DB16C43AE51F840FED5E84AD7"
+          $manifestName = "dzn_icd.aarch64.json"
+        } else {
+          $architecture = "x64"
+          $expectedHash = "58222C2972549FA617DE6485ADD07A5CE57B728AE005744D2FD14E419A7D670D"
+          $manifestName = "dzn_icd.x86_64.json"
+        }
+        $archiveName = "mesa-dzn-$architecture-$mesaVersion.7z"
+        $mesaUrl = "https://github.com/mmozeiko/build-mesa/releases/download/$mesaVersion/$archiveName"
+
+        $mesaArchive = Join-Path $env:RUNNER_TEMP $archiveName
+        $mesaRoot = Join-Path $env:RUNNER_TEMP "dzn-$mesaVersion-$env:RUNNER_ARCH"
+        Save-CheckedArchive $mesaUrl $mesaArchive $expectedHash
+        7z x $mesaArchive "-o$mesaRoot" -y | Out-Null
+
+        $driverManifest = Get-ChildItem $mesaRoot -Recurse -Filter $manifestName |
+          Select-Object -First 1
+        if (-not $driverManifest) {
+          throw "Missing dzn Vulkan ICD manifest $manifestName in $mesaArchive"
+        }
+
+        $driver = Get-ChildItem $mesaRoot -Recurse -Filter "vulkan_dzn.dll" |
+          Select-Object -First 1
+        if (-not $driver) {
+          throw "Missing dzn Vulkan driver in $mesaArchive"
+        }
+
+        Register-VulkanDriver $driverManifest.FullName
+        "VK_DRIVER_FILES=$($driverManifest.FullName)" >> $env:GITHUB_ENV
+        "Path=$($driver.Directory.FullName);$env:Path" >> $env:GITHUB_ENV
+
+    - name: Expose the Vulkan loader (Windows)
+      if: runner.os == 'Windows'
+      shell: pwsh
+      run: |
+        $architecture = if ($env:RUNNER_ARCH -eq "ARM64") { "arm64" } else { "x64" }
+        $candidates = @("runtime\$architecture", "Bin", "bin") |
+          ForEach-Object { Join-Path $env:VULKAN_SDK $_ }
+        $directory = $candidates |
+          Where-Object { Test-Path (Join-Path $_ "vulkan-1.dll") } |
+          Select-Object -First 1
+        if ($directory) {
+          $directory | Out-File -FilePath $env:GITHUB_PATH -Append
+        } elseif (-not (Get-Command vulkan-1.dll -ErrorAction SilentlyContinue)) {
+          throw "No vulkan-1.dll in $($candidates -join ', ') or on PATH"
+        }

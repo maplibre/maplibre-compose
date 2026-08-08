@@ -20,55 +20,8 @@ jobs:
       last_sha: |
         ${{ fromJson(steps.check-last-run.outputs.data).workflow_runs[0].head_sha }}
 
-  build-natives:
-    needs: [check-last-run]
-    if: ${{ needs.check-last-run.outputs.last_sha != github.sha }}
-    strategy:
-      fail-fast: true
-      matrix:
-        include:
-          - variant: macos-aarch64-metal
-            renderer: metal
-            preset: macos-metal
-            runner: macos-latest # aarch64
-          - variant: linux-amd64-opengl
-            renderer: opengl
-            preset: linux-opengl
-            runner: ubuntu-latest # amd64
-          - variant: linux-amd64-vulkan
-            renderer: vulkan
-            preset: linux-vulkan
-            runner: ubuntu-latest # amd64
-          - variant: windows-amd64-opengl
-            renderer: opengl
-            preset: windows-opengl
-            runner: windows-latest # amd64
-          - variant: windows-amd64-vulkan
-            renderer: vulkan
-            preset: windows-vulkan
-            runner: windows-latest # amd64
-    runs-on: ${{ matrix.runner }}
-    name: build-natives (${{ matrix.variant }})
-    steps:
-      - if: ${{ matrix.runner == 'windows-latest' }}
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-          submodules: recursive
-      - uses: ./.github/actions/setup-cmake
-      - uses: ./.github/actions/setup-gradle
-      - run: |
-          ./gradlew :lib:maplibre-native-bindings-jni:buildNative -PdesktopRenderer=${{ matrix.renderer }}
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          if-no-files-found: error
-          name: natives-${{ matrix.variant }}
-          path: |
-            ./lib/maplibre-native-bindings-jni/build/lib/${{ matrix.preset }}/shared/*
-
   publish-snapshot:
-    needs: [check-last-run, build-natives]
+    needs: [check-last-run]
     if: ${{ needs.check-last-run.outputs.last_sha != github.sha }}
     runs-on: macos-latest
     environment:
@@ -79,28 +32,8 @@ jobs:
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup-gradle
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: natives-macos-aarch64-metal
-          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/MacosAarch64Metal/macos/aarch64/metal/
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: natives-linux-amd64-opengl
-          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/LinuxAmd64Opengl/linux/amd64/opengl/
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: natives-linux-amd64-vulkan
-          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/LinuxAmd64Vulkan/linux/amd64/vulkan/
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: natives-windows-amd64-opengl
-          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/WindowsAmd64Opengl/windows/amd64/opengl/
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: natives-windows-amd64-vulkan
-          path: ./lib/maplibre-native-bindings-jni/build/copiedResources/WindowsAmd64Vulkan/windows/amd64/vulkan/
       - run: |
-          ./gradlew publishToMavenCentral -PconfigureForPublishing=true
+          ./gradlew publishToMavenCentral
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername:
             ${{ secrets.MAVEN_CENTRAL_USERNAME }}

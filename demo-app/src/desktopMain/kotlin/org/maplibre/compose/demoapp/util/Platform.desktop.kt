@@ -3,6 +3,9 @@ package org.maplibre.compose.demoapp.util
 import androidx.compose.foundation.layout.PaddingValues
 import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.GestureOptionsDemo
+import org.maplibre.compose.demoapp.demos.OfflineManagerDemo
+import org.maplibre.compose.demoapp.demos.RenderOptionsDemo
+import org.maplibre.compose.demoapp.demos.SynchronousGeoJsonUpdatesDemo
 import org.maplibre.compose.map.OrnamentOptions
 
 actual object Platform {
@@ -10,10 +13,17 @@ actual object Platform {
 
   actual val version = System.getProperty("os.version")!!
 
-  actual val supportedFeatures = emptySet<PlatformFeature>()
+  actual val supportedFeatures = PlatformFeature.Everything
 
-  actual val extraDemos: List<Demo> = listOf(GestureOptionsDemo)
+  actual val extraDemos: List<Demo> =
+    listOf(
+      GestureOptionsDemo,
+      RenderOptionsDemo,
+      SynchronousGeoJsonUpdatesDemo,
+      OfflineManagerDemo,
+      // Deliberately absent: OrnamentOptionsDemo; MapLibre Native's core draws no ornaments.
+    )
 
-  // Ornaments not supported on desktop
+  /** Desktop draws no ornaments, so there is no padding to apply. */
   actual fun padOrnaments(options: OrnamentOptions, padding: PaddingValues) = options
 }

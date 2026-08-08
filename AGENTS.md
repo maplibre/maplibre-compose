@@ -4,24 +4,6 @@ When you open a pull request, write **Description** and **Test plan** in at most
 one sentence of prose each. I will expand the PR description if more detail is
 needed. More context: [AI_POLICY.md](./AI_POLICY.md).
 
-## Searching vendored MapLibre Native codebase
-
-When searching the vendored maplibre-native codebase:
-
-- Location: Look in `lib/maplibre-native-bindings-jni/vendor/maplibre-native/`
-- Key Directories:
-  - `platform/linux/` - Linux-specific code (includes linux.cmake)
-  - `platform/windows/` - Windows-specific code (includes windows.cmake)
-  - `platform/darwin/` - macOS/iOS-specific code (includes darwin.cmake)
-  - `platform/default/` - Cross-platform code
-  - `include/mbgl/` - Public headers
-  - `src/mbgl/` - Implementation files
-- Common Search Patterns:
-  - Platform-specific cmake: `platform/*/platform/*.cmake`
-  - MLN options: `option(MLN*WITH*\*`
-  - Compiler flags: `target_compile_options`, `target_link_options`
-  - Feature detection: `MLN_WITH_OPENGL`, `MLN_WITH_VULKAN`
-
 ## Development Commands
 
 ### Building and Running
@@ -61,11 +43,6 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
   - `maplibre-js-bindings`: Kotlin/JS bindings for MapLibre GL JS
     - This wraps the TypeScript library whose original types are available at
       build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts
-  - `maplibre-native-bindings`: Kotlin/JVM bindings for MapLibre Native
-  - `maplibre-native-bindings-jni`: C++ library required by
-    `maplibre-native-bindings`
-    - This wraps the C++ library vendored at
-      lib/maplibre-native-bindings-jni/vendor/maplibre-native
 - **`demo-app/`**: Multiplatform demo application
 - **`iosApp/`**: iOS-specific demo app wrapper
 - **`buildSrc/`**: Custom Gradle build conventions
@@ -86,4 +63,5 @@ The library uses platform-specific implementations:
 
 - **Android/iOS**: MapLibre Native SDKs (MapLibre Android SDK, MapLibre iOS)
 - **Web**: MapLibre GL JS via `maplibre-js-bindings`
-- **Desktop**: MapLibre Native Core via `maplibre-native-bindings`
+- **Desktop**: MapLibre Native Core via
+  [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)

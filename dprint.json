@@ -8,8 +8,7 @@
     "**/build",
     "**/.gradle",
     "kotlin-js-store",
-    "**/*.api",
-    "lib/maplibre-native-bindings-jni/vendor"
+    "**/*.api"
   ],
   "json": { "indentWidth": 2 },
   "markdown": { "textWrap": "always" },
@@ -20,10 +19,6 @@
       {
         "command": "mise run _ktfmt --google-style - --stdin-name={{file_path}}",
         "exts": ["kt", "kts"]
-      },
-      {
-        "command": "clang-format --assume-filename={{file_path}}",
-        "exts": ["c", "cc", "cpp", "cxx", "h", "hh", "hpp", "hxx", "m", "mm"]
       },
       {
         "command": "swiftformat --stdin-path {{file_path}} stdin",

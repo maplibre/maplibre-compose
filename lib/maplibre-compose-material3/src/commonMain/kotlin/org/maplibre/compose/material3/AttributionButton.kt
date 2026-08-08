@@ -109,6 +109,9 @@ public fun ExpandingAttributionButton(
     toggleButton = toggleButton,
     expandedContent = expandedContent,
     expandedStyle = expandedStyle,
+    collapsedStyle = collapsedStyle,
+    expand = expand,
+    collapse = collapse,
   )
 }
 

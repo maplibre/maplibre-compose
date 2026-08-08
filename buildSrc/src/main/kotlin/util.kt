@@ -4,10 +4,20 @@ import org.gradle.api.Project
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 
-fun Project.getJvmTarget(): JvmTarget {
-  val target = properties["jvmTarget"]!!.toString().toInt()
+private fun Project.getJvmTarget(property: String): JvmTarget {
+  val target = properties[property]!!.toString().toInt()
   return JvmTarget.valueOf("JVM_$target")
 }
+
+fun Project.getAndroidJvmTarget(): JvmTarget = getJvmTarget("androidJvmTarget")
+
+fun Project.getDesktopJvmTarget(): JvmTarget = getJvmTarget("desktopJvmTarget")
+
+/**
+ * Required by any JVM that loads the MapLibre Native FFI runtime; without them its FFM downcalls
+ * are refused.
+ */
+val NATIVE_ACCESS_JVM_ARGS = listOf("--enable-native-access=ALL-UNNAMED")
 
 fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
   swiftPackageConfig {
@@ -31,76 +41,4 @@ fun KotlinNativeTarget.configureSpmMaplibre(project: Project) {
   val rpath =
     "${project.layout.buildDirectory.get()}/spmKmpPlugin/$targetName/scratch/$variant/release/"
   binaries.all { linkerOpts("-F$rpath", "-rpath", rpath) }
-}
-
-class Configuration(private val project: Project) {
-  val hostOs =
-    when (val os = System.getProperty("os.name").lowercase()) {
-      "mac os x" -> "macos"
-      else -> os.split(" ").first()
-    }
-
-  val hostArch =
-    when (val arch = System.getProperty("os.arch").lowercase()) {
-      "x86_64" -> "amd64" // jdk returns x86_64 on macos but amd64 elsewhere
-      else -> arch
-    }
-
-  val desktopRenderer: String
-    get() =
-      project.findProperty("desktopRenderer")?.toString()
-        ?: when (hostOs) {
-          "macos" -> "metal"
-          else -> "opengl"
-        }
-
-  val hostOsArchRendererTriplet: String
-    get() = "${hostOs}-${hostArch}-${desktopRenderer}"
-
-  val shouldConfigureForPublishing
-    get() = project.properties["configureForPublishing"]?.toString()?.toBoolean() ?: false
-}
-
-enum class DesktopVariant(
-  val os: String,
-  val arch: String,
-  val renderer: String,
-  val publish: Boolean = false,
-) {
-  MacosAmd64Metal("macos", "amd64", "metal"),
-  MacosAarch64Metal("macos", "aarch64", "metal", true),
-  MacosAmd64Vulkan("macos", "amd64", "vulkan"),
-  MacosAarch64Vulkan("macos", "aarch64", "vulkan"),
-  LinuxAmd64Opengl("linux", "amd64", "opengl", true),
-  LinuxAarch64Opengl("linux", "aarch64", "opengl"),
-  LinuxAmd64Vulkan("linux", "amd64", "vulkan", true),
-  LinuxAarch64Vulkan("linux", "aarch64", "vulkan"),
-  WindowsAmd64Opengl("windows", "amd64", "opengl", true),
-  WindowsAarch64Opengl("windows", "aarch64", "opengl"),
-  WindowsAmd64Vulkan("windows", "amd64", "vulkan", true),
-  WindowsAarch64Vulkan("windows", "aarch64", "vulkan");
-
-  companion object {
-
-    private fun valueForHost(project: Project): DesktopVariant {
-      val config = Configuration(project)
-      return values().firstOrNull {
-        it.os == config.hostOs &&
-          it.arch == config.hostArch &&
-          it.renderer == config.desktopRenderer
-      }
-        ?: error(
-          "Unsupported combination: ${config.hostOs}/${config.hostArch}/${config.desktopRenderer}"
-        )
-    }
-
-    private fun valuesForPublishing(): List<DesktopVariant> {
-      return values().filter { it.publish }
-    }
-
-    fun currentValues(project: Project): List<DesktopVariant> {
-      return if (Configuration(project).shouldConfigureForPublishing) valuesForPublishing()
-      else listOf(valueForHost(project))
-    }
-  }
 }

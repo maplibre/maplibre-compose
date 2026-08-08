@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import io.ktor.client.HttpClient
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,6 +76,8 @@ object ClusteredPointsDemo : Demo {
         try {
           data = getLimeBikeStatusAsGeoJson()
           //        isLoading = false
+        } catch (e: CancellationException) {
+          throw e
         } catch (e: Exception) {
           e.printStackTrace()
         }
@@ -122,10 +125,14 @@ object ClusteredPointsDemo : Demo {
           .firstOrNull { bikeSource.isCluster(it) }
           ?.let {
             coroutineScope.launch {
+              val current = state.cameraState.position
+              // Never zoom out: a cluster that cannot report an expansion zoom answers with a
+              // sentinel, 0 on Android and desktop and -1 on iOS.
+              val expansionZoom = bikeSource.getClusterExpansionZoom(it)
               state.cameraState.animateTo(
-                state.cameraState.position.copy(
+                current.copy(
                   target = (it.geometry as Point).coordinates,
-                  zoom = bikeSource.getClusterExpansionZoom(it),
+                  zoom = maxOf(expansionZoom, current.zoom),
                 )
               )
             }
@@ -139,7 +146,7 @@ object ClusteredPointsDemo : Demo {
       source = bikeSource,
       filter = feature.has("point_count"),
       textField = feature["point_count_abbreviated"].asString(),
-      textFont = const(listOf("Noto Sans Regular")),
+      textFont = const(state.selectedStyle.textFont),
       textColor = const(MaterialTheme.colorScheme.onBackground),
     )
 
@@ -180,9 +187,11 @@ object ClusteredPointsDemo : Demo {
 
   private suspend fun getLimeBikeStatusAsGeoJson(): String {
     val bodyString =
-      HttpClient()
-        .get("https://data.lime.bike/api/partners/v2/gbfs/seattle/free_bike_status.json")
-        .bodyAsText()
+      HttpClient().use { client ->
+        client
+          .get("https://data.lime.bike/api/partners/v2/gbfs/seattle/free_bike_status.json")
+          .bodyAsText()
+      }
     val body = Json.parseToJsonElement(bodyString).jsonObject
     val bikes = body["data"]!!.jsonObject["bikes"]!!.jsonArray.map { it.jsonObject }
     val features = bikes.map { bike ->

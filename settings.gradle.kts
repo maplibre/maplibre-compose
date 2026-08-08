@@ -37,11 +37,15 @@ plugins { id("org.gradle.toolchains.foojay-resolver-convention") version ("1.0.0
 include(
   ":",
   ":demo-app",
+  ":glfw-fixture",
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",
-  ":lib:maplibre-native-bindings",
-  ":lib:maplibre-native-bindings-jni",
   ":lib:maplibre-js-bindings",
   ":lib:maplibre-compose-gms",
+  ":lib:maplibre-compose-runtime-vulkan-linux-x64",
+  ":lib:maplibre-compose-runtime-vulkan-linux-arm64",
+  ":lib:maplibre-compose-runtime-metal-macos-arm64",
+  ":lib:maplibre-compose-runtime-vulkan-windows-x64",
+  ":lib:maplibre-compose-runtime-vulkan-windows-arm64",
 )

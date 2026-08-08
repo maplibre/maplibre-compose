@@ -120,7 +120,10 @@ internal class LayerManager(private val styleNode: StyleNode) {
 
   private fun Anchor.validate() {
     layerIdOrNull?.let { layerId ->
-      // hack: if the style unloaded before baseLayers was initialized, there's nothing to validate
+      // Every style switch briefly inserts content composed against the incoming style into the
+      // outgoing style's node, so its anchors name layers this node never had; the unloaded flag
+      // marks that window. This throws from inside `addLayer` before `userLayers` is updated, so a
+      // real failure here also desynchronizes the manager's list from Compose's child list.
       require(baseLayers.containsKey(layerId) || styleNode.style.isUnloaded) {
         "Layer ID '$layerId' not found in base style"
       }

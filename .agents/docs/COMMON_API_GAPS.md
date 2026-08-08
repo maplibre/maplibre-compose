@@ -1,0 +1,217 @@
+# Common API gaps
+
+Capabilities MapLibre Native FFI provides that MapLibre Compose has no
+cross-platform API for.
+
+This is a staging document: a place to write findings down while they are fresh,
+to be converted into issues rather than lived in. Its counterpart tracked what
+we wanted _from_ maplibre-native-ffi and is gone, because nothing is left open
+against it. This is the other direction — what we could build _with_ it.
+
+## When these land
+
+Not now, and deliberately. The sequence they belong to is:
+
+1. Rewrite the desktop platform on maplibre-native-ffi — the branch this
+   document came from — and upstream fixes until the result is something we are
+   happy with.
+2. Once it surpasses the Android and iOS integrations in quality, rewrite those
+   on maplibre-native-ffi too.
+3. Redesign the public API and internal architecture around one common
+   maplibre-native-ffi integration instead of three different native ones,
+   deciding along the way whether web folds in via Wasm or stays on MapLibre GL
+   JS.
+4. Implement the missing common APIs once — twice at most, if web stays separate
+   — against that shared integration.
+
+Everything below is step 4 work. Implementing any of it today means writing it
+separately against the Android SDK, the iOS SDK, the FFI, and MapLibre GL JS:
+four implementations of the same feature, three of which are thrown away at step
+2. That cost is the reason the sequence exists.
+
+The corollary is that **what the FFI can do is the target surface**. Whether the
+Android or iOS SDK exposes a capability today does not decide whether it belongs
+here; those SDKs are on their way out. Where current availability is noted below
+it is context, not a gate.
+
+Found by diffing the public surface of `MapHandle`, `RuntimeHandle`, and
+`RenderSessionHandle` against desktop call sites during the desktop rewrite.
+Nothing here is a desktop bug.
+
+## Architecture to fix at step 3
+
+Not missing capabilities — shapes in the common layer that the desktop rewrite
+had to work around, and that step 3 is the moment to fix rather than reproduce.
+Both are cross-platform; desktop is only where they became visible.
+
+**A layer reaches the style before its source does.** Compose inserts nodes and
+calls the applier's `onEndChanges`, which is where `LayerManager` reaches
+MapLibre, and only afterwards dispatches remember-observers, where
+`SourceReferenceEffect` lives. So a layer names a source that does not exist
+yet. The mobile SDKs tolerate that; the C API rejects it. Desktop works around
+it by having a layer attach its own source first, with `Source.attach` made
+idempotent so the effect's later add is harmless. The ordering is fragile on
+every platform — only desktop is strict enough to notice — so the workaround
+belongs in the shared layer, or the ordering does.
+
+**Unloading the outgoing style is a contract no platform states.** Switching a
+style has to mark the previous one unloaded, because `LayerManager` skips anchor
+validation against an unloaded style, and that is what stops content briefly
+composed into the dying node from throwing
+`Layer ID '...' not found in base
+style` out of the applier. Both mobile
+adapters happen to do it, by calling `onStyleChanged(this, null)` from
+`setBaseStyle`; nothing says they must, and desktop did not, which is how the
+style selector came to crash. Timing is part of it: the unload has to be
+reported before the content subcomposition applies its inserts, which on Android
+falls out of `AndroidView`'s `update` block running inside the parent's apply. A
+shared integration should make this the common layer's job rather than something
+each platform rediscovers.
+
+**Offline manager ownership has no lifecycle.** The FFI integration keeps one
+offline manager, dedicated thread, and native runtime alive for every distinct
+`MlnFfiRuntimeOptions` value passed to `rememberOfflineManager`. This preserves
+downloads when the composable that acquired the manager leaves composition,
+because MapLibre holds active download state in memory, but dynamically changing
+options retains every previous runtime until process exit. The shared
+integration should replace the global cache with an explicit application-scoped
+owner: one that can outlive navigation, can be created once per options value,
+and can be closed deliberately when the application is prepared to stop that
+runtime's active downloads. Composition-level disposal, weak references, and
+automatic eviction are not substitutes because each can silently interrupt a
+download.
+
+## Style light
+
+Position, color, intensity, and anchor of the style's light source, which fill
+extrusions shade against.
+
+- FFI: `setStyleLightJson`, `setStyleLightProperty`, `styleLightProperty`
+
+Naturally a Compose API: a `Light` composable inside `MaplibreMap`'s content,
+set the same way layers are.
+
+## Feature state
+
+Per-feature state that expressions read with `feature-state`, used for hover and
+selection styling without rebuilding source data.
+
+- FFI: `setFeatureState`, `getFeatureState`, `removeFeatureState` on the render
+  session
+
+The read side already exists in the common API
+(`org.maplibre.compose.expressions.dsl.Feature.state`), so this is the missing
+half of a feature we already ship. Neither the Android nor the iOS SDK exposes
+the write side today, which is a reason to do it on the shared integration
+rather than before it.
+
+Design question: feature state lives on the render session, like the queries, so
+it needs the same access path sources use for cluster queries.
+
+## Custom geometry source
+
+A source whose tiles are generated by application code on demand rather than
+fetched or held in memory. The basis for on-the-fly grids, procedural geometry,
+and very large client-side datasets.
+
+- FFI: `addCustomGeometrySource`, `setCustomGeometrySourceTileData`,
+  `invalidateCustomGeometrySourceTile`, `invalidateCustomGeometrySourceRegion`
+
+Design question: the callback boundary. MapLibre calls back on its own worker
+threads to ask for a tile, which has to become something safe and idiomatic to
+implement from Kotlin.
+
+## Location indicator layer
+
+MapLibre's built-in user-location puck — a style layer with a position, bearing,
+and accuracy radius, rendered by the map rather than composed over it.
+
+- FFI: `addLocationIndicatorLayer`, `setLocationIndicatorLocation`,
+  `setLocationIndicatorBearing`, `setLocationIndicatorAccuracyRadius`,
+  `setLocationIndicatorImageName`
+
+Worth weighing against drawing the puck as ordinary layers from
+`org.maplibre.compose.location`, which is portable and already how the demo does
+it. The native indicator's advantage is that it interpolates and renders in the
+same frame as the map.
+
+## Projection mode
+
+Switching between Mercator and globe projections.
+
+- FFI: `projectionMode`
+
+## Style transition options
+
+The style's global transition duration and delay, and whether symbol placement
+cross-fades. What every paint property's animation takes its default from, so
+this is the one setting that changes how the whole map feels when data updates.
+
+- FFI: `setStyleTransitionOptions`, `styleTransitionOptions`
+  ([#465](https://github.com/maplibre/maplibre-native-ffi/pull/465))
+
+Naturally a parameter on `MaplibreMap` or its style content, alongside the other
+per-map options.
+
+## HTTP header transforms
+
+A hook to add or rewrite request headers for every resource the map fetches —
+the usual home for an `Authorization` header or an API key that does not belong
+in a URL.
+
+- FFI: `setHttpHeaderTransform`, `clearHttpHeaderTransform`
+  ([#509](https://github.com/maplibre/maplibre-native-ffi/pull/509))
+
+Related to the resource-transform entry below, and worth designing with it: one
+rewrites the URL, the other the headers, and an application adding credentials
+needs whichever the server expects. Note the FFI reports this as unsupported on
+OpenHarmony, whose HTTP client cannot intercept redirects, so a common API has
+to tolerate a platform declining it.
+
+## Missing style images
+
+The event MapLibre raises when a style references a sprite that is not in the
+loaded image set, so an application can supply it on demand instead of shipping
+every icon up front. Desktop logs it today and can do nothing else, because
+there is no common callback to route it to — and neither the Android nor the iOS
+adapter exposes one either.
+
+- FFI: the `MAP_STYLE_IMAGE_MISSING` runtime event, paired with the existing
+  `setStyleImage`
+
+See the `MAP_STYLE_IMAGE_MISSING` branch in `DesktopMapSession.handleEvent`.
+
+## Resource transform
+
+A hook to rewrite every resource URL before it is requested — how applications
+add API keys, route through a proxy, or redirect to a local mirror.
+
+- FFI: `setResourceTransform`, `clearResourceTransform`
+
+Desktop already has a broader mechanism in `DesktopResourceProvider`, which
+serves resources rather than only rewriting their URLs. The shared integration
+should decide which of the two is the public API, rather than shipping both.
+
+## Offline database merge
+
+Merging a side-loaded offline database into the running one, which is how an
+application ships pre-downloaded regions rather than making every user download
+them.
+
+- FFI: `startMergeOfflineRegionsDatabase`,
+  `takeMergeOfflineRegionsDatabaseResult`
+
+One suspending function on the existing `OfflineManager` interface, so this is
+the smallest entry here.
+
+## Map snapshots
+
+- FFI: `requestStillImage`, `readPremultipliedRgba8`, and
+  [#282](https://github.com/maplibre/maplibre-native-ffi/pull/282), which adds a
+  synchronous render-to-completion so a consumer does not pump the loop frame by
+  frame across the language boundary
+
+Already on the roadmap as
+[#28](https://github.com/maplibre/maplibre-compose/issues/28), blocked on
+decoupling the style API from the `MaplibreMap` composable. Recorded here only
+so a future audit does not rediscover it as new.

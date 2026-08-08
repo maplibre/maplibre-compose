@@ -68,7 +68,7 @@ object MarkersDemo : Demo {
           span(" "),
           span(feature["STNCODE"].asString(), textSize = const(1.2f.em)),
         ),
-      textFont = const(listOf("Noto Sans Regular")),
+      textFont = const(state.selectedStyle.textFont),
       textColor = const(MaterialTheme.colorScheme.onBackground),
       textOffset = offset(0.em, 0.6.em),
     )

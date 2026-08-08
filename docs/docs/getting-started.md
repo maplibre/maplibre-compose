@@ -34,7 +34,10 @@ This library is published via [Maven Central][maven], and snapshot builds of
         name = "Central Portal Snapshots"
         url = uri("https://central.sonatype.com/repository/maven-snapshots/")
         mavenContent { snapshotsOnly() }
-        content { includeGroup("org.maplibre.compose") }
+        content {
+          includeGroup("org.maplibre.compose")
+          includeGroup("org.maplibre.nativeffi")
+        }
       }
     }
     ```
@@ -178,58 +181,75 @@ There are no longer any special steps required to use MapLibre Compose on Web.
 
 ## Set up Desktop (JVM)
 
-!!! warning
-
-    Desktop support is not yet at feature parity with Android and iOS.
-    Check the [status table](index.md#status) for more info.
-
-On desktop, we use MapLibre Native via a JNI bindings module that bundles
-platform-specific native libraries. Add a runtime-only dependency for the
-platform you want to support, selecting exactly one capability matching your
-current OS/architecture combination.
+Alongside the library, add a runtime: the native libraries for one platform and
+one render backend.
 
 ```kotlin title="build.gradle.kts"
-fun detectTarget(): String {
-  val hostOs = when (val os = System.getProperty("os.name").lowercase()) {
-    "mac os x" -> "macos"
-    else -> os.split(" ").first()
-  }
-  val hostArch = when (val arch = System.getProperty("os.arch").lowercase()) {
-    "x86_64" -> "amd64"
-    "arm64" -> "aarch64"
-    else -> arch
-  }
-  val renderer = when (hostOs) {
-    "macos" -> "metal"
-    else -> "opengl"
-  }
-  return "${hostOs}-${hostArch}-${renderer}"
-}
-
 sourceSets {
   val desktopMain by getting {
     dependencies {
       implementation(compose.desktop.currentOs)
       implementation("org.maplibre.compose:maplibre-compose:{{ gradle.release_version }}")
-      runtimeOnly("org.maplibre.compose:maplibre-native-bindings-jni:{{ gradle.release_version }}") {
-        capabilities {
-          requireCapability("org.maplibre.compose:maplibre-native-bindings-jni-${detectTarget()}")
-        }
-      }
+
+      // Linux x64, for example.
+      runtimeOnly(
+        "org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:" +
+          "{{ gradle.release_version }}"
+      )
     }
   }
 }
 ```
 
-The following targets are available now:
+Configure MapLibre once, then provide each AWT window's GPU context:
 
-- `macos-aarch64-metal`
-- `linux-amd64-opengl`
-- `linux-amd64-vulkan`
-- `windows-amd64-opengl`
-- `windows-amd64-vulkan`
+```kotlin title="Main.kt"
+fun main() {
+  MapLibre.configure(
+    DesktopRuntimeOptions(cachePath = desktopCachePath("com.example.myapp"))
+  )
+  singleWindowApplication {
+    ProvideMapHost(host = rememberAwtComposeGpuHost(window)) {
+      App()
+    }
+  }
+}
+```
 
-Other architectures and renderers will be added later.
+Available runtimes:
+
+| Platform      | Runtime                                         |
+| ------------- | ----------------------------------------------- |
+| Linux x64     | `maplibre-compose-runtime-vulkan-linux-x64`     |
+| Linux arm64   | `maplibre-compose-runtime-vulkan-linux-arm64`   |
+| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64`    |
+| Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
+| Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
+
+To ship several platforms, select the runtime from the host you build on.
+
+**Desktop requires Java 25.** The MapLibre Native FFI binding uses the FFM API,
+so the desktop target cannot run on an older JVM.
+
+**The JVM needs native access.** MapLibre Native FFI makes FFM downcall. If you
+package your application with Compose Desktop's `nativeDistributions`, add the
+argument to your application configuration:
+
+```kotlin title="build.gradle.kts"
+compose.desktop {
+  application {
+    jvmArgs += "--enable-native-access=ALL-UNNAMED"
+  }
+}
+```
+
+If you launch an unpackaged JVM application instead — `java -jar`, an IDE run
+configuration, or a `JavaExec` task — pass the same argument on the command
+line:
+
+```bash
+java --enable-native-access=ALL-UNNAMED -jar your-app.jar
+```
 
 ## Display your first map
 

@@ -3,25 +3,23 @@ experimental = true
 pin = true
 
 [tools]
-java = "21.0.2"
+java = "zulu-25.34.17.0"
 dprint = "0.53.2"
 hk = "1.40.0"
 pkl = "0.30.2"
 "aqua:facebook/ktfmt" = "0.62"
-"conda:clang-format" = "21.1.8"
-cmake = "4.1.2"
-ninja = "1.13.1"
 node = "24.11.0"
 actionlint = "1.7.8"
-bazel = "7.7.0"
+# actionlint shells out to shellcheck for `run:` blocks
+"aqua:koalaman/shellcheck" = "0.11.0"
 xcodes = { version = "1.6.2", os = ["macos"] }
 swiftformat = "0.61.0"
 python = "3.14.4"
 
 [hooks]
 postinstall = [
-  "hk install --mise",
-  "mise run _xcodes-select",
+  { run = "hk install --mise" },
+  { task = "_xcodes-select" },
 ]
 
 [tasks.check]
@@ -47,11 +45,6 @@ hide = true
 run = "if command -v xcodes >/dev/null 2>&1; then xcodes install && xcodes select; fi"
 run_windows = "exit /b 0"
 
-[tasks."clean:vcpkg"]
-description = "Reset the vcpkg submodule to a clean state"
-run = "echo vcpkg is only used on windows; skipping"
-run_windows = "cd lib\\maplibre-native-bindings-jni\\vendor\\maplibre-native\\platform\\windows\\vendor\\vcpkg && git reset --hard && git clean -fdx"
-
 [tasks."run:js"]
 description = "Run the web demo"
 run = "./gradlew :demo-app:jsBrowserDevelopmentRun"
@@ -62,17 +55,7 @@ description = "Run the desktop demo"
 run = "./gradlew :demo-app:run"
 run_windows = "gradlew.bat :demo-app:run"
 
-[tasks."run:desktop-metal"]
-description = "Run the desktop demo with Metal renderer"
-run = "./gradlew :demo-app:run -PdesktopRenderer=metal"
-run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=metal"
-
-[tasks."run:desktop-vulkan"]
-description = "Run the desktop demo with Vulkan renderer"
-run = "./gradlew :demo-app:run -PdesktopRenderer=vulkan"
-run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=vulkan"
-
-[tasks."run:desktop-opengl"]
-description = "Run the desktop demo with OpenGL renderer"
-run = "./gradlew :demo-app:run -PdesktopRenderer=opengl"
-run_windows = "gradlew.bat :demo-app:run -PdesktopRenderer=opengl"
+[tasks."run:glfw"]
+description = "Run the compose-glfw desktop host fixture"
+run = "./gradlew :glfw-fixture:runGlfwFixture"
+run_windows = "gradlew.bat :glfw-fixture:runGlfwFixture"

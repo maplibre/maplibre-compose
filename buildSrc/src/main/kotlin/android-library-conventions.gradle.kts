@@ -26,7 +26,7 @@ kotlin {
       compileTaskProvider.configure {
         compilerOptions {
           // TODO revisit this with AGP 8.11? https://issuetracker.google.com/issues/379315244
-          if (this is KotlinJvmCompilerOptions) jvmTarget = project.getJvmTarget()
+          if (this is KotlinJvmCompilerOptions) jvmTarget = project.getAndroidJvmTarget()
           else error("Unexpected compilation type: ${this::class}")
         }
       }

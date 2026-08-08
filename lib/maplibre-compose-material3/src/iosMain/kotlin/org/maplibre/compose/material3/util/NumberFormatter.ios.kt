@@ -1,6 +1,7 @@
 package org.maplibre.compose.material3.util
 
 import androidx.compose.ui.text.intl.Locale
+import platform.Foundation.NSLocale
 import platform.Foundation.NSNumber
 import platform.Foundation.NSNumberFormatter
 import platform.Foundation.NSNumberFormatterDecimalStyle
@@ -12,7 +13,8 @@ actual constructor(locale: Locale, maximumFractionDigits: Int) {
     NSNumberFormatter().also {
       it.numberStyle = NSNumberFormatterDecimalStyle
       it.maximumFractionDigits = maximumFractionDigits.toULong()
-      it.locale = locale.platformLocale
+      // Rebuilt from the BCP-47 tag because Compose 1.11 made `platformLocale` internal.
+      it.locale = NSLocale(localeIdentifier = locale.toLanguageTag())
     }
 
   actual fun format(value: Number): String =

@@ -19,50 +19,75 @@ contributions are highly welcome.
 
 ### [Desktop Parity](https://github.com/maplibre/maplibre-compose/issues/570)
 
-**Status:** Shovel ready 🪏
+**Status:** Nearly done 🏁
 
 The goal is to support Compose Desktop platforms (macOS, Windows, and Linux) on
-par with our current level of support for Android and iOS. These are complex
-platforms to support, because we have to integrate with the MapLibre Native C++
-core on macOS, Windows, and Linux, and bridge that integration to the JVM.
+par with our current level of support for Android and iOS.
 
-Approach:
-
-- Write Kotlin JVM bindings to
-  [MapLibre Native](https://maplibre.org/maplibre-native/cpp/api/) in C++ using
-  [SimpleJNI](https://github.com/gershnik/SimpleJNI).
-- Use those bindings to fill in missing functionality in the `desktopMain`
-  target of MapLibre Compose.
+Desktop is now built on the published
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
+Multiplatform bindings, rather than JNI bindings and a vendored MapLibre Native
+checkout of our own. The camera, gestures, styles, sources, layers, expressions,
+images, feature queries, Compose resource loading, and the offline manager all
+work. The bridge between MapLibre's renderer and Compose's is a replaceable
+integration point rather than something wired into Skiko's internals.
 
 Next steps:
 
-- Add support for loading Compose resource URIs.
-- Add support for querying visible map features.
-- Add support for programmatic layer styling (sources, layers, expressions,
-  images, etc).
-- Add support for the offline manager.
-- Add support for platform location services on macOS, Windows, and Linux.
-- Fix or investigate map loading on Linux (currently segfaults for unknown
-  reason).
-- Improve stability on Windows.
-- Validate that display density is handled correctly on all three desktop
-  platforms. On Linux, validate both Wayland and X11.
+- Add support for platform location services on macOS, Windows, and Linux. This
+  is the last piece. Device heading is not something MapLibre Native provides on
+  desktop, so a desktop map will show position without a compass direction.
+
+### [Native core integration on Android and iOS](https://github.com/maplibre/maplibre-compose/issues/572)
+
+**Status:** Needs Exploration 🔍
+
+The goal is to wrap just the MapLibre Native C++ core on Android, iOS, and
+desktop with one common Kotlin JVM+Native wrapper. Desktop consumes
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi), but
+Android uses MapLibre Native's Java/Kotlin bindings and iOS its Obj-C ones. Each
+has a different API, so our multiplatform API tends toward the
+lowest-common-denominator of all three.
+
+The desktop work above is the evidence this is worth doing: it is a full map
+implementation on the FFI, and several capabilities MapLibre Native offers are
+sitting unused behind it simply because there is no cross-platform API to reach
+them.
+
+Research Areas:
+
+- Explore using `maplibre-native-ffi` on Android, with code to integrate with an
+  Android Surface instead of an AWT Canvas.
+- Explore using its Kotlin/Native targets on iOS, with code to integrate with a
+  Metal layer.
+- Explore unifying those platforms behind a single, thin, `expect`/`actual`
+  interface on top of MapLibre Native.
 
 ### [JS Parity](https://github.com/maplibre/maplibre-compose/issues/222)
 
-**Status:** Shovel ready 🪏
+**Status:** Needs Exploration 🔍
 
-The goal is to support Compose apps in the browser using Kotlin JS, backed by
-MapLibre GL JS instead of MapLibre Native.
+The goal is to support Compose apps in the browser. Which map draws them is no
+longer settled.
 
-Approach:
+The existing work binds
+[MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) to Kotlin JS, and a
+partial browser implementation is built on it. The alternative is the same
+MapLibre Native core the other platforms use.
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) has
+gained WebGPU and WebGL support on wasm, and its TypeScript bindings — for the
+browser, Node, Bun, Deno, and ArkTS — are further along than its Kotlin/Wasm
+ones. Wrapping those from Kotlin JS is the same shape of work as wrapping
+MapLibre GL JS, which is what makes this a real choice rather than a wish.
+Compositing MapLibre Native's output into Compose has been prototyped
+successfully, so the browser could be the same platform as everywhere else
+rather than a separate one.
 
-- Write Kotlin JS bindings for
-  [MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/).
-- Use those bindings to implement browser support in the `jsMain` module of
-  MapLibre Compose.
+It might not work. MapLibre Native was never meant to run in a browser, and
+finding that out is part of the exploration. Deciding between the two paths
+comes before deciding what to build next on either.
 
-Next steps:
+Next steps if MapLibre GL JS stays:
 
 - Add support for programmatic layer styling (sources, layers, expressions,
   images, etc).
@@ -108,14 +133,11 @@ Investigation needed:
 The project would benefit from work to improve the experience of developing
 MapLibre Compose for desktop. The biggest pain points right now are:
 
-- Building MapLibre Native core from source in local development and every CI
-  run.
 - Regressions due to limited automatic tests on all platforms.
 - Brittle local development setup.
 
 Next steps:
 
-- [Build against the prebuilt MapLibre Native distribution.](https://github.com/maplibre/maplibre-compose/issues/568)
 - [Configure a reproducible build environment.](https://github.com/maplibre/maplibre-compose/issues/684)
 
 Investigation needed:
@@ -134,16 +156,21 @@ take them on, community contributions are of course still welcome!
 
 **Status:** Needs Exploration 🔍
 
-The goal is to support Compose apps in the browser using Kotlin WASM, backed by
-MapLibre GL JS instead of MapLibre Native.
+The goal is to support Compose apps in the browser using Kotlin WASM. It faces
+the same open question as JS parity above — MapLibre GL JS or MapLibre Native —
+and `maplibre-native-ffi` offers a binding on each side of it: TypeScript for
+Kotlin JS, Kotlin/Wasm here.
 
 Next steps:
 
-- Explore to what extent JS bindings to Kotlin can be shared between Kotlin JS
-  and Kotlin WASM.
-- Build a proof of concept of MapLibre GL JS bindings to Kotlin WASM.
-- Use the proof of concept to build minimal MapLibre Compose support on WASM
-  (e.g. map loading, style switching).
+- Decide the path, together with JS parity. Both targets can reach either map,
+  so this is one decision rather than two, unless something found along the way
+  splits them.
+- If MapLibre GL JS: explore how much of the Kotlin JS binding can be shared
+  with Kotlin WASM, and build a proof of concept.
+- If MapLibre Native: build minimal support on the Kotlin/Wasm bindings — map
+  loading and style switching — and find out what a browser does to a renderer
+  that never expected one.
 
 ### [Improve controls on desktop and web](https://github.com/maplibre/maplibre-compose/issues/230)
 
@@ -151,8 +178,14 @@ Next steps:
 
 The goal is to build an intuitive experience controlling the map on all
 platforms. MapLibre Native for iOS and Android already provide a rich set of
-gestures for those mobile platforms, so the focus here is on providing an
-intuitive experience for desktop and web users.
+gestures for those mobile platforms, so the focus here is on desktop and web.
+
+Desktop now has a working set, tuned to match MapLibre GL JS: drag to pan,
+scroll and double-click to zoom, right-drag or ctrl-drag to rotate and tilt, and
+keyboard control throughout. Touchscreens on the Desktop FFI host use
+Android-style pan, pinch, rotate, shove, quick-zoom, and velocity gestures. What
+is left is covering input devices such as multi-touch trackpads and the
+accessibility needs the current controls do not yet reach.
 
 Research Areas:
 
@@ -165,34 +198,48 @@ Research Areas:
 - Design a set of controls that work well on all platforms, considering
   platform-specific input devices and accessibility features.
 
-### [Support map snapshotter](https://github.com/maplibre/maplibre-compose/issues/28)
-
-**Status:** Blocked 🚧
-
-The goal is to provide a multiplatform interface for generating static snapshots
-of the map. We'd like to do this with the same kind of programmatic styling we
-support for interactive maps, so first we need to decouple the map style API
-from the `MaplibreMap` UI `@Composable`.
-
-### [Native core integration on Android and iOS](https://github.com/maplibre/maplibre-compose/issues/572)
+### [Imperative escape hatches](https://github.com/maplibre/maplibre-compose/issues/18)
 
 **Status:** Needs Exploration 🔍
 
-The goal is to streamline our MapLibre Native bindings by wrapping just the
-MapLibre Native C++ core on Android, iOS, and Desktop with a common Kotlin
-JVM+Native wrapper. Today, we wrap the MapLibre Native core for desktop, but use
-the MapLibre Native Android Java/Kotlin bindings on Android and MapLibre Native
-iOS Obj-C bindings on iOS. Each of these have different APIs, and so our
-Multiplatform APIs tend to be the lowest-common-denominator of them all.
+Styling is declarative: you compose sources and layers into the map and MapLibre
+Compose applies the difference. That works well for content you own and not at
+all for content you did not write. Changing the visibility, filter, or zoom
+range of a layer that came from the base style is a recurring request, and today
+the answers are to replace the layer with `Anchor.Replace` and reproduce its
+properties, or to fetch the style JSON and edit it before handing it to the map.
+Both are workarounds for the same missing thing.
 
-Research Areas:
+Once every platform is on `maplibre-native-ffi`, the escape hatch may already
+exist. Its handles are an imperative map API, so exposing them — opt-in, and
+marked as delicate — would let an application blocked on something we have not
+wrapped reach past us rather than wait for us, with the same API everywhere.
+Doing that today would mean exposing a different one per platform, which is what
+makes [#538](https://github.com/maplibre/maplibre-compose/issues/538) hard to
+answer well.
 
-- Explore using our existing Desktop JNI bindings on Android, with code to
-  integrate with an Android Surface instead of an AWT Canvas.
-- Explore writing Kotlin Native cinterop bindings to the MapLibre Native core,
-  with code to integrate with a Metal layer on iOS.
-- Explore unifying those two sets of bindings with a single, thin,
-  `expect`/`actual` interface on top of MapLibre Native.
+### Fill in the missing map capabilities
+
+**Status:** Blocked 🚧
+
+MapLibre Native can do a number of things MapLibre Compose has no cross-platform
+API for, among them feature state, style light, custom geometry sources, the
+location indicator layer, alternative projections, style transition options,
+HTTP header transforms, supplying missing style images on demand, resource
+transforms, merging offline databases, and
+[static map snapshots](https://github.com/maplibre/maplibre-compose/issues/28) —
+which `maplibre-native-ffi` can now produce by reading a rendered map back to
+the CPU.
+
+These are deliberately not being built yet. Doing any of them today means
+writing the same feature four times — against the Android SDK, the iOS SDK,
+`maplibre-native-ffi`, and MapLibre GL JS — and throwing three of those away
+once the native core integration above lands. They become one implementation
+each afterwards, which is why that work comes first.
+
+Snapshots carry one extra requirement, since we would like to style them the
+same way interactive maps are styled: the style API has to be usable without a
+`MaplibreMap` composable to hang it on.
 
 ## Long term
 
@@ -209,25 +256,3 @@ platforms, such as cars, watches, and TVs. Not all these platforms support
 Compose UI, so this may involve writing bare KMP wrappers for MapLibre Native on
 some platforms, or rendering map snapshots, or integrating with some alternative
 UI toolkits.
-
-### Pure Compose map rendering
-
-**Status:** Needs Exploration 🔍
-
-The goal is to perform all map rendering in Compose, instead of including
-interop UI components for each platform. This will allow us to eliminate
-compositing limitations, especially on desktop and web.
-
-I'm not sure if this is possible, but if it is, it would likely be accomplished
-by performing map rendering to a texture, and using a Compose Multiplatform
-runtime shader to render that texture.
-
-Research Areas:
-
-- Explore the capabilities of runtime shaders across all Compose platforms
-- Build a proof of concept that performs hardware accelerated graphics rendering
-  to a texture using OpenGL, Vulkan, or Metal, and renders that texture to
-  Compose UI without interop views.
-
-Alternatively, we could explore a pure Skia implementation of MapLibre map
-rendering.

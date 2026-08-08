@@ -22,7 +22,7 @@ kotlin {
 
   listOf(iosArm64(), iosSimulatorArm64()).forEach { it.configureSpmMaplibre(project) }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getJvmTarget() } }
+  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js(IR) { browser() }
 
@@ -43,6 +43,10 @@ kotlin {
     iosMain { dependsOn(maplibreNativeMain) }
 
     androidMain { dependsOn(maplibreNativeMain) }
+
+    // Desktop is backed by MapLibre Native, so it gets the offline controls.
+    val desktopMain by getting
+    desktopMain.dependsOn(maplibreNativeMain)
 
     jsMain { dependencies { implementation(libs.kotlin.wrappers.js) } }
 

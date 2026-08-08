@@ -5,6 +5,16 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.ImageResizeOptions
 
+/**
+ * A style that tolerates being used after it has been replaced: during a style switch the outgoing
+ * style's content is briefly still composed while anchors and sources already name the incoming
+ * style's layers. After [unload], writes no-op and [LayerManager] skips anchor validation (#269).
+ *
+ * Every platform must unload the outgoing style when a new one is *requested* (adapters report
+ * `onStyleChanged(map, null)` from `setBaseStyle`), and must do so before the content
+ * subcomposition applies its changes — `AndroidView`'s `update` block is early enough, a
+ * `LaunchedEffect` is not.
+ */
 internal class SafeStyle(private val delegate: Style) : Style {
   internal var isUnloaded = false
 
