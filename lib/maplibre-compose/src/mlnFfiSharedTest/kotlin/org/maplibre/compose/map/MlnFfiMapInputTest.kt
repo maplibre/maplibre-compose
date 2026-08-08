@@ -92,6 +92,20 @@ class MlnFfiMapInputTest {
     assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
   }
 
+  /**
+   * A mouse never waits for a second click, matching the web build; only touch taps do, as the
+   * mobile SDKs do.
+   */
+  @Test
+  fun double_click_still_reports_its_first_click() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performMouseInput { doubleClick() }
+      awaitZoom(camera, START_ZOOM + 1.0)
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(1, clicks.size, "a double click did not report exactly its first click")
+    }
+
   @Test
   fun double_click_eases_rather_than_jumping() = runInputTest { camera ->
     val target = START_ZOOM + 1.0
@@ -388,6 +402,54 @@ class MlnFfiMapInputTest {
         up(0)
       }
       waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > START_ZOOM + 0.25 }
+    }
+
+  @Test
+  fun quick_zoom_does_not_leak_its_first_tap_as_a_map_click() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        click(center)
+        down(0, center)
+        moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
+        up(0)
+      }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > START_ZOOM + 0.25 }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(0, clicks.size, "a quick zoom leaked its first tap as a map click")
+    }
+
+  /** A tap is held back only for as long as a second one could still claim it. */
+  @Test
+  fun a_tap_waits_for_a_second_one_that_could_still_arrive() =
+    runInputTest(focusWithMouse = false) {
+      mainClock.autoAdvance = false
+      try {
+        onRoot().performTouchInput { click(center) }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertEquals(0, clicks.size, "the tap reported before a double tap could rule it out")
+      } finally {
+        mainClock.autoAdvance = true
+      }
+      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
+    }
+
+  @Test
+  fun a_tap_reports_at_once_when_no_gesture_would_use_a_second_one() =
+    runInputTest(
+      gestures = GestureOptions(isDoubleClickZoomEnabled = false, isQuickZoomEnabled = false),
+      focusWithMouse = false,
+    ) {
+      mainClock.autoAdvance = false
+      try {
+        onRoot().performTouchInput { click(center) }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertEquals(1, clicks.size, "the tap waited for a double tap no gesture would use")
+      } finally {
+        mainClock.autoAdvance = true
+      }
     }
 
   @Test
