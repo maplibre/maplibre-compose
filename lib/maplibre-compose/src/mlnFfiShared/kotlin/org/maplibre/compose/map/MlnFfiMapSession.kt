@@ -35,6 +35,8 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.mlnffi.OpenGlContextHandles
+import org.maplibre.compose.mlnffi.OpenGlSurfaceTarget
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
@@ -71,6 +73,7 @@ import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
 import org.maplibre.nativeffi.render.OpenGLBorrowedTextureDescriptor
+import org.maplibre.nativeffi.render.OpenGLSurfaceDescriptor
 import org.maplibre.nativeffi.render.RenderSessionHandle
 import org.maplibre.nativeffi.render.RenderTargetExtent
 import org.maplibre.nativeffi.render.VulkanBorrowedTextureDescriptor
@@ -493,6 +496,7 @@ internal class MlnFfiMapSession(
         target.makeContextCurrent()
         map.attachOpenGLBorrowedTexture(target.toDescriptor(extent))
       }
+      is OpenGlSurfaceTarget -> map.attachOpenGLSurface(target.toDescriptor(extent))
     }
 
   /**
@@ -516,6 +520,7 @@ internal class MlnFfiMapSession(
           target.makeContextCurrent()
           session.setOpenGLBorrowedTextureTarget(target.toDescriptor(extent))
         }
+        is OpenGlSurfaceTarget -> session.setOpenGLSurfaceTarget(target.toDescriptor(extent))
       }
     } catch (error: InvalidArgumentException) {
       // A replacement belonging to another device.
@@ -576,13 +581,16 @@ internal class MlnFfiMapSession(
       extent = extent.toFfiExtent(),
       physicalWidth = extent.physicalWidth.coerceAtLeast(1),
       physicalHeight = extent.physicalHeight.coerceAtLeast(1),
-      context =
-        when (val handles = context) {
-          is EglContextHandles -> handles.toFfi()
-          is WglContextHandles -> handles.toFfi()
-        },
+      context = context.toFfi(),
       texture = textureName,
       target = textureTarget,
+    )
+
+  private fun OpenGlSurfaceTarget.toDescriptor(extent: MlnFfiMapExtent) =
+    OpenGLSurfaceDescriptor(
+      extent = extent.toFfiExtent(),
+      context = context.toFfi(),
+      surface = NativePointer.ofAddress(surface.address),
     )
 
   // endregion
@@ -1355,6 +1363,12 @@ private fun VulkanContextHandles.toFfi() =
     getInstanceProcAddr = NativePointer.ofAddress(getInstanceProcAddr.address),
     getDeviceProcAddr = NativePointer.ofAddress(getDeviceProcAddr.address),
   )
+
+private fun OpenGlContextHandles.toFfi() =
+  when (this) {
+    is EglContextHandles -> toFfi()
+    is WglContextHandles -> toFfi()
+  }
 
 private fun EglContextHandles.toFfi() =
   org.maplibre.nativeffi.render.EglContextDescriptor(

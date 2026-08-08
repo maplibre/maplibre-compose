@@ -16,6 +16,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
+import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.style.BaseStyle
@@ -34,8 +35,6 @@ internal fun MlnFfiMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapOptions,
 ) {
-  val applicationOptions = MlnFfiApplication.options
-  val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
 
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
@@ -44,12 +43,50 @@ internal fun MlnFfiMapView(
   val hostResult =
     remember(hostFactory, runtimeBackends, scaleFactor) { createHost(runtimeBackends, hostFactory) }
 
+  MlnFfiMapView(
+    renderBackend = hostFactory.backends.producer,
+    surface = { renderer, surfaceModifier, surfaceLogger ->
+      MlnFfiMapSurface(
+        renderer = renderer,
+        hostResult = hostResult,
+        modifier = surfaceModifier,
+        logger = surfaceLogger,
+      )
+    },
+    modifier = modifier,
+    style = style,
+    update = update,
+    onReset = onReset,
+    logger = logger,
+    callbacks = callbacks,
+    options = options,
+  )
+}
+
+/** A map rendered by a platform surface that owns its presentation loop. */
+@Composable
+internal fun MlnFfiMapView(
+  renderBackend: MapRenderBackend,
+  surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?) -> Unit,
+  modifier: Modifier,
+  style: BaseStyle,
+  update: (map: MapAdapter) -> Unit,
+  onReset: () -> Unit,
+  logger: Logger?,
+  callbacks: MapAdapter.Callbacks,
+  options: MapOptions,
+) {
+  val applicationOptions = MlnFfiApplication.options
+  val layoutDirection = LocalLayoutDirection.current
+  val density = LocalDensity.current
+  val scaleFactor = density.density.toDouble()
+
   val session =
-    remember(hostFactory.backends, scaleFactor, applicationOptions) {
+    remember(renderBackend, scaleFactor, applicationOptions) {
       MlnFfiMapSession(
         callbacks = callbacks,
         logger = logger,
-        renderBackend = hostFactory.backends.producer,
+        renderBackend = renderBackend,
         scaleFactor = scaleFactor,
         layoutDirection = layoutDirection,
         cacheFile = applicationOptions.cacheFile,
@@ -80,19 +117,9 @@ internal fun MlnFfiMapView(
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
-  MlnFfiMapSurface(
-    renderer = session,
-    hostResult = hostResult,
-    modifier =
-      modifier.mlnFfiMapInput(
-        session,
-        options.gestureOptions,
-        density,
-        focusRequester,
-        continuation,
-      ),
-    logger = logger,
-  )
+  val inputModifier =
+    modifier.mlnFfiMapInput(session, options.gestureOptions, density, focusRequester, continuation)
+  surface(session, inputModifier, logger)
 }
 
 private fun createHost(
@@ -121,7 +148,7 @@ private fun createHost(
  * Reports which backends the packaged MapLibre Native FFI runtime was built with. Empty rather than
  * throwing when no runtime is on the classpath; negotiation reports that as a diagnostic.
  */
-private fun loadRuntimeBackends(logger: Logger?): Set<MapRenderBackend> =
+internal fun loadRuntimeBackends(logger: Logger?): Set<MapRenderBackend> =
   try {
     Maplibre.loadNativeLibrary()
     Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() }
