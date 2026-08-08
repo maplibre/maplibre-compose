@@ -3,6 +3,7 @@ package org.maplibre.compose.offline
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -73,6 +74,26 @@ class MlnFfiOfflineManagerTest {
     assertTrue(
       MlnFfiOfflineManager.forOptions(options) === MlnFfiOfflineManager.forOptions(options)
     )
+  }
+
+  @Test
+  fun normalized_cache_paths_return_the_same_manager() {
+    val alias = cachePath.parent.resolve("subdirectory").resolve("..").resolve(cachePath.fileName)
+    val aliasedOptions = options.copy(cachePath = alias)
+
+    assertSame(
+      MlnFfiOfflineManager.forOptions(options),
+      MlnFfiOfflineManager.forOptions(aliasedOptions),
+    )
+  }
+
+  @Test
+  fun the_same_cache_path_rejects_a_different_budget() {
+    MlnFfiOfflineManager.forOptions(options)
+
+    assertFailsWith<IllegalStateException> {
+      MlnFfiOfflineManager.forOptions(options.copy(maximumCacheSizeBytes = 1024))
+    }
   }
 
   @Test

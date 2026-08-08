@@ -31,6 +31,10 @@ public actual sealed class Source(internal actual val id: String) {
 
   /** Adds this source to a style and starts routing mutations to it. */
   internal fun attach(binding: StyleBinding) {
+    check(this.binding === binding || !this.binding.isLoaded) {
+      "Source '$id' already belongs to another loaded style; create a separate source instance " +
+        "for each map"
+    }
     this.binding = binding
     val added = binding.withMap { map ->
       // Idempotent, because a layer attaches its own source first when Compose has not run the
@@ -68,11 +72,17 @@ public actual sealed class Source(internal actual val id: String) {
 
   /** Binds this descriptor to a source already in the style, without adding it. */
   internal fun bindExisting(binding: StyleBinding) {
+    check(this.binding === binding || !this.binding.isLoaded) {
+      "Source '$id' already belongs to another loaded style"
+    }
     this.binding = binding
   }
 
   /** Removes this source from its style; the descriptor survives for a later style. */
-  internal fun detach() {
+  internal fun detach(expectedBinding: StyleBinding) {
+    require(binding === expectedBinding) {
+      "Source '$id' does not belong to the style trying to remove it"
+    }
     binding.withMap { map -> map.removeStyleSource(id) }
     binding = StyleBinding.UNLOADED
   }

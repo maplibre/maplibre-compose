@@ -186,6 +186,10 @@ internal actual sealed class Layer(actual val id: String) {
    * MapLibre has no "add on top" call, and an empty anchor means the same thing.
    */
   internal fun attach(binding: StyleBinding, beforeLayerId: String) {
+    check(this.binding === binding || !this.binding.isLoaded) {
+      "Layer '$id' already belongs to another loaded style; create a separate layer instance for " +
+        "each map"
+    }
     this.binding = binding
     // See sourceDescriptor: the source's own effect has not run yet on a fresh style composition.
     sourceDescriptor?.let { source -> if (!source.isAttached) source.attach(binding) }
@@ -214,10 +218,16 @@ internal actual sealed class Layer(actual val id: String) {
    * back the base style, where adding again would duplicate the layer and change the draw order.
    */
   internal fun bindExisting(binding: StyleBinding) {
+    check(this.binding === binding || !this.binding.isLoaded) {
+      "Layer '$id' already belongs to another loaded style"
+    }
     this.binding = binding
   }
 
-  internal fun detach() {
+  internal fun detach(expectedBinding: StyleBinding) {
+    require(binding === expectedBinding) {
+      "Layer '$id' does not belong to the style trying to remove it"
+    }
     binding.withMap { map -> map.removeStyleLayer(id) }
     binding = StyleBinding.UNLOADED
   }

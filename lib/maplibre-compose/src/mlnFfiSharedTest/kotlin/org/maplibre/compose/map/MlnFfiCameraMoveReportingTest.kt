@@ -81,6 +81,34 @@ class MlnFfiCameraMoveReportingTest {
     }
   }
 
+  @Test
+  fun closing_during_a_gesture_ends_the_camera_move() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
+      fixture.settle()
+      fixture.events.clear()
+
+      fixture.session.onGestureStarted()
+      fixture.session.moveBy(DRAG_STEP_DP, DRAG_STEP_DP)
+      fixture.pump(FRAMES_PER_SAMPLE)
+      fixture.session.close()
+      fixture.session.close()
+
+      val events = fixture.events.toList()
+      assertEquals(
+        1,
+        events.count { it.startsWith("cameraMoveStarted") },
+        "the gesture should start one move: $events",
+      )
+      assertEquals(
+        1,
+        events.count { it == "cameraMoveEnded" },
+        "terminal teardown should end that move exactly once: $events",
+      )
+    }
+  }
+
   private companion object {
     /** Enough pointer samples that a per-jump report would be unmistakable. */
     const val DRAG_SAMPLES = 4

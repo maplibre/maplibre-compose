@@ -25,7 +25,8 @@ public data class DesktopRuntimeOptions(
    * Maximum ambient cache size in bytes, or null for MapLibre's own default.
    *
    * This bounds only the ambient cache — tiles kept opportunistically as the user pans. Offline
-   * regions are not ambient and are not evicted to satisfy it.
+   * regions are not ambient and are not evicted to satisfy it. All concurrently live runtimes that
+   * use the same absolute, normalized [cachePath] must specify the same value.
    */
   public val maximumCacheSizeBytes: Long? = null,
 )

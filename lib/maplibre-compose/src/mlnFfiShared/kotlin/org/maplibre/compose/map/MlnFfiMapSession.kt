@@ -328,7 +328,7 @@ internal class MlnFfiMapSession(
     if (closed) return
     closed = true
     try {
-      stopLoop()
+      stopLoop(endOutstandingMove = true)
     } finally {
       hostSession = null
     }
@@ -338,7 +338,7 @@ internal class MlnFfiMapSession(
    * Closes the render session and then the loop that owns the map. The order is enforced natively:
    * MapLibre refuses to destroy a map that still has a session attached.
    */
-  private fun stopLoop() {
+  private fun stopLoop(endOutstandingMove: Boolean = false) {
     val abandoned = mutableListOf<PendingMapAction>()
     val stopping = stateLock.withLock {
       val current = loop
@@ -349,9 +349,16 @@ internal class MlnFfiMapSession(
     }
     abandoned.forEach { it.abandon() }
     closeRenderSession()
-    stopping?.close()
-    // After the join, so the owner thread is gone and this is the only reader of that state.
-    resumeStrandedTransitions()
+    try {
+      stopping?.close()
+    } finally {
+      // After the join, so the owner thread is gone and this is the only reader of that state.
+      if (endOutstandingMove) {
+        isGestureInProgress = false
+        endCameraMove()
+      }
+      resumeStrandedTransitions()
+    }
   }
 
   /**

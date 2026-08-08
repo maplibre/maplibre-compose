@@ -12,6 +12,12 @@ internal data class MlnFfiRuntimeOptions(
   val maximumCacheSizeBytes: Long? = null,
 )
 
+/** Uses one stable lexical identity for a cache database without requiring it to exist yet. */
+internal fun MlnFfiRuntimeOptions.normalized(): MlnFfiRuntimeOptions {
+  val normalizedPath = cachePath.toAbsolutePath().normalize()
+  return if (normalizedPath == cachePath) this else copy(cachePath = normalizedPath)
+}
+
 /** The [MlnFfiRuntimeOptions] maps in this composition use. */
 internal val LocalMlnFfiRuntimeOptions: ProvidableCompositionLocal<MlnFfiRuntimeOptions> =
   staticCompositionLocalOf {

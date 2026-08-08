@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -80,6 +81,7 @@ class MlnFfiMapCameraTransitionTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.startAtOrigin()
+      it.events.clear()
 
       val animation =
         CoroutineScope(Dispatchers.Default).launch {
@@ -119,11 +121,21 @@ class MlnFfiMapCameraTransitionTest {
           it.session.animateCameraPosition(TARGET, 60.seconds)
         }
       it.awaitCameraMoving()
+      it.pumpUntil("the animation's camera move to be reported") {
+        it.events.count { event -> event.startsWith("cameraMoveStarted") } >
+          it.events.count { event -> event == "cameraMoveEnded" }
+      }
+      val endedBeforeClose = it.events.count { event -> event == "cameraMoveEnded" }
 
       it.session.close()
 
       it.pumpUntil("the stranded animation to resume") { animation.isCompleted }
       assertFalse(animation.isCancelled, "teardown should resume the waiter, not cancel it")
+      assertEquals(
+        endedBeforeClose + 1,
+        it.events.count { event -> event == "cameraMoveEnded" },
+        "teardown should close the outstanding camera move exactly once: ${it.events}",
+      )
     }
   }
 

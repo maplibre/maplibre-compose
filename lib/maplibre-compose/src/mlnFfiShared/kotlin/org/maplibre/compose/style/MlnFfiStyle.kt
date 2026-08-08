@@ -117,7 +117,7 @@ internal class MlnFfiStyle(
   }
 
   override fun removeSource(source: Source) {
-    source.detach()
+    source.detach(binding)
   }
 
   override fun getLayer(id: String): Layer? = binding.withMap { map ->
@@ -149,7 +149,7 @@ internal class MlnFfiStyle(
   }
 
   override fun removeLayer(layer: Layer) {
-    layer.detach()
+    layer.detach(binding)
   }
 
   /**

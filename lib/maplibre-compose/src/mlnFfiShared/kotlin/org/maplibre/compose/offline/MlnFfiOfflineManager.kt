@@ -5,11 +5,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
+import java.nio.file.Path
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import org.maplibre.compose.mlnffi.LocalMlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.normalized
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -42,20 +44,34 @@ private class DensityScopedOfflineManager(
 /**
  * The MapLibre Native FFI [OfflineManager], backed by a MapLibre runtime of its own.
  *
- * One instance per [MlnFfiRuntimeOptions], kept for the life of the process and never disposed:
- * mbgl holds download state in memory only, so closing the runtime silently destroys in-flight
- * downloads.
+ * One instance per normalized cache database path, kept for the life of the process and never
+ * disposed: mbgl holds download state in memory only, so closing the runtime silently destroys
+ * in-flight downloads.
  */
 internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) : OfflineManager {
 
   internal companion object {
     // TODO(common API): Replace this process-lifetime cache with an explicit application-scoped
-    // owner that can close each options-specific runtime without tying downloads to a screen's
+    // owner that can close each cache-specific runtime without tying downloads to a screen's
     // composition lifecycle. See .agents/docs/COMMON_API_GAPS.md.
-    private val instances = mutableMapOf<MlnFfiRuntimeOptions, MlnFfiOfflineManager>()
+    private val instances = mutableMapOf<Path, MlnFfiOfflineManager>()
 
-    fun forOptions(options: MlnFfiRuntimeOptions): MlnFfiOfflineManager =
-      synchronized(instances) { instances.getOrPut(options) { MlnFfiOfflineManager(options) } }
+    fun forOptions(rawOptions: MlnFfiRuntimeOptions): MlnFfiOfflineManager {
+      val options = rawOptions.normalized()
+      return synchronized(instances) {
+        val existing = instances[options.cachePath]
+        if (existing != null) {
+          check(existing.options.maximumCacheSizeBytes == options.maximumCacheSizeBytes) {
+            "Offline manager for '${options.cachePath}' already uses ambient-cache budget " +
+              "${existing.options.maximumCacheSizeBytes ?: "MapLibre's default"}, but " +
+              "${options.maximumCacheSizeBytes ?: "MapLibre's default"} was requested"
+          }
+          existing
+        } else {
+          MlnFfiOfflineManager(options).also { instances[options.cachePath] = it }
+        }
+      }
+    }
 
     /**
      * Tests only: stops the manager for [options], if there is one, and forgets it so that a later
@@ -63,7 +79,8 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
      * within [timeoutMillis].
      */
     fun disposeForTest(options: MlnFfiRuntimeOptions, timeoutMillis: Long = 30_000): Boolean {
-      val manager = synchronized(instances) { instances.remove(options) } ?: return true
+      val path = options.normalized().cachePath
+      val manager = synchronized(instances) { instances.remove(path) } ?: return true
       manager.runtime.shutdown()
       return manager.runtime.awaitStopped(timeoutMillis)
     }

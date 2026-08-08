@@ -22,6 +22,7 @@ private constructor(
   val runtime: RuntimeHandle,
   private val provider: MlnFfiResourceProvider,
   private val logger: Logger?,
+  private val cacheLease: MlnFfiCacheDatabaseLease,
 ) : AutoCloseable {
 
   /** The budget being applied, until its completion event arrives. */
@@ -51,6 +52,7 @@ private constructor(
       .onFailure { logger?.w(it) { "Failed to drain the resource provider" } }
     runCatching { runtime.close() }
       .onFailure { logger?.e(it) { "Failed to close the MapLibre runtime" } }
+    cacheLease.close()
   }
 
   companion object {
@@ -59,19 +61,35 @@ private constructor(
      * as far as. [what] names the runtime in log lines.
      */
     fun open(options: MlnFfiRuntimeOptions, logger: Logger?, what: String): MlnFfiRuntimeOwner {
+      val cacheLease = MlnFfiCacheDatabaseRegistry.acquire(options)
+      val normalizedOptions = cacheLease.options
       // MapLibre opens the database as the runtime is created, and fails if the directory is
       // missing.
-      runCatching { options.cachePath.parent?.let(Files::createDirectories) }
+      runCatching { normalizedOptions.cachePath.parent?.let(Files::createDirectories) }
         .onFailure { logger?.w(it) { "Could not create the MapLibre cache directory" } }
 
       val runtime =
-        RuntimeHandle.create(RuntimeOptions().also { it.cachePath = options.cachePath.toString() })
-      val provider = MlnFfiResourceProvider(logger)
-      val owner = MlnFfiRuntimeOwner(runtime, provider, logger)
+        try {
+          RuntimeHandle.create(
+            RuntimeOptions().also { it.cachePath = normalizedOptions.cachePath.toString() }
+          )
+        } catch (error: Throwable) {
+          cacheLease.close()
+          throw error
+        }
+      val provider =
+        try {
+          MlnFfiResourceProvider(logger)
+        } catch (error: Throwable) {
+          runCatching { runtime.close() }
+          cacheLease.close()
+          throw error
+        }
+      val owner = MlnFfiRuntimeOwner(runtime, provider, logger, cacheLease)
       return try {
         // Started before the provider so the budget is in force before any response can be cached.
         owner.cacheSizeRequest =
-          AmbientCacheSizeRequest.start(runtime, options.maximumCacheSizeBytes, logger)
+          AmbientCacheSizeRequest.start(runtime, normalizedOptions.maximumCacheSizeBytes, logger)
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)
