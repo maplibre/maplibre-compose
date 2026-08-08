@@ -286,10 +286,16 @@ class LinuxVulkanOpenGlInteropTest {
       renderer.setBaseStyle(style)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
       var rendered: MlnFfiRenderTarget? = null
-      var rendersAfterLoad = 0
-      while (styleLoads < expectedStyleLoads || rendersAfterLoad < SETTLE_RENDER_COUNT) {
+      var renderedFrames = 0
+      var lastResult: MlnFfiFrameResult? = null
+      // Style callbacks and rendering happen on different threads. Wait for both facts without
+      // requiring one to be observed before the other: an idle map does not owe the test more
+      // frames merely because its callback became visible late.
+      while (styleLoads < expectedStyleLoads || rendered == null) {
         check(deadline.hasNotPassedNow()) {
-          "Timed out rendering style $style at $extent; failure: $failure"
+          "Timed out rendering style $style at $extent; " +
+            "style loads: $styleLoads/$expectedStyleLoads, rendered frames: $renderedFrames, " +
+            "last result: $lastResult, failure: $failure"
         }
         failure?.let { error(it) }
         val frame =
@@ -299,12 +305,11 @@ class LinuxVulkanOpenGlInteropTest {
             .frame
         try {
           val result = host.withProducerAccess(frame) { renderer.render(frame) }
+          lastResult = result
           if (result == MlnFfiFrameResult.RENDERED) {
             host.completeProducerAccess(frame)
-            if (styleLoads >= expectedStyleLoads) {
-              rendersAfterLoad++
-              rendered = frame.target
-            }
+            renderedFrames++
+            rendered = frame.target
           }
         } finally {
           host.releaseFrame(frame)
@@ -543,7 +548,6 @@ class LinuxVulkanOpenGlInteropTest {
     const val DRAW_HEIGHT = 240
     const val POLL_INTERVAL_MILLIS = 8L
     const val CHANNEL_TOLERANCE = 2
-    const val SETTLE_RENDER_COUNT = 5
 
     val TEST_TIMEOUT = 30.seconds
 
