@@ -213,10 +213,12 @@ internal class MlnFfiMapRuntimeLoop(
     while (!stopRequested) {
       // Queued work first: a task posted before the source was published set no wake flag, so
       // draining only after a pump returns would leave it parked behind.
-      runTasks(map)
+      val ranTasks = runTasks(map)
       if (stopRequested) break
       check(!acceptLock.isHeldByCurrentThread) { "the pump must not run under acceptLock" }
-      runtime.pump(PUMP_PARK_MILLIS)
+      // A task can leave work that only the drain below applies, so a batch that ran must not park
+      // first: a task queuing nothing for native would have nothing to wake it.
+      runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS)
       drainEvents(runtime, map)
     }
   }
@@ -247,15 +249,19 @@ internal class MlnFfiMapRuntimeLoop(
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }
   }
 
-  private fun runTasks(map: MapHandle) {
+  /** Runs everything queued, reporting whether anything ran. */
+  private fun runTasks(map: MapHandle): Boolean {
+    var ran = false
     while (true) {
       val task = tasks.poll() ?: break
+      ran = true
       try {
         task.run(map)
       } catch (error: Throwable) {
         logger?.e(error) { "A map owner-thread task failed" }
       }
     }
+    return ran
   }
 
   /** Blocks until [close] is called, or the bound expires. */

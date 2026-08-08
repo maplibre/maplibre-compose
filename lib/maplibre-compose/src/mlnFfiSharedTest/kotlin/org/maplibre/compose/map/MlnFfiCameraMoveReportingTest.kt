@@ -31,6 +31,8 @@ class MlnFfiCameraMoveReportingTest {
         fixture.session.moveBy(DRAG_STEP_DP, DRAG_STEP_DP, gestureToken = token)
         fixture.pump(FRAMES_PER_SAMPLE)
       }
+      // A drag ends with the map at rest, which is when nothing else will wake the owner thread.
+      fixture.settle()
       fixture.session.onGestureEnded(token)
       fixture.pump(FRAMES_PER_SAMPLE)
 
