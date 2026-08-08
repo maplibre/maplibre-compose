@@ -73,9 +73,10 @@ kotlin {
       }
 
     // used to share the integration with the MapLibre Native FFI binding, as opposed to the
-    // MapLibre Android and iOS SDKs. Desktop is its only target today.
+    // platform SDKs. Android and desktop use the same map, style, source, layer, and offline path.
     create("mlnFfiShared") {
       dependsOn(maplibreNativeMain)
+      androidMain.get().dependsOn(this)
       desktopMain.dependsOn(this)
       dependencies {
         // Backend-independent binding only; the application selects the native runtime.
@@ -87,8 +88,8 @@ kotlin {
 
     androidMain {
       dependencies {
-        api(libs.maplibre.android)
-        implementation(libs.maplibre.android.scalebar)
+        // The Android host presents through an EGL window surface.
+        implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
       }
     }
 
@@ -120,10 +121,13 @@ kotlin {
     create("mlnFfiSharedTest") {
       dependsOn(commonTest.get())
       getByName("desktopTest").dependsOn(this)
+      getByName("androidDeviceTest").dependsOn(this)
     }
 
     // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
-    // test process; a CI matrix adds processes for additional applicable backends.
+    // test process.
+    // TODO: Expand CI to launch a separate process or APK for every applicable backend on each
+    // platform as additional runtime and render-host combinations become available.
     val desktopTest by getting
     desktopTest.dependencies {
       // Only the EGL interop test binds EGL directly; nothing in the library does.

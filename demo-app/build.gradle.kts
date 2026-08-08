@@ -86,14 +86,8 @@ kotlin {
       implementation(libs.ktor.serialization.kotlinxJson)
       implementation(libs.spatialk.geojson)
 
-      // We exclude the android sdk here so we can select a variant via gradle property.
-      // See androidMain below.
-      implementation(project(":lib:maplibre-compose")) {
-        exclude(group = "org.maplibre.gl", module = "android-sdk")
-      }
-      implementation(project(":lib:maplibre-compose-material3")) {
-        exclude(group = "org.maplibre.gl", module = "android-sdk")
-      }
+      implementation(project(":lib:maplibre-compose"))
+      implementation(project(":lib:maplibre-compose-material3"))
     }
 
     val nonAndroidShared by creating { dependsOn(commonMain.get()) }
@@ -104,11 +98,14 @@ kotlin {
     // maplibreNativeMain source set.
     val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
 
+    // Android and Desktop use the shared MapLibre Native FFI implementation.
+    val mlnFfiShared by creating { dependsOn(maplibreNativeShared) }
+
     val desktopJsShared by creating { dependsOn(commonMain.get()) }
 
     androidMain {
       dependsOn(androidIosShared)
-      dependsOn(maplibreNativeShared)
+      dependsOn(mlnFfiShared)
       dependencies {
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
@@ -116,20 +113,7 @@ kotlin {
         implementation(libs.ktor.client.okhttp)
         implementation(libs.accompanist.permissions)
 
-        implementation(project(":lib:maplibre-compose-gms")) {
-          exclude(group = "org.maplibre.gl", module = "android-sdk")
-        }
-
-        project.properties["demoAppMaplibreAndroidFlavor"].let { flavor ->
-          when (flavor) {
-            null,
-            "default" -> implementation(libs.maplibre.android)
-            "opengl" -> implementation(libs.maplibre.androidOpenGL)
-            "vulkan" -> implementation(libs.maplibre.androidVulkan)
-            "debug" -> implementation(libs.maplibre.androidDebug)
-            else -> error("Unknown maplibre android flavor: $flavor")
-          }
-        }
+        implementation(project(":lib:maplibre-compose-gms"))
       }
     }
 
@@ -141,7 +125,7 @@ kotlin {
     }
 
     desktopMain.apply {
-      dependsOn(maplibreNativeShared)
+      dependsOn(mlnFfiShared)
       dependsOn(nonAndroidShared)
       dependsOn(desktopJsShared)
       dependencies {
