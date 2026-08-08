@@ -36,10 +36,10 @@ fun Interaction() {
       MapOptions(
         gestureOptions =
           GestureOptions(
-            isTiltEnabled = true,
-            isZoomEnabled = true,
-            isRotateEnabled = true,
-            isScrollEnabled = true,
+            isTwoFingerTiltEnabled = true,
+            isPinchZoomEnabled = true,
+            isTwoFingerRotateEnabled = true,
+            isDragPanEnabled = true,
           )
       )
   )

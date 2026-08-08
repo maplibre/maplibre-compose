@@ -57,6 +57,23 @@ commonMain.dependencies {
 }
 ```
 
+## Set up Android
+
+Configure MapLibre once during application startup, before composing a map or
+using the offline APIs:
+
+```kotlin title="MainActivity.kt"
+override fun onCreate(savedInstanceState: Bundle?) {
+  super.onCreate(savedInstanceState)
+  MapLibre.configure(applicationContext)
+  setContent { App() }
+}
+```
+
+Import `MapLibre` from `org.maplibre.compose.android`. By default its ambient
+cache and offline-region database live in the application's private cache
+directory; pass `AndroidRuntimeOptions` to choose another file or cache budget.
+
 ## Set up iOS
 
 For iOS, you'll additionally need to add the MapLibre framework to your build.
@@ -132,44 +149,6 @@ kotlin {
   }
 }
 ```
-
-## Revert to OpenGL on Android (Optional)
-
-!!! warning
-
-    The OpenGL renderer is available for compatibility, but Vulkan is the default
-    renderer for MapLibre Android 13 and later.
-    Some Android emulators do not expose Vulkan support; use OpenGL when Vulkan
-    initialization fails in an emulator.
-
-By default, we ship with the standard version of MapLibre for Android, which
-uses the Vulkan backend. If you'd prefer to use the OpenGL backend, you can
-update your build.
-
-First, add the OpenGL build of MapLibre to your version catalog:
-
-```toml title="libs.versions.toml"
-[libraries]
-maplibre-android-opengl = { module = "org.maplibre.gl:android-sdk-opengl", version = "{{ gradle.maplibre_android_version }}" }
-```
-
-Then, exclude the standard MapLibre build from your dependency tree, and add the
-OpenGL build to your Android dependencies:
-
-```kotlin title="build.gradle.kts"
-commonMain.dependencies {
-  implementation(libs.maplibre.compose.get().toString()) { // (1)!
-    exclude(group = "org.maplibre.gl", module = "android-sdk")
-  }
-}
-
-androidMain.dependencies {
-  implementation(libs.maplibre.android.opengl)
-}
-```
-
-1. The `.get().toString()` is needed to work around a limitation in the Kotlin
-   Gradle plugin.
 
 ## Set up Web (JS)
 
@@ -261,7 +240,7 @@ In your Composable UI, add a map:
 
 !!! warning
 
-    Make sure you're importing `org.maplibre.compose.map.MaplibreMap` instead of `org.maplibre.android.map.MaplibreMap`.
+    Make sure you're importing `org.maplibre.compose.map.MaplibreMap`.
 
 When you run your app, you should see the default [demotiles] map. To learn how
 to get a detailed map with all the features you'd expect, proceed to
