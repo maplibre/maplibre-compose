@@ -36,6 +36,12 @@ Build the docs through the task. It passes the versions derived from the Git
 tags, which the site prints as the coordinates to depend on; Gradle on its own
 uses the `0.0.0` placeholders from `gradle.properties`.
 
+### Material Symbols
+
+Find Android vector XML under
+[`symbols/android/<icon-name>/`](https://github.com/google/material-design-icons/tree/master/symbols/android)
+in Google's official Material Design Icons repository.
+
 ### Versions
 
 Every version the build pins lives in `gradle/libs.versions.toml`, including the
