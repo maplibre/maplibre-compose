@@ -12,18 +12,18 @@ import org.maplibre.compose.style.BaseStyle
 @Composable
 @OptIn(ExperimentalResourceApi::class)
 fun Styling() {
-  // -8<- [start:simple]
+  // #region simple
   MaplibreMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"))
-  // -8<- [end:simple]
+  // #endregion simple
 
-  // -8<- [start:dynamic]
+  // #region dynamic
   val variant = if (isSystemInDarkTheme()) "dark" else "light"
   MaplibreMap(
     baseStyle = BaseStyle.Uri("https://api.protomaps.com/styles/v4/$variant/en.json?key=MY_KEY")
   )
-  // -8<- [end:dynamic]
+  // #endregion dynamic
 
-  // -8<- [start:local]
+  // #region local
   MaplibreMap(baseStyle = BaseStyle.Uri(Res.getUri("files/style.json")))
-  // -8<- [end:local]
+  // #endregion local
 }

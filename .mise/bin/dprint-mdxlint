@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -ne 1 ]]; then
+  echo "usage: $(basename "$0") <file-path>" >&2
+  exit 2
+fi
+
+repo_root="${MISE_MONOREPO_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
+cd "$repo_root/docs"
+exec pnpm exec mdxlint --rc-path .mdxlintrc.json --file-path "$1"

@@ -28,16 +28,16 @@ import org.maplibre.spatialk.geojson.toJson
 @Composable
 @OptIn(ExperimentalResourceApi::class)
 fun Layers() {
-  // -8<- [start:simple]
+  // #region simple
   MaplibreMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
     getBaseSource(id = "openmaptiles")?.let { tiles ->
       CircleLayer(id = "example", source = tiles, sourceLayer = "poi")
     }
   }
-  // -8<- [end:simple]
+  // #endregion simple
 
   MaplibreMap {
-    // -8<- [start:amtrak-1]
+    // #region amtrak-1
     val amtrakStations =
       rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
 
@@ -55,9 +55,9 @@ fun Layers() {
       color = const(Color.Blue),
       width = const(4.dp),
     )
-    // -8<- [end:amtrak-1]
+    // #endregion amtrak-1
 
-    // -8<- [start:amtrak-2]
+    // #region amtrak-2
     LineLayer(
       id = "amtrak-routes",
       source = amtrakRoutes,
@@ -74,13 +74,13 @@ fun Layers() {
           20 to const(22.dp),
         ),
     )
-    // -8<- [end:amtrak-2]
+    // #endregion amtrak-2
 
-    // -8<- [start:anchors]
+    // #region anchors
     Anchor.Above("road_motorway") { LineLayer(id = "amtrak-routes", source = amtrakRoutes) }
-    // -8<- [end:anchors]
+    // #endregion anchors
 
-    // -8<- [start:interaction]
+    // #region interaction
     CircleLayer(
       id = "amtrak-stations",
       source = amtrakStations,
@@ -89,10 +89,10 @@ fun Layers() {
         ClickResult.Consume
       },
     )
-    // -8<- [end:interaction]
+    // #endregion interaction
   }
 
-  // -8<- [start:synchronous-geojson-updates]
+  // #region synchronous-geojson-updates
   val livePositions =
     rememberGeoJsonSource(
       data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
@@ -102,5 +102,5 @@ fun Layers() {
   // Use this only for small, frequently updated in-memory GeoJSON sources.
   // Synchronous updates can reduce update latency, but may reduce frame rate.
   CircleLayer(id = "live-positions", source = livePositions)
-  // -8<- [end:synchronous-geojson-updates]
+  // #endregion synchronous-geojson-updates
 }

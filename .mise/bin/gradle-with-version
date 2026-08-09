@@ -18,5 +18,5 @@ while IFS= read -r flag; do
   fi
 done <<<"$flags_text"
 
-cd "${MISE_PROJECT_ROOT:-$(cd "$script_dir/../.." && pwd)}"
+cd "${MISE_MONOREPO_ROOT:-${MISE_PROJECT_ROOT:-$(cd "$script_dir/../.." && pwd)}}"
 exec ./gradlew "$@" "${flags[@]}"

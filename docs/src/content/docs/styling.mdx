@@ -1,4 +1,12 @@
-# Styling the map
+---
+title: Styling the map
+description: Choose a style for the map, switch it at runtime, or load one from app resources.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import { region } from "../../snippets";
+
+import styling from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt?raw";
 
 ## Acquiring a style
 
@@ -19,9 +27,7 @@ styles.
 To use a style, you can pass the `BaseStyle` of your chosen style to the
 `MaplibreMap` composable:
 
-```kotlin
--8<- "demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt:simple"
-```
+<Code code={region(styling, "simple")} lang="kotlin" />
 
 ## Dark mode
 
@@ -29,21 +35,21 @@ You can select a style at runtime based on regular Compose logic. MapLibre will
 automatically animate the transition between styles. This is handy if you have a
 light and a dark mode style:
 
-```kotlin
--8<- "demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt:dynamic"
-```
+<Code code={region(styling, "dynamic")} lang="kotlin" />
 
 ## Local styles
 
 While styles are typically hosted on the internet, you can also load a local
 style with [Compose Multiplatform resources][resources]:
 
-```kotlin
--8<- "demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Styling.kt:local"
-```
+<Code code={region(styling, "local")} lang="kotlin" />
 
 [maputnik]: https://maputnik.github.io/
+
 [awesome-maplibre]: https://github.com/maplibre/awesome-maplibre#maptile-providers
+
 [openfreemap]: https://openfreemap.org/
+
 [protomaps]: https://protomaps.com/
+
 [resources]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-resources.html

@@ -6,7 +6,7 @@ description: Writing style and structure for prose in this repository — docume
 # Writing
 
 The sentence rules cover prose everywhere in the repository. The page structure
-rules cover everything under `docs/docs/`.
+rules cover everything under `docs/src/content/docs/`.
 
 ## Readers
 

@@ -7,7 +7,7 @@ import org.maplibre.compose.desktop.ProvideMapHost
 import org.maplibre.compose.desktop.desktopCachePath
 import org.maplibre.compose.desktop.rememberAwtComposeGpuHost
 
-// -8<- [start:main]
+// #region main
 fun main() {
   MapLibre.configure(
     DesktopRuntimeOptions(cachePath = desktopCachePath("org.maplibre.compose.demoapp"))
@@ -15,4 +15,4 @@ fun main() {
   singleWindowApplication { ProvideMapHost(host = rememberAwtComposeGpuHost(window)) { DemoApp() } }
 }
 
-// -8<- [end:main]
+// #endregion main

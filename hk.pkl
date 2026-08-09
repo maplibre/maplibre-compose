@@ -36,8 +36,15 @@ local lintSteps = new Mapping<String, Step> {
   }
   ["jvl"] {
     glob = List("**/*.json", "**/*.jsonc")
-    exclude = List("demo-app/common/src/commonMain/composeResources/files/**")
+    exclude = List("demo-app/common/src/commonMain/composeResources/files/**", "docs/src/generated/**")
     check = "jvl check {{files}}"
+  }
+  // dprint owns formatting, hence --no-fmt.
+  ["vp-check"] {
+    glob = List("**/*.js", "**/*.mjs", "**/*.cjs", "**/*.ts", "**/*.mts", "**/*.cts", "**/*.astro")
+    exclude = List("kotlin-js-store/**")
+    check = "pnpm exec vp check --no-fmt {{files}}"
+    fix = "pnpm exec vp check --no-fmt --fix {{files}}"
   }
 }
 

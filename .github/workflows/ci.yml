@@ -27,6 +27,7 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           dprint-cache: "true"
+          pnpm-cache: "true"
           save-toolchains: "true"
       - run: mise run fix
       - name: Check formatted files
@@ -160,11 +161,11 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
         with:
-          python-cache: "true"
+          pnpm-cache: "true"
       - run: mise run build:docs
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
-          path: build/docs
+          path: docs/dist
 
   all-good:
     needs:

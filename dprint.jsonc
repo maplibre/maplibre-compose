@@ -10,6 +10,12 @@
     "**/build",
     "**/.gradle",
     "**/.kotlin",
+    "**/node_modules",
+    "**/dist",
+    "**/.astro",
+    "docs/public/api",
+    "docs/src/generated",
+    "pnpm-lock.yaml",
     "kotlin-js-store",
     "**/*.api",
     // Vendored: third-party sources committed as-is.
@@ -31,6 +37,11 @@
       {
         "command": "bash .mise/bin/dprint-swiftformat stdin --stdin-path {{file_path}} --indent {{indent_width}} --max-width {{line_width}} --quiet",
         "exts": ["swift"],
+      },
+      {
+        "command": "bash .mise/bin/dprint-mdxlint {{file_path}}",
+        "exts": ["mdx"],
+        "cacheKeyFiles": ["pnpm-lock.yaml"],
       },
     ],
   },
