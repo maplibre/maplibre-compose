@@ -38,6 +38,8 @@ export function publicDirectoryIndex(base: string): AstroIntegration {
             return;
           }
 
+          // Vite strips the base before this stack runs, so `decoded` is
+          // already relative to `public/`. Only the redirect below needs it back.
           const target = path.join(publicDir, decoded);
           if (!target.startsWith(publicDir + path.sep)) {
             next();
