@@ -90,6 +90,14 @@ runs:
         build-scan-publish: true
         build-scan-terms-of-use-url: https://gradle.com/terms-of-service
         build-scan-terms-of-use-agree: "yes"
+        add-job-summary: never
+
+    # setup-gradle's build-result listener only supplies reporting metadata.
+    # Keep its Gradle User Home caching without adding a listener to every build.
+    - name: Disable Gradle build result capture
+      if: ${{ inputs.gradle == 'true' }}
+      shell: pwsh
+      run: '"GRADLE_ACTIONS_SKIP_BUILD_RESULT_CAPTURE=true" >> $env:GITHUB_ENV'
 
     # Roughly a gigabyte, and outside the Gradle user home. Its version tracks
     # Kotlin's, which is what the key hashes.
