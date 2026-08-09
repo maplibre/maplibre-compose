@@ -104,6 +104,10 @@ run = '.mise/bin/boot-android-emulator "$usage_api_level"'
 description = "Stop the Android emulator started by mise."
 run = ".mise/bin/stop-android-emulator"
 
+[tasks."android-emulator:diagnostics"]
+description = "Capture bounded diagnostics from the Android emulator."
+run = ".mise/bin/capture-android-emulator-diagnostics"
+
 [tasks."test:android:device"]
 description = "Run the Android instrumented test suite on an emulator."
 usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'

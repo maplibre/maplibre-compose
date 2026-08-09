@@ -57,7 +57,23 @@ jobs:
         with:
           android-emulator: ${{ matrix.api-level }}
       - run: mise run test:android
-      - run: mise run test:android:device ${{ matrix.api-level }}
+      - id: android-device-tests
+        run: mise run test:android:device ${{ matrix.api-level }}
+      - name: Capture Android emulator diagnostics
+        if: ${{ failure() && steps.android-device-tests.outcome == 'failure' }}
+        run: mise run android-emulator:diagnostics
+      - name: Upload Android emulator diagnostics
+        if: ${{ failure() && steps.android-device-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: error
+          name: android-${{ matrix.api-level }}-diagnostics
+          path: |
+            build/android-emulator/avd/**/*.ini
+            build/android-emulator/diagnostics
+            build/android-emulator/emulator.log
+            **/build/outputs/androidTest-results
+            **/build/reports/androidTests
       - if: ${{ matrix.artifact_name != '' }}
         run: mise run build:android-app
       - if: ${{ matrix.artifact_name != '' }}
