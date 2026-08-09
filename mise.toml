@@ -148,7 +148,7 @@ run = "./gradlew jsBrowserTest"
 
 [tasks."test:desktop"]
 description = "Run the desktop (JVM) test suite against a real Vulkan or Metal device."
-run = "./gradlew desktopTest"
+run = "./gradlew jvmTest"
 
 [tasks."build:docs"]
 description = "Build the documentation site and the Dokka API reference into docs/dist."

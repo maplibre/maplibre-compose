@@ -23,7 +23,7 @@ kotlin {
     it.configureSpmMaplibre(project)
   }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
+  jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js(IR) {
     browser { commonWebpackConfig { outputFileName = "app.js" } }
@@ -39,7 +39,7 @@ kotlin {
   }
 
   sourceSets {
-    val desktopMain by getting
+    val jvmMain by getting
 
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
@@ -111,7 +111,7 @@ kotlin {
       dependencies { implementation(libs.ktor.client.darwin) }
     }
 
-    desktopMain.apply {
+    jvmMain.apply {
       dependsOn(maplibreNativeShared)
       dependsOn(nonAndroidShared)
       dependsOn(desktopJsShared)

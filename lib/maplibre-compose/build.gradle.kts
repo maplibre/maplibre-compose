@@ -32,14 +32,14 @@ kotlin {
     it.configureSpmMaplibre(project)
   }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
+  jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js(IR) { browser() }
 
   applyDefaultHierarchyTemplate()
 
   sourceSets {
-    val desktopMain by getting
+    val jvmMain by getting
 
     listOf(iosMain, iosArm64Main, iosSimulatorArm64Main).forEach {
       it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
@@ -58,7 +58,7 @@ kotlin {
     // (e.g. all but Android, which is backed by the Android Canvas API)
     create("skiaMain") {
       dependsOn(commonMain.get())
-      desktopMain.dependsOn(this)
+      jvmMain.dependsOn(this)
       iosMain.get().dependsOn(this)
       jsMain.get().dependsOn(this)
     }
@@ -76,7 +76,7 @@ kotlin {
     // MapLibre Android and iOS SDKs. Desktop is its only target today.
     create("mlnFfiShared") {
       dependsOn(maplibreNativeMain)
-      desktopMain.dependsOn(this)
+      jvmMain.dependsOn(this)
       dependencies {
         // Backend-independent binding only; the application selects the native runtime.
         implementation(libs.maplibre.nativeFfi)
@@ -92,7 +92,7 @@ kotlin {
       }
     }
 
-    desktopMain.apply {
+    jvmMain.apply {
       dependencies {
         implementation(compose.desktop.currentOs)
 
@@ -119,13 +119,13 @@ kotlin {
     // runtime, render-host, storage, and Compose-runner adapters.
     create("mlnFfiSharedTest") {
       dependsOn(commonTest.get())
-      getByName("desktopTest").dependsOn(this)
+      getByName("jvmTest").dependsOn(this)
     }
 
     // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
     // test process; a CI matrix adds processes for additional applicable backends.
-    val desktopTest by getting
-    desktopTest.dependencies {
+    val jvmTest by getting
+    jvmTest.dependencies {
       // Only the EGL interop test binds EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
     }
@@ -139,7 +139,7 @@ kotlin {
   }
 }
 
-configurations.named("desktopTestRuntimeOnly") {
+configurations.named("jvmTestRuntimeOnly") {
   dependencies.addAllLater(
     providers.provider {
       val platform = DesktopHostPlatform.current()
