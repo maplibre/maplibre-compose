@@ -24,7 +24,7 @@ kotlin {
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
-  js(IR) { browser() }
+  js { browser() }
 
   applyDefaultHierarchyTemplate()
 

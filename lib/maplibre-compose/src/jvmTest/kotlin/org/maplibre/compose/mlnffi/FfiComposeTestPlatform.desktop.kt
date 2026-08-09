@@ -10,6 +10,9 @@ import org.maplibre.compose.map.LocalMlnFfiMapHostFactory
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
+// The v2 runner queues coroutines instead of running them eagerly, which times the gesture tests
+// out on macOS. Migrate the whole test suite at once, in #861.
+@Suppress("DEPRECATION")
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
   try {
