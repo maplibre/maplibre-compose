@@ -18,7 +18,7 @@ mavenPublishing {
 }
 
 kotlin {
-  androidLibrary { namespace = "org.maplibre.compose" }
+  android { namespace = "org.maplibre.compose" }
 
   listOf(iosArm64(), iosSimulatorArm64()).forEach {
     it.compilations.getByName("main") {

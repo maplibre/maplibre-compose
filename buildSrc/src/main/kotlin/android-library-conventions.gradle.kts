@@ -6,7 +6,7 @@ plugins {
 
 kotlin {
   @Suppress("UnstableApiUsage")
-  androidLibrary {
+  android {
     minSdk = catalogVersionInt("android-minSdk")
     compileSdk = catalogVersionInt("android-compileSdk")
 
