@@ -116,12 +116,12 @@ internal object SkikoReflection {
   private fun findComposeWindowSkiaLayer(window: Window): Any? {
     if (window.javaClass.name != COMPOSE_WINDOW_CLASS) return null
     return runCatching {
-        val composePanel = window.getField("composePanel") ?: return@runCatching null
-        val content =
-          composePanel.invokeDeclaredNoArg("getContentComponent") ?: return@runCatching null
-        if (isSkiaLayer(content)) content
-        else (content as? Component)?.walkComponents()?.firstOrNull { isSkiaLayer(it) }
-      }
+      val composePanel = window.getField("composePanel") ?: return@runCatching null
+      val content =
+        composePanel.invokeDeclaredNoArg("getContentComponent") ?: return@runCatching null
+      if (isSkiaLayer(content)) content
+      else (content as? Component)?.walkComponents()?.firstOrNull { isSkiaLayer(it) }
+    }
       .getOrNull()
   }
 

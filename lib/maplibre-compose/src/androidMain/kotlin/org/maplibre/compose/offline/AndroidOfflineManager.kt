@@ -65,23 +65,22 @@ internal class AndroidOfflineManager @UiThread internal constructor(context: Con
   override suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray,
-  ): org.maplibre.compose.offline.OfflinePack =
-    suspendCoroutine { continuation ->
-        impl.createOfflineRegion(
-          definition = definition.toMLNOfflineRegionDefinition(pixelRatio),
-          metadata = metadata,
-          callback =
-            object : MLNOfflineManager.CreateOfflineRegionCallback {
-              override fun onCreate(offlineRegion: OfflineRegion) {
-                continuation.resume(OfflinePack.getInstance(offlineRegion))
-              }
+  ): org.maplibre.compose.offline.OfflinePack = suspendCoroutine { continuation ->
+    impl.createOfflineRegion(
+      definition = definition.toMLNOfflineRegionDefinition(pixelRatio),
+      metadata = metadata,
+      callback =
+        object : MLNOfflineManager.CreateOfflineRegionCallback {
+          override fun onCreate(offlineRegion: OfflineRegion) {
+            continuation.resume(OfflinePack.getInstance(offlineRegion))
+          }
 
-              override fun onError(error: String) =
-                continuation.resumeWithException(OfflineManagerException(error))
-            },
-        )
-      }
-      .also { packsState.value += it }
+          override fun onError(error: String) =
+            continuation.resumeWithException(OfflineManagerException(error))
+        },
+    )
+  }
+    .also { packsState.value += it }
 
   override fun resume(pack: org.maplibre.compose.offline.OfflinePack) =
     pack.impl.setDownloadState(OfflineRegion.STATE_ACTIVE)
@@ -91,21 +90,21 @@ internal class AndroidOfflineManager @UiThread internal constructor(context: Con
 
   override suspend fun delete(pack: org.maplibre.compose.offline.OfflinePack): Unit =
     suspendCoroutine { continuation ->
-        pack.impl.delete(
-          object : OfflineRegion.OfflineRegionDeleteCallback {
-            override fun onDelete() {
-              continuation.resume(Unit)
-            }
-
-            override fun onError(error: String) =
-              continuation.resumeWithException(OfflineManagerException(error))
+      pack.impl.delete(
+        object : OfflineRegion.OfflineRegionDeleteCallback {
+          override fun onDelete() {
+            continuation.resume(Unit)
           }
-        )
-      }
-      .also {
-        packsState.value -= pack
-        OfflinePack.dispose(pack)
-      }
+
+          override fun onError(error: String) =
+            continuation.resumeWithException(OfflineManagerException(error))
+        }
+      )
+    }
+    .also {
+      packsState.value -= pack
+      OfflinePack.dispose(pack)
+    }
 
   override suspend fun invalidate(pack: org.maplibre.compose.offline.OfflinePack) =
     suspendCoroutine { continuation ->

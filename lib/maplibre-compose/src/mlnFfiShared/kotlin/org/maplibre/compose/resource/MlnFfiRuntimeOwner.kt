@@ -44,12 +44,12 @@ private constructor(
       // MapLibre opens the database as the runtime is created, and fails if the directory is
       // missing.
       runCatching {
-          cacheFile.parentFile?.let { directory ->
-            check(directory.mkdirs() || directory.isDirectory) {
-              "Could not create the MapLibre cache directory $directory"
-            }
+        cacheFile.parentFile?.let { directory ->
+          check(directory.mkdirs() || directory.isDirectory) {
+            "Could not create the MapLibre cache directory $directory"
           }
         }
+      }
         .onFailure { getLogger()?.w(it) { "Could not create the MapLibre cache directory" } }
 
       val runtime =
