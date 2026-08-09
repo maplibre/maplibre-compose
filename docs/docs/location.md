@@ -44,7 +44,7 @@ rotates only the puck indicator, while `LocationTrackingEffect` and
 ### Implementation
 
 ```kotlin
--8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Location.kt:puck"
+-8<- "demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Location.kt:puck"
 ```
 
 ### Customizing the puck

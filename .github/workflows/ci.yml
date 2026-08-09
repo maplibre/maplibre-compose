@@ -65,7 +65,7 @@ jobs:
         with:
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
-          path: demo-app/build/outputs/apk/debug/demo-app-debug.apk
+          path: demo-app/android/build/outputs/apk/debug/android-debug.apk
 
   ios:
     timeout-minutes: 45
@@ -88,6 +88,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
       - run: mise run test:js
+      - run: mise run build:web-app
 
   desktop:
     strategy:
@@ -131,7 +132,7 @@ jobs:
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}
           path:
-            "demo-app/build/compose/binaries/main/${{ matrix.artifact_type }}/*"
+            "demo-app/desktop/build/compose/binaries/main/${{ matrix.artifact_type }}/*"
 
   docs:
     timeout-minutes: 30

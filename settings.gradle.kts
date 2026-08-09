@@ -34,7 +34,10 @@ dependencyResolutionManagement {
 include(
   ":",
   ":demo-app",
-  ":glfw-fixture",
+  ":demo-app:common",
+  ":demo-app:android",
+  ":demo-app:desktop",
+  ":demo-app:desktop-glfw",
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",

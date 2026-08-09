@@ -36,7 +36,7 @@ local lintSteps = new Mapping<String, Step> {
   }
   ["jvl"] {
     glob = List("**/*.json", "**/*.jsonc")
-    exclude = List("demo-app/src/commonMain/composeResources/files/**")
+    exclude = List("demo-app/common/src/commonMain/composeResources/files/**", "**/node_modules/**")
     check = "jvl check {{files}}"
   }
 }

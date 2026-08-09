@@ -31,6 +31,7 @@ java_version = "zulu-25.36.15.0"
 jvl_version = "2026.05.03"
 ktfmt_version = "0.64"
 node_version = "24.19.0"
+pnpm_version = "11.9.0"
 python_version = "3.14.7"
 ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
@@ -50,6 +51,9 @@ xcodes_version = "2.0.3"
 
 # For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
 "core:node" = "{{vars.node_version}}"
+
+# The package manager for the workspace in package.json, which the web demo lives in.
+"aqua:pnpm/pnpm" = "{{vars.pnpm_version}}"
 
 # The MkDocs Gradle plugin builds its virtualenv from whichever Python it finds.
 "core:python" = "{{vars.python_version}}"
@@ -71,10 +75,6 @@ run = "hk check --all"
 [tasks.fix]
 description = "Apply every formatter and auto-fixable lint."
 run = "hk fix --all"
-
-[tasks.build]
-description = "Build every module for every target available on this host."
-run = "./gradlew build"
 
 [tasks.clean]
 description = "Remove every Gradle build output."
@@ -140,7 +140,16 @@ run = "./gradlew packageDebug"
 
 [tasks."build:desktop-app"]
 description = "Package the demo app as a native installer for this host."
-run = "./gradlew :demo-app:packageDistributionForCurrentOS"
+run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
+
+[tasks."pnpm-install"]
+description = "Install the npm workspace dependencies. pnpm freezes the lockfile on CI."
+run = "pnpm install"
+
+[tasks."build:web-app"]
+description = "Build the demo app into a static site in demo-app/web/build/dist."
+depends = ["pnpm-install"]
+run = "pnpm --filter maplibre-compose-demo-web run build"
 
 [tasks."demo:android"]
 description = "Install the demo app on a connected Android device or emulator."
@@ -149,19 +158,20 @@ flag "--flavor <flavor>" default="default" {
   choices "default" "opengl" "vulkan" "debug"
 }
 '''
-run = './gradlew :demo-app:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"'
+run = './gradlew :demo-app:android:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"'
 
 [tasks."demo:desktop"]
 description = "Run the demo app on this host."
-run = "./gradlew :demo-app:run"
+run = "./gradlew :demo-app:desktop:run"
 
-[tasks."demo:js"]
-description = "Run the demo app in a browser."
-run = "./gradlew :demo-app:jsBrowserDevelopmentRun"
+[tasks."demo:web"]
+description = "Serve the demo app in a browser."
+depends = ["pnpm-install"]
+run = "pnpm --filter maplibre-compose-demo-web run dev"
 
-[tasks."run:glfw-fixture"]
-description = "Run the compose-glfw desktop host fixture."
-run = "./gradlew :glfw-fixture:runGlfwFixture"
+[tasks."demo:desktop-glfw"]
+description = "Run the demo app on the compose-glfw desktop host instead of the AWT one."
+run = "./gradlew :demo-app:desktop-glfw:run"
 
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."

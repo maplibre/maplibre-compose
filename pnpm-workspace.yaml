@@ -1,0 +1,5 @@
+packages:
+  - demo-app/web
+# Vite's bundler; its install script links the binary for this platform.
+allowBuilds:
+  esbuild: true

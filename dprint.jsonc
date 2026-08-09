@@ -11,13 +11,15 @@
     "**/.gradle",
     "**/.kotlin",
     "kotlin-js-store",
+    "**/node_modules",
+    "pnpm-lock.yaml",
     "**/*.api",
     // Vendored: third-party sources committed as-is.
-    "demo-app/src/commonMain/composeResources/files/**",
+    "demo-app/common/src/commonMain/composeResources/files/**",
     "gradlew",
     "gradlew.bat",
     // Xcode rewrites these in its own style, so formatting them fights it.
-    "iosApp/**/*.xcassets/**",
+    "demo-app/ios/**/*.xcassets/**",
   ],
   "json": { "preferSingleLine": true },
   "markdown": { "textWrap": "always" },
