@@ -20,7 +20,7 @@ import org.maplibre.spatialk.geojson.toJson
 
 @Composable
 fun Interaction() {
-  // -8<- [start:common-gesture-ornament]
+  // #region common-gesture-ornament
   MaplibreMap(
     options =
       MapOptions(
@@ -28,9 +28,9 @@ fun Interaction() {
         ornamentOptions = OrnamentOptions.OnlyLogo,
       )
   )
-  // -8<- [end:common-gesture-ornament]
+  // #endregion common-gesture-ornament
 
-  // -8<- [start:gesture-settings]
+  // #region gesture-settings
   MaplibreMap(
     options =
       MapOptions(
@@ -43,9 +43,9 @@ fun Interaction() {
           )
       )
   )
-  // -8<- [end:gesture-settings]
+  // #endregion gesture-settings
 
-  // -8<- [start:ornament-settings]
+  // #region ornament-settings
   MaplibreMap(
     options =
       MapOptions(
@@ -63,18 +63,18 @@ fun Interaction() {
           )
       )
   )
-  // -8<- [end:ornament-settings]
+  // #endregion ornament-settings
 
-  // -8<- [start:camera]
+  // #region camera
   val camera =
     rememberCameraState(
       firstPosition =
         CameraPosition(target = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0)
     )
   MaplibreMap(cameraState = camera)
-  // -8<- [end:camera]
+  // #endregion camera
 
-  // -8<- [start:camera-animate]
+  // #region camera-animate
   LaunchedEffect(Unit) {
     camera.animateTo(
       finalPosition =
@@ -82,9 +82,9 @@ fun Interaction() {
       duration = 3.seconds,
     )
   }
-  // -8<- [end:camera-animate]
+  // #endregion camera-animate
 
-  // -8<- [start:click-listeners]
+  // #region click-listeners
   MaplibreMap(
     cameraState = camera,
     onMapClick = { pos, offset ->
@@ -101,5 +101,5 @@ fun Interaction() {
       ClickResult.Pass
     },
   )
-  // -8<- [end:click-listeners]
+  // #endregion click-listeners
 }

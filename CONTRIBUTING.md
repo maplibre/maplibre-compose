@@ -156,19 +156,25 @@ the device.
 
 ## Building documentation
 
-`mise run build:docs` builds the MkDocs site and the Dokka API reference into
-`build/docs`.
+`mise run build:docs` builds the Starlight site and the Dokka API reference into
+`docs/dist`. `mise run //docs:dev` serves the same site with live reload.
 
-Use the task rather than Gradle directly. It passes the versions derived from
-the Git tags, which the site prints as the coordinates to depend on; Gradle on
-its own uses the `0.0.0` placeholders from `gradle.properties`.
+The site is a pnpm workspace and its own mise config root, so its tasks run as
+`//docs:<task>`. `//docs:api` generates the Dokka reference into
+`docs/public/api/`, and `//docs:versions` writes the versions the pages quote
+into `docs/src/generated/versions.json`. Both are generated rather than checked
+in, and the `dev`, `build`, and `preview` tasks depend on them.
+
+Use the tasks rather than Astro or Gradle directly. They pass the versions
+derived from the Git tags, which the site prints as the coordinates to depend
+on; Gradle on its own uses the `0.0.0` placeholders from `gradle.properties`.
 
 ## Make CI happy
 
 `mise run check` reports problems and `mise run fix` rewrites what it can.
 Between them they cover dprint, actionlint, ruff, shellcheck, the GitHub Actions
-pins catalog, and JSON schema validation. `mise run lint:android` runs Android
-Lint, which CI runs in the same job.
+pins catalog, JSON schema validation, and the documentation site's type check.
+`mise run lint:android` runs Android Lint, which CI runs in the same job.
 
 A Git pre-commit hook runs the same steps against your staged files. `mise`
 installs it for you. Remove it with:

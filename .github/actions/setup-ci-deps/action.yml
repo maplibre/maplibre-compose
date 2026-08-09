@@ -19,10 +19,10 @@ inputs:
       boots none. Grants KVM access and caches the emulator and system image.
     required: false
     default: ""
-  python-cache:
+  pnpm-cache:
     description: >-
-      Restore and save pip's download cache. Only the jobs that build the
-      documentation ask for it.
+      Restore and save pnpm's content-addressable store. Only the jobs that
+      build the documentation ask for it.
     required: false
     default: "false"
   dprint-cache:
@@ -161,19 +161,19 @@ runs:
           ~/AppData/Local/mise
         key: ${{ steps.toolchain-key.outputs.key }}
 
-    # The MkDocs plugin builds a virtualenv from scratch on every run. Caching
-    # pip's downloads keeps that off the network; the venv itself is disposable.
-    - name: Pin the pip download cache
-      if: ${{ inputs.python-cache == 'true' }}
+    # The workspace install is a fresh node_modules on every run. Caching the
+    # store keeps that off the network; node_modules itself is disposable.
+    - name: Pin the pnpm store
+      if: ${{ inputs.pnpm-cache == 'true' }}
       shell: bash
-      run: echo "PIP_CACHE_DIR=$HOME/.ci-package-cache/pip" >> "$GITHUB_ENV"
+      run: echo "npm_config_store_dir=$HOME/.ci-package-cache/pnpm" >> "$GITHUB_ENV"
 
     - name: Cache package downloads
-      if: ${{ inputs.python-cache == 'true' }}
+      if: ${{ inputs.pnpm-cache == 'true' }}
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.ci-package-cache
-        key: pkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+        key: pkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
         restore-keys: |
           pkg-v1-${{ runner.os }}-${{ runner.arch }}-
 

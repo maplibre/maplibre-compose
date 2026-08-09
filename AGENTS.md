@@ -34,16 +34,20 @@ To compile one module, name its task:
 - **Android Lint:** `mise run lint:android`
 
 dprint formats every language in the repository, configured in `dprint.jsonc`.
-hk runs it, and runs actionlint, ruff, shellcheck, the Actions pins check, and
-JSON schema validation. `hk.pkl` lists the steps.
+hk runs it, and runs actionlint, ruff, shellcheck, the Actions pins check, JSON
+schema validation, and the documentation site's type check. `hk.pkl` lists the
+steps.
 
 ### Documentation
 
-- **Generate docs:** `mise run build:docs` (MkDocs site and Dokka API reference)
+- **Generate docs:** `mise run build:docs` (Starlight site and Dokka API
+  reference, into `docs/dist`)
+- **Serve docs:** `mise run //docs:dev`
 
-Build the docs through the task. It passes the versions derived from the Git
-tags, which the site prints as the coordinates to depend on; Gradle on its own
-uses the `0.0.0` placeholders from `gradle.properties`.
+The site is a pnpm workspace and its own mise config root, so its tasks run as
+`//docs:<task>`. Build the docs through a task. It passes the versions derived
+from the Git tags, which the site prints as the coordinates to depend on; Gradle
+on its own uses the `0.0.0` placeholders from `gradle.properties`.
 
 ### Material Symbols
 

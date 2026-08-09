@@ -22,7 +22,7 @@ import org.maplibre.compose.style.rememberStyleState
 
 @Composable
 fun Material3() {
-  // -8<- [start:controls]
+  // #region controls
   val cameraState = rememberCameraState()
   val styleState = rememberStyleState()
 
@@ -44,9 +44,9 @@ fun Material3() {
       )
     }
   }
-  // -8<- [end:controls]
+  // #endregion controls
 
-  // -8<- [start:disappearing-controls]
+  // #region disappearing-controls
   Box(modifier = Modifier.fillMaxSize()) {
     MaplibreMap(
       cameraState = cameraState,
@@ -69,5 +69,5 @@ fun Material3() {
       )
     }
   }
-  // -8<- [end:disappearing-controls]
+  // #endregion disappearing-controls
 }

@@ -35,7 +35,6 @@ spatialk = "0.7.0"
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.2.0"
 gradle-mavenPublish = "0.37.0"
-gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "1.9.4"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
@@ -109,5 +108,4 @@ kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "gradle-kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "gradle-kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "gradle-kotlin" }
 mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "gradle-mavenPublish" }
-mkdocs = { id = "ru.vyarus.mkdocs-build", version.ref = "gradle-mkdocs" }
 spmForKmp = { id = "io.github.frankois944.spmForKmp", version.ref = "gradle-spmForKmp" }

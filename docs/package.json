@@ -1,0 +1,25 @@
+{
+  "name": "docs",
+  "type": "module",
+  "private": "true",
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro build",
+    "preview": "astro preview"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.41.6",
+    "@fontsource/alata": "^5.3.0",
+    "astro": "^7.1.6",
+    "sharp": "^0.35.3",
+    "starlight-copy-button": "github:dionysuzx/starlight-copy-button",
+    "starlight-links-validator": "^0.25.2"
+  },
+  "devDependencies": {
+    "mdxlint": "1.0.0",
+    "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
+    "smol-toml": "^1.4.2",
+    "unist-util-visit": "^5.1.0"
+  }
+}

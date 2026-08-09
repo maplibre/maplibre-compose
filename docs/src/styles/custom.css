@@ -1,0 +1,36 @@
+@import "@fontsource/alata/400.css";
+
+/* Dark mode colors. */
+:root {
+  --sl-color-accent-low: #19345f;
+  --sl-color-accent: #95befa;
+  --sl-color-accent-high: #dceaff;
+  --sl-color-white: #ffffff;
+  --sl-color-gray-1: #f4f8ff;
+  --sl-color-gray-2: #c9d5e8;
+  --sl-color-gray-3: #9aa7bc;
+  --sl-color-gray-4: #5e6b82;
+  --sl-color-gray-5: #2a374d;
+  --sl-color-gray-6: #172033;
+  --sl-color-black: #111725;
+}
+/* Light mode colors. */
+:root[data-theme="light"] {
+  --sl-color-accent-low: #dbe9ff;
+  --sl-color-accent: #285daa;
+  --sl-color-accent-high: #263f75;
+  --sl-color-white: #111725;
+  --sl-color-gray-1: #172033;
+  --sl-color-gray-2: #2f3b50;
+  --sl-color-gray-3: #546176;
+  --sl-color-gray-4: #7f8ca1;
+  --sl-color-gray-5: #b8c6dc;
+  --sl-color-gray-6: #e8f1ff;
+  --sl-color-gray-7: #f7faff;
+  --sl-color-black: #ffffff;
+}
+
+.site-title {
+  font-family: "Alata", var(--sl-font-system);
+  font-weight: 400;
+}

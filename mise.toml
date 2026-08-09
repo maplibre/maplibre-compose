@@ -1,5 +1,6 @@
 # https://mise.jdx.dev
 
+monorepo_root = true
 min_version = "2026.7.15"
 
 [settings]
@@ -18,7 +19,17 @@ activate_aggressive = true
 # Installing an SDK package accepts its license, so it is never a side effect.
 auto_install_disable_tools = ["android-sdk"]
 
+# The documentation site is its own config root, so its tasks and its Node
+# dependencies live beside it and run as `//docs:<task>`.
+[monorepo]
+config_roots = ["docs"]
+lockfile = true
+
+# Inline task scripts are Bash everywhere. Cascading gives each config root the
+# same contract without repeating it, and keeps the choice scoped to tasks:
+# hooks, tool installs, and dependency providers still use the platform shell.
 [task_config]
+cascade = true
 shell = "bash -e -c"
 
 [vars]
@@ -31,6 +42,7 @@ java_version = "zulu-25.36.15.0"
 jvl_version = "2026.05.03"
 ktfmt_version = "0.64"
 node_version = "24.19.0"
+pnpm_version = "10.33.2"
 python_version = "3.14.7"
 ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
@@ -48,10 +60,12 @@ xcodes_version = "2.0.3"
 "core:java" = "{{vars.java_version}}"
 "aqua:facebook/ktfmt" = "{{vars.ktfmt_version}}"
 
-# For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
+# For the pnpm workspace and tooling outside Gradle; Kotlin/JS brings its own
+# Node and Yarn.
 "core:node" = "{{vars.node_version}}"
+"aqua:pnpm/pnpm" = "{{vars.pnpm_version}}"
 
-# The MkDocs Gradle plugin builds its virtualenv from whichever Python it finds.
+# Runs the Python file tasks under .mise/tasks/.
 "core:python" = "{{vars.python_version}}"
 
 # Upstream ships Windows as an MSI only, which this backend cannot unpack, and
@@ -64,13 +78,26 @@ swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nick
 [hooks]
 postinstall = ["hk install --mise --quiet"]
 
+# The built-in provider runs pnpm directly. A `run` script would put a shell
+# between mise and pnpm, and on Windows the lifecycle scripts pnpm spawns
+# through cmd then fail to resolve mise's node.
+[deps.pnpm]
+auto = true
+
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."
-run = "hk check --all"
+# The type checker reads the types Astro generates, so sync them first.
+run = '''
+mise run //docs:install
+hk check --all
+'''
 
 [tasks.fix]
 description = "Apply every formatter and auto-fixable lint."
-run = "hk fix --all"
+run = '''
+mise run //docs:install
+hk fix --all
+'''
 
 [tasks.clean]
 description = "Remove every Gradle build output."
@@ -131,8 +158,8 @@ description = "Run the desktop (JVM) test suite against a real Vulkan or Metal d
 run = "./gradlew desktopTest"
 
 [tasks."build:docs"]
-description = "Build the MkDocs site and the Dokka API reference into build/docs."
-run = ".mise/bin/gradle-with-version build generateDocs"
+description = "Build the documentation site and the Dokka API reference into docs/dist."
+run = "mise run //docs:build"
 
 [tasks."build:android-app"]
 description = "Package the demo app as a debug APK."

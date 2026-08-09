@@ -1,4 +1,7 @@
-# Roadmap
+---
+title: Roadmap
+description: Projects underway and projects waiting for an interested contributor.
+---
 
 MapLibre Compose is still primarily developed by
 [one person](https://github.com/sargunv) in his spare time. Therefore, there are

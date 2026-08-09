@@ -20,7 +20,7 @@ import org.maplibre.compose.map.MaplibreMap
 // app, which the documentation covers in prose.
 @Suppress("MissingPermission")
 fun Location() {
-  // -8<- [start:puck]
+  // #region puck
   val cameraState = rememberCameraState()
 
   val locationProvider = rememberDefaultLocationProvider()
@@ -44,5 +44,5 @@ fun Location() {
       }
     }
   }
-  // -8<- [end:puck]
+  // #endregion puck
 }
