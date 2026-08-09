@@ -79,7 +79,6 @@ kotlin {
       implementation(libs.jetbrains.compose.material3)
       implementation(libs.jetbrains.compose.runtime)
       implementation(libs.jetbrains.compose.ui)
-      implementation(libs.jetbrains.compose.material.iconsExtended)
       implementation(libs.androidx.navigation.compose)
       implementation(libs.ktor.client.core)
       implementation(libs.ktor.client.contentNegotiation)
