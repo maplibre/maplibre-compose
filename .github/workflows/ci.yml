@@ -88,7 +88,6 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
       - run: mise run test:js
-      - run: mise run build:web-app
 
   desktop:
     strategy:

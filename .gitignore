@@ -23,7 +23,6 @@ demo-app/ios/DerivedData
 exportedSpmMaplibre
 out/
 .cache/
-node_modules/
 hs_err_*.log
 __pycache__/
 mise.local.toml

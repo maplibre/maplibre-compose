@@ -10,9 +10,6 @@ A task you run locally is the command CI runs. mise defines those tasks, pins
 every tool in `mise.toml`, and locks them per platform in `mise.lock`.
 `mise tasks` lists them all.
 
-Gradle builds every Kotlin module. pnpm builds the npm workspace declared in
-`pnpm-workspace.yaml`, which the web demo lives in.
-
 ### Building and running
 
 Run a mise task rather than `./gradlew build`. The aggregate Gradle task builds
@@ -22,9 +19,8 @@ for the change you made.
 
 - **Package the Android APK:** `mise run build:android-app`
 - **Package the desktop installer:** `mise run build:desktop-app`
-- **Build the web app:** `mise run build:web-app`
 - **Run desktop demo:** `mise run demo:desktop`
-- **Run web demo:** `mise run demo:web`
+- **Run web demo:** `mise run demo:js`
 - **Run the demo on the compose-glfw host:** `mise run demo:desktop-glfw`
 - **Clean build:** `mise run clean`
 
@@ -134,7 +130,10 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
     of its own so that its `MainDispatcherFactory`, which outranks
     `kotlinx-coroutines-swing`, stays off the AWT runtime classpath.
   - `ios`: An Xcode project that embeds the framework `common` produces
-  - `web`: A Vite site that serves the bundle `common` produces
+
+  The browser app has no module of its own. Its entry point and page live in
+  `common/src/jsMain`, because a Kotlin/JS module would have to be a second
+  Kotlin Multiplatform module.
 - **`buildSrc/`**: Custom Gradle build conventions
 
 ### Key packages
