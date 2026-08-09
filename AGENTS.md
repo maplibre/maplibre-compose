@@ -79,8 +79,7 @@ SDK.
 For a machine with no SDK, install the pinned SDK with
 `mise -E android install`. Run Android tasks in the same environment, such as
 `mise -E android run test:android`. The `android` environment sets
-`ANDROID_HOME` for each command. It stays opt-in because installing an SDK
-package accepts its license.
+`ANDROID_HOME` for each command.
 
 ### Testing
 
