@@ -36,7 +36,7 @@ spatialk = "0.7.0"
 gradle-dokka = "2.2.0"
 gradle-mavenPublish = "0.36.0"
 gradle-mkdocs = "4.0.1"
-gradle-spmForKmp = "1.9.1"
+gradle-spmForKmp = "1.9.4"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
