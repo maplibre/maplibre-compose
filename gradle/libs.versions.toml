@@ -14,35 +14,35 @@ java-desktopTarget = "25"
 # Regular libraries: keep as up to date as possible.
 accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
-androidx-activity = "1.11.0"
+androidx-activity = "1.13.0"
 bytesize = "2.2.1"
 composeGlfw = "0.2.0"
-htmlConverterCompose = "1.1.0"
+htmlConverterCompose = "1.1.1"
 kermit = "2.1.0"
-kotlin-wrappers = "2026.4.13"
-kotlinx-coroutines = "1.10.2"
+kotlin-wrappers = "2026.8.0"
+kotlinx-coroutines = "1.11.0"
 ktor = "3.5.2"
 lifecycleRuntimeCompose = "2.10.0"
-lwjgl = "3.4.1"
+lwjgl = "3.4.2"
 maplibre-android-sdk = "13.0.2"
 maplibre-android-plugins = "3.0.2"
 maplibre-ios = "6.25.1"
 maplibre-js = "5.12.0"
 maplibre-nativeFfi = "0.202608.0"
-playServices-location = "21.3.0"
+playServices-location = "21.4.0"
 spatialk = "0.7.0"
 
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.2.0"
-gradle-mavenPublish = "0.36.0"
+gradle-mavenPublish = "0.37.0"
 gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "1.9.4"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
 gradle-compose = "1.11.1"
-androidx-compose = "1.10.5"
-jetbrains-compose-material3 = "1.10.0-alpha05"
+androidx-compose = "1.11.2"
+jetbrains-compose-material3 = "1.11.0-alpha07"
 # TODO: Migrate away from material-icons-extended; JetBrains recommends
 # Material Symbols/vector resources instead.
 # https://kotlinlang.org/docs/multiplatform/whats-new-compose-180.html
@@ -52,8 +52,8 @@ jetbrains-navigation = "2.9.2"
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
-gradle-kotlin = "2.3.21"
-gradle-android = "9.0.0"
+gradle-kotlin = "2.4.10"
+gradle-android = "9.1.0"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
