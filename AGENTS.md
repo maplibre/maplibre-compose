@@ -12,11 +12,20 @@ every tool in `mise.toml`, and locks them per platform in `mise.lock`.
 
 ### Building and running
 
-- **Build all modules:** `mise run build`
+Run a mise task rather than `./gradlew build`. The aggregate Gradle task builds
+every target at once, including the iOS release frameworks, and runs out of
+memory before it finishes. Each task below covers one platform, so pick the one
+for the change you made.
+
+- **Package the Android APK:** `mise run build:android-app`
+- **Package the desktop installer:** `mise run build:desktop-app`
 - **Run desktop demo:** `mise run demo:desktop`
 - **Run web demo:** `mise run demo:js`
-- **Run the desktop host fixture:** `mise run run:glfw-fixture`
+- **Run the demo on the compose-glfw host:** `mise run demo:desktop-glfw`
 - **Clean build:** `mise run clean`
+
+To compile one module, name its task:
+`./gradlew :lib:maplibre-compose:assemble`.
 
 ### Formatting and linting
 
@@ -114,7 +123,17 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
     - This wraps the TypeScript library whose original types are available at
       build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts
 - **`demo-app/`**: Multiplatform demo application
-- **`iosApp/`**: iOS-specific demo app wrapper
+  - `common`: Every line of the app, and the only Kotlin Multiplatform module
+  - `android`: An Android application that launches `common`
+  - `desktop`: A JVM application that launches `common` on the AWT host
+  - `desktop-glfw`: The same JVM application on the compose-glfw host. A module
+    of its own so that its `MainDispatcherFactory`, which outranks
+    `kotlinx-coroutines-swing`, stays off the AWT runtime classpath.
+  - `ios`: An Xcode project that embeds the framework `common` produces
+
+  The browser app has no module of its own. Its entry point and page live in
+  `common/src/jsMain`, because a Kotlin/JS module would have to be a second
+  Kotlin Multiplatform module.
 - **`buildSrc/`**: Custom Gradle build conventions
 
 ### Key packages

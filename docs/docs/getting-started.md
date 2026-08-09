@@ -256,7 +256,7 @@ java --enable-native-access=ALL-UNNAMED -jar your-app.jar
 In your Composable UI, add a map:
 
 ```kotlin title="App.kt"
--8<- "demo-app/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt:app"
+-8<- "demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt:app"
 ```
 
 !!! warning

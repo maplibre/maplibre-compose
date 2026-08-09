@@ -105,6 +105,7 @@ android-lint = { id = "com.android.lint", version.ref = "gradle-android" }
 compose = { id = "org.jetbrains.compose", version.ref = "gradle-compose" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "gradle-dokka" }
 kotlin-composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "gradle-kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "gradle-kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "gradle-kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "gradle-kotlin" }
 mavenPublish = { id = "com.vanniktech.maven.publish", version.ref = "gradle-mavenPublish" }

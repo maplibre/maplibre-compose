@@ -126,7 +126,8 @@ launch on iOS. Every other host has a task:
   renderer, use the OpenGL flavor: `mise run demo:android --flavor opengl`.
 - Desktop: `mise run demo:desktop`
 - Web: `mise run demo:js`
-- The desktop host fixture: `mise run run:glfw-fixture`
+- Desktop on the compose-glfw host instead of the AWT one:
+  `mise run demo:desktop-glfw`
 
 ## Run the tests
 
