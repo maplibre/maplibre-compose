@@ -1,0 +1,20 @@
+# The Android SDK, for `MISE_ENV=android`.
+#
+# Most contributors already have an SDK, from Android Studio or a CI runner
+# image, and this repository builds against that one through ANDROID_HOME or
+# local.properties. This configuration environment is for a machine that has
+# none: `mise -E android install` pins one and installs the packages the Gradle
+# builds resolve.
+#
+# It is opt-in because the SDK is hundreds of megabytes and installing a package
+# accepts its license. A lint task or a Git hook should not do either on the way
+# to something else.
+
+[tools]
+# The tool installs the command-line tools alone, so a post-install step adds the
+# packages the builds need. `//:android-sdk-packages` installs the same set into
+# an SDK mise does not own.
+#
+# A post-install command runs through the platform shell, so name Git Bash on
+# Windows, which also keeps Windows from resolving its WSL launcher.
+android-sdk = { version = "{{vars.android_cmdline_tools_version}}", postinstall = '{% if os() == "windows" %}"C:/Program Files/Git/bin/bash.exe"{% else %}bash{% endif %} .mise/bin/sync-android-packages {{vars.java_version}}' }

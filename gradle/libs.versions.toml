@@ -1,4 +1,16 @@
 [versions]
+# Platform floors and toolchain levels.
+android-compileSdk = "36"
+android-minSdk = "23"
+android-targetSdk = "36"
+# Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.
+java-toolchain = "25"
+# Android bytecode target. Independent of the desktop target below.
+java-androidTarget = "11"
+# Desktop bytecode target. MapLibre Native FFI ships Java 24 bytecode and uses
+# the FFM API, so desktop cannot go below 24.
+java-desktopTarget = "25"
+
 # Regular libraries: keep as up to date as possible.
 accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
@@ -14,6 +26,7 @@ lifecycleRuntimeCompose = "2.10.0"
 lwjgl = "3.4.1"
 maplibre-android-sdk = "13.0.2"
 maplibre-android-plugins = "3.0.2"
+maplibre-ios = "6.25.1"
 maplibre-js = "5.12.0"
 maplibre-nativeFfi = "0.202608.0"
 playServices-location = "21.3.0"
@@ -21,7 +34,6 @@ spatialk = "0.7.0"
 
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.2.0"
-gradle-jgitver = "0.10.0-rc03"
 gradle-mavenPublish = "0.36.0"
 gradle-mkdocs = "4.0.1"
 gradle-spmForKmp = "1.9.1"
@@ -97,7 +109,6 @@ android-library = { id = "com.android.kotlin.multiplatform.library", version.ref
 android-lint = { id = "com.android.lint", version.ref = "gradle-android" }
 compose = { id = "org.jetbrains.compose", version.ref = "gradle-compose" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "gradle-dokka" }
-jgitver = { id = "fr.brouillard.oss.gradle.jgitver", version.ref = "gradle-jgitver" }
 kotlin-composeCompiler = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "gradle-kotlin" }
 kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "gradle-kotlin" }
 kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "gradle-kotlin" }

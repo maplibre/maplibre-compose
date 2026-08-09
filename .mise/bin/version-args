@@ -1,0 +1,53 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# Print the `-P` version flags for Gradle, derived from the Git tags. Releases
+# are tagged `vMAJOR.MINOR.PATCH`; snapshots are the next patch.
+#
+# Needs the tags, so callers check out with `fetch-depth: 0`.
+
+mode="${1:-build}"
+
+release_tag="$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname | head -n1)"
+if [[ -z "$release_tag" ]]; then
+  echo "${0##*/}: no vMAJOR.MINOR.PATCH tag in this checkout" >&2
+  echo "Fetch the tags with \`git fetch --tags\`." >&2
+  exit 1
+fi
+release_version="${release_tag#v}"
+
+IFS=. read -r major minor patch <<<"$release_version"
+snapshot_version="${major}.${minor}.$((patch + 1))-SNAPSHOT"
+
+exact_tag=""
+if exact_tag="$(git describe --tags --exact-match --match 'v[0-9]*.[0-9]*.[0-9]*' 2>/dev/null)"; then
+  source_ref="$exact_tag"
+else
+  exact_tag=""
+  source_ref="$(git rev-parse HEAD)"
+fi
+
+case "$mode" in
+  # A tagged commit builds as that release even if a newer tag exists, so
+  # re-running a workflow on an older tag reproduces that version.
+  build) version="${exact_tag:-$snapshot_version}"; version="${version#v}" ;;
+  # A snapshot even on a tagged commit, so the nightly job cannot publish a
+  # release version to the snapshot repository.
+  snapshot) version="$snapshot_version" ;;
+  release)
+    if [[ -z "$exact_tag" ]]; then
+      echo "${0##*/}: HEAD is not a vMAJOR.MINOR.PATCH tag, so there is no release to publish" >&2
+      exit 1
+    fi
+    version="${exact_tag#v}"
+    ;;
+  *)
+    echo "usage: ${0##*/} [build|snapshot|release]" >&2
+    exit 2
+    ;;
+esac
+
+printf -- '-PmaplibreVersion=%s\n' "$version"
+printf -- '-PmaplibreReleaseVersion=%s\n' "$release_version"
+printf -- '-PmaplibreSnapshotVersion=%s\n' "$snapshot_version"
+printf -- '-PmaplibreSourceRef=%s\n' "$source_ref"

@@ -8,7 +8,7 @@ plugins {
 val desktopHostPlatform = DesktopHostPlatform.current()
 
 kotlin {
-  jvmToolchain(properties["jvmToolchain"]!!.toString().toInt())
+  jvmToolchain(libs.versions.java.toolchain.get().toInt())
 
   jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
@@ -48,6 +48,6 @@ val runGlfwFixture by
       jvmArgs("-XstartOnFirstThread")
     }
     javaLauncher = javaToolchains.launcherFor {
-      languageVersion = JavaLanguageVersion.of(properties["jvmToolchain"]!!.toString().toInt())
+      languageVersion = JavaLanguageVersion.of(libs.versions.java.toolchain.get().toInt())
     }
   }

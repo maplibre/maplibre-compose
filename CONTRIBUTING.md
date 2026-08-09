@@ -32,17 +32,23 @@ If you use AI assistance, follow the [AI policy](./AI_POLICY.md).
 
 ### Mise
 
-This project uses [mise](https://mise.jdx.dev/) for environment management. You
-can either:
+This project uses [mise](https://mise.jdx.dev/) to manage its development
+environment.
 
-#### Option 1: Use mise (Recommended)
+#### Option 1: use mise (recommended)
 
 1. Install mise if you haven't already:
    https://mise.jdx.dev/getting-started.html.
 2. Run `mise install` in the project root to install all required tools.
 3. Still read the rest of the guide, because not all tools are managed by mise.
 
-#### Option 2: Manual Setup
+`mise install` gives you the versions CI uses. `mise.toml` pins every tool and
+`mise.lock` records a checksum per platform.
+
+`mise tasks` lists every task. CI runs these same tasks, so a green
+`mise run check` locally means the same thing as a green CI job.
+
+#### Option 2: manual setup
 
 If you prefer not to use mise, check `mise.toml` for the list of required tools
 and versions, then install them manually.
@@ -65,61 +71,137 @@ the IDE, you'll need some plugins:
 
 ### Building for Android
 
-Create a `local.properties` in the root of the project with paths to inform
-Gradle where to find the Android SDK:
+If you already have an SDK, from Android Studio or elsewhere, point Gradle at it
+with a `local.properties` in the root of the project:
 
 ```properties
 # Replace the path with the actual path on your machine
 sdk.dir=/Users/username/Library/Android/sdk
 ```
 
+`mise run android-sdk-packages` adds the packages the build needs to it.
+
+For a machine with no SDK, mise pins one. It is a separate environment because
+installing an SDK package accepts its license:
+
+```bash
+mise -E android install
+```
+
+Run Android builds in that environment, as
+`MISE_ENV=android mise run test:android`. Set `MISE_ENV=android` in your shell
+to use it for the session.
+
 ### Building for Apple platforms
 
-Install XCode to build for Apple platforms. Mise will do this for you with
-`xcodes`. If installing manually, use the version named in the
+Building for Apple platforms needs Xcode. `mise install` fetches only the
+`xcodes` CLI that manages it, because Xcode itself is several gigabytes. Ask for
+Xcode explicitly:
+
+```bash
+mise run install-xcode
+```
+
+If installing manually, use the version named in the
 [`.xcode-version`](.xcode-version) file.
 
 ### Building for Desktop
 
 Desktop consumes the published
 [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
-Multiplatform bindings, so there is no C++ toolchain, CMake, or vendored
-MapLibre Native checkout to set up.
+Multiplatform bindings. Unlike a source build of MapLibre Native, it needs no
+C++ toolchain, CMake, or vendored checkout.
 
-The desktop tests drive a real GPU through a headless Vulkan device. The test
-runtime supplies MoltenVK through LWJGL on macOS and installs a software Vulkan
-driver in CI on Linux and Windows. The tests fail rather than skip when no
-Vulkan implementation is usable.
+The desktop tests drive a real GPU through a headless Vulkan device. On macOS
+the test runtime supplies MoltenVK through LWJGL, and CI installs a software
+Vulkan driver on Linux and Windows. A host with no usable Vulkan implementation
+fails these tests rather than skipping them.
 
 ## Run the demo
 
-Use IntelliJ or Android Studio to launch the demo app on Android, XCode to
-launch on iOS, and Gradle to launch on JS or Desktop:
+Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
+launch on iOS. Every other host has a task:
 
-- Android emulator: if the app crashes while creating a Vulkan renderer, run the
-  OpenGL demo flavor instead with
-  `./gradlew :demo-app:installDebug -PdemoAppMaplibreAndroidFlavor=opengl`.
-- Desktop: `./gradlew :demo-app:run`
-- Web: `./gradlew :demo-app:jsRun`
+- Android: `mise run demo:android`. If the app crashes while creating a Vulkan
+  renderer, use the OpenGL flavor: `mise run demo:android --flavor opengl`.
+- Desktop: `mise run demo:desktop`
+- Web: `mise run demo:js`
+- The desktop host fixture: `mise run run:glfw-fixture`
+
+## Run the tests
+
+CI runs these same tasks, so you can reproduce a failure with the command the
+job ran:
+
+- `mise run test:android` — Android host (JVM) suite
+- `mise run test:android:device [api-level]` — instrumented suite
+- `mise run test:ios`
+- `mise run test:js`
+- `mise run test:desktop`
+
+The device suites bring their own device. `test:android:device` boots a headless
+emulator for the API level you name, and installs the emulator and system image
+on first use. `test:ios` boots an iPhone simulator and runs against it.
+
+You can drive the emulator on its own:
+
+```bash
+mise run android-emulator:boot 24
+mise run android-emulator:stop
+```
+
+The AVD lives under `build/android-emulator`, so removing the build tree removes
+the device.
 
 ## Building documentation
 
-- Build both MkDocs site and Dokka API reference: `./gradlew generateDocs`
-- Build MkDocs only: `./gradlew mkdocsBuild`
-- Build API docs only: `./gradlew dokkaGenerate`
+`mise run build:docs` builds the MkDocs site and the Dokka API reference into
+`build/docs`.
+
+Use the task rather than Gradle directly. It passes the versions derived from
+the Git tags, which the site prints as the coordinates to depend on; Gradle on
+its own uses the `0.0.0` placeholders from `gradle.properties`.
 
 ## Make CI happy
 
-A Git pre-commit hook is available to ensure that the code is formatted before
-every commit. It'll be installed automatically if you use `mise`, but you can
-remove it with:
+`mise run check` reports problems and `mise run fix` rewrites what it can.
+Between them they cover dprint, actionlint, ruff, shellcheck, the GitHub Actions
+pins catalog, and JSON schema validation. `mise run lint:android` runs Android
+Lint, which CI runs in the same job.
+
+A Git pre-commit hook runs the same steps against your staged files. `mise`
+installs it for you. Remove it with:
 
 ```bash
 hk uninstall
 ```
 
-If not using the pre-commit hook, you can manually format the code using:
+## Versions
+
+Every version the build pins — dependencies, plugins, Android SDK levels, and
+JVM targets — lives in [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
+`gradle.properties` holds build switches only.
+
+Releases are tagged `vMAJOR.MINOR.PATCH`. `gradle.properties` carries
+placeholder versions, and `.mise/bin/version-args` derives the real ones from
+the tags. Only the tasks that publish or document a version pass them to Gradle,
+so an ordinary build needs no tags in the checkout.
 
 ```bash
-hk fix --all
+mise run version            # what this commit would build as
+mise run version snapshot   # what the nightly job would publish
+mise run version release    # what the release workflow would publish
 ```
+
+A tagged commit builds as that release; every other commit builds as a snapshot
+of the next patch.
+
+### GitHub Actions pins
+
+Every third-party action is pinned to a commit SHA, and every one of those pins
+is declared once in
+[`.github/workflows/action-pins.yml`](.github/workflows/action-pins.yml). That
+file never runs. It exists so that Dependabot sees the actions that the
+composite actions under `.github/actions` use, which it would otherwise skip.
+`mise run ci:check-action-pins` fails when a reference anywhere disagrees with
+the catalog, so an update lands in one place and propagates from there.

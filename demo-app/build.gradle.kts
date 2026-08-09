@@ -17,9 +17,9 @@ android {
 
   defaultConfig {
     applicationId = "org.maplibre.compose.demoapp"
-    minSdk = project.properties["androidMinSdk"]!!.toString().toInt()
-    compileSdk = project.properties["androidCompileSdk"]!!.toString().toInt()
-    targetSdk = project.properties["androidTargetSdk"]!!.toString().toInt()
+    minSdk = libs.versions.android.minSdk.get().toInt()
+    compileSdk = libs.versions.android.compileSdk.get().toInt()
+    targetSdk = libs.versions.android.targetSdk.get().toInt()
     versionCode = 1
     versionName = project.version.toString()
     testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -37,7 +37,7 @@ android {
 val desktopHostPlatform = DesktopHostPlatform.current()
 
 kotlin {
-  jvmToolchain(properties["jvmToolchain"]!!.toString().toInt())
+  jvmToolchain(libs.versions.java.toolchain.get().toInt())
 
   androidTarget {
     compilerOptions { jvmTarget = project.getAndroidJvmTarget() }
@@ -195,9 +195,7 @@ compose.desktop {
       javaHome =
         javaToolchains
           .launcherFor {
-            languageVersion.set(
-              JavaLanguageVersion.of(properties["jvmToolchain"]!!.toString().toInt())
-            )
+            languageVersion.set(JavaLanguageVersion.of(libs.versions.java.toolchain.get().toInt()))
           }
           .get()
           .metadata
@@ -208,7 +206,7 @@ compose.desktop {
       targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
       packageName = "org.maplibre.compose.demoapp"
       // https://youtrack.jetbrains.com/issue/CMP-2360
-      // packageVersion = project.ext["base_tag"].toString().replace("v", "")
+      // packageVersion = providers.gradleProperty("maplibreReleaseVersion").get()
       packageVersion = "1.0.0"
     }
   }

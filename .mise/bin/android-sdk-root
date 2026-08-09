@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Print the Android SDK the build resolves, in the order the Android Gradle
+# plugin looks: local.properties, then ANDROID_HOME, then ANDROID_SDK_ROOT.
+set -euo pipefail
+
+repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+
+candidates=()
+
+local_properties="$repository_root/local.properties"
+if [[ -f "$local_properties" ]]; then
+  sdk_dir="$(
+    sed -n 's/^[[:space:]]*sdk\.dir[[:space:]]*=[[:space:]]*//p' "$local_properties" |
+      tail -n1
+  )"
+  # java.util.Properties escapes the colon and separators of a Windows path.
+  sdk_dir="${sdk_dir//\\:/:}"
+  sdk_dir="${sdk_dir//\\\\/\\}"
+  if [[ -n "$sdk_dir" ]]; then
+    candidates+=("$sdk_dir")
+  fi
+fi
+
+if [[ -n "${ANDROID_HOME:-}" ]]; then
+  candidates+=("$ANDROID_HOME")
+fi
+if [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then
+  candidates+=("$ANDROID_SDK_ROOT")
+fi
+
+for candidate in "${candidates[@]}"; do
+  if [[ -d "$candidate" ]]; then
+    printf '%s\n' "$candidate"
+    exit 0
+  fi
+done
+
+echo "${0##*/}: no Android SDK found." >&2
+echo "Set sdk.dir in local.properties, point ANDROID_HOME at an SDK, or let mise" >&2
+echo "pin one with \`mise -E android install\`." >&2
+exit 1

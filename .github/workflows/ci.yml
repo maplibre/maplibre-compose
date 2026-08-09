@@ -10,177 +10,122 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+permissions:
+  contents: read
+
 jobs:
-  format:
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+  # All static analysis, Android Lint included; every other job is a platform.
+  # `fix` then a clean-tree assertion rather than `check`, because a push cannot
+  # reach a fork's branch. It runs first, so formatting still fails in seconds.
+  hygiene:
+    timeout-minutes: 25
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
-      - run: mise fix
-      - run: |
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
-          git diff --exit-code || (git add . && git commit -m 'Apply mise fix' && git push)
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          dprint-cache: "true"
+          save-toolchains: "true"
+      - run: mise run fix
+      - name: Check formatted files
+        run: |
+          git update-index -q --refresh
           git diff --exit-code
+          git diff --cached --exit-code
+      - run: mise run lint:android
 
-  lint-hk:
-    timeout-minutes: 15
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: jdx/mise-action@1648a7812b9aeae629881980618f079932869151 # v4.0.1
-      - run: mise check
-
-  lint-android:
-    timeout-minutes: 20
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew lint
-
-  test-android:
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
+  android:
     strategy:
+      fail-fast: false
       matrix:
-        api-level:
-          # the latest, Android 15 (Vanilla Ice Cream)
-          - 35
+        include:
+          # the latest, Android 15 (Vanilla Ice Cream); also the leg that ships
+          # the demo APK, which does not vary by API level
+          - api-level: 35
+            artifact_name: demo-app-android
           # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
-          - 24
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew testDebugUnitTest
-      - name: Run with AVD ./gradlew connectedDebugAndroidTest
-        uses: ./.github/actions/run-with-avd
-        with:
-          api-level: ${{ matrix.api-level }}
-          script: ./gradlew connectedDebugAndroidTest
-
-  test-ios:
+          - api-level: 24
     timeout-minutes: 45
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          android-emulator: ${{ matrix.api-level }}
+      - run: mise run test:android
+      - run: mise run test:android:device ${{ matrix.api-level }}
+      - if: ${{ matrix.artifact_name != '' }}
+        run: mise run build:android-app
+      - if: ${{ matrix.artifact_name != '' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: error
+          name: ${{ matrix.artifact_name }}
+          path: demo-app/build/outputs/apk/debug/demo-app-debug.apk
+
+  ios:
+    timeout-minutes: 45
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: "true"
+      - run: mise run test:ios
+
+  js:
+    timeout-minutes: 20
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+      - run: mise run test:js
+
+  desktop:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - runner: macos-26
-            os_version: ^26
-    name: test-ios (${{ matrix.os_version }})
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - uses: futureware-tech/simulator-action@e89aa8f93d3aec35083ff49d2854d07f7186f7f5 # v5
-        id: setup-simulator
-        with:
-          os: iOS
-          os_version: ${{ matrix.os_version }}
-          wait_for_boot: true
-      - run: |
-          ./gradlew iosSimulatorArm64Test -- --device ${{ steps.setup-simulator.outputs.udid }}
-
-  test-js:
-    timeout-minutes: 20
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew jsBrowserTest
-
-  test-desktop:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - runner: macos-26 # arm64
-          - runner: ubuntu-24.04 # x64
-          - runner: ubuntu-24.04-arm # arm64
-          - runner: windows-2022 # x64
-          - runner: windows-11-arm # arm64
-    timeout-minutes: 30
-    runs-on: ${{ matrix.runner }}
-    steps:
-      - if: ${{ startsWith(matrix.runner, 'windows-') }}
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-desktop-vulkan
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew desktopTest --info
-
-  build-docs:
-    timeout-minutes: 30
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew generateDocs
-      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
-        with:
-          path: build/docs
-
-  build-android-app:
-    timeout-minutes: 30
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew packageDebug
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          if-no-files-found: error
-          name: demo-app-android
-          path: demo-app/build/outputs/apk/debug/demo-app-debug.apk
-
-  build-desktop-app:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          # TODO add alternative architectures
-          - runner: macos-latest # aarch64
+            save_toolchains: "false" # ios owns this label
             artifact_type: dmg
-            artifact_name: demo-app-desktop-macos-aarch64
-          - runner: ubuntu-latest # amd64
+            artifact_name: demo-app-desktop-macos-arm64
+          - runner: ubuntu-24.04
+            save_toolchains: "false" # hygiene owns this label
             artifact_type: deb
-            artifact_name: demo-app-desktop-linux-amd64
-          - runner: windows-latest # amd64
+            artifact_name: demo-app-desktop-linux-x64
+          - runner: ubuntu-24.04-arm
+            save_toolchains: "true"
+            artifact_type: deb
+            artifact_name: demo-app-desktop-linux-arm64
+          - runner: windows-2022
+            save_toolchains: "true"
             artifact_type: msi
-            artifact_name: demo-app-desktop-windows-amd64
-    timeout-minutes: 30
+            artifact_name: demo-app-desktop-windows-x64
+          - runner: windows-11-arm
+            save_toolchains: "true"
+            artifact_type: msi
+            artifact_name: demo-app-desktop-windows-arm64
+    timeout-minutes: 45
     runs-on: ${{ matrix.runner }}
-    name: build-desktop-app (${{ matrix.runner }})
     steps:
-      - if: ${{ matrix.runner == 'windows-latest' }}
-        run: git config --global core.longpaths true
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - run: ./gradlew :demo-app:packageDistributionForCurrentOS
+          persist-credentials: false
+      - uses: ./.github/actions/setup-desktop-vulkan
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: ${{ matrix.save_toolchains }}
+      - run: mise run test:desktop
+      - run: mise run build:desktop-app
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           if-no-files-found: error
@@ -188,19 +133,32 @@ jobs:
           path:
             "demo-app/build/compose/binaries/main/${{ matrix.artifact_type }}/*"
 
+  docs:
+    timeout-minutes: 30
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # version-args reads the release tag.
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          python-cache: "true"
+      - run: mise run build:docs
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: build/docs
+
   all-good:
     needs:
-      - format
-      - lint-hk
-      - lint-android
-      - test-android
-      - test-ios
-      - test-desktop
-      - test-js
-      - build-docs
-      - build-android-app
-      - build-desktop-app
+      - hygiene
+      - android
+      - ios
+      - js
+      - desktop
+      - docs
     timeout-minutes: 5
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - run: echo 'All checks passed!'

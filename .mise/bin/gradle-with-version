@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# Run Gradle with the version flags for <mode>, for the tasks that publish or
+# document a version.
+set -euo pipefail
+
+mode=${1:?usage: gradle-with-version <build|snapshot|release> <gradle-arg>...}
+shift
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Captured first so a failure is fatal, then split with `read` rather than
+# `mapfile`, which is Bash 4 and macOS ships 3.2.
+flags_text="$("$script_dir/version-args" "$mode")"
+flags=()
+while IFS= read -r flag; do
+  if [[ -n "$flag" ]]; then
+    flags+=("$flag")
+  fi
+done <<<"$flags_text"
+
+cd "${MISE_PROJECT_ROOT:-$(cd "$script_dir/../.." && pwd)}"
+exec ./gradlew "$@" "${flags[@]}"

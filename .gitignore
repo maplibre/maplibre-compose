@@ -24,3 +24,6 @@ exportedSpmMaplibre
 out/
 .cache/
 hs_err_*.log
+__pycache__/
+mise.local.toml
+mise.*.local.toml

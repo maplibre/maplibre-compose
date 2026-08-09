@@ -2,6 +2,9 @@
 # Config reference: https://docs.coderabbit.ai/reference/configuration
 
 reviews:
+  auto_review:
+    enabled: false
+
   # don't post in user's own PR summary, make a separate comment
   high_level_summary_in_walkthrough: true
 
