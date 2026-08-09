@@ -18,7 +18,7 @@ mavenPublishing {
 }
 
 kotlin {
-  androidLibrary { namespace = "org.maplibre.compose.material3" }
+  android { namespace = "org.maplibre.compose.material3" }
 
   listOf(iosArm64(), iosSimulatorArm64()).forEach { it.configureSpmMaplibre(project) }
 
