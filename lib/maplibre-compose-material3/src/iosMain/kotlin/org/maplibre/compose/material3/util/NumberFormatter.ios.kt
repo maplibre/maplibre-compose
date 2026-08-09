@@ -17,6 +17,8 @@ actual constructor(locale: Locale, maximumFractionDigits: Int) {
       it.locale = NSLocale(localeIdentifier = locale.toLanguageTag())
     }
 
+  // A boxed Kotlin number is an NSNumber subclass at runtime, but that is not a cast the compiler
+  // can prove, so build the NSNumber instead. Double carries every value a scale bar can produce.
   actual fun format(value: Number): String =
-    format.stringFromNumber(value as NSNumber) ?: value.toString()
+    format.stringFromNumber(NSNumber(value.toDouble())) ?: value.toString()
 }
