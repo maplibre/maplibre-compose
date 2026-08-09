@@ -32,14 +32,14 @@ kotlin {
     it.configureSpmMaplibre(project)
   }
 
-  jvm("desktop") { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
+  jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
-  js(IR) { browser() }
+  js { browser() }
 
   applyDefaultHierarchyTemplate()
 
   sourceSets {
-    val desktopMain by getting
+    val jvmMain by getting
 
     listOf(iosMain, iosArm64Main, iosSimulatorArm64Main).forEach {
       it { languageSettings { optIn("kotlinx.cinterop.ExperimentalForeignApi") } }
@@ -58,7 +58,7 @@ kotlin {
     // (e.g. all but Android, which is backed by the Android Canvas API)
     create("skiaMain") {
       dependsOn(commonMain.get())
-      desktopMain.dependsOn(this)
+      jvmMain.dependsOn(this)
       iosMain.get().dependsOn(this)
       jsMain.get().dependsOn(this)
     }
@@ -77,7 +77,7 @@ kotlin {
     create("mlnFfiShared") {
       dependsOn(maplibreNativeMain)
       androidMain.get().dependsOn(this)
-      desktopMain.dependsOn(this)
+      jvmMain.dependsOn(this)
       dependencies {
         // Backend-independent binding only; the application selects the native runtime.
         implementation(libs.maplibre.nativeFfi)
@@ -93,7 +93,7 @@ kotlin {
       }
     }
 
-    desktopMain.apply {
+    jvmMain.apply {
       dependencies {
         implementation(compose.desktop.currentOs)
 
@@ -120,16 +120,14 @@ kotlin {
     // runtime, render-host, storage, and Compose-runner adapters.
     create("mlnFfiSharedTest") {
       dependsOn(commonTest.get())
-      getByName("desktopTest").dependsOn(this)
       getByName("androidDeviceTest").dependsOn(this)
+      getByName("jvmTest").dependsOn(this)
     }
 
     // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
-    // test process.
-    // TODO: Expand CI to launch a separate process or APK for every applicable backend on each
-    // platform as additional runtime and render-host combinations become available.
-    val desktopTest by getting
-    desktopTest.dependencies {
+    // test process; a CI matrix adds processes for additional applicable backends.
+    val jvmTest by getting
+    jvmTest.dependencies {
       // Only the EGL interop test binds EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
     }
@@ -143,7 +141,7 @@ kotlin {
   }
 }
 
-configurations.named("desktopTestRuntimeOnly") {
+configurations.named("jvmTestRuntimeOnly") {
   dependencies.addAllLater(
     providers.provider {
       val platform = DesktopHostPlatform.current()

@@ -5,9 +5,17 @@ on:
     - cron: 00 10 * * *
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   check-last-run:
-    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04
+    # The workflow-runs API rejects a token without this, and the top-level
+    # block above grants only `contents: read`.
+    permissions:
+      actions: read
     steps:
       - uses: octokit/request-action@b91aabaa861c777dcdb14e2387e30eddf04619ae # v3.0.0
         id: check-last-run
@@ -23,17 +31,19 @@ jobs:
   publish-snapshot:
     needs: [check-last-run]
     if: ${{ needs.check-last-run.outputs.last_sha != github.sha }}
-    runs-on: macos-latest
+    timeout-minutes: 60
+    runs-on: macos-26
     environment:
       name: maven-central-maplibre
       url: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # .mise/bin/version-args reads the release tag off the checkout.
           fetch-depth: 0
-      - uses: ./.github/actions/setup-gradle
-      - run: |
-          ./gradlew publishToMavenCentral
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+      - run: mise run publish:snapshot
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername:
             ${{ secrets.MAVEN_CENTRAL_USERNAME }}

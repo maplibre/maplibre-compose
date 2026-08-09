@@ -1,0 +1,209 @@
+name: Setup CI deps
+description: Install the mise-pinned toolchain and the Gradle caches every job builds against
+
+inputs:
+  gradle:
+    description: Set up Gradle and its user-home cache; jobs that run no Gradle build leave this off
+    required: false
+    default: "true"
+  save-toolchains:
+    description: >-
+      Save the toolchain cache when this job misses it. One job per runner label
+      claims this so a miss costs one archive of the toolchain tree per runner
+      instead of one per job.
+    required: false
+    default: "false"
+  android-emulator:
+    description: >-
+      API level of the Android emulator this job boots, or empty for a job that
+      boots none. Grants KVM access and caches the emulator and system image.
+    required: false
+    default: ""
+  pnpm-cache:
+    description: >-
+      Restore and save pnpm's content-addressable store. Only the jobs that
+      build the documentation ask for it.
+    required: false
+    default: "false"
+  dprint-cache:
+    description: >-
+      Restore and save dprint's incremental formatting cache. Only the jobs that
+      run dprint ask for it.
+    required: false
+    default: "false"
+
+runs:
+  using: composite
+  steps:
+    # Kotlin/Native and Gradle paths exceed the legacy 260 character limit.
+    - name: Enable Git long paths
+      if: ${{ runner.os == 'Windows' }}
+      shell: pwsh
+      run: git config --global core.longpaths true
+
+    # A hard error, such as a DLL the loader cannot resolve, raises a modal
+    # dialog. No one is here to dismiss it, so the process waits behind it until
+    # the job times out. Make the call fail and report instead.
+    - name: Fail Windows hard errors instead of waiting on a dialog
+      if: ${{ runner.os == 'Windows' }}
+      shell: pwsh
+      run: |
+        Set-ItemProperty `
+          -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Windows" `
+          -Name ErrorMode -Value 2 -Type DWord
+        $reporting = "HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting"
+        New-Item -Path $reporting -Force | Out-Null
+        Set-ItemProperty -Path $reporting -Name DontShowUI -Value 1 -Type DWord
+
+    - name: Enable KVM for the emulator
+      if: ${{ inputs.android-emulator != '' && runner.os == 'Linux' }}
+      shell: bash
+      run: |
+        echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+        sudo udevadm control --reload-rules
+        sudo udevadm trigger --name-match=kvm
+        sudo udevadm settle --timeout=10
+        test -r /dev/kvm
+        test -w /dev/kvm
+
+    - name: Cache the Android emulator and system image
+      if: ${{ inputs.android-emulator != '' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ env.ANDROID_HOME }}/emulator
+          ${{ env.ANDROID_HOME }}/system-images
+        key: android-emulator-v1-${{ runner.os }}-${{ runner.arch }}-api${{ inputs.android-emulator }}
+
+    # Also stops the daemons before the cache is saved; ones that outlive the job
+    # hold Windows locks on files the archive step cannot read.
+    - name: Cache Gradle User Home
+      if: ${{ inputs.gradle == 'true' }}
+      uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      with:
+        # nodejs and yarn are Kotlin/JS downloads outside the action's defaults.
+        gradle-home-cache-includes: |
+          caches
+          notifications
+          nodejs
+          yarn
+        build-scan-publish: true
+        build-scan-terms-of-use-url: https://gradle.com/terms-of-service
+        build-scan-terms-of-use-agree: "yes"
+        add-job-summary: never
+
+    # setup-gradle's build-result listener only supplies reporting metadata.
+    # Keep its Gradle User Home caching without adding a listener to every build.
+    - name: Disable Gradle build result capture
+      if: ${{ inputs.gradle == 'true' }}
+      shell: pwsh
+      run: '"GRADLE_ACTIONS_SKIP_BUILD_RESULT_CAPTURE=true" >> $env:GITHUB_ENV'
+
+    # Roughly a gigabyte, and outside the Gradle user home. Its version tracks
+    # Kotlin's, which is what the key hashes.
+    - name: Cache the Kotlin/Native toolchain
+      if: ${{ inputs.gradle == 'true' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.konan
+        key: konan-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('gradle/libs.versions.toml') }}
+        restore-keys: |
+          konan-v1-${{ runner.os }}-${{ runner.arch }}-
+
+    - name: Point Gradle at a same-volume temp directory
+      if: ${{ inputs.gradle == 'true' && runner.os == 'Windows' }}
+      shell: pwsh
+      run: |
+        $gradleTemp = $env:RUNNER_TEMP -replace '\\', '/'
+        $gradleOptions = "-Djava.io.tmpdir=$gradleTemp"
+        if ($env:GRADLE_OPTS) {
+          $gradleOptions = "$gradleOptions $env:GRADLE_OPTS"
+        }
+        "GRADLE_OPTS=$gradleOptions" >> $env:GITHUB_ENV
+
+    - name: Compute toolchain cache key
+      id: toolchain-key
+      shell: bash
+      run: |
+        prefix="toolchains-v1-${{ runner.os }}-${{ runner.arch }}-${ImageOS:-unknown}"
+        echo "prefix=${prefix}" >> "$GITHUB_OUTPUT"
+        echo "key=${prefix}-${{ hashFiles('mise.toml', 'mise.lock') }}" >> "$GITHUB_OUTPUT"
+
+    # Restored here rather than by mise-action, whose own cache is written mid-step
+    # and so varies by job. One job per runner label saves it.
+    - name: Restore toolchains
+      id: toolchains
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.local/share/mise
+          ~/AppData/Local/mise
+        key: ${{ steps.toolchain-key.outputs.key }}
+        restore-keys: |
+          ${{ steps.toolchain-key.outputs.prefix }}-
+
+    - name: Install toolchains
+      uses: jdx/mise-action@7e36c90d9ab29c415a2384db3006f3ec8a8cc654 # v4.2.4
+      env:
+        # The postinstall hook installs Git hooks, which no CI job commits
+        # through.
+        MISE_NO_HOOKS: "1"
+      with:
+        version: 2026.8.3
+        cache: false
+
+    - name: Save toolchains
+      if: ${{ inputs.save-toolchains == 'true' && steps.toolchains.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.local/share/mise
+          ~/AppData/Local/mise
+        key: ${{ steps.toolchain-key.outputs.key }}
+
+    - name: Pin the pnpm store
+      if: ${{ inputs.pnpm-cache == 'true' }}
+      shell: bash
+      run: echo "npm_config_store_dir=$HOME/.ci-package-cache/pnpm" >> "$GITHUB_ENV"
+
+    - name: Cache package downloads
+      if: ${{ inputs.pnpm-cache == 'true' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.ci-package-cache
+        key: pkg-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+        restore-keys: |
+          pkg-v1-${{ runner.os }}-${{ runner.arch }}-
+
+    # A cold run costs minutes: one ktfmt JVM per Kotlin file. A stale entry is
+    # safe, since dprint keys each result by file content and plugin config.
+    - name: Cache dprint results
+      if: ${{ inputs.dprint-cache == 'true' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/dprint
+          ~/Library/Caches/dprint
+          ~/AppData/Local/dprint
+        key: dprint-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('dprint.jsonc') }}-${{ github.sha }}
+        restore-keys: |
+          dprint-v1-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('dprint.jsonc') }}-
+          dprint-v1-${{ runner.os }}-${{ runner.arch }}-
+
+    # The one network fetch no cache covers, and it fails often enough to retry.
+    - name: Prepare Gradle wrapper
+      if: ${{ inputs.gradle == 'true' }}
+      shell: bash
+      run: |
+        for attempt in 1 2 3; do
+          if ./gradlew --version; then
+            exit 0
+          fi
+
+          echo "::warning::Gradle wrapper setup failed (attempt ${attempt}/3)"
+          rm -rf -- "${GRADLE_USER_HOME:?}/wrapper/dists"
+          if ((attempt < 3)); then
+            sleep $((attempt * 5))
+          fi
+        done
+        exit 1

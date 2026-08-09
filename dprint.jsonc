@@ -1,0 +1,59 @@
+// dprint owns formatting for every language here. Prefer a plugin; exec a
+// mise-installed formatter only where no plugin exists.
+{
+  "$schema": "https://dprint.dev/schemas/v0.json",
+  "lineWidth": 80,
+  "indentWidth": 2,
+  "useTabs": false,
+  "newLineKind": "lf",
+  "excludes": [
+    "**/build",
+    "**/.gradle",
+    "**/.kotlin",
+    "**/node_modules",
+    "**/dist",
+    "**/.astro",
+    "docs/public/api",
+    "docs/src/generated",
+    "pnpm-lock.yaml",
+    "kotlin-js-store",
+    "**/*.api",
+    // Vendored: third-party sources committed as-is.
+    "demo-app/common/src/commonMain/composeResources/files/**",
+    "gradlew",
+    "gradlew.bat",
+    // Xcode rewrites these in its own style, so formatting them fights it.
+    "demo-app/ios/**/*.xcassets/**",
+  ],
+  "json": { "preferSingleLine": true },
+  "markdown": { "textWrap": "always" },
+  "ruff": { "indentWidth": 4, "lineLength": 88 },
+  "exec": {
+    "commands": [
+      {
+        "command": "bash .mise/bin/dprint-ktfmt --google-style - --stdin-name={{file_path}}",
+        "exts": ["kt", "kts"],
+      },
+      {
+        "command": "bash .mise/bin/dprint-swiftformat stdin --stdin-path {{file_path}} --indent {{indent_width}} --max-width {{line_width}} --quiet",
+        "exts": ["swift"],
+      },
+      {
+        "command": "bash .mise/bin/dprint-mdxlint {{file_path}}",
+        "exts": ["mdx"],
+        "cacheKeyFiles": ["pnpm-lock.yaml"],
+      },
+    ],
+  },
+  // Digests are required on a bump; dprint reports the one it got.
+  "plugins": [
+    "https://plugins.dprint.dev/exec-0.6.2.json@df98f54ffd3092b8a841aedd6d098a2651f16d0a796a40535774f1a8b4b9d463",
+    "https://plugins.dprint.dev/json-0.21.3.wasm@f34c8fbaeda1f42c479d4a5fa2c86f93d105c2d527ec61fffe912e4d9dc5cc77",
+    "https://plugins.dprint.dev/ruff-0.7.0.wasm@b243963dc7b29a3cd420169611e3caf065353d641d5175c625d39652c659c980",
+    "https://plugins.dprint.dev/markdown-0.21.1.wasm@064467750514c9ce5192b375582d762ec64cb3ba99673413fa86645d50406279",
+    "https://plugins.dprint.dev/toml-0.7.0.wasm@0126c8112691542d30b52a639076ecc83e07bace877638cee7c6915fd36b8629",
+    "https://plugins.dprint.dev/g-plane/pretty_yaml-v0.6.0.wasm@40a2fdda7040317eb1b23520f3a00769a5571eedb049c4ca9175c1b9eeba01ae",
+    "https://plugins.dprint.dev/g-plane/markup_fmt-v0.27.0.wasm@d3294334fd3e2cc622c829614704278354092d5d292fe4ed4b6df8eb89209fe5",
+    "https://plugins.dprint.dev/g-plane/malva-v0.15.3.wasm@e8a5896557a73c1ac23717dde18f5099d547c72972fd048518f4f8e2b7b6d639",
+  ],
+}

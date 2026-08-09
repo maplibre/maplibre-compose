@@ -1,24 +1,28 @@
 # yaml-language-server: $schema=https://json.schemastore.org/dependabot-2.0.json
+#
+# Not supported by Dependabot:
+# - mise tool versions: https://github.com/dependabot/dependabot-core/issues/12320
+#   Bump the pins in `[vars]` in mise.toml by hand, then run `mise install`.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
-    labels: []
     schedule:
       interval: weekly
     cooldown:
       default-days: 3
+    labels: [dependencies, github_actions]
     groups:
       github-actions:
         patterns: ["*"]
 
   - package-ecosystem: gradle
     directory: /
-    labels: []
     schedule:
       interval: weekly
     cooldown:
       default-days: 3
+    labels: [dependencies, kotlin]
     ignore:
       # Follow the Kotlin compatibility matrix, not independent latest releases.
       - dependency-name: gradle-wrapper
@@ -43,6 +47,7 @@ updates:
       ktor:
         patterns:
           - io.ktor:*
-      maplibre-android:
+      maplibre:
         patterns:
           - org.maplibre.gl:*
+          - org.maplibre.nativeffi:*

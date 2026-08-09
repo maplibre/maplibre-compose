@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Stops the Android emulator that boot-android-emulator started.
+set -euo pipefail
+
+serial=emulator-5554
+project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+state_dir="$project_root/build/android-emulator"
+pid_file="$state_dir/emulator.pid"
+adb="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")/platform-tools/adb"
+
+# Unconditional: the port must be free before another AVD can claim it.
+if [[ -x "$adb" ]]; then
+  "$adb" -s "$serial" emu kill >/dev/null 2>&1 || true
+fi
+
+if [[ ! -f "$pid_file" ]]; then
+  echo "No mise-managed Android emulator is running."
+  exit 0
+fi
+
+# Signal the recorded PID only while it still belongs to an AVD of ours: a stale
+# pid file may name a PID the OS has since reused.
+pid=$(<"$pid_file")
+if [[ "$pid" =~ ^[0-9]+$ ]] &&
+  kill -0 "$pid" 2>/dev/null &&
+  ps -p "$pid" -o args= | grep -q maplibre-compose-; then
+  for ((attempt = 0; attempt < 30; attempt++)); do
+    kill -0 "$pid" 2>/dev/null || break
+    sleep 1
+  done
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid"
+    sleep 5
+  fi
+  if kill -0 "$pid" 2>/dev/null; then
+    kill -KILL "$pid"
+  fi
+fi
+rm -f "$pid_file"

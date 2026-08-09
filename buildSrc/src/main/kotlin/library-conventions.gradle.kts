@@ -9,11 +9,9 @@ plugins {
 kotlin {
   explicitApi()
 
-  jvmToolchain(properties["jvmToolchain"]!!.toString().toInt())
+  jvmToolchain(catalogVersionInt("java-toolchain"))
 
   compilerOptions {
-    // KLIB resolver: The same 'unique_name=annotation_commonMain' found in more than one library
-    allWarningsAsErrors = false
     freeCompilerArgs.addAll("-Xexpect-actual-classes", "-Xconsistent-data-class-copy-visibility")
   }
 }
@@ -23,7 +21,9 @@ dokka {
     configureEach {
       includes.from("MODULE.md")
       sourceLink {
-        remoteUrl("https://github.com/maplibre/maplibre-compose/tree/${project.ext["base_tag"]}/")
+        // Dokka appends the source path with a leading slash.
+        val sourceRef = providers.gradleProperty("maplibreSourceRef").get()
+        remoteUrl("https://github.com/maplibre/maplibre-compose/tree/$sourceRef")
         localDirectory.set(rootDir)
       }
       externalDocumentationLinks {

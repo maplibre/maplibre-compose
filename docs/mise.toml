@@ -1,0 +1,39 @@
+[tasks.api]
+description = "Generate the Dokka API reference into the site's public directory."
+dir = ".."
+run = '''
+.mise/bin/gradle-with-version build dokkaGenerate
+rm -rf docs/public/api
+mkdir -p docs/public/api
+cp -a build/dokka/html/. docs/public/api/
+'''
+
+[tasks.versions]
+description = "Write the versions the pages quote into src/generated."
+dir = ".."
+run = '''
+flags="$(.mise/bin/version-args build)"
+printf '%s\n' "$flags" | node docs/scripts/generate-versions.mjs
+'''
+
+[tasks.install]
+run = "pnpm exec astro sync"
+
+[tasks.dev]
+description = "Serve the documentation site with live reload."
+depends = ["api", "versions", "install"]
+run = "pnpm run dev"
+
+[tasks.build]
+description = "Build the documentation site into docs/dist."
+depends = ["api", "versions", "install"]
+run = "pnpm run build"
+
+[tasks.preview]
+description = "Serve the built documentation site."
+# `astro preview` serves docs/dist rather than producing it.
+depends = ["//docs:build"]
+run = "pnpm run preview"
+
+[tasks.astro]
+run = "pnpm exec astro"

@@ -707,7 +707,7 @@ private class MapPointerGesture(
       lastClickAt = null
       cancelPendingTouchClick()
     } else {
-      if (pressedType == PointerType.Mouse) {
+      if (pressedType == PointerType.Mouse || !awaitsSecondTap()) {
         // Mouse clicks are immediate; touch taps wait so a double tap never leaks a map click.
         session.onPrimaryClick(where)
       } else {
@@ -727,6 +727,13 @@ private class MapPointerGesture(
       lastClickType = pressedType
     }
   }
+
+  /**
+   * Whether a second tap still has a gesture to become. With both disabled it has none, so holding
+   * the first one back would only add latency to every tap.
+   */
+  private fun awaitsSecondTap(): Boolean =
+    options.isDoubleClickZoomEnabled || options.isQuickZoomEnabled
 
   /** Compose reports no click count on desktop, so a double click is a time plus a distance. */
   private fun isDoubleClick(origin: Offset, timeMillis: Long): Boolean {

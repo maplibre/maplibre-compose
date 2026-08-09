@@ -11,7 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.viewinterop.WebElementView
+import androidx.compose.ui.viewinterop.HtmlElementView
 import co.touchlab.kermit.Logger
 import kotlinx.browser.document
 import org.maplibre.compose.style.BaseStyle
@@ -54,7 +54,7 @@ internal fun WebMapView(
   val layoutDir = LocalLayoutDirection.current
   val density = LocalDensity.current
 
-  WebElementView(
+  HtmlElementView(
     modifier = modifier.onGloballyPositioned { maybeMap?.resize() },
     factory = {
       document.createElement("div").unsafeCast<HTMLElement>().apply {

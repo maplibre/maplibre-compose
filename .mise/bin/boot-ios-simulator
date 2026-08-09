@@ -1,0 +1,37 @@
+#!/usr/bin/env bash
+# Boots an iPhone simulator and prints its UDID. Idempotent. Diagnostics go to
+# stderr so the UDID can be captured with a command substitution.
+set -euo pipefail
+
+if [[ "$(uname -s)" != "Darwin" ]]; then
+  echo "iOS simulators run on macOS only." >&2
+  exit 2
+fi
+
+# `simctl list` prints runtimes oldest first, so the last match is the newest.
+udid="$(
+  xcrun simctl list devices available iOS |
+    awk -F '[()]' '/ iPhone / && /Booted/ { print $2; exit }'
+)"
+if [[ -z "$udid" ]]; then
+  udid="$(
+    xcrun simctl list devices available iOS |
+      awk -F '[()]' '/ iPhone / && /Shutdown/ { device = $2 } END { print device }'
+  )"
+fi
+if [[ -z "$udid" ]]; then
+  echo "No available iPhone simulator. Install a simulator runtime through Xcode." >&2
+  exit 1
+fi
+
+state="$(
+  xcrun simctl list devices |
+    awk -F '[()]' -v id="$udid" '$0 ~ id { print $4; exit }'
+)"
+if [[ "$state" != "Booted" ]]; then
+  echo "Booting iOS simulator $udid." >&2
+  xcrun simctl boot "$udid"
+fi
+xcrun simctl bootstatus "$udid" -b >&2
+
+printf '%s\n' "$udid"

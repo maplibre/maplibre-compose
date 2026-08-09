@@ -1,18 +1,50 @@
-amends "package://github.com/jdx/hk/releases/download/v1.40.0/hk@1.40.0#/Config.pkl"
+// Drives pre-commit, `mise run check`, and `mise run fix`.
 
-import "package://github.com/jdx/hk/releases/download/v1.40.0/hk@1.40.0#/Builtins.pkl"
+amends "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Config.pkl"
 
-local allSteps = new Mapping<String, Step> {
-  // formatters
-  ["dprint"] = Builtins.dprint
+import "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Builtins.pkl"
 
-  // linters
-  ["actionlint"] = Builtins.actionlint
-
-  // generators
-  ["pkl"] = (Builtins.pkl) {
-    check_first = false
-    fix = "pkl format -w {{files}}"
+local lintSteps = new Mapping<String, Step> {
+  // Unbatched: dprint parallelizes itself, and batching oversubscribes the
+  // machine badly enough that its ktfmt children hit dprint's timeout.
+  ["dprint"] = (Builtins.dprint) {
+    exclusive = true
+  }
+  ["actionlint"] {
+    glob = List(".github/workflows/*.yml", ".github/workflows/*.yaml")
+    check = "actionlint {{files}}"
+  }
+  ["action-pins"] {
+    glob =
+      List(
+        ".github/workflows/*.yml",
+        ".github/workflows/*.yaml",
+        ".github/actions/**/action.yml",
+        ".github/actions/**/action.yaml",
+      )
+    check = "mise run ci:check-action-pins"
+  }
+  ["ruff"] {
+    glob = List("**/*.py")
+    check = "ruff check {{files}}"
+    fix = "ruff check --fix {{files}}"
+  }
+  // actionlint covers the `run:` blocks in workflows.
+  ["shellcheck"] {
+    glob = List("**/*.sh", ".mise/bin/*")
+    check = "shellcheck {{files}}"
+  }
+  ["jvl"] {
+    glob = List("**/*.json", "**/*.jsonc")
+    exclude = List("demo-app/common/src/commonMain/composeResources/files/**", "docs/src/generated/**")
+    check = "jvl check {{files}}"
+  }
+  // dprint owns formatting, hence --no-fmt.
+  ["vp-check"] {
+    glob = List("**/*.js", "**/*.mjs", "**/*.cjs", "**/*.ts", "**/*.mts", "**/*.cts", "**/*.astro")
+    exclude = List("kotlin-js-store/**")
+    check = "pnpm exec vp check --no-fmt {{files}}"
+    fix = "pnpm exec vp check --no-fmt --fix {{files}}"
   }
 }
 
@@ -21,18 +53,18 @@ hooks {
     fix = true
     stash = "git"
     steps {
-      ...allSteps
+      ...lintSteps
     }
   }
   ["check"] {
     steps {
-      ...allSteps
+      ...lintSteps
     }
   }
   ["fix"] {
     fix = true
     steps {
-      ...allSteps
+      ...lintSteps
     }
   }
 }

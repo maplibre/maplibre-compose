@@ -44,31 +44,30 @@ public class FusedOrientationProvider(
   sharingStarted: SharingStarted,
 ) : OrientationProvider {
   @OptIn(FlowPreview::class)
-  override val orientation: StateFlow<Orientation?> =
-    callbackFlow {
-        val callback: (DeviceOrientation) -> Unit = { orientation ->
-          trySend(
-            Orientation(
-              orientation =
-                BearingWithAccuracy(
-                  value = Bearing.North + orientation.headingDegrees.toDouble().degrees,
-                  accuracy = orientation.headingErrorDegrees.toDouble().degrees,
-                ),
-              timestamp = TimeSource.Monotonic.markNow(),
-            )
-          )
-        }
-
-        orientationClient.requestOrientationUpdates(
-          deviceOrientationRequest,
-          dispatcher.executor,
-          callback,
+  override val orientation: StateFlow<Orientation?> = callbackFlow {
+    val callback: (DeviceOrientation) -> Unit = { orientation ->
+      trySend(
+        Orientation(
+          orientation =
+            BearingWithAccuracy(
+              value = Bearing.North + orientation.headingDegrees.toDouble().degrees,
+              accuracy = orientation.headingErrorDegrees.toDouble().degrees,
+            ),
+          timestamp = TimeSource.Monotonic.markNow(),
         )
+      )
+    }
 
-        awaitClose { orientationClient.removeOrientationUpdates(callback) }
-      }
-      .sample(deviceOrientationRequest.samplingPeriodMicros.microseconds.inWholeMilliseconds)
-      .stateIn(coroutineScope, sharingStarted, null)
+    orientationClient.requestOrientationUpdates(
+      deviceOrientationRequest,
+      dispatcher.executor,
+      callback,
+    )
+
+    awaitClose { orientationClient.removeOrientationUpdates(callback) }
+  }
+    .sample(deviceOrientationRequest.samplingPeriodMicros.microseconds.inWholeMilliseconds)
+    .stateIn(coroutineScope, sharingStarted, null)
 
   private companion object {
     private val dispatcher =

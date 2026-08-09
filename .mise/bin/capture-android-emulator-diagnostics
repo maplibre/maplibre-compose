@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Captures bounded diagnostics from the Android emulator after a device-test failure.
+set -u
+
+serial=emulator-5554
+project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+state_dir="$project_root/build/android-emulator"
+diagnostics_dir="$state_dir/diagnostics"
+sdk_root="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")"
+adb="$sdk_root/platform-tools/adb"
+
+mkdir -p "$diagnostics_dir"
+
+capture() {
+  local name=$1
+  local timeout_seconds=$2
+  shift 2
+  local output="$diagnostics_dir/$name.txt"
+  local command_pid waited=0 status=0
+
+  {
+    printf 'Command:'
+    printf ' %q' "$@"
+    printf '\n\n'
+  } >"$output"
+
+  "$@" >>"$output" 2>&1 &
+  command_pid=$!
+  while ((waited < timeout_seconds)) && kill -0 "$command_pid" 2>/dev/null; do
+    sleep 1
+    waited=$((waited + 1))
+  done
+  if kill -0 "$command_pid" 2>/dev/null; then
+    printf '\nCommand timed out after %d seconds.\n' "$timeout_seconds" >>"$output"
+    kill -KILL "$command_pid" 2>/dev/null || true
+  fi
+  wait "$command_pid" || status=$?
+  printf '\nExit status: %d\n' "$status" >>"$output"
+}
+
+capture host-date 10 date -u
+capture host-kernel 10 uname -a
+capture host-disk 10 df -h
+capture host-memory 10 free -h
+capture host-processes 10 ps -eo pid,ppid,state,etime,%cpu,%mem,rss,vsz,comm
+
+if [[ ! -x "$adb" ]]; then
+  printf 'adb is unavailable at %s.\n' "$adb" >"$diagnostics_dir/adb-unavailable.txt"
+  exit 0
+fi
+
+capture adb-devices 15 "$adb" devices -l
+capture emulator-state 15 "$adb" -s "$serial" get-state
+capture emulator-properties 30 "$adb" -s "$serial" shell getprop
+capture emulator-disk 30 "$adb" -s "$serial" shell df -h
+capture emulator-diskstats 30 "$adb" -s "$serial" shell dumpsys diskstats
+capture emulator-memory 30 "$adb" -s "$serial" shell cat /proc/meminfo
+capture emulator-processes 30 "$adb" -s "$serial" shell ps
+capture emulator-package-manager 60 "$adb" -s "$serial" shell dumpsys package
+capture emulator-kernel 30 "$adb" -s "$serial" shell dmesg
+capture emulator-logcat 60 "$adb" -s "$serial" logcat -b all -d -v threadtime

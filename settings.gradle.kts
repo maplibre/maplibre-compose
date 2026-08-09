@@ -31,13 +31,13 @@ dependencyResolutionManagement {
   }
 }
 
-// Versions: https://plugins.gradle.org/plugin/org.gradle.toolchains.foojay-resolver-convention
-plugins { id("org.gradle.toolchains.foojay-resolver-convention") version ("1.0.0") }
-
 include(
   ":",
   ":demo-app",
-  ":glfw-fixture",
+  ":demo-app:common",
+  ":demo-app:android",
+  ":demo-app:desktop",
+  ":demo-app:desktop-glfw",
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",

@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
-
 plugins {
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
@@ -9,8 +7,8 @@ plugins {
 kotlin {
   @Suppress("UnstableApiUsage")
   androidLibrary {
-    minSdk = project.properties["androidMinSdk"]!!.toString().toInt()
-    compileSdk = project.properties["androidCompileSdk"]!!.toString().toInt()
+    minSdk = catalogVersionInt("android-minSdk")
+    compileSdk = catalogVersionInt("android-compileSdk")
 
     // https://youtrack.jetbrains.com/issue/CMP-8232
     experimentalProperties["android.experimental.kmp.enableAndroidResources"] = true
@@ -25,9 +23,10 @@ kotlin {
     compilations.configureEach {
       compileTaskProvider.configure {
         compilerOptions {
-          // TODO revisit this with AGP 8.11? https://issuetracker.google.com/issues/379315244
-          if (this is KotlinJvmCompilerOptions) jvmTarget = project.getAndroidJvmTarget()
-          else error("Unexpected compilation type: ${this::class}")
+          // Set the JVM target on each compilation, because the Android library DSL exposes no
+          // property for it and a compilation otherwise inherits the toolchain's Java 25. Still
+          // required as of AGP 9.1.0. https://issuetracker.google.com/issues/379315244
+          jvmTarget = project.getAndroidJvmTarget()
         }
       }
     }

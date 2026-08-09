@@ -1,61 +1,205 @@
+# https://mise.jdx.dev
+
+monorepo_root = true
+min_version = "2026.7.15"
+
 [settings]
-experimental = true
+lockfile = true
+lockfile_platforms = [
+  "linux-x64",
+  "linux-arm64",
+  "macos-arm64",
+  "windows-x64",
+  "windows-arm64",
+]
 pin = true
+experimental = true
+# Keeps mise paths ahead of the Microsoft Store Python alias on Windows.
+activate_aggressive = true
+# Installing an SDK package accepts its license, so it is never a side effect.
+auto_install_disable_tools = ["android-sdk"]
+
+[monorepo]
+config_roots = ["docs"]
+lockfile = true
+
+# Cascades to every config root. Scoped to tasks; hooks and tool installs still
+# use the platform shell.
+[task_config]
+cascade = true
+shell = "bash -e -c"
+
+[vars]
+android_cmdline_tools_version = "22.0"
+android_api_level = "35"
+actionlint_version = "1.7.12"
+dprint_version = "0.55.2"
+hk_version = "1.54.1"
+java_version = "zulu-25.36.15.0"
+jvl_version = "2026.05.03"
+ktfmt_version = "0.64"
+node_version = "24.19.0"
+pnpm_version = "10.33.2"
+python_version = "3.14.7"
+ruff_version = "0.16.2"
+shellcheck_version = "0.11.0"
+swiftformat_version = "0.62.1"
+xcodes_version = "2.0.3"
 
 [tools]
-java = "zulu-25.34.17.0"
-dprint = "0.53.2"
-hk = "1.40.0"
-pkl = "0.30.2"
-"aqua:facebook/ktfmt" = "0.62"
-node = "24.11.0"
-actionlint = "1.7.8"
-# actionlint shells out to shellcheck for `run:` blocks
-"aqua:koalaman/shellcheck" = "0.11.0"
-xcodes = { version = "1.6.2", os = ["macos"] }
-swiftformat = "0.61.0"
-python = "3.14.4"
+"aqua:jdx/hk" = "{{vars.hk_version}}" # Linter orchestration
+"aqua:dprint/dprint" = "{{vars.dprint_version}}" # Formatter orchestration
+"github:sargunv/jvl" = "{{vars.jvl_version}}" # JSON schema validator
+"aqua:rhysd/actionlint" = "{{vars.actionlint_version}}" # GH Actions linter
+"aqua:koalaman/shellcheck" = "{{vars.shellcheck_version}}" # Shell linter, also used by actionlint
+"aqua:astral-sh/ruff" = "{{vars.ruff_version}}" # Python linter for ci/ and .mise/tasks/
+
+"core:java" = "{{vars.java_version}}"
+"aqua:facebook/ktfmt" = "{{vars.ktfmt_version}}"
+
+# For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
+"core:node" = "{{vars.node_version}}"
+"aqua:pnpm/pnpm" = "{{vars.pnpm_version}}"
+
+# Runs the Python file tasks under .mise/tasks/.
+"core:python" = "{{vars.python_version}}"
+
+# Upstream ships Windows as an MSI only, which this backend cannot unpack, and
+# nothing formats Swift on Windows anyway.
+swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nicklockwood/SwiftFormat", no_app = true, rename_exe = "swiftformat", os = ["macos", "linux"] }
+
+# The CLI only. Xcode itself comes from `mise run install-xcode`.
+"aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = ["macos"] }
 
 [hooks]
-postinstall = [
-  { run = "hk install --mise" },
-  { task = "_xcodes-select" },
-]
+postinstall = ["hk install --mise --quiet"]
+
+[deps.pnpm]
+auto = true
 
 [tasks.check]
-description = "Run hk checks."
-run = "hk check --all"
+description = "Run every formatter and linter in report-only mode."
+# The type checker reads the types Astro generates.
+run = '''
+mise run //docs:install
+hk check --all
+'''
 
 [tasks.fix]
-description = "Auto-fix formatting issues."
-run = "hk fix --all"
+description = "Apply every formatter and auto-fixable lint."
+run = '''
+mise run //docs:install
+hk fix --all
+'''
+
+[tasks.clean]
+description = "Remove every Gradle build output."
+run = "./gradlew clean"
+
+[tasks."android-sdk-packages"]
+description = "Install the pinned Android SDK packages into $ANDROID_HOME."
+run = 'bash .mise/bin/sync-android-packages "{{vars.java_version}}"'
+
+[tasks."lint:android"]
+description = "Run Android Lint across the modules that declare an Android target."
+run = "./gradlew lint"
+
+[tasks."test:android"]
+description = "Run the Android host (JVM) test suite."
+# One task name per Android plugin: the demo app is a com.android.application,
+# the library modules use the KMP Android plugin. Either alone covers half.
+run = "./gradlew testDebugUnitTest testAndroidHostTest"
+
+[tasks."android-emulator:boot"]
+description = "Boot a headless Android emulator and wait until it is ready."
+usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
+tools = { "core:java" = "{{vars.java_version}}" }
+run = '.mise/bin/boot-android-emulator "$usage_api_level"'
+
+[tasks."android-emulator:stop"]
+description = "Stop the Android emulator started by mise."
+run = ".mise/bin/stop-android-emulator"
+
+[tasks."android-emulator:diagnostics"]
+description = "Capture bounded diagnostics from the Android emulator."
+run = ".mise/bin/capture-android-emulator-diagnostics"
+
+[tasks."test:android:device"]
+description = "Run the Android instrumented test suite on an emulator."
+usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
+depends = [{ task = "android-emulator:boot", args = ["{{usage.api_level}}"] }]
+# One task name per Android plugin; see test:android.
+run = "./gradlew --no-parallel connectedDebugAndroidTest connectedAndroidDeviceTest"
+
+[tasks."ios-simulator:boot"]
+description = "Boot an iPhone simulator and print its UDID."
+run = ".mise/bin/boot-ios-simulator"
+
+[tasks."test:ios"]
+description = "Run the iOS simulator test suite."
+run = '''
+udid="$(.mise/bin/boot-ios-simulator)"
+./gradlew iosSimulatorArm64Test -- --device "$udid"
+'''
+
+[tasks."test:js"]
+description = "Run the Kotlin/JS browser test suite."
+run = "./gradlew jsBrowserTest"
+
+[tasks."test:desktop"]
+description = "Run the desktop (JVM) test suite against a real Vulkan or Metal device."
+run = "./gradlew jvmTest"
+
+[tasks."build:docs"]
+description = "Build the documentation site and the Dokka API reference into docs/dist."
+run = "mise run //docs:build"
+
+[tasks."build:android-app"]
+description = "Package the demo app as a debug APK."
+run = "./gradlew packageDebug"
+
+[tasks."build:desktop-app"]
+description = "Package the demo app as a native installer for this host."
+run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
+
+[tasks."demo:android"]
+description = "Install the demo app on a connected Android device or emulator."
+usage = '''
+flag "--flavor <flavor>" default="default" {
+  choices "default" "opengl" "vulkan" "debug"
+}
+'''
+run = './gradlew :demo-app:android:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"'
+
+[tasks."demo:desktop"]
+description = "Run the demo app on this host."
+run = "./gradlew :demo-app:desktop:run"
+
+[tasks."demo:js"]
+description = "Run the demo app in a browser."
+run = "./gradlew :demo-app:common:jsBrowserDevelopmentRun"
+
+[tasks."demo:desktop-glfw"]
+description = "Run the demo app on the compose-glfw desktop host instead of the AWT one."
+run = "./gradlew :demo-app:desktop-glfw:run"
+
+[tasks."publish:snapshot"]
+description = "Publish a snapshot build to Maven Central."
+run = ".mise/bin/gradle-with-version snapshot publishToMavenCentral"
+
+[tasks."publish:release"]
+description = "Publish and release the current tag to Maven Central."
+run = ".mise/bin/gradle-with-version release publishAndReleaseToMavenCentral --no-configuration-cache"
+
+[tasks.version]
+description = "Print the version properties this checkout builds with."
+usage = '''
+arg "[mode]" default="build" {
+  choices "build" "snapshot" "release"
+}
+'''
+run = '.mise/bin/version-args "$usage_mode"'
 
 [tasks.actions-up]
 description = "Update and pin GitHub Actions steps."
 run = "npx -y actions-up"
-
-[tasks._ktfmt]
-description = "Called by dprint.json"
-hide = true
-run = 'java -jar {{ tools["aqua:facebook/ktfmt"].path }}/ktfmt'
-
-[tasks._xcodes-select]
-description = "Called in postinstall"
-hide = true
-run = "if command -v xcodes >/dev/null 2>&1; then xcodes install && xcodes select; fi"
-run_windows = "exit /b 0"
-
-[tasks."run:js"]
-description = "Run the web demo"
-run = "./gradlew :demo-app:jsBrowserDevelopmentRun"
-run_windows = "gradlew.bat :demo-app:jsBrowserDevelopmentRun"
-
-[tasks."run:desktop"]
-description = "Run the desktop demo"
-run = "./gradlew :demo-app:run"
-run_windows = "gradlew.bat :demo-app:run"
-
-[tasks."run:glfw"]
-description = "Run the compose-glfw desktop host fixture"
-run = "./gradlew :glfw-fixture:runGlfwFixture"
-run_windows = "gradlew.bat :glfw-fixture:runGlfwFixture"

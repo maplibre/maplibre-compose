@@ -76,48 +76,47 @@ public class IosLocationProvider(
     }
   }
 
-  private val updates: SharedFlow<ProviderUpdate> =
-    callbackFlow {
-        val d = Delegate(channel)
-        delegate = d
-        locationManager.delegate = d
+  private val updates: SharedFlow<ProviderUpdate> = callbackFlow {
+    val d = Delegate(channel)
+    delegate = d
+    locationManager.delegate = d
 
-        if (enableLocation) {
-          locationManager.desiredAccuracy =
-            when (desiredAccuracy) {
-              DesiredAccuracy.Highest -> kCLLocationAccuracyBestForNavigation
-              DesiredAccuracy.High -> kCLLocationAccuracyBest
-              DesiredAccuracy.Balanced -> kCLLocationAccuracyHundredMeters
-              DesiredAccuracy.Low -> kCLLocationAccuracyKilometer
-              DesiredAccuracy.Lowest -> kCLLocationAccuracyReduced
-            }
-          locationManager.distanceFilter = minDistance.inMeters
-
-          locationManager.stopUpdatingLocation()
-          locationManager.startUpdatingLocation()
+    if (enableLocation) {
+      locationManager.desiredAccuracy =
+        when (desiredAccuracy) {
+          DesiredAccuracy.Highest -> kCLLocationAccuracyBestForNavigation
+          DesiredAccuracy.High -> kCLLocationAccuracyBest
+          DesiredAccuracy.Balanced -> kCLLocationAccuracyHundredMeters
+          DesiredAccuracy.Low -> kCLLocationAccuracyKilometer
+          DesiredAccuracy.Lowest -> kCLLocationAccuracyReduced
         }
+      locationManager.distanceFilter = minDistance.inMeters
 
-        if (enableOrientation) {
-          val headingAvailable = CLLocationManager.headingAvailable()
-          if (headingAvailable) {
-            locationManager.stopUpdatingHeading()
-            locationManager.startUpdatingHeading()
-          }
-        }
+      locationManager.stopUpdatingLocation()
+      locationManager.startUpdatingLocation()
+    }
 
-        awaitClose {
-          if (enableLocation) {
-            locationManager.stopUpdatingLocation()
-          }
-          if (enableOrientation) {
-            locationManager.stopUpdatingHeading()
-          }
-          locationManager.delegate = null
-          delegate = null
-        }
+    if (enableOrientation) {
+      val headingAvailable = CLLocationManager.headingAvailable()
+      if (headingAvailable) {
+        locationManager.stopUpdatingHeading()
+        locationManager.startUpdatingHeading()
       }
-      .flowOn(Dispatchers.Main)
-      .shareIn(coroutineScope, sharingStarted, replay = 1)
+    }
+
+    awaitClose {
+      if (enableLocation) {
+        locationManager.stopUpdatingLocation()
+      }
+      if (enableOrientation) {
+        locationManager.stopUpdatingHeading()
+      }
+      locationManager.delegate = null
+      delegate = null
+    }
+  }
+    .flowOn(Dispatchers.Main)
+    .shareIn(coroutineScope, sharingStarted, replay = 1)
 
   override val location: StateFlow<Location?> =
     updates
