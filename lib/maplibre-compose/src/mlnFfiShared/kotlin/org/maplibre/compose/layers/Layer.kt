@@ -9,7 +9,7 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.util.toFfiJsonValue
+import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.nativeffi.error.MaplibreException
@@ -117,7 +117,10 @@ internal actual sealed class Layer(actual val id: String) {
    */
   protected fun setFilterJson(filter: JsonElement) {
     root["filter"] = filter
-    binding.mutateMap { map -> map.setLayerFilter(id, filter.toFfiJsonValue()) }
+    binding.mutateMap { map ->
+      if (filter is JsonNull) map.clearLayerFilter(id)
+      else map.setLayerFilter(id, filter.toJsonBytes())
+    }
   }
 
   /**
@@ -128,7 +131,7 @@ internal actual sealed class Layer(actual val id: String) {
   private fun pushProperty(name: String, value: JsonElement) {
     binding.mutateMap { map ->
       try {
-        map.setLayerProperty(id, name, value.toFfiJsonValue())
+        map.setLayerProperty(id, name, value.toJsonBytes())
       } catch (error: MaplibreException) {
         binding.logger?.w(error) {
           "Layer '$id' of type '$type' kept its previous '$name': MapLibre rejected $value."
@@ -196,7 +199,7 @@ internal actual sealed class Layer(actual val id: String) {
     sourceDescriptor?.attach(binding)
     val added = binding.mutateMap { map ->
       try {
-        map.addStyleLayerJson(toJson().toFfiJsonValue(), beforeLayerId)
+        map.addStyleLayerJson(toJson().toJsonBytes(), beforeLayerId)
       } catch (error: MaplibreException) {
         // Native reports only "layer source does not exist", naming neither.
         throw IllegalStateException(

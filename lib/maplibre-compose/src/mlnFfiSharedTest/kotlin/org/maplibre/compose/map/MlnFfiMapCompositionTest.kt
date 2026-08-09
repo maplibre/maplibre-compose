@@ -230,7 +230,11 @@ class MlnFfiMapCompositionTest {
   @Test
   fun the_first_camera_position_reaches_the_map() {
     val firstPosition =
-      CameraPosition(target = Position(longitude = -122.4194, latitude = 37.7749), zoom = 11.0)
+      CameraPosition(
+        target = Position(longitude = -122.4194, latitude = 37.7749),
+        zoom = 11.0,
+        tilt = 35.0,
+      )
     lateinit var cameraState: CameraState
 
     runBridgeMapTest(
@@ -250,6 +254,7 @@ class MlnFfiMapCompositionTest {
           "latitude",
         )
         assertEquals(firstPosition.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
+        assertEquals(firstPosition.tilt, actual.tilt, POSITION_TOLERANCE, "tilt")
       }
     ) { errors, onFrame ->
       cameraState = rememberCameraState(firstPosition = firstPosition)

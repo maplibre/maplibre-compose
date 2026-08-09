@@ -1,35 +1,46 @@
 package org.maplibre.compose.mlnffi
 
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.view.Choreographer
 import android.view.Surface
 import co.touchlab.kermit.Logger
 import java.util.concurrent.FutureTask
 
-/** Drives the shared FFI renderer from Android vsync into one embedded EGL surface. */
+/** Drives the shared FFI renderer from a dedicated Android render thread. */
 internal class AndroidMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
   private val logger: Logger?,
 ) : MlnFfiMapHostSession, Choreographer.FrameCallback, AutoCloseable {
   override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
 
-  private val mainHandler = Handler(Looper.getMainLooper())
-  private val choreographer = Choreographer.getInstance()
+  private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
+  private val renderHandler = Handler(renderThread.looper)
+  private val choreographer = onRenderThread { Choreographer.getInstance() }
   private var graphics: AndroidEglContext? = null
   private var extent = MlnFfiMapExtent.Empty
   private var generation = 0L
   private var nextFrameId = 1L
   private var framePosted = false
   private var active = true
-  private var closed = false
+  @Volatile private var closed = false
   private var terminalFailure = false
   private var consecutiveFailures = 0
 
   fun surfaceCreated(surface: Surface, width: Int, height: Int, scaleFactor: Double) {
-    checkMainThread()
+    renderHandler.post { surfaceCreatedOnRenderThread(surface, width, height, scaleFactor) }
+  }
+
+  private fun surfaceCreatedOnRenderThread(
+    surface: Surface,
+    width: Int,
+    height: Int,
+    scaleFactor: Double,
+  ) {
+    checkRenderThread()
     if (closed) return
-    surfaceDestroyed()
+    surfaceDestroyedOnRenderThread()
     try {
       graphics = AndroidEglContext.create(surface)
       extent = MlnFfiMapExtent.fromPhysical(width, height, scaleFactor)
@@ -44,7 +55,11 @@ internal class AndroidMlnFfiSurfaceController(
   }
 
   fun surfaceChanged(width: Int, height: Int, scaleFactor: Double) {
-    checkMainThread()
+    renderHandler.post { surfaceChangedOnRenderThread(width, height, scaleFactor) }
+  }
+
+  private fun surfaceChangedOnRenderThread(width: Int, height: Int, scaleFactor: Double) {
+    checkRenderThread()
     if (graphics == null || closed) return
     val changed = MlnFfiMapExtent.fromPhysical(width, height, scaleFactor)
     if (changed == extent) return
@@ -60,7 +75,11 @@ internal class AndroidMlnFfiSurfaceController(
   }
 
   fun surfaceDestroyed() {
-    checkMainThread()
+    onRenderThread { surfaceDestroyedOnRenderThread() }
+  }
+
+  private fun surfaceDestroyedOnRenderThread() {
+    checkRenderThread()
     cancelFrame()
     if (graphics == null) return
     // The render session names this EGL surface, so it must be closed before EGL destroys it.
@@ -74,15 +93,19 @@ internal class AndroidMlnFfiSurfaceController(
   }
 
   fun setActive(active: Boolean) {
-    checkMainThread()
+    renderHandler.post { setActiveOnRenderThread(active) }
+  }
+
+  private fun setActiveOnRenderThread(active: Boolean) {
+    checkRenderThread()
     if (closed || terminalFailure || this.active == active) return
     this.active = active
     if (active) requestFrame() else cancelFrame()
   }
 
   override fun requestFrame() {
-    if (Looper.myLooper() != Looper.getMainLooper()) {
-      mainHandler.post(::requestFrame)
+    if (Looper.myLooper() != renderThread.looper) {
+      renderHandler.post(::requestFrame)
       return
     }
     if (closed || terminalFailure || !active || graphics == null || extent.isEmpty || framePosted) {
@@ -133,17 +156,17 @@ internal class AndroidMlnFfiSurfaceController(
   }
 
   override fun <T> withRendererAccess(action: () -> T): T {
-    if (Looper.myLooper() == Looper.getMainLooper()) return action()
-    val task = FutureTask(action)
-    check(mainHandler.post(task)) { "Android main looper is shutting down" }
-    return task.get()
+    return onRenderThread(action)
   }
 
   override fun close() {
-    checkMainThread()
     if (closed) return
-    surfaceDestroyed()
-    closed = true
+    onRenderThread {
+      if (closed) return@onRenderThread
+      surfaceDestroyedOnRenderThread()
+      closed = true
+    }
+    renderThread.quitSafely()
   }
 
   private fun cancelFrame() {
@@ -152,10 +175,17 @@ internal class AndroidMlnFfiSurfaceController(
     framePosted = false
   }
 
-  private fun checkMainThread() {
-    check(Looper.myLooper() == Looper.getMainLooper()) {
-      "Android map surface lifecycle must run on the main thread"
+  private fun checkRenderThread() {
+    check(Looper.myLooper() == renderThread.looper) {
+      "Android map rendering must run on its render thread"
     }
+  }
+
+  private fun <T> onRenderThread(action: () -> T): T {
+    if (Looper.myLooper() == renderThread.looper) return action()
+    val task = FutureTask(action)
+    check(renderHandler.post(task)) { "Android map render thread is shutting down" }
+    return task.get()
   }
 
   private fun fail(message: String, error: Throwable) {

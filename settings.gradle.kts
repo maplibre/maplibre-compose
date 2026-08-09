@@ -20,6 +20,9 @@ pluginManagement {
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {
+    mavenLocal {
+      content { includeGroup("org.maplibre.nativeffi") }
+    }
     google {
       mavenContent {
         includeGroupAndSubgroups("androidx")

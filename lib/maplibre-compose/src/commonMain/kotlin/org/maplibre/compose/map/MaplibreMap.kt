@@ -146,17 +146,20 @@ public fun MaplibreMap(
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
+          if (cameraState.map !== map) return
           cameraState.moveReasonState.value = reason
           cameraState.isCameraMovingState.value = true
         }
 
         override fun onCameraMoved(map: MapAdapter) {
+          if (cameraState.map !== map) return
           cameraState.positionState.value = map.getCameraPosition()
           cameraState.metersPerDpAtTargetState.value =
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
         }
 
         override fun onCameraMoveEnded(map: MapAdapter) {
+          if (cameraState.map !== map) return
           cameraState.isCameraMovingState.value = false
         }
 

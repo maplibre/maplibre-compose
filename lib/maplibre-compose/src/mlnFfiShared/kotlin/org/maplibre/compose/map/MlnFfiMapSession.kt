@@ -51,7 +51,7 @@ import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toEdgeInsets
-import org.maplibre.compose.util.toGeoJsonFeature
+import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toPosition
@@ -146,11 +146,14 @@ internal class MlnFfiMapSession(
 
   private val pendingMapActions = mutableListOf<PendingMapAction>()
 
-  /** Bounds fits accepted before the first real render target. Guarded by [stateLock]. */
+  /** Camera work accepted before the native map applies its first real viewport. */
   private val pendingViewportActions = mutableListOf<PendingMapAction>()
 
-  /** Guarded by [stateLock]; once true, the map has dimensions suitable for fitting bounds. */
-  private var hasAttachedViewport = false
+  /** The attached viewport whose queued native resize has not been observed yet. */
+  private var pendingAttachedViewport: MlnFfiMapExtent? = null
+
+  /** Once true, the native map has dimensions suitable for camera work. */
+  private var hasAppliedViewport = false
 
   /** Renderer-thread state. The session is this handle's owner, so nothing else may touch it. */
   private var renderSession: RenderSessionHandle? = null
@@ -390,6 +393,7 @@ internal class MlnFfiMapSession(
       pendingMapActions.clear()
       abandoned += pendingViewportActions
       pendingViewportActions.clear()
+      pendingAttachedViewport = null
       current
     }
     abandoned.forEach { it.abandon() }
@@ -469,6 +473,7 @@ internal class MlnFfiMapSession(
 
     // There is no map.resize: attaching sets the map's size from the descriptor's logical extent,
     // and the map publishes the result through MapHandle.size at its next pump.
+    awaitAttachedViewport(extent)
     renderSession =
       try {
         attachBorrowedTexture(map, frame.target, extent)
@@ -478,7 +483,6 @@ internal class MlnFfiMapSession(
       }
     attachedTarget = key
     attachCount++
-    publishAttachedViewport()
     // The new texture holds nothing yet; this request buys the frame that fills it.
     renderRequested.set(true)
     return true
@@ -615,7 +619,9 @@ internal class MlnFfiMapSession(
         callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
       }
 
-      RuntimeEventType.MAP_LOADING_FINISHED -> callbacks.onMapFinishedLoading(this)
+      RuntimeEventType.MAP_LOADING_FINISHED -> {
+        callbacks.onMapFinishedLoading(this)
+      }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
         // The only channel for a URL style's failure; a malformed inline style also throws from the
@@ -786,11 +792,11 @@ internal class MlnFfiMapSession(
     postWhenViewportExists(action, abandon = {})
   }
 
-  /** Queues [action] until the first render target has supplied the map's real dimensions. */
+  /** Queues [action] until the native map has applied the first render target's dimensions. */
   private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
     val current = stateLock.withLock {
       if (closed) return false
-      if (!hasAttachedViewport) {
+      if (!hasAppliedViewport) {
         pendingViewportActions += PendingMapAction(action, abandon)
         return true
       }
@@ -799,12 +805,31 @@ internal class MlnFfiMapSession(
     return current?.post(action, abandon) ?: false
   }
 
-  /** Releases first-viewport work after attachment, without running map work on the renderer. */
-  private fun publishAttachedViewport() {
+  /** Records the viewport before attachment queues its native resize. */
+  private fun awaitAttachedViewport(extent: MlnFfiMapExtent) {
+    stateLock.withLock {
+      if (!closed && !hasAppliedViewport) {
+        pendingAttachedViewport = extent
+      }
+    }
+  }
+
+  /** Releases first-viewport work after the owner thread observes the queued native resize. */
+  private fun publishAppliedViewport(map: MapHandle) {
+    val size = map.size
     val (current, pending) =
       stateLock.withLock {
-        if (closed || hasAttachedViewport) return
-        hasAttachedViewport = true
+        if (closed || hasAppliedViewport) return
+        val expected = pendingAttachedViewport ?: return
+        if (
+          size.width != expected.width ||
+            size.height != expected.height ||
+            size.scaleFactor != expected.scaleFactor
+        ) {
+          return
+        }
+        hasAppliedViewport = true
+        pendingAttachedViewport = null
         loop to pendingViewportActions.toList().also { pendingViewportActions.clear() }
       }
     pending.forEach { action ->
@@ -814,7 +839,7 @@ internal class MlnFfiMapSession(
 
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
-    configureMap { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
+    configureMapWithViewport { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
   }
 
   /**
@@ -855,7 +880,7 @@ internal class MlnFfiMapSession(
     try {
       when (style) {
         is BaseStyle.Uri -> map.setStyleUrl(style.uri)
-        is BaseStyle.Json -> map.setStyleJson(style.json)
+        is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
       }
       appliedStyle = style
     } catch (error: MaplibreException) {
@@ -1054,6 +1079,16 @@ internal class MlnFfiMapSession(
       it.latLngBoundsForCamera(it.camera).toBoundingBox()
     }
 
+  /** Reports whether the owner thread has observed [extent], for viewport-ordering tests. */
+  internal fun hasNativeSizeForTesting(extent: MlnFfiMapExtent): Boolean =
+    runOnMap { map ->
+      map.size.let {
+        it.width == extent.width &&
+          it.height == extent.height &&
+          it.scaleFactor == extent.scaleFactor
+      }
+    } == true
+
   override fun getVisibleRegion(): VisibleRegion =
     withMap(
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
@@ -1152,9 +1187,9 @@ internal class MlnFfiMapSession(
         return@withRendererAccess emptyList()
       }
       // Uncaught: past the null check there is no failure here that is not a bug.
-      session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate)).map {
-        it.toGeoJsonFeature()
-      }
+      session
+        .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
+        .toGeoJsonFeatures()
     } ?: emptyList()
 
   /**
@@ -1207,6 +1242,7 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(map: MapHandle) {
+    publishAppliedViewport(map)
     finishPendingGesture(map)
     flushTransitionResumes()
   }

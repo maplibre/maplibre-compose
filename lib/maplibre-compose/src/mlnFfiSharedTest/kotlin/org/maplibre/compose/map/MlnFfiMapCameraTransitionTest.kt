@@ -28,6 +28,34 @@ import org.maplibre.spatialk.geojson.Position
 class MlnFfiMapCameraTransitionTest {
 
   @Test
+  fun a_camera_requested_before_the_first_frame_survives_the_native_resize() {
+    val fixture = BridgeMapFixture.create()
+    fixture.use {
+      val position =
+        CameraPosition(
+          target = Position(longitude = -122.4194, latitude = 37.7749),
+          zoom = 11.0,
+          tilt = 35.0,
+        )
+      it.session.setCameraPosition(position)
+
+      it.pumpUntilRendered()
+      it.pumpUntil("the native map to apply the render target size") {
+        it.session.hasNativeSizeForTesting(BridgeMapFixture.DEFAULT_EXTENT)
+      }
+      it.pumpUntil("the deferred camera to be applied after the resize") {
+        abs(it.session.getCameraPosition().zoom - position.zoom) < 0.01
+      }
+
+      val actual = it.session.getCameraPosition()
+      assertNear(position.target.longitude, actual.target.longitude, "longitude changed on resize")
+      assertNear(position.target.latitude, actual.target.latitude, "latitude changed on resize")
+      assertNear(position.zoom, actual.zoom, "zoom changed on resize")
+      assertNear(position.tilt, actual.tilt, "tilt changed on resize")
+    }
+  }
+
+  @Test
   fun a_bounds_fit_requested_before_the_first_frame_uses_the_real_viewport() {
     val fixture = BridgeMapFixture.create()
     fixture.use {

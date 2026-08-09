@@ -12,8 +12,8 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.util.toFfiJsonValue
-import org.maplibre.compose.util.toGeoJsonFeature
+import org.maplibre.compose.util.toGeoJsonFeatures
+import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -58,14 +58,14 @@ public actual class VectorSource : Source {
             .takeUnless { expression -> expression == const(true) }
             ?.compile(ExpressionContext.None)
             ?.toStyleJson()
-            ?.toFfiJsonValue()
+            ?.toJsonBytes()
       }
     // Empty rather than an exception when no session is attached; querying before the first frame
     // is ordinary.
     return binding
       .withRenderSession { session -> session.querySourceFeatures(id, options) }
+      ?.toGeoJsonFeatures()
       .orEmpty()
-      .map { it.toGeoJsonFeature() }
   }
 }
 
