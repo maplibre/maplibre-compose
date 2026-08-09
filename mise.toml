@@ -24,23 +24,21 @@ shell = "bash -e -c"
 [vars]
 android_cmdline_tools_version = "22.0"
 android_api_level = "35"
-actionlint_version = "1.7.8"
-dprint_version = "0.53.2"
-hk_version = "1.45.0"
-java_version = "zulu-25.34.17.0"
+actionlint_version = "1.7.12"
+dprint_version = "0.55.2"
+hk_version = "1.54.1"
+java_version = "zulu-25.36.15.0"
 jvl_version = "2026.05.03"
-ktfmt_version = "0.62"
-node_version = "24.11.0"
-pkl_version = "0.31.0"
-python_version = "3.14.4"
-ruff_version = "0.16.1"
+ktfmt_version = "0.64"
+node_version = "24.19.0"
+python_version = "3.14.7"
+ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
-swiftformat_version = "0.61.1"
-xcodes_version = "1.6.2"
+swiftformat_version = "0.62.1"
+xcodes_version = "2.0.3"
 
 [tools]
 "aqua:jdx/hk" = "{{vars.hk_version}}" # Linter orchestration
-"aqua:apple/pkl" = "{{vars.pkl_version}}" # hk config dependency
 "aqua:dprint/dprint" = "{{vars.dprint_version}}" # Formatter orchestration
 "github:sargunv/jvl" = "{{vars.jvl_version}}" # JSON schema validator
 "aqua:rhysd/actionlint" = "{{vars.actionlint_version}}" # GH Actions linter

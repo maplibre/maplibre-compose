@@ -1,8 +1,8 @@
 // Drives pre-commit, `mise run check`, and `mise run fix`.
 
-amends "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Config.pkl"
+amends "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Config.pkl"
 
-import "package://github.com/jdx/hk/releases/download/v1.45.0/hk@1.45.0#/Builtins.pkl"
+import "package://github.com/jdx/hk/releases/download/v1.54.1/hk@1.54.1#/Builtins.pkl"
 
 local lintSteps = new Mapping<String, Step> {
   // Unbatched: dprint parallelizes itself, and batching oversubscribes the
@@ -38,10 +38,6 @@ local lintSteps = new Mapping<String, Step> {
     glob = List("**/*.json", "**/*.jsonc")
     exclude = List("demo-app/src/commonMain/composeResources/files/**")
     check = "jvl check {{files}}"
-  }
-  ["pkl"] = (Builtins.pkl) {
-    check_first = false
-    fix = "pkl format -w {{files}}"
   }
 }
 
