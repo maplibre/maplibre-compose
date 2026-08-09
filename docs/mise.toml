@@ -31,7 +31,8 @@ run = "pnpm run build"
 
 [tasks.preview]
 description = "Serve the built documentation site."
-depends = ["api", "versions", "install"]
+# `astro preview` serves docs/dist rather than producing it.
+depends = ["//docs:build"]
 run = "pnpm run preview"
 
 [tasks.astro]
