@@ -3,12 +3,13 @@
 *.jar       binary
 
 # Vendored: third-party sources committed as-is.
-demo-app/src/commonMain/composeResources/files/**  linguist-vendored=true
-gradlew                                            -text linguist-vendored=true
-gradlew.bat                                        -text linguist-vendored=true
-gradle/wrapper/**                                  linguist-vendored=true
+demo-app/common/src/commonMain/composeResources/files/**  linguist-vendored=true
+gradlew                                                   -text linguist-vendored=true
+gradlew.bat                                               -text linguist-vendored=true
+gradle/wrapper/**                                         linguist-vendored=true
 
 # Generated: dependency lockfiles.
-kotlin-js-store/yarn.lock                          linguist-generated=true
-mise.lock                                          linguist-generated=true
-mise.android.lock                                  linguist-generated=true
+kotlin-js-store/yarn.lock                                 linguist-generated=true
+pnpm-lock.yaml                                            linguist-generated=true
+mise.lock                                                 linguist-generated=true
+mise.android.lock                                         linguist-generated=true
