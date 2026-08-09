@@ -51,7 +51,7 @@ public class CameraState(firstPosition: CameraPosition) {
   public var position: CameraPosition
     get() = positionState.value
     set(value) {
-      (map as? MapAdapter)?.setCameraPosition(value)
+      map?.setCameraPosition(value)
       positionState.value = value
     }
 

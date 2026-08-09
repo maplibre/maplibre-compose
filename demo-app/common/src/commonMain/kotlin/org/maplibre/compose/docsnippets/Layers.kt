@@ -92,15 +92,17 @@ fun Layers() {
     // #endregion interaction
   }
 
-  // #region synchronous-geojson-updates
-  val livePositions =
-    rememberGeoJsonSource(
-      data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-      options = GeoJsonOptions(synchronousUpdate = true),
-    )
-  // Android only for now: other platforms currently ignore this option.
-  // Use this only for small, frequently updated in-memory GeoJSON sources.
-  // Synchronous updates can reduce update latency, but may reduce frame rate.
-  CircleLayer(id = "live-positions", source = livePositions)
-  // #endregion synchronous-geojson-updates
+  MaplibreMap {
+    // #region synchronous-geojson-updates
+    val livePositions =
+      rememberGeoJsonSource(
+        data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
+        options = GeoJsonOptions(synchronousUpdate = true),
+      )
+    // Android only for now: other platforms currently ignore this option.
+    // Use this only for small, frequently updated in-memory GeoJSON sources.
+    // Synchronous updates can reduce update latency, but may reduce frame rate.
+    CircleLayer(id = "live-positions", source = livePositions)
+    // #endregion synchronous-geojson-updates
+  }
 }

@@ -236,7 +236,9 @@ internal fun ensureCapabilities() =
  * its window host.
  */
 internal fun clearGlErrors() {
-  while (glGetError() != GL_NO_ERROR) Unit
+  while (glGetError() != GL_NO_ERROR) {
+    // Reading the flag is what clears it; there is nothing to do with the value.
+  }
 }
 
 internal fun checkGl(operation: String) {

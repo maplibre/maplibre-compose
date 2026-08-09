@@ -1,5 +1,3 @@
-import org.jetbrains.kotlin.gradle.dsl.KotlinJvmCompilerOptions
-
 plugins {
   id("org.jetbrains.kotlin.multiplatform")
   id("com.android.kotlin.multiplatform.library")
@@ -26,8 +24,7 @@ kotlin {
       compileTaskProvider.configure {
         compilerOptions {
           // TODO revisit this with AGP 8.11? https://issuetracker.google.com/issues/379315244
-          if (this is KotlinJvmCompilerOptions) jvmTarget = project.getAndroidJvmTarget()
-          else error("Unexpected compilation type: ${this::class}")
+          jvmTarget = project.getAndroidJvmTarget()
         }
       }
     }

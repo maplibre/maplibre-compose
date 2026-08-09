@@ -13,7 +13,7 @@ mavenPublishing {
 }
 
 kotlin {
-  js(IR) { browser() }
+  js { browser() }
 
   sourceSets {
     commonMain.dependencies {
