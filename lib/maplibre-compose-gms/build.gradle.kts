@@ -17,7 +17,7 @@ mavenPublishing {
 }
 
 kotlin {
-  androidLibrary { namespace = "org.maplibre.compose.gms" }
+  android { namespace = "org.maplibre.compose.gms" }
 
   applyDefaultHierarchyTemplate()
 

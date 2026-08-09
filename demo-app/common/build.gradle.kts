@@ -13,7 +13,7 @@ kotlin {
   jvmToolchain(libs.versions.java.toolchain.get().toInt())
 
   // Distinct from the app module's namespace, which AGP requires to be unique across modules.
-  androidLibrary { namespace = "org.maplibre.compose.demoapp.common" }
+  android { namespace = "org.maplibre.compose.demoapp.common" }
 
   listOf(iosArm64(), iosSimulatorArm64()).forEach {
     it.binaries.framework {
