@@ -43,10 +43,6 @@ gradle-spmForKmp = "1.9.4"
 gradle-compose = "1.11.1"
 androidx-compose = "1.10.5"
 jetbrains-compose-material3 = "1.10.0-alpha05"
-# TODO: Migrate away from material-icons-extended; JetBrains recommends
-# Material Symbols/vector resources instead.
-# https://kotlinlang.org/docs/multiplatform/whats-new-compose-180.html
-jetbrains-compose-material-iconsExtended = "1.7.3"
 jetbrains-navigation = "2.9.2"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
@@ -80,7 +76,6 @@ lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecyc
 jetbrains-compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "gradle-compose" }
 jetbrains-compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "gradle-compose" }
 jetbrains-compose-html-core = { module = "org.jetbrains.compose.html:html-core", version.ref = "gradle-compose" }
-jetbrains-compose-material-iconsExtended = { module = "org.jetbrains.compose.material:material-icons-extended", version.ref = "jetbrains-compose-material-iconsExtended" }
 jetbrains-compose-material3 = { module = "org.jetbrains.compose.material3:material3", version.ref = "jetbrains-compose-material3" }
 jetbrains-compose-runtime = { module = "org.jetbrains.compose.runtime:runtime", version.ref = "gradle-compose" }
 jetbrains-compose-ui = { module = "org.jetbrains.compose.ui:ui", version.ref = "gradle-compose" }

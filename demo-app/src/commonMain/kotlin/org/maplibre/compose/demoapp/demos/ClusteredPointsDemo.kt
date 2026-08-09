@@ -1,7 +1,5 @@
 package org.maplibre.compose.demoapp.demos
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.PedalBike
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -12,7 +10,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import io.ktor.client.HttpClient
@@ -29,7 +26,10 @@ import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import org.jetbrains.compose.resources.painterResource
 import org.maplibre.compose.demoapp.DemoState
+import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.demoapp.generated.pedal_bike_24px
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
@@ -176,7 +176,7 @@ object ClusteredPointsDemo : Demo {
       filter = !feature.has("point_count"),
       iconImage =
         image(
-          value = rememberVectorPainter(Icons.Default.PedalBike),
+          value = painterResource(Res.drawable.pedal_bike_24px),
           size = DpSize(14.dp, 14.dp),
           alpha = 0.5f,
           colorFilter = ColorFilter.tint(LimeGreen),
