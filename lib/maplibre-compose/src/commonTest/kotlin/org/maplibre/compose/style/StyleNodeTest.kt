@@ -1,7 +1,7 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.runComposeUiTest
+import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,9 +16,6 @@ import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
-// The v2 runner queues coroutines instead of running them eagerly, which times the MapLibre Native
-// FFI gesture tests out on macOS. Migrate the whole test suite at once, in #861.
-@Suppress("DEPRECATION")
 @OptIn(ExperimentalTestApi::class)
 abstract class StyleNodeTest {
   private val testSources by lazy {

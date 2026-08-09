@@ -659,13 +659,11 @@ class MlnFfiMapInputTest {
     body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInteger()
+    val initialPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
     lateinit var cameraState: CameraState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState =
-        rememberCameraState(
-          firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
-        )
+      cameraState = rememberCameraState(firstPosition = initialPosition)
       val content: @Composable () -> Unit = {
         MaplibreMap(
           modifier = mapModifier(),
@@ -697,6 +695,8 @@ class MlnFfiMapInputTest {
       }
     }
 
+    cameraState.awaitProjection()
+    cameraState.position = initialPosition
     waitUntil(timeoutMillis = TIMEOUT) { frames.get() > 0 }
     waitUntil(timeoutMillis = TIMEOUT) {
       kotlin.math.abs(cameraState.position.zoom - START_ZOOM) < 0.001

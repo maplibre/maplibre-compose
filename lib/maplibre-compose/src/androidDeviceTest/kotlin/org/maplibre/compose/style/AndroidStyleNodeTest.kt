@@ -2,11 +2,9 @@ package org.maplibre.compose.style
 
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.test.runAndroidComposeUiTest
+import androidx.compose.ui.test.v2.runAndroidComposeUiTest
 import org.maplibre.android.MapLibre
 
-// Migrated to the v2 runner together with the rest of the test suite, in #861.
-@Suppress("DEPRECATION")
 @OptIn(ExperimentalTestApi::class)
 class AndroidStyleNodeTest : StyleNodeTest() {
   override fun platformSetup() =
