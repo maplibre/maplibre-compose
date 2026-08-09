@@ -203,7 +203,7 @@ one render backend.
 
 ```kotlin title="build.gradle.kts"
 sourceSets {
-  val desktopMain by getting {
+  val jvmMain by getting {
     dependencies {
       implementation(compose.desktop.currentOs)
       implementation("org.maplibre.compose:maplibre-compose:{{release}}")
