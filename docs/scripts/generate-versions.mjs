@@ -1,9 +1,8 @@
-// Writes the versions the pages interpolate into src/generated/versions.json.
+// Writes the versions the pages quote into src/generated/versions.json.
 //
-// The site quotes two kinds of version. The library's own release and snapshot
-// come from the Git tags, which `.mise/bin/version-args` derives and this script
-// reads from stdin as the `-P` flags it prints. The MapLibre SDK versions come
-// from the Gradle version catalog, which stays the one place they are pinned.
+// Release and snapshot come from the Git tags, via `version-args` on stdin. The
+// MapLibre SDK versions come from the Gradle version catalog, which stays the
+// one place they are pinned.
 
 import fs from "node:fs";
 import path from "node:path";

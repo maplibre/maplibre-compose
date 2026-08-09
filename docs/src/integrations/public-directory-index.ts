@@ -7,17 +7,9 @@ import path from "node:path";
  * Serves a directory URL under `public/` as that directory's `index.html`,
  * during development only.
  *
- * Static hosts and `astro preview` both resolve `dir/` to `dir/index.html`. The
- * dev server serves `public/` through Vite's static middleware, which resolves
- * exact paths alone, so a directory URL reaches the page router and returns
- * 404. The generated API reference is a tree of such directories: every
- * reference link in the sidebar needs this, the Dart breadcrumbs need it, and
- * so does every Swift DocC route that a reader deep-links or reloads.
- *
- * The base is stripped from `req.url` before the Vite middleware stack runs, so
- * a request arrives here as a path relative to `public/`. The redirect below is
- * the one place that needs the base back, because a browser resolves the
- * `Location` header against the origin.
+ * Static hosts and `astro preview` already do this. Vite's static middleware
+ * resolves exact paths alone, so the Dokka reference, a tree of directories,
+ * 404s in dev without it.
  */
 export function publicDirectoryIndex(base: string): AstroIntegration {
   const root = base.replace(/\/$/, "");
@@ -56,9 +48,8 @@ export function publicDirectoryIndex(base: string): AstroIntegration {
             return;
           }
 
-          // Redirect to the trailing-slash form, as a static host does, so that
-          // relative links in the page resolve against the directory itself
-          // rather than against its parent.
+          // As a static host does, so relative links resolve against the
+          // directory rather than its parent.
           if (!decoded.endsWith("/")) {
             res.statusCode = 301;
             res.setHeader("Location", encodeURI(`${root}${decoded}/`) + suffix);
@@ -70,8 +61,7 @@ export function publicDirectoryIndex(base: string): AstroIntegration {
           next();
         };
 
-        // Ahead of Vite's static middleware, which is already in the stack and
-        // is what serves the rewritten URL.
+        // Ahead of Vite's static middleware, which serves the rewritten URL.
         server.middlewares.stack.unshift({ route: "", handle });
       },
     },

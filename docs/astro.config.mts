@@ -28,8 +28,7 @@ export default defineConfig({
       customCss: ["./src/styles/custom.css"],
       plugins: [
         starlightCopyButton(),
-        // Dokka owns everything under /api/, and it is generated rather than
-        // checked in, so the validator cannot resolve those targets.
+        // Dokka owns /api/, and it is generated rather than checked in.
         starlightLinksValidator({ exclude: [`${base}/api/**`] }),
       ],
       social: [

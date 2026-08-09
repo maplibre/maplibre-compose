@@ -4,26 +4,8 @@ import { visit } from "unist-util-visit";
 /**
  * Substitutes `{{name}}` in code blocks with a version from `generate-versions`.
  *
- * A page that quotes a dependency coordinate has to print the version this
- * checkout publishes, and a code block is literal text that no MDX expression
- * reaches. Write the placeholder instead:
- *
- * ````markdown
- * ```toml title="libs.versions.toml"
- * maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{release}}" }
- * ```
- * ````
- *
- * Prose is not a code block, so it interpolates the same data directly:
- *
- * ```mdx
- * import versions from "../../generated/versions.json";
- *
- * The latest release is **v{versions.release}**.
- * ```
- *
- * An unknown name fails the build rather than rendering the placeholder, so a
- * renamed version cannot reach the published site.
+ * A code block is literal text that no MDX expression reaches. Prose has no
+ * such problem and imports `generated/versions.json` directly.
  */
 export function remarkVersions() {
   const versions = JSON.parse(

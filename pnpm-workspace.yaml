@@ -1,8 +1,3 @@
-# The root package.json deliberately carries no `packageManager` field. mise
-# pins pnpm in `mise.toml` and locks it in `mise.lock`, so the field would only
-# duplicate that pin, and Kotlin/JS runs its own Yarn out of `build/js`, which
-# has no package.json of its own. Yarn walks up, finds this workspace's root,
-# and refuses to run against a pin naming a different package manager.
 packages:
   - docs
 

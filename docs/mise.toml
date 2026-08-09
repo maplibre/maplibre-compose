@@ -1,7 +1,6 @@
 [tasks.api]
 description = "Generate the Dokka API reference into the site's public directory."
 dir = ".."
-# The version flags carry the source ref that Dokka links each declaration to.
 run = '''
 .mise/bin/gradle-with-version build dokkaGenerate
 rm -rf docs/public/api

@@ -27,7 +27,6 @@ hs_err_*.log
 node_modules/
 dist/
 .astro/
-# Generated into the docs site: the Dokka reference and the versions it quotes.
 docs/public/api/
 docs/src/generated/
 __pycache__/

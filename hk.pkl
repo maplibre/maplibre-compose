@@ -39,7 +39,7 @@ local lintSteps = new Mapping<String, Step> {
     exclude = List("demo-app/common/src/commonMain/composeResources/files/**", "docs/src/generated/**")
     check = "jvl check {{files}}"
   }
-  // Type checks and lints the documentation site. dprint owns formatting.
+  // dprint owns formatting, hence --no-fmt.
   ["vp-check"] {
     glob = List("**/*.js", "**/*.mjs", "**/*.cjs", "**/*.ts", "**/*.mts", "**/*.cts", "**/*.astro")
     exclude = List("kotlin-js-store/**")

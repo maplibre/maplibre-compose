@@ -18,7 +18,5 @@ while IFS= read -r flag; do
   fi
 done <<<"$flags_text"
 
-# The Gradle build is rooted at the repository, and a task in a config root such
-# as docs/ sees that directory as MISE_PROJECT_ROOT, so prefer the monorepo root.
 cd "${MISE_MONOREPO_ROOT:-${MISE_PROJECT_ROOT:-$(cd "$script_dir/../.." && pwd)}}"
 exec ./gradlew "$@" "${flags[@]}"

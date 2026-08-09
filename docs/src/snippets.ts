@@ -1,25 +1,9 @@
 /**
- * Extracts a named region from a snippet file imported with `?raw`.
+ * Extracts a `// #region <name>` block from a snippet file imported with `?raw`.
  *
- * The snippet sources live in `demo-app` and compile with it, so a page cannot
- * show Kotlin that no longer builds. A page shows only the part it discusses.
- * Regions are named rather than numbered so that editing or reformatting a
- * snippet cannot silently point a page at the wrong lines.
- *
- * Mark a region in the snippet with matching comments, which editors fold and
- * formatters leave alone:
- *
- * ```kotlin
- * // #region simple
- * MaplibreMap(baseStyle = BaseStyle.Uri(styleUri))
- * // #endregion simple
- * ```
- *
- * Then show it:
- *
- * ```mdx
- * <Code code={region(styling, "simple")} lang="kotlin" title="App.kt" />
- * ```
+ * The sources live in `demo-app` and compile with it, so a page cannot show
+ * Kotlin that no longer builds. Regions are named rather than numbered so
+ * reformatting a snippet cannot silently point a page at the wrong lines.
  */
 export function region(source: string, name: string): string {
   const lines = source.split("\n");
@@ -46,16 +30,8 @@ export function region(source: string, name: string): string {
 /**
  * Nests a region inside the block it belongs to.
  *
- * Some regions sit inside a `MaplibreMap { ... }` in the snippet source, and
- * the surrounding call is context the page needs rather than something the
- * region should repeat:
- *
- * ```mdx
- * <Code
- *   code={inside("MaplibreMap {", region(layers, "amtrak-1"))}
- *   lang="kotlin"
- * />
- * ```
+ * Some regions sit inside a `MaplibreMap { ... }` in the source, where the
+ * surrounding call is context the page needs but the region should not repeat.
  */
 export function inside(opening: string, body: string): string {
   const indented = body

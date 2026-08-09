@@ -161,8 +161,6 @@ runs:
           ~/AppData/Local/mise
         key: ${{ steps.toolchain-key.outputs.key }}
 
-    # The workspace install is a fresh node_modules on every run. Caching the
-    # store keeps that off the network; node_modules itself is disposable.
     - name: Pin the pnpm store
       if: ${{ inputs.pnpm-cache == 'true' }}
       shell: bash
