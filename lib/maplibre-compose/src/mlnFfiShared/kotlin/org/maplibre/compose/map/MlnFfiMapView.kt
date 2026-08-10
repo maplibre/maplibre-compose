@@ -103,10 +103,13 @@ internal fun MlnFfiMapView(
   // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
 
-  LaunchedEffect(session, options, update) { update(session) }
+  LaunchedEffect(session, options, update) {
+    // Attach deferred state before native events can report the map's default state to Compose.
+    update(session)
+    session.start()
+  }
 
   DisposableEffect(session) {
-    session.start()
     onDispose {
       session.close()
       currentOnReset.value()
