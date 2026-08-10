@@ -22,6 +22,18 @@ internal expect object FfiTestPlatform {
   fun skip(reason: String): Nothing
 }
 
+/**
+ * The `file:` URL naming [path], built the way the platform builds one.
+ *
+ * A Windows path carries a drive letter and a backslash separator, and any path may carry
+ * characters a URL must percent-encode, so this conversion belongs to the platform rather than to
+ * string concatenation.
+ */
+internal expect fun fileUrlOf(path: Path): String
+
+/** The path [url] names. Inverse of [fileUrlOf], so that a test can check the round trip. */
+internal expect fun pathOfFileUrl(url: String): Path
+
 /** Feature availability of the packaged FFI runtime/binding pair. */
 internal data class FfiTestRuntimeCapabilities(val customGeometrySourceCallbacks: Boolean)
 

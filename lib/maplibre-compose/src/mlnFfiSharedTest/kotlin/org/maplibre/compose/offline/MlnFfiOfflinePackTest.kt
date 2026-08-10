@@ -17,6 +17,7 @@ import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.writeString
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -325,8 +326,7 @@ class MlnFfiOfflinePackTest {
     SystemFileSystem.sink(file).buffered().use {
       it.writeString("""{"version":8,"name":"offline test","sources":{},"layers":[]}""")
     }
-    // The directory is an absolute temporary path, so this needs no escaping.
-    return "file://$file"
+    return fileUrlOf(file)
   }
 
   /**
