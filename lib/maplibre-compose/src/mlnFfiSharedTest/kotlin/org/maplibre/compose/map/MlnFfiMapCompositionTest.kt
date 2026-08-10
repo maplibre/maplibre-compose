@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
@@ -13,8 +15,9 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,6 +37,7 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflineManager
@@ -318,17 +322,17 @@ class MlnFfiMapCompositionTest {
     body: ComposeUiTest.(MutableList<String>) -> Unit,
     content: @Composable (MutableList<String>, onFrame: () -> Unit) -> Unit,
   ) = runFfiComposeUiTest {
-    val errors = CopyOnWriteArrayList<String>()
-    val frames = AtomicInteger()
-    setFfiTestMapContent(runtimeOptions) { content(errors) { frames.incrementAndGet() } }
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.get() > 0 || errors.isNotEmpty() }
+    val errors = RecordingList<String>()
+    val frames = AtomicInt(0)
+    setFfiTestMapContent(runtimeOptions) { content(errors) { frames.incrementAndFetch() } }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
     body(errors)
     waitForIdle()
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
     // Without this the test would pass by doing nothing: a map that never gets a frame never
     // creates a runtime or a style.
-    assertTrue(frames.get() > 0, "No frame reached MapLibre; the map never rendered.")
+    assertTrue(frames.load() > 0, "No frame reached MapLibre; the map never rendered.")
   }
 
   private companion object {

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Composable
@@ -6,7 +8,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
 import java.util.concurrent.CountDownLatch
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -88,7 +91,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   /** Does not let process-wide configuration publish a runtime whose startup or budget failed. */
   private fun awaitConfiguredRuntime() {
     val settled = CountDownLatch(1)
-    val completed = AtomicBoolean()
+    val completed = AtomicBoolean(false)
     var outcome: Result<Unit>? = null
     fun complete(result: Result<Unit>) {
       if (completed.compareAndSet(false, true)) {

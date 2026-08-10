@@ -1,12 +1,12 @@
 package org.maplibre.compose.map
 
 import co.touchlab.kermit.Logger
-import java.io.File
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
@@ -47,7 +47,7 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
   private val extent: MlnFfiMapExtent,
-  private val cacheFile: File,
+  private val cacheFile: Path,
   private val getLogger: () -> Logger?,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,

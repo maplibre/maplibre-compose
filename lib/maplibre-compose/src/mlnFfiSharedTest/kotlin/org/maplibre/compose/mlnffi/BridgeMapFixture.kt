@@ -3,7 +3,6 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -12,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.files.Path
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MlnFfiMapSession
@@ -29,7 +29,7 @@ import org.maplibre.spatialk.geojson.Position
 internal class BridgeMapFixture
 private constructor(
   private val driver: FfiTestRenderDriver,
-  private val cacheFile: File,
+  private val cacheFile: Path,
   private val initialExtent: MlnFfiMapExtent,
 ) : AutoCloseable {
 

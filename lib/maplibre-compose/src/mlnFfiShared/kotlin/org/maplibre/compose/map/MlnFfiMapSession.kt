@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
@@ -5,11 +7,10 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.io.File
-import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
 import kotlin.math.PI
@@ -20,6 +21,7 @@ import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -29,6 +31,7 @@ import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
+import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
@@ -41,6 +44,7 @@ import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
+import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.StyleBinding
@@ -130,14 +134,14 @@ internal class MlnFfiMapSession(
   renderBackend: MapRenderBackend,
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
-  private val cacheFile: File,
+  private val cacheFile: Path,
 ) : MapAdapter, MlnFfiMapRenderer {
 
   override val backend: MapRenderBackend = renderBackend
   private val initialExtent = MlnFfiMapExtent.fromLogical(1, 1, scaleFactor)
 
   /** Guards loop startup and actions accepted before it. */
-  private val stateLock = ReentrantLock()
+  private val stateLock = MlnFfiLock()
 
   @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
 
@@ -303,7 +307,7 @@ internal class MlnFfiMapSession(
     if (!ensureAttached(map, frame)) return MlnFfiFrameResult.SKIPPED
     // Consumed before rendering, so an update the loop publishes during the render below is not
     // discarded along with the one being drawn.
-    if (!renderRequested.getAndSet(false)) return MlnFfiFrameResult.SKIPPED
+    if (!renderRequested.exchange(false)) return MlnFfiFrameResult.SKIPPED
     // Taken before the render and kept, so the cap measures start-to-start. Measuring from the end
     // of the last render is short by that render's duration, which near the display's own rate is
     // enough to reject every second frame.
@@ -459,7 +463,7 @@ internal class MlnFfiMapSession(
         attachedTarget = key
         retargetCount++
         // The replacement texture holds nothing yet; this request buys the frame that fills it.
-        renderRequested.set(true)
+        renderRequested.store(true)
         return true
       }
     }
@@ -480,7 +484,7 @@ internal class MlnFfiMapSession(
     attachCount++
     publishAttachedViewport()
     // The new texture holds nothing yet; this request buys the frame that fills it.
-    renderRequested.set(true)
+    renderRequested.store(true)
     return true
   }
 
@@ -727,7 +731,7 @@ internal class MlnFfiMapSession(
 
   /** Marks a frame worth drawing and asks the host for one. Safe from any thread. */
   private fun requestRender() {
-    renderRequested.set(true)
+    renderRequested.store(true)
     hostSession?.requestFrame()
   }
 
@@ -1174,7 +1178,7 @@ internal class MlnFfiMapSession(
   // region input, called from Compose
 
   /** Allocates a newer gesture identity. Its begin is queued with its first camera command. */
-  fun onGestureStarted(): GestureToken = GestureToken(nextGestureToken.incrementAndGet())
+  fun onGestureStarted(): GestureToken = GestureToken(nextGestureToken.incrementAndFetch())
 
   /**
    * Queues a token-matched end. The owner loop applies it only after the native events produced by

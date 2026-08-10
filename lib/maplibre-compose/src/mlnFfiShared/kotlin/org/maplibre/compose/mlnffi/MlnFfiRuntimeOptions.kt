@@ -1,19 +1,19 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
-import java.io.File
+import kotlinx.io.files.Path
 import org.maplibre.compose.offline.MlnFfiOfflineManager
 
 /** Platform-resolved configuration for a MapLibre Native FFI runtime. */
 @Immutable
 internal data class MlnFfiRuntimeOptions(
-  val cacheFile: File,
+  val cacheFile: Path,
   val maximumCacheSizeBytes: Long? = null,
 )
 
 /** Uses one stable lexical identity for a cache database without requiring it to exist yet. */
 internal fun MlnFfiRuntimeOptions.normalized(): MlnFfiRuntimeOptions {
-  val normalizedFile = cacheFile.absoluteFile.normalize()
+  val normalizedFile = normalizeMlnFfiPath(cacheFile)
   return if (normalizedFile == cacheFile) this else copy(cacheFile = normalizedFile)
 }
 
@@ -21,11 +21,13 @@ internal fun MlnFfiRuntimeOptions.normalized(): MlnFfiRuntimeOptions {
 internal object MlnFfiApplication {
   private class State(val options: MlnFfiRuntimeOptions, val offlineManager: MlnFfiOfflineManager)
 
+  private val lock = MlnFfiLock()
+
   @Volatile private var state: State? = null
 
   fun configure(rawOptions: MlnFfiRuntimeOptions) {
     val options = rawOptions.normalized()
-    synchronized(this) {
+    lock.withLock {
       val existing = state
       if (existing != null) {
         check(existing.options == options) {
@@ -53,7 +55,7 @@ internal object MlnFfiApplication {
    * Stops and forgets the process-wide owner. Tests only; production configuration is permanent.
    */
   internal fun resetForTest(): Boolean {
-    val previous = synchronized(this) { state.also { state = null } } ?: return true
+    val previous = lock.withLock { state.also { state = null } } ?: return true
     return previous.offlineManager.closeForTest()
   }
 }

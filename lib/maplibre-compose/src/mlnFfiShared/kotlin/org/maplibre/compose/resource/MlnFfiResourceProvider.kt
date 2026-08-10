@@ -1,10 +1,13 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
 import java.io.FileNotFoundException
 import java.net.URI
 import java.net.URISyntaxException
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
 import org.maplibre.nativeffi.resource.ResourceProviderDecision
@@ -55,7 +58,7 @@ internal class MlnFfiResourceProvider(
 
   /** Queues [request] for the reader, or refuses it if this provider is shutting down. */
   fun take(request: TakenResourceRequest, url: String, requestedUrl: String) {
-    if (!accepting.get()) {
+    if (!accepting.load()) {
       refuse(request, url, requestedUrl)
       return
     }
@@ -105,7 +108,7 @@ internal class MlnFfiResourceProvider(
 
   /** Stops taking new reads. Accepted reads own their handles and finish independently. */
   override fun close() {
-    accepting.set(false)
+    accepting.store(false)
   }
 }
 

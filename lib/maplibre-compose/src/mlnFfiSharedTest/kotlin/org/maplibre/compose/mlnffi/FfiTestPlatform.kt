@@ -1,6 +1,6 @@
 package org.maplibre.compose.mlnffi
 
-import java.io.File
+import kotlinx.io.files.Path
 
 /** Platform services required by otherwise shared MapLibre Native FFI tests. */
 internal expect object FfiTestPlatform {
@@ -10,10 +10,10 @@ internal expect object FfiTestPlatform {
   fun initialize()
 
   /** A writable, test-unique cache database path. */
-  fun createCacheFile(): File
+  fun createCacheFile(): Path
 
   /** Removes the cache path and any platform-owned directory containing it. */
-  fun deleteCacheFile(file: File)
+  fun deleteCacheFile(file: Path)
 
   /** Creates the render driver for the native runtime packaged into this test process. */
   fun createRenderDriver(): FfiTestRenderDriver
