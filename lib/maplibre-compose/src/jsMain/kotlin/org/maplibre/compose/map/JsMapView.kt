@@ -52,7 +52,6 @@ internal actual fun ComposableMapView(
     }
   }
 
-  // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }

@@ -10,10 +10,6 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.style.BaseStyle
 
-/**
- * A map taken out of the composition, or given a different style, tears down everything the
- * platform holds: the MapLibre map, the texture Skia adopted, and the style binding.
- */
 @OptIn(ExperimentalTestApi::class)
 class BrowserMapLifecycleTest {
 
@@ -38,7 +34,6 @@ class BrowserMapLifecycleTest {
 
     visible = false
     waitForIdle()
-    // Several more frames: the surface disposes, then Compose draws again without it.
     repeat(5) {
       yieldToBrowser()
       waitForIdle()
@@ -65,9 +60,6 @@ class BrowserMapLifecycleTest {
     waitUntilMap("the replacement map to load") { loads >= 2 }
   }
 
-  /**
-   * `onMapLoadFinished` says the style's sources are readable, so it must arrive for every style.
-   */
   @Test
   fun switching_the_base_style_reports_loading_finished_again() = runBrowserMapTest {
     var current by mutableStateOf(style)

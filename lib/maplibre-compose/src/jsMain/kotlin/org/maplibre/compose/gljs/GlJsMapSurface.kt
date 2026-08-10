@@ -22,11 +22,7 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.maplibre.compose.map.MapExtent
 
-/**
- * Hosts [renderer] on a Compose drawing surface. Compose owns the frame loop: MapLibre renders
- * inside this draw, into a texture on Compose's own WebGL context, and the result is sampled like
- * any other image.
- */
+/** Hosts [renderer] on a Compose drawing surface. Compose owns the frame loop. */
 @Composable
 internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logger: Logger?) {
   val density = LocalDensity.current.density.toDouble()
@@ -74,7 +70,6 @@ internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logge
         val acquired = compositor.acquire(extent)
         renderer.render(acquired, extent)
         when (acquired) {
-          // Nothing has been drawn into a target yet, so ask again next frame.
           GlJsFrameTarget.NotReady -> surface.requestFrame()
           GlJsFrameTarget.Detached -> Unit
           is GlJsFrameTarget.Composited -> {

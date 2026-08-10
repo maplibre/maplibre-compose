@@ -118,15 +118,7 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
-/**
- * Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux.
- *
- * MapLibre renders into a `VkImage` whose memory is exported as a POSIX file descriptor; that
- * descriptor is imported into Compose's GL context as a memory object and wrapped as a texture, so
- * both APIs address the same allocation with no copy.
- *
- * Ported from the `maplibre-native-ffi` Compose example, which is the reference for this path.
- */
+/** Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux. */
 internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter()
@@ -196,8 +188,8 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
   override fun close() {
     try {
       frameCompletion.abandon()
-      // At window close the Compose surface may already be gone, so there is no context to make
-      // current and no GL objects left to free; the driver reclaims them with the context.
+      // At window close the Compose surface may already be gone; the driver reclaims the GL objects
+      // along with the context.
       runCatching {
         gpuHost.withOpenGlContext {
           disposeAllTextures()
@@ -243,8 +235,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
   private fun abandonContext() {
     presenter.abandon()
     // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
-    // until the next producer frame retargets it. The old allocation is retired so that drawing
-    // the replacement frame releases it only after that retarget has completed.
+    // until the next producer frame retargets it.
     texture?.let { retiredTextures[generation] = it }
     texture = null
     retiredTextures.values.forEach(LinuxSharedTexture::abandonImported)
@@ -646,14 +637,13 @@ private constructor(
 ) : AutoCloseable {
   private var memoryObject = 0
 
-  /** The GL name of the imported texture, which the presenter keys its Skia wrapper on. */
+  /** The GL name of the imported texture. */
   var textureName: Int = 0
     private set
 
   /**
-   * The GL view of this texture, for presenting only. The context handles are zero and the
-   * make-current hook is a no-op because MapLibre renders through the Vulkan side and Compose
-   * already owns this GL context.
+   * For presenting only: the context handles are zero and the make-current hook is a no-op, since
+   * Compose already owns this GL context.
    */
   fun target(generation: Long): OpenGlTextureTarget =
     OpenGlTextureTarget(

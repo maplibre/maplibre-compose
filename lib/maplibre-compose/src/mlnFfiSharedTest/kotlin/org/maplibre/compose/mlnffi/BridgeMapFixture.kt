@@ -21,10 +21,7 @@ import org.maplibre.compose.testing.RgbaPixel
 
 /**
  * Runs a real [MlnFfiMapSession] against the packaged runtime and production presentation bridge,
- * without a Compose composition.
- *
- * Frames are driven explicitly by the caller rather than by a loop of the fixture's own, so a test
- * that says how many frames it wants fails with a clear message instead of hanging.
+ * without a Compose composition. Frames are driven explicitly by the caller.
  */
 internal class BridgeMapFixture
 private constructor(
@@ -75,8 +72,8 @@ private constructor(
   }
 
   /**
-   * Takes the surface away, as a host does when its device is lost. The host itself is deliberately
-   * left alone: only the render session and its target go, not the map, its style, or its camera.
+   * Takes the surface away, as a host does when its device is lost. Only the render session and its
+   * target go; the map, its style, and its camera survive.
    */
   fun loseSurface() {
     session.onSurfaceLost()
@@ -88,13 +85,12 @@ private constructor(
     session.onSurfaceAvailable(hostSession)
   }
 
-  /** How many render sessions the map session has attached, for asserting a re-attach happened. */
   val attachCount: Int
     get() = session.attachCount
 
   /**
    * Whether MapLibre has rendered at least once, which is how a test knows the map exists and is
-   * attached: the runtime and map are created on their own thread, so the first frame is not it.
+   * attached. The runtime and map are created on their own thread, so the first frame is not it.
    */
   var hasRendered: Boolean = false
     internal set
@@ -134,9 +130,7 @@ private constructor(
   }
 
   /**
-   * Renders frames until [condition] holds, or fails.
-   *
-   * Rendering is the caller's job: mbgl advances a camera transition from
+   * Renders frames until [condition] holds, or fails. mbgl advances a camera transition from
    * `onDidFinishRenderingFrame`, so a transition that renders no frames stalls after its first
    * step.
    */
@@ -154,17 +148,15 @@ private constructor(
       }
       frame(extent)
       frames++
-      // A short sleep rather than a spin: a tight loop starves the network and worker threads.
+      // A tight loop would starve the network and worker threads.
       Thread.sleep(POLL_INTERVAL_MILLIS)
     }
   }
 
   /**
    * Renders for [duration], but only when the session asks for a frame, and reports how many it
-   * drew.
-   *
-   * Only an on-demand loop can measure whether a map is at rest: a rendered frame is itself
-   * something MapLibre can respond to, so an unconditional pump sustains and measures itself.
+   * drew. Only an on-demand loop can measure whether a map is at rest; an unconditional pump
+   * sustains and measures itself.
    */
   fun renderOnDemand(duration: Duration): Int {
     val deadline = TimeSource.Monotonic.markNow() + duration
@@ -194,12 +186,7 @@ private constructor(
     }
   }
 
-  /**
-   * Runs [block] on another thread while this one renders frames, and returns its result.
-   *
-   * Anything that suspends on the map's progress needs both halves at once, since the caller cannot
-   * block the rendering thread and then wait for something that only advances when it renders.
-   */
+  /** Runs [block] on another thread while this one renders frames, and returns its result. */
   fun <T> awaitWhileRendering(
     description: String,
     timeout: Duration = 30.seconds,

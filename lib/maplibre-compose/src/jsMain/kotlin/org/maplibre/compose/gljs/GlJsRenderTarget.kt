@@ -7,8 +7,7 @@ import org.jetbrains.skia.SurfaceOrigin
 
 /**
  * The texture MapLibre GL JS renders into and Compose draws from, sized in physical pixels and
- * never resized in place. WebGL has no cross-context resource sharing, so everything here is
- * allocated in the one context skiko created.
+ * never resized in place. Everything here is allocated in the one context skiko created.
  */
 internal class GlJsRenderTarget(
   val gl: dynamic,
@@ -73,16 +72,13 @@ internal class GlJsRenderTarget(
       Image.adoptTextureFrom(
         context = context,
         backendTexture = backendTexture,
-        // GL renders bottom-up; Skia flips for us rather than us flipping in a shader.
+        // GL renders bottom-up.
         origin = SurfaceOrigin.BOTTOM_LEFT,
         colorType = ColorType.RGBA_8888,
       )
   }
 
-  /**
-   * The texture is not deleted here: adoption handed it to Skia, and a Compose graphics layer can
-   * still hold a display list referencing [image] after this runs.
-   */
+  /** The texture is not deleted here: adoption handed it to Skia. */
   override fun close() {
     gl.deleteFramebuffer(framebufferObject)
     gl.deleteRenderbuffer(depthStencil)

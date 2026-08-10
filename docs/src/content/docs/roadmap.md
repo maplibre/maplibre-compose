@@ -68,34 +68,26 @@ Research Areas:
 
 ### [JS Parity](https://github.com/maplibre/maplibre-compose/issues/222)
 
-**Status:** Needs Exploration 🔍
+**Status:** Nearly done 🏁
 
-The goal is to support Compose apps in the browser. Which map draws them is no
-longer settled.
+The goal is to support Compose apps in the browser on par with the other
+platforms.
 
-The existing work binds
-[MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/) to Kotlin JS, and a
-partial browser implementation is built on it. The alternative is the same
-MapLibre Native core the other platforms use.
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) has
-gained WebGPU and WebGL support on wasm, and its TypeScript bindings — for the
-browser, Node, Bun, Deno, and ArkTS — are further along than its Kotlin/Wasm
-ones. Wrapping those from Kotlin JS is the same shape of work as wrapping
-MapLibre GL JS, which is what makes this a real choice rather than a wish.
-Compositing MapLibre Native's output into Compose has been prototyped
-successfully, so the browser could be the same platform as everywhere else
-rather than a separate one.
+The browser is built on
+[MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/), declared by hand in
+Kotlin. MapLibre draws into a texture, and Compose composites that texture into
+its own scene, so Compose content can sit above and below the map. The camera,
+gestures, styles, sources, layers, expressions, images, and feature queries all
+work, and one conformance suite runs against both the browser and MapLibre
+Native.
 
-It might not work. MapLibre Native was never meant to run in a browser, and
-finding that out is part of the exploration. Deciding between the two paths
-comes before deciding what to build next on either.
+MapLibre GL JS supplies no offline packs and no computed source, so those
+features belong to the MapLibre Native platforms. Ornaments are drawn in Compose
+instead, where `maplibre-compose-material3` has a set that works everywhere.
 
-Next steps if MapLibre GL JS stays:
+Next steps:
 
-- Add support for programmatic layer styling (sources, layers, expressions,
-  images, etc).
 - Add support for browser location services.
-- Update to MapLibre GL JS v5 for 3d globe support.
 
 ### [Documentation](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20documentation%20label%3Adocumentation)
 
@@ -111,8 +103,7 @@ Next steps:
   [the demo app](https://github.com/maplibre/maplibre-compose/issues/486),
   fixing known bugs and adding demos showing the capabilities of MapLibre
   Compose.
-- Add inline examples to the documentation site (requires JS parity above) to go
-  with code snippets.
+- Add inline examples to the documentation site to go with code snippets.
 
 Investigation needed:
 
@@ -159,17 +150,14 @@ take them on, community contributions are of course still welcome!
 
 **Status:** Needs Exploration 🔍
 
-The goal is to support Compose apps in the browser using Kotlin WASM. It faces
-the same open question as JS parity above — MapLibre GL JS or MapLibre Native —
-and `maplibre-native-ffi` offers a binding on each side of it: TypeScript for
-Kotlin JS, Kotlin/Wasm here.
+The goal is to support Compose apps in the browser using Kotlin WASM. Which map
+draws them is open: the Kotlin JS platform above uses MapLibre GL JS, and
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) has
+gained WebGPU and WebGL support on wasm alongside a Kotlin/Wasm binding.
 
 Next steps:
 
-- Decide the path, together with JS parity. Both targets can reach either map,
-  so this is one decision rather than two, unless something found along the way
-  splits them.
-- If MapLibre GL JS: explore how much of the Kotlin JS binding can be shared
+- If MapLibre GL JS: explore how much of the Kotlin JS platform can be shared
   with Kotlin WASM, and build a proof of concept.
 - If MapLibre Native: build minimal support on the Kotlin/Wasm bindings — map
   loading and style switching — and find out what a browser does to a renderer

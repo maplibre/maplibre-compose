@@ -18,10 +18,6 @@ import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 
-/**
- * The three tiled sources. GL JS exposes no setter for anything the common API lets a caller change
- * on them, so their whole definition is style JSON fixed at construction.
- */
 public actual class VectorSource : Source {
 
   private val json: JsonObject
@@ -140,9 +136,6 @@ public actual class RasterDemSource : Source {
 }
 
 /**
- * A source that came from the style rather than from the composition. Nothing re-adds one, so only
- * the attribution is ever read back.
- *
  * @param definition what MapLibre reports about the source: its `type` and, where the style
  *   declares one, its `attribution`.
  */

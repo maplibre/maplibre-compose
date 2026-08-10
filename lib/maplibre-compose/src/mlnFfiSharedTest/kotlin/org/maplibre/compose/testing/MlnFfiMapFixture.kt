@@ -9,10 +9,7 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 
-/**
- * The shared fixture over [BridgeMapFixture], whose waits block. That is what `runBlocking` is for
- * here: the map runs on threads of its own, so a blocked test thread stops nothing.
- */
+/** The map runs on threads of its own, so blocking the test thread in a wait stops nothing. */
 internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent: MapExtent) :
   MapFixture {
 
@@ -49,8 +46,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
 
   /**
    * A single frame is not enough to have put anything on the target: MapLibre skips one that is
-   * throttled, or that has nothing new to draw. Reading before any frame has been presented is what
-   * a pixel assertion right after a style load would otherwise do.
+   * throttled, or that has nothing new to draw.
    */
   override suspend fun readPixel(x: Int, y: Int): RgbaPixel {
     bridge.pumpUntilRendered(extent)

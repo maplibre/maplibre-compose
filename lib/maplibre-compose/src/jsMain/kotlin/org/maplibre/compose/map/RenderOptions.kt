@@ -8,9 +8,6 @@ import androidx.compose.runtime.Immutable
  * @param isPaddingEnabled Draws the camera's padding, which is where it considers its centre to be.
  * @param isOverdrawInspectorEnabled Shades the map by how many times each pixel was drawn.
  * @param maximumFps Caps how often the map is rendered. Null renders whenever MapLibre asks to be.
- *
- * MapLibre GL JS's debug overlays are not quite MapLibre Native's: it has no tile timestamps or
- * parse status, and offers overdraw inspection, which MapLibre Native does not.
  */
 @Immutable
 public actual data class RenderOptions(

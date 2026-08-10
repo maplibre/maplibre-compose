@@ -13,17 +13,13 @@ import web.html.HTMLCanvasElement
 
 internal const val GPU_CANVAS_SIZE: Int = 256
 
-/** The WebGL context and skia [DirectContext] every compositing test shares. */
 internal class BrowserGpu(
   val canvas: HTMLCanvasElement,
   val gl: WebGL2RenderingContext,
   val skia: DirectContext,
 )
 
-/**
- * Stands the page's one GPU context up, at most once per Karma run. Neither context is ever closed:
- * [SkikoGpuBridge] keeps the `GrDirectContext` pointer for the life of the page.
- */
+/** Stood up at most once per Karma run; neither context is ever closed. */
 private val gpu: Promise<BrowserGpu> by lazy {
   Promise { resolve, reject ->
     onWasmReady {
@@ -59,8 +55,7 @@ private fun createGpu(): BrowserGpu {
   }
   registry.makeContextCurrent(handle)
 
-  // The hook has to be installed before the context is made, which is the ordering a real page
-  // meets by calling initialize() immediately before ComposeViewport.
+  // The hook has to be installed before the context is made.
   MapLibre.initialize()
   val skia = DirectContext.makeGL()
   check(SkikoGpuBridge.isReady) { SkikoGpuBridge.diagnostic() }
@@ -79,7 +74,7 @@ internal fun readFramebuffer(gl: dynamic, framebuffer: Any?, width: Int, height:
   return ByteArray(width * height * 4) { pixels[it] }
 }
 
-/** Every colour in [rgba] and how many pixels carry it, so a mismatch names the stray colour. */
+/** Every colour in [rgba] and how many pixels carry it. */
 internal fun histogram(rgba: ByteArray): Map<String, Int> {
   val counts = HashMap<Int, Int>()
   var index = 0

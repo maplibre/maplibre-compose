@@ -11,11 +11,6 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
-/**
- * Asserts what the spec says rather than what either MapLibre accepts: GL JS refuses a source over
- * a single unknown key where Native quietly takes extensions, so a key belonging to one of them has
- * to be written by that backend rather than here.
- */
 class SourceJsonTest {
 
   @Test
@@ -52,7 +47,6 @@ class SourceJsonTest {
     assertNull(json["attribution"], "no attribution means no attribution key")
   }
 
-  /** On the keys: a whole number renders as `2.0` on the JVM and `2` in JavaScript. */
   @Test
   fun a_raster_source_writes_its_own_keys_and_its_tile_set_s() {
     val json =
@@ -113,7 +107,7 @@ class SourceJsonTest {
 
     val pair = (json["clusterProperties"] as kotlinx.serialization.json.JsonObject)["total"]
     // By value rather than by text: a whole number renders as `2.0` on the JVM and `2` in
-    // JavaScript, and both are the same JSON number.
+    // JavaScript.
     val values = (pair as JsonArray).map { it.jsonPrimitive.content.toDouble() }
     assertEquals(
       listOf(2.0, 1.0),

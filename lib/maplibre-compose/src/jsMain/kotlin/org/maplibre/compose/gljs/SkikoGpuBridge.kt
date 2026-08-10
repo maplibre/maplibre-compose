@@ -13,14 +13,13 @@ private const val GL_STATES = 0xffff
 
 /**
  * Reaches the `GrDirectContext` Compose renders with, by wrapping skiko's wasm context factory
- * before Compose builds its renderer. Skiko exposes neither its `DirectContext` nor a route from a
- * canvas back to its surface, and a second `DirectContext.makeGL()` corrupts Compose's rendering.
+ * before Compose builds its renderer. A second `DirectContext.makeGL()` corrupts Compose's
+ * rendering, so the existing one has to be caught as it is created.
  *
  * TODO: retire this, and [org.maplibre.compose.browser.MapLibre.initialize] with it, once
  *   [JetBrains/skiko#1219](https://github.com/JetBrains/skiko/pull/1219) or an equivalent lands.
  */
 internal object SkikoGpuBridge {
-  /** As skiko's wasm heap sees it. */
   private var contextPointer: dynamic = null
 
   /** Which mangled property this build keeps a managed object's native pointer in. */
@@ -54,8 +53,8 @@ internal object SkikoGpuBridge {
   /**
    * A stand-in for Compose's [DirectContext], carrying its native pointer. Built on a real managed
    * object's prototype because an optimized build reads that pointer field directly where a
-   * development build goes through its accessor. Nothing constructs it, so it frees nothing — the
-   * pointer belongs to Compose — and no instance method dispatches on it.
+   * development build goes through its accessor. It frees nothing — the pointer belongs to Compose
+   * — and no instance method may dispatch on it.
    */
   fun directContext(): DirectContext? {
     val pointer = contextPointer ?: return null
@@ -74,7 +73,6 @@ internal object SkikoGpuBridge {
     reset(pointer, GL_STATES)
   }
 
-  /** What was and was not found, for the diagnostic a map raises when it cannot composite. */
   fun diagnostic(): String =
     when {
       !hookInstalled -> "skiko's exports were not on the page when MapLibre Compose initialized"
@@ -84,9 +82,8 @@ internal object SkikoGpuBridge {
     }
 
   /**
-   * A managed object carries more than one numeric field, so only the one differing between two
-   * instances is the pointer. A wrong guess hands Skia a bogus address, which corrupts rendering
-   * rather than failing outright, so ambiguity leaves this unset.
+   * A wrong guess hands Skia a bogus address, which corrupts rendering rather than failing
+   * outright, so ambiguity leaves this unset.
    */
   private fun learnPointerField() {
     if (pointerField != null) return
@@ -110,7 +107,6 @@ internal object SkikoGpuBridge {
     }
   }
 
-  /** Any Skia type would do; this one is a descriptor, so it needs no live context. */
   private fun probe(): BackendTexture =
     BackendTexture.makeGL(
       width = 1,

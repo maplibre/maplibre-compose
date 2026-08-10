@@ -47,11 +47,8 @@ internal interface MlnFfiMapHostSession {
 }
 
 /**
- * Bridges MapLibre Native's rendering into whatever the platform composites with.
- *
- * A host owns the GPU objects on both sides of the handoff: it allocates the target MapLibre
- * renders into, synchronizes the producer and consumer, and presents the finished target. One host
- * serves one map.
+ * Bridges MapLibre Native's rendering into whatever the platform composites with. A host owns the
+ * GPU objects on both sides of the handoff, and serves one map.
  */
 internal interface MlnFfiMapHost : AutoCloseable {
   val backends: RenderBackendPair

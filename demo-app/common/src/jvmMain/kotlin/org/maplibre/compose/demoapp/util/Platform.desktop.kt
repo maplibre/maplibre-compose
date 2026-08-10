@@ -19,9 +19,8 @@ actual object Platform {
       RenderOptionsDemo,
       SynchronousGeoJsonUpdatesDemo,
       OfflineManagerDemo,
-      // Deliberately absent: OrnamentOptionsDemo; MapLibre Native's core draws no ornaments.
+      // No OrnamentOptionsDemo: MapLibre Native's core draws no ornaments.
     )
 
-  /** Desktop draws no ornaments, so there is no padding to apply. */
   actual fun padOrnaments(options: OrnamentOptions, padding: PaddingValues) = options
 }

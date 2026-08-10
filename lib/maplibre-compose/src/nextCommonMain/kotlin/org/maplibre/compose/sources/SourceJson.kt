@@ -12,7 +12,6 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.toJson
 
-/** The TileJSON fields the style spec shares across every tiled source. */
 internal fun JsonObjectBuilder.putTileSetOptions(options: TileSetOptions) {
   put("minzoom", options.minZoom)
   put("maxzoom", options.maxZoom)
@@ -34,7 +33,6 @@ internal fun JsonObjectBuilder.putTileSetOptions(options: TileSetOptions) {
   options.attributionHtml?.let { put("attribution", it) }
 }
 
-/** The style spec allows `data` to be a URL string or an inline GeoJSON object. */
 internal fun GeoJsonData.toDataJson(): JsonElement =
   when (this) {
     is GeoJsonData.Uri -> JsonPrimitive(uri)
@@ -43,9 +41,9 @@ internal fun GeoJsonData.toDataJson(): JsonElement =
   }
 
 /**
- * Everything the spec lets a GeoJSON source declare, apart from its data. `minzoom` and
- * `synchronousUpdate` are absent because the spec has no place for them here and GL JS rejects the
- * whole source over an unknown key; each backend that honours one writes it itself.
+ * `minzoom` and `synchronousUpdate` are deliberately absent: the spec has no place for them here
+ * and GL JS rejects the whole source over an unknown key, so each backend that honours one writes
+ * it itself.
  */
 internal fun JsonObjectBuilder.putGeoJsonOptions(options: GeoJsonOptions) {
   put("maxzoom", options.maxZoom)

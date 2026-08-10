@@ -14,7 +14,6 @@ import org.maplibre.spatialk.geojson.Position
 
 private const val RENDER_TIMEOUT_MS = 30_000
 
-/** One GL JS map on the shared GPU context, with no Compose in the way. */
 internal class CompositedMap(style: BaseStyle) : AutoCloseable {
 
   private var loadFailure: String? = null
@@ -40,7 +39,6 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
   fun drawOnce(target: GlJsRenderTarget): Boolean =
     session.render(GlJsFrameTarget.Composited(target), extentOf(target))
 
-  /** A frame count is no wait: the session redraws whether or not the style's sources arrived. */
   suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: () -> Boolean) {
     val deadline = Date.now() + RENDER_TIMEOUT_MS
     while (!condition()) {
@@ -54,7 +52,7 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
 
   /**
    * Whether [layerId] is in the render tree, not merely the stylesheet. Never asked before the
-   * style loads: MapLibre answers a query naming a layer it lacks with an `error`.
+   * style loads: MapLibre raises an `error` for a query naming a layer it lacks.
    */
   fun rendersFeature(layerId: String, x: Int, y: Int): Boolean =
     styleLoaded && session.queryRenderedFeatures(DpOffset(x.dp, y.dp), setOf(layerId)).isNotEmpty()

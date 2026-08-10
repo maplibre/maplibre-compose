@@ -4,7 +4,6 @@ import androidx.compose.ui.unit.Density
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-/** Taken at face value a browser's scroll delta zooms about a hundred times too fast. */
 class ScrollNotchesTest {
 
   @Test

@@ -9,9 +9,6 @@ import org.maplibre.compose.style.BaseStyle
 /**
  * A resize must retarget the live session (maplibre-native-ffi #485) rather than re-attach, which
  * would discard the renderer's tile pyramid, atlases, and placement on every frame of a drag.
- *
- * Asserted on attach and retarget counts, since both paths render the same scene: a regression here
- * only stutters.
  */
 class MlnFfiMapResizeTest {
 
@@ -25,8 +22,6 @@ class MlnFfiMapResizeTest {
       val attachesAfterFirstFrame = fixture.session.attachCount
       assertEquals(0, fixture.session.retargetCount, "nothing to retarget before the first resize")
 
-      // Rendering again at the new size is the real assertion; the counters only say which path got
-      // there.
       fixture.hasRendered = false
       fixture.pumpUntil("the resized map to render", extent = WIDER_EXTENT) { fixture.hasRendered }
 

@@ -6,7 +6,6 @@ import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.demoapp.design.SwitchListItem
 
-/** Controls every pointer family the shared Compose gesture engine supports. */
 object GestureOptionsDemo : Demo {
   override val name = "Configure gestures"
 

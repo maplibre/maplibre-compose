@@ -1,6 +1,5 @@
 package org.maplibre.compose.gljs
 
-/** Cancels an event subscription. */
 internal fun interface GlJsSubscription {
   fun cancel()
 }

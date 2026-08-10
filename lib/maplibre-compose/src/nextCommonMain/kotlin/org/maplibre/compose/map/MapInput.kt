@@ -63,8 +63,8 @@ private fun Modifier.keyboardInput(
   options: GestureOptions,
   continuation: GestureContinuation,
 ): Modifier =
-  // Key events only reach a focused node; the map takes focus on press, so the keyboard works only
-  // once the user has interacted with the map.
+  // Key events only reach a focused node, and the map takes focus on press, so the keyboard works
+  // only after the user has interacted with the map.
   onKeyEvent { event ->
     if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
     val shifted = event.isShiftPressed
@@ -135,7 +135,6 @@ private fun Modifier.scrollZoom(
   density: Density,
   continuation: GestureContinuation,
 ): Modifier =
-  // Separate from the press loop because scroll arrives without a preceding press.
   pointerInput(target, options, density, continuation) {
     val scope = CoroutineScope(currentCoroutineContext())
     try {
@@ -146,7 +145,6 @@ private fun Modifier.scrollZoom(
           if (!options.isScrollZoomEnabled) continue
           val change = event.changes.firstOrNull() ?: continue
           if (change.scrollDelta.y == 0f) continue
-          // Each host reports scroll in its own unit; see scrollNotches.
           val scroll = scrollNotches(change.scrollDelta.y, density)
           continuation.interrupt()
           val token = continuation.resume() ?: target.onGestureStarted()
@@ -156,8 +154,7 @@ private fun Modifier.scrollZoom(
             anchor = options.zoomAnchor(change.position.toLogicalDpOffset(density)),
             gestureToken = token,
           )
-          // Ending here would close the gesture inside the scroll event wherever the end is
-          // synchronous, so a burst holds it open and the next notch resumes the same token.
+          // A burst holds the gesture open so the next notch resumes the same token.
           continuation.finishAfter(scope, options.scrollZoomHold, token, target::onGestureEnded)
           change.consume()
         }
@@ -167,10 +164,6 @@ private fun Modifier.scrollZoom(
     }
   }
 
-/**
- * Not Compose's own drag and tap detectors: a map needs a stream that becomes a pan, a rotate or a
- * click depending on the modifiers held as it moves, which they decide up front.
- */
 private class MapPointerGesture(
   private val target: GestureTarget,
   private val options: GestureOptions,
@@ -197,9 +190,6 @@ private class MapPointerGesture(
   private var singleMotion = SingleMotion.NONE
   private val singleVelocity = VelocityTracker()
 
-  /**
-   * Separate start and previous samples let pan run while scale/rotate/shove arbitration continues.
-   */
   private var twoFingerStart: TwoFingerSample? = null
   private var twoFingerPrevious: TwoFingerSample? = null
   private var twoFingerPanning = false
@@ -288,9 +278,7 @@ private class MapPointerGesture(
     if (quickZoomCandidate) cancelPendingTouchClick()
     deferredTwoFingerVelocity = null
     continuation.interrupt()
-    // Taking focus on press is what makes the keyboard handling reachable.
     runCatching { focusRequester.requestFocus() }
-    // A transition still in flight would keep animating against the pointer.
     target.cancelTransitions()
 
     if (change.type != PointerType.Mouse && !quickZoomCandidate) {
@@ -314,8 +302,6 @@ private class MapPointerGesture(
     val delta = change.position - previous.position
     lastSingle = change
     if (delta == Offset.Zero) return
-    // A double-tap hold belongs exclusively to quick zoom, while mouse modifiers choose between
-    // the desktop-style rotate/tilt and pan paths on every event.
     val rotating = event.buttons.isSecondaryPressed || event.keyboardModifiers.isCtrlPressed
     val canTransform =
       when {
@@ -325,7 +311,6 @@ private class MapPointerGesture(
       }
 
     if (!gestureInProgress) {
-      // Under the slop the press is still a click, so that jitter during one does not lose it.
       val origin = singleDragOrigin
       val displacement = if (origin == null) Offset.Zero else change.position - origin
       if (quickZoomCandidate) {
@@ -381,7 +366,7 @@ private class MapPointerGesture(
     } else {
       // Read every mouse event rather than only the press, so releasing ctrl switches to panning.
       if (rotating && options.isDragRotateTiltEnabled) {
-        // Moving the remaining finger takes over from deferred pinch/rotation velocity. If it
+        // Moving the remaining finger takes over from deferred pinch/rotation velocity; if it
         // merely lifts, onRelease still starts that two-finger continuation instead.
         deferredTwoFingerVelocity = null
         if (singleMotion != SingleMotion.ROTATE_TILT) singleVelocity.resetTracking()
@@ -414,9 +399,7 @@ private class MapPointerGesture(
     val current = TwoFingerSample(first, second)
     if (!mode.isTwoFinger) {
       cancelLongClick()
-      // A gesture from another pointer family breaks the mouse/touch click sequence. Otherwise a
-      // mouse click immediately after a touch transform can be mistaken for the second click of a
-      // mouse double-click that began before the fingers went down.
+      // A gesture from another pointer family breaks the mouse/touch click sequence.
       lastClickAt = null
       clickOrigin = null
       quickZoomCandidate = false
@@ -453,8 +436,8 @@ private class MapPointerGesture(
         }
     val previous = twoFingerPrevious ?: start
     if (!current.hasSamePointers(previous)) {
-      // A third finger replacing one of the original pair must not create a discontinuous camera
-      // jump. Android's detectors reset their distance baselines on pointer configuration changes.
+      // As Android's detectors do, reset the distance baselines when the pointers change, so a
+      // third finger replacing one of the pair cannot jump the camera.
       twoFingerStart = current
       twoFingerPrevious = current
       twoFingerPanning = false
@@ -723,10 +706,7 @@ private class MapPointerGesture(
     }
   }
 
-  /**
-   * Whether a second tap still has a gesture to become. With both disabled it has none, so holding
-   * the first one back would only add latency to every tap.
-   */
+  /** Whether a second tap still has a gesture to become. */
   private fun awaitsSecondTap(): Boolean =
     options.isDoubleClickZoomEnabled || options.isQuickZoomEnabled
 
@@ -738,7 +718,6 @@ private class MapPointerGesture(
       (origin - lastClickOrigin).getDistance() <= slopPx()
   }
 
-  /** A finger needs far more room than a mouse. */
   private fun slopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else scaleSlopPx
 
   private fun dragSlopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
@@ -884,7 +863,6 @@ private class MapPointerGesture(
     target.onPrimaryClick(pending.where)
   }
 
-  /** Keeps the camera move open through classic Android's velocity continuation. */
   private fun endDrag(followUpDuration: Duration) {
     cancelLongClick()
     if (!gestureInProgress) return
@@ -1149,7 +1127,6 @@ private fun GestureTarget.rotateAndTilt(
   return true
 }
 
-/** Keeps a discrete input attributed as a gesture until its native transition releases camera. */
 private fun GestureTarget.discreteGesture(
   continuation: GestureContinuation,
   command: suspend GestureTarget.(GestureToken) -> Unit,

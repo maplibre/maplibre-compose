@@ -24,8 +24,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   /**
    * GL JS reports a style change it will not make by firing an `error` event rather than throwing,
-   * so a mutation's outcome is read by watching this across the call. One standing listener,
-   * because style properties are pushed on every recomposition.
+   * so a mutation's outcome is read by watching this across the call.
    */
   private var errorCount = 0
   private var lastError: String? = null
@@ -69,7 +68,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     mutate("add layer") {
       val spec = layer.toJsValue<LayerSpecification>()
       // MapLibre reads an absent `beforeId` as "on top"; an empty string is a layer id it will not
-      // find, so the two forms are distinct calls rather than one with a default.
+      // find.
       if (beforeLayerId.isEmpty()) map.addLayer(spec) else map.addLayer(spec, beforeLayerId)
     }
     return true
@@ -123,16 +122,14 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
     if (!loaded) return
-    // The style spec has no null filter; absent means "match every feature", which is what an unset
-    // filter compiles to.
+    // The style spec has no null filter; absent means "match every feature".
     val js = if (filter is JsonNull) null else filter.toJsValue<FilterSpecification>()
     mutate("set the filter on layer '$layerId'") { map.setFilter(layerId, js) }
   }
 
   /**
-   * Trying paint before layout is safe: the style spec gives no layer type a name in both. Both go
-   * through [runCatching] because MapLibre throws rather than answering for a name it does not
-   * have.
+   * Trying paint before layout is safe: the style spec gives no layer type a name in both. MapLibre
+   * throws rather than answering for a name it does not have.
    */
   override fun layerProperty(layerId: String, name: String): JsonElement? {
     if (!loaded || map.getLayer(layerId) == null) return null

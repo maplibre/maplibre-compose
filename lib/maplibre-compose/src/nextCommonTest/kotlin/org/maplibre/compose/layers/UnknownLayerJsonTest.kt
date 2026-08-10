@@ -5,10 +5,6 @@ import kotlin.test.assertEquals
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 
-/**
- * Rebuilding a base-style layer from the JSON MapLibre reported, which is what an [Anchor.Replace]
- * does when its last replacement leaves. A key that fails to replay is lost without an error.
- */
 class UnknownLayerJsonTest {
 
   @Test
@@ -19,10 +15,7 @@ class UnknownLayerJsonTest {
   }
 
   private companion object {
-    /**
-     * What MapLibre actually returned for a filtered line layer, keys and number forms included.
-     * Note the missing `metadata`: MapLibre does not report it back.
-     */
+    /** Note the missing `metadata`: MapLibre does not report it back. */
     val REPORTED_LINE_LAYER =
       """
       {

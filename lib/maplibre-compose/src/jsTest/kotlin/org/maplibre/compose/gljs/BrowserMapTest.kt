@@ -18,9 +18,8 @@ import kotlinx.coroutines.await
 import org.jetbrains.skiko.wasm.onWasmReady
 
 /**
- * Runs a browser test that hosts a real map. Skia's wasm module has to finish loading first, and
- * the test renderer is a raster one, so the map runs detached and is never drawn. The compositing
- * itself needs a GPU context; see [BrowserCompositingTest].
+ * Runs a browser test that hosts a real map, detached from compositing so it is never drawn. For
+ * compositing on a real GPU context, see [BrowserCompositingTest].
  */
 @OptIn(ExperimentalTestApi::class)
 internal fun runBrowserMapTest(block: suspend ComposeUiTest.() -> Unit): Promise<*> =
@@ -39,9 +38,8 @@ internal fun ComposeUiTest.setBrowserMapContent(size: Int = 256, content: @Compo
 }
 
 /**
- * Not [ComposeUiTest.waitUntil], which waits on the test clock: MapLibre parses styles and fetches
- * tiles through real promises and timers, so each pass hands control back through a real
- * `setTimeout` before letting Compose recompose and draw.
+ * Not [ComposeUiTest.waitUntil], which waits on the test clock: MapLibre runs on real promises and
+ * timers, so each pass yields through a real `setTimeout`.
  */
 @OptIn(ExperimentalTestApi::class)
 internal suspend fun ComposeUiTest.waitUntilMap(

@@ -21,10 +21,7 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 
-/**
- * A [GlJsMapSession] with no Compose and no skiko around it: MapLibre takes a WebGL context from a
- * canvas of its own and is never composited.
- */
+/** A [GlJsMapSession] on a canvas of its own, with no Compose or skiko, never composited. */
 internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
 
   private val recorder = RecordingMapCallbacks()
@@ -90,7 +87,7 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
       }
       frame()
       frames++
-      // A real setTimeout, which is what lets MapLibre's own promises, timers and fetches run.
+      // A real setTimeout, which is what lets MapLibre's promises, timers and fetches run.
       yieldToBrowser()
     }
   }

@@ -7,7 +7,6 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RgbaPixel
 
-/** Proves that a reported render actually writes the expected color into its backend target. */
 class MlnFfiMapPixelTest {
 
   @Test

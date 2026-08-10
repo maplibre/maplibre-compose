@@ -7,9 +7,8 @@ internal const val GL_TEXTURE_2D: Int = 0x0DE1
 internal const val GL_RGBA8: Int = 0x8058
 
 /**
- * Emscripten's GL bookkeeping, which skiko's loader publishes as a global. It is the only bridge
- * between JavaScript WebGL objects and the integer names Skia's wasm build addresses them by, and
- * the only list of the contexts on the page: Compose puts its canvas inside a shadow root.
+ * Emscripten's GL bookkeeping, which skiko's loader publishes as a global. It is the only list of
+ * the contexts on the page: Compose puts its canvas inside a shadow root.
  */
 internal object EmscriptenGl {
   private val registry: dynamic

@@ -12,8 +12,8 @@ import org.maplibre.compose.gljs.Point
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
-// MapLibre GL JS works in CSS pixels, the same units as Compose's dp, so these conversions are
-// unit-preserving; scaling by density here would double-apply it on a HiDPI display.
+// MapLibre GL JS works in CSS pixels, the same units as Compose's dp; scaling by density here would
+// double-apply it.
 
 internal fun LngLat.toPosition(): Position = Position(longitude = lng, latitude = lat)
 

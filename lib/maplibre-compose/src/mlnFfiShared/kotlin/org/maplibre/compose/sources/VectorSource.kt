@@ -20,8 +20,6 @@ import org.maplibre.spatialk.geojson.Geometry
 
 public actual class VectorSource : Source {
 
-  // A tiled source has no mutable properties in the common API, so its definition is fixed at
-  // construction.
   private val json: JsonObject
 
   public actual constructor(id: String, uri: String) : super(id) {
@@ -50,8 +48,7 @@ public actual class VectorSource : Source {
     val options =
       SourceFeatureQueryOptions().also {
         it.sourceLayerIds = sourceLayerIds.toList()
-        // A trivial predicate is dropped rather than sent, matching Android: MapLibre reads an
-        // absent filter as "match everything", and a scalar true is not a valid filter.
+        // A scalar true is not a valid filter; MapLibre reads an absent one as "match everything".
         it.filter =
           predicate
             .takeUnless { expression -> expression == const(true) }
@@ -59,8 +56,7 @@ public actual class VectorSource : Source {
             ?.toStyleJson()
             ?.toFfiJsonValue()
       }
-    // Empty rather than an exception when no session is attached; querying before the first frame
-    // is ordinary.
+    // Empty rather than an exception when no session is attached.
     return binding
       .withRenderSession { session -> session.querySourceFeatures(id, options) }
       .orEmpty()

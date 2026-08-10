@@ -41,13 +41,13 @@ internal data class FfiTestRuntimeCapabilities(val customGeometrySourceCallbacks
 /**
  * Platform/backend mechanics underneath the shared real-map fixture.
  *
- * One test process contains one native runtime. CI supplies another process or APK for every other
- * applicable runtime, because a loaded MapLibre Native library cannot be replaced in-process.
+ * One test process contains one native runtime; a loaded MapLibre Native library cannot be replaced
+ * in-process, so CI supplies another process or APK for every other applicable runtime.
  */
 internal interface FfiTestRenderDriver : MlnFfiMapHost {
   /** Presents one completed producer target through the platform's production bridge. */
   fun present(target: MlnFfiRenderTarget): Boolean
 
-  /** Reads one pixel after presentation; every production bridge test adapter must support this. */
+  /** Reads one pixel after presentation. */
   fun readPixel(x: Int, y: Int): RgbaPixel
 }

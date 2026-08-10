@@ -18,8 +18,7 @@ internal actual sealed class FeatureLayer(id: String, actual val source: Source)
   actual abstract fun setFilter(filter: CompiledExpression<BooleanValue>)
 
   /**
-   * Writes the `source-layer` key for the [sourceLayer] override each subclass declares. It is a
-   * root key, not a paint or layout property, so it must reach the JSON that creates the layer;
+   * `source-layer` is a root key, not paint or layout, so it must be in the layer-creation JSON;
    * mbgl's `Layer::setProperty` still accepts it on a live layer through its common-key fallback.
    */
   protected fun setSourceLayerProperty(sourceLayer: String) {

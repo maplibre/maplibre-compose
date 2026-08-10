@@ -4,32 +4,24 @@ import androidx.compose.runtime.Immutable
 import kotlin.math.ceil
 import kotlin.math.max
 
-/**
- * The size of a map surface, in both logical and physical pixels.
- *
- * MapLibre Native takes a logical size plus a scale factor, while GPU render targets are allocated
- * in physical pixels; deriving both once keeps them from drifting apart under fractional scaling.
- */
+/** The size of a map surface, in both logical and physical pixels. */
 @Immutable
 internal class MapExtent
 private constructor(
-  /** Width in logical pixels, as Compose measures it. */
+  /** Width in logical pixels. */
   val width: Int,
-  /** Height in logical pixels, as Compose measures it. */
+  /** Height in logical pixels. */
   val height: Int,
-  /** Display scale factor; physical pixels per logical pixel. */
+  /** Physical pixels per logical pixel. */
   val scaleFactor: Double,
-  /** Width in physical pixels, as the GPU allocates it. */
+  /** Width in physical pixels. */
   val physicalWidth: Int,
-  /** Height in physical pixels, as the GPU allocates it. */
+  /** Height in physical pixels. */
   val physicalHeight: Int,
 ) {
   /**
-   * Whether this extent describes nothing renderable.
-   *
-   * Compose reports a zero size before first layout, so a map surface is normally empty for at
-   * least one frame. MapLibre rejects such an extent outright, so hosts and sessions skip work
-   * rather than passing it on.
+   * Whether this extent describes nothing renderable. Compose reports a zero size before first
+   * layout, and MapLibre rejects such an extent, so skip work rather than passing it on.
    */
   val isEmpty: Boolean
     get() =
@@ -63,13 +55,8 @@ private constructor(
       "scale=$scaleFactor)"
 
   companion object {
-    /** An extent with no renderable area. */
     val Empty: MapExtent = MapExtent(0, 0, 1.0, 0, 0)
 
-    /**
-     * Builds an extent from a logical (dp-equivalent) size and scale factor, deriving the physical
-     * size.
-     */
     fun fromLogical(width: Int, height: Int, scaleFactor: Double): MapExtent {
       val scale = normalizeScale(scaleFactor)
       if (width <= 0 || height <= 0) return Empty
@@ -83,12 +70,9 @@ private constructor(
     }
 
     /**
-     * Builds an extent from a physical size and scale factor, as `onSizeChanged` reports it,
-     * deriving the logical size.
-     *
-     * The physical size remains exactly what the host reported. In particular, re-deriving it from
-     * the logical size would magnify floating-point noise in a fractional scale factor and could
-     * make the map texture one pixel larger than the Compose canvas.
+     * The physical size is kept exactly as reported: re-deriving it from the logical size would
+     * magnify floating-point noise in a fractional scale factor and could make the map texture one
+     * pixel larger than the Compose canvas.
      */
     fun fromPhysical(physicalWidth: Int, physicalHeight: Int, scaleFactor: Double): MapExtent {
       val scale = normalizeScale(scaleFactor)

@@ -22,12 +22,7 @@ import org.maplibre.nativeffi.style.StyleLayerVisibility
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
-/**
- * The layer keys handled by the layer base class rather than by the generated properties, so
- * `layerProperty` does not answer for them and they are read off the FFI map directly.
- *
- * Every generated property is in the shared [LayerPropertyRoundTripTest].
- */
+/** Every generated property is covered in the shared [LayerPropertyRoundTripTest]. */
 class MlnFfiLayerKeyRoundTripTest {
 
   @Test

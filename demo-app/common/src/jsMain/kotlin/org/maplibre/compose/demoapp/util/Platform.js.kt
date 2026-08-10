@@ -14,10 +14,8 @@ actual object Platform {
   actual val extraDemos: List<Demo> =
     listOf(
       GestureOptionsDemo
-      // Deliberately absent: OrnamentOptionsDemo; the browser platform draws no ornaments, for the
-      // same reason the desktop one does not.
+      // No OrnamentOptionsDemo: the browser platform draws no ornaments.
     )
 
-  /** The browser draws no ornaments, so there is no padding to apply. */
   actual fun padOrnaments(options: OrnamentOptions, padding: PaddingValues) = options
 }

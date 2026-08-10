@@ -4,10 +4,7 @@ import kotlin.test.Test
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 
-/**
- * The fetching setter reports only through the loading-failed event, where the inline one also
- * throws from the setter; the inline half is shared, in StyleFailureTest.
- */
+/** An inline style also throws from the setter; that half is shared, in StyleFailureTest. */
 class MlnFfiStyleFailureTest {
 
   @Test

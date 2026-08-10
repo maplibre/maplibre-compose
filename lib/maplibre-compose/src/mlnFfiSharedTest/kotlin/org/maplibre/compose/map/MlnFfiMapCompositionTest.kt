@@ -59,7 +59,7 @@ class MlnFfiMapCompositionTest {
   private val runtimeOptions =
     MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
 
-  /** Camera round trips lose a little precision through the projection; this is generous. */
+  /** Camera round trips lose a little precision through the projection. */
   private val POSITION_TOLERANCE = 1e-4
 
   @AfterTest
@@ -105,7 +105,6 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /** An empty GeoJSON source on its own, to separate a source-JSON fault from a layer fault. */
   @Test
   fun an_empty_geojson_source_composes_without_error() = runBridgeMapTest { errors, onFrame ->
     MaplibreMap(
@@ -126,10 +125,6 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /**
-   * A layer that leaves and re-enters the composition: a distinct path from the first add, since
-   * the layer and its source have to be recreated in the right order.
-   */
   @Test
   fun a_layer_removed_and_re_added_comes_back() {
     var visible by mutableStateOf(true)
@@ -228,10 +223,6 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /**
-   * `MaplibreMap` applies the initial camera before the map exists — it is created lazily on the
-   * first frame — so this covers the session's deferral and replay of those calls.
-   */
   @Test
   fun the_first_camera_position_reaches_the_map() {
     val firstPosition =
@@ -241,8 +232,8 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         val map = requireNotNull(cameraState.map) { "The map never reached the camera state" }
-        // The replay is posted to the map's own thread, so it lands after the frame that created
-        // the map rather than with it: attaching the map is not the camera arriving.
+        // The initial camera is replayed on the map's own thread, so attaching the map is not the
+        // camera arriving.
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
           abs(map.getCameraPosition().zoom - firstPosition.zoom) < POSITION_TOLERANCE
         }
@@ -315,10 +306,7 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /**
-   * Composes [content] on a bridge-driven map and fails if anything reported an error. The
-   * collected errors cover the ones MapLibre reports asynchronously instead of throwing.
-   */
+  /** Composes [content] on a bridge-driven map and fails if anything reported an error. */
   private fun runBridgeMapTest(
     content: @Composable (MutableList<String>, onFrame: () -> Unit) -> Unit
   ) = runBridgeMapTest(body = {}, content = content)
@@ -336,8 +324,6 @@ class MlnFfiMapCompositionTest {
     body(errors)
     waitForIdle()
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
-    // Without this the test would pass by doing nothing: a map that never gets a frame never
-    // creates a runtime or a style.
     assertTrue(frames.load() > 0, "No frame reached MapLibre; the map never rendered.")
   }
 

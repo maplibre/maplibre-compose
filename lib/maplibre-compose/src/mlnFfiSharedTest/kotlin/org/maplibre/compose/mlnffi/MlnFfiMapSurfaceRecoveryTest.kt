@@ -12,7 +12,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapExtent
 
-/** A frame that fails once must not blank the map forever, and retries must be bounded. */
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapSurfaceRecoveryTest {
 

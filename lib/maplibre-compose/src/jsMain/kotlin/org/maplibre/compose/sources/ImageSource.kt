@@ -15,10 +15,7 @@ import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.toDataUrl
 import org.maplibre.spatialk.geojson.Position
 
-/**
- * An image placed at four corners. MapLibre GL JS names the image by URL and has no entry point for
- * raw pixels, so a bitmap becomes a `data:` URL — a real encode per update, not a memory copy.
- */
+/** MapLibre GL JS names images by URL, so a bitmap is encoded to a `data:` URL on every update. */
 public actual class ImageSource : Source {
 
   private var bounds: PositionQuad

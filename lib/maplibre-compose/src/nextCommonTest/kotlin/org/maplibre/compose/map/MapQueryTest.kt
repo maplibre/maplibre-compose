@@ -15,7 +15,6 @@ import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
-/** A query only answers from what the map actually rasterized. */
 class MapQueryTest {
 
   @Test
@@ -69,14 +68,13 @@ class MapQueryTest {
     }
   }
 
-  /** A click lands whenever the user clicks, including while a style is still loading. */
   @Test
   fun a_query_while_a_style_loads_is_not_a_load_failure(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
       it.pump(frames = 5)
 
-      // Begins a load without awaiting it, so the query below lands inside the window.
+      // Not awaited: the query below must land inside the loading window.
       it.session.setBaseStyle(BaseStyle.Json(EMPTY_STYLE))
       it.session.queryRenderedFeatures(
         offset = CENTER,
@@ -110,7 +108,6 @@ class MapQueryTest {
     }
   }
 
-  /** Queried before the first frame, which is what a click during startup does. */
   @Test
   fun a_query_before_any_frame_returns_empty_rather_than_throwing(): MapTestResult = runMapTest {
     createMapFixture().use {

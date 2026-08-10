@@ -15,13 +15,7 @@ import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
-/**
- * Parks in the native pump until a wake arrives, rather than on a bound.
- *
- * Nothing arms a timer or file descriptor on the map's own run loop — the renderer, the thread
- * pool, and the file sources each have their own — so the wake flag is the only thing that ever has
- * progress to report, and a bound would only add empty pumps.
- */
+/** Parks in the native pump until a wake arrives, rather than on a bound. */
 private const val PUMP_PARK_MILLIS = -1L
 
 /** Bound on waiting for the render session to be closed before the map is destroyed. */
@@ -29,20 +23,16 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
 
 /**
  * The thread that owns one map's MapLibre runtime and map handle, and the only place calls on
- * either happen.
+ * either happen. A runtime belongs to the thread that created it, and there may be only one per
+ * thread.
  *
- * The map is deliberately not on the presenting thread: the loop parks inside the native pump, so
- * style parsing, tile loads, and resource responses advance whether or not anything is drawing.
- * Camera transitions are the exception — mbgl steps them from `onDidFinishRenderingFrame`, so
- * moving the camera still takes a rendered frame.
+ * Camera transitions only step while frames are being drawn: mbgl advances them from
+ * `onDidFinishRenderingFrame`.
  *
- * The render session is not this loop's: a session's owner is whichever thread attached it, and
- * native refuses to destroy a map that still has one attached, so teardown waits for the presenting
- * thread to close it.
+ * The render session belongs to whichever thread attached it, and native refuses to destroy a map
+ * that still has one attached, so teardown waits for that thread to close it.
  *
- * A runtime belongs to the thread that created it and there may be only one per thread, so this is
- * a plain [Thread] rather than a dispatcher or a pooled executor. maplibre-native-ffi#433 proposes
- * an owner thread inside the C API, which would retire this class.
+ * maplibre-native-ffi#433 proposes an owner thread inside the C API, which would retire this class.
  */
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
@@ -59,11 +49,10 @@ internal class MlnFfiMapRuntimeLoop(
   private val requestFrame: () -> Unit,
 ) : AutoCloseable {
 
-  /** Reads the session's current logger rather than retaining the one it started with. */
   private val logger: Logger?
     get() = getLogger()
 
-  /** Work for the owner thread, with the release path it must take if it never gets to run. */
+  /** Work for the owner thread; [OwnerTask.abandon] runs instead if it never gets to run. */
   private class OwnerTask(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
 
   private val tasks = LinkedBlockingQueue<OwnerTask>()
@@ -88,7 +77,7 @@ internal class MlnFfiMapRuntimeLoop(
   var map: MapHandle? = null
     private set
 
-  /** The first failure that stopped this loop, republished by the renderer. */
+  /** The first failure that stopped this loop. */
   @Volatile
   var failure: Throwable? = null
     private set
@@ -108,11 +97,9 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   /**
-   * Runs [action] on the owner thread and waits for its result.
-   *
-   * Returns null when there is no map to run against, or when the loop stopped before the work
-   * could run. Runs inline when the caller is already the owner thread, so an event handler can
-   * read the map back without deadlocking on itself.
+   * Runs [action] on the owner thread and waits for its result. Returns null when there is no map,
+   * or when the loop stopped before the work could run. Runs inline when the caller is already the
+   * owner thread.
    */
   fun <T> call(action: (MapHandle) -> T): T? {
     if (Thread.currentThread() === thread) return map?.let(action)
@@ -147,8 +134,7 @@ internal class MlnFfiMapRuntimeLoop(
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false
     tasks.add(OwnerTask(run, abandon))
-    // Signalled under the lock so it cannot race the source's close, which would throw; safe
-    // because the owner thread never holds this lock across a pump.
+    // Signalled under the lock so it cannot race the source's close, which would throw.
     wake?.signal()
     true
   }
@@ -196,8 +182,6 @@ internal class MlnFfiMapRuntimeLoop(
       fail(error)
     } finally {
       map = null
-      // Native refuses to destroy a map with a session still attached, so wait for the renderer to
-      // close it — bounded, so a renderer that already stopped cannot wedge teardown.
       awaitShutdown()
       rejectQueuedTasks()
       try {
@@ -215,13 +199,11 @@ internal class MlnFfiMapRuntimeLoop(
     val source = runtime.acquireWakeSource()
     acceptLock.withLock { wake = source }
     while (!stopRequested) {
-      // Queued work first: a task posted before the source was published set no wake flag, so
-      // draining only after a pump returns would leave it parked behind.
+      // Queued work first: a task posted before the source was published set no wake flag.
       val ranTasks = runTasks(map)
       if (stopRequested) break
       check(!acceptLock.isHeldByCurrentThread) { "the pump must not run under acceptLock" }
-      // A task can leave work that only the drain below applies, so a batch that ran must not park
-      // first: a task queuing nothing for native would have nothing to wake it.
+      // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
       runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS)
       drainEvents(runtime, map)
     }
@@ -285,8 +267,8 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   private fun rejectQueuedTasks() {
-    // Stop accepting and take the wake source out under the same lock, so the drain cannot race a
-    // task that would then never run and nothing can signal a source that is about to close.
+    // Stop accepting and take the wake source out under the same lock, so nothing can signal a
+    // source that is about to close.
     val source = acceptLock.withLock {
       accepting = false
       wake.also { wake = null }

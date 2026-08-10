@@ -22,19 +22,10 @@ import org.maplibre.nativeffi.style.ImageStretch
 import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.nativeffi.style.StyleImageOptions
 
-/**
- * The style of a live map. Everything here runs on the map's owner thread through [binding].
- *
- * Reads of the base style reconstruct [UnknownSource] and [UnknownLayer] from what MapLibre
- * reports, because a style loaded from a URL or JSON has no Kotlin objects behind it. Those
- * reconstructions are views: the map remains the source of truth.
- */
+/** The style of a live map. Everything here runs on the map's owner thread through [binding]. */
 internal class MlnFfiStyle(
   private val binding: MlnFfiStyleBinding,
-  /**
-   * The display scale the images handed to [addImage] were rasterized at. MapLibre sizes a style
-   * image as `pixels / pixelRatio`, so a wrong scale here draws every icon at the wrong size.
-   */
+  /** The display scale the images handed to [addImage] were rasterized at. */
   private val getScale: () -> Float = { 1f },
 ) : Style {
 
@@ -66,11 +57,6 @@ internal class MlnFfiStyle(
 
   /**
    * Turns [resizeOptions] into a content box in image pixels, or null when it does not fit [image].
-   *
-   * Insets are distances in from each edge, converted at the same [scale] the bitmap was rasterized
-   * at. A degenerate box (sides meeting or crossing) is warned about and dropped rather than thrown
-   * for: it is reachable from Dp insets on a small bitmap at 2x, and MapLibre divides by a stretch
-   * sum that would be zero.
    */
   private fun contentBox(
     id: String,
@@ -96,10 +82,6 @@ internal class MlnFfiStyle(
     return null
   }
 
-  /**
-   * Reads back the stretchable intervals MapLibre stored for an image. Exists for tests;
-   * [org.maplibre.nativeffi.style.StyleImageInfo] reports only their count.
-   */
   internal fun imageStretches(id: String): Pair<List<ImageStretch>, List<ImageStretch>>? =
     binding.readMap { map ->
       map.styleImageStretches(id)
@@ -139,7 +121,6 @@ internal class MlnFfiStyle(
   override fun getLayers(): List<Layer> =
     binding.readMap { map -> map.styleLayerIds().map { reconstructLayer(map, it) } }.orEmpty()
 
-  /** Adds [layer] on top of every existing layer. */
   override fun addLayer(layer: Layer) {
     // MapLibre has no explicit "on top"; an empty anchor means the same thing.
     layer.attach(binding, beforeLayerId = "")
@@ -194,8 +175,9 @@ internal class MlnFfiStyle(
   }
 
   /**
-   * The attribution the loaded style document declares for [id]. That document is the only place
-   * one survives for a GeoJSON or image source: MapLibre neither parses nor reports theirs.
+   * The attribution the loaded style document declares for [id]. MapLibre neither parses nor
+   * reports attribution for GeoJSON and image sources, so the document is the only place it
+   * survives.
    */
   private fun declaredAttribution(map: MapHandle, id: String): String? {
     val sources =

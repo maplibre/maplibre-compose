@@ -77,9 +77,8 @@ public actual class GeoJsonSource : Source {
         },
       )
 
-      // Support for synchronousUpdate on iOS support is currently blocked by
-      // https://youtrack.jetbrains.com/issue/CMP-8882/
-      // See https://github.com/maplibre/maplibre-compose/issues/738
+      // synchronousUpdate is blocked upstream by
+      // https://youtrack.jetbrains.com/issue/CMP-8882/ (see #738)
     }
 
   public actual fun setData(data: GeoJsonData) {

@@ -4,9 +4,8 @@ import androidx.compose.runtime.Immutable
 import org.maplibre.compose.map.MapExtent
 
 /**
- * A borrowed native handle, as an opaque address.
- *
- * The host owns whatever this points at; MapLibre Compose never frees, retains, or dereferences it.
+ * A borrowed native handle, as an opaque address. The host owns whatever this points at; MapLibre
+ * Compose never frees, retains, or dereferences it.
  */
 @JvmInline
 public value class NativeHandle(public val address: Long) {
@@ -23,10 +22,8 @@ internal enum class TextureOrigin {
 }
 
 /**
- * A render target the host has allocated for MapLibre Native to render into.
- *
- * These are *borrowed* targets: the host allocates, recycles, and frees them, and MapLibre renders
- * into whichever one the current frame carries.
+ * A render target the host has allocated for MapLibre Native to render into. These are *borrowed*:
+ * the host allocates, recycles, and frees them.
  */
 internal sealed interface MlnFfiRenderTarget {
   /** The backend MapLibre must render with to use this target. */
@@ -131,10 +128,8 @@ internal data class WglContextHandles(
 ) : OpenGlContextHandles
 
 /**
- * An OpenGL texture MapLibre renders into.
- *
- * Unlike Vulkan and Metal, OpenGL work is bound to whichever context is current on the calling
- * thread, so the target carries [makeContextCurrent] rather than a context handle alone.
+ * An OpenGL texture MapLibre renders into. OpenGL work is bound to whichever context is current on
+ * the calling thread, so the target carries [makeContextCurrent] as well as its context handles.
  */
 @Immutable
 internal data class OpenGlTextureTarget(

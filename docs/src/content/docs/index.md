@@ -35,11 +35,11 @@ to express an interactive map API in Compose.
 | Get, set, and animate the camera position         |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
 | Convert between screen and geographic coordinates |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
 | Get the currently visible region and bounding box |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
-| Insert, remove, and replace layers                |           ✅           |           ✅           |           ✅           |           ❌           |     ❌     |
-| Configure layers with expressions                 |           ✅           |           ✅           |           ✅           |           ❌           |     ❌     |
-| Add data sources by URI or GeoJSON                |           ✅           |           ✅           |           ✅           |           ❌           |     ❌     |
-| Add images to the style                           |           ✅           |           ✅           |           ✅           |           ❌           |     ❌     |
-| Add Material 3 controls                           |           ✅           |           ✅           |           ✅           |           ❌           |     ❌     |
+| Insert, remove, and replace layers                |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
+| Configure layers with expressions                 |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
+| Add data sources by URI or GeoJSON                |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
+| Add images to the style                           |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
+| Add Material 3 controls                           |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
 | Download offline regions                          |           ✅           |           ✅           |           ✅           |           ❌           |     ❌     |
 | Show the user's location                          |           ✅           |           ✅           |           ❌           |           ❌           |     ❌     |
 | Snapshot the map as an image                      |           ❌           |           ❌           |           ❌           |           ❌           |     ❌     |

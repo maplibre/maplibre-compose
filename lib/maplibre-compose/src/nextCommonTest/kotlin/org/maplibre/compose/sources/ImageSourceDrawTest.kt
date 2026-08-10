@@ -18,11 +18,7 @@ import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.spatialk.geojson.Position
 
-/**
- * Neither half is safe to assume: the browser encodes the bitmap to a `data:` URL, and MapLibre
- * accepts any four corners without validating which is which, so a swapped pair only shows on
- * screen.
- */
+/** MapLibre accepts any four corners without validating which is which. */
 class ImageSourceDrawTest {
 
   @Test

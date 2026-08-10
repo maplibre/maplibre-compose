@@ -124,8 +124,6 @@ kotlin {
     }
 
     jsMain.dependencies {
-      // js.* for the standard library shims the hand-written MapLibre declarations build options
-      // with, web.* for the DOM and WebGL types they exchange.
       implementation(libs.kotlin.wrappers.js)
       implementation(libs.kotlin.wrappers.browser)
       implementation(npm("maplibre-gl", libs.versions.maplibre.js.get()))

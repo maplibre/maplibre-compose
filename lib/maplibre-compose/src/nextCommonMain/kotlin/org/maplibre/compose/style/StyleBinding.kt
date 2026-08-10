@@ -6,9 +6,9 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.sources.Source
 
 /**
- * A layer's connection to its live style, in style-spec terms: a layer ID and a piece of JSON, the
- * one vocabulary both MapLibre Native and MapLibre GL JS accept. A binding stops working when its
- * style unloads, after which mutations are dropped and reads answer null rather than throwing.
+ * A layer's connection to its live style, as a layer ID and style-spec JSON. A binding stops
+ * working when its style unloads, after which mutations are dropped and reads answer null rather
+ * than throwing.
  */
 internal interface StyleBinding {
   val isLoaded: Boolean
@@ -34,13 +34,12 @@ internal interface StyleBinding {
   /**
    * Sets one property on a layer that is already in the style.
    *
-   * @param kind which of a layer object's three parts [name] belongs to. GL JS has a separate call
-   *   per part and rejects a name offered to the wrong one.
+   * @param kind which of a layer object's three parts [name] belongs to; a name offered to the
+   *   wrong one is rejected.
    * @throws StyleMutationException if MapLibre refuses [value]; the layer keeps its previous one.
    */
   fun setLayerProperty(layerId: String, name: String, value: JsonElement, kind: LayerPropertyKind)
 
-  /** Both backends treat a filter as part of the layer rather than as a property of it. */
   fun setLayerFilter(layerId: String, filter: JsonElement)
 
   /** @return null if the style has unloaded, or the layer holds no value for [name]. */
@@ -76,7 +75,7 @@ internal interface StyleBinding {
   }
 }
 
-/** Which part of a layer object a property belongs to, in the style spec's own division. */
+/** Which part of a layer object a property belongs to. */
 internal enum class LayerPropertyKind {
   LAYOUT,
   PAINT,
@@ -85,6 +84,6 @@ internal enum class LayerPropertyKind {
   ROOT,
 }
 
-/** A style mutation MapLibre refused; backends wrap their own rejection type in it. */
+/** A style mutation MapLibre refused. */
 internal class StyleMutationException(message: String?, cause: Throwable?) :
   RuntimeException(message, cause)

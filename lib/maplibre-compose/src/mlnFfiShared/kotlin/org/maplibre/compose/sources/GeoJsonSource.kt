@@ -45,8 +45,8 @@ public actual class GeoJsonSource : Source {
     put("type", "geojson")
     put("data", data)
     putGeoJsonOptions(options)
-    // Neither is in the style spec's GeoJSON source, and MapLibre Native reads both straight off
-    // the source JSON, so this platform honors them where a spec-conformant one cannot.
+    // Neither is in the style spec's GeoJSON source, but MapLibre Native reads both straight off
+    // the source JSON.
     put("minzoom", options.minZoom)
     put("synchronousUpdate", options.synchronousUpdate)
   }
@@ -70,7 +70,7 @@ public actual class GeoJsonSource : Source {
     val result = queryClusterExtension(feature, EXPANSION_ZOOM_FIELD)
     val value = (result as? FeatureExtensionResult.Value)?.value
     return when (value) {
-      // MapLibre computes the zoom as a uint64_t; other numeric shapes are accepted defensively.
+      // MapLibre computes the zoom as a uint64_t.
       is JsonValue.UInt -> value.value.toULong().toDouble()
       is JsonValue.Int -> value.value.toDouble()
       is JsonValue.DoubleValue -> value.value
@@ -137,9 +137,8 @@ public actual class GeoJsonSource : Source {
   }
 
   /**
-   * Reports a lookup that found no cluster, as distinct from a cluster with nothing to report:
-   * MapLibre answers a successful query with a feature collection, even an empty one, and a failed
-   * one with a null value.
+   * Reports a lookup that found no cluster. MapLibre answers a successful query with a feature
+   * collection, even an empty one, and a failed one with a null value.
    */
   private fun reportMiss(field: String, result: FeatureExtensionResult?) {
     if (result == null) return
@@ -162,17 +161,11 @@ public actual class GeoJsonSource : Source {
   }
 }
 
-/**
- * Converts caller-supplied features into the FFI's geometry tree, via the serialized form so typed
- * properties are encoded by the serializer SpatialK picks for them at runtime.
- */
+/** Converts caller-supplied features into the FFI's geometry tree. */
 internal fun FeatureCollection<*, *>.toFfiGeoJson(): FfiGeoJson =
   Json.parseToJsonElement(toJson()).toFfiGeoJson()
 
-/**
- * Converts parsed GeoJSON into the FFI's geometry tree; `setGeoJsonSourceData` has no JSON entry
- * point, so the data has to be walked rather than handed over as it arrived.
- */
+/** Converts parsed GeoJSON into the FFI's geometry tree. */
 private fun JsonElement.toFfiGeoJson(): FfiGeoJson {
   val obj =
     this as? JsonObject ?: throw IllegalArgumentException("GeoJSON data must be a JSON object")

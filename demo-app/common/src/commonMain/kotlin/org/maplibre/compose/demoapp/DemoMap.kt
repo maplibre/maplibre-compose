@@ -81,9 +81,8 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
               gestureOptions = state.gestureOptions,
             ),
         ) {
-          // Keyed, because which demos this filter admits changes as they open and close. Without
-          // it a demo's layers and sources are identified by position, so opening one disposes and
-          // recreates every demo after it.
+          // Keyed: without it, layers and sources are identified by position, so opening one demo
+          // disposes and recreates every demo after it.
           state.demos
             .filter { state.shouldRenderMapContent(it) }
             .forEach { key(it) { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) } }

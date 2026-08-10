@@ -22,7 +22,6 @@ public actual class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
 
-  // Held parsed because toJson runs again on every re-add after a style change.
   private var data: JsonElement
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
@@ -34,8 +33,7 @@ public actual class GeoJsonSource : Source {
     put("type", "geojson")
     put("data", data)
     putGeoJsonOptions(options)
-    // `synchronousUpdate` is deliberately absent: it is not in the style spec, and MapLibre GL JS
-    // parses GeoJSON in a web worker, so there is nothing here for it to mean.
+    // `synchronousUpdate` is deliberately absent: MapLibre GL JS parses GeoJSON in a web worker.
   }
 
   public actual fun setData(data: GeoJsonData) {
@@ -79,10 +77,7 @@ public actual class GeoJsonSource : Source {
 
   private class ClusterQuery(val source: GlJsGeoJsonSource, val clusterId: Double)
 
-  /**
-   * Null when either is missing: a feature with no `cluster_id` is not a cluster, and a query on
-   * one answers with nothing rather than throwing, as MapLibre Native's own miss does.
-   */
+  /** Null when the feature is not a cluster or the style has unloaded. */
   private fun clusterQuery(feature: Feature<*, JsonObject?>): ClusterQuery? {
     val clusterId =
       (feature.properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.doubleOrNull
@@ -97,7 +92,7 @@ public actual class GeoJsonSource : Source {
   }
 
   private companion object {
-    /** Reported when the cluster has no expansion zoom to give; matches every other platform. */
+    /** Reported when the cluster has no expansion zoom to give. */
     const val NO_EXPANSION_ZOOM = 0.0
   }
 }

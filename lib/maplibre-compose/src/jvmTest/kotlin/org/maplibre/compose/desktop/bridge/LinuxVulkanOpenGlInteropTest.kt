@@ -82,7 +82,6 @@ import org.maplibre.compose.style.Style
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.spatialk.geojson.Position
 
-/** Exercises the production Linux Vulkan-to-OpenGL bridge against a real EGL and Skia context. */
 class LinuxVulkanOpenGlInteropTest {
 
   @Test
@@ -93,8 +92,7 @@ class LinuxVulkanOpenGlInteropTest {
         try {
           egl.withCurrent {
             clearGlErrors()
-            // OpenGL errors are sticky. This is the error compose-glfw left for the bridge to
-            // misattribute to glImportMemoryFdEXT before the bridge established its own boundary.
+            // OpenGL errors are sticky; leave one behind for the bridge to trip over.
             glEnable(Int.MIN_VALUE)
             val frame =
               assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(1, FIRST_EXTENT, null))
@@ -181,9 +179,6 @@ class LinuxVulkanOpenGlInteropTest {
       }
     }
 
-  /**
-   * Runs [block] on Linux only, skipping elsewhere rather than reporting a pass it did not earn.
-   */
   private inline fun onLinux(reason: String, block: () -> Unit) {
     assumeTrue(reason, System.getProperty("os.name").orEmpty().lowercase().contains("linux"))
     block()
@@ -289,9 +284,8 @@ class LinuxVulkanOpenGlInteropTest {
       var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      // Style callbacks and rendering happen on different threads. Wait for both facts without
-      // requiring one to be observed before the other: an idle map does not owe the test more
-      // frames merely because its callback became visible late.
+      // Style callbacks and rendering happen on different threads, so wait for both facts
+      // without requiring either to be observed first.
       while (styleLoads < expectedStyleLoads || rendered == null) {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering style $style at $extent; " +

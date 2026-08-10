@@ -11,8 +11,8 @@ import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.render.RenderSessionHandle
 
 /**
- * [StyleBinding] over a MapLibre Native map. Every `MapHandle` call has to run on the owner thread,
- * so the session supplies that hop and the render-session hop, and this the translation.
+ * [StyleBinding] over a MapLibre Native map. Every `MapHandle` call has to run on the owner thread;
+ * the session supplies that hop.
  */
 internal interface MlnFfiStyleBinding : StyleBinding {
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
@@ -22,9 +22,8 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   fun <T> mutateMap(action: (MapHandle) -> T): T?
 
   /**
-   * Separate from map access because feature extensions and the supercluster queries built on them
-   * are renderer-scoped in mbgl. Null when the style has unloaded or no session is attached yet — a
-   * session exists only between the first frame and teardown. The handle must not escape [action].
+   * Null when the style has unloaded or no session is attached yet — a session exists only between
+   * the first frame and teardown. The handle must not escape [action].
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 

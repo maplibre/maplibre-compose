@@ -25,7 +25,6 @@ class ExpressionJsonTest {
 
   private fun json(expression: CompiledExpression<*>): String = expression.toStyleJson().toString()
 
-  /** The channels of an encoded colour, which the spec takes as a CSS string. */
   private fun rgba(color: Color): List<Double> =
     json(ColorLiteral.of(color))
       .removeSurrounding("\"")
@@ -50,8 +49,7 @@ class ExpressionJsonTest {
     assertEquals(listOf(255.0, 0.0, 0.0, 1.0), rgba(Color.Red))
     assertEquals(listOf(0.0, 255.0, 0.0, 0.0), rgba(Color.Green.copy(alpha = 0f)))
 
-    // Compose quantizes alpha to 8 bits, so a nominal 0.5 round-trips as 128/255. The two
-    // platforms print that float to different lengths, so the value is what is asserted.
+    // Compose quantizes alpha to 8 bits, so a nominal 0.5 round-trips as 128/255.
     val translucent = rgba(Color.Blue.copy(alpha = 0.5f))
     assertEquals(listOf(0.0, 0.0, 255.0), translucent.take(3))
     assertEquals(128.0 / 255.0, translucent[3], 1e-6)
@@ -78,8 +76,7 @@ class ExpressionJsonTest {
 
   @Test
   fun does_not_double_wrap_an_array_already_inside_a_literal() {
-    // isLiteralArg marks argument positions already in literal context; wrapping again would
-    // produce ["literal", ["literal", ...]] and change the value.
+    // isLiteralArg marks argument positions already in literal context.
     val expression =
       CompiledFunctionCall.of(
         "literal",

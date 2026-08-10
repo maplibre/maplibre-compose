@@ -12,9 +12,8 @@ import androidx.compose.ui.unit.Density
 private const val CSS_PIXELS_PER_NOTCH = 100.0
 
 /**
- * A browser reports how far the page would have scrolled in CSS pixels, and Compose divides that by
- * the display density on the way here. A CSS pixel is already a physical unit, so the division has
- * to be undone before the notch conversion.
+ * Compose divides the browser's CSS-pixel delta by the display density on the way here; a CSS pixel
+ * is already a physical unit, so that division is undone.
  */
 internal actual fun scrollNotches(scrollDelta: Float, density: Density): Double =
   scrollDelta.toDouble() * density.density / CSS_PIXELS_PER_NOTCH

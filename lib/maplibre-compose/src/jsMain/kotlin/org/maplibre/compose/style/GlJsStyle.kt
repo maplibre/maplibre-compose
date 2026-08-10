@@ -18,15 +18,12 @@ import org.maplibre.compose.util.ImageResizeOptions
 import org.maplibre.compose.util.toGlJsImage
 import org.maplibre.compose.util.toJsonElement
 
-/**
- * A style loaded from a URL or JSON has no Kotlin objects behind it, so reads of the base style
- * reconstruct [UnknownSource] and [UnknownLayer] as views over the map.
- */
+/** Reads of the base style reconstruct [UnknownSource] and [UnknownLayer] as views over the map. */
 internal class GlJsStyle(
   private val binding: GlJsStyleBinding,
   /**
    * The display scale the images handed to [addImage] were rasterized at. MapLibre sizes a style
-   * image as `pixels / pixelRatio`, so a wrong scale here draws every icon at the wrong size.
+   * image as `pixels / pixelRatio`.
    */
   private val getScale: () -> Float,
 ) : Style {
@@ -59,8 +56,7 @@ internal class GlJsStyle(
   }
 
   /**
-   * Null when [resizeOptions] does not fit [image]. A degenerate box is reachable from Dp insets on
-   * a small bitmap at 2x, and MapLibre would divide by a stretch sum of zero.
+   * Null when [resizeOptions] does not fit [image]; MapLibre would divide by a stretch sum of zero.
    */
   private fun contentBox(
     id: String,
@@ -156,8 +152,7 @@ internal class GlJsStyle(
   }
 
   /**
-   * Only [UnknownSource]: the typed classes carry options MapLibre does not report back. The
-   * definition comes from the source object, not `getStyle()`, which reports the stylesheet as
+   * The definition comes from the source object, not `getStyle()`, which reports the stylesheet as
    * written and so omits anything resolved from a TileJSON URL.
    */
   private fun reconstructSource(id: String): Source =

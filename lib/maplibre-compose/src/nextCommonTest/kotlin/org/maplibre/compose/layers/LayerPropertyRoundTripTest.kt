@@ -67,11 +67,6 @@ import org.maplibre.compose.testing.runMapTest
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
-/**
- * MapLibre silently clamps, ignores, or defaults a value of the wrong shape, so every property is
- * read back off the live map, on both paths a descriptor has to it. Expected values are MapLibre's
- * own re-serialization, so the two backends disagree wherever Native parses into a form of its own.
- */
 class LayerPropertyRoundTripTest {
 
   @Test
@@ -159,10 +154,7 @@ class LayerPropertyRoundTripTest {
   }
 
   /**
-   * Every case twice: once written before the layer is added, once after.
-   *
    * @param prepare adds whatever sources the layer type needs and returns a factory for the layer.
-   *   Each case gets its own layer so one rejected property cannot mask another.
    */
   private suspend fun <L : Layer> assertPropertiesRoundTrip(
     cases: List<Case<L>>,
@@ -230,10 +222,7 @@ class LayerPropertyRoundTripTest {
       else -> this == expected
     }
 
-  /**
-   * @param expected the value as style JSON, parsed rather than compared as text.
-   * @param glJs what MapLibre GL JS reports instead, where it differs.
-   */
+  /** @param glJs what MapLibre GL JS reports instead, where it differs. */
   private class Case<in L : Layer>(
     val property: String,
     val expected: String,
@@ -249,7 +238,7 @@ class LayerPropertyRoundTripTest {
 
     const val SOURCE_ID = "features"
 
-    /** Unresolvable on purpose: a test that reaches the network is worse than no test. */
+    /** Unresolvable on purpose: tests must not reach the network. */
     const val TILE_TEMPLATE = "https://example.invalid/{z}/{x}/{y}.png"
 
     fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
@@ -423,7 +412,7 @@ class LayerPropertyRoundTripTest {
         Case("raster-resampling", "\"nearest\"") {
           it.setRasterResampling(const(RasterResampling.Nearest).c())
         },
-        // Milliseconds; the only property whose Kotlin type is a Duration.
+        // Milliseconds.
         Case("raster-fade-duration", "250.0") {
           it.setRasterFadeDuration(const(250.milliseconds).c())
         },

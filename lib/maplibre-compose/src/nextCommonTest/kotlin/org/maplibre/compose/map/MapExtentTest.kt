@@ -48,8 +48,8 @@ class MapExtentTest {
 
   @Test
   fun treats_a_zero_size_as_empty_rather_than_as_an_error() {
-    // Compose reports a zero size before first layout routinely, and MapLibre rejects zero
-    // dimensions natively, so this has to be representable rather than throwing.
+    // Compose routinely reports a zero size before first layout, and MapLibre rejects zero
+    // dimensions.
     assertTrue(MapExtent.fromLogical(0, 100, 1.0).isEmpty)
     assertTrue(MapExtent.fromLogical(100, 0, 1.0).isEmpty)
     assertTrue(MapExtent.fromPhysical(0, 0, 2.0).isEmpty)
@@ -73,8 +73,8 @@ class MapExtentTest {
       MapExtent.fromLogical(800, 600, 2.0).hashCode(),
       MapExtent.fromLogical(800, 600, 2.0).hashCode(),
     )
-    // A density change alone must compare unequal: it forces the map to be recreated, because
-    // MapLibre fixes pixelRatio at creation.
+    // A density change alone must compare unequal: MapLibre fixes pixelRatio at creation, so the
+    // map has to be recreated.
     assertTrue(MapExtent.fromLogical(800, 600, 1.0) != MapExtent.fromLogical(800, 600, 2.0))
   }
 }

@@ -6,26 +6,26 @@ needed. More context: [AI_POLICY.md](./AI_POLICY.md).
 
 ## Development commands
 
-A task you run locally is the command CI runs. mise defines those tasks, pins
-every tool in `mise.toml`, and locks them per platform in `mise.lock`.
-`mise tasks` lists them all.
+Mise defines the tasks you run locally, pins every tool in `mise.toml`, and
+locks them per platform in `mise.lock`. `mise tasks` lists them all.
 
-### Building and running
+List all tasks with `mise tasks --all`.
 
 Run a mise task rather than `./gradlew build`. The aggregate Gradle task builds
 every target at once, including the iOS release frameworks, and runs out of
-memory before it finishes. Each task below covers one platform, so pick the one
-for the change you made.
+memory before it finishes. If you must run a Gradle task directly, name one task
+per `./gradlew` invocation. Two together can fail in ways neither does alone.
 
-- **Package the Android APK:** `mise run build:android-app`
-- **Package the desktop installer:** `mise run build:desktop-app`
-- **Run desktop demo:** `mise run demo:desktop`
-- **Run web demo:** `mise run demo:js`
-- **Run the demo on the compose-glfw host:** `mise run demo:desktop-glfw`
-- **Clean build:** `mise run clean`
+### Building and running
 
-To compile one module, name its task:
-`./gradlew :lib:maplibre-compose:assemble`.
+- `mise run build:desktop-app`
+- `mise run build:android-app`
+- `mise run build:ios-app`
+- `mise run build:web-app`
+- `mise run demo:desktop`
+- `mise run demo:desktop-glfw`
+- `mise run demo:android`
+- `mise run demo:js`
 
 ### Formatting and linting
 
@@ -37,11 +37,6 @@ dprint formats every language in the repository, configured in `dprint.jsonc`.
 hk runs it, and runs actionlint, ruff, shellcheck, the Actions pins check, JSON
 schema validation, and the documentation site's type check. `hk.pkl` lists the
 steps.
-
-Name one task per `./gradlew` invocation. Two together can fail in ways neither
-does alone: `:lib:maplibre-compose:jsBrowserTest` with
-`:lib:maplibre-compose:jvmTest` fails `compileTestKotlinJvm` with
-`Unresolved reference 'Test'` across `commonTest`.
 
 ### Documentation
 

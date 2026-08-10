@@ -7,10 +7,6 @@ import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
-/**
- * The rest of the corpus loads styles inline, so this is the only place the browser fetches one.
- * Desktop's equivalent is `DesktopPackagedStyleTest`.
- */
 class BrowserStyleUriTest {
 
   @Test
@@ -25,7 +21,6 @@ class BrowserStyleUriTest {
   }
 
   private companion object {
-    /** A URL the map has to fetch, without a server to fetch it from. */
     fun String.toDataUrl(): String =
       "data:application/json;charset=utf-8," + (js("encodeURIComponent")(this) as String)
 

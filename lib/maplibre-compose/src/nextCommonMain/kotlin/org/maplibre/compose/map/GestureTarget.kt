@@ -5,31 +5,25 @@ import kotlin.jvm.JvmInline
 import kotlin.time.Duration
 import org.maplibre.compose.camera.CameraPosition
 
-/** Monotonic identity that orders gesture begin, camera work, and deferred completion. */
 @JvmInline internal value class GestureToken(val value: Long)
 
-/**
- * What [mapInput] needs of a map. Deltas rather than absolute positions, because a gesture is a
- * stream of them and the camera may be moving underneath. Distances are in logical pixels.
- */
+/** What [mapInput] needs of a map. Distances are in logical pixels. */
 internal interface GestureTarget {
   fun cancelTransitions()
 
   fun getCameraPosition(): CameraPosition
 
-  /**
-   * The token identifies the gesture's camera calls, so one ending late cannot close a newer one.
-   */
+  /** The token identifies this gesture's camera calls, so one ending late cannot close a newer. */
   fun onGestureStarted(): GestureToken
 
   fun onGestureEnded(token: GestureToken)
 
   fun onPrimaryClick(offset: DpOffset)
 
-  /** Stands in for the mobile SDKs' long press: a mouse has no press-and-hold convention. */
+  /** Stands in for the mobile SDKs' long press. */
   fun onSecondaryClick(offset: DpOffset)
 
-  /** A zero [duration] is a jump, which is what a drag wants; a key press eases instead. */
+  /** A zero [duration] is a jump. */
   fun moveBy(
     deltaX: Double,
     deltaY: Double,
@@ -52,10 +46,7 @@ internal interface GestureTarget {
     gestureToken: GestureToken? = null,
   )
 
-  /**
-   * The three animated calls again, suspending until the map hands the camera back: a discrete
-   * input stays attributed as a gesture for as long as the transition it started runs.
-   */
+  /** Suspends until the map hands the camera back at the end of the transition. */
   suspend fun moveByAwaitingTransition(
     deltaX: Double,
     deltaY: Double,

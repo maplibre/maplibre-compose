@@ -7,10 +7,7 @@ import kotlin.test.assertNotNull
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 
-/**
- * A style image is uploaded with the scale it was rasterized at: MapLibre sizes a style image as
- * `pixels / pixelRatio`, so a wrong ratio draws every icon at the wrong size on hi-dpi displays.
- */
+/** MapLibre sizes a style image as `pixels / pixelRatio`. */
 class MlnFfiStyleImageScaleTest {
 
   @Test

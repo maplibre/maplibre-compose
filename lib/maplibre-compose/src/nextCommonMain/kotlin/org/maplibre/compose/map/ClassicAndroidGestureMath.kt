@@ -10,11 +10,8 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The gesture constants and camera equations used by MapLibre Android 13.0.2.
- *
- * Keeping these platform-neutral lets every host use the same touch feel while mouse and keyboard
- * affordances remain available on every host as well. Values expressed as Android dimensions are
- * converted to dp before they reach these helpers.
+ * The gesture constants and camera equations used by MapLibre Android 13.0.2. Values expressed as
+ * Android dimensions are converted to dp before they reach these helpers.
  */
 internal object ClassicAndroidGestureMath {
   const val PAN_START_DP = 4.0
@@ -44,7 +41,7 @@ internal object ClassicAndroidGestureMath {
   private const val FLING_BASE_TIME_MILLIS = 150.0
   private const val VELOCITY_ANIMATION_DURATION_MULTIPLIER = 150.0
 
-  /** The exact Android pinch equation, returned as the multiplicative scale a session takes. */
+  /** Returns a multiplicative scale, not a zoom delta. */
   fun pinchScale(rawScale: Double): Double {
     if (!rawScale.isFinite() || rawScale <= 0.0) return 1.0
     val zoomDelta = ln(rawScale) / ln(PI / 2.0) * ZOOM_RATE
@@ -138,7 +135,6 @@ internal object ClassicAndroidGestureMath {
 
   data class RotationVelocity(val initialDegreesPerFrame: Double, val duration: Duration)
 
-  /** Mirrors Android's focal-point velocity projection and its decelerating animator bounds. */
   fun rotationVelocity(
     velocityXPixelsPerSecond: Double,
     velocityYPixelsPerSecond: Double,

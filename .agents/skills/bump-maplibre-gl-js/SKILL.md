@@ -5,12 +5,11 @@ description: Update the hand-written MapLibre GL JS bindings after bumping the p
 
 # Bumping MapLibre GL JS
 
-There is no code generator. The bindings in
-`lib/maplibre-compose/src/jsMain/kotlin/org/maplibre/compose/gljs/`
-(`GlJsModule.kt` for the `Map` class, `GlJsTypes.kt` for the option and spec
-interfaces) are written by hand, are `internal`, and cover only the members this
-platform actually calls. Most of an upstream diff is therefore irrelevant; the
-job is to find the parts that touch that subset.
+The bindings in
+`lib/maplibre-compose/src/jsMain/kotlin/org/maplibre/compose/gljs/` are written
+by hand, are `internal`, and cover only the members this platform actually
+calls. Most of an upstream diff is therefore irrelevant; the job is to find the
+parts that touch that subset.
 
 ## 1. Keep the old declarations
 
@@ -19,7 +18,7 @@ cp build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts /tmp/maplibre-gl.old.
 cp -R build/js/node_modules/maplibre-gl/src /tmp/maplibre-gl-src.old
 ```
 
-The npm package ships both its `.d.ts` and its TypeScript sources, and step 4
+The npm package ships both its `.d.ts` and its TypeScript sources, and step 5
 needs the old sources too.
 
 ## 2. Bump and reinstall
@@ -61,7 +60,28 @@ are the whole of it:
 The declarations cover only what the platform calls, so most of the diff is
 irrelevant. That is the point: the list is short enough to read.
 
-## 4. Re-check the four runtime shims
+## 4. Look for new capability worth binding
+
+Step 3 asks whether what the platform already declares still works. This step
+asks what the release adds. Read the
+[changelog](https://github.com/maplibre/maplibre-gl-js/blob/main/CHANGELOG.md)
+between the two versions, against three lists:
+
+- **Gaps against the other platforms.** Anything `commonMain` declares that the
+  browser answers with `NotImplementedError` or `UnsupportedOperationException`.
+  A release that closes one is the reason to bind new members.
+- **TODOs waiting on upstream.**
+  `git grep -n TODO lib/maplibre-compose/src/jsMain` finds the ones parked
+  against a MapLibre GL JS limitation.
+- **New API surface.** New `Map` methods, style-spec properties, and source or
+  layer types that the common API could expose.
+
+Bind what one of those three justifies, and leave the rest undeclared. Anything
+new reaches the common API through `commonMain`, so it needs its `expect` and
+the other platforms' actuals, and it belongs in the conformance corpus under
+`nextCommonTest` rather than in a browser-only test.
+
+## 5. Re-check the four runtime shims
 
 This is the part the `.d.ts` diff will **not** reveal. `GlJsRuntime.kt` is
 pinned to MapLibre internals, not its public API. Each shim fails loudly when
@@ -80,7 +100,7 @@ diff -ru /tmp/maplibre-gl-src.old/gl/value.ts build/js/node_modules/maplibre-gl/
 diff -ru /tmp/maplibre-gl-src.old/ui/map.ts build/js/node_modules/maplibre-gl/src/ui/map.ts
 ```
 
-## 5. Verify
+## 6. Verify
 
 The browser suite drives real maps, so a declaration that no longer matches
 shows up as a failure there — but only for the members those maps exercise, and
@@ -88,12 +108,12 @@ only as whatever the platform does with a wrong answer. It is not a check on the
 declared set; step 3 is where that is decided.
 
 ```sh
-CHROME_BIN="…/Google Chrome for Testing" caffeinate -dimsu ./gradlew :lib:maplibre-compose:jsBrowserTest
+CHROME_BIN="…" ./gradlew :lib:maplibre-compose:jsBrowserTest
 ```
 
-`caffeinate` is required — if the machine idles, `requestAnimationFrame` stalls
-and the suite dies as timeouts instead of assertion failures. Never pass
-`--tests`: it silently runs nothing and reports success. Failures are in
-`lib/maplibre-compose/build/reports/tests/jsBrowserTest/**.html`.
+Never pass `--tests`: it silently runs nothing and reports success. Failures are
+in `lib/maplibre-compose/build/reports/tests/jsBrowserTest/**.html`. The suite
+needs the machine awake, because an idle machine stalls `requestAnimationFrame`
+and the tests die as timeouts instead of assertion failures.
 
 Then `./gradlew :demo-app:common:compileKotlinJs` and `mise run check`.

@@ -11,20 +11,15 @@ internal interface GlJsMapRenderer : AutoCloseable {
   fun onSurfaceLost()
 
   /**
-   * Renders one frame into [target], inside Compose's draw. [extent] carries the resize, so the map
-   * is never asked to render at a size it has not been told about.
+   * Renders one frame into [target], inside Compose's draw.
    *
    * @return whether anything was rendered. False is ordinary: before the style loads there is
-   *   nothing to draw, and the surface then shows whatever the target already held.
+   *   nothing to draw.
    */
   fun render(target: GlJsFrameTarget, extent: MapExtent): Boolean
 }
 
 /** The map session's view of its surface. */
 internal interface GlJsSurfaceSession {
-  /**
-   * MapLibre's own repaint requests arrive here once [GlJsRuntime.interceptRepaintRequests] has
-   * taken its scheduling away, so this runs for every tile that lands too.
-   */
   fun requestFrame()
 }

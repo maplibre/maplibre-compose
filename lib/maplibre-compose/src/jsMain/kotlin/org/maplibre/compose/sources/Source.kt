@@ -6,11 +6,7 @@ import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.style.StyleMutationException
 
-/**
- * A data source, as a live descriptor. Before [attach] it holds its own definition, so it can be
- * created and configured during composition before any style exists; after, mutations go straight
- * through to MapLibre.
- */
+/** Holds its own definition until [attach]; after that, mutations go straight to MapLibre. */
 public actual sealed class Source(internal actual val id: String) {
 
   internal abstract fun toJson(): JsonObject
@@ -35,7 +31,7 @@ public actual sealed class Source(internal actual val id: String) {
         "fail to attach."
     }
     // A layer may attach its source before the source effect runs, or use a descriptor read from
-    // the base style; exact binding identity makes those paths idempotent.
+    // the base style.
     if (binding.sourceExists(id)) {
       check(current === binding) {
         "Source ID '$id' is already owned by a different live source descriptor"
@@ -45,15 +41,12 @@ public actual sealed class Source(internal actual val id: String) {
     try {
       addTo(binding)
     } catch (error: StyleMutationException) {
-      // MapLibre reports what was wrong with the definition but never whose. The definition itself
-      // is left out: a GeoJSON source's is its entire dataset.
       throw IllegalStateException(
         "Could not add source '$id' of type " +
           "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
         error,
       )
     }
-    // Published only after MapLibre accepted the definition.
     this.binding = binding
   }
 
@@ -62,7 +55,6 @@ public actual sealed class Source(internal actual val id: String) {
     binding.addSource(id, toJson())
   }
 
-  /** Binds to a source already in the style, without adding it. */
   internal fun bindExisting(binding: GlJsStyleBinding) {
     val current = this.binding
     check(current === binding || current?.isLoaded != true) {

@@ -15,9 +15,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
 
-/**
- * The attribution UI reads `StyleState`'s sources, so anything stale is a control that vanishes.
- */
 @OptIn(ExperimentalTestApi::class)
 class BrowserStyleStateTest {
 
@@ -53,10 +50,7 @@ class BrowserStyleStateTest {
         .trimIndent()
     )
 
-  /**
-   * A data URL will not do: it resolves before the style loads. This reproduces a source whose
-   * attribution is not readable until well after.
-   */
+  /** Delays the TileJSON so the source's attribution is not readable until well after load. */
   private fun installSlowTileJson(): () -> Unit {
     val global = js("window")
     val original = global.fetch
@@ -105,7 +99,6 @@ class BrowserStyleStateTest {
     }
   }
 
-  /** The demo's shape: two styles whose attribution arrives with a TileJSON. */
   @Test
   fun switching_to_a_tilejson_style_keeps_the_attribution(): Promise<*> = runBrowserMapTest {
     val restoreFetch = installSlowTileJson()
@@ -126,8 +119,6 @@ class BrowserStyleStateTest {
       waitUntilMap("the first style to load") { loads >= 1 }
 
       current = tileJsonStyle
-      // Waits for the attribution itself, so a timeout here means it never arrives rather than
-      // that it arrived after the assertion.
       waitUntilMap("the switched style's attribution to be reported") {
         state?.sources?.values?.map { it.attributionHtml } == listOf("fetched attribution")
       }
@@ -154,8 +145,8 @@ class BrowserStyleStateTest {
     waitUntilMap("the first style to load") { loads >= 1 && state?.sources?.isNotEmpty() == true }
     assertEquals(listOf("first attribution"), state?.sources?.values?.map { it.attributionHtml })
 
-    // Sampled per frame rather than at the end: the attribution UI reads this every recomposition,
-    // so a window where it is empty is a control that vanishes and comes back.
+    // Sampled per frame, not just at the end: a window where the attribution is empty would flicker
+    // the attribution UI.
     val observed = mutableListOf<List<String>>()
     current = styleWith("second", "second-source")
     waitUntilMap("the second style's sources to be reported") {

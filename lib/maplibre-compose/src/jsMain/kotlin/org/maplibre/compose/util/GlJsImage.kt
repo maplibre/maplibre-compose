@@ -8,10 +8,7 @@ import org.maplibre.compose.gljs.StyleImageData
 import web.dom.document
 import web.html.HTMLCanvasElement
 
-/**
- * The alpha stays straight, unlike the MapLibre Native path: GL JS uploads style images with
- * `UNPACK_PREMULTIPLY_ALPHA_WEBGL` on, so premultiplying here would apply it twice.
- */
+/** Alpha stays straight: GL JS uploads style images with `UNPACK_PREMULTIPLY_ALPHA_WEBGL` on. */
 internal fun ImageBitmap.toGlJsImage(): StyleImageData {
   val pixels = Uint8Array<ArrayBuffer>(width * height * 4)
   writeStraightRgba(pixels.asDynamic())
@@ -22,10 +19,7 @@ internal fun ImageBitmap.toGlJsImage(): StyleImageData {
   }
 }
 
-/**
- * Encodes a Compose bitmap as a PNG `data:` URL. GL JS names an image source's image by URL and
- * offers no entry point for raw pixels, and this is a real encode rather than a copy.
- */
+/** Encodes a Compose bitmap as a PNG `data:` URL. */
 internal fun ImageBitmap.toDataUrl(): String {
   val canvas = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
   canvas.width = width
@@ -40,7 +34,7 @@ internal fun ImageBitmap.toDataUrl(): String {
   return canvas.asDynamic().toDataURL().unsafeCast<String>()
 }
 
-/** [ImageBitmap.readPixels] hands back straight-alpha ARGB, so this is a channel reorder. */
+/** [ImageBitmap.readPixels] hands back straight-alpha ARGB. */
 private fun ImageBitmap.writeStraightRgba(target: dynamic) {
   val argb = IntArray(width * height)
   readPixels(argb)

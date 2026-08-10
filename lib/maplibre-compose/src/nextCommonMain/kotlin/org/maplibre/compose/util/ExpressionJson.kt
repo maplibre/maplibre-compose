@@ -21,8 +21,7 @@ import org.maplibre.compose.expressions.ast.StringLiteral
 
 /**
  * Encodes a compiled expression as MapLibre style JSON. Must stay identical to the Android encoder,
- * including `literal` wrapping and colour format; these are style-spec encodings, not platform
- * ones.
+ * including `literal` wrapping and colour format.
  */
 internal fun CompiledExpression<*>.toStyleJson(): JsonElement = normalizeJsonLike(inLiteral = false)
 
@@ -73,7 +72,7 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
     is CompiledListLiteral<*> ->
       literalArray(inLiteral, value.map { it.normalizeJsonLike(inLiteral = true) })
 
-    // Named arguments to a function call, never a value the style spec could read as an expression.
+    // Not wrapped: an object is a function call's named arguments, never a readable expression.
     is CompiledOptions<*> ->
       JsonObject(value.mapValues { (_, v) -> v.normalizeJsonLike(inLiteral) })
   }

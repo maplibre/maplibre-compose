@@ -8,11 +8,7 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 
-/**
- * What gesture tokens are for, which only a backend with an owner thread can be asked.
- *
- * The rest of the camera-move contract is in [CameraMoveReportingTest], on every platform.
- */
+/** The rest of the camera-move contract is in [CameraMoveReportingTest], on every platform. */
 class MlnFfiGestureTokenOrderingTest {
 
   @Test

@@ -84,7 +84,6 @@ import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
-/** Drives the packaged runtime through the same producer-to-Compose bridge used in production. */
 internal class ProductionBridgeTestRenderDriver
 private constructor(
   private val environment: DesktopTestGpuEnvironment,
@@ -147,7 +146,6 @@ private constructor(
   }
 }
 
-/** Owns the real Compose-side GPU context and an offscreen surface used for presentation. */
 private abstract class DesktopTestGpuEnvironment : AutoCloseable {
   abstract val gpuHost: ComposeGpuHost
 
@@ -242,7 +240,6 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
   }
 }
 
-/** A real Metal device, queue, and Skia context for the production Metal bridge. */
 private class MetalTestGpuEnvironment
 private constructor(
   private val gpuThread: MapRendererThread,
@@ -332,7 +329,6 @@ private constructor(
   }
 }
 
-/** A surfaceless EGL/OpenGL context for the production Vulkan-to-OpenGL bridge. */
 private class OpenGlTestGpuEnvironment
 private constructor(private val gpuThread: MapRendererThread, private val egl: EglTestContext) :
   DesktopTestGpuEnvironment() {
@@ -377,7 +373,6 @@ private constructor(private val gpuThread: MapRendererThread, private val egl: E
   }
 }
 
-/** A real Compose/Skiko D3D12 context for the production Vulkan-to-D3D12 bridge. */
 @OptIn(ExperimentalComposeUiApi::class)
 private class Direct3D12TestGpuEnvironment private constructor(private val window: ComposeWindow) :
   DesktopTestGpuEnvironment() {
@@ -394,10 +389,9 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
 
   companion object {
     /**
-     * Skiko tears a window's Direct3D device down asynchronously after [ComposeWindow.dispose].
-     * Replacing the window between test methods can therefore race the next device's startup and
-     * crash the test VM in the native graphics driver. Keep one consumer device for the worker;
-     * every fixture still closes its destination surface and production bridge independently.
+     * Skiko tears a window's Direct3D device down asynchronously after [ComposeWindow.dispose], so
+     * replacing the window between test methods can race the next device's startup and crash the
+     * test VM in the native graphics driver.
      */
     private const val DISPOSAL_DELAY_MILLIS = 1_000L
     private val sharedLock = Any()
@@ -410,10 +404,7 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
         shared ?: createShared().also { shared = it }
       }
 
-    /**
-     * Leaves a short reuse window between methods, then disposes the last window so AWT does not
-     * keep the Gradle worker alive. A new fixture invalidates the pending disposal before reuse.
-     */
+    /** Disposes the last window after a reuse window, so AWT does not keep the worker alive. */
     private fun scheduleDisposal(environment: Direct3D12TestGpuEnvironment) {
       val scheduledGeneration = synchronized(sharedLock) { ++disposalGeneration }
       Thread(
@@ -470,7 +461,6 @@ private class Direct3D12TestGpuEnvironment private constructor(private val windo
   }
 }
 
-/** Owns the EGL pbuffer and the Skia context layered over it. */
 private class EglTestContext private constructor() : AutoCloseable {
   private val ownerThread = Thread.currentThread()
   private var display = EGL_NO_DISPLAY

@@ -5,8 +5,8 @@ import js.typedarrays.Uint8Array
 import kotlin.js.Promise
 import web.html.HTMLElement
 
-// The hand-written subset of MapLibre GL JS this platform binds against. Only what it calls is
-// here; GlJsDeclarationsTest checks the subset against the MapLibre actually on the page.
+// The hand-written subset of MapLibre GL JS this platform binds against; GlJsDeclarationsTest
+// checks it against the MapLibre actually on the page.
 
 internal external interface Subscription {
   fun unsubscribe()
@@ -190,5 +190,4 @@ internal fun styleJson(json: String): StyleSource = JSON.parse(json)
 internal fun queryBox(first: Point, second: Point): QueryGeometry =
   arrayOf(first, second).unsafeCast<QueryGeometry>()
 
-/** `Object.keys`, the only way to list what a record holds. */
 internal fun JsRecord<*>.keys(): Array<String> = js("Object").keys(this).unsafeCast<Array<String>>()

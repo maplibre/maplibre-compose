@@ -12,9 +12,6 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.toJsonElement
 
 /**
- * Takes a base-style layer out of a loaded style and puts it back, which is what an
- * [Anchor.Replace] does when its last replacement leaves.
- *
  * The restored layer is rebuilt from JSON MapLibre reported, and any key it fails to replay is lost
  * without an error, so the assertions read the live layer.
  */
@@ -33,8 +30,8 @@ class UnknownLayerRestoreTest {
         assertNotNull(binding.readMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
       assertEquals("transportation", binding.readMap { map -> map.layerSourceLayer(ROADS) })
 
-      // The exact sequence LayerManager runs.
       val replacement = BackgroundLayer("user-replacement")
+      // The exact sequence LayerManager runs.
       style.addLayerAbove(ROADS, replacement)
       style.removeLayer(original)
       assertNull(style.getLayer(ROADS), "The replaced layer should be out of the style")
@@ -70,8 +67,8 @@ class UnknownLayerRestoreTest {
     const val ROADS = "roads"
 
     /**
-     * A vector source and a filtered layer over it. The host is unresolvable on purpose, and the
-     * layer's `minzoom` keeps MapLibre from requesting tiles at all.
+     * The tile host is unresolvable on purpose, and the layer's `minzoom` keeps MapLibre from
+     * requesting tiles at all.
      */
     val VECTOR_STYLE =
       """

@@ -68,9 +68,8 @@ import web.html.HTMLElement
 private const val FRAME_INTERVAL_SLACK = 0.1
 
 /**
- * The map does not exist for the first few frames: it can only be built once Compose has a WebGL
- * context to lend it and a size to take, so calls before then are queued and reads answer from what
- * was last asked for. [GlJsRuntime] arranges the rest of the state MapLibre is held in here.
+ * The map can only be built once Compose has a WebGL context to lend it and a size to take, so
+ * calls before then are queued and reads answer from what was last asked for.
  */
 internal class GlJsMapSession(
   internal var callbacks: MapAdapter.Callbacks,
@@ -102,7 +101,6 @@ internal class GlJsMapSession(
 
   private var framebuffer: Any? = null
 
-  /** Non-null while the map runs on a context it was lent rather than one it made. */
   private var lentContext: WebGL2RenderingContext? = null
 
   private var maximumFps: Int? = null
@@ -165,9 +163,6 @@ internal class GlJsMapSession(
     return true
   }
 
-  /**
-   * Exists so a test can read a pixel back; a composited map draws into the caller's framebuffer.
-   */
   internal fun detachedCanvas(): HTMLCanvasElement? =
     if (lentContext != null) null else map?.getCanvas()
 
@@ -202,16 +197,14 @@ internal class GlJsMapSession(
     val options =
       unsafeJso<MapOptions> {
         this.container = host
-        // Compose draws on top of MapLibre's canvas; gestures arrive through GestureTarget below.
+        // Gestures arrive through GestureTarget below.
         interactive = false
-        // Both would be DOM elements behind the Compose surface, so neither could be seen.
         attributionControl = false
         maplibreLogo = false
         pixelRatio = extent.scaleFactor
         target?.let {
           // MapLibre otherwise clamps its pixel ratio to the drawing buffer of the canvas it
-          // shares,
-          // which is Compose's whole viewport at the moment the map was built.
+          // shares, which is Compose's whole viewport at the moment the map was built.
           maxCanvasSize = maxTextureSize(it.gl)
         }
       }
@@ -274,9 +267,8 @@ internal class GlJsMapSession(
   }
 
   /**
-   * The cap filters an arriving cadence rather than driving one, hence [FRAME_INTERVAL_SLACK]: a
-   * cap at the display's own rate would otherwise reject any interval measured a microsecond short,
-   * halving the frame rate.
+   * A cap at the display's own rate would reject any interval measured a microsecond short, halving
+   * the frame rate; hence [FRAME_INTERVAL_SLACK].
    */
   private fun allowRenderNow(now: TimeSource.Monotonic.ValueTimeMark): Boolean {
     val fps = maximumFps ?: return true
@@ -305,9 +297,8 @@ internal class GlJsMapSession(
       reportStyleLoaded = true
       reportLoadedOnceStyleIsReady(map)
     }
-    // Not `load`, which fires once for the map's lifetime, and not `style.load` either: a source
-    // naming a TileJSON fetches it after that, so its attribution is not readable yet. `idle` would
-    // also wait for every tile in the viewport and so may never arrive.
+    // A source naming a TileJSON fetches it after `style.load`, so its attribution is not readable
+    // there.
     map.subscribe("styledata") { reportLoadedOnceStyleIsReady(map) }
     map.subscribe("sourcedata") { reportLoadedOnceStyleIsReady(map) }
     map.subscribe("error") { event ->
@@ -326,10 +317,8 @@ internal class GlJsMapSession(
     map.subscribe("move") { callbacks.onCameraMoved(this) }
     map.subscribe("moveend") {
       callbacks.onCameraMoved(this)
-      // A drag is a stream of jumps, each with its own moveend, so ending the move here would
-      // report one that started and finished between two pointer samples.
+      // A drag is a stream of jumps, each with its own moveend.
       if (!isGestureInProgress) endCameraMove()
-      // Whatever ended it, the camera has been released, which is what a transition waits for.
       resumeTransitions()
     }
   }
@@ -340,11 +329,7 @@ internal class GlJsMapSession(
     callbacks.onMapFinishedLoading(this)
   }
 
-  /**
-   * A move spans the gesture rather than the jump, as every other platform reports it. The reason
-   * is re-reported when it changes, since a gesture's flag can be set after its first camera
-   * change.
-   */
+  /** A move spans the gesture rather than the jump, as every other platform reports it. */
   private fun beginCameraMove() {
     val reason =
       if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
@@ -379,8 +364,8 @@ internal class GlJsMapSession(
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
-    // Disposes the composition holding the old style's sources and layers, which would otherwise
-    // recompose against base layers being replaced.
+    // Must precede the new style: the old style's sources and layers would otherwise recompose
+    // against base layers being replaced.
     styleBinding?.unload()
     requestedStyle = style
     callbacks.onStyleChanged(this, null)
@@ -392,8 +377,7 @@ internal class GlJsMapSession(
     if (style == appliedStyle) return
     appliedStyle = style
     styleLoadPending = true
-    // MapLibre would diff by default, keeping the same Style object, so nothing would report that a
-    // style loaded and the old binding would go on writing into it.
+    // MapLibre diffs by default, keeping the same Style object, so no `style.load` would fire.
     val options = unsafeJso<SetStyleOptions> { diff = false }
     try {
       when (style) {
@@ -410,10 +394,7 @@ internal class GlJsMapSession(
     }
   }
 
-  /**
-   * `MaplibreMap` applies its first camera as soon as it has an adapter, which is before any
-   * surface, so reads in that window answer with this rather than MapLibre's default.
-   */
+  /** Answers camera reads made before the map exists. */
   private var requestedCamera: CameraPosition? = null
 
   override fun getCameraPosition(): CameraPosition =
@@ -510,7 +491,6 @@ internal class GlJsMapSession(
     withMap(
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
     ) { map ->
-      // A bounding box is axis-aligned and so wrong for a rotated or pitched camera.
       val width = appliedExtent.width.toDouble()
       val height = appliedExtent.height.toDouble()
       VisibleRegion(
@@ -522,7 +502,6 @@ internal class GlJsMapSession(
     }
 
   override fun setRenderSettings(value: RenderOptions) {
-    // MapLibre produces no frames of its own here, so throttling this session's renders is the cap.
     maximumFps = value.maximumFps
     onMap { map ->
       map.showTileBoundaries = value.isTileBordersEnabled
@@ -533,13 +512,12 @@ internal class GlJsMapSession(
   }
 
   override fun setOrnamentSettings(value: OrnamentOptions) {
-    // MapLibre's own ornaments are DOM controls, which would sit behind the Compose surface this
-    // map is composited into. See OrnamentOptions for what to use instead.
+    // MapLibre's own ornaments are DOM controls, hidden behind the Compose surface; see
+    // OrnamentOptions.
   }
 
   override fun setGestureSettings(value: GestureOptions) {
-    // Gestures are implemented in Compose, so these options are read by the host's input handling
-    // rather than pushed into the map.
+    // Gestures are implemented in Compose, so the host's input handling reads these.
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position =
@@ -576,8 +554,7 @@ internal class GlJsMapSession(
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> =
     withMap(emptyList()) { map ->
-      // GL JS errors on a layer id its style lacks, where Native ignores it; a layer named by a
-      // composition that has since gone is ordinary.
+      // GL JS errors on a layer id its style lacks, where Native ignores it.
       val known = layerIds?.filter { map.getLayer(it) != null }
       if (known != null && known.isEmpty()) return@withMap emptyList()
       val options =
@@ -598,8 +575,8 @@ internal class GlJsMapSession(
   private val transitionWaiters = mutableListOf<CancellableContinuation<Unit>>()
 
   /**
-   * Resumes normally however the transition ended: a `moveend` says the camera was released without
-   * saying whether this transition finished it or a later command took it over.
+   * Resumes normally however the transition ended: a `moveend` does not say whether this transition
+   * finished it or a later command took it over.
    */
   private suspend fun awaitCameraRelease(start: (MaplibreMap) -> Unit) =
     suspendCancellableCoroutine { continuation ->
@@ -747,7 +724,6 @@ internal class GlJsMapSession(
   }
 
   /**
-   * One update, so a two-finger gesture doing both does not fight itself across two transitions.
    * The pitch is unclamped: MapLibre holds it to the range `setMinPitch` and `setMaxPitch` gave it.
    */
   private fun rotateOptions(
@@ -800,7 +776,6 @@ internal class GlJsMapSession(
       .toPosition()
 
   private companion object {
-    /** Laid out, so MapLibre can measure it, and out of the way, so nothing sees it. */
     const val OFFSCREEN_CONTAINER_STYLE =
       "position:absolute;left:-10000px;top:0;visibility:hidden;pointer-events:none;"
   }

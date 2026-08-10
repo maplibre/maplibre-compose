@@ -7,7 +7,6 @@ import web.html.HTMLCanvasElement
 
 /** What a map should render into for one frame. */
 internal sealed interface GlJsFrameTarget {
-  /** Render into this, on the context Compose owns. */
   data class Composited(val target: GlJsRenderTarget) : GlJsFrameTarget
 
   /** Compose has not finished building the renderer whose context the map shares. */
@@ -22,17 +21,13 @@ internal interface GlJsCompositor : AutoCloseable {
   fun acquire(extent: MapExtent): GlJsFrameTarget
 }
 
-/** A seam for the conformance suite, which runs against a raster surface with no WebGL context. */
+/** A seam for tests that run against a raster surface with no WebGL context. */
 internal val LocalGlJsCompositor =
   staticCompositionLocalOf<(Logger?) -> GlJsCompositor> {
     { logger -> ComposeGlJsCompositor(logger) }
   }
 
-/**
- * A target is never resized in place: WebGL cannot resize a texture, and Skia has adopted the one
- * behind the old target anyway. Releasing the previous one drops only this platform's reference,
- * since a Compose graphics layer may still hold a display list that draws it.
- */
+/** A target is never resized in place: WebGL cannot resize a texture. */
 internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsCompositor {
 
   private var canvas: HTMLCanvasElement? = null

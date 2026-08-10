@@ -9,8 +9,8 @@ import org.maplibre.compose.browser.MapLibre
 @OptIn(ExperimentalComposeUiApi::class)
 fun main() {
   onWasmReady {
-    // Before Compose builds its renderer, which is the moment the GPU context maps composite into
-    // is created.
+    // Must run before Compose builds its renderer, which creates the GPU context maps composite
+    // into.
     MapLibre.initialize()
     ComposeViewport(document.body!!) { DemoApp() }
   }

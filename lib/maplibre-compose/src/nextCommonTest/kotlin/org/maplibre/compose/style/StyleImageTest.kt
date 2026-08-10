@@ -18,7 +18,6 @@ import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageResizeOptions
 
-/** Neither backend reports back anything the other can be asked for, so these read pixels. */
 class StyleImageTest {
 
   @Test
@@ -26,7 +25,6 @@ class StyleImageTest {
     assertIconIsDrawn(MapFixture.DEFAULT_EXTENT, imageSize = 32)
   }
 
-  /** Twice the pixels tagged with twice the scale has to come out the same size on screen. */
   @Test
   fun an_icon_on_a_retina_map_is_drawn_at_the_same_logical_size(): MapTestResult = runMapTest {
     assertIconIsDrawn(MapFixture.RETINA_EXTENT, imageSize = 64)
@@ -34,14 +32,13 @@ class StyleImageTest {
 
   /**
    * Insets that cross over leave MapLibre a stretch box it would divide by zero over, so the image
-   * is uploaded whole. Whole means drawn: the icon still appears, at its ordinary size.
+   * is uploaded whole.
    */
   @Test
   fun an_icon_whose_insets_leave_nothing_to_stretch_is_still_drawn(): MapTestResult = runMapTest {
     assertIconIsDrawn(
       MapFixture.DEFAULT_EXTENT,
       imageSize = 32,
-      // 20 and 20 in from the sides of a 32-pixel image.
       resizeOptions = ImageResizeOptions(left = 20.dp, top = 4.dp, right = 20.dp, bottom = 4.dp),
     )
   }

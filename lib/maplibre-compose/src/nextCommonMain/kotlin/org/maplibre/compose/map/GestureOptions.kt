@@ -6,7 +6,6 @@ import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-/** Which gestures the map responds to, and how far each one moves the camera. */
 @Immutable
 public actual data class GestureOptions(
   val isDragPanEnabled: Boolean = true,
@@ -34,10 +33,8 @@ public actual data class GestureOptions(
   val isKeyboardRotateTiltEnabled: Boolean = true,
 
   /**
-   * How far a mouse may move while pressed and still click rather than drag.
-   *
-   * Touch and stylus use the classic MapLibre Android thresholds for pan, scale, shove, and
-   * two-finger taps; keeping this mouse-specific avoids making desktop clicks unusually fragile.
+   * How far a mouse may move while pressed and still click rather than drag. Touch and stylus
+   * instead use the classic MapLibre Android thresholds.
    */
   val clickSlop: Dp = 3.dp,
 
@@ -71,10 +68,7 @@ public actual data class GestureOptions(
   /** Degrees of pitch per shift and up or down. */
   val keyboardPitchStep: Double = 10.0,
 
-  /**
-   * How long a discrete input (arrow key, double click) takes to ease the camera. A repeat
-   * supersedes the transition still in flight, so a held arrow key pans continuously.
-   */
+  /** How long a discrete input (arrow key, double click) takes to ease the camera. */
   val animationDuration: Duration = 300.milliseconds,
 ) {
   public actual companion object Companion {

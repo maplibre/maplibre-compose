@@ -24,7 +24,7 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 /**
  * The cluster feature has to come from a rendered query rather than being hand-built: MapLibre
  * Native matches the cluster id with an exact unsigned-integer check, and a mistyped id misses
- * silently with a success status.
+ * silently.
  */
 class GeoJsonClusterTest {
 
@@ -54,8 +54,7 @@ class GeoJsonClusterTest {
 
       // A query reads the render session, which MapLibre Native only builds on the first frame.
       fixture.awaitMapReady()
-      // Clustering happens while a tile is built, so a cluster exists only once the map has
-      // rendered one, rather than after any fixed number of frames.
+      // Clustering happens while a tile is built, so no fixed number of frames will do.
       fixture.pumpUntil("a cluster to be rendered") { queryAll().any { source.isCluster(it) } }
       val cluster = queryAll().first { source.isCluster(it) }
 

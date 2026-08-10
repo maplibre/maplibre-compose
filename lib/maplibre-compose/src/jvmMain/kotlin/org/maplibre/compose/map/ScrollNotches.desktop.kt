@@ -2,13 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.Density
 
-/**
- * Desktop hosts report wheel rotation, which is already the unit this wants: AWT's
- * `MouseWheelEvent.getWheelRotation` and GLFW's scroll offset both count one per detent, and
- * neither scales with the display.
- *
- * A host that reports scrolled distance instead would zoom about a hundred times too fast, in which
- * case this is the one place that has to learn about it.
- */
+// AWT's MouseWheelEvent.getWheelRotation and GLFW's scroll offset both count one per detent, so the
+// delta is already in notches and must not scale with density.
 internal actual fun scrollNotches(scrollDelta: Float, density: Density): Double =
   scrollDelta.toDouble()

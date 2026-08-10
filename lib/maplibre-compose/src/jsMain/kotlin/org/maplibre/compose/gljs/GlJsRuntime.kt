@@ -3,16 +3,12 @@ package org.maplibre.compose.gljs
 import web.gl.WebGL2RenderingContext
 
 /**
- * The four places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is
- * pinned to a shape in one MapLibre version and fails loudly rather than silently doing nothing
- * when a version bump moves it.
+ * The places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is pinned
+ * to internals of one MapLibre version and fails loudly when a version bump moves them.
  */
 internal object GlJsRuntime {
 
-  /**
-   * Runs [build] with every WebGL context request on the page answered by [gl]. MapLibre asks its
-   * canvas for a context exactly once, synchronously, inside the `Map` constructor.
-   */
+  /** Runs [build] with every WebGL context request on the page answered by [gl]. */
   fun <T> lendingContext(gl: WebGL2RenderingContext, build: () -> T): T {
     val prototype = js("HTMLCanvasElement").prototype
     val original = prototype.getContext
@@ -58,10 +54,7 @@ internal object GlJsRuntime {
     }
   }
 
-  /**
-   * `Map.remove` ends by losing its context, which is fatal for a map that was lent one: the
-   * context is Compose's, and every other renderer on the page draws through it.
-   */
+  /** `Map.remove` ends by losing its context, which is fatal here: the context is Compose's. */
   fun removingWithoutLosingContext(context: WebGL2RenderingContext, remove: () -> Unit) {
     val gl = context.asDynamic()
     val original = gl.getExtension
@@ -75,10 +68,7 @@ internal object GlJsRuntime {
     }
   }
 
-  /**
-   * `triggerRepaint` is MapLibre's only caller of `browser.frame`, so shadowing it hands frame
-   * scheduling to Compose entirely.
-   */
+  /** `triggerRepaint` is MapLibre's only caller of `browser.frame`. */
   fun interceptRepaintRequests(map: MaplibreMap, onRequest: () -> Unit) {
     val dynamicMap = map.asDynamic()
     check(jsTypeOf(dynamicMap.triggerRepaint) == "function") {

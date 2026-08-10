@@ -26,11 +26,9 @@ import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.Style
 import org.maplibre.compose.util.MaplibreComposable
 
-/** The browser half of what the MapLibre Native conformance suite asserts about styles. */
 @OptIn(ExperimentalTestApi::class)
 class BrowserStyleConformanceTest {
 
-  /** Owns a source and two layers, so read-back has something to find. */
   private val baseStyle =
     BaseStyle.Json(
       """
@@ -102,7 +100,7 @@ class BrowserStyleConformanceTest {
         FillLayer(id = "composed-fill", source = source, color = const(Color.Blue))
       }
     ) { style ->
-      // Its id is generated, so what is asserted is that a second source is there at all.
+      // The composed source's id is generated, so only its presence can be asserted.
       assertEquals(
         2,
         style.getSources().size,
@@ -124,7 +122,6 @@ class BrowserStyleConformanceTest {
       }
     ) { style ->
       val layer = assertNotNull(style.getLayer("round-trip"), "the composed layer should be here")
-      // Rebuilt from the stylesheet, which is where a re-add would read it from.
       val definition = layer.toString()
       assertContains(definition, "round-trip")
     }
@@ -156,7 +153,6 @@ class BrowserStyleConformanceTest {
       assertContains(style.getLayers().map { it.id }, "toggled")
     }
 
-  /** The wait is on the style reaching the composition, not on a frame count. */
   private fun runStyleTest(
     content: @Composable @MaplibreComposable () -> Unit = {},
     assertions: (Style) -> Unit,
@@ -178,7 +174,6 @@ class BrowserStyleConformanceTest {
     assertions(style!!)
   }
 
-  /** The only seam onto the live style that does not reach into the session. */
   @Composable
   @MaplibreComposable
   private fun CaptureStyle(onStyle: (Style) -> Unit) {

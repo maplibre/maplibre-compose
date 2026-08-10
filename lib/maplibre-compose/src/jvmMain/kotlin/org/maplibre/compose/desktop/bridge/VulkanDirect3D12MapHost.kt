@@ -92,12 +92,8 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 /**
  * Bridges MapLibre's Vulkan rendering into Compose's Direct3D 12 context on Windows.
  *
- * Unlike Linux, Compose's `ID3D12Device` allocates the shared texture and Vulkan imports the
- * resulting NT handle. Because that handle names a D3D12 resource rather than opaque memory, both
- * sides must agree on the pixel format: `DXGI_FORMAT_B8G8R8A8_UNORM` and
+ * Both sides must agree on the pixel format: `DXGI_FORMAT_B8G8R8A8_UNORM` and
  * `VK_FORMAT_B8G8R8A8_UNORM`.
- *
- * Ported from the `maplibre-native-ffi` Compose example.
  */
 internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-renderer")
@@ -122,9 +118,8 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   }
 
   private fun resize(extent: MapExtent, device: NativeHandle?) {
-    // Retired textures come back to the GPU thread, where they remain presentable until Compose
-    // has drawn a newer generation. A resize can race ahead of the draw that presents the last
-    // completed frame, and releasing that frame here would make the map flash transparent.
+    // Retired textures stay presentable until Compose has drawn a newer generation; a resize can
+    // race ahead of that draw, and releasing here would make the map flash transparent.
     val result = rendererThread.run { resizeOnRendererThread(extent, device) }
     if (result.failure != null) {
       result.retired.forEach { releaseDirect3DTexture(it.texture) }
@@ -225,8 +220,6 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   private fun recreateTexture(extent: MapExtent, device: NativeHandle?) {
     if (extent.isEmpty) return
 
-    // An assertion, not a fallback: asking the host for a device here would hop to the GPU thread,
-    // which is the thread waiting on this hop.
     val direct3DDevice =
       checkNotNull(device) { "resize() resolves the Direct3D device before this hop" }
     val storageExtent = extent
@@ -235,7 +228,7 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     var sharedHandle = NULL
     try {
       sharedHandle = WindowsDirect3DInterop.createSharedHandle(direct3DTexture)
-      // The first shared handle doubles as the probe for picking an importing Vulkan device, so the
+      // The shared handle doubles as the probe for picking an importing Vulkan device, so the
       // context cannot be created before there is a texture to share.
       val context = vulkan ?: WindowsVulkanContext.create(sharedHandle).also { vulkan = it }
       importedTexture = context.importDirect3DTexture(sharedHandle, storageExtent, extent)
@@ -246,8 +239,8 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   }
 
   /**
-   * Releases the Vulkan import on the renderer thread and detaches the D3D texture, returning the
-   * presentation target for the caller to retain or release off the renderer thread.
+   * Detaches the current texture, returning the presentation target for the caller to retain or
+   * release off the renderer thread.
    */
   private fun retireTexture(): Direct3DTextureTarget? {
     val retired = presentationTarget()
@@ -275,7 +268,6 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
       action(direct3DContext)
     }
 
-  /** The current D3D resource in the shape Skia needs to present it. */
   private fun presentationTarget(): Direct3DTextureTarget? {
     if (direct3DTexture.address == 0L) return null
     return Direct3DTextureTarget(
@@ -286,7 +278,6 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
     )
   }
 
-  /** Releases retired generations other than the one Compose just presented. */
   private fun disposeRetiredTextures(exceptGeneration: Long? = null) {
     val iterator = retiredTextures.iterator()
     while (iterator.hasNext()) {
@@ -299,8 +290,6 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : Ml
   }
 
   /**
-   * Releases a retired D3D texture, and the Skia surface wrapping it, on the calling thread.
-   *
    * Never call this from the renderer thread: dropping the Skia wrapper waits on the GPU thread,
    * which is usually the thread blocked on a renderer hop.
    */
@@ -389,8 +378,7 @@ private class WindowsVulkanContext private constructor(private val sharedHandle:
   }
 
   /**
-   * Picks the physical device MapLibre renders on by asking each candidate whether it can import
-   * Compose's shared handle — there is no device UUID to match against, unlike Linux.
+   * There is no device UUID to match against, so each candidate is probed for the shared handle.
    */
   private fun pickPhysicalDeviceAndQueue() {
     MemoryStack.stackPush().use { stack ->
@@ -427,10 +415,8 @@ private class WindowsVulkanContext private constructor(private val sharedHandle:
   }
 
   /**
-   * Whether [candidate] can import the shared handle, tested on a throwaway device.
-   *
-   * `vkGetMemoryWin32HandlePropertiesKHR` is a device-level call, so answering at all requires
-   * creating a device first; [createDevice] later creates the real one.
+   * Whether [candidate] can import the shared handle. `vkGetMemoryWin32HandlePropertiesKHR` is
+   * device-level, so this creates a throwaway device to ask.
    */
   private fun canImportDirect3DHandle(candidate: VkPhysicalDevice, queueFamily: Int): Boolean {
     MemoryStack.stackPush().use { stack ->
@@ -691,9 +677,8 @@ private constructor(
 /**
  * The slice of Direct3D 12 this host needs, called through the JDK's foreign function API.
  *
- * There is no D3D12 Java binding on the classpath, so COM interfaces are invoked by hand through
- * their vtables. The vtable indices below come from declaration order in `d3d12.h`; they are
- * ABI-stable but unchecked, and a wrong index calls the wrong method rather than failing.
+ * The vtable indices below come from declaration order in `d3d12.h`; they are unchecked, and a
+ * wrong index calls the wrong method rather than failing.
  */
 private object WindowsDirect3DInterop {
   private const val IID_ID3D12_DEVICE_DATA1 = 0x189819F1
@@ -724,9 +709,7 @@ private object WindowsDirect3DInterop {
     )
 
   /**
-   * Allocates a shareable `ID3D12Resource` texture on Compose's device. `D3D12_HEAP_FLAG_SHARED`
-   * makes it eligible for [createSharedHandle]; `ALLOW_RENDER_TARGET` lets Skia treat it as a
-   * render target once wrapped.
+   * Allocates an `ID3D12Resource` texture on Compose's device, shareable via [createSharedHandle].
    */
   fun createSharedTexture(
     device: NativeHandle,
@@ -916,9 +899,8 @@ private object WindowsDirect3DInterop {
   ): Int = linker.downcallHandle(function, descriptor).invokeWithArguments(*args) as Int
 
   /**
-   * The descriptor for an `HRESULT`-returning COM method of [argumentCount] arguments. Only the
-   * three shapes this host calls are described; a wrong branch is a stack mismatch, not an
-   * exception.
+   * The descriptor for an `HRESULT`-returning COM method of [argumentCount] arguments. A wrong
+   * branch is a stack mismatch, not an exception.
    */
   private fun hresultDescriptor(argumentCount: Int): FunctionDescriptor =
     when (argumentCount) {

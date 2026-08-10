@@ -32,7 +32,7 @@ internal interface MapFixture : AutoCloseable {
 
   suspend fun loadStyle(style: BaseStyle, timeout: Duration = 60.seconds)
 
-  /** Renders until the map has drawn once, which is how a test knows the map exists. */
+  /** Renders until the map has drawn once. */
   suspend fun awaitMapReady(timeout: Duration = 30.seconds)
 
   suspend fun pump(frames: Int = 30)
@@ -63,7 +63,7 @@ internal interface MapFixture : AutoCloseable {
     block: suspend () -> T,
   ): T
 
-  /** Closes the session but not the fixture, so teardown itself can be asserted on. */
+  /** Closes the session but not the fixture. */
   fun closeSession()
 
   companion object {
@@ -109,9 +109,6 @@ internal suspend fun MapFixture.pumpUntilPixel(
 
 internal expect fun createMapFixture(extent: MapExtent = MapFixture.DEFAULT_EXTENT): MapFixture
 
-/**
- * Only for values the two genuinely report differently; branching on more than that is two tests.
- */
 internal enum class MapLibreFlavor {
   NATIVE,
   GL_JS,
@@ -128,7 +125,6 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   val events: MutableList<String> = mutableListOf()
 
-  /** A non-empty list after a pump is a failure in almost every test. */
   val errors: MutableList<String> = mutableListOf()
 
   var style: Style? = null

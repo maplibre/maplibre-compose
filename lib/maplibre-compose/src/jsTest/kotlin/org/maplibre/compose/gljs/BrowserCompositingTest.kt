@@ -30,10 +30,6 @@ private const val PAGE = "#101014"
 private const val CANVAS = "#00ff00"
 private const val PAGE_ARGB = 0xff101014.toInt()
 
-/**
- * Offline, and made of colours nothing else here uses: blue fills the world and a red polygon
- * covers its western half, so at zoom 0 a square target is exactly half of each.
- */
 private val SPLIT_STYLE =
   BaseStyle.Json(
     """
@@ -62,7 +58,6 @@ private val SPLIT_STYLE =
       .trimIndent()
   )
 
-/** The half of the browser platform the conformance suite cannot reach, on a real GPU context. */
 class BrowserCompositingTest {
 
   @Test

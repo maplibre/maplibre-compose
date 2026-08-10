@@ -18,12 +18,6 @@ import org.maplibre.compose.util.toStyleJson
 private val ROOT_KEYS =
   setOf("id", "type", "source", "source-layer", "minzoom", "maxzoom", "filter")
 
-/**
- * A style layer, as a live descriptor.
- *
- * Before the layer is added to a style, setters accumulate into the descriptor; adding emits one
- * complete layer JSON object; afterwards setters go straight to MapLibre.
- */
 internal actual sealed class Layer(actual val id: String) {
 
   /** The layer's `type` in the style spec, e.g. `fill`. */
@@ -32,12 +26,6 @@ internal actual sealed class Layer(actual val id: String) {
   /** The source this layer draws from, or null for layers that have none, such as background. */
   protected open val sourceId: String? = null
 
-  /**
-   * The source descriptor this layer draws from, when it has one.
-   *
-   * MapLibre rejects a layer naming a source that does not exist yet, and Compose adds a layer
-   * before the effect that adds its source runs, so [attach] attaches this source first.
-   */
   internal open val sourceDescriptor: org.maplibre.compose.sources.Source?
     get() = null
 
@@ -90,8 +78,8 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * Sets a top-level layer property, by style-spec name. MapLibre reads these from the layer object
-   * itself, so they must be present in the JSON that creates the layer, not pushed afterwards.
+   * Sets a top-level layer property, by style-spec name. These must be present in the JSON that
+   * creates the layer, not pushed afterwards.
    */
   protected fun setRootProperty(name: String, value: JsonElement) {
     root[name] = value
@@ -99,30 +87,23 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * Sets this layer's filter. Filters go through `setLayerFilter` rather than `setLayerProperty`
-   * because MapLibre treats the filter as part of the layer rather than as a property of it.
-   *
-   * An unset filter compiles to a null literal and must stay null: MapLibre reads an undefined
-   * filter as "match every feature", and anything else has to be a non-empty array — a scalar
-   * `true` fails the whole layer with "filter value must be a non empty array".
+   * Sets this layer's filter. An unset filter must stay null: MapLibre reads a null filter as
+   * "match every feature", and anything else has to be a non-empty array — a scalar `true` fails
+   * the whole layer.
    */
   protected fun setFilterExpression(filter: CompiledExpression<*>) {
     setFilterJson(filter.toStyleJson())
   }
 
-  /**
-   * Sets this layer's filter from style JSON, for [UnknownLayer], which restores a base-style layer
-   * from reported JSON and has no [CompiledExpression] behind its filter. Same null contract.
-   */
+  /** Sets this layer's filter from style JSON, for [UnknownLayer]. Same null contract. */
   protected fun setFilterJson(filter: JsonElement) {
     root["filter"] = filter
     binding.setLayerFilter(id, filter)
   }
 
   /**
-   * Sends a property to an already-attached layer, logging a value MapLibre rejects rather than
-   * throwing: this runs inside a Compose update block, so an escaping exception would kill the
-   * composition applying the style. [attach] deliberately does throw instead.
+   * Logs a value MapLibre rejects rather than throwing: this runs inside a Compose update block,
+   * where an escaping exception would kill the composition. [attach] does throw.
    */
   private fun pushProperty(name: String, value: JsonElement, kind: LayerPropertyKind) {
     try {
@@ -135,17 +116,15 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * Style-spec property names this layer was asked for and did not write, with why not. An
-   * unattached layer has no logger to report through, so [attach] drains this once it has a style.
+   * Property names asked for and not written, with why not; [attach] drains this once it can log.
    */
   private val unsupportedProperties = mutableMapOf<String, String>()
 
   /**
-   * Drops a property MapLibre Native will not accept, and says so once. Writing it anyway is not an
-   * option: MapLibre refuses the entire layer over one unknown property name.
+   * Drops a property MapLibre Native will not accept, and says so once; writing it anyway would
+   * make MapLibre refuse the entire layer.
    *
-   * @param value the value that was asked for. An unset optional property compiles to a null
-   *   literal, which asks for nothing and so is not reported.
+   * @param value the value that was asked for. A null literal asks for nothing and is not reported.
    */
   protected fun skipUnsupportedProperty(
     name: String,
@@ -162,10 +141,8 @@ internal actual sealed class Layer(actual val id: String) {
   }
 
   /**
-   * The complete layer object, as the style spec defines it.
-   *
-   * Null-valued properties are omitted: the style spec has no null, and MapLibre rejects the whole
-   * layer over one. They are still pushed to an attached layer, where null resets to the default.
+   * The complete layer object, as the style spec defines it. Null-valued properties are omitted;
+   * the spec has no null, and MapLibre rejects the whole layer over one.
    */
   internal fun toJson(): JsonObject = buildJsonObject {
     // `id` and `type` first: MapLibre reads the type before the properties that depend on it.
@@ -179,23 +156,19 @@ internal actual sealed class Layer(actual val id: String) {
     paint.filterValues { it !is JsonNull }.let { if (it.isNotEmpty()) put("paint", JsonObject(it)) }
   }
 
-  /**
-   * Adds this layer to a style directly below [beforeLayerId], or on top when that is empty:
-   * MapLibre has no "add on top" call, and an empty anchor means the same thing.
-   */
+  /** Adds this layer directly below [beforeLayerId], or on top when that is empty. */
   internal fun attach(binding: StyleBinding, beforeLayerId: String) {
     check(this.binding === binding || !this.binding.isLoaded) {
       "Layer '$id' already belongs to another loaded style; create a separate layer instance for " +
         "each map"
     }
-    // See sourceDescriptor: the source's own effect has not run yet on a fresh style composition.
-    // Always ask it to attach: Source verifies exact binding identity even when it is live already.
+    // The source's own effect has not run yet on a fresh style composition, and MapLibre rejects a
+    // layer naming a source that does not exist.
     sourceDescriptor?.let { binding.attachSource(it) }
     val added =
       try {
         binding.addLayer(toJson(), beforeLayerId)
       } catch (error: StyleMutationException) {
-        // MapLibre reports only "layer source does not exist", naming neither.
         throw IllegalStateException(
           "Could not add layer '$id' of type '$type'" +
             (sourceId?.let { " over source '$it'" } ?: "") +
@@ -207,14 +180,13 @@ internal actual sealed class Layer(actual val id: String) {
       "Layer '$id' was not added: its style is no longer loaded. It will not appear until the " +
         "style reloads and the composition re-adds it."
     }
-    // Published only after native accepted the complete layer definition.
     this.binding = binding
     unsupportedProperties.forEach { (name, reason) -> reportUnsupportedProperty(name, reason) }
   }
 
   /**
    * Binds this descriptor to a layer already in the style, without adding it. Used when reading
-   * back the base style, where adding again would duplicate the layer and change the draw order.
+   * back the base style.
    */
   internal fun bindExisting(binding: StyleBinding) {
     check(this.binding === binding || !this.binding.isLoaded) {

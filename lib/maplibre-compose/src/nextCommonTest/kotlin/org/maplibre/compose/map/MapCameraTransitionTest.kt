@@ -23,8 +23,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * A camera animation completes on MapLibre's own signal. Every test renders while it waits: both
- * backends advance a transition from inside a render.
+ * Both backends advance a transition only from inside a render, so every test renders as it waits.
  */
 class MapCameraTransitionTest {
 
@@ -106,7 +105,6 @@ class MapCameraTransitionTest {
     }
   }
 
-  /** A transition another command takes over still resumes its caller, as it does on Android. */
   @Test
   fun a_superseded_animation_resumes_rather_than_hanging(): MapTestResult = runMapTest {
     createMapFixture().use {
@@ -124,7 +122,6 @@ class MapCameraTransitionTest {
     }
   }
 
-  /** Cancelling the coroutine must stop the camera and leave the next animation working. */
   @Test
   fun cancelling_an_animation_stops_the_camera_and_leaves_nothing_registered(): MapTestResult =
     runMapTest {
@@ -146,7 +143,6 @@ class MapCameraTransitionTest {
           "the camera should have stopped short of the target, but was $stopped",
         )
 
-        // A leftover registration would make this one resolve early, or never.
         it.awaitWhileRendering("a later animation to complete") {
           it.session.animateCameraPosition(TARGET, 200.milliseconds)
         }
@@ -158,7 +154,6 @@ class MapCameraTransitionTest {
       }
     }
 
-  /** Closing the map discards its queued events, so an outstanding animation must be released. */
   @Test
   fun closing_the_session_resumes_an_outstanding_animation(): MapTestResult = runMapTest {
     createMapFixture().use {
@@ -187,14 +182,11 @@ class MapCameraTransitionTest {
     }
   }
 
-  /** Puts the map at a known camera and waits for the map itself to have applied it. */
   private suspend fun MapFixture.startAtOrigin() {
-    // A style, because GL JS renders nothing without one and a transition only advances in a
-    // render.
+    // GL JS renders nothing without a style.
     loadStyle(BaseStyle.Empty)
     session.setCameraPosition(START)
-    // Render first: before the map exists a camera read answers with what was last asked for, which
-    // would satisfy the check below without a map to animate.
+    // Render first: before the map exists, a camera read echoes back whatever was last set.
     awaitMapReady()
     pumpUntil("the map to reach its starting camera") {
       abs(session.getCameraPosition().zoom - START.zoom) < 0.001

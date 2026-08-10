@@ -120,12 +120,6 @@ fun rememberDemoState(): DemoState {
   val styleState = rememberStyleState()
 
   val locationPermissionState = rememberLocationPermissionState()
-  // this keying and swapping of LocationProviders is necessary because of the way the demo is set
-  // up
-  //
-  // In a normal app, it would be best to avoid creating a LocationProvider and everything dependent
-  // on it altogether, if no permission has been granted. The at look at GmsLocationDemo on Android
-  // for an example of this.
   val locationProvider =
     key(locationPermissionState.hasPermission) {
       if (locationPermissionState.hasPermission) {

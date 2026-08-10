@@ -5,11 +5,9 @@ import kotlinx.serialization.json.buildJsonObject
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureCollection
 
-/**
- * A source whose features are computed per tile. MapLibre GL JS has no equivalent: its one
- * extension point, `addSourceType`, has a tile worker protocol behind it rather than a callback, so
- * construction fails rather than the source silently drawing nothing.
- */
+// TODO(#869): implement this over addProtocol, once something encodes MVT in Kotlin.
+
+/** Construction always throws on Kotlin/JS. */
 public actual class ComputedSource
 public actual constructor(
   id: String,

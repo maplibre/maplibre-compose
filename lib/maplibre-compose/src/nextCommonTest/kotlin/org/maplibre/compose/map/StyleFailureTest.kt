@@ -8,10 +8,6 @@ import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
 
-/**
- * A style that fails to load must be reported, not thrown out of the frame: both platforms parse an
- * inline style inside the host's draw pass.
- */
 class StyleFailureTest {
 
   @Test
@@ -19,7 +15,7 @@ class StyleFailureTest {
     createMapFixture().use {
       it.session.setBaseStyle(BaseStyle.Json("{ this is not json"))
 
-      // Would throw out of the frame before the guard, since the parse is synchronous.
+      // Both platforms parse an inline style synchronously, inside the host's draw pass.
       it.pump(frames = 10)
 
       assertTrue(
