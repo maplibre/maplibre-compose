@@ -41,6 +41,7 @@ import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
@@ -286,7 +287,7 @@ internal class MlnFfiMapSession(
     if (!hasRenderedAFrame) {
       hasRenderedAFrame = true
       logger?.i {
-        "Rendered the first map frame with $backend on ${Thread.currentThread().name}, " +
+        "Rendered the first map frame with $backend on ${currentMlnFfiThreadName()}, " +
           "extent ${frame.extent}"
       }
     }

@@ -3,6 +3,7 @@ package org.maplibre.compose.resource
 import co.touchlab.kermit.Logger
 import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
@@ -66,7 +67,7 @@ private constructor(
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)
-        getLogger()?.i { "Created the $what on ${Thread.currentThread().name}" }
+        getLogger()?.i { "Created the $what on ${currentMlnFfiThreadName()}" }
         owner
       } catch (error: Throwable) {
         // Unwinds in the same order a successful close uses, or the runtime's scheduler and
