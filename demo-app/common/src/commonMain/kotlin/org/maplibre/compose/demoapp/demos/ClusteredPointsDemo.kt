@@ -78,7 +78,10 @@ object ClusteredPointsDemo : Demo {
           //        isLoading = false
         } catch (e: CancellationException) {
           throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+          // Throwable rather than Exception: a browser cannot fetch this feed at all, because it
+          // sends no CORS header, and ktor reports that as a kotlin.Error. Letting it escape takes
+          // the whole composition down with it.
           e.printStackTrace()
         }
       }

@@ -1,6 +1,5 @@
 package org.maplibre.compose.mlnffi
 
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
 import kotlin.time.Duration
@@ -12,12 +11,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
-import org.maplibre.compose.camera.CameraMoveReason
-import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
-import org.maplibre.spatialk.geojson.Position
+import org.maplibre.compose.testing.MapFixture
+import org.maplibre.compose.testing.RecordingMapCallbacks
+import org.maplibre.compose.testing.RgbaPixel
 
 /**
  * Runs a real [MlnFfiMapSession] against the packaged runtime and production presentation bridge,
@@ -30,21 +30,27 @@ internal class BridgeMapFixture
 private constructor(
   private val driver: FfiTestRenderDriver,
   private val cacheFile: Path,
-  private val initialExtent: MlnFfiMapExtent,
+  private val initialExtent: MapExtent,
 ) : AutoCloseable {
 
-  /** Everything the session reported back, in order, so tests can assert on lifecycle. */
-  val events: MutableList<String> = mutableListOf()
+  private val recorder = RecordingMapCallbacks()
 
-  /** Errors the map reported. A non-empty list after a pump is a failure in almost every test. */
-  val errors: MutableList<String> = mutableListOf()
+  val events: MutableList<String>
+    get() = recorder.events
+
+  val errors: MutableList<String>
+    get() = recorder.errors
+
+  /** The live style, once one has loaded. */
+  val style: Style?
+    get() = recorder.style
 
   private var frameId = 0L
   private var frameRequested = true
 
   val session: MlnFfiMapSession =
     MlnFfiMapSession(
-      callbacks = RecordingCallbacks(),
+      callbacks = recorder,
       logger = Logger.withTag("bridge-map"),
       renderBackend = driver.backends.producer,
       scaleFactor = initialExtent.scaleFactor,
@@ -94,7 +100,7 @@ private constructor(
     internal set
 
   /** Renders one frame, exactly as [MlnFfiMapSurface] does inside its draw pass. */
-  fun frame(extent: MlnFfiMapExtent = initialExtent): MlnFfiFrameResult {
+  fun frame(extent: MapExtent = initialExtent): MlnFfiFrameResult {
     frameRequested = false
     val frame =
       when (val acquisition = driver.acquireFrame(frameId++, extent, null)) {
@@ -123,7 +129,7 @@ private constructor(
   fun readPixel(x: Int, y: Int): RgbaPixel = driver.readPixel(x, y)
 
   /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
-  fun pumpUntilRendered(extent: MlnFfiMapExtent = initialExtent, timeout: Duration = 30.seconds) {
+  fun pumpUntilRendered(extent: MapExtent = initialExtent, timeout: Duration = 30.seconds) {
     pumpUntil("the map to render its first frame", timeout, extent) { hasRendered }
   }
 
@@ -137,7 +143,7 @@ private constructor(
   fun pumpUntil(
     description: String,
     timeout: Duration = 30.seconds,
-    extent: MlnFfiMapExtent = initialExtent,
+    extent: MapExtent = initialExtent,
     condition: () -> Boolean,
   ) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
@@ -204,15 +210,11 @@ private constructor(
     return runBlocking { work.await() }
   }
 
-  /** The live style, once one has loaded. */
-  var style: Style? = null
-    private set
-
   /** Applies a style and pumps until it finishes loading. */
   fun loadStyle(
     style: BaseStyle,
     timeout: Duration = 60.seconds,
-    extent: MlnFfiMapExtent = DEFAULT_EXTENT,
+    extent: MapExtent = DEFAULT_EXTENT,
   ) {
     session.setBaseStyle(style)
     pumpUntil("style $style to load", timeout, extent) { events.contains(STYLE_LOADED) }
@@ -224,58 +226,17 @@ private constructor(
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
-  private inner class RecordingCallbacks : MapAdapter.Callbacks {
-    override fun onStyleChanged(map: MapAdapter, style: Style?) {
-      this@BridgeMapFixture.style = style
-      events += if (style == null) "styleChanged(null)" else STYLE_LOADED
-    }
-
-    override fun onMapFinishedLoading(map: MapAdapter) {
-      events += "mapFinishedLoading"
-    }
-
-    override fun onMapFailLoading(reason: String?) {
-      errors += "mapFailLoading: $reason"
-    }
-
-    override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-      events += "cameraMoveStarted($reason)"
-    }
-
-    override fun onCameraMoved(map: MapAdapter) {
-      events += "cameraMoved"
-    }
-
-    override fun onCameraMoveEnded(map: MapAdapter) {
-      events += "cameraMoveEnded"
-    }
-
-    override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-      events += "click"
-    }
-
-    override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-      events += "longClick"
-    }
-
-    override fun onFrame(fps: Double) {}
-  }
-
   companion object {
-    const val STYLE_LOADED: String = "styleLoaded"
+    const val STYLE_LOADED: String = MapFixture.STYLE_LOADED
 
     private const val POLL_INTERVAL_MILLIS = 8L
 
-    /** Big enough for tiles to be selected at zoom 0 and for a query to have something to hit. */
-    val DEFAULT_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 1.0)
+    val DEFAULT_EXTENT: MapExtent = MapFixture.DEFAULT_EXTENT
 
-    /** The same logical size at a different density, which forces the map to be rebuilt. */
-    val RETINA_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 2.0)
+    val RETINA_EXTENT: MapExtent = MapFixture.RETINA_EXTENT
 
     /** Creates a fixture for the one native runtime packaged into this test process. */
-    fun create(initialExtent: MlnFfiMapExtent = DEFAULT_EXTENT): BridgeMapFixture {
+    fun create(initialExtent: MapExtent = DEFAULT_EXTENT): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
       val cacheFile = FfiTestPlatform.createCacheFile()

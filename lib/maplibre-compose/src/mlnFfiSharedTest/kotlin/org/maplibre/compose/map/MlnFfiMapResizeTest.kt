@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.style.BaseStyle
 
 /**
@@ -67,10 +66,10 @@ class MlnFfiMapResizeTest {
     const val EMPTY_STYLE: String =
       """{"version":8,"sources":{},"layers":[],"name":"resize-test"}"""
 
-    val WIDER_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 640, height = 512, scaleFactor = 1.0)
+    val WIDER_EXTENT: MapExtent =
+      MapExtent.fromLogical(width = 640, height = 512, scaleFactor = 1.0)
 
-    val TALLER_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 640, height = 600, scaleFactor = 1.0)
+    val TALLER_EXTENT: MapExtent =
+      MapExtent.fromLogical(width = 640, height = 600, scaleFactor = 1.0)
   }
 }

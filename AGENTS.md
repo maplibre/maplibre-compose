@@ -38,6 +38,11 @@ hk runs it, and runs actionlint, ruff, shellcheck, the Actions pins check, JSON
 schema validation, and the documentation site's type check. `hk.pkl` lists the
 steps.
 
+Name one task per `./gradlew` invocation. Two together can fail in ways neither
+does alone: `:lib:maplibre-compose:jsBrowserTest` with
+`:lib:maplibre-compose:jvmTest` fails `compileTestKotlinJvm` with
+`Unresolved reference 'Test'` across `commonTest`.
+
 ### Documentation
 
 - **Generate docs:** `mise run build:docs` (Starlight site and Dokka API
@@ -96,6 +101,13 @@ Tests live in platform-specific source sets:
 - Android host tests: `src/androidHostTest`
 - iOS tests: `src/iosTest`
 - Common tests: `src/commonTest`
+- Browser tests: `src/jsTest`
+
+The browser tests drive a real map in headless Chrome. They need `CHROME_BIN` if
+Karma cannot find one, and they fail as timeouts rather than assertion
+mismatches if the machine idles, because that stalls `requestAnimationFrame` —
+so run them under `caffeinate -dimsu` on macOS. `--tests` silently runs nothing
+and still reports success.
 
 ### CI
 
@@ -125,9 +137,6 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
   - `maplibre-compose`: Main map composables and core functionality
   - `maplibre-compose-material3`: Material 3 themed UI components
   - `maplibre-compose-gms`: Google location services components
-  - `maplibre-js-bindings`: Kotlin/JS bindings for MapLibre GL JS
-    - This wraps the TypeScript library whose original types are available at
-      build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts
 - **`demo-app/`**: Multiplatform demo application
   - `common`: Every line of the app, and the only Kotlin Multiplatform module
   - `android`: An Android application that launches `common`
@@ -157,6 +166,8 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 The library uses platform-specific implementations:
 
 - **Android/iOS**: MapLibre Native SDKs (MapLibre Android SDK, MapLibre iOS)
-- **Web**: MapLibre GL JS via `maplibre-js-bindings`
+- **Web**: MapLibre GL JS, declared by hand in `org.maplibre.compose.gljs`; the
+  upstream types it mirrors are at
+  `build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts`
 - **Desktop**: MapLibre Native Core via
   [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)

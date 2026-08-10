@@ -14,8 +14,6 @@ actual object Platform {
 
   actual val version = UIDevice.currentDevice.systemVersion
 
-  actual val supportedFeatures = PlatformFeature.Everything
-
   actual val extraDemos: List<Demo> =
     listOf(GestureOptionsDemo, OrnamentOptionsDemo, OfflineManagerDemo, RenderOptionsDemo)
 

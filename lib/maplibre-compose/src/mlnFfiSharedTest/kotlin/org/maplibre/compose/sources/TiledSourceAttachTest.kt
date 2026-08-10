@@ -163,49 +163,9 @@ class TiledSourceAttachTest {
   }
 
   /**
-   * Asserted against the descriptor rather than the map: MapLibre parses `bounds`, `scheme`, and
-   * the zoom range into a tileset it never reports back.
-   */
-  @Test
-  fun tile_set_options_are_written_in_the_shapes_the_style_spec_defines() {
-    val source =
-      RasterSource(
-        id = "tiles",
-        tiles = listOf(TILE_TEMPLATE),
-        options =
-          TileSetOptions(
-            minZoom = 2,
-            maxZoom = 12,
-            tileCoordinateSystem = TileCoordinateSystem.TMS,
-            boundingBox = BOUNDS,
-            attributionHtml = ATTRIBUTION,
-          ),
-        tileSize = 512,
-      )
-
-    assertEquals(
-      Json.parseToJsonElement(
-        """
-        {
-          "type": "raster",
-          "tiles": ["$TILE_TEMPLATE"],
-          "tileSize": 512,
-          "minzoom": 2,
-          "maxzoom": 12,
-          "scheme": "tms",
-          "bounds": [-10.0, -20.0, 30.0, 40.0],
-          "attribution": "$ATTRIBUTION"
-        }
-        """
-          .trimIndent()
-      ),
-      source.toJson(),
-    )
-  }
-
-  /**
    * MapLibre Native understands only `mapbox` and `terrarium` and refuses the source outright on
-   * anything else. See
+   * anything else — where MapLibre GL JS implements the custom encoding, so this is one of the few
+   * source assertions that is not shared. See
    * [maplibre-native#2783](https://github.com/maplibre/maplibre-native/issues/2783).
    */
   @Test

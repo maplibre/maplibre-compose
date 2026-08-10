@@ -12,9 +12,9 @@ import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
 import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiHostException
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
 
@@ -101,7 +101,7 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
   }
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
-    private var extent = MlnFfiMapExtent.Empty
+    private var extent = MapExtent.Empty
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
@@ -173,7 +173,7 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
 
     override fun close() {
       closeGpuResources()
-      extent = MlnFfiMapExtent.Empty
+      extent = MapExtent.Empty
       origin = TextureOrigin.TOP_LEFT
     }
 

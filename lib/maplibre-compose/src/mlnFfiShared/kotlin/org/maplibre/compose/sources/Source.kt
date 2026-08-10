@@ -3,7 +3,7 @@ package org.maplibre.compose.sources
 import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.toFfiJsonValue
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
@@ -21,7 +21,7 @@ public actual sealed class Source(internal actual val id: String) {
   internal abstract fun toJson(): JsonObject
 
   @Volatile
-  internal var binding: StyleBinding = StyleBinding.UNLOADED
+  internal var binding: MlnFfiStyleBinding = MlnFfiStyleBinding.UNLOADED
     private set
 
   /** Whether this source currently belongs to a loaded style. */
@@ -32,7 +32,7 @@ public actual sealed class Source(internal actual val id: String) {
     get() = (toJson()["attribution"] as? JsonPrimitive)?.content.orEmpty()
 
   /** Adds this source to a style and starts routing mutations to it. */
-  internal fun attach(binding: StyleBinding) {
+  internal fun attach(binding: MlnFfiStyleBinding) {
     check(this.binding === binding || !this.binding.isLoaded) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
@@ -82,7 +82,7 @@ public actual sealed class Source(internal actual val id: String) {
   }
 
   /** Binds this descriptor to a source already in the style, without adding it. */
-  internal fun bindExisting(binding: StyleBinding) {
+  internal fun bindExisting(binding: MlnFfiStyleBinding) {
     check(this.binding === binding || !this.binding.isLoaded) {
       "Source '$id' already belongs to another loaded style"
     }
@@ -90,12 +90,12 @@ public actual sealed class Source(internal actual val id: String) {
   }
 
   /** Removes this source from its style; the descriptor survives for a later style. */
-  internal fun detach(expectedBinding: StyleBinding) {
+  internal fun detach(expectedBinding: MlnFfiStyleBinding) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
     binding.mutateMap { map -> map.removeStyleSource(id) }
-    binding = StyleBinding.UNLOADED
+    binding = MlnFfiStyleBinding.UNLOADED
   }
 
   /**

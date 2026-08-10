@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import kotlinx.browser.window
 import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.GestureOptionsDemo
-import org.maplibre.compose.demoapp.demos.OrnamentOptionsDemo
 import org.maplibre.compose.map.OrnamentOptions
 
 actual object Platform {
@@ -12,10 +11,13 @@ actual object Platform {
 
   actual val version = window.navigator.appVersion
 
-  actual val supportedFeatures = emptySet<PlatformFeature>()
+  actual val extraDemos: List<Demo> =
+    listOf(
+      GestureOptionsDemo
+      // Deliberately absent: OrnamentOptionsDemo; the browser platform draws no ornaments, for the
+      // same reason the desktop one does not.
+    )
 
-  actual val extraDemos: List<Demo> = listOf(GestureOptionsDemo, OrnamentOptionsDemo)
-
-  // TODO padding not supported
+  /** The browser draws no ornaments, so there is no padding to apply. */
   actual fun padOrnaments(options: OrnamentOptions, padding: PaddingValues) = options
 }

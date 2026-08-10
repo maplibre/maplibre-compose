@@ -79,6 +79,8 @@ import org.maplibre.compose.desktop.bridge.requireContext
 import org.maplibre.compose.desktop.bridge.withOpenGlContext
 import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.desktop.skiko.AwtComposeGpuHost
+import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
@@ -90,7 +92,7 @@ private constructor(
 ) : FfiTestRenderDriver, MlnFfiMapHost by bridge {
   override fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition = environment.withContext {
     bridge.acquireFrame(frameId, extent, presentationTimeNanos)

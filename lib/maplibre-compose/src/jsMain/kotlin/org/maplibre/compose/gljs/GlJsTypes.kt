@@ -1,0 +1,194 @@
+package org.maplibre.compose.gljs
+
+import js.buffer.ArrayBuffer
+import js.typedarrays.Uint8Array
+import kotlin.js.Promise
+import web.html.HTMLElement
+
+// The hand-written subset of MapLibre GL JS this platform binds against. Only what it calls is
+// here; GlJsDeclarationsTest checks the subset against the MapLibre actually on the page.
+
+internal external interface Subscription {
+  fun unsubscribe()
+}
+
+/** Only the `error` event carries an [error]. */
+internal external interface MapEvent {
+  val error: JsError?
+}
+
+internal external interface JsError {
+  val message: String?
+}
+
+internal external interface MapOptions {
+  var container: HTMLElement
+  var interactive: Boolean?
+  var attributionControl: Boolean?
+  var maplibreLogo: Boolean?
+  var pixelRatio: Double?
+  /** `[width, height]` in physical pixels, above which MapLibre lowers its own pixel ratio. */
+  var maxCanvasSize: Array<Double>?
+}
+
+internal external interface SetStyleOptions {
+  var diff: Boolean?
+}
+
+/** What MapLibre loads a style from; see [styleUrl] and [styleJson]. */
+internal external interface StyleSource
+
+internal external interface StyleSpecification {
+  val layers: Array<LayerSpecification>
+  val sources: JsRecord<SourceSpecification>
+}
+
+internal external interface LayerSpecification {
+  val id: String
+}
+
+internal external interface SourceSpecification
+
+internal external interface FilterSpecification
+
+/** MapLibre leaves both zoom bounds undefined on a layer whose stylesheet named neither. */
+internal external interface StyleLayer {
+  val id: String
+  val type: String
+  val minzoom: Double?
+  val maxzoom: Double?
+}
+
+internal external interface SourceHandle {
+  val type: String
+  val attribution: String?
+}
+
+internal external interface GlJsGeoJsonSource : SourceHandle {
+  fun setData(data: GeoJsonSourceData)
+
+  fun getClusterExpansionZoom(clusterId: Double): Promise<Double>
+
+  fun getClusterChildren(clusterId: Double): Promise<Array<GeoJsonFeature>>
+
+  fun getClusterLeaves(
+    clusterId: Double,
+    limit: Double,
+    offset: Double,
+  ): Promise<Array<GeoJsonFeature>>
+}
+
+/** GeoJSON to read, or a URL to fetch it from — the style spec's own rule for `data`. */
+internal external interface GeoJsonSourceData
+
+internal external interface GlJsImageSource : SourceHandle {
+  val coordinates: Array<Array<Double>>
+
+  fun setCoordinates(coordinates: Array<Array<Double>>)
+
+  fun updateImage(options: UpdateImageOptions)
+}
+
+internal external interface UpdateImageOptions {
+  var url: String
+}
+
+internal external interface PaddingOptions {
+  var top: Double
+  var bottom: Double
+  var left: Double
+  var right: Double
+}
+
+/** A point, or the two corners of a box; see [queryBox]. */
+internal external interface QueryGeometry
+
+internal external interface Point : QueryGeometry {
+  var x: Double
+  var y: Double
+}
+
+internal external interface QueryRenderedFeaturesOptions {
+  var layers: Array<String>?
+  var filter: FilterSpecification?
+}
+
+internal external interface QuerySourceFeatureOptions {
+  var sourceLayer: String?
+  var filter: FilterSpecification?
+}
+
+internal external interface GeoJsonFeature {
+  val type: String
+  val geometry: Any
+  val properties: Any?
+}
+
+internal external interface MapGeoJsonFeature : GeoJsonFeature {
+  val source: String
+  val sourceLayer: String?
+}
+
+internal external interface StyleImageData {
+  var width: Double
+  var height: Double
+  var data: Uint8Array<ArrayBuffer>
+}
+
+internal external interface StyleImageMetadata {
+  var pixelRatio: Double
+  var sdf: Boolean
+  var stretchX: Array<Array<Double>>?
+  var stretchY: Array<Array<Double>>?
+  var content: Array<Double>?
+}
+
+internal external interface CameraOptions {
+  var center: LngLat?
+  var zoom: Double?
+  var bearing: Double?
+  var pitch: Double?
+}
+
+internal external interface AnimationOptions {
+  var duration: Double?
+}
+
+internal external interface JumpToOptions : CameraOptions {
+  var padding: PaddingOptions?
+}
+
+internal external interface EaseToOptions : CameraOptions, AnimationOptions {
+  var around: LngLat?
+}
+
+internal external interface FlyToOptions : CameraOptions, AnimationOptions {
+  var padding: PaddingOptions?
+}
+
+internal external interface FitBoundsOptions : FlyToOptions {
+  var linear: Boolean?
+}
+
+internal external interface Painter {
+  val context: Context
+}
+
+internal external interface Context {
+  fun setDirty()
+}
+
+/** A plain JavaScript object keyed by string. */
+internal external interface JsRecord<out T>
+
+/** MapLibre fetches a string style and reads an object one as the stylesheet itself. */
+internal fun styleUrl(url: String): StyleSource = url.unsafeCast<StyleSource>()
+
+internal fun styleJson(json: String): StyleSource = JSON.parse(json)
+
+/** MapLibre tells a box from a point by shape, a box being a two-element array. */
+internal fun queryBox(first: Point, second: Point): QueryGeometry =
+  arrayOf(first, second).unsafeCast<QueryGeometry>()
+
+/** `Object.keys`, the only way to list what a record holds. */
+internal fun JsRecord<*>.keys(): Array<String> = js("Object").keys(this).unsafeCast<Array<String>>()

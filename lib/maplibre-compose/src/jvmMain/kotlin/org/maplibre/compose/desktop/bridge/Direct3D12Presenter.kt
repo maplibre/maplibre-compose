@@ -11,8 +11,8 @@ import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
 import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MlnFfiHostException
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
 
@@ -35,7 +35,7 @@ internal data class Direct3DTextureTarget(
   /** Row order of [texture]. */
   val origin: TextureOrigin = TextureOrigin.TOP_LEFT,
   /** The size [texture] was allocated at, which is what Skia has to wrap. */
-  val extent: MlnFfiMapExtent,
+  val extent: MapExtent,
   /**
    * The [org.maplibre.compose.desktop.MlnFfiRenderTarget.generation] this texture corresponds to.
    *
@@ -102,7 +102,7 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
   }
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
-    private var extent = MlnFfiMapExtent.Empty
+    private var extent = MapExtent.Empty
     private var colorFormat = SurfaceColorFormat.BGRA_8888
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
@@ -177,7 +177,7 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
 
     override fun close() {
       closeGpuResources()
-      extent = MlnFfiMapExtent.Empty
+      extent = MapExtent.Empty
       colorFormat = SurfaceColorFormat.BGRA_8888
       origin = TextureOrigin.TOP_LEFT
     }

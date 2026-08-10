@@ -94,11 +94,11 @@ public actual class GeoJsonSource : Source {
     return "cluster_id" in feature.properties.orEmpty()
   }
 
-  public actual fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
+  public actual suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
     return impl.zoomLevelForExpandingCluster(feature.toMLNPointFeatureCluster())
   }
 
-  public actual fun getClusterChildren(
+  public actual suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<*, JsonObject?> {
     return impl
@@ -107,7 +107,7 @@ public actual class GeoJsonSource : Source {
       .let(::FeatureCollection)
   }
 
-  public actual fun getClusterLeaves(
+  public actual suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,

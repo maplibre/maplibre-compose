@@ -23,11 +23,21 @@ public expect class GeoJsonSource : Source {
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean
 
-  public fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double
+  /**
+   * The zoom at which [feature]'s cluster breaks apart.
+   *
+   * Suspending because MapLibre GL JS clusters in a web worker and answers with a promise. Android,
+   * iOS, and desktop compute it on the calling thread and never actually suspend.
+   */
+  public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double
 
-  public fun getClusterChildren(feature: Feature<*, JsonObject?>): FeatureCollection<*, JsonObject?>
+  /** The features one level down from [feature]'s cluster. See [getClusterExpansionZoom]. */
+  public suspend fun getClusterChildren(
+    feature: Feature<*, JsonObject?>
+  ): FeatureCollection<*, JsonObject?>
 
-  public fun getClusterLeaves(
+  /** The original points under [feature]'s cluster. See [getClusterExpansionZoom]. */
+  public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
@@ -44,7 +54,9 @@ public sealed interface GeoJsonData {
 
 /**
  * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view
- *   detail at low zoom levels).
+ *   detail at low zoom levels). The style spec has no such field on a GeoJSON source, so this is
+ *   honored only where MapLibre Native accepts it as an extension: Android, iOS, and desktop. Web
+ *   ignores it.
  * @param maxZoom Maximum zoom level at which to create vector tiles (higher means greater detail at
  *   high zoom levels).
  * @param buffer Size of the tile buffer on each side. A value of 0 produces no buffer. A value of

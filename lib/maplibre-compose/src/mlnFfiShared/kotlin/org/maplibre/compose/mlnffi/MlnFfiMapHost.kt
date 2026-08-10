@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import org.maplibre.compose.map.MapExtent
 
 /**
  * One renderable frame produced by a [MlnFfiMapHost].
@@ -13,7 +14,7 @@ internal data class MlnFfiMapFrame(
   val frameId: Long,
 
   /** The size this frame's target was allocated at. */
-  val extent: MlnFfiMapExtent,
+  val extent: MapExtent,
   val target: MlnFfiRenderTarget,
 
   /**
@@ -60,7 +61,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
    * changed. A host that cannot resize in place reallocates and reports a new
    * [MlnFfiRenderTarget.generation].
    */
-  fun resize(extent: MlnFfiMapExtent) {}
+  fun resize(extent: MapExtent) {}
 
   /**
    * Acquires the next frame to render into. Returns [MlnFfiMapFrameAcquisition.NotReady] when the
@@ -71,7 +72,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
    */
   fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition
 

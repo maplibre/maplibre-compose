@@ -22,7 +22,6 @@ import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
-import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.location.UserLocationState
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
@@ -60,8 +59,7 @@ class MapManipulationState {
 }
 
 class OrnamentOptionsState {
-  var isMaterial3ControlsEnabled by
-    mutableStateOf(PlatformFeature.InteropBlending in Platform.supportedFeatures)
+  var isMaterial3ControlsEnabled by mutableStateOf(true)
 }
 
 class DemoState(

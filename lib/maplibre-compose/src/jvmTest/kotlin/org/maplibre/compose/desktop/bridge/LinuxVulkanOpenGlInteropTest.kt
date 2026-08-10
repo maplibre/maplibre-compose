@@ -70,16 +70,16 @@ import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
-import org.maplibre.compose.mlnffi.RgbaPixel
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
+import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.spatialk.geojson.Position
 
 /** Exercises the production Linux Vulkan-to-OpenGL bridge against a real EGL and Skia context. */
@@ -282,7 +282,7 @@ class LinuxVulkanOpenGlInteropTest {
       renderer.onSurfaceAvailable(hostSession)
     }
 
-    fun renderStyle(style: BaseStyle, extent: MlnFfiMapExtent): MlnFfiRenderTarget {
+    fun renderStyle(style: BaseStyle, extent: MapExtent): MlnFfiRenderTarget {
       val expectedStyleLoads = styleLoads + 1
       renderer.setBaseStyle(style)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
@@ -553,8 +553,8 @@ class LinuxVulkanOpenGlInteropTest {
 
     val TEST_TIMEOUT = 30.seconds
 
-    val FIRST_EXTENT = MlnFfiMapExtent.fromLogical(256, 192, 1.0)
-    val SECOND_EXTENT = MlnFfiMapExtent.fromLogical(320, 240, 1.0)
+    val FIRST_EXTENT = MapExtent.fromLogical(256, 192, 1.0)
+    val SECOND_EXTENT = MapExtent.fromLogical(320, 240, 1.0)
 
     val FIRST_PIXEL = RgbaPixel(red = 0x33, green = 0x66, blue = 0x99, alpha = 0xff)
     val SECOND_PIXEL = RgbaPixel(red = 0x99, green = 0x33, blue = 0x66, alpha = 0xff)

@@ -119,7 +119,7 @@ internal fun MlnFfiMapView(
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
   val inputModifier =
-    modifier.mlnFfiMapInput(session, options.gestureOptions, density, focusRequester, continuation)
+    modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
   surface(session, inputModifier, logger)
 }
 

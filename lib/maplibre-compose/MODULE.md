@@ -6,6 +6,21 @@ The primary entry point for MapLibre Compose.
 
 Core package containing the primary map composable and related components.
 
+# Package org.maplibre.compose.browser
+
+Process-wide setup for the browser platform. `MapLibre.initialize()` has to run
+before Compose starts, because the map is drawn inside the Compose scene as a
+GPU texture and creating one needs the graphics context Compose renders with.
+
+It is composited rather than mounted as a DOM canvas beside Compose because such
+a canvas covers, or hides under, the whole Compose surface — map content and
+Compose content could never be interleaved.
+
+Four things the browser does not have, because MapLibre GL JS does not:
+`ComputedSource`, offline packs, ornaments, and the default location and
+orientation providers. Each fails with that explanation rather than doing
+nothing quietly.
+
 # Package org.maplibre.compose.camera
 
 Camera controls and positioning utilities for the map view.

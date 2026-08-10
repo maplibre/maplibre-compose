@@ -1,0 +1,154 @@
+package org.maplibre.compose.testing
+
+import androidx.compose.ui.unit.LayoutDirection
+import co.touchlab.kermit.Logger
+import kotlin.js.Date
+import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.MainScope
+import kotlinx.coroutines.async
+import kotlinx.coroutines.promise
+import org.khronos.webgl.Uint8Array
+import org.khronos.webgl.get
+import org.maplibre.compose.gljs.GlJsFrameTarget
+import org.maplibre.compose.gljs.GlJsSurfaceSession
+import org.maplibre.compose.gljs.yieldToBrowser
+import org.maplibre.compose.map.GestureTarget
+import org.maplibre.compose.map.GlJsMapSession
+import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.Style
+
+/**
+ * A [GlJsMapSession] with no Compose and no skiko around it: MapLibre takes a WebGL context from a
+ * canvas of its own and is never composited.
+ */
+internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
+
+  private val recorder = RecordingMapCallbacks()
+
+  private val glJsSession =
+    GlJsMapSession(recorder, Logger.withTag("gljs-map"), LayoutDirection.Ltr)
+
+  override val session: MapAdapter
+    get() = glJsSession
+
+  override val gestures: GestureTarget
+    get() = glJsSession
+
+  override val style: Style?
+    get() = recorder.style
+
+  override val events: MutableList<String>
+    get() = recorder.events
+
+  override val errors: MutableList<String>
+    get() = recorder.errors
+
+  private var hasRendered = false
+  private var frameRequested = true
+
+  init {
+    glJsSession.onSurfaceAvailable(
+      object : GlJsSurfaceSession {
+        override fun requestFrame() {
+          frameRequested = true
+        }
+      }
+    )
+  }
+
+  private fun frame(): Boolean {
+    frameRequested = false
+    return glJsSession.render(GlJsFrameTarget.Detached, extent).also { if (it) hasRendered = true }
+  }
+
+  override suspend fun loadStyle(style: BaseStyle, timeout: Duration) {
+    glJsSession.setBaseStyle(style)
+    pumpUntil("style $style to load", timeout) { events.contains(MapFixture.STYLE_LOADED) }
+  }
+
+  override suspend fun awaitMapReady(timeout: Duration) {
+    pumpUntil("the map to render its first frame", timeout) { hasRendered }
+  }
+
+  override suspend fun pump(frames: Int) {
+    repeat(frames) {
+      frame()
+      yieldToBrowser()
+    }
+  }
+
+  override suspend fun pumpUntil(description: String, timeout: Duration, condition: () -> Boolean) {
+    val start = Date.now()
+    var frames = 0
+    while (!condition()) {
+      check(Date.now() - start <= timeout.inWholeMilliseconds) {
+        "Timed out after $frames frames waiting for $description. Errors: $errors"
+      }
+      frame()
+      frames++
+      // A real setTimeout, which is what lets MapLibre's own promises, timers and fetches run.
+      yieldToBrowser()
+    }
+  }
+
+  override suspend fun settle(quiet: Duration, timeout: Duration) {
+    val deadline = Date.now() + timeout.inWholeMilliseconds
+    var quietSince = Date.now()
+    while (Date.now() - quietSince < quiet.inWholeMilliseconds) {
+      check(Date.now() <= deadline) {
+        "Timed out waiting for the map to stop asking for frames. Errors: $errors"
+      }
+      if (frameRequested && frame()) quietSince = Date.now()
+      yieldToBrowser()
+    }
+  }
+
+  /** One task, no yield: MapLibre's own canvas has no `preserveDrawingBuffer`. */
+  override suspend fun readPixel(x: Int, y: Int): RgbaPixel {
+    frame()
+    val canvas =
+      checkNotNull(glJsSession.detachedCanvas()) { "the map has not built its canvas yet" }
+    val gl = canvas.asDynamic().getContext("webgl2")
+    val pixels = Uint8Array(4)
+    // WebGL reads from the bottom left; every other coordinate on this fixture is top left.
+    gl.readPixels(x, canvas.height - 1 - y, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, pixels)
+    return RgbaPixel(pixels[0].toInt(), pixels[1].toInt(), pixels[2].toInt(), pixels[3].toInt())
+  }
+
+  override suspend fun <T> awaitWhileRendering(
+    description: String,
+    timeout: Duration,
+    block: suspend () -> T,
+  ): T {
+    val work = CoroutineScope(Dispatchers.Default).async { block() }
+    pumpUntil(description, timeout) { work.isCompleted }
+    return work.await()
+  }
+
+  override fun closeSession() {
+    glJsSession.close()
+  }
+
+  override fun close() {
+    // Every map holds a WebGL context, and browsers cap how many may live at once.
+    glJsSession.close()
+  }
+}
+
+internal actual fun createMapFixture(extent: MapExtent): MapFixture = GlJsMapFixture(extent)
+
+internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GL_JS
+
+/**
+ * `Promise` without its parameter: an `expect class` cannot be actualized by a parameterized one.
+ */
+@JsName("Promise") external class JsPromise
+
+actual typealias MapTestResult = JsPromise
+
+internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult =
+  MainScope().promise { block() }.unsafeCast<JsPromise>()

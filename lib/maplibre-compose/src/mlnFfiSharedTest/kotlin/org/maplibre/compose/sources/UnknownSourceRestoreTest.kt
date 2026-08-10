@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
@@ -68,15 +69,15 @@ class UnknownSourceRestoreTest {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
       val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
-      // The third entry is MapLibre's own annotation source, present in every map; it is reported
-      // with no type because the style spec has no such source.
       assertEquals(
-        mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster", ANNOTATION_SOURCE_ID to null),
+        mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster"),
         style.getSources().associate { source ->
           source.id to
             (assertIs<UnknownSource>(source).definition["type"] as? JsonPrimitive)?.content
         },
       )
+      // MapLibre's own, in every map whether or not anything draws an annotation.
+      assertNull(style.getSource(ANNOTATION_SOURCE_ID))
     }
   }
 
@@ -84,7 +85,6 @@ class UnknownSourceRestoreTest {
     const val SOURCE_ID = "vec"
     const val RASTER_SOURCE_ID = "sat"
 
-    /** MapLibre's own, present in every map whether or not anything draws an annotation. */
     const val ANNOTATION_SOURCE_ID = "org.maplibre.annotations"
     const val ATTRIBUTION = "&copy; Nobody"
 

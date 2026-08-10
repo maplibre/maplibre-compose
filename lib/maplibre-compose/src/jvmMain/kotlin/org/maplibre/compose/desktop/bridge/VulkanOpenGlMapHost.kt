@@ -100,11 +100,11 @@ import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
@@ -135,7 +135,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
   private var generation = 0L
-  private var currentExtent = MlnFfiMapExtent.Empty
+  private var currentExtent = MapExtent.Empty
 
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
@@ -146,7 +146,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
 
   override fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
     gpuHost.withOpenGlContextOrNull { context ->
@@ -215,10 +215,10 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
     }
   }
 
-  private fun recreateTexture(extent: MlnFfiMapExtent) {
+  private fun recreateTexture(extent: MapExtent) {
     if (extent.isEmpty) {
       disposeAllTextures()
-      currentExtent = MlnFfiMapExtent.Empty
+      currentExtent = MapExtent.Empty
       generation += 1
       return
     }
@@ -248,7 +248,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
     texture?.let { retiredTextures[generation] = it }
     texture = null
     retiredTextures.values.forEach(LinuxSharedTexture::abandonImported)
-    currentExtent = MlnFfiMapExtent.Empty
+    currentExtent = MapExtent.Empty
   }
 
   /**
@@ -328,7 +328,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
         getDeviceProcAddr = NativeHandle(vulkanFunctionAddress("vkGetDeviceProcAddr")),
       )
 
-  fun createExportedTexture(extent: MlnFfiMapExtent): LinuxExportedVulkanTexture =
+  fun createExportedTexture(extent: MapExtent): LinuxExportedVulkanTexture =
     LinuxExportedVulkanTexture.create(this, extent)
 
   fun waitIdle() {
@@ -486,7 +486,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
 
 /** A `VkImage` whose memory is exportable to OpenGL as a file descriptor. */
 internal class LinuxExportedVulkanTexture
-private constructor(private val context: LinuxVulkanContext, private val extent: MlnFfiMapExtent) :
+private constructor(private val context: LinuxVulkanContext, private val extent: MapExtent) :
   AutoCloseable {
   private var image = NULL
   private var memory = NULL
@@ -623,7 +623,7 @@ private constructor(private val context: LinuxVulkanContext, private val extent:
   }
 
   companion object {
-    fun create(context: LinuxVulkanContext, extent: MlnFfiMapExtent): LinuxExportedVulkanTexture {
+    fun create(context: LinuxVulkanContext, extent: MapExtent): LinuxExportedVulkanTexture {
       val texture = LinuxExportedVulkanTexture(context, extent)
       try {
         texture.create()
@@ -641,7 +641,7 @@ internal class LinuxOpenGlImportedTexture
 private constructor(
   private val fd: Int,
   private val memorySize: Long,
-  private val extent: MlnFfiMapExtent,
+  private val extent: MapExtent,
   private val origin: TextureOrigin,
 ) : AutoCloseable {
   private var memoryObject = 0
@@ -740,7 +740,7 @@ private constructor(
     fun create(
       fd: Int,
       memorySize: Long,
-      extent: MlnFfiMapExtent,
+      extent: MapExtent,
       origin: TextureOrigin = TextureOrigin.TOP_LEFT,
     ): LinuxOpenGlImportedTexture {
       val imported = LinuxOpenGlImportedTexture(fd, memorySize, extent, origin)

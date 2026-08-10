@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
+import org.maplibre.compose.map.MapExtent
 
 /**
  * A borrowed native handle, as an opaque address.
@@ -31,7 +32,7 @@ internal sealed interface MlnFfiRenderTarget {
   /** The backend MapLibre must render with to use this target. */
   val backend: MapRenderBackend
 
-  val extent: MlnFfiMapExtent
+  val extent: MapExtent
 
   /**
    * Identifies the underlying target object.
@@ -79,7 +80,7 @@ internal data class VulkanImageTarget(
   val finalLayout: Int,
   /** Queue family owning [image] across the producer/consumer handoff. */
   val queueFamilyIndex: Int,
-  override val extent: MlnFfiMapExtent,
+  override val extent: MapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
@@ -95,7 +96,7 @@ internal data class MetalTextureTarget(
   val pixelFormat: Long,
   /** Row order of [texture]. */
   val origin: TextureOrigin,
-  override val extent: MlnFfiMapExtent,
+  override val extent: MapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
@@ -154,7 +155,7 @@ internal data class OpenGlTextureTarget(
    * the context is already current.
    */
   val makeContextCurrent: () -> Unit,
-  override val extent: MlnFfiMapExtent,
+  override val extent: MapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend
@@ -168,7 +169,7 @@ internal data class OpenGlSurfaceTarget(
   val context: OpenGlContextHandles,
   /** Provider-native surface handle, or zero when the context identifies a WebGL canvas. */
   val surface: NativeHandle,
-  override val extent: MlnFfiMapExtent,
+  override val extent: MapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {
   override val backend: MapRenderBackend

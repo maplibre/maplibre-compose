@@ -4,8 +4,8 @@ import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 
 /**
  * A style image is uploaded with the scale it was rasterized at: MapLibre sizes a style image as
@@ -23,7 +23,7 @@ class MlnFfiStyleImageScaleTest {
     assertUploadedPixelRatio(BridgeMapFixture.RETINA_EXTENT, expected = 2f)
   }
 
-  private fun assertUploadedPixelRatio(extent: MlnFfiMapExtent, expected: Float) {
+  private fun assertUploadedPixelRatio(extent: MapExtent, expected: Float) {
     val fixture = BridgeMapFixture.create(extent)
     fixture.use {
       it.loadStyle(BaseStyle.Empty, extent = extent)

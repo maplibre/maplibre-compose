@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import kotlinx.io.files.Path
+import org.maplibre.compose.testing.RgbaPixel
 
 /** Platform services required by otherwise shared MapLibre Native FFI tests. */
 internal expect object FfiTestPlatform {
@@ -36,8 +37,6 @@ internal expect fun pathOfFileUrl(url: String): Path
 
 /** Feature availability of the packaged FFI runtime/binding pair. */
 internal data class FfiTestRuntimeCapabilities(val customGeometrySourceCallbacks: Boolean)
-
-internal data class RgbaPixel(val red: Int, val green: Int, val blue: Int, val alpha: Int)
 
 /**
  * Platform/backend mechanics underneath the shared real-map fixture.

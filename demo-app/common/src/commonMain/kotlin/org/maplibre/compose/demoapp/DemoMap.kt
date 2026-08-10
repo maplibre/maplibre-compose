@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -21,7 +22,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.max
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.util.Platform
-import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.OrnamentOptions
@@ -81,16 +81,17 @@ fun DemoMap(state: DemoState, padding: PaddingValues = PaddingValues()) {
               gestureOptions = state.gestureOptions,
             ),
         ) {
-          if (PlatformFeature.LayerStyling in Platform.supportedFeatures) {
-            state.demos
-              .filter { state.shouldRenderMapContent(it) }
-              .forEach { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) }
-          }
+          // Keyed, because which demos this filter admits changes as they open and close. Without
+          // it a demo's layers and sources are identified by position, so opening one disposes and
+          // recreates every demo after it.
+          state.demos
+            .filter { state.shouldRenderMapContent(it) }
+            .forEach { key(it) { it.MapContent(state = state, isOpen = state.isDemoOpen(it)) } }
         }
 
         state.demos
           .filter { state.isDemoOpen(it) }
-          .forEach { it.MapOverlayContent(state = state, isOpen = true) }
+          .forEach { key(it) { it.MapOverlayContent(state = state, isOpen = true) } }
       }
     }
 

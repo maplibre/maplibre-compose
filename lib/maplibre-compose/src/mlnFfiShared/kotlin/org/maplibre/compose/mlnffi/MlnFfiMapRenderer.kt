@@ -1,5 +1,7 @@
 package org.maplibre.compose.mlnffi
 
+import org.maplibre.compose.map.MapExtent
+
 /** The outcome of one [MlnFfiMapRenderer.render] call. */
 internal enum class MlnFfiFrameResult {
   /** The renderer drew into the frame's target. */
@@ -29,7 +31,7 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
   fun onSurfaceAvailable(session: MlnFfiMapHostSession) {}
 
   /** Called when the surface size or scale factor changed, before the next frame. */
-  fun onSurfaceChanged(extent: MlnFfiMapExtent) {}
+  fun onSurfaceChanged(extent: MapExtent) {}
 
   /** Renders one frame into [frame]'s target. */
   fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult

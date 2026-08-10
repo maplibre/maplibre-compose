@@ -10,6 +10,7 @@ import co.touchlab.kermit.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.maplibre.compose.map.MapExtent
 
 /** A frame that fails once must not blank the map forever, and retries must be bounded. */
 @OptIn(ExperimentalTestApi::class)
@@ -217,7 +218,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     var failingSurfaceChanges = 0
     private var hostSession: MlnFfiMapHostSession? = null
 
-    override fun onSurfaceChanged(extent: MlnFfiMapExtent) {
+    override fun onSurfaceChanged(extent: MapExtent) {
       if (failingSurfaceChanges > 0) {
         failingSurfaceChanges--
         throw IllegalStateException("cannot resize to ${extent.width}x${extent.height}")

@@ -3,8 +3,8 @@ package org.maplibre.compose.desktop.bridge
 import kotlin.test.Test
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 
 class ComposeGpuBridgeLifecycleTest {
 
@@ -31,7 +31,6 @@ class ComposeGpuBridgeLifecycleTest {
   }
 
   private companion object {
-    val EXTENT =
-      MlnFfiMapExtent.fromPhysical(physicalWidth = 64, physicalHeight = 64, scaleFactor = 1.0)
+    val EXTENT = MapExtent.fromPhysical(physicalWidth = 64, physicalHeight = 64, scaleFactor = 1.0)
   }
 }

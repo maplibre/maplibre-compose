@@ -13,8 +13,6 @@ actual object Platform {
 
   actual val version = System.getProperty("os.version")!!
 
-  actual val supportedFeatures = PlatformFeature.Everything
-
   actual val extraDemos: List<Demo> =
     listOf(
       GestureOptionsDemo,

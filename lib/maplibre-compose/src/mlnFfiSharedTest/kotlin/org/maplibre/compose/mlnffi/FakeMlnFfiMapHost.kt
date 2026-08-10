@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import org.maplibre.compose.map.MapExtent
 
 /**
  * An in-memory [MlnFfiMapHost] that produces frames without a GPU. Records the calls it receives,
@@ -36,7 +37,7 @@ internal class FakeMlnFfiMapHost(
   var closed: Boolean = false
     private set
 
-  var currentExtent: MlnFfiMapExtent = MlnFfiMapExtent.Empty
+  var currentExtent: MapExtent = MapExtent.Empty
     private set
 
   /** Bumped whenever the target is reallocated, exactly as a real host does on resize. */
@@ -62,7 +63,7 @@ internal class FakeMlnFfiMapHost(
   val leakedFrames: Set<Long>
     get() = liveFrames
 
-  override fun resize(extent: MlnFfiMapExtent) {
+  override fun resize(extent: MapExtent) {
     calls += "resize(${extent.width}x${extent.height}@${extent.scaleFactor})"
     if (extent != currentExtent) {
       currentExtent = extent
@@ -72,7 +73,7 @@ internal class FakeMlnFfiMapHost(
 
   override fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     calls += "acquireFrame($frameId)"

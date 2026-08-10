@@ -41,6 +41,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
@@ -147,12 +148,93 @@ class MlnFfiMapInputTest {
 
       waitUntil(timeoutMillis = TIMEOUT) { camera.moveReason == CameraMoveReason.GESTURE }
 
-      mainClock.advanceTimeByFrame()
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
       waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
     } finally {
       mainClock.autoAdvance = true
     }
   }
+
+  /**
+   * A burst of notches is one camera move. Nothing ends the gesture between them: the wheel event
+   * itself carries no release, and the hold spans the gap to the next notch.
+   */
+  @Test
+  fun mouse_wheel_burst_is_one_camera_move() = runInputTest { camera ->
+    mainClock.autoAdvance = false
+    try {
+      onRoot().performMouseInput {
+        moveTo(center)
+        scroll(-1f)
+      }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the move ended inside the scroll event that started it")
+
+      val firstNotchAt = mainClock.currentTime
+      while (mainClock.currentTime - firstNotchAt < SCROLL_HOLD_MILLIS / 2) {
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "the burst was reported as more than one camera move")
+        assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
+      }
+
+      onRoot().performMouseInput { scroll(-1f) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the second notch did not continue the move")
+
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    } finally {
+      mainClock.autoAdvance = true
+    }
+
+    // Holding the gesture open must swallow no notch.
+    awaitZoom(camera, START_ZOOM + 2 * GestureOptions.Standard.scrollZoomStep)
+  }
+
+  @Test
+  fun mouse_wheel_move_outlives_the_event_but_not_the_hold() = runInputTest { camera ->
+    mainClock.autoAdvance = false
+    try {
+      val notchAt = mainClock.currentTime
+      onRoot().performMouseInput { scroll(-1f) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the move ended inside the scroll event that started it")
+
+      // A frame short of the hold, since advanceTimeBy rounds up to whole frames.
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS - (mainClock.currentTime - notchAt) - FRAME_MILLIS)
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the move ended before the hold elapsed")
+
+      mainClock.advanceTimeBy(2 * FRAME_MILLIS)
+      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    } finally {
+      mainClock.autoAdvance = true
+    }
+  }
+
+  @Test
+  fun the_scroll_hold_is_as_long_as_its_option_says() =
+    runInputTest(gestures = GestureOptions(scrollZoomHold = 600.milliseconds)) { camera ->
+      mainClock.autoAdvance = false
+      try {
+        onRoot().performMouseInput { scroll(-1f) }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+
+        mainClock.advanceTimeBy(400)
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "a 400 ms gap ended a move held open for 600 ms")
+
+        mainClock.advanceTimeBy(300)
+        waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+      } finally {
+        mainClock.autoAdvance = true
+      }
+    }
 
   @Test
   fun secondary_mouse_drag_rotates_and_tilts() = runInputTest { camera ->
@@ -579,6 +661,10 @@ class MlnFfiMapInputTest {
           scroll(-1f)
         }
         mainClock.advanceTimeByFrame()
+        waitForIdle()
+        // The wheel took over the fling's open gesture rather than starting its own.
+        assertTrue(camera.isCameraMoving, "the wheel closed the gesture it took over")
+        mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
         waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
         mainClock.advanceTimeBy(2_000)
       } finally {
@@ -720,6 +806,12 @@ class MlnFfiMapInputTest {
   private companion object {
     const val TIMEOUT = 30_000L
     const val START_ZOOM = 4.0
+
+    /** The test clock advances a whole frame at a time, and never on its own under `waitUntil`. */
+    const val FRAME_MILLIS = 16L
+
+    val SCROLL_HOLD_MILLIS = GestureOptions.Standard.scrollZoomHold.inWholeMilliseconds
+
     const val RESIZABLE_MAP_TAG = "resizable-map"
 
     /** A zoom about the centre still drifts the target a hair through the projection. */

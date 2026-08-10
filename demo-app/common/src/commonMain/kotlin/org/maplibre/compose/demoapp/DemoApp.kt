@@ -4,13 +4,10 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.foundation.layout.width
 import androidx.compose.material3.BottomSheetDefaults
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.Icon
@@ -30,8 +27,6 @@ import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.keyboard_arrow_up_24px
-import org.maplibre.compose.demoapp.util.Platform
-import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.demoapp.util.getDefaultColorScheme
 
 @Composable
@@ -39,30 +34,11 @@ fun DemoApp() {
   val demoState = rememberDemoState()
   MaterialTheme(colorScheme = getDefaultColorScheme(isDark = demoState.selectedStyle.isDark)) {
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-      if (PlatformFeature.InteropBlending !in Platform.supportedFeatures) {
-        TwoColumnLayout(
-          menu = { DemoSheetContent(state = demoState, modifier = Modifier.fillMaxHeight()) },
-          map = { DemoMap(demoState) },
-        )
-      } else {
-        SheetLayout(
-          menu = { DemoSheetContent(state = demoState, modifier = Modifier.fillMaxHeight()) },
-          map = { padding -> DemoMap(demoState, padding) },
-        )
-      }
+      SheetLayout(
+        menu = { DemoSheetContent(state = demoState, modifier = Modifier.fillMaxHeight()) },
+        map = { padding -> DemoMap(demoState, padding) },
+      )
     }
-  }
-}
-
-@Composable
-private fun TwoColumnLayout(
-  menu: @Composable () -> Unit,
-  map: @Composable () -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  Row(modifier = modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-    Box(modifier = Modifier.width(300.dp).fillMaxHeight()) { menu() }
-    Box(modifier = Modifier.weight(1f)) { map() }
   }
 }
 

@@ -8,7 +8,6 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.withLock
 import kotlinx.io.files.Path
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
@@ -47,7 +46,7 @@ private const val SHUTDOWN_WAIT_MILLIS = 5_000L
  */
 internal class MlnFfiMapRuntimeLoop(
   /** The extent the map is created with. Its scale factor is fixed for the map's lifetime. */
-  private val extent: MlnFfiMapExtent,
+  private val extent: MapExtent,
   private val cacheFile: Path,
   private val getLogger: () -> Logger?,
   /** Runs on the owner thread once the map exists, before it is published. */
