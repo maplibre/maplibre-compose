@@ -2,6 +2,7 @@ package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
 import java.util.concurrent.atomic.AtomicBoolean
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
 import org.maplibre.nativeffi.resource.ResourceProviderDecision
@@ -70,7 +71,7 @@ internal class MlnFfiResourceProvider(
         open.complete(read(url, requestedUrl))
       }
     } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
+      rethrowIfFatal(error)
       logger?.w(error) { "Failed to answer the resource request for $url" }
     }
   }
@@ -95,7 +96,7 @@ internal class MlnFfiResourceProvider(
         )
       }
     } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
+      rethrowIfFatal(error)
       logger?.w(error) { "Failed to refuse the resource request for $url" }
     }
   }
