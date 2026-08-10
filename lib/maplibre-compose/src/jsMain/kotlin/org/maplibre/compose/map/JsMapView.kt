@@ -29,10 +29,12 @@ internal actual fun ComposableMapView(
 ) {
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
+  val scaleFactor = density.density.toDouble()
 
-  val session = remember {
-    GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
-  }
+  val session =
+    remember(scaleFactor) {
+      GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
+    }
 
   session.callbacks = callbacks
   session.logger = logger
