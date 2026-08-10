@@ -5,7 +5,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
-import java.util.concurrent.CountDownLatch
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.coroutines.cancellation.CancellationException
@@ -14,6 +13,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.mlnffi.MlnFfiApplication
+import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
@@ -89,13 +89,13 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   /** Does not let process-wide configuration publish a runtime whose startup or budget failed. */
   @OptIn(ExperimentalAtomicApi::class)
   private fun awaitConfiguredRuntime() {
-    val settled = CountDownLatch(1)
+    val settled = MlnFfiGate()
     val completed = AtomicBoolean(false)
     var outcome: Result<Unit>? = null
     fun complete(result: Result<Unit>) {
       if (completed.compareAndSet(false, true)) {
         outcome = result
-        settled.countDown()
+        settled.open()
       }
     }
 
@@ -120,13 +120,16 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
       )
     }
 
-    try {
-      settled.await()
-    } catch (interruption: InterruptedException) {
-      Thread.currentThread().interrupt()
-      failStartup("Interrupted while configuring MapLibre's offline runtime", interruption)
-    }
-    val failure = checkNotNull(outcome).exceptionOrNull()
+    settled.await()
+    // Null when the wait ended before the runtime settled, which the gate's own documentation
+    // allows. The runtime is unusable either way, so both outcomes take the same path.
+    val settledOutcome =
+      outcome
+        ?: failStartup(
+          "Could not configure MapLibre's offline runtime",
+          OfflineManagerException("The offline runtime never reported its configuration"),
+        )
+    val failure = settledOutcome.exceptionOrNull()
     if (failure != null) failStartup("Could not configure MapLibre's offline runtime", failure)
     if (initialSize != null) logger.d { "Ambient cache size set to $initialSize bytes" }
   }
