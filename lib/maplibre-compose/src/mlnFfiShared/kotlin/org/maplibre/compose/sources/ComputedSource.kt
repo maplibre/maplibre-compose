@@ -1,5 +1,4 @@
 @file:JvmName("MlnFfiComputedSourceKt")
-@file:OptIn(ExperimentalAtomicApi::class)
 
 package org.maplibre.compose.sources
 
@@ -29,6 +28,7 @@ import org.maplibre.spatialk.geojson.Position
  * A source whose tiles this application generates: MapLibre decides which tiles it needs, asks
  * [getFeatures] for each, and asks again whenever one is invalidated.
  */
+@OptIn(ExperimentalAtomicApi::class)
 public actual class ComputedSource : Source {
 
   private val options: ComputedSourceOptions

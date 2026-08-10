@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
@@ -30,6 +28,7 @@ private val NETWORK_SCHEMES = setOf("http", "https")
  * Installed with the runtime. Provider-owned [ResourceRequestHandle] instances remain valid
  * independently of runtime teardown, so accepted reads can safely finish after [close].
  */
+@OptIn(ExperimentalAtomicApi::class)
 internal class MlnFfiResourceProvider(
   private val getLogger: () -> Logger?,
   /** Turns a URL into a response. Test seam: a fake can hold a read open mid-shutdown. */

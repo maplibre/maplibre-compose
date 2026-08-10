@@ -5,6 +5,8 @@ package org.maplibre.compose.mlnffi
  * still recording.
  *
  * Every read takes a snapshot, so iterating this list is safe while another thread appends to it.
+ * Removal through an iterator fails, because it would reach the snapshot rather than this list;
+ * that also rules out `remove`, `removeAll`, `retainAll`, and `removeIf`, which are built on it.
  */
 internal class RecordingList<T> : AbstractMutableList<T>() {
   private val lock = MlnFfiLock()
@@ -29,7 +31,16 @@ internal class RecordingList<T> : AbstractMutableList<T>() {
     lock.withLock { items.clear() }
   }
 
-  override fun iterator(): MutableIterator<T> = lock.withLock { items.toMutableList() }.iterator()
+  override fun iterator(): MutableIterator<T> {
+    val snapshot = lock.withLock { items.toMutableList() }.iterator()
+    return object : MutableIterator<T> by snapshot {
+      override fun remove(): Nothing =
+        throw UnsupportedOperationException(
+          "A RecordingList read takes a snapshot, so a removal through its iterator would reach " +
+            "that snapshot and leave the list itself unchanged. Remove by index instead."
+        )
+    }
+  }
 
   override fun toString(): String = lock.withLock { items.toString() }
 }

@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.layers
 
 import androidx.compose.foundation.layout.fillMaxSize
@@ -135,6 +133,7 @@ class LayerClickOrderTest {
    * [BACK] in the style. [frontResult] is what [FRONT]'s handlers return, so a test can either stop
    * the event there or let it fall through.
    */
+  @OptIn(ExperimentalAtomicApi::class)
   private fun runLayerClickTest(
     composeFrontLayerFirst: Boolean,
     frontResult: ClickResult = ClickResult.Consume,

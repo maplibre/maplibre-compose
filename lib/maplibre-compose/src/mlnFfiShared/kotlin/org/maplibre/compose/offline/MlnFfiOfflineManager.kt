@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.offline
 
 import androidx.compose.runtime.Composable
@@ -89,6 +87,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   /** Does not let process-wide configuration publish a runtime whose startup or budget failed. */
+  @OptIn(ExperimentalAtomicApi::class)
   private fun awaitConfiguredRuntime() {
     val settled = CountDownLatch(1)
     val completed = AtomicBoolean(false)

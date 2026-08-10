@@ -1,5 +1,3 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.resource
 
 import java.util.concurrent.CountDownLatch
@@ -166,6 +164,7 @@ class MlnFfiResourceRequestTest {
     ResourceResponse(ResourceResponseStatus.OK).also { it.bytes = body.toByteArray() }
 
   /** A request the provider can take, recording what it did with it. */
+  @OptIn(ExperimentalAtomicApi::class)
   private class RecordedRequest(private val cancelled: Boolean = false) : TakenResourceRequest {
     private val responses = RecordingList<ResourceResponse>()
     private val answered = CountDownLatch(1)
