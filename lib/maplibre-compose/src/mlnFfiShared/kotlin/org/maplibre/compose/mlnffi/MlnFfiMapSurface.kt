@@ -16,6 +16,10 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import co.touchlab.kermit.Logger
+import kotlin.time.TimeSource
+
+/** The origin the frame clock counts from, fixed for the process so hosts can compare frames. */
+private val frameClockOrigin = TimeSource.Monotonic.markNow()
 
 /** Hosts [renderer] on a Compose drawing surface, driving the frame loop. */
 @Composable
@@ -90,8 +94,9 @@ internal fun MlnFfiMapSurface(
     var drew = false
     if (host != null && session != null && !extent.isEmpty && !failed) {
       val frameId = drawState.nextFrameId()
+      val nowNanos = frameClockOrigin.elapsedNow().inWholeNanoseconds
       try {
-        when (val acquisition = host.acquireFrame(frameId, extent, System.nanoTime())) {
+        when (val acquisition = host.acquireFrame(frameId, extent, nowNanos)) {
           MlnFfiMapFrameAcquisition.NotReady -> session.requestFrame()
           is MlnFfiMapFrameAcquisition.Acquired -> {
             val frame = acquisition.frame

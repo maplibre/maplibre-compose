@@ -9,6 +9,8 @@ import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceResponse
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
@@ -192,8 +194,8 @@ class MlnFfiResourceRequestTest {
     }
 
     fun awaitClose() {
-      val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WAIT_SECONDS)
-      while (closes == 0 && System.nanoTime() < deadline) Thread.onSpinWait()
+      val deadline = TimeSource.Monotonic.markNow() + WAIT_SECONDS.seconds
+      while (closes == 0 && deadline.hasNotPassedNow()) Thread.onSpinWait()
       assertEquals(1, closes, "the request was never closed")
     }
   }

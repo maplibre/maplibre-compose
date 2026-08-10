@@ -131,8 +131,8 @@ private fun createHost(
       runtimeBackends = runtimeBackends,
       hostBackends = factory.backends,
       hostDescription = factory.description,
-      operatingSystem = System.getProperty("os.name") ?: "unknown",
-      architecture = System.getProperty("os.arch") ?: "unknown",
+      operatingSystem = mlnFfiOperatingSystem,
+      architecture = mlnFfiArchitecture,
     )
   if (diagnostic != null) return MlnFfiMapHostResult.Failed(diagnostic)
 

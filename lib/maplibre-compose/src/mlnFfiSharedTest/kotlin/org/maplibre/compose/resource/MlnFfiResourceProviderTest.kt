@@ -47,6 +47,26 @@ class MlnFfiResourceProviderTest {
   }
 
   @Test
+  fun a_windows_path_has_no_scheme_so_its_drive_letter_stays_out_of_the_provider() {
+    assertNull(schemeOf("C:\\Users\\someone\\style.json"))
+    assertTrue(isMapLibresToFetch("C:\\Users\\someone\\style.json"))
+  }
+
+  @Test
+  fun a_scheme_starts_with_a_letter() {
+    assertNull(schemeOf("2fast:/style.json"))
+    assertNull(schemeOf(":/style.json"))
+    assertNull(schemeOf("/home/someone/style:json"))
+  }
+
+  @Test
+  fun a_scheme_may_hold_digits_and_punctuation_after_its_first_letter() {
+    assertEquals("view-source", schemeOf("view-source:https://example.invalid/"))
+    assertEquals("z39.50r", schemeOf("z39.50r:host/db"))
+    assertEquals("soap.beep+tls", schemeOf("soap.beep+tls:host"))
+  }
+
+  @Test
   fun schemeof_lowercases_so_callers_can_compare_against_lowercase_names() {
     assertEquals("jar", schemeOf("JAR:file:/app.jar!/style.json"))
   }
