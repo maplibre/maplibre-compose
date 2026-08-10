@@ -25,6 +25,9 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override val events: MutableList<String>
     get() = bridge.events
 
+  override val sourceChanges: MutableList<String?>
+    get() = bridge.sourceChanges
+
   override val errors: MutableList<String>
     get() = bridge.errors
 

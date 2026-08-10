@@ -35,6 +35,9 @@ private constructor(
   val events: MutableList<String>
     get() = recorder.events
 
+  val sourceChanges: MutableList<String?>
+    get() = recorder.sourceChanges
+
   val errors: MutableList<String>
     get() = recorder.errors
 

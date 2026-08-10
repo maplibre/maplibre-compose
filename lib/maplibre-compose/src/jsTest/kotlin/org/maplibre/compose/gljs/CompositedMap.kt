@@ -69,6 +69,8 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
       styleLoaded = true
     }
 
+    override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
+
     override fun onMapFailLoading(reason: String?) {
       loadFailure = reason ?: "unknown"
     }

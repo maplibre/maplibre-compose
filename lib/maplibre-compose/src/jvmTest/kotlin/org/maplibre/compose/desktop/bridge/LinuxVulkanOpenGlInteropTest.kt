@@ -241,6 +241,8 @@ class LinuxVulkanOpenGlInteropTest {
 
         override fun onMapFinishedLoading(map: MapAdapter) {}
 
+        override fun onSourceChanged(map: MapAdapter, sourceId: String?) {}
+
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {}
 
         override fun onCameraMoved(map: MapAdapter) {}

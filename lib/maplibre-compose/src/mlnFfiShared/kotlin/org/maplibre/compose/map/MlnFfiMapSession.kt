@@ -552,11 +552,19 @@ internal class MlnFfiMapSession(
       // mbgl only delivers onDidFinishLoadingMap once a frame has seen the new style as not yet
       // loaded, so a style that parses between two frames is never reported. Idle carries the same
       // guarantee and does arrive, so whichever comes first reports the load.
-      RuntimeEventType.MAP_LOADING_FINISHED,
+      RuntimeEventType.MAP_LOADING_FINISHED -> {
+        if (styleLoadUnreported) {
+          styleLoadUnreported = false
+          callbacks.onMapFinishedLoading(this)
+        }
+      }
+
       RuntimeEventType.MAP_IDLE -> {
         if (styleLoadUnreported) {
           styleLoadUnreported = false
           callbacks.onMapFinishedLoading(this)
+        } else {
+          callbacks.onSourceChanged(this, null)
         }
       }
 

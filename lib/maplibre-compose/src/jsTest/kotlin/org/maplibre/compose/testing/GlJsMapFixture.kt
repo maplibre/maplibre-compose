@@ -41,6 +41,9 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   override val events: MutableList<String>
     get() = recorder.events
 
+  override val sourceChanges: MutableList<String?>
+    get() = recorder.sourceChanges
+
   override val errors: MutableList<String>
     get() = recorder.errors
 
