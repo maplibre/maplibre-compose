@@ -4,15 +4,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.style.BaseStyle
 
 /**
  * A resize must retarget the live session (maplibre-native-ffi #485) rather than re-attach, which
  * would discard the renderer's tile pyramid, atlases, and placement on every frame of a drag.
- *
- * Asserted on attach and retarget counts, since both paths render the same scene: a regression here
- * only stutters.
  */
 class MlnFfiMapResizeTest {
 
@@ -26,8 +22,6 @@ class MlnFfiMapResizeTest {
       val attachesAfterFirstFrame = fixture.session.attachCount
       assertEquals(0, fixture.session.retargetCount, "nothing to retarget before the first resize")
 
-      // Rendering again at the new size is the real assertion; the counters only say which path got
-      // there.
       fixture.hasRendered = false
       fixture.pumpUntil("the resized map to render", extent = WIDER_EXTENT) { fixture.hasRendered }
 
@@ -67,10 +61,10 @@ class MlnFfiMapResizeTest {
     const val EMPTY_STYLE: String =
       """{"version":8,"sources":{},"layers":[],"name":"resize-test"}"""
 
-    val WIDER_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 640, height = 512, scaleFactor = 1.0)
+    val WIDER_EXTENT: MapExtent =
+      MapExtent.fromLogical(width = 640, height = 512, scaleFactor = 1.0)
 
-    val TALLER_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 640, height = 600, scaleFactor = 1.0)
+    val TALLER_EXTENT: MapExtent =
+      MapExtent.fromLogical(width = 640, height = 600, scaleFactor = 1.0)
   }
 }

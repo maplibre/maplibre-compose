@@ -14,14 +14,10 @@ import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import kotlinx.serialization.json.putJsonObject
-import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toFfiJsonValue
 import org.maplibre.compose.util.toGeoJsonFeature
-import org.maplibre.compose.util.toStyleJson
 import org.maplibre.nativeffi.geo.Feature as FfiFeature
 import org.maplibre.nativeffi.geo.FeatureIdentifier
 import org.maplibre.nativeffi.geo.GeoJson as FfiGeoJson
@@ -48,30 +44,11 @@ public actual class GeoJsonSource : Source {
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "geojson")
     put("data", data)
+    putGeoJsonOptions(options)
+    // Neither is in the style spec's GeoJSON source, but MapLibre Native reads both straight off
+    // the source JSON.
     put("minzoom", options.minZoom)
-    put("maxzoom", options.maxZoom)
-    put("buffer", options.buffer)
-    put("tolerance", options.tolerance)
-    put("lineMetrics", options.lineMetrics)
-    put("cluster", options.cluster)
-    put("clusterRadius", options.clusterRadius)
-    put("clusterMaxZoom", options.clusterMaxZoom)
-    put("clusterMinPoints", options.clusterMinPoints)
-    // MapLibre Native reads this straight off the source JSON, so this platform honors it even
-    // though the
-    // common documentation only promises it on Android.
     put("synchronousUpdate", options.synchronousUpdate)
-    if (options.clusterProperties.isNotEmpty()) {
-      putJsonObject("clusterProperties") {
-        options.clusterProperties.forEach { (name, aggregator) ->
-          // Reducer first, then mapper: the style spec's pair is [operator, map expression].
-          putJsonArray(name) {
-            add(aggregator.reducer.compile(ExpressionContext.None).toStyleJson())
-            add(aggregator.mapper.compile(ExpressionContext.None).toStyleJson())
-          }
-        }
-      }
-    }
   }
 
   public actual fun setData(data: GeoJsonData) {
@@ -89,11 +66,11 @@ public actual class GeoJsonSource : Source {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
   }
 
-  public actual fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
+  public actual suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
     val result = queryClusterExtension(feature, EXPANSION_ZOOM_FIELD)
     val value = (result as? FeatureExtensionResult.Value)?.value
     return when (value) {
-      // MapLibre computes the zoom as a uint64_t; other numeric shapes are accepted defensively.
+      // MapLibre computes the zoom as a uint64_t.
       is JsonValue.UInt -> value.value.toULong().toDouble()
       is JsonValue.Int -> value.value.toDouble()
       is JsonValue.DoubleValue -> value.value
@@ -104,11 +81,11 @@ public actual class GeoJsonSource : Source {
     }
   }
 
-  public actual fun getClusterChildren(
+  public actual suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<*, JsonObject?> = queryClusterFeatures(feature, CHILDREN_FIELD, null)
 
-  public actual fun getClusterLeaves(
+  public actual suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
@@ -160,9 +137,8 @@ public actual class GeoJsonSource : Source {
   }
 
   /**
-   * Reports a lookup that found no cluster, as distinct from a cluster with nothing to report:
-   * MapLibre answers a successful query with a feature collection, even an empty one, and a failed
-   * one with a null value.
+   * Reports a lookup that found no cluster. MapLibre answers a successful query with a feature
+   * collection, even an empty one, and a failed one with a null value.
    */
   private fun reportMiss(field: String, result: FeatureExtensionResult?) {
     if (result == null) return
@@ -185,28 +161,11 @@ public actual class GeoJsonSource : Source {
   }
 }
 
-/**
- * The `data` member of a GeoJSON source, which the style spec allows to be either a URL string or
- * an inline GeoJSON object.
- */
-private fun GeoJsonData.toDataJson(): JsonElement =
-  when (this) {
-    is GeoJsonData.Uri -> JsonPrimitive(uri)
-    is GeoJsonData.JsonString -> Json.parseToJsonElement(json)
-    is GeoJsonData.Features -> Json.parseToJsonElement(geoJson.toJson())
-  }
-
-/**
- * Converts caller-supplied features into the FFI's geometry tree, via the serialized form so typed
- * properties are encoded by the serializer SpatialK picks for them at runtime.
- */
+/** Converts caller-supplied features into the FFI's geometry tree. */
 internal fun FeatureCollection<*, *>.toFfiGeoJson(): FfiGeoJson =
   Json.parseToJsonElement(toJson()).toFfiGeoJson()
 
-/**
- * Converts parsed GeoJSON into the FFI's geometry tree; `setGeoJsonSourceData` has no JSON entry
- * point, so the data has to be walked rather than handed over as it arrived.
- */
+/** Converts parsed GeoJSON into the FFI's geometry tree. */
 private fun JsonElement.toFfiGeoJson(): FfiGeoJson {
   val obj =
     this as? JsonObject ?: throw IllegalArgumentException("GeoJSON data must be a JSON object")

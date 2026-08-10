@@ -70,19 +70,18 @@ import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
-import org.maplibre.compose.mlnffi.RgbaPixel
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
+import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.spatialk.geojson.Position
 
-/** Exercises the production Linux Vulkan-to-OpenGL bridge against a real EGL and Skia context. */
 class LinuxVulkanOpenGlInteropTest {
 
   @Test
@@ -93,8 +92,7 @@ class LinuxVulkanOpenGlInteropTest {
         try {
           egl.withCurrent {
             clearGlErrors()
-            // OpenGL errors are sticky. This is the error compose-glfw left for the bridge to
-            // misattribute to glImportMemoryFdEXT before the bridge established its own boundary.
+            // OpenGL errors are sticky; leave one behind for the bridge to trip over.
             glEnable(Int.MIN_VALUE)
             val frame =
               assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(1, FIRST_EXTENT, null))
@@ -181,9 +179,6 @@ class LinuxVulkanOpenGlInteropTest {
       }
     }
 
-  /**
-   * Runs [block] on Linux only, skipping elsewhere rather than reporting a pass it did not earn.
-   */
   private inline fun onLinux(reason: String, block: () -> Unit) {
     assumeTrue(reason, System.getProperty("os.name").orEmpty().lowercase().contains("linux"))
     block()
@@ -282,16 +277,15 @@ class LinuxVulkanOpenGlInteropTest {
       renderer.onSurfaceAvailable(hostSession)
     }
 
-    fun renderStyle(style: BaseStyle, extent: MlnFfiMapExtent): MlnFfiRenderTarget {
+    fun renderStyle(style: BaseStyle, extent: MapExtent): MlnFfiRenderTarget {
       val expectedStyleLoads = styleLoads + 1
       renderer.setBaseStyle(style)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
       var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      // Style callbacks and rendering happen on different threads. Wait for both facts without
-      // requiring one to be observed before the other: an idle map does not owe the test more
-      // frames merely because its callback became visible late.
+      // Style callbacks and rendering happen on different threads, so wait for both facts
+      // without requiring either to be observed first.
       while (styleLoads < expectedStyleLoads || rendered == null) {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering style $style at $extent; " +
@@ -553,8 +547,8 @@ class LinuxVulkanOpenGlInteropTest {
 
     val TEST_TIMEOUT = 30.seconds
 
-    val FIRST_EXTENT = MlnFfiMapExtent.fromLogical(256, 192, 1.0)
-    val SECOND_EXTENT = MlnFfiMapExtent.fromLogical(320, 240, 1.0)
+    val FIRST_EXTENT = MapExtent.fromLogical(256, 192, 1.0)
+    val SECOND_EXTENT = MapExtent.fromLogical(320, 240, 1.0)
 
     val FIRST_PIXEL = RgbaPixel(red = 0x33, green = 0x66, blue = 0x99, alpha = 0xff)
     val SECOND_PIXEL = RgbaPixel(red = 0x99, green = 0x33, blue = 0x66, alpha = 0xff)

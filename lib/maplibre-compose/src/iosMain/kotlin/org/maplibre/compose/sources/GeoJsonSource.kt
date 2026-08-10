@@ -77,9 +77,8 @@ public actual class GeoJsonSource : Source {
         },
       )
 
-      // Support for synchronousUpdate on iOS support is currently blocked by
-      // https://youtrack.jetbrains.com/issue/CMP-8882/
-      // See https://github.com/maplibre/maplibre-compose/issues/738
+      // synchronousUpdate is blocked upstream by
+      // https://youtrack.jetbrains.com/issue/CMP-8882/ (see #738)
     }
 
   public actual fun setData(data: GeoJsonData) {
@@ -94,11 +93,11 @@ public actual class GeoJsonSource : Source {
     return "cluster_id" in feature.properties.orEmpty()
   }
 
-  public actual fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
+  public actual suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
     return impl.zoomLevelForExpandingCluster(feature.toMLNPointFeatureCluster())
   }
 
-  public actual fun getClusterChildren(
+  public actual suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<*, JsonObject?> {
     return impl
@@ -107,7 +106,7 @@ public actual class GeoJsonSource : Source {
       .let(::FeatureCollection)
   }
 
-  public actual fun getClusterLeaves(
+  public actual suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,

@@ -4,10 +4,9 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.RgbaPixel
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.testing.RgbaPixel
 
-/** Proves that a reported render actually writes the expected color into its backend target. */
 class MlnFfiMapPixelTest {
 
   @Test

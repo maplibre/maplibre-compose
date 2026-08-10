@@ -5,16 +5,13 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 
-/**
- * A base-style source read back out of the map, which is all `getSource` can return for one. Its
- * definition is handed straight back to MapLibre on re-add, so it has to be real style JSON.
- */
 class UnknownSourceRestoreTest {
 
   @Test
@@ -27,8 +24,7 @@ class UnknownSourceRestoreTest {
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
 
       // MapLibre reports the type as an enum whose default `toString` is
-      // `SourceType(nativeValue=1)` and passes for a definition right up until it is used, so the
-      // whole definition is compared.
+      // `SourceType(nativeValue=1)`, which passes for a definition right up until it is used.
       assertEquals(
         Json.parseToJsonElement("""{"type":"vector","attribution":"$ATTRIBUTION"}"""),
         source.definition,
@@ -39,8 +35,8 @@ class UnknownSourceRestoreTest {
   }
 
   /**
-   * Re-adding a base-style source is refused, and says which source and why. MapLibre reports only
-   * a source's type, volatility, and attribution, so a reconstructed tiled source has no `tiles`.
+   * MapLibre reports only a source's type, volatility, and attribution, so a reconstructed tiled
+   * source has no `tiles`.
    */
   @Test
   fun re_adding_a_base_style_source_fails_with_a_message_that_names_it() {
@@ -68,15 +64,15 @@ class UnknownSourceRestoreTest {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
       val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
-      // The third entry is MapLibre's own annotation source, present in every map; it is reported
-      // with no type because the style spec has no such source.
       assertEquals(
-        mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster", ANNOTATION_SOURCE_ID to null),
+        mapOf(SOURCE_ID to "vector", RASTER_SOURCE_ID to "raster"),
         style.getSources().associate { source ->
           source.id to
             (assertIs<UnknownSource>(source).definition["type"] as? JsonPrimitive)?.content
         },
       )
+      // MapLibre's own, in every map whether or not anything draws an annotation.
+      assertNull(style.getSource(ANNOTATION_SOURCE_ID))
     }
   }
 
@@ -84,13 +80,12 @@ class UnknownSourceRestoreTest {
     const val SOURCE_ID = "vec"
     const val RASTER_SOURCE_ID = "sat"
 
-    /** MapLibre's own, present in every map whether or not anything draws an annotation. */
     const val ANNOTATION_SOURCE_ID = "org.maplibre.annotations"
     const val ATTRIBUTION = "&copy; Nobody"
 
     /**
-     * Two sources of different types, with no layer over either: MapLibre will not remove a source
-     * a layer still draws from. The hosts do not resolve, so no tile is ever requested.
+     * No layer draws from either source: MapLibre will not remove a source a layer still draws
+     * from. The hosts do not resolve, so no tile is ever requested.
      */
     val VECTOR_STYLE =
       """

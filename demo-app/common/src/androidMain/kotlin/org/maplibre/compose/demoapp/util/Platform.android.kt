@@ -16,8 +16,6 @@ actual object Platform {
 
   actual val version = "${Build.VERSION.RELEASE} ${Build.VERSION.CODENAME}"
 
-  actual val supportedFeatures = PlatformFeature.Everything
-
   actual val extraDemos: List<Demo> =
     listOf(
       GestureOptionsDemo,

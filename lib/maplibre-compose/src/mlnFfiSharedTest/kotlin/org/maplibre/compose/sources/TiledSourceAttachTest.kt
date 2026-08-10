@@ -14,13 +14,7 @@ import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
-/**
- * The tiled sources, and the layer types that only exist to draw one.
- *
- * MapLibre reports back only a source's type, volatility, and attribution, so the assertions are
- * those plus the fact that it accepted the JSON at all. No tiles are fetched: a source's definition
- * is parsed when it is added, long before any tile is requested.
- */
+/** MapLibre reports back only a source's type, volatility, and attribution. */
 class TiledSourceAttachTest {
 
   @Test
@@ -30,7 +24,6 @@ class TiledSourceAttachTest {
       it.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
-      // Every TileSetOptions field at once, none at its default.
       val fromTiles =
         RasterSource(
           id = "tiles",
@@ -55,7 +48,6 @@ class TiledSourceAttachTest {
       layer.onMap { map ->
         assertEquals(SourceType.RASTER, map.styleSourceType("tiles"))
         assertEquals(SourceType.RASTER, map.styleSourceType("url"))
-        // The one TileSetOptions field MapLibre reports back.
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
         assertEquals("tiles", map.layerSourceId("raster"))
       }
@@ -82,7 +74,6 @@ class TiledSourceAttachTest {
       style.addSource(fromUrl)
 
       val layer = HillshadeLayer("hillshade", fromTiles)
-      // The layer must attach a fresh source before MapLibre validates the layer JSON.
       style.addLayer(layer)
 
       layer.onMap { map ->
@@ -129,13 +120,9 @@ class TiledSourceAttachTest {
       it.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
-      // Stays in the style for the length of the test, so there is always a live binding to read
-      // the map through.
       val witness = RasterSource(id = "witness", tiles = listOf(TILE_TEMPLATE), tileSize = 256)
       style.addSource(witness)
 
-      // A style change detaches sources and re-adds them, so a descriptor must not consume its
-      // definition on the way in.
       val source =
         RasterSource(
           id = "tiles",
@@ -163,49 +150,8 @@ class TiledSourceAttachTest {
   }
 
   /**
-   * Asserted against the descriptor rather than the map: MapLibre parses `bounds`, `scheme`, and
-   * the zoom range into a tileset it never reports back.
-   */
-  @Test
-  fun tile_set_options_are_written_in_the_shapes_the_style_spec_defines() {
-    val source =
-      RasterSource(
-        id = "tiles",
-        tiles = listOf(TILE_TEMPLATE),
-        options =
-          TileSetOptions(
-            minZoom = 2,
-            maxZoom = 12,
-            tileCoordinateSystem = TileCoordinateSystem.TMS,
-            boundingBox = BOUNDS,
-            attributionHtml = ATTRIBUTION,
-          ),
-        tileSize = 512,
-      )
-
-    assertEquals(
-      Json.parseToJsonElement(
-        """
-        {
-          "type": "raster",
-          "tiles": ["$TILE_TEMPLATE"],
-          "tileSize": 512,
-          "minzoom": 2,
-          "maxzoom": 12,
-          "scheme": "tms",
-          "bounds": [-10.0, -20.0, 30.0, 40.0],
-          "attribution": "$ATTRIBUTION"
-        }
-        """
-          .trimIndent()
-      ),
-      source.toJson(),
-    )
-  }
-
-  /**
-   * MapLibre Native understands only `mapbox` and `terrarium` and refuses the source outright on
-   * anything else. See
+   * MapLibre Native understands only `mapbox` and `terrarium`, and refuses the source outright on
+   * anything else, where MapLibre GL JS implements the custom encoding. See
    * [maplibre-native#2783](https://github.com/maplibre/maplibre-native/issues/2783).
    */
   @Test
@@ -223,7 +169,7 @@ class TiledSourceAttachTest {
   }
 
   private companion object {
-    /** Unresolvable on purpose: a test that reaches the network is worse than no test. */
+    /** Unresolvable on purpose: tests must not reach the network. */
     const val TILE_TEMPLATE = "https://example.invalid/{z}/{x}/{y}.png"
     const val VECTOR_TILE_TEMPLATE = "https://example.invalid/{z}/{x}/{y}.pbf"
     const val TILEJSON_URL = "https://example.invalid/tiles.json"

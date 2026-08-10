@@ -1,10 +1,11 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import org.maplibre.compose.map.MapExtent
 
 /**
- * An in-memory [MlnFfiMapHost] that produces frames without a GPU. Records the calls it receives,
- * so tests can assert on ordering rather than only on end state.
+ * An in-memory [MlnFfiMapHost] that produces frames without a GPU, recording every call it
+ * receives.
  */
 internal class FakeMlnFfiMapHost(
   override val backends: RenderBackendPair =
@@ -22,8 +23,8 @@ internal class FakeMlnFfiMapHost(
   val acquireOutcomes: ArrayDeque<AcquireOutcome> = ArrayDeque()
 
   /**
-   * How many of the next acquires should throw, decremented as each one does. A count so a test can
-   * arm "fails once, then recovers" or [Int.MAX_VALUE] for "never works again".
+   * How many of the next acquires should throw, decremented as each one does. [Int.MAX_VALUE] for
+   * "never works again".
    */
   var failingAcquires: Int = 0
 
@@ -36,10 +37,10 @@ internal class FakeMlnFfiMapHost(
   var closed: Boolean = false
     private set
 
-  var currentExtent: MlnFfiMapExtent = MlnFfiMapExtent.Empty
+  var currentExtent: MapExtent = MapExtent.Empty
     private set
 
-  /** Bumped whenever the target is reallocated, exactly as a real host does on resize. */
+  /** Bumped whenever the target is reallocated, as a real host does on resize. */
   var generation: Long = 0L
     private set
 
@@ -62,7 +63,7 @@ internal class FakeMlnFfiMapHost(
   val leakedFrames: Set<Long>
     get() = liveFrames
 
-  override fun resize(extent: MlnFfiMapExtent) {
+  override fun resize(extent: MapExtent) {
     calls += "resize(${extent.width}x${extent.height}@${extent.scaleFactor})"
     if (extent != currentExtent) {
       currentExtent = extent
@@ -72,7 +73,7 @@ internal class FakeMlnFfiMapHost(
 
   override fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     calls += "acquireFrame($frameId)"

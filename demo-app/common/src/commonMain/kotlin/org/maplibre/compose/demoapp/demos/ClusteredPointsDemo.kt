@@ -69,16 +69,16 @@ object ClusteredPointsDemo : Demo {
     val coroutineScope = rememberCoroutineScope()
 
     // TODO isLoading as some standard state on the Demo, exposed to the main UI?
-    //    var isLoading by remember { mutableStateOf(true) }
     var data by remember { mutableStateOf(featureCollectionOf().toJson()) }
     LaunchedEffect(Unit) {
       withContext(Dispatchers.Default) {
         try {
           data = getLimeBikeStatusAsGeoJson()
-          //        isLoading = false
         } catch (e: CancellationException) {
           throw e
-        } catch (e: Exception) {
+        } catch (e: Throwable) {
+          // Throwable, not Exception: this feed sends no CORS header, and ktor reports the
+          // browser's refusal as a kotlin.Error.
           e.printStackTrace()
         }
       }
@@ -126,8 +126,8 @@ object ClusteredPointsDemo : Demo {
           ?.let {
             coroutineScope.launch {
               val current = state.cameraState.position
-              // Never zoom out: a cluster that cannot report an expansion zoom answers with a
-              // sentinel, 0 on Android and desktop and -1 on iOS.
+              // A cluster that cannot report an expansion zoom returns a sentinel: 0 on Android and
+              // desktop, -1 on iOS.
               val expansionZoom = bikeSource.getClusterExpansionZoom(it)
               state.cameraState.animateTo(
                 current.copy(

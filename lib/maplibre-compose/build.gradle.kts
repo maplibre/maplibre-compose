@@ -34,7 +34,14 @@ kotlin {
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
-  js { browser() }
+  js {
+    // The MapLibre GL JS declarations are @file:JsModule with no global to fall back on, which UMD
+    // output rejects. Every consumer of this module's js target has to match.
+    useEsModules()
+    // The browser platform composites MapLibre GL JS into the Compose scene, so its tests need a
+    // real WebGL context; karma.config.d supplies the flags that give one to a headless browser.
+    browser { testTask { useKarma { useChromeHeadless() } } }
+  }
 
   applyDefaultHierarchyTemplate()
 
@@ -72,10 +79,20 @@ kotlin {
         iosMain.get().dependsOn(this)
       }
 
+    // commonMain in waiting: the parts of the mln-ffi and MapLibre GL JS platforms that carry no
+    // backend-conditional logic. It exists only because Android and iOS have typed layer actuals
+    // rather than JSON-shaped ones; when those move onto mlnFfiShared, this merges into commonMain.
+    val nextCommonMain =
+      create("nextCommonMain") {
+        dependsOn(commonMain.get())
+        jsMain.get().dependsOn(this)
+      }
+
     // used to share the integration with the MapLibre Native FFI binding, as opposed to the
     // MapLibre Android and iOS SDKs. Desktop is its only target today.
     create("mlnFfiShared") {
       dependsOn(maplibreNativeMain)
+      dependsOn(nextCommonMain)
       jvmMain.dependsOn(this)
       dependencies {
         // Backend-independent binding only; the application selects the native runtime.
@@ -106,7 +123,11 @@ kotlin {
       }
     }
 
-    jsMain { dependencies { implementation(project(":lib:maplibre-js-bindings")) } }
+    jsMain.dependencies {
+      implementation(libs.kotlin.wrappers.js)
+      implementation(libs.kotlin.wrappers.browser)
+      implementation(npm("maplibre-gl", libs.versions.maplibre.js.get()))
+    }
 
     commonTest.dependencies {
       implementation(kotlin("test"))
@@ -116,11 +137,19 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
+    // The test counterpart of nextCommonMain, and on the same path into commonTest.
+    val nextCommonTest =
+      create("nextCommonTest") {
+        dependsOn(commonTest.get())
+        jsTest.get().dependsOn(this)
+      }
+
     // Behavioral contracts for the shared MapLibre Native FFI integration. Every platform that
     // consumes mlnFfiShared must execute this source set; the platform test source supplies only
     // runtime, render-host, storage, and Compose-runner adapters.
     create("mlnFfiSharedTest") {
       dependsOn(commonTest.get())
+      dependsOn(nextCommonTest)
       getByName("jvmTest").dependsOn(this)
     }
 

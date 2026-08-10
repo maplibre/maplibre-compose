@@ -3,7 +3,6 @@
 package org.maplibre.compose.sources
 
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -11,7 +10,6 @@ import kotlinx.serialization.json.putJsonArray
 
 public actual class RasterDemSource : Source {
 
-  // A tiled source has no mutable properties in the common API, so its definition is fixed here.
   private val json: JsonObject
 
   public actual constructor(id: String, uri: String, tileSize: Int) : super(id) {
@@ -49,26 +47,4 @@ public actual class RasterDemSource : Source {
   }
 
   override fun toJson(): JsonObject = json
-}
-
-/** Writes the TileJSON fields that the style spec shares across all tiled sources. */
-private fun JsonObjectBuilder.putTileSetOptions(options: TileSetOptions) {
-  put("minzoom", options.minZoom)
-  put("maxzoom", options.maxZoom)
-  put(
-    "scheme",
-    when (options.tileCoordinateSystem) {
-      TileCoordinateSystem.XYZ -> "xyz"
-      TileCoordinateSystem.TMS -> "tms"
-    },
-  )
-  options.boundingBox?.let { box ->
-    putJsonArray("bounds") {
-      add(box.west)
-      add(box.south)
-      add(box.east)
-      add(box.north)
-    }
-  }
-  options.attributionHtml?.let { put("attribution", it) }
 }

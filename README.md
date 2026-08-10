@@ -37,14 +37,15 @@ maps to your Compose UIs across Android, iOS, Desktop, and Web.
 
 See [the status table][status] for a breakdown of supported features on each
 platform. Android, iOS, and Desktop have the most complete support; Desktop's
-one remaining gap is showing the user's location. Web is still catching up.
+one remaining gap is showing the user's location. Web covers the same styling
+and camera API, without offline packs or location.
 
 | Target  | Progress                                                             |
 | ------- | -------------------------------------------------------------------- |
 | Android | ![90%](https://progress-bar.xyz/90/?progress_color=3DDC84&width=200) |
 | iOS     | ![90%](https://progress-bar.xyz/90/?progress_color=147efb&width=200) |
 | Desktop | ![85%](https://progress-bar.xyz/85/?progress_color=CE0000&width=200) |
-| Web     | ![20%](https://progress-bar.xyz/20/?progress_color=FF9500&width=200) |
+| Web     | ![80%](https://progress-bar.xyz/80/?progress_color=FF9500&width=200) |
 
 [compose]: https://www.jetbrains.com/compose-multiplatform/
 [maplibre]: https://maplibre.org/

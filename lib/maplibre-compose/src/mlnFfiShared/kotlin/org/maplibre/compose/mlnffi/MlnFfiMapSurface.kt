@@ -17,6 +17,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import co.touchlab.kermit.Logger
 import kotlin.time.TimeSource
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.util.rethrowIfFatal
 
 /** The origin the frame clock counts from, fixed for the process so hosts can compare frames. */
@@ -34,7 +35,7 @@ internal fun MlnFfiMapSurface(
   var physicalSize by remember { mutableStateOf(IntSize.Zero) }
   val extent =
     remember(physicalSize, density) {
-      MlnFfiMapExtent.fromPhysical(physicalSize.width, physicalSize.height, density)
+      MapExtent.fromPhysical(physicalSize.width, physicalSize.height, density)
     }
   var frameRequest by remember { mutableLongStateOf(0L) }
   var failed by remember(renderer, hostResult) { mutableStateOf(false) }

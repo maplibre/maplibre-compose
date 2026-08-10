@@ -100,11 +100,11 @@ import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
 import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
@@ -118,15 +118,7 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
-/**
- * Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux.
- *
- * MapLibre renders into a `VkImage` whose memory is exported as a POSIX file descriptor; that
- * descriptor is imported into Compose's GL context as a memory object and wrapped as a texture, so
- * both APIs address the same allocation with no copy.
- *
- * Ported from the `maplibre-native-ffi` Compose example, which is the reference for this path.
- */
+/** Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux. */
 internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter()
@@ -135,7 +127,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
   private var generation = 0L
-  private var currentExtent = MlnFfiMapExtent.Empty
+  private var currentExtent = MapExtent.Empty
 
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
@@ -146,7 +138,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
 
   override fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition =
     gpuHost.withOpenGlContextOrNull { context ->
@@ -196,8 +188,8 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
   override fun close() {
     try {
       frameCompletion.abandon()
-      // At window close the Compose surface may already be gone, so there is no context to make
-      // current and no GL objects left to free; the driver reclaims them with the context.
+      // At window close the Compose surface may already be gone; the driver reclaims the GL objects
+      // along with the context.
       runCatching {
         gpuHost.withOpenGlContext {
           disposeAllTextures()
@@ -215,10 +207,10 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
     }
   }
 
-  private fun recreateTexture(extent: MlnFfiMapExtent) {
+  private fun recreateTexture(extent: MapExtent) {
     if (extent.isEmpty) {
       disposeAllTextures()
-      currentExtent = MlnFfiMapExtent.Empty
+      currentExtent = MapExtent.Empty
       generation += 1
       return
     }
@@ -243,12 +235,11 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfi
   private fun abandonContext() {
     presenter.abandon()
     // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
-    // until the next producer frame retargets it. The old allocation is retired so that drawing
-    // the replacement frame releases it only after that retarget has completed.
+    // until the next producer frame retargets it.
     texture?.let { retiredTextures[generation] = it }
     texture = null
     retiredTextures.values.forEach(LinuxSharedTexture::abandonImported)
-    currentExtent = MlnFfiMapExtent.Empty
+    currentExtent = MapExtent.Empty
   }
 
   /**
@@ -328,7 +319,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
         getDeviceProcAddr = NativeHandle(vulkanFunctionAddress("vkGetDeviceProcAddr")),
       )
 
-  fun createExportedTexture(extent: MlnFfiMapExtent): LinuxExportedVulkanTexture =
+  fun createExportedTexture(extent: MapExtent): LinuxExportedVulkanTexture =
     LinuxExportedVulkanTexture.create(this, extent)
 
   fun waitIdle() {
@@ -486,7 +477,7 @@ private constructor(private val requiredDeviceUuids: Set<String>) : AutoCloseabl
 
 /** A `VkImage` whose memory is exportable to OpenGL as a file descriptor. */
 internal class LinuxExportedVulkanTexture
-private constructor(private val context: LinuxVulkanContext, private val extent: MlnFfiMapExtent) :
+private constructor(private val context: LinuxVulkanContext, private val extent: MapExtent) :
   AutoCloseable {
   private var image = NULL
   private var memory = NULL
@@ -623,7 +614,7 @@ private constructor(private val context: LinuxVulkanContext, private val extent:
   }
 
   companion object {
-    fun create(context: LinuxVulkanContext, extent: MlnFfiMapExtent): LinuxExportedVulkanTexture {
+    fun create(context: LinuxVulkanContext, extent: MapExtent): LinuxExportedVulkanTexture {
       val texture = LinuxExportedVulkanTexture(context, extent)
       try {
         texture.create()
@@ -641,19 +632,18 @@ internal class LinuxOpenGlImportedTexture
 private constructor(
   private val fd: Int,
   private val memorySize: Long,
-  private val extent: MlnFfiMapExtent,
+  private val extent: MapExtent,
   private val origin: TextureOrigin,
 ) : AutoCloseable {
   private var memoryObject = 0
 
-  /** The GL name of the imported texture, which the presenter keys its Skia wrapper on. */
+  /** The GL name of the imported texture. */
   var textureName: Int = 0
     private set
 
   /**
-   * The GL view of this texture, for presenting only. The context handles are zero and the
-   * make-current hook is a no-op because MapLibre renders through the Vulkan side and Compose
-   * already owns this GL context.
+   * For presenting only: the context handles are zero and the make-current hook is a no-op, since
+   * Compose already owns this GL context.
    */
   fun target(generation: Long): OpenGlTextureTarget =
     OpenGlTextureTarget(
@@ -740,7 +730,7 @@ private constructor(
     fun create(
       fd: Int,
       memorySize: Long,
-      extent: MlnFfiMapExtent,
+      extent: MapExtent,
       origin: TextureOrigin = TextureOrigin.TOP_LEFT,
     ): LinuxOpenGlImportedTexture {
       val imported = LinuxOpenGlImportedTexture(fd, memorySize, extent, origin)

@@ -100,7 +100,7 @@ internal fun MlnFfiMapView(
   val currentOnReset = rememberUpdatedState(onReset)
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
-  // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
+  // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
 
   LaunchedEffect(session, options, update) { update(session) }
@@ -113,13 +113,12 @@ internal fun MlnFfiMapView(
     }
   }
 
-  // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
   val inputModifier =
-    modifier.mlnFfiMapInput(session, options.gestureOptions, density, focusRequester, continuation)
+    modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
   surface(session, inputModifier, logger)
 }
 

@@ -1,39 +1,22 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.Alignment
 
+/**
+ * The browser platform draws no ornaments. Draw them in Compose instead; attribution text is
+ * available from [Source.attributionHtml][org.maplibre.compose.sources.Source.attributionHtml].
+ */
 @Immutable
-public actual data class OrnamentOptions(
-  val isLogoEnabled: Boolean = true,
-  val logoAlignment: Alignment = Alignment.BottomStart,
-  val isAttributionEnabled: Boolean = true,
-  val attributionAlignment: Alignment = Alignment.BottomEnd,
-  val isNavigationEnabled: Boolean = true,
-  val navigationAlignment: Alignment = Alignment.TopEnd,
-  val isScaleBarEnabled: Boolean = true,
-  val scaleBarAlignment: Alignment = Alignment.TopStart,
-  val isGlobeButtonEnabled: Boolean = true,
-  val globeButtonAlignment: Alignment = Alignment.TopEnd,
-  val isFullscreenButtonEnabled: Boolean = true,
-  val fullscreenButtonAlignment: Alignment = Alignment.BottomEnd,
-  val isGeolocateButtonEnabled: Boolean = true,
-  val geolocateButtonAlignment: Alignment = Alignment.TopEnd,
-  // TODO terrain control
-) {
+public actual class OrnamentOptions {
+  override fun equals(other: Any?): Boolean = other is OrnamentOptions
+
+  override fun hashCode(): Int = 0
+
+  override fun toString(): String = "OrnamentOptions(the browser platform draws no ornaments)"
+
   public actual companion object Companion {
     public actual val AllEnabled: OrnamentOptions = OrnamentOptions()
-    public actual val AllDisabled: OrnamentOptions =
-      OrnamentOptions(
-        isLogoEnabled = false,
-        isAttributionEnabled = false,
-        isNavigationEnabled = false,
-        isScaleBarEnabled = false,
-        isGlobeButtonEnabled = false,
-        isFullscreenButtonEnabled = false,
-        isGeolocateButtonEnabled = false,
-      )
-
-    public actual val OnlyLogo: OrnamentOptions = AllDisabled.copy(isLogoEnabled = true)
+    public actual val OnlyLogo: OrnamentOptions = AllEnabled
+    public actual val AllDisabled: OrnamentOptions = AllEnabled
   }
 }

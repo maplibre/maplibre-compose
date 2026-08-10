@@ -3,14 +3,15 @@ package org.maplibre.compose.util
 import kotlin.test.assertNotNull
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.nativeffi.map.MapHandle
 
-/**
- * Reads the live map a descriptor is bound to, failing if it is not bound to one. `readMap` answers
- * null when the style has unloaded, which would silently skip the assertions inside [block].
- */
+/** Reads the live map a descriptor is bound to, failing if it is not bound to one. */
 internal fun <T> Layer.onMap(block: (MapHandle) -> T): T =
-  assertNotNull(binding.readMap(block), "Layer '$id' is not bound to a loaded style")
+  assertNotNull(
+    (binding as? MlnFfiStyleBinding)?.readMap(block),
+    "Layer '$id' is not bound to a loaded style",
+  )
 
 /** The same for a source. */
 internal fun <T> Source.onMap(block: (MapHandle) -> T): T =
