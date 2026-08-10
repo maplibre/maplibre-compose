@@ -20,6 +20,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
@@ -131,15 +132,15 @@ private fun createHost(
       runtimeBackends = runtimeBackends,
       hostBackends = factory.backends,
       hostDescription = factory.description,
-      operatingSystem = System.getProperty("os.name") ?: "unknown",
-      architecture = System.getProperty("os.arch") ?: "unknown",
+      operatingSystem = mlnFfiOperatingSystem,
+      architecture = mlnFfiArchitecture,
     )
   if (diagnostic != null) return MlnFfiMapHostResult.Failed(diagnostic)
 
   return try {
     factory.create()
   } catch (error: Throwable) {
-    if (error is VirtualMachineError) throw error
+    rethrowIfFatal(error)
     MlnFfiMapHostResult.Failed("${factory.description} threw while creating a map host", error)
   }
 }
@@ -153,7 +154,7 @@ internal fun loadRuntimeBackends(logger: Logger?): Set<MapRenderBackend> =
     Maplibre.loadNativeLibrary()
     Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() }
   } catch (error: Throwable) {
-    if (error is VirtualMachineError) throw error
+    rethrowIfFatal(error)
     logger?.e(error) { "Could not load the MapLibre Native FFI runtime" }
     emptySet()
   }

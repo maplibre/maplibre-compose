@@ -1,11 +1,9 @@
 package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
-import java.io.FileNotFoundException
-import java.net.URI
-import java.net.URISyntaxException
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
 import org.maplibre.nativeffi.resource.ResourceProviderDecision
@@ -75,7 +73,7 @@ internal class MlnFfiResourceProvider(
         open.complete(read(url, requestedUrl))
       }
     } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
+      rethrowIfFatal(error)
       logger?.w(error) { "Failed to answer the resource request for $url" }
     }
   }
@@ -100,7 +98,7 @@ internal class MlnFfiResourceProvider(
         )
       }
     } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
+      rethrowIfFatal(error)
       logger?.w(error) { "Failed to refuse the resource request for $url" }
     }
   }
@@ -141,26 +139,33 @@ internal fun readResource(url: String, requestedUrl: String, logger: Logger?): R
       // Packaged resources cannot change while the process runs.
       it.mustRevalidate = false
     }
-  } catch (error: FileNotFoundException) {
-    failure(url, requestedUrl, ResourceErrorReason.NOT_FOUND, "not found", error, logger)
-  } catch (error: URISyntaxException) {
-    failure(url, requestedUrl, ResourceErrorReason.OTHER, "is not a valid URI", error, logger)
-  } catch (error: Throwable) {
-    if (error is VirtualMachineError) throw error
-    // `NoSuchFileException` starts at Android API 26, so keep it out of Android bytecode while
-    // preserving the desktop result for a jar whose backing file is missing.
-    val reason =
-      if (error::class.qualifiedName == "java.nio.file.NoSuchFileException") {
-        ResourceErrorReason.NOT_FOUND
-      } else {
-        ResourceErrorReason.OTHER
-      }
-    val what = if (reason == ResourceErrorReason.NOT_FOUND) "not found" else "could not be read"
-    failure(url, requestedUrl, reason, what, error, logger)
+  } catch (error: MlnFfiResourceReadException) {
+    failure(url, requestedUrl, error.failure.reason, error.failure.description, error.cause, logger)
   }
 
-/** Reads a resource through the platform's packaged-resource and URL mechanisms. */
+/**
+ * Reads a resource through the platform's packaged-resource and URL mechanisms. Every failure
+ * arrives as an [MlnFfiResourceReadException], so that each platform classifies its own read
+ * errors.
+ */
 internal expect fun readPlatformResourceBytes(url: String): ByteArray
+
+/** How a resource read failed, in the terms the caller reports it in. */
+internal enum class MlnFfiResourceReadFailure(
+  val reason: ResourceErrorReason,
+  /** Completes the sentence "Resource <url> …". */
+  val description: String,
+) {
+  NOT_FOUND(ResourceErrorReason.NOT_FOUND, "not found"),
+  INVALID_URL(ResourceErrorReason.OTHER, "is not a valid URI"),
+  UNREADABLE(ResourceErrorReason.OTHER, "could not be read"),
+}
+
+/** The classified failure of one [readPlatformResourceBytes] call. */
+internal class MlnFfiResourceReadException(
+  val failure: MlnFfiResourceReadFailure,
+  override val cause: Throwable,
+) : Exception(cause)
 
 private fun failure(
   url: String,
@@ -192,10 +197,25 @@ private fun failure(
 internal fun isMapLibresToFetch(resolvedUrl: String): Boolean =
   schemeOf(resolvedUrl).let { it == null || it in NETWORK_SCHEMES }
 
-/** The scheme of [url], or null when it has none or cannot be parsed. */
-internal fun schemeOf(url: String): String? =
-  try {
-    URI(url).scheme?.lowercase()
-  } catch (_: URISyntaxException) {
-    null
+/**
+ * The scheme of [url] in lowercase, or null when it has none or cannot be parsed.
+ *
+ * A scheme is a letter followed by letters, digits, `+`, `-`, or `.`, and then `:`, as RFC 3986
+ * defines it. A URL holding whitespace or a backslash reports no scheme at all, because neither
+ * character can appear in a URI; that keeps a Windows path such as `C:\dir\style.json` out of this
+ * provider.
+ */
+internal fun schemeOf(url: String): String? {
+  val end = url.indexOf(':')
+  if (end < 1 || !url[0].isAsciiLetter()) return null
+  for (index in 1 until end) {
+    val char = url[index]
+    if (!char.isAsciiLetter() && !char.isAsciiDigit() && char !in "+-.") return null
   }
+  if (url.any { it.isWhitespace() || it == '\\' }) return null
+  return url.substring(0, end).lowercase()
+}
+
+private fun Char.isAsciiLetter(): Boolean = this in 'a'..'z' || this in 'A'..'Z'
+
+private fun Char.isAsciiDigit(): Boolean = this in '0'..'9'

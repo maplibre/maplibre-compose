@@ -8,6 +8,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlin.test.fail
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
@@ -362,9 +364,9 @@ class MlnFfiOfflinePackTest {
 
   /** Polls [condition] until it holds, failing rather than hanging if it never does. */
   private suspend fun await(describe: () -> String, condition: () -> Boolean) {
-    val deadline = System.nanoTime() + OPERATION_TIMEOUT_MILLIS * 1_000_000
+    val deadline = TimeSource.Monotonic.markNow() + OPERATION_TIMEOUT_MILLIS.milliseconds
     while (!condition()) {
-      if (System.nanoTime() > deadline) {
+      if (deadline.hasPassedNow()) {
         fail("Timed out after ${OPERATION_TIMEOUT_MILLIS}ms waiting for ${describe()}")
       }
       delay(POLL_MILLIS)
