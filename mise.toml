@@ -135,6 +135,10 @@ run = "./gradlew --no-parallel connectedDebugAndroidTest connectedAndroidDeviceT
 description = "Boot an iPhone simulator and print its UDID."
 run = ".mise/bin/boot-ios-simulator"
 
+[tasks."build:ios:device"]
+description = "Link the demo framework for the iOS device target."
+run = "./gradlew :demo-app:common:linkDebugFrameworkIosArm64"
+
 [tasks."test:ios"]
 description = "Run the iOS simulator test suite."
 run = '''
