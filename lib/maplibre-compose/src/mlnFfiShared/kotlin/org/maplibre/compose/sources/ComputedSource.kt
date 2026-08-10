@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.resource.startMlnFfiBlockingWork
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.geo.CanonicalTileId
 import org.maplibre.nativeffi.map.MapHandle
@@ -102,7 +103,7 @@ public actual class ComputedSource : Source {
       try {
         getFeatures(tileId.toBoundingBox(), tileId.z).toFfiGeoJson()
       } catch (error: Throwable) {
-        if (error is VirtualMachineError) throw error
+        rethrowIfFatal(error)
         requestedTiles.remove(tileId, request)
         // Reported rather than propagated; the tile stays blank until something invalidates it.
         binding.logger?.e(error) { "Computing tile $tileId of source '$id' failed" }

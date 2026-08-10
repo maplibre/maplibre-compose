@@ -16,6 +16,11 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import co.touchlab.kermit.Logger
+import kotlin.time.TimeSource
+import org.maplibre.compose.util.rethrowIfFatal
+
+/** The origin the frame clock counts from, fixed for the process so hosts can compare frames. */
+private val frameClockOrigin = TimeSource.Monotonic.markNow()
 
 /** Hosts [renderer] on a Compose drawing surface, driving the frame loop. */
 @Composable
@@ -45,7 +50,7 @@ internal fun MlnFfiMapSurface(
           renderer.onSurfaceAvailable(session)
           session.requestFrame()
         } catch (error: Throwable) {
-          if (error is VirtualMachineError) throw error
+          rethrowIfFatal(error)
           failed = true
           logger?.e(error) { "Map renderer failed to take the host surface" }
           drawState.closeRenderer(renderer, logger)
@@ -76,7 +81,7 @@ internal fun MlnFfiMapSurface(
       renderer.onSurfaceChanged(extent)
       session?.requestFrame()
     } catch (error: Throwable) {
-      if (error is VirtualMachineError) throw error
+      rethrowIfFatal(error)
       failed = true
       logger?.e(error) { "Map host failed to resize to ${extent.width}x${extent.height}" }
       drawState.closeRenderer(renderer, logger)
@@ -90,8 +95,9 @@ internal fun MlnFfiMapSurface(
     var drew = false
     if (host != null && session != null && !extent.isEmpty && !failed) {
       val frameId = drawState.nextFrameId()
+      val nowNanos = frameClockOrigin.elapsedNow().inWholeNanoseconds
       try {
-        when (val acquisition = host.acquireFrame(frameId, extent, System.nanoTime())) {
+        when (val acquisition = host.acquireFrame(frameId, extent, nowNanos)) {
           MlnFfiMapFrameAcquisition.NotReady -> session.requestFrame()
           is MlnFfiMapFrameAcquisition.Acquired -> {
             val frame = acquisition.frame
@@ -114,7 +120,7 @@ internal fun MlnFfiMapSurface(
           }
         }
       } catch (error: Throwable) {
-        if (error is VirtualMachineError) throw error
+        rethrowIfFatal(error)
         if (!recoverFromFrameFailure(renderer, session, drawState, frameId, error, logger)) {
           failed = true
           drawState.closeRenderer(renderer, logger)
@@ -163,7 +169,7 @@ private fun recoverFromFrameFailure(
     session.requestFrame()
     true
   } catch (rearmError: Throwable) {
-    if (rearmError is VirtualMachineError) throw rearmError
+    rethrowIfFatal(rearmError)
     logger?.e(rearmError) { "Map renderer failed to take the surface back after frame $frameId" }
     false
   }

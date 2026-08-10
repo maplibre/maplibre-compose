@@ -16,7 +16,10 @@ internal data class MlnFfiMapFrame(
   val extent: MlnFfiMapExtent,
   val target: MlnFfiRenderTarget,
 
-  /** When this frame is expected to be presented, in `System.nanoTime` units, if the host knows. */
+  /**
+   * When this frame is expected to be presented, if the host knows. Nanoseconds on a monotonic
+   * clock whose origin is arbitrary, so only differences between frames mean anything.
+   */
   val presentationTimeNanos: Long?,
 )
 
