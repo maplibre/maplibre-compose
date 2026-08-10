@@ -14,13 +14,18 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.sources.rememberVectorSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.Style
@@ -152,6 +157,69 @@ class BrowserStyleConformanceTest {
     ) { style ->
       assertContains(style.getLayers().map { it.id }, "toggled")
     }
+
+  @Test
+  fun changing_a_source_layer_recreates_the_layer_and_keeps_its_anchor() = runBrowserMapTest {
+    var sourceLayer by mutableStateOf("places")
+    var showLayer by mutableStateOf(true)
+    var style by mutableStateOf<Style?>(null)
+    val failures = mutableListOf<String>()
+
+    fun liveSourceLayer(): String? =
+      ((style?.getLayer("switching-source-layer") as? UnknownLayer)
+          ?.definition
+          ?.get("source-layer"))
+        ?.jsonPrimitive
+        ?.content
+
+    setBrowserMapContent {
+      MaplibreMap(
+        modifier = Modifier,
+        baseStyle = baseStyle,
+        onMapLoadFailed = { failures += it.orEmpty() },
+      ) {
+        CaptureStyle { style = it }
+        val source =
+          rememberVectorSource(
+            tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
+            options = TileSetOptions(minZoom = 24, maxZoom = 24),
+          )
+        Anchor.Replace("base-fill") {
+          if (showLayer) {
+            FillLayer(
+              id = "switching-source-layer",
+              source = source,
+              sourceLayer = sourceLayer,
+              color = const(Color.Blue),
+            )
+          }
+        }
+      }
+    }
+
+    waitUntilMap("the initial source layer to reach the live style") {
+      liveSourceLayer() == "places"
+    }
+    assertEquals(
+      listOf("base-background", "switching-source-layer"),
+      style?.getLayers()?.map { it.id },
+    )
+
+    sourceLayer = "roads"
+    waitUntilMap("the replacement source layer to reach the live style") {
+      liveSourceLayer() == "roads"
+    }
+    assertEquals(
+      listOf("base-background", "switching-source-layer"),
+      style?.getLayers()?.map { it.id },
+    )
+
+    showLayer = false
+    waitUntilMap("the replaced base layer to be restored") {
+      style?.getLayers()?.map { it.id } == listOf("base-background", "base-fill")
+    }
+    assertTrue(failures.isEmpty(), "the map reported load failures: $failures")
+  }
 
   private fun runStyleTest(
     content: @Composable @MaplibreComposable () -> Unit = {},

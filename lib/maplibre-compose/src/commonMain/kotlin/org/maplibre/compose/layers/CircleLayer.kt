@@ -102,6 +102,7 @@ public fun CircleLayer(
   SourceReferenceEffect(source)
   LayerNode(
     factory = { CircleLayer(id = id, source = source) },
+    recreateKey = sourceLayer,
     update = {
       set(sourceLayer) { layer.sourceLayer = it }
       set(minZoom) { layer.minZoom = it }

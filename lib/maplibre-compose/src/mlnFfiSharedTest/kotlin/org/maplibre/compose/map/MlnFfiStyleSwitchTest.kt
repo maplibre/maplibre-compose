@@ -110,6 +110,64 @@ class MlnFfiStyleSwitchTest {
     assertTrue(errors.isEmpty(), "Rotating the style reported errors: $errors")
   }
 
+  @Test
+  fun recreating_a_replacement_layer_while_switching_the_base_style() = runFfiComposeUiTest {
+    val errors = mutableListOf<String>()
+    var loadsFinished = 0
+    var style by mutableStateOf(REPLACEMENT_STYLES[0])
+    var sourceLayer by mutableStateOf("places")
+    var showReplacement by mutableStateOf(true)
+    lateinit var cameraState: CameraState
+
+    setFfiTestMapContent(runtimeOptions) {
+      cameraState = rememberCameraState()
+      MaplibreMap(
+        modifier = Modifier,
+        baseStyle = style,
+        cameraState = cameraState,
+        logger = Logger.withTag("replacement-style-switch-test"),
+        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        onMapLoadFinished = { loadsFinished++ },
+      ) {
+        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+        if (showReplacement) {
+          Anchor.Replace("base-slot") {
+            FillLayer(
+              id = "user-replacement",
+              source = points,
+              sourceLayer = sourceLayer,
+              color = const(Color.Blue),
+            )
+          }
+        }
+      }
+    }
+
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
+    val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+    fun replacementLayers(): List<String> =
+      session.currentStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      replacementLayers() == listOf("bg-a", "user-replacement")
+    }
+
+    val loadsBefore = loadsFinished
+    runOnUiThread {
+      style = REPLACEMENT_STYLES[1]
+      sourceLayer = "roads"
+    }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > loadsBefore }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      replacementLayers() == listOf("bg-b", "user-replacement")
+    }
+    assertTrue(errors.isEmpty(), "Switching the style reported errors: $errors")
+
+    runOnUiThread { showReplacement = false }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+      replacementLayers() == listOf("bg-b", "base-slot")
+    }
+  }
+
   private fun androidx.compose.ui.test.ComposeUiTest.assertStyleLayers(
     session: MlnFfiMapSession,
     style: DemoStyle,
@@ -149,6 +207,28 @@ class MlnFfiStyleSwitchTest {
 
     val RELEVANT_LAYER_IDS =
       setOf("bg-a", "labels-a", "bg-b", "labels-b", "user-fill", "user-extra", "user-circles")
+
+    val REPLACEMENT_LAYER_IDS = setOf("bg-a", "bg-b", "base-slot", "user-replacement")
+
+    val REPLACEMENT_STYLES =
+      listOf(
+        BaseStyle.Json(
+          """
+          {"version":8,"sources":{},"layers":[
+            {"id":"bg-a","type":"background","paint":{"background-color":"#eee"}},
+            {"id":"base-slot","type":"background","paint":{"background-color":"#e0e0e0"}}
+          ]}
+          """
+        ),
+        BaseStyle.Json(
+          """
+          {"version":8,"sources":{},"layers":[
+            {"id":"bg-b","type":"background","paint":{"background-color":"#ddd"}},
+            {"id":"base-slot","type":"background","paint":{"background-color":"#cccccc"}}
+          ]}
+          """
+        ),
+      )
 
     /**
      * Styles with different layer sets, so a re-add lands against a different base each time.

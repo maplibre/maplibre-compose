@@ -10,6 +10,7 @@ import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
+/** [recreateKey] replaces the node through the layer manager when a construction key changes. */
 @Composable
 @MaplibreComposable
 internal fun <T : Layer> LayerNode(
@@ -17,11 +18,12 @@ internal fun <T : Layer> LayerNode(
   update: Updater<LayerNode<T>>.() -> Unit,
   onClick: FeaturesClickHandler?,
   onLongClick: FeaturesClickHandler?,
+  recreateKey: Any? = Unit,
 ) {
   val anchor = LocalAnchor.current
   val node = LocalStyleNode.current
 
-  key(factory, anchor) {
+  key(factory, anchor, recreateKey) {
     ComposeNode<LayerNode<T>, MapNodeApplier>(
       factory = { LayerNode(layer = factory(), anchor = anchor) },
       update = {
