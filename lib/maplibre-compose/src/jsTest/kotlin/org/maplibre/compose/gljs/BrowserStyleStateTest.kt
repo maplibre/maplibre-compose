@@ -13,8 +13,10 @@ import kotlin.test.assertTrue
 import kotlinx.browser.window
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.sources.rememberRasterSource
+import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LocalStyleNode
+import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
 
@@ -157,7 +159,7 @@ class BrowserStyleStateTest {
     runBrowserMapTest {
       val (restoreFetch, resolveTileJson) = installDeferredTileJson()
       try {
-        var showSource by mutableStateOf(false)
+        var node: StyleNode? = null
         var state: StyleState? = null
         var loads = 0
         setBrowserMapContent {
@@ -169,17 +171,17 @@ class BrowserStyleStateTest {
             styleState = styleState,
             onMapLoadFinished = { loads += 1 },
           ) {
-            if (showSource) {
-              RasterLayer(
-                id = "late-layer",
-                source = rememberRasterSource("https://tilejson.test/x.json"),
-              )
-            }
+            node = LocalStyleNode.current
           }
         }
-        waitUntilMap("the empty map to finish loading") { loads == 1 }
+        waitUntilMap("the empty map to finish loading") { loads == 1 && node != null }
 
-        showSource = true
+        val source = RasterSource("late-source", "https://tilejson.test/x.json")
+        checkNotNull(node).let { liveNode ->
+          liveNode.sourceManager.addReference(source)
+          liveNode.style.addLayer(RasterLayer(id = "late-layer", source = source))
+        }
+
         waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }
         assertEquals(listOf(""), state?.sources?.values?.map { it.attributionHtml })
         val initialSource = state?.sources?.values?.single()
