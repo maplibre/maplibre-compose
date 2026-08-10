@@ -14,6 +14,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.io.files.Path
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
@@ -264,7 +265,7 @@ class LinuxVulkanOpenGlInteropTest {
         logger = null,
         renderBackend = host.backends.producer,
         layoutDirection = LayoutDirection.Ltr,
-        cacheFile = cacheDirectory.resolve("cache.db").toFile(),
+        cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
       )
 
     private val hostSession =

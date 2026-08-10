@@ -1,11 +1,12 @@
 package org.maplibre.compose.offline
 
 import co.touchlab.kermit.Logger
-import java.io.File
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.withLock
 import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.io.files.Path
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
@@ -31,7 +32,7 @@ private const val PUMP_PARK_MILLIS = -1L
  * correctness.
  */
 internal class MlnFfiOfflineRuntime(
-  private val cacheFile: File,
+  private val cacheFile: Path,
   private val logger: Logger,
   private val onEvent: (RuntimeEvent) -> Unit,
 ) {

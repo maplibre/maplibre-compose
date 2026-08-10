@@ -1,7 +1,8 @@
 package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceProviderCallback
@@ -25,6 +26,7 @@ private val NETWORK_SCHEMES = setOf("http", "https")
  * Installed with the runtime. Provider-owned [ResourceRequestHandle] instances remain valid
  * independently of runtime teardown, so accepted reads can safely finish after [close].
  */
+@OptIn(ExperimentalAtomicApi::class)
 internal class MlnFfiResourceProvider(
   private val getLogger: () -> Logger?,
   /** Turns a URL into a response. Test seam: a fake can hold a read open mid-shutdown. */
@@ -53,7 +55,7 @@ internal class MlnFfiResourceProvider(
 
   /** Queues [request] for the reader, or refuses it if this provider is shutting down. */
   fun take(request: TakenResourceRequest, url: String, requestedUrl: String) {
-    if (!accepting.get()) {
+    if (!accepting.load()) {
       refuse(request, url, requestedUrl)
       return
     }
@@ -103,7 +105,7 @@ internal class MlnFfiResourceProvider(
 
   /** Stops taking new reads. Accepted reads own their handles and finish independently. */
   override fun close() {
-    accepting.set(false)
+    accepting.store(false)
   }
 }
 

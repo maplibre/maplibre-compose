@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.clickable
@@ -29,7 +31,9 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -218,22 +222,25 @@ class MlnFfiMapInputTest {
 
   @Test
   fun a_map_click_does_not_also_click_its_parent() {
-    val parentClicks = AtomicInteger()
+    val parentClicks = AtomicInt(0)
 
-    runInputTest(focusWithMouse = false, parentOnClick = parentClicks::incrementAndGet) {
+    runInputTest(focusWithMouse = false, parentOnClick = { parentClicks.incrementAndFetch() }) {
       onRoot().performMouseInput { click(center) }
       waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
       waitForIdle()
 
-      assertEquals(0, parentClicks.get())
+      assertEquals(0, parentClicks.load())
     }
   }
 
   @Test
   fun a_map_long_click_does_not_also_long_click_its_parent() {
-    val parentLongClicks = AtomicInteger()
+    val parentLongClicks = AtomicInt(0)
 
-    runInputTest(focusWithMouse = false, parentOnLongClick = parentLongClicks::incrementAndGet) {
+    runInputTest(
+      focusWithMouse = false,
+      parentOnLongClick = { parentLongClicks.incrementAndFetch() },
+    ) {
       val map = onRoot()
       map.performTouchInput { down(0, center) }
       mainClock.advanceTimeBy(1_000)
@@ -241,7 +248,7 @@ class MlnFfiMapInputTest {
       map.performTouchInput { up(0) }
       waitForIdle()
 
-      assertEquals(0, parentLongClicks.get())
+      assertEquals(0, parentLongClicks.load())
     }
   }
 
@@ -658,7 +665,7 @@ class MlnFfiMapInputTest {
     parentOnLongClick: (() -> Unit)? = null,
     body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
   ) = runFfiComposeUiTest {
-    val frames = AtomicInteger()
+    val frames = AtomicInt(0)
     val initialPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
     lateinit var cameraState: CameraState
 
@@ -678,7 +685,7 @@ class MlnFfiMapInputTest {
             longClicks.add(position)
             ClickResult.Pass
           },
-          onFrame = { frames.incrementAndGet() },
+          onFrame = { frames.incrementAndFetch() },
           logger = Logger.withTag("input-test"),
         )
       }
@@ -697,7 +704,7 @@ class MlnFfiMapInputTest {
 
     cameraState.awaitProjection()
     cameraState.position = initialPosition
-    waitUntil(timeoutMillis = TIMEOUT) { frames.get() > 0 }
+    waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
     waitUntil(timeoutMillis = TIMEOUT) {
       kotlin.math.abs(cameraState.position.zoom - START_ZOOM) < 0.001
     }

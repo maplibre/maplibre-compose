@@ -2,7 +2,6 @@ package org.maplibre.compose.sources
 
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -13,6 +12,7 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -28,7 +28,7 @@ import org.maplibre.spatialk.geojson.Position
 class ComputedSourceTest {
 
   /** Every request MapLibre made, recorded from whichever thread the source answered on. */
-  private val requests = ConcurrentLinkedQueue<Request>()
+  private val requests = RecordingList<Request>()
 
   private data class Request(val zoom: Int, val bounds: BoundingBox, val thread: String)
 

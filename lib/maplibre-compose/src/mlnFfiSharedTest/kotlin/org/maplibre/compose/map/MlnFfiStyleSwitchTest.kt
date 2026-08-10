@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.getValue
@@ -7,7 +9,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import co.touchlab.kermit.Logger
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -52,7 +56,7 @@ class MlnFfiStyleSwitchTest {
 
   @Test
   fun rotating_the_base_style_with_content_composed_over_it() = runFfiComposeUiTest {
-    val frames = AtomicInteger()
+    val frames = AtomicInt(0)
     val errors = mutableListOf<String>()
     var loadsFinished = 0
     var style by mutableStateOf(STYLES[0])
@@ -68,7 +72,7 @@ class MlnFfiStyleSwitchTest {
         logger = Logger.withTag("style-switch-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onMapLoadFinished = { loadsFinished++ },
-        onFrame = { frames.incrementAndGet() },
+        onFrame = { frames.incrementAndFetch() },
       ) {
         val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
         // Two layers on one source at different anchors, so the re-add order matters.
@@ -88,17 +92,17 @@ class MlnFfiStyleSwitchTest {
 
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
     // this test deliberately does not cover.
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 && frames.get() > 0 }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 && frames.load() > 0 }
     val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
     assertStyleLayers(session, style, extraLayer)
 
     repeat(ROTATIONS) { round ->
       val loadsBefore = loadsFinished
-      val framesBefore = frames.get()
+      val framesBefore = frames.load()
       style = STYLES[(round + 1) % STYLES.size]
       extraLayer = !extraLayer
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        loadsFinished > loadsBefore && frames.get() > framesBefore
+        loadsFinished > loadsBefore && frames.load() > framesBefore
       }
       assertStyleLayers(session, style, extraLayer)
     }

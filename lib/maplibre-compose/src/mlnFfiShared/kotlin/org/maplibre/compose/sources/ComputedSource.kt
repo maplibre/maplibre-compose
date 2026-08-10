@@ -2,10 +2,9 @@
 
 package org.maplibre.compose.sources
 
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
-import java.util.concurrent.locks.ReentrantLock
-import kotlin.concurrent.withLock
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.PI
 import kotlin.math.atan
 import kotlin.math.pow
@@ -13,6 +12,8 @@ import kotlin.math.sinh
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.mlnffi.MlnFfiLock
+import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.startMlnFfiBlockingWork
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.compose.util.toLatLngBounds
@@ -28,26 +29,31 @@ import org.maplibre.spatialk.geojson.Position
  * A source whose tiles this application generates: MapLibre decides which tiles it needs, asks
  * [getFeatures] for each, and asks again whenever one is invalidated.
  */
+@OptIn(ExperimentalAtomicApi::class)
 public actual class ComputedSource : Source {
 
   private val options: ComputedSourceOptions
   private val getFeatures: (bounds: BoundingBox, zoomLevel: Int) -> FeatureCollection<*, *>
 
   /**
-   * Tiles MapLibre has asked for and has not cancelled. Concurrent because MapLibre worker threads
-   * add and cancel entries while the map's owner thread takes them.
+   * Tiles MapLibre has asked for and has not cancelled, guarded by [requestedTilesLock] because
+   * MapLibre worker threads add and cancel entries while the map's owner thread takes them.
    */
-  private val requestedTiles = ConcurrentHashMap<CanonicalTileId, Long>()
-  private val nextRequest = AtomicLong()
+  private val requestedTiles = mutableMapOf<CanonicalTileId, Long>()
+  private val requestedTilesLock = MlnFfiLock()
+  private val nextRequest = AtomicLong(0L)
 
-  /** Keeps this source's application callback serialized without owning a worker executor. */
-  private val computeLock = ReentrantLock(true)
+  /**
+   * Keeps this source's application callback serialized without owning a worker executor. Fair, so
+   * a stream of tile requests cannot starve one thread that is already waiting to compute.
+   */
+  private val computeLock = MlnFfiLock(fair = true)
 
   private val callback =
     object : CustomGeometrySourceCallback {
       override fun fetchTile(tileId: CanonicalTileId) {
-        val request = nextRequest.incrementAndGet()
-        requestedTiles[tileId] = request
+        val request = nextRequest.incrementAndFetch()
+        requestedTilesLock.withLock { requestedTiles[tileId] = request }
         startMlnFfiBlockingWork("maplibre-computed-source-$id") {
           computeLock.withLock { answer(tileId, request) }
         }
@@ -56,7 +62,7 @@ public actual class ComputedSource : Source {
       override fun cancelTile(tileId: CanonicalTileId) {
         // Forgetting the tile is what stops it; [answer] rechecks on the owner thread before it
         // writes, so a cancel arriving any time up to the write is honored.
-        requestedTiles.remove(tileId)
+        requestedTilesLock.withLock { requestedTiles.remove(tileId) }
       }
     }
 
@@ -98,13 +104,13 @@ public actual class ComputedSource : Source {
 
   /** Computes one tile and delivers it away from MapLibre's callback thread. */
   private fun answer(tileId: CanonicalTileId, request: Long) {
-    if (requestedTiles[tileId] != request) return
+    if (requestedTilesLock.withLock { requestedTiles[tileId] } != request) return
     val data =
       try {
         getFeatures(tileId.toBoundingBox(), tileId.z).toFfiGeoJson()
       } catch (error: Throwable) {
         rethrowIfFatal(error)
-        requestedTiles.remove(tileId, request)
+        forgetTile(tileId, request)
         // Reported rather than propagated; the tile stays blank until something invalidates it.
         binding.logger?.e(error) { "Computing tile $tileId of source '$id' failed" }
         return
@@ -112,11 +118,17 @@ public actual class ComputedSource : Source {
     // The cancellation check shares the owner-thread hop with the write, so nothing can cancel
     // between deciding to write and writing.
     binding.mutateMap { map ->
-      if (requestedTiles.remove(tileId, request)) {
+      if (forgetTile(tileId, request)) {
         map.setCustomGeometrySourceTileData(id, tileId, data)
       }
     }
   }
+
+  /** Drops [tileId] if it is still the answer to [request], reporting whether it was. */
+  private fun forgetTile(tileId: CanonicalTileId, request: Long): Boolean =
+    requestedTilesLock.withLock {
+      if (requestedTiles[tileId] != request) false else requestedTiles.remove(tileId) != null
+    }
 
   public actual fun invalidateBounds(bounds: BoundingBox) {
     mutate { map -> map.invalidateCustomGeometrySourceRegion(id, bounds.toLatLngBounds()) }
@@ -131,7 +143,7 @@ public actual class ComputedSource : Source {
     val geoJson = data.toFfiGeoJson()
     val tileId = tileId(zoomLevel, x, y)
     // Forgotten first, so an answer still in flight does not overwrite what was just supplied.
-    requestedTiles.remove(tileId)
+    requestedTilesLock.withLock { requestedTiles.remove(tileId) }
     mutate { map -> map.setCustomGeometrySourceTileData(id, tileId, geoJson) }
   }
 

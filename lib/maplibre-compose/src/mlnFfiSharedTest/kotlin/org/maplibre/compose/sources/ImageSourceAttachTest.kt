@@ -1,13 +1,13 @@
 package org.maplibre.compose.sources
 
 import androidx.compose.ui.graphics.ImageBitmap
-import java.util.concurrent.ConcurrentLinkedQueue
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.PositionQuad
@@ -24,7 +24,7 @@ import org.maplibre.spatialk.geojson.Position
  */
 class ImageSourceAttachTest {
 
-  private val records = ConcurrentLinkedQueue<LogRecord>()
+  private val records = RecordingList<LogRecord>()
 
   init {
     // Process-global; safe because each platform test process runs without parallel forks.

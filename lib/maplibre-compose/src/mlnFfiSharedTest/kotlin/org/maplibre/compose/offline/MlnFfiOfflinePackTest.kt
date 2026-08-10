@@ -13,8 +13,13 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.writeString
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -27,7 +32,7 @@ import org.maplibre.spatialk.geojson.Position
 class MlnFfiOfflinePackTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
-  private val directory = requireNotNull(cacheFile.parentFile)
+  private val directory = requireNotNull(cacheFile.parent)
 
   private val options = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
   private val managers = mutableListOf<MlnFfiOfflineManager>()
@@ -319,9 +324,11 @@ class MlnFfiOfflinePackTest {
 
   private fun writeStyle(name: String): String {
     // No sources and no layers, so MapLibre has exactly one resource to fetch.
-    val file = directory.resolve(name)
-    file.writeText("""{"version":8,"name":"offline test","sources":{},"layers":[]}""")
-    return file.toURI().toString()
+    val file = Path(directory, name)
+    SystemFileSystem.sink(file).buffered().use {
+      it.writeString("""{"version":8,"name":"offline test","sources":{},"layers":[]}""")
+    }
+    return fileUrlOf(file)
   }
 
   /**

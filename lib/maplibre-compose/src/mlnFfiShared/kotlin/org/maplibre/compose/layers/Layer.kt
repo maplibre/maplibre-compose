@@ -1,5 +1,6 @@
 package org.maplibre.compose.layers
 
+import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject

@@ -3,7 +3,6 @@ package org.maplibre.compose.layers
 import co.touchlab.kermit.LogWriter
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
-import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -19,6 +18,7 @@ import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.TextRotationAlignment
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -174,7 +174,7 @@ class UnsupportedLayerPropertyTest {
      * Warnings the library logged. Kermit's writers are global and cannot be removed, so this is
      * installed once; each platform test process runs without parallel forks.
      */
-    val CAPTURED = CopyOnWriteArrayList<String>()
+    val CAPTURED = RecordingList<String>()
 
     init {
       Logger.addLogWriter(
