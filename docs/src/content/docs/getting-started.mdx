@@ -194,7 +194,28 @@ androidMain.dependencies {
   [status table](/maplibre-compose/#status) for more info.
 </Aside>
 
-There are no longer any special steps required to use MapLibre Compose on Web.
+Compile the JS target to ES modules. MapLibre Compose declares MapLibre GL JS as
+an ES module, which a UMD build cannot load.
+
+```kotlin title="build.gradle.kts"
+kotlin {
+  js {
+    useEsModules()
+    browser()
+  }
+}
+```
+
+Initialize MapLibre inside `onWasmReady`, before Compose starts.
+
+```kotlin title="main.kt"
+fun main() {
+  onWasmReady {
+    MapLibre.initialize()
+    ComposeViewport(document.body!!) { App() }
+  }
+}
+```
 
 ## Set up Desktop (JVM)
 
