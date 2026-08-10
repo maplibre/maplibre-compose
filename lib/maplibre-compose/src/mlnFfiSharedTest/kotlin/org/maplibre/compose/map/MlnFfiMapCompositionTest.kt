@@ -233,9 +233,12 @@ class MlnFfiMapCompositionTest {
       body = {
         val map = requireNotNull(cameraState.map) { "The map never reached the camera state" }
         // The initial camera is replayed on the map's own thread, so attaching the map is not the
-        // camera arriving.
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
-          abs(map.getCameraPosition().zoom - firstPosition.zoom) < POSITION_TOLERANCE
+        // camera arriving. The assertions below report what arrived instead, which a timeout here
+        // would not.
+        runCatching {
+          waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+            abs(map.getCameraPosition().zoom - firstPosition.zoom) < POSITION_TOLERANCE
+          }
         }
         val actual = map.getCameraPosition()
         assertEquals(

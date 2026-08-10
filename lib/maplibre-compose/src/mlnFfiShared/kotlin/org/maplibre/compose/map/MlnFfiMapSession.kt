@@ -387,6 +387,9 @@ internal class MlnFfiMapSession(
   /** Runs on the loop's thread, once, before the map is published. */
   private fun onMapCreated(map: MapHandle) {
     applyRequestedStyle(map)
+    // A camera set before this map existed reaches it as a queued jump, which a loop that stopped
+    // before running it has already abandoned.
+    requestedCamera?.let { map.jumpTo(it.toCameraOptions(layoutDirection)) }
   }
 
   private fun ensureAttached(map: MapHandle, frame: MlnFfiMapFrame): Boolean {
