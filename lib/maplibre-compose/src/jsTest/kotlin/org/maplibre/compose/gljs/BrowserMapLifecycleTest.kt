@@ -1,14 +1,22 @@
 package org.maplibre.compose.gljs
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.unit.Density
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
 class BrowserMapLifecycleTest {
@@ -58,6 +66,35 @@ class BrowserMapLifecycleTest {
     }
     visible = true
     waitUntilMap("the replacement map to load") { loads >= 2 }
+  }
+
+  @Test
+  fun changing_density_rebuilds_the_map_and_keeps_its_camera() = runBrowserMapTest {
+    var density by mutableStateOf(Density(1f))
+    var loads = 0
+    val expectedCamera =
+      CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
+    val cameraState = CameraState(expectedCamera)
+
+    setBrowserMapContent {
+      CompositionLocalProvider(LocalDensity provides density) {
+        MaplibreMap(
+          modifier = Modifier,
+          baseStyle = style,
+          cameraState = cameraState,
+          onMapLoadFinished = { loads += 1 },
+        )
+      }
+    }
+    waitUntilMap("the first map to load") { loads >= 1 }
+    val firstProjection = cameraState.projection
+
+    density = Density(2f)
+    waitUntilMap("the replacement map to load at the new density") { loads >= 2 }
+
+    assertNotSame(firstProjection, cameraState.projection, "the camera should attach to a new map")
+    assertEquals(expectedCamera.target, cameraState.position.target, "camera target")
+    assertEquals(expectedCamera.zoom, cameraState.position.zoom, 0.001, "camera zoom")
   }
 
   @Test

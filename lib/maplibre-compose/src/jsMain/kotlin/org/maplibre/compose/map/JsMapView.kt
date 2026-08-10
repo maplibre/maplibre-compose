@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -29,10 +30,12 @@ internal actual fun ComposableMapView(
 ) {
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
+  val scaleFactor = density.density.toDouble()
 
-  val session = remember {
-    GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
-  }
+  val session =
+    remember(scaleFactor) {
+      GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
+    }
 
   session.callbacks = callbacks
   session.logger = logger
@@ -56,10 +59,13 @@ internal actual fun ComposableMapView(
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
-  GlJsMapSurface(
-    renderer = session,
-    modifier =
-      modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
-    logger = logger,
-  )
+  // A new Canvas delays the first frame until the update path attaches the camera to the session.
+  key(session) {
+    GlJsMapSurface(
+      renderer = session,
+      modifier =
+        modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
+      logger = logger,
+    )
+  }
 }
