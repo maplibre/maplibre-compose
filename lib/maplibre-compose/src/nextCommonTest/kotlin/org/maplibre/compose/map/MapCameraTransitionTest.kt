@@ -10,6 +10,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -26,6 +27,61 @@ import org.maplibre.spatialk.geojson.Position
  * Both backends advance a transition only from inside a render, so every test renders as it waits.
  */
 class MapCameraTransitionTest {
+
+  @Test
+  fun an_animation_requested_before_the_first_frame_reaches_its_target(): MapTestResult =
+    runMapTest {
+      createMapFixture().use {
+        it.session.setBaseStyle(BaseStyle.Empty)
+        val animation =
+          CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
+            it.session.animateCameraPosition(TARGET, 200.milliseconds)
+          }
+
+        assertFalse(
+          animation.isCompleted,
+          "the animation should wait until the map can run it",
+        )
+        it.pumpUntil("the startup animation to complete") { animation.isCompleted }
+
+        assertFalse(animation.isCancelled, "the startup animation should complete normally")
+        assertNear(
+          TARGET.zoom,
+          it.session.getCameraPosition().zoom,
+          "the startup animation should reach its target zoom",
+        )
+        assertNear(
+          TARGET.target.longitude,
+          it.session.getCameraPosition().target.longitude,
+          "the startup animation should reach its target longitude",
+        )
+        assertNear(
+          TARGET.target.latitude,
+          it.session.getCameraPosition().target.latitude,
+          "the startup animation should reach its target latitude",
+        )
+      }
+    }
+
+  @Test
+  fun closing_before_the_first_frame_resumes_a_queued_animation(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.session.setBaseStyle(BaseStyle.Empty)
+      val animation =
+        CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
+          it.session.animateCameraPosition(TARGET, 60.seconds)
+        }
+
+      assertFalse(
+        animation.isCompleted,
+        "the animation should still be waiting when the session closes",
+      )
+      it.closeSession()
+      it.pumpUntil("the queued animation to resume during teardown") { animation.isCompleted }
+
+      assertFalse(animation.isCancelled, "teardown should resume the waiter, not cancel it")
+    }
+  }
 
   @Test
   fun a_bounds_fit_requested_before_the_first_frame_uses_the_real_viewport(): MapTestResult =

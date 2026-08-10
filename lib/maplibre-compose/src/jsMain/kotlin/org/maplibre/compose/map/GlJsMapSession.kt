@@ -85,7 +85,19 @@ internal class GlJsMapSession(
   private var surface: GlJsSurfaceSession? = null
   private var closed = false
 
-  private val pending = mutableListOf<(MaplibreMap) -> Unit>()
+  private class PendingMapAction(
+    val run: (MaplibreMap) -> Unit,
+    val abandon: () -> Unit,
+  )
+
+  /** Actions accepted before Compose supplies the context used to construct the map. */
+  private val pendingMapActions = mutableListOf<PendingMapAction>()
+
+  /** Transitions MapLibre would cancel while applying the first style's camera. */
+  private val pendingInitialStyleActions = mutableListOf<PendingMapAction>()
+
+  /** Readiness belongs to a map instance, not to its current, replaceable style. */
+  private var hasLoadedInitialStyle = false
 
   private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
@@ -171,9 +183,10 @@ internal class GlJsMapSession(
     closed = true
     isGestureInProgress = false
     endCameraMove()
+    abandonPending(pendingMapActions)
+    abandonPending(pendingInitialStyleActions)
     destroyMap()
     surface = null
-    resumeStrandedTransitions()
   }
 
   /**
@@ -224,15 +237,15 @@ internal class GlJsMapSession(
     wireEvents(created)
 
     map = created
+    hasLoadedInitialStyle = false
     appliedExtent = MapExtent.Empty
     applyRequestedStyle(created)
-    val queued = pending.toList()
-    pending.clear()
-    queued.forEach { it(created) }
+    runPending(pendingMapActions, created)
     return created
   }
 
   private fun destroyMap() {
+    hasLoadedInitialStyle = false
     val current = map ?: return
     map = null
     styleBinding?.unload()
@@ -248,6 +261,7 @@ internal class GlJsMapSession(
       .onFailure { logger?.e(it) { "MapLibre failed to close" } }
     container?.let { runCatching { it.remove() } }
     container = null
+    resumeStrandedTransitions()
   }
 
   private fun applyExtent(map: MaplibreMap, extent: MapExtent) {
@@ -294,6 +308,10 @@ internal class GlJsMapSession(
       styleBinding?.unload()
       val binding = GlJsStyleBinding(map, logger).also { styleBinding = it }
       callbacks.onStyleChanged(this, GlJsStyle(binding) { appliedExtent.scaleFactor.toFloat() })
+      if (!hasLoadedInitialStyle) {
+        hasLoadedInitialStyle = true
+        runPending(pendingInitialStyleActions, map)
+      }
       reportStyleLoaded = true
       reportLoadedOnceStyleIsReady(map)
     }
@@ -307,6 +325,7 @@ internal class GlJsMapSession(
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
         callbacks.onMapFailLoading(reason)
+        if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
         // Tile and sprite failures land here too, and are not the map failing to load.
         logger?.w { "MapLibre reported an error: $reason" }
@@ -351,9 +370,38 @@ internal class GlJsMapSession(
   // region dispatch
 
   private fun onMap(action: (MaplibreMap) -> Unit) {
-    if (closed) return
+    postWhenMapExists(PendingMapAction(action, abandon = {}))
+  }
+
+  private fun postWhenMapExists(action: PendingMapAction) {
+    if (closed) {
+      action.abandon()
+      return
+    }
     val current = map
-    if (current == null) pending += action else action(current)
+    if (current == null) pendingMapActions += action else action.run(current)
+  }
+
+  private fun postWhenInitialStyleLoaded(action: PendingMapAction) {
+    if (closed) {
+      action.abandon()
+      return
+    }
+    val current = map
+    if (current == null || !hasLoadedInitialStyle) pendingInitialStyleActions += action
+    else action.run(current)
+  }
+
+  private fun runPending(actions: MutableList<PendingMapAction>, map: MaplibreMap) {
+    val running = actions.toList()
+    actions.clear()
+    running.forEach { it.run(map) }
+  }
+
+  private fun abandonPending(actions: MutableList<PendingMapAction>) {
+    val abandoned = actions.toList()
+    actions.clear()
+    abandoned.forEach { it.abandon() }
   }
 
   private fun <T> withMap(fallback: T, action: (MaplibreMap) -> T): T = map?.let(action) ?: fallback
@@ -391,6 +439,7 @@ internal class GlJsMapSession(
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
       callbacks.onMapFailLoading(reason)
+      if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
   }
 
@@ -580,27 +629,37 @@ internal class GlJsMapSession(
    */
   private suspend fun awaitCameraRelease(start: (MaplibreMap) -> Unit) =
     suspendCancellableCoroutine { continuation ->
-      val current = map
-      if (current == null || closed) {
-        continuation.resume(Unit)
-        return@suspendCancellableCoroutine
-      }
+      val pending =
+        PendingMapAction(
+          run = { current -> startTransitionOnMap(current, start, continuation) },
+          abandon = { if (continuation.isActive) continuation.resume(Unit) },
+        )
       continuation.invokeOnCancellation {
-        transitionWaiters -= continuation
-        map?.stop()
+        if (pendingInitialStyleActions.remove(pending)) return@invokeOnCancellation
+        if (transitionWaiters.remove(continuation)) map?.stop()
       }
-      try {
-        start(current)
-      } catch (error: Throwable) {
-        if (continuation.isActive) continuation.resumeWith(Result.failure(error))
-        return@suspendCancellableCoroutine
-      }
-      // Registered after the call rather than before it: replacing a transition ends the old one
-      // from inside this call, and that `moveend` belongs to the transition being replaced. One
-      // that finished inside the call leaves the map at rest instead.
-      if (current.isEasing()) transitionWaiters += continuation
-      else if (continuation.isActive) continuation.resume(Unit)
+      postWhenInitialStyleLoaded(pending)
     }
+
+  private fun startTransitionOnMap(
+    map: MaplibreMap,
+    start: (MaplibreMap) -> Unit,
+    continuation: CancellableContinuation<Unit>,
+  ) {
+    // Cancellation while this waits for the first style must not start a transition later.
+    if (!continuation.isActive) return
+    try {
+      start(map)
+    } catch (error: Throwable) {
+      if (continuation.isActive) continuation.resumeWith(Result.failure(error))
+      return
+    }
+    // Registered after the call rather than before it: replacing a transition ends the old one
+    // from inside this call, and that `moveend` belongs to the transition being replaced. One
+    // that finished inside the call leaves the map at rest instead.
+    if (map.isEasing()) transitionWaiters += continuation
+    else if (continuation.isActive) continuation.resume(Unit)
+  }
 
   private fun resumeTransitions() {
     if (transitionWaiters.isEmpty()) return
@@ -615,6 +674,7 @@ internal class GlJsMapSession(
   }
 
   override fun cancelTransitions() {
+    abandonPending(pendingInitialStyleActions)
     onMap { it.stop() }
   }
 
