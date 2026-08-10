@@ -318,7 +318,12 @@ internal class GlJsMapSession(
     // A source naming a TileJSON fetches it after `style.load`, so its attribution is not readable
     // there.
     map.subscribe("styledata") { reportLoadedOnceStyleIsReady(map) }
-    map.subscribe("sourcedata") { reportLoadedOnceStyleIsReady(map) }
+    map.subscribe("sourcedata") { event ->
+      reportLoadedOnceStyleIsReady(map)
+      if (event.sourceDataType == "metadata") {
+        event.sourceId?.let { callbacks.onSourceChanged(this, it) }
+      }
+    }
     map.subscribe("error") { event ->
       val reason = event.error?.message ?: "MapLibre failed to load the map"
       if (styleLoadPending) {

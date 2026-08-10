@@ -141,8 +141,12 @@ public fun MaplibreMap(
         }
 
         override fun onMapFinishedLoading(map: MapAdapter) {
-          styleState.reloadSources()
+          styleState.refreshSources()
           onMapLoadFinished()
+        }
+
+        override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
+          if (sourceId == null) styleState.refreshSources() else styleState.refreshSource(sourceId)
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {

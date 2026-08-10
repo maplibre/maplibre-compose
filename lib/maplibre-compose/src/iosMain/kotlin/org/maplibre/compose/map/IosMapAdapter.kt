@@ -32,6 +32,7 @@ import MapLibre.MLNOrnamentPositionBottomLeft
 import MapLibre.MLNOrnamentPositionBottomRight
 import MapLibre.MLNOrnamentPositionTopLeft
 import MapLibre.MLNOrnamentPositionTopRight
+import MapLibre.MLNSource
 import MapLibre.MLNStyle
 import MapLibre.allowsTilting
 import androidx.compose.foundation.layout.PaddingValues
@@ -163,6 +164,10 @@ internal class IosMapAdapter(
         map = map,
         style = IosStyle(style = didFinishLoadingStyle, getScale = { map.density.density }),
       )
+    }
+
+    override fun mapView(mapView: MLNMapView, sourceDidChange: MLNSource) {
+      map.callbacks.onSourceChanged(map, sourceDidChange.identifier)
     }
 
     private val anyGesture =

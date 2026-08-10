@@ -28,6 +28,8 @@ internal interface MapFixture : AutoCloseable {
 
   val events: MutableList<String>
 
+  val sourceChanges: MutableList<String?>
+
   val errors: MutableList<String>
 
   suspend fun loadStyle(style: BaseStyle, timeout: Duration = 60.seconds)
@@ -125,6 +127,8 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   val events: MutableList<String> = mutableListOf()
 
+  val sourceChanges: MutableList<String?> = mutableListOf()
+
   val errors: MutableList<String> = mutableListOf()
 
   var style: Style? = null
@@ -137,6 +141,10 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   override fun onMapFinishedLoading(map: MapAdapter) {
     events += MapFixture.LOAD_FINISHED
+  }
+
+  override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
+    sourceChanges += sourceId
   }
 
   override fun onMapFailLoading(reason: String?) {

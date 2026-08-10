@@ -113,6 +113,7 @@ internal class AndroidMapAdapter(
 
   init {
     mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
+    mapView.addOnSourceChangedListener { callbacks.onSourceChanged(this, it) }
     mapView.addOnDidFailLoadingMapListener { callbacks.onMapFailLoading(it) }
 
     map.addOnCameraMoveStartedListener { reason ->

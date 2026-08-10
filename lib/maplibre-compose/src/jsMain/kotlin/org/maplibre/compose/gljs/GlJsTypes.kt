@@ -15,6 +15,8 @@ internal external interface Subscription {
 /** Only the `error` event carries an [error]. */
 internal external interface MapEvent {
   val error: JsError?
+  val sourceId: String?
+  val sourceDataType: String?
 }
 
 internal external interface JsError {

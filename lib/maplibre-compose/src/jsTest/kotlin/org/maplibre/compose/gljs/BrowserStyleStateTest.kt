@@ -8,10 +8,15 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.browser.window
+import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LocalStyleNode
+import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
 
@@ -65,6 +70,28 @@ class BrowserStyleStateTest {
       }
     }
     return { global.fetch = original }
+  }
+
+  /** Holds the TileJSON response until the test has observed the source's initial state. */
+  private fun installDeferredTileJson(): Pair<() -> Unit, () -> Unit> {
+    val global = js("window")
+    val original = global.fetch
+    var resolveTileJson: ((dynamic) -> Unit)? = null
+    global.fetch = { input: dynamic, init: dynamic ->
+      val url = if (jsTypeOf(input) == "string") input as String else input.url as String
+      if (url.contains("tilejson.test")) {
+        Promise<dynamic> { resolve, _ -> resolveTileJson = resolve }
+      } else {
+        original.call(global, input, init)
+      }
+    }
+    return Pair(
+      { global.fetch = original },
+      {
+        checkNotNull(resolveTileJson) { "MapLibre has not requested the TileJSON" }
+          .invoke(makeJsonResponse(TILE_JSON))
+      },
+    )
   }
 
   private fun makeJsonResponse(body: String): dynamic =
@@ -126,6 +153,49 @@ class BrowserStyleStateTest {
       restoreFetch()
     }
   }
+
+  @Test
+  fun a_source_added_after_load_reports_late_tilejson_attribution(): Promise<*> =
+    runBrowserMapTest {
+      val (restoreFetch, resolveTileJson) = installDeferredTileJson()
+      try {
+        var node: StyleNode? = null
+        var state: StyleState? = null
+        var loads = 0
+        setBrowserMapContent {
+          val styleState = rememberStyleState()
+          state = styleState
+          MaplibreMap(
+            modifier = Modifier,
+            baseStyle = BaseStyle.Empty,
+            styleState = styleState,
+            onMapLoadFinished = { loads += 1 },
+          ) {
+            node = LocalStyleNode.current
+          }
+        }
+        waitUntilMap("the empty map to finish loading") { loads == 1 && node != null }
+
+        val source = RasterSource("late-source", "https://tilejson.test/x.json")
+        checkNotNull(node).let { liveNode ->
+          liveNode.sourceManager.addReference(source)
+          liveNode.style.addLayer(RasterLayer(id = "late-layer", source = source))
+        }
+
+        waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }
+        assertEquals(listOf(""), state?.sources?.values?.map { it.attributionHtml })
+        val initialSource = state?.sources?.values?.single()
+
+        resolveTileJson()
+        waitUntilMap("the late source's attribution") {
+          state?.sources?.values?.map { it.attributionHtml } == listOf("fetched attribution")
+        }
+        assertNotSame(initialSource, state?.sources?.values?.single())
+        assertEquals(1, loads, "source metadata must not report another map load")
+      } finally {
+        restoreFetch()
+      }
+    }
 
   @Test
   fun switching_styles_keeps_the_sources_visible(): Promise<*> = runBrowserMapTest {
