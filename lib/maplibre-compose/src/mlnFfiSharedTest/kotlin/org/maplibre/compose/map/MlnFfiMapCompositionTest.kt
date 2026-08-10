@@ -18,6 +18,7 @@ import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
+import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -231,6 +232,10 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         val map = requireNotNull(cameraState.map) { "The map never reached the camera state" }
+        // The first frame can precede the native pump that applies the queued initial camera.
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          abs(map.getCameraPosition().zoom - firstPosition.zoom) < POSITION_TOLERANCE
+        }
         val actual = map.getCameraPosition()
         assertEquals(
           firstPosition.target.longitude,
