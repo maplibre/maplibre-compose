@@ -47,7 +47,13 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
     bridge.pumpUntil(description, timeout, extent, condition)
   }
 
+  /**
+   * A single frame is not enough to have put anything on the target: MapLibre skips one that is
+   * throttled, or that has nothing new to draw. Reading before any frame has been presented is what
+   * a pixel assertion right after a style load would otherwise do.
+   */
   override suspend fun readPixel(x: Int, y: Int): RgbaPixel {
+    bridge.pumpUntilRendered(extent)
     bridge.frame(extent)
     return bridge.readPixel(x, y)
   }

@@ -52,6 +52,8 @@ class GeoJsonClusterTest {
           predicate = null,
         )
 
+      // A query reads the render session, which MapLibre Native only builds on the first frame.
+      fixture.awaitMapReady()
       // Clustering happens while a tile is built, so a cluster exists only once the map has
       // rendered one, rather than after any fixed number of frames.
       fixture.pumpUntil("a cluster to be rendered") { queryAll().any { source.isCluster(it) } }
