@@ -184,6 +184,24 @@ abstract class StyleNodeTest {
   }
 
   @Test
+  fun shouldAllowReplacementRecreationAfterUnload() = runComposeUiTest {
+    runOnUiThread {
+      val s = makeStyleNode()
+      val oldNode = LayerNode(LineLayer("old", testSources[0]), Anchor.Replace("bar"))
+      val newNode = LayerNode(LineLayer("new", testSources[0]), Anchor.Replace("bar"))
+
+      s.layerManager.addLayer(oldNode, 0)
+      s.onEndChanges()
+      s.style.unload()
+
+      s.layerManager.addLayer(newNode, 0)
+      s.layerManager.removeLayer(oldNode, 1)
+      s.onEndChanges()
+      s.layerManager.removeLayer(newNode, 0)
+    }
+  }
+
+  @Test
   fun shouldAllowAddLayerBeforeRemove() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()

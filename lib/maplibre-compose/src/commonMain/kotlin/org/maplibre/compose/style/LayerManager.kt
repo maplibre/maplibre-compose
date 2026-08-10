@@ -25,6 +25,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
 
   internal fun removeLayer(node: LayerNode<*>, oldIndex: Int) {
     userLayers.removeAt(oldIndex)
+    if (!node.added) return
 
     // special handling for Replace anchors
     // restore the original before removing if this layer was the last replacement
@@ -52,6 +53,8 @@ internal class LayerManager(private val styleNode: StyleNode) {
   }
 
   internal fun applyChanges() {
+    if (styleNode.style.isUnloaded) return
+
     val tailLayerIds = mutableMapOf<Anchor, String>()
     val missedLayers = mutableMapOf<Anchor, MutableList<LayerNode<*>>>()
 
