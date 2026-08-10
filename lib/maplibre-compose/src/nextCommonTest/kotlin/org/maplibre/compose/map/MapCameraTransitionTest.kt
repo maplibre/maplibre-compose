@@ -105,6 +105,40 @@ class MapCameraTransitionTest {
     }
   }
 
+  /**
+   * Replacing a transition ends the old one, and that end belongs to the transition it replaced.
+   */
+  @Test
+  fun a_replacement_animation_waits_for_its_own_end(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtOrigin()
+
+      val superseded =
+        CoroutineScope(Dispatchers.Default).launch {
+          it.session.animateCameraPosition(TARGET, 10.seconds)
+        }
+      it.awaitCameraMoving()
+
+      val replacement =
+        CoroutineScope(Dispatchers.Default).launch {
+          it.session.animateCameraPosition(MIDPOINT, 2.seconds)
+        }
+      it.pumpUntil("the superseded animation to resume") { superseded.isCompleted }
+
+      assertFalse(
+        replacement.isCompleted,
+        "the replacement should still be running when the animation it replaced ends",
+      )
+
+      it.pumpUntil("the replacement animation to complete") { replacement.isCompleted }
+      assertNear(
+        MIDPOINT.zoom,
+        it.session.getCameraPosition().zoom,
+        "the replacement should have reached its own target",
+      )
+    }
+  }
+
   @Test
   fun a_superseded_animation_resumes_rather_than_hanging(): MapTestResult = runMapTest {
     createMapFixture().use {
@@ -202,6 +236,7 @@ class MapCameraTransitionTest {
   private companion object {
     val START = CameraPosition(target = Position(0.0, 0.0), zoom = 2.0)
     val TARGET = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
+    val MIDPOINT = CameraPosition(target = Position(5.0, 20.0), zoom = 5.0)
     val BOUNDS =
       BoundingBox(
         southwest = Position(longitude = -5.0, latitude = -5.0),

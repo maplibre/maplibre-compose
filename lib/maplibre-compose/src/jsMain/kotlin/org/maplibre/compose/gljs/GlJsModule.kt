@@ -58,6 +58,9 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun stop()
 
+  /** True while an ease or fly is running, which a gesture-driven move is not. */
+  fun isEasing(): Boolean
+
   fun setMaxBounds(bounds: LngLatBounds?)
 
   fun setMinZoom(minZoom: Double)

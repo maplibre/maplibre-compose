@@ -20,18 +20,30 @@ internal object EmscriptenGl {
       return gl != null && gl != undefined
     }
 
-  /** Null before Compose has built its renderer. */
+  /**
+   * Null before Compose has built its renderer.
+   *
+   * @throws IllegalStateException if the page holds more than one live WebGL context. The Skia
+   *   context this pairs with is whichever was created last, and WebGL shares no resources between
+   *   contexts, so guessing between them would draw a map from a texture another context owns.
+   */
   fun skikoCanvas(): HTMLCanvasElement? {
     if (!isAvailable) return null
     val contexts = registry.contexts ?: return null
     val length = contexts.length as? Int ?: return null
+    var found: HTMLCanvasElement? = null
     for (index in 0 until length) {
       val entry = contexts[index]
       if (entry == null || entry == undefined) continue
       val canvas = entry.GLctx?.canvas
-      if (canvas != null && canvas != undefined) return canvas.unsafeCast<HTMLCanvasElement>()
+      if (canvas == null || canvas == undefined) continue
+      check(found == null) {
+        "MapLibre Compose supports one Compose renderer per page, and this page has more than one " +
+          "live WebGL context."
+      }
+      found = canvas.unsafeCast<HTMLCanvasElement>()
     }
-    return null
+    return found
   }
 
   fun contextOf(canvas: HTMLCanvasElement): WebGL2RenderingContext? {

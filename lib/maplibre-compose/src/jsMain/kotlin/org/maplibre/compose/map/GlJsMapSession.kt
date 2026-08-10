@@ -585,8 +585,6 @@ internal class GlJsMapSession(
         continuation.resume(Unit)
         return@suspendCancellableCoroutine
       }
-      // Registered first: a zero-duration transition fires its moveend inside the call below.
-      transitionWaiters += continuation
       continuation.invokeOnCancellation {
         transitionWaiters -= continuation
         map?.stop()
@@ -594,9 +592,14 @@ internal class GlJsMapSession(
       try {
         start(current)
       } catch (error: Throwable) {
-        transitionWaiters -= continuation
         if (continuation.isActive) continuation.resumeWith(Result.failure(error))
+        return@suspendCancellableCoroutine
       }
+      // Registered after the call rather than before it: replacing a transition ends the old one
+      // from inside this call, and that `moveend` belongs to the transition being replaced. One
+      // that finished inside the call leaves the map at rest instead.
+      if (current.isEasing()) transitionWaiters += continuation
+      else if (continuation.isActive) continuation.resume(Unit)
     }
 
   private fun resumeTransitions() {
