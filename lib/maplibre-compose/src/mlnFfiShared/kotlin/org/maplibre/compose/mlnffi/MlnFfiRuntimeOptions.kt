@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
+import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
 import org.maplibre.compose.offline.MlnFfiOfflineManager
 

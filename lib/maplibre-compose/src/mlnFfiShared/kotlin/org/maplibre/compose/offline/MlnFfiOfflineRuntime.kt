@@ -3,6 +3,7 @@ package org.maplibre.compose.offline
 import co.touchlab.kermit.Logger
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.withLock
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.io.files.Path

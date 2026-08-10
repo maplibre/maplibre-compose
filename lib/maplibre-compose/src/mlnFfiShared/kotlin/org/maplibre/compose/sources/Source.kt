@@ -1,5 +1,6 @@
 package org.maplibre.compose.sources
 
+import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.style.StyleBinding

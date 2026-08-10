@@ -5,6 +5,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.Volatile
 import kotlin.concurrent.withLock
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiMapExtent
