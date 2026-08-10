@@ -96,6 +96,18 @@ jobs:
           save-toolchains: "true"
       - run: mise run test:ios
 
+  ios-device:
+    timeout-minutes: 45
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-ci-deps
+        with:
+          save-toolchains: "false" # ios owns this label
+      - run: mise run build:ios:device
+
   js:
     timeout-minutes: 20
     runs-on: ubuntu-24.04
@@ -172,6 +184,7 @@ jobs:
       - hygiene
       - android
       - ios
+      - ios-device
       - js
       - desktop
       - docs

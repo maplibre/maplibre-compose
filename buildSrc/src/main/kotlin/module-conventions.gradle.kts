@@ -10,6 +10,13 @@ tasks.withType<KotlinCompilationTask<*>>().configureEach {
   compilerOptions { allWarningsAsErrors = true }
 }
 
+// Compose's iOS metadata contains duplicate KLIB names. Keep the upstream warning visible without
+// making this intermediate compilation fail. https://youtrack.jetbrains.com/issue/CMP-8498
+tasks
+  .matching { it.name == "compileIosMainKotlinMetadata" }
+  .withType<KotlinCompilationTask<*>>()
+  .configureEach { compilerOptions { allWarningsAsErrors = false } }
+
 val swiftPackageBuilds =
   gradle.sharedServices.registerIfAbsent("swiftPackageBuilds", SwiftPackageBuildService::class) {
     maxParallelUsages = 1
