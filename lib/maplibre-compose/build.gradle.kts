@@ -137,15 +137,6 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    // The test counterpart of skiaMain: the targets that parse resources with Compose
-    // Multiplatform's own readers rather than with the Android framework's.
-    create("skiaTest") {
-      dependsOn(commonTest.get())
-      getByName("jvmTest").dependsOn(this)
-      iosTest.get().dependsOn(this)
-      jsTest.get().dependsOn(this)
-    }
-
     // The test counterpart of nextCommonMain, and on the same path into commonTest.
     val nextCommonTest =
       create("nextCommonTest") {
