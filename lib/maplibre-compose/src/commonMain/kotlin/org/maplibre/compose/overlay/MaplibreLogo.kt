@@ -12,6 +12,7 @@ import org.jetbrains.compose.resources.stringResource
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.maplibre_logo
 import org.maplibre.compose.generated.maplibre_logo_description
+import org.maplibre.compose.util.tryOpenUri
 
 /** The address that [MaplibreLogo] opens when it is clicked. */
 public const val MaplibreWebsiteUrl: String = "https://maplibre.org/"
@@ -45,5 +46,5 @@ public fun MaplibreLogo(
 @Composable
 internal fun rememberOpenWebsite(): () -> Unit {
   val uriHandler = LocalUriHandler.current
-  return remember(uriHandler) { { uriHandler.openUri(MaplibreWebsiteUrl) } }
+  return remember(uriHandler) { { uriHandler.tryOpenUri(MaplibreWebsiteUrl) } }
 }
