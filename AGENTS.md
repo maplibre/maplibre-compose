@@ -20,11 +20,11 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 
 - `mise run build:desktop-app`
 - `mise run build:android-app`
-- `mise run build:ios-app`
-- `mise run build:web-app`
+- `mise run build:ios:device`
 - `mise run demo:desktop`
 - `mise run demo:desktop-glfw`
 - `mise run demo:android`
+- `mise run demo:ios` (pass `--device` for a connected iPhone)
 - `mise run demo:js`
 
 ### Formatting and linting
