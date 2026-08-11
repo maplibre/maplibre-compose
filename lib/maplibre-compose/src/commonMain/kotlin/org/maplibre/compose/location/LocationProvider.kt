@@ -223,7 +223,8 @@ public object UnsupportedLocationProvider : LocationProvider {
  * beyond [LocationRequest]. An unsupported target or desktop host returns a provider that reports
  * [LocationUnavailableReason.Unsupported] instead of throwing during composition.
  *
- * See [AndroidLocationProvider][org.maplibre.compose.location.AndroidLocationProvider] and
+ * See [AndroidLocationProvider][org.maplibre.compose.location.AndroidLocationProvider],
+ * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider], and
  * [IosLocationProvider][org.maplibre.compose.location.IosLocationProvider].
  */
 @Composable public expect fun rememberDefaultLocationProvider(): LocationProvider
