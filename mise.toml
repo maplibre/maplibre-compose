@@ -167,13 +167,19 @@ description = "Package the demo app as a native installer for this host."
 run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
 
 [tasks."demo:android"]
-description = "Install the demo app on a connected Android device or emulator."
+description = "Run the demo app on a connected Android device or emulator."
 usage = '''
 flag "--flavor <flavor>" default="default" {
   choices "default" "opengl" "vulkan" "debug"
 }
 '''
-run = './gradlew :demo-app:android:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"'
+# Gradle only installs the APK, so launch it too, the way the other demo tasks
+# leave you looking at a running app. adb picks the device from $ANDROID_SERIAL.
+run = '''
+./gradlew :demo-app:android:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"
+"$(.mise/bin/android-sdk-root)/platform-tools/adb" shell am start \
+  -n org.maplibre.compose.demoapp/.MainActivity
+'''
 
 [tasks."demo:desktop"]
 description = "Run the demo app on this host."
