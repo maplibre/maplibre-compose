@@ -1,3 +1,4 @@
 <resources>
   <string name="attribution">Atribución del mapa</string>
+  <string name="compass">Brújula</string>
 </resources>

@@ -1,4 +1,4 @@
-package org.maplibre.compose.material3.util
+package org.maplibre.compose.util
 
 import kotlin.test.Test
 import kotlin.test.assertEquals

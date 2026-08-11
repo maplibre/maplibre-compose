@@ -1,4 +1,4 @@
-package org.maplibre.compose.material3.util
+package org.maplibre.compose.util
 
 @Suppress("NOTHING_TO_INLINE")
 internal object AngleMath {

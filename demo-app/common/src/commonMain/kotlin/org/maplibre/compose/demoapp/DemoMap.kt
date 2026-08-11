@@ -15,10 +15,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.material3.DisappearingCompassButton
-import org.maplibre.compose.material3.DisappearingScaleBar
+import org.maplibre.compose.material3.DisappearingCompassButton as Material3CompassButton
+import org.maplibre.compose.material3.DisappearingScaleBar as Material3ScaleBar
 import org.maplibre.compose.material3.ExpandingAttributionButton as Material3AttributionButton
+import org.maplibre.compose.overlay.DisappearingCompassButton
+import org.maplibre.compose.overlay.DisappearingScaleBar
+import org.maplibre.compose.overlay.ExpandingAttributionButton
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.compose.util.ClickResult
 
 private fun getMapAlignment(position: MapPosition): Alignment {
@@ -68,7 +72,7 @@ fun DemoMap(state: DemoState, sheetInsets: WindowInsets = WindowInsets(0, 0, 0, 
           contentWindowInsets = WindowInsets.safeDrawing.union(sheetInsets),
           overlay =
             when (state.mapControlsState.controls) {
-              MapControls.Foundation -> MapOverlay.Default
+              MapControls.Foundation -> FoundationOverlay
               MapControls.Material3 -> Material3Overlay
               MapControls.None -> MapOverlay.None
             },
@@ -88,7 +92,8 @@ fun DemoMap(state: DemoState, sheetInsets: WindowInsets = WindowInsets(0, 0, 0, 
   }
 }
 
-private val Material3Overlay = MapOverlay {
+// The same four controls in each overlay, so that switching between them compares like for like.
+private val FoundationOverlay = MapOverlay {
   DisappearingScaleBar(
     metersPerDp = cameraState.metersPerDpAtTarget,
     zoom = cameraState.position.zoom,
@@ -96,6 +101,26 @@ private val Material3Overlay = MapOverlay {
   )
 
   DisappearingCompassButton(cameraState = cameraState, modifier = Modifier.align(Alignment.TopEnd))
+
+  MaplibreLogo(Modifier.align(Alignment.BottomStart))
+
+  ExpandingAttributionButton(
+    cameraState = cameraState,
+    styleState = styleState,
+    modifier = Modifier.align(Alignment.BottomEnd),
+  )
+}
+
+private val Material3Overlay = MapOverlay {
+  Material3ScaleBar(
+    metersPerDp = cameraState.metersPerDpAtTarget,
+    zoom = cameraState.position.zoom,
+    modifier = Modifier.align(Alignment.TopStart),
+  )
+
+  Material3CompassButton(cameraState = cameraState, modifier = Modifier.align(Alignment.TopEnd))
+
+  MaplibreLogo(Modifier.align(Alignment.BottomStart))
 
   Material3AttributionButton(
     cameraState = cameraState,

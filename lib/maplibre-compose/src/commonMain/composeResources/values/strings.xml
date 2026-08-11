@@ -6,4 +6,5 @@
   <string name="feet_symbol">ft</string>
   <string name="yards_symbol">yd</string>
   <string name="miles_symbol">mi</string>
+  <string name="compass">Compass</string>
 </resources>
