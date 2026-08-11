@@ -6,10 +6,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
-import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 
-class DesktopRuntimeOptionsTest {
+class MapLibreConfigurationTest {
 
   @Test
   fun cache_paths_are_scoped_to_the_application() {
@@ -23,8 +22,8 @@ class DesktopRuntimeOptionsTest {
 
   @Test
   fun application_ids_cannot_escape_the_cache_directory() {
-    assertFailsWith<IllegalArgumentException> { desktopCachePath("../another-app") }
-    assertFailsWith<IllegalArgumentException> { desktopCachePath("com/example/app") }
+    assertFailsWith<IllegalArgumentException> { MapLibre.configure("../another-app") }
+    assertFailsWith<IllegalArgumentException> { MapLibre.configure("com/example/app") }
   }
 
   @Test
@@ -38,32 +37,36 @@ class DesktopRuntimeOptionsTest {
   }
 
   @Test
-  fun repeating_the_same_normalized_configuration_is_harmless() {
-    val file = FfiTestPlatform.createCacheFile()
-    val path = Paths.get(file.toString())
-    val alias = path.parent.resolve("unused").resolve("..").resolve(path.fileName)
+  fun repeating_the_same_configuration_is_harmless() {
     try {
-      MapLibre.configure(DesktopRuntimeOptions(path))
-      MapLibre.configure(DesktopRuntimeOptions(alias))
+      MapLibre.configure("com.example.same")
+      MapLibre.configure("com.example.same")
     } finally {
       MlnFfiApplication.resetForTest()
-      FfiTestPlatform.deleteCacheFile(file)
     }
   }
 
   @Test
   fun replacing_the_application_configuration_fails() {
-    val file = FfiTestPlatform.createCacheFile()
-    val path = Paths.get(file.toString())
     try {
-      MapLibre.configure(DesktopRuntimeOptions(path))
+      MapLibre.configure("com.example.first")
+
+      assertFailsWith<IllegalStateException> { MapLibre.configure("com.example.second") }
+    } finally {
+      MlnFfiApplication.resetForTest()
+    }
+  }
+
+  @Test
+  fun replacing_the_cache_limit_fails() {
+    try {
+      MapLibre.configure("com.example.same", maximumCacheSizeBytes = 1_000)
 
       assertFailsWith<IllegalStateException> {
-        MapLibre.configure(DesktopRuntimeOptions(path, maximumCacheSizeBytes = 1024))
+        MapLibre.configure("com.example.same", maximumCacheSizeBytes = 2_000)
       }
     } finally {
       MlnFfiApplication.resetForTest()
-      FfiTestPlatform.deleteCacheFile(file)
     }
   }
 }

@@ -10,7 +10,7 @@ import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
-import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.NativeHandle
@@ -37,7 +37,7 @@ internal data class Direct3DTextureTarget(
 )
 
 /** Draws a Direct3D 12 texture into Compose's Skia canvas on Windows. */
-internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
+internal class Direct3D12Presenter(private val gpuHost: ComposeMapHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
   fun draw(

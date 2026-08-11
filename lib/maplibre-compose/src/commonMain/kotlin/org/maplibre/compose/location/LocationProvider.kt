@@ -224,7 +224,8 @@ public object UnsupportedLocationProvider : LocationProvider {
  * [LocationUnavailableReason.Unsupported] instead of throwing during composition.
  *
  * See [AndroidLocationProvider][org.maplibre.compose.location.AndroidLocationProvider],
- * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider], and
+ * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider],
+ * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend], and
  * [IosLocationProvider][org.maplibre.compose.location.IosLocationProvider].
  */
 @Composable public expect fun rememberDefaultLocationProvider(): LocationProvider

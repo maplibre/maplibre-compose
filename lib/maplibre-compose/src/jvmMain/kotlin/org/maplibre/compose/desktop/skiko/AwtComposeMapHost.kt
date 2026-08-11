@@ -3,10 +3,11 @@ package org.maplibre.compose.desktop.skiko
 import java.awt.Window
 import org.jetbrains.skia.DirectContext
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
+import org.maplibre.compose.desktop.XdgPortalWindow
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
 import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
@@ -45,18 +46,25 @@ internal enum class HostOperatingSystem {
 }
 
 /**
- * A [ComposeGpuHost] for one AWT-backed Compose Desktop [window].
+ * A [ComposeMapHost] for one AWT-backed Compose Desktop [window].
  *
  * Compose Desktop exposes no supported hook for any of this, so it is read reflectively; all of
  * that is confined to [SkikoReflection] and to the supplied window. An application running its own
  * Compose windowing supplies a different host and needs no reflection at all.
  */
-internal class AwtComposeGpuHost(private val window: Window) : ComposeGpuHost {
+internal class AwtComposeMapHost(private val window: Window) : ComposeMapHost {
 
   private val operatingSystem = HostOperatingSystem.current()
 
   override val description: String
     get() = "an AWT Compose window on ${operatingSystem.name.lowercase()}"
+
+  override val xdgPortalWindow: XdgPortalWindow?
+    get() {
+      if (operatingSystem != HostOperatingSystem.LINUX) return null
+      val windowId = SkikoReflection.findNativeWindowHandle(window) ?: return null
+      return XdgPortalWindow.X11(windowId)
+    }
 
   /**
    * Which backend Compose Desktop picks is decided by the operating system, so this is answerable

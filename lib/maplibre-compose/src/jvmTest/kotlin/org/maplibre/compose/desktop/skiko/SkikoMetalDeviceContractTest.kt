@@ -9,7 +9,7 @@ import org.lwjgl.system.macosx.ObjCRuntime
 /**
  * Pins the Objective-C members of Skiko's Metal device wrapper that the macOS host messages. That
  * class is private to Skiko's `MetalRedrawer.mm`, appears in no header, and would be renamed
- * silently by a Skiko upgrade — so a failure here means update [AwtComposeGpuHost], not a bug.
+ * silently by a Skiko upgrade — so a failure here means update [AwtComposeMapHost], not a bug.
  *
  * The Objective-C runtime answers this without a GPU, a window, or a Skia context.
  */
@@ -25,7 +25,7 @@ class SkikoMetalDeviceContractTest {
         deviceClass != NULL,
         "Skiko $skikoVersion no longer registers the Objective-C class " +
           "'${SkikoReflection.SKIKO_METAL_DEVICE_CLASS}'. The macOS map host reads Compose's " +
-          "MTLDevice out of it; update AwtComposeGpuHost.",
+          "MTLDevice out of it; update AwtComposeMapHost.",
       )
 
       val adapter = ObjCRuntime.sel_registerName(SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER)
@@ -33,7 +33,7 @@ class SkikoMetalDeviceContractTest {
         ObjCRuntime.class_respondsToSelector(deviceClass, adapter),
         "Skiko $skikoVersion's '${SkikoReflection.SKIKO_METAL_DEVICE_CLASS}' no longer responds " +
           "to '${SkikoReflection.SKIKO_METAL_DEVICE_ADAPTER}'. The macOS map host sends that to " +
-          "reach the MTLDevice it allocates its texture on; update AwtComposeGpuHost.",
+          "reach the MTLDevice it allocates its texture on; update AwtComposeMapHost.",
       )
 
       // The name surviving is not enough; the property has to still be the device. Objective-C

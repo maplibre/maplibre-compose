@@ -17,6 +17,7 @@ alchemist = "0.2.0"
 androidx-activity = "1.13.0"
 bytesize = "2.2.1"
 composeGlfw = "0.2.0"
+dbusJava = "5.2.0"
 htmlConverterCompose = "1.1.1"
 kermit = "2.1.0"
 kotlin-wrappers = "2026.8.0"
@@ -59,11 +60,14 @@ androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manife
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 composeGlfw = { module = "dev.sargunv:compose-glfw", version.ref = "composeGlfw" }
+dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbusJava" }
+dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 kotlin-wrappers-browser = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browser", version.ref = "kotlin-wrappers" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
+kotlinx-coroutines-core = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-core", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-playServices = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-swing = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-swing", version.ref = "kotlinx-coroutines" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "kotlinx-coroutines" }

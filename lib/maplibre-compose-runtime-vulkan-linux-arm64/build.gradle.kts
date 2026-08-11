@@ -15,6 +15,8 @@ mavenPublishing {
 }
 
 dependencies {
+  runtimeOnly(project(":lib:maplibre-compose-linux"))
+
   DesktopHostPlatform.LinuxArm64.runtimeDependencies(
       backend = DesktopHostPlatform.RenderBackend.VULKAN,
       ffiVersion = libs.versions.maplibre.nativeFfi.get(),

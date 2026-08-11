@@ -99,7 +99,7 @@ import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkPhysicalDeviceIDProperties
 import org.lwjgl.vulkan.VkPhysicalDeviceProperties2
 import org.lwjgl.vulkan.VkQueue
-import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
@@ -119,7 +119,7 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 
 /** Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux. */
-internal class VulkanOpenGlMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
+internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
   private val presenter = OpenGlPresenter()
   private val frameCompletion = ComposeFrameCompletion()
