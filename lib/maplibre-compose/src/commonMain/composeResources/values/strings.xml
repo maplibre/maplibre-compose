@@ -1,10 +1,10 @@
 <resources>
   <string name="attribution">Map Attribution</string>
   <string name="maplibre_logo_description">MapLibre</string>
+  <string name="compass">Compass</string>
   <string name="meters_symbol">m</string>
   <string name="kilometers_symbol">km</string>
   <string name="feet_symbol">ft</string>
   <string name="yards_symbol">yd</string>
   <string name="miles_symbol">mi</string>
-  <string name="compass">Compass</string>
 </resources>

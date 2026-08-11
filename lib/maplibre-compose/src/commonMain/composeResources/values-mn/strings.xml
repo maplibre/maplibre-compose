@@ -1,5 +1,5 @@
 <resources>
+  <string name="compass">Луужин</string>
   <string name="meters_symbol">м</string>
   <string name="kilometers_symbol">км</string>
-  <string name="compass">Луужин</string>
 </resources>

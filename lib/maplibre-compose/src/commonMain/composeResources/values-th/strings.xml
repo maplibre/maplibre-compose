@@ -1,5 +1,5 @@
 <resources>
+  <string name="compass">เข็มทิศ</string>
   <string name="meters_symbol">ม</string>
   <string name="kilometers_symbol">กม</string>
-  <string name="compass">เข็มทิศ</string>
 </resources>

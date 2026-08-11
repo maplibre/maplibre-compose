@@ -1,5 +1,5 @@
 <resources>
+  <string name="compass">Կողմնացույց</string>
   <string name="meters_symbol">մ</string>
   <string name="kilometers_symbol">կմ</string>
-  <string name="compass">Կողմնացույց</string>
 </resources>
