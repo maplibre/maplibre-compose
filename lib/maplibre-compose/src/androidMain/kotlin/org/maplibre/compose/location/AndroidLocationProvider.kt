@@ -4,9 +4,10 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.location.Criteria
+import android.location.Location as AndroidLocation
 import android.location.LocationListener
 import android.location.LocationManager
-import android.location.LocationRequest
+import android.location.LocationRequest as AndroidLocationRequest
 import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
@@ -14,144 +15,139 @@ import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
-import kotlin.time.Duration
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.stateIn
-import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
  * A [LocationProvider] built on the [LocationManager] platform APIs.
  *
- * The [LocationManager.PASSIVE_PROVIDER] will be used for [DesiredAccuracy.Lowest], otherwise an
- * appropriate provider and configuration is chosen based on API level and [desiredAccuracy].
+ * Each collection selects a provider and request settings from [LocationRequest], checks the last
+ * known location against [LocationRequest.maximumInitialFixAge], and removes its listener when
+ * collection ends.
  *
- * @param context the [Context] get the [LocationManager] system service from
- * @param updateInterval the *minimum* time between location updates
- * @param desiredAccuracy the [DesiredAccuracy] for location updates.
- * @param coroutineScope the [CoroutineScope] used to share the [location] flow
- * @param sharingStarted parameter for [stateIn] call of [location]
- * @throws PermissionException if the necessary platform permissions have not been granted
+ * On Android 12 and newer, [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] map to
+ * [`LocationRequest.QUALITY_HIGH_ACCURACY`](https://developer.android.com/reference/android/location/LocationRequest#QUALITY_HIGH_ACCURACY),
+ * [LocationAccuracy.Balanced] maps to
+ * [`LocationRequest.QUALITY_BALANCED_POWER_ACCURACY`](https://developer.android.com/reference/android/location/LocationRequest#QUALITY_BALANCED_POWER_ACCURACY),
+ * and [LocationAccuracy.Low] maps to
+ * [`LocationRequest.QUALITY_LOW_POWER`](https://developer.android.com/reference/android/location/LocationRequest#QUALITY_LOW_POWER).
+ * Earlier versions use the corresponding
+ * [`Criteria`](https://developer.android.com/reference/android/location/Criteria) accuracy and
+ * power requirements. [LocationAccuracy.Lowest] uses
+ * [`LocationManager.PASSIVE_PROVIDER`](https://developer.android.com/reference/android/location/LocationManager#PASSIVE_PROVIDER)
+ * on every version.
+ *
+ * A disabled location service or
+ * [`LocationListener.onProviderDisabled`](https://developer.android.com/reference/android/location/LocationListener#onProviderDisabled(java.lang.String))
+ * maps to [LocationUnavailableReason.ServicesDisabled]. A `SecurityException` maps to
+ * [LocationUnavailableReason.PermissionDenied]. An `IllegalArgumentException` while registering the
+ * selected provider maps to [LocationUnavailableReason.UnexpectedFailure], because this provider
+ * constructs and validates every request argument itself.
+ *
+ * @param context Context used to obtain the platform [LocationManager].
+ * @param permission Foreground permission state shared with callers.
  */
-public class AndroidLocationProvider
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
-constructor(
+public class AndroidLocationProvider(
   private val context: Context,
-  updateInterval: Duration,
-  private val minDistance: Length,
-  private val desiredAccuracy: DesiredAccuracy,
-  coroutineScope: CoroutineScope,
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
+  override val permission: AndroidLocationPermissionController,
 ) : LocationProvider {
-  override val location: StateFlow<Location?>
-
-  init {
-    if (!handlerThread.isAlive) {
-      handlerThread.start()
+  @RequiresPermission(
+    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
+  )
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    if (!context.hasLocationPermission()) {
+      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
+      close()
+      return@callbackFlow
     }
 
-    if (
-      context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) !=
-        PackageManager.PERMISSION_GRANTED &&
-        context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) !=
-          PackageManager.PERMISSION_GRANTED
-    ) {
-      throw PermissionException()
+    if (!handlerThread.isAlive) handlerThread.start()
+    val manager = context.getSystemService(LocationManager::class.java)
+    val provider = selectProvider(manager, request.accuracy)
+    if (provider == null) {
+      trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
+      close()
+      return@callbackFlow
     }
 
-    val locationManager = context.getSystemService(LocationManager::class.java)
-
-    location =
-      callbackFlow {
-          val lastLocation =
-            if (desiredAccuracy == DesiredAccuracy.Lowest) {
-              lastLocationPassive(locationManager, updateInterval)
-            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-              lastLocationApi31(locationManager, updateInterval, desiredAccuracy)
-            } else {
-              lastLocationCompat(locationManager, updateInterval, desiredAccuracy)
-            }
-          send(lastLocation)
-
-          val listener = LocationListener { trySend(it.asMapLibreLocation()) }
-
-          if (desiredAccuracy == DesiredAccuracy.Lowest) {
-            startPassive(locationManager, updateInterval, listener)
-          } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            startApi31(locationManager, updateInterval, desiredAccuracy, listener)
-          } else {
-            startCompat(locationManager, updateInterval, desiredAccuracy, listener)
-          }
-
-          awaitClose { locationManager.removeUpdates(listener) }
+    val listener =
+      object : LocationListener {
+        override fun onLocationChanged(location: AndroidLocation) {
+          trySend(LocationEvent.Fix(location.asMapLibreLocation()))
         }
-        .stateIn(coroutineScope, sharingStarted, null)
+
+        override fun onProviderDisabled(provider: String) {
+          trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
+        }
+
+        override fun onProviderEnabled(provider: String) = Unit
+      }
+
+    try {
+      manager.getLastKnownLocation(provider)?.let { location ->
+        val age = location.ageAtReceipt()
+        if (request.maximumInitialFixAge == null || age <= request.maximumInitialFixAge) {
+          trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+        }
+      }
+      if (
+        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && provider == LocationManager.FUSED_PROVIDER
+      ) {
+        startApi31(manager, request, listener)
+      } else {
+        manager.requestLocationUpdates(
+          provider,
+          request.minimumInterval.inWholeMilliseconds,
+          request.minimumDistance.inMeters.toFloat(),
+          listener,
+          handlerThread.looper,
+        )
+      }
+    } catch (error: IllegalArgumentException) {
+      trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+      close()
+    } catch (error: SecurityException) {
+      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
+      close()
+    }
+
+    awaitClose { manager.removeUpdates(listener) }
   }
 
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
-  private fun lastLocationPassive(
-    locationManager: LocationManager,
-    updateInterval: Duration,
-  ): Location? {
-    return locationManager
-      .getLastKnownLocation(LocationManager.PASSIVE_PROVIDER)
-      ?.asMapLibreLocation()
-  }
+  @Suppress("DEPRECATION")
+  private fun selectProvider(
+    manager: LocationManager,
+    accuracy: LocationAccuracy,
+  ): String? {
+    if (!manager.isLocationEnabledCompat()) return null
+    if (accuracy == LocationAccuracy.Lowest) return LocationManager.PASSIVE_PROVIDER
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) return LocationManager.FUSED_PROVIDER
 
-  @RequiresApi(Build.VERSION_CODES.S)
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
-  private fun lastLocationApi31(
-    locationManager: LocationManager,
-    updateInterval: Duration,
-    desiredAccuracy: DesiredAccuracy,
-  ): Location? {
-    return locationManager
-      .getLastKnownLocation(LocationManager.FUSED_PROVIDER)
-      ?.asMapLibreLocation()
-  }
+    val criteria =
+      Criteria().apply {
+        this.accuracy =
+          when (accuracy) {
+            LocationAccuracy.BestForNavigation,
+            LocationAccuracy.High,
+            LocationAccuracy.Balanced -> Criteria.ACCURACY_FINE
+            LocationAccuracy.Low -> Criteria.ACCURACY_COARSE
+            LocationAccuracy.Lowest -> error("Lowest uses the passive provider")
+          }
+        isCostAllowed = true
+        powerRequirement =
+          when (accuracy) {
+            LocationAccuracy.BestForNavigation,
+            LocationAccuracy.High -> Criteria.POWER_HIGH
+            LocationAccuracy.Balanced -> Criteria.POWER_MEDIUM
+            LocationAccuracy.Low -> Criteria.POWER_LOW
+            LocationAccuracy.Lowest -> error("Lowest uses the passive provider")
+          }
+      }
 
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
-  private fun lastLocationCompat(
-    locationManager: LocationManager,
-    updateInterval: Duration,
-    desiredAccuracy: DesiredAccuracy,
-  ): Location? {
-    val criteria = getCriteria(desiredAccuracy)
-
-    @Suppress("DEPRECATION")
-    val provider = locationManager.getBestProvider(criteria, true) ?: LocationManager.GPS_PROVIDER
-    return locationManager.getLastKnownLocation(provider)?.asMapLibreLocation()
-  }
-
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
-  private fun startPassive(
-    locationManager: LocationManager,
-    updateInterval: Duration,
-    listener: LocationListener,
-  ) {
-    locationManager.requestLocationUpdates(
-      LocationManager.PASSIVE_PROVIDER,
-      updateInterval.inWholeMilliseconds,
-      minDistance.inMeters.toFloat(),
-      listener,
-      handlerThread.looper,
-    )
+    return manager.getBestProvider(criteria, true)
   }
 
   @RequiresApi(Build.VERSION_CODES.S)
@@ -159,74 +155,28 @@ constructor(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
   private fun startApi31(
-    locationManager: LocationManager,
-    updateInterval: Duration,
-    desiredAccuracy: DesiredAccuracy,
+    manager: LocationManager,
+    request: LocationRequest,
     listener: LocationListener,
   ) {
-    locationManager.requestLocationUpdates(
+    manager.requestLocationUpdates(
       LocationManager.FUSED_PROVIDER,
-      LocationRequest.Builder(updateInterval.inWholeMilliseconds)
+      AndroidLocationRequest.Builder(request.minimumInterval.inWholeMilliseconds)
         .setQuality(
-          when (desiredAccuracy) {
-            DesiredAccuracy.Highest -> LocationRequest.QUALITY_HIGH_ACCURACY
-            DesiredAccuracy.High -> LocationRequest.QUALITY_HIGH_ACCURACY
-            DesiredAccuracy.Balanced -> LocationRequest.QUALITY_BALANCED_POWER_ACCURACY
-            DesiredAccuracy.Low -> LocationRequest.QUALITY_LOW_POWER
-            DesiredAccuracy.Lowest -> error("unreachable")
+          when (request.accuracy) {
+            LocationAccuracy.BestForNavigation,
+            LocationAccuracy.High -> AndroidLocationRequest.QUALITY_HIGH_ACCURACY
+            LocationAccuracy.Balanced -> AndroidLocationRequest.QUALITY_BALANCED_POWER_ACCURACY
+            LocationAccuracy.Low -> AndroidLocationRequest.QUALITY_LOW_POWER
+            LocationAccuracy.Lowest -> AndroidLocationRequest.QUALITY_LOW_POWER
           }
         )
-        .setMinUpdateDistanceMeters(minDistance.inMeters.toFloat())
+        .setMinUpdateDistanceMeters(request.minimumDistance.inMeters.toFloat())
         .build(),
       HandlerExecutor(Handler(handlerThread.looper)),
       listener,
     )
   }
-
-  @RequiresPermission(
-    anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-  )
-  private fun startCompat(
-    locationManager: LocationManager,
-    updateInterval: Duration,
-    desiredAccuracy: DesiredAccuracy,
-    listener: LocationListener,
-  ) {
-    val criteria = getCriteria(desiredAccuracy)
-
-    @Suppress("DEPRECATION")
-    val provider = locationManager.getBestProvider(criteria, true) ?: LocationManager.GPS_PROVIDER
-
-    locationManager.requestLocationUpdates(
-      provider,
-      updateInterval.inWholeMilliseconds,
-      minDistance.inMeters.toFloat(),
-      listener,
-      handlerThread.looper,
-    )
-  }
-
-  @Suppress("DEPRECATION")
-  private fun getCriteria(desiredAccuracy: DesiredAccuracy): Criteria =
-    Criteria().apply {
-      accuracy =
-        when (desiredAccuracy) {
-          DesiredAccuracy.Highest -> Criteria.ACCURACY_FINE
-          DesiredAccuracy.High -> Criteria.ACCURACY_FINE
-          DesiredAccuracy.Balanced -> Criteria.ACCURACY_FINE
-          DesiredAccuracy.Low -> Criteria.ACCURACY_COARSE
-          DesiredAccuracy.Lowest -> error("unreachable")
-        }
-      isCostAllowed = true
-      powerRequirement =
-        when (desiredAccuracy) {
-          DesiredAccuracy.Highest -> Criteria.POWER_HIGH
-          DesiredAccuracy.High -> Criteria.POWER_HIGH
-          DesiredAccuracy.Balanced -> Criteria.POWER_MEDIUM
-          DesiredAccuracy.Low -> Criteria.POWER_LOW
-          DesiredAccuracy.Lowest -> error("unreachable")
-        }
-    }
 
   private companion object {
     private val handlerThread by lazy { HandlerThread("AndroidLocationProvider") }
@@ -234,49 +184,28 @@ constructor(
 }
 
 @Composable
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
-public actual fun rememberDefaultLocationProvider(
-  updateInterval: Duration,
-  desiredAccuracy: DesiredAccuracy,
-  minDistance: Length,
-): LocationProvider {
-  return rememberAndroidLocationProvider(
-    updateInterval = updateInterval,
-    desiredAccuracy = desiredAccuracy,
-    minDistance = minDistance,
-  )
-}
+public actual fun rememberDefaultLocationProvider(): LocationProvider =
+  rememberAndroidLocationProvider()
 
-/** Create and remember an [AndroidLocationProvider], the default [LocationProvider] for Android */
+/** Creates the default Android location provider. */
 @Composable
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
 public fun rememberAndroidLocationProvider(
-  updateInterval: Duration,
-  desiredAccuracy: DesiredAccuracy,
-  minDistance: Length,
   context: Context = LocalContext.current,
-  coroutineScope: CoroutineScope = rememberCoroutineScope(),
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): AndroidLocationProvider {
-  return remember(
-    context,
-    updateInterval,
-    desiredAccuracy,
-    minDistance,
-    coroutineScope,
-    sharingStarted,
-  ) {
-    AndroidLocationProvider(
-      context = context,
-      updateInterval = updateInterval,
-      desiredAccuracy = desiredAccuracy,
-      minDistance = minDistance,
-      coroutineScope = coroutineScope,
-      sharingStarted = sharingStarted,
-    )
+  permission: AndroidLocationPermissionController = rememberAndroidLocationPermissionController(),
+): AndroidLocationProvider =
+  remember(context, permission) { AndroidLocationProvider(context, permission) }
+
+private fun Context.hasLocationPermission(): Boolean =
+  checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
+    PackageManager.PERMISSION_GRANTED ||
+    checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
+      PackageManager.PERMISSION_GRANTED
+
+@Suppress("DEPRECATION")
+private fun LocationManager.isLocationEnabledCompat(): Boolean =
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+    isLocationEnabled
+  } else {
+    isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+      isProviderEnabled(LocationManager.NETWORK_PROVIDER)
   }
-}

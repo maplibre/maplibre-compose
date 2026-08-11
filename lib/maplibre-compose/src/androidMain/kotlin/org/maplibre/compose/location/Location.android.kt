@@ -3,6 +3,7 @@ package org.maplibre.compose.location
 import android.location.Location as AndroidLocation
 import android.os.Build
 import android.os.SystemClock
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.TimeSource
 import org.maplibre.spatialk.geojson.Position
@@ -14,9 +15,20 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
   Location(
     position =
       PositionWithAccuracy(
-        value = Position(longitude = longitude, latitude = latitude, altitude = altitude),
+        value =
+          Position(
+            longitude = longitude,
+            latitude = latitude,
+            altitude = if (hasAltitude()) altitude else null,
+          ),
         accuracy = if (hasAccuracy()) accuracy.toDouble().meters else null,
       ),
+    altitudeAccuracy =
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && hasVerticalAccuracy()) {
+        verticalAccuracyMeters.toDouble().meters
+      } else {
+        null
+      },
     speed =
       if (hasSpeed()) {
         SpeedWithAccuracy(
@@ -45,8 +57,8 @@ public fun AndroidLocation.asMapLibreLocation(): Location =
       } else {
         null
       },
-    timestamp =
-      (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos).nanoseconds.let { age ->
-        TimeSource.Monotonic.markNow() - age
-      },
+    timestamp = TimeSource.Monotonic.markNow() - ageAtReceipt(),
   )
+
+internal fun AndroidLocation.ageAtReceipt(): Duration =
+  (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos).coerceAtLeast(0).nanoseconds

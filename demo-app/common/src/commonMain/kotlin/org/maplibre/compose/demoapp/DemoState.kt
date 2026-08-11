@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -22,12 +21,10 @@ import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
-import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
-import org.maplibre.compose.location.rememberNullLocationProvider
-import org.maplibre.compose.location.rememberNullOrientationProvider
-import org.maplibre.compose.location.rememberUserLocationState
+import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.map.RenderOptions
@@ -66,8 +63,7 @@ class DemoState(
   val nav: NavHostController,
   val cameraState: CameraState,
   val styleState: StyleState,
-  val locationState: UserLocationState,
-  val locationPermissionState: LocationPermissionState,
+  val locationState: LocationState,
   val mapManipulationState: MapManipulationState = MapManipulationState(),
   val ornamentOptionsState: OrnamentOptionsState = OrnamentOptionsState(),
 ) {
@@ -119,36 +115,15 @@ fun rememberDemoState(): DemoState {
   val cameraState = rememberCameraState()
   val styleState = rememberStyleState()
 
-  val locationPermissionState = rememberLocationPermissionState()
-  val locationProvider =
-    key(locationPermissionState.hasPermission) {
-      if (locationPermissionState.hasPermission) {
-        // Android Lint reads the permission check on the line above as a plain boolean.
-        //noinspection MissingPermission
-        rememberDefaultLocationProvider()
-      } else {
-        rememberNullLocationProvider()
-      }
-    }
-  val orientationProvider =
-    key(locationPermissionState.hasPermission) {
-      if (locationPermissionState.hasPermission) {
-        rememberDefaultOrientationProvider()
-      } else {
-        rememberNullOrientationProvider()
-      }
-    }
-  val locationState = rememberUserLocationState(locationProvider, orientationProvider)
+  val locationProvider = rememberDefaultLocationProvider()
+  val orientationProvider = rememberDefaultOrientationProvider()
+  val locationState =
+    rememberLocationState(
+      provider = locationProvider,
+      orientationProvider = orientationProvider,
+    )
 
-  return remember(nav, cameraState, styleState, locationState, locationPermissionState) {
-    DemoState(nav, cameraState, styleState, locationState, locationPermissionState)
+  return remember(nav, cameraState, styleState, locationState) {
+    DemoState(nav, cameraState, styleState, locationState)
   }
 }
-
-interface LocationPermissionState {
-  val hasPermission: Boolean
-
-  fun requestPermission()
-}
-
-@Composable expect fun rememberLocationPermissionState(): LocationPermissionState

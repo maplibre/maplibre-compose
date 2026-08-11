@@ -11,24 +11,41 @@ import location from "../../../../demo-app/common/src/commonMain/kotlin/org/mapl
 The location module provides a cross-platform way to track and visualize user
 position in MapLibre Compose.
 
-Location support is split into a few small pieces: providers collect position
-and orientation updates, `LocationPuck` draws the user's location on the map,
-and `LocationTrackingEffect` can optionally keep the camera in sync with those
-updates.
+Location support is split into a few small pieces. A `LocationProvider` creates
+foreground tracking sessions, and `rememberLocationState` connects one session
+to permission and lifecycle state. `LocationPuck` draws the latest fix, and
+`LocationTrackingEffect` can keep the camera in sync with location changes.
 
 ### Overview
 
 | Component                                | Purpose                                                                            |
 | ---------------------------------------- | ---------------------------------------------------------------------------------- |
-| **`rememberDefaultLocationProvider`**    | Provides location data from GPS or other location sources.                         |
+| **`rememberDefaultLocationProvider`**    | Creates the platform provider and permission controller.                           |
+| **`rememberLocationState`**              | Owns a session while enabled and lifecycle-active.                                 |
 | **`rememberDefaultOrientationProvider`** | Provides device orientation data from sensors.                                     |
 | **`LocationPuck`**                       | Visual indicator that displays the user's current position and bearing on the map. |
-| **`LocationTrackingEffect`**             | Composable effect to subscribe to location updates.                                |
+| **`LocationTrackingEffect`**             | Applies location changes to application or camera state.                           |
 
-Android and iOS provide default location and orientation providers. On Desktop
-and Web there is no default: `rememberDefaultLocationProvider` and
-`rememberDefaultOrientationProvider` throw, so supply a custom
-`LocationProvider` or `OrientationProvider`.
+Android and iOS provide default location and orientation providers. Desktop and
+Web currently return an unsupported location provider and a null orientation
+provider. Compose state exposes this condition without throwing.
+
+Collecting `LocationProvider.updates(request)` starts one platform session.
+Cancelling collection releases that session. `rememberLocationState` performs
+this collection only while `enabled` is true, permission is granted, and the
+lifecycle is active.
+
+`rememberLocationState` never requests permission automatically. Call
+`requestPermission` when the application is ready to present platform permission
+UI. This may be during startup or in response to an action such as a button click:
+
+```kotlin
+if (locationState.permission !is LocationPermission.Granted) {
+  Button(onClick = locationState::requestPermission) {
+    Text("Use my location")
+  }
+}
+```
 
 ### Bearing
 

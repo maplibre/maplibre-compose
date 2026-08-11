@@ -7,5 +7,5 @@ import kotlin.time.Duration
 public actual fun rememberDefaultOrientationProvider(
   updateInterval: Duration
 ): OrientationProvider {
-  TODO()
+  return NullOrientationProvider
 }

@@ -26,6 +26,7 @@ import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.lock_24px
 import org.maplibre.compose.demoapp.generated.lock_open_24px
 import org.maplibre.compose.location.BearingUpdate
+import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.map.GestureOptions
@@ -140,8 +141,8 @@ object UserLocationDemo : Demo {
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
-    if (!state.locationPermissionState.hasPermission) {
-      Button(onClick = state.locationPermissionState::requestPermission) {
+    if (state.locationState.permission !is LocationPermission.Granted) {
+      Button(onClick = state.locationState::requestPermission) {
         Text("Request permission")
       }
     } else {
