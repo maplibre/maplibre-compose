@@ -165,7 +165,7 @@ public fun ExpandingAttributionButton(
   expand: (Alignment) -> EnterTransition = AttributionDefaults.expand,
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
-  val attributions by remember { derivedStateOf { styleState.attributions() } }
+  val attributions by remember(styleState) { derivedStateOf { styleState.attributions() } }
   if (attributions.isEmpty()) return
 
   val style = if (expanded) expandedStyle else collapsedStyle
