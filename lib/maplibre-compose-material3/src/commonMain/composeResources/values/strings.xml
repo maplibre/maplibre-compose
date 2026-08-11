@@ -1,9 +1,4 @@
 <resources>
   <string name="library_name">MapLibre Compose</string>
   <string name="compass">Compass</string>
-  <string name="meters_symbol">m</string>
-  <string name="kilometers_symbol">km</string>
-  <string name="feet_symbol">ft</string>
-  <string name="yards_symbol">yd</string>
-  <string name="miles_symbol">mi</string>
 </resources>

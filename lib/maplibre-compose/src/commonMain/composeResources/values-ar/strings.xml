@@ -1,3 +1,5 @@
 <resources>
   <string name="attribution">إسناد الخريطة</string>
+  <string name="meters_symbol">متر</string>
+  <string name="kilometers_symbol">كم</string>
 </resources>

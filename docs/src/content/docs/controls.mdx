@@ -8,54 +8,51 @@ import { region } from "../../snippets";
 
 import controls from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Controls.kt?raw";
 
-A map draws a set of controls on top of itself, and the `overlay` parameter
-decides which ones. The default draws the MapLibre logo and an attribution
-button along the bottom edge.
+`MaplibreMap` draws controls on top of the map. The `overlay` parameter sets
+which ones. The default is the MapLibre logo and an attribution button along the
+bottom edge.
 
 <Code code={region(controls, "default")} lang="kotlin" title="App.kt" />
 
 <Aside type="caution">
-  Most tile sources are licensed on the condition that you credit them. Replace
-  the default overlay only if your own controls show the attribution that your
-  style declares, which `MapOverlay.Default` reads from
-  `StyleState.attributions()`.
+  Most tile sources require attribution. `MapOverlay.Default` reads it from
+  `StyleState.attributions()`. If you replace the overlay, show that attribution
+  yourself.
 </Aside>
 
-## Choose your controls
+## Choose an overlay
 
-`MapOverlay.None` draws the map alone, for an app that renders attribution
+`MapOverlay.None` draws no controls. Use it when your app shows the attribution
 somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-To arrange the controls yourself, build a `MapOverlay`. Its content lays out in
-a box that covers the unobstructed region of the map, so `Modifier.align` puts a
-control against an edge. The scope carries the map's camera and style state.
+A `MapOverlay` block draws the controls you list in it. The block lays out in a
+box, so `Modifier.align` positions each control against an edge.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
-1. `cameraState` and `styleState` come from the overlay scope, so a control that
-   is part of an overlay takes no state arguments.
+1. The block can read the map's `cameraState` and `styleState`, so a control
+   inside it takes no state arguments.
 
-The [Material 3 extensions](/maplibre-compose/material3/) provide themed
-versions of these controls, along with a compass and a scale bar.
+The [Material 3 extensions](/maplibre-compose/material3/) add themed versions of
+these controls, plus a compass.
 
-## Keep controls clear of other UI
+## Make room for other UI
 
-The map fills its layout, so a bottom sheet or a system bar can cover part of
-it. `contentWindowInsets` names the region that other UI covers, and the overlay
-lays its controls out inside what is left.
+A system bar or a bottom sheet can cover part of the map. Set
+`contentWindowInsets` to the covered region, and the overlay places its controls
+in the rest.
 
-The default, `WindowInsets.safeDrawing`, subtracts whatever an ancestor has
-already consumed. A map inside a scaffold that applies its own insets reads
-zero, and a full-bleed map reads the system bars. Add to it when something else
-covers the map.
+The default is `WindowInsets.safeDrawing`. It excludes the insets that an
+ancestor already applied, so a map inside a scaffold reads zero and a
+full-screen map reads the system bars. Add to it when other UI covers the map.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
-1. `union` keeps the larger inset per edge, so the sheet and the system bars
+1. `union` takes the larger inset on each edge, so the sheet and the system bars
    both stay clear.
 
-The camera reads its own padding, which shifts the point that the map centers
-and rotates around. See
+The camera has its own padding, which moves the point that the map centers and
+rotates around. See
 [`CameraPosition.padding`](/maplibre-compose/api/lib/maplibre-compose/org.maplibre.compose.camera/-camera-position/padding.html).

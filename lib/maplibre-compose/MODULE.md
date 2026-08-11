@@ -8,8 +8,8 @@ Core package containing the primary map composable and related components.
 
 # Package org.maplibre.compose.overlay
 
-The controls drawn on top of the map, such as the MapLibre logo and the
-attribution button.
+The controls drawn on top of the map, such as the MapLibre logo, the attribution
+button, and the scale bar.
 
 # Package org.maplibre.compose.camera
 

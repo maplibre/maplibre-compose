@@ -1,3 +1,5 @@
 <resources>
   <string name="attribution">地圖資訊出處</string>
+  <string name="meters_symbol">米</string>
+  <string name="kilometers_symbol">千米</string>
 </resources>

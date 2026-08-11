@@ -1,3 +1,5 @@
 <resources>
   <string name="attribution">Атрибуція мапи</string>
+  <string name="meters_symbol">м</string>
+  <string name="kilometers_symbol">км</string>
 </resources>

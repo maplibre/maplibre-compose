@@ -39,9 +39,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.isTraversalGroup
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextLinkStyles
 import androidx.compose.ui.text.TextStyle
@@ -172,10 +175,15 @@ public fun ExpandingAttributionButton(
 
   Box(
     modifier
-      .shadow(shadowElevation, style.shape)
+      .shadow(shadowElevation, style.shape, clip = false)
       .then(style.border?.let { Modifier.border(it, style.shape) } ?: Modifier)
       .background(containerColor, style.shape)
       .clip(style.shape)
+      // Absorb gestures that land on the container, so that a drag across the attribution text
+      // does not pan the map underneath it. Material's Surface does the same, and groups its
+      // contents for screen reader traversal.
+      .pointerInput(Unit) {}
+      .semantics { isTraversalGroup = true }
   ) {
     val layoutDir = LocalLayoutDirection.current
 
