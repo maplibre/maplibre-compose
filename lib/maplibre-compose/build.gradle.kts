@@ -55,6 +55,7 @@ kotlin {
     commonMain.dependencies {
       implementation(libs.jetbrains.compose.foundation)
       implementation(libs.jetbrains.compose.components.resources)
+      implementation(libs.htmlConverterCompose)
       implementation(libs.lifecycle.runtime.compose)
       api(libs.kermit)
       api(libs.spatialk.geojson)
@@ -107,7 +108,6 @@ kotlin {
     androidMain {
       dependencies {
         api(libs.maplibre.android)
-        implementation(libs.maplibre.android.scalebar)
       }
     }
 

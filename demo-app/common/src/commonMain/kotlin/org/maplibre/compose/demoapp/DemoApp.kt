@@ -4,6 +4,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,21 +37,24 @@ fun DemoApp() {
     CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
       SheetLayout(
         menu = { DemoSheetContent(state = demoState, modifier = Modifier.fillMaxHeight()) },
-        map = { padding -> DemoMap(demoState, padding) },
+        map = { sheetInsets -> DemoMap(demoState, sheetInsets) },
       )
     }
   }
 }
 
+/** How much of the map the collapsed sheet covers. */
+private val SheetPeekHeight = 128.dp
+
 @Composable
 private fun SheetLayout(
   menu: @Composable () -> Unit,
-  map: @Composable (PaddingValues) -> Unit,
+  map: @Composable (WindowInsets) -> Unit,
   modifier: Modifier = Modifier,
 ) {
   val sheetState = rememberBottomSheetScaffoldState()
   BottomSheetScaffold(
-    sheetPeekHeight = 128.dp, // TODO dynamic peek based on selected demo
+    sheetPeekHeight = SheetPeekHeight, // TODO dynamic peek based on selected demo
     scaffoldState = sheetState,
     sheetSwipeEnabled = true,
     sheetDragHandle = {
@@ -73,8 +77,9 @@ private fun SheetLayout(
       }
     },
     modifier = modifier,
-  ) { padding ->
-    map(padding)
+  ) {
+    // The map draws under the scaffold content area, so the sheet covers its bottom edge.
+    map(WindowInsets(bottom = SheetPeekHeight))
   }
 }
 

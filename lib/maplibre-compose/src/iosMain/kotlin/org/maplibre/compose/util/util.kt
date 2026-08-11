@@ -4,22 +4,14 @@ import MapLibre.MLNCoordinateBounds
 import MapLibre.MLNCoordinateBoundsMake
 import MapLibre.MLNCoordinateQuadMake
 import MapLibre.MLNFeatureProtocol
-import MapLibre.MLNOrnamentPosition
-import MapLibre.MLNOrnamentPositionBottomLeft
-import MapLibre.MLNOrnamentPositionBottomRight
-import MapLibre.MLNOrnamentPositionTopLeft
-import MapLibre.MLNOrnamentPositionTopRight
 import MapLibre.MLNPointFeatureCluster
 import MapLibre.MLNShape
 import MapLibre.expressionWithMLNJSONObject
 import MapLibre.predicateWithMLNJSONObject
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.cinterop.CValue
@@ -217,16 +209,6 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): Any? =
     is CompiledOptions<*> ->
       buildMap { value.forEach { (k, v) -> put(k, v.normalizeJsonLike(inLiteral)) } }
   }
-
-internal fun Alignment.toMLNOrnamentPosition(layoutDir: LayoutDirection): MLNOrnamentPosition {
-  return when (align(IntSize(1, 1), IntSize(2, 2), layoutDir)) {
-    IntOffset(0, 0) -> MLNOrnamentPositionTopLeft
-    IntOffset(1, 0) -> MLNOrnamentPositionTopRight
-    IntOffset(0, 1) -> MLNOrnamentPositionBottomLeft
-    IntOffset(1, 1) -> MLNOrnamentPositionBottomRight
-    else -> error("Invalid alignment")
-  }
-}
 
 internal fun ImageBitmap.toUIImage(
   scale: Float,

@@ -1,0 +1,60 @@
+---
+title: Map controls
+description: Position the logo, attribution, and your own controls on top of the map.
+---
+
+import { Aside, Code } from "@astrojs/starlight/components";
+import { region } from "../../snippets";
+
+import controls from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Controls.kt?raw";
+
+`MaplibreMap` draws controls on top of the map. The `overlay` parameter sets
+which ones. The default is a scale bar and a compass along the top edge, and the
+MapLibre logo and an attribution button along the bottom edge. The scale bar and
+the compass appear only while they are relevant.
+
+<Code code={region(controls, "default")} lang="kotlin" title="App.kt" />
+
+<Aside type="caution">
+  Most tile sources require attribution. `MapOverlay.Default` reads it from
+  `StyleState.attributions()`. If you replace the overlay, show that attribution
+  yourself.
+</Aside>
+
+## Choose an overlay
+
+`MapOverlay.None` draws no controls. Use it when your app shows the attribution
+somewhere else, such as an about screen.
+
+<Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
+
+A `MapOverlay` block draws the controls you list in it. The block lays out in a
+box, so `Modifier.align` positions each control against an edge.
+
+<Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
+
+1. The block can read the map's `cameraState` and `styleState`, so a control
+   inside it takes no state arguments.
+
+`MapOverlay.Material3` from the
+[Material 3 extensions](/maplibre-compose/material3/) draws the same controls,
+themed from your color scheme and typography.
+
+## Make room for other UI
+
+A system bar or a bottom sheet can cover part of the map. Set
+`contentWindowInsets` to the covered region, and the overlay places its controls
+in the rest.
+
+The default is `WindowInsets.safeDrawing`. It excludes the insets that an
+ancestor already applied, so a map inside a scaffold reads zero and a
+full-screen map reads the system bars. Add to it when other UI covers the map.
+
+<Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
+
+1. `union` takes the larger inset on each edge, so the sheet and the system bars
+   both stay clear.
+
+The camera has its own padding, which moves the point that the map centers and
+rotates around. See
+[`CameraPosition.padding`](/maplibre-compose/api/lib/maplibre-compose/org.maplibre.compose.camera/-camera-position/padding.html).

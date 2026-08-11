@@ -76,7 +76,12 @@ internal fun AndroidMapView(
             context,
             MapLibreMapOptions.createFromAttributes(context)
               .foregroundLoadColor(foregroundLoadColor.toArgb())
-              .textureMode(renderMode == RenderOptions.RenderMode.TextureView),
+              .textureMode(renderMode == RenderOptions.RenderMode.TextureView)
+              // The map draws its logo, attribution, and compass in Compose, so the Android SDK's
+              // own views would duplicate them.
+              .logoEnabled(false)
+              .attributionEnabled(false)
+              .compassEnabled(false),
           )
           .also { mapView ->
             currentMapView = mapView
@@ -85,7 +90,6 @@ internal fun AndroidMapView(
                 AndroidMapAdapter(
                   mapView = mapView,
                   map = map,
-                  scaleBar = AndroidScaleBar(context, mapView, map),
                   layoutDir = layoutDir,
                   density = density,
                   callbacks = callbacks,

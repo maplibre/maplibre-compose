@@ -7,7 +7,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.coroutines.Continuation
@@ -44,7 +43,6 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.correctedAndroidUri
 import org.maplibre.compose.util.getSystemRefreshRate
 import org.maplibre.compose.util.toBoundingBox
-import org.maplibre.compose.util.toGravity
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toMLNExpression
@@ -61,7 +59,6 @@ import org.maplibre.spatialk.geojson.Position
 internal class AndroidMapAdapter(
   private val mapView: MapView,
   private val map: MapLibreMap,
-  private val scaleBar: AndroidScaleBar,
   layoutDir: LayoutDirection,
   density: Density,
   internal var callbacks: MapAdapter.Callbacks,
@@ -70,18 +67,8 @@ internal class AndroidMapAdapter(
 ) : MapAdapter {
 
   internal var layoutDir: LayoutDirection = layoutDir
-    set(value) {
-      field = value
-      scaleBar.layoutDir = value
-      scaleBar.updateLayout()
-    }
 
   internal var density: Density = density
-    set(value) {
-      field = value
-      scaleBar.density = value
-      scaleBar.updateLayout()
-    }
 
   internal var logger: Logger? = logger
     set(value) {
@@ -247,34 +234,6 @@ internal class AndroidMapAdapter(
     map.uiSettings.isZoomGesturesEnabled = value.isZoomEnabled
     map.uiSettings.isQuickZoomGesturesEnabled = value.isQuickZoomEnabled
     map.uiSettings.isDoubleTapGesturesEnabled = value.isDoubleTapEnabled
-  }
-
-  override fun setOrnamentSettings(value: OrnamentOptions) {
-    map.uiSettings.isLogoEnabled = value.isLogoEnabled
-    map.uiSettings.logoGravity = value.logoAlignment.toGravity(layoutDir)
-
-    map.uiSettings.isAttributionEnabled = value.isAttributionEnabled
-    map.uiSettings.attributionGravity = value.attributionAlignment.toGravity(layoutDir)
-
-    map.uiSettings.isCompassEnabled = value.isCompassEnabled
-    map.uiSettings.compassGravity = value.compassAlignment.toGravity(layoutDir)
-
-    scaleBar.enabled = value.isScaleBarEnabled
-    scaleBar.alignment = value.scaleBarAlignment
-    scaleBar.padding = value.padding
-    scaleBar.updateLayout()
-
-    with(density) {
-      val left =
-        (value.padding.calculateLeftPadding(layoutDir).coerceAtLeast(0.dp) + 8.dp).roundToPx()
-      val top = (value.padding.calculateTopPadding().coerceAtLeast(0.dp) + 8.dp).roundToPx()
-      val right =
-        (value.padding.calculateRightPadding(layoutDir).coerceAtLeast(0.dp) + 8.dp).roundToPx()
-      val bottom = (value.padding.calculateBottomPadding().coerceAtLeast(0.dp) + 8.dp).roundToPx()
-      map.uiSettings.setAttributionMargins(left, top, right, bottom)
-      map.uiSettings.setLogoMargins(left, top, right, bottom)
-      map.uiSettings.setCompassMargins(left, top, right, bottom)
-    }
   }
 
   private fun MLNCameraPosition.toCameraPosition(): CameraPosition =
