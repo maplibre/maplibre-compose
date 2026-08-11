@@ -7,6 +7,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
@@ -14,13 +15,13 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 class MlnFfiOfflineManagerTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
-  private val directory = requireNotNull(cacheFile.parentFile)
+  private val directory = requireNotNull(cacheFile.parent)
 
   private val options = MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
 
   private val budgetedOptions =
     MlnFfiRuntimeOptions(
-      cacheFile = directory.resolve("budgeted-cache.db"),
+      cacheFile = Path(directory, "budgeted-cache.db"),
       maximumCacheSizeBytes = 8L * 1024 * 1024,
     )
 

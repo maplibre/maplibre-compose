@@ -44,6 +44,11 @@ internal class FakeStyle(
     sourceMap.remove(source.id)
   }
 
+  internal fun replaceSource(source: Source) {
+    if (source.id !in sourceMap) error("Source ID '${source.id}' not found in style")
+    sourceMap[source.id] = source
+  }
+
   override fun getLayer(id: String): Layer? {
     return layerMap[id]
   }

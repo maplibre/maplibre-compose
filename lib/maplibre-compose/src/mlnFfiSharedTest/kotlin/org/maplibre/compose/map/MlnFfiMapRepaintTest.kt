@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
@@ -9,7 +11,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import co.touchlab.kermit.Logger
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertTrue
@@ -84,25 +88,25 @@ class MlnFfiMapRepaintTest {
    */
   private fun runRepaintTest(mutate: ComposeUiTest.() -> Unit, content: @Composable () -> Unit) =
     runFfiComposeUiTest {
-      val frames = AtomicInteger()
+      val frames = AtomicInt(0)
 
       setFfiTestMapContent(runtimeOptions) {
         MaplibreMap(
           modifier = Modifier,
           baseStyle = BaseStyle.Empty,
           logger = Logger.withTag("repaint-test"),
-          onFrame = { frames.incrementAndGet() },
+          onFrame = { frames.incrementAndFetch() },
           content = content,
         )
       }
 
       // The map advances on a thread of its own, so settling means observing a real quiet window.
       // Comparing two adjacent reads can succeed before an already-queued startup frame lands.
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.get() > 0 }
-      var before = frames.get()
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > 0 }
+      var before = frames.load()
       var unchangedSince = TimeSource.Monotonic.markNow()
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        val current = frames.get()
+        val current = frames.load()
         if (current != before) {
           before = current
           unchangedSince = TimeSource.Monotonic.markNow()
@@ -112,10 +116,10 @@ class MlnFfiMapRepaintTest {
 
       mutate()
 
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.get() > before }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > before }
       assertTrue(
-        frames.get() > before,
-        "The change produced no new rendered frame ($before before, ${frames.get()} " +
+        frames.load() > before,
+        "The change produced no new rendered frame ($before before, ${frames.load()} " +
           "after), so it would not appear until something else woke the render loop.",
       )
     }

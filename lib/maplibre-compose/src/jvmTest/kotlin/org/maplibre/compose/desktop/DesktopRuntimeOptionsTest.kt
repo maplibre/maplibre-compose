@@ -40,7 +40,7 @@ class DesktopRuntimeOptionsTest {
   @Test
   fun repeating_the_same_normalized_configuration_is_harmless() {
     val file = FfiTestPlatform.createCacheFile()
-    val path = file.toPath()
+    val path = Paths.get(file.toString())
     val alias = path.parent.resolve("unused").resolve("..").resolve(path.fileName)
     try {
       MapLibre.configure(DesktopRuntimeOptions(path))
@@ -54,7 +54,7 @@ class DesktopRuntimeOptionsTest {
   @Test
   fun replacing_the_application_configuration_fails() {
     val file = FfiTestPlatform.createCacheFile()
-    val path = file.toPath()
+    val path = Paths.get(file.toString())
     try {
       MapLibre.configure(DesktopRuntimeOptions(path))
 

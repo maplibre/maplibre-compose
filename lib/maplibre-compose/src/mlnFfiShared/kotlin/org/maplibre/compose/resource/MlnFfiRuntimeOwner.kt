@@ -1,7 +1,10 @@
 package org.maplibre.compose.resource
 
 import co.touchlab.kermit.Logger
-import java.io.File
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
+import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
 
@@ -39,22 +42,16 @@ private constructor(
      * Creates a runtime and everything that hangs off it, or throws having closed whatever it got
      * as far as. [what] names the runtime in log lines.
      */
-    fun open(rawCacheFile: File, getLogger: () -> Logger?, what: String): MlnFfiRuntimeOwner {
-      val cacheFile = rawCacheFile.absoluteFile.normalize()
+    fun open(rawCacheFile: Path, getLogger: () -> Logger?, what: String): MlnFfiRuntimeOwner {
+      val cacheFile = normalizeMlnFfiPath(rawCacheFile)
       // MapLibre opens the database as the runtime is created, and fails if the directory is
       // missing.
-      runCatching {
-        cacheFile.parentFile?.let { directory ->
-          check(directory.mkdirs() || directory.isDirectory) {
-            "Could not create the MapLibre cache directory $directory"
-          }
-        }
-      }
+      runCatching { cacheFile.parent?.let { SystemFileSystem.createDirectories(it) } }
         .onFailure { getLogger()?.w(it) { "Could not create the MapLibre cache directory" } }
 
       val runtime =
         try {
-          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.path })
+          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
         } catch (error: Throwable) {
           throw error
         }
@@ -70,7 +67,7 @@ private constructor(
         // Installed with the runtime rather than with the map, so nothing can request a resource
         // before the provider that serves it exists.
         runtime.setResourceProvider(provider)
-        getLogger()?.i { "Created the $what on ${Thread.currentThread().name}" }
+        getLogger()?.i { "Created the $what on ${currentMlnFfiThreadName()}" }
         owner
       } catch (error: Throwable) {
         // Unwinds in the same order a successful close uses, or the runtime's scheduler and

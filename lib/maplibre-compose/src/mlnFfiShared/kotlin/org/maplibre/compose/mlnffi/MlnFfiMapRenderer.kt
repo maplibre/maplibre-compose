@@ -1,5 +1,7 @@
 package org.maplibre.compose.mlnffi
 
+import org.maplibre.compose.map.MapExtent
+
 /** The outcome of one [MlnFfiMapRenderer.render] call. */
 internal enum class MlnFfiFrameResult {
   /** The renderer drew into the frame's target. */
@@ -9,13 +11,8 @@ internal enum class MlnFfiFrameResult {
 }
 
 /**
- * Receives surface lifecycle and frames from a [MlnFfiMapHost].
- *
- * An interface rather than a class only so the surface can be driven by a stand-in under test;
- * `MlnFfiMapSession` is the one real implementation, and nothing outside this library writes
- * another.
- *
- * Every method is called with renderer access held, on the host's renderer thread.
+ * Receives surface lifecycle and frames from a [MlnFfiMapHost]. Every method is called with
+ * renderer access held, on the host's renderer thread.
  */
 internal interface MlnFfiMapRenderer : AutoCloseable {
   /** The backend this renderer needs MapLibre Native to render with. */
@@ -29,7 +26,7 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
   fun onSurfaceAvailable(session: MlnFfiMapHostSession) {}
 
   /** Called when the surface size or scale factor changed, before the next frame. */
-  fun onSurfaceChanged(extent: MlnFfiMapExtent) {}
+  fun onSurfaceChanged(extent: MapExtent) {}
 
   /** Renders one frame into [frame]'s target. */
   fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult

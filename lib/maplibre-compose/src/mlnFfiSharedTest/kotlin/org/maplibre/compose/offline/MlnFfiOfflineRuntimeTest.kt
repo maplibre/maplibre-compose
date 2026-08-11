@@ -1,9 +1,12 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.offline
 
 import co.touchlab.kermit.Logger
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
@@ -91,16 +94,16 @@ class MlnFfiOfflineRuntimeTest {
     val cancelled = AtomicBoolean(false)
     val ran = AtomicBoolean(false)
     val queueDrained = CountDownLatch(1)
-    runtime.post(task = { ran.set(true) }, reject = {}, isCancelled = cancelled::get)
+    runtime.post(task = { ran.store(true) }, reject = {}, isCancelled = cancelled::load)
     runtime.post(task = { queueDrained.countDown() }, reject = {})
 
-    cancelled.set(true)
+    cancelled.store(true)
     releaseBlocker.countDown()
     assertTrue(
       queueDrained.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
       "the owner thread did not drain the queued work",
     )
-    assertFalse(ran.get(), "the cancelled task must not run")
+    assertFalse(ran.load(), "the cancelled task must not run")
   }
 
   /** Shutdown signals the wake source directly, because the accept gate may already be closed. */

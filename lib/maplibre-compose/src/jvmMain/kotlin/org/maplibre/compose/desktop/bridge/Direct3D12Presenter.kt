@@ -11,20 +11,14 @@ import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
 import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MlnFfiHostException
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
 
-/** `DXGI_FORMAT_B8G8R8A8_UNORM`, matching Compose's BGRA Direct3D 12 swap chain. */
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
 
-/**
- * An `ID3D12Resource` texture to composite into Compose's scene.
- *
- * Presentation-only, and not a `MlnFfiRenderTarget`: MapLibre has no Direct3D backend to render
- * into one of these.
- */
+/** An `ID3D12Resource` texture to composite into Compose's scene. */
 internal data class Direct3DTextureTarget(
   /** `ID3D12Resource`. */
   val texture: NativeHandle,
@@ -34,24 +28,15 @@ internal data class Direct3DTextureTarget(
   val colorFormat: SurfaceColorFormat = SurfaceColorFormat.BGRA_8888,
   /** Row order of [texture]. */
   val origin: TextureOrigin = TextureOrigin.TOP_LEFT,
-  /** The size [texture] was allocated at, which is what Skia has to wrap. */
-  val extent: MlnFfiMapExtent,
+  /** The size [texture] was allocated at. */
+  val extent: MapExtent,
   /**
    * The [org.maplibre.compose.desktop.MlnFfiRenderTarget.generation] this texture corresponds to.
-   *
-   * Presenters are keyed by texture address, so a host that reallocates must call
-   * [Direct3D12Presenter.forget] before releasing the old texture or a recycled address resolves to
-   * a presenter wrapping freed memory.
    */
   val generation: Long,
 )
 
-/**
- * Draws a Direct3D 12 texture into Compose's Skia canvas on Windows.
- *
- * Compose owns the Direct3D device and Skia's [DirectContext]; this wraps the shared texture the
- * map was rendered into as a Skia surface and composites it.
- */
+/** Draws a Direct3D 12 texture into Compose's Skia canvas on Windows. */
 internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
 
@@ -78,10 +63,7 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
     return drew
   }
 
-  /**
-   * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
-   * Forced through the host's exclusive context boundary, which owns the Skia wrappers.
-   */
+  /** Drops the Skia wrapper for a texture; must happen before the texture itself is released. */
   fun forget(texture: NativeHandle) {
     gpuHost.runOnGpuThread { presenters.remove(texture.address)?.close() }
   }
@@ -102,7 +84,7 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
   }
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
-    private var extent = MlnFfiMapExtent.Empty
+    private var extent = MapExtent.Empty
     private var colorFormat = SurfaceColorFormat.BGRA_8888
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
@@ -177,7 +159,7 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeGpuHost) : AutoCl
 
     override fun close() {
       closeGpuResources()
-      extent = MlnFfiMapExtent.Empty
+      extent = MapExtent.Empty
       colorFormat = SurfaceColorFormat.BGRA_8888
       origin = TextureOrigin.TOP_LEFT
     }

@@ -7,6 +7,7 @@ import android.view.Choreographer
 import android.view.Surface
 import co.touchlab.kermit.Logger
 import java.util.concurrent.FutureTask
+import org.maplibre.compose.map.MapExtent
 
 /** Drives the shared FFI renderer from a dedicated Android render thread. */
 internal class AndroidMlnFfiSurfaceController(
@@ -19,7 +20,7 @@ internal class AndroidMlnFfiSurfaceController(
   private val renderHandler = Handler(renderThread.looper)
   private val choreographer = onRenderThread { Choreographer.getInstance() }
   private var graphics: AndroidEglContext? = null
-  private var extent = MlnFfiMapExtent.Empty
+  private var extent = MapExtent.Empty
   private var generation = 0L
   private var nextFrameId = 1L
   private var framePosted = false
@@ -43,7 +44,7 @@ internal class AndroidMlnFfiSurfaceController(
     surfaceDestroyedOnRenderThread()
     try {
       graphics = AndroidEglContext.create(surface)
-      extent = MlnFfiMapExtent.fromPhysical(width, height, scaleFactor)
+      extent = MapExtent.fromPhysical(width, height, scaleFactor)
       generation++
       renderer.onSurfaceAvailable(this)
       renderer.onSurfaceChanged(extent)
@@ -61,7 +62,7 @@ internal class AndroidMlnFfiSurfaceController(
   private fun surfaceChangedOnRenderThread(width: Int, height: Int, scaleFactor: Double) {
     checkRenderThread()
     if (graphics == null || closed) return
-    val changed = MlnFfiMapExtent.fromPhysical(width, height, scaleFactor)
+    val changed = MapExtent.fromPhysical(width, height, scaleFactor)
     if (changed == extent) return
     extent = changed
     generation++
@@ -88,7 +89,7 @@ internal class AndroidMlnFfiSurfaceController(
     runCatching { graphics?.close() }
       .onFailure { logger?.e(it) { "Failed to release the Android EGL context" } }
     graphics = null
-    extent = MlnFfiMapExtent.Empty
+    extent = MapExtent.Empty
     consecutiveFailures = 0
   }
 
@@ -196,7 +197,7 @@ internal class AndroidMlnFfiSurfaceController(
     runCatching { graphics?.close() }
       .onFailure { logger?.e(it) { "Failed to release the Android EGL context" } }
     graphics = null
-    extent = MlnFfiMapExtent.Empty
+    extent = MapExtent.Empty
     runCatching { renderer.close() }
       .onFailure { logger?.e(it) { "Failed to close the Android map renderer" } }
   }

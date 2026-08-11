@@ -22,13 +22,44 @@ public class StyleState internal constructor() {
 
   internal fun attach(styleNode: StyleNode?) {
     if (this.styleNode != styleNode) {
+      this.styleNode?.sourceManager?.state = null
       this.styleNode = styleNode
       styleNode?.sourceManager?.state = this
-      reloadSources()
+      sourcesState.value = styleNode?.style?.getSources().orEmpty().associateBy { it.id }
     }
   }
 
-  internal fun reloadSources() {
-    this.sourcesState.value = styleNode?.style?.getSources().orEmpty().associateBy { it.id }
+  internal fun refreshSource(id: String) {
+    val node = styleNode ?: return
+    if (node.style.isUnloaded) return
+
+    val current = sourcesState.value
+    val refreshed = node.style.getSource(id)
+    val previous = current[id]
+    when {
+      refreshed == null && previous != null -> sourcesState.value = current - id
+      refreshed != null && !refreshed.hasSameState(previous) ->
+        sourcesState.value = current + (id to refreshed)
+    }
   }
+
+  internal fun refreshSources() {
+    val node = styleNode
+    if (node == null) {
+      if (sourcesState.value.isNotEmpty()) sourcesState.value = emptyMap()
+      return
+    }
+    if (node.style.isUnloaded) return
+
+    val current = sourcesState.value
+    val refreshed = node.style.getSources().associateBy { it.id }
+    var changed = current.keys.toList() != refreshed.keys.toList()
+    val reconciled = refreshed.mapValues { (id, source) ->
+      current[id]?.takeIf { source.hasSameState(it) } ?: source.also { changed = true }
+    }
+    if (changed) sourcesState.value = reconciled
+  }
+
+  private fun Source.hasSameState(other: Source?): Boolean =
+    other != null && this::class == other::class && attributionHtml == other.attributionHtml
 }

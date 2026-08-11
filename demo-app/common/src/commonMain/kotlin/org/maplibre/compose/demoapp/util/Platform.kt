@@ -9,8 +9,6 @@ expect object Platform {
 
   val version: String
 
-  val supportedFeatures: Set<PlatformFeature>
-
   val extraDemos: List<Demo>
 
   fun padOrnaments(options: OrnamentOptions, padding: PaddingValues): OrnamentOptions

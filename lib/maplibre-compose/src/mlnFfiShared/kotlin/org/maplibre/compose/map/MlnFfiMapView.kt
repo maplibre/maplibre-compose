@@ -20,6 +20,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 
@@ -99,26 +100,28 @@ internal fun MlnFfiMapView(
   val currentOnReset = rememberUpdatedState(onReset)
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
-  // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
+  // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
 
-  LaunchedEffect(session, options, update) { update(session) }
+  LaunchedEffect(session, options, update) {
+    // Attach deferred state before native events can report the map's default state to Compose.
+    update(session)
+    session.start()
+  }
 
   DisposableEffect(session) {
-    session.start()
     onDispose {
       session.close()
       currentOnReset.value()
     }
   }
 
-  // Held here rather than inside the modifier so it survives recomposition.
   val focusRequester = remember { FocusRequester() }
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
   val inputModifier =
-    modifier.mlnFfiMapInput(session, options.gestureOptions, density, focusRequester, continuation)
+    modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
   surface(session, inputModifier, logger)
 }
 
@@ -131,15 +134,15 @@ private fun createHost(
       runtimeBackends = runtimeBackends,
       hostBackends = factory.backends,
       hostDescription = factory.description,
-      operatingSystem = System.getProperty("os.name") ?: "unknown",
-      architecture = System.getProperty("os.arch") ?: "unknown",
+      operatingSystem = mlnFfiOperatingSystem,
+      architecture = mlnFfiArchitecture,
     )
   if (diagnostic != null) return MlnFfiMapHostResult.Failed(diagnostic)
 
   return try {
     factory.create()
   } catch (error: Throwable) {
-    if (error is VirtualMachineError) throw error
+    rethrowIfFatal(error)
     MlnFfiMapHostResult.Failed("${factory.description} threw while creating a map host", error)
   }
 }
@@ -153,7 +156,7 @@ internal fun loadRuntimeBackends(logger: Logger?): Set<MapRenderBackend> =
     Maplibre.loadNativeLibrary()
     Maplibre.supportedRenderBackends().mapNotNullTo(mutableSetOf()) { it.toComposeBackend() }
   } catch (error: Throwable) {
-    if (error is VirtualMachineError) throw error
+    rethrowIfFatal(error)
     logger?.e(error) { "Could not load the MapLibre Native FFI runtime" }
     emptySet()
   }

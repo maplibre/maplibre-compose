@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.clickable
@@ -29,7 +31,9 @@ import androidx.compose.ui.test.swipe
 import androidx.compose.ui.test.withKeyDown
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
@@ -37,6 +41,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
@@ -49,7 +54,6 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 
-/** Keyboard and pointer input reach the map, and a click stays distinct from a drag. */
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapInputTest {
 
@@ -78,7 +82,7 @@ class MlnFfiMapInputTest {
   @Test
   fun plus_and_minus_zoom_the_map() = runInputTest { camera ->
     onRoot().performKeyInput { pressKey(Key.Equals) }
-    // The zoom has to arrive, not merely start: a transition only advances while frames render.
+    // A zoom transition only advances while frames render.
     awaitZoom(camera, START_ZOOM + 1.0)
 
     onRoot().performKeyInput { pressKey(Key.Minus) }
@@ -92,10 +96,7 @@ class MlnFfiMapInputTest {
     assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
   }
 
-  /**
-   * A mouse never waits for a second click, matching the web build; only touch taps do, as the
-   * mobile SDKs do.
-   */
+  /** A mouse never waits for a second click; only touch taps do. */
   @Test
   fun double_click_still_reports_its_first_click() =
     runInputTest(focusWithMouse = false) { camera ->
@@ -143,12 +144,88 @@ class MlnFfiMapInputTest {
 
       waitUntil(timeoutMillis = TIMEOUT) { camera.moveReason == CameraMoveReason.GESTURE }
 
-      mainClock.advanceTimeByFrame()
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
       waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
     } finally {
       mainClock.autoAdvance = true
     }
   }
+
+  @Test
+  fun mouse_wheel_burst_is_one_camera_move() = runInputTest { camera ->
+    mainClock.autoAdvance = false
+    try {
+      onRoot().performMouseInput {
+        moveTo(center)
+        scroll(-1f)
+      }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the move ended inside the scroll event that started it")
+
+      val firstNotchAt = mainClock.currentTime
+      while (mainClock.currentTime - firstNotchAt < SCROLL_HOLD_MILLIS / 2) {
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "the burst was reported as more than one camera move")
+        assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
+      }
+
+      onRoot().performMouseInput { scroll(-1f) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the second notch did not continue the move")
+
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
+      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    } finally {
+      mainClock.autoAdvance = true
+    }
+
+    awaitZoom(camera, START_ZOOM + 2 * GestureOptions.Standard.scrollZoomStep)
+  }
+
+  @Test
+  fun mouse_wheel_move_outlives_the_event_but_not_the_hold() = runInputTest { camera ->
+    mainClock.autoAdvance = false
+    try {
+      val notchAt = mainClock.currentTime
+      onRoot().performMouseInput { scroll(-1f) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the move ended inside the scroll event that started it")
+
+      // A frame short of the hold, since advanceTimeBy rounds up to whole frames.
+      mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS - (mainClock.currentTime - notchAt) - FRAME_MILLIS)
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the move ended before the hold elapsed")
+
+      mainClock.advanceTimeBy(2 * FRAME_MILLIS)
+      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    } finally {
+      mainClock.autoAdvance = true
+    }
+  }
+
+  @Test
+  fun the_scroll_hold_is_as_long_as_its_option_says() =
+    runInputTest(gestures = GestureOptions(scrollZoomHold = 600.milliseconds)) { camera ->
+      mainClock.autoAdvance = false
+      try {
+        onRoot().performMouseInput { scroll(-1f) }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+
+        mainClock.advanceTimeBy(400)
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "a 400 ms gap ended a move held open for 600 ms")
+
+        mainClock.advanceTimeBy(300)
+        waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+      } finally {
+        mainClock.autoAdvance = true
+      }
+    }
 
   @Test
   fun secondary_mouse_drag_rotates_and_tilts() = runInputTest { camera ->
@@ -173,11 +250,6 @@ class MlnFfiMapInputTest {
     waitUntil(timeoutMillis = TIMEOUT) { camera.position.tilt > 0.0 }
   }
 
-  /**
-   * A press that moves a hair is still a click. The slop only earns its keep if it gates the start
-   * of the drag: gating anything later leaves a press that jittered by a pixel dragging the map and
-   * reporting nothing.
-   */
   @Test
   fun a_press_that_jitters_within_the_slop_still_clicks() = runInputTest { camera ->
     val longitudeBefore = camera.position.target.longitude
@@ -218,22 +290,25 @@ class MlnFfiMapInputTest {
 
   @Test
   fun a_map_click_does_not_also_click_its_parent() {
-    val parentClicks = AtomicInteger()
+    val parentClicks = AtomicInt(0)
 
-    runInputTest(focusWithMouse = false, parentOnClick = parentClicks::incrementAndGet) {
+    runInputTest(focusWithMouse = false, parentOnClick = { parentClicks.incrementAndFetch() }) {
       onRoot().performMouseInput { click(center) }
       waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
       waitForIdle()
 
-      assertEquals(0, parentClicks.get())
+      assertEquals(0, parentClicks.load())
     }
   }
 
   @Test
   fun a_map_long_click_does_not_also_long_click_its_parent() {
-    val parentLongClicks = AtomicInteger()
+    val parentLongClicks = AtomicInt(0)
 
-    runInputTest(focusWithMouse = false, parentOnLongClick = parentLongClicks::incrementAndGet) {
+    runInputTest(
+      focusWithMouse = false,
+      parentOnLongClick = { parentLongClicks.incrementAndFetch() },
+    ) {
       val map = onRoot()
       map.performTouchInput { down(0, center) }
       mainClock.advanceTimeBy(1_000)
@@ -241,7 +316,7 @@ class MlnFfiMapInputTest {
       map.performTouchInput { up(0) }
       waitForIdle()
 
-      assertEquals(0, parentLongClicks.get())
+      assertEquals(0, parentLongClicks.load())
     }
   }
 
@@ -319,7 +394,6 @@ class MlnFfiMapInputTest {
         down(0, center - Offset(80f, 0f))
         down(1, center + Offset(80f, 0f))
         // Cross pan's 4 dp threshold before shove's 16 dp threshold, just as a real stream does.
-        // Shove must still win once eligible instead of being permanently stolen by pan.
         repeat(5) {
           updatePointerBy(0, Offset(0f, -5f))
           updatePointerBy(1, Offset(0f, -5f))
@@ -419,7 +493,6 @@ class MlnFfiMapInputTest {
       assertEquals(0, clicks.size, "a quick zoom leaked its first tap as a map click")
     }
 
-  /** A tap is held back only for as long as a second one could still claim it. */
   @Test
   fun a_tap_waits_for_a_second_one_that_could_still_arrive() =
     runInputTest(focusWithMouse = false) {
@@ -572,6 +645,9 @@ class MlnFfiMapInputTest {
           scroll(-1f)
         }
         mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "the wheel closed the gesture it took over")
+        mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
         waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
         mainClock.advanceTimeBy(2_000)
       } finally {
@@ -605,12 +681,11 @@ class MlnFfiMapInputTest {
       }
     }
 
-  /** Waits for the camera to settle at [zoom], failing with the value it stopped at. */
+  /** Waits for the camera to settle at [zoom]. */
   private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: CameraState, zoom: Double) {
     waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.zoom - zoom) < ZOOM_TOLERANCE }
   }
 
-  /** `PositionLocked` must still zoom, but without the pointer anchoring that would pan. */
   @Test
   fun position_locked_zooms_without_moving_the_camera() =
     runInputTest(gestures = GestureOptions.PositionLocked) { camera ->
@@ -658,7 +733,7 @@ class MlnFfiMapInputTest {
     parentOnLongClick: (() -> Unit)? = null,
     body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
   ) = runFfiComposeUiTest {
-    val frames = AtomicInteger()
+    val frames = AtomicInt(0)
     val initialPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
     lateinit var cameraState: CameraState
 
@@ -678,7 +753,7 @@ class MlnFfiMapInputTest {
             longClicks.add(position)
             ClickResult.Pass
           },
-          onFrame = { frames.incrementAndGet() },
+          onFrame = { frames.incrementAndFetch() },
           logger = Logger.withTag("input-test"),
         )
       }
@@ -697,14 +772,13 @@ class MlnFfiMapInputTest {
 
     cameraState.awaitProjection()
     cameraState.position = initialPosition
-    waitUntil(timeoutMillis = TIMEOUT) { frames.get() > 0 }
+    waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
     waitUntil(timeoutMillis = TIMEOUT) {
       kotlin.math.abs(cameraState.position.zoom - START_ZOOM) < 0.001
     }
 
-    // A click is what gives the map focus, so the keyboard cases depend on it too.
-    // Keep the focus click outside the test gestures' double-click slop; otherwise a fast test can
-    // accidentally turn its first click into the second half of the focus click.
+    // A click is what gives the map focus, so the keyboard cases depend on it too. Keep it outside
+    // the double-click slop, or a test's first click becomes the second half of this one.
     if (focusWithMouse) onRoot().performMouseInput { click(Offset(10f, 10f)) }
 
     body(cameraState)
@@ -713,6 +787,12 @@ class MlnFfiMapInputTest {
   private companion object {
     const val TIMEOUT = 30_000L
     const val START_ZOOM = 4.0
+
+    /** The test clock advances a whole frame at a time, and never on its own under `waitUntil`. */
+    const val FRAME_MILLIS = 16L
+
+    val SCROLL_HOLD_MILLIS = GestureOptions.Standard.scrollZoomHold.inWholeMilliseconds
+
     const val RESIZABLE_MAP_TAG = "resizable-map"
 
     /** A zoom about the centre still drifts the target a hair through the projection. */

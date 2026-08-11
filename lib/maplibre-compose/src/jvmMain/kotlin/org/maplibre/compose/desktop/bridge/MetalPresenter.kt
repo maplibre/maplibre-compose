@@ -12,18 +12,15 @@ import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
 import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiHostException
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
- * Draws MapLibre's Metal texture into the Compose scene, by wrapping it as a Skia surface on the
- * context Compose already draws with. No import, no copy, and no context to make current.
- *
- * Every Skia object here is accessed inside the host's exclusive context boundary, so freeing is
- * deferred until that boundary rather than done wherever a texture happened to be retired.
+ * Draws MapLibre's Metal texture into the Compose scene by wrapping it as a Skia surface. Every
+ * Skia object here is accessed inside the host's exclusive context boundary, freeing included.
  */
 internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseable {
   private val presenters = mutableMapOf<Long, TexturePresenter>()
@@ -81,8 +78,7 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
   /**
    * Frees retired textures, except one the caller is about to draw: a texture retired inside
    * `acquireFrame` can be presented again in the same frame, and freeing it early makes
-   * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap. See
-   * [org.maplibre.compose.desktop.MlnFfiRenderTarget.generation].
+   * `BackendRenderTarget.makeMetal` `CFRetain` a released `MTLTexture` and trap.
    */
   private fun releaseRetired(keepAlive: Long) {
     if (retired.isEmpty()) return
@@ -101,7 +97,7 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
   }
 
   private class TexturePresenter(private val texture: NativeHandle) : AutoCloseable {
-    private var extent = MlnFfiMapExtent.Empty
+    private var extent = MapExtent.Empty
     private var origin = TextureOrigin.TOP_LEFT
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
@@ -117,8 +113,6 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
       val currentSurface =
         surface ?: throw MlnFfiHostException("Skia could not wrap Metal texture ${target.texture}")
 
-      // MapLibre overwrote every pixel; telling Skia the old contents are gone lets it skip
-      // reloading them into its own render pass.
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
       currentSurface.makeImageSnapshot().use { image ->
         canvas.drawImageRect(
@@ -160,8 +154,8 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
           context = context,
           rt = checkNotNull(renderTarget),
           origin = origin.toSkiaOrigin(),
-          // The host allocates BGRA8Unorm, which is Metal's native layer format; asking Skia for
-          // anything else here silently produces swapped channels rather than an error.
+          // The host allocates BGRA8Unorm; anything else here silently swaps channels rather than
+          // erroring.
           colorFormat = SurfaceColorFormat.BGRA_8888,
           colorSpace = null,
           surfaceProps = null,
@@ -173,7 +167,7 @@ internal class MetalPresenter(private val gpuHost: ComposeGpuHost) : AutoCloseab
 
     override fun close() {
       closeGpuResources()
-      extent = MlnFfiMapExtent.Empty
+      extent = MapExtent.Empty
       origin = TextureOrigin.TOP_LEFT
     }
 

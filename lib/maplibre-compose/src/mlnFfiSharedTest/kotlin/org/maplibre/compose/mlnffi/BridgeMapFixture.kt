@@ -1,9 +1,7 @@
 package org.maplibre.compose.mlnffi
 
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.io.File
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -12,39 +10,47 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
-import org.maplibre.compose.camera.CameraMoveReason
-import org.maplibre.compose.map.MapAdapter
+import kotlinx.io.files.Path
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
-import org.maplibre.spatialk.geojson.Position
+import org.maplibre.compose.testing.MapFixture
+import org.maplibre.compose.testing.RecordingMapCallbacks
+import org.maplibre.compose.testing.RgbaPixel
 
 /**
  * Runs a real [MlnFfiMapSession] against the packaged runtime and production presentation bridge,
- * without a Compose composition.
- *
- * Frames are driven explicitly by the caller rather than by a loop of the fixture's own, so a test
- * that says how many frames it wants fails with a clear message instead of hanging.
+ * without a Compose composition. Frames are driven explicitly by the caller.
  */
 internal class BridgeMapFixture
 private constructor(
   private val driver: FfiTestRenderDriver,
-  private val cacheFile: File,
-  private val initialExtent: MlnFfiMapExtent,
+  private val cacheFile: Path,
+  private val initialExtent: MapExtent,
 ) : AutoCloseable {
 
-  /** Everything the session reported back, in order, so tests can assert on lifecycle. */
-  val events: MutableList<String> = mutableListOf()
+  private val recorder = RecordingMapCallbacks()
 
-  /** Errors the map reported. A non-empty list after a pump is a failure in almost every test. */
-  val errors: MutableList<String> = mutableListOf()
+  val events: MutableList<String>
+    get() = recorder.events
+
+  val sourceChanges: MutableList<String?>
+    get() = recorder.sourceChanges
+
+  val errors: MutableList<String>
+    get() = recorder.errors
+
+  /** The live style, once one has loaded. */
+  val style: Style?
+    get() = recorder.style
 
   private var frameId = 0L
   private var frameRequested = true
 
   val session: MlnFfiMapSession =
     MlnFfiMapSession(
-      callbacks = RecordingCallbacks(),
+      callbacks = recorder,
       logger = Logger.withTag("bridge-map"),
       renderBackend = driver.backends.producer,
       scaleFactor = initialExtent.scaleFactor,
@@ -69,8 +75,8 @@ private constructor(
   }
 
   /**
-   * Takes the surface away, as a host does when its device is lost. The host itself is deliberately
-   * left alone: only the render session and its target go, not the map, its style, or its camera.
+   * Takes the surface away, as a host does when its device is lost. Only the render session and its
+   * target go; the map, its style, and its camera survive.
    */
   fun loseSurface() {
     session.onSurfaceLost()
@@ -82,19 +88,18 @@ private constructor(
     session.onSurfaceAvailable(hostSession)
   }
 
-  /** How many render sessions the map session has attached, for asserting a re-attach happened. */
   val attachCount: Int
     get() = session.attachCount
 
   /**
    * Whether MapLibre has rendered at least once, which is how a test knows the map exists and is
-   * attached: the runtime and map are created on their own thread, so the first frame is not it.
+   * attached. The runtime and map are created on their own thread, so the first frame is not it.
    */
   var hasRendered: Boolean = false
     internal set
 
   /** Renders one frame, exactly as [MlnFfiMapSurface] does inside its draw pass. */
-  fun frame(extent: MlnFfiMapExtent = initialExtent): MlnFfiFrameResult {
+  fun frame(extent: MapExtent = initialExtent): MlnFfiFrameResult {
     frameRequested = false
     val frame =
       when (val acquisition = driver.acquireFrame(frameId++, extent, null)) {
@@ -123,21 +128,19 @@ private constructor(
   fun readPixel(x: Int, y: Int): RgbaPixel = driver.readPixel(x, y)
 
   /** Renders frames until MapLibre has drawn once, so the map is known to exist. */
-  fun pumpUntilRendered(extent: MlnFfiMapExtent = initialExtent, timeout: Duration = 30.seconds) {
+  fun pumpUntilRendered(extent: MapExtent = initialExtent, timeout: Duration = 30.seconds) {
     pumpUntil("the map to render its first frame", timeout, extent) { hasRendered }
   }
 
   /**
-   * Renders frames until [condition] holds, or fails.
-   *
-   * Rendering is the caller's job: mbgl advances a camera transition from
+   * Renders frames until [condition] holds, or fails. mbgl advances a camera transition from
    * `onDidFinishRenderingFrame`, so a transition that renders no frames stalls after its first
    * step.
    */
   fun pumpUntil(
     description: String,
     timeout: Duration = 30.seconds,
-    extent: MlnFfiMapExtent = initialExtent,
+    extent: MapExtent = initialExtent,
     condition: () -> Boolean,
   ) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
@@ -148,17 +151,15 @@ private constructor(
       }
       frame(extent)
       frames++
-      // A short sleep rather than a spin: a tight loop starves the network and worker threads.
+      // A tight loop would starve the network and worker threads.
       Thread.sleep(POLL_INTERVAL_MILLIS)
     }
   }
 
   /**
    * Renders for [duration], but only when the session asks for a frame, and reports how many it
-   * drew.
-   *
-   * Only an on-demand loop can measure whether a map is at rest: a rendered frame is itself
-   * something MapLibre can respond to, so an unconditional pump sustains and measures itself.
+   * drew. Only an on-demand loop can measure whether a map is at rest; an unconditional pump
+   * sustains and measures itself.
    */
   fun renderOnDemand(duration: Duration): Int {
     val deadline = TimeSource.Monotonic.markNow() + duration
@@ -188,12 +189,7 @@ private constructor(
     }
   }
 
-  /**
-   * Runs [block] on another thread while this one renders frames, and returns its result.
-   *
-   * Anything that suspends on the map's progress needs both halves at once, since the caller cannot
-   * block the rendering thread and then wait for something that only advances when it renders.
-   */
+  /** Runs [block] on another thread while this one renders frames, and returns its result. */
   fun <T> awaitWhileRendering(
     description: String,
     timeout: Duration = 30.seconds,
@@ -204,15 +200,11 @@ private constructor(
     return runBlocking { work.await() }
   }
 
-  /** The live style, once one has loaded. */
-  var style: Style? = null
-    private set
-
   /** Applies a style and pumps until it finishes loading. */
   fun loadStyle(
     style: BaseStyle,
     timeout: Duration = 60.seconds,
-    extent: MlnFfiMapExtent = DEFAULT_EXTENT,
+    extent: MapExtent = DEFAULT_EXTENT,
   ) {
     session.setBaseStyle(style)
     pumpUntil("style $style to load", timeout, extent) { events.contains(STYLE_LOADED) }
@@ -224,58 +216,17 @@ private constructor(
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
-  private inner class RecordingCallbacks : MapAdapter.Callbacks {
-    override fun onStyleChanged(map: MapAdapter, style: Style?) {
-      this@BridgeMapFixture.style = style
-      events += if (style == null) "styleChanged(null)" else STYLE_LOADED
-    }
-
-    override fun onMapFinishedLoading(map: MapAdapter) {
-      events += "mapFinishedLoading"
-    }
-
-    override fun onMapFailLoading(reason: String?) {
-      errors += "mapFailLoading: $reason"
-    }
-
-    override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-      events += "cameraMoveStarted($reason)"
-    }
-
-    override fun onCameraMoved(map: MapAdapter) {
-      events += "cameraMoved"
-    }
-
-    override fun onCameraMoveEnded(map: MapAdapter) {
-      events += "cameraMoveEnded"
-    }
-
-    override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-      events += "click"
-    }
-
-    override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-      events += "longClick"
-    }
-
-    override fun onFrame(fps: Double) {}
-  }
-
   companion object {
-    const val STYLE_LOADED: String = "styleLoaded"
+    const val STYLE_LOADED: String = MapFixture.STYLE_LOADED
 
     private const val POLL_INTERVAL_MILLIS = 8L
 
-    /** Big enough for tiles to be selected at zoom 0 and for a query to have something to hit. */
-    val DEFAULT_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 1.0)
+    val DEFAULT_EXTENT: MapExtent = MapFixture.DEFAULT_EXTENT
 
-    /** The same logical size at a different density, which forces the map to be rebuilt. */
-    val RETINA_EXTENT: MlnFfiMapExtent =
-      MlnFfiMapExtent.fromLogical(width = 512, height = 512, scaleFactor = 2.0)
+    val RETINA_EXTENT: MapExtent = MapFixture.RETINA_EXTENT
 
     /** Creates a fixture for the one native runtime packaged into this test process. */
-    fun create(initialExtent: MlnFfiMapExtent = DEFAULT_EXTENT): BridgeMapFixture {
+    fun create(initialExtent: MapExtent = DEFAULT_EXTENT): BridgeMapFixture {
       FfiTestPlatform.initialize()
       val driver = FfiTestPlatform.createRenderDriver()
       val cacheFile = FfiTestPlatform.createCacheFile()

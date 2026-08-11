@@ -23,11 +23,16 @@ public expect class GeoJsonSource : Source {
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean
 
-  public fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double
+  /** The zoom at which [feature]'s cluster breaks apart. */
+  public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double
 
-  public fun getClusterChildren(feature: Feature<*, JsonObject?>): FeatureCollection<*, JsonObject?>
+  /** The features one level down from [feature]'s cluster. See [getClusterExpansionZoom]. */
+  public suspend fun getClusterChildren(
+    feature: Feature<*, JsonObject?>
+  ): FeatureCollection<*, JsonObject?>
 
-  public fun getClusterLeaves(
+  /** The original points under [feature]'s cluster. See [getClusterExpansionZoom]. */
+  public suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,
     offset: Long,
@@ -44,7 +49,7 @@ public sealed interface GeoJsonData {
 
 /**
  * @param minZoom Minimum zoom level at which to create vector tiles (lower means more field of view
- *   detail at low zoom levels).
+ *   detail at low zoom levels). Web ignores it.
  * @param maxZoom Maximum zoom level at which to create vector tiles (higher means greater detail at
  *   high zoom levels).
  * @param buffer Size of the tile buffer on each side. A value of 0 produces no buffer. A value of
@@ -74,11 +79,9 @@ public sealed interface GeoJsonData {
  *
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
- * @param synchronousUpdate Whether in-memory GeoJSON updates should be applied synchronously. This
- *   is intended for small, frequently updated sources such as live positions. Enabling it can
- *   reduce update latency but may hurt frame rate. At the moment this has an effect only on
- *   Android; other platforms ignore it. iOS support is currently blocked by
- *   [#738](https://github.com/maplibre/maplibre-compose/issues/738).
+ * @param synchronousUpdate Whether in-memory GeoJSON updates should be applied synchronously,
+ *   reducing update latency at the possible cost of frame rate. Only Android honors this; other
+ *   platforms ignore it.
  */
 @Immutable
 public data class GeoJsonOptions(

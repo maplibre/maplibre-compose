@@ -3,6 +3,7 @@ package org.maplibre.compose.android
 import android.content.Context
 import androidx.compose.runtime.Immutable
 import java.io.File
+import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
 /** Process-wide configuration for MapLibre Native on Android. */
@@ -20,4 +21,4 @@ public fun androidCacheFile(context: Context): File =
   context.applicationContext.cacheDir.resolve("maplibre-cache.db")
 
 internal fun AndroidRuntimeOptions.toMlnFfiRuntimeOptions(): MlnFfiRuntimeOptions =
-  MlnFfiRuntimeOptions(cacheFile, maximumCacheSizeBytes)
+  MlnFfiRuntimeOptions(Path(cacheFile.absolutePath), maximumCacheSizeBytes)

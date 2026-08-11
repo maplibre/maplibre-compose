@@ -2,6 +2,7 @@ package org.maplibre.compose.mlnffi
 
 import androidx.test.platform.app.InstrumentationRegistry
 import java.io.File
+import kotlinx.io.files.Path
 import org.junit.Assume.assumeTrue
 
 internal actual object FfiTestPlatform {
@@ -13,16 +14,16 @@ internal actual object FfiTestPlatform {
     AndroidMlnFfiPlatform.initialize(InstrumentationRegistry.getInstrumentation().targetContext)
   }
 
-  actual fun createCacheFile(): File {
+  actual fun createCacheFile(): Path {
     initialize()
     val directory =
       AndroidMlnFfiPlatform.applicationContext.cacheDir.resolve("ffi-test-${System.nanoTime()}")
     check(directory.mkdirs()) { "Could not create FFI test directory $directory" }
-    return directory.resolve("cache.db")
+    return Path(directory.resolve("cache.db").absolutePath)
   }
 
-  actual fun deleteCacheFile(file: File) {
-    file.parentFile?.deleteRecursively()
+  actual fun deleteCacheFile(file: Path) {
+    File(file.toString()).parentFile?.deleteRecursively()
   }
 
   actual fun createRenderDriver(): FfiTestRenderDriver {
@@ -35,3 +36,7 @@ internal actual object FfiTestPlatform {
     error("JUnit did not abort skipped test: $reason")
   }
 }
+
+internal actual fun fileUrlOf(path: Path): String = File(path.toString()).toURI().toString()
+
+internal actual fun pathOfFileUrl(url: String): Path = Path(File(java.net.URI(url)).absolutePath)

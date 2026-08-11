@@ -1,11 +1,11 @@
 package org.maplibre.compose.offline
 
-import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
@@ -55,6 +55,6 @@ class MlnFfiSharedCacheDatabaseTest {
     }
   }
 
-  private fun createRuntime(cacheFile: File): RuntimeHandle =
-    RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.path })
+  private fun createRuntime(cacheFile: Path): RuntimeHandle =
+    RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
 }

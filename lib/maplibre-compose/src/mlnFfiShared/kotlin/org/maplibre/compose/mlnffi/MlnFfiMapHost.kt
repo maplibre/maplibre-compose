@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import org.maplibre.compose.map.MapExtent
 
 /**
  * One renderable frame produced by a [MlnFfiMapHost].
@@ -13,10 +14,13 @@ internal data class MlnFfiMapFrame(
   val frameId: Long,
 
   /** The size this frame's target was allocated at. */
-  val extent: MlnFfiMapExtent,
+  val extent: MapExtent,
   val target: MlnFfiRenderTarget,
 
-  /** When this frame is expected to be presented, in `System.nanoTime` units, if the host knows. */
+  /**
+   * When this frame is expected to be presented, if the host knows. Nanoseconds on a monotonic
+   * clock whose origin is arbitrary, so only differences between frames mean anything.
+   */
   val presentationTimeNanos: Long?,
 )
 
@@ -43,11 +47,8 @@ internal interface MlnFfiMapHostSession {
 }
 
 /**
- * Bridges MapLibre Native's rendering into whatever the platform composites with.
- *
- * A host owns the GPU objects on both sides of the handoff: it allocates the target MapLibre
- * renders into, synchronizes the producer and consumer, and presents the finished target. One host
- * serves one map.
+ * Bridges MapLibre Native's rendering into whatever the platform composites with. A host owns the
+ * GPU objects on both sides of the handoff, and serves one map.
  */
 internal interface MlnFfiMapHost : AutoCloseable {
   val backends: RenderBackendPair
@@ -57,7 +58,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
    * changed. A host that cannot resize in place reallocates and reports a new
    * [MlnFfiRenderTarget.generation].
    */
-  fun resize(extent: MlnFfiMapExtent) {}
+  fun resize(extent: MapExtent) {}
 
   /**
    * Acquires the next frame to render into. Returns [MlnFfiMapFrameAcquisition.NotReady] when the
@@ -68,7 +69,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
    */
   fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition
 

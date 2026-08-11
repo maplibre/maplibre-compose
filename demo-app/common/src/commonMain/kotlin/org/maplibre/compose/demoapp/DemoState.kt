@@ -22,7 +22,6 @@ import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
-import org.maplibre.compose.demoapp.util.PlatformFeature
 import org.maplibre.compose.location.UserLocationState
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
@@ -60,8 +59,7 @@ class MapManipulationState {
 }
 
 class OrnamentOptionsState {
-  var isMaterial3ControlsEnabled by
-    mutableStateOf(PlatformFeature.InteropBlending in Platform.supportedFeatures)
+  var isMaterial3ControlsEnabled by mutableStateOf(true)
 }
 
 class DemoState(
@@ -122,12 +120,6 @@ fun rememberDemoState(): DemoState {
   val styleState = rememberStyleState()
 
   val locationPermissionState = rememberLocationPermissionState()
-  // this keying and swapping of LocationProviders is necessary because of the way the demo is set
-  // up
-  //
-  // In a normal app, it would be best to avoid creating a LocationProvider and everything dependent
-  // on it altogether, if no permission has been granted. The at look at GmsLocationDemo on Android
-  // for an example of this.
   val locationProvider =
     key(locationPermissionState.hasPermission) {
       if (locationPermissionState.hasPermission) {

@@ -84,6 +84,9 @@ internal interface MapAdapter {
 
     fun onMapFinishedLoading(map: MapAdapter)
 
+    /** A null [sourceId] means that the adapter cannot identify the changed source. */
+    fun onSourceChanged(map: MapAdapter, sourceId: String?)
+
     fun onMapFailLoading(reason: String?)
 
     fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason)

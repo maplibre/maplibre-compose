@@ -4,11 +4,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import org.maplibre.compose.desktop.ComposeGpuHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.onGpuThread
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiHostException
-import org.maplibre.compose.mlnffi.MlnFfiMapExtent
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
@@ -17,10 +17,7 @@ import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.TextureOrigin
 
-/**
- * Bridges MapLibre's Metal rendering into a Compose scene drawn with Metal: an `id<MTLTexture>` is
- * allocated on the same `id<MTLDevice>` Compose renders with, and Skia wraps that texture.
- */
+/** Bridges MapLibre's Metal rendering into a Compose scene drawn with Metal. */
 internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-metal-renderer")
   private val presenter = MetalPresenter(gpuHost)
@@ -29,28 +26,28 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
   private var texture = NativeHandle(0L)
   private var pixelFormat = 0L
   private var generation = 0L
-  private var currentExtent = MlnFfiMapExtent.Empty
+  private var currentExtent = MapExtent.Empty
   private var currentDevice = NativeHandle(0L)
 
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
 
-  override fun resize(extent: MlnFfiMapExtent) {
+  override fun resize(extent: MapExtent) {
     // Reading the context hops to the GPU thread and waits, so it must not happen on the renderer
     // thread, which the GPU thread may itself be waiting on.
     val device = if (extent.isEmpty) null else currentDeviceOrNull() ?: return
     resize(extent, device)
   }
 
-  private fun resize(extent: MlnFfiMapExtent, device: NativeHandle?) {
-    // Retired rather than freed here, for the same reason: the Skia wrapper around the old texture
-    // belongs to the GPU thread, so the presenter frees both at the next draw.
+  private fun resize(extent: MapExtent, device: NativeHandle?) {
+    // The Skia wrapper around the old texture belongs to the GPU thread, so retire rather than free
+    // here; the presenter frees both at the next draw.
     rendererThread.run { resizeOnRendererThread(extent, device) }?.let(presenter::retire)
   }
 
   override fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     val context = withPreparedContext { it } ?: return MlnFfiMapFrameAcquisition.NotReady
@@ -68,10 +65,7 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
     )
   }
 
-  /**
-   * Runs [action] on the renderer thread, inside an autorelease pool. The FFI requires
-   * `renderUpdate` to run inside a pool, and this thread has none of its own.
-   */
+  /** The FFI requires `renderUpdate` to run inside an autorelease pool; this thread has none. */
   override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
     rendererThread.run {
       ObjectiveC.runInAutoreleasePool(action)
@@ -99,18 +93,13 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
   /**
    * Reallocates the texture for [extent], returning the one it replaced for the caller to retire.
    */
-  private fun resizeOnRendererThread(
-    extent: MlnFfiMapExtent,
-    device: NativeHandle?,
-  ): NativeHandle? {
+  private fun resizeOnRendererThread(extent: MapExtent, device: NativeHandle?): NativeHandle? {
     if (extent == currentExtent && !texture.isNull && device == currentDevice) return null
 
     val retiredTexture =
       if (extent.isEmpty) {
         takeTexture()
       } else {
-        // An assertion, not a fallback: resize() resolves the device before this hop, because
-        // asking for it here would wait on the thread that is waiting on us.
         val gpuDevice =
           checkNotNull(device) { "resize() resolves the Metal device before this hop" }
         val oldTexture = texture
@@ -134,7 +123,7 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
     return retiredTexture
   }
 
-  private fun target(extent: MlnFfiMapExtent, generation: Long): MlnFfiRenderTarget =
+  private fun target(extent: MapExtent, generation: Long): MlnFfiRenderTarget =
     MetalTextureTarget(
       texture =
         texture.takeIf { !it.isNull }
@@ -173,8 +162,8 @@ internal class MetalMapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost
 }
 
 /**
- * The `MTLTexture` MapLibre renders into, allocated by hand through Objective-C. Every entry point
- * opens an autorelease pool, since these run on threads that have none of their own.
+ * The `MTLTexture` MapLibre renders into. Every entry point opens an autorelease pool, since these
+ * run on threads that have none of their own.
  */
 internal object MetalTexture {
   private const val MTL_TEXTURE_TYPE_2D = 2L
@@ -203,7 +192,6 @@ internal object MetalTexture {
         ObjectiveC.sendVoid(descriptor, "setPixelFormat:", MTL_PIXEL_FORMAT_BGRA8_UNORM)
         ObjectiveC.sendVoid(descriptor, "setWidth:", width.toLong())
         ObjectiveC.sendVoid(descriptor, "setHeight:", height.toLong())
-        // Rendered into by MapLibre, sampled by Skia; private storage keeps it GPU-only.
         ObjectiveC.sendVoid(
           descriptor,
           "setUsage:",

@@ -1,14 +1,18 @@
 package org.maplibre.compose.resource
 
-import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
+import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceResponse
 import org.maplibre.nativeffi.resource.ResourceResponseStatus
@@ -26,7 +30,7 @@ private const val WAIT_SECONDS = 10L
  */
 class MlnFfiResourceRequestTest {
 
-  private val reads = CopyOnWriteArrayList<String>()
+  private val reads = RecordingList<String>()
   private val providers = mutableListOf<MlnFfiResourceProvider>()
 
   @AfterTest
@@ -162,10 +166,11 @@ class MlnFfiResourceRequestTest {
     ResourceResponse(ResourceResponseStatus.OK).also { it.bytes = body.toByteArray() }
 
   /** A request the provider can take, recording what it did with it. */
+  @OptIn(ExperimentalAtomicApi::class)
   private class RecordedRequest(private val cancelled: Boolean = false) : TakenResourceRequest {
-    private val responses = CopyOnWriteArrayList<ResourceResponse>()
+    private val responses = RecordingList<ResourceResponse>()
     private val answered = CountDownLatch(1)
-    private val closeCount = AtomicInteger()
+    private val closeCount = AtomicInt(0)
 
     override fun isCancelled(): Boolean = cancelled
 
@@ -175,14 +180,14 @@ class MlnFfiResourceRequestTest {
     }
 
     override fun close() {
-      closeCount.incrementAndGet()
+      closeCount.incrementAndFetch()
     }
 
     val completions: Int
       get() = responses.size
 
     val closes: Int
-      get() = closeCount.get()
+      get() = closeCount.load()
 
     val response: ResourceResponse
       get() = responses.single()
@@ -192,8 +197,8 @@ class MlnFfiResourceRequestTest {
     }
 
     fun awaitClose() {
-      val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WAIT_SECONDS)
-      while (closes == 0 && System.nanoTime() < deadline) Thread.onSpinWait()
+      val deadline = TimeSource.Monotonic.markNow() + WAIT_SECONDS.seconds
+      while (closes == 0 && deadline.hasNotPassedNow()) Thread.onSpinWait()
       assertEquals(1, closes, "the request was never closed")
     }
   }

@@ -10,6 +10,7 @@ import android.opengl.GLES30
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import org.maplibre.compose.map.MapExtent
 
 /** Deterministic offscreen GLES host for the shared real-map test corpus. */
 internal class AndroidEglTestRenderDriver
@@ -20,20 +21,20 @@ private constructor(
 ) : FfiTestRenderDriver {
   private var surface: EGLSurface = EGL14.EGL_NO_SURFACE
   private val retiredSurfaces = mutableListOf<EGLSurface>()
-  private var extent = MlnFfiMapExtent.Empty
+  private var extent = MapExtent.Empty
   private var generation = 0L
 
   override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
 
   override fun <T> withRendererAccess(action: () -> T): T = action()
 
-  override fun resize(extent: MlnFfiMapExtent) {
+  override fun resize(extent: MapExtent) {
     ensureSurface(extent)
   }
 
   override fun acquireFrame(
     frameId: Long,
-    extent: MlnFfiMapExtent,
+    extent: MapExtent,
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition {
     ensureSurface(extent)
@@ -81,7 +82,7 @@ private constructor(
     )
   }
 
-  private fun ensureSurface(next: MlnFfiMapExtent) {
+  private fun ensureSurface(next: MapExtent) {
     if (surface != EGL14.EGL_NO_SURFACE && extent == next) return
     if (surface != EGL14.EGL_NO_SURFACE) {
       // A scale change makes MlnFfiMapSession close the old renderer after it receives the new

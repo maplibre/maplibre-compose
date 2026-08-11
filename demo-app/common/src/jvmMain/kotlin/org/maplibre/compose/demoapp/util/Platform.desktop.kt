@@ -13,17 +13,14 @@ actual object Platform {
 
   actual val version = System.getProperty("os.version")!!
 
-  actual val supportedFeatures = PlatformFeature.Everything
-
   actual val extraDemos: List<Demo> =
     listOf(
       GestureOptionsDemo,
       RenderOptionsDemo,
       SynchronousGeoJsonUpdatesDemo,
       OfflineManagerDemo,
-      // Deliberately absent: OrnamentOptionsDemo; MapLibre Native's core draws no ornaments.
+      // No OrnamentOptionsDemo: MapLibre Native's core draws no ornaments.
     )
 
-  /** Desktop draws no ornaments, so there is no padding to apply. */
   actual fun padOrnaments(options: OrnamentOptions, padding: PaddingValues) = options
 }

@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
@@ -13,8 +15,9 @@ import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
-import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -34,6 +37,7 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflineManager
@@ -54,7 +58,7 @@ class MlnFfiMapCompositionTest {
   private val runtimeOptions =
     MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
 
-  /** Camera round trips lose a little precision through the projection; this is generous. */
+  /** Camera round trips lose a little precision through the projection. */
   private val POSITION_TOLERANCE = 1e-4
 
   @AfterTest
@@ -100,7 +104,6 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /** An empty GeoJSON source on its own, to separate a source-JSON fault from a layer fault. */
   @Test
   fun an_empty_geojson_source_composes_without_error() = runBridgeMapTest { errors, onFrame ->
     MaplibreMap(
@@ -121,10 +124,6 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /**
-   * A layer that leaves and re-enters the composition: a distinct path from the first add, since
-   * the layer and its source have to be recreated in the right order.
-   */
   @Test
   fun a_layer_removed_and_re_added_comes_back() {
     var visible by mutableStateOf(true)
@@ -223,10 +222,6 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /**
-   * `MaplibreMap` applies the initial camera before the map exists — it is created lazily on the
-   * first frame — so this covers the session's deferral and replay of those calls.
-   */
   @Test
   fun the_first_camera_position_reaches_the_map() {
     val firstPosition =
@@ -310,10 +305,7 @@ class MlnFfiMapCompositionTest {
     }
   }
 
-  /**
-   * Composes [content] on a bridge-driven map and fails if anything reported an error. The
-   * collected errors cover the ones MapLibre reports asynchronously instead of throwing.
-   */
+  /** Composes [content] on a bridge-driven map and fails if anything reported an error. */
   private fun runBridgeMapTest(
     content: @Composable (MutableList<String>, onFrame: () -> Unit) -> Unit
   ) = runBridgeMapTest(body = {}, content = content)
@@ -323,17 +315,15 @@ class MlnFfiMapCompositionTest {
     body: ComposeUiTest.(MutableList<String>) -> Unit,
     content: @Composable (MutableList<String>, onFrame: () -> Unit) -> Unit,
   ) = runFfiComposeUiTest {
-    val errors = CopyOnWriteArrayList<String>()
-    val frames = AtomicInteger()
-    setFfiTestMapContent(runtimeOptions) { content(errors) { frames.incrementAndGet() } }
-    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.get() > 0 || errors.isNotEmpty() }
+    val errors = RecordingList<String>()
+    val frames = AtomicInt(0)
+    setFfiTestMapContent(runtimeOptions) { content(errors) { frames.incrementAndFetch() } }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
     body(errors)
     waitForIdle()
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
-    // Without this the test would pass by doing nothing: a map that never gets a frame never
-    // creates a runtime or a style.
-    assertTrue(frames.get() > 0, "No frame reached MapLibre; the map never rendered.")
+    assertTrue(frames.load() > 0, "No frame reached MapLibre; the map never rendered.")
   }
 
   private companion object {

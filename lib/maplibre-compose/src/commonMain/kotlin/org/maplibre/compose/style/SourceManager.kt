@@ -22,7 +22,7 @@ internal class SourceManager(private val node: StyleNode) {
     counter.increment(source) {
       node.logger?.i { "Adding source ${source.id}" }
       node.style.addSource(source)
-      state?.reloadSources()
+      state?.refreshSource(source.id)
     }
   }
 
@@ -33,7 +33,7 @@ internal class SourceManager(private val node: StyleNode) {
     counter.decrement(source) {
       node.logger?.i { "Removing source ${source.id}" }
       node.style.removeSource(source)
-      state?.reloadSources()
+      state?.refreshSource(source.id)
     }
   }
 }

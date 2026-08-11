@@ -13,7 +13,9 @@ import androidx.compose.ui.test.performMouseInput
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -131,12 +133,13 @@ class LayerClickOrderTest {
    * [BACK] in the style. [frontResult] is what [FRONT]'s handlers return, so a test can either stop
    * the event there or let it fall through.
    */
+  @OptIn(ExperimentalAtomicApi::class)
   private fun runLayerClickTest(
     composeFrontLayerFirst: Boolean,
     frontResult: ClickResult = ClickResult.Consume,
     body: ComposeUiTest.(center: Offset) -> Unit,
   ) = runFfiComposeUiTest {
-    val frames = AtomicInteger()
+    val frames = AtomicInt(0)
     lateinit var cameraState: CameraState
 
     setFfiTestMapContent(runtimeOptions) {
@@ -148,7 +151,7 @@ class LayerClickOrderTest {
         modifier = Modifier.fillMaxSize(),
         baseStyle = BaseStyle.Empty,
         cameraState = cameraState,
-        onFrame = { frames.incrementAndGet() },
+        onFrame = { frames.incrementAndFetch() },
         logger = Logger.withTag("layer-click-order"),
       ) {
         val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
@@ -195,7 +198,7 @@ class LayerClickOrderTest {
       }
     }
 
-    waitUntil(timeoutMillis = TIMEOUT) { frames.get() > 0 }
+    waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
 
     val map = assertNotNull(cameraState.map, "the camera never attached to a map")
     val size = onRoot().fetchSemanticsNode().size

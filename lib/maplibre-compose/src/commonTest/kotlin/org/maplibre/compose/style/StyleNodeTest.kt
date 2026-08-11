@@ -6,13 +6,17 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFails
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
@@ -37,6 +41,13 @@ abstract class StyleNodeTest {
   private fun makeStyleNode(): StyleNode {
     return StyleNode(SafeStyle(FakeStyle(emptyList(), testSources, testLayers)), null)
   }
+
+  private fun vectorSource(id: String, attribution: String): VectorSource =
+    VectorSource(
+      id = id,
+      tiles = listOf("https://example.com/{z}/{x}/{y}.pbf"),
+      options = TileSetOptions(attributionHtml = attribution),
+    )
 
   @BeforeTest open fun platformSetup() {}
 
@@ -73,6 +84,83 @@ abstract class StyleNodeTest {
       s.sourceManager.removeReference(newSource)
       assertEquals(3, s.style.getSources().size)
       assertNull(s.style.getSource("new"))
+    }
+  }
+
+  @Test
+  fun unchangedSourceStatePreservesTheSnapshot() = runComposeUiTest {
+    runOnUiThread {
+      val source = vectorSource("source", "same")
+      val style = FakeStyle(emptyList(), listOf(source), emptyList())
+      val state = StyleState()
+      state.attach(StyleNode(SafeStyle(style), null))
+      val previousSources = state.sources
+
+      style.replaceSource(vectorSource("source", "same"))
+      state.refreshSource("source")
+
+      assertSame(previousSources, state.sources)
+      assertSame(source, state.sources["source"])
+    }
+  }
+
+  @Test
+  fun changedSourceStateReplacesOnlyTheAffectedSource() = runComposeUiTest {
+    runOnUiThread {
+      val source = vectorSource("source", "attribution")
+      val stable = vectorSource("stable", "stable attribution")
+      val style = FakeStyle(emptyList(), listOf(source, stable), emptyList())
+      val state = StyleState()
+      state.attach(StyleNode(SafeStyle(style), null))
+      val previousSources = state.sources
+      val replacement =
+        RasterSource(
+          id = "source",
+          tiles = listOf("https://example.com/{z}/{x}/{y}.png"),
+          options = TileSetOptions(attributionHtml = "changed attribution"),
+        )
+
+      style.replaceSource(replacement)
+      state.refreshSource("source")
+
+      assertNotSame(previousSources, state.sources)
+      assertSame(replacement, state.sources["source"])
+      assertSame(stable, state.sources["stable"])
+    }
+  }
+
+  @Test
+  fun missingSourceIsRemovedFromState() = runComposeUiTest {
+    runOnUiThread {
+      val source = vectorSource("source", "attribution")
+      val style = FakeStyle(emptyList(), listOf(source), emptyList())
+      val state = StyleState()
+      state.attach(StyleNode(SafeStyle(style), null))
+
+      style.removeSource(source)
+      state.refreshSource("source")
+
+      assertNull(state.sources["source"])
+    }
+  }
+
+  @Test
+  fun unloadedStyleIgnoresSourceCallbacks() = runComposeUiTest {
+    runOnUiThread {
+      val source = vectorSource("source", "attribution")
+      val style = FakeStyle(emptyList(), listOf(source), emptyList())
+      val safeStyle = SafeStyle(style)
+      val state = StyleState()
+      state.attach(StyleNode(safeStyle, null))
+      val previousSources = state.sources
+
+      safeStyle.unload()
+      style.removeSource(source)
+      state.refreshSource("source")
+      state.refreshSources()
+
+      assertSame(previousSources, state.sources)
+      assertSame(source, state.sources["source"])
     }
   }
 
@@ -180,6 +268,24 @@ abstract class StyleNodeTest {
       s.onEndChanges()
 
       assertEquals(listOf("foo", "bar", "baz"), s.style.getLayers().map(Layer::id))
+    }
+  }
+
+  @Test
+  fun shouldAllowReplacementRecreationAfterUnload() = runComposeUiTest {
+    runOnUiThread {
+      val s = makeStyleNode()
+      val oldNode = LayerNode(LineLayer("old", testSources[0]), Anchor.Replace("bar"))
+      val newNode = LayerNode(LineLayer("new", testSources[0]), Anchor.Replace("bar"))
+
+      s.layerManager.addLayer(oldNode, 0)
+      s.onEndChanges()
+      s.style.unload()
+
+      s.layerManager.addLayer(newNode, 0)
+      s.layerManager.removeLayer(oldNode, 1)
+      s.onEndChanges()
+      s.layerManager.removeLayer(newNode, 0)
     }
   }
 

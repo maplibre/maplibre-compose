@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.fillMaxSize
@@ -8,7 +10,9 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import java.util.concurrent.atomic.AtomicInteger
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -58,7 +62,7 @@ class MlnFfiMapClusterTest {
 
   @Test
   fun a_clustered_source_answers_the_supercluster_queries() = runFfiComposeUiTest {
-    val frames = AtomicInteger()
+    val frames = AtomicInt(0)
 
     lateinit var source: GeoJsonSource
     lateinit var cameraState: CameraState
@@ -73,7 +77,7 @@ class MlnFfiMapClusterTest {
         baseStyle = BaseStyle.Empty,
         cameraState = cameraState,
         logger = Logger.withTag("cluster-test"),
-        onFrame = { frames.incrementAndGet() },
+        onFrame = { frames.incrementAndFetch() },
       ) {
         source =
           rememberGeoJsonSource(
@@ -85,7 +89,7 @@ class MlnFfiMapClusterTest {
       }
     }
 
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.get() > 0 }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > 0 }
     val session = assertNotNull(cameraState.map as? MlnFfiMapSession, "no FFI session")
 
     fun queryAll(): List<Feature<Geometry, JsonObject?>> {
@@ -105,7 +109,7 @@ class MlnFfiMapClusterTest {
     val cluster =
       assertNotNull(
         hits.firstOrNull { source.isCluster(it) },
-        "No cluster was rendered after ${frames.get()} frames; ${hits.size} hits were $hits",
+        "No cluster was rendered after ${frames.load()} frames; ${hits.size} hits were $hits",
       )
 
     val expansionZoom = source.getClusterExpansionZoom(cluster)

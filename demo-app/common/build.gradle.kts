@@ -26,6 +26,9 @@ kotlin {
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js {
+    // maplibre-compose's MapLibre GL JS declarations are @file:JsModule with no global to fall
+    // back to, which UMD output rejects; every consumer down the chain has to match.
+    useEsModules()
     browser { commonWebpackConfig { outputFileName = "app.js" } }
     binaries.executable()
   }
@@ -61,6 +64,8 @@ kotlin {
 
     val nonAndroidShared by creating { dependsOn(commonMain.get()) }
 
+    val nonIosShared by creating { dependsOn(commonMain.get()) }
+
     val androidIosShared by creating { dependsOn(commonMain.get()) }
 
     // Platforms backed by MapLibre Native, where the offline API exists; mirrors the library's own
@@ -75,6 +80,7 @@ kotlin {
     androidMain {
       dependsOn(androidIosShared)
       dependsOn(mlnFfiShared)
+      dependsOn(nonIosShared)
       dependencies {
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
@@ -96,6 +102,7 @@ kotlin {
     jvmMain.apply {
       dependsOn(mlnFfiShared)
       dependsOn(nonAndroidShared)
+      dependsOn(nonIosShared)
       dependsOn(desktopJsShared)
       dependencies {
         implementation(compose.desktop.currentOs)
@@ -106,6 +113,7 @@ kotlin {
 
     jsMain {
       dependsOn(nonAndroidShared)
+      dependsOn(nonIosShared)
       dependsOn(desktopJsShared)
       dependencies {
         implementation(libs.jetbrains.compose.html.core)
