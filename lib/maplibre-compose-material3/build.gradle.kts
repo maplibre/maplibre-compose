@@ -34,7 +34,6 @@ kotlin {
       implementation(libs.jetbrains.compose.material3)
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.bytesize)
-      implementation(libs.htmlConverterCompose)
       api(project(":lib:maplibre-compose"))
     }
 

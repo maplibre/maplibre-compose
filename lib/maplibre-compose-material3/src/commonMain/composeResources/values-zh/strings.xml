@@ -2,5 +2,4 @@
   <string name="meters_symbol">米</string>
   <string name="kilometers_symbol">千米</string>
   <string name="compass">指南针</string>
-  <string name="attribution">地图数据来源</string>
 </resources>

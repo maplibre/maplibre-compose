@@ -55,6 +55,7 @@ kotlin {
     commonMain.dependencies {
       implementation(libs.jetbrains.compose.foundation)
       implementation(libs.jetbrains.compose.components.resources)
+      implementation(libs.htmlConverterCompose)
       implementation(libs.lifecycle.runtime.compose)
       api(libs.kermit)
       api(libs.spatialk.geojson)
@@ -107,7 +108,6 @@ kotlin {
     androidMain {
       dependencies {
         api(libs.maplibre.android)
-        implementation(libs.maplibre.android.scalebar)
       }
     }
 
@@ -135,6 +135,15 @@ kotlin {
       implementation(kotlin("test-annotations-common"))
 
       implementation(libs.jetbrains.compose.ui.test)
+    }
+
+    // The test counterpart of skiaMain: the targets that parse resources with Compose
+    // Multiplatform's own readers rather than with the Android framework's.
+    create("skiaTest") {
+      dependsOn(commonTest.get())
+      getByName("jvmTest").dependsOn(this)
+      iosTest.get().dependsOn(this)
+      jsTest.get().dependsOn(this)
     }
 
     // The test counterpart of nextCommonMain, and on the same path into commonTest.
