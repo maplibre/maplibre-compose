@@ -26,17 +26,18 @@ commonMain.dependencies {
 }
 ```
 
-Then build a `MapOverlay` out of them. See
-[Map controls](/maplibre-compose/controls/) for how the overlay lays out and how
-to keep it clear of other UI.
+`MapOverlay.Material3` draws the same controls as `MapOverlay.Default` in the
+same places, so switching to it is one parameter:
+
+<Code code={region(material3, "overlay")} lang="kotlin" title="App.kt" />
+
+## Arrange the controls yourself
+
+Each control is also a composable you can place in a `MapOverlay` of your own.
+See [Map controls](/maplibre-compose/controls/) for how the overlay lays out.
 
 <Code code={region(material3, "controls")} lang="kotlin" title="App.kt" />
 
-There are also disappearing versions of the controls which appear when relevant
-and fade out after a certain time:
-
-<Code code={region(material3, "disappearing-controls")} lang="kotlin" title="App.kt" />
-
-1. Appears when the zoom level changes; fades away when zoom is idle.
-2. Appears when the map is rotated or tilted away from north and straight down;
-   fades away when the map orientation is reset.
+1. `ScaleBar` and `CompassButton` stay on screen. The `Disappearing` versions
+   that `MapOverlay.Material3` uses fade in when the zoom or the orientation
+   changes, and fade out once it settles.

@@ -9,8 +9,9 @@ import { region } from "../../snippets";
 import controls from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Controls.kt?raw";
 
 `MaplibreMap` draws controls on top of the map. The `overlay` parameter sets
-which ones. The default is the MapLibre logo and an attribution button along the
-bottom edge.
+which ones. The default is a scale bar and a compass along the top edge, and the
+MapLibre logo and an attribution button along the bottom edge. The scale bar and
+the compass appear only while they are relevant.
 
 <Code code={region(controls, "default")} lang="kotlin" title="App.kt" />
 
@@ -35,8 +36,9 @@ box, so `Modifier.align` positions each control against an edge.
 1. The block can read the map's `cameraState` and `styleState`, so a control
    inside it takes no state arguments.
 
-The [Material 3 extensions](/maplibre-compose/material3/) add themed versions of
-these controls.
+`MapOverlay.Material3` from the
+[Material 3 extensions](/maplibre-compose/material3/) draws the same controls,
+themed from your color scheme and typography.
 
 ## Make room for other UI
 

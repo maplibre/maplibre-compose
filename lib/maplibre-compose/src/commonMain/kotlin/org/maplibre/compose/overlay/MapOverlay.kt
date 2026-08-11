@@ -56,12 +56,24 @@ public class MapOverlay(
     public val Spacing: Dp = 8.dp
 
     /**
-     * The MapLibre logo and an attribution button, side by side along the bottom edge.
+     * A scale bar and a compass along the top edge, and the MapLibre logo and an attribution button
+     * along the bottom edge. The scale bar and the compass appear only while they are relevant.
      *
      * Most maps serve tiles under a license that requires attribution, so a map draws these unless
      * the caller replaces them.
      */
     public val Default: MapOverlay = MapOverlay {
+      DisappearingScaleBar(
+        metersPerDp = cameraState.metersPerDpAtTarget,
+        zoom = cameraState.position.zoom,
+        modifier = Modifier.align(Alignment.TopStart),
+      )
+
+      DisappearingCompassButton(
+        cameraState = cameraState,
+        modifier = Modifier.align(Alignment.TopEnd),
+      )
+
       // Read before entering the Row, whose scope shadows this one.
       val camera = cameraState
       val style = styleState
