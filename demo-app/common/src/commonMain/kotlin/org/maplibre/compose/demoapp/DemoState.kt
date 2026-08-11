@@ -66,7 +66,6 @@ enum class MapControls {
 }
 
 class MapControlsState {
-  // The demo is a Material 3 app, so it opens on the themed controls rather than the base ones.
   var controls by mutableStateOf(MapControls.Material3)
 }
 

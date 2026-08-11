@@ -42,11 +42,9 @@ public interface MapOverlayScope : BoxScope {
 
 /**
  * The controls that a [MaplibreMap][org.maplibre.compose.map.MaplibreMap] draws on top of itself.
- *
- * The content belongs to a holder rather than to a parameter of the map, because a composable
- * lambda parameter that has a receiver breaks the composable target inference of the map's own
- * `content` parameter.
  */
+// A holder rather than a parameter of MaplibreMap: a composable lambda parameter that has a
+// receiver breaks the composable target inference of the map's own `content` parameter.
 @Immutable
 public class MapOverlay(
   internal val content: @Composable @UiComposable MapOverlayScope.() -> Unit

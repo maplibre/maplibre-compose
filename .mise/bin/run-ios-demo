@@ -9,7 +9,7 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
 fi
 
 # mise passes a usage flag as an environment variable; the argument is for
-# running this script directly.
+# running this script outside of mise.
 target="simulator"
 if [[ "${1:-}" == "--device" || "${usage_device:-}" == "true" ]]; then
   target="device"
@@ -19,8 +19,8 @@ repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../..
 project="$repository_root/demo-app/ios/iosApp.xcodeproj"
 derived_data="$repository_root/demo-app/ios/DerivedData"
 
-# The app name and bundle identifier come from the built bundle rather than from
-# Config.xcconfig, which composes the identifier out of two settings.
+# Read from the built bundle rather than from Config.xcconfig, which composes the
+# identifier out of two settings.
 app_bundle() {
   find "$derived_data/Build/Products/$1" -maxdepth 1 -name '*.app' -print -quit
 }
@@ -47,8 +47,8 @@ if [[ "$target" == "simulator" ]]; then
   exit 0
 fi
 
-# A device that is charging, locked, or not yet trusted reports "unavailable",
-# so match the ready states exactly rather than by substring.
+# A device that is charging, locked, or not yet trusted reports "unavailable", so
+# match the ready states exactly rather than by substring.
 udid="$(
   xcrun devicectl list devices 2>/dev/null |
     awk '{
@@ -64,9 +64,7 @@ if [[ -z "$udid" ]]; then
   exit 1
 fi
 
-# The project carries a DEVELOPMENT_TEAM, so a device build signs without any
-# further setup. TEAM_ID in Config.xcconfig only suffixes the bundle identifier,
-# which keeps two developers from installing over each other.
+# Signing needs no setup here: the project carries a DEVELOPMENT_TEAM.
 # Build for a generic device rather than for "id=$udid": xcodebuild identifies a
 # device by its ECID, devicectl by a CoreDevice UUID, and the two do not match.
 xcodebuild -project "$project" -scheme iosApp -configuration Debug \

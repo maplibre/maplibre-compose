@@ -179,9 +179,7 @@ public fun ExpandingAttributionButton(
       .then(style.border?.let { Modifier.border(it, style.shape) } ?: Modifier)
       .background(containerColor, style.shape)
       .clip(style.shape)
-      // Absorb gestures that land on the container, so that a drag across the attribution text
-      // does not pan the map underneath it. Material's Surface does the same, and groups its
-      // contents for screen reader traversal.
+      // Without this, a drag across the attribution pans the map underneath it.
       .pointerInput(Unit) {}
       .semantics { isTraversalGroup = true }
   ) {

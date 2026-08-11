@@ -62,7 +62,6 @@ fun DemoMap(state: DemoState, sheetInsets: WindowInsets = WindowInsets(0, 0, 0, 
               renderOptions = state.renderOptions,
               gestureOptions = state.gestureOptions,
             ),
-          // The sheet covers the bottom of the map, and the system bars cover its edges.
           contentWindowInsets = WindowInsets.safeDrawing.union(sheetInsets),
           overlay =
             when (state.mapControlsState.controls) {

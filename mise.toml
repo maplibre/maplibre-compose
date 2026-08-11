@@ -173,8 +173,8 @@ flag "--flavor <flavor>" default="default" {
   choices "default" "opengl" "vulkan" "debug"
 }
 '''
-# Gradle only installs the APK, so launch it too, the way the other demo tasks
-# leave you looking at a running app. adb picks the device from $ANDROID_SERIAL.
+# Gradle's install task stops at the install. adb reads $ANDROID_SERIAL to pick
+# among several devices, the same way the install task does.
 run = '''
 ./gradlew :demo-app:android:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"
 "$(.mise/bin/android-sdk-root)/platform-tools/adb" shell am start \
