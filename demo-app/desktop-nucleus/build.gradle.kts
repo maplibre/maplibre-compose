@@ -31,13 +31,14 @@ dependencies {
  * This stays a module of its own so that Tao's `MainDispatcherFactory`, which outranks
  * `kotlinx-coroutines-swing`, never reaches the AWT demo's runtime classpath.
  */
+val mainRuntimeClasspath = sourceSets.named("main").map { it.runtimeClasspath }
+
 val run by
   tasks.registering(JavaExec::class) {
     group = "application"
     description = "Runs the Nucleus Tao desktop host fixture."
 
-    val sourceSets = extensions.getByType<SourceSetContainer>()
-    classpath = sourceSets.getByName("main").runtimeClasspath
+    classpath = mainRuntimeClasspath.get()
     mainClass = "org.maplibre.compose.nucleus.MainKt"
     jvmArgs(NATIVE_ACCESS_JVM_ARGS)
     if (System.getProperty("os.name").lowercase().startsWith("mac")) {
