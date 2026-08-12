@@ -17,8 +17,8 @@ import org.maplibre.compose.mlnffi.NativeHandle
 /**
  * A [ComposeGpuHost] over a Nucleus Tao surface's own graphics context.
  *
- * Tao publishes what Compose draws with through [TaoGpuRenderContext], so this hands it over
- * unchanged: no AWT, no Skiko reflection.
+ * Tao publishes what Compose requires through [TaoGpuRenderContext], so this hands it over
+ * unchanged.
  */
 public class TaoComposeGpuHost(private val renderContext: TaoGpuRenderContext) : ComposeGpuHost {
 

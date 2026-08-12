@@ -137,12 +137,8 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
   - `common`: Every line of the app, and the only Kotlin Multiplatform module
   - `android`: An Android application that launches `common`
   - `desktop`: A JVM application that launches `common` on the AWT host
-  - `desktop-glfw`: The same JVM application on the compose-glfw host. A module
-    of its own so that its `MainDispatcherFactory`, which outranks
-    `kotlinx-coroutines-swing`, stays off the AWT runtime classpath.
-  - `desktop-nucleus`: The same JVM application on the Nucleus Tao host. A
-    module of its own so that Tao's `MainDispatcherFactory`, which outranks
-    `kotlinx-coroutines-swing`, stays off the AWT runtime classpath.
+  - `desktop-glfw`: The same JVM application on the compose-glfw host.
+  - `desktop-nucleus`: The same JVM application on the Nucleus Tao host.
   - `ios`: An Xcode project that embeds the framework `common` produces
 
   The browser app has no module of its own. Its entry point and page live in
