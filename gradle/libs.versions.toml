@@ -18,6 +18,7 @@ androidx-activity = "1.13.0"
 bytesize = "2.2.1"
 composeGlfw = "0.2.0"
 htmlConverterCompose = "1.1.1"
+nucleus = "2.4.0"
 kermit = "2.1.0"
 kotlin-wrappers = "2026.8.0"
 kotlinx-coroutines = "1.11.0"
@@ -59,6 +60,8 @@ androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navi
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 composeGlfw = { module = "dev.sargunv:compose-glfw", version.ref = "composeGlfw" }
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
+nucleus-application = { module = "dev.nucleusframework:nucleus.nucleus-application", version.ref = "nucleus" }
+nucleus-decoratedWindowTao = { module = "dev.nucleusframework:nucleus.decorated-window-tao", version.ref = "nucleus" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 kotlin-wrappers-browser = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browser", version.ref = "kotlin-wrappers" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }

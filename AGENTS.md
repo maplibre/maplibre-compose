@@ -23,6 +23,7 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 - `mise run build:ios:device`
 - `mise run demo:desktop`
 - `mise run demo:desktop-glfw`
+- `mise run demo:desktop-nucleus`
 - `mise run demo:android`
 - `mise run demo:ios` (pass `--device` for a connected iPhone)
 - `mise run demo:js`
@@ -138,6 +139,9 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
   - `desktop`: A JVM application that launches `common` on the AWT host
   - `desktop-glfw`: The same JVM application on the compose-glfw host. A module
     of its own so that its `MainDispatcherFactory`, which outranks
+    `kotlinx-coroutines-swing`, stays off the AWT runtime classpath.
+  - `desktop-nucleus`: The same JVM application on the Nucleus Tao host. A
+    module of its own so that Tao's `MainDispatcherFactory`, which outranks
     `kotlinx-coroutines-swing`, stays off the AWT runtime classpath.
   - `ios`: An Xcode project that embeds the framework `common` produces
 

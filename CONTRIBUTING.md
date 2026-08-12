@@ -128,6 +128,8 @@ launch on iOS. Every other host has a task:
 - Web: `mise run demo:js`
 - Desktop on the compose-glfw host instead of the AWT one:
   `mise run demo:desktop-glfw`
+- Desktop on the Nucleus Tao host instead of the AWT one:
+  `mise run demo:desktop-nucleus`
 
 ## Run the tests
 
