@@ -169,6 +169,7 @@ internal class DbusLocationPortal(private val host: ComposeMapHost? = null) : Li
     try {
       openConnection().use { connection ->
         val bus = connection.getRemoteObject(DBUS_BUS, DBUS_PATH, DBus::class.java)
+        bus.StartServiceByName(PORTAL_BUS, UInt32(0))
         bus.NameHasOwner(PORTAL_BUS)
       }
     } catch (_: Throwable) {
@@ -183,6 +184,11 @@ internal class DbusLocationPortal(private val host: ComposeMapHost? = null) : Li
     suspendCancellableCoroutine { continuation ->
       val subscription = AtomicReference<AutoCloseable?>()
       val request = AtomicReference<PortalRequest?>()
+      val token = newToken()
+      val responsePath = PortalResponsePath(connection.uniqueName, token)
+      request.set(
+        connection.getRemoteObject(PORTAL_BUS, responsePath.current, PortalRequest::class.java)
+      )
       continuation.invokeOnCancellation {
         closeQuietly { request.get()?.Close() }
         closeQuietly { subscription.get()?.close() }
@@ -191,6 +197,7 @@ internal class DbusLocationPortal(private val host: ComposeMapHost? = null) : Li
       try {
         subscription.set(
           connection.addSigHandler(PortalRequest.Response::class.java) { signal ->
+            if (!responsePath.accepts(signal.path)) return@addSigHandler
             closeQuietly { subscription.getAndSet(null)?.close() }
             if (continuation.isActive) continuation.resume(signal.response.toLong())
           }
@@ -199,8 +206,9 @@ internal class DbusLocationPortal(private val host: ComposeMapHost? = null) : Li
           portal.start(
             sessionPath,
             parentWindow,
-            mapOf("handle_token" to Variant(newToken())),
+            mapOf("handle_token" to Variant(token)),
           )
+        responsePath.update(requestPath.path)
         request.set(
           connection.getRemoteObject(PORTAL_BUS, requestPath.path, PortalRequest::class.java)
         )
@@ -298,6 +306,25 @@ private fun Map<String, Variant<*>>.number(name: String): Double? =
   (get(name)?.value as? Number)?.toDouble()
 
 private fun newToken(): String = "maplibre_${UUID.randomUUID().toString().replace("-", "")}"
+
+internal fun portalRequestPath(uniqueName: String, token: String): String =
+  "/org/freedesktop/portal/desktop/request/" +
+    uniqueName.removePrefix(":").replace('.', '_') +
+    "/" +
+    token
+
+internal class PortalResponsePath(uniqueName: String, token: String) {
+  private val path = AtomicReference(portalRequestPath(uniqueName, token))
+
+  val current: String
+    get() = path.get()
+
+  fun accepts(signalPath: String): Boolean = signalPath == current
+
+  fun update(returnedPath: String) {
+    path.set(returnedPath)
+  }
+}
 
 private inline fun closeQuietly(action: () -> Unit) {
   runCatching(action)

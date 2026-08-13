@@ -55,12 +55,27 @@ class DesktopLocationBackendResolverTest {
   @Test
   fun oneAvailableBackendCreatesProvider() {
     val expected = FakeProvider()
+    val expectedRequester = FakePermissionRequester()
+    val unavailableBackend = FakeBackend("wrong-platform", available = false)
+    val availableBackend =
+      FakeBackend(
+        "current-host",
+        provider = expected,
+        permissionRequester = expectedRequester,
+      )
     val provider =
-      DesktopLocationBackendResolver.resolve(
-        listOf(FakeBackend("current-host", provider = expected))
+      DesktopLocationBackendResolver.resolve(listOf(unavailableBackend, availableBackend))
+    val requester =
+      DesktopLocationBackendResolver.resolvePermissionRequester(
+        listOf(unavailableBackend, availableBackend)
       )
 
     assertSame(expected, provider)
+    assertSame(expectedRequester, requester)
+    assertEquals(0, unavailableBackend.createCalls)
+    assertEquals(0, unavailableBackend.createPermissionRequesterCalls)
+    assertEquals(1, availableBackend.createCalls)
+    assertEquals(1, availableBackend.createPermissionRequesterCalls)
   }
 
   @Test
@@ -101,9 +116,11 @@ private class FakeBackend(
   override val id: String,
   private val available: Boolean = true,
   private val provider: DesktopLocationProvider = FakeProvider(),
+  private val permissionRequester: DesktopLocationPermissionRequester = FakePermissionRequester(),
   private val failure: Throwable? = null,
 ) : DesktopLocationBackend {
   var createCalls = 0
+  var createPermissionRequesterCalls = 0
 
   override fun isAvailable(): Boolean = available
 
@@ -115,7 +132,11 @@ private class FakeBackend(
 
   override fun createPermissionRequester(
     host: ComposeMapHost?
-  ): DesktopLocationPermissionRequester = FakePermissionRequester
+  ): DesktopLocationPermissionRequester {
+    createPermissionRequesterCalls += 1
+    failure?.let { throw it }
+    return permissionRequester
+  }
 }
 
 private class FakeProvider : DesktopLocationProvider {
@@ -124,7 +145,7 @@ private class FakeProvider : DesktopLocationProvider {
   override fun close() = Unit
 }
 
-private object FakePermissionRequester : DesktopLocationPermissionRequester {
+private class FakePermissionRequester : DesktopLocationPermissionRequester {
   override val status =
     MutableStateFlow<LocationPermission>(
       LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)

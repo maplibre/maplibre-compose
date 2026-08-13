@@ -68,6 +68,22 @@ class LinuxPortalLocationProviderTest {
   }
 
   @Test
+  fun correlatesResponsesWithCurrentPortalRequestPath() {
+    val responsePath = PortalResponsePath(":1.42", "maplibre_token")
+
+    assertEquals(
+      "/org/freedesktop/portal/desktop/request/1_42/maplibre_token",
+      responsePath.current,
+    )
+    assertTrue(responsePath.accepts(responsePath.current))
+    assertTrue(!responsePath.accepts("/org/freedesktop/portal/desktop/request/1_99/other"))
+
+    responsePath.update("/legacy/request/path")
+    assertTrue(responsePath.accepts("/legacy/request/path"))
+    assertTrue(!responsePath.accepts("/org/freedesktop/portal/desktop/request/1_42/maplibre_token"))
+  }
+
+  @Test
   fun providerForwardsPortalUpdatesAndClosesItsPortal() = runTest {
     val portal = FakeLinuxLocationPortal()
     val provider = LinuxPortalLocationProvider(portal)

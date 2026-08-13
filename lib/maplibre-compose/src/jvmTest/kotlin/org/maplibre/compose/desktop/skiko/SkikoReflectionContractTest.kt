@@ -22,6 +22,7 @@ class SkikoReflectionContractTest {
   fun `SkiaLayer exposes the redrawer and backing layer the host needs`() {
     val skiaLayer = Class.forName(SkikoReflection.SKIA_LAYER_CLASS)
     assertMethod(skiaLayer, "getRedrawer\$skiko")
+    assertMethod(skiaLayer, "getWindowHandle")
     assertField(skiaLayer, "backedLayer")
   }
 

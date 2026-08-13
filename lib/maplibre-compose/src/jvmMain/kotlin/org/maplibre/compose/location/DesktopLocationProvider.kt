@@ -17,9 +17,10 @@ import org.maplibre.compose.desktop.LocalComposeMapHostOrNull
  *
  * No installed or available backend maps [LocationProvider.backendAvailability] and
  * [LocationPermissionRequester.backendAvailability] to [LocationBackendAvailability.Unsupported].
- * Multiple installed backends, a [ServiceConfigurationError], or an exception while creating a
- * component maps the corresponding property to [LocationBackendAvailability.Misconfigured]. The
- * selected backend documents its location-event and permission mappings.
+ * Multiple available backends, a [ServiceConfigurationError], or an exception while checking or
+ * creating a backend maps the corresponding property to
+ * [LocationBackendAvailability.Misconfigured]. The selected backend documents its location-event
+ * and permission mappings.
  */
 public interface DesktopLocationBackend {
   /** A stable name used in diagnostics. */
@@ -93,52 +94,68 @@ internal object DesktopLocationBackendResolver {
   fun resolve(
     backends: List<DesktopLocationBackend>,
     host: ComposeMapHost? = null,
-  ): DesktopLocationProvider =
-    when {
-      backends.isEmpty() ->
+  ): DesktopLocationProvider {
+    val availableBackends =
+      try {
+        backends.filter { it.isAvailable() }
+      } catch (error: Throwable) {
+        return UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+      }
+    return when {
+      availableBackends.isEmpty() ->
         UnavailableDesktopLocationProvider(LocationBackendAvailability.Unsupported)
-      backends.size > 1 ->
+      availableBackends.size > 1 ->
         UnavailableDesktopLocationProvider(
           LocationBackendAvailability.Misconfigured(
             IllegalStateException(
-              "Multiple desktop location backends are installed: " + backends.joinToString { it.id }
+              "Multiple desktop location backends are available: " +
+                availableBackends.joinToString { it.id }
             )
           )
         )
-      !backends.single().isAvailable() ->
-        UnavailableDesktopLocationProvider(LocationBackendAvailability.Unsupported)
       else ->
         try {
-          backends.single().createProvider(host)
+          availableBackends.single().createProvider(host)
         } catch (error: Throwable) {
           UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
         }
     }
+  }
 
   fun resolvePermissionRequester(
     backends: List<DesktopLocationBackend>,
     host: ComposeMapHost? = null,
-  ): DesktopLocationPermissionRequester =
-    when {
-      backends.isEmpty() || (backends.size == 1 && !backends.single().isAvailable()) ->
+  ): DesktopLocationPermissionRequester {
+    val availableBackends =
+      try {
+        backends.filter { it.isAvailable() }
+      } catch (error: Throwable) {
+        return UnavailableDesktopLocationPermissionRequester(
+          LocationBackendAvailability.Misconfigured(error)
+        )
+      }
+    return when {
+      availableBackends.isEmpty() ->
         UnavailableDesktopLocationPermissionRequester(LocationBackendAvailability.Unsupported)
-      backends.size > 1 ->
+      availableBackends.size > 1 ->
         UnavailableDesktopLocationPermissionRequester(
           LocationBackendAvailability.Misconfigured(
             IllegalStateException(
-              "Multiple desktop location backends are installed: " + backends.joinToString { it.id }
+              "Multiple desktop location backends are available: " +
+                availableBackends.joinToString { it.id }
             )
           )
         )
       else ->
         try {
-          backends.single().createPermissionRequester(host)
+          availableBackends.single().createPermissionRequester(host)
         } catch (error: Throwable) {
           UnavailableDesktopLocationPermissionRequester(
             LocationBackendAvailability.Misconfigured(error)
           )
         }
     }
+  }
 }
 
 private class UnavailableDesktopLocationProvider(
