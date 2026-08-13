@@ -27,10 +27,9 @@ to permission and lifecycle state. `LocationPuck` draws the latest fix, and
 | **`LocationPuck`**                               | Visual indicator that displays the user's current position and bearing on the map. |
 | **`LocationTrackingEffect`**                     | Applies location changes to application or camera state.                           |
 
-Android and iOS provide default location and orientation providers. Web provides
-location through the browser Geolocation API and a null orientation provider.
-Desktop returns an unsupported location provider until an application adds a
-host backend. `LocationState.status` reports unsupported or misconfigured
+Android and iOS provide default location and orientation providers. Web and
+Linux provide default location providers but no default orientation readings.
+`LocationState.status` reports unsupported or misconfigured
 location setup without throwing.
 
 Each collector of `LocationProvider.updates(request)` starts an independent
@@ -125,3 +124,18 @@ collection stops.
 The browser API accepts a high-accuracy preference but has no interval or
 distance thresholds. The provider applies `minimumInterval` after receiving
 fixes and ignores `minimumDistance`.
+
+#### Linux desktop
+
+The backend connects to `org.freedesktop.portal.Desktop` on the D-Bus session
+bus. The active portal implementation supplies location data, commonly through
+[GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue). A missing portal
+reports an unsupported backend through `LocationState.status`.
+
+On the standard AWT map host, the portal attaches its permission dialog to that
+window. A custom X11 or Wayland host can expose its window through
+`ComposeMapHost.xdgPortalWindow`. Other hosts use an unparented dialog.
+
+Each desktop rendering runtime installs its matching backend. A missing backend
+reports an unsupported backend, and multiple backends report a configuration
+failure through `LocationState.status`.

@@ -41,7 +41,7 @@ to express an interactive map API in Compose.
 | Add images to the style                           |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
 | Add Material 3 controls                           |           ✅           |           ✅           |           ✅           |           ✅           |     ❌     |
 | Download offline regions                          |           ✅           |           ✅           |           ✅           |           ❌           |     ❌     |
-| Show the user's location                          |           ✅           |           ✅           |           ❌           |           ❌           |     ❌     |
+| Show the user's location                          |           ✅           |           ✅           |       Linux only       |           ✅           |     ❌     |
 | Snapshot the map as an image                      |           ❌           |           ❌           |           ❌           |           ❌           |     ❌     |
 
 [compose]: https://www.jetbrains.com/compose-multiplatform/

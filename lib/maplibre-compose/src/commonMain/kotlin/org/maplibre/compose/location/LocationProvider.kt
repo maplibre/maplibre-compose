@@ -256,8 +256,11 @@ public object UnsupportedLocationProvider : LocationProvider {
  * throwing during composition.
  *
  * See [AndroidLocationProvider][org.maplibre.compose.location.AndroidLocationProvider],
- * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider], and
- * [IosLocationProvider][org.maplibre.compose.location.IosLocationProvider].
+ * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider],
+ * [IosLocationProvider][org.maplibre.compose.location.IosLocationProvider], and
+ * [LinuxPortalLocationProvider][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationProvider].
+ * Desktop implementations are installed through
+ * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend].
  */
 @Composable public expect fun rememberDefaultLocationProvider(): LocationProvider
 
@@ -269,10 +272,13 @@ public object UnsupportedLocationProvider : LocationProvider {
  * instead of throwing during composition.
  *
  * See
- * [rememberAndroidLocationPermissionRequester][org.maplibre.compose.location.rememberAndroidLocationPermissionRequester]
+ * [rememberAndroidLocationPermissionRequester][org.maplibre.compose.location.rememberAndroidLocationPermissionRequester],
  * [rememberBrowserLocationPermissionRequester][org.maplibre.compose.location.rememberBrowserLocationPermissionRequester],
+ * [rememberIosLocationPermissionRequester][org.maplibre.compose.location.rememberIosLocationPermissionRequester],
  * and
- * [rememberIosLocationPermissionRequester][org.maplibre.compose.location.rememberIosLocationPermissionRequester].
+ * [LinuxPortalLocationPermissionRequester][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationPermissionRequester].
+ * Desktop implementations are installed through
+ * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend].
  */
 @Composable
 public expect fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester

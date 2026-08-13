@@ -8,7 +8,7 @@ import dev.sargunv.composeglfw.MetalRenderContext
 import dev.sargunv.composeglfw.OpenGlRenderContext
 import dev.sargunv.composeglfw.RenderContext
 import org.maplibre.compose.desktop.ComposeGpuContext
-import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
@@ -16,12 +16,16 @@ import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.NativeHandle
 
 /**
- * A [ComposeGpuHost] over a compose-glfw window's own graphics context.
+ * A [ComposeMapHost] over a compose-glfw window's own graphics context.
  *
  * compose-glfw publishes what Compose draws with, so this hands it over unchanged: no AWT, no
  * Skiko, and no reflection.
  */
-public class GlfwComposeGpuHost(private val renderContext: RenderContext) : ComposeGpuHost {
+public class GlfwComposeMapHost(private val renderContext: RenderContext) : ComposeMapHost {
+
+  // TODO: Implement xdgPortalWindow after compose-glfw publishes its native GLFW window. Return an
+  // XdgPortalWindow.X11 on X11. On Wayland, implement XdgPortalWindow.Wayland in compose-glfw so it
+  // can export its wl_surface on the owning event loop and retain that export for the caller.
 
   /**
    * The thread compose-glfw renders from, which on macOS is the process's first thread. Captured at
@@ -76,7 +80,7 @@ public class GlfwComposeGpuHost(private val renderContext: RenderContext) : Comp
 }
 
 /**
- * The [ComposeGpuHost] for the compose-glfw window this composable is running in.
+ * The [ComposeMapHost] for the compose-glfw window this composable is running in.
  *
  * Keyed on the render context, which compose-glfw replaces when it rebuilds a window's graphics
  * stack, so that a new context recreates the map's bridge and drops every stale native handle. Note
@@ -84,7 +88,7 @@ public class GlfwComposeGpuHost(private val renderContext: RenderContext) : Comp
  * replacement does not by itself recompose.
  */
 @Composable
-public fun rememberGlfwComposeGpuHost(): ComposeGpuHost {
+public fun rememberGlfwComposeMapHost(): ComposeMapHost {
   val renderContext = LocalWindow.current.renderContext
-  return remember(renderContext) { GlfwComposeGpuHost(renderContext) }
+  return remember(renderContext) { GlfwComposeMapHost(renderContext) }
 }

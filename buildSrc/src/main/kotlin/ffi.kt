@@ -9,9 +9,8 @@ enum class DesktopHostPlatform(
   private val arch: String,
 
   /**
-   * The one backend `ComposeGpuMapHostFactory` can bridge here today, not a property of the
-   * platform: the FFI offers OpenGL and Vulkan everywhere, and an application chooses by choosing a
-   * runtime.
+   * The one backend `ComposeMapHostFactory` can bridge here today, not a property of the platform:
+   * the FFI offers OpenGL and Vulkan everywhere, and an application chooses by choosing a runtime.
    */
   val defaultRenderBackend: RenderBackend,
 ) {

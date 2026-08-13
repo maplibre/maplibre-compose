@@ -15,6 +15,8 @@ mavenPublishing {
 }
 
 dependencies {
+  runtimeOnly(project(":lib:maplibre-compose-macos"))
+
   DesktopHostPlatform.MacosArm64.runtimeDependencies(
       backend = DesktopHostPlatform.RenderBackend.METAL,
       ffiVersion = libs.versions.maplibre.nativeFfi.get(),
