@@ -154,6 +154,10 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider =
   rememberBrowserLocationProvider()
 
 @Composable
+public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
+  UnsupportedLocationPermissionRequester
+
+@Composable
 public actual fun rememberDefaultOrientationProvider(
   updateInterval: Duration
 ): OrientationProvider = NullOrientationProvider

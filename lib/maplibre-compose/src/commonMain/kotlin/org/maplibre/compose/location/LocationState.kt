@@ -8,7 +8,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
@@ -27,11 +26,12 @@ import org.maplibre.spatialk.units.extensions.degrees
  * Lifecycle-aware state for foreground location and orientation tracking.
  *
  * [location] and [orientation] retain their most recently received measurements when collection
- * stops. [status] describes the current session separately, so retained data is not mistaken for a
- * live update.
+ * stops. [status] separately describes whether updates are active, so retained data is not mistaken
+ * for a live update.
  */
 @Stable
-public class LocationState internal constructor(private val provider: LocationProvider) {
+public class LocationState
+internal constructor(initialPermission: LocationPermission = LocationPermission.NotGranted(null)) {
   /** The user's current or last known location. */
   public var location: Location? by mutableStateOf(null)
     internal set
@@ -41,10 +41,10 @@ public class LocationState internal constructor(private val provider: LocationPr
     internal set
 
   /** Current foreground location authorization. */
-  public var permission: LocationPermission by mutableStateOf(provider.permission.status.value)
+  public var permission: LocationPermission by mutableStateOf(initialPermission)
     internal set
 
-  /** Current foreground session state. */
+  /** Current foreground tracking state. */
   public var status: LocationTrackingStatus by mutableStateOf(LocationTrackingStatus.Stopped)
     internal set
 
@@ -61,18 +61,18 @@ public class LocationState internal constructor(private val provider: LocationPr
   }
 }
 
-/** Current state of the foreground location session owned by [rememberLocationState]. */
+/** Current state of the foreground location updates managed by [rememberLocationState]. */
 public sealed interface LocationTrackingStatus {
-  /** No platform session is active. */
+  /** No platform location request is active. */
   public data object Stopped : LocationTrackingStatus
 
   /** Tracking is enabled but foreground permission is not granted. */
   public data object WaitingForPermission : LocationTrackingStatus
 
-  /** A platform session is starting and has not delivered its first measurement. */
+  /** A platform location request is active and has not delivered its first measurement. */
   public data object Starting : LocationTrackingStatus
 
-  /** The session has delivered at least one location measurement. */
+  /** The active location request has delivered at least one measurement. */
   public data object Tracking : LocationTrackingStatus
 
   /** An expected or unexpected condition currently prevents delivery. */
@@ -85,14 +85,16 @@ public sealed interface LocationTrackingStatus {
 /**
  * Remembers foreground location and orientation state.
  *
- * [enabled] and the lifecycle jointly own the platform session. This function never requests
- * permission automatically; the application chooses when to call [LocationState.requestPermission].
- * Cancelling lifecycle collection releases the provider session while retaining the last
- * measurements in [LocationState].
+ * Location updates are collected while [enabled] is `true` and the lifecycle is active. This
+ * function never requests permission automatically; the application chooses when to call
+ * [LocationState.requestPermission]. Stopping collection releases the platform request while
+ * retaining the last measurements in [LocationState].
  *
- * @param enabled Whether location and orientation sessions should run while lifecycle-active.
+ * @param enabled Whether location and orientation updates should run while lifecycle-active.
  * @param provider The [LocationProvider] to use for obtaining location updates.
- * @param request Preferences for each location session.
+ * @param permissionRequester The requester used to observe and request foreground location
+ *   permission.
+ * @param request Preferences for location updates.
  * @param orientationProvider The optional [OrientationProvider] to use for obtaining device
  *   orientation updates. By default, a provider that emits no orientation updates is used, meaning
  *   the orientation in the returned state will always be `null`.
@@ -108,20 +110,19 @@ public sealed interface LocationTrackingStatus {
 public fun rememberLocationState(
   enabled: Boolean = true,
   provider: LocationProvider = rememberDefaultLocationProvider(),
+  permissionRequester: LocationPermissionRequester = rememberDefaultLocationPermissionRequester(),
   request: LocationRequest = LocationRequest(),
   orientationProvider: OrientationProvider = rememberNullOrientationProvider(),
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
   coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ): LocationState {
-  val scope = rememberCoroutineScope()
-  val state = remember(provider) { LocationState(provider) }
-  val permission by provider.permission.status.collectAsState()
+  val state =
+    remember(provider, permissionRequester) { LocationState(permissionRequester.status.value) }
+  val permission by permissionRequester.status.collectAsState()
   SideEffect {
     state.permission = permission
-    state.requestPermissionAction = {
-      scope.launch { provider.permission.requestForegroundPermission() }
-    }
+    state.requestPermissionAction = permissionRequester::requestForegroundPermission
   }
 
   LaunchedEffect(

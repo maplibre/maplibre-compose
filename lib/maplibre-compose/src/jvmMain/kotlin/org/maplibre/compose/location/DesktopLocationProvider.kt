@@ -4,3 +4,7 @@ import androidx.compose.runtime.Composable
 
 @Composable
 public actual fun rememberDefaultLocationProvider(): LocationProvider = UnsupportedLocationProvider
+
+@Composable
+public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
+  UnsupportedLocationPermissionRequester

@@ -21,7 +21,7 @@ import org.maplibre.spatialk.units.extensions.meters
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocationProviderTest {
   @Test
-  fun collectionOwnsSession() = runTest {
+  fun cancellingCollectionStopsUpdates() = runTest {
     val provider = FakeLocationProvider()
 
     val collection = launch { provider.updates(LocationRequest()).collect {} }
@@ -34,7 +34,7 @@ class LocationProviderTest {
   }
 
   @Test
-  fun currentLocationSkipsUnavailableEventsAndClosesSessionAfterFix() = runTest {
+  fun currentLocationSkipsUnavailableEventsAndStopsAfterFix() = runTest {
     val expected = location()
     val provider =
       FakeLocationProvider(
@@ -50,7 +50,7 @@ class LocationProviderTest {
   }
 
   @Test
-  fun currentLocationTimeoutClosesSession() = runTest {
+  fun currentLocationTimeoutStopsUpdates() = runTest {
     val provider = FakeLocationProvider()
 
     assertFailsWith<TimeoutCancellationException> {
@@ -68,10 +68,6 @@ class LocationProviderTest {
 
 private class FakeLocationProvider(private val events: List<LocationEvent> = emptyList()) :
   LocationProvider {
-  override val permission =
-    FixedLocationPermissionController(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
-    )
   var active = false
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
