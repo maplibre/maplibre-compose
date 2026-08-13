@@ -49,10 +49,6 @@ public class AndroidOrientationProvider(
   override val orientation: StateFlow<Orientation?>
 
   init {
-    if (!handlerThread.isAlive) {
-      handlerThread.start()
-    }
-
     val sensorManager = context.getSystemService(SENSOR_SERVICE) as SensorManager
 
     orientation =
@@ -105,7 +101,9 @@ public class AndroidOrientationProvider(
   }
 
   private companion object {
-    private val handlerThread by lazy { HandlerThread("AndroidOrientationProvider") }
+    private val handlerThread by lazy {
+      HandlerThread("AndroidOrientationProvider").apply { start() }
+    }
   }
 }
 

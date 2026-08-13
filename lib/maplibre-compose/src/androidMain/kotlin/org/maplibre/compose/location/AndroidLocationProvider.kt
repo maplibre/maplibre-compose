@@ -61,7 +61,6 @@ public class AndroidLocationProvider(context: Context) : LocationProvider {
       return@callbackFlow
     }
 
-    if (!handlerThread.isAlive) handlerThread.start()
     val manager = context.getSystemService(LocationManager::class.java)
     val provider = selectProvider(manager, request.accuracy)
     if (provider == null) {
@@ -173,7 +172,9 @@ public class AndroidLocationProvider(context: Context) : LocationProvider {
   }
 
   private companion object {
-    private val handlerThread by lazy { HandlerThread("AndroidLocationProvider") }
+    private val handlerThread by lazy {
+      HandlerThread("AndroidLocationProvider").apply { start() }
+    }
   }
 }
 

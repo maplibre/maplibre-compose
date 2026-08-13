@@ -6,8 +6,7 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withTimeout
 import org.maplibre.spatialk.units.Length
@@ -182,6 +181,17 @@ public enum class LocationUnavailableReason {
   UnexpectedFailure,
 }
 
+/**
+ * Thrown when a one-shot location request ends because the provider cannot deliver a location.
+ *
+ * @property reason Portable classification of the condition.
+ * @param cause Underlying platform or provider exception, when one is available.
+ */
+public class LocationUnavailableException(
+  public val reason: LocationUnavailableReason,
+  cause: Throwable? = null,
+) : Exception("Location is unavailable: $reason", cause)
+
 /** The accuracy level that the user authorized. */
 public enum class LocationAccuracyAuthorization {
   /** Fine location on Android or full accuracy on iOS. */
@@ -286,9 +296,36 @@ public object UnsupportedLocationProvider : LocationProvider {
 @Composable
 public expect fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester
 
-/** Returns the first location emitted by [LocationProvider.updates]. */
+/**
+ * Returns the first location emitted by [LocationProvider.updates].
+ *
+ * Unavailable events are skipped while the provider can recover. If the stream ends without a
+ * location, this function throws [LocationUnavailableException] for its last unavailable event.
+ *
+ * @throws LocationUnavailableException if the provider ends with an unavailable event.
+ * @throws NoSuchElementException if the provider ends without emitting an event.
+ */
 public suspend fun LocationProvider.currentLocation(
   request: LocationRequest = LocationRequest(),
   timeout: Duration = 30.seconds,
 ): Location =
-  withTimeout(timeout) { updates(request).filterIsInstance<LocationEvent.Fix>().first().location }
+  withTimeout(timeout) {
+    var lastUnavailable: LocationEvent.Unavailable? = null
+    val fix =
+      updates(request).firstOrNull { event ->
+        when (event) {
+          is LocationEvent.Fix -> true
+          is LocationEvent.Unavailable -> {
+            lastUnavailable = event
+            false
+          }
+        }
+      } as? LocationEvent.Fix
+
+    if (fix != null) return@withTimeout fix.location
+
+    lastUnavailable?.let { unavailable ->
+      throw LocationUnavailableException(unavailable.reason, unavailable.cause)
+    }
+    throw NoSuchElementException("Location provider ended without emitting an event")
+  }

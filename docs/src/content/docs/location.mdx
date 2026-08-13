@@ -121,8 +121,9 @@ Calling `requestPermission` starts a one-shot request so that the browser can
 present its prompt; active tracking then uses a watch that is removed when
 collection stops.
 
-Browsers only accept high-accuracy and cached-fix preferences. The provider
-applies `minimumInterval` after receiving fixes and ignores `minimumDistance`.
+The browser API accepts a high-accuracy preference but has no interval or
+distance thresholds. The provider applies `minimumInterval` after receiving
+fixes and ignores `minimumDistance`.
 
 #### Linux desktop
 
