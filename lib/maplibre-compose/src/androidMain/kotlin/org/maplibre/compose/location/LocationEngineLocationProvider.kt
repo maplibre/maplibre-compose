@@ -66,10 +66,7 @@ constructor(private val locationEngine: LocationEngine) : LocationProvider {
       object : LocationEngineCallback<LocationEngineResult> {
         override fun onSuccess(result: LocationEngineResult?) {
           result?.locations?.forEach { location ->
-            val age = location.ageAtReceipt()
-            if (request.maximumInitialFixAge == null || age <= request.maximumInitialFixAge) {
-              trySend(LocationEvent.Fix(location.asMapLibreLocation()))
-            }
+            trySend(LocationEvent.Fix(location.asMapLibreLocation()))
           }
         }
 

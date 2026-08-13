@@ -2,10 +2,6 @@ package org.maplibre.compose.location
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 import platform.CoreLocation.kCLErrorDenied
 import platform.CoreLocation.kCLErrorDomain
 import platform.CoreLocation.kCLErrorLocationUnknown
@@ -13,16 +9,6 @@ import platform.CoreLocation.kCLErrorNetwork
 import platform.Foundation.NSError
 
 class IosLocationProviderTest {
-  @Test
-  fun filtersStaleLocationsUntilFirstAcceptableFix() {
-    val filter = InitialFixAgeFilter(maximumInitialFixAge = 1.minutes)
-
-    assertFalse(filter.accept(age = 2.minutes))
-    assertFalse(filter.accept(age = 61.seconds))
-    assertTrue(filter.accept(age = 30.seconds))
-    assertTrue(filter.accept(age = 2.minutes))
-  }
-
   @Test
   fun mapsCoreLocationErrorsByRecoverability() {
     assertEquals(

@@ -2,8 +2,6 @@ package org.maplibre.compose.gms
 
 import android.Manifest
 import android.content.Context
-import android.location.Location as AndroidLocation
-import android.os.SystemClock
 import androidx.annotation.RequiresPermission
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -18,8 +16,6 @@ import com.google.android.gms.location.LocationResult
 import com.google.android.gms.location.LocationServices
 import com.google.android.gms.location.Priority
 import java.util.concurrent.Executors
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.nanoseconds
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -37,8 +33,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
 /**
  * A location provider backed by Google Play Services fused location.
  *
- * Each collection requests fused updates, filters the initial cached location by
- * [LocationRequest.maximumInitialFixAge], and removes its callback when collection ends.
+ * Each collection requests fused updates, emits the last location when one exists, and removes its
+ * callback when collection ends.
  *
  * [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] map to
  * [`Priority.PRIORITY_HIGH_ACCURACY`](https://developers.google.com/android/reference/com/google/android/gms/location/Priority#PRIORITY_HIGH_ACCURACY),
@@ -90,11 +86,7 @@ constructor(private val locationClient: FusedLocationProviderClient) : LocationP
         )
         .await()
         ?.let { location ->
-          val age = location.ageAtReceipt()
-          val maximumAge = request.maximumInitialFixAge
-          if (maximumAge == null || age <= maximumAge) {
-            trySend(LocationEvent.Fix(location.asMapLibreLocation()))
-          }
+          trySend(LocationEvent.Fix(location.asMapLibreLocation()))
         }
 
       locationClient
@@ -154,6 +146,3 @@ private fun LocationRequest.asGmsLocationRequest(): GmsLocationRequest =
     .setMinUpdateDistanceMeters(minimumDistance.inMeters.toFloat())
     .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
     .build()
-
-private fun AndroidLocation.ageAtReceipt(): Duration =
-  (SystemClock.elapsedRealtimeNanos() - elapsedRealtimeNanos).coerceAtLeast(0).nanoseconds
