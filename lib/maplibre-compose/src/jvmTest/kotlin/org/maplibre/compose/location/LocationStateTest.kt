@@ -90,6 +90,73 @@ class LocationStateTest {
   }
 
   @Test
+  fun permissionGrantStartsAndRevocationStopsOrientationUpdates() = withMainDispatcher {
+    runComposeUiTest {
+      val requester = MutablePermissionRequester()
+      val orientationProvider = MutableOrientationProvider()
+      var state: LocationState? = null
+
+      setContent {
+        state =
+          rememberLocationState(
+            provider = FiniteLocationProvider(),
+            permissionRequester = requester,
+            orientationProvider = orientationProvider,
+            lifecycleOwner = ResumedLifecycleOwner(),
+          )
+      }
+
+      waitUntil { state?.status == LocationTrackingStatus.WaitingForPermission }
+      assertEquals(0, orientationProvider.orientation.subscriptionCount.value)
+
+      runOnIdle {
+        requester.status.value = LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+      }
+      waitUntil { orientationProvider.orientation.subscriptionCount.value == 1 }
+
+      runOnIdle {
+        requester.status.value = LocationPermission.NotGranted(canRequest = false)
+      }
+      waitUntil { orientationProvider.orientation.subscriptionCount.value == 0 }
+    }
+  }
+
+  @Test
+  fun replacingGrantedRequesterMovesLocationCollectionToNewState() = withMainDispatcher {
+    runComposeUiTest {
+      val provider = ActiveLocationProvider(location(13.0))
+      var requester by
+        mutableStateOf<LocationPermissionRequester>(
+          MutablePermissionRequester(
+            LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+          )
+        )
+      var state: LocationState? = null
+
+      setContent {
+        state =
+          rememberLocationState(
+            provider = provider,
+            permissionRequester = requester,
+            lifecycleOwner = ResumedLifecycleOwner(),
+          )
+      }
+      waitUntil { state?.location == provider.location }
+      val originalState = state
+
+      runOnIdle {
+        requester =
+          MutablePermissionRequester(
+            LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+          )
+      }
+
+      waitUntil { state !== originalState && state?.location == provider.location }
+      assertTrue(provider.stopCount > 0)
+    }
+  }
+
+  @Test
   fun completedProviderUpdatesStopTracking() = withMainDispatcher {
     runComposeUiTest {
       val expected = location(13.0)
@@ -211,9 +278,10 @@ private class ActiveLocationProvider(val location: Location) : LocationProvider 
   }
 }
 
-private class MutablePermissionRequester : LocationPermissionRequester {
-  override val status =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = true))
+private class MutablePermissionRequester(
+  initialStatus: LocationPermission = LocationPermission.NotGranted(canRequest = true)
+) : LocationPermissionRequester {
+  override val status = MutableStateFlow(initialStatus)
   var requestCount = 0
 
   override fun requestForegroundPermission() {

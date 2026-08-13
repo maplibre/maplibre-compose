@@ -129,8 +129,10 @@ public fun rememberLocationState(
   LaunchedEffect(
     enabled,
     provider,
+    permissionRequester,
     request,
     permission,
+    state,
     lifecycleOwner.lifecycle,
     minActiveState,
     coroutineContext,
@@ -201,11 +203,12 @@ public fun rememberLocationState(
   LaunchedEffect(
     enabled,
     orientationProvider,
+    permission,
     state,
     lifecycleOwner.lifecycle,
     minActiveState,
   ) {
-    if (!enabled) return@LaunchedEffect
+    if (!enabled || permission !is LocationPermission.Granted) return@LaunchedEffect
     lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
       coroutineScope {
         launch { orientationProvider.orientation.collect { state.orientation = it } }
