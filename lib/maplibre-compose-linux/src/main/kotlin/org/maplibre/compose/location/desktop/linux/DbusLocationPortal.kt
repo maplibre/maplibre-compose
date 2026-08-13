@@ -25,6 +25,7 @@ import org.freedesktop.dbus.connections.impl.DBusConnectionBuilder
 import org.freedesktop.dbus.exceptions.DBusException
 import org.freedesktop.dbus.exceptions.DBusExecutionException
 import org.freedesktop.dbus.interfaces.DBus
+import org.freedesktop.dbus.interfaces.Properties
 import org.freedesktop.dbus.types.UInt32
 import org.freedesktop.dbus.types.Variant
 import org.maplibre.compose.desktop.ComposeMapHost
@@ -169,7 +170,11 @@ internal class DbusLocationPortal(private val host: ComposeMapHost? = null) : Li
       openConnection().use { connection ->
         val bus = connection.getRemoteObject(DBUS_BUS, DBUS_PATH, DBus::class.java)
         bus.StartServiceByName(PORTAL_BUS, UInt32(0))
-        bus.NameHasOwner(PORTAL_BUS)
+        if (!bus.NameHasOwner(PORTAL_BUS)) return@use false
+
+        val properties = connection.getRemoteObject(PORTAL_BUS, PORTAL_PATH, Properties::class.java)
+        properties.Get<UInt32>(LOCATION_INTERFACE, "version")
+        true
       }
     } catch (_: Throwable) {
       false
@@ -238,6 +243,7 @@ internal class DbusLocationPortal(private val host: ComposeMapHost? = null) : Li
   private companion object {
     const val PORTAL_BUS = "org.freedesktop.portal.Desktop"
     const val PORTAL_PATH = "/org/freedesktop/portal/desktop"
+    const val LOCATION_INTERFACE = "org.freedesktop.portal.Location"
     const val DBUS_BUS = "org.freedesktop.DBus"
     const val DBUS_PATH = "/org/freedesktop/DBus"
   }
