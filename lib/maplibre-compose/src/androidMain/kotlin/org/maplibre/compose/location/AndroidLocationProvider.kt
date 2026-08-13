@@ -24,9 +24,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
 /**
  * A [LocationProvider] built on the [LocationManager] platform APIs.
  *
- * Each collection selects a provider and request settings from [LocationRequest], checks the last
- * known location against [LocationRequest.maximumInitialFixAge], and removes its listener when
- * collection ends.
+ * Each collection selects a provider and request settings from [LocationRequest], emits the last
+ * known location when one exists, and removes its listener when collection ends.
  *
  * On Android 12 and newer, [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] map to
  * [`LocationRequest.QUALITY_HIGH_ACCURACY`](https://developer.android.com/reference/android/location/LocationRequest#QUALITY_HIGH_ACCURACY),
@@ -86,10 +85,7 @@ public class AndroidLocationProvider(context: Context) : LocationProvider {
 
     try {
       manager.getLastKnownLocation(provider)?.let { location ->
-        val age = location.ageAtReceipt()
-        if (request.maximumInitialFixAge == null || age <= request.maximumInitialFixAge) {
-          trySend(LocationEvent.Fix(location.asMapLibreLocation()))
-        }
+        trySend(LocationEvent.Fix(location.asMapLibreLocation()))
       }
       if (
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.S && provider == LocationManager.FUSED_PROVIDER
