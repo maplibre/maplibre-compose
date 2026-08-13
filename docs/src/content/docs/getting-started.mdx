@@ -203,15 +203,18 @@ kotlin {
 
 MapLibre GL JS parses vector tiles on a web worker. Emit
 `maplibre-gl-worker.mjs` and `maplibre-gl-shared.mjs` from the `maplibre-gl`
-package into the webpack output next to the page, under those names.
-`MapLibre.initialize()` points MapLibre at that worker.
+package into the webpack output under those names.
+
+Pass that worker URL to `MapLibre.initialize`. A path that starts with `/` is
+resolved against the origin. Pass a full URL when the worker files are not at
+the site root.
 
 Initialize MapLibre inside `onWasmReady`, before Compose starts.
 
 ```kotlin title="main.kt"
 fun main() {
   onWasmReady {
-    MapLibre.initialize()
+    MapLibre.initialize(workerUrl = "/maplibre-gl-worker.mjs")
     ComposeViewport(document.body!!) { App() }
   }
 }

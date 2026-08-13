@@ -35,6 +35,9 @@ import org.maplibre.compose.util.MaplibreComposable
  *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
  *   not supported in filter expressions.
  * @param visible Whether the layer should be displayed.
+ * @param roundedCornerDistance The distance in meters from each fill extrusion corner, measured
+ *   along the adjacent edges, that is replaced by a rounded corner. A value in the range of
+ *   `[0..infinity)`. A value of `0` leaves corners sharp.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up (on the flat plane), respectively.
  * @param translateAnchor Frame of reference for offsetting geometry.
@@ -54,9 +57,6 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param base The height in meters with which to extrude the base of the geometries, i.e. the lower
  *   end of the 3D polygon. A value in the range of `[0..infinity)`. Must be less than or equal to
  *   [height].
- * @param roundedCornerDistance The distance in meters from each fill extrusion corner, measured
- *   along the adjacent edges, that is replaced by a rounded corner. A value in the range of
- *   `[0..infinity)`. A value of `0` leaves corners sharp.
  * @param verticalGradient Whether to apply a vertical gradient to the sides of this layer. If
  *   `true`, sides will be shaded slightly darker farther down.
  * @param onClick Function to call when any feature in this layer has been clicked.
@@ -72,6 +72,7 @@ public fun FillExtrusionLayer(
   maxZoom: Float = 24.0f,
   filter: Expression<BooleanValue> = nil(),
   visible: Boolean = true,
+  roundedCornerDistance: Expression<FloatValue> = nil(),
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
@@ -79,7 +80,6 @@ public fun FillExtrusionLayer(
   pattern: Expression<ImageValue> = nil(),
   height: Expression<FloatValue> = const(0f),
   base: Expression<FloatValue> = const(0f),
-  roundedCornerDistance: Expression<FloatValue> = nil(),
   verticalGradient: Expression<BooleanValue> = const(true),
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
@@ -107,14 +107,14 @@ public fun FillExtrusionLayer(
       set(maxZoom) { layer.maxZoom = it }
       set(compiledFilter) { layer.setFilter(it) }
       set(visible) { layer.visible = it }
-      set(compiledOpacity) { layer.setFillExtrusionOpacity(it) }
-      set(compiledColor) { layer.setFillExtrusionColor(it) }
+      set(compiledRoundedCornerDistance) { layer.setFillExtrusionRoundedCornerDistance(it) }
       set(compiledTranslate) { layer.setFillExtrusionTranslate(it) }
       set(compiledTranslateAnchor) { layer.setFillExtrusionTranslateAnchor(it) }
+      set(compiledOpacity) { layer.setFillExtrusionOpacity(it) }
+      set(compiledColor) { layer.setFillExtrusionColor(it) }
       set(compiledPattern) { layer.setFillExtrusionPattern(it) }
       set(compiledHeight) { layer.setFillExtrusionHeight(it) }
       set(compiledBase) { layer.setFillExtrusionBase(it) }
-      set(compiledRoundedCornerDistance) { layer.setFillExtrusionRoundedCornerDistance(it) }
       set(compiledVerticalGradient) { layer.setFillExtrusionVerticalGradient(it) }
     },
     onClick = onClick,

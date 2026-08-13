@@ -18,6 +18,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
 import org.maplibre.compose.gljs.FitBoundsOptions
@@ -222,7 +223,7 @@ internal class GlJsMapSession(
           maxCanvasSize = maxTextureSize(it.gl)
         }
       }
-    GlJsRuntime.pointAtBundledWorker()
+    GlJsRuntime.pointAtWorker(DEFAULT_WORKER_URL)
     val created =
       if (target == null) MaplibreMap(options)
       else {

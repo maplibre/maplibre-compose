@@ -18,7 +18,9 @@ public expect class RasterDemSource : Source {
   /**
    * @param id Unique identifier for this source
    * @param tiles List of URIs pointing to tile images
-   * @param options see [TileSetOptions]
+   * @param options see [TileSetOptions]. [TileSetOptions.tileCoordinateSystem] is a vector and
+   *   raster key; a raster-dem source has no `scheme` in the style spec. MapLibre Native on iOS and
+   *   desktop still honours TMS. The browser and Android throw if TMS is passed.
    * @param tileSize width and height (measured in points) of each tiled image in the raster tile
    *   source
    * @param demEncoding The encoding used by this source. Mapbox Terrain RGB is used by default.

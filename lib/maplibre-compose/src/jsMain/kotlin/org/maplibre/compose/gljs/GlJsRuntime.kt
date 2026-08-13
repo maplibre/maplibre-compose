@@ -2,6 +2,8 @@ package org.maplibre.compose.gljs
 
 import web.gl.WebGL2RenderingContext
 
+internal const val DEFAULT_WORKER_URL = "/maplibre-gl-worker.mjs"
+
 /**
  * The places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is pinned
  * to internals of one MapLibre version and fails loudly when a version bump moves them.
@@ -10,15 +12,10 @@ internal object GlJsRuntime {
 
   private var workerUrlConfigured = false
 
-  /**
-   * MapLibre GL JS 6 loads vector tiles in `maplibre-gl-worker.mjs`. Webpack copies that file, and
-   * its sibling `maplibre-gl-shared.mjs`, next to the page; this points MapLibre at them. Repeat
-   * calls are ignored.
-   */
-  fun pointAtBundledWorker() {
+  /** Points MapLibre GL JS 6 at [workerUrl]. Repeat calls are ignored. */
+  fun pointAtWorker(workerUrl: String) {
     if (workerUrlConfigured) return
-    // Relative to the page: webpack and Karma both serve the file at this name next to it.
-    setWorkerUrl("maplibre-gl-worker.mjs")
+    setWorkerUrl(workerUrl)
     workerUrlConfigured = true
   }
 

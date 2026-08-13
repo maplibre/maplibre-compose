@@ -1,7 +1,7 @@
 // MapLibre GL JS 6 parses vector tiles in maplibre-gl-worker.mjs, which imports
 // maplibre-gl-shared.mjs as a sibling. Webpack must emit both files under those
 // names so the worker's relative import resolves. MapLibre.initialize() points
-// MapLibre at the worker with setWorkerUrl.
+// MapLibre at `/maplibre-gl-worker.mjs` at the site root.
 
 const fs = require("fs");
 const path = require("path");

@@ -312,6 +312,9 @@ class LayerPropertyRoundTripTest {
 
     val FILL_EXTRUSION_CASES =
       listOf<Case<FillExtrusionLayer>>(
+        Case("fill-extrusion-rounded-corner-distance", "10.0") {
+          it.setFillExtrusionRoundedCornerDistance(const(10f).c())
+        },
         Case("fill-extrusion-opacity", "0.5") { it.setFillExtrusionOpacity(const(0.5f).c()) },
         Case(
           "fill-extrusion-color",
@@ -333,9 +336,6 @@ class LayerPropertyRoundTripTest {
         Case("fill-extrusion-base", "5.0") { it.setFillExtrusionBase(const(5f).c()) },
         Case("fill-extrusion-vertical-gradient", "false") {
           it.setFillExtrusionVerticalGradient(const(false).c())
-        },
-        Case("fill-extrusion-rounded-corner-distance", "10.0") {
-          it.setFillExtrusionRoundedCornerDistance(const(10f).c())
         },
       )
 
