@@ -24,7 +24,18 @@ import platform.CoreLocation.CLLocationManagerDelegateProtocol
 import platform.Foundation.timeIntervalSinceNow
 import platform.darwin.NSObject
 
-/** Device heading provider backed by Core Location. */
+/**
+ * Device heading provider backed by
+ * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager).
+ *
+ * A nonnegative
+ * [`CLHeading.trueHeading`](https://developer.apple.com/documentation/corelocation/clheading/trueheading)
+ * maps to [Orientation.orientation]; otherwise the provider uses
+ * [`CLHeading.magneticHeading`](https://developer.apple.com/documentation/corelocation/clheading/magneticheading).
+ * A nonnegative
+ * [`CLHeading.headingAccuracy`](https://developer.apple.com/documentation/corelocation/clheading/headingaccuracy)
+ * maps to [BearingWithAccuracy.accuracy].
+ */
 @OptIn(FlowPreview::class)
 public class IosOrientationProvider(
   updateInterval: Duration,
@@ -71,6 +82,7 @@ public actual fun rememberDefaultOrientationProvider(
   updateInterval: Duration
 ): OrientationProvider = rememberIosOrientationProvider(updateInterval)
 
+/** Creates and remembers the default iOS [OrientationProvider]. */
 @Composable
 public fun rememberIosOrientationProvider(
   updateInterval: Duration = 1.seconds,

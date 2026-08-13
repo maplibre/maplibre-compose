@@ -29,13 +29,18 @@ import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 
 /**
- * A [OrientationProvider] based on a [DeviceOrientationRequest] for
- * [FusedOrientationProviderClient]
+ * An [OrientationProvider] backed by the Google Play Services
+ * [`FusedOrientationProviderClient`](https://developers.google.com/android/reference/com/google/android/gms/location/FusedOrientationProviderClient).
  *
- * @param orientationClient the [FusedOrientationProviderClient] to use
- * @param deviceOrientationRequest the [DeviceOrientationRequest] to use
- * @param coroutineScope the [CoroutineScope] used to share the [orientation] flow
- * @param sharingStarted parameter for [stateIn] call of [orientation]
+ * [`DeviceOrientation.headingDegrees`](https://developers.google.com/android/reference/com/google/android/gms/location/DeviceOrientation#getHeadingDegrees())
+ * maps to [Orientation.orientation], and
+ * [`DeviceOrientation.headingErrorDegrees`](https://developers.google.com/android/reference/com/google/android/gms/location/DeviceOrientation#getHeadingErrorDegrees())
+ * maps to its accuracy.
+ *
+ * @param orientationClient Client used to request orientation updates.
+ * @param deviceOrientationRequest Platform request passed to the client.
+ * @param coroutineScope Scope used to share the [orientation] flow.
+ * @param sharingStarted Sharing policy for the [orientation] flow.
  */
 public class FusedOrientationProvider(
   private val orientationClient: FusedOrientationProviderClient,
@@ -78,7 +83,7 @@ public class FusedOrientationProvider(
   }
 }
 
-/** Create and remember a [FusedOrientationProvider] with the provided [deviceOrientationRequest] */
+/** Creates and remembers a fused provider with the supplied [deviceOrientationRequest]. */
 @Composable
 public fun rememberFusedOrientationProvider(
   deviceOrientationRequest: DeviceOrientationRequest = defaultDeviceOrientationRequest,
@@ -89,10 +94,7 @@ public fun rememberFusedOrientationProvider(
   return rememberFusedOrientationProvider(orientationClient, deviceOrientationRequest)
 }
 
-/**
- * Create and remember a [FusedOrientationProvider] with the provided [deviceOrientationRequest] and
- * [FusedOrientationProviderClient]
- */
+/** Creates and remembers a fused provider backed by [fusedOrientationProviderClient]. */
 @Composable
 public fun rememberFusedOrientationProvider(
   fusedOrientationProviderClient: FusedOrientationProviderClient,
