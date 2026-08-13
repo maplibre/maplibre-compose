@@ -26,7 +26,7 @@ import org.maplibre.spatialk.units.extensions.meters
  * collection must stop that request and unregister its callbacks.
  */
 public interface LocationProvider {
-  /** Whether this provider can run on the current target and host. */
+  /** Whether this provider has a usable platform implementation. */
   public val backendAvailability: LocationBackendAvailability
     get() = LocationBackendAvailability.Available
 
@@ -39,15 +39,30 @@ public interface LocationProvider {
   public fun updates(request: LocationRequest): Flow<LocationEvent>
 }
 
-/** Whether a location provider or permission requester can run in the current application. */
+/**
+ * Whether a location provider or permission requester has a usable platform implementation.
+ *
+ * This describes application and backend setup. It does not describe location permission, system
+ * location services, or whether the next request can obtain a fix.
+ */
 public sealed interface LocationBackendAvailability {
-  /** The component is ready to use. */
+  /** A platform implementation is installed and initialized. */
   public data object Available : LocationBackendAvailability
 
-  /** The current target, operating system, or host has no implementation for this component. */
+  /**
+   * No implementation can run on this target or host.
+   *
+   * For example, a browser may omit its Geolocation API, or a desktop runtime may omit the location
+   * artifact for its operating system.
+   */
   public data object Unsupported : LocationBackendAvailability
 
-  /** The application installed or configured the component incorrectly. */
+  /**
+   * An installed implementation could not be selected or initialized.
+   *
+   * For example, a desktop runtime may contain two location backends when exactly one is required.
+   * [cause] contains the underlying setup failure when one is available.
+   */
   public data class Misconfigured(val cause: Throwable? = null) : LocationBackendAvailability
 }
 
@@ -202,7 +217,7 @@ public sealed interface LocationPermission {
 
 /** Observes foreground location permission and starts platform permission requests. */
 public interface LocationPermissionRequester {
-  /** Whether this requester can run on the current target and host. */
+  /** Whether this requester has a usable platform implementation. */
   public val backendAvailability: LocationBackendAvailability
     get() = LocationBackendAvailability.Available
 
@@ -245,8 +260,9 @@ public object UnsupportedLocationProvider : LocationProvider {
  * Creates and remembers the default location provider for the current platform.
  *
  * Platform-specific provider factories remain available when an application needs configuration
- * beyond [LocationRequest]. An unsupported target or desktop host returns a provider that reports
- * [LocationUnavailableReason.Unsupported] instead of throwing during composition.
+ * beyond [LocationRequest]. An unsupported target or host returns a provider whose
+ * [LocationProvider.backendAvailability] is [LocationBackendAvailability.Unsupported] instead of
+ * throwing during composition.
  *
  * See [AndroidLocationProvider][org.maplibre.compose.location.AndroidLocationProvider],
  * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider],
@@ -259,6 +275,10 @@ public object UnsupportedLocationProvider : LocationProvider {
 
 /**
  * Creates and remembers the default foreground location permission requester.
+ *
+ * An unsupported target or host returns a requester whose
+ * [LocationPermissionRequester.backendAvailability] is [LocationBackendAvailability.Unsupported]
+ * instead of throwing during composition.
  *
  * See
  * [rememberAndroidLocationPermissionRequester][org.maplibre.compose.location.rememberAndroidLocationPermissionRequester],
