@@ -129,12 +129,12 @@ applies `minimumInterval` after receiving fixes and ignores `minimumDistance`.
 The backend connects to `org.freedesktop.portal.Desktop` on the D-Bus session
 bus. The active portal implementation supplies location data, commonly through
 [GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue). A missing portal
-produces an unsupported provider.
+reports an unsupported backend through `LocationState.status`.
 
 On the standard AWT map host, the portal attaches its permission dialog to that
 window. A custom X11 or Wayland host can expose its window through
 `ComposeMapHost.xdgPortalWindow`. Other hosts use an unparented dialog.
 
 Each desktop rendering runtime installs its matching backend. A missing backend
-produces an unsupported provider, and multiple backends produce a configuration
-failure.
+reports an unsupported backend, and multiple backends report a configuration
+failure through `LocationState.status`.

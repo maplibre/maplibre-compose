@@ -15,9 +15,11 @@ import org.maplibre.compose.desktop.LocalComposeMapHostOrNull
 /**
  * A host-specific desktop location implementation discovered through [ServiceLoader].
  *
- * No installed or available backend maps to [LocationUnavailableReason.Unsupported]. Multiple
- * installed backends, a [ServiceConfigurationError], or an exception from [createProvider] maps to
- * [LocationUnavailableReason.Misconfigured]. The selected backend documents its remaining mappings.
+ * No installed or available backend maps [LocationProvider.backendAvailability] and
+ * [LocationPermissionRequester.backendAvailability] to [LocationBackendAvailability.Unsupported].
+ * Multiple installed backends, a [ServiceConfigurationError], or an exception while creating a
+ * component maps the corresponding property to [LocationBackendAvailability.Misconfigured]. The
+ * selected backend documents its location-event and permission mappings.
  */
 public interface DesktopLocationBackend {
   /** A stable name used in diagnostics. */

@@ -20,6 +20,8 @@ import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationPermissionRequester
+import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 
@@ -64,7 +66,9 @@ internal suspend fun <T> ComposeMapHost?.withPortalParentWindow(action: suspend 
  * and [LocationAccuracy.Lowest] maps to
  * [`COUNTRY`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html#org-freedesktop-portal-location-createsession).
  *
- * A missing portal maps to [LocationUnavailableReason.Unsupported]. A cancelled
+ * A missing portal maps [LocationProvider.backendAvailability] to
+ * [LocationBackendAvailability.Unsupported], and collection emits
+ * [LocationUnavailableReason.Unsupported]. A cancelled
  * [`Request.Response`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Request.html#org-freedesktop-portal-request-response)
  * maps to [LocationUnavailableReason.PermissionDenied]. A closed session, a stopped portal service,
  * another non-success response, or a D-Bus transport failure maps to
@@ -98,8 +102,13 @@ internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationP
 /**
  * Observes and requests permission through the XDG Location portal.
  *
- * The portal exposes the result of a request but no permission-status query. Permission therefore
- * remains [LocationPermission.NotGranted] with `canRequest = null` until a request succeeds.
+ * The portal has no permission-status query. Permission therefore remains
+ * [LocationPermission.NotGranted] with `canRequest = null` until a successful
+ * [`Location.Start`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html#org-freedesktop-portal-location-start)
+ * response maps it to [LocationPermission.Granted] with [LocationAccuracyAuthorization.Unknown].
+ * Denied and unavailable responses remain `NotGranted` with `canRequest = null`. A missing portal
+ * maps [LocationPermissionRequester.backendAvailability] to
+ * [LocationBackendAvailability.Unsupported].
  */
 public class LinuxPortalLocationPermissionRequester
 internal constructor(
