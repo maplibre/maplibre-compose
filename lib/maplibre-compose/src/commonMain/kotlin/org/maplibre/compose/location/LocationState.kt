@@ -50,7 +50,7 @@ internal constructor(initialPermission: LocationPermission = LocationPermission.
 
   internal var requestPermissionAction: () -> Unit = {}
 
-  /** Requests foreground permission and may present platform permission UI. */
+  /** Requests foreground permission; the result is published to [permission]. */
   public fun requestPermission() {
     requestPermissionAction()
   }

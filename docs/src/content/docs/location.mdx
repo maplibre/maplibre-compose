@@ -18,13 +18,14 @@ to permission and lifecycle state. `LocationPuck` draws the latest fix, and
 
 ### Overview
 
-| Component                                | Purpose                                                                            |
-| ---------------------------------------- | ---------------------------------------------------------------------------------- |
-| **`rememberDefaultLocationProvider`**    | Creates the platform location provider.                                            |
-| **`rememberLocationState`**              | Collects updates while enabled and lifecycle-active.                               |
-| **`rememberDefaultOrientationProvider`** | Provides device orientation data from sensors.                                     |
-| **`LocationPuck`**                       | Visual indicator that displays the user's current position and bearing on the map. |
-| **`LocationTrackingEffect`**             | Applies location changes to application or camera state.                           |
+| Component                                        | Purpose                                                                            |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **`rememberDefaultLocationProvider`**            | Creates the platform location provider.                                            |
+| **`rememberDefaultLocationPermissionRequester`** | Observes and requests foreground location permission.                              |
+| **`rememberLocationState`**                      | Collects updates while enabled and lifecycle-active.                               |
+| **`rememberDefaultOrientationProvider`**         | Provides device orientation data from sensors.                                     |
+| **`LocationPuck`**                               | Visual indicator that displays the user's current position and bearing on the map. |
+| **`LocationTrackingEffect`**                     | Applies location changes to application or camera state.                           |
 
 Android and iOS provide default location and orientation providers. Web provides
 location through the browser Geolocation API and a null orientation provider.
