@@ -17,6 +17,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
@@ -335,6 +336,7 @@ private class MutableOrientationProvider : OrientationProvider {
   override val orientation = MutableStateFlow<Orientation?>(null)
 }
 
+@OptIn(ExperimentalForInheritanceCoroutinesApi::class)
 private class ContextRecordingOrientationProvider : OrientationProvider {
   val collectionName = CompletableDeferred<String?>()
   override val orientation =
