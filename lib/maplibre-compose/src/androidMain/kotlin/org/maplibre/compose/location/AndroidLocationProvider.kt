@@ -1,7 +1,10 @@
 package org.maplibre.compose.location
 
 import android.Manifest
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
 import android.location.Criteria
 import android.location.Location as AndroidLocation
@@ -62,13 +65,6 @@ public class AndroidLocationProvider(context: Context) : LocationProvider {
     }
 
     val manager = context.getSystemService(LocationManager::class.java)
-    val provider = selectProvider(manager, request.accuracy)
-    if (provider == null) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
-      close()
-      return@callbackFlow
-    }
-
     val listener =
       object : LocationListener {
         override fun onLocationChanged(location: AndroidLocation) {
@@ -81,8 +77,20 @@ public class AndroidLocationProvider(context: Context) : LocationProvider {
 
         override fun onProviderEnabled(provider: String) = Unit
       }
+    var registered = false
 
-    try {
+    fun refreshRegistration() {
+      if (registered) {
+        manager.removeUpdates(listener)
+        registered = false
+      }
+
+      val provider = selectProvider(manager, request.accuracy)
+      if (provider == null) {
+        trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
+        return
+      }
+
       manager.getLastKnownLocation(provider)?.let { location ->
         trySend(LocationEvent.Fix(location.asMapLibreLocation()))
       }
@@ -99,6 +107,27 @@ public class AndroidLocationProvider(context: Context) : LocationProvider {
           handlerThread.looper,
         )
       }
+      registered = true
+    }
+
+    val settingsReceiver =
+      object : BroadcastReceiver() {
+        override fun onReceive(context: Context, intent: Intent) {
+          try {
+            refreshRegistration()
+          } catch (error: IllegalArgumentException) {
+            trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+            close()
+          } catch (error: SecurityException) {
+            trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
+            close()
+          }
+        }
+      }
+
+    try {
+      context.registerLocationSettingsReceiver(settingsReceiver)
+      refreshRegistration()
     } catch (error: IllegalArgumentException) {
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
       close()
@@ -107,7 +136,10 @@ public class AndroidLocationProvider(context: Context) : LocationProvider {
       close()
     }
 
-    awaitClose { manager.removeUpdates(listener) }
+    awaitClose {
+      runCatching { context.unregisterReceiver(settingsReceiver) }
+      manager.removeUpdates(listener)
+    }
   }
 
   @Suppress("DEPRECATION")
@@ -193,6 +225,19 @@ private fun Context.hasLocationPermission(): Boolean =
     PackageManager.PERMISSION_GRANTED ||
     checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
       PackageManager.PERMISSION_GRANTED
+
+private fun Context.registerLocationSettingsReceiver(receiver: BroadcastReceiver) {
+  val filter =
+    IntentFilter().apply {
+      addAction(LocationManager.MODE_CHANGED_ACTION)
+      addAction(LocationManager.PROVIDERS_CHANGED_ACTION)
+    }
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+    registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+  } else {
+    @Suppress("DEPRECATION") registerReceiver(receiver, filter)
+  }
+}
 
 @Suppress("DEPRECATION")
 private fun LocationManager.isLocationEnabledCompat(): Boolean =

@@ -207,11 +207,18 @@ public fun rememberLocationState(
     state,
     lifecycleOwner.lifecycle,
     minActiveState,
+    coroutineContext,
   ) {
     if (!enabled || permission !is LocationPermission.Granted) return@LaunchedEffect
     lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
       coroutineScope {
-        launch { orientationProvider.orientation.collect { state.orientation = it } }
+        launch {
+          val collectOrientation: suspend () -> Unit = {
+            orientationProvider.orientation.collect { state.orientation = it }
+          }
+          if (coroutineContext == EmptyCoroutineContext) collectOrientation()
+          else withContext(coroutineContext) { collectOrientation() }
+        }
       }
     }
   }

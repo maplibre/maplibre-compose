@@ -53,11 +53,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *
  * @param locationClient Google Play Services client used for cached and live locations.
  */
-public class FusedLocationProvider
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
-constructor(private val locationClient: FusedLocationProviderClient) : LocationProvider {
+public class FusedLocationProvider(private val locationClient: FusedLocationProviderClient) :
+  LocationProvider {
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
@@ -115,9 +112,6 @@ constructor(private val locationClient: FusedLocationProviderClient) : LocationP
 
 /** Creates and remembers a fused provider from the current Android [context]. */
 @Composable
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
 public fun rememberFusedLocationProvider(
   context: Context = LocalContext.current
 ): FusedLocationProvider {
@@ -127,9 +121,6 @@ public fun rememberFusedLocationProvider(
 
 /** Creates and remembers a fused provider backed by [fusedLocationProviderClient]. */
 @Composable
-@RequiresPermission(
-  anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
-)
 public fun rememberFusedLocationProvider(
   fusedLocationProviderClient: FusedLocationProviderClient
 ): FusedLocationProvider =

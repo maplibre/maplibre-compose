@@ -25,8 +25,7 @@ kotlinx-io = "0.9.1"
 ktor = "3.5.2"
 lifecycleRuntimeCompose = "2.10.0"
 lwjgl = "3.4.2"
-maplibre-android-sdk = "13.0.2"
-maplibre-android-plugins = "3.0.2"
+maplibre-android-sdk = "13.5.0"
 maplibre-ios = "6.25.1"
 maplibre-js = "5.12.0"
 maplibre-nativeFfi = "0.202608.0"
@@ -88,7 +87,6 @@ maplibre-android = { module = "org.maplibre.gl:android-sdk", version.ref = "mapl
 maplibre-androidOpenGL = { module = "org.maplibre.gl:android-sdk-opengl", version.ref = "maplibre-android-sdk" }
 maplibre-androidVulkan = { module = "org.maplibre.gl:android-sdk", version.ref = "maplibre-android-sdk" }
 maplibre-androidDebug = { module = "org.maplibre.gl:android-sdk-debug", version.ref = "maplibre-android-sdk" }
-maplibre-android-scalebar = { module = "org.maplibre.gl:android-plugin-scalebar-v9", version.ref = "maplibre-android-plugins" }
 maplibre-nativeFfi = { module = "org.maplibre.nativeffi:maplibre-native-ffi", version.ref = "maplibre-nativeFfi" }
 maplibre-nativeFfi-runtimeMetal = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-metal-jvm", version.ref = "maplibre-nativeFfi" }
 maplibre-nativeFfi-runtimeVulkan = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan-jvm", version.ref = "maplibre-nativeFfi" }

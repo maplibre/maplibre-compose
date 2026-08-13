@@ -13,11 +13,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.FlowCollector
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.resetMain
@@ -118,6 +123,26 @@ class LocationStateTest {
         requester.status.value = LocationPermission.NotGranted(canRequest = false)
       }
       waitUntil { orientationProvider.orientation.subscriptionCount.value == 0 }
+    }
+  }
+
+  @Test
+  fun collectionContextAppliesToOrientationUpdates() = withMainDispatcher {
+    runComposeUiTest {
+      val orientationProvider = ContextRecordingOrientationProvider()
+
+      setContent {
+        rememberLocationState(
+          provider = FiniteLocationProvider(),
+          permissionRequester = GrantedPermissionRequester,
+          orientationProvider = orientationProvider,
+          lifecycleOwner = ResumedLifecycleOwner(),
+          coroutineContext = CoroutineName("location-updates"),
+        )
+      }
+
+      waitUntil { orientationProvider.collectionName.isCompleted }
+      assertEquals("location-updates", orientationProvider.collectionName.getCompleted())
     }
   }
 
@@ -308,6 +333,20 @@ private object GrantedPermissionRequester : LocationPermissionRequester {
 
 private class MutableOrientationProvider : OrientationProvider {
   override val orientation = MutableStateFlow<Orientation?>(null)
+}
+
+private class ContextRecordingOrientationProvider : OrientationProvider {
+  val collectionName = CompletableDeferred<String?>()
+  override val orientation =
+    object : StateFlow<Orientation?> {
+      override val value: Orientation? = null
+      override val replayCache: List<Orientation?> = listOf(null)
+
+      override suspend fun collect(collector: FlowCollector<Orientation?>): Nothing {
+        collectionName.complete(currentCoroutineContext()[CoroutineName]?.name)
+        awaitCancellation()
+      }
+    }
 }
 
 private fun location(longitude: Double): Location =
