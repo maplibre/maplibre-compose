@@ -140,6 +140,32 @@ class BrowserLocationProviderTest {
   }
 
   @Test
+  fun failedPermissionRequestCanBeRetried() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    boundary.permission.value = BrowserPermission.Prompt
+    var fail = true
+    boundary.requestPositionAction = {
+      if (fail) error("geolocation failed")
+      position(milliseconds = 0, longitude = 0.0)
+    }
+    val requester = BrowserLocationPermissionRequester(boundary, backgroundScope)
+    runCurrent()
+
+    requester.requestForegroundPermission()
+    runCurrent()
+    assertEquals(LocationPermission.NotGranted(canRequest = null), requester.status.value)
+
+    fail = false
+    requester.requestForegroundPermission()
+    runCurrent()
+    assertEquals(2, boundary.requestedOptions.size)
+    assertEquals(
+      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      requester.status.value,
+    )
+  }
+
+  @Test
   fun cachedInitialLookupIsSeparateFromTheLiveWatch() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     val cachedResult = CompletableDeferred<BrowserResult>()

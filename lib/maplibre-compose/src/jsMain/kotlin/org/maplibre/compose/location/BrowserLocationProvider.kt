@@ -169,7 +169,15 @@ internal class BrowserLocationPermissionRequester(
   }
 
   override fun requestForegroundPermission() {
-    if (!boundary.supported || requestPending) return
+    val current = status.value
+    if (
+      !boundary.supported ||
+        current is LocationPermission.Granted ||
+        current == LocationPermission.NotGranted(canRequest = false) ||
+        requestPending
+    ) {
+      return
+    }
     requestPending = true
     coroutineScope.launch {
       try {
@@ -189,6 +197,9 @@ internal class BrowserLocationPermissionRequester(
                 LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
             }
         }
+      } catch (error: Throwable) {
+        if (error is CancellationException) throw error
+        mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
       } finally {
         requestPending = false
       }
