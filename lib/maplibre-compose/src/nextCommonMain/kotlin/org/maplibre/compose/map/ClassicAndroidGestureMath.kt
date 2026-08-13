@@ -10,7 +10,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The gesture constants and camera equations used by MapLibre Android 13.0.2. Values expressed as
+ * The gesture constants and camera equations used by MapLibre Android 13.5.0. Values expressed as
  * Android dimensions are converted to dp before they reach these helpers.
  */
 internal object ClassicAndroidGestureMath {
