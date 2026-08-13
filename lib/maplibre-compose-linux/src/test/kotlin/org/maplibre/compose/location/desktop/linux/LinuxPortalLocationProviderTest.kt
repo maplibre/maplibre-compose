@@ -24,6 +24,7 @@ import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.XdgPortalWindow
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracyAuthorization
+import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationRequest
@@ -79,6 +80,19 @@ class LinuxPortalLocationProviderTest {
 
     provider.close()
     assertTrue(portal.closed)
+  }
+
+  @Test
+  fun missingPortalMarksProviderAndRequesterUnsupported() = runTest {
+    val portal = FakeLinuxLocationPortal(available = false)
+    val provider = LinuxPortalLocationProvider(portal)
+    val requester = LinuxPortalLocationPermissionRequester(portal, backgroundScope)
+
+    assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
+    assertEquals(LocationBackendAvailability.Unsupported, requester.backendAvailability)
+    requester.requestForegroundPermission()
+    runCurrent()
+    assertEquals(0, portal.permissionRequests)
   }
 
   @Test
@@ -161,8 +175,8 @@ private class FakeWaylandWindow(private val handle: String?) : XdgPortalWindow.W
   }
 }
 
-private class FakeLinuxLocationPortal : LinuxLocationPortal {
-  override val available = true
+private class FakeLinuxLocationPortal(override val available: Boolean = true) :
+  LinuxLocationPortal {
   var closed = false
   var updateCollections = 0
   var permissionRequests = 0

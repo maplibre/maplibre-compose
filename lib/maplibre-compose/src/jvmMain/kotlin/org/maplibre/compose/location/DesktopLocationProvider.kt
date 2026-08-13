@@ -71,7 +71,7 @@ internal object DesktopLocationBackendResolver {
     try {
       resolve(loadBackends(), host)
     } catch (error: ServiceConfigurationError) {
-      UnavailableDesktopLocationProvider(LocationUnavailableReason.Misconfigured, error)
+      UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
     }
 
   fun discoverPermissionRequester(
@@ -82,8 +82,10 @@ internal object DesktopLocationBackendResolver {
   ): DesktopLocationPermissionRequester =
     try {
       resolvePermissionRequester(loadBackends(), host)
-    } catch (_: ServiceConfigurationError) {
-      FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Misconfigured)
+    } catch (error: ServiceConfigurationError) {
+      UnavailableDesktopLocationPermissionRequester(
+        LocationBackendAvailability.Misconfigured(error)
+      )
     }
 
   fun resolve(
@@ -92,22 +94,22 @@ internal object DesktopLocationBackendResolver {
   ): DesktopLocationProvider =
     when {
       backends.isEmpty() ->
-        UnavailableDesktopLocationProvider(LocationUnavailableReason.Unsupported)
+        UnavailableDesktopLocationProvider(LocationBackendAvailability.Unsupported)
       backends.size > 1 ->
         UnavailableDesktopLocationProvider(
-          reason = LocationUnavailableReason.Misconfigured,
-          cause =
+          LocationBackendAvailability.Misconfigured(
             IllegalStateException(
               "Multiple desktop location backends are installed: " + backends.joinToString { it.id }
-            ),
+            )
+          )
         )
       !backends.single().isAvailable() ->
-        UnavailableDesktopLocationProvider(LocationUnavailableReason.Unsupported)
+        UnavailableDesktopLocationProvider(LocationBackendAvailability.Unsupported)
       else ->
         try {
           backends.single().createProvider(host)
         } catch (error: Throwable) {
-          UnavailableDesktopLocationProvider(LocationUnavailableReason.Misconfigured, error)
+          UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
         }
     }
 
@@ -117,40 +119,52 @@ internal object DesktopLocationBackendResolver {
   ): DesktopLocationPermissionRequester =
     when {
       backends.isEmpty() || (backends.size == 1 && !backends.single().isAvailable()) ->
-        FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Unsupported)
+        UnavailableDesktopLocationPermissionRequester(LocationBackendAvailability.Unsupported)
       backends.size > 1 ->
-        FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Misconfigured)
+        UnavailableDesktopLocationPermissionRequester(
+          LocationBackendAvailability.Misconfigured(
+            IllegalStateException(
+              "Multiple desktop location backends are installed: " + backends.joinToString { it.id }
+            )
+          )
+        )
       else ->
         try {
           backends.single().createPermissionRequester(host)
-        } catch (_: Throwable) {
-          FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Misconfigured)
+        } catch (error: Throwable) {
+          UnavailableDesktopLocationPermissionRequester(
+            LocationBackendAvailability.Misconfigured(error)
+          )
         }
     }
 }
 
 private class UnavailableDesktopLocationProvider(
-  private val reason: LocationUnavailableReason,
-  private val cause: Throwable? = null,
+  override val backendAvailability: LocationBackendAvailability
 ) : DesktopLocationProvider {
-  override val isSupported: Boolean = reason != LocationUnavailableReason.Unsupported
-
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(LocationEvent.Unavailable(reason, cause))
+    flowOf(
+      when (val availability = backendAvailability) {
+        LocationBackendAvailability.Available ->
+          error("An unavailable provider cannot report an available backend")
+        is LocationBackendAvailability.Misconfigured ->
+          LocationEvent.Unavailable(
+            LocationUnavailableReason.Misconfigured,
+            availability.cause,
+          )
+        LocationBackendAvailability.Unsupported ->
+          LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)
+      }
+    )
 
   override fun close() = Unit
 }
 
-private class FixedDesktopLocationPermissionRequester(reason: LocationUnavailableReason) :
-  DesktopLocationPermissionRequester {
+private class UnavailableDesktopLocationPermissionRequester(
+  override val backendAvailability: LocationBackendAvailability
+) : DesktopLocationPermissionRequester {
   override val status: StateFlow<LocationPermission> =
-    MutableStateFlow(
-      if (reason == LocationUnavailableReason.Unsupported) {
-        LocationPermission.NotGranted(canRequest = null)
-      } else {
-        LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-      }
-    )
+    MutableStateFlow(LocationPermission.NotGranted(canRequest = null))
 
   override fun requestForegroundPermission() = Unit
 

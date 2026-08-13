@@ -3,7 +3,6 @@ package org.maplibre.compose.location
 import java.util.ServiceConfigurationError
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,28 +22,34 @@ class DesktopLocationBackendResolverTest {
       )
 
     providers.forEach { provider ->
-      assertFalse(provider.isSupported)
+      assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
       assertEquals(
         LocationUnavailableReason.Unsupported,
         (provider.updates(LocationRequest()).first() as LocationEvent.Unavailable).reason,
       )
     }
+    val requester = DesktopLocationBackendResolver.resolvePermissionRequester(emptyList())
+    assertEquals(LocationBackendAvailability.Unsupported, requester.backendAvailability)
     assertEquals(
       LocationPermission.NotGranted(canRequest = null),
-      DesktopLocationBackendResolver.resolvePermissionRequester(emptyList()).status.value,
+      requester.status.value,
     )
     assertEquals(0, unavailableBackend.createCalls)
   }
 
   @Test
   fun multipleBackendsAreMisconfigured() = runTest {
-    val provider =
-      DesktopLocationBackendResolver.resolve(listOf(FakeBackend("first"), FakeBackend("second")))
+    val backends = listOf(FakeBackend("first"), FakeBackend("second"))
+    val provider = DesktopLocationBackendResolver.resolve(backends)
+    val requester = DesktopLocationBackendResolver.resolvePermissionRequester(backends)
 
+    assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
     assertEquals(
       LocationUnavailableReason.Misconfigured,
       (provider.updates(LocationRequest()).first() as LocationEvent.Unavailable).reason,
     )
+    assertIs<LocationBackendAvailability.Misconfigured>(requester.backendAvailability)
+    assertEquals(LocationPermission.NotGranted(canRequest = null), requester.status.value)
   }
 
   @Test
@@ -66,7 +71,10 @@ class DesktopLocationBackendResolverTest {
     val provider = DesktopLocationBackendResolver.resolve(listOf(backend))
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
 
+    val availability =
+      assertIs<LocationBackendAvailability.Misconfigured>(provider.backendAvailability)
     assertEquals(LocationUnavailableReason.Misconfigured, event.reason)
+    assertSame(failure, availability.cause)
     assertSame(failure, event.cause)
     assertEquals(1, backend.createCalls)
   }
@@ -75,10 +83,17 @@ class DesktopLocationBackendResolverTest {
   fun serviceDiscoveryFailureBecomesMisconfiguration() = runTest {
     val failure = ServiceConfigurationError("provider constructor failed")
     val provider = DesktopLocationBackendResolver.discover(loadBackends = { throw failure })
+    val requester =
+      DesktopLocationBackendResolver.discoverPermissionRequester(loadBackends = { throw failure })
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
 
     assertEquals(LocationUnavailableReason.Misconfigured, event.reason)
     assertSame(failure, event.cause)
+    assertSame(
+      failure,
+      assertIs<LocationBackendAvailability.Misconfigured>(requester.backendAvailability).cause,
+    )
+    assertEquals(LocationPermission.NotGranted(canRequest = null), requester.status.value)
   }
 }
 

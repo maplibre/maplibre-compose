@@ -17,6 +17,7 @@ import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationPermissionRequester
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracyAuthorization
+import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationRequest
@@ -74,7 +75,12 @@ public class LinuxPortalLocationProvider
 internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationProvider {
   public constructor(host: ComposeMapHost? = null) : this(DbusLocationPortal(host))
 
-  override val isSupported: Boolean = portal.available
+  override val backendAvailability: LocationBackendAvailability =
+    if (portal.available) {
+      LocationBackendAvailability.Available
+    } else {
+      LocationBackendAvailability.Unsupported
+    }
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     if (!portal.available) {
@@ -103,13 +109,23 @@ internal constructor(
 ) : DesktopLocationPermissionRequester {
   public constructor(host: ComposeMapHost? = null) : this(DbusLocationPortal(host))
 
+  override val backendAvailability: LocationBackendAvailability =
+    if (portal.available) {
+      LocationBackendAvailability.Available
+    } else {
+      LocationBackendAvailability.Unsupported
+    }
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
   override val status: StateFlow<LocationPermission> = mutableStatus
   private val requestPending = AtomicBoolean()
 
   override fun requestForegroundPermission() {
-    if (status.value is LocationPermission.Granted || !requestPending.compareAndSet(false, true)) {
+    if (
+      backendAvailability != LocationBackendAvailability.Available ||
+        status.value is LocationPermission.Granted ||
+        !requestPending.compareAndSet(false, true)
+    ) {
       return
     }
     coroutineScope.launch {
