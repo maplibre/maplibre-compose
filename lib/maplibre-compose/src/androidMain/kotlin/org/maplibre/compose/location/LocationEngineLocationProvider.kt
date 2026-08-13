@@ -38,8 +38,6 @@ constructor(private val locationEngine: LocationEngine) : LocationProvider {
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (!handlerThread.isAlive) handlerThread.start()
-
     val liveCallback =
       object : LocationEngineCallback<LocationEngineResult> {
         override fun onSuccess(result: LocationEngineResult?) {
@@ -88,7 +86,9 @@ constructor(private val locationEngine: LocationEngine) : LocationProvider {
   }
 
   private companion object {
-    private val handlerThread by lazy { HandlerThread("LocationEngineLocationProvider") }
+    private val handlerThread by lazy {
+      HandlerThread("LocationEngineLocationProvider").apply { start() }
+    }
   }
 }
 

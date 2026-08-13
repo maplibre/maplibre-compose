@@ -12,6 +12,7 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -57,6 +58,21 @@ class LocationProviderTest {
       provider.currentLocation(timeout = 1.milliseconds)
     }
     assertFalse(provider.active)
+  }
+
+  @Test
+  fun currentLocationPreservesTerminalUnavailableReasonAndCause() = runTest {
+    val cause = IllegalStateException("Location service failed")
+    val provider =
+      object : LocationProvider {
+        override fun updates(request: LocationRequest): Flow<LocationEvent> =
+          flowOf(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled, cause))
+      }
+
+    val error = assertFailsWith<LocationUnavailableException> { provider.currentLocation() }
+
+    assertEquals(LocationUnavailableReason.ServicesDisabled, error.reason)
+    assertEquals(cause, error.cause)
   }
 
   private fun location(): Location =
