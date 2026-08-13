@@ -91,6 +91,42 @@ class BrowserLocationProviderTest {
   }
 
   @Test
+  fun watchPermissionDenialUpdatesPermissionState() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    val provider = BrowserLocationProvider(boundary)
+    val requester = BrowserLocationPermissionRequester(boundary, backgroundScope)
+    backgroundScope.launch { provider.updates(LocationRequest()).collect {} }
+    runCurrent()
+
+    boundary.send(BrowserResult.Error(BrowserError.PermissionDenied))
+    runCurrent()
+
+    assertEquals(LocationPermission.NotGranted(canRequest = false), requester.status.value)
+    requester.requestForegroundPermission()
+    runCurrent()
+    assertEquals(emptyList(), boundary.requestedOptions)
+    assertEquals(1, boundary.stopCount)
+  }
+
+  @Test
+  fun nonFiniteHeadingsAreNotPublishedAsCourse() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    val provider = BrowserLocationProvider(boundary)
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
+    runCurrent()
+
+    boundary.send(position(milliseconds = 0, longitude = 0.0, heading = Double.NaN))
+    boundary.send(
+      position(milliseconds = 2_000, longitude = 0.0, heading = Double.POSITIVE_INFINITY)
+    )
+    runCurrent()
+
+    assertEquals(2, events.size)
+    events.forEach { assertNull(assertIs<LocationEvent.Fix>(it).location.course) }
+  }
+
+  @Test
   fun firstFixAfterTransientErrorBypassesUpdateThrottle() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     val provider = BrowserLocationProvider(boundary)
@@ -204,6 +240,7 @@ class BrowserLocationProviderTest {
     milliseconds: Long,
     longitude: Double,
     altitude: Double? = null,
+    heading: Double? = 45.0,
   ): BrowserResult.Position =
     BrowserResult.Position(
       BrowserPosition(
@@ -213,7 +250,7 @@ class BrowserLocationProviderTest {
         horizontalAccuracyMeters = 4.0,
         altitudeAccuracyMeters = 2.0,
         speedMetersPerSecond = 3.0,
-        headingDegrees = 45.0,
+        headingDegrees = heading,
         capturedAt = Instant.fromEpochMilliseconds(1_700_000_000_000 + milliseconds),
       )
     )
@@ -221,6 +258,7 @@ class BrowserLocationProviderTest {
 
 private class FakeBrowserGeolocationBoundary(override val supported: Boolean = true) :
   BrowserGeolocationBoundary {
+  override val permissionState = BrowserLocationPermissionState()
   val permission = MutableStateFlow(BrowserPermission.Granted)
   var requestPositionAction: suspend (BrowserOptions) -> BrowserResult = { awaitCancellation() }
   val requestedOptions = mutableListOf<BrowserOptions>()

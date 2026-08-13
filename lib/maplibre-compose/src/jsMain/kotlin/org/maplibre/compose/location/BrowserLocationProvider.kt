@@ -95,7 +95,10 @@ internal constructor(private val boundary: BrowserGeolocationBoundary) : Locatio
           val reason = result.value.asUnavailableReason()
           previous = null
           trySend(LocationEvent.Unavailable(reason))
-          if (reason == LocationUnavailableReason.PermissionDenied) close()
+          if (reason == LocationUnavailableReason.PermissionDenied) {
+            boundary.permissionState.accept(LocationPermission.NotGranted(canRequest = false))
+            close()
+          }
         }
       }
     }
@@ -143,9 +146,7 @@ internal class BrowserLocationPermissionRequester(
     } else {
       LocationBackendAvailability.Unsupported
     }
-  private val mutableStatus =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
-  override val status: StateFlow<LocationPermission> = mutableStatus
+  override val status: StateFlow<LocationPermission> = boundary.permissionState.status
   private var requestPending = false
 
   init {
@@ -153,7 +154,7 @@ internal class BrowserLocationPermissionRequester(
       boundary
         .permissionChanges()
         .catch { emit(BrowserPermission.Unknown) }
-        .collect { mutableStatus.value = it.asLocationPermission() }
+        .collect { boundary.permissionState.accept(it.asLocationPermission()) }
     }
   }
 
@@ -177,18 +178,21 @@ internal class BrowserLocationPermissionRequester(
             )
         ) {
           is BrowserResult.Position ->
-            mutableStatus.value = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+            boundary.permissionState.accept(
+              LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+            )
           is BrowserResult.Error ->
             if (result.value == BrowserError.PermissionDenied) {
               acceptDenied()
             } else {
-              mutableStatus.value =
+              boundary.permissionState.accept(
                 LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+              )
             }
         }
       } catch (error: Throwable) {
         if (error is CancellationException) throw error
-        mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+        boundary.permissionState.accept(LocationPermission.NotGranted(canRequest = null))
       } finally {
         requestPending = false
       }
@@ -196,7 +200,7 @@ internal class BrowserLocationPermissionRequester(
   }
 
   internal fun acceptDenied() {
-    mutableStatus.value = LocationPermission.NotGranted(canRequest = false)
+    boundary.permissionState.accept(LocationPermission.NotGranted(canRequest = false))
   }
 
   private companion object {
@@ -256,8 +260,19 @@ internal sealed interface BrowserResult {
   data class Error(val value: BrowserError) : BrowserResult
 }
 
+internal class BrowserLocationPermissionState {
+  private val mutableStatus =
+    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+  val status: StateFlow<LocationPermission> = mutableStatus
+
+  fun accept(permission: LocationPermission) {
+    mutableStatus.value = permission
+  }
+}
+
 internal interface BrowserGeolocationBoundary {
   val supported: Boolean
+  val permissionState: BrowserLocationPermissionState
 
   fun permissionChanges(): Flow<BrowserPermission>
 
@@ -268,6 +283,7 @@ internal interface BrowserGeolocationBoundary {
 
 private object BrowserGeolocation : BrowserGeolocationBoundary {
   private val rawNavigator: dynamic = js("navigator")
+  override val permissionState = BrowserLocationPermissionState()
 
   override val supported: Boolean
     get() = rawNavigator.geolocation != null
@@ -367,7 +383,9 @@ private fun BrowserPosition.asLocation(): Location =
     altitudeAccuracy = altitudeAccuracyMeters?.meters,
     speed = speedMetersPerSecond?.let { SpeedWithAccuracy(it.meters, accuracy = null) },
     course =
-      headingDegrees?.let { BearingWithAccuracy(Bearing.North + it.degrees, accuracy = null) },
+      headingDegrees
+        ?.takeIf { it.isFinite() }
+        ?.let { BearingWithAccuracy(Bearing.North + it.degrees, accuracy = null) },
     timestamp =
       TimeSource.Monotonic.markNow() -
         (Clock.System.now() - capturedAt).coerceAtLeast(Duration.ZERO),
