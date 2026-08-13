@@ -30,7 +30,8 @@ to permission and lifecycle state. `LocationPuck` draws the latest fix, and
 Android and iOS provide default location and orientation providers. Web provides
 location through the browser Geolocation API and a null orientation provider.
 Desktop returns an unsupported location provider until an application adds a
-host backend. Compose state exposes unsupported hosts without throwing.
+host backend. `LocationState.status` reports unsupported or misconfigured
+location setup without throwing.
 
 Each collector of `LocationProvider.updates(request)` starts an independent
 platform location request. Cancelling collection stops that request and
@@ -48,6 +49,10 @@ if (locationState.permission !is LocationPermission.Granted) {
   }
 }
 ```
+
+`locationState.location` is `null` until the first fix arrives, so the puck
+initially draws nothing. Afterward, the state retains the last fix when tracking
+stops or permission changes.
 
 ### Bearing
 
@@ -80,12 +85,12 @@ indicators. If you use the Material 3 extension module, pass
 `colors = LocationPuckDefaults.colors()` for themed colors. `onClick` and
 `onLongClick` can react to interactions with the puck.
 
-### Platform Options
+### Platform options
 
-#### **Android**
+#### Android
 
-Request runtime location permission before collecting location updates. For
-better accuracy on Android, use the Fused Location/Orientation Provider
+The default permission requester uses Android's runtime location permissions.
+For better accuracy, use the Fused Location/Orientation Provider
 (requires Google Play Services):
 
 ```kotlin
@@ -99,7 +104,7 @@ Maven dependency:
 implementation('com.google.android.gms:play-services-location:21.3.0')
 ```
 
-#### **Web**
+#### Web
 
 The default web provider uses `navigator.geolocation`. Browsers require a secure
 context, except for development origins such as `localhost`, and may also block
