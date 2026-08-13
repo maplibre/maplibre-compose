@@ -58,8 +58,9 @@ import web.permissions.query
  * [`POSITION_UNAVAILABLE`](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError/code#geolocationpositionerror.position_unavailable)
  * and
  * [`TIMEOUT`](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError/code#geolocationpositionerror.timeout)
- * map to [LocationUnavailableReason.TemporarilyUnavailable]. An exception thrown while starting or
- * querying geolocation maps to [LocationUnavailableReason.UnexpectedFailure].
+ * map to [LocationUnavailableReason.TemporarilyUnavailable]. An exception thrown while starting the
+ * live watch maps to [LocationUnavailableReason.UnexpectedFailure]. The optional initial cache
+ * probe does not affect the live watch's availability.
  */
 public class BrowserLocationProvider
 internal constructor(private val boundary: BrowserGeolocationBoundary) : LocationProvider {
@@ -93,6 +94,7 @@ internal constructor(private val boundary: BrowserGeolocationBoundary) : Locatio
         }
         is BrowserResult.Error -> {
           val reason = result.value.asUnavailableReason()
+          previous = null
           trySend(LocationEvent.Unavailable(reason))
           if (reason == LocationUnavailableReason.PermissionDenied) close()
         }
@@ -112,11 +114,17 @@ internal constructor(private val boundary: BrowserGeolocationBoundary) : Locatio
       if (stop != null && request.maximumInitialFixAge != Duration.ZERO) {
         launch {
           try {
-            publish(boundary.requestPosition(request.asBrowserOptions()))
+            when (
+              val result =
+                boundary.requestPosition(request.asBrowserOptions(timeout = Duration.ZERO))
+            ) {
+              is BrowserResult.Position -> publish(result)
+              is BrowserResult.Error -> Unit
+            }
           } catch (error: CancellationException) {
             throw error
-          } catch (error: Throwable) {
-            trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+          } catch (_: Throwable) {
+            // The live watch remains authoritative when the optional cache probe fails.
           }
         }
       } else {
@@ -344,12 +352,14 @@ private object BrowserGeolocation : BrowserGeolocationBoundary {
 }
 
 private fun LocationRequest.asBrowserOptions(
-  maximumAge: Duration? = maximumInitialFixAge
+  maximumAge: Duration? = maximumInitialFixAge,
+  timeout: Duration? = null,
 ): BrowserOptions =
   BrowserOptions(
     highAccuracy =
       accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High,
     maximumAge = maximumAge,
+    timeout = timeout,
   )
 
 internal fun BrowserOptions.toPositionOptions(): PositionOptions {

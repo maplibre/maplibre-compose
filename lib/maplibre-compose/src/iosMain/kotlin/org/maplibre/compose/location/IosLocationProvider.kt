@@ -2,6 +2,7 @@ package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import kotlin.time.Duration
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
@@ -76,36 +77,47 @@ public class IosLocationProvider : LocationProvider {
       }
     manager.distanceFilter = request.minimumDistance.inMeters
 
-    manager.location?.let { location -> delegate.sendLocation(location, initial = true) }
+    manager.location?.let(delegate::sendLocation)
     manager.startUpdatingLocation()
 
-    awaitClose {
-      manager.stopUpdatingLocation()
-      manager.delegate = null
-    }
+    // Retaining the delegate in this closure is required because CLLocationManager does not.
+    awaitClose { delegate.stop(manager) }
   }
     .flowOn(Dispatchers.Main)
 
   private class Delegate(
     private val channel: SendChannel<LocationEvent>,
-    private val request: LocationRequest,
+    request: LocationRequest,
   ) : NSObject(), CLLocationManagerDelegateProtocol {
+    private val initialFixAgeFilter = InitialFixAgeFilter(request.maximumInitialFixAge)
+
     override fun locationManager(manager: CLLocationManager, didUpdateLocations: List<*>) {
-      @Suppress("UNCHECKED_CAST")
-      (didUpdateLocations as? List<CLLocation>)?.forEach { sendLocation(it, initial = false) }
+      @Suppress("UNCHECKED_CAST") (didUpdateLocations as? List<CLLocation>)?.forEach(::sendLocation)
     }
 
     override fun locationManager(manager: CLLocationManager, didFailWithError: NSError) {
       channel.trySend(LocationEvent.Unavailable(didFailWithError.asUnavailableReason()))
     }
 
-    fun sendLocation(location: CLLocation, initial: Boolean) {
-      val age = location.ageAtReceipt()
-      if (initial && request.maximumInitialFixAge != null && age > request.maximumInitialFixAge) {
-        return
-      }
+    fun sendLocation(location: CLLocation) {
+      if (!initialFixAgeFilter.accept(location.ageAtReceipt())) return
       channel.trySend(LocationEvent.Fix(location.asMapLibreLocation()))
     }
+
+    fun stop(manager: CLLocationManager) {
+      manager.stopUpdatingLocation()
+      manager.delegate = null
+    }
+  }
+}
+
+internal class InitialFixAgeFilter(private val maximumInitialFixAge: Duration?) {
+  private var hasAcceptedFix = false
+
+  fun accept(age: Duration): Boolean {
+    if (!hasAcceptedFix && maximumInitialFixAge != null && age > maximumInitialFixAge) return false
+    hasAcceptedFix = true
+    return true
   }
 }
 

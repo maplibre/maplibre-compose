@@ -90,6 +90,29 @@ class BrowserLocationProviderTest {
   }
 
   @Test
+  fun firstFixAfterTransientErrorBypassesUpdateThrottle() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    val provider = BrowserLocationProvider(boundary)
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch {
+      provider
+        .updates(LocationRequest(minimumInterval = 10.seconds, maximumInitialFixAge = null))
+        .collect(events::add)
+    }
+    runCurrent()
+
+    boundary.send(position(milliseconds = 0, longitude = 1.0))
+    boundary.send(BrowserResult.Error(BrowserError.Timeout))
+    boundary.send(position(milliseconds = 1_000, longitude = 2.0))
+    runCurrent()
+
+    assertEquals(3, events.size)
+    assertEquals(1.0, assertIs<LocationEvent.Fix>(events[0]).location.position.value.longitude)
+    assertIs<LocationEvent.Unavailable>(events[1])
+    assertEquals(2.0, assertIs<LocationEvent.Fix>(events[2]).location.position.value.longitude)
+  }
+
+  @Test
   fun permissionRequesterObservesAndExplicitlyRequestsPermission() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     boundary.permission.value = BrowserPermission.Prompt
@@ -190,6 +213,7 @@ class BrowserLocationProviderTest {
     backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
     runCurrent()
     assertEquals(30.seconds, boundary.requestedOptions.single().maximumAge)
+    assertEquals(kotlin.time.Duration.ZERO, boundary.requestedOptions.single().timeout)
     assertEquals(kotlin.time.Duration.ZERO, boundary.watchedOptions.single().maximumAge)
 
     boundary.send(position(milliseconds = 2_000, longitude = 0.001))
@@ -199,6 +223,25 @@ class BrowserLocationProviderTest {
     assertEquals(1, events.size)
     assertEquals(
       0.001,
+      assertIs<LocationEvent.Fix>(events.single()).location.position.value.longitude,
+    )
+  }
+
+  @Test
+  fun failedCachedLookupDoesNotOverrideLiveWatch() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary()
+    boundary.requestPositionAction = { BrowserResult.Error(BrowserError.Timeout) }
+    val provider = BrowserLocationProvider(boundary)
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
+    runCurrent()
+
+    assertEquals(emptyList(), events)
+    boundary.send(position(milliseconds = 0, longitude = 1.0))
+    runCurrent()
+
+    assertEquals(
+      1.0,
       assertIs<LocationEvent.Fix>(events.single()).location.position.value.longitude,
     )
   }
