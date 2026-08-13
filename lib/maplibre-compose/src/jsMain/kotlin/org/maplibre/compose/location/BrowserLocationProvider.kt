@@ -59,8 +59,7 @@ import web.permissions.query
  * and
  * [`TIMEOUT`](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError/code#geolocationpositionerror.timeout)
  * map to [LocationUnavailableReason.TemporarilyUnavailable]. An exception thrown while starting the
- * live watch maps to [LocationUnavailableReason.UnexpectedFailure]. The optional initial cache
- * probe does not affect the live watch's availability.
+ * live watch maps to [LocationUnavailableReason.UnexpectedFailure].
  */
 public class BrowserLocationProvider
 internal constructor(private val boundary: BrowserGeolocationBoundary) : LocationProvider {
@@ -103,38 +102,14 @@ internal constructor(private val boundary: BrowserGeolocationBoundary) : Locatio
 
     val stop =
       try {
-        boundary.startWatch(request.asBrowserOptions(maximumAge = Duration.ZERO), ::publish)
+        boundary.startWatch(request.asBrowserOptions(), ::publish)
       } catch (error: Throwable) {
         trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
         close()
         null
       }
 
-    val initialFix =
-      if (stop != null && request.maximumInitialFixAge != Duration.ZERO) {
-        launch {
-          try {
-            when (
-              val result =
-                boundary.requestPosition(request.asBrowserOptions(timeout = Duration.ZERO))
-            ) {
-              is BrowserResult.Position -> publish(result)
-              is BrowserResult.Error -> Unit
-            }
-          } catch (error: CancellationException) {
-            throw error
-          } catch (_: Throwable) {
-            // The live watch remains authoritative when the optional cache probe fails.
-          }
-        }
-      } else {
-        null
-      }
-
-    awaitClose {
-      initialFix?.cancel()
-      stop?.invoke()
-    }
+    awaitClose { stop?.invoke() }
   }
 }
 
@@ -261,7 +236,6 @@ internal enum class BrowserError {
 
 internal data class BrowserOptions(
   val highAccuracy: Boolean,
-  val maximumAge: Duration? = Duration.ZERO,
   val timeout: Duration? = null,
 )
 
@@ -351,21 +325,15 @@ private object BrowserGeolocation : BrowserGeolocationBoundary {
   }
 }
 
-private fun LocationRequest.asBrowserOptions(
-  maximumAge: Duration? = maximumInitialFixAge,
-  timeout: Duration? = null,
-): BrowserOptions =
+private fun LocationRequest.asBrowserOptions(): BrowserOptions =
   BrowserOptions(
     highAccuracy =
-      accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High,
-    maximumAge = maximumAge,
-    timeout = timeout,
+      accuracy == LocationAccuracy.BestForNavigation || accuracy == LocationAccuracy.High
   )
 
 internal fun BrowserOptions.toPositionOptions(): PositionOptions {
   val result = unsafeJso<PositionOptions> { enableHighAccuracy = highAccuracy }
   val rawResult: dynamic = result
-  rawResult.maximumAge = maximumAge?.inWholeMilliseconds?.toDouble() ?: Double.POSITIVE_INFINITY
   timeout?.let { rawResult.timeout = it.inWholeMilliseconds.toDouble() }
   return result
 }

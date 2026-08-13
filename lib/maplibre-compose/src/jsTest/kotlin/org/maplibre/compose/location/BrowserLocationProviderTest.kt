@@ -4,7 +4,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
-import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlinx.coroutines.CompletableDeferred
@@ -44,6 +43,8 @@ class BrowserLocationProviderTest {
     runCurrent()
     val collection = backgroundScope.launch { provider.updates(request).collect(events::add) }
     runCurrent()
+    assertEquals(emptyList(), boundary.requestedOptions)
+    assertEquals(1, boundary.watchedOptions.size)
     boundary.send(position(milliseconds = 0, longitude = 0.0, altitude = 12.0))
     boundary.send(position(milliseconds = 500, longitude = 0.001))
     boundary.send(position(milliseconds = 2_000, longitude = 0.000001))
@@ -95,9 +96,7 @@ class BrowserLocationProviderTest {
     val provider = BrowserLocationProvider(boundary)
     val events = mutableListOf<LocationEvent>()
     backgroundScope.launch {
-      provider
-        .updates(LocationRequest(minimumInterval = 10.seconds, maximumInitialFixAge = null))
-        .collect(events::add)
+      provider.updates(LocationRequest(minimumInterval = 10.seconds)).collect(events::add)
     }
     runCurrent()
 
@@ -199,62 +198,6 @@ class BrowserLocationProviderTest {
       LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
       requester.status.value,
     )
-  }
-
-  @Test
-  fun cachedInitialLookupIsSeparateFromTheLiveWatch() = runTest {
-    val boundary = FakeBrowserGeolocationBoundary()
-    val cachedResult = CompletableDeferred<BrowserResult>()
-    boundary.requestPositionAction = { cachedResult.await() }
-    val provider = BrowserLocationProvider(boundary)
-    val events = mutableListOf<LocationEvent>()
-    runCurrent()
-
-    backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
-    runCurrent()
-    assertEquals(30.seconds, boundary.requestedOptions.single().maximumAge)
-    assertEquals(kotlin.time.Duration.ZERO, boundary.requestedOptions.single().timeout)
-    assertEquals(kotlin.time.Duration.ZERO, boundary.watchedOptions.single().maximumAge)
-
-    boundary.send(position(milliseconds = 2_000, longitude = 0.001))
-    cachedResult.complete(position(milliseconds = 0, longitude = 0.0))
-    runCurrent()
-
-    assertEquals(1, events.size)
-    assertEquals(
-      0.001,
-      assertIs<LocationEvent.Fix>(events.single()).location.position.value.longitude,
-    )
-  }
-
-  @Test
-  fun failedCachedLookupDoesNotOverrideLiveWatch() = runTest {
-    val boundary = FakeBrowserGeolocationBoundary()
-    boundary.requestPositionAction = { BrowserResult.Error(BrowserError.Timeout) }
-    val provider = BrowserLocationProvider(boundary)
-    val events = mutableListOf<LocationEvent>()
-    backgroundScope.launch { provider.updates(LocationRequest()).collect(events::add) }
-    runCurrent()
-
-    assertEquals(emptyList(), events)
-    boundary.send(position(milliseconds = 0, longitude = 1.0))
-    runCurrent()
-
-    assertEquals(
-      1.0,
-      assertIs<LocationEvent.Fix>(events.single()).location.position.value.longitude,
-    )
-  }
-
-  @Test
-  fun browserOptionsPreserveLargeAndUnboundedCachedFixAges() {
-    val unbounded: dynamic =
-      BrowserOptions(highAccuracy = false, maximumAge = null).toPositionOptions()
-    val fortyDays: dynamic =
-      BrowserOptions(highAccuracy = false, maximumAge = 40.days).toPositionOptions()
-
-    assertEquals(Double.POSITIVE_INFINITY, unbounded.maximumAge)
-    assertEquals(3_456_000_000.0, fortyDays.maximumAge)
   }
 
   private fun position(
