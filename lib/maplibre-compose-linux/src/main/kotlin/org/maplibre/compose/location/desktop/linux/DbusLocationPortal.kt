@@ -138,14 +138,13 @@ internal class DbusLocationPortal(private val host: ComposeMapHost? = null) : Li
           close()
         }
       }
+      awaitClose()
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
       trySend(LocationEvent.Unavailable(error.asUnavailableReason(), error))
       close()
-    }
-
-    awaitClose {
+    } finally {
       closeQuietly { locationSubscription?.close() }
       closeQuietly { closedSubscription?.close() }
       closeQuietly { serviceOwnerSubscription?.close() }
