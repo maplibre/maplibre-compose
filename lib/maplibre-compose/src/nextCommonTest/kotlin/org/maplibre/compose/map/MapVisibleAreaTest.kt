@@ -82,6 +82,27 @@ class MapVisibleAreaTest {
     }
 
   @Test
+  fun the_bounding_box_stays_narrow_across_the_antimeridian(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.session.setBaseStyle(BaseStyle.Empty)
+      it.awaitMapReady()
+      it.session.setCameraPosition(ANTIMERIDIAN_CAMERA)
+      it.pumpUntil("the camera to apply") {
+        abs(it.session.getCameraPosition().zoom - ANTIMERIDIAN_CAMERA.zoom) < 0.01
+      }
+
+      val box = it.session.getVisibleBoundingBox()
+      // A wrapped hull would span nearly the whole world instead of the short interval, which may
+      // extend past ±180.
+      assertTrue(
+        box.northeast.longitude - box.southwest.longitude < 90.0,
+        "the box should span the short way around the antimeridian, was $box",
+      )
+      assertContains(box, Position(ANTIMERIDIAN_CAMERA.target.longitude, 47.0), "the target")
+    }
+  }
+
+  @Test
   fun the_projection_query_matches_the_session(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.session.setBaseStyle(BaseStyle.Empty)
@@ -98,6 +119,7 @@ class MapVisibleAreaTest {
 
   private companion object {
     val CAMERA = CameraPosition(target = Position(11.0, 47.0), zoom = 5.0)
+    val ANTIMERIDIAN_CAMERA = CameraPosition(target = Position(179.9, 47.0), zoom = 5.0)
     val ROTATED_CAMERA =
       CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, tilt = 40.0)
 

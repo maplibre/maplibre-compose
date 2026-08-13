@@ -14,6 +14,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.round
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -946,7 +947,16 @@ internal class MlnFfiMapSession(
 
   override fun getVisibleBoundingBox(): BoundingBox =
     withMap(BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))) { map ->
-      val corners = map.unprojectedCorners()
+      val size = map.size
+      val center =
+        map
+          .latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0)))
+          .first()
+          .toPosition()
+      // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would
+      // hull to a box spanning nearly the whole world. Unwrap the corners around the center first;
+      // like GL JS, the box may then extend past ±180.
+      val corners = map.unprojectedCorners().map { it.unwrapAround(center) }
       BoundingBox(
         southwest =
           Position(
@@ -992,6 +1002,11 @@ internal class MlnFfiMapSession(
         )
       )
       .map { it.toPosition() }
+  }
+
+  private fun Position.unwrapAround(center: Position): Position {
+    val delta = round((center.longitude - longitude) / 360.0) * 360.0
+    return if (delta == 0.0) this else Position(longitude = longitude + delta, latitude = latitude)
   }
 
   override fun setRenderSettings(value: RenderOptions) {
