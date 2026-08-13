@@ -240,6 +240,7 @@ public object UnsupportedLocationProvider : LocationProvider {
  *
  * See
  * [rememberAndroidLocationPermissionRequester][org.maplibre.compose.location.rememberAndroidLocationPermissionRequester]
+ * [rememberBrowserLocationPermissionRequester][org.maplibre.compose.location.rememberBrowserLocationPermissionRequester],
  * and
  * [rememberIosLocationPermissionRequester][org.maplibre.compose.location.rememberIosLocationPermissionRequester].
  */
