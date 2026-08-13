@@ -6,6 +6,8 @@ import androidx.compose.runtime.remember
 import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.LocalComposeMapHostOrNull
@@ -24,12 +26,18 @@ public interface DesktopLocationBackend {
   /** Whether this backend can run on the current operating system and architecture. */
   public fun isAvailable(): Boolean
 
-  /** Creates a provider and parents its permission UI to [host] when the platform supports it. */
+  /** Creates a location provider for [host]. */
   public fun createProvider(host: ComposeMapHost?): DesktopLocationProvider
+
+  /** Creates a foreground permission requester and parents its UI to [host] when supported. */
+  public fun createPermissionRequester(host: ComposeMapHost?): DesktopLocationPermissionRequester
 }
 
 /** A desktop provider whose process resources can be released with [close]. */
 public interface DesktopLocationProvider : LocationProvider, AutoCloseable
+
+/** A desktop permission requester whose process resources can be released with [close]. */
+public interface DesktopLocationPermissionRequester : LocationPermissionRequester, AutoCloseable
 
 @Composable
 public actual fun rememberDefaultLocationProvider(): LocationProvider {
@@ -40,6 +48,17 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider {
     }
   DisposableEffect(provider) { onDispose { provider.close() } }
   return provider
+}
+
+@Composable
+public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester {
+  val host = LocalComposeMapHostOrNull.current
+  val requester =
+    remember(host) {
+      DesktopLocationBackendResolver.discoverPermissionRequester(host)
+    }
+  DisposableEffect(requester) { onDispose { requester.close() } }
+  return requester
 }
 
 internal object DesktopLocationBackendResolver {
@@ -53,6 +72,18 @@ internal object DesktopLocationBackendResolver {
       resolve(loadBackends(), host)
     } catch (error: ServiceConfigurationError) {
       UnavailableDesktopLocationProvider(LocationUnavailableReason.Misconfigured, error)
+    }
+
+  fun discoverPermissionRequester(
+    host: ComposeMapHost? = null,
+    loadBackends: () -> List<DesktopLocationBackend> = {
+      ServiceLoader.load(DesktopLocationBackend::class.java).toList()
+    },
+  ): DesktopLocationPermissionRequester =
+    try {
+      resolvePermissionRequester(loadBackends(), host)
+    } catch (_: ServiceConfigurationError) {
+      FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Misconfigured)
     }
 
   fun resolve(
@@ -79,6 +110,23 @@ internal object DesktopLocationBackendResolver {
           UnavailableDesktopLocationProvider(LocationUnavailableReason.Misconfigured, error)
         }
     }
+
+  fun resolvePermissionRequester(
+    backends: List<DesktopLocationBackend>,
+    host: ComposeMapHost? = null,
+  ): DesktopLocationPermissionRequester =
+    when {
+      backends.isEmpty() || (backends.size == 1 && !backends.single().isAvailable()) ->
+        FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Unsupported)
+      backends.size > 1 ->
+        FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Misconfigured)
+      else ->
+        try {
+          backends.single().createPermissionRequester(host)
+        } catch (_: Throwable) {
+          FixedDesktopLocationPermissionRequester(LocationUnavailableReason.Misconfigured)
+        }
+    }
 }
 
 private class UnavailableDesktopLocationProvider(
@@ -86,8 +134,17 @@ private class UnavailableDesktopLocationProvider(
   private val cause: Throwable? = null,
 ) : DesktopLocationProvider {
   override val isSupported: Boolean = reason != LocationUnavailableReason.Unsupported
-  override val permission: LocationPermissionController =
-    FixedLocationPermissionController(
+
+  override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    flowOf(LocationEvent.Unavailable(reason, cause))
+
+  override fun close() = Unit
+}
+
+private class FixedDesktopLocationPermissionRequester(reason: LocationUnavailableReason) :
+  DesktopLocationPermissionRequester {
+  override val status: StateFlow<LocationPermission> =
+    MutableStateFlow(
       if (reason == LocationUnavailableReason.Unsupported) {
         LocationPermission.NotGranted(canRequest = null)
       } else {
@@ -95,8 +152,7 @@ private class UnavailableDesktopLocationProvider(
       }
     )
 
-  override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(LocationEvent.Unavailable(reason, cause))
+  override fun requestForegroundPermission() = Unit
 
   override fun close() = Unit
 }

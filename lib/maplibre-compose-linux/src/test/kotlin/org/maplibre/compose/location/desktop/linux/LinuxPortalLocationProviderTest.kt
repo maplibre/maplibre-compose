@@ -3,14 +3,12 @@ package org.maplibre.compose.location.desktop.linux
 import java.util.ServiceLoader
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
@@ -69,59 +67,41 @@ class LinuxPortalLocationProviderTest {
   }
 
   @Test
-  fun permissionGatesUpdatesAndTracksPortalRevocation() = runTest {
+  fun providerForwardsPortalUpdatesAndClosesItsPortal() = runTest {
     val portal = FakeLinuxLocationPortal()
     val provider = LinuxPortalLocationProvider(portal)
-    val updates = provider.updates(LocationRequest())
 
-    assertEquals(
-      LocationPermission.NotGranted(canRequest = null),
-      provider.permission.status.value,
-    )
-    assertEquals(
-      LocationUnavailableReason.PermissionDenied,
-      assertIs<LocationEvent.Unavailable>(updates.first()).reason,
-    )
-    assertEquals(0, portal.updateCollections)
-
-    assertEquals(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
-      provider.permission.requestForegroundPermission(),
-    )
-    assertIs<LocationEvent.Fix>(updates.first())
+    assertIs<LocationEvent.Fix>(provider.updates(LocationRequest()).first())
     assertEquals(1, portal.updateCollections)
 
     portal.events = flowOf(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
     assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
-    assertEquals(
-      LocationPermission.NotGranted(canRequest = null),
-      provider.permission.status.value,
-    )
 
     provider.close()
     assertTrue(portal.closed)
   }
 
   @Test
-  fun concurrentPermissionRequestsShareOnePortalSessionAndReuseGrant() = runTest {
+  fun overlappingPermissionRequestsStartOnePortalRequestAndReuseGrant() = runTest {
     val portal = FakeLinuxLocationPortal()
     val pendingResult = CompletableDeferred<PortalPermissionResult>()
     portal.permissionResult = { pendingResult.await() }
-    val permission = LinuxPortalLocationProvider(portal).permission
+    val requester = LinuxPortalLocationPermissionRequester(portal, backgroundScope)
 
-    val first = async { permission.requestForegroundPermission() }
-    val second = async { permission.requestForegroundPermission() }
+    requester.requestForegroundPermission()
+    requester.requestForegroundPermission()
     runCurrent()
     assertEquals(1, portal.permissionRequests)
-    assertFalse(first.isCompleted)
-    assertFalse(second.isCompleted)
 
     pendingResult.complete(PortalPermissionResult.Granted)
+    runCurrent()
     val granted = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-    assertEquals(granted, first.await())
-    assertEquals(granted, second.await())
-    assertEquals(granted, permission.requestForegroundPermission())
+    assertEquals(granted, requester.status.value)
+    requester.requestForegroundPermission()
     assertEquals(1, portal.permissionRequests)
+
+    requester.close()
+    assertTrue(portal.closed)
   }
 
   @Test

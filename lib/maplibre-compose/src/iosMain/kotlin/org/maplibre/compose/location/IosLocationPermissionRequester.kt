@@ -2,11 +2,8 @@ package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.withContext
 import platform.CoreLocation.CLAccuracyAuthorization.CLAccuracyAuthorizationFullAccuracy
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
@@ -18,7 +15,7 @@ import platform.CoreLocation.kCLAuthorizationStatusRestricted
 import platform.darwin.NSObject
 
 /**
- * Foreground Core Location permission controller.
+ * Foreground Core Location permission requester.
  *
  * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
  * maps an authorized status to [LocationPermission.Granted], `notDetermined` to
@@ -27,19 +24,18 @@ import platform.darwin.NSObject
  * [`CLLocationManager.accuracyAuthorization`](https://developer.apple.com/documentation/corelocation/cllocationmanager/accuracyauthorization)
  * distinguishes precise from approximate grants.
  */
-public class IosLocationPermissionController : LocationPermissionController {
+public class IosLocationPermissionRequester : LocationPermissionRequester {
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
   override val status: StateFlow<LocationPermission> = mutableStatus
-  private var pendingRequest: CompletableDeferred<LocationPermission>? = null
+  private var requestPending = false
 
   private val delegate =
     object : NSObject(), CLLocationManagerDelegateProtocol {
       override fun locationManagerDidChangeAuthorization(manager: CLLocationManager) {
         val value = readStatus(manager)
         mutableStatus.value = value
-        pendingRequest?.complete(value)
-        pendingRequest = null
+        requestPending = false
       }
     }
 
@@ -49,19 +45,12 @@ public class IosLocationPermissionController : LocationPermissionController {
     mutableStatus.value = readStatus(manager)
   }
 
-  override suspend fun requestForegroundPermission(): LocationPermission =
-    withContext(Dispatchers.Main) {
-      val current = readStatus(manager)
-      if (current != LocationPermission.NotGranted(canRequest = true)) return@withContext current
-      pendingRequest?.let {
-        return@withContext it.await()
-      }
-
-      val result = CompletableDeferred<LocationPermission>()
-      pendingRequest = result
-      manager.requestWhenInUseAuthorization()
-      result.await()
-    }
+  override fun requestForegroundPermission() {
+    val current = readStatus(manager)
+    if (current != LocationPermission.NotGranted(canRequest = true) || requestPending) return
+    requestPending = true
+    manager.requestWhenInUseAuthorization()
+  }
 
   private fun readStatus(manager: CLLocationManager): LocationPermission =
     when (manager.authorizationStatus) {
@@ -82,6 +71,10 @@ public class IosLocationPermissionController : LocationPermissionController {
 }
 
 @Composable
-public fun rememberIosLocationPermissionController(): IosLocationPermissionController = remember {
-  IosLocationPermissionController()
+public fun rememberIosLocationPermissionRequester(): IosLocationPermissionRequester = remember {
+  IosLocationPermissionRequester()
 }
+
+@Composable
+public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
+  rememberIosLocationPermissionRequester()

@@ -6,6 +6,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertSame
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -24,14 +25,14 @@ class DesktopLocationBackendResolverTest {
     providers.forEach { provider ->
       assertFalse(provider.isSupported)
       assertEquals(
-        LocationPermission.NotGranted(canRequest = null),
-        provider.permission.status.value,
-      )
-      assertEquals(
         LocationUnavailableReason.Unsupported,
         (provider.updates(LocationRequest()).first() as LocationEvent.Unavailable).reason,
       )
     }
+    assertEquals(
+      LocationPermission.NotGranted(canRequest = null),
+      DesktopLocationBackendResolver.resolvePermissionRequester(emptyList()).status.value,
+    )
     assertEquals(0, unavailableBackend.createCalls)
   }
 
@@ -96,15 +97,25 @@ private class FakeBackend(
     failure?.let { throw it }
     return provider
   }
+
+  override fun createPermissionRequester(
+    host: ComposeMapHost?
+  ): DesktopLocationPermissionRequester = FakePermissionRequester
 }
 
 private class FakeProvider : DesktopLocationProvider {
-  override val permission =
-    FixedLocationPermissionController(
+  override fun updates(request: LocationRequest) = emptyFlow<LocationEvent>()
+
+  override fun close() = Unit
+}
+
+private object FakePermissionRequester : DesktopLocationPermissionRequester {
+  override val status =
+    MutableStateFlow<LocationPermission>(
       LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
     )
 
-  override fun updates(request: LocationRequest) = emptyFlow<LocationEvent>()
+  override fun requestForegroundPermission() = Unit
 
   override fun close() = Unit
 }

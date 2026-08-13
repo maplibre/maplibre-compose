@@ -10,11 +10,15 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.TimeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
@@ -25,7 +29,44 @@ import org.maplibre.spatialk.units.extensions.degrees
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTestApi::class)
 class LocationStateTest {
   @Test
-  fun completedProviderSessionStopsTracking() = withMainDispatcher {
+  fun permissionGrantStartsAndRevocationStopsProviderUpdates() = withMainDispatcher {
+    runComposeUiTest {
+      val lifecycleOwner = ResumedLifecycleOwner()
+      val provider = ActiveLocationProvider(location(13.0))
+      val requester = MutablePermissionRequester()
+      var state: LocationState? = null
+
+      setContent {
+        state =
+          rememberLocationState(
+            provider = provider,
+            permissionRequester = requester,
+            lifecycleOwner = lifecycleOwner,
+          )
+      }
+
+      waitUntil { state?.status == LocationTrackingStatus.WaitingForPermission }
+      assertFalse(provider.active)
+      runOnIdle { state?.requestPermission() }
+      assertEquals(1, requester.requestCount)
+
+      runOnIdle {
+        requester.status.value = LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+      }
+      waitUntil { provider.active && state?.location == provider.location }
+
+      runOnIdle {
+        requester.status.value = LocationPermission.NotGranted(canRequest = false)
+      }
+      waitUntil {
+        !provider.active && state?.status == LocationTrackingStatus.WaitingForPermission
+      }
+      assertTrue(provider.stopCount > 0)
+    }
+  }
+
+  @Test
+  fun completedProviderUpdatesStopTracking() = withMainDispatcher {
     runComposeUiTest {
       val expected = location(13.0)
       val lifecycleOwner = ResumedLifecycleOwner()
@@ -35,6 +76,7 @@ class LocationStateTest {
         state =
           rememberLocationState(
             provider = FiniteLocationProvider(expected),
+            permissionRequester = GrantedPermissionRequester,
             lifecycleOwner = lifecycleOwner,
           )
       }
@@ -58,6 +100,7 @@ class LocationStateTest {
         state =
           rememberLocationState(
             provider = provider,
+            permissionRequester = GrantedPermissionRequester,
             orientationProvider = orientationProvider,
             lifecycleOwner = lifecycleOwner,
           )
@@ -80,8 +123,8 @@ class LocationStateTest {
 
   @Test
   fun replacingTrackedStateMovesLocationCollectionToNewState() = runComposeUiTest {
-    val first = LocationState(FiniteLocationProvider())
-    val second = LocationState(FiniteLocationProvider())
+    val first = LocationState()
+    val second = LocationState()
     var trackedState by mutableStateOf(first)
     val observed = mutableListOf<Location>()
 
@@ -124,13 +167,43 @@ private class ResumedLifecycleOwner : LifecycleOwner {
 }
 
 private class FiniteLocationProvider(private vararg val locations: Location) : LocationProvider {
-  override val permission =
-    FixedLocationPermissionController(
+  override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    flowOf(*locations.map(LocationEvent::Fix).toTypedArray())
+}
+
+private class ActiveLocationProvider(val location: Location) : LocationProvider {
+  var active = false
+  var stopCount = 0
+
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
+    active = true
+    try {
+      emit(LocationEvent.Fix(location))
+      awaitCancellation()
+    } finally {
+      active = false
+      stopCount += 1
+    }
+  }
+}
+
+private class MutablePermissionRequester : LocationPermissionRequester {
+  override val status =
+    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = true))
+  var requestCount = 0
+
+  override fun requestForegroundPermission() {
+    requestCount += 1
+  }
+}
+
+private object GrantedPermissionRequester : LocationPermissionRequester {
+  override val status =
+    MutableStateFlow<LocationPermission>(
       LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
     )
 
-  override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(*locations.map(LocationEvent::Fix).toTypedArray())
+  override fun requestForegroundPermission() = Unit
 }
 
 private class MutableOrientationProvider : OrientationProvider {

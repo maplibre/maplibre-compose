@@ -25,20 +25,17 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
-import org.maplibre.compose.location.AndroidLocationPermissionController
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationEvent
-import org.maplibre.compose.location.LocationPermissionController
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.asMapLibreLocation
-import org.maplibre.compose.location.rememberAndroidLocationPermissionController
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
- * A cold-session provider backed by Google Play Services fused location.
+ * A location provider backed by Google Play Services fused location.
  *
  * Each collection requests fused updates, filters the initial cached location by
  * [LocationRequest.maximumInitialFixAge], and removes its callback when collection ends.
@@ -59,16 +56,12 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * [LocationUnavailableReason.UnexpectedFailure].
  *
  * @param locationClient Google Play Services client used for cached and live locations.
- * @param permission Foreground permission state shared with callers.
  */
 public class FusedLocationProvider
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
-constructor(
-  private val locationClient: FusedLocationProviderClient,
-  override val permission: LocationPermissionController,
-) : LocationProvider {
+constructor(private val locationClient: FusedLocationProviderClient) : LocationProvider {
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
@@ -130,11 +123,10 @@ constructor(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
 public fun rememberFusedLocationProvider(
-  context: Context = LocalContext.current,
-  permission: AndroidLocationPermissionController = rememberAndroidLocationPermissionController(),
+  context: Context = LocalContext.current
 ): FusedLocationProvider {
   val client = remember(context) { LocationServices.getFusedLocationProviderClient(context) }
-  return rememberFusedLocationProvider(client, permission)
+  return rememberFusedLocationProvider(client)
 }
 
 /** Creates and remembers a fused provider backed by [fusedLocationProviderClient]. */
@@ -143,12 +135,9 @@ public fun rememberFusedLocationProvider(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
 public fun rememberFusedLocationProvider(
-  fusedLocationProviderClient: FusedLocationProviderClient,
-  permission: AndroidLocationPermissionController = rememberAndroidLocationPermissionController(),
+  fusedLocationProviderClient: FusedLocationProviderClient
 ): FusedLocationProvider =
-  remember(fusedLocationProviderClient, permission) {
-    FusedLocationProvider(fusedLocationProviderClient, permission)
-  }
+  remember(fusedLocationProviderClient) { FusedLocationProvider(fusedLocationProviderClient) }
 
 private fun LocationRequest.asGmsLocationRequest(): GmsLocationRequest =
   GmsLocationRequest.Builder(

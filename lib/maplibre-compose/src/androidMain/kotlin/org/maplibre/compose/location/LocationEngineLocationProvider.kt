@@ -28,16 +28,12 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * not classify their recoverability.
  *
  * @param locationEngine Existing MapLibre location engine to adapt.
- * @param permission Foreground permission state shared with callers.
  */
 public class LocationEngineLocationProvider
 @RequiresPermission(
   anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
 )
-constructor(
-  private val locationEngine: LocationEngine,
-  override val permission: LocationPermissionController,
-) : LocationProvider {
+constructor(private val locationEngine: LocationEngine) : LocationProvider {
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )

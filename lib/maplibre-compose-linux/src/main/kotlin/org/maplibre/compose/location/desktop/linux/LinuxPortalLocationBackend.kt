@@ -1,23 +1,24 @@
 package org.maplibre.compose.location.desktop.linux
 
 import java.util.Locale
-import kotlinx.coroutines.CompletableDeferred
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.launch
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.XdgPortalWindow
 import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationPermissionRequester
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
-import org.maplibre.compose.location.LocationPermissionController
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 
@@ -29,7 +30,11 @@ public class LinuxPortalLocationBackend : DesktopLocationBackend {
     System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("linux")
 
   override fun createProvider(host: ComposeMapHost?): DesktopLocationProvider =
-    LinuxPortalLocationProvider(DbusLocationPortal(host))
+    LinuxPortalLocationProvider(host)
+
+  override fun createPermissionRequester(
+    host: ComposeMapHost?
+  ): DesktopLocationPermissionRequester = LinuxPortalLocationPermissionRequester(host)
 }
 
 // TODO: Add a Linux orientation backend when an independent heading API is available.
@@ -46,7 +51,7 @@ internal suspend fun <T> ComposeMapHost?.withPortalParentWindow(action: suspend 
   }
 
 /**
- * A cold-session desktop provider that delegates to the
+ * A desktop provider that delegates to the
  * [XDG Location portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html).
  *
  * [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] map to
@@ -58,9 +63,6 @@ internal suspend fun <T> ComposeMapHost?.withPortalParentWindow(action: suspend 
  * and [LocationAccuracy.Lowest] maps to
  * [`COUNTRY`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html#org-freedesktop-portal-location-createsession).
  *
- * The portal exposes the result of a request but no permission-status query. Permission therefore
- * remains [LocationPermission.NotGranted] with `canRequest = null` until a request succeeds.
- *
  * A missing portal maps to [LocationUnavailableReason.Unsupported]. A cancelled
  * [`Request.Response`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Request.html#org-freedesktop-portal-request-response)
  * maps to [LocationUnavailableReason.PermissionDenied]. A closed session, a stopped portal service,
@@ -70,9 +72,8 @@ internal suspend fun <T> ComposeMapHost?.withPortalParentWindow(action: suspend 
  */
 public class LinuxPortalLocationProvider
 internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationProvider {
-  private val permissionController = LinuxPortalPermissionController(portal)
+  public constructor(host: ComposeMapHost? = null) : this(DbusLocationPortal(host))
 
-  override val permission: LocationPermissionController = permissionController
   override val isSupported: Boolean = portal.available
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
@@ -80,21 +81,7 @@ internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationP
       emit(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
       return@flow
     }
-    if (permission.status.value !is LocationPermission.Granted) {
-      emit(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
-      return@flow
-    }
-
-    emitAll(
-      portal.updates(request).onEach { event ->
-        if (
-          event is LocationEvent.Unavailable &&
-            event.reason == LocationUnavailableReason.PermissionDenied
-        ) {
-          permissionController.acceptDenied()
-        }
-      }
-    )
+    portal.updates(request).collect { emit(it) }
   }
 
   override fun close() {
@@ -102,50 +89,48 @@ internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationP
   }
 }
 
-private class LinuxPortalPermissionController(private val portal: LinuxLocationPortal) :
-  LocationPermissionController {
+/**
+ * Observes and requests permission through the XDG Location portal.
+ *
+ * The portal exposes the result of a request but no permission-status query. Permission therefore
+ * remains [LocationPermission.NotGranted] with `canRequest = null` until a request succeeds.
+ */
+public class LinuxPortalLocationPermissionRequester
+internal constructor(
+  private val portal: LinuxLocationPortal,
+  private val coroutineScope: CoroutineScope =
+    CoroutineScope(SupervisorJob() + Dispatchers.Default),
+) : DesktopLocationPermissionRequester {
+  public constructor(host: ComposeMapHost? = null) : this(DbusLocationPortal(host))
+
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
   override val status: StateFlow<LocationPermission> = mutableStatus
-  private val requestMutex = Mutex()
-  private var pendingRequest: CompletableDeferred<LocationPermission>? = null
+  private val requestPending = AtomicBoolean()
 
-  override suspend fun requestForegroundPermission(): LocationPermission {
-    var startsRequest = false
-    val request = requestMutex.withLock {
-      val current = mutableStatus.value
-      if (current is LocationPermission.Granted) return current
-      pendingRequest
-        ?: CompletableDeferred<LocationPermission>().also {
-          pendingRequest = it
-          startsRequest = true
-        }
+  override fun requestForegroundPermission() {
+    if (status.value is LocationPermission.Granted || !requestPending.compareAndSet(false, true)) {
+      return
     }
-    if (!startsRequest) return request.await()
-
-    try {
-      val result =
-        when (portal.requestPermission()) {
-          PortalPermissionResult.Granted ->
-            LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-          PortalPermissionResult.Denied -> LocationPermission.NotGranted(canRequest = null)
-          is PortalPermissionResult.Unavailable -> LocationPermission.NotGranted(canRequest = null)
-        }
-      mutableStatus.value = result
-      request.complete(result)
-      return result
-    } catch (error: Throwable) {
-      request.completeExceptionally(error)
-      throw error
-    } finally {
-      requestMutex.withLock {
-        if (pendingRequest === request) pendingRequest = null
+    coroutineScope.launch {
+      try {
+        mutableStatus.value =
+          when (portal.requestPermission()) {
+            PortalPermissionResult.Granted ->
+              LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+            PortalPermissionResult.Denied -> LocationPermission.NotGranted(canRequest = null)
+            is PortalPermissionResult.Unavailable ->
+              LocationPermission.NotGranted(canRequest = null)
+          }
+      } finally {
+        requestPending.set(false)
       }
     }
   }
 
-  fun acceptDenied() {
-    mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+  override fun close() {
+    coroutineScope.cancel()
+    portal.close()
   }
 }
 

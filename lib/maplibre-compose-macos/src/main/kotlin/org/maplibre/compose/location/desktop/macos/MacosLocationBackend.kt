@@ -2,6 +2,7 @@ package org.maplibre.compose.location.desktop.macos
 
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationPermissionRequester
 import org.maplibre.compose.location.DesktopLocationProvider
 
 /** Scaffold for the macOS desktop location backend. */
@@ -20,4 +21,8 @@ public class MacosLocationBackend : DesktopLocationBackend {
 
   override fun createProvider(host: ComposeMapHost?): DesktopLocationProvider =
     error("The macOS location backend is not implemented")
+
+  override fun createPermissionRequester(
+    host: ComposeMapHost?
+  ): DesktopLocationPermissionRequester = error("The macOS location backend is not implemented")
 }
