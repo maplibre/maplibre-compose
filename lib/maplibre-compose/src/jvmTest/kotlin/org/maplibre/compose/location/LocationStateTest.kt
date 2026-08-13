@@ -29,6 +29,30 @@ import org.maplibre.spatialk.units.extensions.degrees
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTestApi::class)
 class LocationStateTest {
   @Test
+  fun requesterMisconfigurationPrecedesPermissionAndPreventsCollection() = withMainDispatcher {
+    runComposeUiTest {
+      val cause = IllegalStateException("multiple backends")
+      val provider = ActiveLocationProvider(location(13.0))
+      var state: LocationState? = null
+
+      setContent {
+        state =
+          rememberLocationState(
+            provider = provider,
+            permissionRequester = MisconfiguredPermissionRequester(cause),
+            lifecycleOwner = ResumedLifecycleOwner(),
+          )
+      }
+
+      waitUntil {
+        state?.status ==
+          LocationTrackingStatus.Unavailable(LocationUnavailableReason.Misconfigured, cause)
+      }
+      assertFalse(provider.active)
+    }
+  }
+
+  @Test
   fun permissionGrantStartsAndRevocationStopsProviderUpdates() = withMainDispatcher {
     runComposeUiTest {
       val lifecycleOwner = ResumedLifecycleOwner()
@@ -195,6 +219,14 @@ private class MutablePermissionRequester : LocationPermissionRequester {
   override fun requestForegroundPermission() {
     requestCount += 1
   }
+}
+
+private class MisconfiguredPermissionRequester(cause: Throwable) : LocationPermissionRequester {
+  override val backendAvailability = LocationBackendAvailability.Misconfigured(cause)
+  override val status =
+    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+
+  override fun requestForegroundPermission() = Unit
 }
 
 private object GrantedPermissionRequester : LocationPermissionRequester {

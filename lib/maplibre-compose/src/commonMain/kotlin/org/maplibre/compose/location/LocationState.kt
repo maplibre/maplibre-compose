@@ -134,8 +134,21 @@ public fun rememberLocationState(
     minActiveState,
     coroutineContext,
   ) {
+    val backendAvailability =
+      listOf(provider.backendAvailability, permissionRequester.backendAvailability)
+    val misconfiguration =
+      backendAvailability
+        .filterIsInstance<LocationBackendAvailability.Misconfigured>()
+        .firstOrNull()
     when {
-      !provider.isSupported -> {
+      misconfiguration != null -> {
+        state.status =
+          LocationTrackingStatus.Unavailable(
+            LocationUnavailableReason.Misconfigured,
+            misconfiguration.cause,
+          )
+      }
+      LocationBackendAvailability.Unsupported in backendAvailability -> {
         state.status = LocationTrackingStatus.Unavailable(LocationUnavailableReason.Unsupported)
       }
       !enabled -> state.status = LocationTrackingStatus.Stopped

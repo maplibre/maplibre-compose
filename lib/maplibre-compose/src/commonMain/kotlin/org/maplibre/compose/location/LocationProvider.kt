@@ -26,9 +26,9 @@ import org.maplibre.spatialk.units.extensions.meters
  * collection must stop that request and unregister its callbacks.
  */
 public interface LocationProvider {
-  /** Whether this provider has a location backend on the current platform and host. */
-  public val isSupported: Boolean
-    get() = true
+  /** Whether this provider can run on the current target and host. */
+  public val backendAvailability: LocationBackendAvailability
+    get() = LocationBackendAvailability.Available
 
   /**
    * Returns a cold stream of foreground location updates.
@@ -37,6 +37,18 @@ public interface LocationProvider {
    * that request and unregisters its callbacks.
    */
   public fun updates(request: LocationRequest): Flow<LocationEvent>
+}
+
+/** Whether a location provider or permission requester can run in the current application. */
+public sealed interface LocationBackendAvailability {
+  /** The component is ready to use. */
+  public data object Available : LocationBackendAvailability
+
+  /** The current target, operating system, or host has no implementation for this component. */
+  public data object Unsupported : LocationBackendAvailability
+
+  /** The application installed or configured the component incorrectly. */
+  public data class Misconfigured(val cause: Throwable? = null) : LocationBackendAvailability
 }
 
 /**
@@ -190,6 +202,10 @@ public sealed interface LocationPermission {
 
 /** Observes foreground location permission and starts platform permission requests. */
 public interface LocationPermissionRequester {
+  /** Whether this requester can run on the current target and host. */
+  public val backendAvailability: LocationBackendAvailability
+    get() = LocationBackendAvailability.Available
+
   /**
    * Current foreground location permission.
    *
@@ -207,6 +223,9 @@ public interface LocationPermissionRequester {
 }
 
 internal object UnsupportedLocationPermissionRequester : LocationPermissionRequester {
+  override val backendAvailability: LocationBackendAvailability =
+    LocationBackendAvailability.Unsupported
+
   override val status: StateFlow<LocationPermission> =
     MutableStateFlow(LocationPermission.NotGranted(canRequest = null))
 
@@ -215,7 +234,8 @@ internal object UnsupportedLocationPermissionRequester : LocationPermissionReque
 
 /** A provider for a target or host that has no installed location implementation. */
 public object UnsupportedLocationProvider : LocationProvider {
-  override val isSupported: Boolean = false
+  override val backendAvailability: LocationBackendAvailability =
+    LocationBackendAvailability.Unsupported
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
     flowOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
