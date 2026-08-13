@@ -88,7 +88,8 @@ public sealed interface LocationTrackingStatus {
  * Location updates are collected while [enabled] is `true` and the lifecycle is active. This
  * function never requests permission automatically; the application chooses when to call
  * [LocationState.requestPermission]. Stopping collection releases the platform request while
- * retaining the last measurements in [LocationState].
+ * retaining the last measurements in [LocationState]. An unsupported or misconfigured provider or
+ * permission requester is reported through [LocationState.status] before permission is requested.
  *
  * @param enabled Whether location and orientation updates should run while lifecycle-active.
  * @param provider The [LocationProvider] to use for obtaining location updates.
