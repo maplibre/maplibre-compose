@@ -82,8 +82,8 @@ work, and one conformance suite runs against both the browser and MapLibre
 Native.
 
 MapLibre GL JS supplies no offline packs and no computed source, so those
-features belong to the MapLibre Native platforms. Ornaments are drawn in Compose
-instead, where `maplibre-compose-material3` has a set that works everywhere.
+features belong to the MapLibre Native platforms. Every platform draws its map
+controls in Compose, so they look and behave the same everywhere.
 
 Next steps:
 

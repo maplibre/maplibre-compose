@@ -2,7 +2,11 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,6 +20,8 @@ import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.MapOverlayScopeImpl
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.SafeStyle
@@ -56,6 +62,12 @@ import org.maplibre.spatialk.geojson.Position
  * @param logger kermit logger to use.
  * @param onMapLoadFailed Invoked when the map failed to load.
  * @param onMapLoadFinished Invoked when the map finished loading.
+ * @param contentWindowInsets The region of the map that other UI covers, such as system bars or a
+ *   bottom sheet. [overlay] lays its controls out inside what is left. The default,
+ *   [WindowInsets.safeDrawing], accounts for insets that an ancestor has already consumed, so a map
+ *   inside a scaffold gets zero and a full-bleed map gets the system bars.
+ * @param overlay Controls drawn on top of the map. [MapOverlay.Default] draws the MapLibre logo and
+ *   an attribution button; [MapOverlay.None] draws the map alone.
  * @param content The map content additional to what is already part of the map as defined in the
  *   base map style linked in [baseStyle].
  *
@@ -114,6 +126,8 @@ public fun MaplibreMap(
   logger: Logger? = remember { Logger.withTag("maplibre-compose") },
   onMapLoadFailed: (reason: String?) -> Unit = {},
   onMapLoadFinished: () -> Unit = {},
+  contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
+  overlay: MapOverlay = MapOverlay.Default,
   content: @Composable @MaplibreComposable () -> Unit = {},
 ) {
   // In preview/inspection mode, show a placeholder instead of trying to render the map
@@ -206,27 +220,40 @@ public fun MaplibreMap(
       }
     }
 
-  ComposableMapView(
-    modifier = modifier.fillMaxSize(),
-    style = baseStyle,
-    update = { map ->
-      cameraState.map = map
-      map.setMinZoom(zoomRange.start.toDouble())
-      map.setMaxZoom(zoomRange.endInclusive.toDouble())
-      map.setMinPitch(pitchRange.start.toDouble())
-      map.setMaxPitch(pitchRange.endInclusive.toDouble())
-      map.setRenderSettings(options.renderOptions)
-      map.setGestureSettings(options.gestureOptions)
-      map.setOrnamentSettings(options.ornamentOptions)
-      map.setCameraBoundingBox(boundingBox)
-    },
-    onReset = {
-      cameraState.map = null
-      rememberedStyle = null
-    },
-    logger = logger,
-    callbacks = callbacks,
-    rememberedStyle = rememberedStyle,
-    options = options,
-  )
+  Box(modifier.fillMaxSize()) {
+    ComposableMapView(
+      modifier = Modifier.fillMaxSize(),
+      style = baseStyle,
+      update = { map ->
+        cameraState.map = map
+        map.setMinZoom(zoomRange.start.toDouble())
+        map.setMaxZoom(zoomRange.endInclusive.toDouble())
+        map.setMinPitch(pitchRange.start.toDouble())
+        map.setMaxPitch(pitchRange.endInclusive.toDouble())
+        map.setRenderSettings(options.renderOptions)
+        map.setGestureSettings(options.gestureOptions)
+        map.setCameraBoundingBox(boundingBox)
+      },
+      onReset = {
+        cameraState.map = null
+        rememberedStyle = null
+      },
+      logger = logger,
+      callbacks = callbacks,
+      rememberedStyle = rememberedStyle,
+      options = options,
+    )
+
+    Box(
+      Modifier.matchParentSize()
+        .windowInsetsPadding(contentWindowInsets)
+        .padding(MapOverlay.Spacing)
+    ) {
+      val scope =
+        remember(this, cameraState, styleState, contentWindowInsets) {
+          MapOverlayScopeImpl(this, cameraState, styleState, contentWindowInsets)
+        }
+      overlay.content(scope)
+    }
+  }
 }

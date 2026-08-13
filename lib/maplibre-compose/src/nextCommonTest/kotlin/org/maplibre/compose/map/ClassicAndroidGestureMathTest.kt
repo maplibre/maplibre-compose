@@ -10,7 +10,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** Pins the constants and equations inherited from MapLibre Android 13.0.2. */
+/** Pins the constants and equations inherited from MapLibre Android 13.5.0. */
 class ClassicAndroidGestureMathTest {
   @Test
   fun pinch_uses_the_classic_logarithmic_zoom_coefficient() {

@@ -2,33 +2,23 @@
 
 package org.maplibre.compose.docsnippets
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.unit.dp
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.geojson.toJson
 
 @Composable
 fun Interaction() {
-  // #region common-gesture-ornament
-  MaplibreMap(
-    options =
-      MapOptions(
-        gestureOptions = GestureOptions.Standard,
-        ornamentOptions = OrnamentOptions.OnlyLogo,
-      )
-  )
-  // #endregion common-gesture-ornament
+  // #region common-gestures
+  MaplibreMap(options = MapOptions(gestureOptions = GestureOptions.Standard))
+  // #endregion common-gestures
 
   // #region gesture-settings
   MaplibreMap(
@@ -44,26 +34,6 @@ fun Interaction() {
       )
   )
   // #endregion gesture-settings
-
-  // #region ornament-settings
-  MaplibreMap(
-    options =
-      MapOptions(
-        ornamentOptions =
-          OrnamentOptions(
-            padding = PaddingValues(0.dp), // (1)!
-            isLogoEnabled = true, // (2)!
-            logoAlignment = Alignment.BottomStart, // (3)!
-            isAttributionEnabled = true, // (4)!
-            attributionAlignment = Alignment.BottomEnd,
-            isCompassEnabled = true, // (5)!
-            compassAlignment = Alignment.TopEnd,
-            isScaleBarEnabled = true, // (6)!
-            scaleBarAlignment = Alignment.TopStart,
-          )
-      )
-  )
-  // #endregion ornament-settings
 
   // #region camera
   val camera =

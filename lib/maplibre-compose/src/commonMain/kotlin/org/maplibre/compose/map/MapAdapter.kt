@@ -57,8 +57,6 @@ internal interface MapAdapter {
 
   fun setRenderSettings(value: RenderOptions)
 
-  fun setOrnamentSettings(value: OrnamentOptions)
-
   fun setGestureSettings(value: GestureOptions)
 
   fun positionFromScreenLocation(offset: DpOffset): Position

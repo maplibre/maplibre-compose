@@ -16,6 +16,7 @@ import org.maplibre.compose.demoapp.demos.CameraStateDemo
 import org.maplibre.compose.demoapp.demos.ClusteredPointsDemo
 import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.MapClickDemo
+import org.maplibre.compose.demoapp.demos.MapControlsDemo
 import org.maplibre.compose.demoapp.demos.MapManipulationDemo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
@@ -26,7 +27,6 @@ import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
@@ -55,8 +55,15 @@ class MapManipulationState {
   var position by mutableStateOf(MapPosition.Center)
 }
 
-class OrnamentOptionsState {
-  var isMaterial3ControlsEnabled by mutableStateOf(true)
+/** Which set of controls [DemoMap] draws on top of the map. */
+enum class MapControls {
+  Foundation,
+  Material3,
+  None,
+}
+
+class MapControlsState {
+  var controls by mutableStateOf(MapControls.Material3)
 }
 
 class DemoState(
@@ -65,7 +72,7 @@ class DemoState(
   val styleState: StyleState,
   val locationState: LocationState,
   val mapManipulationState: MapManipulationState = MapManipulationState(),
-  val ornamentOptionsState: OrnamentOptionsState = OrnamentOptionsState(),
+  val mapControlsState: MapControlsState = MapControlsState(),
 ) {
 
   val mapClickEvents = mutableStateListOf<MapClickEvent>()
@@ -82,12 +89,12 @@ class DemoState(
       ClusteredPointsDemo,
       UserLocationDemo,
       MapManipulationDemo,
+      MapControlsDemo,
     ) + Platform.extraDemos)
 
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var gestureOptions by mutableStateOf(GestureOptions.Standard)
-  var ornamentOptions by mutableStateOf(OrnamentOptions.AllEnabled)
 
   private val navDestinationState = mutableStateOf<NavDestination?>(null)
 
