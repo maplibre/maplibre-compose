@@ -63,7 +63,12 @@ public class BrowserLocationProvider
 internal constructor(private val boundary: BrowserGeolocationBoundary) : LocationProvider {
   public constructor() : this(BrowserGeolocation)
 
-  override val isSupported: Boolean = boundary.supported
+  override val backendAvailability: LocationBackendAvailability =
+    if (boundary.supported) {
+      LocationBackendAvailability.Available
+    } else {
+      LocationBackendAvailability.Unsupported
+    }
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     if (!boundary.supported) {
@@ -154,6 +159,12 @@ internal class BrowserLocationPermissionRequester(
   private val boundary: BrowserGeolocationBoundary,
   private val coroutineScope: CoroutineScope,
 ) : LocationPermissionRequester {
+  override val backendAvailability: LocationBackendAvailability =
+    if (boundary.supported) {
+      LocationBackendAvailability.Available
+    } else {
+      LocationBackendAvailability.Unsupported
+    }
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
   override val status: StateFlow<LocationPermission> = mutableStatus

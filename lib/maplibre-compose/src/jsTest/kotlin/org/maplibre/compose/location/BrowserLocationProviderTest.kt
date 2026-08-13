@@ -22,6 +22,19 @@ import org.maplibre.spatialk.units.extensions.inMeters
 @OptIn(ExperimentalCoroutinesApi::class)
 class BrowserLocationProviderTest {
   @Test
+  fun missingGeolocationMarksProviderAndRequesterUnsupported() = runTest {
+    val boundary = FakeBrowserGeolocationBoundary(supported = false)
+    val provider = BrowserLocationProvider(boundary)
+    val requester = BrowserLocationPermissionRequester(boundary, backgroundScope)
+
+    assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
+    assertEquals(LocationBackendAvailability.Unsupported, requester.backendAvailability)
+    requester.requestForegroundPermission()
+    runCurrent()
+    assertEquals(emptyList(), boundary.requestedOptions)
+  }
+
+  @Test
   fun watchMapsCoordinatesThrottlesUpdatesAndStopsOnCancellation() = runTest {
     val boundary = FakeBrowserGeolocationBoundary()
     val provider = BrowserLocationProvider(boundary)
@@ -220,8 +233,8 @@ class BrowserLocationProviderTest {
     )
 }
 
-private class FakeBrowserGeolocationBoundary : BrowserGeolocationBoundary {
-  override val supported = true
+private class FakeBrowserGeolocationBoundary(override val supported: Boolean = true) :
+  BrowserGeolocationBoundary {
   val permission = MutableStateFlow(BrowserPermission.Granted)
   var requestPositionAction: suspend (BrowserOptions) -> BrowserResult = { awaitCancellation() }
   val requestedOptions = mutableListOf<BrowserOptions>()
