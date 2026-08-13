@@ -6,6 +6,8 @@ import web.html.HTMLCanvasElement
 
 internal external fun getVersion(): String
 
+internal external fun setWorkerUrl(value: String)
+
 @JsName("Map")
 internal external class MaplibreMap(options: MapOptions) {
 
@@ -57,9 +59,6 @@ internal external class MaplibreMap(options: MapOptions) {
   fun panBy(offset: Point, options: EaseToOptions)
 
   fun stop()
-
-  /** True while an ease or fly is running, which a gesture-driven move is not. */
-  fun isEasing(): Boolean
 
   fun setMaxBounds(bounds: LngLatBounds?)
 

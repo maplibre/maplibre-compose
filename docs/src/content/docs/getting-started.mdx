@@ -201,6 +201,11 @@ kotlin {
 }
 ```
 
+MapLibre GL JS parses vector tiles on a web worker. Emit
+`maplibre-gl-worker.mjs` and `maplibre-gl-shared.mjs` from the `maplibre-gl`
+package into the webpack output next to the page, under those names.
+`MapLibre.initialize()` points MapLibre at that worker.
+
 Initialize MapLibre inside `onWasmReady`, before Compose starts.
 
 ```kotlin title="main.kt"

@@ -8,7 +8,6 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
-import org.maplibre.compose.style.mapLibreImplementsLayerProperty
 
 internal actual class FillExtrusionLayer actual constructor(id: String, source: Source) :
   FeatureLayer(id, source) {
@@ -54,15 +53,6 @@ internal actual class FillExtrusionLayer actual constructor(id: String, source: 
   }
 
   actual fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>) {
-    // MapLibre GL JS rejects the unknown name and refuses the whole layer.
-    if (!mapLibreImplementsLayerProperty("fill-extrusion-rounded-corner-distance")) {
-      skipUnsupportedProperty(
-        "fill-extrusion-rounded-corner-distance",
-        distance,
-        "MapLibre GL JS does not implement it.",
-      )
-      return
-    }
     setLayoutProperty("fill-extrusion-rounded-corner-distance", distance)
   }
 

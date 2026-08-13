@@ -128,7 +128,8 @@ public actual class RasterDemSource : Source {
         put("blueFactor", demEncoding.blueFactor)
         put("baseShift", demEncoding.baseShift)
       }
-      putTileSetOptions(options)
+      // The style spec has no `scheme` on raster-dem; GL JS 6 rejects the source over it.
+      putTileSetOptions(options, includeScheme = false)
     }
   }
 

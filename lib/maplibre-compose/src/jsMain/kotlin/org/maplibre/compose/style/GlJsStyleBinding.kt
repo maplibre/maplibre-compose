@@ -151,6 +151,3 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     }
   }
 }
-
-internal actual fun mapLibreImplementsLayerProperty(name: String): Boolean =
-  name != "fill-extrusion-rounded-corner-distance"

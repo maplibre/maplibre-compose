@@ -57,9 +57,6 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param roundedCornerDistance The distance in meters from each fill extrusion corner, measured
  *   along the adjacent edges, that is replaced by a rounded corner. A value in the range of
  *   `[0..infinity)`. A value of `0` leaves corners sharp.
- *
- *   **Note**: This property is not supported on MapLibre GL JS yet.
- *
  * @param verticalGradient Whether to apply a vertical gradient to the sides of this layer. If
  *   `true`, sides will be shaded slightly darker farther down.
  * @param onClick Function to call when any feature in this layer has been clicked.

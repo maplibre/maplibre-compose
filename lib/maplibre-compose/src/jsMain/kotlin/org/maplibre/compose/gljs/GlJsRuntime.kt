@@ -8,6 +8,20 @@ import web.gl.WebGL2RenderingContext
  */
 internal object GlJsRuntime {
 
+  private var workerUrlConfigured = false
+
+  /**
+   * MapLibre GL JS 6 loads vector tiles in `maplibre-gl-worker.mjs`. Webpack copies that file, and
+   * its sibling `maplibre-gl-shared.mjs`, next to the page; this points MapLibre at them. Repeat
+   * calls are ignored.
+   */
+  fun pointAtBundledWorker() {
+    if (workerUrlConfigured) return
+    // Relative to the page: webpack and Karma both serve the file at this name next to it.
+    setWorkerUrl("maplibre-gl-worker.mjs")
+    workerUrlConfigured = true
+  }
+
   /** Runs [build] with every WebGL context request on the page answered by [gl]. */
   fun <T> lendingContext(gl: WebGL2RenderingContext, build: () -> T): T {
     val prototype = js("HTMLCanvasElement").prototype

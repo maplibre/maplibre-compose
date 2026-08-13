@@ -35,6 +35,7 @@ import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
 import org.maplibre.compose.gljs.SkikoGpuBridge
+import org.maplibre.compose.gljs.isCameraEasing
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
@@ -221,6 +222,7 @@ internal class GlJsMapSession(
           maxCanvasSize = maxTextureSize(it.gl)
         }
       }
+    GlJsRuntime.pointAtBundledWorker()
     val created =
       if (target == null) MaplibreMap(options)
       else {
@@ -657,7 +659,7 @@ internal class GlJsMapSession(
     // Registered after the call rather than before it: replacing a transition ends the old one
     // from inside this call, and that `moveend` belongs to the transition being replaced. One
     // that finished inside the call leaves the map at rest instead.
-    if (map.isEasing()) transitionWaiters += continuation
+    if (map.isCameraEasing()) transitionWaiters += continuation
     else if (continuation.isActive) continuation.resume(Unit)
   }
 
