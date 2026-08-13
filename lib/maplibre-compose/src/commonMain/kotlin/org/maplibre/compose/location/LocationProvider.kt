@@ -75,21 +75,15 @@ public sealed interface LocationBackendAvailability {
  * @property accuracy Requested accuracy and power tradeoff.
  * @property minimumInterval Preferred minimum time between delivered locations.
  * @property minimumDistance Preferred minimum movement between delivered locations.
- * @property maximumInitialFixAge Oldest cached measurement that may be emitted first, or `null` to
- *   accept a cached measurement of any age.
  */
 public data class LocationRequest(
   val accuracy: LocationAccuracy = LocationAccuracy.High,
   val minimumInterval: Duration = 1.seconds,
   val minimumDistance: Length = 1.meters,
-  val maximumInitialFixAge: Duration? = 30.seconds,
 ) {
   init {
     require(!minimumInterval.isNegative()) { "minimumInterval must not be negative" }
     require(minimumDistance.inMeters >= 0.0) { "minimumDistance must not be negative" }
-    require(maximumInitialFixAge?.isNegative() != true) {
-      "maximumInitialFixAge must not be negative"
-    }
   }
 }
 
