@@ -107,6 +107,7 @@ kotlin {
 
     androidMain {
       dependencies {
+        implementation(libs.androidx.activity.compose)
         api(libs.maplibre.android)
       }
     }
@@ -133,6 +134,7 @@ kotlin {
       implementation(kotlin("test"))
       implementation(kotlin("test-common"))
       implementation(kotlin("test-annotations-common"))
+      implementation(libs.kotlinx.coroutines.test)
 
       implementation(libs.jetbrains.compose.ui.test)
     }

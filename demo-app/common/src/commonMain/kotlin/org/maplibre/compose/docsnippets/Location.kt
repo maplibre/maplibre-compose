@@ -11,14 +11,13 @@ import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
-import org.maplibre.compose.location.rememberUserLocationState
+import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.MaplibreMap
 
 @Composable
 @OptIn(ExperimentalResourceApi::class)
 // The snippet below shows the calls alone. Requesting the permission belongs to the surrounding
 // app, which the documentation covers in prose.
-@Suppress("MissingPermission")
 fun Location() {
   // #region puck
   val cameraState = rememberCameraState()
@@ -26,7 +25,11 @@ fun Location() {
   val locationProvider = rememberDefaultLocationProvider()
   val orientationProvider =
     rememberDefaultOrientationProvider() // optional: get device orientation from sensors
-  val locationState = rememberUserLocationState(locationProvider, orientationProvider)
+  val locationState =
+    rememberLocationState(
+      provider = locationProvider,
+      orientationProvider = orientationProvider,
+    )
 
   MaplibreMap(cameraState = cameraState) {
     LocationPuck(
@@ -38,10 +41,7 @@ fun Location() {
     )
 
     LocationTrackingEffect(locationState = locationState) {
-      val position = currentLocation.location?.position?.value
-      if (position != null) {
-        cameraState.animateTo(CameraPosition(target = position, zoom = 15.0))
-      }
+      cameraState.animateTo(CameraPosition(target = currentLocation.position.value, zoom = 15.0))
     }
   }
   // #endregion puck

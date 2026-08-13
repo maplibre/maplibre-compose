@@ -24,10 +24,11 @@ import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.gms.rememberFusedLocationProvider
 import org.maplibre.compose.gms.rememberFusedOrientationProvider
+import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationPuck
-import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.mostAccurateBearing
-import org.maplibre.compose.location.rememberUserLocationState
+import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.units.extensions.inDegrees
 import org.maplibre.spatialk.units.extensions.inMeters
@@ -37,7 +38,7 @@ object GmsLocationDemo : Demo {
 
   private var locationClickedCount by mutableIntStateOf(0)
 
-  private var locationState by mutableStateOf<UserLocationState?>(null)
+  private var locationState by mutableStateOf<LocationState?>(null)
 
   @Composable
   override fun MapContent(state: DemoState, isOpen: Boolean) {
@@ -47,10 +48,14 @@ object GmsLocationDemo : Demo {
 
     // this if _is_ a permission check Lint just doesn't know that
     @SuppressLint("MissingPermission")
-    if (state.locationPermissionState.hasPermission) {
+    if (state.locationState.permission is LocationPermission.Granted) {
       val locationProvider = rememberFusedLocationProvider()
       val orientationProvider = rememberFusedOrientationProvider()
-      val locationState = rememberUserLocationState(locationProvider, orientationProvider)
+      val locationState =
+        rememberLocationState(
+          provider = locationProvider,
+          orientationProvider = orientationProvider,
+        )
 
       LaunchedEffect(locationState) { this@GmsLocationDemo.locationState = locationState }
 
@@ -75,8 +80,8 @@ object GmsLocationDemo : Demo {
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
-    if (!state.locationPermissionState.hasPermission) {
-      Button(onClick = state.locationPermissionState::requestPermission) {
+    if (state.locationState.permission !is LocationPermission.Granted) {
+      Button(onClick = state.locationState::requestPermission) {
         Text("Request permission")
       }
     } else {

@@ -11,24 +11,47 @@ import location from "../../../../demo-app/common/src/commonMain/kotlin/org/mapl
 The location module provides a cross-platform way to track and visualize user
 position in MapLibre Compose.
 
-Location support is split into a few small pieces: providers collect position
-and orientation updates, `LocationPuck` draws the user's location on the map,
-and `LocationTrackingEffect` can optionally keep the camera in sync with those
-updates.
+Location support is split into a few small pieces. A `LocationProvider` supplies
+foreground location updates, and `rememberLocationState` collects them according
+to permission and lifecycle state. `LocationPuck` draws the latest fix, and
+`LocationTrackingEffect` can keep the camera in sync with location changes.
 
 ### Overview
 
-| Component                                | Purpose                                                                            |
-| ---------------------------------------- | ---------------------------------------------------------------------------------- |
-| **`rememberDefaultLocationProvider`**    | Provides location data from GPS or other location sources.                         |
-| **`rememberDefaultOrientationProvider`** | Provides device orientation data from sensors.                                     |
-| **`LocationPuck`**                       | Visual indicator that displays the user's current position and bearing on the map. |
-| **`LocationTrackingEffect`**             | Composable effect to subscribe to location updates.                                |
+| Component                                        | Purpose                                                                            |
+| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| **`rememberDefaultLocationProvider`**            | Creates the platform location provider.                                            |
+| **`rememberDefaultLocationPermissionRequester`** | Observes and requests foreground location permission.                              |
+| **`rememberLocationState`**                      | Collects updates while enabled and lifecycle-active.                               |
+| **`rememberDefaultOrientationProvider`**         | Provides device orientation data from sensors.                                     |
+| **`LocationPuck`**                               | Visual indicator that displays the user's current position and bearing on the map. |
+| **`LocationTrackingEffect`**                     | Applies location changes to application or camera state.                           |
 
-Android and iOS provide default location and orientation providers. On Desktop
-and Web there is no default: `rememberDefaultLocationProvider` and
-`rememberDefaultOrientationProvider` throw, so supply a custom
-`LocationProvider` or `OrientationProvider`.
+Android and iOS provide default location and orientation providers. Desktop and
+Web currently return an unsupported location provider and a null orientation
+provider. `LocationState.status` reports unsupported or misconfigured location
+setup without throwing.
+
+Each collector of `LocationProvider.updates(request)` starts an independent
+platform location request. Cancelling collection stops that request and
+unregisters its callbacks. `rememberLocationState` collects updates only while
+`enabled` is true, permission is granted, and the lifecycle is active.
+
+`rememberLocationState` never requests permission automatically. Call
+`requestPermission` when the application is ready to present platform permission
+UI. This may be during startup or in response to an action such as a button click:
+
+```kotlin
+if (locationState.permission !is LocationPermission.Granted) {
+  Button(onClick = locationState::requestPermission) {
+    Text("Use my location")
+  }
+}
+```
+
+`locationState.location` is `null` until the first fix arrives, so the puck
+initially draws nothing. Afterward, the state retains the last fix when tracking
+stops or permission changes.
 
 ### Bearing
 
@@ -61,12 +84,12 @@ indicators. If you use the Material 3 extension module, pass
 `colors = LocationPuckDefaults.colors()` for themed colors. `onClick` and
 `onLongClick` can react to interactions with the puck.
 
-### Platform Options
+### Platform options
 
-#### **Android**
+#### Android
 
-Request runtime location permission before collecting location updates. For
-better accuracy on Android, use the Fused Location/Orientation Provider
+The default permission requester uses Android's runtime location permissions.
+For better accuracy, use the Fused Location/Orientation Provider
 (requires Google Play Services):
 
 ```kotlin
@@ -74,8 +97,15 @@ val locationProvider = rememberFusedLocationProvider()
 val orientationProvider = rememberFusedOrientationProvider()
 ```
 
-Maven dependency:
+Add the extension module to the Android source set:
 
-```kotlin
-implementation('com.google.android.gms:play-services-location:21.3.0')
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-composeGms = { module = "org.maplibre.compose:maplibre-compose-gms", version = "{{release}}" }
+```
+
+```kotlin title="build.gradle.kts"
+androidMain.dependencies {
+  implementation(libs.maplibre.composeGms)
+}
 ```
