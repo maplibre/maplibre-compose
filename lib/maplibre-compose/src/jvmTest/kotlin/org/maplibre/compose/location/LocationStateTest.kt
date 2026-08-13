@@ -25,7 +25,7 @@ import org.maplibre.spatialk.units.extensions.degrees
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTestApi::class)
 class LocationStateTest {
   @Test
-  fun completedProviderSessionStopsTracking() = withMainDispatcher {
+  fun completedProviderUpdatesStopTracking() = withMainDispatcher {
     runComposeUiTest {
       val expected = location(13.0)
       val lifecycleOwner = ResumedLifecycleOwner()
@@ -35,6 +35,7 @@ class LocationStateTest {
         state =
           rememberLocationState(
             provider = FiniteLocationProvider(expected),
+            permissionRequester = GrantedPermissionRequester,
             lifecycleOwner = lifecycleOwner,
           )
       }
@@ -58,6 +59,7 @@ class LocationStateTest {
         state =
           rememberLocationState(
             provider = provider,
+            permissionRequester = GrantedPermissionRequester,
             orientationProvider = orientationProvider,
             lifecycleOwner = lifecycleOwner,
           )
@@ -80,8 +82,8 @@ class LocationStateTest {
 
   @Test
   fun replacingTrackedStateMovesLocationCollectionToNewState() = runComposeUiTest {
-    val first = LocationState(FiniteLocationProvider())
-    val second = LocationState(FiniteLocationProvider())
+    val first = LocationState()
+    val second = LocationState()
     var trackedState by mutableStateOf(first)
     val observed = mutableListOf<Location>()
 
@@ -124,13 +126,17 @@ private class ResumedLifecycleOwner : LifecycleOwner {
 }
 
 private class FiniteLocationProvider(private vararg val locations: Location) : LocationProvider {
-  override val permission =
-    FixedLocationPermissionController(
+  override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    flowOf(*locations.map(LocationEvent::Fix).toTypedArray())
+}
+
+private object GrantedPermissionRequester : LocationPermissionRequester {
+  override val status =
+    MutableStateFlow<LocationPermission>(
       LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
     )
 
-  override fun updates(request: LocationRequest): Flow<LocationEvent> =
-    flowOf(*locations.map(LocationEvent::Fix).toTypedArray())
+  override fun requestForegroundPermission() = Unit
 }
 
 private class MutableOrientationProvider : OrientationProvider {

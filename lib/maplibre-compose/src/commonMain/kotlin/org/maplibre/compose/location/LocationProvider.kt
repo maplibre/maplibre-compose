@@ -22,28 +22,25 @@ import org.maplibre.spatialk.units.extensions.meters
  * powerful wrapper. In that case, you may want to provide your own [LocationProvider]
  * implementation to unify the API underneath. This is an explicitly supported use case.
  *
- * Collecting [updates] owns one foreground session. Cancelling collection must release that
- * session's callbacks and resources.
+ * Each collector of [updates] starts an independent platform location request. Cancelling
+ * collection must stop that request and unregister its callbacks.
  */
 public interface LocationProvider {
   /** Whether this provider has a location backend on the current platform and host. */
   public val isSupported: Boolean
     get() = true
 
-  /** The foreground permission controller associated with this provider. */
-  public val permission: LocationPermissionController
-
   /**
-   * Creates a cold stream for one foreground location session.
+   * Returns a cold stream of foreground location updates.
    *
-   * Collection starts the platform session. Cancelling collection releases every callback and
-   * native resource that belongs to that session.
+   * Each collector starts an independent platform location request. Cancelling collection stops
+   * that request and unregisters its callbacks.
    */
   public fun updates(request: LocationRequest): Flow<LocationEvent>
 }
 
 /**
- * Preferences for a foreground location session.
+ * Preferences for foreground location updates.
  *
  * A provider applies each preference when its platform supports that setting. A platform may ignore
  * a preference that its location API cannot express.
@@ -51,7 +48,7 @@ public interface LocationProvider {
  * @property accuracy Requested accuracy and power tradeoff.
  * @property minimumInterval Preferred minimum time between delivered locations.
  * @property minimumDistance Preferred minimum movement between delivered locations.
- * @property maximumInitialFixAge Oldest cached measurement that may start a session, or `null` to
+ * @property maximumInitialFixAge Oldest cached measurement that may be emitted first, or `null` to
  *   accept a cached measurement of any age.
  */
 public data class LocationRequest(
@@ -96,7 +93,7 @@ public enum class LocationAccuracy {
   Lowest,
 }
 
-/** Events from one collected location session. */
+/** Events emitted while collecting [LocationProvider.updates]. */
 public sealed interface LocationEvent {
   /** A measured location. */
   public data class Fix(val location: Location) : LocationEvent
@@ -113,7 +110,7 @@ public sealed interface LocationEvent {
   ) : LocationEvent
 }
 
-/** Reasons that a location session cannot currently deliver measurements. */
+/** Reasons that a provider cannot currently deliver location measurements. */
 public enum class LocationUnavailableReason {
   /**
    * The device's location services are disabled.
@@ -124,7 +121,7 @@ public enum class LocationUnavailableReason {
   ServicesDisabled,
 
   /**
-   * The provider cannot deliver a location now, but a later update or session may succeed.
+   * The provider cannot deliver a location now, but a later location request may succeed.
    *
    * For example, a device in a tunnel may temporarily lose its GPS fix, or a browser request may
    * time out before a position is available.
@@ -191,26 +188,34 @@ public sealed interface LocationPermission {
   public data class NotGranted(val canRequest: Boolean?) : LocationPermission
 }
 
-/** Observes and requests foreground location authorization. */
-public interface LocationPermissionController {
+/** Observes foreground location permission and starts platform permission requests. */
+public interface LocationPermissionRequester {
+  /**
+   * Current foreground location permission.
+   *
+   * This value also reflects changes made outside the application when the platform reports them.
+   */
   public val status: StateFlow<LocationPermission>
 
-  /** Requests foreground authorization and may present platform permission UI. */
-  public suspend fun requestForegroundPermission(): LocationPermission
+  /**
+   * Starts a foreground permission request and returns immediately.
+   *
+   * The result is published to [status]. Calls made while a request is active must not start
+   * another platform request.
+   */
+  public fun requestForegroundPermission()
 }
 
-internal class FixedLocationPermissionController(initial: LocationPermission) :
-  LocationPermissionController {
-  override val status: StateFlow<LocationPermission> = MutableStateFlow(initial)
+internal object UnsupportedLocationPermissionRequester : LocationPermissionRequester {
+  override val status: StateFlow<LocationPermission> =
+    MutableStateFlow(LocationPermission.NotGranted(canRequest = null))
 
-  override suspend fun requestForegroundPermission(): LocationPermission = status.value
+  override fun requestForegroundPermission() = Unit
 }
 
 /** A provider for a target or host that has no installed location implementation. */
 public object UnsupportedLocationProvider : LocationProvider {
   override val isSupported: Boolean = false
-  override val permission: LocationPermissionController =
-    FixedLocationPermissionController(LocationPermission.NotGranted(canRequest = null))
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
     flowOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
@@ -228,7 +233,18 @@ public object UnsupportedLocationProvider : LocationProvider {
  */
 @Composable public expect fun rememberDefaultLocationProvider(): LocationProvider
 
-/** Returns the first fix from a location session. */
+/**
+ * Creates and remembers the default foreground location permission requester.
+ *
+ * See
+ * [rememberAndroidLocationPermissionRequester][org.maplibre.compose.location.rememberAndroidLocationPermissionRequester]
+ * and
+ * [rememberIosLocationPermissionRequester][org.maplibre.compose.location.rememberIosLocationPermissionRequester].
+ */
+@Composable
+public expect fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester
+
+/** Returns the first location emitted by [LocationProvider.updates]. */
 public suspend fun LocationProvider.currentLocation(
   request: LocationRequest = LocationRequest(),
   timeout: Duration = 30.seconds,

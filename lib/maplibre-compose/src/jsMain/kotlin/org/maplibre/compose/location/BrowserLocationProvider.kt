@@ -6,6 +6,10 @@ import androidx.compose.runtime.Composable
 public actual fun rememberDefaultLocationProvider(): LocationProvider = UnsupportedLocationProvider
 
 @Composable
+public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
+  UnsupportedLocationPermissionRequester
+
+@Composable
 public actual fun rememberDefaultOrientationProvider(
   updateInterval: kotlin.time.Duration
 ): OrientationProvider = NullOrientationProvider

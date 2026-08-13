@@ -54,17 +54,9 @@ import platform.darwin.NSObject
  * and [`kCLErrorNetwork`](https://developer.apple.com/documentation/corelocation/clerror/network)
  * map to [LocationUnavailableReason.TemporarilyUnavailable]. Other Core Location errors map to
  * [LocationUnavailableReason.UnexpectedFailure].
- *
- * @param permission Foreground Core Location permission state shared with callers.
  */
-public class IosLocationProvider(override val permission: IosLocationPermissionController) :
-  LocationProvider {
+public class IosLocationProvider : LocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
-    if (permission.status.value !is LocationPermission.Granted) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied))
-      close()
-      return@callbackFlow
-    }
     if (!CLLocationManager.locationServicesEnabled()) {
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
       close()
@@ -140,6 +132,6 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider =
 
 /** Creates and remembers the default Core Location provider. */
 @Composable
-public fun rememberIosLocationProvider(
-  permission: IosLocationPermissionController = rememberIosLocationPermissionController()
-): IosLocationProvider = remember(permission) { IosLocationProvider(permission) }
+public fun rememberIosLocationProvider(): IosLocationProvider = remember {
+  IosLocationProvider()
+}

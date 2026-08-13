@@ -15,12 +15,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Foreground location permission controller for Android activities.
+ * Foreground location permission requester for Android activities.
  *
  * Fine and coarse permission map to [LocationPermission.Granted] with precise and approximate
  * accuracy. When permission is absent,
@@ -28,31 +27,29 @@ import kotlinx.coroutines.flow.StateFlow
  * maps `true` to [LocationPermission.NotGranted] with `canRequest = true`. Android returns `false`
  * both before the first request and after a permanent denial, so both map to `canRequest = null`.
  */
-public class AndroidLocationPermissionController
-internal constructor(private val activity: Activity) : LocationPermissionController {
+public class AndroidLocationPermissionRequester
+internal constructor(private val activity: Activity) : LocationPermissionRequester {
   private val mutableStatus = MutableStateFlow(readStatus())
   override val status: StateFlow<LocationPermission> = mutableStatus
 
-  private var pendingRequest: CompletableDeferred<LocationPermission>? = null
+  private var requestPending = false
   internal var launchRequest: () -> Unit = {}
 
-  override suspend fun requestForegroundPermission(): LocationPermission {
+  override fun requestForegroundPermission() {
     val current = refresh()
-    if (current is LocationPermission.Granted) return current
-    pendingRequest?.let {
-      return it.await()
+    if (current is LocationPermission.Granted || requestPending) return
+    requestPending = true
+    try {
+      launchRequest()
+    } catch (error: Throwable) {
+      requestPending = false
+      throw error
     }
-
-    val result = CompletableDeferred<LocationPermission>()
-    pendingRequest = result
-    launchRequest()
-    return result.await()
   }
 
   internal fun onRequestResult() {
-    val result = refresh()
-    pendingRequest?.complete(result)
-    pendingRequest = null
+    refresh()
+    requestPending = false
   }
 
   public fun refresh(): LocationPermission {
@@ -88,21 +85,21 @@ internal constructor(private val activity: Activity) : LocationPermissionControl
     }
 }
 
-/** Creates the permission controller used by Android location providers. */
+/** Creates the permission requester used by Android location providers. */
 @Composable
-public fun rememberAndroidLocationPermissionController(
+public fun rememberAndroidLocationPermissionRequester(
   context: Context = LocalContext.current
-): AndroidLocationPermissionController {
+): AndroidLocationPermissionRequester {
   val activity = remember(context) { context.findActivity() }
-  val controller = remember(activity) { AndroidLocationPermissionController(activity) }
+  val requester = remember(activity) { AndroidLocationPermissionRequester(activity) }
   val lifecycleOwner = LocalLifecycleOwner.current
   val launcher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-      controller.onRequestResult()
+      requester.onRequestResult()
     }
 
   SideEffect {
-    controller.launchRequest = {
+    requester.launchRequest = {
       launcher.launch(
         arrayOf(
           Manifest.permission.ACCESS_FINE_LOCATION,
@@ -111,16 +108,20 @@ public fun rememberAndroidLocationPermissionController(
       )
     }
   }
-  DisposableEffect(lifecycleOwner, controller) {
+  DisposableEffect(lifecycleOwner, requester) {
     val observer = LifecycleEventObserver { _, event ->
-      if (event == Lifecycle.Event.ON_RESUME) controller.refresh()
+      if (event == Lifecycle.Event.ON_RESUME) requester.refresh()
     }
     lifecycleOwner.lifecycle.addObserver(observer)
-    controller.refresh()
+    requester.refresh()
     onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
   }
-  return controller
+  return requester
 }
+
+@Composable
+public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
+  rememberAndroidLocationPermissionRequester()
 
 private tailrec fun Context.findActivity(): Activity =
   when (this) {

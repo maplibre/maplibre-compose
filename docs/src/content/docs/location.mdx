@@ -11,8 +11,8 @@ import location from "../../../../demo-app/common/src/commonMain/kotlin/org/mapl
 The location module provides a cross-platform way to track and visualize user
 position in MapLibre Compose.
 
-Location support is split into a few small pieces. A `LocationProvider` creates
-foreground tracking sessions, and `rememberLocationState` connects one session
+Location support is split into a few small pieces. A `LocationProvider` supplies
+foreground location updates, and `rememberLocationState` collects them according
 to permission and lifecycle state. `LocationPuck` draws the latest fix, and
 `LocationTrackingEffect` can keep the camera in sync with location changes.
 
@@ -20,8 +20,8 @@ to permission and lifecycle state. `LocationPuck` draws the latest fix, and
 
 | Component                                | Purpose                                                                            |
 | ---------------------------------------- | ---------------------------------------------------------------------------------- |
-| **`rememberDefaultLocationProvider`**    | Creates the platform provider and permission controller.                           |
-| **`rememberLocationState`**              | Owns a session while enabled and lifecycle-active.                                 |
+| **`rememberDefaultLocationProvider`**    | Creates the platform location provider.                                            |
+| **`rememberLocationState`**              | Collects updates while enabled and lifecycle-active.                               |
 | **`rememberDefaultOrientationProvider`** | Provides device orientation data from sensors.                                     |
 | **`LocationPuck`**                       | Visual indicator that displays the user's current position and bearing on the map. |
 | **`LocationTrackingEffect`**             | Applies location changes to application or camera state.                           |
@@ -30,10 +30,10 @@ Android and iOS provide default location and orientation providers. Desktop and
 Web currently return an unsupported location provider and a null orientation
 provider. Compose state exposes this condition without throwing.
 
-Collecting `LocationProvider.updates(request)` starts one platform session.
-Cancelling collection releases that session. `rememberLocationState` performs
-this collection only while `enabled` is true, permission is granted, and the
-lifecycle is active.
+Each collector of `LocationProvider.updates(request)` starts an independent
+platform location request. Cancelling collection stops that request and
+unregisters its callbacks. `rememberLocationState` collects updates only while
+`enabled` is true, permission is granted, and the lifecycle is active.
 
 `rememberLocationState` never requests permission automatically. Call
 `requestPermission` when the application is ready to present platform permission

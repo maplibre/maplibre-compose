@@ -21,8 +21,8 @@ import org.maplibre.spatialk.units.extensions.inDegrees
  * changes also trigger it when [trackBearing] is `true`.
  *
  * If [enabled] is `false`, [onLocationChange] is never called. Disabling this effect stops
- * observation but does not control [LocationState]'s platform session; pass the same enabled state
- * to [rememberLocationState] when those lifetimes should match.
+ * observation but does not control [LocationState]'s platform location request. Pass the same
+ * enabled state to [rememberLocationState] when those lifetimes should match.
  *
  * @param locationState State to observe.
  * @param enabled Whether callbacks are enabled.

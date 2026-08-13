@@ -48,12 +48,10 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * constructs and validates every request argument itself.
  *
  * @param context Context used to obtain the platform [LocationManager].
- * @param permission Foreground permission state shared with callers.
  */
-public class AndroidLocationProvider(
-  private val context: Context,
-  override val permission: AndroidLocationPermissionController,
-) : LocationProvider {
+public class AndroidLocationProvider(context: Context) : LocationProvider {
+  private val context: Context = context.applicationContext
+
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
@@ -190,10 +188,8 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider =
 /** Creates the default Android location provider. */
 @Composable
 public fun rememberAndroidLocationProvider(
-  context: Context = LocalContext.current,
-  permission: AndroidLocationPermissionController = rememberAndroidLocationPermissionController(),
-): AndroidLocationProvider =
-  remember(context, permission) { AndroidLocationProvider(context, permission) }
+  context: Context = LocalContext.current
+): AndroidLocationProvider = remember(context) { AndroidLocationProvider(context) }
 
 private fun Context.hasLocationPermission(): Boolean =
   checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
