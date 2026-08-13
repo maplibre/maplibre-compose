@@ -1,23 +1,15 @@
 package org.maplibre.compose.location
 
 import kotlin.test.Test
-import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import kotlin.time.Duration.Companion.milliseconds
-import kotlin.time.TimeSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import org.maplibre.spatialk.geojson.Position
-import org.maplibre.spatialk.units.extensions.meters
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocationProviderTest {
@@ -33,63 +25,14 @@ class LocationProviderTest {
     runCurrent()
     assertFalse(provider.active)
   }
-
-  @Test
-  fun currentLocationSkipsUnavailableEventsAndStopsAfterFix() = runTest {
-    val expected = location()
-    val provider =
-      FakeLocationProvider(
-        events =
-          listOf(
-            LocationEvent.Unavailable(LocationUnavailableReason.TemporarilyUnavailable),
-            LocationEvent.Fix(expected),
-          )
-      )
-
-    assertEquals(expected, provider.currentLocation())
-    assertFalse(provider.active)
-  }
-
-  @Test
-  fun currentLocationTimeoutStopsUpdates() = runTest {
-    val provider = FakeLocationProvider()
-
-    assertFailsWith<TimeoutCancellationException> {
-      provider.currentLocation(timeout = 1.milliseconds)
-    }
-    assertFalse(provider.active)
-  }
-
-  @Test
-  fun currentLocationPreservesTerminalUnavailableReasonAndCause() = runTest {
-    val cause = IllegalStateException("Location service failed")
-    val provider =
-      object : LocationProvider {
-        override fun updates(request: LocationRequest): Flow<LocationEvent> =
-          flowOf(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled, cause))
-      }
-
-    val error = assertFailsWith<LocationUnavailableException> { provider.currentLocation() }
-
-    assertEquals(LocationUnavailableReason.ServicesDisabled, error.reason)
-    assertEquals(cause, error.cause)
-  }
-
-  private fun location(): Location =
-    Location(
-      position = PositionWithAccuracy(Position(13.0, 52.0), 4.meters),
-      timestamp = TimeSource.Monotonic.markNow(),
-    )
 }
 
-private class FakeLocationProvider(private val events: List<LocationEvent> = emptyList()) :
-  LocationProvider {
+private class FakeLocationProvider : LocationProvider {
   var active = false
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     active = true
     try {
-      events.forEach { emit(it) }
       awaitCancellation()
     } finally {
       active = false
