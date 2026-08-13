@@ -98,10 +98,17 @@ val locationProvider = rememberFusedLocationProvider()
 val orientationProvider = rememberFusedOrientationProvider()
 ```
 
-Maven dependency:
+Add the extension module to the Android source set:
 
-```kotlin
-implementation('com.google.android.gms:play-services-location:21.3.0')
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-composeGms = { module = "org.maplibre.compose:maplibre-compose-gms", version = "{{release}}" }
+```
+
+```kotlin title="build.gradle.kts"
+androidMain.dependencies {
+  implementation(libs.maplibre.composeGms)
+}
 ```
 
 #### Web
