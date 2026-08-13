@@ -987,11 +987,6 @@ internal class MlnFfiMapSession(
     }
   }
 
-  override fun setOrnamentSettings(value: OrnamentOptions) {
-    // MapLibre Native has no ornament widgets outside the mobile SDKs, so there is nothing to
-    // forward.
-  }
-
   override fun setGestureSettings(value: GestureOptions) {
     // Gestures are implemented in Compose, so these options are read by the host's input
     // handling rather than pushed into the map.

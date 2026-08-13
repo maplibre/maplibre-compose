@@ -96,7 +96,7 @@ internal constructor(private val boundary: BrowserGeolocationBoundary) : Locatio
           previous = null
           trySend(LocationEvent.Unavailable(reason))
           if (reason == LocationUnavailableReason.PermissionDenied) {
-            boundary.permissionState.accept(LocationPermission.NotGranted(canRequest = false))
+            boundary.permissionState.acceptDenial()
             close()
           }
         }
@@ -183,7 +183,7 @@ internal class BrowserLocationPermissionRequester(
             )
           is BrowserResult.Error ->
             if (result.value == BrowserError.PermissionDenied) {
-              acceptDenied()
+              boundary.permissionState.acceptDenial()
             } else {
               boundary.permissionState.accept(
                 LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
@@ -197,10 +197,6 @@ internal class BrowserLocationPermissionRequester(
         requestPending = false
       }
     }
-  }
-
-  internal fun acceptDenied() {
-    boundary.permissionState.accept(LocationPermission.NotGranted(canRequest = false))
   }
 
   private companion object {
@@ -267,6 +263,12 @@ internal class BrowserLocationPermissionState {
 
   fun accept(permission: LocationPermission) {
     mutableStatus.value = permission
+  }
+
+  fun acceptDenial() {
+    if (mutableStatus.value is LocationPermission.Granted) {
+      mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+    }
   }
 }
 

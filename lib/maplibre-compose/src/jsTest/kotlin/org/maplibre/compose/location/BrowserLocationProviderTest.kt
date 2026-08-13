@@ -101,10 +101,10 @@ class BrowserLocationProviderTest {
     boundary.send(BrowserResult.Error(BrowserError.PermissionDenied))
     runCurrent()
 
-    assertEquals(LocationPermission.NotGranted(canRequest = false), requester.status.value)
+    assertEquals(LocationPermission.NotGranted(canRequest = null), requester.status.value)
     requester.requestForegroundPermission()
     runCurrent()
-    assertEquals(emptyList(), boundary.requestedOptions)
+    assertEquals(1, boundary.requestedOptions.size)
     assertEquals(1, boundary.stopCount)
   }
 
@@ -167,8 +167,11 @@ class BrowserLocationProviderTest {
     runCurrent()
     requester.requestForegroundPermission()
     runCurrent()
-    assertEquals(LocationPermission.NotGranted(canRequest = false), requester.status.value)
-    assertEquals(1.seconds, boundary.requestedOptions.single().timeout)
+    assertEquals(LocationPermission.NotGranted(canRequest = true), requester.status.value)
+    requester.requestForegroundPermission()
+    runCurrent()
+    assertEquals(2, boundary.requestedOptions.size)
+    assertEquals(listOf(1.seconds, 1.seconds), boundary.requestedOptions.map { it.timeout })
   }
 
   @Test

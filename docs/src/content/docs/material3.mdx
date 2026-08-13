@@ -1,28 +1,17 @@
 ---
 title: Material 3 extensions
-description: Replace the default map ornaments with Material 3 controls you can position and style.
+description: Theme the map controls from your Material 3 color scheme and typography.
 ---
 
-import { Aside, Code } from "@astrojs/starlight/components";
+import { Code } from "@astrojs/starlight/components";
 import { region } from "../../snippets";
 
 import material3 from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Material3.kt?raw";
 
-<Aside type="caution">
-  While this module is available across all platforms, you won't be able to use
-  it on top of the map on Web or Desktop due to technical limitations in Compose
-  Multiplatform. See YouTrack issue
-  [CMP-6001](https://youtrack.jetbrains.com/issue/CMP-6001) and
-  [CMP-6856](https://youtrack.jetbrains.com/issue/CMP-6856).
-
-  Android and iOS are not affected by this limitation.
-</Aside>
-
-## Getting Started
-
-We provide reimplementations of certain ornaments using Material 3. These are
-regular Compose UI components, so you can position them arbitrarily, style them,
-animate them, etc.
+The controls that the base library draws take their colors from a fixed palette
+that reads over any basemap, because Compose Foundation carries no theme. This
+module replaces them with versions that read your Material 3 color scheme and
+typography.
 
 To get started, add the dependency to your project:
 
@@ -37,16 +26,18 @@ commonMain.dependencies {
 }
 ```
 
-Then, disable the default ornaments and add the Material controls after the
-`MaplibreMap` in a shared `Box`.
+`MapOverlay.Material3` draws the same controls as `MapOverlay.Default` in the
+same places, so switching to it is one parameter:
+
+<Code code={region(material3, "overlay")} lang="kotlin" title="App.kt" />
+
+## Arrange the controls yourself
+
+Each control is also a composable you can place in a `MapOverlay` of your own.
+See [Map controls](/maplibre-compose/controls/) for how the overlay lays out.
 
 <Code code={region(material3, "controls")} lang="kotlin" title="App.kt" />
 
-There are also disappearing versions of the controls which appear when relevant
-and fade out after a certain time:
-
-<Code code={region(material3, "disappearing-controls")} lang="kotlin" title="App.kt" />
-
-1. Appears when the zoom level changes; fades away when zoom is idle.
-2. Appears when the map is rotated or tilted away from north and straight down;
-   fades away when the map orientation is reset.
+1. `ScaleBar` and `CompassButton` stay on screen. The `Disappearing` versions
+   that `MapOverlay.Material3` uses fade in when the zoom or the orientation
+   changes, and fade out once it settles.

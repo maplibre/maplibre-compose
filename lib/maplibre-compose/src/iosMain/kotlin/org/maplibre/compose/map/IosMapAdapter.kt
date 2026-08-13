@@ -27,11 +27,6 @@ import MapLibre.MLNMapDebugTileInfoMask
 import MapLibre.MLNMapDebugTimestampsMask
 import MapLibre.MLNMapView
 import MapLibre.MLNMapViewDelegateProtocol
-import MapLibre.MLNOrnamentPosition
-import MapLibre.MLNOrnamentPositionBottomLeft
-import MapLibre.MLNOrnamentPositionBottomRight
-import MapLibre.MLNOrnamentPositionTopLeft
-import MapLibre.MLNOrnamentPositionTopRight
 import MapLibre.MLNSource
 import MapLibre.MLNStyle
 import MapLibre.allowsTilting
@@ -68,15 +63,12 @@ import org.maplibre.compose.util.toCLLocationCoordinate2D
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toFeature
 import org.maplibre.compose.util.toMLNCoordinateBounds
-import org.maplibre.compose.util.toMLNOrnamentPosition
 import org.maplibre.compose.util.toNSPredicate
 import org.maplibre.compose.util.toPosition
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
-import platform.CoreGraphics.CGPoint
-import platform.CoreGraphics.CGPointMake
 import platform.CoreGraphics.CGSize
 import platform.CoreLocation.CLLocationCoordinate2DMake
 import platform.Foundation.NSError
@@ -107,6 +99,13 @@ internal class IosMapAdapter(
 
   init {
     mapView.automaticallyAdjustsContentInset = false
+
+    // The map draws its logo, attribution, compass, and scale bar in Compose, so the iOS SDK's
+    // own views would duplicate them.
+    mapView.logoView.hidden = true
+    mapView.attributionButton.hidden = true
+    mapView.compassView.hidden = true
+    mapView.scaleBar.hidden = true
 
     addGestures(
       Gesture(UITapGestureRecognizer()) {
@@ -328,79 +327,6 @@ internal class IosMapAdapter(
     mapView.allowsTilting = value.isTiltEnabled
     mapView.zoomEnabled = value.isZoomEnabled
     mapView.hapticFeedbackEnabled = value.isHapticFeedbackEnabled
-  }
-
-  private fun calculateMargins(
-    ornamentPosition: MLNOrnamentPosition,
-    uiPadding: PaddingValues,
-  ): CValue<CGPoint> {
-    return when (ornamentPosition) {
-      MLNOrnamentPositionTopLeft ->
-        CGPointMake(
-          (uiPadding.calculateLeftPadding(layoutDir).value -
-              insetPadding.calculateLeftPadding(layoutDir).value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-          (uiPadding.calculateTopPadding().value - insetPadding.calculateTopPadding().value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-        )
-
-      MLNOrnamentPositionTopRight ->
-        CGPointMake(
-          (uiPadding.calculateRightPadding(layoutDir).value -
-              insetPadding.calculateRightPadding(layoutDir).value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-          (uiPadding.calculateTopPadding().value - insetPadding.calculateTopPadding().value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-        )
-
-      MLNOrnamentPositionBottomLeft -> {
-        CGPointMake(
-          (uiPadding.calculateLeftPadding(layoutDir).value -
-              insetPadding.calculateLeftPadding(layoutDir).value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-          (uiPadding.calculateBottomPadding().value - insetPadding.calculateBottomPadding().value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-        )
-      }
-
-      MLNOrnamentPositionBottomRight ->
-        CGPointMake(
-          (uiPadding.calculateRightPadding(layoutDir).value -
-              insetPadding.calculateRightPadding(layoutDir).value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-          (uiPadding.calculateBottomPadding().value - insetPadding.calculateBottomPadding().value)
-            .toDouble()
-            .coerceAtLeast(0.0) + 8.0,
-        )
-
-      else -> error("Invalid ornament position")
-    }
-  }
-
-  override fun setOrnamentSettings(value: OrnamentOptions) {
-    mapView.logoView.hidden = !value.isLogoEnabled
-    mapView.logoViewPosition = value.logoAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.logoViewMargins = calculateMargins(mapView.logoViewPosition, value.padding)
-
-    mapView.attributionButton.hidden = !value.isAttributionEnabled
-    mapView.attributionButtonPosition = value.attributionAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.attributionButtonMargins =
-      calculateMargins(mapView.attributionButtonPosition, value.padding)
-
-    mapView.compassView.hidden = !value.isCompassEnabled
-    mapView.compassViewPosition = value.compassAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.compassViewMargins = calculateMargins(mapView.compassViewPosition, value.padding)
-
-    mapView.scaleBar.hidden = !value.isScaleBarEnabled
-    mapView.scaleBarPosition = value.scaleBarAlignment.toMLNOrnamentPosition(layoutDir)
-    mapView.scaleBarMargins = calculateMargins(mapView.scaleBarPosition, value.padding)
   }
 
   private fun CameraPosition.toMLNMapCamera(): MLNMapCamera {
