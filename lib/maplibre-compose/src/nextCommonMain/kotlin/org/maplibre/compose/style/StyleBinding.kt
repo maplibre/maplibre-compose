@@ -87,3 +87,9 @@ internal enum class LayerPropertyKind {
 /** A style mutation MapLibre refused. */
 internal class StyleMutationException(message: String?, cause: Throwable?) :
   RuntimeException(message, cause)
+
+/**
+ * Whether this MapLibre backend accepts [name] as a layer property. Unknown names must stay off the
+ * layer object: MapLibre refuses the whole layer rather than ignoring the extra key.
+ */
+internal expect fun mapLibreImplementsLayerProperty(name: String): Boolean

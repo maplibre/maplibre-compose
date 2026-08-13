@@ -334,7 +334,17 @@ class LayerPropertyRoundTripTest {
         Case("fill-extrusion-vertical-gradient", "false") {
           it.setFillExtrusionVerticalGradient(const(false).c())
         },
-      )
+      ) +
+        // MapLibre GL JS rejects the unknown layout name and refuses the whole layer.
+        if (mapLibreFlavor == MapLibreFlavor.NATIVE) {
+          listOf(
+            Case("fill-extrusion-rounded-corner-distance", "10.0") {
+              it.setFillExtrusionRoundedCornerDistance(const(10f).c())
+            }
+          )
+        } else {
+          emptyList()
+        }
 
     val HEATMAP_CASES =
       listOf<Case<HeatmapLayer>>(

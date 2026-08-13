@@ -88,3 +88,5 @@ internal interface MlnFfiStyleBinding : StyleBinding {
       }
   }
 }
+
+internal actual fun mapLibreImplementsLayerProperty(name: String): Boolean = true

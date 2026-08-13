@@ -51,6 +51,12 @@ internal actual class FillExtrusionLayer actual constructor(id: String, source: 
     impl.setProperties(PropertyFactory.fillExtrusionBase(base.toMLNExpression()))
   }
 
+  actual fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>) {
+    impl.setProperties(
+      PropertyFactory.fillExtrusionRoundedCornerDistance(distance.toMLNExpression())
+    )
+  }
+
   actual fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>) {
     impl.setProperties(
       PropertyFactory.fillExtrusionVerticalGradient(verticalGradient.toMLNExpression())

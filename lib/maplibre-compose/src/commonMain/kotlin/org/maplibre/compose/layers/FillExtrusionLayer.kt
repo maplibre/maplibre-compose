@@ -54,6 +54,12 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param base The height in meters with which to extrude the base of the geometries, i.e. the lower
  *   end of the 3D polygon. A value in the range of `[0..infinity)`. Must be less than or equal to
  *   [height].
+ * @param roundedCornerDistance The distance in meters from each fill extrusion corner, measured
+ *   along the adjacent edges, that is replaced by a rounded corner. A value in the range of
+ *   `[0..infinity)`. A value of `0` leaves corners sharp.
+ *
+ *   **Note**: This property is not supported on MapLibre GL JS yet.
+ *
  * @param verticalGradient Whether to apply a vertical gradient to the sides of this layer. If
  *   `true`, sides will be shaded slightly darker farther down.
  * @param onClick Function to call when any feature in this layer has been clicked.
@@ -76,6 +82,7 @@ public fun FillExtrusionLayer(
   pattern: Expression<ImageValue> = nil(),
   height: Expression<FloatValue> = const(0f),
   base: Expression<FloatValue> = const(0f),
+  roundedCornerDistance: Expression<FloatValue> = nil(),
   verticalGradient: Expression<BooleanValue> = const(true),
   onClick: FeaturesClickHandler? = null,
   onLongClick: FeaturesClickHandler? = null,
@@ -90,6 +97,7 @@ public fun FillExtrusionLayer(
   val compiledPattern = compile(pattern)
   val compiledHeight = compile(height)
   val compiledBase = compile(base)
+  val compiledRoundedCornerDistance = compile(roundedCornerDistance)
   val compiledVerticalGradient = compile(verticalGradient)
 
   SourceReferenceEffect(source)
@@ -109,6 +117,7 @@ public fun FillExtrusionLayer(
       set(compiledPattern) { layer.setFillExtrusionPattern(it) }
       set(compiledHeight) { layer.setFillExtrusionHeight(it) }
       set(compiledBase) { layer.setFillExtrusionBase(it) }
+      set(compiledRoundedCornerDistance) { layer.setFillExtrusionRoundedCornerDistance(it) }
       set(compiledVerticalGradient) { layer.setFillExtrusionVerticalGradient(it) }
     },
     onClick = onClick,
@@ -134,6 +143,8 @@ internal expect class FillExtrusionLayer(id: String, source: Source) : FeatureLa
   fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>)
 
   fun setFillExtrusionBase(base: CompiledExpression<FloatValue>)
+
+  fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>)
 
   fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>)
 }
