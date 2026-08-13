@@ -106,11 +106,14 @@ implementation('com.google.android.gms:play-services-location:21.3.0')
 
 #### Web
 
-The default web provider uses `navigator.geolocation`. Browsers require a secure
-context, except for development origins such as `localhost`, and may also block
-location through permissions policy. Calling `requestPermission` starts a
-one-shot request so that the browser can present its prompt; active tracking then
-uses a watch that is removed when collection stops.
+The default web provider uses `navigator.geolocation`. Browsers require a
+[secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts),
+except for development origins such as `localhost`, and may also block location
+through the
+[`geolocation` permissions policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy/geolocation).
+Calling `requestPermission` starts a one-shot request so that the browser can
+present its prompt; active tracking then uses a watch that is removed when
+collection stops.
 
 Browsers only accept high-accuracy and cached-fix preferences. The provider
 applies `minimumInterval` after receiving fixes and ignores `minimumDistance`.

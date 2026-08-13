@@ -41,7 +41,7 @@ import web.permissions.query
 
 /**
  * A browser location provider backed by the
- * [W3C Geolocation API](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API).
+ * [Geolocation API](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation_API).
  *
  * [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] set
  * [`PositionOptions.enableHighAccuracy`](https://developer.mozilla.org/en-US/docs/Web/API/Geolocation/getCurrentPosition#enablehighaccuracy)
@@ -50,7 +50,9 @@ import web.permissions.query
  * because [`PositionOptions`](https://developer.mozilla.org/en-US/docs/Web/API/PositionOptions) has
  * no distance threshold.
  *
- * A missing Geolocation API maps to [LocationUnavailableReason.Unsupported].
+ * A missing Geolocation API maps [LocationProvider.backendAvailability] to
+ * [LocationBackendAvailability.Unsupported], and collection emits
+ * [LocationUnavailableReason.Unsupported].
  * [`GeolocationPositionError.PERMISSION_DENIED`](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError/code#geolocationpositionerror.permission_denied)
  * maps to [LocationUnavailableReason.PermissionDenied].
  * [`POSITION_UNAVAILABLE`](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError/code#geolocationpositionerror.position_unavailable)
@@ -147,14 +149,7 @@ public actual fun rememberDefaultOrientationProvider(
   updateInterval: Duration
 ): OrientationProvider = NullOrientationProvider
 
-/**
- * Observes and requests browser geolocation permission.
- *
- * [`PermissionStatus.state`](https://developer.mozilla.org/en-US/docs/Web/API/PermissionStatus/state)
- * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.NotGranted] with
- * `canRequest = true`, and `denied` to `canRequest = false`. A browser without the Permissions API
- * reports `canRequest = null` until an explicit request determines the result.
- */
+/** Observes and requests browser geolocation permission. */
 internal class BrowserLocationPermissionRequester(
   private val boundary: BrowserGeolocationBoundary,
   private val coroutineScope: CoroutineScope,
@@ -226,7 +221,16 @@ internal class BrowserLocationPermissionRequester(
   }
 }
 
-/** Creates and remembers the browser geolocation permission requester. */
+/**
+ * Creates and remembers the browser geolocation permission requester.
+ *
+ * [`PermissionStatus.state`](https://developer.mozilla.org/en-US/docs/Web/API/PermissionStatus/state)
+ * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.NotGranted] with
+ * `canRequest = true`, and `denied` to `canRequest = false`. A browser without the Permissions API
+ * reports `canRequest = null` until an explicit request determines the result. A missing
+ * Geolocation API maps [LocationPermissionRequester.backendAvailability] to
+ * [LocationBackendAvailability.Unsupported].
+ */
 @Composable
 public fun rememberBrowserLocationPermissionRequester(): LocationPermissionRequester {
   val scope = rememberCoroutineScope()
