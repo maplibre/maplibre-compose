@@ -64,13 +64,16 @@ public class IosOrientationProvider(
             )
           )
         }
+
+        fun stop(manager: CLLocationManager) {
+          manager.stopUpdatingHeading()
+          manager.delegate = null
+        }
       }
     manager.delegate = delegate
     if (CLLocationManager.headingAvailable()) manager.startUpdatingHeading()
-    awaitClose {
-      manager.stopUpdatingHeading()
-      manager.delegate = null
-    }
+    // Retaining the delegate in this closure is required because CLLocationManager does not.
+    awaitClose { delegate.stop(manager) }
   }
     .flowOn(Dispatchers.Main)
     .sample(updateInterval)
