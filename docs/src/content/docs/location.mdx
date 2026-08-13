@@ -27,10 +27,11 @@ to permission and lifecycle state. `LocationPuck` draws the latest fix, and
 | **`LocationPuck`**                               | Visual indicator that displays the user's current position and bearing on the map. |
 | **`LocationTrackingEffect`**                     | Applies location changes to application or camera state.                           |
 
-Android and iOS provide default location and orientation providers. Desktop and
-Web currently return an unsupported location provider and a null orientation
-provider. `LocationState.status` reports unsupported or misconfigured location
-setup without throwing.
+Android and iOS provide default location and orientation providers. Web provides
+location through the browser Geolocation API and a null orientation provider.
+Desktop returns an unsupported location provider until an application adds a
+host backend. `LocationState.status` reports unsupported or misconfigured
+location setup without throwing.
 
 Each collector of `LocationProvider.updates(request)` starts an independent
 platform location request. Cancelling collection stops that request and
@@ -109,3 +110,18 @@ androidMain.dependencies {
   implementation(libs.maplibre.composeGms)
 }
 ```
+
+#### Web
+
+The default web provider uses `navigator.geolocation`. Browsers require a
+[secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts),
+except for development origins such as `localhost`, and may also block location
+through the
+[`geolocation` permissions policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy/geolocation).
+Calling `requestPermission` starts a one-shot request so that the browser can
+present its prompt; active tracking then uses a watch that is removed when
+collection stops.
+
+The browser API accepts a high-accuracy preference but has no interval or
+distance thresholds. The provider applies `minimumInterval` after receiving
+fixes and ignores `minimumDistance`.
