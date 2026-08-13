@@ -78,26 +78,30 @@ constructor(private val locationClient: FusedLocationProviderClient) : LocationP
       }
 
     try {
-      locationClient
-        .getLastLocation(
-          LastLocationRequest.Builder()
-            .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
-            .build()
-        )
-        .await()
-        ?.let { location ->
-          trySend(LocationEvent.Fix(location.asMapLibreLocation()))
-        }
+      try {
+        locationClient
+          .getLastLocation(
+            LastLocationRequest.Builder()
+              .setGranularity(Granularity.GRANULARITY_PERMISSION_LEVEL)
+              .build()
+          )
+          .await()
+          ?.let { location ->
+            trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+          }
 
-      locationClient
-        .requestLocationUpdates(request.asGmsLocationRequest(), dispatcher.executor, callback)
-        .await()
-    } catch (error: SecurityException) {
-      trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
-      close()
+        locationClient
+          .requestLocationUpdates(request.asGmsLocationRequest(), dispatcher.executor, callback)
+          .await()
+      } catch (error: SecurityException) {
+        trySend(LocationEvent.Unavailable(LocationUnavailableReason.PermissionDenied, error))
+        close()
+      }
+
+      awaitClose()
+    } finally {
+      locationClient.removeLocationUpdates(callback)
     }
-
-    awaitClose { locationClient.removeLocationUpdates(callback) }
   }
 
   private companion object {
