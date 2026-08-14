@@ -89,6 +89,7 @@ internal fun IosMapView(
         currentMap =
           IosMapAdapter(
             mapView = mapView,
+            initialBaseStyle = style,
             size = CGSizeMake(width.value.toDouble(), height.value.toDouble()),
             layoutDir = layoutDir,
             density = density,

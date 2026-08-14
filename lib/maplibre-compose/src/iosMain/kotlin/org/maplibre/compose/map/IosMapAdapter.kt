@@ -85,6 +85,7 @@ import platform.darwin.sel_registerName
 
 internal class IosMapAdapter(
   private var mapView: MLNMapView,
+  initialBaseStyle: BaseStyle,
   internal var size: CValue<CGSize>,
   internal var layoutDir: LayoutDirection,
   internal var density: Density,
@@ -150,7 +151,6 @@ internal class IosMapAdapter(
     override fun mapViewDidFailLoadingMap(mapView: MLNMapView, withError: NSError) {
       map.logger?.e { "Map failed to load: $withError" }
       map.callbacks.onMapFailLoading(withError.localizedFailureReason)
-      // Settle the in-flight slot on failure too, or future style changes wedge forever.
       map.onStyleLoadSettled()
     }
 
@@ -223,18 +223,15 @@ internal class IosMapAdapter(
     }
   }
 
-  private var lastBaseStyle: BaseStyle? = null
-
-  // Coalesces overlapping native style loads — a second load starting before the first
-  // settles can crash with MLNInvalidStyleLayerException/-SourceException (#835, #244).
-  private var styleLoadInFlight: BaseStyle? = null
+  private var lastBaseStyle: BaseStyle? = initialBaseStyle
+  private var styleLoadInFlight: BaseStyle? = initialBaseStyle
   private var pendingBaseStyle: BaseStyle? = null
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
     if (styleLoadInFlight != null) {
-      pendingBaseStyle = style
+      pendingBaseStyle = style.takeIf { it != styleLoadInFlight }
       return
     }
     beginStyleLoad(style)
