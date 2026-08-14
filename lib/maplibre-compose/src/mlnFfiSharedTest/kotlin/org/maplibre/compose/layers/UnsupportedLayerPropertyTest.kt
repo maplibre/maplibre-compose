@@ -8,7 +8,6 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -62,15 +61,14 @@ class UnsupportedLayerPropertyTest {
 
       layer.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
-        // MapLibre answers JSON null for a property it holds no value for, so that is what "was
-        // never written" looks like here.
+        // MapLibre returns nothing for a property it holds no value for.
         assertEquals(
-          JsonNull,
+          null,
           map.layerProperty("labels", "icon-overlap")?.toJsonElement(),
           "icon-overlap should not be written",
         )
         assertEquals(
-          JsonNull,
+          null,
           map.layerProperty("labels", "text-overlap")?.toJsonElement(),
           "text-overlap should not be written",
         )
@@ -93,11 +91,13 @@ class UnsupportedLayerPropertyTest {
       )
 
       layer.setIconOverlap(const("never").compile(ExpressionContext.None))
-      assertEquals(
-        JsonNull,
-        layer.onMap { map -> map.layerProperty("labels", "icon-overlap")?.toJsonElement() },
-        "icon-overlap should still not be written after attach",
-      )
+      layer.onMap { map ->
+        assertEquals(
+          null,
+          map.layerProperty("labels", "icon-overlap")?.toJsonElement(),
+          "icon-overlap should still not be written after attach",
+        )
+      }
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }

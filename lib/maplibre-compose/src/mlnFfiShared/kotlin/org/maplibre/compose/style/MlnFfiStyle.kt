@@ -2,18 +2,22 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Density
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.UnknownSource
+import org.maplibre.compose.sources.toStyleSpecEncoding
 import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toPremultipliedRgba8
 import org.maplibre.nativeffi.map.MapHandle
@@ -21,6 +25,8 @@ import org.maplibre.nativeffi.style.ImageContent
 import org.maplibre.nativeffi.style.ImageStretch
 import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.nativeffi.style.StyleImageOptions
+import org.maplibre.nativeffi.style.TileJson
+import org.maplibre.nativeffi.style.TileScheme
 
 /** The style of a live map. Everything here runs on the map's owner thread through [binding]. */
 internal class MlnFfiStyle(
@@ -159,19 +165,51 @@ internal class MlnFfiStyle(
   }
 
   /**
-   * Rebuilds a source that the base style owns. Only [UnknownSource] is produced: the typed source
-   * classes carry construction options MapLibre does not report back.
+   * Rebuilds a source that the base style owns. Only [UnknownSource] is produced: typed source
+   * classes still carry construction options MapLibre does not report back, such as GeoJSON cluster
+   * settings.
    */
   private fun reconstructSource(map: MapHandle, id: String): Source =
     UnknownSource(id, sourceDefinition(map, id)).also { it.bindExisting(binding) }
 
-  private fun sourceDefinition(map: MapHandle, id: String): JsonObject = buildJsonObject {
-    // Through toStyleSpecType rather than toString: the enum's toString is not style-spec JSON.
-    map.styleSourceType(id)?.toStyleSpecType()?.let { put("type", it) }
-    val attribution =
-      map.styleSourceInfo(id)?.attribution?.takeIf { it.isNotEmpty() }
-        ?: declaredAttribution(map, id)
-    attribution?.let { put("attribution", it) }
+  private fun sourceDefinition(map: MapHandle, id: String): JsonObject {
+    val info = map.styleSourceInfo(id)
+    return buildJsonObject {
+      (info?.type ?: map.styleSourceType(id))?.toStyleSpecType()?.let { put("type", it) }
+      val attribution =
+        info?.attribution?.takeIf { it.isNotEmpty() } ?: declaredAttribution(map, id)
+      attribution?.let { put("attribution", it) }
+      info?.tileSize?.takeIf { it > 0 }?.let { put("tileSize", it) }
+      if (info?.type == SourceType.VECTOR) {
+        info.vectorEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+      }
+      if (info?.type == SourceType.RASTER_DEM) {
+        info.rasterDemEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+      }
+      val url = info?.url?.takeIf { it.isNotEmpty() }
+      if (url != null) put("url", url) else info?.tileJson?.let { putTileJson(it) }
+    }
+  }
+
+  private fun JsonObjectBuilder.putTileJson(tileJson: TileJson) {
+    if (tileJson.tileUrls.isNotEmpty()) {
+      putJsonArray("tiles") { tileJson.tileUrls.forEach { add(it) } }
+    }
+    put("minzoom", tileJson.minZoom)
+    put("maxzoom", tileJson.maxZoom)
+    when (tileJson.scheme) {
+      TileScheme.XYZ -> put("scheme", "xyz")
+      TileScheme.TMS -> put("scheme", "tms")
+      else -> Unit
+    }
+    tileJson.bounds?.toBoundingBox()?.let { box ->
+      putJsonArray("bounds") {
+        add(box.west)
+        add(box.south)
+        add(box.east)
+        add(box.north)
+      }
+    }
   }
 
   /**
@@ -183,7 +221,7 @@ internal class MlnFfiStyle(
     val sources =
       declaredSources
         ?: run {
-          val document = runCatching { Json.parseToJsonElement(map.loadedStyleJson()) }.getOrNull()
+          val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull()
           ((document as? JsonObject)?.get("sources") as? JsonObject ?: JsonObject(emptyMap()))
             .also { declaredSources = it }
         }

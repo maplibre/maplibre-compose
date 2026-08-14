@@ -1,12 +1,12 @@
 package org.maplibre.compose.mlnffi
 
+import java.io.File
+import java.net.URI
 import kotlinx.io.files.Path
 import org.maplibre.compose.testing.RgbaPixel
 
 /** Platform services required by otherwise shared MapLibre Native FFI tests. */
 internal expect object FfiTestPlatform {
-  val runtimeCapabilities: FfiTestRuntimeCapabilities
-
   /** Initializes the packaged native runtime and any process-wide platform services. */
   fun initialize()
 
@@ -18,25 +18,18 @@ internal expect object FfiTestPlatform {
 
   /** Creates the render driver for the native runtime packaged into this test process. */
   fun createRenderDriver(): FfiTestRenderDriver
-
-  /** Records a capability-dependent test as skipped in the platform's test runner. */
-  fun skip(reason: String): Nothing
 }
 
 /**
- * The `file:` URL naming [path], built the way the platform builds one.
+ * The `file:` URL naming [path].
  *
- * A Windows path carries a drive letter and a backslash separator, and any path may carry
- * characters a URL must percent-encode, so this conversion belongs to the platform rather than to
- * string concatenation.
+ * Built with [File.toURI] so a Windows drive letter and backslash separators become a URI path, and
+ * reserved characters are percent-encoded.
  */
-internal expect fun fileUrlOf(path: Path): String
+internal fun fileUrlOf(path: Path): String = File(path.toString()).toURI().toString()
 
 /** The path [url] names. Inverse of [fileUrlOf], so that a test can check the round trip. */
-internal expect fun pathOfFileUrl(url: String): Path
-
-/** Feature availability of the packaged FFI runtime/binding pair. */
-internal data class FfiTestRuntimeCapabilities(val customGeometrySourceCallbacks: Boolean)
+internal fun pathOfFileUrl(url: String): Path = Path(File(URI(url)).absolutePath)
 
 /**
  * Platform/backend mechanics underneath the shared real-map fixture.

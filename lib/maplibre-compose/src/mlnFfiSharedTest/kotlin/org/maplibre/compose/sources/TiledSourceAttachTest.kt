@@ -14,7 +14,7 @@ import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
-/** MapLibre reports back only a source's type, volatility, and attribution. */
+/** MapLibre reports a tiled source's type, templates, and attribution. */
 class TiledSourceAttachTest {
 
   @Test
@@ -49,6 +49,7 @@ class TiledSourceAttachTest {
         assertEquals(SourceType.RASTER, map.styleSourceType("tiles"))
         assertEquals(SourceType.RASTER, map.styleSourceType("url"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
+        assertEquals(listOf(TILE_TEMPLATE), map.styleSourceInfo("tiles")?.tileJson?.tileUrls)
         assertEquals("tiles", map.layerSourceId("raster"))
       }
       assertEquals(emptyList(), it.errors, "the map should report nothing")

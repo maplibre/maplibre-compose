@@ -2,7 +2,6 @@ package org.maplibre.compose.mlnffi
 
 import android.opengl.EGL14
 import android.opengl.EGLConfig
-import android.opengl.EGLContext
 import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
 import android.opengl.GLES20
@@ -11,14 +10,14 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.nativeffi.render.OpenGLClientApi
+import org.maplibre.nativeffi.render.OpenGLContextOwnership
 
 /** Deterministic offscreen GLES host for the shared real-map test corpus. */
 internal class AndroidEglTestRenderDriver
-private constructor(
-  private val display: EGLDisplay,
-  private val config: EGLConfig,
-  private var context: EGLContext,
-) : FfiTestRenderDriver {
+private constructor(private val display: EGLDisplay, private val config: EGLConfig) :
+  FfiTestRenderDriver {
   private var surface: EGLSurface = EGL14.EGL_NO_SURFACE
   private val retiredSurfaces = mutableListOf<EGLSurface>()
   private var extent = MapExtent.Empty
@@ -48,8 +47,10 @@ private constructor(
               EglContextHandles(
                 display = NativeHandle(display.nativeHandle),
                 config = NativeHandle(config.nativeHandle),
-                shareContext = NativeHandle(context.nativeHandle),
+                shareContext = NativeHandle(0L),
                 getProcAddress = NativeHandle(0L),
+                ownership = OpenGLContextOwnership.DEDICATED,
+                clientApi = OpenGLClientApi.GLES,
               ),
             surface = NativeHandle(surface.nativeHandle),
             extent = extent,
@@ -67,10 +68,7 @@ private constructor(
 
   override fun readPixel(x: Int, y: Int): RgbaPixel {
     check(surface != EGL14.EGL_NO_SURFACE) { "No Android test frame has been rendered" }
-    eglCheck(
-      EGL14.eglMakeCurrent(display, surface, surface, context),
-      "make the Android test context current",
-    )
+    // A dedicated session keeps its context current on this thread after render.
     val bytes = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
     GLES30.glReadPixels(x, y, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, bytes)
     check(GLES20.glGetError() == GLES20.GL_NO_ERROR) { "glReadPixels failed" }
@@ -112,20 +110,12 @@ private constructor(
     }
     retiredSurfaces.forEach { EGL14.eglDestroySurface(display, it) }
     retiredSurfaces.clear()
-    if (context != EGL14.EGL_NO_CONTEXT) {
-      EGL14.eglDestroyContext(display, context)
-      context = EGL14.EGL_NO_CONTEXT
-    }
     EGL14.eglTerminate(display)
     EGL14.eglReleaseThread()
   }
 
   private fun eglFailure(operation: String): String =
     "Failed to $operation (EGL error 0x${EGL14.eglGetError().toString(16)})"
-
-  private fun eglCheck(success: Boolean, operation: String) {
-    check(success) { eglFailure(operation) }
-  }
 
   companion object {
     private const val EGL_OPENGL_ES3_BIT = 0x00000040
@@ -137,17 +127,7 @@ private constructor(
         val version = IntArray(2)
         eglCheck(display, EGL14.eglInitialize(display, version, 0, version, 1), "initialize EGL")
         eglCheck(display, EGL14.eglBindAPI(EGL14.EGL_OPENGL_ES_API), "bind the OpenGL ES API")
-        val config = chooseConfig(display)
-        val context =
-          EGL14.eglCreateContext(
-            display,
-            config,
-            EGL14.EGL_NO_CONTEXT,
-            intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE),
-            0,
-          )
-        check(context != EGL14.EGL_NO_CONTEXT) { eglFailure(display, "create a GLES 3 context") }
-        return AndroidEglTestRenderDriver(display, config, context)
+        return AndroidEglTestRenderDriver(display, chooseConfig(display))
       } catch (error: Throwable) {
         EGL14.eglTerminate(display)
         throw error

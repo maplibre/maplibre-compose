@@ -11,6 +11,7 @@ import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.runtime.RuntimeEvent
+import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
@@ -150,7 +151,13 @@ internal class MlnFfiMapRuntimeLoop(
   private fun runLoop() {
     val owner =
       try {
-        MlnFfiRuntimeOwner.open(cacheFile, getLogger, "MapLibre runtime").also { runtimeOwner = it }
+        MlnFfiRuntimeOwner.open(
+            cacheFile,
+            getLogger,
+            "MapLibre runtime",
+            eventMask = RuntimeEventMask.NONE,
+          )
+          .also { runtimeOwner = it }
       } catch (error: Throwable) {
         logger?.e(error) { "Could not create the MapLibre runtime" }
         fail(error)
@@ -203,22 +210,22 @@ internal class MlnFfiMapRuntimeLoop(
       it.width = extent.width.coerceAtLeast(1)
       it.height = extent.height.coerceAtLeast(1)
       it.scaleFactor = extent.scaleFactor
+      it.eventMask = MAP_SESSION_EVENT_MASK
     }
 
   private fun drainEvents(runtime: RuntimeHandle, map: MapHandle) {
-    while (true) {
-      val event =
-        try {
-          runtime.pollEvent() ?: break
-        } catch (error: Throwable) {
-          // pollEvent is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
-          // throw from the map rather than the runtime.
-          logger?.e(error) { "Failed to poll a MapLibre runtime event" }
-          break
+    try {
+      do {
+        val batch = runtime.drainEvents()
+        for (event in batch.events) {
+          if (event.mapSource != null && event.mapSource !== map) continue
+          runCatching { onEvent(event) }
+            .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
         }
-      if (event.mapSource != null && event.mapSource !== map) continue
-      runCatching { onEvent(event) }
-        .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
+        if (batch.remainingCount <= 0L) break
+      } while (true)
+    } catch (error: Throwable) {
+      logger?.e(error) { "Failed to drain MapLibre runtime events" }
     }
     runCatching { onEventsDrained(map) }
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }

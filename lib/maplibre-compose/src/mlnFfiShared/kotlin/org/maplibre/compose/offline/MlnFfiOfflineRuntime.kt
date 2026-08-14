@@ -11,6 +11,7 @@ import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
+import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
@@ -156,7 +157,12 @@ internal class MlnFfiOfflineRuntime(
   private fun runLoop() {
     val runtime =
       try {
-        MlnFfiRuntimeOwner.open(cacheFile, { logger }, "MapLibre offline runtime")
+        MlnFfiRuntimeOwner.open(
+            cacheFile,
+            { logger },
+            "MapLibre offline runtime",
+            eventMask = RuntimeEventMask.ALL_RUNTIME_EVENTS,
+          )
           .also { runtimeOwner = it }
           .runtime
       } catch (error: Throwable) {
@@ -202,20 +208,21 @@ internal class MlnFfiOfflineRuntime(
 
   /** Drains events until the queue is momentarily empty. */
   private fun drainEvents(runtime: RuntimeHandle) {
-    while (true) {
-      val event =
-        try {
-          runtime.pollEvent() ?: break
-        } catch (error: Throwable) {
-          logger.e(error) { "Failed to poll a MapLibre offline runtime event" }
-          break
+    try {
+      do {
+        val batch = runtime.drainEvents()
+        for (event in batch.events) {
+          if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
+            completeOperation(runtime, event)
+          } else {
+            runCatching { onEvent(event) }
+              .onFailure { logger.e(it) { "Failed to handle offline event ${event.type}" } }
+          }
         }
-      if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
-        completeOperation(runtime, event)
-      } else {
-        runCatching { onEvent(event) }
-          .onFailure { logger.e(it) { "Failed to handle offline event ${event.type}" } }
-      }
+        if (batch.remainingCount <= 0L) break
+      } while (true)
+    } catch (error: Throwable) {
+      logger.e(error) { "Failed to drain MapLibre offline runtime events" }
     }
   }
 

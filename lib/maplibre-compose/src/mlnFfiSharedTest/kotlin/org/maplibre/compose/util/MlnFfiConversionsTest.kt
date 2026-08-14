@@ -3,35 +3,17 @@ package org.maplibre.compose.util
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.nativeffi.camera.EdgeInsets
-import org.maplibre.nativeffi.geo.Feature
-import org.maplibre.nativeffi.geo.FeatureIdentifier
-import org.maplibre.nativeffi.geo.Geometry
-import org.maplibre.nativeffi.json.JsonValue
 import org.maplibre.spatialk.geojson.Feature as GeoJsonFeature
 import org.maplibre.spatialk.geojson.GeometryCollection
 
 class MlnFfiConversionsTest {
-
-  @Test
-  fun unsigned_feature_id_remains_a_json_number() {
-    val feature =
-      Feature(
-        geometry = Geometry.Empty,
-        properties = emptyList(),
-        identifier = FeatureIdentifier.UInt(Long.MIN_VALUE),
-      )
-
-    val id = feature.toGeoJsonFeature().id as JsonPrimitive
-
-    assertFalse(id.isString)
-    assertEquals("9223372036854775808", id.content)
-  }
 
   @Test
   fun native_edge_insets_remain_physical_in_rtl() {
@@ -57,11 +39,13 @@ class MlnFfiConversionsTest {
       )
 
     val converted = requireNotNull(feature.toFfiClusterFeature())
-    val properties = converted.properties.associate { it.key to it.value }
+    val properties =
+      (Json.parseToJsonElement(converted.decodeToString()) as JsonObject)["properties"]!!.jsonObject
 
-    assertEquals(42L, assertIs<JsonValue.UInt>(properties["cluster_id"]).value)
-    assertEquals("caller-source", assertIs<JsonValue.StringValue>(properties["\$source"]).value)
-    assertEquals("caller-state", assertIs<JsonValue.StringValue>(properties["\$state"]).value)
-    assertEquals("cluster", assertIs<JsonValue.StringValue>(properties["name"]).value)
+    assertEquals("42", properties.getValue("cluster_id").jsonPrimitive.content)
+    assertEquals("caller-source", properties.getValue("\$source").jsonPrimitive.content)
+    assertEquals("caller-state", properties.getValue("\$state").jsonPrimitive.content)
+    assertEquals("cluster", properties.getValue("name").jsonPrimitive.content)
+    assertEquals(false, properties.getValue("cluster_id").jsonPrimitive.isString)
   }
 }

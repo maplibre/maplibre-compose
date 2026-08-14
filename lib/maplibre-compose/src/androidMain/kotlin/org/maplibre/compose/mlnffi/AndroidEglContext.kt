@@ -2,17 +2,20 @@ package org.maplibre.compose.mlnffi
 
 import android.opengl.EGL14
 import android.opengl.EGLConfig
-import android.opengl.EGLContext
 import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
 import android.view.Surface
+import org.maplibre.nativeffi.render.OpenGLClientApi
+import org.maplibre.nativeffi.render.OpenGLContextOwnership
 
-/** EGL objects that outlive one render session and present into an embedded Android surface. */
+/**
+ * EGL display, config, and window surface that a dedicated OpenGL surface session presents into.
+ * The session creates the thread's context, so this object holds none of its own.
+ */
 internal class AndroidEglContext
 private constructor(
   private val display: EGLDisplay,
   private val config: EGLConfig,
-  private var shareContext: EGLContext,
   private var windowSurface: EGLSurface,
 ) : AutoCloseable {
 
@@ -21,9 +24,11 @@ private constructor(
       EglContextHandles(
         display = NativeHandle(display.nativeHandle),
         config = NativeHandle(config.nativeHandle),
-        shareContext = NativeHandle(shareContext.nativeHandle),
+        shareContext = NativeHandle(0L),
         // Android's EGL dispatch is supplied by the runtime; no host proc loader is needed.
         getProcAddress = NativeHandle(0L),
+        ownership = OpenGLContextOwnership.DEDICATED,
+        clientApi = OpenGLClientApi.GLES,
       )
 
   val surfaceHandle: NativeHandle
@@ -33,10 +38,6 @@ private constructor(
     if (windowSurface != EGL14.EGL_NO_SURFACE) {
       EGL14.eglDestroySurface(display, windowSurface)
       windowSurface = EGL14.EGL_NO_SURFACE
-    }
-    if (shareContext != EGL14.EGL_NO_CONTEXT) {
-      EGL14.eglDestroyContext(display, shareContext)
-      shareContext = EGL14.EGL_NO_CONTEXT
     }
     EGL14.eglTerminate(display)
     EGL14.eglReleaseThread()
@@ -56,18 +57,10 @@ private constructor(
         eglCheck(EGL14.eglBindAPI(EGL14.EGL_OPENGL_ES_API), "bind the OpenGL ES API")
 
         val config = chooseConfig(display)
-        val contextAttributes = intArrayOf(EGL14.EGL_CONTEXT_CLIENT_VERSION, 3, EGL14.EGL_NONE)
-        val context =
-          EGL14.eglCreateContext(display, config, EGL14.EGL_NO_CONTEXT, contextAttributes, 0)
-        check(context != EGL14.EGL_NO_CONTEXT) { eglFailure("create the EGL share context") }
-
         val windowSurface =
           EGL14.eglCreateWindowSurface(display, config, surface, WINDOW_ATTRIBUTES, 0)
-        if (windowSurface == EGL14.EGL_NO_SURFACE) {
-          EGL14.eglDestroyContext(display, context)
-          error(eglFailure("create the EGL window surface"))
-        }
-        return AndroidEglContext(display, config, context, windowSurface)
+        check(windowSurface != EGL14.EGL_NO_SURFACE) { eglFailure("create the EGL window surface") }
+        return AndroidEglContext(display, config, windowSurface)
       } catch (error: Throwable) {
         EGL14.eglTerminate(display)
         throw error
