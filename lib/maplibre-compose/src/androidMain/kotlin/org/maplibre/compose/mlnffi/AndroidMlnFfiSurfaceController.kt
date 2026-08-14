@@ -212,6 +212,15 @@ internal class AndroidMlnFfiSurfaceController(
     return onRenderThread(action)
   }
 
+  override fun enqueueRenderer(action: () -> Unit): Boolean {
+    if (closed) return false
+    if (Looper.myLooper() == renderThread.looper) {
+      action()
+      return true
+    }
+    return renderHandler.post(action)
+  }
+
   override fun close() {
     if (closed) return
     onRenderThread {

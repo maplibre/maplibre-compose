@@ -43,7 +43,7 @@ internal interface MapFixture : AutoCloseable {
   suspend fun pumpUntil(
     description: String,
     timeout: Duration = 30.seconds,
-    condition: () -> Boolean,
+    condition: suspend () -> Boolean,
   )
 
   /**

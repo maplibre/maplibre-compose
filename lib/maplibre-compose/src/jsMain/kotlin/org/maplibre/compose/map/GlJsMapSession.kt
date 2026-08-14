@@ -577,13 +577,13 @@ internal class GlJsMapSession(
   override fun screenLocationFromPosition(position: Position): DpOffset =
     withMap(DpOffset.Zero) { map -> map.project(position.toLngLat()).toDpOffset() }
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> = query(offset.toPoint(), layerIds, predicate)
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,

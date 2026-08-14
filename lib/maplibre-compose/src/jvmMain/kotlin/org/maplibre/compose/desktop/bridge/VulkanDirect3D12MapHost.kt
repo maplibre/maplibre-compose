@@ -181,6 +181,8 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeMapHost) : Ml
 
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
+  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
+
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is VulkanImageTarget) return false
     val direct3DTarget =

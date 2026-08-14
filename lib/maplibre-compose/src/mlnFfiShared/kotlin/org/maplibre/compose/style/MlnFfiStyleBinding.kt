@@ -18,8 +18,14 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
   fun <T> readMap(action: (MapHandle) -> T): T?
 
-  /** Requests a repaint after native accepts the mutation. */
-  fun <T> mutateMap(action: (MapHandle) -> T): T?
+  /**
+   * Queues [action] on the owner thread and requests a repaint. Returns whether the work was
+   * accepted; it has not necessarily run yet.
+   */
+  fun mutateMap(action: (MapHandle) -> Unit): Boolean
+
+  /** Tells Compose that [sourceId] changed, so attribution and related state can refresh. */
+  fun notifySourceChanged(sourceId: String) {}
 
   /**
    * Null when the style has unloaded or no session is attached yet — a session exists only between
@@ -31,14 +37,13 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     source.attach(this)
   }
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
-    mutateMap { map ->
-      try {
-        map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
-      } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
-      }
-    } != null
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = mutateMap { map ->
+    try {
+      map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
+    } catch (error: MaplibreException) {
+      throw StyleMutationException(error.message, error)
+    }
+  }
 
   override fun removeLayer(layerId: String) {
     mutateMap { map -> map.removeStyleLayer(layerId) }
@@ -59,7 +64,9 @@ internal interface MlnFfiStyleBinding : StyleBinding {
       try {
         map.setLayerProperty(layerId, name, value.toJsonBytes())
       } catch (error: MaplibreException) {
-        throw StyleMutationException(error.message, error)
+        logger?.w(error) {
+          "Layer '$layerId' kept its previous '$name': MapLibre rejected $value."
+        }
       }
     }
   }
@@ -82,7 +89,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
         override fun <T> readMap(action: (MapHandle) -> T): T? = null
 
-        override fun <T> mutateMap(action: (MapHandle) -> T): T? = null
+        override fun mutateMap(action: (MapHandle) -> Unit): Boolean = false
 
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
       }

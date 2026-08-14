@@ -441,7 +441,7 @@ internal class IosMapAdapter(
       .convertCoordinate(position.toCLLocationCoordinate2D(), toPointToView = mapView)
       .toDpOffset()
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
@@ -454,7 +454,7 @@ internal class IosMapAdapter(
       )
       .map { (it as MLNFeatureProtocol).toFeature() }
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,

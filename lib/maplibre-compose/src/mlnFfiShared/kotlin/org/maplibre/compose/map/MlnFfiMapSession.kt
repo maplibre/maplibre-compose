@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -14,7 +15,9 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.abs
 import kotlin.math.round
+import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -214,9 +217,21 @@ internal class MlnFfiMapSession(
     /**
      * `addSource`, `removeSource` and `removeImage` notify mbgl of nothing, so they render stale.
      */
-    override fun <T> mutateMap(action: (MapHandle) -> T): T? {
-      if (!isLoaded) return null
-      return runOnMap { map -> action(map).also { map.requestRepaint() } }
+    override fun mutateMap(action: (MapHandle) -> Unit): Boolean {
+      if (!isLoaded) return false
+      return postWhenMapExists(
+        action = { map ->
+          if (!isLoaded) return@postWhenMapExists
+          action(map)
+          map.requestRepaint()
+        },
+        abandon = {},
+      )
+    }
+
+    override fun notifySourceChanged(sourceId: String) {
+      if (!isLoaded) return
+      callbacks.onSourceChanged(this@MlnFfiMapSession, sourceId)
     }
 
     override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
@@ -459,6 +474,7 @@ internal class MlnFfiMapSession(
     attachedTarget = key
     attachCount++
     publishAttachedViewport()
+    onMap(::snapshotViewport)
     // The new texture holds nothing yet; this request buys the frame that fills it.
     renderRequested.store(true)
     return true
@@ -591,11 +607,11 @@ internal class MlnFfiMapSession(
       }
 
       RuntimeEventType.MAP_IDLE -> {
+        // Idle is only a style-load fallback. Source add/remove notifies from the style binding;
+        // the C API has no source-changed event yet.
         if (styleLoadUnreported) {
           styleLoadUnreported = false
           callbacks.onMapFinishedLoading(this)
-        } else {
-          callbacks.onSourceChanged(this, null)
         }
       }
 
@@ -609,9 +625,13 @@ internal class MlnFfiMapSession(
 
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
 
-      RuntimeEventType.MAP_CAMERA_IS_CHANGING -> callbacks.onCameraMoved(this)
+      RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
+        loop?.map?.let(::snapshotViewport)
+        callbacks.onCameraMoved(this)
+      }
 
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
+        loop?.map?.let(::snapshotViewport)
         callbacks.onCameraMoved(this)
         // A drag is a stream of jumps, each with its own did-change.
         if (!isGestureInProgress) endCameraMove()
@@ -759,10 +779,12 @@ internal class MlnFfiMapSession(
 
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
-    configureMap { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
+    mirroredCamera = position
+    configureMap { map ->
+      map.jumpTo(position.toCameraOptions(layoutDirection))
+      snapshotViewport(map)
+    }
   }
-
-  private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = loop?.call(action) ?: fallback
 
   private fun <T> runOnMap(action: (MapHandle) -> T): T? = loop?.call(action)
 
@@ -807,8 +829,58 @@ internal class MlnFfiMapSession(
   /** Answers camera reads made before the map has an extent, rather than MapLibre's default. */
   @Volatile private var requestedCamera: CameraPosition? = null
 
-  override fun getCameraPosition(): CameraPosition =
-    withMap(requestedCamera ?: CameraPosition()) { it.camera.toCameraPosition() }
+  @Volatile private var mirroredCamera: CameraPosition = CameraPosition()
+
+  @Volatile
+  private var mirroredBoundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))
+
+  @Volatile
+  private var mirroredVisibleRegion: VisibleRegion =
+    VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
+
+  @Volatile private var mirroredWidth: Int = 0
+
+  @Volatile private var mirroredHeight: Int = 0
+
+  /** Owner thread only. Copies native camera and viewport so UI getters never hop. */
+  private fun snapshotViewport(map: MapHandle) {
+    mirroredCamera = map.camera.toCameraPosition()
+    val size = map.size
+    mirroredWidth = size.width
+    mirroredHeight = size.height
+    val corners = map.unprojectedCorners()
+    mirroredVisibleRegion =
+      VisibleRegion(
+        farLeft = corners[0],
+        farRight = corners[1],
+        nearLeft = corners[2],
+        nearRight = corners[3],
+      )
+    val center =
+      map
+        .latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0)))
+        .first()
+        .toPosition()
+    val unwrapped = corners.map { it.unwrapAround(center) }
+    // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
+    // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
+    // GL JS, the box may then extend past ±180.
+    mirroredBoundingBox =
+      BoundingBox(
+        southwest =
+          Position(
+            longitude = unwrapped.minOf { it.longitude },
+            latitude = unwrapped.minOf { it.latitude },
+          ),
+        northeast =
+          Position(
+            longitude = unwrapped.maxOf { it.longitude },
+            latitude = unwrapped.maxOf { it.latitude },
+          ),
+      )
+  }
+
+  override fun getCameraPosition(): CameraPosition = mirroredCamera
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     recordCamera(cameraPosition)
@@ -822,6 +894,7 @@ internal class MlnFfiMapSession(
   ) {
     configureMapWithViewport { map ->
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
+      snapshotViewport(map)
     }
   }
 
@@ -968,44 +1041,9 @@ internal class MlnFfiMapSession(
     configureMap { map -> map.bounds = map.bounds.also(update) }
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox =
-    withMap(BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))) { map ->
-      val size = map.size
-      val center =
-        map
-          .latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0)))
-          .first()
-          .toPosition()
-      // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would
-      // hull to a box spanning nearly the whole world. Unwrap the corners around the center first;
-      // like GL JS, the box may then extend past ±180.
-      val corners = map.unprojectedCorners().map { it.unwrapAround(center) }
-      BoundingBox(
-        southwest =
-          Position(
-            longitude = corners.minOf { it.longitude },
-            latitude = corners.minOf { it.latitude },
-          ),
-        northeast =
-          Position(
-            longitude = corners.maxOf { it.longitude },
-            latitude = corners.maxOf { it.latitude },
-          ),
-      )
-    }
+  override fun getVisibleBoundingBox(): BoundingBox = mirroredBoundingBox
 
-  override fun getVisibleRegion(): VisibleRegion =
-    withMap(
-      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
-    ) { map ->
-      val corners = map.unprojectedCorners()
-      VisibleRegion(
-        farLeft = corners[0],
-        farRight = corners[1],
-        nearLeft = corners[2],
-        nearRight = corners[3],
-      )
-    }
+  override fun getVisibleRegion(): VisibleRegion = mirroredVisibleRegion
 
   /**
    * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.
@@ -1032,6 +1070,109 @@ internal class MlnFfiMapSession(
     return if (delta == 0.0) this else Position(longitude = longitude + delta, latitude = latitude)
   }
 
+  /**
+   * Approximate unproject from the mirrored visible-region quad. Exact at the four corners; used
+   * off the owner thread, where a native hop would stall Compose.
+   */
+  private fun interpolatedPositionFromScreen(offset: DpOffset): Position {
+    val width = mirroredWidth
+    val height = mirroredHeight
+    if (width <= 0 || height <= 0) return Position(0.0, 0.0)
+    val u = offset.x.value.toDouble() / width
+    val v = offset.y.value.toDouble() / height
+    val center = mirroredCamera.target
+    val top = lerpPosition(mirroredVisibleRegion.farLeft, mirroredVisibleRegion.farRight, u, center)
+    val bottom =
+      lerpPosition(mirroredVisibleRegion.nearLeft, mirroredVisibleRegion.nearRight, u, center)
+    return lerpPosition(top, bottom, v, center)
+  }
+
+  private fun interpolatedScreenFromPosition(position: Position): DpOffset {
+    val width = mirroredWidth
+    val height = mirroredHeight
+    if (width <= 0 || height <= 0) return DpOffset.Zero
+    val center = mirroredCamera.target
+    val uv =
+      inverseBilinear(
+        position.unwrapAround(center),
+        mirroredVisibleRegion.farLeft.unwrapAround(center),
+        mirroredVisibleRegion.farRight.unwrapAround(center),
+        mirroredVisibleRegion.nearRight.unwrapAround(center),
+        mirroredVisibleRegion.nearLeft.unwrapAround(center),
+      ) ?: return DpOffset.Zero
+    return DpOffset((uv.first * width).dp, (uv.second * height).dp)
+  }
+
+  private fun lerpPosition(a: Position, b: Position, t: Double, unwrapAround: Position): Position {
+    val from = a.unwrapAround(unwrapAround)
+    val to = b.unwrapAround(unwrapAround)
+    return Position(
+      longitude = from.longitude + (to.longitude - from.longitude) * t,
+      latitude = from.latitude + (to.latitude - from.latitude) * t,
+    )
+  }
+
+  /**
+   * Inverse bilinear map of [p] in the quad [a]-[b]-[c]-[d] (top-left, top-right, bottom-right,
+   * bottom-left). Returns null when the quad is degenerate.
+   */
+  private fun inverseBilinear(
+    p: Position,
+    a: Position,
+    b: Position,
+    c: Position,
+    d: Position,
+  ): Pair<Double, Double>? {
+    val eX = b.longitude - a.longitude
+    val eY = b.latitude - a.latitude
+    val fX = d.longitude - a.longitude
+    val fY = d.latitude - a.latitude
+    val gX = a.longitude - b.longitude + c.longitude - d.longitude
+    val gY = a.latitude - b.latitude + c.latitude - d.latitude
+    val hX = p.longitude - a.longitude
+    val hY = p.latitude - a.latitude
+    val k2 = gX * fY - gY * fX
+    val k1 = eX * fY - eY * fX + hX * gY - hY * gX
+    val k0 = hX * eY - hY * eX
+    val v: Double
+    val u: Double
+    if (abs(k2) < 1e-12) {
+      if (abs(k1) < 1e-12) return null
+      v = -k0 / k1
+      val denom = eX + gX * v
+      u = if (abs(denom) < 1e-12) (hY - fY * v) / (eY + gY * v) else (hX - fX * v) / denom
+    } else {
+      val discriminant = k1 * k1 - 4.0 * k2 * k0
+      if (discriminant < 0.0) return null
+      val root = sqrt(discriminant)
+      val inv = 0.5 / k2
+      fun uvFor(chosenV: Double): Pair<Double, Double>? {
+        val denom = eX + gX * chosenV
+        val chosenU =
+          if (abs(denom) < 1e-12) {
+            val alt = eY + gY * chosenV
+            if (abs(alt) < 1e-12) return null
+            (hY - fY * chosenV) / alt
+          } else {
+            (hX - fX * chosenV) / denom
+          }
+        return chosenU to chosenV
+      }
+      val first = uvFor((-k1 - root) * inv)
+      val second = uvFor((-k1 + root) * inv)
+      val pick =
+        listOfNotNull(first, second).minByOrNull { (uu, vv) ->
+          val du = if (uu < 0.0) -uu else if (uu > 1.0) uu - 1.0 else 0.0
+          val dv = if (vv < 0.0) -vv else if (vv > 1.0) vv - 1.0 else 0.0
+          du + dv
+        }
+      if (pick == null) return null
+      u = pick.first
+      v = pick.second
+    }
+    return u to v
+  }
+
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
     configureMap { map ->
@@ -1050,20 +1191,26 @@ internal class MlnFfiMapSession(
   }
 
   // Not MapHandle.createProjection: that handle snapshots the transform and goes stale on a move.
-  override fun positionFromScreenLocation(offset: DpOffset): Position =
-    withMap(Position(0.0, 0.0)) { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
+  override fun positionFromScreenLocation(offset: DpOffset): Position {
+    val map = loop?.takeIf { it.isOwnerThread() }?.map
+    if (map != null) return map.latLngForPixel(offset.toScreenPoint()).toPosition()
+    return interpolatedPositionFromScreen(offset)
+  }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset =
-    withMap(DpOffset.Zero) { it.pixelForLatLng(position.toLatLng()).toDpOffset() }
+  override fun screenLocationFromPosition(position: Position): DpOffset {
+    val map = loop?.takeIf { it.isOwnerThread() }?.map
+    if (map != null) return map.pixelForLatLng(position.toLatLng()).toDpOffset()
+    return interpolatedScreenFromPosition(position)
+  }
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> =
     query(RenderedQueryGeometry.Point(offset.toScreenPoint()), layerIds, predicate)
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
@@ -1080,24 +1227,40 @@ internal class MlnFfiMapSession(
     )
 
   /** Rendered feature state belongs to the render session, so a query without one is empty. */
-  private fun query(
+  private suspend fun query(
     geometry: RenderedQueryGeometry,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> =
-    withRendererAccess {
+  ): List<Feature<Geometry, JsonObject?>> = suspendCancellableCoroutine { continuation ->
+    if (closed) {
+      continuation.resume(emptyList())
+      return@suspendCancellableCoroutine
+    }
+    val host = hostSession
+    if (host == null) {
+      continuation.resume(emptyList())
+      return@suspendCancellableCoroutine
+    }
+    val accepted = host.enqueueRenderer {
+      if (!continuation.isActive) return@enqueueRenderer
       val session = renderSession
       if (session == null) {
-        logger?.d { "Ignoring a rendered feature query: no render session is attached yet" }
-        return@withRendererAccess emptyList()
+        continuation.resume(emptyList())
+        return@enqueueRenderer
       }
-      session
-        .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
-        .toGeoJsonFeatures()
-    } ?: emptyList()
+      continuation.resumeWith(
+        runCatching {
+          session
+            .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
+            .toGeoJsonFeatures()
+        }
+      )
+    }
+    if (!accepted && continuation.isActive) continuation.resume(emptyList())
+  }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(getCameraPosition().zoom, latitude)
+    metersPerDpAtLatitude(mirroredCamera.zoom, latitude)
 
   // endregion
 
@@ -1134,6 +1297,7 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(map: MapHandle) {
+    snapshotViewport(map)
     finishPendingGesture(map)
     flushTransitionResumes()
   }
@@ -1245,14 +1409,18 @@ internal class MlnFfiMapSession(
   }
 
   override fun onPrimaryClick(offset: DpOffset) {
-    val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
-    callbacks.onClick(this, position, offset)
+    if (closed) return
+    onMap { map ->
+      callbacks.onClick(this, map.latLngForPixel(offset.toScreenPoint()).toPosition(), offset)
+    }
   }
 
   /** A mouse has no press-and-hold convention, so the secondary button is the long press. */
   override fun onSecondaryClick(offset: DpOffset) {
-    val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
-    callbacks.onLongClick(this, position, offset)
+    if (closed) return
+    onMap { map ->
+      callbacks.onLongClick(this, map.latLngForPixel(offset.toScreenPoint()).toPosition(), offset)
+    }
   }
 
   override fun cancelTransitions() {

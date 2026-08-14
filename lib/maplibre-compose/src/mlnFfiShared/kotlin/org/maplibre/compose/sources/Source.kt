@@ -32,13 +32,12 @@ public actual sealed class Source(internal actual val id: String) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
     }
-    val added = binding.mutateMap { map ->
-      // A layer may attach its source before the source effect runs, so re-attaching the same
-      // binding is idempotent; any other descriptor with this ID is rejected.
-      if (this.binding === binding && map.styleSourceExists(id)) return@mutateMap false
-      check(!map.styleSourceExists(id)) {
-        "Source ID '$id' is already owned by a different live source descriptor"
-      }
+    // Existence is read synchronously so a duplicate ID still fails on the caller. The add itself
+    // is posted; a same-frame mutate then queues behind it.
+    val exists = binding.readMap { it.styleSourceExists(id) } == true
+    if (this.binding === binding && exists) return
+    check(!exists) { "Source ID '$id' is already owned by a different live source descriptor" }
+    val posted = binding.mutateMap { map ->
       try {
         addTo(map)
       } catch (error: Throwable) {
@@ -52,13 +51,12 @@ public actual sealed class Source(internal actual val id: String) {
         }
         throw error
       }
-      true
+      binding.notifySourceChanged(id)
     }
-    check(added != null) {
+    check(posted) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
     }
-    if (!added) return
     this.binding = binding
   }
 
@@ -84,7 +82,10 @@ public actual sealed class Source(internal actual val id: String) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
-    binding.mutateMap { map -> map.removeStyleSource(id) }
+    binding.mutateMap { map ->
+      map.removeStyleSource(id)
+      binding.notifySourceChanged(id)
+    }
     binding = MlnFfiStyleBinding.UNLOADED
   }
 
@@ -92,8 +93,7 @@ public actual sealed class Source(internal actual val id: String) {
    * Applies [update] to the live source. Returns false when the style has unloaded, which is normal
    * for a frame during a style swap.
    */
-  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean =
-    binding.mutateMap(update) != null
+  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.mutateMap(update)
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }

@@ -6,6 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -39,7 +40,7 @@ class ComputedSourceTest {
 
       it.awaitComputedFeatures()
 
-      val feature = it.queryCenter().first()
+      val feature = runBlocking { it.queryCenter().first() }
       assertEquals(FIRST_NAME, feature.properties?.get("name")?.jsonPrimitive?.content)
       assertEquals(setOf("name"), feature.properties?.keys)
       assertEquals(emptyList(), it.errors, "the map should report nothing")
@@ -123,7 +124,7 @@ class ComputedSourceTest {
     return source
   }
 
-  private fun BridgeMapFixture.queryCenter() =
+  private suspend fun BridgeMapFixture.queryCenter() =
     session.queryRenderedFeatures(offset = CENTER, layerIds = null, predicate = null)
 
   private fun BridgeMapFixture.awaitComputedFeatures() {

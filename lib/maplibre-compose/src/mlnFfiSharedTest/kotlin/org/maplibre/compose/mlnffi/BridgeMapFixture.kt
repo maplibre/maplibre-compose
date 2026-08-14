@@ -67,6 +67,11 @@ private constructor(
       }
 
       override fun <T> withRendererAccess(action: () -> T): T = driver.withRendererAccess(action)
+
+      override fun enqueueRenderer(action: () -> Unit): Boolean {
+        driver.withRendererAccess(action)
+        return true
+      }
     }
 
   init {
@@ -141,11 +146,11 @@ private constructor(
     description: String,
     timeout: Duration = 30.seconds,
     extent: MapExtent = initialExtent,
-    condition: () -> Boolean,
+    condition: suspend () -> Boolean,
   ) {
     val deadline = TimeSource.Monotonic.markNow() + timeout
     var frames = 0
-    while (!condition()) {
+    while (!runBlocking { condition() }) {
       check(deadline.hasNotPassedNow()) {
         "Timed out after $frames frames waiting for $description. Errors: $errors"
       }

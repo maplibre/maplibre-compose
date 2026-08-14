@@ -81,7 +81,11 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
     }
   }
 
-  override suspend fun pumpUntil(description: String, timeout: Duration, condition: () -> Boolean) {
+  override suspend fun pumpUntil(
+    description: String,
+    timeout: Duration,
+    condition: suspend () -> Boolean,
+  ) {
     val start = Date.now()
     var frames = 0
     while (!condition()) {

@@ -43,8 +43,12 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
     bridge.pump(frames)
   }
 
-  override suspend fun pumpUntil(description: String, timeout: Duration, condition: () -> Boolean) {
-    bridge.pumpUntil(description, timeout, extent, condition)
+  override suspend fun pumpUntil(
+    description: String,
+    timeout: Duration,
+    condition: suspend () -> Boolean,
+  ) {
+    bridge.pumpUntil(description, timeout, extent) { runBlocking { condition() } }
   }
 
   /**

@@ -39,7 +39,7 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
   fun drawOnce(target: GlJsRenderTarget): Boolean =
     session.render(GlJsFrameTarget.Composited(target), extentOf(target))
 
-  suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: () -> Boolean) {
+  suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: suspend () -> Boolean) {
     val deadline = Date.now() + RENDER_TIMEOUT_MS
     while (!condition()) {
       drawOnce(target)
@@ -54,7 +54,7 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
    * Whether [layerId] is in the render tree, not merely the stylesheet. Never asked before the
    * style loads: MapLibre raises an `error` for a query naming a layer it lacks.
    */
-  fun rendersFeature(layerId: String, x: Int, y: Int): Boolean =
+  suspend fun rendersFeature(layerId: String, x: Int, y: Int): Boolean =
     styleLoaded && session.queryRenderedFeatures(DpOffset(x.dp, y.dp), setOf(layerId)).isNotEmpty()
 
   override fun close() = session.close()
