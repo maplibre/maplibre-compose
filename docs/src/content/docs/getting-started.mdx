@@ -201,10 +201,6 @@ kotlin {
 }
 ```
 
-MapLibre GL JS parses vector tiles on a web worker. By default, MapLibre Compose
-loads that worker from the jsDelivr CDN at the same version as the bundled
-library, so no extra setup is needed.
-
 Initialize MapLibre inside `onWasmReady`, before Compose starts.
 
 ```kotlin title="main.kt"
