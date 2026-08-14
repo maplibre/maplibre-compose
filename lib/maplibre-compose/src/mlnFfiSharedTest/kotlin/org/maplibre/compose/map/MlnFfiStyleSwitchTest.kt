@@ -186,6 +186,7 @@ class MlnFfiStyleSwitchTest {
               getLogger = getLogger,
               read = resources::read,
               passThroughNetwork = false,
+              onResponseCompleted = resources::onResponseCompleted,
             )
           },
         )
@@ -242,7 +243,7 @@ class MlnFfiStyleSwitchTest {
       fun relevantLayers(): List<String> =
         session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        resources.styleBFinished.count == 0L
+        resources.styleBCompleted.count == 0L
       }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         loadsFinished > initialLoads &&
@@ -291,22 +292,22 @@ class MlnFfiStyleSwitchTest {
   private class BlockingStyleResources {
     val styleBStarted = CountDownLatch(1)
     val styleCStarted = CountDownLatch(1)
-    val styleBFinished = CountDownLatch(1)
+    val styleBCompleted = CountDownLatch(1)
     val releaseStyleB = CountDownLatch(1)
+
+    fun onResponseCompleted(url: String) {
+      if (url == B_STYLE_URL) styleBCompleted.countDown()
+    }
 
     fun read(url: String, requestedUrl: String): ResourceResponse {
       val body =
         when (url) {
           B_STYLE_URL -> {
             styleBStarted.countDown()
-            try {
-              check(releaseStyleB.await(WAIT_SECONDS, TimeUnit.SECONDS)) {
-                "style B was not released"
-              }
-              STYLE_B_JSON
-            } finally {
-              styleBFinished.countDown()
+            check(releaseStyleB.await(WAIT_SECONDS, TimeUnit.SECONDS)) {
+              "style B was not released"
             }
+            STYLE_B_JSON
           }
           C_STYLE_URL -> {
             styleCStarted.countDown()
