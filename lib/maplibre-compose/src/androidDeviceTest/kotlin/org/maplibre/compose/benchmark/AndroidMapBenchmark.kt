@@ -419,9 +419,9 @@ private fun benchSubset(): String =
 
 private fun benchRenderModes(): List<RenderOptions.RenderMode> =
   when (InstrumentationRegistry.getArguments().getString("mapMode")) {
-    "texture" -> listOf(RenderOptions.RenderMode.TextureView)
-    "surface" -> listOf(RenderOptions.RenderMode.SurfaceView)
-    else -> listOf(RenderOptions.RenderMode.TextureView, RenderOptions.RenderMode.SurfaceView)
+    "texture" -> listOf(RenderOptions.RenderMode.Texture)
+    "surface" -> listOf(RenderOptions.RenderMode.Surface)
+    else -> listOf(RenderOptions.RenderMode.Texture, RenderOptions.RenderMode.Surface)
   }
 
 private class BenchHost {
@@ -474,7 +474,7 @@ private fun BenchMap(
     options =
       MapOptions(
         gestureOptions = GestureOptions.AllDisabled,
-        renderOptions = RenderOptions(renderMode = mode),
+        renderOptions = RenderOptions(preferredRenderMode = mode),
       ),
     overlay = MapOverlay.None,
     contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -501,8 +501,8 @@ private fun BenchMap(
 
 private fun RenderOptions.RenderMode.reportName(): String =
   when (this) {
-    RenderOptions.RenderMode.TextureView -> "texture"
-    RenderOptions.RenderMode.SurfaceView -> "surface"
+    RenderOptions.RenderMode.Texture -> "texture"
+    RenderOptions.RenderMode.Surface -> "surface"
   }
 
 private fun ComponentActivity.displayRefreshHz(): Float {

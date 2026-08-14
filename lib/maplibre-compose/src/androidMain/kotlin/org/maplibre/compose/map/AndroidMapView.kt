@@ -24,9 +24,9 @@ internal actual fun ComposableMapView(
 ) {
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val surfaceKind =
-    when (options.renderOptions.renderMode) {
-      RenderOptions.RenderMode.TextureView -> AndroidMapSurfaceKind.Texture
-      RenderOptions.RenderMode.SurfaceView -> AndroidMapSurfaceKind.Surface
+    when (options.renderOptions.preferredRenderMode) {
+      RenderOptions.RenderMode.Texture -> AndroidMapSurfaceKind.Texture
+      RenderOptions.RenderMode.Surface -> AndroidMapSurfaceKind.Surface
     }
   key(surfaceKind) {
     MlnFfiMapView(

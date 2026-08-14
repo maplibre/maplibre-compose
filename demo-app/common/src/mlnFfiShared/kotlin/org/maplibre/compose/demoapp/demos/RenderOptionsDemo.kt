@@ -22,16 +22,15 @@ object RenderOptionsDemo : Demo {
       Subheading("Map surface")
       CardColumn {
         SegmentedButtonListItem(
-          options =
-            listOf(RenderOptions.RenderMode.TextureView, RenderOptions.RenderMode.SurfaceView),
-          selectedOption = state.renderOptions.renderMode,
+          options = listOf(RenderOptions.RenderMode.Texture, RenderOptions.RenderMode.Surface),
+          selectedOption = state.renderOptions.preferredRenderMode,
           onOptionSelected = { mode ->
-            state.renderOptions = state.renderOptions.copy(renderMode = mode)
+            state.renderOptions = state.renderOptions.copy(preferredRenderMode = mode)
           },
           optionLabel = { mode ->
             when (mode) {
-              RenderOptions.RenderMode.TextureView -> "TextureView"
-              RenderOptions.RenderMode.SurfaceView -> "SurfaceView"
+              RenderOptions.RenderMode.Texture -> "Texture"
+              RenderOptions.RenderMode.Surface -> "Surface"
             }
           },
         )

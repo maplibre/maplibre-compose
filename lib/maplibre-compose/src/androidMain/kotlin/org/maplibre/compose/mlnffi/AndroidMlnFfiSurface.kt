@@ -20,7 +20,7 @@ import co.touchlab.kermit.Logger
 internal fun AndroidMlnFfiSurface(
   renderer: MlnFfiMapRenderer,
   runtimeBackends: Set<MapRenderBackend>,
-  kind: AndroidMapSurfaceKind = AndroidMapSurfaceKind.Texture,
+  kind: AndroidMapSurfaceKind,
   maximumFps: Int? = null,
   modifier: Modifier,
   logger: Logger?,
@@ -77,7 +77,8 @@ internal fun AndroidMlnFfiSurface(
       AndroidExternalSurface(
         modifier = modifier,
         isOpaque = true,
-        zOrder = AndroidExternalSurfaceZOrder.OnTop,
+        // Behind the window, matching MapLibre's MapView: Compose overlays draw on top of the map.
+        zOrder = AndroidExternalSurfaceZOrder.Behind,
       ) {
         onSurface { surface, width, height ->
           controller.surfaceCreated(surface, width, height, density)

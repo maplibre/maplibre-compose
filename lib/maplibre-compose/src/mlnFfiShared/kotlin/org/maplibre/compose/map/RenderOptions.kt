@@ -9,7 +9,8 @@ import androidx.compose.runtime.Immutable
  * @param isTileParseStatusEnabled Draws tile parse state on each tile.
  * @param maximumFps Caps how often the map is rendered. Null uses the display refresh rate. Android
  *   also asks SurfaceFlinger for this cadence.
- * @param renderMode How Android presents the map. Desktop ignores this value.
+ * @param preferredRenderMode A hint for how the host presents the map. A platform may ignore a
+ *   value it does not support.
  */
 @Immutable
 public actual data class RenderOptions(
@@ -18,7 +19,7 @@ public actual data class RenderOptions(
   val isCollisionBoxesEnabled: Boolean = false,
   val isTileParseStatusEnabled: Boolean = false,
   val maximumFps: Int? = null,
-  val renderMode: RenderMode = RenderMode.TextureView,
+  val preferredRenderMode: RenderMode = RenderMode.Surface,
 ) {
   public actual companion object Companion {
     public actual val Standard: RenderOptions = RenderOptions()
@@ -31,14 +32,21 @@ public actual data class RenderOptions(
       )
   }
 
-  /** How Android presents MapLibre's OpenGL output. Desktop ignores this value. */
+  /**
+   * A hint for how the host presents the map. A platform may ignore a value it does not support.
+   *
+   * [Surface] is preferred for performance. A SurfaceView is a separate window layer, so some
+   * Compose modifiers do not apply to it. Use [Texture] when a modifier such as alpha must affect
+   * the map.
+   */
   public enum class RenderMode {
-    /** A TextureView. Overlays and transforms composite with the rest of the Compose hierarchy. */
-    TextureView,
+    /** A TextureView on Android. Compose modifiers apply to the map as they do to other content. */
+    Texture,
 
     /**
-     * A SurfaceView. Often cheaper to present, and sits above Compose content in this Android host.
+     * A SurfaceView on Android. Preferred for performance. The surface sits behind the window, so
+     * Compose overlays draw on top of the map.
      */
-    SurfaceView,
+    Surface,
   }
 }
