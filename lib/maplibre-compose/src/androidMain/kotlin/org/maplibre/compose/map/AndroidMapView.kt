@@ -36,6 +36,7 @@ internal actual fun ComposableMapView(
           renderer = renderer,
           runtimeBackends = runtimeBackends,
           kind = surfaceKind,
+          maximumFps = options.renderOptions.maximumFps,
           modifier = surfaceModifier,
           logger = surfaceLogger,
         )

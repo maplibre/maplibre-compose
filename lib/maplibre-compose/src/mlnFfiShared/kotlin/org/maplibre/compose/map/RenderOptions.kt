@@ -7,7 +7,8 @@ import androidx.compose.runtime.Immutable
  * @param isTileTimestampsEnabled Draws the time each tile was last updated.
  * @param isCollisionBoxesEnabled Draws the boxes symbol placement uses to decide what to hide.
  * @param isTileParseStatusEnabled Draws tile parse state on each tile.
- * @param maximumFps Caps how often the map is rendered. Null renders whenever MapLibre asks to be.
+ * @param maximumFps Caps how often the map is rendered. Null uses the display refresh rate. Android
+ *   also asks SurfaceFlinger for this cadence.
  * @param renderMode How Android presents the map. Desktop ignores this value.
  */
 @Immutable

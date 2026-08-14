@@ -1,33 +1,67 @@
 package org.maplibre.compose.mlnffi
 
+import android.os.Build
 import android.os.Handler
 import android.os.HandlerThread
 import android.os.Looper
-import android.view.Choreographer
+import android.os.SystemClock
 import android.view.Surface
+import androidx.annotation.RequiresApi
 import co.touchlab.kermit.Logger
 import java.util.concurrent.FutureTask
 import org.maplibre.compose.map.MapExtent
 
-/** Drives the shared FFI renderer from a dedicated Android render thread. */
+/**
+ * Drives the shared FFI renderer from a dedicated Android render thread.
+ *
+ * The thread draws, then `eglSwapBuffers` waits on the buffer queue, matching MapLibre Android's
+ * GLSurfaceView loop. When swap returns immediately (TextureView), a start-to-start delay at the
+ * fps cap or the display refresh rate keeps the present rate at the panel.
+ *
+ * `Choreographer.getInstance()` follows vsync-app, which adaptive refresh holds at 60 Hz for a
+ * Surface that is not drawn as a View, so it is not used as the wait.
+ */
 internal class AndroidMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
   private val logger: Logger?,
-) : MlnFfiMapHostSession, Choreographer.FrameCallback, AutoCloseable {
+  maximumFps: Int? = null,
+  displayRefreshHz: Float = 60f,
+) : MlnFfiMapHostSession, AutoCloseable {
   override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
   private val renderHandler = Handler(renderThread.looper)
-  private val choreographer = onRenderThread { Choreographer.getInstance() }
+  private val renderFrame = Runnable { renderFrame(System.nanoTime()) }
   private var graphics: AndroidEglContext? = null
+  private var hostSurface: Surface? = null
+  private var maximumFps = maximumFps
+  private var displayRefreshHz = displayRefreshHz
   private var extent = MapExtent.Empty
   private var generation = 0L
   private var nextFrameId = 1L
   private var framePosted = false
+  private var lastFrameStartUptimeMs = 0L
   private var active = true
   @Volatile private var closed = false
   private var terminalFailure = false
   private var consecutiveFailures = 0
+
+  /**
+   * Votes [maximumFps] with SurfaceFlinger, or the display refresh rate when that cap is null.
+   * Applied again when the host surface appears.
+   */
+  fun setFrameRateVote(maximumFps: Int?, displayRefreshHz: Float) {
+    renderHandler.post { setFrameRateVoteOnRenderThread(maximumFps, displayRefreshHz) }
+  }
+
+  private fun setFrameRateVoteOnRenderThread(maximumFps: Int?, displayRefreshHz: Float) {
+    checkRenderThread()
+    if (closed) return
+    if (this.maximumFps == maximumFps && this.displayRefreshHz == displayRefreshHz) return
+    this.maximumFps = maximumFps
+    this.displayRefreshHz = displayRefreshHz
+    applyFrameRateVote()
+  }
 
   fun surfaceCreated(surface: Surface, width: Int, height: Int, scaleFactor: Double) {
     renderHandler.post { surfaceCreatedOnRenderThread(surface, width, height, scaleFactor) }
@@ -44,6 +78,8 @@ internal class AndroidMlnFfiSurfaceController(
     surfaceDestroyedOnRenderThread()
     try {
       graphics = AndroidEglContext.create(surface)
+      hostSurface = surface
+      applyFrameRateVote()
       extent = MapExtent.fromPhysical(width, height, scaleFactor)
       generation++
       renderer.onSurfaceAvailable(this)
@@ -51,6 +87,7 @@ internal class AndroidMlnFfiSurfaceController(
       requestFrame()
     } catch (error: Throwable) {
       if (error is VirtualMachineError) throw error
+      hostSurface = null
       fail("Failed to create the Android map surface", error)
     }
   }
@@ -82,6 +119,7 @@ internal class AndroidMlnFfiSurfaceController(
   private fun surfaceDestroyedOnRenderThread() {
     checkRenderThread()
     cancelFrame()
+    hostSurface = null
     if (graphics == null) return
     // The render session names this EGL surface, so it must be closed before EGL destroys it.
     runCatching { renderer.onSurfaceLost() }
@@ -113,11 +151,14 @@ internal class AndroidMlnFfiSurfaceController(
       return
     }
     framePosted = true
-    choreographer.postFrameCallback(this)
+    val now = SystemClock.uptimeMillis()
+    val at = lastFrameStartUptimeMs + minFrameIntervalMs()
+    if (at > now) renderHandler.postAtTime(renderFrame, at) else renderHandler.post(renderFrame)
   }
 
-  override fun doFrame(frameTimeNanos: Long) {
+  private fun renderFrame(frameTimeNanos: Long) {
     framePosted = false
+    lastFrameStartUptimeMs = SystemClock.uptimeMillis()
     val currentGraphics = graphics
     val currentExtent = extent
     if (closed || !active || currentGraphics == null || currentExtent.isEmpty) return
@@ -172,8 +213,14 @@ internal class AndroidMlnFfiSurfaceController(
 
   private fun cancelFrame() {
     if (!framePosted) return
-    choreographer.removeFrameCallback(this)
+    renderHandler.removeCallbacks(renderFrame)
     framePosted = false
+  }
+
+  private fun minFrameIntervalMs(): Long {
+    val hz = votedFrameRateHz(maximumFps, displayRefreshHz)
+    if (!hz.isFinite() || hz <= 0f) return 0L
+    return (1000.0 / hz).toLong().coerceAtLeast(1L)
   }
 
   private fun checkRenderThread() {
@@ -197,12 +244,45 @@ internal class AndroidMlnFfiSurfaceController(
     runCatching { graphics?.close() }
       .onFailure { logger?.e(it) { "Failed to release the Android EGL context" } }
     graphics = null
+    hostSurface = null
     extent = MapExtent.Empty
     runCatching { renderer.close() }
       .onFailure { logger?.e(it) { "Failed to close the Android map renderer" } }
   }
 
+  private fun applyFrameRateVote() {
+    val current = hostSurface ?: return
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
+    val hz = votedFrameRateHz(maximumFps, displayRefreshHz)
+    runCatching { current.setFrameRateVote(hz) }
+      .onFailure { logger?.w(it) { "Could not vote for $hz Hz on the map surface" } }
+  }
+
   private companion object {
     const val MAX_RECOVERY_ATTEMPTS = 3
+  }
+}
+
+/**
+ * Display refresh when [maximumFps] is null or not positive; otherwise the cap, limited to the
+ * display.
+ */
+private fun votedFrameRateHz(maximumFps: Int?, displayRefreshHz: Float): Float {
+  val display = displayRefreshHz.takeIf { it.isFinite() && it > 0f } ?: 60f
+  val cap = maximumFps ?: return display
+  if (cap <= 0) return display
+  return minOf(cap.toFloat(), display)
+}
+
+@RequiresApi(Build.VERSION_CODES.R)
+private fun Surface.setFrameRateVote(hz: Float) {
+  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+    setFrameRate(
+      hz,
+      Surface.FRAME_RATE_COMPATIBILITY_DEFAULT,
+      Surface.CHANGE_FRAME_RATE_ONLY_IF_SEAMLESS,
+    )
+  } else {
+    setFrameRate(hz, Surface.FRAME_RATE_COMPATIBILITY_DEFAULT)
   }
 }

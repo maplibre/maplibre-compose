@@ -5,9 +5,11 @@ import androidx.compose.foundation.AndroidExternalSurface
 import androidx.compose.foundation.AndroidExternalSurfaceZOrder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -19,13 +21,20 @@ internal fun AndroidMlnFfiSurface(
   renderer: MlnFfiMapRenderer,
   runtimeBackends: Set<MapRenderBackend>,
   kind: AndroidMapSurfaceKind = AndroidMapSurfaceKind.Texture,
+  maximumFps: Int? = null,
   modifier: Modifier,
   logger: Logger?,
 ) {
   val density = LocalDensity.current.density.toDouble()
   val lifecycleOwner = LocalLifecycleOwner.current
-  val controller = remember(renderer) { AndroidMlnFfiSurfaceController(renderer, logger) }
+  val displayRefreshHz = LocalView.current.display?.refreshRate ?: 60f
+  val controller =
+    remember(renderer) {
+      AndroidMlnFfiSurfaceController(renderer, logger, maximumFps, displayRefreshHz)
+    }
   val available = MapRenderBackend.OPENGL in runtimeBackends
+
+  SideEffect { controller.setFrameRateVote(maximumFps, displayRefreshHz) }
 
   DisposableEffect(controller, lifecycleOwner) {
     val observer = LifecycleEventObserver { _, event ->

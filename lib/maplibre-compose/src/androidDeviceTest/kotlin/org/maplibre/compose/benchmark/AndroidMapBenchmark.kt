@@ -98,6 +98,12 @@ class AndroidMapBenchmark {
         val host = BenchHost()
         val refreshHz = activity.displayRefreshHz()
         val frameSleepMs = (1000f / refreshHz).toLong().coerceIn(4L, 16L)
+        val fpsOnly = benchSubset() == "fps"
+        val modes = benchRenderModes()
+        val settleMs = if (fpsOnly) FPS_QUICK_SETTLE_MS else TILE_SETTLE_MS
+        val warmupMs = if (fpsOnly) FPS_QUICK_WARMUP_MS else FPS_WARMUP_MS
+        val windowMs = if (fpsOnly) FPS_QUICK_WINDOW_MS else FPS_WINDOW_MS
+        Log.i(BENCH_TAG, "Benchmark subset=${benchSubset()}")
         setContent {
           val spec = host.spec
           Column(Modifier.fillMaxSize()) {
@@ -120,19 +126,33 @@ class AndroidMapBenchmark {
           }
         }
         val scenarios = buildJsonArray {
-          for (mode in
-            listOf(RenderOptions.RenderMode.TextureView, RenderOptions.RenderMode.SurfaceView)) {
-            add(runFpsScenario(activity, host, mode, sampler, packageName, frameSleepMs))
-            add(runLatencyScenario(activity, host, mode, reuseHostMap = true))
-            add(runGeoJsonScenario(activity, host, mode, geoJson))
+          for (mode in modes) {
+            add(
+              runFpsScenario(
+                activity,
+                host,
+                mode,
+                sampler,
+                packageName,
+                frameSleepMs,
+                settleMs = settleMs,
+                warmupMs = warmupMs,
+                windowMs = windowMs,
+              )
+            )
+            if (!fpsOnly) {
+              add(runLatencyScenario(activity, host, mode, reuseHostMap = true))
+              add(runGeoJsonScenario(activity, host, mode, geoJson))
+            }
             hideMap(activity, host)
             Runtime.getRuntime().gc()
-            waitElapsed(1_000)
+            waitElapsed(if (fpsOnly) 300 else 1_000)
           }
         }
         val report = buildJsonObject {
           put("implementation", "mln-ffi")
           put("gitBranch", "agent/android-native-ffi")
+          put("subset", benchSubset())
           putJsonObject("device") {
             put("manufacturer", Build.MANUFACTURER)
             put("model", Build.MODEL)
@@ -149,7 +169,7 @@ class AndroidMapBenchmark {
         }
         writeBenchmarkReport(File(context.cacheDir, "maplibre-benchmark-ffi.json"), report)
         activity.runOnMainSync { host.status = "Done" }
-        waitElapsed(1_500)
+        waitElapsed(if (fpsOnly) 300 else 1_500)
       }
     } finally {
       MlnFfiApplication.resetForTest()
@@ -164,20 +184,23 @@ class AndroidMapBenchmark {
     sampler: MemorySampler,
     packageName: String,
     frameSleepMs: Long,
+    settleMs: Long = TILE_SETTLE_MS,
+    warmupMs: Long = FPS_WARMUP_MS,
+    windowMs: Long = FPS_WINDOW_MS,
   ) =
     namedScenario(activity, host, "FPS", mode) {
       val state = BenchMapState()
       showMap(activity, host, BenchSpec(mode = mode, state = state, baseStyle = LIBERTY))
       awaitLoaded(state)
-      waitElapsed(TILE_SETTLE_MS)
-      spinCamera(activity, state, FPS_WARMUP_MS, frameSleepMs)
+      waitElapsed(settleMs)
+      spinCamera(activity, state, warmupMs, frameSleepMs)
       state.frames.reset()
       gfxinfoReset(packageName)
       val cpuBefore = Process.getElapsedCpuTime()
       val wallBefore = SystemClock.elapsedRealtime()
       val samples = ArrayList<MemorySample>()
       samples += sampler.sample(0)
-      spinCamera(activity, state, FPS_WINDOW_MS, frameSleepMs) { elapsed ->
+      spinCamera(activity, state, windowMs, frameSleepMs) { elapsed ->
         if (elapsed - (samples.lastOrNull()?.elapsedMs ?: 0) >= MEMORY_SAMPLE_MS) {
           samples += sampler.sample(elapsed)
         }
@@ -375,6 +398,9 @@ class AndroidMapBenchmark {
     const val GEOJSON_FEATURES = 50_000
     const val FPS_WARMUP_MS = 4_000L
     const val FPS_WINDOW_MS = 8_000L
+    const val FPS_QUICK_SETTLE_MS = 2_000L
+    const val FPS_QUICK_WARMUP_MS = 1_000L
+    const val FPS_QUICK_WINDOW_MS = 4_000L
     const val TILE_SETTLE_MS = 8_000L
     const val MEMORY_SAMPLE_MS = 500L
     const val LATENCY_SAMPLES = 40
@@ -387,6 +413,16 @@ class AndroidMapBenchmark {
     val CITY_CAMERA = CameraPosition(target = CITY_TARGET, zoom = 16.5, tilt = 60.0, bearing = 30.0)
   }
 }
+
+private fun benchSubset(): String =
+  InstrumentationRegistry.getArguments().getString("subset") ?: "all"
+
+private fun benchRenderModes(): List<RenderOptions.RenderMode> =
+  when (InstrumentationRegistry.getArguments().getString("mapMode")) {
+    "texture" -> listOf(RenderOptions.RenderMode.TextureView)
+    "surface" -> listOf(RenderOptions.RenderMode.SurfaceView)
+    else -> listOf(RenderOptions.RenderMode.TextureView, RenderOptions.RenderMode.SurfaceView)
+  }
 
 private class BenchHost {
   var spec by mutableStateOf<BenchSpec?>(null)
