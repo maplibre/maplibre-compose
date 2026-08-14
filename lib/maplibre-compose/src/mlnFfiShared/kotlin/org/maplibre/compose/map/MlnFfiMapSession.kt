@@ -323,6 +323,7 @@ internal class MlnFfiMapSession(
     }
     lastRenderTime = renderStart
     reportFrameRate()
+    // TODO: requestRender() when renderUpdate reports needsRepaint, once the C API returns it.
     return MlnFfiFrameResult.RENDERED
   }
 

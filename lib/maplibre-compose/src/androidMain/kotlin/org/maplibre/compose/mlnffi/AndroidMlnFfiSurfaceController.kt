@@ -14,12 +14,13 @@ import org.maplibre.compose.map.MapExtent
 /**
  * Drives the shared FFI renderer from a dedicated Android render thread.
  *
- * The thread draws, then `eglSwapBuffers` waits on the buffer queue, matching MapLibre Android's
- * GLSurfaceView loop. When swap returns immediately (TextureView), a start-to-start delay at the
- * fps cap or the display refresh rate keeps the present rate at the panel.
+ * The thread draws, then `eglSwapBuffers` presents. SurfaceView waits on the buffer queue there,
+ * matching MapLibre Android's GLSurfaceView loop. TextureView returns from swap without waiting;
+ * the next frame is posted when the map requests one, matching MapLibre's TextureView thread.
  *
- * `Choreographer.getInstance()` follows vsync-app, which adaptive refresh holds at 60 Hz for a
- * Surface that is not drawn as a View, so it is not used as the wait.
+ * When [maximumFps] is set, the next post is delayed to that interval. Otherwise the display
+ * refresh rate is voted with SurfaceFlinger. `Choreographer.getInstance()` follows vsync-app, which
+ * adaptive refresh holds at 60 Hz for a Surface that is not drawn as a View.
  */
 internal class AndroidMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
@@ -151,14 +152,20 @@ internal class AndroidMlnFfiSurfaceController(
       return
     }
     framePosted = true
-    val now = SystemClock.uptimeMillis()
-    val at = lastFrameStartUptimeMs + minFrameIntervalMs()
-    if (at > now) renderHandler.postAtTime(renderFrame, at) else renderHandler.post(renderFrame)
+    val delayMs = minFrameIntervalMs()
+    if (delayMs > 0L) {
+      val at = lastFrameStartUptimeMs + delayMs
+      val now = SystemClock.uptimeMillis()
+      if (at > now) {
+        renderHandler.postAtTime(renderFrame, at)
+        return
+      }
+    }
+    renderHandler.post(renderFrame)
   }
 
   private fun renderFrame(frameTimeNanos: Long) {
     framePosted = false
-    lastFrameStartUptimeMs = SystemClock.uptimeMillis()
     val currentGraphics = graphics
     val currentExtent = extent
     if (closed || !active || currentGraphics == null || currentExtent.isEmpty) return
@@ -173,8 +180,12 @@ internal class AndroidMlnFfiSurfaceController(
       )
     val frame = MlnFfiMapFrame(frameId, currentExtent, target, frameTimeNanos)
 
+    val frameStartUptimeMs = SystemClock.uptimeMillis()
     try {
-      if (renderer.render(frame) == MlnFfiFrameResult.RENDERED) consecutiveFailures = 0
+      if (renderer.render(frame) == MlnFfiFrameResult.RENDERED) {
+        consecutiveFailures = 0
+        lastFrameStartUptimeMs = frameStartUptimeMs
+      }
     } catch (error: Throwable) {
       if (error is VirtualMachineError) throw error
       consecutiveFailures++
@@ -218,9 +229,9 @@ internal class AndroidMlnFfiSurfaceController(
   }
 
   private fun minFrameIntervalMs(): Long {
-    val hz = votedFrameRateHz(maximumFps, displayRefreshHz)
-    if (!hz.isFinite() || hz <= 0f) return 0L
-    return (1000.0 / hz).toLong().coerceAtLeast(1L)
+    val fps = maximumFps ?: return 0L
+    if (fps <= 0) return 0L
+    return (1000.0 / fps).toLong().coerceAtLeast(1L)
   }
 
   private fun checkRenderThread() {
