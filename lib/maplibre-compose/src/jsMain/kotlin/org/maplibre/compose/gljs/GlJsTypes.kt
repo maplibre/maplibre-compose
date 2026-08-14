@@ -188,6 +188,15 @@ internal fun styleUrl(url: String): StyleSource = url.unsafeCast<StyleSource>()
 
 internal fun styleJson(json: String): StyleSource = JSON.parse(json)
 
+/** v6 composes a Camera instead of extending it. `isEasing` lives on that Camera, not on Map. */
+internal fun MaplibreMap.isCameraEasing(): Boolean {
+  val camera = asDynamic()._camera
+  check(jsTypeOf(camera.isEasing) == "function") {
+    "MapLibre's Camera no longer has an isEasing method"
+  }
+  return camera.isEasing() as Boolean
+}
+
 /** MapLibre tells a box from a point by shape, a box being a two-element array. */
 internal fun queryBox(first: Point, second: Point): QueryGeometry =
   arrayOf(first, second).unsafeCast<QueryGeometry>()

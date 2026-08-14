@@ -52,6 +52,10 @@ internal actual class FillExtrusionLayer actual constructor(id: String, source: 
     setPaintProperty("fill-extrusion-base", base)
   }
 
+  actual fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>) {
+    setLayoutProperty("fill-extrusion-rounded-corner-distance", distance)
+  }
+
   actual fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>) {
     setPaintProperty("fill-extrusion-vertical-gradient", verticalGradient)
   }

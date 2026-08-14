@@ -12,16 +12,21 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.toJson
 
-internal fun JsonObjectBuilder.putTileSetOptions(options: TileSetOptions) {
+internal fun JsonObjectBuilder.putTileSetOptions(
+  options: TileSetOptions,
+  includeScheme: Boolean = true,
+) {
   put("minzoom", options.minZoom)
   put("maxzoom", options.maxZoom)
-  put(
-    "scheme",
-    when (options.tileCoordinateSystem) {
-      TileCoordinateSystem.XYZ -> "xyz"
-      TileCoordinateSystem.TMS -> "tms"
-    },
-  )
+  if (includeScheme) {
+    put(
+      "scheme",
+      when (options.tileCoordinateSystem) {
+        TileCoordinateSystem.XYZ -> "xyz"
+        TileCoordinateSystem.TMS -> "tms"
+      },
+    )
+  }
   options.boundingBox?.let { box ->
     putJsonArray("bounds") {
       add(box.west)

@@ -57,6 +57,10 @@ internal actual class FillExtrusionLayer actual constructor(id: String, source: 
     impl.fillExtrusionBase = base.toNSExpression()
   }
 
+  actual fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>) {
+    impl.fillExtrusionRoundedCornerDistance = distance.toNSExpression()
+  }
+
   actual fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>) {
     impl.fillExtrusionHasVerticalGradient = verticalGradient.toNSExpression()
   }

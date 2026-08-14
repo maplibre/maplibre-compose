@@ -35,6 +35,9 @@ import org.maplibre.compose.util.MaplibreComposable
  *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
  *   not supported in filter expressions.
  * @param visible Whether the layer should be displayed.
+ * @param roundedCornerDistance The distance in meters from each fill extrusion corner, measured
+ *   along the adjacent edges, that is replaced by a rounded corner. A value in the range of
+ *   `[0..infinity)`. A value of `0` leaves corners sharp.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up (on the flat plane), respectively.
  * @param translateAnchor Frame of reference for offsetting geometry.
@@ -69,6 +72,7 @@ public fun FillExtrusionLayer(
   maxZoom: Float = 24.0f,
   filter: Expression<BooleanValue> = nil(),
   visible: Boolean = true,
+  roundedCornerDistance: Expression<FloatValue> = nil(),
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
@@ -90,6 +94,7 @@ public fun FillExtrusionLayer(
   val compiledPattern = compile(pattern)
   val compiledHeight = compile(height)
   val compiledBase = compile(base)
+  val compiledRoundedCornerDistance = compile(roundedCornerDistance)
   val compiledVerticalGradient = compile(verticalGradient)
 
   SourceReferenceEffect(source)
@@ -102,10 +107,11 @@ public fun FillExtrusionLayer(
       set(maxZoom) { layer.maxZoom = it }
       set(compiledFilter) { layer.setFilter(it) }
       set(visible) { layer.visible = it }
-      set(compiledOpacity) { layer.setFillExtrusionOpacity(it) }
-      set(compiledColor) { layer.setFillExtrusionColor(it) }
+      set(compiledRoundedCornerDistance) { layer.setFillExtrusionRoundedCornerDistance(it) }
       set(compiledTranslate) { layer.setFillExtrusionTranslate(it) }
       set(compiledTranslateAnchor) { layer.setFillExtrusionTranslateAnchor(it) }
+      set(compiledOpacity) { layer.setFillExtrusionOpacity(it) }
+      set(compiledColor) { layer.setFillExtrusionColor(it) }
       set(compiledPattern) { layer.setFillExtrusionPattern(it) }
       set(compiledHeight) { layer.setFillExtrusionHeight(it) }
       set(compiledBase) { layer.setFillExtrusionBase(it) }
@@ -134,6 +140,8 @@ internal expect class FillExtrusionLayer(id: String, source: Source) : FeatureLa
   fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>)
 
   fun setFillExtrusionBase(base: CompiledExpression<FloatValue>)
+
+  fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>)
 
   fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>)
 }

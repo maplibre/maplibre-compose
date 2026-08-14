@@ -116,6 +116,11 @@ public actual class RasterDemSource : Source {
     tileSize: Int,
     demEncoding: RasterDemEncoding,
   ) : super(id) {
+    // The style spec has no `scheme` on raster-dem; GL JS 6 rejects the source over it.
+    require(options.tileCoordinateSystem == TileCoordinateSystem.XYZ) {
+      "The style spec has no scheme on a raster-dem source, and MapLibre GL JS rejects the " +
+        "source over that key. Use TileCoordinateSystem.XYZ."
+    }
     json = buildJsonObject {
       put("type", "raster-dem")
       putJsonArray("tiles") { tiles.forEach { add(it) } }
@@ -128,7 +133,7 @@ public actual class RasterDemSource : Source {
         put("blueFactor", demEncoding.blueFactor)
         put("baseShift", demEncoding.baseShift)
       }
-      putTileSetOptions(options)
+      putTileSetOptions(options, includeScheme = false)
     }
   }
 

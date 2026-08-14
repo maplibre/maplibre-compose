@@ -23,6 +23,11 @@ public actual class RasterDemSource : Source {
     tileSize: Int,
     demEncoding: RasterDemEncoding,
   ) {
+    // TODO(#572): honour TileCoordinateSystem.TMS once Android uses the native core bindings.
+    require(options.tileCoordinateSystem == TileCoordinateSystem.XYZ) {
+      "The Android SDK does not apply TileSetOptions.tileCoordinateSystem to a raster-dem " +
+        "source. Use TileCoordinateSystem.XYZ."
+    }
     impl =
       MLNRasterDemSource(
         id,
