@@ -241,7 +241,13 @@ class MlnFfiStyleSwitchTest {
 
       fun relevantLayers(): List<String> =
         session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > initialLoads }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        resources.styleBFinished.count == 0L
+      }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        loadsFinished > initialLoads &&
+          relevantLayers() == listOf("user-fill", "user-extra", "base-c")
+      }
 
       assertTrue(errors.isEmpty(), "Switching the style reported errors: $errors")
       assertEquals(
@@ -285,6 +291,7 @@ class MlnFfiStyleSwitchTest {
   private class BlockingStyleResources {
     val styleBStarted = CountDownLatch(1)
     val styleCStarted = CountDownLatch(1)
+    val styleBFinished = CountDownLatch(1)
     val releaseStyleB = CountDownLatch(1)
 
     fun read(url: String, requestedUrl: String): ResourceResponse {
@@ -292,10 +299,14 @@ class MlnFfiStyleSwitchTest {
         when (url) {
           B_STYLE_URL -> {
             styleBStarted.countDown()
-            check(releaseStyleB.await(WAIT_SECONDS, TimeUnit.SECONDS)) {
-              "style B was not released"
+            try {
+              check(releaseStyleB.await(WAIT_SECONDS, TimeUnit.SECONDS)) {
+                "style B was not released"
+              }
+              STYLE_B_JSON
+            } finally {
+              styleBFinished.countDown()
             }
-            STYLE_B_JSON
           }
           C_STYLE_URL -> {
             styleCStarted.countDown()

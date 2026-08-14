@@ -2,6 +2,8 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
@@ -42,7 +44,8 @@ class MapLoadReportingTest {
       fixture.settle()
 
       assertEquals(emptyList(), fixture.errors)
-      assertEquals(null, fixture.style?.getLayer("second"))
+      assertNotNull(fixture.style?.getLayer("third"))
+      assertNull(fixture.style?.getLayer("bg"))
       assertEquals(1, fixture.events.count { it == MapFixture.STYLE_LOADED })
     }
   }
