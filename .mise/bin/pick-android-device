@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Print the adb serial of a connected Android device. Uses $ANDROID_SERIAL or
+# the first argument when set. Prompts when several devices are connected.
+set -euo pipefail
+
+repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+adb="$("$repository_root/.mise/bin/android-sdk-root")/platform-tools/adb"
+requested="${1:-${ANDROID_SERIAL:-}}"
+
+# Ready devices only. `model:` is the product name; fall back to the serial.
+list_devices() {
+  "$adb" devices -l | tr -d '\r' | awk '
+    NR == 1 { next }
+    $2 != "device" { next }
+    {
+      serial = $1
+      model = ""
+      for (i = 3; i <= NF; i++) {
+        if ($i ~ /^model:/) {
+          model = substr($i, 7)
+          gsub(/_/, " ", model)
+        }
+      }
+      if (model == "") {
+        printf "%s\t%s\n", serial, serial
+      } else {
+        printf "%s\t%s (%s)\n", serial, model, serial
+      }
+    }
+  '
+}
+
+devices="$(list_devices)"
+if [[ -z "$devices" ]]; then
+  echo "No Android device is connected. Plug one in, start an emulator, or run" >&2
+  echo "\`mise run android-emulator:boot\`." >&2
+  exit 1
+fi
+"$repository_root/.mise/bin/pick-from-list" "Android device" "$requested" 3<<<"$devices"
