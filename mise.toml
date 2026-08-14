@@ -160,20 +160,21 @@ run = "mise run //docs:build"
 
 [tasks."build:android-app"]
 description = "Package the demo app as a debug APK."
-run = "./gradlew packageDebug"
+run = "./gradlew :demo-app:android:packageDebug"
 
 [tasks."build:desktop-app"]
 description = "Package the demo app as a native installer for this host."
 run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
 
 [tasks."demo:android"]
-description = "Install the demo app on a connected Android device or emulator."
-usage = '''
-flag "--flavor <flavor>" default="default" {
-  choices "default" "opengl" "vulkan" "debug"
-}
+description = "Run the demo app on a connected Android device or emulator."
+# Gradle's install task stops at the install. adb reads $ANDROID_SERIAL to pick
+# among several devices, the same way the install task does.
+run = '''
+./gradlew :demo-app:android:installDebug
+"$(.mise/bin/android-sdk-root)/platform-tools/adb" shell am start \
+  -n org.maplibre.compose.demoapp/.MainActivity
 '''
-run = './gradlew :demo-app:android:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"'
 
 [tasks."demo:desktop"]
 description = "Run the demo app on this host."
@@ -182,6 +183,11 @@ run = "./gradlew :demo-app:desktop:run"
 [tasks."demo:js"]
 description = "Run the demo app in a browser."
 run = "./gradlew :demo-app:common:jsBrowserDevelopmentRun"
+
+[tasks."demo:ios"]
+description = "Run the demo app on an iOS simulator or a connected iPhone."
+usage = 'flag "--device" help="Run on a connected iPhone instead of a simulator."'
+run = '.mise/bin/run-ios-demo'
 
 [tasks."demo:desktop-glfw"]
 description = "Run the demo app on the compose-glfw desktop host instead of the AWT one."

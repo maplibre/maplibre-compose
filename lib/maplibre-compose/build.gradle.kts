@@ -55,6 +55,7 @@ kotlin {
     commonMain.dependencies {
       implementation(libs.jetbrains.compose.foundation)
       implementation(libs.jetbrains.compose.components.resources)
+      implementation(libs.htmlConverterCompose)
       implementation(libs.lifecycle.runtime.compose)
       api(libs.kermit)
       api(libs.spatialk.geojson)
@@ -107,6 +108,7 @@ kotlin {
 
     androidMain {
       dependencies {
+        implementation(libs.androidx.activity.compose)
         // The Android host presents through an EGL window surface.
         implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
       }
@@ -134,6 +136,7 @@ kotlin {
       implementation(kotlin("test"))
       implementation(kotlin("test-common"))
       implementation(kotlin("test-annotations-common"))
+      implementation(libs.kotlinx.coroutines.test)
 
       implementation(libs.jetbrains.compose.ui.test)
     }

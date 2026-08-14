@@ -565,11 +565,6 @@ internal class GlJsMapSession(
     }
   }
 
-  override fun setOrnamentSettings(value: OrnamentOptions) {
-    // MapLibre's own ornaments are DOM controls, hidden behind the Compose surface; see
-    // OrnamentOptions.
-  }
-
   override fun setGestureSettings(value: GestureOptions) {
     // Gestures are implemented in Compose, so the host's input handling reads these.
   }

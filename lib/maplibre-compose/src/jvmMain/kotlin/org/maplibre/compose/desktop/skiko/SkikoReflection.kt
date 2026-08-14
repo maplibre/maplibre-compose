@@ -43,6 +43,12 @@ internal object SkikoReflection {
     return findSkiaLayerComponent(window) ?: findComposeWindowSkiaLayer(window)
   }
 
+  /** Returns Skiko's native top-level window handle once [window] is displayable. */
+  fun findNativeWindowHandle(window: Window): Long? = onEdt {
+    val layer = findSkiaLayer(window) ?: return@onEdt null
+    (layer.invokeNoArg("getWindowHandle") as? Long)?.takeIf { it != 0L }
+  }
+
   fun requireRedrawer(layer: Any, expectedClass: String): Any {
     val redrawer =
       layer.invokeNoArg("getRedrawer\$skiko")

@@ -37,9 +37,9 @@ integration point rather than something wired into Skiko's internals.
 
 Next steps:
 
-- Add support for platform location services on macOS, Windows, and Linux. This
-  is the last piece. Device heading is not something MapLibre Native provides on
-  desktop, so a desktop map will show position without a compass direction.
+- Add support for platform location services on macOS and Windows. Linux uses
+  the XDG Location portal. Desktop orientation providers still need platform
+  sensor integrations.
 
 ### [Native core integration on iOS](https://github.com/maplibre/maplibre-compose/issues/572)
 
@@ -61,29 +61,6 @@ Research Areas:
   Metal layer.
 - Explore unifying those platforms behind a single, thin, `expect`/`actual`
   interface on top of MapLibre Native.
-
-### [JS Parity](https://github.com/maplibre/maplibre-compose/issues/222)
-
-**Status:** Nearly done 🏁
-
-The goal is to support Compose apps in the browser on par with the other
-platforms.
-
-The browser is built on
-[MapLibre GL JS](https://maplibre.org/maplibre-gl-js/docs/), declared by hand in
-Kotlin. MapLibre draws into a texture, and Compose composites that texture into
-its own scene, so Compose content can sit above and below the map. The camera,
-gestures, styles, sources, layers, expressions, images, and feature queries all
-work, and one conformance suite runs against both the browser and MapLibre
-Native.
-
-MapLibre GL JS supplies no offline packs and no computed source, so those
-features belong to the MapLibre Native platforms. Ornaments are drawn in Compose
-instead, where `maplibre-compose-material3` has a set that works everywhere.
-
-Next steps:
-
-- Add support for browser location services.
 
 ### [Documentation](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20documentation%20label%3Adocumentation)
 
@@ -147,7 +124,7 @@ take them on, community contributions are of course still welcome!
 **Status:** Needs Exploration 🔍
 
 The goal is to support Compose apps in the browser using Kotlin WASM. Which map
-draws them is open: the Kotlin JS platform above uses MapLibre GL JS, and
+draws them is open: the current Kotlin/JS platform uses MapLibre GL JS, and
 [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) has
 gained WebGPU and WebGL support on wasm alongside a Kotlin/Wasm binding.
 

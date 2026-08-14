@@ -67,15 +67,41 @@ public class Direct3D12ComposeGpuContext(
     get() = ComposeRenderBackend.DIRECT3D12
 }
 
+/** A window that an XDG portal can use as the parent for a system dialog. */
+public sealed interface XdgPortalWindow {
+  /** An X11 top-level window. */
+  @Immutable
+  public data class X11(public val windowId: Long) : XdgPortalWindow {
+    init {
+      require(windowId > 0) { "An X11 window ID must be positive" }
+    }
+  }
+
+  /**
+   * A Wayland top-level surface that can export an xdg-foreign handle.
+   *
+   * The host owns the Wayland connection and event loop. It must keep the export alive while
+   * `action` runs and release it afterward. Pass null to `action` when the compositor does not
+   * support xdg-foreign.
+   */
+  public interface Wayland : XdgPortalWindow {
+    public suspend fun <T> withXdgForeignHandle(action: suspend (String?) -> T): T
+  }
+}
+
 /**
- * Supplies the [ComposeGpuContext] a map renders against.
+ * Supplies the window integrations a map uses on desktop.
  *
- * The extension point for applications running their own Compose windowing: report the context, and
- * say which thread owns it. Install one with [ProvideMapHost].
+ * Applications running their own Compose windowing report the GPU context and its owning thread,
+ * plus any supported platform-window integration. Install one with [ProvideMapHost].
  */
-public interface ComposeGpuHost {
+public interface ComposeMapHost {
   /** A short description of this host, used in diagnostics. */
   public val description: String
+
+  /** The window that XDG portals use to parent system dialogs, when the host can provide one. */
+  public val xdgPortalWindow: XdgPortalWindow?
+    get() = null
 
   /**
    * The backend Compose draws this scene with, which decides how MapLibre's output reaches it.
@@ -105,8 +131,8 @@ public interface ComposeGpuHost {
   public fun runOnGpuThread(action: Runnable)
 }
 
-/** Runs [action] on [ComposeGpuHost.runOnGpuThread] and returns its result. */
-internal fun <T> ComposeGpuHost.onGpuThread(action: () -> T): T {
+/** Runs [action] on [ComposeMapHost.runOnGpuThread] and returns its result. */
+internal fun <T> ComposeMapHost.onGpuThread(action: () -> T): T {
   var result: Result<T>? = null
   runOnGpuThread { result = runCatching(action) }
   return checkNotNull(result) { "$description did not run the action it was given" }.getOrThrow()

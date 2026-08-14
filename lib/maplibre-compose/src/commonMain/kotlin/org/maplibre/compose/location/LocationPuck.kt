@@ -1,10 +1,13 @@
 package org.maplibre.compose.location
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -23,16 +26,17 @@ import kotlin.math.sin
 import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.expressions.dsl.asBoolean
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.div
 import org.maplibre.compose.expressions.dsl.dp
 import org.maplibre.compose.expressions.dsl.feature
-import org.maplibre.compose.expressions.dsl.gt
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.minus
 import org.maplibre.compose.expressions.dsl.offset
@@ -63,7 +67,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * and bearing accuracy are shown as well.
  *
  * @param idPrefix The prefix used for the layers to display the location indicator.
- * @param location The [Location] providing the current location and its status.
+ * @param location The [Location] providing the current or last known location. Its
+ *   [timestamp][Location.timestamp] determines whether it is styled as old.
  * @param bearing The bearing of the location puck, which determines the rotation of the bearing
  *   indicator. Defaults to `location.course`, which is the direction of travel.
  * @param cameraState The [CameraState] of the map, used only for [CameraState.metersPerDpAtTarget]
@@ -100,7 +105,8 @@ public fun LocationPuck(
 ) {
   val bearingPainter = rememberBearingPainter(sizes, colors)
   val positionAccuracy = location?.position?.accuracy?.inMeters?.toFloat() ?: 0f
-  val locationSource = rememberLocationSource(location, bearing)
+  val locationSource = rememberLocationSource(location, bearing, oldLocationThreshold)
+  val isOldLocation = feature["isOldLocation"].asBoolean(const(false))
 
   CircleLayer(
     id = "$idPrefix-accuracy",
@@ -111,11 +117,7 @@ public fun LocationPuck(
         positionAccuracy > accuracyThreshold,
     radius =
       switch(
-        condition(
-          test =
-            feature["age"].asNumber() gt const(oldLocationThreshold.inWholeNanoseconds.toFloat()),
-          output = const(0.dp),
-        ),
+        condition(test = isOldLocation, output = const(0.dp)),
         fallback =
           (feature["accuracy"].asNumber() / const(cameraState.metersPerDpAtTarget.toFloat())).dp,
       ),
@@ -143,11 +145,7 @@ public fun LocationPuck(
     radius = const(sizes.dotRadius),
     color =
       switch(
-        condition(
-          test =
-            feature["age"].asNumber() gt const(oldLocationThreshold.inWholeNanoseconds.toFloat()),
-          output = const(colors.dotFillColorOldLocation),
-        ),
+        condition(test = isOldLocation, output = const(colors.dotFillColorOldLocation)),
         fallback = const(colors.dotFillColorCurrentLocation),
       ),
     strokeColor = const(colors.dotStrokeColor),
@@ -282,29 +280,58 @@ private fun rememberBearingAccuracyPainter(
 @Composable
 private fun rememberLocationSource(
   location: Location?,
-  bearing: BearingWithAccuracy?,
+  bearing: BearingWithAccuracy? = location?.course,
+  oldLocationThreshold: Duration = 30.seconds,
 ): GeoJsonSource {
+  val isOldLocation = rememberIsLocationOld(location, oldLocationThreshold)
   val features =
-    remember(location, bearing) {
-      if (location == null) {
-        FeatureCollection()
-      } else {
-        FeatureCollection(
-          Feature(
-            geometry = Point(location.position.value),
-            properties =
-              buildJsonObject {
-                put("accuracy", location.position.accuracy?.inMeters)
-                put("bearing", bearing?.value?.let { (it - Bearing.North).inDegrees })
-                put("bearingAccuracy", bearing?.accuracy?.inDegrees)
-                put("age", location.timestamp.elapsedNow().inWholeNanoseconds)
-              },
-          )
-        )
-      }
+    remember(location, bearing, isOldLocation) {
+      locationFeatures(location, bearing, isOldLocation)
     }
 
   return rememberGeoJsonSource(GeoJsonData.Features(features))
+}
+
+internal fun locationFeatures(
+  location: Location?,
+  bearing: BearingWithAccuracy?,
+  isOldLocation: Boolean,
+) =
+  if (location == null) {
+    FeatureCollection()
+  } else {
+    FeatureCollection(
+      Feature(
+        geometry = Point(location.position.value),
+        properties =
+          buildJsonObject {
+            put("accuracy", location.position.accuracy?.inMeters)
+            put("bearing", bearing?.value?.let { (it - Bearing.North).inDegrees })
+            put("bearingAccuracy", bearing?.accuracy?.inDegrees)
+            put("isOldLocation", isOldLocation)
+          },
+      )
+    )
+  }
+
+@Composable
+internal fun rememberIsLocationOld(
+  location: Location?,
+  oldLocationThreshold: Duration,
+): Boolean {
+  var isOld by
+    remember(location, oldLocationThreshold) {
+      mutableStateOf(location?.timestamp?.elapsedNow()?.let { it > oldLocationThreshold } == true)
+    }
+  LaunchedEffect(location, oldLocationThreshold) {
+    if (location == null || isOld) return@LaunchedEffect
+
+    val remaining = oldLocationThreshold - location.timestamp.elapsedNow()
+    if (remaining.isInfinite()) return@LaunchedEffect
+    if (remaining > Duration.ZERO) delay(remaining)
+    isOld = true
+  }
+  return isOld
 }
 
 public typealias LocationClickHandler = (Location) -> Unit

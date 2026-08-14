@@ -6,7 +6,6 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
-import android.location.LocationManager
 import android.os.Handler
 import android.os.HandlerThread
 import androidx.compose.runtime.Composable
@@ -27,12 +26,18 @@ import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 
 /**
- * A [OrientationProvider] built on the [SensorManager] platform APIs.
+ * An [OrientationProvider] built on Android's
+ * [`SensorManager`](https://developer.android.com/reference/android/hardware/SensorManager).
  *
- * @param context the [Context] get the [LocationManager] system service from
- * @param updateInterval the *minimum* time between location updates
- * @param coroutineScope the [CoroutineScope] used to share the [orientation] flow
- * @param sharingStarted parameter for [stateIn] call of [orientation]
+ * It maps the azimuth from a
+ * [rotation-vector sensor](https://developer.android.com/reference/android/hardware/Sensor#TYPE_ROTATION_VECTOR)
+ * to [Orientation.orientation]. Android does not expose heading accuracy in degrees for this
+ * sensor, so [BearingWithAccuracy.accuracy] is `null`.
+ *
+ * @param context Context used to obtain the platform sensor manager.
+ * @param updateInterval Preferred minimum time between delivered headings.
+ * @param coroutineScope Scope used to share the [orientation] flow.
+ * @param sharingStarted Sharing policy for the [orientation] flow.
  */
 @OptIn(FlowPreview::class)
 public class AndroidOrientationProvider(
@@ -44,10 +49,6 @@ public class AndroidOrientationProvider(
   override val orientation: StateFlow<Orientation?>
 
   init {
-    if (!handlerThread.isAlive) {
-      handlerThread.start()
-    }
-
     val sensorManager = context.getSystemService(SENSOR_SERVICE) as SensorManager
 
     orientation =
@@ -100,7 +101,9 @@ public class AndroidOrientationProvider(
   }
 
   private companion object {
-    private val handlerThread by lazy { HandlerThread("AndroidOrientationProvider") }
+    private val handlerThread by lazy {
+      HandlerThread("AndroidOrientationProvider").apply { start() }
+    }
   }
 }
 
@@ -111,10 +114,7 @@ public actual fun rememberDefaultOrientationProvider(
   return rememberAndroidOrientationProvider(updateInterval = updateInterval)
 }
 
-/**
- * Create and remember an [AndroidOrientationProvider], the default [OrientationProvider] for
- * Android
- */
+/** Creates and remembers the default Android [OrientationProvider]. */
 @Composable
 public fun rememberAndroidOrientationProvider(
   updateInterval: Duration,

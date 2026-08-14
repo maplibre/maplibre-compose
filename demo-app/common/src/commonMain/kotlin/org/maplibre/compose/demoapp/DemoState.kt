@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -17,19 +16,17 @@ import org.maplibre.compose.demoapp.demos.CameraStateDemo
 import org.maplibre.compose.demoapp.demos.ClusteredPointsDemo
 import org.maplibre.compose.demoapp.demos.Demo
 import org.maplibre.compose.demoapp.demos.MapClickDemo
+import org.maplibre.compose.demoapp.demos.MapControlsDemo
 import org.maplibre.compose.demoapp.demos.MapManipulationDemo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
-import org.maplibre.compose.location.UserLocationState
+import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
-import org.maplibre.compose.location.rememberNullLocationProvider
-import org.maplibre.compose.location.rememberNullOrientationProvider
-import org.maplibre.compose.location.rememberUserLocationState
+import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.GestureOptions
-import org.maplibre.compose.map.OrnamentOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
@@ -58,18 +55,24 @@ class MapManipulationState {
   var position by mutableStateOf(MapPosition.Center)
 }
 
-class OrnamentOptionsState {
-  var isMaterial3ControlsEnabled by mutableStateOf(true)
+/** Which set of controls [DemoMap] draws on top of the map. */
+enum class MapControls {
+  Foundation,
+  Material3,
+  None,
+}
+
+class MapControlsState {
+  var controls by mutableStateOf(MapControls.Material3)
 }
 
 class DemoState(
   val nav: NavHostController,
   val cameraState: CameraState,
   val styleState: StyleState,
-  val locationState: UserLocationState,
-  val locationPermissionState: LocationPermissionState,
+  val locationState: LocationState,
   val mapManipulationState: MapManipulationState = MapManipulationState(),
-  val ornamentOptionsState: OrnamentOptionsState = OrnamentOptionsState(),
+  val mapControlsState: MapControlsState = MapControlsState(),
 ) {
 
   val mapClickEvents = mutableStateListOf<MapClickEvent>()
@@ -86,12 +89,12 @@ class DemoState(
       ClusteredPointsDemo,
       UserLocationDemo,
       MapManipulationDemo,
+      MapControlsDemo,
     ) + Platform.extraDemos)
 
   var selectedStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var gestureOptions by mutableStateOf(GestureOptions.Standard)
-  var ornamentOptions by mutableStateOf(OrnamentOptions.AllEnabled)
 
   private val navDestinationState = mutableStateOf<NavDestination?>(null)
 
@@ -119,36 +122,15 @@ fun rememberDemoState(): DemoState {
   val cameraState = rememberCameraState()
   val styleState = rememberStyleState()
 
-  val locationPermissionState = rememberLocationPermissionState()
-  val locationProvider =
-    key(locationPermissionState.hasPermission) {
-      if (locationPermissionState.hasPermission) {
-        // Android Lint reads the permission check on the line above as a plain boolean.
-        //noinspection MissingPermission
-        rememberDefaultLocationProvider()
-      } else {
-        rememberNullLocationProvider()
-      }
-    }
-  val orientationProvider =
-    key(locationPermissionState.hasPermission) {
-      if (locationPermissionState.hasPermission) {
-        rememberDefaultOrientationProvider()
-      } else {
-        rememberNullOrientationProvider()
-      }
-    }
-  val locationState = rememberUserLocationState(locationProvider, orientationProvider)
+  val locationProvider = rememberDefaultLocationProvider()
+  val orientationProvider = rememberDefaultOrientationProvider()
+  val locationState =
+    rememberLocationState(
+      provider = locationProvider,
+      orientationProvider = orientationProvider,
+    )
 
-  return remember(nav, cameraState, styleState, locationState, locationPermissionState) {
-    DemoState(nav, cameraState, styleState, locationState, locationPermissionState)
+  return remember(nav, cameraState, styleState, locationState) {
+    DemoState(nav, cameraState, styleState, locationState)
   }
 }
-
-interface LocationPermissionState {
-  val hasPermission: Boolean
-
-  fun requestPermission()
-}
-
-@Composable expect fun rememberLocationPermissionState(): LocationPermissionState

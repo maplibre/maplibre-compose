@@ -45,6 +45,7 @@ export default defineConfig({
         { label: "Interaction", slug: "interaction" },
         { label: "Layers", slug: "layers" },
         { label: "Location", slug: "location" },
+        { label: "Map controls", slug: "controls" },
         { label: "Material 3", slug: "material3" },
         {
           label: "API reference",

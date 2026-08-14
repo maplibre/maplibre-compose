@@ -217,11 +217,9 @@ Configure MapLibre once, then provide each AWT window's GPU context:
 
 ```kotlin title="Main.kt"
 fun main() {
-  MapLibre.configure(
-    DesktopRuntimeOptions(cachePath = desktopCachePath("com.example.myapp"))
-  )
+  MapLibre.configure(applicationId = "com.example.myapp")
   singleWindowApplication {
-    ProvideMapHost(host = rememberAwtComposeGpuHost(window)) {
+    ProvideMapHost(host = rememberAwtComposeMapHost(window)) {
       App()
     }
   }

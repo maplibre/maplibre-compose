@@ -73,7 +73,7 @@ import org.lwjgl.vulkan.VkMemoryRequirements
 import org.lwjgl.vulkan.VkMemoryWin32HandlePropertiesKHR
 import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkQueue
-import org.maplibre.compose.desktop.ComposeGpuHost
+import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.map.MapExtent
@@ -95,7 +95,7 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
  * Both sides must agree on the pixel format: `DXGI_FORMAT_B8G8R8A8_UNORM` and
  * `VK_FORMAT_B8G8R8A8_UNORM`.
  */
-internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeGpuHost) : MlnFfiMapHost {
+internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-windows-vulkan-renderer")
   private val presenter = Direct3D12Presenter(gpuHost)
   private val frameCompletion = ComposeFrameCompletion()

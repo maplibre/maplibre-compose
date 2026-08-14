@@ -16,6 +16,6 @@ public enum class CameraMoveReason {
    */
   GESTURE,
 
-  /** Camera movement was initiated by a call to the public API, or by the compass ornament. */
+  /** Camera movement was initiated by a call to the public API, such as by a compass control. */
   PROGRAMMATIC,
 }

@@ -14,6 +14,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.round
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -49,7 +50,6 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.renderedQueryOptions
-import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
@@ -946,34 +946,68 @@ internal class MlnFfiMapSession(
   }
 
   override fun getVisibleBoundingBox(): BoundingBox =
-    withMap(BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))) {
-      it.latLngBoundsForCamera(it.camera).toBoundingBox()
+    withMap(BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))) { map ->
+      val size = map.size
+      val center =
+        map
+          .latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0)))
+          .first()
+          .toPosition()
+      // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would
+      // hull to a box spanning nearly the whole world. Unwrap the corners around the center first;
+      // like GL JS, the box may then extend past ±180.
+      val corners = map.unprojectedCorners().map { it.unwrapAround(center) }
+      BoundingBox(
+        southwest =
+          Position(
+            longitude = corners.minOf { it.longitude },
+            latitude = corners.minOf { it.latitude },
+          ),
+        northeast =
+          Position(
+            longitude = corners.maxOf { it.longitude },
+            latitude = corners.maxOf { it.latitude },
+          ),
+      )
     }
 
   override fun getVisibleRegion(): VisibleRegion =
     withMap(
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
     ) { map ->
-      // latLngBoundsForCamera is axis-aligned and so wrong for a rotated or pitched camera.
-      val size = map.size
-      val width = size.width.toDouble()
-      val height = size.height.toDouble()
-      val corners =
-        map.latLngsForPixels(
-          listOf(
-            ScreenPoint(0.0, 0.0),
-            ScreenPoint(width, 0.0),
-            ScreenPoint(0.0, height),
-            ScreenPoint(width, height),
-          )
-        )
+      val corners = map.unprojectedCorners()
       VisibleRegion(
-        farLeft = corners[0].toPosition(),
-        farRight = corners[1].toPosition(),
-        nearLeft = corners[2].toPosition(),
-        nearRight = corners[3].toPosition(),
+        farLeft = corners[0],
+        farRight = corners[1],
+        nearLeft = corners[2],
+        nearRight = corners[3],
       )
     }
+
+  /**
+   * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.
+   *
+   * `latLngBoundsForCamera` hulls only the top-left and bottom-right corners, so it misses parts of
+   * the viewport whenever the camera is rotated or pitched. Unproject all four corners instead.
+   */
+  private fun MapHandle.unprojectedCorners(): List<Position> {
+    val width = size.width.toDouble()
+    val height = size.height.toDouble()
+    return latLngsForPixels(
+        listOf(
+          ScreenPoint(0.0, 0.0),
+          ScreenPoint(width, 0.0),
+          ScreenPoint(0.0, height),
+          ScreenPoint(width, height),
+        )
+      )
+      .map { it.toPosition() }
+  }
+
+  private fun Position.unwrapAround(center: Position): Position {
+    val delta = round((center.longitude - longitude) / 360.0) * 360.0
+    return if (delta == 0.0) this else Position(longitude = longitude + delta, latitude = latitude)
+  }
 
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
@@ -985,11 +1019,6 @@ internal class MlnFfiMapSession(
         if (value.isTileParseStatusEnabled) add(DebugOption.PARSE_STATUS)
       }
     }
-  }
-
-  override fun setOrnamentSettings(value: OrnamentOptions) {
-    // MapLibre Native has no ornament widgets outside the mobile SDKs, so there is nothing to
-    // forward.
   }
 
   override fun setGestureSettings(value: GestureOptions) {
