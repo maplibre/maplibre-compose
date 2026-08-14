@@ -156,6 +156,7 @@ internal class IosMapAdapter(
 
     override fun mapViewDidFinishLoadingMap(mapView: MLNMapView) {
       map.logger?.i { "Map finished loading" }
+      map.reconcileMissedStyleLoad(mapView)
       map.callbacks.onMapFinishedLoading(map)
     }
 
@@ -252,6 +253,15 @@ internal class IosMapAdapter(
     val next = pendingBaseStyle ?: return
     pendingBaseStyle = null
     beginStyleLoad(next)
+  }
+
+  /** Fallback for a `didFinishLoadingStyle` callback missed to the delegate-assignment
+   * race described in the commit message that introduced this function. */
+  private fun reconcileMissedStyleLoad(mapView: MLNMapView) {
+    if (styleLoadInFlight == null) return
+    val loadedStyle = mapView.style ?: return
+    callbacks.onStyleChanged(this, IosStyle(style = loadedStyle, getScale = { density.density }))
+    onStyleLoadSettled()
   }
 
   internal class Gesture<T : UIGestureRecognizer>(
