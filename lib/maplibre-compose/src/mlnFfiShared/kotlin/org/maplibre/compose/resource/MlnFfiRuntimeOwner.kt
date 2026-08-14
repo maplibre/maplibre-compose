@@ -42,7 +42,12 @@ private constructor(
      * Creates a runtime and everything that hangs off it, or throws having closed whatever it got
      * as far as. [what] names the runtime in log lines.
      */
-    fun open(rawCacheFile: Path, getLogger: () -> Logger?, what: String): MlnFfiRuntimeOwner {
+    fun open(
+      rawCacheFile: Path,
+      getLogger: () -> Logger?,
+      what: String,
+      resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
+    ): MlnFfiRuntimeOwner {
       val cacheFile = normalizeMlnFfiPath(rawCacheFile)
       // MapLibre opens the database as the runtime is created, and fails if the directory is
       // missing.
@@ -57,7 +62,7 @@ private constructor(
         }
       val provider =
         try {
-          MlnFfiResourceProvider(getLogger = getLogger)
+          resourceProviderFactory(getLogger)
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error

@@ -7,6 +7,8 @@ import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.resource.MlnFfiResourceProvider
+import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
@@ -39,6 +41,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val extent: MapExtent,
   private val cacheFile: Path,
   private val getLogger: () -> Logger?,
+  private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
   /** Runs on the owner thread for every event this loop's runtime raises. */
@@ -150,7 +153,13 @@ internal class MlnFfiMapRuntimeLoop(
   private fun runLoop() {
     val owner =
       try {
-        MlnFfiRuntimeOwner.open(cacheFile, getLogger, "MapLibre runtime").also { runtimeOwner = it }
+        MlnFfiRuntimeOwner.open(
+            cacheFile,
+            getLogger,
+            "MapLibre runtime",
+            resourceProviderFactory,
+          )
+          .also { runtimeOwner = it }
       } catch (error: Throwable) {
         logger?.e(error) { "Could not create the MapLibre runtime" }
         fail(error)

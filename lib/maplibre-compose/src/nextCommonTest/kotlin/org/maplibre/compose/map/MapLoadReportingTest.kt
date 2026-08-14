@@ -27,10 +27,33 @@ class MapLoadReportingTest {
     }
   }
 
+  @Test
+  fun rapid_style_changes_leave_the_latest_style_active(): MapTestResult = runMapTest {
+    createMapFixture().use { fixture ->
+      fixture.loadStyle(FIRST)
+      fixture.events.clear()
+
+      fixture.session.setBaseStyle(SECOND)
+      fixture.session.setBaseStyle(THIRD)
+
+      fixture.pumpUntil("the third style to become active") {
+        fixture.style?.getLayer("third") != null
+      }
+      fixture.settle()
+
+      assertEquals(emptyList(), fixture.errors)
+      assertEquals(null, fixture.style?.getLayer("second"))
+      assertEquals(1, fixture.events.count { it == MapFixture.STYLE_LOADED })
+    }
+  }
+
   private companion object {
     val FIRST = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
 
     val SECOND =
       BaseStyle.Json("""{"version":8,"sources":{},"layers":[{"id":"bg","type":"background"}]}""")
+
+    val THIRD =
+      BaseStyle.Json("""{"version":8,"sources":{},"layers":[{"id":"third","type":"background"}]}""")
   }
 }
