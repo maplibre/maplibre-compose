@@ -1,6 +1,5 @@
 package org.maplibre.compose.mlnffi
 
-import java.util.concurrent.locks.ReentrantLock
 import kotlin.contracts.ExperimentalContracts
 import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
@@ -14,16 +13,10 @@ import kotlin.contracts.contract
  * [fair] hands the lock to the longest waiter, which keeps one thread from starving another while
  * both answer a stream of MapLibre callbacks. It costs throughput, so it is off by default.
  */
-internal class MlnFfiLock(fair: Boolean = false) {
-  private val delegate = ReentrantLock(fair)
+internal expect class MlnFfiLock(fair: Boolean = false) {
+  fun lock()
 
-  fun lock() {
-    delegate.lock()
-  }
-
-  fun unlock() {
-    delegate.unlock()
-  }
+  fun unlock()
 }
 
 /** Runs [block] holding [this], and releases the lock however [block] ends. */

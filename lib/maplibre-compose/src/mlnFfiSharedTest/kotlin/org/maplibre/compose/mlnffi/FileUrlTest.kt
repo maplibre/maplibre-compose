@@ -11,8 +11,8 @@ import kotlinx.io.files.SystemFileSystem
 /**
  * Covers the `file:` URL the offline tests hand to MapLibre.
  *
- * [fileUrlOf] uses [java.io.File.toURI], which writes `file:/path` for a local absolute file. These
- * assertions check that scheme, forward slashes, and percent-encoding of reserved characters.
+ * [fileUrlOf] writes a `file:` URL for a local absolute file. These assertions check that scheme,
+ * forward slashes, and percent-encoding of reserved characters.
  */
 class FileUrlTest {
 

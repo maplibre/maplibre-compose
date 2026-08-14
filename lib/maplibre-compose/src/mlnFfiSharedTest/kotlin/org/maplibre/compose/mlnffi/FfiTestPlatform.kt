@@ -1,7 +1,5 @@
 package org.maplibre.compose.mlnffi
 
-import java.io.File
-import java.net.URI
 import kotlinx.io.files.Path
 import org.maplibre.compose.testing.RgbaPixel
 
@@ -23,13 +21,13 @@ internal expect object FfiTestPlatform {
 /**
  * The `file:` URL naming [path].
  *
- * Built with [File.toURI] so a Windows drive letter and backslash separators become a URI path, and
- * reserved characters are percent-encoded.
+ * A Windows drive letter and backslash separators become a URI path, and reserved characters are
+ * percent-encoded.
  */
-internal fun fileUrlOf(path: Path): String = File(path.toString()).toURI().toString()
+internal expect fun fileUrlOf(path: Path): String
 
 /** The path [url] names. Inverse of [fileUrlOf], so that a test can check the round trip. */
-internal fun pathOfFileUrl(url: String): Path = Path(File(URI(url)).absolutePath)
+internal expect fun pathOfFileUrl(url: String): Path
 
 /**
  * Platform/backend mechanics underneath the shared real-map fixture.

@@ -90,18 +90,27 @@ kotlin {
       }
 
     // used to share the integration with the MapLibre Native FFI binding, as opposed to the
-    // platform SDKs. Android and desktop use the same map, style, source, layer, and offline path.
-    create("mlnFfiShared") {
-      dependsOn(maplibreNativeMain)
-      dependsOn(nextCommonMain)
+    // platform SDKs. Android, desktop, and (next) Kotlin/Native iOS use the same map, style,
+    // source, layer, and offline path. This source set stays free of java.* so a Native actual can
+    // sit beside the Java one.
+    val mlnFfiShared =
+      create("mlnFfiShared") {
+        dependsOn(maplibreNativeMain)
+        dependsOn(nextCommonMain)
+        dependencies {
+          // Backend-independent binding only; the application selects the native runtime.
+          implementation(libs.maplibre.nativeFfi)
+          // Multiplatform filesystem paths, so this source set stays free of java.io.File.
+          implementation(libs.kotlinx.io.core)
+        }
+      }
+
+    // Java implementations shared by Android and desktop, including mln-ffi actuals that Native
+    // will provide separately.
+    create("androidJvmShared") {
+      dependsOn(mlnFfiShared)
       androidMain.get().dependsOn(this)
       jvmMain.dependsOn(this)
-      dependencies {
-        // Backend-independent binding only; the application selects the native runtime.
-        implementation(libs.maplibre.nativeFfi)
-        // Multiplatform filesystem paths, so this source set stays free of java.io.File.
-        implementation(libs.kotlinx.io.core)
-      }
     }
 
     iosMain {}
@@ -151,9 +160,14 @@ kotlin {
     // Behavioral contracts for the shared MapLibre Native FFI integration. Every platform that
     // consumes mlnFfiShared must execute this source set; the platform test source supplies only
     // runtime, render-host, storage, and Compose-runner adapters.
-    create("mlnFfiSharedTest") {
-      dependsOn(commonTest.get())
-      dependsOn(nextCommonTest)
+    val mlnFfiSharedTest =
+      create("mlnFfiSharedTest") {
+        dependsOn(commonTest.get())
+        dependsOn(nextCommonTest)
+      }
+
+    create("androidJvmSharedTest") {
+      dependsOn(mlnFfiSharedTest)
       getByName("androidDeviceTest").dependsOn(this)
       getByName("jvmTest").dependsOn(this)
     }
