@@ -6,14 +6,38 @@ import kotlin.math.roundToInt
 import org.maplibre.compose.demoapp.DemoState
 import org.maplibre.compose.demoapp.design.CardColumn
 import org.maplibre.compose.demoapp.design.FrameRateListItem
+import org.maplibre.compose.demoapp.design.SegmentedButtonListItem
 import org.maplibre.compose.demoapp.design.SliderListItem
+import org.maplibre.compose.demoapp.design.Subheading
 import org.maplibre.compose.demoapp.design.SwitchListItem
+import org.maplibre.compose.demoapp.util.Platform
+import org.maplibre.compose.map.RenderOptions
 
 object RenderOptionsDemo : Demo {
   override val name = "Configure rendering"
 
   @Composable
   override fun SheetContent(state: DemoState, modifier: Modifier) {
+    if (Platform.name == "Android") {
+      Subheading("Map surface")
+      CardColumn {
+        SegmentedButtonListItem(
+          options =
+            listOf(RenderOptions.RenderMode.TextureView, RenderOptions.RenderMode.SurfaceView),
+          selectedOption = state.renderOptions.renderMode,
+          onOptionSelected = { mode ->
+            state.renderOptions = state.renderOptions.copy(renderMode = mode)
+          },
+          optionLabel = { mode ->
+            when (mode) {
+              RenderOptions.RenderMode.TextureView -> "TextureView"
+              RenderOptions.RenderMode.SurfaceView -> "SurfaceView"
+            }
+          },
+        )
+      }
+    }
+
     CardColumn {
       FrameRateListItem(state.frameRateState)
 

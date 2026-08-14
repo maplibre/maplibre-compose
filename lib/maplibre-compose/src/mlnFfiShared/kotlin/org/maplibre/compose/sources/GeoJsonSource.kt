@@ -6,13 +6,19 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
+import org.maplibre.compose.util.toStyleJson
+import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.style.GeoJsonSourceOptions
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -21,18 +27,24 @@ import org.maplibre.spatialk.geojson.toJson
 public actual class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
+  private val ffiOptions: GeoJsonSourceOptions
+  private lateinit var data: GeoJsonData
 
-  // Held parsed because toJson runs again on every re-add after a style change.
-  private var data: JsonElement
+  /**
+   * UTF-8 GeoJSON for inline data, encoded when the data is set so attach and [setData] reuse it.
+   * Null when [data] is a URL.
+   */
+  private var inlineUtf8: ByteArray? = null
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
-    this.data = data.toDataJson()
+    this.ffiOptions = options.toFfiOptions()
+    replaceData(data)
   }
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "geojson")
-    put("data", data)
+    put("data", data.toDataJson())
     putGeoJsonOptions(options)
     // Neither is in the style spec's GeoJSON source, but MapLibre Native reads both straight off
     // the source JSON.
@@ -40,15 +52,23 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
+  /** Adds with a URL or UTF-8 GeoJSON. Native parses that payload once. */
+  override fun addTo(map: MapHandle) {
+    val bytes = inlineUtf8
+    if (bytes != null) map.addGeoJsonSourceData(id, bytes, ffiOptions)
+    else map.addGeoJsonSourceUrl(id, (data as GeoJsonData.Uri).uri, ffiOptions)
+  }
+
   public actual fun setData(data: GeoJsonData) {
-    this.data = data.toDataJson()
-    if (data is GeoJsonData.Uri) {
-      mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
-    } else {
-      // Converted outside the lambda so the map's owner thread does not walk the data.
-      val geoJson = this.data.toGeoJsonBytes()
-      mutate { map -> map.setGeoJsonSourceData(id, geoJson) }
-    }
+    replaceData(data)
+    val bytes = inlineUtf8
+    if (bytes != null) mutate { map -> map.setGeoJsonSourceData(id, bytes) }
+    else mutate { map -> map.setGeoJsonSourceUrl(id, (data as GeoJsonData.Uri).uri) }
+  }
+
+  private fun replaceData(data: GeoJsonData) {
+    this.data = data
+    inlineUtf8 = data.inlineUtf8()
   }
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
@@ -148,7 +168,37 @@ public actual class GeoJsonSource : Source {
 /** Encodes caller-supplied features as UTF-8 GeoJSON for the FFI buffer API. */
 internal fun FeatureCollection<*, *>.toFfiGeoJson(): ByteArray = toJson().encodeToByteArray()
 
-private fun JsonElement.toGeoJsonBytes(): ByteArray = toString().encodeToByteArray()
+private fun GeoJsonData.inlineUtf8(): ByteArray? =
+  when (this) {
+    is GeoJsonData.Uri -> null
+    is GeoJsonData.JsonString -> json.encodeToByteArray()
+    is GeoJsonData.Features -> geoJson.toJson().encodeToByteArray()
+  }
+
+private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
+  GeoJsonSourceOptions().also { out ->
+    out.minZoom = minZoom.toDouble()
+    out.maxZoom = maxZoom.toDouble()
+    out.buffer = buffer
+    out.tolerance = tolerance.toDouble()
+    out.lineMetrics = lineMetrics
+    out.cluster = cluster
+    out.clusterRadius = clusterRadius
+    out.clusterMaxZoom = clusterMaxZoom.toDouble()
+    out.clusterMinPoints = clusterMinPoints
+    out.synchronousUpdate = synchronousUpdate
+    if (clusterProperties.isEmpty()) return@also
+    out.clusterProperties =
+      buildJsonObject {
+        clusterProperties.forEach { (name, aggregator) ->
+          putJsonArray(name) {
+            add(aggregator.reducer.compile(ExpressionContext.None).toStyleJson())
+            add(aggregator.mapper.compile(ExpressionContext.None).toStyleJson())
+          }
+        }
+      }
+        .toJsonBytes()
+  }
 
 private fun JsonObject.toFeatureList(): List<Feature<Geometry, JsonObject?>>? {
   if ((this["type"] as? JsonPrimitive)?.content != "FeatureCollection") return null

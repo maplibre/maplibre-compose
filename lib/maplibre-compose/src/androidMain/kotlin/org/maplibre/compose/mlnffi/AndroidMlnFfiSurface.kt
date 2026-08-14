@@ -1,6 +1,8 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.foundation.AndroidEmbeddedExternalSurface
+import androidx.compose.foundation.AndroidExternalSurface
+import androidx.compose.foundation.AndroidExternalSurfaceZOrder
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
@@ -11,11 +13,12 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import co.touchlab.kermit.Logger
 
-/** An embedded TextureView surface that the OpenGL FFI runtime presents into directly. */
+/** An Android surface that the OpenGL FFI runtime presents into directly. */
 @Composable
 internal fun AndroidMlnFfiSurface(
   renderer: MlnFfiMapRenderer,
   runtimeBackends: Set<MapRenderBackend>,
+  kind: AndroidMapSurfaceKind = AndroidMapSurfaceKind.Texture,
   modifier: Modifier,
   logger: Logger?,
 ) {
@@ -50,13 +53,30 @@ internal fun AndroidMlnFfiSurface(
     return
   }
 
-  AndroidEmbeddedExternalSurface(modifier = modifier, isOpaque = true) {
-    onSurface { surface, width, height ->
-      controller.surfaceCreated(surface, width, height, density)
-      surface.onChanged { changedWidth, changedHeight ->
-        controller.surfaceChanged(changedWidth, changedHeight, density)
+  when (kind) {
+    AndroidMapSurfaceKind.Texture ->
+      AndroidEmbeddedExternalSurface(modifier = modifier, isOpaque = true) {
+        onSurface { surface, width, height ->
+          controller.surfaceCreated(surface, width, height, density)
+          surface.onChanged { changedWidth, changedHeight ->
+            controller.surfaceChanged(changedWidth, changedHeight, density)
+          }
+          surface.onDestroyed { controller.surfaceDestroyed() }
+        }
       }
-      surface.onDestroyed { controller.surfaceDestroyed() }
-    }
+    AndroidMapSurfaceKind.Surface ->
+      AndroidExternalSurface(
+        modifier = modifier,
+        isOpaque = true,
+        zOrder = AndroidExternalSurfaceZOrder.OnTop,
+      ) {
+        onSurface { surface, width, height ->
+          controller.surfaceCreated(surface, width, height, density)
+          surface.onChanged { changedWidth, changedHeight ->
+            controller.surfaceChanged(changedWidth, changedHeight, density)
+          }
+          surface.onDestroyed { controller.surfaceDestroyed() }
+        }
+      }
   }
 }
