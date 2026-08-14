@@ -150,6 +150,8 @@ internal class IosMapAdapter(
     override fun mapViewDidFailLoadingMap(mapView: MLNMapView, withError: NSError) {
       map.logger?.e { "Map failed to load: $withError" }
       map.callbacks.onMapFailLoading(withError.localizedFailureReason)
+      // Settle the in-flight slot on failure too, or future style changes wedge forever.
+      map.onStyleLoadSettled()
     }
 
     override fun mapViewDidFinishLoadingMap(mapView: MLNMapView) {
@@ -163,6 +165,7 @@ internal class IosMapAdapter(
         map = map,
         style = IosStyle(style = didFinishLoadingStyle, getScale = { map.density.density }),
       )
+      map.onStyleLoadSettled()
     }
 
     override fun mapView(mapView: MLNMapView, sourceDidChange: MLNSource) {
@@ -222,15 +225,36 @@ internal class IosMapAdapter(
 
   private var lastBaseStyle: BaseStyle? = null
 
+  // Coalesces overlapping native style loads — a second load starting before the first
+  // settles can crash with MLNInvalidStyleLayerException/-SourceException (#835, #244).
+  private var styleLoadInFlight: BaseStyle? = null
+  private var pendingBaseStyle: BaseStyle? = null
+
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
+    if (styleLoadInFlight != null) {
+      pendingBaseStyle = style
+      return
+    }
+    beginStyleLoad(style)
+  }
+
+  private fun beginStyleLoad(style: BaseStyle) {
+    styleLoadInFlight = style
     logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
     when (style) {
       is BaseStyle.Uri -> mapView.setStyleURL(NSURL(string = style.uri))
       is BaseStyle.Json -> mapView.setStyleJSON(style.json)
     }
+  }
+
+  private fun onStyleLoadSettled() {
+    styleLoadInFlight = null
+    val next = pendingBaseStyle ?: return
+    pendingBaseStyle = null
+    beginStyleLoad(next)
   }
 
   internal class Gesture<T : UIGestureRecognizer>(

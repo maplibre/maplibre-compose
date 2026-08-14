@@ -80,9 +80,23 @@ internal class AndroidMapAdapter(
 
   private var lastBaseStyle: BaseStyle? = null
 
+  // Coalesces overlapping native style loads — a second load starting before the first
+  // settles can throw IllegalStateException("invalid native peer") (#244, iOS: #835).
+  private var styleLoadInFlight: BaseStyle? = null
+  private var pendingBaseStyle: BaseStyle? = null
+
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
+    if (styleLoadInFlight != null) {
+      pendingBaseStyle = style
+      return
+    }
+    beginStyleLoad(style)
+  }
+
+  private fun beginStyleLoad(style: BaseStyle) {
+    styleLoadInFlight = style
     logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
 
@@ -92,16 +106,28 @@ internal class AndroidMapAdapter(
         is BaseStyle.Json -> MlnStyle.Builder().fromJson(style.json)
       }
 
-    map.setStyle(builder) { style ->
+    map.setStyle(builder) { loadedStyle ->
       logger?.i { "Style finished loading" }
-      callbacks.onStyleChanged(this, AndroidStyle(style, getDensity = { density }))
+      callbacks.onStyleChanged(this, AndroidStyle(loadedStyle, getDensity = { density }))
+      onStyleLoadSettled()
     }
+  }
+
+  private fun onStyleLoadSettled() {
+    styleLoadInFlight = null
+    val next = pendingBaseStyle ?: return
+    pendingBaseStyle = null
+    beginStyleLoad(next)
   }
 
   init {
     mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
     mapView.addOnSourceChangedListener { callbacks.onSourceChanged(this, it) }
-    mapView.addOnDidFailLoadingMapListener { callbacks.onMapFailLoading(it) }
+    mapView.addOnDidFailLoadingMapListener {
+      callbacks.onMapFailLoading(it)
+      // Settle the in-flight slot on failure too, or future style changes wedge forever.
+      onStyleLoadSettled()
+    }
 
     map.addOnCameraMoveStartedListener { reason ->
       // MapLibre doesn't have docs on these reasons, and even though they're named like Google's:
