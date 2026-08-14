@@ -12,15 +12,17 @@ public object MapLibre {
    * ```kt
    * fun main() {
    *   onWasmReady {
-   *     MapLibre.initialize(workerUrl = "/maplibre-gl-worker.mjs")
+   *     MapLibre.initialize()
    *     ComposeViewport(document.body!!) { App() }
    *   }
    * }
    * ```
    *
-   * Repeat calls are ignored. [workerUrl] is the MapLibre GL JS 6 module worker. A path that starts
-   * with `/` is resolved against the origin, so a history route still finds webpack's copy at the
-   * site root. Pass a full URL when the worker files are not there.
+   * By default the MapLibre GL JS 6 worker is loaded from the jsDelivr CDN at the same version as
+   * the bundled library, so no bundler setup is needed. Pass [workerUrl] to self-host the worker or
+   * pin a different version.
+   *
+   * Repeat calls are ignored.
    *
    * @throws IllegalStateException if skiko is not loaded yet. Call this inside `onWasmReady`.
    */

@@ -2,7 +2,18 @@ package org.maplibre.compose.gljs
 
 import web.gl.WebGL2RenderingContext
 
-internal const val DEFAULT_WORKER_URL = "/maplibre-gl-worker.mjs"
+/**
+ * The default MapLibre GL JS 6 worker URL: the build of [getVersion] on the jsDelivr CDN. The
+ * worker imports `maplibre-gl-shared.mjs` as a sibling, which the CDN serves alongside it, so no
+ * bundler setup is needed for a map to render. Pass a different URL to [GlJsRuntime.pointAtWorker]
+ * only to self-host the worker or pin a version other than the bundled one.
+ *
+ * The version is read from the bundled library rather than the version catalog so it can never
+ * drift from the maplibre-gl the page actually links.
+ */
+internal val DEFAULT_WORKER_URL: String by lazy {
+  "https://cdn.jsdelivr.net/npm/maplibre-gl@${getVersion()}/dist/maplibre-gl-worker.mjs"
+}
 
 /**
  * The places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is pinned
@@ -12,7 +23,7 @@ internal object GlJsRuntime {
 
   private var workerUrlConfigured = false
 
-  /** Points MapLibre GL JS 6 at [workerUrl]. Repeat calls are ignored. */
+  /** Points MapLibre GL JS 6 at [workerUrl]. The first call wins; later calls are ignored. */
   fun pointAtWorker(workerUrl: String) {
     if (workerUrlConfigured) return
     setWorkerUrl(workerUrl)

@@ -18,13 +18,25 @@ import kotlinx.coroutines.await
 import org.jetbrains.skiko.wasm.onWasmReady
 
 /**
+ * The worker URL Karma serves the suite, copied next to the test bundle by
+ * `karma.config.d/maplibre-gl-worker.js`. The suite overrides the library's CDN default with this
+ * so tests never reach the network.
+ */
+internal const val LOCAL_WORKER_URL: String = "/maplibre-gl-worker.mjs"
+
+/**
  * Runs a browser test that hosts a real map, detached from compositing so it is never drawn. For
  * compositing on a real GPU context, see [BrowserCompositingTest].
  */
 @OptIn(ExperimentalTestApi::class)
 internal fun runBrowserMapTest(block: suspend ComposeUiTest.() -> Unit): Promise<*> =
   Promise<Unit> { resolve, _ -> onWasmReady { resolve(Unit) } }
-    .then { runComposeUiTest(block = block) }
+    .then {
+      // Set before any map is built: pointAtWorker keeps the first call, so this local URL wins and
+      // the CDN default never makes the suite reach the network.
+      GlJsRuntime.pointAtWorker(LOCAL_WORKER_URL)
+      runComposeUiTest(block = block)
+    }
     .then {}
 
 /** Detached from compositing, at a size that lays out. */
