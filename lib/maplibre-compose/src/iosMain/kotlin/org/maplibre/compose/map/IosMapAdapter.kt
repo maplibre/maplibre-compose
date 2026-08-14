@@ -162,6 +162,7 @@ internal class IosMapAdapter(
 
     override fun mapView(mapView: MLNMapView, didFinishLoadingStyle: MLNStyle) {
       map.logger?.i { "Style finished loading" }
+      map.hasReceivedStyleCallback = true
       map.callbacks.onStyleChanged(
         map = map,
         style = IosStyle(style = didFinishLoadingStyle, getScale = { map.density.density }),
@@ -255,9 +256,15 @@ internal class IosMapAdapter(
     beginStyleLoad(next)
   }
 
-  /** Fallback for a `didFinishLoadingStyle` callback missed to the delegate-assignment
-   * race described in the commit message that introduced this function. */
+  private var hasReceivedStyleCallback = false
+
+  /** One-shot fallback for a `didFinishLoadingStyle` callback missed to the
+   * delegate-assignment race described in the commit message that introduced this
+   * function. Scoped to the initial load only, so it can't reprocess a later style
+   * swap that's still genuinely in flight. */
   private fun reconcileMissedStyleLoad(mapView: MLNMapView) {
+    if (hasReceivedStyleCallback) return
+    hasReceivedStyleCallback = true
     if (styleLoadInFlight == null) return
     val loadedStyle = mapView.style ?: return
     callbacks.onStyleChanged(this, IosStyle(style = loadedStyle, getScale = { density.density }))
