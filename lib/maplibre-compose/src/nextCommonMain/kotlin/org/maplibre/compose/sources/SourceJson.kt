@@ -60,13 +60,17 @@ internal fun JsonObjectBuilder.putGeoJsonOptions(options: GeoJsonOptions) {
   put("clusterMaxZoom", options.clusterMaxZoom)
   put("clusterMinPoints", options.clusterMinPoints)
   if (options.clusterProperties.isEmpty()) return
-  putJsonObject("clusterProperties") {
-    options.clusterProperties.forEach { (name, aggregator) ->
-      // Reducer first, then mapper: the style spec's pair is [operator, map expression].
-      putJsonArray(name) {
-        add(aggregator.reducer.compile(ExpressionContext.None).toStyleJson())
-        add(aggregator.mapper.compile(ExpressionContext.None).toStyleJson())
-      }
+  putJsonObject("clusterProperties") { putClusterProperties(options.clusterProperties) }
+}
+
+/** Each aggregator as the style spec's pair: `[reducer, mapper]`. */
+internal fun JsonObjectBuilder.putClusterProperties(
+  properties: Map<String, GeoJsonOptions.ClusterPropertyAggregator<*>>
+) {
+  properties.forEach { (name, aggregator) ->
+    putJsonArray(name) {
+      add(aggregator.reducer.compile(ExpressionContext.None).toStyleJson())
+      add(aggregator.mapper.compile(ExpressionContext.None).toStyleJson())
     }
   }
 }

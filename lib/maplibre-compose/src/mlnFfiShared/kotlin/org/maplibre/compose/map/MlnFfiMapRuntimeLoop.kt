@@ -13,6 +13,7 @@ import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.runtime.RuntimeEvent
+import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
@@ -50,6 +51,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val onEventsDrained: (MapHandle) -> Unit,
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
+  private val mapEventMask: RuntimeEventMask? = null,
 ) : AutoCloseable {
 
   private val logger: Logger?
@@ -218,19 +220,20 @@ internal class MlnFfiMapRuntimeLoop(
       it.width = extent.width.coerceAtLeast(1)
       it.height = extent.height.coerceAtLeast(1)
       it.scaleFactor = extent.scaleFactor
+      mapEventMask?.let { mask -> it.eventMask = mask }
     }
 
   private fun drainEvents(runtime: RuntimeHandle, map: MapHandle) {
-    while (true) {
-      val event =
-        try {
-          runtime.pollEvent() ?: break
-        } catch (error: Throwable) {
-          // pollEvent is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
-          // throw from the map rather than the runtime.
-          logger?.e(error) { "Failed to poll a MapLibre runtime event" }
-          break
-        }
+    val events =
+      try {
+        runtime.drainEvents().events
+      } catch (error: Throwable) {
+        // drainEvents is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
+        // throw from the map rather than the runtime.
+        logger?.e(error) { "Failed to drain MapLibre runtime events" }
+        emptyList()
+      }
+    for (event in events) {
       if (event.mapSource != null && event.mapSource !== map) continue
       runCatching { onEvent(event) }
         .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }

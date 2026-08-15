@@ -1,24 +1,17 @@
 package org.maplibre.compose.util
 
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.nativeffi.geo.Feature as FfiFeature
-import org.maplibre.nativeffi.geo.FeatureIdentifier
-import org.maplibre.nativeffi.geo.Geometry as FfiGeometry
-import org.maplibre.nativeffi.json.JsonValue
-import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.nativeffi.query.RenderedFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry as GeoJsonGeometry
-import org.maplibre.spatialk.geojson.GeometryCollection
-import org.maplibre.spatialk.geojson.LineString
-import org.maplibre.spatialk.geojson.MultiLineString
-import org.maplibre.spatialk.geojson.MultiPoint
-import org.maplibre.spatialk.geojson.MultiPolygon
-import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.geojson.Polygon
 
 internal fun renderedQueryOptions(
   layerIds: Set<String>?,
@@ -27,48 +20,48 @@ internal fun renderedQueryOptions(
   if (layerIds == null && predicate == null) return null
   return RenderedFeatureQueryOptions().also {
     it.layerIds = layerIds?.toList()
-    it.filter = predicate?.toStyleJson()?.toFfiJsonValue()
+    it.filter = predicate?.toStyleJson()?.toJsonBytes()
   }
 }
 
-/** Converts a queried feature without adding query metadata to caller-owned GeoJSON properties. */
-internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> =
-  feature.toGeoJsonFeature()
-
-/** Converts a plain MapLibre feature to the GeoJSON one the common API returns. */
-internal fun FfiFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?> =
-  Feature(
-    geometry = geometry.toGeoJson(),
-    properties = JsonObject(properties.associate { it.key to it.value.toJsonElement() }),
-    id = identifier.toGeoJsonId(),
-  )
+/**
+ * Converts a rendered or source feature query result: a JSON array of entries that carry the
+ * GeoJSON feature under `feature`.
+ */
+internal fun ByteArray.toGeoJsonFeatures(): List<Feature<GeoJsonGeometry, JsonObject?>> {
+  val entries = toJsonElement() as? JsonArray ?: return emptyList()
+  return entries.mapNotNull { entry ->
+    ((entry as? JsonObject)?.get("feature") as? JsonObject)?.let { Feature.fromJson(it.toString()) }
+  }
+}
 
 /**
- * Converts a queried cluster feature back into the one `queryFeatureExtension` takes, restoring the
- * unsigned tag on `cluster_id` that kotlinx JSON cannot carry. MapLibre matches the variant
- * alternative exactly and treats any other numeric type as absent, returning an empty result with a
- * success status (see https://github.com/maplibre/maplibre-native-ffi/pull/340).
+ * Converts a queried cluster feature back into the GeoJSON `queryFeatureExtension` takes, keeping
+ * `cluster_id` an unsigned integer literal: MapLibre resolves the cluster by the value's exact
+ * numeric type and treats any other as absent, returning an empty result with a success status (see
+ * https://github.com/maplibre/maplibre-native-ffi/pull/340).
  *
  * Returns null when there is no usable cluster id.
  */
-internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): FfiFeature? {
+internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): ByteArray? {
   val clusterId = (properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.toUnsignedOrNull()
   if (clusterId == null) return null
 
-  val members =
-    properties.orEmpty().map { (key, value) ->
-      when (key) {
-        CLUSTER_ID_PROPERTY -> JsonValue.Member(key, JsonValue.UInt(clusterId))
-        else -> JsonValue.Member(key, value.toFfiJsonValue())
+  val feature = buildJsonObject {
+    put("type", "Feature")
+    // Null rather than the real geometry: mbgl reads only the properties here.
+    put("geometry", JsonNull)
+    putJsonObject("properties") {
+      properties.orEmpty().forEach { (key, value) ->
+        when (key) {
+          // uint64_t crosses JSON as an integer literal; a Long's bit pattern reads back unsigned.
+          CLUSTER_ID_PROPERTY -> put(key, JsonPrimitive(clusterId.toULong()))
+          else -> put(key, value)
+        }
       }
     }
-
-  // Empty rather than the real geometry: mbgl reads only the properties here.
-  return FfiFeature(
-    geometry = FfiGeometry.Empty,
-    properties = members,
-    identifier = FeatureIdentifier.Null,
-  )
+  }
+  return feature.toJsonBytes()
 }
 
 /** The property MapLibre puts a cluster's id in, and the only one a cluster query reads. */
@@ -86,32 +79,3 @@ private fun JsonPrimitive.toUnsignedOrNull(): Long? {
   if (asDouble < 0.0 || asDouble != Math.floor(asDouble)) return null
   return asDouble.toLong()
 }
-
-private fun FeatureIdentifier.toGeoJsonId(): JsonPrimitive? =
-  when (this) {
-    is FeatureIdentifier.Null -> null
-    // Rendered as unsigned, because the C ABI carries uint64_t in a Long's bit pattern and a large
-    // id would otherwise read back negative.
-    is FeatureIdentifier.UInt -> JsonPrimitive(value.toULong())
-    is FeatureIdentifier.Int -> JsonPrimitive(value)
-    is FeatureIdentifier.DoubleValue -> JsonPrimitive(value)
-    is FeatureIdentifier.StringValue -> JsonPrimitive(value)
-    // Only when the FFI is newer than this build; an unidentified feature is still usable.
-    is FeatureIdentifier.Unknown -> null
-  }
-
-private fun FfiGeometry.toGeoJson(): GeoJsonGeometry =
-  when (this) {
-    is FfiGeometry.Point -> Point(coordinate.toPosition())
-    is FfiGeometry.LineString -> LineString(coordinates.map { it.toPosition() })
-    is FfiGeometry.Polygon -> Polygon(rings.map { ring -> ring.map { it.toPosition() } })
-    is FfiGeometry.MultiPoint -> MultiPoint(coordinates.map { it.toPosition() })
-    is FfiGeometry.MultiLineString ->
-      MultiLineString(lines.map { line -> line.map { it.toPosition() } })
-    is FfiGeometry.MultiPolygon ->
-      MultiPolygon(polygons.map { polygon -> polygon.map { ring -> ring.map { it.toPosition() } } })
-    is FfiGeometry.Collection -> GeometryCollection(geometries.map { it.toGeoJson() })
-    // Degrade to an empty collection so one unrecognized shape does not fail the whole query.
-    is FfiGeometry.Unknown -> GeometryCollection(emptyList())
-    is FfiGeometry.Empty -> GeometryCollection(emptyList())
-  }
