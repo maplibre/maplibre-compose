@@ -7,6 +7,8 @@ import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.resource.MlnFfiResourceProvider
+import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
@@ -39,6 +41,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val extent: MapExtent,
   private val cacheFile: Path,
   private val getLogger: () -> Logger?,
+  private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
   /** Runs on the owner thread for every event this loop's runtime raises. */
@@ -66,6 +69,8 @@ internal class MlnFfiMapRuntimeLoop(
    */
   private val acceptLock = MlnFfiOwnerLock(thread)
   private val tasks = ArrayDeque<OwnerTask>()
+  /** Test callbacks that run after the next native pump and event drain. Owner thread only. */
+  private val eventDrainBarriers = mutableListOf<() -> Unit>()
   private var accepting = true
   private var wake: WakeSource? = null
 
@@ -125,6 +130,10 @@ internal class MlnFfiMapRuntimeLoop(
   fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon)
 
+  /** Queues a test callback that runs after the next native pump and event drain. */
+  fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
+    post(action = { eventDrainBarriers += action })
+
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false
     tasks.add(OwnerTask(run, abandon))
@@ -150,7 +159,13 @@ internal class MlnFfiMapRuntimeLoop(
   private fun runLoop() {
     val owner =
       try {
-        MlnFfiRuntimeOwner.open(cacheFile, getLogger, "MapLibre runtime").also { runtimeOwner = it }
+        MlnFfiRuntimeOwner.open(
+            cacheFile,
+            getLogger,
+            "MapLibre runtime",
+            resourceProviderFactory,
+          )
+          .also { runtimeOwner = it }
       } catch (error: Throwable) {
         logger?.e(error) { "Could not create the MapLibre runtime" }
         fail(error)
@@ -222,6 +237,9 @@ internal class MlnFfiMapRuntimeLoop(
     }
     runCatching { onEventsDrained(map) }
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }
+    val barriers = eventDrainBarriers.toList()
+    eventDrainBarriers.clear()
+    barriers.forEach { runCatching(it) }
   }
 
   /** Runs everything queued, reporting whether anything ran. */

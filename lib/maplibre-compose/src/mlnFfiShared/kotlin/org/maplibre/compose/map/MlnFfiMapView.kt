@@ -91,6 +91,7 @@ internal fun MlnFfiMapView(
         scaleFactor = scaleFactor,
         layoutDirection = layoutDirection,
         cacheFile = applicationOptions.cacheFile,
+        resourceProviderFactory = applicationOptions.resourceProviderFactory,
       )
     }
 
