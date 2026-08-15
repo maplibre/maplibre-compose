@@ -2,17 +2,13 @@
 
 package org.maplibre.compose.sources
 
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toJsonBytes
-import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceOptions
@@ -27,7 +23,7 @@ public actual class GeoJsonSource : Source {
   // Held parsed because toJson runs again on every re-add after a style change.
   private var data: JsonElement
 
-  /** The URI form of [data], when it is one; inline data installs through a prepared handle. */
+  /** The URI form of [data], when it is one. */
   private var dataUrl: String?
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
@@ -46,11 +42,6 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
-  /**
-   * GeoJSON's typed adders take data prepared by [GeoJsonSourceDataHandle.create], so [setData] can
-   * parse and index away from the map's owner thread and installing only borrows the handle. The
-   * source adopts the options the data was prepared with.
-   */
   override fun addTo(map: MapHandle) {
     val url = dataUrl
     if (url != null) {
@@ -73,10 +64,7 @@ public actual class GeoJsonSource : Source {
     }
   }
 
-  /**
-   * Parses and indexes [data] for installation. Preparation must use the options the source was
-   * added with; a mismatch is rejected at install.
-   */
+  /** Prepared with the options the source was added with; a mismatch is rejected at install. */
   private fun prepareData(): GeoJsonSourceDataHandle =
     GeoJsonSourceDataHandle.create(data.toJsonBytes(), options.toFfiOptions())
 
@@ -86,7 +74,7 @@ public actual class GeoJsonSource : Source {
 
   public actual suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
     val result = queryClusterExtension(feature, EXPANSION_ZOOM_FIELD)
-    val zoom = (result as? JsonPrimitive)?.doubleOrNull
+    val zoom = result?.decodeToString()?.toDoubleOrNull()
     if (zoom == null) {
       reportMiss(EXPANSION_ZOOM_FIELD, result)
       return NO_EXPANSION_ZOOM
@@ -125,13 +113,11 @@ public actual class GeoJsonSource : Source {
     feature: Feature<*, JsonObject?>,
     field: String,
     arguments: ByteArray? = null,
-  ): JsonElement? {
+  ): ByteArray? {
     val ffiFeature = feature.toFfiClusterFeature() ?: return null
-    return binding
-      .withRenderSession { session ->
-        session.queryFeatureExtension(id, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
-      }
-      ?.toJsonElement()
+    return binding.withRenderSession { session ->
+      session.queryFeatureExtension(id, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
+    }
   }
 
   private fun queryClusterFeatures(
@@ -140,27 +126,24 @@ public actual class GeoJsonSource : Source {
     arguments: ByteArray?,
   ): FeatureCollection<*, JsonObject?> {
     val result = queryClusterExtension(feature, field, arguments)
-    val features: List<Feature<Geometry, JsonObject?>>? =
-      (result as? JsonObject)
-        ?.takeIf { (it["type"] as? JsonPrimitive)?.content == "FeatureCollection" }
-        ?.let { (it["features"] as? JsonArray) }
-        ?.map { Feature.fromJson<Geometry, JsonObject?>(it.toString()) }
-    if (features == null) {
+    val collection =
+      result?.decodeToString()?.let { FeatureCollection.fromJsonOrNull<Geometry, JsonObject?>(it) }
+    if (collection == null) {
       reportMiss(field, result)
       return FeatureCollection<Geometry, JsonObject?>(emptyList())
     }
-    return FeatureCollection(features)
+    return collection
   }
 
   /**
    * Reports a lookup that found no cluster. MapLibre answers a successful query with a feature
    * collection, even an empty one, and a failed one with a null value.
    */
-  private fun reportMiss(field: String, result: JsonElement?) {
+  private fun reportMiss(field: String, result: ByteArray?) {
     if (result == null) return
     binding.logger?.w {
       "Cluster '$field' query matched no cluster in source '$id'; the feature's cluster_id is " +
-        "probably stale. MapLibre answered with $result."
+        "probably stale. MapLibre answered with ${result.decodeToString()}."
     }
   }
 

@@ -152,7 +152,6 @@ public actual class ComputedSource : Source {
     CanonicalTileId(z = zoomLevel, x = x.toLong(), y = y.toLong())
 }
 
-/** Serializes a computed tile for the FFI's buffer transit. */
 internal fun FeatureCollection<*, *>.toGeoJsonBytes(): ByteArray = toJson().encodeToByteArray()
 
 /**

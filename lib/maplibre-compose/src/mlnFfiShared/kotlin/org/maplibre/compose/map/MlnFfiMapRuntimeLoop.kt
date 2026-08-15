@@ -51,10 +51,6 @@ internal class MlnFfiMapRuntimeLoop(
   private val onEventsDrained: (MapHandle) -> Unit,
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
-  /**
-   * The map-originated event types to queue. Native never builds or wakes for an unselected type,
-   * so the consumer should name everything it handles rather than filtering after delivery.
-   */
   private val mapEventMask: RuntimeEventMask? = null,
 ) : AutoCloseable {
 

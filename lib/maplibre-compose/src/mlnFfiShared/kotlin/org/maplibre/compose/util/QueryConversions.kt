@@ -25,9 +25,8 @@ internal fun renderedQueryOptions(
 }
 
 /**
- * Converts a rendered or source feature query result: a JSON array whose entries carry the GeoJSON
- * feature under `feature`, beside query metadata (`sourceId`, `sourceLayerId`, `state`) the common
- * API does not surface.
+ * Converts a rendered or source feature query result: a JSON array of entries that carry the
+ * GeoJSON feature under `feature`.
  */
 internal fun ByteArray.toGeoJsonFeatures(): List<Feature<GeoJsonGeometry, JsonObject?>> {
   val entries = toJsonElement() as? JsonArray ?: return emptyList()

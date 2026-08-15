@@ -101,15 +101,7 @@ private const val MAX_PITCH_DEGREES = 60.0
 /** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
 private const val FRAME_INTERVAL_SLACK = 0.1
 
-/**
- * The events [MlnFfiMapSession.handleEvent] consumes, selected on the map at creation: native never
- * builds, queues, or wakes the owner thread for a type outside the mask. The per-frame render
- * lifecycle events alone would otherwise arrive with every frame. A type a newer FFI adds is not in
- * this mask and so never arrives.
- *
- * `MAP_RENDER_FRAME_FINISHED` is deliberately absent: the repaint flag on the render update's
- * result carries the same signal without the event round trip.
- */
+/** The events [MlnFfiMapSession.handleEvent] consumes. */
 private val HANDLED_MAP_EVENTS: RuntimeEventMask =
   RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE +
     RuntimeEventMask.MAP_STYLE_LOADED +
@@ -305,18 +297,14 @@ internal class MlnFfiMapSession(
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
     when (update.result) {
-      // Both are followed by a render-update-available event, which requests the next frame.
       RenderResult.NO_UPDATE,
       RenderResult.SIZE_PENDING -> return MlnFfiFrameResult.SKIPPED
-      // The target had no frame to draw into; asking the host for another is the retry.
       RenderResult.TARGET_NOT_READY -> {
         requestRender()
         return MlnFfiFrameResult.SKIPPED
       }
       else -> Unit
     }
-    // The map asked for another frame while drawing this one; re-arm now rather than waiting for
-    // an event to make the same round trip.
     if (update.needsRepaint) requestRender()
 
     if (!hasRenderedAFrame) {
@@ -644,8 +632,6 @@ internal class MlnFfiMapSession(
         // Supplying the image would need a callback the common API does not have.
         logger?.d { "Style image missing: ${event.message}" }
 
-      // The map's event mask selects every type above, so this arm should never run; a stray event
-      // is still worth a log line rather than silence.
       else -> logger?.v { "Unrecognized MapLibre event type ${event.type}" }
     }
   }
