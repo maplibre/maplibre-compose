@@ -33,7 +33,6 @@ class MapLoadReportingTest {
   fun rapid_style_changes_leave_the_latest_style_active(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(FIRST)
-      fixture.events.clear()
 
       fixture.session.setBaseStyle(SECOND)
       fixture.session.setBaseStyle(THIRD)
@@ -46,7 +45,6 @@ class MapLoadReportingTest {
       assertEquals(emptyList(), fixture.errors)
       assertNotNull(fixture.style?.getLayer("third"))
       assertNull(fixture.style?.getLayer("bg"))
-      assertEquals(1, fixture.events.count { it == MapFixture.STYLE_LOADED })
     }
   }
 

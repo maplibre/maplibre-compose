@@ -11,12 +11,14 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import co.touchlab.kermit.Logger
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraState
@@ -186,7 +188,7 @@ class MlnFfiStyleSwitchTest {
               getLogger = getLogger,
               read = resources::read,
               passThroughNetwork = false,
-              onResponseCompleted = resources::onResponseCompleted,
+              onResponseCompletionFinished = resources::onResponseCompletionFinished,
             )
           },
         )
@@ -236,14 +238,15 @@ class MlnFfiStyleSwitchTest {
       showExtraLayer = true
       style = BaseStyle.Uri(C_STYLE_URL)
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        resources.styleCStarted.count == 0L
+        resources.styleCCompletionFinished.count == 0L
       }
+      assertNull(resources.styleCCompletionError.get(), "style C's native completion failed")
       resources.releaseStyleB.countDown()
 
       fun relevantLayers(): List<String> =
         session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        resources.styleBCompleted.count == 0L
+        resources.styleBCompletionFinished.count == 0L
       }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         loadsFinished > initialLoads &&
@@ -291,12 +294,19 @@ class MlnFfiStyleSwitchTest {
 
   private class BlockingStyleResources {
     val styleBStarted = CountDownLatch(1)
-    val styleCStarted = CountDownLatch(1)
-    val styleBCompleted = CountDownLatch(1)
+    val styleBCompletionFinished = CountDownLatch(1)
+    val styleCCompletionFinished = CountDownLatch(1)
     val releaseStyleB = CountDownLatch(1)
+    val styleCCompletionError = AtomicReference<Throwable?>()
 
-    fun onResponseCompleted(url: String) {
-      if (url == B_STYLE_URL) styleBCompleted.countDown()
+    fun onResponseCompletionFinished(url: String, error: Throwable?) {
+      when (url) {
+        B_STYLE_URL -> styleBCompletionFinished.countDown()
+        C_STYLE_URL -> {
+          styleCCompletionError.set(error)
+          styleCCompletionFinished.countDown()
+        }
+      }
     }
 
     fun read(url: String, requestedUrl: String): ResourceResponse {
@@ -310,7 +320,6 @@ class MlnFfiStyleSwitchTest {
             STYLE_B_JSON
           }
           C_STYLE_URL -> {
-            styleCStarted.countDown()
             STYLE_C_JSON
           }
           else -> error("Unexpected resource request for $url (requested as $requestedUrl)")

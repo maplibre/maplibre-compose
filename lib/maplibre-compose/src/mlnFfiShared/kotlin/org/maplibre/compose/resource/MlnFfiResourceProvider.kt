@@ -38,8 +38,8 @@ internal class MlnFfiResourceProvider(
   },
   /** Keeps the native network source in production while tests claim controlled HTTPS fixtures. */
   private val passThroughNetwork: Boolean = true,
-  /** Test seam: observes a response only after its native request has been completed. */
-  private val onResponseCompleted: ((url: String) -> Unit)? = null,
+  /** Test seam: observes when a native completion call finishes and whether it failed. */
+  private val onResponseCompletionFinished: ((url: String, error: Throwable?) -> Unit)? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
   private val logger: Logger?
@@ -80,10 +80,14 @@ internal class MlnFfiResourceProvider(
         // Rechecked here because a request queued behind a slow read may have been abandoned since.
         if (open.isCancelled()) return
         val response = read(url, requestedUrl)
+        var completionError: Throwable? = null
         try {
           open.complete(response)
+        } catch (error: Throwable) {
+          completionError = error
+          throw error
         } finally {
-          onResponseCompleted?.invoke(url)
+          onResponseCompletionFinished?.invoke(url, completionError)
         }
       }
     } catch (error: Throwable) {
