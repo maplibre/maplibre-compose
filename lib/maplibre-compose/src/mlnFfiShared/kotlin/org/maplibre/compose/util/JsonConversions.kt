@@ -9,7 +9,7 @@ import kotlinx.serialization.json.JsonElement
  */
 
 /** Converts kotlinx JSON to the FFI's wire form. */
-internal fun JsonElement.toFfiJsonBytes(): ByteArray = toString().encodeToByteArray()
+internal fun JsonElement.toJsonBytes(): ByteArray = toString().encodeToByteArray()
 
 /** Parses a value the FFI returned as UTF-8 JSON. */
 internal fun ByteArray.toJsonElement(): JsonElement = Json.parseToJsonElement(decodeToString())

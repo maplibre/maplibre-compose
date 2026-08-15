@@ -108,7 +108,7 @@ public actual class ComputedSource : Source {
     if (requestedTilesLock.withLock { requestedTiles[tileId] } != request) return
     val data =
       try {
-        getFeatures(tileId.toBoundingBox(), tileId.z).toFfiGeoJsonBytes()
+        getFeatures(tileId.toBoundingBox(), tileId.z).toGeoJsonBytes()
       } catch (error: Throwable) {
         rethrowIfFatal(error)
         forgetTile(tileId, request)
@@ -141,7 +141,7 @@ public actual class ComputedSource : Source {
 
   public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection<*, *>) {
     // Serialized before the hop, so the owner thread does not walk caller data while a frame waits.
-    val geoJson = data.toFfiGeoJsonBytes()
+    val geoJson = data.toGeoJsonBytes()
     val tileId = tileId(zoomLevel, x, y)
     // Forgotten first, so an answer still in flight does not overwrite what was just supplied.
     requestedTilesLock.withLock { requestedTiles.remove(tileId) }
@@ -153,7 +153,7 @@ public actual class ComputedSource : Source {
 }
 
 /** Serializes a computed tile for the FFI's buffer transit. */
-internal fun FeatureCollection<*, *>.toFfiGeoJsonBytes(): ByteArray = toJson().encodeToByteArray()
+internal fun FeatureCollection<*, *>.toGeoJsonBytes(): ByteArray = toJson().encodeToByteArray()
 
 /**
  * The geographic bounds of a Web Mercator tile. Neither the FFI nor mbgl exposes this conversion,

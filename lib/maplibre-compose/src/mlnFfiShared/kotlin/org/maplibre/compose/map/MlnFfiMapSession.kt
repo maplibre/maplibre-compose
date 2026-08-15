@@ -298,17 +298,22 @@ internal class MlnFfiMapSession(
     }
 
     val session = renderSession ?: return MlnFfiFrameResult.SKIPPED
-    // Anything but RENDERED means MapLibre had nothing to draw, which is ordinary before the
-    // style's first update and after an attach until the loop pumps the new size.
     val update =
       try {
         session.renderUpdate()
       } catch (error: NativeErrorException) {
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
-    if (update.result != RenderResult.RENDERED) {
-      requestRender()
-      return MlnFfiFrameResult.SKIPPED
+    when (update.result) {
+      // Both are followed by a render-update-available event, which requests the next frame.
+      RenderResult.NO_UPDATE,
+      RenderResult.SIZE_PENDING -> return MlnFfiFrameResult.SKIPPED
+      // The target had no frame to draw into; asking the host for another is the retry.
+      RenderResult.TARGET_NOT_READY -> {
+        requestRender()
+        return MlnFfiFrameResult.SKIPPED
+      }
+      else -> Unit
     }
     // The map asked for another frame while drawing this one; re-arm now rather than waiting for
     // an event to make the same round trip.

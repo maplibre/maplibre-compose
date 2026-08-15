@@ -20,7 +20,7 @@ internal fun renderedQueryOptions(
   if (layerIds == null && predicate == null) return null
   return RenderedFeatureQueryOptions().also {
     it.layerIds = layerIds?.toList()
-    it.filter = predicate?.toStyleJson()?.toFfiJsonBytes()
+    it.filter = predicate?.toStyleJson()?.toJsonBytes()
   }
 }
 
@@ -44,7 +44,7 @@ internal fun ByteArray.toGeoJsonFeatures(): List<Feature<GeoJsonGeometry, JsonOb
  *
  * Returns null when there is no usable cluster id.
  */
-internal fun Feature<*, JsonObject?>.toFfiClusterFeatureJson(): ByteArray? {
+internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): ByteArray? {
   val clusterId = (properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.toUnsignedOrNull()
   if (clusterId == null) return null
 
@@ -62,7 +62,7 @@ internal fun Feature<*, JsonObject?>.toFfiClusterFeatureJson(): ByteArray? {
       }
     }
   }
-  return feature.toFfiJsonBytes()
+  return feature.toJsonBytes()
 }
 
 /** The property MapLibre puts a cluster's id in, and the only one a cluster query reads. */

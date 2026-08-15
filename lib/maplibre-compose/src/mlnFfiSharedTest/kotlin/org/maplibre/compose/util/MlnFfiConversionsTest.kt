@@ -67,7 +67,7 @@ class MlnFfiConversionsTest {
         id = null,
       )
 
-    val converted = requireNotNull(feature.toFfiClusterFeatureJson()).toJsonElement() as JsonObject
+    val converted = requireNotNull(feature.toFfiClusterFeature()).toJsonElement() as JsonObject
     val properties = assertIs<JsonObject>(converted["properties"])
 
     val clusterId = assertIs<JsonPrimitive>(properties["cluster_id"])

@@ -13,7 +13,7 @@ class JsonConversionsTest {
 
   private fun roundTrip(json: String) {
     val element = Json.parseToJsonElement(json)
-    assertEquals(element, element.toFfiJsonBytes().toJsonElement(), "round trip of $json")
+    assertEquals(element, element.toJsonBytes().toJsonElement(), "round trip of $json")
   }
 
   @Test
@@ -34,16 +34,16 @@ class JsonConversionsTest {
   @Test
   fun keeps_integers_integral() {
     // MapLibre distinguishes 5 from 5.0 for some properties, and the text keeps them apart.
-    assertEquals("5", JsonPrimitive(5).toFfiJsonBytes().decodeToString())
-    assertEquals("5.5", JsonPrimitive(5.5).toFfiJsonBytes().decodeToString())
+    assertEquals("5", JsonPrimitive(5).toJsonBytes().decodeToString())
+    assertEquals("5.5", JsonPrimitive(5.5).toJsonBytes().decodeToString())
   }
 
   @Test
   fun distinguishes_a_numeric_string_from_a_number() {
-    assertEquals("\"5\"", JsonPrimitive("5").toFfiJsonBytes().decodeToString())
-    assertEquals("5", JsonPrimitive(5).toFfiJsonBytes().decodeToString())
-    assertEquals("\"true\"", JsonPrimitive("true").toFfiJsonBytes().decodeToString())
-    assertEquals("true", JsonPrimitive(true).toFfiJsonBytes().decodeToString())
+    assertEquals("\"5\"", JsonPrimitive("5").toJsonBytes().decodeToString())
+    assertEquals("5", JsonPrimitive(5).toJsonBytes().decodeToString())
+    assertEquals("\"true\"", JsonPrimitive("true").toJsonBytes().decodeToString())
+    assertEquals("true", JsonPrimitive(true).toJsonBytes().decodeToString())
   }
 
   @Test
@@ -51,7 +51,7 @@ class JsonConversionsTest {
     // uint64_t crosses JSON as an integer literal; a Long's bit pattern reads back unsigned.
     assertEquals(
       "18446744073709551615",
-      JsonPrimitive((-1L).toULong()).toFfiJsonBytes().decodeToString(),
+      JsonPrimitive((-1L).toULong()).toJsonBytes().decodeToString(),
     )
   }
 
@@ -65,7 +65,7 @@ class JsonConversionsTest {
     }
     assertEquals(
       """{"id":"a","type":"fill","source":"s"}""",
-      json.toFfiJsonBytes().decodeToString(),
+      json.toJsonBytes().decodeToString(),
     )
   }
 
@@ -76,6 +76,6 @@ class JsonConversionsTest {
       add(buildJsonArray { add(JsonPrimitive(1)) })
       add(JsonNull)
     }
-    assertEquals("""["zoom",[1],null]""", json.toFfiJsonBytes().decodeToString())
+    assertEquals("""["zoom",[1],null]""", json.toJsonBytes().decodeToString())
   }
 }

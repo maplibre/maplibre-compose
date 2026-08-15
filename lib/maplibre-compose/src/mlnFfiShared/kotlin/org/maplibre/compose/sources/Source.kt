@@ -4,7 +4,7 @@ import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.util.toFfiJsonBytes
+import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
 
@@ -68,7 +68,7 @@ public actual sealed class Source(internal actual val id: String) {
    * override this with its typed `MapHandle` adder.
    */
   internal open fun addTo(map: MapHandle) {
-    map.addStyleSourceJson(id, toJson().toFfiJsonBytes())
+    map.addStyleSourceJson(id, toJson().toJsonBytes())
   }
 
   /** Binds this descriptor to a source already in the style, without adding it. */

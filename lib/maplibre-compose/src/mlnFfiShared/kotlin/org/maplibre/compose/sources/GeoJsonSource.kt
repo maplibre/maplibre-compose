@@ -6,17 +6,13 @@ import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
-import org.maplibre.compose.util.toFfiClusterFeatureJson
-import org.maplibre.compose.util.toFfiJsonBytes
+import org.maplibre.compose.util.toFfiClusterFeature
+import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
-import org.maplibre.compose.util.toStyleJson
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceOptions
@@ -82,7 +78,7 @@ public actual class GeoJsonSource : Source {
    * added with; a mismatch is rejected at install.
    */
   private fun prepareData(): GeoJsonSourceDataHandle =
-    GeoJsonSourceDataHandle.create(data.toFfiJsonBytes(), options.toFfiOptions())
+    GeoJsonSourceDataHandle.create(data.toJsonBytes(), options.toFfiOptions())
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
@@ -118,7 +114,7 @@ public actual class GeoJsonSource : Source {
         put("limit", limit.coerceAtLeast(0))
         put("offset", offset.coerceAtLeast(0))
       }
-        .toFfiJsonBytes(),
+        .toJsonBytes(),
     )
 
   /**
@@ -130,7 +126,7 @@ public actual class GeoJsonSource : Source {
     field: String,
     arguments: ByteArray? = null,
   ): JsonElement? {
-    val ffiFeature = feature.toFfiClusterFeatureJson() ?: return null
+    val ffiFeature = feature.toFfiClusterFeature() ?: return null
     return binding
       .withRenderSession { session ->
         session.queryFeatureExtension(id, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
@@ -199,14 +195,5 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
 
 private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
   if (clusterProperties.isEmpty()) return null
-  return buildJsonObject {
-    clusterProperties.forEach { (name, aggregator) ->
-      // Reducer first, then mapper: the style spec's pair is [operator, map expression].
-      putJsonArray(name) {
-        add(aggregator.reducer.compile(ExpressionContext.None).toStyleJson())
-        add(aggregator.mapper.compile(ExpressionContext.None).toStyleJson())
-      }
-    }
-  }
-    .toFfiJsonBytes()
+  return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
 }
