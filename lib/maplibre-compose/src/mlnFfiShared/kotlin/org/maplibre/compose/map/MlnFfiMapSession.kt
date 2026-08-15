@@ -696,6 +696,10 @@ internal class MlnFfiMapSession(
   internal fun postOwnerTaskForTest(action: () -> Unit): Boolean =
     loop?.post(action = { action() }) ?: false
 
+  /** Test seam that runs [action] after the next native pump and event drain. */
+  internal fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
+    loop?.postEventDrainBarrierForTest(action) ?: false
+
   /** Queues [action] until a map exists, including before the session starts. */
   private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
     val current = stateLock.withLock {

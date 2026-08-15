@@ -69,6 +69,8 @@ internal class MlnFfiMapRuntimeLoop(
    */
   private val acceptLock = MlnFfiOwnerLock(thread)
   private val tasks = ArrayDeque<OwnerTask>()
+  /** Test callbacks that run after the next native pump and event drain. Owner thread only. */
+  private val eventDrainBarriers = mutableListOf<() -> Unit>()
   private var accepting = true
   private var wake: WakeSource? = null
 
@@ -127,6 +129,10 @@ internal class MlnFfiMapRuntimeLoop(
   /** Queues [action] for the owner thread, reporting whether it was accepted. */
   fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon)
+
+  /** Queues a test callback that runs after the next native pump and event drain. */
+  fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
+    post(action = { eventDrainBarriers += action })
 
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false
@@ -231,6 +237,9 @@ internal class MlnFfiMapRuntimeLoop(
     }
     runCatching { onEventsDrained(map) }
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }
+    val barriers = eventDrainBarriers.toList()
+    eventDrainBarriers.clear()
+    barriers.forEach { runCatching(it) }
   }
 
   /** Runs everything queued, reporting whether anything ran. */

@@ -18,6 +18,7 @@ import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
@@ -248,6 +249,18 @@ class MlnFfiStyleSwitchTest {
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         resources.styleBCompletionFinished.count == 0L
       }
+      assertNotNull(
+        resources.styleBCompletionError.get(),
+        "style B's stale response should be rejected",
+      )
+      val postBEventsDrained = CountDownLatch(1)
+      assertTrue(
+        session.postEventDrainBarrierForTest(postBEventsDrained::countDown),
+        "the post-B event-drain barrier was rejected",
+      )
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        postBEventsDrained.count == 0L
+      }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         loadsFinished > initialLoads &&
           relevantLayers() == listOf("user-fill", "user-extra", "base-c")
@@ -297,11 +310,15 @@ class MlnFfiStyleSwitchTest {
     val styleBCompletionFinished = CountDownLatch(1)
     val styleCCompletionFinished = CountDownLatch(1)
     val releaseStyleB = CountDownLatch(1)
+    val styleBCompletionError = AtomicReference<Throwable?>()
     val styleCCompletionError = AtomicReference<Throwable?>()
 
     fun onResponseCompletionFinished(url: String, error: Throwable?) {
       when (url) {
-        B_STYLE_URL -> styleBCompletionFinished.countDown()
+        B_STYLE_URL -> {
+          styleBCompletionError.set(error)
+          styleBCompletionFinished.countDown()
+        }
         C_STYLE_URL -> {
           styleCCompletionError.set(error)
           styleCCompletionFinished.countDown()
