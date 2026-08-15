@@ -4,7 +4,7 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.sources.Source
-import org.maplibre.compose.util.toFfiJsonValue
+import org.maplibre.compose.util.toFfiJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
@@ -34,7 +34,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
     mutateMap { map ->
       try {
-        map.addStyleLayerJson(layer.toFfiJsonValue(), beforeLayerId)
+        map.addStyleLayerJson(layer.toFfiJsonBytes(), beforeLayerId)
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
@@ -57,7 +57,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   ) {
     mutateMap { map ->
       try {
-        map.setLayerProperty(layerId, name, value.toFfiJsonValue())
+        map.setLayerProperty(layerId, name, value.toFfiJsonBytes())
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
@@ -65,7 +65,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    mutateMap { map -> map.setLayerFilter(layerId, filter.toFfiJsonValue()) }
+    mutateMap { map -> map.setLayerFilter(layerId, filter.toFfiJsonBytes()) }
   }
 
   override fun layerProperty(layerId: String, name: String): JsonElement? = readMap { map ->

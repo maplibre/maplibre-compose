@@ -29,7 +29,7 @@ lwjgl = "3.4.2"
 maplibre-android-sdk = "13.5.0"
 maplibre-ios = "6.28.0"
 maplibre-js = "6.2.0"
-maplibre-nativeFfi = "0.202608.0"
+maplibre-nativeFfi = "0.202608.1"
 playServices-location = "21.4.0"
 spatialk = "0.7.0"
 
