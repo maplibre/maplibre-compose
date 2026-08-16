@@ -80,8 +80,8 @@ public sealed interface GeoJsonData {
  * @param lineMetrics Whether to calculate line distance metrics. This is required for
  *   [LineLayer][org.maplibre.compose.layers.LineLayer]s that specify a `gradient`.
  * @param synchronousUpdate Whether in-memory GeoJSON updates should be applied synchronously,
- *   reducing update latency at the possible cost of frame rate. Only Android honors this; other
- *   platforms ignore it.
+ *   reducing update latency at the possible cost of frame rate. Android, iOS, and desktop honor
+ *   this; the browser ignores it.
  */
 @Immutable
 public data class GeoJsonOptions(
