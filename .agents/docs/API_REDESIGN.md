@@ -160,8 +160,8 @@ If the offline API wants its own namespace it can be a child of the runtime; it
 is not a separate owner, and `rememberOfflineManager` is not how it is acquired.
 
 On FFI platforms this is a thin owner around `RuntimeHandle`. The handle itself
-is available as an escape hatch. On GL JS this is a small adapter, or a no-op if
-the browser map needs no process-wide owner.
+is available as an escape hatch. On GL JS there is no runtime object; see
+[Web](#web).
 
 ### MapState
 
@@ -205,8 +205,9 @@ owns.
 
 Camera lives on `MapState`. `rememberMapState` can take a first position and
 save it across recreation. Animation and projection methods live on `MapState`.
-`CameraState` as an argument to `MaplibreMap` goes away. Overlay controls read
-`state.camera`. `CameraProjection` as a type that is null until attach goes
+`CameraState` goes away unless saving `MapState` proves hard and saveables need
+to come out piecemeal, or the camera wants its own namespace. Overlay controls
+read `state.camera`. `CameraProjection` as a type that is null until attach goes
 away: the state can answer those queries as soon as it exists. A query that
 needs a viewport size waits until a session has attached one, or takes an
 explicit size for a snapshot.
@@ -240,7 +241,7 @@ The map starts the style composition, the same way a window starts a UI
 composition.
 
 ```kotlin
-map.setStyleContent {
+state.setStyleContent {
   val route = rememberGeoJsonSource(data)
   LineLayer(id = "route", source = route, color = const(Color.Blue))
 }
@@ -277,7 +278,9 @@ fun MaplibreMap(
 `setStyleContent`. `MaplibreMap` does not take a base style, a camera, or style
 content. It attaches a session, applies gestures, and draws the overlay.
 `MaplibreMap(state) { CompassButton() }` is UI on state that already has its
-style.
+style. `MapState` and `setStyleContent` use the Compose runtime; `MaplibreMap`,
+overlays, and gestures are Compose UI — one module now, with that line drawn for
+a later split.
 
 The applier applies sources before layers. The layer-attaches-its-source
 workaround becomes unnecessary. Unloading a style is the common layer's job: the
@@ -306,13 +309,37 @@ Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`,
 
 ## Web
 
-`StyleBinding` plus style JSON is the shared language. GL JS already implements
-that path in `nextCommonMain`. The public `MapState` on the browser is an
-adapter over the GL JS `Map`. `platform` is that map.
+MapLibre GL JS 6.2.0 has no Runtime / Map / RenderSession split. The public
+`maplibregl.Map` fuses all three: it requires a `container`, creates a canvas
+and a WebGL2 context in the constructor, and `remove()` destroys the painter,
+the context, and the DOM. There is no `setContainer`, no detach that leaves the
+style loaded, and no standalone live `Style` — `Style` is constructed with a
+`Map`. `StyleSpecification` JSON can exist as data.
 
-If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and the
-browser uses the same `MapState` as desktop. Until then, features that FFI has
-and GL JS does not stay FFI-only, including snapshots.
+What looks like a runtime is scattered: a process-wide `WorkerPool`
+(`setWorkerUrl`, `setWorkerCount`, `prewarm`, `addProtocol`) plus per-map
+`RequestManager` / `transformRequest` and tile-cache sizes. There is no
+offline-pack API. There is no still-image API; readback needs a live WebGL map
+(`preserveDrawingBuffer` or an FBO, which this repo already uses).
+
+A clean 1:1 mapping is impossible without splitting `maplibregl.Map` upstream.
+That is not a prerequisite. On the browser, `MapState` is an adapter over one
+`maplibregl.Map`. `Runtime` is a thin owner of the worker globals, or is omitted
+from call sites that do not need it. `platform` is the GL JS `Map`. This repo
+already constructs that map against a hidden container
+(`GlJsMapSession.ensureMap`) and redirects its framebuffer into Compose
+(`GlJsRuntime`). Keeping that hidden map alive when `MaplibreMap` leaves
+composition is how `MapState` outlives the session. Destroying it on surface
+loss is today's behavior and is what changes.
+
+Offline packs and a first-class still-image API stay FFI-only until GL JS grows
+them. If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and
+the browser uses the same `MapState` as desktop.
+
+A fork of GL JS is warranted only if we need a map with no canvas and no WebGL,
+or a public attach/detach that keeps GPU uploads across a real context loss.
+Approximating hoistable `MapState` with an offscreen container does not need
+that fork.
 
 ## Default call site
 
@@ -387,17 +414,3 @@ anywhere in this sequence. The public API is `suspend` before it and after it.
 **Which members are `suspend`?** Snapshots stay sync. Commands and operations do
 not. The FFI assignment of each call is still moving, so the sketch above is a
 bias, not a list.
-
-**Where does Compose UI stop?** `MapState` is a Compose type even when it is not
-Compose UI: style content uses the Compose runtime. Draw the line between that
-runtime and Compose UI (`MaplibreMap`, overlays, gestures) so a later split is
-possible. The first release keeps them in one artifact.
-
-**Does `CameraState` remain as a type?** No, unless saving `MapState` proves
-hard and saveables need to come out piecemeal, or the camera wants its own
-namespace.
-
-**What does GL JS do for `Runtime`?** If the browser map needs no process-wide
-owner, `rememberMapState()` never shows one. The type still exists so common
-code that opens a runtime on Android, iOS, or desktop compiles on JS, even if it
-is a no-op.
