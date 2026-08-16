@@ -311,49 +311,50 @@ Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`,
 
 MapLibre GL JS 6.2.0 has no Runtime / Map / RenderSession split. The public
 `maplibregl.Map` fuses all three: it requires a `container`, creates a canvas
-and a WebGL2 context in the constructor, and `remove()` destroys the painter,
-the context, and the DOM. There is no `setContainer`, no detach that leaves the
-style loaded, and no standalone live `Style` — `Style` is constructed with a
-`Map`. `StyleSpecification` JSON can exist as data.
+and a WebGL2 context in `_setupPainter`, and `remove()` calls `painter.destroy`,
+`setStyle(null)`, and `WEBGL_lose_context`. There is no `setContainer` and no
+detach that leaves the style loaded. Live `Style` is `constructor(map)`.
+`StyleSpecification` JSON can exist as data.
 
 What looks like a runtime is scattered: a process-wide `WorkerPool`
 (`setWorkerUrl`, `setWorkerCount`, `prewarm`, `addProtocol`) plus per-map
 `RequestManager` / `transformRequest` and tile-cache sizes. There is no
-offline-pack API. There is no still-image API; readback needs a live WebGL map
-(`preserveDrawingBuffer` or an FBO, which this repo already uses).
+offline-pack API and no still-image API.
 
-A clean 1:1 mapping is impossible without splitting `maplibregl.Map` upstream.
-That is not a prerequisite. On the browser, `MapState` is an adapter over one
-`maplibregl.Map`. `Runtime` is a thin owner of the worker globals, or is omitted
-from call sites that do not need it. `platform` is the GL JS `Map`. This repo
-already constructs that map against a hidden container
-(`GlJsMapSession.ensureMap`) and, when a Compose surface exists, lends that
-surface's WebGL context into the constructor (`GlJsRuntime.lendingContext`) and
-redirects `bindFramebuffer(null)` into Compose's FBO. The hidden container
-survives: GL JS still needs a `container` to size the viewport, and `MapState`
-can own that div for its lifetime. The lend does not. GPU uploads live on the
-lent context, which is why `onSurfaceLost` destroys the map today.
+mln-ffi's model is: the `MapHandle` lives; a `RenderSessionHandle` attaches,
+retargets, and closes; close keeps the map. Native OpenGL can share objects
+across contexts in one share group, so a new session on the same renderer binds
+a borrowed texture. WebGL has no share groups. GPU names stay in the
+`WebGL2RenderingContext` that created them.
 
-A Kotlin-only `MapState` until first attach keeps the lend and the frame rate.
-Style JSON, camera, and `setStyleContent` wait in Kotlin. Workers, style fetch,
-and tiles do not run, so a ViewModel cannot warm a map or snapshot it
-off-screen.
+GL JS has no session object. `Style._remove(mapRemoved=false)` already keeps
+workers on a style swap; `remove()` passes `true` through `setStyle(null)`. All
+GPU uploads go through the `Painter`'s `Context`. Static `VertexBuffer`s call
+`array.freeBufferAfterUpload()`. Glyph atlas CPU images are dropped after upload
+(`glyphAtlasImage = null`). A second context cannot adopt those objects, and
+cannot rebuild every buffer from memory already on the map.
 
-A live `maplibregl.Map` on the hidden canvas, with its own WebGL, does run that
-work. Putting those frames into Compose by copying every frame is a
-full-framebuffer blit on top of GL JS's own render. That is the wrong
-interactive path. The cheap attach is to show that canvas in the page (HTML
-interop) and let Compose draw only the overlay. Snapshots can read the hidden
-canvas once. The lend stays the path that composites the map into Skia as a
-texture, and it stays session-scoped.
+Three sizes of change, same first patch whether it is an upstream PR or a fork:
 
-Offline packs and a first-class still-image API stay FFI-only until GL JS grows
-them. If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and
-the browser uses the same `MapState` as desktop.
+1. **Same-context pause and retarget.** Stop the frame loop and handlers. Leave
+   `painter` and the `WebGL2RenderingContext` alive. Later bind a new FBO or the
+   same canvas. Inject `gl` at construct time. Most of the work is
+   `src/ui/map.ts` (about 4,500 lines) plus `MapOptions` and tests: hundreds to
+   about 1,500 lines. This matches mln-ffi close and retarget only while that
+   same context stays alive.
+2. **Map lives after the painter is destroyed.** Keep `Style` and workers
+   (`_remove(false)`). Rebuild `Painter` on a later context. The first frame
+   after attach re-uploads from workers and style JSON. Context loss already
+   does a heavier version of this: serialize style, `style.destroy()`,
+   `_setupPainter()`, `setStyle` again; custom layers are not restored. Low
+   thousands of lines across `map.ts`, `style.ts` (about 2,100), and the tile
+   and atlas upload path. This is a GPU rebuild, not a borrowed-texture attach.
+3. **Public Map and RenderSession types.** `Style.map` and `map.painter` fan out
+   through a few dozen files. Several thousand lines, not a Painter rewrite.
+   Cross-context GPU reuse stays impossible.
 
-A fork of GL JS is warranted only if we need one WebGL context that detaches
-from a surface and reattaches without a blit or a reload. The hidden container
-is not that fork. The lend is not detachable without one.
+A long-lived fork of `maplibre-gl-js` is the rebase cost, not the first patch.
+How the browser `MapState` attaches to Compose is not decided here.
 
 ## Default call site
 
