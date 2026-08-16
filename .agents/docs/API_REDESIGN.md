@@ -332,19 +332,28 @@ surface's WebGL context into the constructor (`GlJsRuntime.lendingContext`) and
 redirects `bindFramebuffer(null)` into Compose's FBO. The hidden container
 survives: GL JS still needs a `container` to size the viewport, and `MapState`
 can own that div for its lifetime. The lend does not. GPU uploads live on the
-lent context, which is why `onSurfaceLost` destroys the map today. A `MapState`
-that outlives `MaplibreMap` has to keep a WebGL context of its own on the hidden
-canvas, and the session becomes a blit into Compose — a different hack. If the
-JS `MapState` is only a Kotlin holder until the first attach, the lend can stay
-and the GL JS `Map` is still born with the surface.
+lent context, which is why `onSurfaceLost` destroys the map today.
+
+A Kotlin-only `MapState` until first attach keeps the lend and the frame rate.
+Style JSON, camera, and `setStyleContent` wait in Kotlin. Workers, style fetch,
+and tiles do not run, so a ViewModel cannot warm a map or snapshot it
+off-screen.
+
+A live `maplibregl.Map` on the hidden canvas, with its own WebGL, does run that
+work. Putting those frames into Compose by copying every frame is a
+full-framebuffer blit on top of GL JS's own render. That is the wrong
+interactive path. The cheap attach is to show that canvas in the page (HTML
+interop) and let Compose draw only the overlay. Snapshots can read the hidden
+canvas once. The lend stays the path that composites the map into Skia as a
+texture, and it stays session-scoped.
 
 Offline packs and a first-class still-image API stay FFI-only until GL JS grows
 them. If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and
 the browser uses the same `MapState` as desktop.
 
-A fork of GL JS is warranted only if we need a map with no canvas and no WebGL,
-or a public attach/detach that keeps GPU uploads across a real context loss. The
-hidden container is not that fork. The lend is not detachable without one.
+A fork of GL JS is warranted only if we need one WebGL context that detaches
+from a surface and reattaches without a blit or a reload. The hidden container
+is not that fork. The lend is not detachable without one.
 
 ## Default call site
 
