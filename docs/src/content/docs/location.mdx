@@ -143,16 +143,10 @@ failure through `LocationState.status`.
 
 #### macOS desktop
 
-The backend uses
-[`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager)
-on the AppKit main run loop. Compose Desktop's `Dispatchers.Main` is the Swing
-event-dispatch thread on the AWT host. The backend hops Core Location work to
-that run loop itself. Declare `NSLocationWhenInUseUsageDescription` in the app
-Info.plist. A sandboxed or hardened-runtime app also declares the
-`com.apple.security.personal-information.location` entitlement. jpackage
-enables the hardened runtime. Core Location reads those keys from the main
-bundle of a packaged `.app`. An unpackaged `java` process uses the JDK
-bundle. The backend reports that as a misconfiguration. The desktop demo's
-macOS task runs the packaged app.
+The backend uses Core Location. Add the
+[location usage description](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)
+and
+[location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location)
+that Apple requires.
 
 `minimumInterval` is ignored because Core Location filters only by distance.
