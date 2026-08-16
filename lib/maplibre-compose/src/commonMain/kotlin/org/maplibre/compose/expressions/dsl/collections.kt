@@ -84,6 +84,21 @@ public fun <T : ExpressionValue> Expression<ListValue<T>>.slice(
 public fun Expression<ListValue<*>>.length(): Expression<IntValue> =
   FunctionCall.of("length", this).cast()
 
+/**
+ * Returns a string formed by concatenating the items in this list, inserting [separator] between
+ * each item.
+ */
+public fun Expression<ListValue<StringValue>>.join(
+  separator: Expression<StringValue>
+): Expression<StringValue> = FunctionCall.of("join", this, separator).cast()
+
+/**
+ * Returns a string formed by concatenating the items in this list, inserting [separator] between
+ * each item.
+ */
+public fun Expression<ListValue<StringValue>>.join(separator: String): Expression<StringValue> =
+  join(const(separator))
+
 /** Returns the value corresponding the given [key] or `null` if it is not present in this map. */
 public operator fun <T : ExpressionValue> Expression<MapValue<T>>.get(
   key: Expression<StringValue>
