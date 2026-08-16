@@ -78,22 +78,30 @@ internal class AndroidMapAdapter(
       }
     }
 
+  /** The style last requested via [setBaseStyle], already applied or in the process of being so. */
   private var lastBaseStyle: BaseStyle? = null
-  private var styleLoadInFlight: BaseStyle? = null
+
+  /** The style whose native load is currently in flight, if any. */
   private var pendingBaseStyle: BaseStyle? = null
+
+  /**
+   * The next style to load once [pendingBaseStyle]'s native load settles, if one was requested in
+   * the meantime.
+   */
+  private var queuedBaseStyle: BaseStyle? = null
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
-    if (styleLoadInFlight != null) {
-      pendingBaseStyle = style.takeIf { it != styleLoadInFlight }
+    if (pendingBaseStyle != null) {
+      queuedBaseStyle = style.takeIf { it != pendingBaseStyle }
       return
     }
     beginStyleLoad(style)
   }
 
   private fun beginStyleLoad(style: BaseStyle) {
-    styleLoadInFlight = style
+    pendingBaseStyle = style
     logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
 
@@ -111,9 +119,9 @@ internal class AndroidMapAdapter(
   }
 
   private fun onStyleLoadSettled() {
-    styleLoadInFlight = null
-    val next = pendingBaseStyle ?: return
     pendingBaseStyle = null
+    val next = queuedBaseStyle ?: return
+    queuedBaseStyle = null
     beginStyleLoad(next)
   }
 

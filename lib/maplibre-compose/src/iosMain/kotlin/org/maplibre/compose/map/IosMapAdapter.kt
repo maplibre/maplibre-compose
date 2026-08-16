@@ -225,22 +225,34 @@ internal class IosMapAdapter(
     }
   }
 
+  /** The style last requested via [setBaseStyle], already applied or in the process of being so. */
   private var lastBaseStyle: BaseStyle? = initialBaseStyle
-  private var styleLoadInFlight: BaseStyle? = initialBaseStyle
-  private var pendingBaseStyle: BaseStyle? = null
+
+  /**
+   * The style whose native load is currently in flight, if any. Seeded with [initialBaseStyle]
+   * since `MLNMapView`'s constructor already started loading it before this adapter's `init` block
+   * assigns [mapView]'s delegate.
+   */
+  private var pendingBaseStyle: BaseStyle? = initialBaseStyle
+
+  /**
+   * The next style to load once [pendingBaseStyle]'s native load settles, if one was requested in
+   * the meantime.
+   */
+  private var queuedBaseStyle: BaseStyle? = null
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
-    if (styleLoadInFlight != null) {
-      pendingBaseStyle = style.takeIf { it != styleLoadInFlight }
+    if (pendingBaseStyle != null) {
+      queuedBaseStyle = style.takeIf { it != pendingBaseStyle }
       return
     }
     beginStyleLoad(style)
   }
 
   private fun beginStyleLoad(style: BaseStyle) {
-    styleLoadInFlight = style
+    pendingBaseStyle = style
     logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
     when (style) {
@@ -250,22 +262,25 @@ internal class IosMapAdapter(
   }
 
   private fun onStyleLoadSettled() {
-    styleLoadInFlight = null
-    val next = pendingBaseStyle ?: return
     pendingBaseStyle = null
+    val next = queuedBaseStyle ?: return
+    queuedBaseStyle = null
     beginStyleLoad(next)
   }
 
   private var hasReceivedStyleCallback = false
 
-  /** One-shot fallback for a `didFinishLoadingStyle` callback missed to the
-   * delegate-assignment race described in the commit message that introduced this
-   * function. Scoped to the initial load only, so it can't reprocess a later style
-   * swap that's still genuinely in flight. */
+  /**
+   * One-shot fallback for a missed `didFinishLoadingStyle` callback on the initial style load:
+   * `MLNMapView`'s constructor starts loading [initialBaseStyle] before this adapter's `init` block
+   * assigns [mapView]'s delegate, so the delegate can miss that first load's completion callback
+   * entirely. Scoped to the initial load only (guarded by [hasReceivedStyleCallback]), so it can't
+   * reprocess a later style swap that's still genuinely in flight.
+   */
   private fun reconcileMissedStyleLoad(mapView: MLNMapView) {
     if (hasReceivedStyleCallback) return
     hasReceivedStyleCallback = true
-    if (styleLoadInFlight == null) return
+    if (pendingBaseStyle == null) return
     val loadedStyle = mapView.style ?: return
     callbacks.onStyleChanged(this, IosStyle(style = loadedStyle, getScale = { density.density }))
     onStyleLoadSettled()
