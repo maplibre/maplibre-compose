@@ -519,6 +519,41 @@ class MlnFfiMapInputTest {
     }
 
   @Test
+  fun a_bounce_does_not_reseed_the_double_tap_window() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+        // Outside the original 300 ms window, but inside 300 ms of the bounce.
+        advanceEventTime(300)
+        down(center)
+        up()
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_bounce_still_allows_a_later_tap_inside_the_original_window() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+        advanceEventTime(70)
+        down(center)
+        up()
+      }
+      awaitZoom(camera, START_ZOOM + 1.0)
+    }
+
+  @Test
   fun a_touch_double_tap_may_land_inside_android_double_tap_slop() =
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
@@ -653,6 +688,7 @@ class MlnFfiMapInputTest {
         camera.position.target.longitude != before.target.longitude
       }
       assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
+      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
     }
 
   @Test

@@ -226,6 +226,11 @@ private class MapPointerGesture(
   private var lastClickType = PointerType.Mouse
   /** Set on the second down when [isDoubleClick] pairs it to the previous up. */
   private var doubleClickCandidate = false
+  /**
+   * Set when this down is inside [doubleClickMinTimeMillis] of the previous up. Compose keeps
+   * waiting on the original pair, so this press leaves [lastClickAt] unchanged.
+   */
+  private var tooSoonForPair = false
   private var pendingTouchClick: PendingTouchClick? = null
 
   fun onPointerEvent(event: PointerEvent) {
@@ -284,7 +289,8 @@ private class MapPointerGesture(
     pressedType = change.type
     pressStartedAtMillis = change.uptimeMillis
     longClickHandled = false
-    doubleClickCandidate = isDoubleClick(change.position, change.uptimeMillis)
+    tooSoonForPair = isTooSoonForPair(change.uptimeMillis)
+    doubleClickCandidate = !tooSoonForPair && isDoubleClick(change.position, change.uptimeMillis)
     quickZoomCandidate =
       change.type != PointerType.Mouse && options.isQuickZoomEnabled && doubleClickCandidate
     quickZoomOriginY = change.position.y
@@ -293,7 +299,6 @@ private class MapPointerGesture(
     singleMotion = SingleMotion.NONE
     singleVelocity.resetTracking()
     singleVelocity.addPointerInputChange(change)
-    if (doubleClickCandidate && awaitsSecondTap()) cancelPendingTouchClick()
     deferredTwoFingerVelocity = null
     continuation.interrupt()
     runCatching { focusRequester.requestFocus() }
@@ -340,7 +345,8 @@ private class MapPointerGesture(
           lastClickAt = null
           quickZoomCandidate = false
           doubleClickCandidate = false
-          cancelPendingTouchClick()
+          tooSoonForPair = false
+          flushPendingTouchClick()
           return
         }
       } else if (abs(displacement.x) < dragSlopPx() && abs(displacement.y) < dragSlopPx()) {
@@ -350,7 +356,8 @@ private class MapPointerGesture(
       if (!canTransform) {
         lastClickAt = null
         doubleClickCandidate = false
-        cancelPendingTouchClick()
+        tooSoonForPair = false
+        flushPendingTouchClick()
         return
       }
       twoFingerTap = null
@@ -367,6 +374,8 @@ private class MapPointerGesture(
       singleMotion = SingleMotion.QUICK_ZOOM
       // The second tap now belongs to this drag; a later tap must start a fresh pair.
       lastClickAt = null
+      tooSoonForPair = false
+      cancelPendingTouchClick()
       val currentViewportSize = viewportSize()
       val targetDelta =
         GestureMath.quickZoomDelta(
@@ -391,6 +400,12 @@ private class MapPointerGesture(
         deferredTwoFingerVelocity = null
         if (singleMotion != SingleMotion.ROTATE_TILT) singleVelocity.resetTracking()
         singleMotion = SingleMotion.ROTATE_TILT
+        if (doubleClickCandidate || tooSoonForPair) {
+          lastClickAt = null
+          doubleClickCandidate = false
+          tooSoonForPair = false
+          flushPendingTouchClick()
+        }
         target.rotateAndPitchBy(
           bearingDelta = deltaX * options.dragRotateDegreesPerDp,
           pitchDelta = deltaY * options.dragPitchDegreesPerDp,
@@ -401,6 +416,12 @@ private class MapPointerGesture(
         deferredTwoFingerVelocity = null
         if (singleMotion != SingleMotion.PAN) singleVelocity.resetTracking()
         singleMotion = SingleMotion.PAN
+        if (doubleClickCandidate || tooSoonForPair) {
+          lastClickAt = null
+          doubleClickCandidate = false
+          tooSoonForPair = false
+          flushPendingTouchClick()
+        }
         target.moveBy(deltaX, deltaY, gestureToken = gestureToken)
         changed = true
       }
@@ -424,6 +445,7 @@ private class MapPointerGesture(
       clickOrigin = null
       quickZoomCandidate = false
       doubleClickCandidate = false
+      tooSoonForPair = false
       lastSingle = null
       mode = Mode.TWO_FINGER_UNDECIDED
       twoFingerStart = current
@@ -636,6 +658,7 @@ private class MapPointerGesture(
   private fun onRelease(event: PointerEvent) {
     val origin = clickOrigin
     val pairedSecondTap = doubleClickCandidate
+    val ignoreReleaseAsTap = tooSoonForPair
     val handledLongClick = longClickHandled
     val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
     cancelLongClick()
@@ -657,6 +680,7 @@ private class MapPointerGesture(
     longClickHandled = false
     quickZoomCandidate = false
     doubleClickCandidate = false
+    tooSoonForPair = false
     twoFingerTap = null
     mode = Mode.NONE
 
@@ -682,7 +706,7 @@ private class MapPointerGesture(
           gestureToken = token,
         )
       }
-    } else if (origin != null) {
+    } else if (origin != null && !ignoreReleaseAsTap) {
       onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L, pairedSecondTap)
     }
   }
@@ -732,6 +756,12 @@ private class MapPointerGesture(
   /** Whether a second tap still has a gesture to become. */
   private fun awaitsSecondTap(): Boolean =
     options.isDoubleClickZoomEnabled || options.isQuickZoomEnabled
+
+  /** Compose ignores a down that arrives before [doubleClickMinTimeMillis]. */
+  private fun isTooSoonForPair(timeMillis: Long): Boolean {
+    val previousAt = lastClickAt ?: return false
+    return pressedType == lastClickType && timeMillis - previousAt < doubleClickMinTimeMillis
+  }
 
   /** Pairs this down to the previous up using Compose's window and Android's touch slop. */
   private fun isDoubleClick(origin: Offset, timeMillis: Long): Boolean {
