@@ -741,12 +741,14 @@ private class MapPointerGesture(
       SingleMotion.PAN -> {
         if (!options.isFlingEnabled) return null
         val fling =
-          ClassicAndroidGestureMath.fling(
+          ClassicAndroidGestureMath.screenSpaceFling(
             (velocity.x / density.density).toDouble(),
             (velocity.y / density.density).toDouble(),
-            target.getCameraPosition().tilt,
           ) ?: return null
-        target.moveBy(fling.offsetXDp, fling.offsetYDp, fling.duration, gestureToken = gestureToken)
+        // The drag already applies each pointer delta with moveBy. The fling is that same
+        // virtual finger, still sliding, now decelerating. One animated moveBy would unproject
+        // the whole offset and travel farther toward the horizon than away from it.
+        animateFling(fling)
         fling.duration
       }
       SingleMotion.QUICK_ZOOM -> {
@@ -815,20 +817,44 @@ private class MapPointerGesture(
   ) {
     val token = gestureToken
     continuation.launchScale(scope) {
-      val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
-      val startedAt = withFrameNanos { it }
-      var previousEasedProgress = 0.0
-      do {
-        val now = withFrameNanos { it }
-        val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
-        val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
-        val frameZoomDelta = velocity.zoomDelta * (easedProgress - previousEasedProgress)
+      animateDecelerating(velocity.duration) { frameFraction ->
+        val frameZoomDelta = velocity.zoomDelta * frameFraction
         if (frameZoomDelta != 0.0) {
           target.scaleBy(zoomLevelsToScale(frameZoomDelta), anchor, gestureToken = token)
         }
-        previousEasedProgress = easedProgress
-      } while (progress < 1.0)
+      }
     }
+  }
+
+  private fun animateFling(fling: ClassicAndroidGestureMath.Fling) {
+    val token = gestureToken
+    continuation.launchFling(scope) {
+      animateDecelerating(fling.duration) { frameFraction ->
+        val deltaX = fling.offsetXDp * frameFraction
+        val deltaY = fling.offsetYDp * frameFraction
+        if (deltaX != 0.0 || deltaY != 0.0) {
+          target.moveBy(deltaX, deltaY, gestureToken = token)
+        }
+      }
+    }
+  }
+
+  /** Android's default DecelerateInterpolator: remaining motion falls as `(1 - t)^2`. */
+  private suspend fun animateDecelerating(
+    duration: Duration,
+    apply: (frameFraction: Double) -> Unit,
+  ) {
+    val durationNanos = duration.inWholeNanoseconds.coerceAtLeast(1L)
+    val startedAt = withFrameNanos { it }
+    var previousEasedProgress = 0.0
+    do {
+      val now = withFrameNanos { it }
+      val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
+      val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
+      val frameFraction = easedProgress - previousEasedProgress
+      if (frameFraction != 0.0) apply(frameFraction)
+      previousEasedProgress = easedProgress
+    } while (progress < 1.0)
   }
 
   private fun animateRotationVelocity(
@@ -1010,6 +1036,7 @@ private class MapPointerGesture(
 internal class GestureContinuation(private val scope: CoroutineScope) {
   private var scaleVelocityJob: Job? = null
   private var rotationVelocityJob: Job? = null
+  private var flingJob: Job? = null
   private var discreteTransitionJob: Job? = null
   private var finishJob: Job? = null
   private var openToken: GestureToken? = null
@@ -1024,6 +1051,11 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     rotationVelocityJob = scope.launch(block = block)
   }
 
+  fun launchFling(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
+    flingJob?.cancel()
+    flingJob = scope.launch(block = block)
+  }
+
   fun launchDiscreteTransition(block: suspend CoroutineScope.() -> Unit) {
     discreteTransitionJob?.cancel()
     discreteTransitionJob = scope.launch(block = block)
@@ -1035,6 +1067,8 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     scaleVelocityJob = null
     rotationVelocityJob?.cancel()
     rotationVelocityJob = null
+    flingJob?.cancel()
+    flingJob = null
     discreteTransitionJob?.cancel()
     discreteTransitionJob = null
   }

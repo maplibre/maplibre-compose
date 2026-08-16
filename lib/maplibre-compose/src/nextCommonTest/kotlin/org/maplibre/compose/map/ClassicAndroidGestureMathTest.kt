@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import kotlin.math.PI
+import kotlin.math.abs
 import kotlin.math.ln
 import kotlin.math.pow
 import kotlin.test.Test
@@ -60,6 +61,30 @@ class ClassicAndroidGestureMathTest {
     val expectedDurationMillis = (1400.0 / 7.0 / 1.5 + 150.0).toLong()
     assertEquals(expectedDurationMillis, fling.duration.inWholeMilliseconds)
     assertEquals(1400.0 * expectedDurationMillis * 0.28 / 1000.0, fling.offsetXDp, 1e-12)
+  }
+
+  @Test
+  fun opposite_vertical_flings_are_equal_and_opposite() {
+    val down = assertNotNull(ClassicAndroidGestureMath.fling(0.0, 1400.0, pitch = 60.0))
+    val up = assertNotNull(ClassicAndroidGestureMath.fling(0.0, -1400.0, pitch = 60.0))
+    assertEquals(down.offsetYDp, -up.offsetYDp, 1e-12)
+    assertEquals(down.duration, up.duration)
+  }
+
+  @Test
+  fun android_tilt_term_shortens_a_pitched_fling() {
+    val flat = assertNotNull(ClassicAndroidGestureMath.fling(0.0, 1400.0, pitch = 0.0))
+    val pitched = assertNotNull(ClassicAndroidGestureMath.fling(0.0, 1400.0, pitch = 60.0))
+    assertTrue(pitched.duration < flat.duration)
+    assertTrue(abs(pitched.offsetYDp) < abs(flat.offsetYDp))
+  }
+
+  @Test
+  fun screen_space_fling_matches_the_flat_android_equation() {
+    val flat = assertNotNull(ClassicAndroidGestureMath.fling(0.0, 1400.0, pitch = 0.0))
+    val screen = assertNotNull(ClassicAndroidGestureMath.screenSpaceFling(0.0, 1400.0))
+    assertEquals(flat.offsetYDp, screen.offsetYDp, 1e-12)
+    assertEquals(flat.duration, screen.duration)
   }
 
   @Test

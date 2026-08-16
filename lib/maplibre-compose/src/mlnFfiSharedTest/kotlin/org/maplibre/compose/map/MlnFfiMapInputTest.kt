@@ -624,6 +624,43 @@ class MlnFfiMapInputTest {
   }
 
   @Test
+  fun pitched_fling_up_and_down_travel_similar_ground_distance() =
+    runInputTest(focusWithMouse = false) { camera ->
+      val start = CameraPosition(target = Position(0.0, 0.0), zoom = 8.0, tilt = 60.0)
+      camera.position = start
+      waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.tilt - 60.0) < 0.5 }
+
+      val down = verticalFlingLatitudeDelta(camera, swipeY = 200f)
+      camera.position = start
+      waitUntil(timeoutMillis = TIMEOUT) {
+        abs(camera.position.target.latitude) < 1e-4 && abs(camera.position.tilt - 60.0) < 0.5
+      }
+      val up = -verticalFlingLatitudeDelta(camera, swipeY = -200f)
+
+      assertTrue(down > 0.0, "a downward flick should move the camera north, got $down")
+      assertTrue(up > 0.0, "an upward flick should move the camera south, got $up")
+      val ratio = maxOf(down, up) / minOf(down, up)
+      assertTrue(
+        ratio < 1.2,
+        "pitched flings should travel similar ground distance; down=$down up=$up ratio=$ratio",
+      )
+    }
+
+  /**
+   * Swipes vertically and returns the signed latitude change after the fling settles. Downward
+   * swipes are positive Y and move the camera north.
+   */
+  private fun androidx.compose.ui.test.ComposeUiTest.verticalFlingLatitudeDelta(
+    camera: CameraState,
+    swipeY: Float,
+  ): Double {
+    val before = camera.position.target.latitude
+    onRoot().performTouchInput { swipe(center, center + Offset(0f, swipeY), durationMillis = 100) }
+    waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    return camera.position.target.latitude - before
+  }
+
+  @Test
   fun mouse_wheel_finishes_an_interrupted_touch_fling() =
     runInputTest(
       gestures = GestureOptions(animationDuration = Duration.ZERO),

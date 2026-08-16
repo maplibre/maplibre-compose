@@ -97,6 +97,13 @@ internal object ClassicAndroidGestureMath {
 
   data class Fling(val offsetXDp: Double, val offsetYDp: Double, val duration: Duration)
 
+  /**
+   * The offset and duration MapLibre Android 13.5.0 applies as one `moveBy`. [pitch] shortens the
+   * duration: a single unprojection of the whole offset travels farther toward the horizon than
+   * away from it, and `pitch / 10` limits that jump.
+   *
+   * A caller that continues the drag in screen-space steps uses [screenSpaceFling] instead.
+   */
   fun fling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double, pitch: Double): Fling? {
     val velocity = hypot(velocityXDpPerSecond, velocityYDpPerSecond)
     if (velocity < FLING_THRESHOLD_DP_PER_SECOND) return null
@@ -108,6 +115,13 @@ internal object ClassicAndroidGestureMath {
       duration = durationMillis.milliseconds,
     )
   }
+
+  /**
+   * The [fling] offset for this speed with the Android tilt term omitted. Equal speeds produce
+   * equal screen-space travel, whether or not the camera is pitched.
+   */
+  fun screenSpaceFling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double): Fling? =
+    fling(velocityXDpPerSecond, velocityYDpPerSecond, pitch = 0.0)
 
   data class ScaleVelocity(val zoomDelta: Double, val duration: Duration)
 
