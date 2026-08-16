@@ -38,19 +38,20 @@ FFI path has no such object: a layer is an id plus style JSON on a `MapHandle`.
 `nextCommonMain` already implements `Layer` that way, which is why desktop and
 the browser share one class.
 
-`conversions.kt` still copies `LatLng`, `LatLngBounds`, `ScreenPoint`,
-`EdgeInsets`, and `CameraOptions` into Compose and spatialk types. Some of those
-copies earn their keep. `CameraOptions` is a mutable builder, so
-`CameraPosition` as an immutable snapshot is the right public type. spatialk
-already owns `Position`, `Geometry`, `Feature`, and `BoundingBox`. A typealias
-to `LatLng` would fight that. The copies that should go away are the ones that
-exist only because a second SDK used a different name for the same value.
+`conversions.kt` still copies FFI geometry and camera types into Compose and
+spatialk types. Some of those copies earn their keep: spatialk already owns
+`Position`, `Geometry`, `Feature`, and `BoundingBox`, and a typealias to
+`LatLng` would fight that. A mutable FFI type that exists to assemble a value is
+a builder, and if we expose it it is named for the value it builds
+(`CameraPositionBuilder`), not `CameraOptions`. The copies that should go away
+are the ones that exist only because a second SDK used a different name for the
+same value.
 
 ### No way out of the composition
 
 The only public handle on a live map is `CameraState`, and it exposes
 projection, queries, and camera animation. Style, images, sources, and the
-native map stay internal. Changing a base-style layer's visibility still means
+platform map stay internal. Changing a base-style layer's visibility still means
 `Anchor.Replace` and a hand-copied layer, or editing the style JSON before load
 ([#18](https://github.com/maplibre/maplibre-compose/issues/18)). Reaching a
 missing API means asking us to wrap it, or asking for the platform map
@@ -97,7 +98,7 @@ on decoupling those two
 ## What to keep
 
 Declarative style composition is the right way to add sources and layers the
-application owns. The pain is the implementation, not the abstraction.
+application owns. The current wiring is the part that has to change.
 
 The expression DSL is the right way to write paint and layout values. Compose
 types (`Color`, `Dp`, `DpOffset`) and a typed AST beat raw style scalars. That
@@ -124,21 +125,41 @@ stay loaded.
 The default call site stays a single composable. `MaplibreMap { ... }` creates a
 remembered map when the caller does not pass one.
 
+### Execution
+
+[`maplibre-native-ffi#631`](https://github.com/maplibre/maplibre-native-ffi/pull/631)
+moves the owner thread into the native core. After that lands, mln-ffi owns the
+runtime thread, and every map call is one of:
+
+- a **snapshot**: sync, returns now. Frequent reads that are not keyed on input,
+  such as the current camera.
+- a **command**: async, no result.
+- an **operation**: async, result later.
+
+Which call is which can still change. That PR is in revision, and this redesign
+does not wait for it.
+
+The public Kotlin API follows that split: snapshots can be properties or
+ordinary functions, and commands and operations are `suspend`. Until #631 lands,
+this library still hops onto the owner thread, and that hop is also a `suspend`.
+The call sites stay the same either way.
+
+A still image of the map is an operation, not this kind of snapshot. The method
+can keep the name `snapshot`; the form is `suspend`.
+
 ### Runtime
 
 Application-scoped. One per cache and resource-provider configuration. Offline
 packs, HTTP header transforms, and resource URL rewrites belong here, because
 they outlive any one map.
 
-On FFI platforms this is a thin owner around `RuntimeHandle`: it hops work onto
-the owner thread and closes the handle. A typealias to `RuntimeHandle` would
-leak that thread. The handle itself is available as an escape hatch.
+`OfflineManager` as a remembered type goes away. Offline work is runtime work.
+If the offline API wants its own namespace it can be a child of the runtime; it
+is not a separate owner, and `rememberOfflineManager` is not how it is acquired.
 
-On GL JS this is a small adapter, or a no-op if the browser map needs no
-process-wide owner.
-
-`rememberOfflineManager` becomes a function of a `Runtime` the caller already
-holds. The global cache in `MlnFfiOfflineManager` goes away.
+On FFI platforms this is a thin owner around `RuntimeHandle`. The handle itself
+is available as an escape hatch. On GL JS this is a small adapter, or a no-op if
+the browser map needs no process-wide owner.
 
 ### Map
 
@@ -147,28 +168,31 @@ The style, the camera, and the sources. No surface. `close` releases it.
 ```kotlin
 class Map : AutoCloseable {
   var baseStyle: BaseStyle
-  var camera: CameraPosition
+  val camera: CameraPosition
 
   val sources: StyleSources
   val layers: StyleLayers
 
+  suspend fun setCamera(to: CameraPosition)
   suspend fun animateCamera(to: CameraPosition, duration: Duration)
-  fun queryRenderedFeatures(...): List<Feature<Geometry, JsonObject?>>
+  suspend fun queryRenderedFeatures(...): List<Feature<Geometry, JsonObject?>>
 
   suspend fun snapshot(width: Int, height: Int): ImageBitmap
 
+  fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit)
+
   @DelicateMapApi
-  fun <T> withNative(block: (NativeMap) -> T): T
+  suspend fun <T> withPlatform(block: (PlatformMap) -> T): T
 }
 ```
 
-`NativeMap` is a typealias to `MapHandle` on FFI platforms and to the GL JS
-`Map` on the browser. Common code does not call `withNative`. Platform code that
-is blocked on a missing wrapper does.
+The sketch marks writes and queries `suspend` and leaves unkeyed reads as
+properties. Exactly which members are `suspend` follows the FFI form of each
+call, and that assignment is still moving.
 
-Thread hopping stays inside `Map`. The `MapHandle` that `withNative` yields is
-valid only for the duration of `block`, on the owner thread. That is the same
-rule `MlnFfiStyleBinding.readMap` already enforces.
+`PlatformMap` is a typealias to `MapHandle` on FFI platforms and to the GL JS
+`Map` on the browser. Common code does not call `withPlatform`. Platform code
+that is blocked on a missing wrapper does.
 
 `CameraState` becomes a Compose mirror of `Map.camera`, including saveable state
 when the map itself is remembered in composition. Animation and projection
@@ -200,80 +224,55 @@ owners refused the id.
 An imperative write is the way to change one property of a layer the application
 does not want to redeclare.
 
-### Style composition as a helper
+### Style composition
 
-The content lambda is a function of a `Map`, not of `MaplibreMap`.
+The map starts the style composition, the same way a window starts a UI
+composition.
 
 ```kotlin
-@Composable
-fun StyleContent(map: Map, content: @Composable @MaplibreComposable () -> Unit)
-
-@Composable
-fun MaplibreMap(
-  map: Map = rememberMap(),
-  cameraState: CameraState = rememberCameraState(map),
-  // ...
-  content: @Composable @MaplibreComposable () -> Unit = {},
-)
+map.setStyleContent {
+  val route = rememberGeoJsonSource(data)
+  LineLayer(id = "route", source = route, color = const(Color.Blue))
+}
 ```
 
-`StyleContent` can run against a map that has never been shown. A snapshot then
-uses the same layers as the interactive map. The composition still needs a
-Compose runtime, so a ViewModel that wants declarative style either exposes
-state that a composable applies, or uses the imperative collections. A second,
-non-Compose style builder would duplicate the composition we already have.
+`setStyleContent` owns a Compose `Composition` and a recomposer. It does not
+have to be called from a UI composable. Snapshot state that the content reads
+invalidates it.
+
+`MaplibreMap`'s content lambda is sugar that calls `setStyleContent`. The
+session attaches the surface. The style tree belongs to the map.
 
 The applier applies sources before layers. The layer-attaches-its-source
 workaround becomes unnecessary. Unloading a style is the common layer's job: the
 outgoing binding is marked unloaded, then the new style is published, then
 content runs. `SafeStyle` and the unstated adapter contract go away.
 
-`StyleBinding` stays internal. It is the hop to `MapHandle` or to GL JS, plus
-the unloaded state. It is not a public type.
+`StyleBinding` stays internal. It is the hop to the platform map, plus the
+unloaded state. It is not a public type.
 
 ### Expressions
 
 No redesign. The DSL compiles to style JSON; both backends set properties from
 that JSON. New layer properties are new DSL entries, not new `expect` setters.
 
-### What becomes a typealias, and what does not
+### Facades
 
-**Re-export or typealias** when the FFI type is the public type:
+When an FFI type is the public type, re-export or typealias it. When Compose or
+spatialk already has the better shape, keep that. Sources and layers stay as
+descriptor classes: FFI has no objects for them. A mutable FFI type that exists
+to assemble a value is a builder, named for the value it builds. Which types
+fall where is decided against the FFI surface we ship, not listed here.
 
-- `MapHandle` / the GL JS `Map`, as `NativeMap`
-- `RuntimeHandle`, as the runtime escape hatch
-- offline region status and download-state enums, where they already match
-- style-spec enums that FFI already names the same way (`SourceType`, layer
-  type)
-
-**Keep a Compose or spatialk type** when that type is the better public shape:
-
-- `CameraPosition` — immutable; `CameraOptions` is a builder the next call can
-  mutate
-- spatialk `Position`, `Geometry`, `Feature`, `BoundingBox`
-- the expression AST, and Compose `Color` / `Dp` / `DpOffset` in that AST
-- `GestureOptions` as the common data class `nextCommonMain` already has, not as
-  an `expect`
-
-**Keep a descriptor class, not a typealias**, for sources and layers. FFI has no
-`GeoJsonSource` object. The common `GeoJsonSource` that holds options and talks
-JSON to a `Map` is the API. The four `actual` class bodies go away.
-
-**Delete:**
-
-- `MapAdapter` and `MapAdapter.Callbacks`
-- `SafeStyle`
-- per-platform `actual` `Layer` / `Source` wrappers around the classic SDKs
-- `CameraProjection` as a type that exists only after attach
-
-`conversions.kt` shrinks to spatialk and Compose unit boundaries. It does not
-disappear.
+Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`,
+`SafeStyle`, the per-platform `actual` `Layer` / `Source` wrappers, and
+`CameraProjection` as a type that exists only after attach.
 
 ## Web
 
 `StyleBinding` plus style JSON is the shared language. GL JS already implements
 that path in `nextCommonMain`. The public `Map` on the browser is an adapter
-over the GL JS map. `withNative` yields that map.
+over the GL JS map. `withPlatform` yields that map.
 
 If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and the
 browser uses the same `Map` as desktop. Until then, features that FFI has and GL
@@ -291,14 +290,19 @@ fun Screen() {
 }
 ```
 
-That still creates a map, attaches a session, and composes style. The difference
-is that the map is a remembered object the caller can lift.
+That still creates a map, attaches a session, and starts a style composition.
+The difference is that the map is a remembered object the caller can lift, and
+the content lambda is sugar for `setStyleContent`.
 
 ```kotlin
 class RouteViewModel : ViewModel() {
   val map = runtime.createMap().apply {
     baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
     layers["poi-label"]?.visible = false
+    setStyleContent {
+      val route = rememberGeoJsonSource(routeData)
+      LineLayer(id = "route", source = route, color = const(Color.Blue))
+    }
   }
 
   override fun onCleared() = map.close()
@@ -306,14 +310,11 @@ class RouteViewModel : ViewModel() {
 
 @Composable
 fun RouteScreen(vm: RouteViewModel) {
-  MaplibreMap(map = vm.map) {
-    val route = rememberGeoJsonSource(vm.routeData)
-    LineLayer(id = "route", source = route, color = const(Color.Blue))
-  }
+  MaplibreMap(map = vm.map)
 }
 ```
 
-A snapshot of the same map does not need a composable:
+A still image of the same map does not need a composable:
 
 ```kotlin
 val image = vm.map.snapshot(width = 800, height = 600)
@@ -329,12 +330,12 @@ val image = vm.map.snapshot(width = 800, height = 600)
 3. Split `Map` from the composable internally: the session attaches and
    detaches; the map survives recomposition. Still no public change.
 4. Publish `Runtime`, `Map`, `rememberMap`, and `MaplibreMap(map)`. Lift
-   `CameraState` onto the map. Delete `StyleState`.
-5. Publish `withNative` as a delicate API. Close
+   `CameraState` onto the map. Delete `StyleState` and `OfflineManager`.
+5. Publish `withPlatform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
    at it.
-6. Run `StyleContent` against a map that has no session. Implement snapshots
-   ([#28](https://github.com/maplibre/maplibre-compose/issues/28)).
+6. Let `setStyleContent` run on a map that has no session. Implement still
+   images ([#28](https://github.com/maplibre/maplibre-compose/issues/28)).
 7. Fill the capabilities in [COMMON_API_GAPS.md](./COMMON_API_GAPS.md). Each is
    one implementation, or two if the browser stays on GL JS.
 
@@ -343,20 +344,25 @@ while those platforms are still catching up on features. Step 4 is the break. It
 belongs on the road to v1.0, not in a minor release that still supports the
 classic SDKs.
 
+[#631](https://github.com/maplibre/maplibre-native-ffi/pull/631) can land
+anywhere in this sequence. The public API is `suspend` before it and after it.
+
 ## Open questions
 
-**Does `Map` hop threads, or does the caller?** A wrapper that hops is the only
-way a ViewModel on the main thread can call `map.camera = ...` without learning
-the owner thread. `withNative` is the opt-out. That is the current bias.
+**Which members are `suspend`?** Snapshots stay sync. Commands and operations do
+not. The FFI assignment of each call is still moving, so the sketch above is a
+bias, not a list.
 
-**Does style composition run without Compose?** The recommendation above is no:
-declarative style needs a composition, and a ViewModel that wants it exposes
-state to a composable. A headless `Composition` for snapshots is an
-implementation detail of `StyleContent`, not a public API.
+**What is `Map` called?** The sketches use `Map` because that is the FFI object.
+In Kotlin it collides with `kotlin.collections.Map`, and next to `MaplibreMap`
+it is easy to misread. `MapHandle` is the FFI type that `PlatformMap` already
+names. Candidates: `MapLibre`, `MapInstance`, `MapController`. The composable
+keeps `MaplibreMap`.
 
-**Is `Map` in this artifact, or in a Compose-free one?** A ViewModel on Android
-that snapshots a map without pulling in Compose UI would want the latter. The
-first cut can live here. A split is easier after `Map` exists than before.
+**Is `Map` in this artifact, or in a Compose-free one?** `setStyleContent` needs
+the Compose runtime. The imperative map does not. `setStyleContent` can be an
+extension in this artifact on a Compose-free map type. A split is easier after
+`Map` exists than before.
 
 **How much of `CameraState` stays?** Saveable camera state and `isCameraMoving`
 are Compose concerns. They can remain as a thin type bound to a `Map`. The map
@@ -364,13 +370,8 @@ is the source of truth for the position.
 
 **What does GL JS do for `Runtime`?** If the browser map needs no process-wide
 owner, `rememberMap()` never shows one. The type still exists so common code
-that opens a runtime on native compiles on JS, even if it is a no-op.
-
-**What is `Map` called?** The sketches use `Map` because that is the FFI object.
-In Kotlin it collides with `kotlin.collections.Map`, and next to `MaplibreMap`
-it is easy to misread. `MapHandle` is the native type the delicate API already
-exposes. Candidates: `MapLibre`, `MapInstance`, `MapController`. The composable
-keeps `MaplibreMap`.
+that opens a runtime on Android, iOS, or desktop compiles on JS, even if it is a
+no-op.
 
 ## What this document is not
 
