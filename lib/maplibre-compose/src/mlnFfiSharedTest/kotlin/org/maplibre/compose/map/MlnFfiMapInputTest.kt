@@ -344,6 +344,32 @@ class MlnFfiMapInputTest {
   }
 
   @Test
+  fun a_long_click_on_a_paired_second_tap_does_not_report_the_first_tap() =
+    runInputTest(
+      gestures = GestureOptions(isQuickZoomEnabled = false),
+      focusWithMouse = false,
+    ) {
+      val map = onRoot()
+      map.performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        down(center)
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitUntil(timeoutMillis = TIMEOUT) { longClicks.size == 1 }
+      map.performTouchInput { up() }
+      waitForIdle()
+      assertEquals(0, clicks.size, "a paired long click reported the first tap as a map click")
+
+      map.performTouchInput { click(center) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(1, clicks.size, "the next tap inherited a stale claimed first tap")
+      assertEquals(1, longClicks.size)
+    }
+
+  @Test
   fun one_finger_pans_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
       val before = camera.position.target.longitude

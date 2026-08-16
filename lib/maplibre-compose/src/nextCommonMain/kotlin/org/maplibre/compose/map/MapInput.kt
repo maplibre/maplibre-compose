@@ -315,6 +315,8 @@ private class MapPointerGesture(
         if (clickOrigin == origin && !gestureInProgress && mode == Mode.SINGLE) {
           longClickHandled = true
           clickOrigin = null
+          // This press is a long click, including a paired second tap that was held.
+          discardTapWait(emitClick = false)
           continuation.finish(target::onGestureEnded)
           target.onSecondaryClick(origin.toLogicalDpOffset(density))
         }
@@ -688,6 +690,8 @@ private class MapPointerGesture(
       }
     } else if (origin != null && !ignoreReleaseAsTap) {
       onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L, pairedSecondTap)
+    } else if (handledLongClick) {
+      discardTapWait(emitClick = false)
     }
   }
 
