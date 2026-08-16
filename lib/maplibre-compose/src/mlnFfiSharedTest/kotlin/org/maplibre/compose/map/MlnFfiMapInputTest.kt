@@ -490,6 +490,48 @@ class MlnFfiMapInputTest {
     }
 
   @Test
+  fun a_second_down_inside_the_timeout_still_zooms_after_a_slow_up() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(80)
+        down(center)
+        advanceEventTime(400)
+        up()
+      }
+      awaitZoom(camera, START_ZOOM + 1.0)
+    }
+
+  @Test
+  fun a_bounce_faster_than_the_min_time_is_not_a_double_tap() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_touch_double_tap_may_land_inside_android_double_tap_slop() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(80)
+        down(center + Offset(50f, 0f))
+        up()
+      }
+      awaitZoom(camera, START_ZOOM + 1.0)
+    }
+
+  @Test
   fun double_tap_drag_quick_zooms_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {

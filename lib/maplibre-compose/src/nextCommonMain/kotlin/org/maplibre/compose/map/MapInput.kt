@@ -116,6 +116,8 @@ private fun Modifier.pointerGestures(
         shoveSlopPx = GestureMath.SHOVE_START_DP.dp.toPx(),
         twoFingerTapSlopPx = GestureMath.TWO_FINGER_TAP_SLOP_DP.dp.toPx(),
         minimumTwoFingerSpanPx = GestureMath.MINIMUM_TWO_FINGER_SPAN_DP.dp.toPx(),
+        doubleTapSlopPx = GestureMath.DOUBLE_TAP_SLOP_DP.dp.toPx(),
+        doubleClickMinTimeMillis = viewConfiguration.doubleTapMinTimeMillis,
         doubleClickTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis,
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
@@ -177,6 +179,8 @@ private class MapPointerGesture(
   private val shoveSlopPx: Float,
   private val twoFingerTapSlopPx: Float,
   private val minimumTwoFingerSpanPx: Float,
+  private val doubleTapSlopPx: Float,
+  private val doubleClickMinTimeMillis: Long,
   private val doubleClickTimeoutMillis: Long,
   private val longClickTimeoutMillis: Long,
   private val scope: CoroutineScope,
@@ -220,6 +224,8 @@ private class MapPointerGesture(
   private var lastClickAt: Long? = null
   private var lastClickOrigin = Offset.Zero
   private var lastClickType = PointerType.Mouse
+  /** Set on the second down when [isDoubleClick] pairs it to the previous up. */
+  private var doubleClickCandidate = false
   private var pendingTouchClick: PendingTouchClick? = null
 
   fun onPointerEvent(event: PointerEvent) {
@@ -278,17 +284,16 @@ private class MapPointerGesture(
     pressedType = change.type
     pressStartedAtMillis = change.uptimeMillis
     longClickHandled = false
+    doubleClickCandidate = isDoubleClick(change.position, change.uptimeMillis)
     quickZoomCandidate =
-      change.type != PointerType.Mouse &&
-        options.isQuickZoomEnabled &&
-        isDoubleClick(change.position, change.uptimeMillis)
+      change.type != PointerType.Mouse && options.isQuickZoomEnabled && doubleClickCandidate
     quickZoomOriginY = change.position.y
     quickZoomAppliedDelta = 0.0
     lastQuickZoomSpanDeltaPixels = 0.0
     singleMotion = SingleMotion.NONE
     singleVelocity.resetTracking()
     singleVelocity.addPointerInputChange(change)
-    if (quickZoomCandidate) cancelPendingTouchClick()
+    if (doubleClickCandidate && awaitsSecondTap()) cancelPendingTouchClick()
     deferredTwoFingerVelocity = null
     continuation.interrupt()
     runCatching { focusRequester.requestFocus() }
@@ -334,6 +339,7 @@ private class MapPointerGesture(
           clickOrigin = null
           lastClickAt = null
           quickZoomCandidate = false
+          doubleClickCandidate = false
           cancelPendingTouchClick()
           return
         }
@@ -343,6 +349,7 @@ private class MapPointerGesture(
       clickOrigin = null
       if (!canTransform) {
         lastClickAt = null
+        doubleClickCandidate = false
         cancelPendingTouchClick()
         return
       }
@@ -416,6 +423,7 @@ private class MapPointerGesture(
       lastClickAt = null
       clickOrigin = null
       quickZoomCandidate = false
+      doubleClickCandidate = false
       lastSingle = null
       mode = Mode.TWO_FINGER_UNDECIDED
       twoFingerStart = current
@@ -627,6 +635,7 @@ private class MapPointerGesture(
 
   private fun onRelease(event: PointerEvent) {
     val origin = clickOrigin
+    val pairedSecondTap = doubleClickCandidate
     val handledLongClick = longClickHandled
     val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
     cancelLongClick()
@@ -647,6 +656,7 @@ private class MapPointerGesture(
     clickOrigin = null
     longClickHandled = false
     quickZoomCandidate = false
+    doubleClickCandidate = false
     twoFingerTap = null
     mode = Mode.NONE
 
@@ -673,18 +683,18 @@ private class MapPointerGesture(
         )
       }
     } else if (origin != null) {
-      onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L)
+      onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L, pairedSecondTap)
     }
   }
 
-  private fun onClick(origin: Offset, timeMillis: Long) {
+  private fun onClick(origin: Offset, timeMillis: Long, pairedSecondTap: Boolean) {
     val where = origin.toLogicalDpOffset(density)
     if (pressedSecondary) {
       target.onSecondaryClick(where)
       return
     }
 
-    if (isDoubleClick(origin, timeMillis) && options.isDoubleClickZoomEnabled) {
+    if (pairedSecondTap && options.isDoubleClickZoomEnabled) {
       // Anchored at the pointer so the point under it stays put; shift inverts the direction.
       target.discreteGesture(continuation) { token ->
         scaleByAwaitingTransition(
@@ -723,15 +733,21 @@ private class MapPointerGesture(
   private fun awaitsSecondTap(): Boolean =
     options.isDoubleClickZoomEnabled || options.isQuickZoomEnabled
 
-  /** Compose reports no click count on desktop, so a double click is a time plus a distance. */
+  /** Pairs this down to the previous up using Compose's window and Android's touch slop. */
   private fun isDoubleClick(origin: Offset, timeMillis: Long): Boolean {
     val previousAt = lastClickAt ?: return false
-    return timeMillis - previousAt <= doubleClickTimeoutMillis &&
-      pressedType == lastClickType &&
-      (origin - lastClickOrigin).getDistance() <= slopPx()
+    return isPairedSecondTap(
+      elapsedMillis = timeMillis - previousAt,
+      distancePx = (origin - lastClickOrigin).getDistance(),
+      samePointerType = pressedType == lastClickType,
+      minTimeMillis = doubleClickMinTimeMillis,
+      timeoutMillis = doubleClickTimeoutMillis,
+      slopPx = slopPx(),
+    )
   }
 
-  private fun slopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else scaleSlopPx
+  private fun slopPx(): Float =
+    if (pressedType == PointerType.Mouse) clickSlopPx else doubleTapSlopPx
 
   private fun dragSlopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
 
@@ -1216,6 +1232,24 @@ private fun GestureTarget.discreteGesture(
     }
   }
 }
+
+/**
+ * Compose's tap detector pairs a second down to the previous up when the elapsed time is at least
+ * [minTimeMillis] and at most [timeoutMillis]. Touch pairing also keeps the two downs within
+ * Android's double-tap slop.
+ */
+internal fun isPairedSecondTap(
+  elapsedMillis: Long,
+  distancePx: Float,
+  samePointerType: Boolean,
+  minTimeMillis: Long,
+  timeoutMillis: Long,
+  slopPx: Float,
+): Boolean =
+  samePointerType &&
+    elapsedMillis >= minTimeMillis &&
+    elapsedMillis <= timeoutMillis &&
+    distancePx <= slopPx
 
 /** A zoom level is a doubling. */
 private fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
