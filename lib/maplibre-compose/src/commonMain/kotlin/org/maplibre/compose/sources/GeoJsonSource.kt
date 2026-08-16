@@ -13,9 +13,8 @@ import org.maplibre.spatialk.geojson.GeoJsonObject
 /**
  * A map data source consisting of geojson data.
  *
- * Feature-state mutation is available on desktop, Android, and the browser. On iOS the MapLibre SDK
- * keeps that API on the map view, which this source has no path to, so the methods throw
- * [UnsupportedOperationException].
+ * Feature-state mutation is available on desktop, Android, and the browser. The methods throw
+ * [UnsupportedOperationException] on iOS.
  */
 public expect class GeoJsonSource : Source {
   /**
@@ -52,8 +51,7 @@ public expect class GeoJsonSource : Source {
    * feature and absent from [state] stay as they are. [featureId] is matched as text: a GeoJSON
    * `id` of `7` is `"7"`.
    *
-   * A call before the first frame is ignored on desktop, because feature state belongs to the
-   * render session.
+   * A call before the first frame is ignored on desktop.
    */
   public fun setFeatureState(featureId: String, state: JsonObject)
 
