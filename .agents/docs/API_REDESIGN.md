@@ -123,8 +123,9 @@ surface. Leaving the composition detaches the session. The map and its style
 stay loaded.
 
 `MaplibreMap` always takes a `Map`. `rememberMap` is how a composable gets one.
-Map configuration lives on the map. The composable attaches a session. Its
-trailing lambda is the overlay. Style content is a named argument.
+The map holds configuration, camera, and style content. The composable is the
+session and the overlay: gestures, insets, and Compose UI. Its trailing lambda
+is the overlay.
 
 ### Execution
 
@@ -195,12 +196,13 @@ call, and that assignment is still moving.
 `Map` on the browser. Common code does not call `withPlatform`. Platform code
 that is blocked on a missing wrapper does.
 
-`CameraState` becomes a Compose mirror of `Map.camera`, including saveable state
-when the map itself is remembered in composition. Animation and projection
-methods move onto `Map`. `CameraProjection` as a separate type that is null
-until attach goes away: the map can answer those queries as soon as it exists. A
-query that needs a viewport size waits until a session has attached one, or
-takes an explicit size for a snapshot.
+Camera lives on the map. `rememberMap` can take a first position and save it
+across recreation. Animation and projection methods live on `Map`. `CameraState`
+as an argument to `MaplibreMap` goes away. Overlay controls read `map.camera`.
+`CameraProjection` as a type that is null until attach goes away: the map can
+answer those queries as soon as it exists. A query that needs a viewport size
+waits until a session has attached one, or takes an explicit size for a
+snapshot.
 
 `StyleState` goes away. `Map.sources` and `Map.layers` are the observable
 collections.
@@ -247,28 +249,28 @@ tree. The outgoing content leaves the style; the incoming content is what
 remains. Two trees are not inserted side by side. That would be two appliers on
 one style, which is the wiring this redesign deletes.
 
-`MaplibreMap` takes style content as a named argument, usually `styleContent`.
-Passing it calls `setStyleContent`. Omitting it does not write the slot. The
-trailing lambda is the overlay: a UI composable in the UI composition.
-
 ```kotlin
 @Composable
-fun rememberMap(baseStyle: BaseStyle = BaseStyle.Demo): Map
+fun rememberMap(
+  baseStyle: BaseStyle = BaseStyle.Demo,
+  firstCamera: CameraPosition = CameraPosition(),
+  styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
+): Map
 
 @Composable
 fun MaplibreMap(
   map: Map,
-  cameraState: CameraState = rememberCameraState(map),
-  styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
+  modifier: Modifier = Modifier,
+  gestureOptions: GestureOptions = GestureOptions.Standard,
   overlay: @Composable MapOverlayScope.() -> Unit = { DefaultOverlay() },
 )
 ```
 
-`MaplibreMap` has no `baseStyle`. Passing both a map and a style would be two
-writers of the same slot; requiring the map leaves one. Calling
-`setStyleContent` and passing `styleContent` is calling the setter twice, so the
-later tree wins. `MaplibreMap(map) { CompassButton() }` attaches the session and
-draws UI on top; it leaves the map's style composition alone.
+`rememberMap` constructs the map. A non-null `styleContent` calls
+`setStyleContent`. `MaplibreMap` does not take a base style, a camera, or style
+content. It attaches a session, applies gestures, and draws the overlay.
+`MaplibreMap(map) { CompassButton() }` is UI on a map that already has its
+style.
 
 The applier applies sources before layers. The layer-attaches-its-source
 workaround becomes unnecessary. Unloading a style is the common layer's job: the
@@ -310,22 +312,20 @@ JS does not stay FFI-only, including snapshots.
 ```kotlin
 @Composable
 fun Screen() {
-  val map = rememberMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"))
-  MaplibreMap(
-    map,
-    styleContent = {
-      val route = rememberGeoJsonSource(data)
-      LineLayer(id = "route", source = route, color = const(Color.Blue), width = const(4.dp))
-    },
-  ) {
-    CompassButton()
-  }
+  val map =
+    rememberMap(
+      baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
+      styleContent = {
+        val route = rememberGeoJsonSource(data)
+        LineLayer(id = "route", source = route, color = const(Color.Blue), width = const(4.dp))
+      },
+    )
+  MaplibreMap(map) { CompassButton() }
 }
 ```
 
-`rememberMap` creates the map. `styleContent` is `setStyleContent`. The trailing
-lambda is overlay UI. `MaplibreMap(map) { CompassButton() }` attaches the
-session only.
+`rememberMap` creates the map and, when given `styleContent`, calls
+`setStyleContent`. `MaplibreMap` attaches the session and draws the overlay.
 
 ```kotlin
 class RouteViewModel : ViewModel() {
@@ -397,9 +397,10 @@ the Compose runtime. The imperative map does not. `setStyleContent` can be an
 extension in this artifact on a Compose-free map type. A split is easier after
 `Map` exists than before.
 
-**How much of `CameraState` stays?** Saveable camera state and `isCameraMoving`
-are Compose concerns. They can remain as a thin type bound to a `Map`. The map
-is the source of truth for the position.
+**Does `CameraState` remain as a type?** The camera belongs to the map. Saveable
+position can live in `rememberMap`. `isCameraMoving` can be a property on the
+map. A separate type is leftover unless overlay code still wants a receiver that
+is not the whole map.
 
 **What does GL JS do for `Runtime`?** If the browser map needs no process-wide
 owner, `rememberMap()` never shows one. The type still exists so common code
