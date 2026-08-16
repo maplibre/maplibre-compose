@@ -221,12 +221,13 @@ private class MapPointerGesture(
   private var longClickJob: Job? = null
   private var longClickHandled = false
 
-  private var lastClickAt: Long? = null
-  private var lastClickOrigin = Offset.Zero
-  private var lastClickType = PointerType.Mouse
-  /** Set on the second down when [isDoubleClick] pairs it to the previous up. */
-  private var doubleClickCandidate = false
-  private var pendingTouchClick: PendingTouchClick? = null
+  /**
+   * Pairing state after a first tap. The delayed-click job exists only in [TapWait.Open]; a valid
+   * second down moves to [TapWait.Claimed] and cancels that job.
+   */
+  private var tapWait: TapWait = TapWait.None
+  /** What this press is relative to [tapWait]. */
+  private var pressRole = PressRole.First
 
   fun onPointerEvent(event: PointerEvent) {
     // A wheel notch arrives here too, with nothing pressed, and would read as a release — closing
@@ -284,16 +285,22 @@ private class MapPointerGesture(
     pressedType = change.type
     pressStartedAtMillis = change.uptimeMillis
     longClickHandled = false
-    doubleClickCandidate = isDoubleClick(change.position, change.uptimeMillis)
+    pressRole = classifyPress(change.position, change.uptimeMillis, change.type)
+    when (pressRole) {
+      PressRole.First -> discardTapWait(emitClick = true)
+      PressRole.Paired -> claimOpenTap()
+      PressRole.Bounce -> Unit
+    }
     quickZoomCandidate =
-      change.type != PointerType.Mouse && options.isQuickZoomEnabled && doubleClickCandidate
+      change.type != PointerType.Mouse &&
+        options.isQuickZoomEnabled &&
+        pressRole == PressRole.Paired
     quickZoomOriginY = change.position.y
     quickZoomAppliedDelta = 0.0
     lastQuickZoomSpanDeltaPixels = 0.0
     singleMotion = SingleMotion.NONE
     singleVelocity.resetTracking()
     singleVelocity.addPointerInputChange(change)
-    if (doubleClickCandidate && awaitsSecondTap()) cancelPendingTouchClick()
     deferredTwoFingerVelocity = null
     continuation.interrupt()
     runCatching { focusRequester.requestFocus() }
@@ -308,6 +315,8 @@ private class MapPointerGesture(
         if (clickOrigin == origin && !gestureInProgress && mode == Mode.SINGLE) {
           longClickHandled = true
           clickOrigin = null
+          // This press is a long click, including a paired second tap that was held.
+          discardTapWait(emitClick = false)
           continuation.finish(target::onGestureEnded)
           target.onSecondaryClick(origin.toLogicalDpOffset(density))
         }
@@ -337,10 +346,8 @@ private class MapPointerGesture(
         if (abs(displacement.y) * 2f < scaleSlopPx) {
           if (abs(displacement.x) <= scaleSlopPx) return
           clickOrigin = null
-          lastClickAt = null
           quickZoomCandidate = false
-          doubleClickCandidate = false
-          cancelPendingTouchClick()
+          discardTapWait(emitClick = true)
           return
         }
       } else if (abs(displacement.x) < dragSlopPx() && abs(displacement.y) < dragSlopPx()) {
@@ -348,13 +355,13 @@ private class MapPointerGesture(
       }
       clickOrigin = null
       if (!canTransform) {
-        lastClickAt = null
-        doubleClickCandidate = false
-        cancelPendingTouchClick()
+        discardTapWait(emitClick = true)
         return
       }
       twoFingerTap = null
       beginGesture()
+      // Quick zoom consumes the first tap. A pan or rotate reports it instead.
+      discardTapWait(emitClick = !quickZoomCandidate)
     }
 
     val deltaX = (delta.x / density.density).toDouble()
@@ -365,8 +372,6 @@ private class MapPointerGesture(
       deferredTwoFingerVelocity = null
       mode = Mode.QUICK_ZOOM
       singleMotion = SingleMotion.QUICK_ZOOM
-      // The second tap now belongs to this drag; a later tap must start a fresh pair.
-      lastClickAt = null
       val currentViewportSize = viewportSize()
       val targetDelta =
         GestureMath.quickZoomDelta(
@@ -419,11 +424,11 @@ private class MapPointerGesture(
     val current = TwoFingerSample(first, second)
     if (!mode.isTwoFinger) {
       cancelLongClick()
-      // A gesture from another pointer family breaks the mouse/touch click sequence.
-      lastClickAt = null
+      // A gesture from another pointer family closes the mouse/touch click sequence.
+      discardTapWait(emitClick = true)
       clickOrigin = null
       quickZoomCandidate = false
-      doubleClickCandidate = false
+      pressRole = PressRole.First
       lastSingle = null
       mode = Mode.TWO_FINGER_UNDECIDED
       twoFingerStart = current
@@ -635,7 +640,8 @@ private class MapPointerGesture(
 
   private fun onRelease(event: PointerEvent) {
     val origin = clickOrigin
-    val pairedSecondTap = doubleClickCandidate
+    val pairedSecondTap = pressRole == PressRole.Paired
+    val ignoreReleaseAsTap = pressRole == PressRole.Bounce
     val handledLongClick = longClickHandled
     val completedTwoFingerTap = twoFingerTap?.takeIf { it.isComplete(event) }
     cancelLongClick()
@@ -656,7 +662,7 @@ private class MapPointerGesture(
     clickOrigin = null
     longClickHandled = false
     quickZoomCandidate = false
-    doubleClickCandidate = false
+    pressRole = PressRole.First
     twoFingerTap = null
     mode = Mode.NONE
 
@@ -682,8 +688,10 @@ private class MapPointerGesture(
           gestureToken = token,
         )
       }
-    } else if (origin != null) {
+    } else if (origin != null && !ignoreReleaseAsTap) {
       onClick(origin, event.changes.firstOrNull()?.uptimeMillis ?: 0L, pairedSecondTap)
+    } else if (handledLongClick) {
+      discardTapWait(emitClick = false)
     }
   }
 
@@ -691,6 +699,7 @@ private class MapPointerGesture(
     val where = origin.toLogicalDpOffset(density)
     if (pressedSecondary) {
       target.onSecondaryClick(where)
+      tapWait = TapWait.None
       return
     }
 
@@ -704,46 +713,97 @@ private class MapPointerGesture(
           gestureToken = token,
         )
       }
-      // Cleared so a third click starts a new pair rather than zooming again.
-      lastClickAt = null
-      cancelPendingTouchClick()
-    } else {
-      if (pressedType == PointerType.Mouse || !awaitsSecondTap()) {
-        // Mouse clicks are immediate; touch taps wait so a double tap never leaks a map click.
-        target.onPrimaryClick(where)
-      } else {
-        flushPendingTouchClick()
-        lateinit var job: Job
-        job = scope.launch {
-          delay(doubleClickTimeoutMillis)
-          if (pendingTouchClick?.job == job) {
-            pendingTouchClick = null
-            target.onPrimaryClick(where)
-          }
-        }
-        pendingTouchClick = PendingTouchClick(where, job)
-      }
-      lastClickAt = timeMillis
-      lastClickOrigin = origin
-      lastClickType = pressedType
+      tapWait = TapWait.None
+      return
     }
+
+    if (pressedType == PointerType.Mouse || !awaitsSecondTap()) {
+      // Mouse clicks are immediate; touch taps wait only when a second tap still has a gesture.
+      target.onPrimaryClick(where)
+    }
+    rememberFirstTap(where, origin, pressedType, timeMillis)
   }
 
   /** Whether a second tap still has a gesture to become. */
   private fun awaitsSecondTap(): Boolean =
     options.isDoubleClickZoomEnabled || options.isQuickZoomEnabled
 
-  /** Pairs this down to the previous up using Compose's window and Android's touch slop. */
-  private fun isDoubleClick(origin: Offset, timeMillis: Long): Boolean {
-    val previousAt = lastClickAt ?: return false
-    return isPairedSecondTap(
-      elapsedMillis = timeMillis - previousAt,
-      distancePx = (origin - lastClickOrigin).getDistance(),
-      samePointerType = pressedType == lastClickType,
-      minTimeMillis = doubleClickMinTimeMillis,
-      timeoutMillis = doubleClickTimeoutMillis,
-      slopPx = slopPx(),
-    )
+  /** What this down is relative to a [TapWait.Open] first tap. */
+  private fun classifyPress(origin: Offset, timeMillis: Long, type: PointerType): PressRole {
+    val open = tapWait as? TapWait.Open ?: return PressRole.First
+    if (!awaitsSecondTap()) return PressRole.First
+    val elapsedMillis = timeMillis - open.tap.upAt
+    val samePointerType = type == open.tap.type
+    if (samePointerType && elapsedMillis < doubleClickMinTimeMillis) return PressRole.Bounce
+    return if (
+      isPairedSecondTap(
+        elapsedMillis = elapsedMillis,
+        distancePx = (origin - open.tap.origin).getDistance(),
+        samePointerType = samePointerType,
+        minTimeMillis = doubleClickMinTimeMillis,
+        timeoutMillis = doubleClickTimeoutMillis,
+        slopPx = slopPx(),
+      )
+    ) {
+      PressRole.Paired
+    } else {
+      PressRole.First
+    }
+  }
+
+  /** A valid second down claims the first tap and stops the delayed click. */
+  private fun claimOpenTap() {
+    val open = tapWait as? TapWait.Open ?: return
+    open.tap.job?.cancel()
+    tapWait = TapWait.Claimed(open.tap.copy(job = null))
+  }
+
+  /**
+   * Opens the pairing window after a first tap. Touch reports the click when the window expires;
+   * mouse already reported it on the up.
+   */
+  private fun rememberFirstTap(
+    where: DpOffset,
+    origin: Offset,
+    type: PointerType,
+    timeMillis: Long,
+  ) {
+    if (!awaitsSecondTap()) {
+      tapWait = TapWait.None
+      return
+    }
+    val clickOnExpiry = type != PointerType.Mouse
+    val job =
+      if (clickOnExpiry) {
+        lateinit var launched: Job
+        launched = scope.launch {
+          delay(doubleClickTimeoutMillis)
+          val open = tapWait as? TapWait.Open
+          if (open?.tap?.job == launched) {
+            tapWait = TapWait.None
+            target.onPrimaryClick(where)
+          }
+        }
+        launched
+      } else {
+        null
+      }
+    tapWait = TapWait.Open(OpenTap(where, origin, type, timeMillis, clickOnExpiry, job))
+  }
+
+  /** Closes [tapWait]. [emitClick] reports a touch first tap that was still waiting. */
+  private fun discardTapWait(emitClick: Boolean) {
+    when (val wait = tapWait) {
+      is TapWait.Open -> {
+        wait.tap.job?.cancel()
+        if (emitClick && wait.tap.clickOnExpiry) target.onPrimaryClick(wait.tap.where)
+      }
+      is TapWait.Claimed -> {
+        if (emitClick && wait.tap.clickOnExpiry) target.onPrimaryClick(wait.tap.where)
+      }
+      TapWait.None -> Unit
+    }
+    tapWait = TapWait.None
   }
 
   private fun slopPx(): Float =
@@ -905,18 +965,6 @@ private class MapPointerGesture(
     }
   }
 
-  private fun cancelPendingTouchClick() {
-    pendingTouchClick?.job?.cancel()
-    pendingTouchClick = null
-  }
-
-  private fun flushPendingTouchClick() {
-    val pending = pendingTouchClick ?: return
-    pending.job.cancel()
-    pendingTouchClick = null
-    target.onPrimaryClick(pending.where)
-  }
-
   private fun endDrag(followUpDuration: Duration) {
     cancelLongClick()
     if (!gestureInProgress) return
@@ -945,7 +993,8 @@ private class MapPointerGesture(
     cancelLongClick()
     longClickHandled = false
     deferredTwoFingerVelocity = null
-    cancelPendingTouchClick()
+    discardTapWait(emitClick = false)
+    pressRole = PressRole.First
     if (gestureInProgress) {
       gestureInProgress = false
       continuation.cancel()
@@ -1021,7 +1070,38 @@ private class MapPointerGesture(
         abs(second.y - other.second.y) >= slopPixels
   }
 
-  private data class PendingTouchClick(val where: DpOffset, val job: Job)
+  /**
+   * Pairing window after a first tap. The delayed-click job lives only in [Open]. [Claimed] is a
+   * valid second down; that job is already gone.
+   */
+  private sealed class TapWait {
+    data object None : TapWait()
+
+    data class Open(val tap: OpenTap) : TapWait()
+
+    data class Claimed(val tap: OpenTap) : TapWait()
+  }
+
+  /**
+   * The first tap [TapWait] is pairing.
+   *
+   * [clickOnExpiry] is a touch tap that waited for a second tap. A mouse click already reported on
+   * the first up, so expiry only closes the window.
+   */
+  private data class OpenTap(
+    val where: DpOffset,
+    val origin: Offset,
+    val type: PointerType,
+    val upAt: Long,
+    val clickOnExpiry: Boolean,
+    val job: Job?,
+  )
+
+  private enum class PressRole {
+    First,
+    Bounce,
+    Paired,
+  }
 
   private data class TwoFingerTapCandidate(
     val startedAtMillis: Long,

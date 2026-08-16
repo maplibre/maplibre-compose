@@ -344,6 +344,32 @@ class MlnFfiMapInputTest {
   }
 
   @Test
+  fun a_long_click_on_a_paired_second_tap_does_not_report_the_first_tap() =
+    runInputTest(
+      gestures = GestureOptions(isQuickZoomEnabled = false),
+      focusWithMouse = false,
+    ) {
+      val map = onRoot()
+      map.performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        down(center)
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitUntil(timeoutMillis = TIMEOUT) { longClicks.size == 1 }
+      map.performTouchInput { up() }
+      waitForIdle()
+      assertEquals(0, clicks.size, "a paired long click reported the first tap as a map click")
+
+      map.performTouchInput { click(center) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(1, clicks.size, "the next tap inherited a stale claimed first tap")
+      assertEquals(1, longClicks.size)
+    }
+
+  @Test
   fun one_finger_pans_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
       val before = camera.position.target.longitude
@@ -501,6 +527,9 @@ class MlnFfiMapInputTest {
         up()
       }
       awaitZoom(camera, START_ZOOM + 1.0)
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(0, clicks.size, "a held second tap leaked the first tap as a map click")
     }
 
   @Test
@@ -516,6 +545,41 @@ class MlnFfiMapInputTest {
       mainClock.advanceTimeBy(1_000)
       waitForIdle()
       assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_bounce_does_not_reseed_the_double_tap_window() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+        // Outside the original 300 ms window, but inside 300 ms of the bounce.
+        advanceEventTime(300)
+        down(center)
+        up()
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_bounce_still_allows_a_later_tap_inside_the_original_window() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+        advanceEventTime(70)
+        down(center)
+        up()
+      }
+      awaitZoom(camera, START_ZOOM + 1.0)
     }
 
   @Test
@@ -593,6 +657,23 @@ class MlnFfiMapInputTest {
     }
 
   @Test
+  fun a_second_tap_inside_the_bounce_window_still_clicks_when_no_gesture_awaits_it() =
+    runInputTest(
+      gestures = GestureOptions(isDoubleClickZoomEnabled = false, isQuickZoomEnabled = false),
+      focusWithMouse = false,
+    ) {
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+      }
+      waitForIdle()
+      assertEquals(2, clicks.size, "a bounce filter discarded a tap no gesture would pair")
+    }
+
+  @Test
   fun quick_zoom_upward_zooms_out() =
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
@@ -653,6 +734,7 @@ class MlnFfiMapInputTest {
         camera.position.target.longitude != before.target.longitude
       }
       assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
+      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
     }
 
   @Test
