@@ -66,9 +66,6 @@ Research Areas:
 - Explore unifying those platforms behind a single, thin, `expect`/`actual`
   interface on top of MapLibre Native.
 
-The public API that follows that unification is scoped in
-[Public API after the FFI unification](#public-api-after-the-ffi-unification).
-
 ### [Documentation](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20documentation%20label%3Adocumentation)
 
 **Status:** Needs Exploration 🔍 but some parts are shovel ready 🪏
@@ -169,20 +166,25 @@ Research Areas:
 - Design a set of controls that work well on all platforms, considering
   platform-specific input devices and accessibility features.
 
-### [Public API after the FFI unification](https://github.com/maplibre/maplibre-compose/issues/18)
+### [Imperative escape hatches](https://github.com/maplibre/maplibre-compose/issues/18)
 
 **Status:** Needs Exploration 🔍
 
-Android and iOS still wrap the classic MapLibre SDKs. Once they share desktop's
-`maplibre-native-ffi` integration, the public API can follow that split: a
-runtime and a map the application owns, and a render session that `MaplibreMap`
-attaches to a surface. Style composition and the expression DSL stay. The map
-outlives the composable. A ViewModel can hold it, mutate base-style layers, and
-snapshot it without a surface.
+Styling is declarative: you compose sources and layers into the map and MapLibre
+Compose applies the difference. That works well for content you own and not at
+all for content you did not write. Changing the visibility, filter, or zoom
+range of a layer that came from the base style is a recurring request, and today
+the answers are to replace the layer with `Anchor.Replace` and reproduce its
+properties, or to fetch the style JSON and edit it before handing it to the map.
+Both are workarounds for the same missing thing.
 
-Staging notes for that redesign live in `.agents/docs/API_REDESIGN.md`. The
-capabilities that wait on it are listed under
-[Fill in the missing map capabilities](#fill-in-the-missing-map-capabilities).
+Once every platform is on `maplibre-native-ffi`, the escape hatch may already
+exist. Its handles are an imperative map API, so exposing them — opt-in, and
+marked as delicate — would let an application blocked on something we have not
+wrapped reach past us rather than wait for us, with the same API everywhere.
+Doing that today would mean exposing a different one per platform, which is what
+makes [#538](https://github.com/maplibre/maplibre-compose/issues/538) hard to
+answer well.
 
 ### Fill in the missing map capabilities
 
@@ -205,8 +207,7 @@ each afterwards, which is why that work comes first.
 
 Snapshots carry one extra requirement, since we would like to style them the
 same way interactive maps are styled: the style API has to be usable without a
-`MaplibreMap` composable to hang it on. That decoupling is part of the
-[API redesign](#public-api-after-the-ffi-unification).
+`MaplibreMap` composable to hang it on.
 
 ## Long term
 

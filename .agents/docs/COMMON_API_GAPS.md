@@ -20,8 +20,7 @@ Not now, and deliberately. The sequence they belong to is:
 3. Redesign the public API and internal architecture around one common
    maplibre-native-ffi integration instead of three different native ones,
    deciding along the way whether web folds in via Wasm or stays on MapLibre GL
-   JS. Staging notes for that redesign live in
-   [API_REDESIGN.md](./API_REDESIGN.md).
+   JS.
 4. Implement the missing common APIs once — twice at most, if web stays separate
    — against that shared integration.
 
@@ -43,9 +42,7 @@ Nothing here is a desktop bug.
 
 Not missing capabilities — shapes in the common layer that the desktop rewrite
 had to work around, and that step 3 is the moment to fix rather than reproduce.
-Both are cross-platform; desktop is only where they became visible. The public
-API that replaces these workarounds is sketched in
-[API_REDESIGN.md](./API_REDESIGN.md).
+Both are cross-platform; desktop is only where they became visible.
 
 **A layer reaches the style before its source does.** Compose inserts nodes and
 calls the applier's `onEndChanges`, which is where `LayerManager` reaches
