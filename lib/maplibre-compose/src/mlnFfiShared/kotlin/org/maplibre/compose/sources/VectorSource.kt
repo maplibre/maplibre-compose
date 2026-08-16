@@ -62,4 +62,23 @@ public actual class VectorSource : Source {
       ?.toGeoJsonFeatures()
       .orEmpty()
   }
+
+  public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
+    binding.setFeatureState(id, featureId, state, sourceLayerId)
+  }
+
+  public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+    binding.getFeatureState(id, featureId, sourceLayerId)
+
+  public actual fun removeFeatureState(
+    sourceLayerId: String,
+    featureId: String,
+    stateKey: String?,
+  ) {
+    binding.removeFeatureState(id, featureId, stateKey, sourceLayerId)
+  }
+
+  public actual fun resetFeatureStates(sourceLayerId: String) {
+    binding.resetFeatureStates(id, sourceLayerId)
+  }
 }

@@ -115,4 +115,18 @@ public actual class GeoJsonSource : Source {
       .map { (it as MLNFeatureProtocol).toFeature() }
       .let(::FeatureCollection)
   }
+
+  public actual fun setFeatureState(featureId: String, state: JsonObject) {
+    featureStateUnavailable()
+  }
+
+  public actual fun getFeatureState(featureId: String): JsonObject = featureStateUnavailable()
+
+  public actual fun removeFeatureState(featureId: String, stateKey: String?) {
+    featureStateUnavailable()
+  }
+
+  public actual fun resetFeatureStates() {
+    featureStateUnavailable()
+  }
 }

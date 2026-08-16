@@ -120,6 +120,14 @@ internal external interface QuerySourceFeatureOptions {
   var filter: FilterSpecification?
 }
 
+/** Identifies a feature for [org.maplibre.compose.gljs.MaplibreMap.setFeatureState]. */
+internal external interface FeatureIdentifier {
+  var source: String
+  var sourceLayer: String?
+  /** A GeoJSON string id, or a number when the GeoJSON `id` was unquoted. */
+  var id: Any?
+}
+
 internal external interface GeoJsonFeature {
   val type: String
   val geometry: Any

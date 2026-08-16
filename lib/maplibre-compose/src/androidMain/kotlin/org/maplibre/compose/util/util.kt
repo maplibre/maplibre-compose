@@ -14,9 +14,11 @@ import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonNull
 import com.google.gson.JsonObject
+import com.google.gson.JsonParser
 import com.google.gson.JsonPrimitive
 import java.net.URI
 import java.net.URISyntaxException
+import kotlinx.serialization.json.Json
 import org.maplibre.android.geometry.LatLng
 import org.maplibre.android.geometry.LatLngBounds
 import org.maplibre.android.geometry.LatLngQuad
@@ -189,3 +191,13 @@ internal fun PositionQuad.toLatLngQuad() =
     bottomLeft = this.bottomLeft.toLatLng(),
     bottomRight = this.bottomRight.toLatLng(),
   )
+
+internal fun kotlinx.serialization.json.JsonObject.toGsonJsonObject(): JsonObject =
+  JsonParser.parseString(toString()).asJsonObject
+
+internal fun JsonObject?.toKotlinxJsonObject(): kotlinx.serialization.json.JsonObject {
+  if (this == null) return kotlinx.serialization.json.JsonObject(emptyMap())
+  val parsed = Json.parseToJsonElement(toString())
+  return parsed as? kotlinx.serialization.json.JsonObject
+    ?: kotlinx.serialization.json.JsonObject(emptyMap())
+}

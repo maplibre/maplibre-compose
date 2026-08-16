@@ -6,6 +6,8 @@ import org.maplibre.android.style.sources.GeoJsonOptions as MLNGeoJsonOptions
 import org.maplibre.android.style.sources.GeoJsonSource as MLNGeoJsonSource
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.correctedAndroidUri
+import org.maplibre.compose.util.toGsonJsonObject
+import org.maplibre.compose.util.toKotlinxJsonObject
 import org.maplibre.compose.util.toMLNExpression
 import org.maplibre.compose.util.toMLNFeature
 import org.maplibre.compose.util.toSpatialKFeatureCollection
@@ -82,5 +84,21 @@ public actual class GeoJsonSource : Source {
     return impl
       .getClusterLeaves(feature.toMLNFeature(), limit, offset)
       .toSpatialKFeatureCollection()
+  }
+
+  public actual fun setFeatureState(featureId: String, state: JsonObject) {
+    impl.setFeatureState(featureId, state.toGsonJsonObject())
+  }
+
+  public actual fun getFeatureState(featureId: String): JsonObject =
+    impl.getFeatureState(featureId).toKotlinxJsonObject()
+
+  public actual fun removeFeatureState(featureId: String, stateKey: String?) {
+    if (stateKey == null) impl.removeFeatureState(featureId)
+    else impl.removeFeatureState(featureId, stateKey)
+  }
+
+  public actual fun resetFeatureStates() {
+    impl.resetFeatureStates()
   }
 }

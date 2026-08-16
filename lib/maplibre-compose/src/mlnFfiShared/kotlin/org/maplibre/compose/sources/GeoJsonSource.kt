@@ -86,6 +86,21 @@ public actual class GeoJsonSource : Source {
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<*, JsonObject?> = queryClusterFeatures(feature, CHILDREN_FIELD, null)
 
+  public actual fun setFeatureState(featureId: String, state: JsonObject) {
+    binding.setFeatureState(id, featureId, state)
+  }
+
+  public actual fun getFeatureState(featureId: String): JsonObject =
+    binding.getFeatureState(id, featureId)
+
+  public actual fun removeFeatureState(featureId: String, stateKey: String?) {
+    binding.removeFeatureState(id, featureId, stateKey)
+  }
+
+  public actual fun resetFeatureStates() {
+    binding.resetFeatureStates(id)
+  }
+
   public actual suspend fun getClusterLeaves(
     feature: Feature<*, JsonObject?>,
     limit: Long,

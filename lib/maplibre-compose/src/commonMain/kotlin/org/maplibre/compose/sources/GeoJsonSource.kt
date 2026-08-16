@@ -10,7 +10,12 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.GeoJsonObject
 
-/** A map data source consisting of geojson data. */
+/**
+ * A map data source consisting of geojson data.
+ *
+ * Feature-state mutation is available on desktop, Android, and the browser. The methods throw
+ * [UnsupportedOperationException] on iOS.
+ */
 public expect class GeoJsonSource : Source {
   /**
    * @param id Unique identifier for this source
@@ -37,6 +42,33 @@ public expect class GeoJsonSource : Source {
     limit: Long,
     offset: Long,
   ): FeatureCollection<*, JsonObject?>
+
+  /**
+   * Merges [state] into the runtime state of the feature identified by [featureId].
+   *
+   * Style expressions read these values with
+   * [feature.state][org.maplibre.compose.expressions.dsl.Feature.state]. Keys already on the
+   * feature and absent from [state] stay as they are. [featureId] is matched as text: a GeoJSON
+   * `id` of `7` is `"7"`.
+   *
+   * A call before the first frame is ignored on desktop.
+   */
+  public fun setFeatureState(featureId: String, state: JsonObject)
+
+  /**
+   * The feature's current runtime state, or an empty object when it has none or the source is not
+   * on a live map.
+   */
+  public fun getFeatureState(featureId: String): JsonObject
+
+  /**
+   * Removes [stateKey] from the feature identified by [featureId], or every key when [stateKey] is
+   * `null`.
+   */
+  public fun removeFeatureState(featureId: String, stateKey: String? = null)
+
+  /** Removes runtime state from every feature in this source. */
+  public fun resetFeatureStates()
 }
 
 public sealed interface GeoJsonData {

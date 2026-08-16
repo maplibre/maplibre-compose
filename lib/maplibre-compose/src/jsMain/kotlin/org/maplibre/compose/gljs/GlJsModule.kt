@@ -84,6 +84,12 @@ internal external class MaplibreMap(options: MapOptions) {
     options: QuerySourceFeatureOptions,
   ): Array<GeoJsonFeature>
 
+  fun setFeatureState(feature: FeatureIdentifier, state: Any)
+
+  fun getFeatureState(feature: FeatureIdentifier): Any?
+
+  fun removeFeatureState(feature: FeatureIdentifier, key: String = definedExternally)
+
   fun addSource(id: String, source: SourceSpecification)
 
   fun removeSource(id: String)
