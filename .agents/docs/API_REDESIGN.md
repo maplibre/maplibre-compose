@@ -122,8 +122,9 @@ A ViewModel, a `remember`, or the process can own a `Runtime` and a `Map`.
 surface. Leaving the composition detaches the session. The map and its style
 stay loaded.
 
-The default call site stays a single composable. `MaplibreMap { ... }` creates a
-remembered map when the caller does not pass one.
+The default call site stays a single composable. `MaplibreMap` creates a
+remembered map when the caller does not pass one. Its trailing lambda is the
+overlay. Style content is a named argument.
 
 ### Execution
 
@@ -246,11 +247,22 @@ tree. The outgoing content leaves the style; the incoming content is what
 remains. Two trees are not inserted side by side. That would be two appliers on
 one style, which is the wiring this redesign deletes.
 
-`MaplibreMap`'s content lambda is that same setter. Calling both is calling
-`setStyleContent` twice, so the later tree wins. The attach-only overload takes
-no content lambda and does not call the setter; that is how a ViewModel that
-already called `setStyleContent` is shown. An omitted or default-empty lambda
-must not write the slot, or `MaplibreMap(map)` would clear the tree.
+`MaplibreMap` takes style content as a named argument, usually `styleContent`.
+Passing it calls `setStyleContent`. Omitting it does not write the slot. The
+trailing lambda is the overlay: a UI composable in the UI composition.
+
+```kotlin
+@Composable
+fun MaplibreMap(
+  map: Map = rememberMap(),
+  styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
+  overlay: @Composable MapOverlayScope.() -> Unit = { DefaultOverlay() },
+)
+```
+
+Calling `setStyleContent` and passing `styleContent` is calling the setter
+twice, so the later tree wins. `MaplibreMap(map) { CompassButton() }` attaches
+the session and draws UI on top; it leaves the map's style composition alone.
 
 The applier applies sources before layers. The layer-attaches-its-source
 workaround becomes unnecessary. Unloading a style is the common layer's job: the
@@ -292,16 +304,21 @@ JS does not stay FFI-only, including snapshots.
 ```kotlin
 @Composable
 fun Screen() {
-  MaplibreMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
-    val route = rememberGeoJsonSource(data)
-    LineLayer(id = "route", source = route, color = const(Color.Blue), width = const(4.dp))
+  MaplibreMap(
+    baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
+    styleContent = {
+      val route = rememberGeoJsonSource(data)
+      LineLayer(id = "route", source = route, color = const(Color.Blue), width = const(4.dp))
+    },
+  ) {
+    CompassButton()
   }
 }
 ```
 
 That still creates a map, attaches a session, and starts a style composition.
-The content lambda is `setStyleContent`. `MaplibreMap(map)` without a lambda
-attaches the session only.
+`styleContent` is `setStyleContent`. The trailing lambda is overlay UI.
+`MaplibreMap(map) { CompassButton() }` attaches the session only.
 
 ```kotlin
 class RouteViewModel : ViewModel() {
@@ -319,7 +336,7 @@ class RouteViewModel : ViewModel() {
 
 @Composable
 fun RouteScreen(vm: RouteViewModel) {
-  MaplibreMap(map = vm.map)
+  MaplibreMap(map = vm.map) { CompassButton() }
 }
 ```
 
