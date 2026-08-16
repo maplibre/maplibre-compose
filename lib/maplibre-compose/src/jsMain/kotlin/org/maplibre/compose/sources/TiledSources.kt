@@ -65,6 +65,25 @@ public actual class VectorSource : Source {
       }
       .orEmpty()
   }
+
+  public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
+    setJsFeatureState(featureId = featureId, sourceLayerId = sourceLayerId, state = state)
+  }
+
+  public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+    jsFeatureState(featureId, sourceLayerId)
+
+  public actual fun removeFeatureState(
+    sourceLayerId: String,
+    featureId: String,
+    stateKey: String?,
+  ) {
+    removeJsFeatureState(featureId = featureId, sourceLayerId = sourceLayerId, stateKey = stateKey)
+  }
+
+  public actual fun resetFeatureStates(sourceLayerId: String) {
+    removeJsFeatureState(sourceLayerId = sourceLayerId)
+  }
 }
 
 public actual class RasterSource : Source {

@@ -8,6 +8,8 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.util.correctedAndroidUri
+import org.maplibre.compose.util.toGsonJsonObject
+import org.maplibre.compose.util.toKotlinxJsonObject
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toMLNExpression
 import org.maplibre.spatialk.geojson.Feature
@@ -57,5 +59,25 @@ public actual class VectorSource : Source {
             ?.toMLNExpression(),
       )
       .map { Feature.fromJson(it.toJson()) }
+  }
+
+  public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
+    impl.setFeatureState(sourceLayerId, featureId, state.toGsonJsonObject())
+  }
+
+  public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+    impl.getFeatureState(sourceLayerId, featureId).toKotlinxJsonObject()
+
+  public actual fun removeFeatureState(
+    sourceLayerId: String,
+    featureId: String,
+    stateKey: String?,
+  ) {
+    if (stateKey == null) impl.removeFeatureState(sourceLayerId, featureId)
+    else impl.removeFeatureState(sourceLayerId, featureId, stateKey)
+  }
+
+  public actual fun resetFeatureStates(sourceLayerId: String) {
+    impl.resetFeatureStates(sourceLayerId)
   }
 }

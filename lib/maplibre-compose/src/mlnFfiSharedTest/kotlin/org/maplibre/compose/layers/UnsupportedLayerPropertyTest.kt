@@ -7,8 +7,8 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
-import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -62,16 +62,13 @@ class UnsupportedLayerPropertyTest {
 
       layer.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
-        // MapLibre answers JSON null for a property it holds no value for, so that is what "was
-        // never written" looks like here.
-        assertEquals(
-          JsonNull,
-          map.layerProperty("labels", "icon-overlap")?.toJsonElement(),
+        // MapLibre holds no value for a property that was never written, and reports none.
+        assertNull(
+          map.layerProperty("labels", "icon-overlap"),
           "icon-overlap should not be written",
         )
-        assertEquals(
-          JsonNull,
-          map.layerProperty("labels", "text-overlap")?.toJsonElement(),
+        assertNull(
+          map.layerProperty("labels", "text-overlap"),
           "text-overlap should not be written",
         )
         assertEquals(
@@ -93,11 +90,13 @@ class UnsupportedLayerPropertyTest {
       )
 
       layer.setIconOverlap(const("never").compile(ExpressionContext.None))
-      assertEquals(
-        JsonNull,
-        layer.onMap { map -> map.layerProperty("labels", "icon-overlap")?.toJsonElement() },
-        "icon-overlap should still not be written after attach",
-      )
+      layer.onMap { map ->
+        // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
+        assertNull(
+          map.layerProperty("labels", "icon-overlap"),
+          "icon-overlap should still not be written after attach",
+        )
+      }
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }

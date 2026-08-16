@@ -1,6 +1,8 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.viewinterop.UIKitInteropInteractionMode
 import kotlin.Boolean
 
 /**
@@ -13,14 +15,18 @@ import kotlin.Boolean
  *   by double tapping, holding, and moving the finger up and down.
  * @param isHapticFeedbackEnabled Set whether the user receives haptic feedback when rotating the
  *   map to due north.
+ * @param interactionMode Controls how Compose and the embedded map coordinate touch input.
  */
 @Immutable
+@OptIn(ExperimentalComposeUiApi::class)
 public actual data class GestureOptions(
   public val isRotateEnabled: Boolean = true,
   public val isScrollEnabled: Boolean = true,
   public val isTiltEnabled: Boolean = true,
   public val isZoomEnabled: Boolean = true,
   public val isHapticFeedbackEnabled: Boolean = true,
+  public val interactionMode: UIKitInteropInteractionMode =
+    UIKitInteropInteractionMode.NonCooperative,
 ) {
   public actual companion object Companion {
     public actual val Standard: GestureOptions = GestureOptions()

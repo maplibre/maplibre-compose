@@ -44,6 +44,8 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.resource.MlnFfiResourceProvider
+import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -54,7 +56,7 @@ import org.maplibre.compose.util.toCameraOptions
 import org.maplibre.compose.util.toCameraPosition
 import org.maplibre.compose.util.toDpOffset
 import org.maplibre.compose.util.toEdgeInsets
-import org.maplibre.compose.util.toGeoJsonFeature
+import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toPosition
@@ -77,10 +79,12 @@ import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
 import org.maplibre.nativeffi.render.OpenGLBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.OpenGLSurfaceDescriptor
+import org.maplibre.nativeffi.render.RenderResult
 import org.maplibre.nativeffi.render.RenderSessionHandle
 import org.maplibre.nativeffi.render.RenderTargetExtent
 import org.maplibre.nativeffi.render.VulkanBorrowedTextureDescriptor
 import org.maplibre.nativeffi.runtime.RuntimeEvent
+import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.style.StyleImageInfo
@@ -97,6 +101,20 @@ private const val MAX_PITCH_DEGREES = 60.0
 /** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
 private const val FRAME_INTERVAL_SLACK = 0.1
 
+/** The events [MlnFfiMapSession.handleEvent] consumes. */
+private val HANDLED_MAP_EVENTS: RuntimeEventMask =
+  RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE +
+    RuntimeEventMask.MAP_STYLE_LOADED +
+    RuntimeEventMask.MAP_LOADING_FINISHED +
+    RuntimeEventMask.MAP_IDLE +
+    RuntimeEventMask.MAP_LOADING_FAILED +
+    RuntimeEventMask.MAP_CAMERA_WILL_CHANGE +
+    RuntimeEventMask.MAP_CAMERA_IS_CHANGING +
+    RuntimeEventMask.MAP_CAMERA_DID_CHANGE +
+    RuntimeEventMask.MAP_CAMERA_TRANSITION_FINISHED +
+    RuntimeEventMask.MAP_RENDER_ERROR +
+    RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
+
 /**
  * The runtime and the map belong to [MlnFfiMapRuntimeLoop]'s thread; the render session belongs to
  * the host's renderer thread. A camera transition only steps while frames are being drawn: mbgl
@@ -109,6 +127,7 @@ internal class MlnFfiMapSession(
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
   private val cacheFile: Path,
+  private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
 ) : MapAdapter, MlnFfiMapRenderer, GestureTarget {
 
   override val backend: MapRenderBackend = renderBackend
@@ -271,18 +290,22 @@ internal class MlnFfiMapSession(
     }
 
     val session = renderSession ?: return MlnFfiFrameResult.SKIPPED
-    // A false return means MapLibre had nothing to draw, which is ordinary before the style's first
-    // update and after an attach until the loop pumps the new size.
-    val updated =
+    val update =
       try {
         session.renderUpdate()
       } catch (error: NativeErrorException) {
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
-    if (!updated) {
-      requestRender()
-      return MlnFfiFrameResult.SKIPPED
+    when (update.result) {
+      RenderResult.NO_UPDATE,
+      RenderResult.SIZE_PENDING -> return MlnFfiFrameResult.SKIPPED
+      RenderResult.TARGET_NOT_READY -> {
+        requestRender()
+        return MlnFfiFrameResult.SKIPPED
+      }
+      else -> Unit
     }
+    if (update.needsRepaint) requestRender()
 
     if (!hasRenderedAFrame) {
       hasRenderedAFrame = true
@@ -317,10 +340,12 @@ internal class MlnFfiMapSession(
           extent = initialExtent,
           cacheFile = cacheFile,
           getLogger = { logger },
+          resourceProviderFactory = resourceProviderFactory,
           onMapCreated = ::onMapCreated,
           onEvent = ::handleEvent,
           onEventsDrained = ::onEventsDrained,
           requestFrame = ::requestRender,
+          mapEventMask = HANDLED_MAP_EVENTS,
         )
       pendingMapActions.forEach { action ->
         if (!created.post(action.run, action.abandon)) action.abandon()
@@ -536,11 +561,6 @@ internal class MlnFfiMapSession(
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
-      RuntimeEventType.MAP_RENDER_FRAME_FINISHED -> {
-        val payload = event.payload
-        if (payload is RuntimeEventPayload.RenderFrame && payload.needsRepaint) requestRender()
-      }
-
       RuntimeEventType.MAP_STYLE_LOADED -> {
         // Descriptors holding the previous binding must not write into a style that is gone.
         styleBinding?.unload()
@@ -612,16 +632,6 @@ internal class MlnFfiMapSession(
         // Supplying the image would need a callback the common API does not have.
         logger?.d { "Style image missing: ${event.message}" }
 
-      RuntimeEventType.MAP_LOADING_STARTED,
-      RuntimeEventType.MAP_RENDER_FRAME_STARTED,
-      RuntimeEventType.MAP_RENDER_MAP_STARTED,
-      RuntimeEventType.MAP_RENDER_MAP_FINISHED,
-      RuntimeEventType.MAP_STILL_IMAGE_FINISHED,
-      RuntimeEventType.MAP_STILL_IMAGE_FAILED,
-      RuntimeEventType.MAP_TILE_ACTION -> Unit
-
-      // Event types are value classes over Int, so an FFI upgrade can add one this build has never
-      // seen.
       else -> logger?.v { "Unrecognized MapLibre event type ${event.type}" }
     }
   }
@@ -691,6 +701,10 @@ internal class MlnFfiMapSession(
   /** Test seam for intentionally backlogging owner-thread work without touching the native map. */
   internal fun postOwnerTaskForTest(action: () -> Unit): Boolean =
     loop?.post(action = { action() }) ?: false
+
+  /** Test seam that runs [action] after the next native pump and event drain. */
+  internal fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
+    loop?.postEventDrainBarrierForTest(action) ?: false
 
   /** Queues [action] until a map exists, including before the session starts. */
   private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
@@ -772,7 +786,7 @@ internal class MlnFfiMapSession(
     try {
       when (style) {
         is BaseStyle.Uri -> map.setStyleUrl(style.uri)
-        is BaseStyle.Json -> map.setStyleJson(style.json)
+        is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
       }
       appliedStyle = style
     } catch (error: MaplibreException) {
@@ -1068,9 +1082,9 @@ internal class MlnFfiMapSession(
         logger?.d { "Ignoring a rendered feature query: no render session is attached yet" }
         return@withRendererAccess emptyList()
       }
-      session.queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate)).map {
-        it.toGeoJsonFeature()
-      }
+      session
+        .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
+        .toGeoJsonFeatures()
     } ?: emptyList()
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =

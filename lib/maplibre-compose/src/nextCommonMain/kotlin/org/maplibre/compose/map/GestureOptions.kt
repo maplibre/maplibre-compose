@@ -33,8 +33,8 @@ public actual data class GestureOptions(
   val isKeyboardRotateTiltEnabled: Boolean = true,
 
   /**
-   * How far a mouse may move while pressed and still click rather than drag. Touch and stylus
-   * instead use the classic MapLibre Android thresholds.
+   * How far a mouse may move while pressed and still click rather than drag. Touch and stylus use a
+   * 4 dp pan slop and a 7 dp scale slop.
    */
   val clickSlop: Dp = 3.dp,
 

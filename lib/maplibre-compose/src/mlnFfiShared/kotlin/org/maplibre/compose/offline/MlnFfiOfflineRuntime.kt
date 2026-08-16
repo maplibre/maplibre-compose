@@ -202,14 +202,14 @@ internal class MlnFfiOfflineRuntime(
 
   /** Drains events until the queue is momentarily empty. */
   private fun drainEvents(runtime: RuntimeHandle) {
-    while (true) {
-      val event =
-        try {
-          runtime.pollEvent() ?: break
-        } catch (error: Throwable) {
-          logger.e(error) { "Failed to poll a MapLibre offline runtime event" }
-          break
-        }
+    val events =
+      try {
+        runtime.drainEvents().events
+      } catch (error: Throwable) {
+        logger.e(error) { "Failed to drain MapLibre offline runtime events" }
+        return
+      }
+    for (event in events) {
       if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
         completeOperation(runtime, event)
       } else {

@@ -5,32 +5,43 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.nativeffi.camera.EdgeInsets
-import org.maplibre.nativeffi.geo.Feature
-import org.maplibre.nativeffi.geo.FeatureIdentifier
-import org.maplibre.nativeffi.geo.Geometry
-import org.maplibre.nativeffi.json.JsonValue
 import org.maplibre.spatialk.geojson.Feature as GeoJsonFeature
 import org.maplibre.spatialk.geojson.GeometryCollection
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Position
 
 class MlnFfiConversionsTest {
 
   @Test
   fun unsigned_feature_id_remains_a_json_number() {
-    val feature =
-      Feature(
-        geometry = Geometry.Empty,
-        properties = emptyList(),
-        identifier = FeatureIdentifier.UInt(Long.MIN_VALUE),
-      )
+    val result =
+      """
+      [{"feature":{"type":"Feature","id":9223372036854775808,"geometry":{"type":"Point","coordinates":[0.0,0.0]},"properties":{}}}]
+      """
 
-    val id = feature.toGeoJsonFeature().id as JsonPrimitive
+    val id =
+      result.trimIndent().encodeToByteArray().toGeoJsonFeatures().single().id as JsonPrimitive
 
     assertFalse(id.isString)
     assertEquals("9223372036854775808", id.content)
+  }
+
+  @Test
+  fun query_envelope_drops_query_metadata() {
+    val result =
+      """
+      [{"feature":{"type":"Feature","geometry":{"type":"Point","coordinates":[1.0,2.0]},"properties":{"name":"a"}},"sourceId":"s","sourceLayerId":"l","state":{}}]
+      """
+
+    val feature = result.trimIndent().encodeToByteArray().toGeoJsonFeatures().single()
+
+    assertEquals(Point(Position(1.0, 2.0)), feature.geometry)
+    assertEquals(buildJsonObject { put("name", "a") }, feature.properties)
   }
 
   @Test
@@ -56,12 +67,14 @@ class MlnFfiConversionsTest {
         id = null,
       )
 
-    val converted = requireNotNull(feature.toFfiClusterFeature())
-    val properties = converted.properties.associate { it.key to it.value }
+    val converted = requireNotNull(feature.toFfiClusterFeature()).toJsonElement() as JsonObject
+    val properties = assertIs<JsonObject>(converted["properties"])
 
-    assertEquals(42L, assertIs<JsonValue.UInt>(properties["cluster_id"]).value)
-    assertEquals("caller-source", assertIs<JsonValue.StringValue>(properties["\$source"]).value)
-    assertEquals("caller-state", assertIs<JsonValue.StringValue>(properties["\$state"]).value)
-    assertEquals("cluster", assertIs<JsonValue.StringValue>(properties["name"]).value)
+    val clusterId = assertIs<JsonPrimitive>(properties["cluster_id"])
+    assertFalse(clusterId.isString)
+    assertEquals("42", clusterId.content)
+    assertEquals(JsonPrimitive("caller-source"), properties["\$source"])
+    assertEquals(JsonPrimitive("caller-state"), properties["\$state"])
+    assertEquals(JsonPrimitive("cluster"), properties["name"])
   }
 }

@@ -89,6 +89,8 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  * - `Expression<ListValue<T>>.`[slice][org.maplibre.compose.expressions.dsl.slice] - return a
  *   sub-list
  * - `Expression<ListValue<T>>.`[length][org.maplibre.compose.expressions.dsl.length] - list length
+ * - `Expression<ListValue<StringValue>>.`[join][org.maplibre.compose.expressions.dsl.join] - join
+ *   list items into a string
  * - `Expression<MapValue<T>>.`[get][org.maplibre.compose.expressions.dsl.get] - get value
  * - `Expression<MapValue<T>>.`[has][org.maplibre.compose.expressions.dsl.has] - check presence of
  *   key
@@ -109,6 +111,8 @@ import org.maplibre.compose.expressions.value.ExpressionValue
  *   lowercase the string
  * - `Expression<StringValue>.`[+][org.maplibre.compose.expressions.dsl.plus] - concatenate the
  *   string
+ * - `Expression<StringValue>.`[split][org.maplibre.compose.expressions.dsl.split] - split the
+ *   string into a list
  * - [resolvedLocale][org.maplibre.compose.expressions.dsl.resolvedLocale] - return locale
  *
  * ### Format

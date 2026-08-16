@@ -2,7 +2,6 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Density
-import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
@@ -183,7 +182,7 @@ internal class MlnFfiStyle(
     val sources =
       declaredSources
         ?: run {
-          val document = runCatching { Json.parseToJsonElement(map.loadedStyleJson()) }.getOrNull()
+          val document = runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull()
           ((document as? JsonObject)?.get("sources") as? JsonObject ?: JsonObject(emptyMap()))
             .also { declaredSources = it }
         }

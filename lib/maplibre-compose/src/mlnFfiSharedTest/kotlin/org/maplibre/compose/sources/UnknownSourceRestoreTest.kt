@@ -51,7 +51,7 @@ class UnknownSourceRestoreTest {
       val error = assertFailsWith<IllegalStateException> { style.addSource(source) }
       assertEquals(
         "Could not add source 'vec' of type 'vector': " +
-          "INVALID_ARGUMENT (-1): style source is invalid: source must have tiles",
+          "INVALID_ARGUMENT (-1): style source: source must have tiles",
         error.message,
       )
     }

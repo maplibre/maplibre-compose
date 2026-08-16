@@ -12,6 +12,7 @@ import MapLibre.MLNShapeSourceOptionMaximumZoomLevel
 import MapLibre.MLNShapeSourceOptionMaximumZoomLevelForClustering
 import MapLibre.MLNShapeSourceOptionMinimumZoomLevel
 import MapLibre.MLNShapeSourceOptionSimplificationTolerance
+import MapLibre.MLNShapeSourceOptionSynchronousUpdate
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.toFeature
@@ -67,6 +68,7 @@ public actual class GeoJsonSource : Source {
       put(MLNShapeSourceOptionMaximumZoomLevelForClustering, NSNumber(options.clusterMaxZoom))
       put(MLNShapeSourceOptionClusterRadius, NSNumber(options.clusterRadius))
       put(MLNShapeSourceOptionClusterMinPoints, NSNumber(options.clusterMinPoints))
+      put(MLNShapeSourceOptionSynchronousUpdate, NSNumber(options.synchronousUpdate))
       put(
         MLNShapeSourceOptionClusterProperties,
         options.clusterProperties.mapValues { (name, aggregator) ->
@@ -76,9 +78,6 @@ public actual class GeoJsonSource : Source {
           )
         },
       )
-
-      // synchronousUpdate is blocked upstream by
-      // https://youtrack.jetbrains.com/issue/CMP-8882/ (see #738)
     }
 
   public actual fun setData(data: GeoJsonData) {
@@ -115,5 +114,19 @@ public actual class GeoJsonSource : Source {
       .leavesOfCluster(feature.toMLNPointFeatureCluster(), offset.toULong(), limit.toULong())
       .map { (it as MLNFeatureProtocol).toFeature() }
       .let(::FeatureCollection)
+  }
+
+  public actual fun setFeatureState(featureId: String, state: JsonObject) {
+    featureStateUnavailable()
+  }
+
+  public actual fun getFeatureState(featureId: String): JsonObject = featureStateUnavailable()
+
+  public actual fun removeFeatureState(featureId: String, stateKey: String?) {
+    featureStateUnavailable()
+  }
+
+  public actual fun resetFeatureStates() {
+    featureStateUnavailable()
   }
 }
