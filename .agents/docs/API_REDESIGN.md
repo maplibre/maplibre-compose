@@ -117,15 +117,15 @@ Runtime  →  Map  →  Render session
   offline     sources
 ```
 
-A ViewModel, a `remember`, or the process can own a `Runtime` and a `Map`.
-`MaplibreMap` receives a `Map` and attaches a session to the composition's
-surface. Leaving the composition detaches the session. The map and its style
+A ViewModel, a `remember`, or the process can own a `Runtime` and a `MapState`.
+`MaplibreMap` receives that state and attaches a session to the composition's
+surface. Leaving the composition detaches the session. The state and its style
 stay loaded.
 
-`MaplibreMap` always takes a `Map`. `rememberMap` is how a composable gets one.
-The map holds configuration, camera, and style content. The composable is the
-session and the overlay: gestures, insets, and Compose UI. Its trailing lambda
-is the overlay.
+`MaplibreMap` always takes a `MapState`. `rememberMapState` is how a composable
+gets one. The state holds configuration, camera, and style content. The
+composable is the session and the overlay: gestures, insets, and Compose UI. Its
+trailing lambda is the overlay.
 
 ### Execution
 
@@ -163,12 +163,16 @@ On FFI platforms this is a thin owner around `RuntimeHandle`. The handle itself
 is available as an escape hatch. On GL JS this is a small adapter, or a no-op if
 the browser map needs no process-wide owner.
 
-### Map
+### MapState
 
-The style, the camera, and the sources. No surface. `close` releases it.
+The style, the camera, and the sources. No surface. `close` releases it. Compose
+names a hoistable object `*State` (`PagerState`, `LazyListState`). The
+composable stays `MaplibreMap`. Both being "map" is a collision; renaming the
+composable to `MapView` would lean on the Android view system, which Compose
+left.
 
 ```kotlin
-class Map : AutoCloseable {
+class MapState : AutoCloseable {
   var baseStyle: BaseStyle
   val camera: CameraPosition
 
@@ -196,16 +200,16 @@ call, and that assignment is still moving.
 `Map` on the browser. Common code does not call `withPlatform`. Platform code
 that is blocked on a missing wrapper does.
 
-Camera lives on the map. `rememberMap` can take a first position and save it
-across recreation. Animation and projection methods live on `Map`. `CameraState`
-as an argument to `MaplibreMap` goes away. Overlay controls read `map.camera`.
-`CameraProjection` as a type that is null until attach goes away: the map can
-answer those queries as soon as it exists. A query that needs a viewport size
-waits until a session has attached one, or takes an explicit size for a
-snapshot.
+Camera lives on `MapState`. `rememberMapState` can take a first position and
+save it across recreation. Animation and projection methods live on `MapState`.
+`CameraState` as an argument to `MaplibreMap` goes away. Overlay controls read
+`state.camera`. `CameraProjection` as a type that is null until attach goes
+away: the state can answer those queries as soon as it exists. A query that
+needs a viewport size waits until a session has attached one, or takes an
+explicit size for a snapshot.
 
-`StyleState` goes away. `Map.sources` and `Map.layers` are the observable
-collections.
+`StyleState` goes away. `MapState.sources` and `MapState.layers` are the
+observable collections.
 
 ### Ownership of style objects
 
@@ -219,9 +223,9 @@ A given id is mutable in one way.
 
 That is the `List` / `MutableList` split from
 [#18](https://github.com/maplibre/maplibre-compose/issues/18). It is also what
-makes an escape hatch safe: toggling `map.layers["water"].visible` cannot fight
-a `LineLayer("water", ...)` in the content lambda, because one of those two
-owners refused the id.
+makes an escape hatch safe: toggling `state.layers["water"].visible` cannot
+fight a `LineLayer("water", ...)` in the content lambda, because one of those
+two owners refused the id.
 
 `Anchor.Replace` stays as the declarative way to take over a base-style layer.
 An imperative write is the way to change one property of a layer the application
@@ -251,25 +255,25 @@ one style, which is the wiring this redesign deletes.
 
 ```kotlin
 @Composable
-fun rememberMap(
+fun rememberMapState(
   baseStyle: BaseStyle = BaseStyle.Demo,
   firstCamera: CameraPosition = CameraPosition(),
   styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
-): Map
+): MapState
 
 @Composable
 fun MaplibreMap(
-  map: Map,
+  state: MapState,
   modifier: Modifier = Modifier,
   gestureOptions: GestureOptions = GestureOptions.Standard,
   overlay: @Composable MapOverlayScope.() -> Unit = { DefaultOverlay() },
 )
 ```
 
-`rememberMap` constructs the map. A non-null `styleContent` calls
+`rememberMapState` constructs the state. A non-null `styleContent` calls
 `setStyleContent`. `MaplibreMap` does not take a base style, a camera, or style
 content. It attaches a session, applies gestures, and draws the overlay.
-`MaplibreMap(map) { CompassButton() }` is UI on a map that already has its
+`MaplibreMap(state) { CompassButton() }` is UI on state that already has its
 style.
 
 The applier applies sources before layers. The layer-attaches-its-source
@@ -300,36 +304,36 @@ Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`,
 ## Web
 
 `StyleBinding` plus style JSON is the shared language. GL JS already implements
-that path in `nextCommonMain`. The public `Map` on the browser is an adapter
-over the GL JS map. `withPlatform` yields that map.
+that path in `nextCommonMain`. The public `MapState` on the browser is an
+adapter over the GL JS `Map`. `withPlatform` yields that map.
 
 If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and the
-browser uses the same `Map` as desktop. Until then, features that FFI has and GL
-JS does not stay FFI-only, including snapshots.
+browser uses the same `MapState` as desktop. Until then, features that FFI has
+and GL JS does not stay FFI-only, including snapshots.
 
 ## Default call site
 
 ```kotlin
 @Composable
 fun Screen() {
-  val map =
-    rememberMap(
+  val state =
+    rememberMapState(
       baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
       styleContent = {
         val route = rememberGeoJsonSource(data)
         LineLayer(id = "route", source = route, color = const(Color.Blue), width = const(4.dp))
       },
     )
-  MaplibreMap(map) { CompassButton() }
+  MaplibreMap(state) { CompassButton() }
 }
 ```
 
-`rememberMap` creates the map and, when given `styleContent`, calls
+`rememberMapState` creates the state and, when given `styleContent`, calls
 `setStyleContent`. `MaplibreMap` attaches the session and draws the overlay.
 
 ```kotlin
 class RouteViewModel : ViewModel() {
-  val map = runtime.createMap().apply {
+  val mapState = runtime.createMapState().apply {
     baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
     layers["poi-label"]?.visible = false
     setStyleContent {
@@ -338,19 +342,19 @@ class RouteViewModel : ViewModel() {
     }
   }
 
-  override fun onCleared() = map.close()
+  override fun onCleared() = mapState.close()
 }
 
 @Composable
 fun RouteScreen(vm: RouteViewModel) {
-  MaplibreMap(map = vm.map) { CompassButton() }
+  MaplibreMap(vm.mapState) { CompassButton() }
 }
 ```
 
 A still image of the same map does not need a composable:
 
 ```kotlin
-val image = vm.map.snapshot(width = 800, height = 600)
+val image = vm.mapState.snapshot(width = 800, height = 600)
 ```
 
 ## Sequence
@@ -360,10 +364,10 @@ val image = vm.map.snapshot(width = 800, height = 600)
    API change. Desktop remains the proof.
 2. Make the `nextCommonMain` layer and source descriptors the only
    implementation. Delete the classic-SDK `actual` bodies.
-3. Split `Map` from the composable internally: the session attaches and
-   detaches; the map survives recomposition. Still no public change.
-4. Publish `Runtime`, `Map`, `rememberMap`, and `MaplibreMap(map)`. Lift
-   `CameraState` onto the map. Delete `StyleState` and `OfflineManager`.
+3. Split `MapState` from the composable internally: the session attaches and
+   detaches; the state survives recomposition. Still no public change.
+4. Publish `Runtime`, `MapState`, `rememberMapState`, and `MaplibreMap(state)`.
+   Lift camera onto the state. Delete `StyleState` and `OfflineManager`.
 5. Publish `withPlatform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
    at it.
@@ -386,26 +390,20 @@ anywhere in this sequence. The public API is `suspend` before it and after it.
 not. The FFI assignment of each call is still moving, so the sketch above is a
 bias, not a list.
 
-**What is `Map` called?** The sketches use `Map` because that is the FFI object.
-In Kotlin it collides with `kotlin.collections.Map`, and next to `MaplibreMap`
-it is easy to misread. `MapHandle` is the FFI type that `PlatformMap` already
-names. Candidates: `MapLibre`, `MapInstance`, `MapController`. The composable
-keeps `MaplibreMap`.
+**Is `MapState` in this artifact, or in a Compose-free one?** `setStyleContent`
+needs the Compose runtime. The imperative state does not. `setStyleContent` can
+be an extension in this artifact on a Compose-free `MapState`. A split is easier
+after the type exists than before.
 
-**Is `Map` in this artifact, or in a Compose-free one?** `setStyleContent` needs
-the Compose runtime. The imperative map does not. `setStyleContent` can be an
-extension in this artifact on a Compose-free map type. A split is easier after
-`Map` exists than before.
-
-**Does `CameraState` remain as a type?** The camera belongs to the map. Saveable
-position can live in `rememberMap`. `isCameraMoving` can be a property on the
-map. A separate type is leftover unless overlay code still wants a receiver that
-is not the whole map.
+**Does `CameraState` remain as a type?** The camera belongs to `MapState`.
+Saveable position can live in `rememberMapState`. `isCameraMoving` can be a
+property on the state. A separate type is leftover unless overlay code still
+wants a receiver that is not the whole state.
 
 **What does GL JS do for `Runtime`?** If the browser map needs no process-wide
-owner, `rememberMap()` never shows one. The type still exists so common code
-that opens a runtime on Android, iOS, or desktop compiles on JS, even if it is a
-no-op.
+owner, `rememberMapState()` never shows one. The type still exists so common
+code that opens a runtime on Android, iOS, or desktop compiles on JS, even if it
+is a no-op.
 
 ## What this document is not
 
