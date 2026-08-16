@@ -366,6 +366,12 @@ is the source of truth for the position.
 owner, `rememberMap()` never shows one. The type still exists so common code
 that opens a runtime on native compiles on JS, even if it is a no-op.
 
+**What is `Map` called?** The sketches use `Map` because that is the FFI object.
+In Kotlin it collides with `kotlin.collections.Map`, and next to `MaplibreMap`
+it is easy to misread. `MapHandle` is the native type the delicate API already
+exposes. Candidates: `MapLibre`, `MapInstance`, `MapController`. The composable
+keeps `MaplibreMap`.
+
 ## What this document is not
 
 It does not schedule the Android or iOS FFI ports. Those are
