@@ -62,9 +62,6 @@ public expect class VectorSource : Source {
   /**
    * The feature's current runtime state, or an empty object when it has none or the source is not
    * on a live map.
-   *
-   * On desktop, [removeFeatureState] and [resetFeatureStates] take effect on the next frame, so a
-   * read in the same frame still sees the previous state.
    */
   public fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject
 
