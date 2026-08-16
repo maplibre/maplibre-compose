@@ -327,19 +327,24 @@ That is not a prerequisite. On the browser, `MapState` is an adapter over one
 `maplibregl.Map`. `Runtime` is a thin owner of the worker globals, or is omitted
 from call sites that do not need it. `platform` is the GL JS `Map`. This repo
 already constructs that map against a hidden container
-(`GlJsMapSession.ensureMap`) and redirects its framebuffer into Compose
-(`GlJsRuntime`). Keeping that hidden map alive when `MaplibreMap` leaves
-composition is how `MapState` outlives the session. Destroying it on surface
-loss is today's behavior and is what changes.
+(`GlJsMapSession.ensureMap`) and, when a Compose surface exists, lends that
+surface's WebGL context into the constructor (`GlJsRuntime.lendingContext`) and
+redirects `bindFramebuffer(null)` into Compose's FBO. The hidden container
+survives: GL JS still needs a `container` to size the viewport, and `MapState`
+can own that div for its lifetime. The lend does not. GPU uploads live on the
+lent context, which is why `onSurfaceLost` destroys the map today. A `MapState`
+that outlives `MaplibreMap` has to keep a WebGL context of its own on the hidden
+canvas, and the session becomes a blit into Compose — a different hack. If the
+JS `MapState` is only a Kotlin holder until the first attach, the lend can stay
+and the GL JS `Map` is still born with the surface.
 
 Offline packs and a first-class still-image API stay FFI-only until GL JS grows
 them. If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and
 the browser uses the same `MapState` as desktop.
 
 A fork of GL JS is warranted only if we need a map with no canvas and no WebGL,
-or a public attach/detach that keeps GPU uploads across a real context loss.
-Approximating hoistable `MapState` with an offscreen container does not need
-that fork.
+or a public attach/detach that keeps GPU uploads across a real context loss. The
+hidden container is not that fork. The lend is not detachable without one.
 
 ## Default call site
 
