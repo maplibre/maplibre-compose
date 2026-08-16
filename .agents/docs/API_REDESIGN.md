@@ -236,12 +236,21 @@ map.setStyleContent {
 }
 ```
 
-`setStyleContent` owns a Compose `Composition` and a recomposer. It does not
+`setStyleContent` owns one Compose `Composition` and a recomposer. It does not
 have to be called from a UI composable. Snapshot state that the content reads
 invalidates it.
 
-`MaplibreMap`'s content lambda is sugar that calls `setStyleContent`. The
-session attaches the surface. The style tree belongs to the map.
+A map has one style composition. A second `setStyleContent` replaces the content
+of that composition, the same way a second `setContent` replaces a window's UI
+tree. The outgoing content leaves the style; the incoming content is what
+remains. Two trees are not inserted side by side. That would be two appliers on
+one style, which is the wiring this redesign deletes.
+
+`MaplibreMap`'s content lambda is that same setter. Calling both is calling
+`setStyleContent` twice, so the later tree wins. The attach-only overload takes
+no content lambda and does not call the setter; that is how a ViewModel that
+already called `setStyleContent` is shown. An omitted or default-empty lambda
+must not write the slot, or `MaplibreMap(map)` would clear the tree.
 
 The applier applies sources before layers. The layer-attaches-its-source
 workaround becomes unnecessary. Unloading a style is the common layer's job: the
@@ -291,8 +300,8 @@ fun Screen() {
 ```
 
 That still creates a map, attaches a session, and starts a style composition.
-The difference is that the map is a remembered object the caller can lift, and
-the content lambda is sugar for `setStyleContent`.
+The content lambda is `setStyleContent`. `MaplibreMap(map)` without a lambda
+attaches the session only.
 
 ```kotlin
 class RouteViewModel : ViewModel() {
