@@ -39,6 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 
 /**
@@ -844,8 +845,8 @@ private class MapPointerGesture(
       animateDecelerating(fling.duration) { frameFraction ->
         val deltaX = fling.offsetXDp * frameFraction
         val deltaY = fling.offsetYDp * frameFraction
-        if (deltaX != 0.0 || deltaY != 0.0) {
-          target.moveBy(deltaX, deltaY, gestureToken = token)
+        ClassicAndroidGestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
+          target.moveBy(stepX, stepY, gestureToken = token)
         }
       }
     }
@@ -907,7 +908,11 @@ private class MapPointerGesture(
     gestureInProgress = false
     val token = gestureToken ?: return
     gestureToken = null
-    if (followUpDuration > Duration.ZERO) {
+    if (continuation.hasVelocityJobs()) {
+      // The animator waits a frame before it starts, so the last moveBy is after the
+      // nominal duration. End the gesture when those frames finish.
+      continuation.finishWhenVelocityJobsComplete(scope, token, target::onGestureEnded)
+    } else if (followUpDuration > Duration.ZERO) {
       continuation.finishAfter(scope, followUpDuration, token, target::onGestureEnded)
     } else {
       target.onGestureEnded(token)
@@ -1066,6 +1071,32 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
   fun launchFling(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
     flingJob?.cancel()
     flingJob = scope.launch(block = block)
+  }
+
+  fun hasVelocityJobs(): Boolean =
+    flingJob?.isActive == true ||
+      scaleVelocityJob?.isActive == true ||
+      rotationVelocityJob?.isActive == true
+
+  /**
+   * Ends [token] when every velocity job finishes on its own. A cancelled job means a newer pointer
+   * took over, and [resume] or [finish] will close the token instead.
+   */
+  fun finishWhenVelocityJobsComplete(
+    scope: CoroutineScope,
+    token: GestureToken,
+    onFinished: (GestureToken) -> Unit,
+  ) {
+    finishJob?.cancel()
+    openToken = token
+    finishJob = scope.launch {
+      val jobs = listOfNotNull(flingJob, scaleVelocityJob, rotationVelocityJob)
+      jobs.joinAll()
+      if (jobs.any { it.isCancelled }) return@launch
+      finishJob = null
+      openToken = null
+      onFinished(token)
+    }
   }
 
   fun launchDiscreteTransition(block: suspend CoroutineScope.() -> Unit) {

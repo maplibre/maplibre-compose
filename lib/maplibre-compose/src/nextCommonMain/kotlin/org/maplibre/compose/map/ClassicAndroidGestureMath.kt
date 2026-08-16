@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import kotlin.math.E
 import kotlin.math.PI
 import kotlin.math.abs
+import kotlin.math.ceil
 import kotlin.math.hypot
 import kotlin.math.ln
 import kotlin.math.pow
@@ -122,6 +123,27 @@ internal object ClassicAndroidGestureMath {
    */
   fun screenSpaceFling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double): Fling? =
     fling(velocityXDpPerSecond, velocityYDpPerSecond, pitch = 0.0)
+
+  /**
+   * Largest screen-space `moveBy` a fling applies in one call. A dropped frame can cover the whole
+   * remaining offset; splitting it keeps each unprojection as small as a live drag step.
+   */
+  const val FLING_MAX_STEP_DP = 16.0
+
+  /** Splits [offsetXDp], [offsetYDp] into steps no longer than [maxStepDp]. */
+  fun forEachScreenSpaceStep(
+    offsetXDp: Double,
+    offsetYDp: Double,
+    maxStepDp: Double = FLING_MAX_STEP_DP,
+    apply: (deltaX: Double, deltaY: Double) -> Unit,
+  ) {
+    val distance = hypot(offsetXDp, offsetYDp)
+    if (distance == 0.0) return
+    val steps = if (maxStepDp <= 0.0) 1 else ceil(distance / maxStepDp).toInt().coerceAtLeast(1)
+    val stepX = offsetXDp / steps
+    val stepY = offsetYDp / steps
+    repeat(steps) { apply(stepX, stepY) }
+  }
 
   data class ScaleVelocity(val zoomDelta: Double, val duration: Duration)
 

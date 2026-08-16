@@ -88,6 +88,27 @@ class ClassicAndroidGestureMathTest {
   }
 
   @Test
+  fun a_short_screen_offset_is_one_step() {
+    val steps = mutableListOf<Pair<Double, Double>>()
+    ClassicAndroidGestureMath.forEachScreenSpaceStep(3.0, 4.0, maxStepDp = 16.0) { x, y ->
+      steps += x to y
+    }
+    assertEquals(listOf(3.0 to 4.0), steps)
+  }
+
+  @Test
+  fun a_long_screen_offset_splits_into_bounded_steps_that_sum() {
+    val steps = mutableListOf<Pair<Double, Double>>()
+    ClassicAndroidGestureMath.forEachScreenSpaceStep(0.0, 80.0, maxStepDp = 16.0) { x, y ->
+      steps += x to y
+    }
+    assertEquals(5, steps.size)
+    assertTrue(steps.all { abs(it.first) < 1e-12 && abs(it.second) <= 16.0 + 1e-12 })
+    assertEquals(0.0, steps.sumOf { it.first }, 1e-12)
+    assertEquals(80.0, steps.sumOf { it.second }, 1e-12)
+  }
+
+  @Test
   fun pinch_velocity_continuation_keeps_classic_cap_and_sign() {
     val zoomIn =
       assertNotNull(
