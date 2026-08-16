@@ -230,9 +230,21 @@ private class MapPointerGesture(
     when {
       pressed.size >= 2 -> onTwoFinger(event, pressed[0], pressed[1])
       pressed.size == 1 -> onSingle(event, pressed.single())
-      else -> onRelease(event)
+      // A hover, enter, or exit also has nothing pressed. Treating those as a lift would
+      // cancel a fling or a keyboard ease the moment the cursor moved.
+      isAwaitingPointerRelease() -> onRelease(event)
     }
   }
+
+  /** A lift closes the pointer we are tracking. A hover does not. */
+  private fun isAwaitingPointerRelease(): Boolean =
+    mode != Mode.NONE ||
+      gestureInProgress ||
+      lastSingle != null ||
+      twoFingerStart != null ||
+      twoFingerTap != null ||
+      clickOrigin != null ||
+      deferredTwoFingerVelocity != null
 
   private fun onSingle(event: PointerEvent, change: PointerInputChange) {
     if (mode.isTwoFinger) {

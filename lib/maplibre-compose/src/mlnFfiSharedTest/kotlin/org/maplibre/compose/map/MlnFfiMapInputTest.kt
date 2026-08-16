@@ -80,6 +80,29 @@ class MlnFfiMapInputTest {
   }
 
   @Test
+  fun a_hover_does_not_cancel_an_arrow_key_pan() = runInputTest { camera ->
+    val before = camera.position.target.longitude
+    mainClock.autoAdvance = false
+    try {
+      onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "the arrow key did not start an ease")
+
+      onRoot().performMouseInput { moveTo(center) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "a hover cancelled the keyboard pan")
+
+      mainClock.advanceTimeBy(GestureOptions.Standard.animationDuration.inWholeMilliseconds)
+      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    } finally {
+      mainClock.autoAdvance = true
+    }
+    assertTrue(camera.position.target.longitude != before, "the pan did not finish after the hover")
+  }
+
+  @Test
   fun plus_and_minus_zoom_the_map() = runInputTest { camera ->
     onRoot().performKeyInput { pressKey(Key.Equals) }
     // A zoom transition only advances while frames render.
@@ -695,6 +718,28 @@ class MlnFfiMapInputTest {
         abs(camera.position.zoom - expectedZoom) < ZOOM_TOLERANCE
       }
       assertEquals(expectedZoom, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_hover_does_not_cancel_a_touch_fling() =
+    runInputTest(focusWithMouse = false) { camera ->
+      val map = onRoot()
+      mainClock.autoAdvance = false
+      try {
+        map.performTouchInput {
+          swipe(center - Offset(100f, 0f), center + Offset(100f, 0f), durationMillis = 100)
+        }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "the released touch gesture did not start momentum")
+
+        map.performMouseInput { moveTo(center) }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "a hover cancelled the fling")
+      } finally {
+        mainClock.autoAdvance = true
+      }
     }
 
   @Test
