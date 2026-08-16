@@ -495,7 +495,7 @@ class MlnFfiMapInputTest {
       onRoot().performTouchInput {
         down(center)
         up()
-        advanceEventTime(80)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(center)
         advanceEventTime(400)
         up()
@@ -524,7 +524,7 @@ class MlnFfiMapInputTest {
       onRoot().performTouchInput {
         down(center)
         up()
-        advanceEventTime(80)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(center + Offset(50f, 0f))
         up()
       }
@@ -536,6 +536,7 @@ class MlnFfiMapInputTest {
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
         up(0)
@@ -548,6 +549,7 @@ class MlnFfiMapInputTest {
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
         up(0)
@@ -595,6 +597,7 @@ class MlnFfiMapInputTest {
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center - Offset(0f, 100f), delayMillis = 100)
         up(0)
@@ -608,6 +611,7 @@ class MlnFfiMapInputTest {
       val before = camera.position
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(100f, 0f), delayMillis = 50)
         moveTo(0, center + Offset(100f, 100f), delayMillis = 50)
@@ -639,6 +643,7 @@ class MlnFfiMapInputTest {
       val before = camera.position
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(80f, 0f), delayMillis = 100)
         up(0)
@@ -673,6 +678,7 @@ class MlnFfiMapInputTest {
 
       map.performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(0f, displacement), delayMillis = 100)
         up(0)
@@ -914,6 +920,9 @@ class MlnFfiMapInputTest {
 
     /** The test clock advances a whole frame at a time, and never on its own under `waitUntil`. */
     const val FRAME_MILLIS = 16L
+
+    /** Past Compose's 40 ms bounce filter and inside the 300 ms double-tap window. */
+    const val SECOND_TAP_GAP_MILLIS = 80L
 
     val SCROLL_HOLD_MILLIS = GestureOptions.Standard.scrollZoomHold.inWholeMilliseconds
 
