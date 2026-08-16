@@ -78,11 +78,30 @@ internal class AndroidMapAdapter(
       }
     }
 
+  /** The style last requested via [setBaseStyle], already applied or in the process of being so. */
   private var lastBaseStyle: BaseStyle? = null
+
+  /** The style whose native load is currently in flight, if any. */
+  private var pendingBaseStyle: BaseStyle? = null
+
+  /**
+   * The next style to load once [pendingBaseStyle]'s native load settles, if one was requested in
+   * the meantime.
+   */
+  private var queuedBaseStyle: BaseStyle? = null
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
+    if (pendingBaseStyle != null) {
+      queuedBaseStyle = style.takeIf { it != pendingBaseStyle }
+      return
+    }
+    beginStyleLoad(style)
+  }
+
+  private fun beginStyleLoad(style: BaseStyle) {
+    pendingBaseStyle = style
     logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
 
@@ -92,16 +111,27 @@ internal class AndroidMapAdapter(
         is BaseStyle.Json -> MlnStyle.Builder().fromJson(style.json)
       }
 
-    map.setStyle(builder) { style ->
+    map.setStyle(builder) { loadedStyle ->
       logger?.i { "Style finished loading" }
-      callbacks.onStyleChanged(this, AndroidStyle(style, getDensity = { density }))
+      callbacks.onStyleChanged(this, AndroidStyle(loadedStyle, getDensity = { density }))
+      onStyleLoadSettled()
     }
+  }
+
+  private fun onStyleLoadSettled() {
+    pendingBaseStyle = null
+    val next = queuedBaseStyle ?: return
+    queuedBaseStyle = null
+    beginStyleLoad(next)
   }
 
   init {
     mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
     mapView.addOnSourceChangedListener { callbacks.onSourceChanged(this, it) }
-    mapView.addOnDidFailLoadingMapListener { callbacks.onMapFailLoading(it) }
+    mapView.addOnDidFailLoadingMapListener {
+      callbacks.onMapFailLoading(it)
+      onStyleLoadSettled()
+    }
 
     map.addOnCameraMoveStartedListener { reason ->
       // MapLibre doesn't have docs on these reasons, and even though they're named like Google's:
