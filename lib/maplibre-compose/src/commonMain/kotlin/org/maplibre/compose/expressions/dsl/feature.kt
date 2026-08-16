@@ -38,39 +38,35 @@ public object Feature {
   public fun properties(): Expression<MapValue<*>> = FunctionCall.of("properties").cast()
 
   /**
-   * **Note: Not supported on native platforms. See
-   * [maplibre-native#1698](https://github.com/maplibre/maplibre-native/issues/1698)**
-   *
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
    * property is not present on the feature's state.
    *
-   * A feature's state is not part of the GeoJSON or vector tile data, and must be set
-   * programmatically on each feature.
+   * A feature's state is not part of the GeoJSON or vector tile data. Set it with
+   * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
+   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState].
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
    * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. Note that [state] can only be used with layer properties that
-   * support data-driven styling.
+   * or any primitive data type. [state] can only be used with layer properties that support
+   * data-driven styling.
    */
   public fun <T : ExpressionValue> state(key: Expression<StringValue>): Expression<T> =
     FunctionCall.of("feature-state", key).cast()
 
   /**
-   * **Note: Not supported on native platforms. See
-   * [maplibre-native#1698](https://github.com/maplibre/maplibre-native/issues/1698)**
-   *
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
    * property is not present on the feature's state.
    *
-   * A feature's state is not part of the GeoJSON or vector tile data, and must be set
-   * programmatically on each feature.
+   * A feature's state is not part of the GeoJSON or vector tile data. Set it with
+   * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
+   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState].
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
    * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. Note that [state] can only be used with layer properties that
-   * support data-driven styling.
+   * or any primitive data type. [state] can only be used with layer properties that support
+   * data-driven styling.
    */
   public fun <T : ExpressionValue> state(key: String): Expression<T> = state(const(key))
 
