@@ -10,11 +10,8 @@ import kotlin.math.pow
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
-/**
- * The gesture constants and camera equations used by MapLibre Android 13.5.0. Values expressed as
- * Android dimensions are converted to dp before they reach these helpers.
- */
-internal object ClassicAndroidGestureMath {
+/** Thresholds and camera equations for [mapInput] pointer gestures. Distances are in dp. */
+internal object GestureMath {
   const val PAN_START_DP = 4.0
   const val SCALE_START_SPAN_DP = 7.0
   const val SCALE_START_WHILE_ROTATING_DP = 75.0
@@ -25,7 +22,7 @@ internal object ClassicAndroidGestureMath {
   const val SHOVE_MAX_FINGER_ANGLE_DEGREES = 20.0
   const val PRESSURE_RATIO_THRESHOLD = 0.67f
 
-  /** Android uses a 6 mm minimum span on API 24 and later: 6 / 25.4 * 160 dp. */
+  /** 6 mm at 160 dpi: 6 / 25.4 * 160. */
   const val MINIMUM_TWO_FINGER_SPAN_DP = 37.79527559055118
 
   private const val ZOOM_RATE = 0.65
@@ -49,7 +46,7 @@ internal object ClassicAndroidGestureMath {
     return 2.0.pow(zoomDelta)
   }
 
-  /** Positive Y is down, so—as on Android—dragging down zooms in and dragging up zooms out. */
+  /** Positive Y is down: dragging down zooms in and dragging up zooms out. */
   fun quickZoomDelta(
     displacementPixels: Double,
     viewportHeightPixels: Double,
@@ -92,37 +89,26 @@ internal object ClassicAndroidGestureMath {
     abs(verticalDisplacementDp) >= SHOVE_START_DP &&
       abs(fingerAngleFromHorizontalDegrees) <= SHOVE_MAX_FINGER_ANGLE_DEGREES
 
-  /** Rejects the noisy coordinates Android observes while a finger is being lifted. */
+  /** Rejects a sudden pressure drop, which is usually a finger lift. */
   fun hasStablePressure(current: Float, previous: Float): Boolean =
     previous <= 0f || current / previous > PRESSURE_RATIO_THRESHOLD
 
   data class Fling(val offsetXDp: Double, val offsetYDp: Double, val duration: Duration)
 
   /**
-   * The offset and duration MapLibre Android 13.5.0 applies as one `moveBy`. [pitch] shortens the
-   * duration: a single unprojection of the whole offset travels farther toward the horizon than
-   * away from it, and `pitch / 10` limits that jump.
-   *
-   * A caller that continues the drag in screen-space steps uses [screenSpaceFling] instead.
+   * Screen-space travel for a flick of this speed. Equal speeds produce equal offsets, whether or
+   * not the camera is pitched. [MapInput] applies the offset in small `moveBy` steps.
    */
-  fun fling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double, pitch: Double): Fling? {
+  fun fling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double): Fling? {
     val velocity = hypot(velocityXDpPerSecond, velocityYDpPerSecond)
     if (velocity < FLING_THRESHOLD_DP_PER_SECOND) return null
-    val tiltFactor = 1.5 + if (pitch != 0.0) pitch / 10.0 else 0.0
-    val durationMillis = (velocity / 7.0 / tiltFactor + FLING_BASE_TIME_MILLIS).toLong()
+    val durationMillis = (velocity / 7.0 / 1.5 + FLING_BASE_TIME_MILLIS).toLong()
     return Fling(
       offsetXDp = velocityXDpPerSecond * durationMillis * 0.28 / 1000.0,
       offsetYDp = velocityYDpPerSecond * durationMillis * 0.28 / 1000.0,
       duration = durationMillis.milliseconds,
     )
   }
-
-  /**
-   * The [fling] offset for this speed with the Android tilt term omitted. Equal speeds produce
-   * equal screen-space travel, whether or not the camera is pitched.
-   */
-  fun screenSpaceFling(velocityXDpPerSecond: Double, velocityYDpPerSecond: Double): Fling? =
-    fling(velocityXDpPerSecond, velocityYDpPerSecond, pitch = 0.0)
 
   /**
    * Largest screen-space `moveBy` a fling applies in one call. A dropped frame can cover the whole

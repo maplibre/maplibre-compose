@@ -549,7 +549,7 @@ class MlnFfiMapInputTest {
     }
 
   @Test
-  fun quick_zoom_upward_zooms_out_like_classic_android() =
+  fun quick_zoom_upward_zooms_out() =
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
         click(center)
