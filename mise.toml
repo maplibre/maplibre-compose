@@ -183,7 +183,14 @@ run = '''
 
 [tasks."demo:desktop"]
 description = "Run the demo app on this host."
-run = "./gradlew :demo-app:desktop:run"
+run = '''
+if [ "$(uname -s)" = Darwin ]; then
+  # Core Location reads the usage description from a packaged app Info.plist.
+  ./gradlew :demo-app:desktop:runDistributable
+else
+  ./gradlew :demo-app:desktop:run
+fi
+'''
 
 [tasks."demo:js"]
 description = "Run the demo app in a browser."

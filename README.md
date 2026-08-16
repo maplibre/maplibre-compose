@@ -36,9 +36,9 @@ maps to your Compose UIs across Android, iOS, Desktop, and Web.
 ## Progress
 
 See [the status table][status] for a breakdown of supported features on each
-platform. Android, iOS, and Desktop have the most complete support; Desktop's
-one remaining gap is showing the user's location. Web covers the same styling
-and camera API, without offline packs or location.
+platform. Android, iOS, and Desktop have the most complete support; Desktop
+still needs user location on Windows. Web covers the same styling and camera
+API, without offline packs or location.
 
 | Target  | Progress                                                             |
 | ------- | -------------------------------------------------------------------- |

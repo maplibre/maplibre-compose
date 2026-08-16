@@ -257,8 +257,9 @@ public object UnsupportedLocationProvider : LocationProvider {
  *
  * See [AndroidLocationProvider][org.maplibre.compose.location.AndroidLocationProvider],
  * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider],
- * [IosLocationProvider][org.maplibre.compose.location.IosLocationProvider], and
- * [LinuxPortalLocationProvider][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationProvider].
+ * [IosLocationProvider][org.maplibre.compose.location.IosLocationProvider],
+ * [LinuxPortalLocationProvider][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationProvider],
+ * and [MacosLocationProvider][org.maplibre.compose.location.desktop.macos.MacosLocationProvider].
  * Desktop implementations are installed through
  * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend].
  */
@@ -275,8 +276,9 @@ public object UnsupportedLocationProvider : LocationProvider {
  * [rememberAndroidLocationPermissionRequester][org.maplibre.compose.location.rememberAndroidLocationPermissionRequester],
  * [rememberBrowserLocationPermissionRequester][org.maplibre.compose.location.rememberBrowserLocationPermissionRequester],
  * [rememberIosLocationPermissionRequester][org.maplibre.compose.location.rememberIosLocationPermissionRequester],
+ * [LinuxPortalLocationPermissionRequester][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationPermissionRequester],
  * and
- * [LinuxPortalLocationPermissionRequester][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationPermissionRequester].
+ * [MacosLocationPermissionRequester][org.maplibre.compose.location.desktop.macos.MacosLocationPermissionRequester].
  * Desktop implementations are installed through
  * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend].
  */
