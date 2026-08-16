@@ -160,8 +160,8 @@ If the offline API wants its own namespace it can be a child of the runtime; it
 is not a separate owner, and `rememberOfflineManager` is not how it is acquired.
 
 On FFI platforms this is a thin owner around `RuntimeHandle`. The handle itself
-is available as an escape hatch. On GL JS there is no runtime object; see
-[Web](#web).
+is available as an escape hatch. On GL JS (A or B in [Web](#web)) there is no
+runtime object. C uses the FFI runtime.
 
 ### MapState
 
@@ -310,51 +310,31 @@ Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`,
 ## Web
 
 MapLibre GL JS 6.2.0 has no Runtime / Map / RenderSession split. The public
-`maplibregl.Map` fuses all three: it requires a `container`, creates a canvas
-and a WebGL2 context in `_setupPainter`, and `remove()` calls `painter.destroy`,
-`setStyle(null)`, and `WEBGL_lose_context`. There is no `setContainer` and no
-detach that leaves the style loaded. Live `Style` is `constructor(map)`.
-`StyleSpecification` JSON can exist as data.
+`maplibregl.Map` fuses all three: it requires a `container` and creates a WebGL2
+context in `_setupPainter`. `remove()` destroys the painter, the style, and the
+context. Live `Style` is `constructor(map)`.
 
 What looks like a runtime is scattered: a process-wide `WorkerPool`
 (`setWorkerUrl`, `setWorkerCount`, `prewarm`, `addProtocol`) plus per-map
 `RequestManager` / `transformRequest` and tile-cache sizes. There is no
 offline-pack API and no still-image API.
 
-mln-ffi's model is: the `MapHandle` lives; a `RenderSessionHandle` attaches,
-retargets, and closes; close keeps the map. Native OpenGL can share objects
-across contexts in one share group, so a new session on the same renderer binds
-a borrowed texture. WebGL has no share groups. GPU names stay in the
-`WebGL2RenderingContext` that created them.
+The web `MapState` is a later choice:
 
-GL JS has no session object. `Style._remove(mapRemoved=false)` already keeps
-workers on a style swap; `remove()` passes `true` through `setStyle(null)`. All
-GPU uploads go through the `Painter`'s `Context`. Static `VertexBuffer`s call
-`array.freeBufferAfterUpload()`. Glyph atlas CPU images are dropped after upload
-(`glyphAtlasImage = null`). A second context cannot adopt those objects, and
-cannot rebuild every buffer from memory already on the map.
+- **A.** A Kotlin holder for style, camera, and content. The live
+  `maplibregl.Map` exists only while `MaplibreMap` is in the composition.
+- **B.** The `MapState` constructor is per backend. `rememberMapState` is
+  `expect` / `actual` so the web actual can run in the composition and take the
+  WebGL context that `maplibregl.Map` needs at construct time. The live map is
+  created against that context and disposed with the remember.
+- **C.** The browser uses mln-ffi's Kotlin/Wasm Emscripten build. `MapState` is
+  the same object as desktop. That build is in progress and queued behind the
+  executor overhaul
+  ([#631](https://github.com/maplibre/maplibre-native-ffi/pull/631)).
 
-Three sizes of change, same first patch whether it is an upstream PR or a fork:
-
-1. **Same-context pause and retarget.** Stop the frame loop and handlers. Leave
-   `painter` and the `WebGL2RenderingContext` alive. Later bind a new FBO or the
-   same canvas. Inject `gl` at construct time. Most of the work is
-   `src/ui/map.ts` (about 4,500 lines) plus `MapOptions` and tests: hundreds to
-   about 1,500 lines. This matches mln-ffi close and retarget only while that
-   same context stays alive.
-2. **Map lives after the painter is destroyed.** Keep `Style` and workers
-   (`_remove(false)`). Rebuild `Painter` on a later context. The first frame
-   after attach re-uploads from workers and style JSON. Context loss already
-   does a heavier version of this: serialize style, `style.destroy()`,
-   `_setupPainter()`, `setStyle` again; custom layers are not restored. Low
-   thousands of lines across `map.ts`, `style.ts` (about 2,100), and the tile
-   and atlas upload path. This is a GPU rebuild, not a borrowed-texture attach.
-3. **Public Map and RenderSession types.** `Style.map` and `map.painter` fan out
-   through a few dozen files. Several thousand lines, not a Painter rewrite.
-   Cross-context GPU reuse stays impossible.
-
-A long-lived fork of `maplibre-gl-js` is the rebase cost, not the first patch.
-How the browser `MapState` attaches to Compose is not decided here.
+A or B if this redesign ships before that Wasm build. C if it ships after. A and
+B need no GL JS change. A live `maplibregl.Map` that outlives the context that
+constructed it is outside A and B.
 
 ## Default call site
 
@@ -429,3 +409,6 @@ anywhere in this sequence. The public API is `suspend` before it and after it.
 **Which members are `suspend`?** Snapshots stay sync. Commands and operations do
 not. The FFI assignment of each call is still moving, so the sketch above is a
 bias, not a list.
+
+**Which web `MapState`?** A, B, or C in [Web](#web). A or B before the mln-ffi
+Kotlin/Wasm build; C after.
