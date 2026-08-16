@@ -122,9 +122,9 @@ A ViewModel, a `remember`, or the process can own a `Runtime` and a `Map`.
 surface. Leaving the composition detaches the session. The map and its style
 stay loaded.
 
-The default call site stays a single composable. `MaplibreMap` creates a
-remembered map when the caller does not pass one. Its trailing lambda is the
-overlay. Style content is a named argument.
+`MaplibreMap` always takes a `Map`. `rememberMap` is how a composable gets one.
+Map configuration lives on the map. The composable attaches a session. Its
+trailing lambda is the overlay. Style content is a named argument.
 
 ### Execution
 
@@ -253,16 +253,22 @@ trailing lambda is the overlay: a UI composable in the UI composition.
 
 ```kotlin
 @Composable
+fun rememberMap(baseStyle: BaseStyle = BaseStyle.Demo): Map
+
+@Composable
 fun MaplibreMap(
-  map: Map = rememberMap(),
+  map: Map,
+  cameraState: CameraState = rememberCameraState(map),
   styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
   overlay: @Composable MapOverlayScope.() -> Unit = { DefaultOverlay() },
 )
 ```
 
-Calling `setStyleContent` and passing `styleContent` is calling the setter
-twice, so the later tree wins. `MaplibreMap(map) { CompassButton() }` attaches
-the session and draws UI on top; it leaves the map's style composition alone.
+`MaplibreMap` has no `baseStyle`. Passing both a map and a style would be two
+writers of the same slot; requiring the map leaves one. Calling
+`setStyleContent` and passing `styleContent` is calling the setter twice, so the
+later tree wins. `MaplibreMap(map) { CompassButton() }` attaches the session and
+draws UI on top; it leaves the map's style composition alone.
 
 The applier applies sources before layers. The layer-attaches-its-source
 workaround becomes unnecessary. Unloading a style is the common layer's job: the
@@ -304,8 +310,9 @@ JS does not stay FFI-only, including snapshots.
 ```kotlin
 @Composable
 fun Screen() {
+  val map = rememberMap(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"))
   MaplibreMap(
-    baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"),
+    map,
     styleContent = {
       val route = rememberGeoJsonSource(data)
       LineLayer(id = "route", source = route, color = const(Color.Blue), width = const(4.dp))
@@ -316,9 +323,9 @@ fun Screen() {
 }
 ```
 
-That still creates a map, attaches a session, and starts a style composition.
-`styleContent` is `setStyleContent`. The trailing lambda is overlay UI.
-`MaplibreMap(map) { CompassButton() }` attaches the session only.
+`rememberMap` creates the map. `styleContent` is `setStyleContent`. The trailing
+lambda is overlay UI. `MaplibreMap(map) { CompassButton() }` attaches the
+session only.
 
 ```kotlin
 class RouteViewModel : ViewModel() {
