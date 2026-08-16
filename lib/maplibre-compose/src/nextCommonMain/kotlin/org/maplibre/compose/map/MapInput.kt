@@ -39,6 +39,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 
 /**
@@ -110,11 +111,11 @@ private fun Modifier.pointerGestures(
         focusRequester = focusRequester,
         viewportSize = { size },
         clickSlopPx = options.clickSlop.toPx(),
-        panSlopPx = ClassicAndroidGestureMath.PAN_START_DP.dp.toPx(),
-        scaleSlopPx = ClassicAndroidGestureMath.SCALE_START_SPAN_DP.dp.toPx(),
-        shoveSlopPx = ClassicAndroidGestureMath.SHOVE_START_DP.dp.toPx(),
-        twoFingerTapSlopPx = ClassicAndroidGestureMath.TWO_FINGER_TAP_SLOP_DP.dp.toPx(),
-        minimumTwoFingerSpanPx = ClassicAndroidGestureMath.MINIMUM_TWO_FINGER_SPAN_DP.dp.toPx(),
+        panSlopPx = GestureMath.PAN_START_DP.dp.toPx(),
+        scaleSlopPx = GestureMath.SCALE_START_SPAN_DP.dp.toPx(),
+        shoveSlopPx = GestureMath.SHOVE_START_DP.dp.toPx(),
+        twoFingerTapSlopPx = GestureMath.TWO_FINGER_TAP_SLOP_DP.dp.toPx(),
+        minimumTwoFingerSpanPx = GestureMath.MINIMUM_TWO_FINGER_SPAN_DP.dp.toPx(),
         doubleClickTimeoutMillis = viewConfiguration.doubleTapTimeoutMillis,
         longClickTimeoutMillis = viewConfiguration.longPressTimeoutMillis,
         scope = scope,
@@ -230,14 +231,26 @@ private class MapPointerGesture(
     when {
       pressed.size >= 2 -> onTwoFinger(event, pressed[0], pressed[1])
       pressed.size == 1 -> onSingle(event, pressed.single())
-      else -> onRelease(event)
+      // A hover, enter, or exit also has nothing pressed. Treating those as a lift would
+      // cancel a fling or a keyboard ease the moment the cursor moved.
+      isAwaitingPointerRelease() -> onRelease(event)
     }
   }
 
+  /** A lift closes the pointer we are tracking. A hover does not. */
+  private fun isAwaitingPointerRelease(): Boolean =
+    mode != Mode.NONE ||
+      gestureInProgress ||
+      lastSingle != null ||
+      twoFingerStart != null ||
+      twoFingerTap != null ||
+      clickOrigin != null ||
+      deferredTwoFingerVelocity != null
+
   private fun onSingle(event: PointerEvent, change: PointerInputChange) {
     if (mode.isTwoFinger) {
-      // Android computes this velocity when the first pointer lifts, but starts the animator only
-      // on the final ACTION_UP so the remaining pointer can still cancel it.
+      // Velocity is sampled when the first pointer lifts. The animator starts only after the
+      // last pointer lifts, so the remaining finger can still cancel it.
       deferredTwoFingerVelocity = prepareTwoFingerVelocity()
       mode = Mode.SINGLE
       twoFingerStart = null
@@ -314,8 +327,8 @@ private class MapPointerGesture(
       val origin = singleDragOrigin
       val displacement = if (origin == null) Offset.Zero else change.position - origin
       if (quickZoomCandidate) {
-        // The Android quick-scale detector doubles vertical displacement into its span. Horizontal
-        // travel only disqualifies the double tap; it must never turn into a pan.
+        // Quick zoom doubles vertical displacement into its span. Horizontal travel only
+        // disqualifies the double tap; it must never turn into a pan.
         if (abs(displacement.y) * 2f < scaleSlopPx) {
           if (abs(displacement.x) <= scaleSlopPx) return
           clickOrigin = null
@@ -349,14 +362,14 @@ private class MapPointerGesture(
       lastClickAt = null
       val currentViewportSize = viewportSize()
       val targetDelta =
-        ClassicAndroidGestureMath.quickZoomDelta(
+        GestureMath.quickZoomDelta(
           displacementPixels = (change.position.y - quickZoomOriginY).toDouble(),
           viewportHeightPixels = currentViewportSize.height.toDouble(),
           maximumZoomChange = options.quickZoomMaxZoomChange,
         )
       target.scaleBy(
         scale = zoomLevelsToScale(targetDelta - quickZoomAppliedDelta),
-        // Android quick zoom is deliberately centred rather than finger anchored.
+        // Quick zoom is centred rather than finger-anchored.
         anchor = viewportCenter(currentViewportSize),
         gestureToken = gestureToken,
       )
@@ -436,8 +449,8 @@ private class MapPointerGesture(
         }
     val previous = twoFingerPrevious ?: start
     if (!current.hasSamePointers(previous)) {
-      // As Android's detectors do, reset the distance baselines when the pointers change, so a
-      // third finger replacing one of the pair cannot jump the camera.
+      // Reset the distance baselines when the pointers change. A third finger replacing one
+      // of the pair must not jump the camera.
       twoFingerStart = current
       twoFingerPrevious = current
       twoFingerPanning = false
@@ -448,7 +461,7 @@ private class MapPointerGesture(
       twoFingerVelocity.addPointerInputChange(first)
       return
     }
-    if (!ClassicAndroidGestureMath.hasStablePressure(current.pressure, previous.pressure)) {
+    if (!GestureMath.hasStablePressure(current.pressure, previous.pressure)) {
       twoFingerPrevious = current
       return
     }
@@ -463,8 +476,8 @@ private class MapPointerGesture(
     val centroidDelta = current.centroid - previous.centroid
     val centroidFromStart = current.centroid - start.centroid
     val scale = current.distance / previous.distance
-    // StandardScaleGestureDetector defines span as twice the pointer distance around the focal
-    // point, while its scale factor remains the ordinary current/previous distance ratio.
+    // Span is twice the pointer distance around the focal point. The scale factor is the
+    // current/previous distance ratio.
     val spanFromStartDp = (current.distance - start.distance) * 2.0 / density.density
     val spanFromPreviousDp = (current.distance - previous.distance) * 2.0 / density.density
     val rotation = normalizedAngle(current.angle - previous.angle).toDegrees()
@@ -493,15 +506,15 @@ private class MapPointerGesture(
       mode == Mode.TWO_FINGER_ROTATE &&
         !scaleAlongsideRotation &&
         options.isPinchZoomEnabled &&
-        abs(spanFromStartDp) >= ClassicAndroidGestureMath.SCALE_START_WHILE_ROTATING_DP &&
-        ClassicAndroidGestureMath.shouldStartScale(
+        abs(spanFromStartDp) >= GestureMath.SCALE_START_WHILE_ROTATING_DP &&
+        GestureMath.shouldStartScale(
           spanFromStartDp,
           spanFromPreviousDp,
           elapsedMillis,
           rotation,
         )
     ) {
-      // Android interrupts scale when rotation starts, then permits it again only after 75 dp.
+      // Rotation interrupts scale; scale may resume after 75 dp of additional span.
       scaleAlongsideRotation = true
     }
 
@@ -543,7 +556,7 @@ private class MapPointerGesture(
           abs(scale - 1.0) >= SCALE_EPSILON
       ) {
         target.scaleBy(
-          ClassicAndroidGestureMath.pinchScale(scale),
+          GestureMath.pinchScale(scale),
           options.zoomAnchor(anchor),
           gestureToken = gestureToken,
         )
@@ -588,7 +601,7 @@ private class MapPointerGesture(
   ): Mode {
     return when {
       options.isTwoFingerRotateEnabled &&
-        ClassicAndroidGestureMath.shouldStartRotation(
+        GestureMath.shouldStartRotation(
           rotationFromStart,
           rotationFromPrevious,
           elapsedMillis,
@@ -596,7 +609,7 @@ private class MapPointerGesture(
       options.isPinchZoomEnabled &&
         abs(current.distance - (twoFingerStart?.distance ?: current.distance)) * 2.0 >=
           scaleSlopPx &&
-        ClassicAndroidGestureMath.shouldStartScale(
+        GestureMath.shouldStartScale(
           spanFromStartDp,
           spanFromPreviousDp,
           elapsedMillis,
@@ -604,7 +617,7 @@ private class MapPointerGesture(
         ) -> Mode.TWO_FINGER_SCALE
       options.isTwoFingerTiltEnabled &&
         abs(centroidFromStart.y) >= shoveSlopPx &&
-        ClassicAndroidGestureMath.shouldStartShove(
+        GestureMath.shouldStartShove(
           (centroidFromStart.y / density.density).toDouble(),
           current.fingerAngleFromHorizontalDegrees,
         ) -> Mode.TWO_FINGER_TILT
@@ -741,18 +754,19 @@ private class MapPointerGesture(
       SingleMotion.PAN -> {
         if (!options.isFlingEnabled) return null
         val fling =
-          ClassicAndroidGestureMath.fling(
+          GestureMath.fling(
             (velocity.x / density.density).toDouble(),
             (velocity.y / density.density).toDouble(),
-            target.getCameraPosition().tilt,
           ) ?: return null
-        target.moveBy(fling.offsetXDp, fling.offsetYDp, fling.duration, gestureToken = gestureToken)
+        // The drag applies each pointer delta with moveBy. The fling continues that path,
+        // decelerating, in the same small steps.
+        animateFling(fling)
         fling.duration
       }
       SingleMotion.QUICK_ZOOM -> {
         if (!options.isPinchZoomVelocityEnabled) return null
         val continuation =
-          ClassicAndroidGestureMath.scaleVelocity(
+          GestureMath.scaleVelocity(
             velocity.x.toDouble(),
             velocity.y.toDouble(),
             lastQuickZoomSpanDeltaPixels,
@@ -775,7 +789,7 @@ private class MapPointerGesture(
         (mode == Mode.TWO_FINGER_SCALE || scaleAlongsideRotation) &&
           options.isPinchZoomVelocityEnabled
       ) {
-        ClassicAndroidGestureMath.scaleVelocity(
+        GestureMath.scaleVelocity(
           velocity.x.toDouble(),
           velocity.y.toDouble(),
           lastSpanDeltaPixels,
@@ -787,7 +801,7 @@ private class MapPointerGesture(
       }
     val rotationContinuation =
       if (mode == Mode.TWO_FINGER_ROTATE && options.isRotateVelocityEnabled) {
-        ClassicAndroidGestureMath.rotationVelocity(
+        GestureMath.rotationVelocity(
           velocity.x.toDouble(),
           velocity.y.toDouble(),
           lastTwoFingerCentroidPixels.x.toDouble(),
@@ -808,31 +822,55 @@ private class MapPointerGesture(
     }
   }
 
-  /** Android's scale velocity animator interpolates absolute zoom with a decelerate curve. */
+  /** Interpolates absolute zoom with a decelerate curve. */
   private fun animateScaleVelocity(
-    velocity: ClassicAndroidGestureMath.ScaleVelocity,
+    velocity: GestureMath.ScaleVelocity,
     anchor: DpOffset?,
   ) {
     val token = gestureToken
     continuation.launchScale(scope) {
-      val durationNanos = velocity.duration.inWholeNanoseconds.coerceAtLeast(1L)
-      val startedAt = withFrameNanos { it }
-      var previousEasedProgress = 0.0
-      do {
-        val now = withFrameNanos { it }
-        val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
-        val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
-        val frameZoomDelta = velocity.zoomDelta * (easedProgress - previousEasedProgress)
+      animateDecelerating(velocity.duration) { frameFraction ->
+        val frameZoomDelta = velocity.zoomDelta * frameFraction
         if (frameZoomDelta != 0.0) {
           target.scaleBy(zoomLevelsToScale(frameZoomDelta), anchor, gestureToken = token)
         }
-        previousEasedProgress = easedProgress
-      } while (progress < 1.0)
+      }
     }
   }
 
+  private fun animateFling(fling: GestureMath.Fling) {
+    val token = gestureToken
+    continuation.launchFling(scope) {
+      animateDecelerating(fling.duration) { frameFraction ->
+        val deltaX = fling.offsetXDp * frameFraction
+        val deltaY = fling.offsetYDp * frameFraction
+        GestureMath.forEachScreenSpaceStep(deltaX, deltaY) { stepX, stepY ->
+          target.moveBy(stepX, stepY, gestureToken = token)
+        }
+      }
+    }
+  }
+
+  /** Remaining motion falls as `(1 - t)^2`. */
+  private suspend fun animateDecelerating(
+    duration: Duration,
+    apply: (frameFraction: Double) -> Unit,
+  ) {
+    val durationNanos = duration.inWholeNanoseconds.coerceAtLeast(1L)
+    val startedAt = withFrameNanos { it }
+    var previousEasedProgress = 0.0
+    do {
+      val now = withFrameNanos { it }
+      val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
+      val easedProgress = 1.0 - (1.0 - progress).pow(2.0)
+      val frameFraction = easedProgress - previousEasedProgress
+      if (frameFraction != 0.0) apply(frameFraction)
+      previousEasedProgress = easedProgress
+    } while (progress < 1.0)
+  }
+
   private fun animateRotationVelocity(
-    velocity: ClassicAndroidGestureMath.RotationVelocity,
+    velocity: GestureMath.RotationVelocity,
     anchor: DpOffset?,
   ) {
     val token = gestureToken
@@ -842,7 +880,7 @@ private class MapPointerGesture(
       do {
         val now = withFrameNanos { it }
         val progress = ((now - startedAt).toDouble() / durationNanos).coerceIn(0.0, 1.0)
-        // Android's default DecelerateInterpolator leaves (1 - t)^2 of the animated value.
+        // Remaining motion falls as (1 - t)^2.
         val frameDelta = velocity.initialDegreesPerFrame * (1.0 - progress).pow(2.0)
         if (frameDelta != 0.0) {
           target.rotateAndPitchBy(frameDelta, 0.0, anchor = anchor, gestureToken = token)
@@ -869,7 +907,11 @@ private class MapPointerGesture(
     gestureInProgress = false
     val token = gestureToken ?: return
     gestureToken = null
-    if (followUpDuration > Duration.ZERO) {
+    if (continuation.hasVelocityJobs()) {
+      // The animator waits a frame before it starts, so the last moveBy is after the
+      // nominal duration. End the gesture when those frames finish.
+      continuation.finishWhenVelocityJobsComplete(scope, token, target::onGestureEnded)
+    } else if (followUpDuration > Duration.ZERO) {
       continuation.finishAfter(scope, followUpDuration, token, target::onGestureEnded)
     } else {
       target.onGestureEnded(token)
@@ -979,7 +1021,7 @@ private class MapPointerGesture(
 
     fun update(event: PointerEvent, slopPixels: Float): Boolean {
       val now = event.changes.maxOfOrNull { it.uptimeMillis } ?: startedAtMillis
-      if (now - startedAtMillis > ClassicAndroidGestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS) {
+      if (now - startedAtMillis > GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS) {
         return false
       }
       event.changes.forEach { change ->
@@ -995,7 +1037,7 @@ private class MapPointerGesture(
     fun isComplete(event: PointerEvent): Boolean =
       event.changes.none { it.pressed } &&
         (event.changes.maxOfOrNull { it.uptimeMillis } ?: startedAtMillis) - startedAtMillis <=
-          ClassicAndroidGestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS
+          GestureMath.TWO_FINGER_TAP_TIMEOUT_MILLIS
   }
 
   private fun normalizedAngle(radians: Double): Double =
@@ -1010,6 +1052,7 @@ private class MapPointerGesture(
 internal class GestureContinuation(private val scope: CoroutineScope) {
   private var scaleVelocityJob: Job? = null
   private var rotationVelocityJob: Job? = null
+  private var flingJob: Job? = null
   private var discreteTransitionJob: Job? = null
   private var finishJob: Job? = null
   private var openToken: GestureToken? = null
@@ -1024,6 +1067,37 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     rotationVelocityJob = scope.launch(block = block)
   }
 
+  fun launchFling(scope: CoroutineScope, block: suspend CoroutineScope.() -> Unit) {
+    flingJob?.cancel()
+    flingJob = scope.launch(block = block)
+  }
+
+  fun hasVelocityJobs(): Boolean =
+    flingJob?.isActive == true ||
+      scaleVelocityJob?.isActive == true ||
+      rotationVelocityJob?.isActive == true
+
+  /**
+   * Ends [token] when every velocity job finishes on its own. A cancelled job means a newer pointer
+   * took over, and [resume] or [finish] will close the token instead.
+   */
+  fun finishWhenVelocityJobsComplete(
+    scope: CoroutineScope,
+    token: GestureToken,
+    onFinished: (GestureToken) -> Unit,
+  ) {
+    finishJob?.cancel()
+    openToken = token
+    finishJob = scope.launch {
+      val jobs = listOfNotNull(flingJob, scaleVelocityJob, rotationVelocityJob)
+      jobs.joinAll()
+      if (jobs.any { it.isCancelled }) return@launch
+      finishJob = null
+      openToken = null
+      onFinished(token)
+    }
+  }
+
   fun launchDiscreteTransition(block: suspend CoroutineScope.() -> Unit) {
     discreteTransitionJob?.cancel()
     discreteTransitionJob = scope.launch(block = block)
@@ -1035,6 +1109,8 @@ internal class GestureContinuation(private val scope: CoroutineScope) {
     scaleVelocityJob = null
     rotationVelocityJob?.cancel()
     rotationVelocityJob = null
+    flingJob?.cancel()
+    flingJob = null
     discreteTransitionJob?.cancel()
     discreteTransitionJob = null
   }
