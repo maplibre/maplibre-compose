@@ -14,6 +14,8 @@ import kotlin.time.Duration.Companion.milliseconds
 internal object GestureMath {
   const val PAN_START_DP = 4.0
   const val SCALE_START_SPAN_DP = 7.0
+  /** Android `ViewConfiguration.getScaledDoubleTapSlop()`, used to pair two touch taps. */
+  const val DOUBLE_TAP_SLOP_DP = 100.0
   const val SCALE_START_WHILE_ROTATING_DP = 75.0
   const val SHOVE_START_DP = 16.0
   const val TWO_FINGER_TAP_SLOP_DP = 5.0
