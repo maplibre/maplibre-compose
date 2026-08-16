@@ -188,7 +188,7 @@ class MapState : AutoCloseable {
   fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit)
 
   @DelicateMapApi
-  suspend fun <T> withPlatform(block: (PlatformMap) -> T): T
+  val platform: PlatformMap
 }
 ```
 
@@ -197,8 +197,11 @@ properties. Exactly which members are `suspend` follows the FFI form of each
 call, and that assignment is still moving.
 
 `PlatformMap` is a typealias to `MapHandle` on FFI platforms and to the GL JS
-`Map` on the browser. Common code does not call `withPlatform`. Platform code
-that is blocked on a missing wrapper does.
+`Map` on the browser. Common code does not touch `platform`. Platform code that
+is blocked on a missing wrapper does. It is a property, not a lambda:
+[#631](https://github.com/maplibre/maplibre-native-ffi/pull/631) puts the
+runtime thread in native, so the handle is not confined to a hop this library
+owns.
 
 Camera lives on `MapState`. `rememberMapState` can take a first position and
 save it across recreation. Animation and projection methods live on `MapState`.
@@ -305,7 +308,7 @@ Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`,
 
 `StyleBinding` plus style JSON is the shared language. GL JS already implements
 that path in `nextCommonMain`. The public `MapState` on the browser is an
-adapter over the GL JS `Map`. `withPlatform` yields that map.
+adapter over the GL JS `Map`. `platform` is that map.
 
 If `maplibre-native-ffi` lands on Kotlin/Wasm, the adapter goes away and the
 browser uses the same `MapState` as desktop. Until then, features that FFI has
@@ -368,18 +371,13 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
    detaches; the state survives recomposition. Still no public change.
 4. Publish `Runtime`, `MapState`, `rememberMapState`, and `MaplibreMap(state)`.
    Lift camera onto the state. Delete `StyleState` and `OfflineManager`.
-5. Publish `withPlatform` as a delicate API. Close
+5. Publish `platform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
    at it.
 6. Let `setStyleContent` run on a map that has no session. Implement still
    images ([#28](https://github.com/maplibre/maplibre-compose/issues/28)).
 7. Fill the capabilities in [COMMON_API_GAPS.md](./COMMON_API_GAPS.md). Each is
    one implementation, or two if the browser stays on GL JS.
-
-Steps 2 and 3 can start as soon as Android and iOS compile against the FFI, even
-while those platforms are still catching up on features. Step 4 is the break. It
-belongs on the road to v1.0, not in a minor release that still supports the
-classic SDKs.
 
 [#631](https://github.com/maplibre/maplibre-native-ffi/pull/631) can land
 anywhere in this sequence. The public API is `suspend` before it and after it.
@@ -390,28 +388,16 @@ anywhere in this sequence. The public API is `suspend` before it and after it.
 not. The FFI assignment of each call is still moving, so the sketch above is a
 bias, not a list.
 
-**Is `MapState` in this artifact, or in a Compose-free one?** `setStyleContent`
-needs the Compose runtime. The imperative state does not. `setStyleContent` can
-be an extension in this artifact on a Compose-free `MapState`. A split is easier
-after the type exists than before.
+**Where does Compose UI stop?** `MapState` is a Compose type even when it is not
+Compose UI: style content uses the Compose runtime. Draw the line between that
+runtime and Compose UI (`MaplibreMap`, overlays, gestures) so a later split is
+possible. The first release keeps them in one artifact.
 
-**Does `CameraState` remain as a type?** The camera belongs to `MapState`.
-Saveable position can live in `rememberMapState`. `isCameraMoving` can be a
-property on the state. A separate type is leftover unless overlay code still
-wants a receiver that is not the whole state.
+**Does `CameraState` remain as a type?** No, unless saving `MapState` proves
+hard and saveables need to come out piecemeal, or the camera wants its own
+namespace.
 
 **What does GL JS do for `Runtime`?** If the browser map needs no process-wide
 owner, `rememberMapState()` never shows one. The type still exists so common
 code that opens a runtime on Android, iOS, or desktop compiles on JS, even if it
 is a no-op.
-
-## What this document is not
-
-It does not schedule the Android or iOS FFI ports. Those are
-[#572](https://github.com/maplibre/maplibre-compose/issues/572).
-
-It does not list the style APIs to add after the redesign. Those are
-[COMMON_API_GAPS.md](./COMMON_API_GAPS.md).
-
-It does not propose exposing `MapAdapter`, `MapNode`, or the current style
-applier. Those are the wiring this redesign deletes.
