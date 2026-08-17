@@ -2,11 +2,10 @@ package org.maplibre.compose.sources
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
@@ -23,11 +22,10 @@ class UnknownSourceRestoreTest {
 
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
 
-      // MapLibre reports the type as an enum whose default `toString` is
-      // `SourceType(nativeValue=1)`, which passes for a definition right up until it is used.
+      assertEquals("vector", (source.definition["type"] as? JsonPrimitive)?.content)
       assertEquals(
-        Json.parseToJsonElement("""{"type":"vector","attribution":"$ATTRIBUTION"}"""),
-        source.definition,
+        listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
+        (source.definition["tiles"] as? JsonArray)?.map { (it as JsonPrimitive).content },
       )
       assertEquals(ATTRIBUTION, source.attributionHtml)
       assertEquals(emptyList(), it.errors, "the map should report nothing")
@@ -35,11 +33,11 @@ class UnknownSourceRestoreTest {
   }
 
   /**
-   * MapLibre reports only a source's type, volatility, and attribution, so a reconstructed tiled
-   * source has no `tiles`.
+   * MapLibre retains a tiled source's templates, so a reconstructed source can be added to a later
+   * style.
    */
   @Test
-  fun re_adding_a_base_style_source_fails_with_a_message_that_names_it() {
+  fun re_adding_a_base_style_source_keeps_its_tiles() {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
@@ -47,13 +45,15 @@ class UnknownSourceRestoreTest {
 
       val source = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
       style.removeSource(source)
+      style.addSource(source)
 
-      val error = assertFailsWith<IllegalStateException> { style.addSource(source) }
+      val restored = assertIs<UnknownSource>(style.getSource(SOURCE_ID))
       assertEquals(
-        "Could not add source 'vec' of type 'vector': " +
-          "INVALID_ARGUMENT (-1): style source: source must have tiles",
-        error.message,
+        listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
+        (restored.definition["tiles"] as? JsonArray)?.map { (it as JsonPrimitive).content },
       )
+      assertEquals(ATTRIBUTION, restored.attributionHtml)
+      assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
 
