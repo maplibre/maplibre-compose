@@ -33,7 +33,13 @@ public actual sealed class Source(internal actual val id: String) {
         "for each map"
     }
     // Before the owner-thread hop: GeoJSON parse and index must not run on the pump.
-    if (!isAttached) prepareForAttach()
+    if (!isAttached) {
+      try {
+        prepareForAttach()
+      } catch (error: Throwable) {
+        throw wrapAddError(error)
+      }
+    }
     val added =
       try {
         binding.mutateMap { map ->
@@ -46,15 +52,7 @@ public actual sealed class Source(internal actual val id: String) {
           try {
             addTo(map)
           } catch (error: Throwable) {
-            if (error is MaplibreException) {
-              // Native reports what was wrong with the definition but never whose.
-              throw IllegalStateException(
-                "Could not add source '$id' of type " +
-                  "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
-                error,
-              )
-            }
-            throw error
+            throw wrapAddError(error)
           }
           true
         }
@@ -62,7 +60,9 @@ public actual sealed class Source(internal actual val id: String) {
         abandonPrepareForAttach()
         throw error
       }
-    if (added != true) abandonPrepareForAttach()
+    // Only when addTo did not run. A null result can mean the owner-thread wait ended while the
+    // queued add is still pending, and closing the prepared handle then races that add.
+    if (added == false) abandonPrepareForAttach()
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
@@ -70,6 +70,18 @@ public actual sealed class Source(internal actual val id: String) {
     if (!added) return
     this.binding = binding
   }
+
+  /** Native reports what was wrong with the definition but never whose. */
+  private fun wrapAddError(error: Throwable): Throwable =
+    if (error is MaplibreException) {
+      IllegalStateException(
+        "Could not add source '$id' of type " +
+          "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
+        error,
+      )
+    } else {
+      error
+    }
 
   /**
    * Runs on the caller before [addTo] hops to the owner thread. Override to do work that must not
