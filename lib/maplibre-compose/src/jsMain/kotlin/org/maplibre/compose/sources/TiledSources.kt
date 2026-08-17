@@ -65,6 +65,25 @@ public actual class VectorSource : Source {
       }
       .orEmpty()
   }
+
+  public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
+    setJsFeatureState(featureId = featureId, sourceLayerId = sourceLayerId, state = state)
+  }
+
+  public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+    jsFeatureState(featureId, sourceLayerId)
+
+  public actual fun removeFeatureState(
+    sourceLayerId: String,
+    featureId: String,
+    stateKey: String?,
+  ) {
+    removeJsFeatureState(featureId = featureId, sourceLayerId = sourceLayerId, stateKey = stateKey)
+  }
+
+  public actual fun resetFeatureStates(sourceLayerId: String) {
+    removeJsFeatureState(sourceLayerId = sourceLayerId)
+  }
 }
 
 public actual class RasterSource : Source {
@@ -116,6 +135,11 @@ public actual class RasterDemSource : Source {
     tileSize: Int,
     demEncoding: RasterDemEncoding,
   ) : super(id) {
+    // The style spec has no `scheme` on raster-dem; GL JS 6 rejects the source over it.
+    require(options.tileCoordinateSystem == TileCoordinateSystem.XYZ) {
+      "The style spec has no scheme on a raster-dem source, and MapLibre GL JS rejects the " +
+        "source over that key. Use TileCoordinateSystem.XYZ."
+    }
     json = buildJsonObject {
       put("type", "raster-dem")
       putJsonArray("tiles") { tiles.forEach { add(it) } }
@@ -128,7 +152,7 @@ public actual class RasterDemSource : Source {
         put("blueFactor", demEncoding.blueFactor)
         put("baseShift", demEncoding.baseShift)
       }
-      putTileSetOptions(options)
+      putTileSetOptions(options, includeScheme = false)
     }
   }
 

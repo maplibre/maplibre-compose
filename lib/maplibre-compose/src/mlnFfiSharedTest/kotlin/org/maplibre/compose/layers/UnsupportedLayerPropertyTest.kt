@@ -7,6 +7,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -61,15 +62,13 @@ class UnsupportedLayerPropertyTest {
 
       layer.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
-        // MapLibre returns nothing for a property it holds no value for.
-        assertEquals(
-          null,
-          map.layerProperty("labels", "icon-overlap")?.toJsonElement(),
+        // MapLibre holds no value for a property that was never written, and reports none.
+        assertNull(
+          map.layerProperty("labels", "icon-overlap"),
           "icon-overlap should not be written",
         )
-        assertEquals(
-          null,
-          map.layerProperty("labels", "text-overlap")?.toJsonElement(),
+        assertNull(
+          map.layerProperty("labels", "text-overlap"),
           "text-overlap should not be written",
         )
         assertEquals(
@@ -92,9 +91,9 @@ class UnsupportedLayerPropertyTest {
 
       layer.setIconOverlap(const("never").compile(ExpressionContext.None))
       layer.onMap { map ->
-        assertEquals(
-          null,
-          map.layerProperty("labels", "icon-overlap")?.toJsonElement(),
+        // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
+        assertNull(
+          map.layerProperty("labels", "icon-overlap"),
           "icon-overlap should still not be written after attach",
         )
       }

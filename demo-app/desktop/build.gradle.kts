@@ -48,6 +48,23 @@ compose.desktop {
       // https://youtrack.jetbrains.com/issue/CMP-2360
       // packageVersion = providers.gradleProperty("maplibreReleaseVersion").get()
       packageVersion = "1.0.0"
+
+      macOS {
+        // jpackage signs with the hardened runtime. Core Location ignores authorization
+        // requests unless that runtime also has the location entitlement.
+        entitlementsFile.set(file("entitlements.plist"))
+        runtimeEntitlementsFile.set(file("entitlements.plist"))
+        infoPlist {
+          extraKeysRawXml =
+            """
+            <key>NSLocationWhenInUseUsageDescription</key>
+            <string>Example</string>
+            <key>NSLocationUsageDescription</key>
+            <string>Example</string>
+            """
+              .trimIndent()
+        }
+      }
     }
   }
 }

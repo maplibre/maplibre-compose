@@ -12,6 +12,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.log.LogCallback
 import org.maplibre.nativeffi.log.LogRecord
 import org.maplibre.spatialk.geojson.Position
 
@@ -29,10 +30,12 @@ class ImageSourceAttachTest {
   init {
     // Process-global; safe because each platform test process runs without parallel forks.
     // Returning false keeps native logging.
-    Maplibre.setLogCallback { record ->
-      records += record
-      false
-    }
+    Maplibre.setLogCallback(
+      LogCallback { record ->
+        records += record
+        false
+      }
+    )
   }
 
   @AfterTest

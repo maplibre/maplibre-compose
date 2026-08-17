@@ -46,6 +46,7 @@ internal actual fun ComposableMapView(
     onReset = onReset,
     logger = logger,
     callbacks = callbacks,
+    interactionMode = options.gestureOptions.interactionMode,
   )
 }
 
@@ -58,6 +59,7 @@ internal fun IosMapView(
   onReset: () -> Unit,
   logger: Logger?,
   callbacks: MapAdapter.Callbacks,
+  interactionMode: UIKitInteropInteractionMode,
 ) {
   var consumedInsets by remember { mutableStateOf(WindowInsets(0, 0, 0, 0)) }
   val insetPadding = WindowInsets.safeDrawing.afterConsuming(consumedInsets).asPaddingValues()
@@ -71,8 +73,7 @@ internal fun IosMapView(
 
     UIKitView(
       modifier = modifier.fillMaxSize(),
-      properties =
-        UIKitInteropProperties(interactionMode = UIKitInteropInteractionMode.NonCooperative),
+      properties = UIKitInteropProperties(interactionMode = interactionMode),
       factory = {
         val frame =
           CGRectMake(
@@ -89,6 +90,7 @@ internal fun IosMapView(
         currentMap =
           IosMapAdapter(
             mapView = mapView,
+            initialBaseStyle = style,
             size = CGSizeMake(width.value.toDouble(), height.value.toDouble()),
             layoutDir = layoutDir,
             density = density,

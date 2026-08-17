@@ -27,8 +27,9 @@ to permission and lifecycle state. `LocationPuck` draws the latest fix, and
 | **`LocationPuck`**                               | Visual indicator that displays the user's current position and bearing on the map. |
 | **`LocationTrackingEffect`**                     | Applies location changes to application or camera state.                           |
 
-Android and iOS provide default location and orientation providers. Web and
-Linux provide default location providers but no default orientation readings.
+Android and iOS provide default location and orientation providers. Web, Linux,
+and macOS provide default location providers but no default orientation
+readings.
 `LocationState.status` reports unsupported or misconfigured
 location setup without throwing.
 
@@ -139,3 +140,13 @@ window. A custom X11 or Wayland host can expose its window through
 Each desktop rendering runtime installs its matching backend. A missing backend
 reports an unsupported backend, and multiple backends report a configuration
 failure through `LocationState.status`.
+
+#### macOS desktop
+
+The backend uses Core Location. Add the
+[location usage description](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)
+and
+[location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location)
+that Apple requires.
+
+`minimumInterval` is ignored because Core Location filters only by distance.

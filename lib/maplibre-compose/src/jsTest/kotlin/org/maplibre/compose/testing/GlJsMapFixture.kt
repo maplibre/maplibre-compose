@@ -12,7 +12,9 @@ import kotlinx.coroutines.promise
 import org.khronos.webgl.Uint8Array
 import org.khronos.webgl.get
 import org.maplibre.compose.gljs.GlJsFrameTarget
+import org.maplibre.compose.gljs.GlJsRuntime
 import org.maplibre.compose.gljs.GlJsSurfaceSession
+import org.maplibre.compose.gljs.LOCAL_WORKER_URL
 import org.maplibre.compose.gljs.yieldToBrowser
 import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.GlJsMapSession
@@ -143,7 +145,12 @@ internal class GlJsMapFixture(private val extent: MapExtent) : MapFixture {
   }
 }
 
-internal actual fun createMapFixture(extent: MapExtent): MapFixture = GlJsMapFixture(extent)
+internal actual fun createMapFixture(extent: MapExtent): MapFixture {
+  // `pointAtWorker` keeps the first call. Pin the Karma-served worker here so a MapFixture
+  // test that runs before `runBrowserMapTest` still keeps the suite off the CDN.
+  GlJsRuntime.pointAtWorker(LOCAL_WORKER_URL)
+  return GlJsMapFixture(extent)
+}
 
 internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GL_JS
 
@@ -154,5 +161,7 @@ internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.GL_JS
 
 actual typealias MapTestResult = JsPromise
 
-internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult =
-  MainScope().promise { block() }.unsafeCast<JsPromise>()
+internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult {
+  GlJsRuntime.pointAtWorker(LOCAL_WORKER_URL)
+  return MainScope().promise { block() }.unsafeCast<JsPromise>()
+}

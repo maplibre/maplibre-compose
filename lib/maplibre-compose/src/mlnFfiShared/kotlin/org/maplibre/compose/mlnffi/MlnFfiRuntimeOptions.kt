@@ -4,12 +4,15 @@ import androidx.compose.runtime.Immutable
 import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
 import org.maplibre.compose.offline.MlnFfiOfflineManager
+import org.maplibre.compose.resource.MlnFfiResourceProvider
+import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 
 /** Platform-resolved configuration for a MapLibre Native FFI runtime. */
 @Immutable
 internal data class MlnFfiRuntimeOptions(
   val cacheFile: Path,
   val maximumCacheSizeBytes: Long? = null,
+  internal val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
 )
 
 /** Uses one stable lexical identity for a cache database without requiring it to exist yet. */

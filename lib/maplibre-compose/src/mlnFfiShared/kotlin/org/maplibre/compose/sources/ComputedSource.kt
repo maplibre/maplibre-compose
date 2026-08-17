@@ -24,6 +24,7 @@ import org.maplibre.nativeffi.style.CustomGeometrySourceOptions
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.toJson
 
 /**
  * A source whose tiles this application generates: MapLibre decides which tiles it needs, asks
@@ -107,7 +108,7 @@ public actual class ComputedSource : Source {
     if (requestedTilesLock.withLock { requestedTiles[tileId] } != request) return
     val data =
       try {
-        getFeatures(tileId.toBoundingBox(), tileId.z).toFfiGeoJson()
+        getFeatures(tileId.toBoundingBox(), tileId.z).toGeoJsonBytes()
       } catch (error: Throwable) {
         rethrowIfFatal(error)
         forgetTile(tileId, request)
@@ -139,8 +140,8 @@ public actual class ComputedSource : Source {
   }
 
   public actual fun setData(zoomLevel: Int, x: Int, y: Int, data: FeatureCollection<*, *>) {
-    // Converted before the hop, so the owner thread does not walk caller data while a frame waits.
-    val geoJson = data.toFfiGeoJson()
+    // Serialized before the hop, so the owner thread does not walk caller data while a frame waits.
+    val geoJson = data.toGeoJsonBytes()
     val tileId = tileId(zoomLevel, x, y)
     // Forgotten first, so an answer still in flight does not overwrite what was just supplied.
     requestedTilesLock.withLock { requestedTiles.remove(tileId) }
@@ -150,6 +151,8 @@ public actual class ComputedSource : Source {
   private fun tileId(zoomLevel: Int, x: Int, y: Int): CanonicalTileId =
     CanonicalTileId(z = zoomLevel, x = x.toLong(), y = y.toLong())
 }
+
+internal fun FeatureCollection<*, *>.toGeoJsonBytes(): ByteArray = toJson().encodeToByteArray()
 
 /**
  * The geographic bounds of a Web Mercator tile. Neither the FFI nor mbgl exposes this conversion,

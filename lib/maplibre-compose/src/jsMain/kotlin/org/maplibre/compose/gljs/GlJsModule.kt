@@ -6,6 +6,8 @@ import web.html.HTMLCanvasElement
 
 internal external fun getVersion(): String
 
+internal external fun setWorkerUrl(value: String)
+
 @JsName("Map")
 internal external class MaplibreMap(options: MapOptions) {
 
@@ -58,9 +60,6 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun stop()
 
-  /** True while an ease or fly is running, which a gesture-driven move is not. */
-  fun isEasing(): Boolean
-
   fun setMaxBounds(bounds: LngLatBounds?)
 
   fun setMinZoom(minZoom: Double)
@@ -84,6 +83,12 @@ internal external class MaplibreMap(options: MapOptions) {
     sourceId: String,
     options: QuerySourceFeatureOptions,
   ): Array<GeoJsonFeature>
+
+  fun setFeatureState(feature: FeatureIdentifier, state: Any)
+
+  fun getFeatureState(feature: FeatureIdentifier): Any?
+
+  fun removeFeatureState(feature: FeatureIdentifier, key: String = definedExternally)
 
   fun addSource(id: String, source: SourceSpecification)
 

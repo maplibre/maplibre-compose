@@ -71,4 +71,23 @@ public actual class VectorSource : Source {
       )
       .map { (it as MLNFeatureProtocol).toFeature() }
   }
+
+  public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
+    featureStateUnavailable()
+  }
+
+  public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+    featureStateUnavailable()
+
+  public actual fun removeFeatureState(
+    sourceLayerId: String,
+    featureId: String,
+    stateKey: String?,
+  ) {
+    featureStateUnavailable()
+  }
+
+  public actual fun resetFeatureStates(sourceLayerId: String) {
+    featureStateUnavailable()
+  }
 }

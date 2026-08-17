@@ -6,6 +6,7 @@ import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CollatorValue
 import org.maplibre.compose.expressions.value.IntValue
+import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.StringValue
 
 /** Returns whether this string contains the [substring]. */
@@ -128,6 +129,34 @@ public fun Expression<StringValue>.lowercase(): Expression<StringValue> =
 public operator fun Expression<StringValue>.plus(
   other: Expression<StringValue>
 ): Expression<StringValue> = FunctionCall.of("concat", this, other).cast()
+
+/**
+ * Returns the substrings formed by splitting this string at each occurrence of [separator].
+ *
+ * An empty [separator] splits this string into individual Unicode characters. Consecutive
+ * separators produce empty strings in the result.
+ */
+public fun Expression<StringValue>.split(
+  separator: Expression<StringValue>
+): Expression<ListValue<StringValue>> = FunctionCall.of("split", this, separator).cast()
+
+/**
+ * Returns the substrings formed by splitting this string at each occurrence of [separator].
+ *
+ * An empty [separator] splits this string into individual Unicode characters. Consecutive
+ * separators produce empty strings in the result.
+ */
+public fun Expression<StringValue>.split(separator: String): Expression<ListValue<StringValue>> =
+  split(const(separator))
+
+/**
+ * Returns the substrings formed by splitting this string at each occurrence of [separator].
+ *
+ * An empty [separator] splits this string into individual Unicode characters. Consecutive
+ * separators produce empty strings in the result.
+ */
+public fun String.split(separator: Expression<StringValue>): Expression<ListValue<StringValue>> =
+  const(this).split(separator)
 
 /**
  * Returns the IETF language tag of the locale being used by the provided [collator]. This can be

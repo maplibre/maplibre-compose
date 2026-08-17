@@ -49,6 +49,7 @@ private constructor(
       getLogger: () -> Logger?,
       what: String,
       eventMask: RuntimeEventMask,
+      resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
     ): MlnFfiRuntimeOwner {
       val cacheFile = normalizeMlnFfiPath(rawCacheFile)
       // MapLibre opens the database as the runtime is created, and fails if the directory is
@@ -69,7 +70,7 @@ private constructor(
         }
       val provider =
         try {
-          MlnFfiResourceProvider(getLogger = getLogger)
+          resourceProviderFactory(getLogger)
         } catch (error: Throwable) {
           runCatching { runtime.close() }
           throw error

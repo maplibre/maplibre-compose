@@ -3,14 +3,10 @@ package org.maplibre.compose.util
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.serialization.json.Json
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
-import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 
 class JsonConversionsTest {
@@ -37,7 +33,7 @@ class JsonConversionsTest {
 
   @Test
   fun keeps_integers_integral() {
-    // MapLibre distinguishes 5 from 5.0 for some properties.
+    // MapLibre distinguishes 5 from 5.0 for some properties, and the text keeps them apart.
     assertEquals("5", JsonPrimitive(5).toJsonBytes().decodeToString())
     assertEquals("5.5", JsonPrimitive(5.5).toJsonBytes().decodeToString())
   }
@@ -51,6 +47,15 @@ class JsonConversionsTest {
   }
 
   @Test
+  fun writes_an_unsigned_integer_past_long_max_value_as_unsigned() {
+    // uint64_t crosses JSON as an integer literal; a Long's bit pattern reads back unsigned.
+    assertEquals(
+      "18446744073709551615",
+      JsonPrimitive((-1L).toULong()).toJsonBytes().decodeToString(),
+    )
+  }
+
+  @Test
   fun preserves_object_key_order() {
     // MapLibre reads `type` before the properties that depend on it.
     val json = buildJsonObject {
@@ -58,8 +63,10 @@ class JsonConversionsTest {
       put("type", "fill")
       put("source", "s")
     }
-    val roundTripped = json.toJsonBytes().toJsonElement() as JsonObject
-    assertEquals(listOf("id", "type", "source"), roundTripped.keys.toList())
+    assertEquals(
+      """{"id":"a","type":"fill","source":"s"}""",
+      json.toJsonBytes().decodeToString(),
+    )
   }
 
   @Test
@@ -69,10 +76,6 @@ class JsonConversionsTest {
       add(buildJsonArray { add(JsonPrimitive(1)) })
       add(JsonNull)
     }
-    val values = json.toJsonBytes().toJsonElement() as JsonArray
-    assertEquals(3, values.size)
-    assertEquals("zoom", values[0].jsonPrimitive.content)
-    assertEquals(JsonArray(listOf(JsonPrimitive(1))), values[1])
-    assertEquals(JsonNull, values[2])
+    assertEquals("""["zoom",[1],null]""", json.toJsonBytes().decodeToString())
   }
 }

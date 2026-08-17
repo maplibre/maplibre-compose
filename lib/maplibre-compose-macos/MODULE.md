@@ -1,3 +1,3 @@
 # Module maplibre-compose-macos
 
-macOS integrations for MapLibre Compose applications.
+Core Location backend for MapLibre Compose desktop applications on macOS.

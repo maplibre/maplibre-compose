@@ -37,9 +37,9 @@ integration point rather than something wired into Skiko's internals.
 
 Next steps:
 
-- Add support for platform location services on macOS and Windows. Linux uses
-  the XDG Location portal. Desktop orientation providers still need platform
-  sensor integrations.
+- Add support for platform location services on Windows. Linux uses the XDG
+  Location portal, and macOS uses Core Location. Desktop orientation providers
+  still need platform sensor integrations.
 
 ### [Native core integration on iOS](https://github.com/maplibre/maplibre-compose/issues/572)
 
@@ -187,10 +187,10 @@ answer well.
 **Status:** Blocked 🚧
 
 MapLibre Native can do a number of things MapLibre Compose has no cross-platform
-API for, among them feature state, style light, custom geometry sources, the
-location indicator layer, alternative projections, style transition options,
-HTTP header transforms, supplying missing style images on demand, resource
-transforms, merging offline databases, and
+API for, among them style light, custom geometry sources, the location indicator
+layer, alternative projections, style transition options, HTTP header
+transforms, supplying missing style images on demand, resource transforms,
+merging offline databases, and
 [static map snapshots](https://github.com/maplibre/maplibre-compose/issues/28) —
 which `maplibre-native-ffi` can now produce by reading a rendered map back to
 the CPU.

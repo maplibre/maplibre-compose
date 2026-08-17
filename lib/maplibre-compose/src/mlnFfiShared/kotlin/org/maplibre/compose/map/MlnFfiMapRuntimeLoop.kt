@@ -7,6 +7,8 @@ import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
 import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.resource.MlnFfiResourceProvider
+import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
@@ -41,6 +43,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val extent: MapExtent,
   private val cacheFile: Path,
   private val getLogger: () -> Logger?,
+  private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
   /** Runs on the owner thread once the map exists, before it is published. */
   private val onMapCreated: (MapHandle) -> Unit,
   /** Runs on the owner thread for every event this loop's runtime raises. */
@@ -49,6 +52,7 @@ internal class MlnFfiMapRuntimeLoop(
   private val onEventsDrained: (MapHandle) -> Unit,
   /** Asks the host for a frame. Called from the owner thread. */
   private val requestFrame: () -> Unit,
+  private val mapEventMask: RuntimeEventMask? = null,
 ) : AutoCloseable {
 
   private val logger: Logger?
@@ -68,6 +72,8 @@ internal class MlnFfiMapRuntimeLoop(
    */
   private val acceptLock = MlnFfiOwnerLock(thread)
   private val tasks = ArrayDeque<OwnerTask>()
+  /** Test callbacks that run after the next native pump and event drain. Owner thread only. */
+  private val eventDrainBarriers = mutableListOf<() -> Unit>()
   private var accepting = true
   private var wake: WakeSource? = null
 
@@ -130,6 +136,10 @@ internal class MlnFfiMapRuntimeLoop(
   fun post(action: (MapHandle) -> Unit, abandon: () -> Unit = {}): Boolean =
     submit(run = action, abandon = abandon)
 
+  /** Queues a test callback that runs after the next native pump and event drain. */
+  fun postEventDrainBarrierForTest(action: () -> Unit): Boolean =
+    post(action = { eventDrainBarriers += action })
+
   private fun submit(run: (MapHandle) -> Unit, abandon: () -> Unit): Boolean = acceptLock.withLock {
     if (!accepting) return false
     tasks.add(OwnerTask(run, abandon))
@@ -160,6 +170,7 @@ internal class MlnFfiMapRuntimeLoop(
             getLogger,
             "MapLibre runtime",
             eventMask = RuntimeEventMask.NONE,
+            resourceProviderFactory = resourceProviderFactory,
           )
           .also { runtimeOwner = it }
       } catch (error: Throwable) {
@@ -216,7 +227,7 @@ internal class MlnFfiMapRuntimeLoop(
       it.width = extent.width.coerceAtLeast(1)
       it.height = extent.height.coerceAtLeast(1)
       it.scaleFactor = extent.scaleFactor
-      it.eventMask = MAP_SESSION_EVENT_MASK
+      mapEventMask?.let { mask -> it.eventMask = mask }
     }
 
   private fun drainEvents(runtime: RuntimeHandle, map: MapHandle) {
@@ -229,10 +240,15 @@ internal class MlnFfiMapRuntimeLoop(
         if (batch.remainingCount <= 0L) break
       } while (true)
     } catch (error: Throwable) {
+      // drainEvents is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
+      // throw from the map rather than the runtime.
       logger?.e(error) { "Failed to drain MapLibre runtime events" }
     }
     runCatching { onEventsDrained(map) }
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }
+    val barriers = eventDrainBarriers.toList()
+    eventDrainBarriers.clear()
+    barriers.forEach { runCatching(it) }
   }
 
   private fun dispatchEvents(

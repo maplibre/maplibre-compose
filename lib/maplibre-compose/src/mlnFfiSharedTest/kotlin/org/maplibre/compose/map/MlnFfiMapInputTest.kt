@@ -80,6 +80,27 @@ class MlnFfiMapInputTest {
   }
 
   @Test
+  fun a_hover_does_not_cancel_an_arrow_key_pan() = runInputTest { camera ->
+    val before = camera.position.target.longitude
+    onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+    waitUntil(timeoutMillis = TIMEOUT) { camera.isCameraMoving }
+
+    mainClock.autoAdvance = false
+    try {
+      onRoot().performMouseInput { moveTo(center) }
+      mainClock.advanceTimeByFrame()
+      waitForIdle()
+      assertTrue(camera.isCameraMoving, "a hover cancelled the keyboard pan")
+
+      mainClock.advanceTimeBy(GestureOptions.Standard.animationDuration.inWholeMilliseconds)
+      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    } finally {
+      mainClock.autoAdvance = true
+    }
+    assertTrue(camera.position.target.longitude != before, "the pan did not finish after the hover")
+  }
+
+  @Test
   fun plus_and_minus_zoom_the_map() = runInputTest { camera ->
     onRoot().performKeyInput { pressKey(Key.Equals) }
     // A zoom transition only advances while frames render.
@@ -321,6 +342,32 @@ class MlnFfiMapInputTest {
   }
 
   @Test
+  fun a_long_click_on_a_paired_second_tap_does_not_report_the_first_tap() =
+    runInputTest(
+      gestures = GestureOptions(isQuickZoomEnabled = false),
+      focusWithMouse = false,
+    ) {
+      val map = onRoot()
+      map.performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        down(center)
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitUntil(timeoutMillis = TIMEOUT) { longClicks.size == 1 }
+      map.performTouchInput { up() }
+      waitForIdle()
+      assertEquals(0, clicks.size, "a paired long click reported the first tap as a map click")
+
+      map.performTouchInput { click(center) }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(1, clicks.size, "the next tap inherited a stale claimed first tap")
+      assertEquals(1, longClicks.size)
+    }
+
+  @Test
   fun one_finger_pans_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
       val before = camera.position.target.longitude
@@ -467,10 +514,91 @@ class MlnFfiMapInputTest {
     }
 
   @Test
+  fun a_second_down_inside_the_timeout_still_zooms_after_a_slow_up() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        down(center)
+        advanceEventTime(400)
+        up()
+      }
+      awaitZoom(camera, START_ZOOM + 1.0)
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(0, clicks.size, "a held second tap leaked the first tap as a map click")
+    }
+
+  @Test
+  fun a_bounce_faster_than_the_min_time_is_not_a_double_tap() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_bounce_does_not_reseed_the_double_tap_window() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+        // Outside the original 300 ms window, but inside 300 ms of the bounce.
+        advanceEventTime(300)
+        down(center)
+        up()
+      }
+      mainClock.advanceTimeBy(1_000)
+      waitForIdle()
+      assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_bounce_still_allows_a_later_tap_inside_the_original_window() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+        advanceEventTime(70)
+        down(center)
+        up()
+      }
+      awaitZoom(camera, START_ZOOM + 1.0)
+    }
+
+  @Test
+  fun a_touch_double_tap_may_land_inside_android_double_tap_slop() =
+    runInputTest(focusWithMouse = false) { camera ->
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        down(center + Offset(50f, 0f))
+        up()
+      }
+      awaitZoom(camera, START_ZOOM + 1.0)
+    }
+
+  @Test
   fun double_tap_drag_quick_zooms_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
         up(0)
@@ -483,6 +611,7 @@ class MlnFfiMapInputTest {
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
         up(0)
@@ -526,10 +655,28 @@ class MlnFfiMapInputTest {
     }
 
   @Test
-  fun quick_zoom_upward_zooms_out_like_classic_android() =
+  fun a_second_tap_inside_the_bounce_window_still_clicks_when_no_gesture_awaits_it() =
+    runInputTest(
+      gestures = GestureOptions(isDoubleClickZoomEnabled = false, isQuickZoomEnabled = false),
+      focusWithMouse = false,
+    ) {
+      onRoot().performTouchInput {
+        down(center)
+        up()
+        advanceEventTime(10)
+        down(center)
+        up()
+      }
+      waitForIdle()
+      assertEquals(2, clicks.size, "a bounce filter discarded a tap no gesture would pair")
+    }
+
+  @Test
+  fun quick_zoom_upward_zooms_out() =
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center - Offset(0f, 100f), delayMillis = 100)
         up(0)
@@ -543,6 +690,7 @@ class MlnFfiMapInputTest {
       val before = camera.position
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(100f, 0f), delayMillis = 50)
         moveTo(0, center + Offset(100f, 100f), delayMillis = 50)
@@ -574,6 +722,7 @@ class MlnFfiMapInputTest {
       val before = camera.position
       onRoot().performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(80f, 0f), delayMillis = 100)
         up(0)
@@ -583,6 +732,7 @@ class MlnFfiMapInputTest {
         camera.position.target.longitude != before.target.longitude
       }
       assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
+      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
     }
 
   @Test
@@ -608,6 +758,7 @@ class MlnFfiMapInputTest {
 
       map.performTouchInput {
         click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
         down(0, center)
         moveTo(0, center + Offset(0f, displacement), delayMillis = 100)
         up(0)
@@ -621,6 +772,43 @@ class MlnFfiMapInputTest {
       assertEquals(before.target.longitude, camera.position.target.longitude, 1e-5, "longitude")
       assertEquals(before.target.latitude, camera.position.target.latitude, 1e-5, "latitude")
     }
+  }
+
+  @Test
+  fun pitched_fling_up_and_down_travel_similar_ground_distance() =
+    runInputTest(focusWithMouse = false) { camera ->
+      val start = CameraPosition(target = Position(0.0, 0.0), zoom = 8.0, tilt = 60.0)
+      camera.position = start
+      waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.tilt - 60.0) < 0.5 }
+
+      val down = verticalFlingLatitudeDelta(camera, swipeY = 200f)
+      camera.position = start
+      waitUntil(timeoutMillis = TIMEOUT) {
+        abs(camera.position.target.latitude) < 1e-4 && abs(camera.position.tilt - 60.0) < 0.5
+      }
+      val up = -verticalFlingLatitudeDelta(camera, swipeY = -200f)
+
+      assertTrue(down > 0.0, "a downward flick should move the camera north, got $down")
+      assertTrue(up > 0.0, "an upward flick should move the camera south, got $up")
+      val ratio = maxOf(down, up) / minOf(down, up)
+      assertTrue(
+        ratio < 1.2,
+        "pitched flings should travel similar ground distance; down=$down up=$up ratio=$ratio",
+      )
+    }
+
+  /**
+   * Swipes vertically and returns the signed latitude change after the fling settles. Downward
+   * swipes are positive Y and move the camera north.
+   */
+  private fun androidx.compose.ui.test.ComposeUiTest.verticalFlingLatitudeDelta(
+    camera: CameraState,
+    swipeY: Float,
+  ): Double {
+    val before = camera.position.target.latitude
+    onRoot().performTouchInput { swipe(center, center + Offset(0f, swipeY), durationMillis = 100) }
+    waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
+    return camera.position.target.latitude - before
   }
 
   @Test
@@ -658,6 +846,28 @@ class MlnFfiMapInputTest {
         abs(camera.position.zoom - expectedZoom) < ZOOM_TOLERANCE
       }
       assertEquals(expectedZoom, camera.position.zoom, ZOOM_TOLERANCE)
+    }
+
+  @Test
+  fun a_hover_does_not_cancel_a_touch_fling() =
+    runInputTest(focusWithMouse = false) { camera ->
+      val map = onRoot()
+      mainClock.autoAdvance = false
+      try {
+        map.performTouchInput {
+          swipe(center - Offset(100f, 0f), center + Offset(100f, 0f), durationMillis = 100)
+        }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "the released touch gesture did not start momentum")
+
+        map.performMouseInput { moveTo(center) }
+        mainClock.advanceTimeByFrame()
+        waitForIdle()
+        assertTrue(camera.isCameraMoving, "a hover cancelled the fling")
+      } finally {
+        mainClock.autoAdvance = true
+      }
     }
 
   @Test
@@ -790,6 +1000,9 @@ class MlnFfiMapInputTest {
 
     /** The test clock advances a whole frame at a time, and never on its own under `waitUntil`. */
     const val FRAME_MILLIS = 16L
+
+    /** Past Compose's 40 ms bounce filter and inside the 300 ms double-tap window. */
+    const val SECOND_TAP_GAP_MILLIS = 80L
 
     val SCROLL_HOLD_MILLIS = GestureOptions.Standard.scrollZoomHold.inWholeMilliseconds
 

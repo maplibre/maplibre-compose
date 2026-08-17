@@ -9,7 +9,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import org.maplibre.spatialk.geojson.Position
 
-internal object CameraStateSaver : Saver<CameraState, Map<String, Double>> {
+/** Saves and restores a [CameraState] with `rememberSaveable`. */
+public object CameraStateSaver : Saver<CameraState, Map<String, Double>> {
   override fun SaverScope.save(value: CameraState): Map<String, Double> {
     val position = value.position
     return mapOf(

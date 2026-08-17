@@ -28,8 +28,8 @@ style, but you can also declare new sources:
 <Code code={inside("MaplibreMap {", region(layers, "amtrak-1"))} lang="kotlin" />
 
 For small, frequently updated in-memory GeoJSON sources, you can opt into
-synchronous updates. This currently has an effect on Android and Desktop; other
-platforms ignore the option for now:
+synchronous updates. Android, iOS, and desktop apply the option; the browser
+parses GeoJSON on a worker and ignores it.
 
 <Code code={inside("MaplibreMap {", region(layers, "synchronous-geojson-updates"))} lang="kotlin" />
 
@@ -71,5 +71,3 @@ the bottom of the map. The first listener to consume the event will prevent it
 from propagating to subsequent listeners.
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/
-
-[spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/

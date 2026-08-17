@@ -85,6 +85,7 @@ import platform.darwin.sel_registerName
 
 internal class IosMapAdapter(
   private var mapView: MLNMapView,
+  initialBaseStyle: BaseStyle,
   internal var size: CValue<CGSize>,
   internal var layoutDir: LayoutDirection,
   internal var density: Density,
@@ -150,19 +151,23 @@ internal class IosMapAdapter(
     override fun mapViewDidFailLoadingMap(mapView: MLNMapView, withError: NSError) {
       map.logger?.e { "Map failed to load: $withError" }
       map.callbacks.onMapFailLoading(withError.localizedFailureReason)
+      map.onStyleLoadSettled()
     }
 
     override fun mapViewDidFinishLoadingMap(mapView: MLNMapView) {
       map.logger?.i { "Map finished loading" }
+      map.reconcileMissedStyleLoad(mapView)
       map.callbacks.onMapFinishedLoading(map)
     }
 
     override fun mapView(mapView: MLNMapView, didFinishLoadingStyle: MLNStyle) {
       map.logger?.i { "Style finished loading" }
+      map.hasReceivedStyleCallback = true
       map.callbacks.onStyleChanged(
         map = map,
         style = IosStyle(style = didFinishLoadingStyle, getScale = { map.density.density }),
       )
+      map.onStyleLoadSettled()
     }
 
     override fun mapView(mapView: MLNMapView, sourceDidChange: MLNSource) {
@@ -220,17 +225,65 @@ internal class IosMapAdapter(
     }
   }
 
-  private var lastBaseStyle: BaseStyle? = null
+  /** The style last requested via [setBaseStyle], already applied or in the process of being so. */
+  private var lastBaseStyle: BaseStyle? = initialBaseStyle
+
+  /**
+   * The style whose native load is currently in flight, if any. Seeded with [initialBaseStyle]
+   * since `MLNMapView`'s constructor already started loading it before this adapter's `init` block
+   * assigns [mapView]'s delegate.
+   */
+  private var pendingBaseStyle: BaseStyle? = initialBaseStyle
+
+  /**
+   * The next style to load once [pendingBaseStyle]'s native load settles, if one was requested in
+   * the meantime.
+   */
+  private var queuedBaseStyle: BaseStyle? = null
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == lastBaseStyle) return
     lastBaseStyle = style
+    if (pendingBaseStyle != null) {
+      queuedBaseStyle = style.takeIf { it != pendingBaseStyle }
+      return
+    }
+    beginStyleLoad(style)
+  }
+
+  private fun beginStyleLoad(style: BaseStyle) {
+    pendingBaseStyle = style
     logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
     when (style) {
       is BaseStyle.Uri -> mapView.setStyleURL(NSURL(string = style.uri))
       is BaseStyle.Json -> mapView.setStyleJSON(style.json)
     }
+  }
+
+  private fun onStyleLoadSettled() {
+    pendingBaseStyle = null
+    val next = queuedBaseStyle ?: return
+    queuedBaseStyle = null
+    beginStyleLoad(next)
+  }
+
+  private var hasReceivedStyleCallback = false
+
+  /**
+   * One-shot fallback for a missed `didFinishLoadingStyle` callback on the initial style load:
+   * `MLNMapView`'s constructor starts loading [initialBaseStyle] before this adapter's `init` block
+   * assigns [mapView]'s delegate, so the delegate can miss that first load's completion callback
+   * entirely. Scoped to the initial load only (guarded by [hasReceivedStyleCallback]), so it can't
+   * reprocess a later style swap that's still genuinely in flight.
+   */
+  private fun reconcileMissedStyleLoad(mapView: MLNMapView) {
+    if (hasReceivedStyleCallback) return
+    hasReceivedStyleCallback = true
+    if (pendingBaseStyle == null) return
+    val loadedStyle = mapView.style ?: return
+    callbacks.onStyleChanged(this, IosStyle(style = loadedStyle, getScale = { density.density }))
+    onStyleLoadSettled()
   }
 
   internal class Gesture<T : UIGestureRecognizer>(

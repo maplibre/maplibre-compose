@@ -26,8 +26,8 @@ kotlinx-io = "0.9.1"
 ktor = "3.5.2"
 lifecycleRuntimeCompose = "2.10.0"
 lwjgl = "3.4.2"
-maplibre-ios = "6.25.1"
-maplibre-js = "5.12.0"
+maplibre-ios = "6.28.0"
+maplibre-js = "6.2.0"
 maplibre-nativeFfi = "0.1.0-SNAPSHOT"
 playServices-location = "21.4.0"
 spatialk = "0.7.0"
@@ -35,7 +35,7 @@ spatialk = "0.7.0"
 # Regular tools: keep as up to date as possible
 gradle-dokka = "2.2.0"
 gradle-mavenPublish = "0.37.0"
-gradle-spmForKmp = "1.9.4"
+gradle-spmForKmp = "1.9.5"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used

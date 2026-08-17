@@ -9,12 +9,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.ExperimentalTestApi
 import co.touchlab.kermit.Logger
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraState
@@ -27,9 +32,12 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
+import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.nativeffi.resource.ResourceResponse
+import org.maplibre.nativeffi.resource.ResourceResponseStatus
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -168,6 +176,104 @@ class MlnFfiStyleSwitchTest {
     }
   }
 
+  @Test
+  fun switching_styles_while_a_previous_style_is_loading_keeps_old_content_safe() =
+    runFfiComposeUiTest {
+      val resources = BlockingStyleResources()
+      val options =
+        MlnFfiRuntimeOptions(
+          cacheFile = cacheFile,
+          maximumCacheSizeBytes = null,
+          resourceProviderFactory = { getLogger ->
+            MlnFfiResourceProvider(
+              getLogger = getLogger,
+              read = resources::read,
+              passThroughNetwork = false,
+              onResponseCompletionFinished = resources::onResponseCompletionFinished,
+            )
+          },
+        )
+      val errors = mutableListOf<String>()
+      var loadsFinished = 0
+      var style by mutableStateOf<BaseStyle>(INITIAL_STYLE)
+      var showExtraLayer by mutableStateOf(false)
+      lateinit var cameraState: CameraState
+
+      setFfiTestMapContent(options) {
+        cameraState = rememberCameraState()
+        MaplibreMap(
+          modifier = Modifier,
+          baseStyle = style,
+          cameraState = cameraState,
+          logger = Logger.withTag("in-flight-style-switch-test"),
+          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+          onMapLoadFinished = { loadsFinished++ },
+        ) {
+          val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+          val anchor =
+            when (style) {
+              INITIAL_STYLE -> "base-initial"
+              BaseStyle.Uri(B_STYLE_URL) -> "base-b"
+              else -> "base-c"
+            }
+          Anchor.Below(anchor) {
+            FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
+            if (showExtraLayer) {
+              FillLayer(id = "user-extra", source = points, color = const(Color.Green))
+            }
+          }
+        }
+      }
+
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
+      val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+      val initialLoads = loadsFinished
+
+      style = BaseStyle.Uri(B_STYLE_URL)
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        resources.styleBStarted.count == 0L
+      }
+
+      // Change content while style B is still pending. The old style binding must already be
+      // unloaded, so these writes cannot reach the replaced native style.
+      showExtraLayer = true
+      style = BaseStyle.Uri(C_STYLE_URL)
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        resources.styleCCompletionFinished.count == 0L
+      }
+      assertNull(resources.styleCCompletionError.get(), "style C's native completion failed")
+      resources.releaseStyleB.countDown()
+
+      fun relevantLayers(): List<String> =
+        session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        resources.styleBCompletionFinished.count == 0L
+      }
+      assertNotNull(
+        resources.styleBCompletionError.get(),
+        "style B's stale response should be rejected",
+      )
+      val postBEventsDrained = CountDownLatch(1)
+      assertTrue(
+        session.postEventDrainBarrierForTest(postBEventsDrained::countDown),
+        "the post-B event-drain barrier was rejected",
+      )
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        postBEventsDrained.count == 0L
+      }
+      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
+        loadsFinished > initialLoads &&
+          relevantLayers() == listOf("user-fill", "user-extra", "base-c")
+      }
+
+      assertTrue(errors.isEmpty(), "Switching the style reported errors: $errors")
+      assertEquals(
+        listOf("user-fill", "user-extra", "base-c"),
+        relevantLayers(),
+        "the latest style must own the composed content",
+      )
+    }
+
   private fun androidx.compose.ui.test.ComposeUiTest.assertStyleLayers(
     session: MlnFfiMapSession,
     style: DemoStyle,
@@ -199,14 +305,81 @@ class MlnFfiStyleSwitchTest {
       addFeature(geometry = Point(Position(longitude = longitude, latitude = 0.0)))
     }
 
+  private class BlockingStyleResources {
+    val styleBStarted = CountDownLatch(1)
+    val styleBCompletionFinished = CountDownLatch(1)
+    val styleCCompletionFinished = CountDownLatch(1)
+    val releaseStyleB = CountDownLatch(1)
+    val styleBCompletionError = AtomicReference<Throwable?>()
+    val styleCCompletionError = AtomicReference<Throwable?>()
+
+    fun onResponseCompletionFinished(url: String, error: Throwable?) {
+      when (url) {
+        B_STYLE_URL -> {
+          styleBCompletionError.set(error)
+          styleBCompletionFinished.countDown()
+        }
+        C_STYLE_URL -> {
+          styleCCompletionError.set(error)
+          styleCCompletionFinished.countDown()
+        }
+      }
+    }
+
+    fun read(url: String, requestedUrl: String): ResourceResponse {
+      val body =
+        when (url) {
+          B_STYLE_URL -> {
+            styleBStarted.countDown()
+            check(releaseStyleB.await(WAIT_SECONDS, TimeUnit.SECONDS)) {
+              "style B was not released"
+            }
+            STYLE_B_JSON
+          }
+          C_STYLE_URL -> {
+            STYLE_C_JSON
+          }
+          else -> error("Unexpected resource request for $url (requested as $requestedUrl)")
+        }
+      return ResourceResponse(ResourceResponseStatus.OK).also {
+        it.bytes = body.encodeToByteArray()
+        it.mustRevalidate = false
+      }
+    }
+  }
+
   private companion object {
     const val SETTLE_TIMEOUT_MILLIS = 30_000L
+    const val WAIT_SECONDS = 10L
+    const val B_STYLE_URL = "https://style-b.test/style.json"
+    const val C_STYLE_URL = "https://style-c.test/style.json"
+
+    const val STYLE_B_JSON =
+      """{"version":8,"sources":{},"layers":[{"id":"base-b","type":"background"}]}"""
+    const val STYLE_C_JSON =
+      """{"version":8,"sources":{},"layers":[{"id":"base-c","type":"background"}]}"""
+
+    val INITIAL_STYLE =
+      BaseStyle.Json(
+        """{"version":8,"sources":{},"layers":[{"id":"base-initial","type":"background"}]}"""
+      )
 
     /** Enough rounds that a fault which needs a second or third switch still shows up. */
     const val ROTATIONS = 6
 
     val RELEVANT_LAYER_IDS =
-      setOf("bg-a", "labels-a", "bg-b", "labels-b", "user-fill", "user-extra", "user-circles")
+      setOf(
+        "base-initial",
+        "base-b",
+        "base-c",
+        "bg-a",
+        "labels-a",
+        "bg-b",
+        "labels-b",
+        "user-fill",
+        "user-extra",
+        "user-circles",
+      )
 
     val REPLACEMENT_LAYER_IDS = setOf("bg-a", "bg-b", "base-slot", "user-replacement")
 

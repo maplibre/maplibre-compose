@@ -18,6 +18,9 @@ import org.maplibre.nativeffi.resource.ResourceResponseStatus
  */
 private val NETWORK_SCHEMES = setOf("http", "https")
 
+internal typealias MlnFfiResourceProviderFactory =
+  (getLogger: () -> Logger?) -> MlnFfiResourceProvider
+
 /**
  * Resolves the `jar:file:` and `file:` resource URIs Compose hands out for packaged resources,
  * which MapLibre Native cannot fetch itself; everything else passes through so HTTP keeps
@@ -33,6 +36,10 @@ internal class MlnFfiResourceProvider(
   private val read: (url: String, requestedUrl: String) -> ResourceResponse = { url, requestedUrl ->
     readResource(url, requestedUrl, getLogger())
   },
+  /** Keeps the native network source in production while tests claim controlled HTTPS fixtures. */
+  private val passThroughNetwork: Boolean = true,
+  /** Test seam: observes when a native completion call finishes and whether it failed. */
+  private val onResponseCompletionFinished: ((url: String, error: Throwable?) -> Unit)? = null,
 ) : ResourceProviderCallback, AutoCloseable {
 
   private val logger: Logger?
@@ -45,7 +52,9 @@ internal class MlnFfiResourceProvider(
     handle: ResourceRequestHandle,
   ): ResourceProviderDecision {
     val url = request.resolvedUrl
-    if (isMapLibresToFetch(url)) return ResourceProviderDecision.PASS_THROUGH
+    if (passThroughNetwork && isMapLibresToFetch(url)) {
+      return ResourceProviderDecision.PASS_THROUGH
+    }
 
     // Taking the request means owning the handle's completion and close; handles carry no thread
     // affinity, so the answer need not happen before this returns.
@@ -70,7 +79,16 @@ internal class MlnFfiResourceProvider(
       request.use { open ->
         // Rechecked here because a request queued behind a slow read may have been abandoned since.
         if (open.isCancelled()) return
-        open.complete(read(url, requestedUrl))
+        val response = read(url, requestedUrl)
+        var completionError: Throwable? = null
+        try {
+          open.complete(response)
+        } catch (error: Throwable) {
+          completionError = error
+          throw error
+        } finally {
+          onResponseCompletionFinished?.invoke(url, completionError)
+        }
       }
     } catch (error: Throwable) {
       rethrowIfFatal(error)

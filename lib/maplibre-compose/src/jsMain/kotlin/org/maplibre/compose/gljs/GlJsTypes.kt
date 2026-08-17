@@ -120,6 +120,14 @@ internal external interface QuerySourceFeatureOptions {
   var filter: FilterSpecification?
 }
 
+/** Identifies a feature for [org.maplibre.compose.gljs.MaplibreMap.setFeatureState]. */
+internal external interface FeatureIdentifier {
+  var source: String
+  var sourceLayer: String?
+  /** A GeoJSON string id, or a number when the GeoJSON `id` was unquoted. */
+  var id: Any?
+}
+
 internal external interface GeoJsonFeature {
   val type: String
   val geometry: Any
@@ -187,6 +195,15 @@ internal external interface JsRecord<out T>
 internal fun styleUrl(url: String): StyleSource = url.unsafeCast<StyleSource>()
 
 internal fun styleJson(json: String): StyleSource = JSON.parse(json)
+
+/** v6 composes a Camera instead of extending it. `isEasing` lives on that Camera, not on Map. */
+internal fun MaplibreMap.isCameraEasing(): Boolean {
+  val camera = asDynamic()._camera
+  check(jsTypeOf(camera.isEasing) == "function") {
+    "MapLibre's Camera no longer has an isEasing method"
+  }
+  return camera.isEasing() as Boolean
+}
 
 /** MapLibre tells a box from a point by shape, a box being a two-element array. */
 internal fun queryBox(first: Point, second: Point): QueryGeometry =
