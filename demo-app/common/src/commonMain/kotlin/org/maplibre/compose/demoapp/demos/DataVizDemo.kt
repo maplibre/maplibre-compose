@@ -6,10 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
-import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
@@ -25,12 +25,22 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 object DataVizDemo : Demo {
   override val name = "Data visualization"
   override val description = "A month of earthquakes as points, a heatmap, or clusters."
-  override val region = BoundingBox(west = -170.0, south = -55.0, east = -60.0, north = 65.0)
+  override val region = BoundingBox(west = -180.0, south = -60.0, east = 180.0, north = 70.0)
   override val preferredStyle = OpenFreeMap.Positron
+  override val showsPointerPin = false
+
+  // Centered on the Pacific, so the Ring of Fire frames the data.
+  override val camera =
+    CameraPosition(target = Position(longitude = -160.0, latitude = 10.0), zoom = 1.6)
+
+  /** USGS serves this feed with open CORS headers, so every platform can fetch it directly. */
+  private const val FEED_URI =
+    "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_month.geojson"
 
   private enum class Mode {
     Points,
@@ -53,7 +63,7 @@ object DataVizDemo : Demo {
 
   @Composable
   private fun Points() {
-    val source = rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/earthquakes.geojson")))
+    val source = rememberGeoJsonSource(GeoJsonData.Uri(FEED_URI))
     CircleLayer(
       id = "earthquake-points",
       source = source,
@@ -75,7 +85,7 @@ object DataVizDemo : Demo {
 
   @Composable
   private fun Heatmap() {
-    val source = rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/earthquakes.geojson")))
+    val source = rememberGeoJsonSource(GeoJsonData.Uri(FEED_URI))
     HeatmapLayer(
       id = "earthquake-heatmap",
       source = source,
@@ -88,7 +98,7 @@ object DataVizDemo : Demo {
   private fun Clusters() {
     val source =
       rememberGeoJsonSource(
-        GeoJsonData.Uri(Res.getUri("files/earthquakes.geojson")),
+        GeoJsonData.Uri(FEED_URI),
         GeoJsonOptions(cluster = true, clusterRadius = 40, clusterMaxZoom = 10),
       )
     val pointCount = feature["point_count"].asNumber()

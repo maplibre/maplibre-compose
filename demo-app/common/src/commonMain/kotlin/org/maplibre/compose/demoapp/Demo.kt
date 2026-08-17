@@ -30,6 +30,10 @@ interface Demo {
   val camera: CameraPosition?
     get() = null
 
+  /** Whether the pointer pin points back to [region]. A worldwide demo turns it off. */
+  val showsPointerPin: Boolean
+    get() = true
+
   @MaplibreComposable @Composable fun MapContent() {}
 
   /** Controls shown in the sheet or side panel while this demo is selected. */
