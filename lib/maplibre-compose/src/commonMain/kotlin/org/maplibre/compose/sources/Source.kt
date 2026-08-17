@@ -1,7 +1,7 @@
 package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import org.maplibre.compose.style.LocalStyleNode
 
@@ -32,9 +32,9 @@ public fun getBaseSource(id: String): Source? {
 internal fun <T : Source> rememberUserSource(factory: (String) -> T, update: T.() -> Unit): T {
   val node = LocalStyleNode.current
   val source = remember(node) { factory(node.sourceManager.nextId()) }
-  LaunchedEffect(source, update, node.style.isUnloaded) {
-    if (!node.style.isUnloaded) source.update()
-  }
+  // SideEffect, not LaunchedEffect: applies synchronously with composition, matching the
+  // ordering LayerNode's ComposeNode update block gets — see SafeStyle's kdoc.
+  SideEffect { if (!node.style.isUnloaded) source.update() }
   return source
 }
 
