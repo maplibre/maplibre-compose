@@ -32,22 +32,6 @@ public actual data class RenderOptions(
       )
   }
 
-  /** Binary-compatible shim for callers compiled against the five-parameter constructor. */
-  public constructor(
-    isTileBordersEnabled: Boolean,
-    isTileTimestampsEnabled: Boolean,
-    isCollisionBoxesEnabled: Boolean,
-    isTileParseStatusEnabled: Boolean,
-    maximumFps: Int?,
-  ) : this(
-    isTileBordersEnabled = isTileBordersEnabled,
-    isTileTimestampsEnabled = isTileTimestampsEnabled,
-    isCollisionBoxesEnabled = isCollisionBoxesEnabled,
-    isTileParseStatusEnabled = isTileParseStatusEnabled,
-    maximumFps = maximumFps,
-    preferredRenderMode = RenderMode.Surface,
-  )
-
   /**
    * A hint for how the host presents the map. A platform may ignore a value it does not support.
    *
