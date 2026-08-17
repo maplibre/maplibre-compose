@@ -91,16 +91,23 @@ kotlin {
 
     // used to share the integration with the MapLibre Native FFI binding, as opposed to the
     // MapLibre Android and iOS SDKs. Desktop is its only target today.
-    create("mlnFfiShared") {
-      dependsOn(maplibreNativeMain)
-      dependsOn(nextCommonMain)
-      jvmMain.dependsOn(this)
-      dependencies {
-        // Backend-independent binding only; the application selects the native runtime.
-        implementation(libs.maplibre.nativeFfi)
-        // Multiplatform filesystem paths, so this source set stays free of java.io.File.
-        implementation(libs.kotlinx.io.core)
+    val mlnFfiShared =
+      create("mlnFfiShared") {
+        dependsOn(maplibreNativeMain)
+        dependsOn(nextCommonMain)
+        dependencies {
+          // Backend-independent binding only; the application selects the native runtime.
+          implementation(libs.maplibre.nativeFfi)
+          // Multiplatform filesystem paths, so this source set stays free of java.io.File.
+          implementation(libs.kotlinx.io.core)
+        }
       }
+
+    // Java implementations that Android will share with desktop, including mln-ffi actuals that
+    // Native will provide separately.
+    create("androidJvmShared") {
+      dependsOn(mlnFfiShared)
+      jvmMain.dependsOn(this)
     }
 
     iosMain {}
@@ -149,9 +156,14 @@ kotlin {
     // Behavioral contracts for the shared MapLibre Native FFI integration. Every platform that
     // consumes mlnFfiShared must execute this source set; the platform test source supplies only
     // runtime, render-host, storage, and Compose-runner adapters.
-    create("mlnFfiSharedTest") {
-      dependsOn(commonTest.get())
-      dependsOn(nextCommonTest)
+    val mlnFfiSharedTest =
+      create("mlnFfiSharedTest") {
+        dependsOn(commonTest.get())
+        dependsOn(nextCommonTest)
+      }
+
+    create("androidJvmSharedTest") {
+      dependsOn(mlnFfiSharedTest)
       getByName("jvmTest").dependsOn(this)
     }
 
