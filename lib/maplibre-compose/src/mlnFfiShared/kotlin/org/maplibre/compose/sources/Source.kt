@@ -82,11 +82,12 @@ public actual sealed class Source(internal actual val id: String) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
-    binding.mutateMap { map ->
-      map.removeStyleSource(id)
-      binding.notifySourceChanged(id)
-    }
+    val sessionBinding = binding
     binding = MlnFfiStyleBinding.UNLOADED
+    sessionBinding.mutateMap { map ->
+      map.removeStyleSource(id)
+      sessionBinding.notifySourceChanged(id)
+    }
   }
 
   /**

@@ -217,7 +217,6 @@ internal class MlnFfiMapSession(
       if (!isLoaded) return false
       return postWhenMapExists(
         action = { map ->
-          if (!isLoaded) return@postWhenMapExists
           action(map)
           map.requestRepaint()
         },
