@@ -28,8 +28,8 @@ style, but you can also declare new sources:
 <Code code={inside("MaplibreMap {", region(layers, "amtrak-1"))} lang="kotlin" />
 
 For small, frequently updated in-memory GeoJSON sources, you can opt into
-synchronous updates. Android, iOS, and desktop apply the option; the browser
-parses GeoJSON on a worker and ignores it.
+synchronous updates. That reduces update latency and can reduce frame rate.
+Android, iOS, and desktop apply the option. The browser ignores it.
 
 <Code code={inside("MaplibreMap {", region(layers, "synchronous-geojson-updates"))} lang="kotlin" />
 

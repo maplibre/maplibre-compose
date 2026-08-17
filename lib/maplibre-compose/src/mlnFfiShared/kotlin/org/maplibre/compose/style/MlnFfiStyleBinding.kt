@@ -19,7 +19,15 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   fun <T> readMap(action: (MapHandle) -> T): T?
 
   /** Requests a repaint after native accepts the mutation. */
-  fun <T> mutateMap(action: (MapHandle) -> T): T?
+  fun <T> mutateMap(action: (MapHandle) -> T): T? = mutateMap({}, action)
+
+  /**
+   * Requests a repaint after native accepts the mutation.
+   *
+   * [abandon] runs when [action] will not run. It does not run when the owner-thread wait ends
+   * while the mutation is still pending.
+   */
+  fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T?
 
   /**
    * Null when the style has unloaded or no session is attached yet — a session exists only between
@@ -82,7 +90,10 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
         override fun <T> readMap(action: (MapHandle) -> T): T? = null
 
-        override fun <T> mutateMap(action: (MapHandle) -> T): T? = null
+        override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+          abandon()
+          return null
+        }
 
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
       }

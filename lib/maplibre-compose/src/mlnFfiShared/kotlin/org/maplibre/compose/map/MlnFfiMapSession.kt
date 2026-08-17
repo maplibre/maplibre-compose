@@ -211,9 +211,12 @@ internal class MlnFfiMapSession(
     /**
      * `addSource`, `removeSource` and `removeImage` notify mbgl of nothing, so they render stale.
      */
-    override fun <T> mutateMap(action: (MapHandle) -> T): T? {
-      if (!isLoaded) return null
-      return runOnMap { map -> action(map).also { map.requestRepaint() } }
+    override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+      if (!isLoaded) {
+        abandon()
+        return null
+      }
+      return runOnMap(abandon) { map -> action(map).also { map.requestRepaint() } }
     }
 
     override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
@@ -755,7 +758,16 @@ internal class MlnFfiMapSession(
 
   private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = loop?.call(action) ?: fallback
 
-  private fun <T> runOnMap(action: (MapHandle) -> T): T? = loop?.call(action)
+  private fun <T> runOnMap(action: (MapHandle) -> T): T? = runOnMap({}, action)
+
+  private fun <T> runOnMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+    val current = loop
+    if (current == null) {
+      abandon()
+      return null
+    }
+    return current.call(action, abandon)
+  }
 
   /** The render session lives on the host's renderer thread. */
   private fun <T> withRendererAccess(action: () -> T): T? {
