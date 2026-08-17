@@ -203,7 +203,14 @@ run = '.mise/bin/run-ios-demo'
 
 [tasks."demo:desktop-glfw"]
 description = "Run the demo app on the compose-glfw desktop host instead of the AWT one."
-run = "./gradlew :demo-app:desktop-glfw:run"
+run = '''
+if [ "$(uname -s)" = Darwin ]; then
+  # Core Location reads the usage description from a packaged app Info.plist.
+  ./gradlew :demo-app:desktop-glfw:runDistributable
+else
+  ./gradlew :demo-app:desktop-glfw:run
+fi
+'''
 
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."

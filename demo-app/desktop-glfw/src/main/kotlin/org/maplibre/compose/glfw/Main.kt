@@ -18,8 +18,8 @@ import org.maplibre.compose.desktop.ProvideMapHost
  * The same `DemoApp` the Compose Desktop demo runs, in a GLFW window instead of an AWT one; the
  * only difference is which `ComposeMapHost` is in scope.
  *
- * Run it with `./gradlew :glfw-fixture:runGlfwFixture`. On macOS the launcher must pass
- * `-XstartOnFirstThread`; the Gradle task does.
+ * Run it with `mise run demo:desktop-glfw`. On macOS the launcher must pass `-XstartOnFirstThread`;
+ * the Gradle task does.
  */
 fun main() {
   MapLibre.configure(applicationId = "org.maplibre.compose.glfw-fixture")
