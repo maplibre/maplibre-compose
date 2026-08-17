@@ -70,10 +70,12 @@ import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.NativeErrorException
 import org.maplibre.nativeffi.error.UnsupportedFeatureException
+import org.maplibre.nativeffi.error.WrongThreadException
 import org.maplibre.nativeffi.geo.ScreenBox
 import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
 import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.map.MapProjectionHandle
 import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
@@ -327,6 +329,14 @@ internal class MlnFfiMapSession(
   override fun close() {
     if (closed) return
     closed = true
+    // The projection handle is this session's own allocation, and native binds even its
+    // destruction to the owner thread: retire it there while the loop still accepts work —
+    // inline when close itself runs on the owner thread — and best-effort otherwise rather
+    // than failing an already-failing close.
+    mirroredViewport.projection?.let { handle ->
+      mirroredViewport = mirroredViewport.copy(projection = null)
+      if (runOnMap { handle.close() } == null) runCatching { handle.close() }
+    }
     try {
       stopLoop(endOutstandingMove = true)
     } finally {
@@ -824,6 +834,11 @@ internal class MlnFfiMapSession(
    * One immutable copy of the native camera and viewport, published by the owner thread so UI
    * getters never hop threads and never observe a half-updated viewport. The default answers reads
    * made before the map has an extent.
+   *
+   * @param projection a native projection frozen at this snapshot, so other threads can convert
+   *   coordinates exactly once native projection stops being owner-thread-only. This session's own
+   *   allocation; retired under [projectionLock] when a newer snapshot supersedes it or the session
+   *   closes.
    */
   private data class MirroredViewport(
     val camera: CameraPosition = CameraPosition(),
@@ -832,9 +847,21 @@ internal class MlnFfiMapSession(
     val visibleRegion: VisibleRegion =
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
     val boundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0)),
+    val projection: MapProjectionHandle? = null,
   )
 
   @Volatile private var mirroredViewport = MirroredViewport()
+
+  /** Serializes use and retirement of a published projection handle; see [MirroredViewport]. */
+  private val projectionLock = Any()
+
+  /**
+   * Whether native accepts projection calls off the map's owner thread. Probed once per session:
+   * today's native throws [WrongThreadException] and this latches false, after which every
+   * off-thread conversion takes the blocking round-trip without paying the failed native call. A
+   * native that allows it keeps the published handle as the exact off-thread fast path.
+   */
+  @Volatile private var projectionUsableOffThread = true
 
   /** Owner thread only. Copies native camera and viewport so UI getters never hop. */
   private fun snapshotViewport(map: MapHandle) {
@@ -857,6 +884,10 @@ internal class MlnFfiMapSession(
     // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
     // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
     // GL JS, the box may then extend past ±180.
+    val previous = mirroredViewport
+    // A fresh handle per snapshot: createProjection freezes the transform at creation, so a handle
+    // reused across moves would answer for a camera the map no longer holds.
+    val projection = runCatching { map.createProjection() }.getOrNull()
     mirroredViewport =
       MirroredViewport(
         camera = camera,
@@ -876,7 +907,9 @@ internal class MlnFfiMapSession(
                 latitude = unwrapped.maxOf { it.latitude },
               ),
           ),
+        projection = projection,
       )
+    previous.projection?.let { handle -> synchronized(projectionLock) { handle.close() } }
   }
 
   override fun getCameraPosition(): CameraPosition = mirroredViewport.camera
@@ -1093,20 +1126,62 @@ internal class MlnFfiMapSession(
     // handling rather than pushed into the map.
   }
 
-  // Projection belongs to the map's owner thread: native enforces it even on a standalone
-  // MapProjectionHandle, so a call from any other thread blocks for one round-trip rather than
-  // approximating from the mirrored viewport. When the FFI lifts the thread restriction, a
-  // handle published per viewport snapshot can answer these exactly off-thread.
+  // The owner thread answers from the live map. Any other thread tries the snapshot's frozen
+  // projection — exact, and available off-thread once native stops binding projection to the
+  // owner thread — and otherwise blocks for one round-trip, as main did.
   override fun positionFromScreenLocation(offset: DpOffset): Position {
     val map = loop?.takeIf { it.isOwnerThread() }?.map
     if (map != null) return map.latLngForPixel(offset.toScreenPoint()).toPosition()
+    projectedPositionFromSnapshot(offset)?.let {
+      return it
+    }
     return runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: Position(0.0, 0.0)
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset {
     val map = loop?.takeIf { it.isOwnerThread() }?.map
     if (map != null) return map.pixelForLatLng(position.toLatLng()).toDpOffset()
+    projectedScreenFromSnapshot(position)?.let {
+      return it
+    }
     return runOnMap { it.pixelForLatLng(position.toLatLng()).toDpOffset() } ?: DpOffset.Zero
+  }
+
+  /**
+   * Null when no handle is published, the probe latched off, or the handle was retired mid-call.
+   */
+  private fun projectedPositionFromSnapshot(offset: DpOffset): Position? {
+    if (!projectionUsableOffThread) return null
+    val handle = mirroredViewport.projection ?: return null
+    return synchronized(projectionLock) {
+      if (handle.isClosed) {
+        null
+      } else {
+        try {
+          handle.latLngForPixel(offset.toScreenPoint()).toPosition()
+        } catch (error: WrongThreadException) {
+          projectionUsableOffThread = false
+          null
+        }
+      }
+    }
+  }
+
+  private fun projectedScreenFromSnapshot(position: Position): DpOffset? {
+    if (!projectionUsableOffThread) return null
+    val handle = mirroredViewport.projection ?: return null
+    return synchronized(projectionLock) {
+      if (handle.isClosed) {
+        null
+      } else {
+        try {
+          handle.pixelForLatLng(position.toLatLng()).toDpOffset()
+        } catch (error: WrongThreadException) {
+          projectionUsableOffThread = false
+          null
+        }
+      }
+    }
   }
 
   override suspend fun queryRenderedFeatures(
