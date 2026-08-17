@@ -443,6 +443,7 @@ internal class MlnFfiMapSession(
         retargetCount++
         // The replacement texture holds nothing yet; this request buys the frame that fills it.
         renderRequested.store(true)
+        onMap(::snapshotViewport)
         return true
       }
     }
@@ -1389,17 +1390,15 @@ internal class MlnFfiMapSession(
 
   override fun onPrimaryClick(offset: DpOffset) {
     if (closed) return
-    onMap { map ->
-      callbacks.onClick(this, map.latLngForPixel(offset.toScreenPoint()).toPosition(), offset)
-    }
+    val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
+    callbacks.onClick(this, position, offset)
   }
 
   /** A mouse has no press-and-hold convention, so the secondary button is the long press. */
   override fun onSecondaryClick(offset: DpOffset) {
     if (closed) return
-    onMap { map ->
-      callbacks.onLongClick(this, map.latLngForPixel(offset.toScreenPoint()).toPosition(), offset)
-    }
+    val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
+    callbacks.onLongClick(this, position, offset)
   }
 
   override fun cancelTransitions() {
