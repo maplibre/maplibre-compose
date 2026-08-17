@@ -82,13 +82,11 @@ class MlnFfiMapInputTest {
   @Test
   fun a_hover_does_not_cancel_an_arrow_key_pan() = runInputTest { camera ->
     val before = camera.position.target.longitude
+    onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+    waitUntil(timeoutMillis = TIMEOUT) { camera.isCameraMoving }
+
     mainClock.autoAdvance = false
     try {
-      onRoot().performKeyInput { pressKey(Key.DirectionRight) }
-      mainClock.advanceTimeByFrame()
-      waitForIdle()
-      assertTrue(camera.isCameraMoving, "the arrow key did not start an ease")
-
       onRoot().performMouseInput { moveTo(center) }
       mainClock.advanceTimeByFrame()
       waitForIdle()

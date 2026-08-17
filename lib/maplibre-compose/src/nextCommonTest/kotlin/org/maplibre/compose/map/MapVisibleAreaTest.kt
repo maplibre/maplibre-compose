@@ -25,9 +25,7 @@ class MapVisibleAreaTest {
       it.session.setBaseStyle(BaseStyle.Empty)
       it.awaitMapReady()
       it.session.setCameraPosition(CAMERA)
-      it.pumpUntil("the camera to apply") {
-        abs(it.session.getCameraPosition().zoom - CAMERA.zoom) < 0.01
-      }
+      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
 
       val box = it.session.getVisibleBoundingBox()
       assertContains(box, CAMERA.target, "the camera target")
@@ -43,9 +41,7 @@ class MapVisibleAreaTest {
         it.session.setBaseStyle(BaseStyle.Empty)
         it.awaitMapReady()
         it.session.setCameraPosition(ROTATED_CAMERA)
-        it.pumpUntil("the camera to rotate") {
-          abs(it.session.getCameraPosition().bearing - ROTATED_CAMERA.bearing) < 0.01
-        }
+        it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
         val region = it.session.getVisibleRegion()
         val box = it.session.getVisibleBoundingBox()
@@ -63,9 +59,7 @@ class MapVisibleAreaTest {
         it.session.setBaseStyle(BaseStyle.Empty)
         it.awaitMapReady()
         it.session.setCameraPosition(ROTATED_CAMERA)
-        it.pumpUntil("the camera to rotate") {
-          abs(it.session.getCameraPosition().bearing - ROTATED_CAMERA.bearing) < 0.01
-        }
+        it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
         val region = it.session.getVisibleRegion()
         val corners = region.corners()
@@ -87,9 +81,7 @@ class MapVisibleAreaTest {
       it.session.setBaseStyle(BaseStyle.Empty)
       it.awaitMapReady()
       it.session.setCameraPosition(ANTIMERIDIAN_CAMERA)
-      it.pumpUntil("the camera to apply") {
-        abs(it.session.getCameraPosition().zoom - ANTIMERIDIAN_CAMERA.zoom) < 0.01
-      }
+      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }
 
       val box = it.session.getVisibleBoundingBox()
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
@@ -108,9 +100,7 @@ class MapVisibleAreaTest {
       it.session.setBaseStyle(BaseStyle.Empty)
       it.awaitMapReady()
       it.session.setCameraPosition(ROTATED_CAMERA)
-      it.pumpUntil("the camera to rotate") {
-        abs(it.session.getCameraPosition().bearing - ROTATED_CAMERA.bearing) < 0.01
-      }
+      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
       val projection = CameraProjection(it.session)
       assertNear(it.session.getVisibleBoundingBox(), projection.queryVisibleBoundingBox())
@@ -124,6 +114,19 @@ class MapVisibleAreaTest {
       CameraPosition(target = Position(11.0, 47.0), zoom = 5.0, bearing = 45.0, tilt = 40.0)
 
     const val TOLERANCE = 1e-6
+
+    /**
+     * Camera getters update as soon as the caller sets a position; the bounding box and region
+     * update only after native applies it. Wait for a zoomed-in box so the assertions read that
+     * snapshot.
+     */
+    fun MapAdapter.hasNativeCamera(camera: CameraPosition): Boolean {
+      if (abs(getCameraPosition().zoom - camera.zoom) >= 0.01) return false
+      if (abs(getCameraPosition().bearing - camera.bearing) >= 0.01) return false
+      val box = getVisibleBoundingBox()
+      val latSpan = box.northeast.latitude - box.southwest.latitude
+      return latSpan > 0.01 && latSpan < 40.0
+    }
 
     fun VisibleRegion.corners() = listOf(farLeft, farRight, nearLeft, nearRight)
 

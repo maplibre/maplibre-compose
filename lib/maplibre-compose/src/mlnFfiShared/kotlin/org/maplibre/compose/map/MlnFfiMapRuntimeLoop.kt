@@ -101,6 +101,9 @@ internal class MlnFfiMapRuntimeLoop(
     thread.start()
   }
 
+  /** Whether the calling thread is the one that owns this loop's runtime and map. */
+  fun isOwnerThread(): Boolean = thread.isCurrent()
+
   /**
    * Runs [action] on the owner thread and waits until it has run or been dropped. Returns null when
    * there is no map, or when the loop stopped before the work could run. Runs inline when the
@@ -231,6 +234,8 @@ internal class MlnFfiMapRuntimeLoop(
       if (stopRequested) break
       check(!acceptLock.isHeldByOwnerThread) { "the pump must not run under acceptLock" }
       // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
+      // TODO: pass a time budget to runtime.pump once the C API accepts one, so a long tile-load
+      // mailbox cannot delay queued gesture work.
       runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS)
       drainEvents(runtime, map)
     }
