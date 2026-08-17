@@ -26,22 +26,24 @@ import org.maplibre.spatialk.geojson.Position
 object CastelloPlanDemo : Demo {
   override val name = "Castello Plan"
   override val description = "The 1660 map of New Amsterdam draped over lower Manhattan."
-  override val region = BoundingBox(west = -74.019, south = 40.699, east = -74.004, north = 40.710)
+  override val region = BoundingBox(west = -74.018, south = 40.7005, east = -74.006, north = 40.710)
   override val preferredStyle = OpenFreeMap.Liberty
 
   override val camera =
-    CameraPosition(target = Position(longitude = -74.0115, latitude = 40.7045), zoom = 15.2)
+    CameraPosition(target = Position(longitude = -74.0119, latitude = 40.7053), zoom = 15.5)
 
   private var opacity by mutableFloatStateOf(0.7f)
 
-  // The plan is drawn with north to the right, so the image's left edge is the Battery and its
-  // right edge is the wall at Wall Street. The corners are hand-tuned for rough landmark alignment.
+  // North is to the image's upper right: the Hudson runs along the top edge, the wall at Wall
+  // Street down the right edge, and the East River shore along the bottom. The corners come from a
+  // similarity fit over four landmarks (the fort, both wall gates, and the canal mouth), so the
+  // 1660 shoreline lands inland of today's landfill coast.
   private val corners =
     PositionQuad(
-      topLeft = Position(longitude = -74.0173, latitude = 40.7010),
-      topRight = Position(longitude = -74.0143, latitude = 40.7088),
-      bottomRight = Position(longitude = -74.0063, latitude = 40.7063),
-      bottomLeft = Position(longitude = -74.0093, latitude = 40.6985),
+      topLeft = Position(longitude = -74.0178, latitude = 40.7040),
+      topRight = Position(longitude = -74.0118, latitude = 40.7100),
+      bottomRight = Position(longitude = -74.0060, latitude = 40.7067),
+      bottomLeft = Position(longitude = -74.0120, latitude = 40.7006),
     )
 
   @Composable
