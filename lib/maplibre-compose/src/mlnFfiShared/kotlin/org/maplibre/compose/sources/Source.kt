@@ -37,6 +37,9 @@ public actual sealed class Source(internal actual val id: String) {
     val exists = binding.readMap { it.styleSourceExists(id) } == true
     if (this.binding === binding && exists) return
     check(!exists) { "Source ID '$id' is already owned by a different live source descriptor" }
+    // Expensive preparation runs on the caller, not the map's owner thread. A posted mutation
+    // always runs once accepted, so the prepared work is consumed by addTo or closed here.
+    prepareForAttach()
     val posted = binding.mutateMap { map ->
       try {
         addTo(map)
@@ -53,12 +56,19 @@ public actual sealed class Source(internal actual val id: String) {
       }
       binding.notifySourceChanged(id)
     }
+    if (!posted) abandonPrepareForAttach()
     check(posted) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
     }
     this.binding = binding
   }
+
+  /** Runs before the add is queued, on the caller thread; overridden by sources that pre-parse. */
+  internal open fun prepareForAttach() {}
+
+  /** Releases work held by [prepareForAttach] when the add was not queued. */
+  internal open fun abandonPrepareForAttach() {}
 
   /**
    * Creates this source on [map], on the map's owner thread. MapLibre Native accepts only `vector`,

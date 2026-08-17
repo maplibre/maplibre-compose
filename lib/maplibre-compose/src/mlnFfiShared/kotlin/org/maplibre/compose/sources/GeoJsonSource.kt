@@ -42,12 +42,33 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
+  /**
+   * Parsed and indexed on the caller thread before the add is queued, so the map's owner thread
+   * installs a ready handle instead of parsing there. Nulled by [addTo]; closed by
+   * [abandonPrepareForAttach] when the add is not queued.
+   */
+  private var pendingData: GeoJsonSourceDataHandle? = null
+
+  override fun prepareForAttach() {
+    if (dataUrl != null) return
+    if (pendingData != null) return
+    pendingData = prepareData()
+  }
+
+  override fun abandonPrepareForAttach() {
+    val handle = pendingData ?: return
+    pendingData = null
+    handle.close()
+  }
+
   override fun addTo(map: MapHandle) {
     val url = dataUrl
     if (url != null) {
       map.addGeoJsonSourceUrl(id, url, options.toFfiOptions())
     } else {
-      prepareData().use { map.addGeoJsonSourceData(id, it) }
+      val prepared = pendingData ?: prepareData().also { pendingData = it }
+      pendingData = null
+      prepared.use { map.addGeoJsonSourceData(id, it) }
     }
   }
 
