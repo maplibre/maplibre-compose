@@ -44,6 +44,15 @@ internal interface MlnFfiMapHostSession {
    * current if the backend needs it. Re-entrant calls from the renderer thread run directly.
    */
   fun <T> withRendererAccess(action: () -> T): T
+
+  /**
+   * Queues [action] for the renderer thread without waiting. Returns false when the host can no
+   * longer run it. Re-entrant calls from the renderer thread run directly.
+   */
+  fun enqueueRenderer(action: () -> Unit): Boolean {
+    action()
+    return true
+  }
 }
 
 /**
@@ -88,6 +97,15 @@ internal interface MlnFfiMapHost : AutoCloseable {
 
   /** Runs [action] with exclusive access to renderer graphics state. */
   fun <T> withRendererAccess(action: () -> T): T = action()
+
+  /**
+   * Queues [action] for the renderer thread without waiting. Returns false when the host can no
+   * longer run it. Re-entrant calls from the renderer thread run directly.
+   */
+  fun enqueueRenderer(action: () -> Unit): Boolean {
+    action()
+    return true
+  }
 
   /**
    * Draws [target] into the Compose scene, returning whether anything was drawn.

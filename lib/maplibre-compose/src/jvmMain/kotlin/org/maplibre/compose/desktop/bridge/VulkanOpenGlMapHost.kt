@@ -166,6 +166,8 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
 
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
+  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
+
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is VulkanImageTarget) return false
     return gpuHost.withOpenGlContextOrNull { context ->

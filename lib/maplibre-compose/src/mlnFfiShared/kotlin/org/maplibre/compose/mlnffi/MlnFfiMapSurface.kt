@@ -218,4 +218,6 @@ private class MlnFfiMapHostSessionImpl(
   }
 
   override fun <T> withRendererAccess(action: () -> T): T = host.withRendererAccess(action)
+
+  override fun enqueueRenderer(action: () -> Unit): Boolean = host.enqueueRenderer(action)
 }

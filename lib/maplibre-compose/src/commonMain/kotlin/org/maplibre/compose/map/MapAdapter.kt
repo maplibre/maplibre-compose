@@ -63,13 +63,13 @@ internal interface MapAdapter {
 
   fun screenLocationFromPosition(position: Position): DpOffset
 
-  fun queryRenderedFeatures(
+  suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,
   ): List<Feature<Geometry, JsonObject?>>
 
-  fun queryRenderedFeatures(
+  suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,

@@ -18,6 +18,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
@@ -94,11 +95,13 @@ class MlnFfiMapClusterTest {
 
     fun queryAll(): List<Feature<Geometry, JsonObject?>> {
       val size = onRoot().fetchSemanticsNode().size
-      return session.queryRenderedFeatures(
-        rect = DpRect(left = 0.dp, top = 0.dp, right = size.width.dp, bottom = size.height.dp),
-        layerIds = null,
-        predicate = null,
-      )
+      return runBlocking {
+        session.queryRenderedFeatures(
+          rect = DpRect(left = 0.dp, top = 0.dp, right = size.width.dp, bottom = size.height.dp),
+          layerIds = null,
+          predicate = null,
+        )
+      }
     }
 
     // Clustering happens during tile building, so a cluster only exists once the map has rendered

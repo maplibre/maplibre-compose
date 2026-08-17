@@ -4,7 +4,9 @@ package org.maplibre.compose.docsnippets
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.map.GestureOptions
@@ -55,16 +57,17 @@ fun Interaction() {
   // #endregion camera-animate
 
   // #region click-listeners
+  val scope = rememberCoroutineScope()
   MaplibreMap(
     cameraState = camera,
     onMapClick = { pos, offset ->
-      val features = camera.projection?.queryRenderedFeatures(offset)
-      if (!features.isNullOrEmpty()) {
-        println("Clicked on ${features[0].toJson()}")
-        ClickResult.Consume // (1)!
-      } else {
-        ClickResult.Pass
+      scope.launch {
+        val features = camera.projection?.queryRenderedFeatures(offset)
+        if (!features.isNullOrEmpty()) {
+          println("Clicked on ${features[0].toJson()}")
+        }
       }
+      ClickResult.Pass
     },
     onMapLongClick = { pos, offset ->
       println("Long click at $pos")
