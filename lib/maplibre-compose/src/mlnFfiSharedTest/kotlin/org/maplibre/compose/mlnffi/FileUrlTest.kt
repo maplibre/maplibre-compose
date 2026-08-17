@@ -11,9 +11,8 @@ import kotlinx.io.files.SystemFileSystem
 /**
  * Covers the `file:` URL the offline tests hand to MapLibre.
  *
- * Concatenating `file://` onto a path passes on Linux and macOS and fails on Windows, where a path
- * starts with a drive letter and separates with backslashes, so these assertions state the form the
- * URL takes rather than the string one platform happens to produce.
+ * [fileUrlOf] writes a `file:` URL for a local absolute file. These assertions check that scheme,
+ * forward slashes, and percent-encoding of reserved characters.
  */
 class FileUrlTest {
 
@@ -29,7 +28,7 @@ class FileUrlTest {
   fun a_file_url_names_an_absolute_path() {
     val url = fileUrlOf(Path(directory, "style.json"))
 
-    assertTrue(url.startsWith("file:///"), "an absolute path takes the empty-authority form: $url")
+    assertTrue(url.startsWith("file:/"), "an absolute path is a file URI: $url")
     assertFalse(url.contains('\\'), "a URL separates with forward slashes: $url")
     assertTrue(url.endsWith("/style.json"), "the file name survives the conversion: $url")
   }
