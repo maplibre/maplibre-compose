@@ -42,7 +42,7 @@ public actual sealed class Source(internal actual val id: String) {
     }
     val added =
       try {
-        binding.mutateMap { map ->
+        binding.mutateMap(abandon = { abandonPrepareForAttach() }) { map ->
           // A layer may attach its source before the source effect runs, so re-attaching the same
           // binding is idempotent; any other descriptor with this ID is rejected.
           if (this.binding === binding && map.styleSourceExists(id)) return@mutateMap false
@@ -60,8 +60,9 @@ public actual sealed class Source(internal actual val id: String) {
         abandonPrepareForAttach()
         throw error
       }
-    // Only when addTo did not run. A null result can mean the owner-thread wait ended while the
-    // queued add is still pending, and closing the prepared handle then races that add.
+    // addTo ran and found the source already present. A null result can mean the owner-thread wait
+    // ended while the queued add is still pending; mutateMap's abandon releases prepared data only
+    // when that add is dropped.
     if (added == false) abandonPrepareForAttach()
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +

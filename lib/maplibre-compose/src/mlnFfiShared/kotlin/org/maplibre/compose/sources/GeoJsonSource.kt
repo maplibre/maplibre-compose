@@ -55,8 +55,9 @@ public actual class GeoJsonSource : Source {
   }
 
   override fun abandonPrepareForAttach() {
-    prepared?.close()
+    val handle = prepared ?: return
     prepared = null
+    handle.close()
   }
 
   override fun addTo(map: MapHandle) {
