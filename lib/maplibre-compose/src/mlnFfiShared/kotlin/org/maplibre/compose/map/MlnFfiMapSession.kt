@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
-import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -15,9 +14,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
-import kotlin.math.abs
 import kotlin.math.round
-import kotlin.math.sqrt
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
 import kotlin.time.TimeSource
@@ -1069,109 +1066,6 @@ internal class MlnFfiMapSession(
     return if (delta == 0.0) this else Position(longitude = longitude + delta, latitude = latitude)
   }
 
-  /**
-   * Approximate unproject from the mirrored visible-region quad. Exact at the four corners; used
-   * off the owner thread, where a native hop would stall Compose.
-   */
-  private fun interpolatedPositionFromScreen(offset: DpOffset): Position {
-    val width = mirroredWidth
-    val height = mirroredHeight
-    if (width <= 0 || height <= 0) return Position(0.0, 0.0)
-    val u = offset.x.value.toDouble() / width
-    val v = offset.y.value.toDouble() / height
-    val center = mirroredCamera.target
-    val top = lerpPosition(mirroredVisibleRegion.farLeft, mirroredVisibleRegion.farRight, u, center)
-    val bottom =
-      lerpPosition(mirroredVisibleRegion.nearLeft, mirroredVisibleRegion.nearRight, u, center)
-    return lerpPosition(top, bottom, v, center)
-  }
-
-  private fun interpolatedScreenFromPosition(position: Position): DpOffset {
-    val width = mirroredWidth
-    val height = mirroredHeight
-    if (width <= 0 || height <= 0) return DpOffset.Zero
-    val center = mirroredCamera.target
-    val uv =
-      inverseBilinear(
-        position.unwrapAround(center),
-        mirroredVisibleRegion.farLeft.unwrapAround(center),
-        mirroredVisibleRegion.farRight.unwrapAround(center),
-        mirroredVisibleRegion.nearRight.unwrapAround(center),
-        mirroredVisibleRegion.nearLeft.unwrapAround(center),
-      ) ?: return DpOffset.Zero
-    return DpOffset((uv.first * width).dp, (uv.second * height).dp)
-  }
-
-  private fun lerpPosition(a: Position, b: Position, t: Double, unwrapAround: Position): Position {
-    val from = a.unwrapAround(unwrapAround)
-    val to = b.unwrapAround(unwrapAround)
-    return Position(
-      longitude = from.longitude + (to.longitude - from.longitude) * t,
-      latitude = from.latitude + (to.latitude - from.latitude) * t,
-    )
-  }
-
-  /**
-   * Inverse bilinear map of [p] in the quad [a]-[b]-[c]-[d] (top-left, top-right, bottom-right,
-   * bottom-left). Returns null when the quad is degenerate.
-   */
-  private fun inverseBilinear(
-    p: Position,
-    a: Position,
-    b: Position,
-    c: Position,
-    d: Position,
-  ): Pair<Double, Double>? {
-    val eX = b.longitude - a.longitude
-    val eY = b.latitude - a.latitude
-    val fX = d.longitude - a.longitude
-    val fY = d.latitude - a.latitude
-    val gX = a.longitude - b.longitude + c.longitude - d.longitude
-    val gY = a.latitude - b.latitude + c.latitude - d.latitude
-    val hX = p.longitude - a.longitude
-    val hY = p.latitude - a.latitude
-    val k2 = gX * fY - gY * fX
-    val k1 = eX * fY - eY * fX + hX * gY - hY * gX
-    val k0 = hX * eY - hY * eX
-    val v: Double
-    val u: Double
-    if (abs(k2) < 1e-12) {
-      if (abs(k1) < 1e-12) return null
-      v = -k0 / k1
-      val denom = eX + gX * v
-      u = if (abs(denom) < 1e-12) (hY - fY * v) / (eY + gY * v) else (hX - fX * v) / denom
-    } else {
-      val discriminant = k1 * k1 - 4.0 * k2 * k0
-      if (discriminant < 0.0) return null
-      val root = sqrt(discriminant)
-      val inv = 0.5 / k2
-      fun uvFor(chosenV: Double): Pair<Double, Double>? {
-        val denom = eX + gX * chosenV
-        val chosenU =
-          if (abs(denom) < 1e-12) {
-            val alt = eY + gY * chosenV
-            if (abs(alt) < 1e-12) return null
-            (hY - fY * chosenV) / alt
-          } else {
-            (hX - fX * chosenV) / denom
-          }
-        return chosenU to chosenV
-      }
-      val first = uvFor((-k1 - root) * inv)
-      val second = uvFor((-k1 + root) * inv)
-      val pick =
-        listOfNotNull(first, second).minByOrNull { (uu, vv) ->
-          val du = if (uu < 0.0) -uu else if (uu > 1.0) uu - 1.0 else 0.0
-          val dv = if (vv < 0.0) -vv else if (vv > 1.0) vv - 1.0 else 0.0
-          du + dv
-        }
-      if (pick == null) return null
-      u = pick.first
-      v = pick.second
-    }
-    return u to v
-  }
-
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
     configureMap { map ->
@@ -1189,17 +1083,20 @@ internal class MlnFfiMapSession(
     // handling rather than pushed into the map.
   }
 
-  // Not MapHandle.createProjection: that handle snapshots the transform and goes stale on a move.
+  // Projection belongs to the map's owner thread: native enforces it even on a standalone
+  // MapProjectionHandle, so a call from any other thread blocks for one round-trip rather than
+  // approximating from the mirrored viewport. When the FFI lifts the thread restriction, a
+  // handle published per viewport snapshot can answer these exactly off-thread.
   override fun positionFromScreenLocation(offset: DpOffset): Position {
     val map = loop?.takeIf { it.isOwnerThread() }?.map
     if (map != null) return map.latLngForPixel(offset.toScreenPoint()).toPosition()
-    return interpolatedPositionFromScreen(offset)
+    return runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: Position(0.0, 0.0)
   }
 
   override fun screenLocationFromPosition(position: Position): DpOffset {
     val map = loop?.takeIf { it.isOwnerThread() }?.map
     if (map != null) return map.pixelForLatLng(position.toLatLng()).toDpOffset()
-    return interpolatedScreenFromPosition(position)
+    return runOnMap { it.pixelForLatLng(position.toLatLng()).toDpOffset() } ?: DpOffset.Zero
   }
 
   override fun queryRenderedFeatures(
