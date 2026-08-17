@@ -165,6 +165,15 @@ internal actual sealed class Layer(actual val id: String) {
     // The source's own effect has not run yet on a fresh style composition, and MapLibre rejects a
     // layer naming a source that does not exist.
     sourceDescriptor?.let { binding.attachSource(it) }
+    // A duplicate ID is refused here, on the caller, rather than inside the queued add where the
+    // owner loop would only log it. A same-binding re-attach reads as absent because its removal
+    // is queued ahead of this check. Null means the check could not run; the add still refuses.
+    val exists = binding.layerExists(id)
+    if (this.binding === binding && exists == true) return
+    check(exists != true) {
+      "Layer ID '$id' is already owned by a different live layer descriptor; create a separate " +
+        "layer instance for each map"
+    }
     val added =
       try {
         binding.addLayer(toJson(), beforeLayerId)

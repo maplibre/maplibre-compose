@@ -79,6 +79,10 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     map.layerProperty(layerId, name)?.toJsonElement()
   }
 
+  override fun layerExists(layerId: String): Boolean? = readMap { map ->
+    map.styleLayerIds().contains(layerId)
+  }
+
   companion object {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: MlnFfiStyleBinding =

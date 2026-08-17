@@ -33,8 +33,10 @@ public actual sealed class Source(internal actual val id: String) {
         "for each map"
     }
     // Existence is read synchronously so a duplicate ID still fails on the caller. The add itself
-    // is posted; a same-frame mutate then queues behind it.
-    val exists = binding.readMap { it.styleSourceExists(id) } == true
+    // is posted; a same-frame mutate then queues behind it. Null means the read did not complete —
+    // a gate wait may end early on interruption — and an unknown answer must not read as absence.
+    val exists = binding.readMap { it.styleSourceExists(id) }
+    check(exists != null) { "Could not confirm whether source '$id' already exists; not attaching" }
     if (this.binding === binding && exists) return
     check(!exists) { "Source ID '$id' is already owned by a different live source descriptor" }
     // Expensive preparation runs on the caller, not the map's owner thread. A posted mutation
