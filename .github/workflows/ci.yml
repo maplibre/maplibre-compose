@@ -42,9 +42,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # the latest, Android 15 (Vanilla Ice Cream); also the leg that ships
+          # the latest, Android 16 (Baklava); also the leg that ships
           # the demo APK, which does not vary by API level
-          - api-level: 35
+          - api-level: 36
             artifact_name: demo-app-android
           # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
           - api-level: 24

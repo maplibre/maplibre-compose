@@ -1,7 +1,7 @@
 [versions]
 # Platform floors and toolchain levels.
 android-compileSdk = "36"
-android-minSdk = "23"
+android-minSdk = "24"
 android-targetSdk = "36"
 # Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.
 java-toolchain = "25"
