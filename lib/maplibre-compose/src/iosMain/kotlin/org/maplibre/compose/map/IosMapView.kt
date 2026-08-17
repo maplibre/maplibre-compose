@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import MapLibre.MLNMapView
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +26,7 @@ import org.maplibre.compose.util.afterConsuming
 import platform.CoreGraphics.CGRectMake
 import platform.CoreGraphics.CGSizeMake
 import platform.Foundation.NSURL
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNMapView
 
 @Composable
 internal actual fun ComposableMapView(

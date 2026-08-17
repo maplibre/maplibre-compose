@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import MapLibre.MLNFillStyleLayer
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -12,6 +11,7 @@ import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.toNSExpression
 import org.maplibre.compose.util.toNSPredicate
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNFillStyleLayer
 
 internal actual class FillLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {

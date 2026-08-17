@@ -1,6 +1,6 @@
 package org.maplibre.compose.layers
 
-import MapLibre.MLNStyleLayer
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNStyleLayer
 
 internal actual sealed class Layer {
   abstract val impl: MLNStyleLayer

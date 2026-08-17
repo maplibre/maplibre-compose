@@ -1,7 +1,7 @@
 package org.maplibre.compose.sources
 
-import MapLibre.MLNSource
-import MapLibre.MLNTileSource
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNSource
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSource
 
 public actual sealed class Source {
   internal abstract val impl: MLNSource

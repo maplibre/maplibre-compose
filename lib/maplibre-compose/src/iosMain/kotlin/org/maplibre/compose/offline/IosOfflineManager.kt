@@ -1,12 +1,5 @@
 package org.maplibre.compose.offline
 
-import MapLibre.MLNOfflinePack
-import MapLibre.MLNOfflinePackErrorNotification
-import MapLibre.MLNOfflinePackMaximumMapboxTilesReachedNotification
-import MapLibre.MLNOfflinePackProgressChangedNotification
-import MapLibre.MLNOfflinePackUserInfoKeyError
-import MapLibre.MLNOfflinePackUserInfoKeyMaximumCount
-import MapLibre.MLNOfflineStorage
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -31,6 +24,13 @@ import platform.Foundation.NSNotificationCenter
 import platform.Foundation.addObserver
 import platform.darwin.NSObject
 import platform.darwin.sel_registerName
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNOfflinePack
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNOfflinePackErrorNotification
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNOfflinePackMaximumMapboxTilesReachedNotification
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNOfflinePackProgressChangedNotification
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNOfflinePackUserInfoKeyError
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNOfflinePackUserInfoKeyMaximumCount
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNOfflineStorage
 
 @Composable
 public actual fun rememberOfflineManager(): OfflineManager = remember { getOfflineManager() }

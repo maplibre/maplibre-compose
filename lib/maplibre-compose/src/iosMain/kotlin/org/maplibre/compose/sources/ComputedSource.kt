@@ -1,15 +1,5 @@
 package org.maplibre.compose.sources
 
-import MapLibre.MLNComputedShapeSource
-import MapLibre.MLNComputedShapeSourceDataSourceProtocol
-import MapLibre.MLNCoordinateBounds
-import MapLibre.MLNShape
-import MapLibre.MLNShapeSourceOptionBuffer
-import MapLibre.MLNShapeSourceOptionClipsCoordinates
-import MapLibre.MLNShapeSourceOptionMaximumZoomLevel
-import MapLibre.MLNShapeSourceOptionMinimumZoomLevel
-import MapLibre.MLNShapeSourceOptionSimplificationTolerance
-import MapLibre.MLNShapeSourceOptionWrapsCoordinates
 import kotlinx.cinterop.CValue
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toMLNCoordinateBounds
@@ -19,6 +9,16 @@ import org.maplibre.spatialk.geojson.FeatureCollection
 import platform.Foundation.NSNumber
 import platform.darwin.NSObject
 import platform.darwin.NSUInteger
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNComputedShapeSource
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNComputedShapeSourceDataSourceProtocol
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNCoordinateBounds
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShape
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShapeSourceOptionBuffer
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShapeSourceOptionClipsCoordinates
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShapeSourceOptionMaximumZoomLevel
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShapeSourceOptionMinimumZoomLevel
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShapeSourceOptionSimplificationTolerance
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShapeSourceOptionWrapsCoordinates
 
 public actual class ComputedSource : Source {
   override val impl: MLNComputedShapeSource

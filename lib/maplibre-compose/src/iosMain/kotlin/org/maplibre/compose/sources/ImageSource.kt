@@ -1,11 +1,11 @@
 package org.maplibre.compose.sources
 
-import MapLibre.MLNImageSource
 import androidx.compose.ui.graphics.ImageBitmap
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.toMLNCoordinateQuad
 import org.maplibre.compose.util.toUIImage
 import platform.Foundation.NSURL
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNImageSource
 
 public actual class ImageSource : Source {
   override val impl: MLNImageSource

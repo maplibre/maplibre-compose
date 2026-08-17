@@ -1,19 +1,19 @@
 package org.maplibre.compose.sources
 
-import MapLibre.MLNDEMEncodingMapbox
-import MapLibre.MLNDEMEncodingTerrarium
-import MapLibre.MLNRasterDEMSource
-import MapLibre.MLNTileCoordinateSystemTMS
-import MapLibre.MLNTileCoordinateSystemXYZ
-import MapLibre.MLNTileSourceOptionAttributionHTMLString
-import MapLibre.MLNTileSourceOptionCoordinateBounds
-import MapLibre.MLNTileSourceOptionDEMEncoding
-import MapLibre.MLNTileSourceOptionMaximumZoomLevel
-import MapLibre.MLNTileSourceOptionMinimumZoomLevel
-import MapLibre.MLNTileSourceOptionTileCoordinateSystem
-import MapLibre.MLNTileSourceOptionTileSize
 import org.maplibre.compose.util.toMLNCoordinateBounds
 import platform.Foundation.NSURL
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNDEMEncodingMapbox
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNDEMEncodingTerrarium
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNRasterDEMSource
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileCoordinateSystemTMS
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileCoordinateSystemXYZ
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSourceOptionAttributionHTMLString
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSourceOptionCoordinateBounds
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSourceOptionDEMEncoding
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSourceOptionMaximumZoomLevel
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSourceOptionMinimumZoomLevel
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSourceOptionTileCoordinateSystem
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNTileSourceOptionTileSize
 
 public actual class RasterDemSource : Source {
   override val impl: MLNRasterDEMSource

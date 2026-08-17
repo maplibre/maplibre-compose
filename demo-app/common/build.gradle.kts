@@ -6,7 +6,6 @@ plugins {
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.kotlin.serialization.get().pluginId)
-  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 kotlin {
@@ -20,7 +19,6 @@ kotlin {
       baseName = "DemoApp"
       isStatic = true
     }
-    it.configureSpmMaplibre(project)
   }
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }

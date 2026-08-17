@@ -1,13 +1,5 @@
 package org.maplibre.compose.util
 
-import MapLibre.MLNCoordinateBounds
-import MapLibre.MLNCoordinateBoundsMake
-import MapLibre.MLNCoordinateQuadMake
-import MapLibre.MLNFeatureProtocol
-import MapLibre.MLNPointFeatureCluster
-import MapLibre.MLNShape
-import MapLibre.expressionWithMLNJSONObject
-import MapLibre.predicateWithMLNJSONObject
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asSkiaBitmap
 import androidx.compose.ui.unit.DpOffset
@@ -63,6 +55,14 @@ import platform.UIKit.UIImageResizingModeStretch
 import platform.UIKit.valueWithCGVector
 import platform.UIKit.valueWithUIEdgeInsets
 import platform.posix.memcpy
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNCoordinateBounds
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNCoordinateBoundsMake
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNCoordinateQuadMake
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNFeatureProtocol
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNPointFeatureCluster
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNShape
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.expressionWithMLNJSONObject
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.predicateWithMLNJSONObject
 
 internal fun ByteArray.toNSData(): NSData {
   return if (isEmpty()) NSData()

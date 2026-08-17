@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import MapLibre.MLNCircleStyleLayer
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.CirclePitchAlignment
@@ -13,6 +12,7 @@ import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.toNSExpression
 import org.maplibre.compose.util.toNSPredicate
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNCircleStyleLayer
 
 internal actual class CircleLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {

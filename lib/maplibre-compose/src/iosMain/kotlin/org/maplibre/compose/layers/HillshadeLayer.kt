@@ -1,12 +1,12 @@
 package org.maplibre.compose.layers
 
-import MapLibre.MLNHillshadeStyleLayer
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.IlluminationAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.toNSExpression
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNHillshadeStyleLayer
 
 internal actual class HillshadeLayer actual constructor(id: String, actual val source: Source) :
   Layer() {

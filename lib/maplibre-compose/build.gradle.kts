@@ -1,3 +1,5 @@
+@file:OptIn(org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi::class)
+
 plugins {
   id("library-conventions")
   id("android-library-conventions")
@@ -6,7 +8,6 @@ plugins {
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.mavenPublish.get().pluginId)
-  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 mavenPublishing {
@@ -29,7 +30,14 @@ kotlin {
         }
       }
     }
-    it.configureSpmMaplibre(project)
+  }
+
+  swiftPMDependencies {
+    swiftPackage(
+      url = url("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
+      version = exact(libs.versions.maplibre.ios.get()),
+      products = listOf(product("MapLibre")),
+    )
   }
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }

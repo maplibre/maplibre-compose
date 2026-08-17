@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import MapLibre.MLNHeatmapStyleLayer
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.expressions.value.ColorValue
@@ -9,6 +8,7 @@ import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.toNSExpression
 import org.maplibre.compose.util.toNSPredicate
+import swiftPMImport.org.maplibre.compose.lib.maplibre.compose.MLNHeatmapStyleLayer
 
 internal actual class HeatmapLayer actual constructor(id: String, source: Source) :
   FeatureLayer(source) {
