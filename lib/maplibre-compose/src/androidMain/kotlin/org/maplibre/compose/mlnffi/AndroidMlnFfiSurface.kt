@@ -27,14 +27,15 @@ internal fun AndroidMlnFfiSurface(
 ) {
   val density = LocalDensity.current.density.toDouble()
   val lifecycleOwner = LocalLifecycleOwner.current
-  val displayRefreshHz = LocalView.current.display?.refreshRate ?: 60f
+  val displayPeakRefreshHz =
+    LocalView.current.display?.supportedModes?.maxOfOrNull { it.refreshRate } ?: 60f
   val controller =
     remember(renderer) {
-      AndroidMlnFfiSurfaceController(renderer, logger, maximumFps, displayRefreshHz)
+      AndroidMlnFfiSurfaceController(renderer, logger, maximumFps, displayPeakRefreshHz)
     }
   val available = MapRenderBackend.OPENGL in runtimeBackends
 
-  SideEffect { controller.setFrameRateVote(maximumFps, displayRefreshHz) }
+  SideEffect { controller.setFrameRateVote(maximumFps, displayPeakRefreshHz) }
 
   DisposableEffect(controller, lifecycleOwner) {
     val observer = LifecycleEventObserver { _, event ->

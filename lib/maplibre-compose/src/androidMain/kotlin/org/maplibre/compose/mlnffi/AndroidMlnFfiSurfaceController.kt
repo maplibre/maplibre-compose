@@ -18,7 +18,7 @@ import org.maplibre.compose.map.MapExtent
  * matching MapLibre Android's GLSurfaceView loop. TextureView returns from swap without waiting;
  * the next frame is posted when the map requests one, matching MapLibre's TextureView thread.
  *
- * When [maximumFps] is set, the next post is delayed to that interval. Otherwise the display
+ * When [maximumFps] is set, the next post is delayed to that interval. Otherwise the display's peak
  * refresh rate is voted with SurfaceFlinger. `Choreographer.getInstance()` follows vsync-app, which
  * adaptive refresh holds at 60 Hz for a Surface that is not drawn as a View.
  */
@@ -26,7 +26,7 @@ internal class AndroidMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
   private val logger: Logger?,
   maximumFps: Int? = null,
-  displayRefreshHz: Float = 60f,
+  displayPeakRefreshHz: Float = 60f,
 ) : MlnFfiMapHostSession, AutoCloseable {
   override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
 
@@ -36,7 +36,7 @@ internal class AndroidMlnFfiSurfaceController(
   private var graphics: AndroidEglContext? = null
   private var hostSurface: Surface? = null
   private var maximumFps = maximumFps
-  private var displayRefreshHz = displayRefreshHz
+  private var displayPeakRefreshHz = displayPeakRefreshHz
   private var extent = MapExtent.Empty
   private var generation = 0L
   private var nextFrameId = 1L
@@ -48,19 +48,19 @@ internal class AndroidMlnFfiSurfaceController(
   private var consecutiveFailures = 0
 
   /**
-   * Votes [maximumFps] with SurfaceFlinger, or the display refresh rate when that cap is null.
-   * Applied again when the host surface appears.
+   * Votes [maximumFps] with SurfaceFlinger, or the display's peak refresh rate when the cap is
+   * null. Applied again when the host surface appears.
    */
-  fun setFrameRateVote(maximumFps: Int?, displayRefreshHz: Float) {
-    renderHandler.post { setFrameRateVoteOnRenderThread(maximumFps, displayRefreshHz) }
+  fun setFrameRateVote(maximumFps: Int?, displayPeakRefreshHz: Float) {
+    renderHandler.post { setFrameRateVoteOnRenderThread(maximumFps, displayPeakRefreshHz) }
   }
 
-  private fun setFrameRateVoteOnRenderThread(maximumFps: Int?, displayRefreshHz: Float) {
+  private fun setFrameRateVoteOnRenderThread(maximumFps: Int?, displayPeakRefreshHz: Float) {
     checkRenderThread()
     if (closed) return
-    if (this.maximumFps == maximumFps && this.displayRefreshHz == displayRefreshHz) return
+    if (this.maximumFps == maximumFps && this.displayPeakRefreshHz == displayPeakRefreshHz) return
     this.maximumFps = maximumFps
-    this.displayRefreshHz = displayRefreshHz
+    this.displayPeakRefreshHz = displayPeakRefreshHz
     applyFrameRateVote()
   }
 
@@ -273,7 +273,7 @@ internal class AndroidMlnFfiSurfaceController(
   private fun applyFrameRateVote() {
     val current = hostSurface ?: return
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
-    val hz = votedFrameRateHz(maximumFps, displayRefreshHz)
+    val hz = surfaceFrameRateVoteHz(maximumFps, displayPeakRefreshHz)
     runCatching { current.setFrameRateVote(hz) }
       .onFailure { logger?.w(it) { "Could not vote for $hz Hz on the map surface" } }
   }
@@ -284,14 +284,13 @@ internal class AndroidMlnFfiSurfaceController(
 }
 
 /**
- * Display refresh when [maximumFps] is null or not positive; otherwise the cap, limited to the
- * display.
+ * The display's peak refresh rate when [maximumFps] is null or not positive; otherwise the cap.
+ * Android accepts intended frame rates that the display does not support.
  */
-private fun votedFrameRateHz(maximumFps: Int?, displayRefreshHz: Float): Float {
-  val display = displayRefreshHz.takeIf { it.isFinite() && it > 0f } ?: 60f
+private fun surfaceFrameRateVoteHz(maximumFps: Int?, displayPeakRefreshHz: Float): Float {
+  val display = displayPeakRefreshHz.takeIf { it.isFinite() && it > 0f } ?: 60f
   val cap = maximumFps ?: return display
-  if (cap <= 0) return display
-  return minOf(cap.toFloat(), display)
+  return cap.takeIf { it > 0 }?.toFloat() ?: display
 }
 
 @RequiresApi(Build.VERSION_CODES.R)
