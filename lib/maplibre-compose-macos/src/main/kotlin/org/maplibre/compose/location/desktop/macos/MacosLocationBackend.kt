@@ -152,16 +152,21 @@ internal constructor(
     }
 
     override fun didFailWithError(error: CoreLocationError) {
-      scope.launch(ioDispatcher) {
-        channel.trySend(
-          LocationEvent.Unavailable(error.asUnavailableReason(client.locationServicesEnabled))
-        )
+      if (error.domain == CL_ERROR_DOMAIN && error.code == CL_ERROR_DENIED) {
+        scope.launch(ioDispatcher) {
+          channel.trySend(
+            LocationEvent.Unavailable(error.asUnavailableReason(client.locationServicesEnabled))
+          )
+        }
+        return
       }
+      channel.trySend(LocationEvent.Unavailable(error.asUnavailableReason(true)))
     }
 
     override fun didChangeAuthorization() = Unit
 
     fun sendLocation(location: CoreLocationFix) {
+      if (location.horizontalAccuracy < 0.0) return
       channel.trySend(LocationEvent.Fix(location.asMapLibreLocation()))
     }
   }
@@ -194,7 +199,10 @@ internal constructor(private val client: CoreLocationClient) : DesktopLocationPe
     object : CoreLocationDelegate {
       override fun didUpdateLocations(locations: List<CoreLocationFix>) = Unit
 
-      override fun didFailWithError(error: CoreLocationError) = Unit
+      override fun didFailWithError(error: CoreLocationError) {
+        manager.stopUpdatingLocation()
+        requestPending.set(false)
+      }
 
       override fun didChangeAuthorization() {
         val permission = currentPermission()

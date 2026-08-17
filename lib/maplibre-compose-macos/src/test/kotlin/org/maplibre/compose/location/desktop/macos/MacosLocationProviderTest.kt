@@ -208,6 +208,46 @@ class MacosLocationProviderTest {
   }
 
   @Test
+  fun providerDropsFixesWithInvalidHorizontalAccuracy() = runTest {
+    val client = FakeCoreLocationClient()
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    client.nextLocation = sampleFix().copy(horizontalAccuracy = -1.0)
+
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch(Dispatchers.Unconfined) {
+      provider.updates(LocationRequest()).collect { events += it }
+    }
+
+    assertTrue(events.isEmpty())
+    client.managers.single().boundDelegate?.didUpdateLocations(listOf(sampleFix()))
+    assertIs<LocationEvent.Fix>(events.single())
+  }
+
+  @Test
+  fun transientErrorKeepsCallbackOrderAheadOfLaterFix() = runTest {
+    val client = FakeCoreLocationClient()
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    client.nextLocation = sampleFix()
+
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch(Dispatchers.Unconfined) {
+      provider.updates(LocationRequest()).collect { events += it }
+    }
+
+    assertIs<LocationEvent.Fix>(events.single())
+    val delegate = client.managers.single().boundDelegate
+    delegate?.didFailWithError(CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_LOCATION_UNKNOWN))
+    delegate?.didUpdateLocations(listOf(sampleFix().copy(latitude = 53.0)))
+
+    assertEquals(3, events.size)
+    assertEquals(
+      LocationUnavailableReason.TemporarilyUnavailable,
+      assertIs<LocationEvent.Unavailable>(events[1]).reason,
+    )
+    assertEquals(53.0, assertIs<LocationEvent.Fix>(events[2]).location.position.value.latitude)
+  }
+
+  @Test
   fun deniedErrorRechecksLocationServices() = runTest {
     val client = FakeCoreLocationClient()
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
@@ -267,6 +307,24 @@ class MacosLocationProviderTest {
     requester.close()
     assertTrue(manager.closed)
     assertTrue(client.closed)
+  }
+
+  @Test
+  fun permissionFailureClearsPendingRequest() {
+    val client = FakeCoreLocationClient()
+    val requester = MacosLocationPermissionRequester(client)
+    val manager = client.managers.single()
+
+    requester.requestForegroundPermission()
+    assertEquals(1, manager.whenInUseRequests)
+    assertTrue(manager.updating)
+
+    manager.boundDelegate?.didFailWithError(CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_DENIED))
+    assertFalse(manager.updating)
+
+    requester.requestForegroundPermission()
+    assertEquals(2, manager.whenInUseRequests)
+    assertTrue(manager.updating)
   }
 
   @Test
