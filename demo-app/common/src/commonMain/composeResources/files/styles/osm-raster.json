@@ -1,0 +1,25 @@
+{
+  "layers": [
+    {
+      "id": "simple-tiles",
+      "maxzoom": 19,
+      "minzoom": 0,
+      "source": "openmaptiles",
+      "type": "raster"
+    }
+  ],
+  "name": "Open Street Map Public",
+  "sources": {
+    "openmaptiles": {
+      "attribution": "&copy; <a href=\"https://www.openstreetmap.org/copyright\">OpenStreetMap</a> contributors",
+      "tileSize": 256,
+      "tiles": [
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png"
+      ],
+      "type": "raster"
+    }
+  },
+  "version": 8
+}

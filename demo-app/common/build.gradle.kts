@@ -41,6 +41,23 @@ kotlin {
   sourceSets {
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
+    // The settings page renders each platform's GestureOptions and RenderOptions fields, which
+    // differ per integration; these intermediate sets mirror the library's own split.
+    val nonIosShared by creating { dependsOn(commonMain.get()) }
+    val mlnFfiShared by creating { dependsOn(commonMain.get()) }
+
+    androidMain {
+      dependsOn(nonIosShared)
+      dependsOn(mlnFfiShared)
+    }
+
+    jvmMain {
+      dependsOn(nonIosShared)
+      dependsOn(mlnFfiShared)
+    }
+
+    jsMain { dependsOn(nonIosShared) }
+
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.
       api(libs.jetbrains.compose.foundation)
@@ -49,6 +66,7 @@ kotlin {
 
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.jetbrains.compose.material3)
+      implementation(libs.androidx.navigation.compose)
       implementation(libs.spatialk.geojson)
 
       // We exclude the android sdk here so we can select a variant via gradle property.
