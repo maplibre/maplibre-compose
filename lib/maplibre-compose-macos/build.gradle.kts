@@ -28,4 +28,6 @@ dependencies {
   testImplementation(libs.kotlinx.coroutines.test)
 }
 
+tasks.test { jvmArgs(NATIVE_ACCESS_JVM_ARGS) }
+
 tasks.register("jvmTest") { dependsOn(tasks.test) }

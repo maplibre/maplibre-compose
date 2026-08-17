@@ -106,6 +106,10 @@ class MacosLocationProviderTest {
     assertEquals(CL_LOCATION_ACCURACY_HUNDRED_METERS, LocationAccuracy.Balanced.toDesiredAccuracy())
     assertEquals(CL_LOCATION_ACCURACY_KILOMETER, LocationAccuracy.Low.toDesiredAccuracy())
     assertEquals(CL_LOCATION_ACCURACY_REDUCED, LocationAccuracy.Lowest.toDesiredAccuracy())
+    assertTrue(CL_LOCATION_ACCURACY_REDUCED != 500.0)
+    ObjectiveC.exportedDoubleOrNull("kCLLocationAccuracyReduced")?.let { exported ->
+      assertEquals(exported, CL_LOCATION_ACCURACY_REDUCED)
+    }
   }
 
   @Test

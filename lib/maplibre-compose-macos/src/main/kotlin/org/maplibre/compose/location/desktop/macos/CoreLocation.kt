@@ -35,7 +35,14 @@ internal const val CL_LOCATION_ACCURACY_BEST_FOR_NAVIGATION = -2.0
 internal const val CL_LOCATION_ACCURACY_BEST = -1.0
 internal const val CL_LOCATION_ACCURACY_HUNDRED_METERS = 100.0
 internal const val CL_LOCATION_ACCURACY_KILOMETER = 1000.0
-internal const val CL_LOCATION_ACCURACY_REDUCED = 500.0
+
+/** Fallback when `kCLLocationAccuracyReduced` cannot be resolved, such as off macOS. */
+internal const val CL_LOCATION_ACCURACY_REDUCED_FALLBACK = 6_380_000.0
+
+internal val CL_LOCATION_ACCURACY_REDUCED: Double by lazy {
+  ObjectiveC.exportedDoubleOrNull("kCLLocationAccuracyReduced")
+    ?: CL_LOCATION_ACCURACY_REDUCED_FALLBACK
+}
 
 internal data class CoreLocationFix(
   val latitude: Double,

@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationPermissionRequester
@@ -98,7 +99,8 @@ internal constructor(
       }
       LocationBackendAvailability.Available -> Unit
     }
-    if (!client.locationServicesEnabled) {
+    val locationServicesEnabled = withContext(Dispatchers.IO) { client.locationServicesEnabled }
+    if (!locationServicesEnabled) {
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
       close()
       return@callbackFlow
@@ -114,7 +116,7 @@ internal constructor(
       }
 
     try {
-      val delegate = UpdateDelegate(channel) { client.locationServicesEnabled }
+      val delegate = UpdateDelegate(channel, locationServicesEnabled)
       manager.setDelegate(delegate)
       manager.desiredAccuracy = request.accuracy.toDesiredAccuracy()
       manager.distanceFilter = request.minimumDistance.inMeters
@@ -138,16 +140,14 @@ internal constructor(
 
   private class UpdateDelegate(
     private val channel: SendChannel<LocationEvent>,
-    private val locationServicesEnabled: () -> Boolean,
+    private val locationServicesEnabled: Boolean,
   ) : CoreLocationDelegate {
     override fun didUpdateLocations(locations: List<CoreLocationFix>) {
       locations.forEach(::sendLocation)
     }
 
     override fun didFailWithError(error: CoreLocationError) {
-      channel.trySend(
-        LocationEvent.Unavailable(error.asUnavailableReason(locationServicesEnabled()))
-      )
+      channel.trySend(LocationEvent.Unavailable(error.asUnavailableReason(locationServicesEnabled)))
     }
 
     override fun didChangeAuthorization() = Unit

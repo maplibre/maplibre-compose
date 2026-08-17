@@ -15,6 +15,7 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_LOCAL
 import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_NOW
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlerror
 import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
+import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
 import org.lwjgl.system.macosx.ObjCRuntime
 
 /**
@@ -204,6 +205,23 @@ internal object ObjectiveC {
       check(handle != NULL) { "Failed to load framework $path: ${dlerror()}" }
       handle
     }
+
+  fun exportedDoubleOrNull(symbol: String): Double? {
+    for (framework in listOf("CoreLocation", "_LocationEssentials")) {
+      val handle =
+        try {
+          loadFramework(framework)
+        } catch (_: Throwable) {
+          continue
+        }
+      val address = dlsym(handle, symbol)
+      if (address == NULL) continue
+      return MemorySegment.ofAddress(address)
+        .reinterpret(JAVA_DOUBLE.byteSize())
+        .get(JAVA_DOUBLE, 0)
+    }
+    return null
+  }
 
   private fun loadFrameworkForClass(className: String) {
     when {

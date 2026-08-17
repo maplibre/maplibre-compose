@@ -25,7 +25,7 @@ internal class SystemCoreLocationClient : CoreLocationClient {
   }
 
   override val locationServicesEnabled: Boolean
-    get() = onMain {
+    get() = ObjectiveC.runInAutoreleasePool {
       ObjectiveC.sendLong(ObjectiveC.cls("CLLocationManager"), "locationServicesEnabled") != 0L
     }
 
