@@ -735,10 +735,6 @@ internal class MlnFfiMapSession(
     postWhenMapExists(action, abandon = {})
   }
 
-  private fun configureMapWithViewport(action: (MapHandle) -> Unit) {
-    postWhenViewportExists(action, abandon = {})
-  }
-
   /** Queues [action] until the first render target has supplied the map's real dimensions. */
   private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
     val current = stateLock.withLock {
@@ -888,10 +884,17 @@ internal class MlnFfiMapSession(
     tilt: Double,
     padding: PaddingValues,
   ) {
-    configureMapWithViewport { map ->
+    val fit: (MapHandle) -> Unit = { map ->
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
       snapshotViewport(map)
     }
+    // The fit reads the live map's dimensions, so before a viewport exists it can only queue.
+    // After one exists it runs as one round-trip instead, so a camera or viewport read made right
+    // after this call observes the fitted camera rather than the previous mirrored snapshot —
+    // the ordering the blocking getters on main provided.
+    val hasViewport = stateLock.withLock { hasAttachedViewport && !closed && loop != null }
+    if (hasViewport && runOnMap(fit) != null) return
+    postWhenViewportExists(fit, abandon = {})
   }
 
   private fun cameraForBounds(
