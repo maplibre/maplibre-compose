@@ -23,8 +23,9 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 - `mise run build:ios:device`
 - `mise run demo:desktop`
 - `mise run demo:desktop-glfw`
-- `mise run demo:android`
-- `mise run demo:ios` (pass `--device` for a connected iPhone)
+- `mise run demo:android` (prompts when several devices are connected)
+- `mise run demo:ios` (pass `--device` for a connected iPhone; prompts when
+  several are ready)
 - `mise run demo:js`
 
 ### Formatting and linting

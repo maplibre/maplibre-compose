@@ -172,14 +172,11 @@ usage = '''
 flag "--flavor <flavor>" default="default" {
   choices "default" "opengl" "vulkan" "debug"
 }
+arg "[serial]" help="adb serial. Prompts when several devices are connected."
 '''
-# Gradle's install task stops at the install. adb reads $ANDROID_SERIAL to pick
-# among several devices, the same way the install task does.
-run = '''
-./gradlew :demo-app:android:installDebug -PdemoAppMaplibreAndroidFlavor="$usage_flavor"
-"$(.mise/bin/android-sdk-root)/platform-tools/adb" shell am start \
-  -n org.maplibre.compose.demoapp/.MainActivity
-'''
+# The device prompt needs the real terminal; mise otherwise pipes stdio.
+raw = true
+run = ".mise/bin/run-android-demo"
 
 [tasks."demo:desktop"]
 description = "Run the demo app on this host."
@@ -198,7 +195,12 @@ run = "./gradlew :demo-app:common:jsBrowserDevelopmentRun"
 
 [tasks."demo:ios"]
 description = "Run the demo app on an iOS simulator or a connected iPhone."
-usage = 'flag "--device" help="Run on a connected iPhone instead of a simulator."'
+usage = '''
+flag "--device" help="Run on a connected iPhone instead of a simulator."
+arg "[udid]" help="Device or simulator UDID. Prompts when several are ready."
+'''
+# The device prompt needs the real terminal; mise otherwise pipes stdio.
+raw = true
 run = '.mise/bin/run-ios-demo'
 
 [tasks."demo:desktop-glfw"]

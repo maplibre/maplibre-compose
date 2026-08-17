@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build the demo app, install it, and launch it. Runs on an iPhone simulator by
-# default, or on a connected iPhone with --device. Diagnostics go to stderr.
+# default, or on a connected iPhone with --device. Prompts when several
+# destinations are ready. Diagnostics go to stderr.
 set -euo pipefail
 
 if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -8,16 +9,28 @@ if [[ "$(uname -s)" != "Darwin" ]]; then
   exit 2
 fi
 
-# mise passes a usage flag as an environment variable; the argument is for
+# mise passes usage values as environment variables; the arguments are for
 # running this script outside of mise.
 target="simulator"
-if [[ "${1:-}" == "--device" || "${usage_device:-}" == "true" ]]; then
+requested=""
+for arg in "$@"; do
+  if [[ "$arg" == "--device" ]]; then
+    target="device"
+  else
+    requested="$arg"
+  fi
+done
+if [[ "${usage_device:-}" == "true" ]]; then
   target="device"
+fi
+if [[ -z "$requested" && -n "${usage_udid:-}" ]]; then
+  requested="$usage_udid"
 fi
 
 repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 project="$repository_root/demo-app/ios/iosApp.xcodeproj"
 derived_data="$repository_root/demo-app/ios/DerivedData"
+pick_from_list="$repository_root/.mise/bin/pick-from-list"
 
 # Read from the built bundle rather than from Config.xcconfig, which composes the
 # identifier out of two settings.
@@ -29,8 +42,85 @@ bundle_identifier() {
   /usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$1/Info.plist"
 }
 
+# A device that is charging, locked, or not yet trusted reports "unavailable", so
+# match the ready states exactly rather than by substring.
+list_ready_ios_devices() {
+  # --columns does not control order; find the CoreDevice UUID in the row.
+  xcrun devicectl list devices --hide-default-columns --hide-headers \
+    --columns Identifier Name State 2>/dev/null |
+    awk '
+      {
+        id = ""
+        id_i = 0
+        for (i = 1; i <= NF; i++) {
+          if ($i ~ /^[0-9A-F-]{36}$/) { id = $i; id_i = i; break }
+        }
+        if (!id) next
+        ready = 0
+        for (i = id_i + 1; i <= NF; i++) {
+          if ($i == "connected" || $i == "available") ready = 1
+        }
+        if (!ready) next
+        name = ""
+        if (id_i > 1) {
+          name = $1
+          for (i = 2; i < id_i; i++) name = name " " $i
+        }
+        if (name == "") name = id
+        printf "%s\t%s (%s)\n", id, name, id
+      }
+    '
+}
+
+list_booted_iphone_simulators() {
+  xcrun simctl list devices available iOS |
+    awk -F '[()]' '
+      /^-- / {
+        runtime = $0
+        sub(/^-- /, "", runtime)
+        sub(/ --$/, "", runtime)
+        next
+      }
+      / iPhone / && /Booted/ {
+        name = $1
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
+        printf "%s\t%s (%s) (%s)\n", $2, name, runtime, $2
+      }
+    '
+}
+
+pick_id() {
+  local kind=$1
+  local rows=$2
+  "$pick_from_list" "$kind" "$requested" 3<<<"$rows"
+}
+
+ensure_simulator_booted() {
+  local udid=$1
+  local state
+  state="$(
+    xcrun simctl list devices |
+      awk -F '[()]' -v id="$udid" '$0 ~ id { print $4; exit }'
+  )"
+  if [[ "$state" != "Booted" ]]; then
+    echo "Booting iOS simulator $udid." >&2
+    xcrun simctl boot "$udid"
+  fi
+  xcrun simctl bootstatus "$udid" -b >&2
+}
+
 if [[ "$target" == "simulator" ]]; then
-  udid="$("$repository_root/.mise/bin/boot-ios-simulator")"
+  if [[ -n "$requested" ]]; then
+    udid="$requested"
+  else
+    booted="$(list_booted_iphone_simulators)"
+    if [[ -n "$booted" ]]; then
+      udid="$(pick_id "iOS simulator" "$booted")"
+    else
+      udid="$("$repository_root/.mise/bin/boot-ios-simulator")"
+    fi
+  fi
+  ensure_simulator_booted "$udid"
 
   xcodebuild -project "$project" -scheme iosApp -configuration Debug \
     -destination "id=$udid" -derivedDataPath "$derived_data" build
@@ -47,22 +137,13 @@ if [[ "$target" == "simulator" ]]; then
   exit 0
 fi
 
-# A device that is charging, locked, or not yet trusted reports "unavailable", so
-# match the ready states exactly rather than by substring.
-udid="$(
-  xcrun devicectl list devices 2>/dev/null |
-    awk '{
-      ready = 0
-      for (i = 1; i <= NF; i++) if ($i == "connected" || $i == "available") ready = 1
-      if (!ready) next
-      for (i = 1; i <= NF; i++) if ($i ~ /^[0-9A-F-]{36}$/) { print $i; exit }
-    }'
-)"
-if [[ -z "$udid" ]]; then
+devices="$(list_ready_ios_devices)"
+if [[ -z "$devices" ]]; then
   echo "No connected iPhone is ready. Unlock it and trust this Mac, then check" >&2
   echo "that \`xcrun devicectl list devices\` reports it as connected." >&2
   exit 1
 fi
+udid="$(pick_id "iOS device" "$devices")"
 
 # Signing needs no setup here: the project carries a DEVELOPMENT_TEAM.
 # Build for a generic device rather than for "id=$udid": xcodebuild identifies a

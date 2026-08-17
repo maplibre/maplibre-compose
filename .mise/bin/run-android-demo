@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Build the demo app, install it, and launch it on a connected Android device
+# or emulator. Prompts when several devices are connected.
+set -euo pipefail
+
+repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+adb="$("$repository_root/.mise/bin/android-sdk-root")/platform-tools/adb"
+
+# mise passes usage args as environment variables; the arguments are for
+# running this script outside of mise.
+requested="${1:-${usage_serial:-}}"
+flavor="${2:-${usage_flavor:-default}}"
+
+export ANDROID_SERIAL
+ANDROID_SERIAL="$("$repository_root/.mise/bin/pick-android-device" "$requested")"
+
+"$repository_root/gradlew" :demo-app:android:installDebug \
+  -PdemoAppMaplibreAndroidFlavor="$flavor"
+"$adb" -s "$ANDROID_SERIAL" shell am start \
+  -n org.maplibre.compose.demoapp/.MainActivity

@@ -1,0 +1,70 @@
+#!/usr/bin/env bash
+# Read id<TAB>label lines and print one id. Prompts when several lines arrive
+# and stdin is a terminal. The first argument names the kind of thing
+# ("Android device", "iOS simulator") for messages. The second, if set, must
+# match an id.
+#
+# Callers that prompt pass the list on fd 3 so stdin stays the terminal.
+# Everyone else can pipe the list on stdin.
+set -euo pipefail
+
+kind=${1:?usage: pick-from-list <kind> [id]}
+requested=${2:-}
+
+ids=()
+labels=()
+
+read_rows() {
+  while IFS=$'\t' read -r id label; do
+    [[ -n "$id" ]] || continue
+    ids+=("$id")
+    labels+=("${label:-$id}")
+  done
+}
+
+if [[ -r /dev/fd/3 ]]; then
+  read_rows <&3
+else
+  read_rows
+fi
+
+if ((${#ids[@]} == 0)); then
+  echo "No ${kind} found." >&2
+  exit 1
+fi
+
+if [[ -n "$requested" ]]; then
+  i=0
+  while ((i < ${#ids[@]})); do
+    if [[ "${ids[i]}" == "$requested" ]]; then
+      printf '%s\n' "$requested"
+      exit 0
+    fi
+    i=$((i + 1))
+  done
+  echo "${0##*/}: $requested is not an available ${kind}." >&2
+  printf '  %s\n' "${labels[@]}" >&2
+  exit 1
+fi
+
+if ((${#ids[@]} == 1)); then
+  printf '%s\n' "${ids[0]}"
+  exit 0
+fi
+
+if [[ ! -t 0 ]]; then
+  echo "Several ${kind}s found. Pass an id, or run from a terminal to pick one:" >&2
+  printf '  %s\n' "${labels[@]}" >&2
+  exit 1
+fi
+
+echo "Several ${kind}s found. Pick one:" >&2
+PS3="Number: "
+select label in "${labels[@]}"; do
+  if [[ -n "${label:-}" ]]; then
+    printf '%s\n' "${ids[REPLY - 1]}"
+    exit 0
+  fi
+done
+echo "No ${kind} selected." >&2
+exit 1
