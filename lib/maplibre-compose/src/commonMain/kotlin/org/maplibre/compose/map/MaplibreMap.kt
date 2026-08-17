@@ -203,7 +203,8 @@ public fun MaplibreMap(
                   layerIds = setOf(node.layer.id),
                   predicate = null,
                 )
-              if (features.isNotEmpty() && handle(features).consumed) break
+              val currentHandle = node.onClick ?: continue
+              if (features.isNotEmpty() && currentHandle(features).consumed) break
             }
           }
         }
@@ -219,7 +220,8 @@ public fun MaplibreMap(
                   layerIds = setOf(node.layer.id),
                   predicate = null,
                 )
-              if (features.isNotEmpty() && handle(features).consumed) break
+              val currentHandle = node.onLongClick ?: continue
+              if (features.isNotEmpty() && currentHandle(features).consumed) break
             }
           }
         }
