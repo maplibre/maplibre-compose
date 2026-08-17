@@ -78,6 +78,8 @@ import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.NativePointer
 import org.maplibre.nativeffi.render.OpenGLBorrowedTextureDescriptor
+import org.maplibre.nativeffi.render.OpenGLClientApi
+import org.maplibre.nativeffi.render.OpenGLContextOwnership
 import org.maplibre.nativeffi.render.OpenGLSurfaceDescriptor
 import org.maplibre.nativeffi.render.RenderResult
 import org.maplibre.nativeffi.render.RenderSessionHandle
@@ -1289,13 +1291,25 @@ private fun EglContextHandles.toFfi() =
   org.maplibre.nativeffi.render.EglContextDescriptor(
     display = NativePointer.ofAddress(display.address),
     config = NativePointer.ofAddress(config.address),
-    shareContext = NativePointer.ofAddress(shareContext.address),
+    shareContext =
+      if (ownership == OpenGLContextOwnership.DEDICATED) NativePointer.NULL
+      else NativePointer.ofAddress(shareContext.address),
     getProcAddress = NativePointer.ofAddress(getProcAddress.address),
+    clientApi =
+      if (ownership == OpenGLContextOwnership.DEDICATED) {
+        if (clientApi == OpenGLClientApi.UNSPECIFIED) OpenGLClientApi.GLES else clientApi
+      } else {
+        clientApi
+      },
+    ownership = ownership,
   )
 
 private fun WglContextHandles.toFfi() =
   org.maplibre.nativeffi.render.WglContextDescriptor(
     deviceContext = NativePointer.ofAddress(deviceContext.address),
-    shareContext = NativePointer.ofAddress(shareContext.address),
+    shareContext =
+      if (ownership == OpenGLContextOwnership.DEDICATED) NativePointer.NULL
+      else NativePointer.ofAddress(shareContext.address),
     getProcAddress = NativePointer.ofAddress(getProcAddress.address),
+    ownership = ownership,
   )

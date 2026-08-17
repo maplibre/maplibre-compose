@@ -3,13 +3,6 @@ package org.maplibre.compose.mlnffi
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 
-/**
- * A latch of one count.
- *
- * [await] ends on interruption and restores the interrupt flag, so a host that interrupts one of
- * these threads sees the state it expects. [awaitUntilOpen] keeps waiting until [open], then
- * restores the flag. Kotlin/Native has no thread interruption, so both waits are the same there.
- */
 internal actual class MlnFfiGate actual constructor() {
   private val latch = CountDownLatch(1)
 
