@@ -149,7 +149,7 @@ class UnsupportedLayerPropertyTest {
       }
       assertEquals(
         listOf(
-          "Layer 'labels' of type 'symbol' kept its previous 'text-rotation-alignment': " +
+          "Layer 'labels' kept its previous 'text-rotation-alignment': " +
             "MapLibre rejected \"viewport-glyph\"."
         ),
         warnings(),

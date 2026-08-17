@@ -26,12 +26,6 @@ public actual class GeoJsonSource : Source {
   /** The URI form of [data], when it is one. */
   private var dataUrl: String?
 
-  /**
-   * Parsed and indexed on the caller, then installed on the owner thread. Null for a URL source,
-   * and after [addTo] consumes it.
-   */
-  private var prepared: GeoJsonSourceDataHandle? = null
-
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
     this.data = data.toDataJson()
@@ -48,50 +42,38 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
-  override fun prepareForAttach() {
-    if (dataUrl != null) return
-    if (prepared != null) return
-    prepared = prepareData()
-  }
-
-  override fun abandonPrepareForAttach() {
-    val handle = prepared ?: return
-    prepared = null
-    handle.close()
-  }
-
   override fun addTo(map: MapHandle) {
     val url = dataUrl
     if (url != null) {
       map.addGeoJsonSourceUrl(id, url, options.toFfiOptions())
     } else {
-      takePrepared().use { map.addGeoJsonSourceData(id, it) }
+      prepareData().use { map.addGeoJsonSourceData(id, it) }
     }
   }
 
   public actual fun setData(data: GeoJsonData) {
     this.data = data.toDataJson()
     this.dataUrl = (data as? GeoJsonData.Uri)?.uri
-    prepared?.close()
-    prepared = null
     if (data is GeoJsonData.Uri) {
       mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
     } else {
       // Prepared outside the lambda so the map's owner thread does not parse or index the data.
-      // synchronousTiling is independent of this: it only changes where viewport tiles are sliced
-      // after the cheap install, on the owner thread (true) or a worker (false).
-      prepareData().use { prepared ->
-        mutate { map -> map.setGeoJsonSourceData(id, prepared) }
+      // Closed after the posted mutation: mutateMap queues the work and does not wait.
+      val prepared = prepareData()
+      val posted = mutate { map ->
+        try {
+          map.setGeoJsonSourceData(id, prepared)
+        } finally {
+          prepared.close()
+        }
       }
+      if (!posted) prepared.close()
     }
   }
 
   /** Prepared with the options the source was added with; a mismatch is rejected at install. */
   private fun prepareData(): GeoJsonSourceDataHandle =
     GeoJsonSourceDataHandle.create(data.toJsonBytes(), options.toFfiOptions())
-
-  private fun takePrepared(): GeoJsonSourceDataHandle =
-    prepared?.also { prepared = null } ?: prepareData()
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
@@ -212,8 +194,6 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
     it.clusterMaxZoom = clusterMaxZoom.toDouble()
     it.clusterMinPoints = clusterMinPoints
     it.lineMetrics = lineMetrics
-    // Viewport tile slicing during the update pass on the owner thread, not JSON parse. Parse and
-    // index happen in [GeoJsonSourceDataHandle.create], which the caller runs off that thread.
     it.synchronousTiling = synchronousUpdate
     it.clusterProperties = clusterPropertiesBytes()
   }

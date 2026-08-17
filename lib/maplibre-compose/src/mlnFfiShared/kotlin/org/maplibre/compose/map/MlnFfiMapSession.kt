@@ -213,12 +213,21 @@ internal class MlnFfiMapSession(
     /**
      * `addSource`, `removeSource` and `removeImage` notify mbgl of nothing, so they render stale.
      */
-    override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-      if (!isLoaded) {
-        abandon()
-        return null
-      }
-      return runOnMap(abandon) { map -> action(map).also { map.requestRepaint() } }
+    override fun mutateMap(action: (MapHandle) -> Unit): Boolean {
+      if (!isLoaded) return false
+      return postWhenMapExists(
+        action = { map ->
+          if (!isLoaded) return@postWhenMapExists
+          action(map)
+          map.requestRepaint()
+        },
+        abandon = {},
+      )
+    }
+
+    override fun notifySourceChanged(sourceId: String) {
+      if (!isLoaded) return
+      callbacks.onSourceChanged(this@MlnFfiMapSession, sourceId)
     }
 
     override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
@@ -587,11 +596,11 @@ internal class MlnFfiMapSession(
       }
 
       RuntimeEventType.MAP_IDLE -> {
+        // Idle is only a style-load fallback. Source add/remove notifies from the style binding;
+        // the C API has no source-changed event yet.
         if (styleLoadUnreported) {
           styleLoadUnreported = false
           callbacks.onMapFinishedLoading(this)
-        } else {
-          callbacks.onSourceChanged(this, null)
         }
       }
 
@@ -766,16 +775,7 @@ internal class MlnFfiMapSession(
     }
   }
 
-  private fun <T> runOnMap(action: (MapHandle) -> T): T? = runOnMap({}, action)
-
-  private fun <T> runOnMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-    val current = loop
-    if (current == null) {
-      abandon()
-      return null
-    }
-    return current.call(action, abandon)
-  }
+  private fun <T> runOnMap(action: (MapHandle) -> T): T? = loop?.call(action)
 
   /** The render session lives on the host's renderer thread. */
   private fun <T> withRendererAccess(action: () -> T): T? {
