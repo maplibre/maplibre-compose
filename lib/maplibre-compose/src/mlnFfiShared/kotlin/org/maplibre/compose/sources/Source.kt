@@ -32,28 +32,37 @@ public actual sealed class Source(internal actual val id: String) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
     }
-    val added = binding.mutateMap { map ->
-      // A layer may attach its source before the source effect runs, so re-attaching the same
-      // binding is idempotent; any other descriptor with this ID is rejected.
-      if (this.binding === binding && map.styleSourceExists(id)) return@mutateMap false
-      check(!map.styleSourceExists(id)) {
-        "Source ID '$id' is already owned by a different live source descriptor"
-      }
+    // Before the owner-thread hop: GeoJSON parse and index must not run on the pump.
+    if (!isAttached) prepareForAttach()
+    val added =
       try {
-        addTo(map)
-      } catch (error: Throwable) {
-        if (error is MaplibreException) {
-          // Native reports what was wrong with the definition but never whose.
-          throw IllegalStateException(
-            "Could not add source '$id' of type " +
-              "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
-            error,
-          )
+        binding.mutateMap { map ->
+          // A layer may attach its source before the source effect runs, so re-attaching the same
+          // binding is idempotent; any other descriptor with this ID is rejected.
+          if (this.binding === binding && map.styleSourceExists(id)) return@mutateMap false
+          check(!map.styleSourceExists(id)) {
+            "Source ID '$id' is already owned by a different live source descriptor"
+          }
+          try {
+            addTo(map)
+          } catch (error: Throwable) {
+            if (error is MaplibreException) {
+              // Native reports what was wrong with the definition but never whose.
+              throw IllegalStateException(
+                "Could not add source '$id' of type " +
+                  "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
+                error,
+              )
+            }
+            throw error
+          }
+          true
         }
+      } catch (error: Throwable) {
+        abandonPrepareForAttach()
         throw error
       }
-      true
-    }
+    if (added != true) abandonPrepareForAttach()
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
@@ -61,6 +70,15 @@ public actual sealed class Source(internal actual val id: String) {
     if (!added) return
     this.binding = binding
   }
+
+  /**
+   * Runs on the caller before [addTo] hops to the owner thread. Override to do work that must not
+   * run on the pump, such as GeoJSON parse and index.
+   */
+  internal open fun prepareForAttach() {}
+
+  /** Releases work from [prepareForAttach] when [addTo] did not run. */
+  internal open fun abandonPrepareForAttach() {}
 
   /**
    * Creates this source on [map], on the map's owner thread. MapLibre Native accepts only `vector`,

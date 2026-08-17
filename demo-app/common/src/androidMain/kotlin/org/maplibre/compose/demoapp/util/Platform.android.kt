@@ -6,7 +6,6 @@ import org.maplibre.compose.demoapp.demos.GestureOptionsDemo
 import org.maplibre.compose.demoapp.demos.GmsLocationDemo
 import org.maplibre.compose.demoapp.demos.OfflineManagerDemo
 import org.maplibre.compose.demoapp.demos.RenderOptionsDemo
-import org.maplibre.compose.demoapp.demos.SynchronousGeoJsonUpdatesDemo
 
 actual object Platform {
   actual val name = "Android"
@@ -19,6 +18,5 @@ actual object Platform {
       OfflineManagerDemo,
       RenderOptionsDemo,
       GmsLocationDemo,
-      SynchronousGeoJsonUpdatesDemo,
     )
 }

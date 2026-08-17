@@ -183,7 +183,11 @@ fun SynchronousGeoJsonUpdatesDemoSheet(
     )
     Text(text = "Zoom: $zoomLevel", modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp))
     Text(
-      text = "Android only. The point updates every 50 ms.",
+      text = "The point updates every 50 ms.",
+      modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+    )
+    Text(
+      text = "Synchronous updates reduce latency and can reduce frame rate.",
       modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
     )
     Text(

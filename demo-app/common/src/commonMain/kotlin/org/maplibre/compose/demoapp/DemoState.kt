@@ -20,6 +20,7 @@ import org.maplibre.compose.demoapp.demos.MapControlsDemo
 import org.maplibre.compose.demoapp.demos.MapManipulationDemo
 import org.maplibre.compose.demoapp.demos.MarkersDemo
 import org.maplibre.compose.demoapp.demos.StyleSelectorDemo
+import org.maplibre.compose.demoapp.demos.SynchronousGeoJsonUpdatesDemo
 import org.maplibre.compose.demoapp.demos.UserLocationDemo
 import org.maplibre.compose.demoapp.util.Platform
 import org.maplibre.compose.location.LocationState
@@ -84,6 +85,7 @@ class DemoState(
       StyleSelectorDemo,
       CameraStateDemo,
       AnimatedLayerDemo,
+      SynchronousGeoJsonUpdatesDemo,
       MarkersDemo,
       MapClickDemo,
       ClusteredPointsDemo,
