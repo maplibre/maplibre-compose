@@ -759,7 +759,9 @@ internal class MlnFfiMapSession(
 
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
-    mirroredCamera = position
+    // Published eagerly so a read between this call and the owner-thread snapshot below does not
+    // observe the previous camera.
+    mirroredViewport = mirroredViewport.copy(camera = position)
     configureMap { map ->
       map.jumpTo(position.toCameraOptions(layoutDirection))
       snapshotViewport(map)
@@ -818,27 +820,28 @@ internal class MlnFfiMapSession(
   /** Answers camera reads made before the map has an extent, rather than MapLibre's default. */
   @Volatile private var requestedCamera: CameraPosition? = null
 
-  @Volatile private var mirroredCamera: CameraPosition = CameraPosition()
+  /**
+   * One immutable copy of the native camera and viewport, published by the owner thread so UI
+   * getters never hop threads and never observe a half-updated viewport. The default answers reads
+   * made before the map has an extent.
+   */
+  private data class MirroredViewport(
+    val camera: CameraPosition = CameraPosition(),
+    val width: Int = 0,
+    val height: Int = 0,
+    val visibleRegion: VisibleRegion =
+      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
+    val boundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0)),
+  )
 
-  @Volatile
-  private var mirroredBoundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))
-
-  @Volatile
-  private var mirroredVisibleRegion: VisibleRegion =
-    VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
-
-  @Volatile private var mirroredWidth: Int = 0
-
-  @Volatile private var mirroredHeight: Int = 0
+  @Volatile private var mirroredViewport = MirroredViewport()
 
   /** Owner thread only. Copies native camera and viewport so UI getters never hop. */
   private fun snapshotViewport(map: MapHandle) {
-    mirroredCamera = map.camera.toCameraPosition()
+    val camera = map.camera.toCameraPosition()
     val size = map.size
-    mirroredWidth = size.width
-    mirroredHeight = size.height
     val corners = map.unprojectedCorners()
-    mirroredVisibleRegion =
+    val visibleRegion =
       VisibleRegion(
         farLeft = corners[0],
         farRight = corners[1],
@@ -854,22 +857,29 @@ internal class MlnFfiMapSession(
     // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
     // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
     // GL JS, the box may then extend past ±180.
-    mirroredBoundingBox =
-      BoundingBox(
-        southwest =
-          Position(
-            longitude = unwrapped.minOf { it.longitude },
-            latitude = unwrapped.minOf { it.latitude },
-          ),
-        northeast =
-          Position(
-            longitude = unwrapped.maxOf { it.longitude },
-            latitude = unwrapped.maxOf { it.latitude },
+    mirroredViewport =
+      MirroredViewport(
+        camera = camera,
+        width = size.width,
+        height = size.height,
+        visibleRegion = visibleRegion,
+        boundingBox =
+          BoundingBox(
+            southwest =
+              Position(
+                longitude = unwrapped.minOf { it.longitude },
+                latitude = unwrapped.minOf { it.latitude },
+              ),
+            northeast =
+              Position(
+                longitude = unwrapped.maxOf { it.longitude },
+                latitude = unwrapped.maxOf { it.latitude },
+              ),
           ),
       )
   }
 
-  override fun getCameraPosition(): CameraPosition = mirroredCamera
+  override fun getCameraPosition(): CameraPosition = mirroredViewport.camera
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     recordCamera(cameraPosition)
@@ -1037,9 +1047,9 @@ internal class MlnFfiMapSession(
     configureMap { map -> map.bounds = map.bounds.also(update) }
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox = mirroredBoundingBox
+  override fun getVisibleBoundingBox(): BoundingBox = mirroredViewport.boundingBox
 
-  override fun getVisibleRegion(): VisibleRegion = mirroredVisibleRegion
+  override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
 
   /**
    * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.
@@ -1156,7 +1166,7 @@ internal class MlnFfiMapSession(
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(mirroredCamera.zoom, latitude)
+    metersPerDpAtLatitude(mirroredViewport.camera.zoom, latitude)
 
   // endregion
 
