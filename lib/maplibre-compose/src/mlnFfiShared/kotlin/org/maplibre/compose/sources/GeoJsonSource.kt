@@ -2,49 +2,39 @@
 
 package org.maplibre.compose.sources
 
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
-import kotlinx.serialization.json.putJsonArray
-import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toJsonBytes
-import org.maplibre.compose.util.toJsonElement
-import org.maplibre.compose.util.toStyleJson
 import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceOptions
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
-import org.maplibre.spatialk.geojson.toJson
 
 public actual class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
-  private val ffiOptions: GeoJsonSourceOptions
-  private lateinit var data: GeoJsonData
 
-  /**
-   * UTF-8 GeoJSON for inline data, encoded when the data is set so attach and [setData] reuse it.
-   * Null when [data] is a URL.
-   */
-  private var inlineUtf8: ByteArray? = null
+  // Held parsed because toJson runs again on every re-add after a style change.
+  private var data: JsonElement
+
+  /** The URI form of [data], when it is one. */
+  private var dataUrl: String?
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
-    this.ffiOptions = options.toFfiOptions()
-    replaceData(data)
+    this.data = data.toDataJson()
+    this.dataUrl = (data as? GeoJsonData.Uri)?.uri
   }
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "geojson")
-    put("data", data.toDataJson())
+    put("data", data)
     putGeoJsonOptions(options)
     // Neither is in the style spec's GeoJSON source, but MapLibre Native reads both straight off
     // the source JSON.
@@ -52,24 +42,38 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
-  /** Adds with a URL or UTF-8 GeoJSON. Native parses that payload once. */
   override fun addTo(map: MapHandle) {
-    val bytes = inlineUtf8
-    if (bytes != null) map.addGeoJsonSourceData(id, bytes, ffiOptions)
-    else map.addGeoJsonSourceUrl(id, (data as GeoJsonData.Uri).uri, ffiOptions)
+    val url = dataUrl
+    if (url != null) {
+      map.addGeoJsonSourceUrl(id, url, options.toFfiOptions())
+    } else {
+      prepareData().use { map.addGeoJsonSourceData(id, it) }
+    }
   }
 
   public actual fun setData(data: GeoJsonData) {
-    replaceData(data)
-    val bytes = inlineUtf8
-    if (bytes != null) mutate { map -> map.setGeoJsonSourceData(id, bytes) }
-    else mutate { map -> map.setGeoJsonSourceUrl(id, (data as GeoJsonData.Uri).uri) }
+    this.data = data.toDataJson()
+    this.dataUrl = (data as? GeoJsonData.Uri)?.uri
+    if (data is GeoJsonData.Uri) {
+      mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
+    } else {
+      // Prepared outside the lambda so the map's owner thread does not parse or index the data.
+      // Closed after the posted mutation: mutateMap queues the work and does not wait.
+      val prepared = prepareData()
+      val posted = mutate { map ->
+        try {
+          map.setGeoJsonSourceData(id, prepared)
+        } finally {
+          prepared.close()
+        }
+      }
+      if (!posted) prepared.close()
+    }
   }
 
-  private fun replaceData(data: GeoJsonData) {
-    this.data = data
-    inlineUtf8 = data.inlineUtf8()
-  }
+  /** Prepared with the options the source was added with; a mismatch is rejected at install. */
+  private fun prepareData(): GeoJsonSourceDataHandle =
+    GeoJsonSourceDataHandle.create(data.toJsonBytes(), options.toFfiOptions())
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
@@ -77,7 +81,7 @@ public actual class GeoJsonSource : Source {
 
   public actual suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double {
     val result = queryClusterExtension(feature, EXPANSION_ZOOM_FIELD)
-    val zoom = (result as? JsonPrimitive)?.doubleOrNull
+    val zoom = result?.decodeToString()?.toDoubleOrNull()
     if (zoom == null) {
       reportMiss(EXPANSION_ZOOM_FIELD, result)
       return NO_EXPANSION_ZOOM
@@ -112,13 +116,13 @@ public actual class GeoJsonSource : Source {
     queryClusterFeatures(
       feature,
       LEAVES_FIELD,
-      // Both must be unsigned integers in the JSON MapLibre type-checks; a signed or floating
-      // value silently falls back to its own default of ten, and it ignores offset unless limit is
-      // present.
+      // Both must be unsigned: MapLibre type-checks them exactly and silently falls back to its own
+      // default of ten otherwise, and it ignores offset unless limit is present. A non-negative
+      // integer literal parses as unsigned.
       // https://github.com/maplibre/maplibre-native-ffi/pull/340
       buildJsonObject {
-        put("limit", JsonPrimitive(limit.coerceAtLeast(0).toULong()))
-        put("offset", JsonPrimitive(offset.coerceAtLeast(0).toULong()))
+        put("limit", limit.coerceAtLeast(0))
+        put("offset", offset.coerceAtLeast(0))
       }
         .toJsonBytes(),
     )
@@ -131,14 +135,11 @@ public actual class GeoJsonSource : Source {
     feature: Feature<*, JsonObject?>,
     field: String,
     arguments: ByteArray? = null,
-  ): JsonElement? {
+  ): ByteArray? {
     val ffiFeature = feature.toFfiClusterFeature() ?: return null
-    val bytes =
-      binding.withRenderSession { session ->
-        session.queryFeatureExtension(id, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
-      } ?: return null
-    if (bytes.isEmpty()) return null
-    return runCatching { bytes.toJsonElement() }.getOrNull()
+    return binding.withRenderSession { session ->
+      session.queryFeatureExtension(id, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
+    }
   }
 
   private fun queryClusterFeatures(
@@ -147,23 +148,24 @@ public actual class GeoJsonSource : Source {
     arguments: ByteArray?,
   ): FeatureCollection<*, JsonObject?> {
     val result = queryClusterExtension(feature, field, arguments)
-    val features = (result as? JsonObject)?.toFeatureList()
-    if (features == null) {
+    val collection =
+      result?.decodeToString()?.let { FeatureCollection.fromJsonOrNull<Geometry, JsonObject?>(it) }
+    if (collection == null) {
       reportMiss(field, result)
       return FeatureCollection<Geometry, JsonObject?>(emptyList())
     }
-    return FeatureCollection(features)
+    return collection
   }
 
   /**
    * Reports a lookup that found no cluster. MapLibre answers a successful query with a feature
    * collection, even an empty one, and a failed one with a null value.
    */
-  private fun reportMiss(field: String, result: JsonElement?) {
+  private fun reportMiss(field: String, result: ByteArray?) {
     if (result == null) return
     binding.logger?.w {
       "Cluster '$field' query matched no cluster in source '$id'; the feature's cluster_id is " +
-        "probably stale. MapLibre answered with $result."
+        "probably stale. MapLibre answered with ${result.decodeToString()}."
     }
   }
 
@@ -180,43 +182,23 @@ public actual class GeoJsonSource : Source {
   }
 }
 
-/** Encodes caller-supplied features as UTF-8 GeoJSON for the FFI buffer API. */
-internal fun FeatureCollection<*, *>.toFfiGeoJson(): ByteArray = toJson().encodeToByteArray()
-
-private fun GeoJsonData.inlineUtf8(): ByteArray? =
-  when (this) {
-    is GeoJsonData.Uri -> null
-    is GeoJsonData.JsonString -> json.encodeToByteArray()
-    is GeoJsonData.Features -> geoJson.toJson().encodeToByteArray()
-  }
-
+/** The same options [putGeoJsonOptions] writes into source JSON, as the typed adder takes them. */
 private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
-  GeoJsonSourceOptions().also { out ->
-    out.minZoom = minZoom.toDouble()
-    out.maxZoom = maxZoom.toDouble()
-    out.buffer = buffer
-    out.tolerance = tolerance.toDouble()
-    out.lineMetrics = lineMetrics
-    out.cluster = cluster
-    out.clusterRadius = clusterRadius
-    out.clusterMaxZoom = clusterMaxZoom.toDouble()
-    out.clusterMinPoints = clusterMinPoints
-    out.synchronousUpdate = synchronousUpdate
-    if (clusterProperties.isEmpty()) return@also
-    out.clusterProperties =
-      buildJsonObject {
-        clusterProperties.forEach { (name, aggregator) ->
-          putJsonArray(name) {
-            add(aggregator.reducer.compile(ExpressionContext.None).toStyleJson())
-            add(aggregator.mapper.compile(ExpressionContext.None).toStyleJson())
-          }
-        }
-      }
-        .toJsonBytes()
+  GeoJsonSourceOptions().also {
+    it.minZoom = minZoom.toDouble()
+    it.maxZoom = maxZoom.toDouble()
+    it.tolerance = tolerance.toDouble()
+    it.buffer = buffer
+    it.cluster = cluster
+    it.clusterRadius = clusterRadius
+    it.clusterMaxZoom = clusterMaxZoom.toDouble()
+    it.clusterMinPoints = clusterMinPoints
+    it.lineMetrics = lineMetrics
+    it.synchronousTiling = synchronousUpdate
+    it.clusterProperties = clusterPropertiesBytes()
   }
 
-private fun JsonObject.toFeatureList(): List<Feature<Geometry, JsonObject?>>? {
-  if ((this["type"] as? JsonPrimitive)?.content != "FeatureCollection") return null
-  val features = this["features"] as? JsonArray ?: return emptyList()
-  return features.map { Feature.fromJson(it.toString()) }
+private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
+  if (clusterProperties.isEmpty()) return null
+  return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
 }

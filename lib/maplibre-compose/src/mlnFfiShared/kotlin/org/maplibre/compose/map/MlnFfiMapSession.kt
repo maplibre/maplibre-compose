@@ -103,13 +103,9 @@ private const val MIN_PITCH_DEGREES = 0.0
 /** MapLibre rejects a pitch beyond this, so the drag is clamped rather than throwing. */
 private const val MAX_PITCH_DEGREES = 60.0
 
-/**
- * Event types a map session reads. Unselected types are never queued and never wake the pump. Keep
- * in lockstep with the session's event handler.
- */
-internal val MAP_SESSION_EVENT_MASK: RuntimeEventMask =
+/** The events [MlnFfiMapSession.handleEvent] consumes. */
+private val HANDLED_MAP_EVENTS: RuntimeEventMask =
   RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE +
-    RuntimeEventMask.MAP_RENDER_FRAME_FINISHED +
     RuntimeEventMask.MAP_STYLE_LOADED +
     RuntimeEventMask.MAP_LOADING_FINISHED +
     RuntimeEventMask.MAP_IDLE +
@@ -311,26 +307,22 @@ internal class MlnFfiMapSession(
     }
 
     val session = renderSession ?: return MlnFfiFrameResult.SKIPPED
-    val result =
+    val update =
       try {
         session.renderUpdate()
       } catch (error: NativeErrorException) {
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
-    when (result) {
-      RenderResult.RENDERED -> Unit
+    when (update.result) {
       RenderResult.NO_UPDATE,
-      RenderResult.SIZE_PENDING ->
-        // These resolve on MAP_RENDER_UPDATE_AVAILABLE; requesting a frame here would spin.
-        return MlnFfiFrameResult.SKIPPED
-      RenderResult.TARGET_NOT_READY ->
-        // Resolves when the host replaces the render target.
-        return MlnFfiFrameResult.SKIPPED
-      else -> {
-        logger?.w { "Unrecognized MapLibre render result $result" }
+      RenderResult.SIZE_PENDING -> return MlnFfiFrameResult.SKIPPED
+      RenderResult.TARGET_NOT_READY -> {
+        requestRender()
         return MlnFfiFrameResult.SKIPPED
       }
+      else -> Unit
     }
+    if (update.needsRepaint) requestRender()
 
     if (!hasRenderedAFrame) {
       hasRenderedAFrame = true
@@ -341,7 +333,6 @@ internal class MlnFfiMapSession(
     }
     lastRenderTime = renderStart
     reportFrameRate()
-    // TODO: requestRender() when renderUpdate reports needsRepaint, once the C API returns it.
     return MlnFfiFrameResult.RENDERED
   }
 
@@ -371,7 +362,7 @@ internal class MlnFfiMapSession(
           onEvent = ::handleEvent,
           onEventsDrained = ::onEventsDrained,
           requestFrame = ::requestRender,
-          mapEventMask = MAP_SESSION_EVENT_MASK,
+          mapEventMask = HANDLED_MAP_EVENTS,
         )
       pendingMapActions.forEach { action ->
         if (!created.post(action.run, action.abandon)) action.abandon()
@@ -587,11 +578,6 @@ internal class MlnFfiMapSession(
   private fun handleEvent(event: RuntimeEvent) {
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
-
-      RuntimeEventType.MAP_RENDER_FRAME_FINISHED -> {
-        val payload = event.payload
-        if (payload is RuntimeEventPayload.RenderFrame && payload.needsRepaint) requestRender()
-      }
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
         // Descriptors holding the previous binding must not write into a style that is gone.

@@ -5,7 +5,6 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.normalizeMlnFfiPath
-import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.RuntimeOptions
 
@@ -41,14 +40,12 @@ private constructor(
   companion object {
     /**
      * Creates a runtime and everything that hangs off it, or throws having closed whatever it got
-     * as far as. [what] names the runtime in log lines. [eventMask] selects the runtime-originated
-     * event types the runtime queues.
+     * as far as. [what] names the runtime in log lines.
      */
     fun open(
       rawCacheFile: Path,
       getLogger: () -> Logger?,
       what: String,
-      eventMask: RuntimeEventMask,
       resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
     ): MlnFfiRuntimeOwner {
       val cacheFile = normalizeMlnFfiPath(rawCacheFile)
@@ -59,12 +56,7 @@ private constructor(
 
       val runtime =
         try {
-          RuntimeHandle.create(
-            RuntimeOptions().also {
-              it.cachePath = cacheFile.toString()
-              it.eventMask = eventMask
-            }
-          )
+          RuntimeHandle.create(RuntimeOptions().also { it.cachePath = cacheFile.toString() })
         } catch (error: Throwable) {
           throw error
         }

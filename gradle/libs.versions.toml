@@ -28,7 +28,7 @@ lifecycleRuntimeCompose = "2.10.0"
 lwjgl = "3.4.2"
 maplibre-ios = "6.28.0"
 maplibre-js = "6.2.0"
-maplibre-nativeFfi = "0.1.0-SNAPSHOT"
+maplibre-nativeFfi = "0.202608.1"
 playServices-location = "21.4.0"
 spatialk = "0.7.0"
 

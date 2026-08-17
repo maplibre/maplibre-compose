@@ -14,7 +14,6 @@ import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapOptions
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
-import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 import org.maplibre.nativeffi.runtime.WakeSource
 
@@ -169,8 +168,7 @@ internal class MlnFfiMapRuntimeLoop(
             cacheFile,
             getLogger,
             "MapLibre runtime",
-            eventMask = RuntimeEventMask.NONE,
-            resourceProviderFactory = resourceProviderFactory,
+            resourceProviderFactory,
           )
           .also { runtimeOwner = it }
       } catch (error: Throwable) {
@@ -231,37 +229,25 @@ internal class MlnFfiMapRuntimeLoop(
     }
 
   private fun drainEvents(runtime: RuntimeHandle, map: MapHandle) {
-    try {
-      do {
-        val batch = runtime.drainEvents()
-        // Post the next frame before camera snapshots and other observer work on this thread.
-        dispatchEvents(batch.events, map, rendererWake = true)
-        dispatchEvents(batch.events, map, rendererWake = false)
-        if (batch.remainingCount <= 0L) break
-      } while (true)
-    } catch (error: Throwable) {
-      // drainEvents is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
-      // throw from the map rather than the runtime.
-      logger?.e(error) { "Failed to drain MapLibre runtime events" }
+    val events =
+      try {
+        runtime.drainEvents().events
+      } catch (error: Throwable) {
+        // drainEvents is not a pure read; on MAP_STYLE_LOADED it calls into the map, so it can
+        // throw from the map rather than the runtime.
+        logger?.e(error) { "Failed to drain MapLibre runtime events" }
+        emptyList()
+      }
+    for (event in events) {
+      if (event.mapSource != null && event.mapSource !== map) continue
+      runCatching { onEvent(event) }
+        .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
     }
     runCatching { onEventsDrained(map) }
       .onFailure { logger?.e(it) { "Failed to finish handling a MapLibre event batch" } }
     val barriers = eventDrainBarriers.toList()
     eventDrainBarriers.clear()
     barriers.forEach { runCatching(it) }
-  }
-
-  private fun dispatchEvents(
-    events: List<RuntimeEvent>,
-    map: MapHandle,
-    rendererWake: Boolean,
-  ) {
-    for (event in events) {
-      if (event.mapSource != null && event.mapSource !== map) continue
-      if (event.isRendererWake != rendererWake) continue
-      runCatching { onEvent(event) }
-        .onFailure { logger?.e(it) { "Failed to handle MapLibre event ${event.type}" } }
-    }
   }
 
   /** Runs everything queued, reporting whether anything ran. */
@@ -312,8 +298,3 @@ internal class MlnFfiMapRuntimeLoop(
     }
   }
 }
-
-private val RuntimeEvent.isRendererWake: Boolean
-  get() =
-    type == RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE ||
-      type == RuntimeEventType.MAP_RENDER_FRAME_FINISHED
