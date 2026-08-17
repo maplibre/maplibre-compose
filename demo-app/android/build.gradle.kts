@@ -7,10 +7,14 @@ plugins {
 android {
   namespace = "org.maplibre.compose.demoapp"
 
+  // Compose 1.12 requires API 37; that platform ships as android-37.0.
+  compileSdk {
+    version = release(libs.versions.android.compileSdk.get().toInt()) { minorApiLevel = 0 }
+  }
+
   defaultConfig {
     applicationId = "org.maplibre.compose.demoapp"
     minSdk = libs.versions.android.minSdk.get().toInt()
-    compileSdk = libs.versions.android.compileSdk.get().toInt()
     targetSdk = libs.versions.android.targetSdk.get().toInt()
     versionCode = 1
     versionName = project.version.toString()
