@@ -168,7 +168,12 @@ run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
 
 [tasks."demo:android"]
 description = "Run the demo app on a connected Android device or emulator."
-usage = 'arg "[serial]" help="adb serial. Prompts when several devices are connected."'
+usage = '''
+flag "--flavor <flavor>" default="default" {
+  choices "default" "opengl" "vulkan" "debug"
+}
+arg "[serial]" help="adb serial. Prompts when several devices are connected."
+'''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
 run = ".mise/bin/run-android-demo"
