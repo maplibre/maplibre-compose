@@ -122,20 +122,8 @@ internal class AndroidMapAdapter(
     pendingBaseStyle = null
     if (queuedBaseStyle == null) return
     queuedBaseStyle = null
-    // Deliberately do NOT call beginStyleLoad(next) here. This method runs synchronously
-    // inside map.setStyle's native completion callback, not from AndroidView's `update`
-    // block — the only entry point SafeStyle's kdoc establishes as "early enough" for
-    // content subcomposition to observe an unload before the next native style transition
-    // begins. Calling beginStyleLoad directly here would unload the SafeStyle this same
-    // callback just created via callbacks.onStyleChanged(this, newStyle) above and
-    // immediately start tearing down the native style again, all before Compose's own
-    // recomposition cadence ever gets a chance to finish applying layer-property updates
-    // (e.g. SymbolLayer.setIconImage) against it — the same race #917/#948 fixed on iOS,
-    // where the analogous bug surfaces as an uncaught MLNInvalidStyleLayerException;
-    // Android's variant is a catchable-but-unhandled IllegalStateException("invalid native
-    // peer"). Instead, forcing a mismatch against lastBaseStyle makes the *next*
-    // setBaseStyle(style) call — driven by AndroidView's update block, on its
-    // established-safe cadence — restart the queued load.
+    // Not beginStyleLoad(next) directly: this runs inside map.setStyle's native callback, not
+    // AndroidView's update block, which SafeStyle's kdoc requires for unload ordering.
     lastBaseStyle = null
   }
 
