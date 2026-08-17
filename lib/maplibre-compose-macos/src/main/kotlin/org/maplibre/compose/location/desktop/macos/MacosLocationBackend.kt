@@ -1,28 +1,240 @@
 package org.maplibre.compose.location.desktop.macos
 
+import java.util.Locale
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.SendChannel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationPermissionRequester
 import org.maplibre.compose.location.DesktopLocationProvider
+import org.maplibre.compose.location.LocationAccuracy
+import org.maplibre.compose.location.LocationBackendAvailability
+import org.maplibre.compose.location.LocationEvent
+import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProvider
+import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationUnavailableReason
+import org.maplibre.spatialk.units.extensions.inMeters
 
-/** Scaffold for the macOS desktop location backend. */
+/** macOS desktop location backend backed by Core Location. */
 public class MacosLocationBackend : DesktopLocationBackend {
   override val id: String = "core-location"
 
-  // TODO: Implement location with CLLocationManager: requestWhenInUseAuthorization,
-  // startUpdatingLocation, stopUpdatingLocation, and the authorization, location, and error
-  // delegate callbacks. Map CLLocation fields and timestamps to the common API. Packages must
-  // declare NSLocationWhenInUseUsageDescription and the location entitlement.
-  //
-  // Implement orientation with headingAvailable, startUpdatingHeading, stopUpdatingHeading, and
-  // locationManager:didUpdateHeading:. Prefer trueHeading when valid, otherwise magneticHeading;
-  // map headingAccuracy and the CLHeading timestamp to the common API.
-  override fun isAvailable(): Boolean = false
+  override fun isAvailable(): Boolean =
+    System.getProperty("os.name").lowercase(Locale.ROOT).startsWith("mac")
 
   override fun createProvider(host: ComposeMapHost?): DesktopLocationProvider =
-    error("The macOS location backend is not implemented")
+    MacosLocationProvider()
 
   override fun createPermissionRequester(
     host: ComposeMapHost?
-  ): DesktopLocationPermissionRequester = error("The macOS location backend is not implemented")
+  ): DesktopLocationPermissionRequester = MacosLocationPermissionRequester()
+}
+
+/**
+ * A [LocationProvider] built on
+ * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager).
+ *
+ * Each collection creates a
+ * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager)
+ * on the AppKit main run loop, applies the request's accuracy and distance preferences, and stops
+ * the manager when collection ends. Compose Desktop's `Dispatchers.Main` is the Swing
+ * event-dispatch thread on the AWT host and does not pump that run loop, so Core Location work is
+ * marshaled there explicitly. The process's app Info.plist must declare
+ * `NSLocationWhenInUseUsageDescription`. [LocationRequest.minimumInterval] is ignored because Core
+ * Location filters only by distance.
+ *
+ * [LocationAccuracy.BestForNavigation] maps to
+ * [`kCLLocationAccuracyBestForNavigation`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracybestfornavigation),
+ * [LocationAccuracy.High] maps to
+ * [`kCLLocationAccuracyBest`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracybest),
+ * [LocationAccuracy.Balanced] maps to
+ * [`kCLLocationAccuracyHundredMeters`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracyhundredmeters),
+ * [LocationAccuracy.Low] maps to
+ * [`kCLLocationAccuracyKilometer`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracykilometer),
+ * and [LocationAccuracy.Lowest] maps to
+ * [`kCLLocationAccuracyReduced`](https://developer.apple.com/documentation/corelocation/kcllocationaccuracyreduced).
+ *
+ * [`kCLErrorDenied`](https://developer.apple.com/documentation/corelocation/clerror/denied) maps to
+ * [LocationUnavailableReason.ServicesDisabled] when location services are disabled and to
+ * [LocationUnavailableReason.PermissionDenied] otherwise.
+ * [`kCLErrorPromptDeclined`](https://developer.apple.com/documentation/corelocation/clerror/promptdeclined)
+ * also maps to [LocationUnavailableReason.PermissionDenied].
+ * [`kCLErrorLocationUnknown`](https://developer.apple.com/documentation/corelocation/clerror/locationunknown)
+ * and [`kCLErrorNetwork`](https://developer.apple.com/documentation/corelocation/clerror/network)
+ * map to [LocationUnavailableReason.TemporarilyUnavailable]. Other Core Location errors map to
+ * [LocationUnavailableReason.UnexpectedFailure].
+ */
+public class MacosLocationProvider
+internal constructor(
+  private val client: CoreLocationClient,
+  private val dispatcher: CoroutineContext = Dispatchers.Main,
+  private val ioDispatcher: CoroutineContext = Dispatchers.IO,
+) : DesktopLocationProvider {
+  public constructor() : this(SystemCoreLocationClient())
+
+  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    when (val availability = backendAvailability) {
+      is LocationBackendAvailability.Misconfigured -> {
+        trySend(
+          LocationEvent.Unavailable(LocationUnavailableReason.Misconfigured, availability.cause)
+        )
+        close()
+        return@callbackFlow
+      }
+      LocationBackendAvailability.Unsupported -> {
+        trySend(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+        close()
+        return@callbackFlow
+      }
+      LocationBackendAvailability.Available -> Unit
+    }
+    val locationServicesEnabled = withContext(ioDispatcher) { client.locationServicesEnabled }
+    if (!locationServicesEnabled) {
+      trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
+      close()
+      return@callbackFlow
+    }
+
+    val manager =
+      try {
+        client.createManager()
+      } catch (error: Throwable) {
+        trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+        close()
+        return@callbackFlow
+      }
+
+    try {
+      val delegate = UpdateDelegate(this, channel, client, ioDispatcher)
+      manager.setDelegate(delegate)
+      manager.desiredAccuracy = request.accuracy.toDesiredAccuracy()
+      manager.distanceFilter = request.minimumDistance.inMeters
+      manager.location?.let(delegate::sendLocation)
+      manager.startUpdatingLocation()
+    } catch (error: Throwable) {
+      manager.close()
+      trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+      close()
+      return@callbackFlow
+    }
+
+    // Retaining the delegate in this closure is required because CLLocationManager does not.
+    awaitClose { manager.close() }
+  }
+    .flowOn(dispatcher)
+
+  override fun close() {
+    client.close()
+  }
+
+  private class UpdateDelegate(
+    private val scope: CoroutineScope,
+    private val channel: SendChannel<LocationEvent>,
+    private val client: CoreLocationClient,
+    private val ioDispatcher: CoroutineContext,
+  ) : CoreLocationDelegate {
+    override fun didUpdateLocations(locations: List<CoreLocationFix>) {
+      locations.forEach(::sendLocation)
+    }
+
+    override fun didFailWithError(error: CoreLocationError) {
+      if (error.domain == CL_ERROR_DOMAIN && error.code == CL_ERROR_DENIED) {
+        scope.launch(ioDispatcher) {
+          channel.trySend(
+            LocationEvent.Unavailable(error.asUnavailableReason(client.locationServicesEnabled))
+          )
+        }
+        return
+      }
+      channel.trySend(LocationEvent.Unavailable(error.asUnavailableReason(true)))
+    }
+
+    override fun didChangeAuthorization() = Unit
+
+    fun sendLocation(location: CoreLocationFix) {
+      if (location.horizontalAccuracy < 0.0) return
+      channel.trySend(LocationEvent.Fix(location.asMapLibreLocation()))
+    }
+  }
+}
+
+/**
+ * Foreground Core Location permission requester.
+ *
+ * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
+ * maps an authorized status to [LocationPermission.Granted], `notDetermined` to
+ * [LocationPermission.NotGranted] with `canRequest = true`, `denied` or `restricted` to `canRequest
+ * = false`, and an unrecognized value to `canRequest = null`.
+ * [`CLLocationManager.accuracyAuthorization`](https://developer.apple.com/documentation/corelocation/cllocationmanager/accuracyauthorization)
+ * distinguishes precise from approximate grants. A request calls
+ * [`requestWhenInUseAuthorization()`](https://developer.apple.com/documentation/corelocation/cllocationmanager/requestwheninuseauthorization())
+ * and starts location updates so macOS can present the system prompt.
+ */
+public class MacosLocationPermissionRequester
+internal constructor(private val client: CoreLocationClient) : DesktopLocationPermissionRequester {
+  public constructor() : this(SystemCoreLocationClient())
+
+  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+  private val mutableStatus =
+    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+  override val status: StateFlow<LocationPermission> = mutableStatus
+  private val requestPending = AtomicBoolean()
+  private val manager = client.createManager()
+
+  private val delegate =
+    object : CoreLocationDelegate {
+      override fun didUpdateLocations(locations: List<CoreLocationFix>) = Unit
+
+      override fun didFailWithError(error: CoreLocationError) {
+        manager.stopUpdatingLocation()
+        requestPending.set(false)
+      }
+
+      override fun didChangeAuthorization() {
+        val permission = currentPermission()
+        mutableStatus.value = permission
+        if (permission != LocationPermission.NotGranted(canRequest = true)) {
+          manager.stopUpdatingLocation()
+        }
+        requestPending.set(false)
+      }
+    }
+
+  init {
+    manager.setDelegate(delegate)
+    mutableStatus.value = currentPermission()
+  }
+
+  override fun requestForegroundPermission() {
+    if (backendAvailability != LocationBackendAvailability.Available) return
+    val current = currentPermission()
+    if (current != LocationPermission.NotGranted(canRequest = true)) return
+    if (!requestPending.compareAndSet(false, true)) return
+    manager.requestWhenInUseAuthorization()
+    // macOS presents the system prompt when a location service starts, not from the
+    // authorization request alone.
+    manager.startUpdatingLocation()
+  }
+
+  override fun close() {
+    manager.close()
+    client.close()
+  }
+
+  private fun currentPermission(): LocationPermission =
+    readPermission(manager.authorizationStatus, manager.accuracyAuthorization)
 }

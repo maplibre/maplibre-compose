@@ -37,9 +37,9 @@ integration point rather than something wired into Skiko's internals.
 
 Next steps:
 
-- Add support for platform location services on macOS and Windows. Linux uses
-  the XDG Location portal. Desktop orientation providers still need platform
-  sensor integrations.
+- Add support for platform location services on Windows. Linux uses the XDG
+  Location portal, and macOS uses Core Location. Desktop orientation providers
+  still need platform sensor integrations.
 
 ### [Native core integration on Android and iOS](https://github.com/maplibre/maplibre-compose/issues/572)
 
