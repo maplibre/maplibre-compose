@@ -13,8 +13,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -37,7 +35,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -65,7 +62,32 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
     popExitTransition = { sharedAxisExit(slideDistance) },
   ) {
     composable("demos") {
-      DemosScreen(state, onOpenSettings = { navController.navigate("settings") })
+      DemosScreen(
+        state,
+        onOpenSettings = { navController.navigate("settings") },
+        onOpenDemo = { demo ->
+          state.selectedDemo = demo
+          navController.navigate("demo")
+        },
+      )
+    }
+    composable("demo") {
+      val demo = state.selectedDemo ?: return@composable
+      SettingsSubScreen(
+        demo.name,
+        onBack = {
+          state.selectedDemo = null
+          navController.popBackStack()
+        },
+      ) {
+        Text(
+          text = demo.description,
+          style = MaterialTheme.typography.bodyMedium,
+          color = MaterialTheme.colorScheme.onSurfaceVariant,
+          modifier = Modifier.padding(horizontal = 16.dp),
+        )
+        demo.Panel()
+      }
     }
     composable("settings") {
       SettingsScreen(
@@ -105,7 +127,11 @@ private fun sharedAxisExit(slideDistance: Int): ExitTransition =
     fadeOut(tween(AxisDurationMillis * 3 / 10, easing = AccelerateEasing))
 
 @Composable
-private fun DemosScreen(state: DemoAppState, onOpenSettings: () -> Unit) {
+private fun DemosScreen(
+  state: DemoAppState,
+  onOpenSettings: () -> Unit,
+  onOpenDemo: (Demo) -> Unit,
+) {
   Column {
     TopAppBar(
       title = { Text("MapLibre Compose") },
@@ -120,28 +146,8 @@ private fun DemosScreen(state: DemoAppState, onOpenSettings: () -> Unit) {
       StyleSelector(state)
 
       SectionHeader("Demos")
-      Column(Modifier.selectableGroup()) {
-        allDemos.forEach { demo ->
-          ListItem(
-            headlineContent = { Text(demo.name) },
-            supportingContent = { Text(demo.description) },
-            colors =
-              ListItemDefaults.colors(
-                containerColor =
-                  if (demo == state.selectedDemo) MaterialTheme.colorScheme.secondaryContainer
-                  else Color.Transparent
-              ),
-            modifier =
-              Modifier.selectable(
-                selected = demo == state.selectedDemo,
-                role = Role.Tab,
-                onClick = { state.selectedDemo = if (demo == state.selectedDemo) null else demo },
-              ),
-          )
-          if (demo == state.selectedDemo) {
-            demo.Panel()
-          }
-        }
+      allDemos.forEach { demo ->
+        SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) }
       }
     }
   }
