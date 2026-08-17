@@ -12,6 +12,7 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.LocationAccuracy
@@ -204,6 +205,29 @@ class MacosLocationProviderTest {
     val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
     assertEquals(LocationUnavailableReason.ServicesDisabled, event.reason)
     assertEquals(0, client.managers.size)
+  }
+
+  @Test
+  fun deniedErrorRechecksLocationServices() = runTest {
+    val client = FakeCoreLocationClient()
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined, Dispatchers.Unconfined)
+    client.nextLocation = sampleFix()
+
+    val events = mutableListOf<LocationEvent>()
+    backgroundScope.launch(Dispatchers.Unconfined) {
+      provider.updates(LocationRequest()).collect { events += it }
+    }
+
+    assertIs<LocationEvent.Fix>(events.single())
+    client.locationServicesEnabled = false
+    client.managers
+      .single()
+      .boundDelegate
+      ?.didFailWithError(CoreLocationError(CL_ERROR_DOMAIN, CL_ERROR_DENIED))
+
+    val unavailable = assertIs<LocationEvent.Unavailable>(events.last())
+    assertEquals(2, events.size)
+    assertEquals(LocationUnavailableReason.ServicesDisabled, unavailable.reason)
   }
 
   @Test

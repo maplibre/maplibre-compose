@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.macos
 import java.util.Locale
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.coroutines.CoroutineContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.location.DesktopLocationBackend
@@ -78,6 +80,7 @@ public class MacosLocationProvider
 internal constructor(
   private val client: CoreLocationClient,
   private val dispatcher: CoroutineContext = Dispatchers.Main,
+  private val ioDispatcher: CoroutineContext = Dispatchers.IO,
 ) : DesktopLocationProvider {
   public constructor() : this(SystemCoreLocationClient())
 
@@ -99,7 +102,7 @@ internal constructor(
       }
       LocationBackendAvailability.Available -> Unit
     }
-    val locationServicesEnabled = withContext(Dispatchers.IO) { client.locationServicesEnabled }
+    val locationServicesEnabled = withContext(ioDispatcher) { client.locationServicesEnabled }
     if (!locationServicesEnabled) {
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
       close()
@@ -116,7 +119,7 @@ internal constructor(
       }
 
     try {
-      val delegate = UpdateDelegate(channel, locationServicesEnabled)
+      val delegate = UpdateDelegate(this, channel, client, ioDispatcher)
       manager.setDelegate(delegate)
       manager.desiredAccuracy = request.accuracy.toDesiredAccuracy()
       manager.distanceFilter = request.minimumDistance.inMeters
@@ -139,15 +142,21 @@ internal constructor(
   }
 
   private class UpdateDelegate(
+    private val scope: CoroutineScope,
     private val channel: SendChannel<LocationEvent>,
-    private val locationServicesEnabled: Boolean,
+    private val client: CoreLocationClient,
+    private val ioDispatcher: CoroutineContext,
   ) : CoreLocationDelegate {
     override fun didUpdateLocations(locations: List<CoreLocationFix>) {
       locations.forEach(::sendLocation)
     }
 
     override fun didFailWithError(error: CoreLocationError) {
-      channel.trySend(LocationEvent.Unavailable(error.asUnavailableReason(locationServicesEnabled)))
+      scope.launch(ioDispatcher) {
+        channel.trySend(
+          LocationEvent.Unavailable(error.asUnavailableReason(client.locationServicesEnabled))
+        )
+      }
     }
 
     override fun didChangeAuthorization() = Unit
