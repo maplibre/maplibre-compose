@@ -102,12 +102,13 @@ internal class MlnFfiMapRuntimeLoop(
   }
 
   /**
-   * Runs [action] on the owner thread and waits for its result. Returns null when there is no map,
-   * or when the loop stopped before the work could run. Runs inline when the caller is already the
-   * owner thread.
+   * Runs [action] on the owner thread and waits until it has run or been dropped. Returns null when
+   * there is no map, or when the loop stopped before the work could run. Runs inline when the
+   * caller is already the owner thread.
    *
    * [abandon] runs when [action] will not run: the loop has already stopped, or a queued task is
-   * dropped. It does not run when the wait ends while that task is still pending.
+   * dropped. An interrupt on the waiting thread does not drop the work. The wait continues, and the
+   * interrupt status is restored when this returns.
    */
   fun <T> call(action: (MapHandle) -> T, abandon: () -> Unit = {}): T? {
     if (thread.isCurrent()) {
@@ -144,9 +145,7 @@ internal class MlnFfiMapRuntimeLoop(
       return null
     }
 
-    done.await()
-    // Null when the wait ended before the owner thread reached the task, which the gate's own
-    // documentation allows.
+    done.awaitUntilOpen()
     return result?.getOrThrow()
   }
 

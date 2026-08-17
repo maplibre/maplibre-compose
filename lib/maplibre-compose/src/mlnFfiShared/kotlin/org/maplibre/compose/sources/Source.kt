@@ -32,38 +32,47 @@ public actual sealed class Source(internal actual val id: String) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
     }
-    // Before the owner-thread hop: GeoJSON parse and index must not run on the pump.
-    if (!isAttached) {
-      try {
-        prepareForAttach()
-      } catch (error: Throwable) {
-        throw wrapAddError(error)
+    // Before the owner-thread hop: GeoJSON parse and index must not run on the pump. The handle
+    // is a local here, then either addTo consumes it on the owner thread or release() closes it
+    // after mutateMap returns. mutateMap waits until that hop has run or been dropped.
+    var pending: AutoCloseable? =
+      if (!isAttached) {
+        try {
+          prepareForAttach()
+        } catch (error: Throwable) {
+          throw wrapAddError(error)
+        }
+      } else {
+        null
       }
+    fun release() {
+      val handle = pending ?: return
+      pending = null
+      handle.close()
     }
     val added =
       try {
-        binding.mutateMap(abandon = { abandonPrepareForAttach() }) { map ->
+        binding.mutateMap { map ->
           // A layer may attach its source before the source effect runs, so re-attaching the same
           // binding is idempotent; any other descriptor with this ID is rejected.
           if (this.binding === binding && map.styleSourceExists(id)) return@mutateMap false
           check(!map.styleSourceExists(id)) {
             "Source ID '$id' is already owned by a different live source descriptor"
           }
+          val prepared = pending
+          pending = null
           try {
-            addTo(map)
+            addTo(map, prepared)
           } catch (error: Throwable) {
             throw wrapAddError(error)
           }
           true
         }
       } catch (error: Throwable) {
-        abandonPrepareForAttach()
+        release()
         throw error
       }
-    // addTo ran and found the source already present. A null result can mean the owner-thread wait
-    // ended while the queued add is still pending; mutateMap's abandon releases prepared data only
-    // when that add is dropped.
-    if (added == false) abandonPrepareForAttach()
+    if (added != true) release()
     check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
@@ -86,19 +95,19 @@ public actual sealed class Source(internal actual val id: String) {
 
   /**
    * Runs on the caller before [addTo] hops to the owner thread. Override to do work that must not
-   * run on the pump, such as GeoJSON parse and index.
+   * run on the pump, such as GeoJSON parse and index. The returned handle is consumed by [addTo] or
+   * closed by [attach] after the hop has run or been dropped.
    */
-  internal open fun prepareForAttach() {}
-
-  /** Releases work from [prepareForAttach] when [addTo] did not run. */
-  internal open fun abandonPrepareForAttach() {}
+  internal open fun prepareForAttach(): AutoCloseable? = null
 
   /**
-   * Creates this source on [map], on the map's owner thread. MapLibre Native accepts only `vector`,
-   * `raster`, `raster-dem`, `geojson`, and `image` from source JSON; any other source type must
-   * override this with its typed `MapHandle` adder.
+   * Creates this source on [map], on the map's owner thread. [prepared] is the handle
+   * [prepareForAttach] returned, or null; this call consumes it. MapLibre Native accepts only
+   * `vector`, `raster`, `raster-dem`, `geojson`, and `image` from source JSON; any other source
+   * type must override this with its typed `MapHandle` adder.
    */
-  internal open fun addTo(map: MapHandle) {
+  internal open fun addTo(map: MapHandle, prepared: AutoCloseable? = null) {
+    prepared?.close()
     map.addStyleSourceJson(id, toJson().toJsonBytes())
   }
 

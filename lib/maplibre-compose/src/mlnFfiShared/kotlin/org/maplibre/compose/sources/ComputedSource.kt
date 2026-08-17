@@ -76,7 +76,8 @@ public actual class ComputedSource : Source {
     this.getFeatures = getFeatures
   }
 
-  override fun addTo(map: MapHandle) {
+  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
+    prepared?.close()
     map.addCustomGeometrySource(
       id,
       CustomGeometrySourceOptions(callback).also {
