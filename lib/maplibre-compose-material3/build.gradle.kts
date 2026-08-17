@@ -24,7 +24,15 @@ kotlin {
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
-  js { browser() }
+  js {
+    // The core module's @file:JsModule MapLibre GL JS declarations require ES modules; UMD
+    // rejects them. Match every other JS consumer of :lib:maplibre-compose.
+    useEsModules()
+    // Compose UI browser tests need an executable binary so webpack can load the Skiko runtime
+    // (CMP-4906).
+    binaries.executable()
+    browser()
+  }
 
   applyDefaultHierarchyTemplate()
 

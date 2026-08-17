@@ -8,7 +8,10 @@ kotlin {
   @Suppress("UnstableApiUsage")
   android {
     minSdk = catalogVersionInt("android-minSdk")
-    compileSdk = catalogVersionInt("android-compileSdk")
+    // Compose 1.12 requires API 37; that platform ships as android-37.0.
+    compileSdk {
+      version = release(catalogVersionInt("android-compileSdk")) { minorApiLevel = 0 }
+    }
 
     // https://youtrack.jetbrains.com/issue/CMP-8232
     experimentalProperties["android.experimental.kmp.enableAndroidResources"] = true

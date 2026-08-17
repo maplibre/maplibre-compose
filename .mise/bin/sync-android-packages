@@ -47,10 +47,17 @@ if [[ -z "$compile_sdk" ]]; then
   exit 1
 fi
 
+# API 37 ships as platforms/android-37.0; earlier levels keep the undotted name.
+if [[ "$compile_sdk" -ge 37 ]]; then
+  platform_id="${compile_sdk}.0"
+else
+  platform_id="$compile_sdk"
+fi
+
 # Paired with the directory that proves each is installed, so a rerun starts no
 # JVM and reaches no network.
 packages=(
-  "platforms;android-${compile_sdk}|platforms/android-${compile_sdk}"
+  "platforms;android-${platform_id}|platforms/android-${platform_id}"
   "build-tools;${compile_sdk}.0.0|build-tools/${compile_sdk}.0.0"
   "platform-tools|platform-tools"
 )

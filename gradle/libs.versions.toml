@@ -1,6 +1,6 @@
 [versions]
 # Platform floors and toolchain levels.
-android-compileSdk = "36"
+android-compileSdk = "37"
 android-minSdk = "23"
 android-targetSdk = "36"
 # Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.
@@ -24,7 +24,7 @@ kotlin-wrappers = "2026.8.0"
 kotlinx-coroutines = "1.11.0"
 kotlinx-io = "0.9.1"
 ktor = "3.5.2"
-lifecycleRuntimeCompose = "2.10.0"
+lifecycleRuntimeCompose = "2.11.0"
 lwjgl = "3.4.2"
 maplibre-android-sdk = "13.5.0"
 maplibre-ios = "6.28.0"
@@ -40,16 +40,16 @@ gradle-spmForKmp = "1.9.5"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.11.1"
-androidx-compose = "1.11.2"
-jetbrains-compose-material3 = "1.11.0-alpha07"
-jetbrains-navigation = "2.9.2"
+gradle-compose = "1.12.0-rc01"
+androidx-compose = "1.12.0-rc01"
+jetbrains-compose-material3 = "1.12.0-alpha03"
+jetbrains-navigation = "2.10.0-alpha02"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
 gradle-kotlin = "2.4.10"
-gradle-android = "9.1.0"
+gradle-android = "9.2.1"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }
