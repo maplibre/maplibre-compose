@@ -127,12 +127,21 @@ internal class AndroidMapAdapter(
     lastBaseStyle = null
   }
 
+  // Unlike onStyleLoadSettled, safe to retry immediately: a failed load never produced a
+  // SafeStyle, so there's no in-flight content to unload out from under.
+  private fun onStyleLoadFailed() {
+    pendingBaseStyle = null
+    val next = queuedBaseStyle ?: return
+    queuedBaseStyle = null
+    beginStyleLoad(next)
+  }
+
   init {
     mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
     mapView.addOnSourceChangedListener { callbacks.onSourceChanged(this, it) }
     mapView.addOnDidFailLoadingMapListener {
       callbacks.onMapFailLoading(it)
-      onStyleLoadSettled()
+      onStyleLoadFailed()
     }
 
     map.addOnCameraMoveStartedListener { reason ->

@@ -151,7 +151,7 @@ internal class IosMapAdapter(
     override fun mapViewDidFailLoadingMap(mapView: MLNMapView, withError: NSError) {
       map.logger?.e { "Map failed to load: $withError" }
       map.callbacks.onMapFailLoading(withError.localizedFailureReason)
-      map.onStyleLoadSettled()
+      map.onStyleLoadFailed()
     }
 
     override fun mapViewDidFinishLoadingMap(mapView: MLNMapView) {
@@ -268,6 +268,15 @@ internal class IosMapAdapter(
     // Not beginStyleLoad(next) directly: this runs inside the native delegate callback, not
     // UIKitView's update block, which SafeStyle's kdoc requires for unload ordering.
     lastBaseStyle = null
+  }
+
+  // Unlike onStyleLoadSettled, safe to retry immediately: a failed load never produced a
+  // SafeStyle, so there's no in-flight content to unload out from under.
+  private fun onStyleLoadFailed() {
+    pendingBaseStyle = null
+    val next = queuedBaseStyle ?: return
+    queuedBaseStyle = null
+    beginStyleLoad(next)
   }
 
   private var hasReceivedStyleCallback = false
