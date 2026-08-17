@@ -1,15 +1,17 @@
 package org.maplibre.compose.sources
 
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.nativeffi.style.RasterDemEncoding as FfiRasterDemEncoding
 import org.maplibre.nativeffi.style.SourceType
+import org.maplibre.nativeffi.style.VectorTileEncoding
 
 /**
  * A source that came from the style rather than from the composition, such as a base-style source.
  *
- * Nothing re-adds one of these, so only the attribution is ever read back, by [attributionHtml].
+ * Reconstructed from the metadata MapLibre retains on the live source: type, attribution, URL or
+ * tile templates, and the other TileJSON fields the style declared.
  *
- * @param definition what MapLibre reports about the source: its `type` and, where the style
- *   declares one, its `attribution`.
+ * @param definition what MapLibre reports about the source.
  */
 public actual class UnknownSource
 internal constructor(id: String, internal val definition: JsonObject) : Source(id) {
@@ -30,5 +32,19 @@ internal fun SourceType.toStyleSpecType(): String? =
     SourceType.GEOJSON -> "geojson"
     SourceType.IMAGE -> "image"
     SourceType.VIDEO -> "video"
+    else -> null
+  }
+
+internal fun VectorTileEncoding.toStyleSpecEncoding(): String? =
+  when (this) {
+    VectorTileEncoding.MVT -> "mvt"
+    VectorTileEncoding.MLT -> "mlt"
+    else -> null
+  }
+
+internal fun FfiRasterDemEncoding.toStyleSpecEncoding(): String? =
+  when (this) {
+    FfiRasterDemEncoding.MAPBOX -> "mapbox"
+    FfiRasterDemEncoding.TERRARIUM -> "terrarium"
     else -> null
   }
