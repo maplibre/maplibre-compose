@@ -25,6 +25,7 @@ import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
+import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
 import org.maplibre.compose.map.MapOptions
@@ -39,6 +40,15 @@ val DemoFlightDuration = 2.seconds
 /** Padding between a demo's region and the edge of the map viewport. */
 val DemoRegionPadding = PaddingValues(48.dp)
 
+private suspend fun CameraState.flyToDemo(demo: Demo) {
+  val camera = demo.camera
+  if (camera != null) {
+    animateTo(finalPosition = camera, duration = DemoFlightDuration)
+  } else {
+    animateTo(boundingBox = demo.region, padding = DemoRegionPadding, duration = DemoFlightDuration)
+  }
+}
+
 /** The shared map, the pointer pin back to the selected demo, and the diagnostic overlays. */
 @Composable
 fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
@@ -47,11 +57,7 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
   LaunchedEffect(state.selectedDemo) {
     val demo = state.selectedDemo ?: return@LaunchedEffect
     demo.preferredStyle?.let { state.selectedStyle = it }
-    state.cameraState.animateTo(
-      boundingBox = demo.region,
-      padding = DemoRegionPadding,
-      duration = DemoFlightDuration,
-    )
+    state.cameraState.flyToDemo(demo)
   }
 
   Box(Modifier.fillMaxSize()) {
@@ -82,24 +88,18 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
 
     val scope = rememberCoroutineScope()
     state.selectedDemo?.let { demo ->
-      PointerPinButton(
-        cameraState = state.cameraState,
-        targetPosition = demo.center,
-        onClick = {
-          scope.launch {
-            state.cameraState.animateTo(
-              boundingBox = demo.region,
-              padding = DemoRegionPadding,
-              duration = DemoFlightDuration,
-            )
-          }
-        },
-        modifier = Modifier.fillMaxSize().padding(insets.asPaddingValues()),
-      ) {
-        Icon(
-          vectorResource(Res.drawable.filter_center_focus_24px),
-          contentDescription = "Fly back to ${demo.name}",
-        )
+      // The pin fills this box to place itself; sizing the pin itself is up to its content.
+      Box(Modifier.fillMaxSize().padding(insets.asPaddingValues())) {
+        PointerPinButton(
+          cameraState = state.cameraState,
+          targetPosition = demo.center,
+          onClick = { scope.launch { state.cameraState.flyToDemo(demo) } },
+        ) {
+          Icon(
+            vectorResource(Res.drawable.filter_center_focus_24px),
+            contentDescription = "Fly back to ${demo.name}",
+          )
+        }
       }
     }
 
