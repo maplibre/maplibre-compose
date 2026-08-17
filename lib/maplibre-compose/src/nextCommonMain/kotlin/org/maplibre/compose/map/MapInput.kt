@@ -734,11 +734,22 @@ private class MapPointerGesture(
     if (!awaitsSecondTap()) return PressRole.First
     val elapsedMillis = timeMillis - open.tap.upAt
     val samePointerType = type == open.tap.type
-    if (samePointerType && elapsedMillis < doubleClickMinTimeMillis) return PressRole.Bounce
+    val distancePx = (origin - open.tap.origin).getDistance()
+    if (
+      isBounceSecondTap(
+        elapsedMillis = elapsedMillis,
+        distancePx = distancePx,
+        samePointerType = samePointerType,
+        minTimeMillis = doubleClickMinTimeMillis,
+        slopPx = slopPx(),
+      )
+    ) {
+      return PressRole.Bounce
+    }
     return if (
       isPairedSecondTap(
         elapsedMillis = elapsedMillis,
-        distancePx = (origin - open.tap.origin).getDistance(),
+        distancePx = distancePx,
         samePointerType = samePointerType,
         minTimeMillis = doubleClickMinTimeMillis,
         timeoutMillis = doubleClickTimeoutMillis,
@@ -1312,6 +1323,15 @@ private fun GestureTarget.discreteGesture(
     }
   }
 }
+
+/** A second down that is too soon and still on the first tap is a bounce. */
+internal fun isBounceSecondTap(
+  elapsedMillis: Long,
+  distancePx: Float,
+  samePointerType: Boolean,
+  minTimeMillis: Long,
+  slopPx: Float,
+): Boolean = samePointerType && elapsedMillis < minTimeMillis && distancePx <= slopPx
 
 /**
  * Compose's tap detector pairs a second down to the previous up when the elapsed time is at least
