@@ -263,9 +263,11 @@ internal class IosMapAdapter(
 
   private fun onStyleLoadSettled() {
     pendingBaseStyle = null
-    val next = queuedBaseStyle ?: return
+    if (queuedBaseStyle == null) return
     queuedBaseStyle = null
-    beginStyleLoad(next)
+    // Not beginStyleLoad(next) directly: this runs inside the native delegate callback, not
+    // UIKitView's update block, which SafeStyle's kdoc requires for unload ordering.
+    lastBaseStyle = null
   }
 
   private var hasReceivedStyleCallback = false
