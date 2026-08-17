@@ -6,10 +6,9 @@ import java.util.concurrent.TimeUnit
 /**
  * A latch of one count.
  *
- * Interruption ends a wait here and restores the interrupt flag, so a host that interrupts one of
- * these threads sees the state it expects. The waiting code itself treats interruption as a reason
- * to stop waiting rather than to retry, which is the behavior every platform can offer:
- * Kotlin/Native has no thread interruption at all.
+ * [await] ends on interruption and restores the interrupt flag, so a host that interrupts one of
+ * these threads sees the state it expects. [awaitUntilOpen] keeps waiting until [open], then
+ * restores the flag. Kotlin/Native has no thread interruption, so both waits are the same there.
  */
 internal actual class MlnFfiGate actual constructor() {
   private val latch = CountDownLatch(1)
@@ -24,6 +23,19 @@ internal actual class MlnFfiGate actual constructor() {
     } catch (interruption: InterruptedException) {
       Thread.currentThread().interrupt()
     }
+  }
+
+  actual fun awaitUntilOpen() {
+    var interrupted = false
+    while (true) {
+      try {
+        latch.await()
+        break
+      } catch (interruption: InterruptedException) {
+        interrupted = true
+      }
+    }
+    if (interrupted) Thread.currentThread().interrupt()
   }
 
   actual fun await(timeoutMillis: Long): Boolean =

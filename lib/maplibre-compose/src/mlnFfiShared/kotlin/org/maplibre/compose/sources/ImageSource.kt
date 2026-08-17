@@ -45,10 +45,13 @@ public actual class ImageSource : Source {
    * Adds the source with its pixels when it has them; source JSON can only name a URL, so a
    * pixel-backed source added from [toJson] would be added empty.
    */
-  override fun addTo(map: MapHandle) {
+  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
     val pixels = image
-    if (pixels == null) super.addTo(map)
-    else map.addImageSourceImage(id, bounds.toCorners().map { it.toLatLng() }, pixels)
+    if (pixels == null) super.addTo(map, prepared)
+    else {
+      prepared?.close()
+      map.addImageSourceImage(id, bounds.toCorners().map { it.toLatLng() }, pixels)
+    }
   }
 
   /** The URL form of this source; a pixel-backed source reports an empty `url` here. */

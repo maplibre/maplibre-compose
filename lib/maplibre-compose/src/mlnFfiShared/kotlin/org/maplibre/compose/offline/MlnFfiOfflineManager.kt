@@ -120,9 +120,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
       )
     }
 
-    settled.await()
-    // Null when the wait ended before the runtime settled, which the gate's own documentation
-    // allows. The runtime is unusable either way, so both outcomes take the same path.
+    settled.awaitUntilOpen()
     val settledOutcome =
       outcome
         ?: failStartup(

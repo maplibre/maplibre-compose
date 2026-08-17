@@ -24,8 +24,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   /**
    * Requests a repaint after native accepts the mutation.
    *
-   * [abandon] runs when [action] will not run. It does not run when the owner-thread wait ends
-   * while the mutation is still pending.
+   * Returns after [action] has run or been dropped. [abandon] runs when [action] will not run.
    */
   fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T?
 

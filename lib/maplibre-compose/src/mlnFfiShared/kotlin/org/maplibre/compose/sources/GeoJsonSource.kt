@@ -26,12 +26,6 @@ public actual class GeoJsonSource : Source {
   /** The URI form of [data], when it is one. */
   private var dataUrl: String?
 
-  /**
-   * Parsed and indexed on the caller, then installed on the owner thread. Null for a URL source,
-   * and after [addTo] consumes it.
-   */
-  private var prepared: GeoJsonSourceDataHandle? = null
-
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
     this.data = data.toDataJson()
@@ -48,38 +42,37 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
-  override fun prepareForAttach() {
-    if (dataUrl != null) return
-    if (prepared != null) return
-    prepared = prepareData()
+  override fun prepareForAttach(): AutoCloseable? {
+    if (dataUrl != null) return null
+    return prepareData()
   }
 
-  override fun abandonPrepareForAttach() {
-    val handle = prepared ?: return
-    prepared = null
-    handle.close()
-  }
-
-  override fun addTo(map: MapHandle) {
+  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
     val url = dataUrl
     if (url != null) {
+      prepared?.close()
       map.addGeoJsonSourceUrl(id, url, options.toFfiOptions())
     } else {
-      takePrepared().use { map.addGeoJsonSourceData(id, it) }
+      val handle =
+        (prepared as? GeoJsonSourceDataHandle)
+          ?: run {
+            prepared?.close()
+            prepareData()
+          }
+      handle.use { map.addGeoJsonSourceData(id, it) }
     }
   }
 
   public actual fun setData(data: GeoJsonData) {
     this.data = data.toDataJson()
     this.dataUrl = (data as? GeoJsonData.Uri)?.uri
-    prepared?.close()
-    prepared = null
     if (data is GeoJsonData.Uri) {
       mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
     } else {
       // Prepared outside the lambda so the map's owner thread does not parse or index the data.
-      // synchronousTiling is independent of this: it only changes where viewport tiles are sliced
-      // after the cheap install, on the owner thread (true) or a worker (false).
+      // mutateMap waits until the owner thread has used the handle, so closing it afterward is
+      // safe. synchronousTiling is independent of this: it only changes where viewport tiles are
+      // sliced after the cheap install, on the owner thread (true) or a worker (false).
       prepareData().use { prepared ->
         mutate { map -> map.setGeoJsonSourceData(id, prepared) }
       }
@@ -89,9 +82,6 @@ public actual class GeoJsonSource : Source {
   /** Prepared with the options the source was added with; a mismatch is rejected at install. */
   private fun prepareData(): GeoJsonSourceDataHandle =
     GeoJsonSourceDataHandle.create(data.toJsonBytes(), options.toFfiOptions())
-
-  private fun takePrepared(): GeoJsonSourceDataHandle =
-    prepared?.also { prepared = null } ?: prepareData()
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
