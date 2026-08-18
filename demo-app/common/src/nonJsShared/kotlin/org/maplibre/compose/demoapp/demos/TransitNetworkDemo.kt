@@ -52,6 +52,7 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
 import kotlin.time.Instant
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
@@ -331,18 +332,22 @@ object TransitNetworkDemo : Demo {
   }
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  private fun LoadFeed() {
     LaunchedEffect(Unit) {
-      if (feedState !is FeedState.Loaded) {
-        feedState =
-          try {
-            FeedState.Loaded(loadNetwork())
-          } catch (e: Exception) {
-            FeedState.Failed("Couldn't load the ferry feed: ${e.message}")
-          }
-      }
+      if (feedState is FeedState.Loaded) return@LaunchedEffect
+      feedState =
+        try {
+          FeedState.Loaded(loadNetwork())
+        } catch (e: CancellationException) {
+          throw e
+        } catch (e: Exception) {
+          FeedState.Failed("Couldn't load the ferry feed: ${e.message}")
+        }
     }
+  }
 
+  @Composable
+  override fun MapContent(cameraState: CameraState) {
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId
 
@@ -398,6 +403,7 @@ object TransitNetworkDemo : Demo {
 
   @Composable
   override fun Overlay(cameraState: CameraState) {
+    LoadFeed()
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId ?: return
     var now by remember { mutableStateOf(Clock.System.now()) }
