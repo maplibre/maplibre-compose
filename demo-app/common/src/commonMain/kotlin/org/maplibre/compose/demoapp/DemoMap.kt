@@ -80,7 +80,7 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
       allDemos.forEach { demo ->
         key(demo) {
           if (demo == state.selectedDemo) {
-            demo.MapContent()
+            demo.MapContent(state.cameraState)
           }
         }
       }

@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
@@ -53,7 +54,7 @@ object DataVizDemo : Demo {
   private val magnitude = feature["mag"].asNumber()
 
   @Composable
-  override fun MapContent() {
+  override fun MapContent(cameraState: CameraState) {
     when (mode) {
       Mode.Points -> Points()
       Mode.Heatmap -> Heatmap()
