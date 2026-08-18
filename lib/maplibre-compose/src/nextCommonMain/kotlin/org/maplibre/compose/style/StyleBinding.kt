@@ -45,6 +45,15 @@ internal interface StyleBinding {
   /** @return null if the style has unloaded, or the layer holds no value for [name]. */
   fun layerProperty(layerId: String, name: String): JsonElement?
 
+  /**
+   * Reports whether a live layer with [layerId] is in the style, so a duplicate can be refused on
+   * the caller with the message that names the cause.
+   *
+   * @return null if the style has unloaded or the answer could not be determined; the add still
+   *   refuses a duplicate in that case.
+   */
+  fun layerExists(layerId: String): Boolean?
+
   companion object {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: StyleBinding =
@@ -71,6 +80,8 @@ internal interface StyleBinding {
         override fun setLayerFilter(layerId: String, filter: JsonElement) = Unit
 
         override fun layerProperty(layerId: String, name: String): JsonElement? = null
+
+        override fun layerExists(layerId: String): Boolean? = null
       }
   }
 }
