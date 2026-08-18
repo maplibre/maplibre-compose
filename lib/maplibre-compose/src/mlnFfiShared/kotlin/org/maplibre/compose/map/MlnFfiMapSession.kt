@@ -244,14 +244,14 @@ internal class MlnFfiMapSession(
      *   can roll back its descriptor and surface the error; duplicate IDs are already pre-checked
      *   on the caller, but a bad definition or missing source is not.
      */
-    override fun mutateMap(action: (MapHandle) -> Unit): Boolean {
+    override fun mutateMap(onAbandon: () -> Unit, action: (MapHandle) -> Unit): Boolean {
       if (!isLoaded) return false
       return postWhenMapExists(
         action = { map ->
           action(map)
           map.requestRepaint()
         },
-        abandon = {},
+        abandon = onAbandon,
       )
     }
 

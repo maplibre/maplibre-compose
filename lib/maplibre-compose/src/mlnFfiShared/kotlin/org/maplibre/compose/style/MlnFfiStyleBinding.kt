@@ -20,9 +20,10 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
   /**
    * Queues [action] on the owner thread and requests a repaint. Returns whether the work was
-   * accepted; it has not necessarily run yet.
+   * accepted; it has not necessarily run yet. [onAbandon] runs instead of [action] if the loop
+   * tears down first — a mutation that holds native resources releases them there.
    */
-  fun mutateMap(action: (MapHandle) -> Unit): Boolean
+  fun mutateMap(onAbandon: () -> Unit = {}, action: (MapHandle) -> Unit): Boolean
 
   /** Tells Compose that [sourceId] changed, so attribution and related state can refresh. */
   fun notifySourceChanged(sourceId: String) {}
@@ -93,7 +94,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
         override fun <T> readMap(action: (MapHandle) -> T): T? = null
 
-        override fun mutateMap(action: (MapHandle) -> Unit): Boolean = false
+        override fun mutateMap(onAbandon: () -> Unit, action: (MapHandle) -> Unit): Boolean = false
 
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
       }

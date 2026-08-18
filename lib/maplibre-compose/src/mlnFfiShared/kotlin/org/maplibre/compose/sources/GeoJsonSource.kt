@@ -84,13 +84,17 @@ public actual class GeoJsonSource : Source {
       //   a large update blocks neither this thread nor the map pump; sync mode keeps the
       //   prepare-here behavior for minimum latency.
       val prepared = prepareData()
-      val posted = mutate { map ->
-        try {
-          map.setGeoJsonSourceData(id, prepared)
-        } finally {
-          prepared.close()
+      val posted =
+        mutate(
+          // Runs exactly one of the two: the loop either executes the task or abandons it.
+          onAbandon = { prepared.close() }
+        ) { map ->
+          try {
+            map.setGeoJsonSourceData(id, prepared)
+          } finally {
+            prepared.close()
+          }
         }
-      }
       if (!posted) prepared.close()
     }
   }

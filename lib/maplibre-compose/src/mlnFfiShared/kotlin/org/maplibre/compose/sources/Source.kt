@@ -42,22 +42,27 @@ public actual sealed class Source(internal actual val id: String) {
     // Expensive preparation runs on the caller, not the map's owner thread. A posted mutation
     // always runs once accepted, so the prepared work is consumed by addTo or closed here.
     prepareForAttach()
-    val posted = binding.mutateMap { map ->
-      try {
-        addTo(map)
-      } catch (error: Throwable) {
-        if (error is MaplibreException) {
-          // Native reports what was wrong with the definition but never whose.
-          throw IllegalStateException(
-            "Could not add source '$id' of type " +
-              "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
-            error,
-          )
+    val posted =
+      binding.mutateMap(
+        // The loop can tear down between acceptance and execution; the prepared data would
+        // otherwise leak, because only addTo consumes it.
+        onAbandon = ::abandonPrepareForAttach
+      ) { map ->
+        try {
+          addTo(map)
+        } catch (error: Throwable) {
+          if (error is MaplibreException) {
+            // Native reports what was wrong with the definition but never whose.
+            throw IllegalStateException(
+              "Could not add source '$id' of type " +
+                "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
+              error,
+            )
+          }
+          throw error
         }
-        throw error
+        binding.notifySourceChanged(id)
       }
-      binding.notifySourceChanged(id)
-    }
     if (!posted) abandonPrepareForAttach()
     check(posted) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
@@ -106,7 +111,10 @@ public actual sealed class Source(internal actual val id: String) {
    * Applies [update] to the live source. Returns false when the style has unloaded, which is normal
    * for a frame during a style swap.
    */
-  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.mutateMap(update)
+  protected fun mutate(
+    onAbandon: () -> Unit = {},
+    update: (map: MapHandle) -> Unit,
+  ): Boolean = binding.mutateMap(onAbandon, update)
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }
