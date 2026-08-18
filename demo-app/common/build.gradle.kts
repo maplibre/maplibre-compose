@@ -47,10 +47,19 @@ kotlin {
     // Desktop-only render toggles: tile borders, parse status, and the Surface/Texture hint.
     val mlnFfiShared by creating { dependsOn(commonMain.get()) }
 
+    // The offline API exists only on the MapLibre Native platforms, so the offline demo UI lives
+    // in this set and the web target gets an empty actual.
+    val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
+
+    androidMain { dependsOn(maplibreNativeShared) }
+
     jvmMain {
       dependsOn(nonIosShared)
       dependsOn(mlnFfiShared)
+      dependsOn(maplibreNativeShared)
     }
+
+    iosMain { dependsOn(maplibreNativeShared) }
 
     jsMain { dependsOn(nonIosShared) }
 

@@ -2,6 +2,8 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.UiComposable
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -19,6 +21,13 @@ interface Demo {
   val preferredStyle: DemoStyle?
     get() = null
 
+  /**
+   * The exact camera the flight ends at. Null fits [region] to the viewport instead; set this when
+   * the demo needs a composed view, such as a pitched skyline.
+   */
+  val camera: CameraPosition?
+    get() = null
+
   @MaplibreComposable @Composable fun MapContent() {}
 
   /** Controls shown in the sheet or side panel while this demo is selected. */
@@ -33,4 +42,4 @@ val Demo.center: Position
     )
 
 /** Demos appear in the shell in this order. */
-val allDemos: List<Demo> = listOf()
+val allDemos: List<Demo> = listOf(Manhattan3dDemo)
