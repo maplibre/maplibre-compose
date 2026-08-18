@@ -7,7 +7,6 @@ import org.jetbrains.skia.BackendRenderTarget
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.FramebufferFormat
-import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
@@ -49,7 +48,11 @@ internal class OpenGlPresenter : AutoCloseable {
   ): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
-      ensureCapabilities()
+      if (isWindowsDesktop()) {
+        check(AngleGl.isUsable()) { "Compose's ANGLE context has no usable GLES entry points" }
+      } else {
+        ensureCapabilities()
+      }
       val presenter =
         presenters.getOrPut(target.textureName) { TexturePresenter(target.textureName) }
       presenter.draw(
@@ -108,15 +111,24 @@ internal class OpenGlPresenter : AutoCloseable {
       // render incorrectly unless told to re-read it.
       context.resetGLAll()
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      currentSurface.makeImageSnapshot().use { image ->
-        canvas.drawImageRect(
-          image = image,
-          src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-          dst = Rect.makeWH(destinationWidth, destinationHeight),
-          samplingMode = SamplingMode.LINEAR,
-          paint = null,
-          strict = true,
-        )
+      if (isWindowsDesktop()) {
+        val scaleX = if (width == 0) 1f else destinationWidth / width.toFloat()
+        val scaleY = if (height == 0) 1f else destinationHeight / height.toFloat()
+        canvas.save()
+        canvas.scale(scaleX, scaleY)
+        currentSurface.draw(canvas, 0, 0, SamplingMode.LINEAR, null)
+        canvas.restore()
+      } else {
+        currentSurface.makeImageSnapshot().use { image ->
+          canvas.drawImageRect(
+            image = image,
+            src = org.jetbrains.skia.Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+            dst = org.jetbrains.skia.Rect.makeWH(destinationWidth, destinationHeight),
+            samplingMode = SamplingMode.LINEAR,
+            paint = null,
+            strict = true,
+          )
+        }
       }
     }
 
@@ -165,6 +177,7 @@ internal class OpenGlPresenter : AutoCloseable {
     }
 
     private fun createFramebuffer(target: OpenGlTextureTarget): Int {
+      if (isWindowsDesktop()) return createAngleFramebuffer(target)
       ensureCapabilities()
       val previous = glGetInteger(GL_FRAMEBUFFER_BINDING)
       val next = glGenFramebuffers()
@@ -188,6 +201,32 @@ internal class OpenGlPresenter : AutoCloseable {
         throw error
       } finally {
         glBindFramebuffer(GL_FRAMEBUFFER, previous)
+      }
+    }
+
+    private fun createAngleFramebuffer(target: OpenGlTextureTarget): Int {
+      val previous = AngleGl.getInteger(GL_FRAMEBUFFER_BINDING)
+      val next = AngleGl.genFramebuffers()
+      try {
+        AngleGl.bindFramebuffer(GL_FRAMEBUFFER, next)
+        AngleGl.framebufferTexture2D(
+          GL_FRAMEBUFFER,
+          GL_COLOR_ATTACHMENT0,
+          target.textureTarget,
+          target.textureName,
+          0,
+        )
+        val status = AngleGl.checkFramebufferStatus(GL_FRAMEBUFFER)
+        checkGl("glFramebufferTexture2D")
+        check(status == GL_FRAMEBUFFER_COMPLETE) {
+          "OpenGL framebuffer for texture $textureName is incomplete: 0x${status.toString(16)}"
+        }
+        return next
+      } catch (error: RuntimeException) {
+        runCatching { AngleGl.deleteFramebuffers(next) }
+        throw error
+      } finally {
+        AngleGl.bindFramebuffer(GL_FRAMEBUFFER, previous)
       }
     }
 
@@ -216,8 +255,12 @@ internal class OpenGlPresenter : AutoCloseable {
       renderTarget = null
       if (framebuffer != 0) {
         runCatching {
-          ensureCapabilities()
-          glDeleteFramebuffers(framebuffer)
+          if (isWindowsDesktop()) {
+            if (AngleGl.isUsable()) AngleGl.deleteFramebuffers(framebuffer)
+          } else {
+            ensureCapabilities()
+            glDeleteFramebuffers(framebuffer)
+          }
         }
         framebuffer = 0
       }
@@ -242,6 +285,6 @@ internal fun clearGlErrors() {
 }
 
 internal fun checkGl(operation: String) {
-  val error = glGetError()
+  val error = if (isWindowsDesktop()) AngleGl.getError() else glGetError()
   check(error == GL_NO_ERROR) { "$operation failed with GL error 0x${error.toString(16)}" }
 }

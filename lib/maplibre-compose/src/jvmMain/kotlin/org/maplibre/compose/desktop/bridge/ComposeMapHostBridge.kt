@@ -32,7 +32,9 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
       val host =
         when (mapHost.backend) {
           ComposeRenderBackend.METAL -> MetalMapHost(mapHost)
-          ComposeRenderBackend.OPENGL -> VulkanOpenGlMapHost(mapHost)
+          ComposeRenderBackend.OPENGL ->
+            if (isWindowsDesktop()) VulkanOpenGlWin32MapHost(mapHost)
+            else VulkanOpenGlMapHost(mapHost)
           ComposeRenderBackend.DIRECT3D12 -> VulkanDirect3D12MapHost(mapHost)
         }
       MlnFfiMapHostResult.Created(host)
@@ -87,7 +89,9 @@ internal fun <T> ComposeMapHost.withOpenGlContextOrNull(
   var result: Result<T>? = null
   context.withContextCurrent {
     result = runCatching {
-      ensureCapabilities()
+      // Tao/ANGLE is GLES. LWJGL desktop capabilities bind opengl32 and are
+      // not the current context; Windows uses [AngleGl] instead.
+      if (!isWindowsDesktop()) ensureCapabilities()
       action(context)
     }
   }
