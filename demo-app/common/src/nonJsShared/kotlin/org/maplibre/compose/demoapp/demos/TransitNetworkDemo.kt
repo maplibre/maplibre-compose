@@ -411,17 +411,20 @@ object TransitNetworkDemo : Demo {
     BoxWithConstraints(Modifier.fillMaxSize()) {
       network.stopIdsByRoute[selected].orEmpty().forEach { stopId ->
         key(stopId) {
-          val terminal = network.terminalsById[stopId] ?: return@key
+          val terminal = network.terminalsById[stopId]
           val departure =
-            remember(selected, now) { nextDepartureFromStop(network, selected, stopId, now) }
-              ?: return@key
-          DepartureChip(
-            cameraState = cameraState,
-            position = terminal.position,
-            text = departure,
-            mapWidth = maxWidth,
-            mapHeight = maxHeight,
-          )
+            remember(selected, now) {
+              terminal?.let { nextDepartureFromStop(network, selected, stopId, now) }
+            }
+          if (terminal != null && departure != null) {
+            DepartureChip(
+              cameraState = cameraState,
+              position = terminal.position,
+              text = departure,
+              mapWidth = maxWidth,
+              mapHeight = maxHeight,
+            )
+          }
         }
       }
     }
