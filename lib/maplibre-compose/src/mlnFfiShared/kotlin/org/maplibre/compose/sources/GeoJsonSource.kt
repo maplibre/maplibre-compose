@@ -80,6 +80,9 @@ public actual class GeoJsonSource : Source {
     } else {
       // Prepared outside the lambda so the map's owner thread does not parse or index the data.
       // Closed after the posted mutation: mutateMap queues the work and does not wait.
+      // TODO(#844): in async mode, parse on a background dispatcher and post only the install, so
+      //   a large update blocks neither this thread nor the map pump; sync mode keeps the
+      //   prepare-here behavior for minimum latency.
       val prepared = prepareData()
       val posted = mutate { map ->
         try {

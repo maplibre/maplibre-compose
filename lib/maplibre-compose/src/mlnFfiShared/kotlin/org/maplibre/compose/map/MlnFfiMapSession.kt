@@ -237,6 +237,12 @@ internal class MlnFfiMapSession(
 
     /**
      * `addSource`, `removeSource` and `removeImage` notify mbgl of nothing, so they render stale.
+     *
+     * TODO(#844): acceptance reports queuing, not success — a native refusal inside the task is
+     *   only logged by the owner loop, and the descriptor stays attached. Add a failure channel
+     *   (per-mutation completion, or a failure queue the UI thread drains) so a rejected mutation
+     *   can roll back its descriptor and surface the error; duplicate IDs are already pre-checked
+     *   on the caller, but a bad definition or missing source is not.
      */
     override fun mutateMap(action: (MapHandle) -> Unit): Boolean {
       if (!isLoaded) return false
