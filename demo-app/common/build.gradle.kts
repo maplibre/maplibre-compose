@@ -136,6 +136,13 @@ kotlin {
     jsMain.dependencies { implementation(libs.jetbrains.compose.html.core) }
 
     commonTest.dependencies { implementation(kotlin("test")) }
+
+    // commonTest is on the device test classpath, so the APK must include the
+    // runner android-library-conventions names in the instrumentation manifest.
+    androidDeviceTest.dependencies {
+      implementation(libs.jetbrains.compose.ui.testJunit4)
+      implementation(libs.androidx.composeUi.testManifest)
+    }
   }
 }
 
