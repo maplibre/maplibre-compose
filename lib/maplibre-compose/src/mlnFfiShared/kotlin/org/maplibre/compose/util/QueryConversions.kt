@@ -27,6 +27,12 @@ internal fun renderedQueryOptions(
 /**
  * Converts a rendered or source feature query result: a JSON array of entries that carry the
  * GeoJSON feature under `feature`.
+ *
+ * TODO(maplibre-native-ffi#632): upstream queries return a typed `QueriedFeature` list instead of
+ *   this envelope; when the pinned version carries it, decode `QueriedFeature.feature` per hit and
+ *   stop parsing the array here. Both call sites (the session's rendered query and
+ *   `VectorSource.querySourceFeatures`) route through this function, and the source id, source
+ *   layer id, and feature state the type carries can then flow to callers.
  */
 internal fun ByteArray.toGeoJsonFeatures(): List<Feature<GeoJsonGeometry, JsonObject?>> {
   val entries = toJsonElement() as? JsonArray ?: return emptyList()
