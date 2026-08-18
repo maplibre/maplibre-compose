@@ -3,6 +3,7 @@ package org.maplibre.compose.demoapp.demos
 import androidx.compose.foundation.clickable
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -12,6 +13,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.material3.OfflinePackListItem
@@ -26,6 +28,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
   val metadata = remember(packName) { packName.encodeToByteArray() }
   val pack = offlineManager.packs.firstOrNull { it.metadata?.contentEquals(metadata) == true }
   var creating by remember { mutableStateOf(false) }
+  var errorMessage by remember { mutableStateOf<String?>(null) }
 
   SectionHeader("Offline")
   if (pack != null) {
@@ -33,11 +36,19 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
   } else {
     ListItem(
       headlineContent = { Text("Download this region") },
-      supportingContent = { Text("For use without a network") },
+      supportingContent = {
+        Text(
+          text = errorMessage ?: "For use without a network",
+          color =
+            if (errorMessage != null) MaterialTheme.colorScheme.error
+            else MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+      },
       colors = ListItemDefaults.colors(containerColor = Color.Transparent),
       modifier =
         Modifier.clickable(enabled = !creating) {
           creating = true
+          errorMessage = null
           scope.launch {
             try {
               val newPack =
@@ -52,6 +63,10 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                   metadata = metadata,
                 )
               offlineManager.resume(newPack)
+            } catch (e: CancellationException) {
+              throw e
+            } catch (e: Exception) {
+              errorMessage = e.message ?: "Couldn't download this region"
             } finally {
               creating = false
             }
