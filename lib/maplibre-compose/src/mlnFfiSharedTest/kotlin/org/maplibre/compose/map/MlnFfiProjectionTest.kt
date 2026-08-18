@@ -99,7 +99,7 @@ class MlnFfiProjectionTest {
   private companion object {
     const val DEGREES_TOLERANCE = 1e-6
 
-    /** A 1px startup map at this zoom spans ~0.02°, so the 512px snapshot is past this. */
+    /** Within this, the screen center has landed on the camera target of the 512px viewport. */
     const val COARSE_DEGREES = 0.1
 
     const val PIXEL_TOLERANCE = 1.0
