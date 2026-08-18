@@ -67,7 +67,6 @@ import org.maplibre.nativeffi.camera.BoundsConstraint
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
 import org.maplibre.nativeffi.error.InvalidArgumentException
-import org.maplibre.nativeffi.error.InvalidStateException
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.NativeErrorException
 import org.maplibre.nativeffi.error.UnsupportedFeatureException
@@ -869,6 +868,12 @@ internal class MlnFfiMapSession(
 
   @Volatile private var mirroredViewport = MirroredViewport()
 
+  /**
+   * Publication of [mirroredViewport] versus a conversion that is using its projection. The owner
+   * thread swaps the snapshot and closes the outgoing handle only after that conversion returns.
+   */
+  private val projectionLock = MlnFfiLock()
+
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
     val size = map.size
@@ -889,8 +894,7 @@ internal class MlnFfiMapSession(
     // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
     // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
     // GL JS, the box may then extend past ±180.
-    val previous = mirroredViewport
-    mirroredViewport =
+    publishViewport(
       MirroredViewport(
         camera = map.camera.toCameraPosition(),
         visibleRegion = visibleRegion,
@@ -910,12 +914,24 @@ internal class MlnFfiMapSession(
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
         projection = map.createProjection(),
       )
-    runCatching { previous.projection?.close() }
+    )
   }
 
   private fun retireProjection() {
-    val previous = mirroredViewport
-    mirroredViewport = previous.copy(projection = null)
+    val previous = projectionLock.withLock {
+      val current = mirroredViewport
+      mirroredViewport = current.copy(projection = null)
+      current
+    }
+    runCatching { previous.projection?.close() }
+  }
+
+  private fun publishViewport(next: MirroredViewport) {
+    val previous = projectionLock.withLock {
+      val current = mirroredViewport
+      mirroredViewport = next
+      current
+    }
     runCatching { previous.projection?.close() }
   }
 
@@ -1141,21 +1157,14 @@ internal class MlnFfiMapSession(
     withSnapshotProjection { it.pixelForLatLng(position.toLatLng()).toDpOffset() } ?: DpOffset.Zero
 
   /**
-   * Runs [block] on the snapshot's frozen projection. Retries once if the owner thread retired that
-   * handle between the read and the call.
+   * Runs [block] on the snapshot's frozen projection. Holds [projectionLock] for the call so the
+   * owner thread retires this handle only after [block] returns.
    */
-  private inline fun <T> withSnapshotProjection(block: (MapProjectionHandle) -> T): T? {
-    repeat(2) {
-      val handle = mirroredViewport.projection ?: return null
-      if (handle.isClosed) return@repeat
-      try {
-        return block(handle)
-      } catch (_: InvalidStateException) {
-        // The owner thread published a newer snapshot and closed this handle.
-      }
+  private inline fun <T> withSnapshotProjection(block: (MapProjectionHandle) -> T): T? =
+    projectionLock.withLock {
+      val handle = mirroredViewport.projection ?: return@withLock null
+      block(handle)
     }
-    return null
-  }
 
   override suspend fun queryRenderedFeatures(
     offset: DpOffset,
