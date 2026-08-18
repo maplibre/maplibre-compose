@@ -54,7 +54,7 @@ import org.maplibre.spatialk.geojson.Position
  * @param onClick called when this button is clicked
  * @param cameraState used to calculate where the given [targetPosition] is in screen coordinates
  * @param targetPosition position (off-screen) the pin should point at
- * @param modifier the [Modifier] to be applied to this button
+ * @param modifier the [Modifier] to be applied to the layout the button is placed in
  * @param enabled controls the enabled state of this button. When `false`, this component will not
  *   respond to user input, and it will appear visually disabled and disabled to accessibility
  *   services.
@@ -105,7 +105,7 @@ public fun PointerPinButton(
       ElevatedButton(
         onClick = onClick,
         modifier =
-          modifier
+          Modifier
             // offsetting it to account for the pointy side of the pin depending on the rotation.
             // (The tip of the pin should be exactly on the ellipsis outline)
             .proportionalAbsoluteOffset(
