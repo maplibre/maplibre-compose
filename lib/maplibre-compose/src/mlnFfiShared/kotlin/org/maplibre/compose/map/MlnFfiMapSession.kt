@@ -191,6 +191,32 @@ internal class MlnFfiMapSession(
 
   private var styleLoadUnreported = false
 
+  /**
+   * Owner thread only. URL sources whose TileJSON attribution has already been reported, so each is
+   * reported exactly once rather than on every idle.
+   */
+  private val reportedUrlAttribution = mutableSetOf<String>()
+
+  /**
+   * Owner thread only. A URL source's TileJSON — and with it the server's attribution — arrives
+   * after its add returns, and the C API has no event for the arrival, so the only moment it can be
+   * observed is an idle. Add and remove report themselves from the binding; this reports the
+   * sources whose attribution newly appeared.
+   */
+  private fun reportNewlyArrivedAttribution() {
+    val map = loop?.map ?: return
+    for (id in map.styleSourceIds()) {
+      val info = map.styleSourceInfo(id) ?: continue
+      if (
+        !info.url.isNullOrEmpty() &&
+          !info.attribution.isNullOrEmpty() &&
+          reportedUrlAttribution.add(id)
+      ) {
+        callbacks.onSourceChanged(this, id)
+      }
+    }
+  }
+
   /** Once [unload] runs, writes are dropped rather than reaching a map whose style was replaced. */
   private inner class SessionStyleBinding : MlnFfiStyleBinding {
     @Volatile private var loaded = true
@@ -203,6 +229,11 @@ internal class MlnFfiMapSession(
 
     fun unload() {
       loaded = false
+    }
+
+    override fun reportSourceChanged(sourceId: String) {
+      reportedUrlAttribution.remove(sourceId)
+      callbacks.onSourceChanged(this@MlnFfiMapSession, sourceId)
     }
 
     override fun <T> readMap(action: (MapHandle) -> T): T? {
@@ -574,6 +605,7 @@ internal class MlnFfiMapSession(
         val binding = SessionStyleBinding().also { styleBinding = it }
         callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
         styleLoadUnreported = true
+        reportedUrlAttribution.clear()
       }
 
       // mbgl only delivers onDidFinishLoadingMap once a frame has seen the new style as not yet
@@ -591,7 +623,7 @@ internal class MlnFfiMapSession(
           styleLoadUnreported = false
           callbacks.onMapFinishedLoading(this)
         } else {
-          callbacks.onSourceChanged(this, null)
+          reportNewlyArrivedAttribution()
         }
       }
 

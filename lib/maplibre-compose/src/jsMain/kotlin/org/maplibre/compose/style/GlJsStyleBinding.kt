@@ -139,6 +139,9 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     return value?.toJsonElement()
   }
 
+  override fun layerExists(layerId: String): Boolean? =
+    if (!loaded) null else map.getLayer(layerId) != null
+
   private inline fun mutate(what: String, action: () -> Unit) {
     val before = errorCount
     try {
