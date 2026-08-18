@@ -1,105 +1,67 @@
 package org.maplibre.compose.demoapp
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.requiredHeight
-import androidx.compose.material3.BottomSheetDefaults
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SheetValue
+import androidx.compose.material3.Surface
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.movableContentOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.launch
-import org.jetbrains.compose.resources.vectorResource
-import org.maplibre.compose.demoapp.generated.Res
-import org.maplibre.compose.demoapp.generated.keyboard_arrow_up_24px
-import org.maplibre.compose.demoapp.util.getDefaultColorScheme
 
 @Composable
 fun DemoApp() {
-  val demoState = rememberDemoState()
-  MaterialTheme(colorScheme = getDefaultColorScheme(isDark = demoState.selectedStyle.isDark)) {
-    CompositionLocalProvider(LocalContentColor provides MaterialTheme.colorScheme.onSurface) {
-      SheetLayout(
-        menu = { DemoSheetContent(state = demoState, modifier = Modifier.fillMaxHeight()) },
-        map = { sheetInsets -> DemoMap(demoState, sheetInsets) },
-      )
+  val state = rememberDemoAppState()
+  val colorScheme = if (state.selectedStyle.isDark) darkColorScheme() else lightColorScheme()
+  // One composition for the panel, so the NavHost keeps its back stack when the
+  // viewport crosses the side-pane / bottom-sheet breakpoint.
+  val panel = remember { movableContentOf { modifier: Modifier -> DemoPanel(state, modifier) } }
+  MaterialTheme(colorScheme = colorScheme) {
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+      if (maxWidth >= WideLayoutMinWidth) {
+        WideLayout(state, panel)
+      } else {
+        NarrowLayout(state, panel)
+      }
     }
   }
 }
+
+/** Below this width the panel becomes a bottom sheet. */
+private val WideLayoutMinWidth = 720.dp
+
+private val PanelWidth = 360.dp
 
 /** How much of the map the collapsed sheet covers. */
 private val SheetPeekHeight = 128.dp
 
 @Composable
-private fun SheetLayout(
-  menu: @Composable () -> Unit,
-  map: @Composable (WindowInsets) -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  val sheetState = rememberBottomSheetScaffoldState()
-  BottomSheetScaffold(
-    sheetPeekHeight = SheetPeekHeight, // TODO dynamic peek based on selected demo
-    scaffoldState = sheetState,
-    sheetSwipeEnabled = true,
-    sheetDragHandle = {
-      ExpandCollapseButton(
-        sheetState.bottomSheetState.targetValue == SheetValue.Expanded,
-        onExpand = { sheetState.bottomSheetState.expand() },
-        onCollapse = { sheetState.bottomSheetState.partialExpand() },
-        modifier = Modifier.fillMaxWidth(),
-      )
-    },
-    sheetContent = {
-      Box(
-        // TODO this doesn't work well on landscape and small screens
-        modifier =
-          Modifier.background(BottomSheetDefaults.ContainerColor)
-            .consumeWindowInsets(PaddingValues(top = 56.dp))
-            .requiredHeight(500.dp)
-      ) {
-        menu()
-      }
-    },
-    modifier = modifier,
-  ) {
-    // The map draws under the scaffold content area, so the sheet covers its bottom edge.
-    map(WindowInsets(bottom = SheetPeekHeight))
+private fun WideLayout(state: DemoAppState, panel: @Composable (Modifier) -> Unit) {
+  Row(Modifier.fillMaxSize()) {
+    Surface(modifier = Modifier.width(PanelWidth).fillMaxHeight(), tonalElevation = 1.dp) {
+      panel(Modifier.fillMaxHeight())
+    }
+    DemoMap(state, sheetInsets = WindowInsets(0))
   }
 }
 
 @Composable
-private fun ExpandCollapseButton(
-  expanded: Boolean,
-  onExpand: suspend () -> Unit,
-  onCollapse: suspend () -> Unit,
-  modifier: Modifier = Modifier,
-) {
-  val degrees by animateFloatAsState(targetValue = if (expanded) 180f else 0f)
-  val coroutineScope = rememberCoroutineScope()
-  IconButton(
-    modifier = modifier,
-    onClick = { coroutineScope.launch { if (expanded) onCollapse() else onExpand() } },
+private fun NarrowLayout(state: DemoAppState, panel: @Composable (Modifier) -> Unit) {
+  BottomSheetScaffold(
+    sheetPeekHeight = SheetPeekHeight,
+    scaffoldState = rememberBottomSheetScaffoldState(),
+    sheetContent = { panel(Modifier) },
   ) {
-    Icon(
-      vectorResource(Res.drawable.keyboard_arrow_up_24px),
-      contentDescription = if (expanded) "Collapse" else "Expand",
-      modifier = Modifier.rotate(degrees),
-    )
+    // The map draws under the scaffold content area, so the sheet covers its bottom edge.
+    DemoMap(state, sheetInsets = WindowInsets(bottom = SheetPeekHeight))
   }
 }
