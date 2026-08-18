@@ -149,6 +149,9 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
       val sharedTexture =
         if (target.generation == generation) texture else retiredTextures[target.generation]
       val imported = sharedTexture?.imported ?: return@withOpenGlContextOrNull false
+      // Context replacement abandons GL names. Presenting texture 0 builds an
+      // incomplete FBO; the next acquireFrame reallocates in the new context.
+      if (imported.textureName == 0) return@withOpenGlContextOrNull false
       val drew =
         presenter.draw(
           scope,
@@ -190,11 +193,13 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     }
 
     val angleDevice = AngleEgl.angleD3d11Device()
+    val adapterLuid = WindowsD3D11Interop.adapterLuidOf(angleDevice)
+    check(adapterLuid != 0L) {
+      "ANGLE's ID3D11Device has no DXGI adapter LUID; cannot pick a matching Vulkan device"
+    }
     val context =
       vulkan
-        ?: rendererThread
-          .run { WindowsOpenGlVulkanContext.create(WindowsD3D11Interop.adapterLuidOf(angleDevice)) }
-          .also { vulkan = it }
+        ?: rendererThread.run { WindowsOpenGlVulkanContext.create(adapterLuid) }.also { vulkan = it }
     val d3d11 = WindowsD3D11Interop.createSharedTextureOnDevice(angleDevice, extent)
     try {
       val exported = rendererThread.run { context.importD3D11Texture(d3d11.sharedHandle, extent) }
@@ -338,7 +343,9 @@ private constructor(private val preferredAdapterLuid: Long) : AutoCloseable {
         vkEnumeratePhysicalDevices(instance(), count, devices),
         "vkEnumeratePhysicalDevices",
       )
-      var fallback: Pair<VkPhysicalDevice, Int>? = null
+      check(preferredAdapterLuid != 0L) {
+        "Cannot select a Vulkan device without ANGLE's adapter LUID"
+      }
       for (index in 0..<devices.capacity()) {
         val candidate = VkPhysicalDevice(devices[index], instance())
         if (VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME !in stack.vulkanDeviceExtensions(candidate)
@@ -347,20 +354,14 @@ private constructor(private val preferredAdapterLuid: Long) : AutoCloseable {
         }
         val queueFamily = stack.findVulkanGraphicsQueueFamily(candidate)
         if (queueFamily < 0) continue
-        if (preferredAdapterLuid == 0L || deviceLuid(candidate) == preferredAdapterLuid) {
-          physicalDevice = candidate
-          graphicsQueueFamilyIndex = queueFamily
-          return
-        }
-        if (fallback == null) fallback = candidate to queueFamily
-      }
-      fallback?.let { (candidate, queueFamily) ->
+        if (deviceLuid(candidate) != preferredAdapterLuid) continue
         physicalDevice = candidate
         graphicsQueueFamilyIndex = queueFamily
         return
       }
       throw MlnFfiHostException(
-        "No Vulkan device supports graphics and $VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME"
+        "No Vulkan device matches ANGLE's adapter and supports " +
+          "$VK_KHR_EXTERNAL_MEMORY_WIN32_EXTENSION_NAME"
       )
     }
   }
@@ -423,7 +424,8 @@ private constructor(private val preferredAdapterLuid: Long) : AutoCloseable {
   }
 
   companion object {
-    fun create(preferredAdapterLuid: Long = 0L): WindowsOpenGlVulkanContext {
+    fun create(preferredAdapterLuid: Long): WindowsOpenGlVulkanContext {
+      require(preferredAdapterLuid != 0L) { "ANGLE adapter LUID is required" }
       val context = WindowsOpenGlVulkanContext(preferredAdapterLuid)
       try {
         context.createInstance()

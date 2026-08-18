@@ -64,43 +64,42 @@ internal object WindowsD3D11Interop {
   fun adapterLuidOf(device: Long): Long {
     Arena.ofConfined().use { arena ->
       val dxgiOut = arena.allocate(ValueLayout.ADDRESS)
-      if (
+      checkHResult(
         invokeHResult(
           comMethod(device, IUNKNOWN_QUERY_INTERFACE_INDEX),
           address(device),
           iid(arena, 0x54ec77fa, 0x1377, 0x44e6, 0x8c, 0x32, 0x88, 0xfd, 0x5f, 0x44, 0xc8, 0x4c),
           dxgiOut,
-        ) < 0
-      ) {
-        return 0L
-      }
+        ),
+        "ID3D11Device::QueryInterface(IDXGIDevice)",
+      )
       val dxgi = dxgiOut.get(ValueLayout.ADDRESS, 0).address()
       try {
         val adapterOut = arena.allocate(ValueLayout.ADDRESS)
-        if (
+        checkHResult(
           invokeInt(
             comMethod(dxgi, IDXGI_DEVICE_GET_ADAPTER_INDEX),
             FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
             address(dxgi),
             adapterOut,
-          ) < 0
-        ) {
-          return 0L
-        }
+          ),
+          "IDXGIDevice::GetAdapter",
+        )
         val adapter = adapterOut.get(ValueLayout.ADDRESS, 0).address()
         try {
           val desc = arena.allocate(DXGI_ADAPTER_DESC_SIZE)
-          if (
+          checkHResult(
             invokeInt(
               comMethod(adapter, IDXGI_ADAPTER_GET_DESC_INDEX),
               FunctionDescriptor.of(ValueLayout.JAVA_INT, ValueLayout.ADDRESS, ValueLayout.ADDRESS),
               address(adapter),
               desc,
-            ) < 0
-          ) {
-            return 0L
-          }
-          return desc.get(ValueLayout.JAVA_LONG, DXGI_ADAPTER_DESC_LUID_OFFSET)
+            ),
+            "IDXGIAdapter::GetDesc",
+          )
+          val luid = desc.get(ValueLayout.JAVA_LONG, DXGI_ADAPTER_DESC_LUID_OFFSET)
+          check(luid != 0L) { "IDXGIAdapter::GetDesc returned a zero LUID" }
+          return luid
         } finally {
           release(adapter)
         }
