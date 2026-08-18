@@ -6,28 +6,39 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import dev.sargunv.mobilitydata.gtfs.schedule.Agency
 import dev.sargunv.mobilitydata.gtfs.schedule.GtfsCsv
+import dev.sargunv.mobilitydata.gtfs.schedule.PickupDropoff
 import dev.sargunv.mobilitydata.gtfs.schedule.Route
 import dev.sargunv.mobilitydata.gtfs.schedule.ServiceCalendar
 import dev.sargunv.mobilitydata.gtfs.schedule.Shape
@@ -40,7 +51,9 @@ import io.ktor.client.statement.bodyAsBytes
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.ExperimentalTime
+import kotlin.time.Instant
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.DayOfWeek
@@ -61,6 +74,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.convertToColor
 import org.maplibre.compose.expressions.dsl.eq
 import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.expressions.dsl.offset
+import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
@@ -76,7 +91,7 @@ import org.maplibre.spatialk.geojson.Position
 object TransitNetworkDemo : Demo {
   override val name = "Transit network"
   override val description =
-    "The Washington State Ferries network, parsed from its GTFS feed at runtime."
+    "The Washington State Ferries network from its GTFS feed. Select a route to see the next sailing at each terminal."
   override val region = BoundingBox(west = -123.2, south = 47.0, east = -122.2, north = 48.8)
   override val preferredStyle = OpenFreeMap.Positron
 
@@ -106,12 +121,17 @@ object TransitNetworkDemo : Demo {
     val bounds: BoundingBox,
   )
 
+  private class Terminal(val id: String, val name: String, val position: Position)
+
   private class Network(
     val routes: List<RouteEntry>,
     val routeLines: FeatureCollection<LineString, JsonObject>,
     val terminals: FeatureCollection<Point, JsonObject>,
+    val terminalsById: Map<String, Terminal>,
+    val stopIdsByRoute: Map<String, Set<String>>,
     val timeZone: TimeZone,
     val tripsByRoute: Map<String, List<Trip>>,
+    val stopTimesByTrip: Map<String, List<StopTime>>,
     val firstStopTimeByTrip: Map<String, StopTime>,
     val calendars: List<ServiceCalendar>,
   )
@@ -152,6 +172,7 @@ object TransitNetworkDemo : Demo {
               }
           }
       val tripsByRoute = trips.groupBy { it.routeId }
+      val stopTimesByTrip = stopTimes.groupBy { it.tripId }
 
       val lineFeatures = mutableListOf<Feature<LineString, JsonObject>>()
       val routeEntries = mutableListOf<RouteEntry>()
@@ -191,28 +212,45 @@ object TransitNetworkDemo : Demo {
           )
       }
 
-      val terminalFeatures = stops.mapNotNull { stop ->
+      val terminalList = stops.mapNotNull { stop ->
         val longitude = stop.stopLongitude ?: return@mapNotNull null
         val latitude = stop.stopLatitude ?: return@mapNotNull null
-        Feature(
-          geometry = Point(Position(longitude = longitude, latitude = latitude)),
-          properties = buildJsonObject { put("name", stop.stopName ?: stop.stopId) },
+        Terminal(
+          id = stop.stopId,
+          name = stop.stopName ?: stop.stopId,
+          position = Position(longitude = longitude, latitude = latitude),
         )
+      }
+      val terminalFeatures = terminalList.map { terminal ->
+        Feature(
+          geometry = Point(terminal.position),
+          properties = buildJsonObject { put("name", terminal.name) },
+        )
+      }
+      val stopIdsByRoute = tripsByRoute.mapValues { (_, routeTrips) ->
+        routeTrips
+          .flatMap { trip -> stopTimesByTrip[trip.tripId].orEmpty() }
+          .filter { it.allowsBoarding }
+          .mapTo(mutableSetOf()) { it.stopId }
       }
 
       Network(
         routes = routeEntries.sortedBy { it.displayName },
         routeLines = FeatureCollection(lineFeatures),
         terminals = FeatureCollection(terminalFeatures),
+        terminalsById = terminalList.associateBy { it.id },
+        stopIdsByRoute = stopIdsByRoute,
         timeZone = agencies.first().agencyTimezone,
         tripsByRoute = tripsByRoute,
+        stopTimesByTrip = stopTimesByTrip,
         firstStopTimeByTrip =
-          stopTimes
-            .groupBy { it.tripId }
-            .mapValues { (_, times) -> times.minBy { it.stopSequence } },
+          stopTimesByTrip.mapValues { (_, times) -> times.minBy { it.stopSequence } },
         calendars = calendars,
       )
     }
+
+  private val StopTime.allowsBoarding: Boolean
+    get() = departureTime != null && pickupType != PickupDropoff.None
 
   private fun ServiceCalendar.runsOn(day: DayOfWeek): Boolean =
     when (day) {
@@ -230,9 +268,19 @@ object TransitNetworkDemo : Demo {
       .filter { date in it.startDate..it.endDate && it.runsOn(date.dayOfWeek) }
       .mapTo(mutableSetOf()) { it.serviceId }
 
+  private fun formatSailing(instant: Instant, headsign: String, timeZone: TimeZone): String {
+    val time = instant.toLocalDateTime(timeZone).time
+    val hhmm = "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
+    return if (headsign.isEmpty()) hhmm else "$hhmm $headsign"
+  }
+
   /** The next few departures from each route's first terminal, over today and tomorrow. */
-  private fun nextDepartures(network: Network, routeId: String, count: Int = 3): List<String> {
-    val now = Clock.System.now()
+  private fun nextDepartures(
+    network: Network,
+    routeId: String,
+    now: Instant = Clock.System.now(),
+    count: Int = 3,
+  ): List<String> {
     val today = now.toLocalDateTime(network.timeZone).date
     return listOf(today, today.plus(1, DateTimeUnit.DAY))
       .flatMap { date ->
@@ -250,12 +298,36 @@ object TransitNetworkDemo : Demo {
       .filter { (instant, _) -> instant >= now }
       .sortedBy { (instant, _) -> instant }
       .take(count)
-      .map { (instant, headsign) ->
-        val time = instant.toLocalDateTime(network.timeZone).time
-        val hhmm =
-          "${time.hour.toString().padStart(2, '0')}:${time.minute.toString().padStart(2, '0')}"
-        if (headsign.isEmpty()) hhmm else "$hhmm $headsign"
+      .map { (instant, headsign) -> formatSailing(instant, headsign, network.timeZone) }
+  }
+
+  /** The next departure from [stopId] on [routeId], or null when none remains today or tomorrow. */
+  private fun nextDepartureFromStop(
+    network: Network,
+    routeId: String,
+    stopId: String,
+    now: Instant,
+  ): String? {
+    val today = now.toLocalDateTime(network.timeZone).date
+    return listOf(today, today.plus(1, DateTimeUnit.DAY))
+      .flatMap { date ->
+        val services = activeServiceIds(network, date)
+        network.tripsByRoute[routeId]
+          .orEmpty()
+          .filter { it.serviceId in services }
+          .mapNotNull { trip ->
+            val stopTime =
+              network.stopTimesByTrip[trip.tripId]?.find {
+                it.stopId == stopId && it.allowsBoarding
+              }
+            val departure = stopTime?.departureTime ?: return@mapNotNull null
+            departure.toInstant(date, network.timeZone) to
+              (stopTime.stopHeadsign ?: trip.tripHeadsign ?: "")
+          }
       }
+      .filter { (instant, _) -> instant >= now }
+      .minByOrNull { (instant, _) -> instant }
+      ?.let { (instant, headsign) -> formatSailing(instant, headsign, network.timeZone) }
   }
 
   @Composable
@@ -319,7 +391,40 @@ object TransitNetworkDemo : Demo {
       textColor = const(Color(0xFF37474F)),
       textHaloColor = const(Color.White),
       textHaloWidth = const(1.dp),
+      textAnchor = const(SymbolAnchor.Top),
+      textOffset = offset(0.em, 0.4.em),
     )
+  }
+
+  @Composable
+  override fun Overlay(cameraState: CameraState) {
+    val network = (feedState as? FeedState.Loaded)?.network ?: return
+    val selected = selectedRouteId ?: return
+    var now by remember { mutableStateOf(Clock.System.now()) }
+    LaunchedEffect(Unit) {
+      while (true) {
+        delay(30.seconds)
+        now = Clock.System.now()
+      }
+    }
+
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+      network.stopIdsByRoute[selected].orEmpty().forEach { stopId ->
+        key(stopId) {
+          val terminal = network.terminalsById[stopId] ?: return@key
+          val departure =
+            remember(selected, now) { nextDepartureFromStop(network, selected, stopId, now) }
+              ?: return@key
+          DepartureChip(
+            cameraState = cameraState,
+            position = terminal.position,
+            text = departure,
+            mapWidth = maxWidth,
+            mapHeight = maxHeight,
+          )
+        }
+      }
+    }
   }
 
   @Composable
@@ -348,9 +453,7 @@ object TransitNetworkDemo : Demo {
           val isSelected = route.id == selectedRouteId
           ListItem(
             headlineContent = { Text(route.displayName) },
-            leadingContent = {
-              Box(Modifier.size(12.dp).background(route.color, CircleShape))
-            },
+            leadingContent = { Box(Modifier.size(12.dp).background(route.color, CircleShape)) },
             supportingContent =
               if (isSelected) {
                 {
@@ -372,5 +475,38 @@ object TransitNetworkDemo : Demo {
         }
       }
     }
+  }
+}
+
+@Composable
+private fun DepartureChip(
+  cameraState: CameraState,
+  position: Position,
+  text: String,
+  mapWidth: Dp,
+  mapHeight: Dp,
+) {
+  val screen =
+    remember(position, cameraState.position) {
+      cameraState.projection?.screenLocationFromPosition(position)
+    } ?: return
+  if (screen.x < 0.dp || screen.y < 0.dp || screen.x > mapWidth || screen.y > mapHeight) return
+
+  Surface(
+    shape = RoundedCornerShape(8.dp),
+    shadowElevation = 2.dp,
+    color = MaterialTheme.colorScheme.surface,
+    modifier =
+      Modifier.wrapContentSize(unbounded = true).absoluteOffset(screen.x, screen.y).graphicsLayer {
+        translationX = -size.width / 2f
+        translationY = -size.height - 8.dp.toPx()
+      },
+  ) {
+    Text(
+      text = text,
+      style = MaterialTheme.typography.labelMedium,
+      maxLines = 1,
+      modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+    )
   }
 }

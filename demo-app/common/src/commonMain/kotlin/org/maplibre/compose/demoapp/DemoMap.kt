@@ -49,7 +49,7 @@ private suspend fun CameraState.flyToDemo(demo: Demo) {
   }
 }
 
-/** The shared map, the pointer pin back to the selected demo, and the diagnostic overlays. */
+/** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
 @Composable
 fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
   val insets = WindowInsets.safeDrawing.union(sheetInsets)
@@ -85,6 +85,8 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
         }
       }
     }
+
+    state.selectedDemo?.let { demo -> key(demo) { demo.Overlay(state.cameraState) } }
 
     val scope = rememberCoroutineScope()
     state.selectedDemo
