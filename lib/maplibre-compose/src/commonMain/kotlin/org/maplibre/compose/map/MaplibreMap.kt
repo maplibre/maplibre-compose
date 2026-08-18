@@ -196,14 +196,19 @@ public fun MaplibreMap(
           if (onMapClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
-              val handle = node.onClick ?: continue
+              if (node.onClick == null) continue
               val features =
                 map.queryRenderedFeatures(
                   offset = offset,
                   layerIds = setOf(node.layer.id),
                   predicate = null,
                 )
-              val currentHandle = node.onClick ?: continue
+              // Recomposition may replace or remove the node while the query is suspended. A
+              // removed node never receives the click; a replaced one answers with the handler
+              // it has now.
+              val currentHandle =
+                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onClick
+                  ?: continue
               if (features.isNotEmpty() && currentHandle(features).consumed) break
             }
           }
@@ -213,14 +218,19 @@ public fun MaplibreMap(
           if (onMapLongClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
-              val handle = node.onLongClick ?: continue
+              if (node.onLongClick == null) continue
               val features =
                 map.queryRenderedFeatures(
                   offset = offset,
                   layerIds = setOf(node.layer.id),
                   predicate = null,
                 )
-              val currentHandle = node.onLongClick ?: continue
+              // Recomposition may replace or remove the node while the query is suspended. A
+              // removed node never receives the click; a replaced one answers with the handler
+              // it has now.
+              val currentHandle =
+                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onLongClick
+                  ?: continue
               if (features.isNotEmpty() && currentHandle(features).consumed) break
             }
           }
