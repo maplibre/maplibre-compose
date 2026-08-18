@@ -57,7 +57,7 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
   LaunchedEffect(state.selectedDemo) {
     val demo = state.selectedDemo ?: return@LaunchedEffect
     demo.preferredStyle?.let { state.selectedStyle = it }
-    state.cameraState.flyToDemo(demo)
+    if (demo.fliesOnSelect) state.cameraState.flyToDemo(demo)
   }
 
   Box(Modifier.fillMaxSize()) {
