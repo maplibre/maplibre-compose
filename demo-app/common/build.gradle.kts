@@ -41,15 +41,11 @@ kotlin {
   sourceSets {
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
-    // The settings page renders each platform's GestureOptions and RenderOptions fields, which
-    // differ per integration; these intermediate sets mirror the library's own split.
+    // Desktop and web share the nextCommon gesture fields. Android and iOS each have their own
+    // SDK options, so their settings actuals live in the platform source sets.
     val nonIosShared by creating { dependsOn(commonMain.get()) }
+    // Desktop-only render toggles: tile borders, parse status, and the Surface/Texture hint.
     val mlnFfiShared by creating { dependsOn(commonMain.get()) }
-
-    androidMain {
-      dependsOn(nonIosShared)
-      dependsOn(mlnFfiShared)
-    }
 
     jvmMain {
       dependsOn(nonIosShared)
