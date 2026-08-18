@@ -255,7 +255,7 @@ internal class IosMapAdapter(
     pendingBaseStyle = style
     logger?.i {
       when (style) {
-        is BaseStyle.Uri -> "Setting style URI ${style.uri}"
+        is BaseStyle.Uri -> "Setting style URI"
         is BaseStyle.Json -> "Setting style JSON"
       }
     }
