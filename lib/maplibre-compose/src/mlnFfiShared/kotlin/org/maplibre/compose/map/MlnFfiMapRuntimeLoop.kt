@@ -21,10 +21,10 @@ import org.maplibre.nativeffi.runtime.WakeSource
 private const val PUMP_PARK_MILLIS = -1L
 
 /**
- * Bounds one pump's native drain so a long tile-load mailbox cannot delay queued gesture work. The
- * first queued task always runs, and leftover work re-arms the wake flag.
+ * Caps one native drain below a 120 Hz frame so posted gesture work runs before the next vsync. The
+ * first queued task always runs; leftover work re-arms the wake flag.
  */
-private const val PUMP_BUDGET_MILLIS = 8L
+private const val PUMP_BUDGET_MILLIS = 4L
 
 /** Bound on waiting for the render session to be closed before the map is destroyed. */
 private const val SHUTDOWN_WAIT_MILLIS = 5_000L
