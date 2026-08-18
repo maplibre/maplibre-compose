@@ -34,10 +34,3 @@ public sealed interface BaseStyle {
     }
   }
 }
-
-internal val BaseStyle.loadDescription: String
-  get() =
-    when (this) {
-      is BaseStyle.Uri -> "style URI $uri"
-      is BaseStyle.Json -> "style JSON"
-    }

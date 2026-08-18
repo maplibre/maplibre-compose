@@ -38,7 +38,6 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.AndroidStyle
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.loadDescription
 import org.maplibre.compose.util.KermitLoggerDefinition
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.correctedAndroidUri
@@ -103,7 +102,12 @@ internal class AndroidMapAdapter(
 
   private fun beginStyleLoad(style: BaseStyle) {
     pendingBaseStyle = style
-    logger?.i { "Setting ${style.loadDescription}" }
+    logger?.i {
+      when (style) {
+        is BaseStyle.Uri -> "Setting style URI ${style.uri}"
+        is BaseStyle.Json -> "Setting style JSON"
+      }
+    }
     callbacks.onStyleChanged(this, null)
 
     val builder =
