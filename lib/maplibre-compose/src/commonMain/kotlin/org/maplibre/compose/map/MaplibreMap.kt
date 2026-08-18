@@ -144,7 +144,7 @@ public fun MaplibreMap(
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: Style?) {
           rememberedStyle?.unload()
-          val safeStyle = style?.let { SafeStyle(it) }
+          val safeStyle = style?.let { SafeStyle(it, logger) }
           rememberedStyle = safeStyle
           cameraState.metersPerDpAtTargetState.value =
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)

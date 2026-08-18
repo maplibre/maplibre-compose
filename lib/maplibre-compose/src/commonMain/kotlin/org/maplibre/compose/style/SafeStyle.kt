@@ -1,6 +1,7 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
+import co.touchlab.kermit.Logger
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.ImageResizeOptions
@@ -16,7 +17,7 @@ import org.maplibre.compose.util.ImageResizeOptions
  * subcomposition applies its changes — `AndroidView`'s `update` block is early enough, a
  * `LaunchedEffect` is not.
  */
-internal class SafeStyle(private val delegate: Style) : Style {
+internal class SafeStyle(private val delegate: Style, private val logger: Logger? = null) : Style {
   internal var isUnloaded = false
 
   internal fun unload() {
@@ -25,7 +26,7 @@ internal class SafeStyle(private val delegate: Style) : Style {
 
   private fun warnIfUnloaded(methodName: String) {
     if (isUnloaded) {
-      println("Warning: Attempting to call $methodName on an unloaded style")
+      logger?.w { "Ignoring $methodName on an unloaded style" }
     }
   }
 

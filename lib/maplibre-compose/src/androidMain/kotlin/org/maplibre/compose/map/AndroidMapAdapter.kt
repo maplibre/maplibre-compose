@@ -38,6 +38,7 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.AndroidStyle
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.loadDescription
 import org.maplibre.compose.util.KermitLoggerDefinition
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.correctedAndroidUri
@@ -73,8 +74,8 @@ internal class AndroidMapAdapter(
   internal var logger: Logger? = logger
     set(value) {
       if (value != field) {
-        MLNLogger.setLoggerDefinition(KermitLoggerDefinition(value))
         field = value
+        MLNLogger.setLoggerDefinition(KermitLoggerDefinition(value))
       }
     }
 
@@ -102,7 +103,7 @@ internal class AndroidMapAdapter(
 
   private fun beginStyleLoad(style: BaseStyle) {
     pendingBaseStyle = style
-    logger?.i { "Setting style URI" }
+    logger?.i { "Setting ${style.loadDescription}" }
     callbacks.onStyleChanged(this, null)
 
     val builder =
@@ -126,6 +127,7 @@ internal class AndroidMapAdapter(
   }
 
   init {
+    MLNLogger.setLoggerDefinition(KermitLoggerDefinition(logger))
     mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
     mapView.addOnSourceChangedListener { callbacks.onSourceChanged(this, it) }
     mapView.addOnDidFailLoadingMapListener {
