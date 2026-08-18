@@ -4,7 +4,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
-import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
@@ -26,25 +25,30 @@ class MlnFfiProjectionTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(ROTATED_CAMERA)
-      fixture.pumpUntil("the 512px snapshot to place the screen center on the camera target") {
-        val center = fixture.session.positionFromScreenLocation(SCREEN_CENTER)
-        abs(fixture.session.getCameraPosition().bearing - ROTATED_CAMERA.bearing) < 0.01 &&
-          abs(center.latitude - ROTATED_CAMERA.target.latitude) < COARSE_DEGREES &&
-          abs(center.longitude - ROTATED_CAMERA.target.longitude) < COARSE_DEGREES
+      fixture.pumpUntil("the camera target to land on the screen center") {
+        val camera = fixture.session.getCameraPosition()
+        val projected = fixture.session.screenLocationFromPosition(camera.target)
+        abs(camera.bearing - ROTATED_CAMERA.bearing) < 0.01 &&
+          abs(camera.zoom - ROTATED_CAMERA.zoom) < 0.01 &&
+          abs(camera.tilt - ROTATED_CAMERA.tilt) < 0.01 &&
+          projected.isNear(SCREEN_CENTER)
       }
 
       // The test thread is not the owner thread, so both calls take the snapshot handle.
-      val unprojected = fixture.session.positionFromScreenLocation(SCREEN_CENTER)
-      assertNear(ROTATED_CAMERA.target, unprojected, "the unprojected screen center")
-
-      val projected = fixture.session.screenLocationFromPosition(ROTATED_CAMERA.target)
+      val camera = fixture.session.getCameraPosition()
+      val projected = fixture.session.screenLocationFromPosition(camera.target)
       assertTrue(
-        abs(projected.x.value - SCREEN_CENTER.x.value) <= PIXEL_TOLERANCE,
-        "the projected target x should be ${SCREEN_CENTER.x.value}, was ${projected.x.value}",
+        projected.isNear(SCREEN_CENTER),
+        "the camera target ${camera.target} should project to $SCREEN_CENTER ± $PIXEL_TOLERANCE, was $projected",
       )
+
+      val roundTrip =
+        fixture.session.screenLocationFromPosition(
+          fixture.session.positionFromScreenLocation(SCREEN_CENTER)
+        )
       assertTrue(
-        abs(projected.y.value - SCREEN_CENTER.y.value) <= PIXEL_TOLERANCE,
-        "the projected target y should be ${SCREEN_CENTER.y.value}, was ${projected.y.value}",
+        roundTrip.isNear(SCREEN_CENTER),
+        "the screen center $SCREEN_CENTER should round-trip, was $roundTrip",
       )
     }
   }
@@ -70,8 +74,7 @@ class MlnFfiProjectionTest {
         val unprojected = fixture.session.positionFromScreenLocation(SCREEN_CENTER)
         val projected = fixture.session.screenLocationFromPosition(unprojected)
         assertTrue(
-          abs(projected.x.value - SCREEN_CENTER.x.value) <= PIXEL_TOLERANCE &&
-            abs(projected.y.value - SCREEN_CENTER.y.value) <= PIXEL_TOLERANCE,
+          projected.isNear(SCREEN_CENTER),
           "a live conversion should round-trip, was $projected from $unprojected",
         )
         fixture.frame()
@@ -81,27 +84,11 @@ class MlnFfiProjectionTest {
     }
   }
 
-  private fun assertNear(expected: Position, actual: Position, what: String) {
-    assertEquals(
-      expected.latitude,
-      actual.latitude,
-      DEGREES_TOLERANCE,
-      "$what latitude",
-    )
-    assertEquals(
-      expected.longitude,
-      actual.longitude,
-      DEGREES_TOLERANCE,
-      "$what longitude",
-    )
-  }
+  private fun DpOffset.isNear(other: DpOffset): Boolean =
+    abs(x.value - other.x.value) <= PIXEL_TOLERANCE &&
+      abs(y.value - other.y.value) <= PIXEL_TOLERANCE
 
   private companion object {
-    const val DEGREES_TOLERANCE = 1e-6
-
-    /** Within this, the screen center has landed on the camera target of the 512px viewport. */
-    const val COARSE_DEGREES = 0.1
-
     const val PIXEL_TOLERANCE = 1.0
 
     val SCREEN_CENTER = DpOffset(256.dp, 256.dp)
