@@ -73,8 +73,8 @@ internal class AndroidMapAdapter(
   internal var logger: Logger? = logger
     set(value) {
       if (value != field) {
-        field = value
         MLNLogger.setLoggerDefinition(KermitLoggerDefinition(value))
+        field = value
       }
     }
 
@@ -102,12 +102,7 @@ internal class AndroidMapAdapter(
 
   private fun beginStyleLoad(style: BaseStyle) {
     pendingBaseStyle = style
-    logger?.i {
-      when (style) {
-        is BaseStyle.Uri -> "Setting style URI ${style.uri}"
-        is BaseStyle.Json -> "Setting style JSON"
-      }
-    }
+    logger?.i { "Setting style URI" }
     callbacks.onStyleChanged(this, null)
 
     val builder =
@@ -131,7 +126,6 @@ internal class AndroidMapAdapter(
   }
 
   init {
-    MLNLogger.setLoggerDefinition(KermitLoggerDefinition(logger))
     mapView.addOnDidFinishLoadingMapListener { callbacks.onMapFinishedLoading(this) }
     mapView.addOnSourceChangedListener { callbacks.onSourceChanged(this, it) }
     mapView.addOnDidFailLoadingMapListener {

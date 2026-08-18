@@ -10,7 +10,6 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.LayoutDirection
-import co.touchlab.kermit.Logger
 import com.google.gson.JsonArray
 import com.google.gson.JsonElement
 import com.google.gson.JsonNull
@@ -61,7 +60,7 @@ internal fun String.correctedAndroidUri(): String {
       URI("asset://${uri.path.removePrefix("/android_asset/")}").toString() + templatePart
     else this
   } catch (e: URISyntaxException) {
-    Logger.withTag("maplibre-compose").w(e) { "Could not parse URI $this; using it unchanged" }
+    e.printStackTrace()
     this
   }
 }
