@@ -10,6 +10,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.nativeffi.camera.EdgeInsets
+import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.spatialk.geojson.Feature as GeoJsonFeature
 import org.maplibre.spatialk.geojson.GeometryCollection
 import org.maplibre.spatialk.geojson.Point
@@ -19,28 +20,30 @@ class MlnFfiConversionsTest {
 
   @Test
   fun unsigned_feature_id_remains_a_json_number() {
-    val result =
-      """
-      [{"feature":{"type":"Feature","id":9223372036854775808,"geometry":{"type":"Point","coordinates":[0.0,0.0]},"properties":{}}}]
-      """
+    val feature =
+      queriedFeature(
+          """{"type":"Feature","id":9223372036854775808,"geometry":{"type":"Point","coordinates":[0.0,0.0]},"properties":{}}"""
+        )
+        .toGeoJsonFeature()
 
-    val id =
-      result.trimIndent().encodeToByteArray().toGeoJsonFeatures().single().id as JsonPrimitive
-
+    val id = requireNotNull(feature).id as JsonPrimitive
     assertFalse(id.isString)
     assertEquals("9223372036854775808", id.content)
   }
 
   @Test
-  fun query_envelope_drops_query_metadata() {
-    val result =
-      """
-      [{"feature":{"type":"Feature","geometry":{"type":"Point","coordinates":[1.0,2.0]},"properties":{"name":"a"}},"sourceId":"s","sourceLayerId":"l","state":{}}]
-      """
+  fun queried_feature_metadata_stays_off_the_geojson_feature() {
+    val feature =
+      queriedFeature(
+          json =
+            """{"type":"Feature","geometry":{"type":"Point","coordinates":[1.0,2.0]},"properties":{"name":"a"}}""",
+          sourceId = "s",
+          sourceLayerId = "l",
+          state = """{"selected":true}""",
+        )
+        .toGeoJsonFeature()
 
-    val feature = result.trimIndent().encodeToByteArray().toGeoJsonFeatures().single()
-
-    assertEquals(Point(Position(1.0, 2.0)), feature.geometry)
+    assertEquals(Point(Position(1.0, 2.0)), requireNotNull(feature).geometry)
     assertEquals(buildJsonObject { put("name", "a") }, feature.properties)
   }
 
@@ -77,4 +80,17 @@ class MlnFfiConversionsTest {
     assertEquals(JsonPrimitive("caller-state"), properties["\$state"])
     assertEquals(JsonPrimitive("cluster"), properties["name"])
   }
+
+  private fun queriedFeature(
+    json: String,
+    sourceId: String? = null,
+    sourceLayerId: String? = null,
+    state: String? = null,
+  ) =
+    QueriedFeature(
+      feature = json.encodeToByteArray(),
+      sourceId = sourceId,
+      sourceLayerId = sourceLayerId,
+      state = state?.encodeToByteArray(),
+    )
 }

@@ -35,6 +35,28 @@ class MapVisibleAreaTest {
   }
 
   @Test
+  fun the_camera_and_bounding_box_come_from_one_native_snapshot(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.session.setBaseStyle(BaseStyle.Empty)
+      it.awaitMapReady()
+      it.session.setCameraPosition(CAMERA)
+
+      val camera = it.session.getCameraPosition()
+      val box = it.session.getVisibleBoundingBox()
+      val cameraApplied =
+        abs(camera.zoom - CAMERA.zoom) < 0.01 && abs(camera.bearing - CAMERA.bearing) < 0.01
+      val latSpan = box.northeast.latitude - box.southwest.latitude
+      val boxApplied = latSpan > 0.01 && latSpan < 40.0
+      assertTrue(
+        cameraApplied == boxApplied,
+        "the camera and bounding box should update together, camera applied=$cameraApplied box applied=$boxApplied (camera=$camera box=$box)",
+      )
+
+      it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
+    }
+  }
+
+  @Test
   fun the_bounding_box_covers_the_region_of_a_rotated_and_tilted_camera(): MapTestResult =
     runMapTest {
       createMapFixture().use {
@@ -116,9 +138,8 @@ class MapVisibleAreaTest {
     const val TOLERANCE = 1e-6
 
     /**
-     * Camera getters update as soon as the caller sets a position; the bounding box and region
-     * update only after native applies it. Wait for a zoomed-in box so the assertions read that
-     * snapshot.
+     * Camera, bounding box, and region update together after native applies a position. Wait for a
+     * zoomed-in box so the assertions read that snapshot rather than the startup viewport.
      */
     fun MapAdapter.hasNativeCamera(camera: CameraPosition): Boolean {
       if (abs(getCameraPosition().zoom - camera.zoom) >= 0.01) return false
