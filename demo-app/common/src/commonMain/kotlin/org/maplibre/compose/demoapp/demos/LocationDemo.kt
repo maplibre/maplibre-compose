@@ -12,7 +12,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.flow.drop
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
@@ -70,12 +69,15 @@ object LocationDemo : Demo {
     }
     LaunchedEffect(locationState) { locationState.requestPermission() }
 
-    // Skip the move reason a previous demo left on the shared camera.
     LaunchedEffect(cameraState) {
-      snapshotFlow { cameraState.moveReason to cameraState.position }
-        .drop(1)
-        .collect { (reason, _) ->
-          if (reason == CameraMoveReason.GESTURE) follow = false
+      var previous = cameraState.moveReason
+      snapshotFlow { cameraState.moveReason }
+        .collect { reason ->
+          // Follow moves the camera programmatically; a pan is the GESTURE that interrupts it.
+          if (previous != CameraMoveReason.GESTURE && reason == CameraMoveReason.GESTURE) {
+            follow = false
+          }
+          previous = reason
         }
     }
 
