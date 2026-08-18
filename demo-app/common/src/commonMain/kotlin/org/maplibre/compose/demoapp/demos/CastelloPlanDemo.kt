@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.generated.Res
@@ -47,7 +48,7 @@ object CastelloPlanDemo : Demo {
     )
 
   @Composable
-  override fun MapContent() {
+  override fun MapContent(cameraState: CameraState) {
     val source =
       rememberImageSource(position = corners, uri = Res.getUri("files/castello-plan.jpg"))
     RasterLayer(id = "castello-plan", source = source, opacity = const(opacity))

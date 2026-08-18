@@ -3,8 +3,10 @@ package org.maplibre.compose.demoapp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.UiComposable
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.demos.CastelloPlanDemo
 import org.maplibre.compose.demoapp.demos.DataVizDemo
+import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -34,7 +36,7 @@ interface Demo {
   val showsPointerPin: Boolean
     get() = true
 
-  @MaplibreComposable @Composable fun MapContent() {}
+  @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
 
   /** Controls shown in the sheet or side panel while this demo is selected. */
   @UiComposable @Composable fun Panel() {}
@@ -48,4 +50,4 @@ val Demo.center: Position
     )
 
 /** Demos appear in the shell in this order. */
-val allDemos: List<Demo> = listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo)
+val allDemos: List<Demo> = listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo)
