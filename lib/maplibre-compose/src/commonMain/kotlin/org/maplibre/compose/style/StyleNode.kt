@@ -2,7 +2,16 @@ package org.maplibre.compose.style
 
 import co.touchlab.kermit.Logger
 
-internal class StyleNode(var style: SafeStyle, internal var logger: Logger?) : MapNode() {
+internal class StyleNode(var style: SafeStyle, logger: Logger?) : MapNode() {
+  internal var logger: Logger? = logger
+    set(value) {
+      field = value
+      style.logger = value
+    }
+
+  init {
+    style.logger = logger
+  }
 
   internal val sourceManager = SourceManager(this)
   internal val layerManager = LayerManager(this)

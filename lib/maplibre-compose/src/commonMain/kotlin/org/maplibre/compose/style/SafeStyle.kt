@@ -17,16 +17,16 @@ import org.maplibre.compose.util.ImageResizeOptions
  * subcomposition applies its changes — `AndroidView`'s `update` block is early enough, a
  * `LaunchedEffect` is not.
  */
-internal class SafeStyle(private val delegate: Style, private val logger: Logger? = null) : Style {
+internal class SafeStyle(private val delegate: Style, internal var logger: Logger? = null) : Style {
   internal var isUnloaded = false
 
   internal fun unload() {
     isUnloaded = true
   }
 
-  private fun warnIfUnloaded(methodName: String) {
+  private fun logIfUnloaded(methodName: String) {
     if (isUnloaded) {
-      logger?.w { "Ignoring $methodName on an unloaded style" }
+      logger?.i { "Ignoring $methodName on an unloaded style" }
     }
   }
 
@@ -36,67 +36,67 @@ internal class SafeStyle(private val delegate: Style, private val logger: Logger
     sdf: Boolean,
     resizeOptions: ImageResizeOptions?,
   ) {
-    warnIfUnloaded("addImage")
+    logIfUnloaded("addImage")
     if (!isUnloaded) delegate.addImage(id, image, sdf, resizeOptions)
   }
 
   override fun removeImage(id: String) {
-    warnIfUnloaded("removeImage")
+    logIfUnloaded("removeImage")
     if (!isUnloaded) delegate.removeImage(id)
   }
 
   override fun getSource(id: String): Source? {
-    warnIfUnloaded("getSource")
+    logIfUnloaded("getSource")
     return if (!isUnloaded) delegate.getSource(id) else null
   }
 
   override fun getSources(): List<Source> {
-    warnIfUnloaded("getSources")
+    logIfUnloaded("getSources")
     return if (!isUnloaded) delegate.getSources() else emptyList()
   }
 
   override fun addSource(source: Source) {
-    warnIfUnloaded("addSource")
+    logIfUnloaded("addSource")
     if (!isUnloaded) delegate.addSource(source)
   }
 
   override fun removeSource(source: Source) {
-    warnIfUnloaded("removeSource")
+    logIfUnloaded("removeSource")
     if (!isUnloaded) delegate.removeSource(source)
   }
 
   override fun getLayer(id: String): Layer? {
-    warnIfUnloaded("getLayer")
+    logIfUnloaded("getLayer")
     return if (!isUnloaded) delegate.getLayer(id) else null
   }
 
   override fun getLayers(): List<Layer> {
-    warnIfUnloaded("getLayers")
+    logIfUnloaded("getLayers")
     return if (!isUnloaded) delegate.getLayers() else emptyList()
   }
 
   override fun addLayer(layer: Layer) {
-    warnIfUnloaded("addLayer")
+    logIfUnloaded("addLayer")
     if (!isUnloaded) delegate.addLayer(layer)
   }
 
   override fun addLayerAbove(id: String, layer: Layer) {
-    warnIfUnloaded("addLayerAbove")
+    logIfUnloaded("addLayerAbove")
     if (!isUnloaded) delegate.addLayerAbove(id, layer)
   }
 
   override fun addLayerBelow(id: String, layer: Layer) {
-    warnIfUnloaded("addLayerBelow")
+    logIfUnloaded("addLayerBelow")
     if (!isUnloaded) delegate.addLayerBelow(id, layer)
   }
 
   override fun addLayerAt(index: Int, layer: Layer) {
-    warnIfUnloaded("addLayerAt")
+    logIfUnloaded("addLayerAt")
     if (!isUnloaded) delegate.addLayerAt(index, layer)
   }
 
   override fun removeLayer(layer: Layer) {
-    warnIfUnloaded("removeLayer")
+    logIfUnloaded("removeLayer")
     if (!isUnloaded) delegate.removeLayer(layer)
   }
 }
