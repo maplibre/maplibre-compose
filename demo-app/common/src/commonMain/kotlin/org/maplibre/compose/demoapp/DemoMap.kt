@@ -87,21 +87,23 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
     }
 
     val scope = rememberCoroutineScope()
-    state.selectedDemo?.let { demo ->
-      // The pin fills this box to place itself; sizing the pin itself is up to its content.
-      Box(Modifier.fillMaxSize().padding(insets.asPaddingValues())) {
-        PointerPinButton(
-          cameraState = state.cameraState,
-          targetPosition = demo.center,
-          onClick = { scope.launch { state.cameraState.flyToDemo(demo) } },
-        ) {
-          Icon(
-            vectorResource(Res.drawable.filter_center_focus_24px),
-            contentDescription = "Fly back to ${demo.name}",
-          )
+    state.selectedDemo
+      ?.takeIf { it.showsPointerPin }
+      ?.let { demo ->
+        // The pin fills this box to place itself; sizing the pin itself is up to its content.
+        Box(Modifier.fillMaxSize().padding(insets.asPaddingValues())) {
+          PointerPinButton(
+            cameraState = state.cameraState,
+            targetPosition = demo.center,
+            onClick = { scope.launch { state.cameraState.flyToDemo(demo) } },
+          ) {
+            Icon(
+              vectorResource(Res.drawable.filter_center_focus_24px),
+              contentDescription = "Fly back to ${demo.name}",
+            )
+          }
         }
       }
-    }
 
     DiagnosticOverlays(
       state = state,
