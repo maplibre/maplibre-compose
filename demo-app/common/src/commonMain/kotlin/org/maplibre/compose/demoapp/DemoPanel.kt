@@ -28,6 +28,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,6 +39,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -50,6 +52,12 @@ import org.maplibre.compose.demoapp.generated.settings_24px
 @Composable
 fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
   val navController = rememberNavController()
+  val route = navController.currentBackStackEntryAsState().value?.destination?.route
+  // selectedDemo drives the map overlay. Keep it aligned with this destination so
+  // system and predictive back clear the overlay too.
+  LaunchedEffect(route) {
+    if (route == "demos") state.selectedDemo = null
+  }
   // Material 3 shared axis X: siblings slide 30dp while fading through.
   val slideDistance = with(LocalDensity.current) { 30.dp.roundToPx() }
   NavHost(
@@ -75,10 +83,7 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
       val demo = state.selectedDemo ?: return@composable
       SettingsSubScreen(
         demo.name,
-        onBack = {
-          state.selectedDemo = null
-          navController.popBackStack()
-        },
+        onBack = { navController.popBackStack() },
       ) {
         Text(
           text = demo.description,
