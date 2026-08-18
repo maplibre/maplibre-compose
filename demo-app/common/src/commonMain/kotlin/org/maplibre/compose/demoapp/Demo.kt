@@ -7,14 +7,16 @@ import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.demos.CastelloPlanDemo
 import org.maplibre.compose.demoapp.demos.DataVizDemo
 import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
+import org.maplibre.compose.demoapp.demos.LocationDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * A demo lives at a real place in the world. Selecting it flies the camera to [region] and composes
- * [MapContent] into the shared map. Each demo owns its state internally.
+ * A demo lives at a real place in the world. Selecting it composes [MapContent] into the shared map
+ * and, when [fliesOnSelect] is true, flies the camera to [region] or [camera]. Each demo owns its
+ * state internally.
  */
 interface Demo {
   val name: String
@@ -36,6 +38,13 @@ interface Demo {
   val showsPointerPin: Boolean
     get() = true
 
+  /**
+   * Whether the shell flies to [region] or [camera] when this demo is selected. A demo that drives
+   * the camera from live data turns this off.
+   */
+  val fliesOnSelect: Boolean
+    get() = true
+
   @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
 
   /** Controls shown in the sheet or side panel while this demo is selected. */
@@ -54,4 +63,6 @@ internal expect val extraDemos: List<Demo>
 
 /** Demos appear in the shell in this order. */
 val allDemos: List<Demo> =
-  listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo) + extraDemos
+  listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo) +
+    extraDemos +
+    listOf(LocationDemo)
