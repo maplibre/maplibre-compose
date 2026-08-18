@@ -333,6 +333,8 @@ internal class MlnFfiMapSession(
     // destruction to the owner thread: retire it there while the loop still accepts work —
     // inline when close itself runs on the owner thread — and best-effort otherwise rather
     // than failing an already-failing close.
+    // TODO(maplibre-native-ffi#633): upstream handles close from any thread and survive map
+    //   teardown; once pinned, this retires with a plain `handle.close()` on this thread.
     mirroredViewport.projection?.let { handle ->
       mirroredViewport = mirroredViewport.copy(projection = null)
       if (runOnMap { handle.close() } == null) runCatching { handle.close() }
@@ -860,6 +862,11 @@ internal class MlnFfiMapSession(
    * today's native throws [WrongThreadException] and this latches false, after which every
    * off-thread conversion takes the blocking round-trip without paying the failed native call. A
    * native that allows it keeps the published handle as the exact off-thread fast path.
+   *
+   * TODO(maplibre-native-ffi#633): any-thread projection has landed upstream; once the pinned
+   *   version carries it, delete this probe, the `WrongThreadException` catches, and the blocking
+   *   round-trip fallbacks — the published handle then answers every off-thread conversion, and the
+   *   owner-thread fast paths in the projection overrides and the click handlers follow.
    */
   @Volatile private var projectionUsableOffThread = true
 
