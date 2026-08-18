@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
@@ -25,12 +26,11 @@ class MlnFfiProjectionTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(ROTATED_CAMERA)
-      fixture.pumpUntil("the camera to apply and publish a viewport snapshot") {
-        val box = fixture.session.getVisibleBoundingBox()
-        val latSpan = box.northeast.latitude - box.southwest.latitude
+      fixture.pumpUntil("the 512px snapshot to place the screen center on the camera target") {
+        val center = fixture.session.positionFromScreenLocation(SCREEN_CENTER)
         abs(fixture.session.getCameraPosition().bearing - ROTATED_CAMERA.bearing) < 0.01 &&
-          latSpan > 0.01 &&
-          latSpan < 40.0
+          abs(center.latitude - ROTATED_CAMERA.target.latitude) < COARSE_DEGREES &&
+          abs(center.longitude - ROTATED_CAMERA.target.longitude) < COARSE_DEGREES
       }
 
       // The test thread is not the owner thread, so both calls take the snapshot handle.
@@ -82,15 +82,25 @@ class MlnFfiProjectionTest {
   }
 
   private fun assertNear(expected: Position, actual: Position, what: String) {
-    assertTrue(
-      abs(expected.latitude - actual.latitude) <= DEGREES_TOLERANCE &&
-        abs(expected.longitude - actual.longitude) <= DEGREES_TOLERANCE,
-      "$what should be $expected, was $actual",
+    assertEquals(
+      expected.latitude,
+      actual.latitude,
+      DEGREES_TOLERANCE,
+      "$what latitude",
+    )
+    assertEquals(
+      expected.longitude,
+      actual.longitude,
+      DEGREES_TOLERANCE,
+      "$what longitude",
     )
   }
 
   private companion object {
     const val DEGREES_TOLERANCE = 1e-6
+
+    /** A 1px startup map at this zoom spans ~0.02°, so the 512px snapshot is past this. */
+    const val COARSE_DEGREES = 0.1
 
     const val PIXEL_TOLERANCE = 1.0
 
