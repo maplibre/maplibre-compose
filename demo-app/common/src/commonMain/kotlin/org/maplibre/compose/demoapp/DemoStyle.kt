@@ -4,11 +4,11 @@ import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.style.BaseStyle
 
+/** The styles the user can pick from anywhere, independent of the selected demo. */
 interface DemoStyle {
   val displayName: String
   val base: BaseStyle
   val isDark: Boolean
-  val anchorBelowSymbols: Anchor
 
   /**
    * The font stack a demo's own symbol layers should ask for. Per-style, because each style's glyph
@@ -16,6 +16,28 @@ interface DemoStyle {
    */
   val textFont: List<String>
     get() = listOf("Noto Sans Regular")
+
+  /** An anchor that keeps a demo's layers below the style's labels. */
+  val anchorBelowSymbols: Anchor
+
+  companion object {
+    val Default: DemoStyle = OpenFreeMap.Liberty
+
+    val all: List<DemoStyle> =
+      OpenFreeMap.entries + Protomaps.entries + Versatiles.entries + OtherStyles.entries
+  }
+}
+
+enum class OpenFreeMap(override val isDark: Boolean = false) : DemoStyle {
+  Bright,
+  Liberty,
+  Positron;
+
+  override val displayName = "$name (OpenFreeMap)"
+
+  override val base = BaseStyle.Uri("https://tiles.openfreemap.org/styles/${name.lowercase()}")
+
+  override val anchorBelowSymbols = Anchor.Below("waterway_line_label")
 }
 
 enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
@@ -25,7 +47,7 @@ enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
   Grayscale,
   Black(true);
 
-  override val displayName = name
+  override val displayName = "$name (Protomaps)"
 
   override val base =
     BaseStyle.Uri(
@@ -35,24 +57,12 @@ enum class Protomaps(override val isDark: Boolean = false) : DemoStyle {
   override val anchorBelowSymbols = Anchor.Below("address_label")
 }
 
-enum class OpenFreeMap(override val isDark: Boolean = false) : DemoStyle {
-  Bright,
-  Liberty,
-  Positron;
-
-  override val displayName = name
-
-  override val base = BaseStyle.Uri("https://tiles.openfreemap.org/styles/${name.lowercase()}")
-
-  override val anchorBelowSymbols = Anchor.Below("waterway_line_label")
-}
-
 enum class Versatiles(override val isDark: Boolean = false) : DemoStyle {
   Colorful,
   Eclipse(true),
   Graybeard;
 
-  override val displayName = name
+  override val displayName = "$name (Versatiles)"
 
   override val base = BaseStyle.Uri(Res.getUri("files/styles/${name.lowercase()}.json"))
 
