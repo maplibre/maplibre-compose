@@ -81,8 +81,9 @@ Roughly in order of build cost:
    GeoJSON updates and a camera-follow toggle.
 5. **Transit network map.** Routes and stops from static GTFS through
    [mobility-data-kt](https://github.com/sargunv/mobility-data-kt), which does
-   not yet support GTFS-RT. Feeds vary in CORS policy, so pick a feed that
-   allows browser requests; if none does, gate the demo off the web target.
+   not yet support GTFS-RT. The data is the Washington State Ferries feed,
+   streamed from WSDOT at runtime. The feed sends no CORS headers, so the demo
+   is gated off the web target until a proxy exists.
 6. **Real location and orientation.** The location puck with device bearing, and
    the GMS versus platform engine choice on Android. This earns its place
    because automated tests cannot cover real sensors.

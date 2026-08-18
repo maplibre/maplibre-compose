@@ -20,6 +20,7 @@ composeGlfw = "0.2.0"
 dbusJava = "5.2.0"
 htmlConverterCompose = "1.1.1"
 kermit = "2.1.0"
+kotlin-dsv = "0.4.0"
 kotlin-wrappers = "2026.8.0"
 kotlinx-coroutines = "1.11.0"
 kotlinx-io = "0.9.1"
@@ -30,6 +31,7 @@ maplibre-android-sdk = "13.5.0"
 maplibre-ios = "6.28.0"
 maplibre-js = "6.2.0"
 maplibre-nativeFfi = "0.202608.1"
+mobilityData = "0.4.0"
 playServices-location = "21.4.0"
 spatialk = "0.7.0"
 
@@ -63,6 +65,7 @@ dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = 
 dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
+kotlin-dsv = { module = "dev.sargunv.kotlin-dsv:kotlin-dsv", version.ref = "kotlin-dsv" }
 kotlin-wrappers-browser = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browser", version.ref = "kotlin-wrappers" }
 kotlin-wrappers-js = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-js", version.ref = "kotlin-wrappers" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "kotlinx-coroutines" }
@@ -98,6 +101,7 @@ lwjgl-core = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 lwjgl-egl = { module = "org.lwjgl:lwjgl-egl", version.ref = "lwjgl" }
 lwjgl-opengl = { module = "org.lwjgl:lwjgl-opengl", version.ref = "lwjgl" }
 lwjgl-vulkan = { module = "org.lwjgl:lwjgl-vulkan", version.ref = "lwjgl" }
+mobilityData-gtfsSchedule = { module = "dev.sargunv.mobility-data:gtfs-schedule", version.ref = "mobilityData" }
 playServices-location = { module = "com.google.android.gms:play-services-location", version.ref = "playServices-location" }
 spatialk-geojson = { group = "org.maplibre.spatialk", name = "geojson", version.ref = "spatialk" }
 spatialk-units = { group = "org.maplibre.spatialk", name = "units", version.ref = "spatialk" }

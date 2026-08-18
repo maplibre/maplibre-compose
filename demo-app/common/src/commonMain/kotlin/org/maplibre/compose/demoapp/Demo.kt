@@ -49,5 +49,9 @@ val Demo.center: Position
       latitude = (region.south + region.north) / 2,
     )
 
+/** Demos that cannot run in the browser; empty on the js target. */
+internal expect val extraDemos: List<Demo>
+
 /** Demos appear in the shell in this order. */
-val allDemos: List<Demo> = listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo)
+val allDemos: List<Demo> =
+  listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo) + extraDemos

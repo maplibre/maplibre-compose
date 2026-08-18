@@ -51,15 +51,33 @@ kotlin {
     // in this set and the web target gets an empty actual.
     val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
 
-    androidMain { dependsOn(maplibreNativeShared) }
+    // The WSF GTFS feed sends no CORS headers, so the transit demo exists only off the web.
+    val nonJsShared by creating {
+      dependsOn(commonMain.get())
+      dependencies {
+        implementation(libs.mobilityData.gtfsSchedule)
+        implementation(libs.kotlin.dsv)
+        implementation(libs.ktor.client.core)
+      }
+    }
+    val jvmShared by creating { dependsOn(nonJsShared) }
+
+    androidMain {
+      dependsOn(maplibreNativeShared)
+      dependsOn(jvmShared)
+    }
 
     jvmMain {
       dependsOn(nonIosShared)
       dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
+      dependsOn(jvmShared)
     }
 
-    iosMain { dependsOn(maplibreNativeShared) }
+    iosMain {
+      dependsOn(maplibreNativeShared)
+      dependsOn(nonJsShared)
+    }
 
     jsMain { dependsOn(nonIosShared) }
 
@@ -89,6 +107,7 @@ kotlin {
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
+        implementation(libs.ktor.client.okhttp)
 
         project.properties["demoAppMaplibreAndroidFlavor"].let { flavor ->
           when (flavor) {
@@ -106,7 +125,10 @@ kotlin {
     jvmMain.dependencies {
       implementation(compose.desktop.currentOs)
       implementation(libs.kotlinx.coroutines.swing)
+      implementation(libs.ktor.client.okhttp)
     }
+
+    iosMain.dependencies { implementation(libs.ktor.client.darwin) }
 
     jsMain.dependencies { implementation(libs.jetbrains.compose.html.core) }
   }
