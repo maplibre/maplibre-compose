@@ -337,7 +337,13 @@ internal class MlnFfiMapSession(
     //   teardown; once pinned, this retires with a plain `handle.close()` on this thread.
     mirroredViewport.projection?.let { handle ->
       mirroredViewport = mirroredViewport.copy(projection = null)
-      if (runOnMap { handle.close() } == null) runCatching { handle.close() }
+      // Retire under projectionLock so a concurrent off-thread conversion does not use the
+      // handle while native destroys it; best-effort so a failure here never blocks teardown.
+      runCatching {
+        synchronized(projectionLock) {
+          runOnMap { handle.close() } ?: runCatching { handle.close() }
+        }
+      }
     }
     try {
       stopLoop(endOutstandingMove = true)
@@ -894,7 +900,10 @@ internal class MlnFfiMapSession(
     val previous = mirroredViewport
     // A fresh handle per snapshot: createProjection freezes the transform at creation, so a handle
     // reused across moves would answer for a camera the map no longer holds.
-    val projection = runCatching { map.createProjection() }.getOrNull()
+    // Skip when the off-thread probe has latched off: the handle can never be used, and creating
+    // one per frame wastes native allocations until the FFI lifts the thread restriction.
+    val projection =
+      if (projectionUsableOffThread) runCatching { map.createProjection() }.getOrNull() else null
     mirroredViewport =
       MirroredViewport(
         camera = camera,
