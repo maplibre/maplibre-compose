@@ -102,10 +102,28 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
   private val presenter = OpenGlPresenter()
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: WindowsOpenGlVulkanContext? = null
-  private var texture: WindowsOpenGlSharedTexture? = null
+
+  // Pipelined triple buffer. MapLibre renders back-to-back on the renderer thread — up to
+  // [MAX_IN_FLIGHT_RENDERS] queued — while Compose presents [displayedGeneration], the newest
+  // completed texture. The slow native render therefore never blocks the caller (the window's
+  // only event-loop thread on Tao) and the map's content rate matches native throughput.
+  private val textures = linkedMapOf<Long, WindowsOpenGlSharedTexture>()
   private val retiredTextures = mutableMapOf<Long, WindowsOpenGlSharedTexture>()
+  private var displayedGeneration = 0L
   private var generation = 0L
   private var currentExtent = MapExtent.Empty
+
+  private class PendingRender(val task: java.util.concurrent.FutureTask<*>, val generation: Long)
+
+  private val pendingRenders = ArrayDeque<PendingRender>()
+
+  private companion object {
+    /** One on screen, one completing, one free to start on — the minimum that never stalls. */
+    const val TEXTURE_SLOTS = 3
+
+    /** Renders queued on the renderer thread; two keeps it busy back-to-back. */
+    const val MAX_IN_FLIGHT_RENDERS = 2
+  }
 
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
@@ -117,26 +135,75 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
   ): MlnFfiMapFrameAcquisition =
     gpuHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      if (texture == null || extent != currentExtent) recreateTexture(extent)
+      if (textures.isEmpty() || extent != currentExtent) recreateTextures(extent)
+      val targetGeneration = freeGeneration() ?: pendingRenders.first().generation
       MlnFfiMapFrameAcquisition.Acquired(
         MlnFfiMapFrame(
           frameId = frameId,
           extent = extent,
           target =
-            requireNotNull(texture) { "Windows OpenGL texture is not initialized" }
+            requireNotNull(textures[targetGeneration]) {
+                "Windows OpenGL texture is not initialized"
+              }
               .exported
-              .target(generation),
+              .target(targetGeneration),
           presentationTimeNanos = presentationTimeNanos,
         )
       )
     } ?: MlnFfiMapFrameAcquisition.NotReady
 
-  override fun completeProducerAccess(frame: MlnFfiMapFrame) {
-    rendererThread.run { vulkan?.waitIdle() }
-  }
+  /** A live texture neither on screen nor targeted by a queued render. */
+  private fun freeGeneration(): Long? =
+    textures.keys.firstOrNull { candidate ->
+      candidate != displayedGeneration && pendingRenders.none { it.generation == candidate }
+    }
 
-  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
-    rendererThread.run(action)
+  // MapLibre's own Vulkan backend waits for the frame's GPU work before render() returns, so a
+  // consumed pipelined render is already safe to sample; a queue-wide wait here would stall the
+  // caller behind the next in-flight render.
+  override fun completeProducerAccess(frame: MlnFfiMapFrame) {}
+
+  override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T {
+    val head = pendingRenders.firstOrNull()
+    var consumed: Any? = null
+    var hasConsumed = false
+    if (head != null && head.task.isDone) {
+      pendingRenders.removeFirst()
+      val result =
+        try {
+          head.task.get()
+        } catch (error: java.util.concurrent.ExecutionException) {
+          throw error.cause ?: error
+        }
+      // A render into a texture a resize has retired is dropped rather than displayed.
+      if (textures.containsKey(head.generation)) {
+        displayedGeneration = head.generation
+        consumed = result
+        hasConsumed = true
+      }
+    }
+
+    val targetGeneration = (frame.target as? VulkanImageTarget)?.generation
+    val canSubmit =
+      pendingRenders.size < MAX_IN_FLIGHT_RENDERS &&
+        targetGeneration != null &&
+        textures.containsKey(targetGeneration) &&
+        targetGeneration != displayedGeneration &&
+        pendingRenders.none { it.generation == targetGeneration }
+    if (canSubmit) {
+      val task = java.util.concurrent.FutureTask(action::invoke)
+      if (rendererThread.post { task.run() }) {
+        pendingRenders.addLast(PendingRender(task, checkNotNull(targetGeneration)))
+      } else if (!hasConsumed) {
+        // The renderer thread is gone (host closing); fall back to the synchronous path.
+        return rendererThread.run(action)
+      }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    return if (hasConsumed) consumed as T
+    else org.maplibre.compose.mlnffi.MlnFfiFrameResult.SKIPPED as T
+  }
 
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
@@ -146,8 +213,16 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     if (target !is VulkanImageTarget) return false
     return gpuHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
-      val sharedTexture =
-        if (target.generation == generation) texture else retiredTextures[target.generation]
+      // The loop replays the last RENDERED frame's target, but with pipelined rendering the
+      // texture to present is the newest completed one; the loop's token only marks that a
+      // frame has been rendered at all.
+      val presentedGeneration =
+        if (displayedGeneration in textures || displayedGeneration in retiredTextures) {
+          displayedGeneration
+        } else {
+          target.generation
+        }
+      val sharedTexture = textures[presentedGeneration] ?: retiredTextures[presentedGeneration]
       val imported = sharedTexture?.imported ?: return@withOpenGlContextOrNull false
       // Context replacement abandons GL names. Presenting texture 0 builds an
       // incomplete FBO; the next acquireFrame reallocates in the new context.
@@ -156,15 +231,22 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
         presenter.draw(
           scope,
           context.skiaContext,
-          imported.target(target.generation),
+          imported.target(presentedGeneration),
           frameCompletion,
         )
-      if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
+      // An in-flight render may still write a just-retired texture; defer disposal.
+      if (drew && pendingRenders.isEmpty()) {
+        disposeRetiredTextures(exceptGeneration = presentedGeneration)
+      }
       drew
     } ?: false
   }
 
   override fun close() {
+    // The Vulkan device must outlive any in-flight render.
+    while (pendingRenders.isNotEmpty()) {
+      runCatching { pendingRenders.removeFirst().task.get() }
+    }
     try {
       frameCompletion.abandon()
       runCatching {
@@ -184,7 +266,7 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     }
   }
 
-  private fun recreateTexture(extent: MapExtent) {
+  private fun recreateTextures(extent: MapExtent) {
     if (extent.isEmpty) {
       disposeAllTextures()
       currentExtent = MapExtent.Empty
@@ -200,15 +282,35 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     val context =
       vulkan
         ?: rendererThread.run { WindowsOpenGlVulkanContext.create(adapterLuid) }.also { vulkan = it }
+    val created = ArrayList<WindowsOpenGlSharedTexture>(TEXTURE_SLOTS)
+    try {
+      repeat(TEXTURE_SLOTS) { created += createTexture(context, angleDevice, extent) }
+    } catch (error: RuntimeException) {
+      created.forEach { runCatching(it::close) }
+      throw error
+    }
+    retireCurrentTextures()
+    created.forEach { slot ->
+      generation += 1
+      textures[generation] = slot
+    }
+    currentExtent = extent
+  }
+
+  private fun createTexture(
+    context: WindowsOpenGlVulkanContext,
+    angleDevice: Long,
+    extent: MapExtent,
+  ): WindowsOpenGlSharedTexture {
     val d3d11 = WindowsD3D11Interop.createSharedTextureOnDevice(angleDevice, extent)
     try {
       val exported = rendererThread.run { context.importD3D11Texture(d3d11.sharedHandle, extent) }
       try {
-        val imported = WindowsOpenGlImportedTexture.bindAngle(d3d11.texture, extent)
-        texture?.let { retiredTextures[generation] = it }
-        texture = WindowsOpenGlSharedTexture(d3d11, exported, imported)
-        currentExtent = extent
-        generation += 1
+        return WindowsOpenGlSharedTexture(
+          d3d11,
+          exported,
+          WindowsOpenGlImportedTexture.bindAngle(d3d11.texture, extent),
+        )
       } catch (error: RuntimeException) {
         exported.close()
         throw error
@@ -219,10 +321,14 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     }
   }
 
+  private fun retireCurrentTextures() {
+    retiredTextures.putAll(textures)
+    textures.clear()
+  }
+
   private fun abandonContext() {
     presenter.abandon()
-    texture?.let { retiredTextures[generation] = it }
-    texture = null
+    retireCurrentTextures()
     retiredTextures.values.forEach(WindowsOpenGlSharedTexture::abandonImported)
     currentExtent = MapExtent.Empty
   }
@@ -239,8 +345,7 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
   }
 
   private fun disposeAllTextures() {
-    texture?.close()
-    texture = null
+    retireCurrentTextures()
     disposeRetiredTextures()
   }
 
