@@ -56,7 +56,10 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {
-    if (route == "demos") state.selectedDemo = null
+    if (route == "demos") {
+      state.selectedDemo = null
+      state.shell = DemoShell.Demos
+    }
   }
   // Material 3 shared axis X: siblings slide 30dp while fading through.
   val slideDistance = with(LocalDensity.current) { 30.dp.roundToPx() }
@@ -77,6 +80,11 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
           state.selectedDemo = demo
           navController.navigate("demo")
         },
+        onOpenBenchmarks = {
+          state.selectedDemo = null
+          state.shell = DemoShell.Benchmarks
+          navController.navigate("benchmarks")
+        },
       )
     }
     composable("demo") {
@@ -92,6 +100,21 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
           modifier = Modifier.padding(horizontal = 16.dp),
         )
         demo.Panel()
+      }
+    }
+    composable("benchmarks") {
+      BenchmarksScreen(
+        onBack = { navController.popBackStack() },
+        onOpenScenario = { scenario ->
+          state.selectedScenario = scenario
+          navController.navigate("benchmark")
+        },
+      )
+    }
+    composable("benchmark") {
+      val scenario = state.selectedScenario
+      SettingsSubScreen(scenario.title, onBack = { navController.popBackStack() }) {
+        BenchmarkScenarioPanel(state)
       }
     }
     composable("settings") {
@@ -136,6 +159,7 @@ private fun DemosScreen(
   state: DemoAppState,
   onOpenSettings: () -> Unit,
   onOpenDemo: (Demo) -> Unit,
+  onOpenBenchmarks: () -> Unit,
 ) {
   Column {
     TopAppBar(
@@ -154,6 +178,13 @@ private fun DemosScreen(
       allDemos.forEach { demo ->
         SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) }
       }
+
+      SectionHeader("Benchmarks")
+      SubmenuRow(
+        label = "Frame times and pointer trail",
+        description = "An isolated map, packed tiles, and a scripted run",
+        onClick = onOpenBenchmarks,
+      )
     }
   }
 }
@@ -199,7 +230,7 @@ private fun SettingsScreen(onBack: () -> Unit, onOpen: (route: String) -> Unit) 
 }
 
 @Composable
-private fun SubmenuRow(label: String, description: String, onClick: () -> Unit) {
+internal fun SubmenuRow(label: String, description: String, onClick: () -> Unit) {
   ListItem(
     headlineContent = { Text(label) },
     supportingContent = { Text(description) },
@@ -221,7 +252,7 @@ private fun InterfaceSettingsItems(settings: DemoSettings) {
 }
 
 @Composable
-private fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+internal fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
   Column {
     TopAppBar(
       title = { Text(title) },

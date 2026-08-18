@@ -17,11 +17,15 @@ import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
 
 @Composable
 fun DemoApp() {
   val state = rememberDemoAppState()
-  val colorScheme = if (state.selectedStyle.isDark) darkColorScheme() else lightColorScheme()
+  val dark =
+    if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
+    else state.selectedStyle.isDark
+  val colorScheme = if (dark) darkColorScheme() else lightColorScheme()
   // One composition for the panel, so the NavHost keeps its back stack when the
   // viewport crosses the side-pane / bottom-sheet breakpoint.
   val panel = remember { movableContentOf { modifier: Modifier -> DemoPanel(state, modifier) } }
@@ -50,7 +54,7 @@ private fun WideLayout(state: DemoAppState, panel: @Composable (Modifier) -> Uni
     Surface(modifier = Modifier.width(PanelWidth).fillMaxHeight(), tonalElevation = 1.dp) {
       panel(Modifier.fillMaxHeight())
     }
-    DemoMap(state, sheetInsets = WindowInsets(0))
+    ShellMap(state, sheetInsets = WindowInsets(0))
   }
 }
 
@@ -62,6 +66,15 @@ private fun NarrowLayout(state: DemoAppState, panel: @Composable (Modifier) -> U
     sheetContent = { panel(Modifier) },
   ) {
     // The map draws under the scaffold content area, so the sheet covers its bottom edge.
-    DemoMap(state, sheetInsets = WindowInsets(bottom = SheetPeekHeight))
+    ShellMap(state, sheetInsets = WindowInsets(bottom = SheetPeekHeight))
+  }
+}
+
+@Composable
+private fun ShellMap(state: DemoAppState, sheetInsets: WindowInsets) {
+  if (state.shell == DemoShell.Benchmarks) {
+    BenchmarkMap(state, sheetInsets)
+  } else {
+    DemoMap(state, sheetInsets)
   }
 }

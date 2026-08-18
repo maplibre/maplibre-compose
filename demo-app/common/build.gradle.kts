@@ -134,6 +134,8 @@ kotlin {
     iosMain.dependencies { implementation(libs.ktor.client.darwin) }
 
     jsMain.dependencies { implementation(libs.jetbrains.compose.html.core) }
+
+    commonTest.dependencies { implementation(kotlin("test")) }
   }
 }
 
