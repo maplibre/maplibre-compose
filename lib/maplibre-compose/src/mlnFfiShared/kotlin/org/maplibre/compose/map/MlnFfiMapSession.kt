@@ -1288,6 +1288,9 @@ internal class MlnFfiMapSession(
     }
   }
 
+  // TODO(#946, maplibre-native-ffi#633): once native allows projection off the owner thread and a
+  //   frozen handle is published per viewport snapshot, unproject locally here — no blocking
+  //   round-trip — and drop the owner-thread fast path in favor of the handle.
   override fun onPrimaryClick(offset: DpOffset) {
     if (closed) return
     val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
