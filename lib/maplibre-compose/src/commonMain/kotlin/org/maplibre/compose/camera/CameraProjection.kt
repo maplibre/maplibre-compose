@@ -41,9 +41,6 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
    * given [predicate]. The result is sorted by render order, i.e. the feature in front is first in
    * the list.
    *
-   * Suspends until the renderer thread can answer. A click handler cannot await this call; launch
-   * it from a coroutine instead.
-   *
    * @param offset position from the top-left corner of the map composable to query for
    * @param layerIds the ids of the layers to limit the query to. If not specified, features in
    *   *any* layer are returned
@@ -64,9 +61,6 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
    * Returns a list of features whose rendered geometry intersect with the given [rect], optionally
    * limited to layers with the given [layerIds] and filtered by the given [predicate]. The result
    * is sorted by render order, i.e. the feature in front is first in the list.
-   *
-   * Suspends until the renderer thread can answer. A click handler cannot await this call; launch
-   * it from a coroutine instead.
    *
    * @param rect rectangle to intersect with rendered geometry
    * @param layerIds the ids of the layers to limit the query to. If not specified, features in

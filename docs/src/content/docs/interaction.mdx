@@ -36,8 +36,7 @@ position:
 
 ## Click listeners
 
-You can listen for clicks on the map. A rendered feature query suspends until
-the renderer can answer, so launch it from a coroutine and pass the click
-through to layer listeners:
+You can listen for clicks on the map. A rendered feature query suspends, so
+launch it from a coroutine and pass the click through to layer listeners:
 
 <Code code={region(interaction, "click-listeners")} lang="kotlin" />
