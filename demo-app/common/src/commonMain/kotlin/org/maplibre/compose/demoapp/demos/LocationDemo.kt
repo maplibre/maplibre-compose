@@ -9,8 +9,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.flow.drop
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
@@ -68,8 +70,13 @@ object LocationDemo : Demo {
     }
     LaunchedEffect(locationState) { locationState.requestPermission() }
 
-    LaunchedEffect(cameraState.moveReason) {
-      if (cameraState.moveReason == CameraMoveReason.GESTURE) follow = false
+    // Skip the move reason a previous demo left on the shared camera.
+    LaunchedEffect(cameraState) {
+      snapshotFlow { cameraState.moveReason to cameraState.position }
+        .drop(1)
+        .collect { (reason, _) ->
+          if (reason == CameraMoveReason.GESTURE) follow = false
+        }
     }
 
     val location = locationState.location
