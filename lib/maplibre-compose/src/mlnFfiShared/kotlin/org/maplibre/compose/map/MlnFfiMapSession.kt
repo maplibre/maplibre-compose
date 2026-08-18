@@ -337,12 +337,14 @@ internal class MlnFfiMapSession(
     //   teardown; once pinned, this retires with a plain `handle.close()` on this thread.
     mirroredViewport.projection?.let { handle ->
       mirroredViewport = mirroredViewport.copy(projection = null)
-      // Retire under projectionLock so a concurrent off-thread conversion does not use the
-      // handle while native destroys it; best-effort so a failure here never blocks teardown.
+      // Best-effort: a failure here never blocks teardown. projectionLock serializes the
+      // destruction with any in-flight off-thread conversion, but this thread must never hold it
+      // while the round-trip waits: the owner thread retires each superseded snapshot handle
+      // under the same lock, so the two would wait on each other. The task takes the lock on the
+      // owner thread instead, and the fallback takes it only after the loop is gone.
       runCatching {
-        synchronized(projectionLock) {
-          runOnMap { handle.close() } ?: runCatching { handle.close() }
-        }
+        val closedByOwner = runOnMap { synchronized(projectionLock) { handle.close() } } != null
+        if (!closedByOwner) synchronized(projectionLock) { runCatching { handle.close() } }
       }
     }
     try {
