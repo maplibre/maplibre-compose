@@ -47,6 +47,7 @@ import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.arrow_back_24px
 import org.maplibre.compose.demoapp.generated.settings_24px
+import org.maplibre.compose.demoapp.generated.speed_24px
 
 /** The demo list, the style knob, and the selected demo's controls — or the settings page. */
 @Composable
@@ -165,6 +166,9 @@ private fun DemosScreen(
     TopAppBar(
       title = { Text("MapLibre Compose") },
       actions = {
+        IconButton(onClick = onOpenBenchmarks) {
+          Icon(vectorResource(Res.drawable.speed_24px), contentDescription = "Benchmarks")
+        }
         IconButton(onClick = onOpenSettings) {
           Icon(vectorResource(Res.drawable.settings_24px), contentDescription = "Settings")
         }
@@ -178,13 +182,6 @@ private fun DemosScreen(
       allDemos.forEach { demo ->
         SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) }
       }
-
-      SectionHeader("Benchmarks")
-      SubmenuRow(
-        label = "Frame times and pointer trail",
-        description = "An isolated map, packed tiles, and a scripted run",
-        onClick = onOpenBenchmarks,
-      )
     }
   }
 }
