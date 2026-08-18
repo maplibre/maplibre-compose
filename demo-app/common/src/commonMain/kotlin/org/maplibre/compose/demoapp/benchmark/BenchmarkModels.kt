@@ -17,6 +17,16 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.GeoJsonObject
 import org.maplibre.spatialk.geojson.Position
 
+/** Lower Manhattan; small enough that an offline pack of zooms 12–16 stays modest. */
+internal val BenchmarkRegion =
+  BoundingBox(west = -74.020, south = 40.700, east = -73.993, north = 40.722)
+
+internal val BenchmarkCenter =
+  Position(
+    longitude = (BenchmarkRegion.west + BenchmarkRegion.east) / 2,
+    latitude = (BenchmarkRegion.south + BenchmarkRegion.north) / 2,
+  )
+
 /** A scripted or interactive measurement that owns its camera path and map content. */
 interface BenchmarkScenario {
   val id: String
@@ -107,14 +117,4 @@ val allBenchmarkScenarios: List<BenchmarkScenario> =
     GeoJsonLoadScenario,
     ScriptedPanScenario,
     GestureTrailScenario,
-  )
-
-/** Lower Manhattan; small enough that an offline pack of zooms 12–16 stays modest. */
-internal val BenchmarkRegion =
-  BoundingBox(west = -74.020, south = 40.700, east = -73.993, north = 40.722)
-
-internal val BenchmarkCenter =
-  Position(
-    longitude = (BenchmarkRegion.west + BenchmarkRegion.east) / 2,
-    latitude = (BenchmarkRegion.south + BenchmarkRegion.north) / 2,
   )
