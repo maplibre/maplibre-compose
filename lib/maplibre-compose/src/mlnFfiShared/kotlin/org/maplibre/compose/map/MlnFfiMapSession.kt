@@ -100,9 +100,6 @@ private const val MIN_PITCH_DEGREES = 0.0
 /** MapLibre rejects a pitch beyond this, so the drag is clamped rather than throwing. */
 private const val MAX_PITCH_DEGREES = 60.0
 
-/** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
-private const val FRAME_INTERVAL_SLACK = 0.1
-
 /** The events [MlnFfiMapSession.handleEvent] consumes. */
 private val HANDLED_MAP_EVENTS: RuntimeEventMask =
   RuntimeEventMask.MAP_RENDER_UPDATE_AVAILABLE +
@@ -116,6 +113,9 @@ private val HANDLED_MAP_EVENTS: RuntimeEventMask =
     RuntimeEventMask.MAP_CAMERA_TRANSITION_FINISHED +
     RuntimeEventMask.MAP_RENDER_ERROR +
     RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
+
+/** The fraction of a capped frame interval a frame may arrive early and still be drawn. */
+private const val FRAME_INTERVAL_SLACK = 0.1
 
 /**
  * The runtime and the map belong to [MlnFfiMapRuntimeLoop]'s thread; the render session belongs to
@@ -440,6 +440,7 @@ internal class MlnFfiMapSession(
         retargetCount++
         // The replacement texture holds nothing yet; this request buys the frame that fills it.
         renderRequested.store(true)
+        onMap(::snapshotViewport)
         return true
       }
     }
@@ -458,6 +459,7 @@ internal class MlnFfiMapSession(
     attachedTarget = key
     attachCount++
     publishAttachedViewport()
+    onMap(::snapshotViewport)
     // The new texture holds nothing yet; this request buys the frame that fills it.
     renderRequested.store(true)
     return true
@@ -603,9 +605,13 @@ internal class MlnFfiMapSession(
 
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
 
-      RuntimeEventType.MAP_CAMERA_IS_CHANGING -> callbacks.onCameraMoved(this)
+      RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
+        loop?.map?.let(::snapshotViewport)
+        callbacks.onCameraMoved(this)
+      }
 
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
+        loop?.map?.let(::snapshotViewport)
         callbacks.onCameraMoved(this)
         // A drag is a stream of jumps, each with its own did-change.
         if (!isGestureInProgress) endCameraMove()
@@ -637,6 +643,8 @@ internal class MlnFfiMapSession(
         // Supplying the image would need a callback the common API does not have.
         logger?.d { "Style image missing: ${event.message}" }
 
+      // Event types are value classes over Int, so an FFI upgrade can add one this build has never
+      // seen. Types this session does not select are never queued.
       else -> logger?.v { "Unrecognized MapLibre event type ${event.type}" }
     }
   }
@@ -724,10 +732,6 @@ internal class MlnFfiMapSession(
     postWhenMapExists(action, abandon = {})
   }
 
-  private fun configureMapWithViewport(action: (MapHandle) -> Unit) {
-    postWhenViewportExists(action, abandon = {})
-  }
-
   /** Queues [action] until the first render target has supplied the map's real dimensions. */
   private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
     val current = stateLock.withLock {
@@ -755,10 +759,12 @@ internal class MlnFfiMapSession(
 
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
-    configureMap { map -> map.jumpTo(position.toCameraOptions(layoutDirection)) }
+    mirroredCamera = position
+    configureMap { map ->
+      map.jumpTo(position.toCameraOptions(layoutDirection))
+      snapshotViewport(map)
+    }
   }
-
-  private fun <T> withMap(fallback: T, action: (MapHandle) -> T): T = loop?.call(action) ?: fallback
 
   private fun <T> runOnMap(action: (MapHandle) -> T): T? = runOnMap({}, action)
 
@@ -812,8 +818,58 @@ internal class MlnFfiMapSession(
   /** Answers camera reads made before the map has an extent, rather than MapLibre's default. */
   @Volatile private var requestedCamera: CameraPosition? = null
 
-  override fun getCameraPosition(): CameraPosition =
-    withMap(requestedCamera ?: CameraPosition()) { it.camera.toCameraPosition() }
+  @Volatile private var mirroredCamera: CameraPosition = CameraPosition()
+
+  @Volatile
+  private var mirroredBoundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))
+
+  @Volatile
+  private var mirroredVisibleRegion: VisibleRegion =
+    VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
+
+  @Volatile private var mirroredWidth: Int = 0
+
+  @Volatile private var mirroredHeight: Int = 0
+
+  /** Owner thread only. Copies native camera and viewport so UI getters never hop. */
+  private fun snapshotViewport(map: MapHandle) {
+    mirroredCamera = map.camera.toCameraPosition()
+    val size = map.size
+    mirroredWidth = size.width
+    mirroredHeight = size.height
+    val corners = map.unprojectedCorners()
+    mirroredVisibleRegion =
+      VisibleRegion(
+        farLeft = corners[0],
+        farRight = corners[1],
+        nearLeft = corners[2],
+        nearRight = corners[3],
+      )
+    val center =
+      map
+        .latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0)))
+        .first()
+        .toPosition()
+    val unwrapped = corners.map { it.unwrapAround(center) }
+    // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would hull
+    // to a box spanning nearly the whole world. Unwrap the corners around the center first; like
+    // GL JS, the box may then extend past ±180.
+    mirroredBoundingBox =
+      BoundingBox(
+        southwest =
+          Position(
+            longitude = unwrapped.minOf { it.longitude },
+            latitude = unwrapped.minOf { it.latitude },
+          ),
+        northeast =
+          Position(
+            longitude = unwrapped.maxOf { it.longitude },
+            latitude = unwrapped.maxOf { it.latitude },
+          ),
+      )
+  }
+
+  override fun getCameraPosition(): CameraPosition = mirroredCamera
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     recordCamera(cameraPosition)
@@ -825,9 +881,17 @@ internal class MlnFfiMapSession(
     tilt: Double,
     padding: PaddingValues,
   ) {
-    configureMapWithViewport { map ->
+    val fit: (MapHandle) -> Unit = { map ->
       map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
+      snapshotViewport(map)
     }
+    // The fit reads the live map's dimensions, so before a viewport exists it can only queue.
+    // After one exists it runs as one round-trip instead, so a camera or viewport read made right
+    // after this call observes the fitted camera rather than the previous mirrored snapshot —
+    // the ordering the blocking getters on main provided.
+    val hasViewport = stateLock.withLock { hasAttachedViewport && !closed && loop != null }
+    if (hasViewport && runOnMap(fit) != null) return
+    postWhenViewportExists(fit, abandon = {})
   }
 
   private fun cameraForBounds(
@@ -973,44 +1037,9 @@ internal class MlnFfiMapSession(
     configureMap { map -> map.bounds = map.bounds.also(update) }
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox =
-    withMap(BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))) { map ->
-      val size = map.size
-      val center =
-        map
-          .latLngsForPixels(listOf(ScreenPoint(size.width / 2.0, size.height / 2.0)))
-          .first()
-          .toPosition()
-      // mbgl wraps unprojected longitudes to ±180, so a viewport astride the antimeridian would
-      // hull to a box spanning nearly the whole world. Unwrap the corners around the center first;
-      // like GL JS, the box may then extend past ±180.
-      val corners = map.unprojectedCorners().map { it.unwrapAround(center) }
-      BoundingBox(
-        southwest =
-          Position(
-            longitude = corners.minOf { it.longitude },
-            latitude = corners.minOf { it.latitude },
-          ),
-        northeast =
-          Position(
-            longitude = corners.maxOf { it.longitude },
-            latitude = corners.maxOf { it.latitude },
-          ),
-      )
-    }
+  override fun getVisibleBoundingBox(): BoundingBox = mirroredBoundingBox
 
-  override fun getVisibleRegion(): VisibleRegion =
-    withMap(
-      VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
-    ) { map ->
-      val corners = map.unprojectedCorners()
-      VisibleRegion(
-        farLeft = corners[0],
-        farRight = corners[1],
-        nearLeft = corners[2],
-        nearRight = corners[3],
-      )
-    }
+  override fun getVisibleRegion(): VisibleRegion = mirroredVisibleRegion
 
   /**
    * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.
@@ -1054,12 +1083,21 @@ internal class MlnFfiMapSession(
     // handling rather than pushed into the map.
   }
 
-  // Not MapHandle.createProjection: that handle snapshots the transform and goes stale on a move.
-  override fun positionFromScreenLocation(offset: DpOffset): Position =
-    withMap(Position(0.0, 0.0)) { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
+  // Projection belongs to the map's owner thread: native enforces it even on a standalone
+  // MapProjectionHandle, so a call from any other thread blocks for one round-trip rather than
+  // approximating from the mirrored viewport. When the FFI lifts the thread restriction, a
+  // handle published per viewport snapshot can answer these exactly off-thread.
+  override fun positionFromScreenLocation(offset: DpOffset): Position {
+    val map = loop?.takeIf { it.isOwnerThread() }?.map
+    if (map != null) return map.latLngForPixel(offset.toScreenPoint()).toPosition()
+    return runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: Position(0.0, 0.0)
+  }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset =
-    withMap(DpOffset.Zero) { it.pixelForLatLng(position.toLatLng()).toDpOffset() }
+  override fun screenLocationFromPosition(position: Position): DpOffset {
+    val map = loop?.takeIf { it.isOwnerThread() }?.map
+    if (map != null) return map.pixelForLatLng(position.toLatLng()).toDpOffset()
+    return runOnMap { it.pixelForLatLng(position.toLatLng()).toDpOffset() } ?: DpOffset.Zero
+  }
 
   override fun queryRenderedFeatures(
     offset: DpOffset,
@@ -1102,7 +1140,7 @@ internal class MlnFfiMapSession(
     } ?: emptyList()
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(getCameraPosition().zoom, latitude)
+    metersPerDpAtLatitude(mirroredCamera.zoom, latitude)
 
   // endregion
 
@@ -1139,6 +1177,7 @@ internal class MlnFfiMapSession(
   }
 
   private fun onEventsDrained(map: MapHandle) {
+    snapshotViewport(map)
     finishPendingGesture(map)
     flushTransitionResumes()
   }
@@ -1249,13 +1288,18 @@ internal class MlnFfiMapSession(
     }
   }
 
+  // TODO(#946, maplibre-native-ffi#633): once native allows projection off the owner thread and a
+  //   frozen handle is published per viewport snapshot, unproject locally here — no blocking
+  //   round-trip — and drop the owner-thread fast path in favor of the handle.
   override fun onPrimaryClick(offset: DpOffset) {
+    if (closed) return
     val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
     callbacks.onClick(this, position, offset)
   }
 
   /** A mouse has no press-and-hold convention, so the secondary button is the long press. */
   override fun onSecondaryClick(offset: DpOffset) {
+    if (closed) return
     val position = runOnMap { it.latLngForPixel(offset.toScreenPoint()).toPosition() } ?: return
     callbacks.onLongClick(this, position, offset)
   }
