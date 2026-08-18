@@ -66,6 +66,7 @@ public actual sealed class Source(internal actual val id: String) {
           } catch (error: Throwable) {
             throw wrapAddError(error)
           }
+          binding.reportSourceChanged(id)
           true
         }
       } catch (error: Throwable) {
@@ -124,7 +125,11 @@ public actual sealed class Source(internal actual val id: String) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
-    binding.mutateMap { map -> map.removeStyleSource(id) }
+    val current = binding
+    current.mutateMap { map ->
+      map.removeStyleSource(id)
+      current.reportSourceChanged(id)
+    }
     binding = MlnFfiStyleBinding.UNLOADED
   }
 

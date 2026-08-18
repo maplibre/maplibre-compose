@@ -34,6 +34,12 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 
+  /**
+   * Reports that [sourceId] was added or removed, so StyleState can refresh that source without
+   * waiting for idle. Call only from the owner thread, after the native add or remove.
+   */
+  fun reportSourceChanged(sourceId: String) {}
+
   override fun attachSource(source: Source) {
     source.attach(this)
   }

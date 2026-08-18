@@ -200,7 +200,8 @@ internal class MlnFfiMapSession(
   /**
    * Owner thread only. A URL source's TileJSON — and with it the server's attribution — arrives
    * after its add returns, and the C API has no event for the arrival, so the only moment it can be
-   * observed is an idle. Reports the sources whose attribution newly appeared.
+   * observed is an idle. Add and remove report themselves from the binding; this reports the
+   * sources whose attribution newly appeared.
    */
   private fun reportNewlyArrivedAttribution() {
     val map = loop?.map ?: return
@@ -228,6 +229,11 @@ internal class MlnFfiMapSession(
 
     fun unload() {
       loaded = false
+    }
+
+    override fun reportSourceChanged(sourceId: String) {
+      reportedUrlAttribution.remove(sourceId)
+      callbacks.onSourceChanged(this@MlnFfiMapSession, sourceId)
     }
 
     override fun <T> readMap(action: (MapHandle) -> T): T? {
