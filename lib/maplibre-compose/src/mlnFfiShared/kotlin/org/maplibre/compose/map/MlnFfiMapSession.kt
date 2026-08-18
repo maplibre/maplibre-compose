@@ -795,7 +795,6 @@ internal class MlnFfiMapSession(
 
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
-    mirroredCamera = position
     configureMap { map ->
       map.jumpTo(position.toCameraOptions(layoutDirection))
       snapshotViewport(map)
@@ -851,22 +850,17 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Answers camera reads made before the map has an extent, rather than MapLibre's default. */
+  /** Applied when a map is created. Getters read [mirroredViewport] after native applies it. */
   @Volatile private var requestedCamera: CameraPosition? = null
 
   /**
-   * Eager camera for getters that must reflect [setCameraPosition] before the owner thread applies
-   * it. Kept off [mirroredViewport] so a caller-thread write cannot republish a projection the
-   * owner thread has already retired.
-   */
-  @Volatile private var mirroredCamera: CameraPosition = CameraPosition()
-
-  /**
-   * Native viewport extents and a projection frozen at that camera, published as one write so
-   * getters never hop threads and never observe a half-updated pair. The default answers reads made
-   * before the first snapshot.
+   * Applied camera, extents, and a projection frozen at that camera. One write publishes them
+   * together so any-thread getters agree with the last native apply. The FFI map lives on the owner
+   * thread, so getters read this snapshot instead of hopping. The default answers reads made before
+   * the first snapshot.
    */
   private data class MirroredViewport(
+    val camera: CameraPosition = CameraPosition(),
     val visibleRegion: VisibleRegion =
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
     val boundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0)),
@@ -875,9 +869,8 @@ internal class MlnFfiMapSession(
 
   @Volatile private var mirroredViewport = MirroredViewport()
 
-  /** Owner thread only. Copies native camera and viewport so UI getters never hop. */
+  /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
-    mirroredCamera = map.camera.toCameraPosition()
     val size = map.size
     val corners = map.unprojectedCorners()
     val visibleRegion =
@@ -899,6 +892,7 @@ internal class MlnFfiMapSession(
     val previous = mirroredViewport
     mirroredViewport =
       MirroredViewport(
+        camera = map.camera.toCameraPosition(),
         visibleRegion = visibleRegion,
         boundingBox =
           BoundingBox(
@@ -925,7 +919,7 @@ internal class MlnFfiMapSession(
     runCatching { previous.projection?.close() }
   }
 
-  override fun getCameraPosition(): CameraPosition = mirroredCamera
+  override fun getCameraPosition(): CameraPosition = mirroredViewport.camera
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     recordCamera(cameraPosition)
@@ -1220,7 +1214,7 @@ internal class MlnFfiMapSession(
   }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(mirroredCamera.zoom, latitude)
+    metersPerDpAtLatitude(mirroredViewport.camera.zoom, latitude)
 
   // endregion
 

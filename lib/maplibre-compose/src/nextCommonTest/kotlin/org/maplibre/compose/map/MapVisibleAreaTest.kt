@@ -116,9 +116,8 @@ class MapVisibleAreaTest {
     const val TOLERANCE = 1e-6
 
     /**
-     * Camera getters update as soon as the caller sets a position; the bounding box and region
-     * update only after native applies it. Wait for a zoomed-in box so the assertions read that
-     * snapshot.
+     * Camera, bounding box, and region update together after native applies a position. Wait for a
+     * zoomed-in box so the assertions read that snapshot rather than the startup viewport.
      */
     fun MapAdapter.hasNativeCamera(camera: CameraPosition): Boolean {
       if (abs(getCameraPosition().zoom - camera.zoom) >= 0.01) return false
