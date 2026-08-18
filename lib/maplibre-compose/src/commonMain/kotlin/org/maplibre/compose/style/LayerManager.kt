@@ -75,7 +75,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
       if (!node.added) {
         // we found a layer to add; let's try to add it, or queue it up until we find a head
         tailLayerIds[anchor]?.let { tailLayerId ->
-          styleNode.logger?.i { "Adding layer ${layer.id} below $tailLayerId" }
+          styleNode.logger?.i { "Adding layer ${layer.id} above $tailLayerId" }
           styleNode.style.addLayerAbove(tailLayerId, layer)
           node.markAdded()
         } ?: missedLayers.getOrPut(anchor) { mutableListOf() }.add(node)

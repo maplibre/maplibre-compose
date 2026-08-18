@@ -8,9 +8,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -137,14 +139,16 @@ public fun MaplibreMap(
   }
 
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
+  val currentLogger by rememberUpdatedState(logger)
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
+  SideEffect { rememberedStyle?.logger = currentLogger }
 
   val callbacks =
     remember(cameraState, styleState, styleComposition) {
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: Style?) {
           rememberedStyle?.unload()
-          val safeStyle = style?.let { SafeStyle(it) }
+          val safeStyle = style?.let { SafeStyle(it, currentLogger) }
           rememberedStyle = safeStyle
           cameraState.metersPerDpAtTargetState.value =
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
