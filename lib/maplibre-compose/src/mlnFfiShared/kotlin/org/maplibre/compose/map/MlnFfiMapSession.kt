@@ -914,7 +914,7 @@ internal class MlnFfiMapSession(
               ),
           ),
         // A fresh handle per snapshot: createProjection freezes the transform at creation.
-        projection = runCatching { map.createProjection() }.getOrNull(),
+        projection = map.createProjection(),
       )
     runCatching { previous.projection?.close() }
   }

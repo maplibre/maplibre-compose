@@ -22,8 +22,11 @@ class MlnFfiProjectionTest {
       fixture.loadStyle(BaseStyle.Empty)
       fixture.session.setCameraPosition(ROTATED_CAMERA)
       fixture.pumpUntil("the camera to apply and publish a viewport snapshot") {
-        val corner = fixture.session.getVisibleRegion().farLeft
-        corner.latitude != 0.0 || corner.longitude != 0.0
+        val box = fixture.session.getVisibleBoundingBox()
+        val latSpan = box.northeast.latitude - box.southwest.latitude
+        abs(fixture.session.getCameraPosition().bearing - ROTATED_CAMERA.bearing) < 0.01 &&
+          latSpan > 0.01 &&
+          latSpan < 40.0
       }
 
       // The test thread is not the owner thread, so both calls take the snapshot handle.
