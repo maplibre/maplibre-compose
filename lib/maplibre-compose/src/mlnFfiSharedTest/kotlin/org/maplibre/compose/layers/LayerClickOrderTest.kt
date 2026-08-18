@@ -20,6 +20,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
@@ -208,7 +209,8 @@ class LayerClickOrderTest {
     // parsed source populates that. Both layers must be hittable, or the assertions prove nothing.
     waitUntil(timeoutMillis = TIMEOUT) {
       listOf(FRONT, BACK).all { id ->
-        map.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)).isNotEmpty()
+        runBlocking { map.queryRenderedFeatures(offset = centerDp, layerIds = setOf(id)) }
+          .isNotEmpty()
       }
     }
 

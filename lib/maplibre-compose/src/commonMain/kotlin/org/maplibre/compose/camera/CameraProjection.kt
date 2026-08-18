@@ -47,7 +47,7 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
    * @param predicate expression that has to evaluate to true for a feature to be included in the
    *   result
    */
-  public fun queryRenderedFeatures(
+  public suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
@@ -68,7 +68,7 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
    * @param predicate expression that has to evaluate to true for a feature to be included in the
    *   result
    */
-  public fun queryRenderedFeatures(
+  public suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),

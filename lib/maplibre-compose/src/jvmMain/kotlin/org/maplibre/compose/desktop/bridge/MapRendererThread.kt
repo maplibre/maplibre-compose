@@ -2,6 +2,7 @@ package org.maplibre.compose.desktop.bridge
 
 import java.util.concurrent.ExecutionException
 import java.util.concurrent.Executors
+import java.util.concurrent.RejectedExecutionException
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -32,6 +33,20 @@ internal class MapRendererThread(name: String) : AutoCloseable {
       executor.submit<T>(action).get()
     } catch (error: ExecutionException) {
       throw error.cause ?: error
+    }
+  }
+
+  /** Queues [action] without waiting. Returns false when this thread has already shut down. */
+  fun post(action: () -> Unit): Boolean {
+    if (Thread.currentThread() === threadRef.get()) {
+      action()
+      return true
+    }
+    return try {
+      executor.execute(action)
+      true
+    } catch (_: RejectedExecutionException) {
+      false
     }
   }
 

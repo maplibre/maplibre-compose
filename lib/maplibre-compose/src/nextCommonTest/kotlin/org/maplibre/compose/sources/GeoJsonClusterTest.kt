@@ -45,7 +45,7 @@ class GeoJsonClusterTest {
       style.addSource(source)
       style.addLayer(CircleLayer("clusters", source))
 
-      fun queryAll(): List<Feature<Geometry, JsonObject?>> =
+      suspend fun queryAll(): List<Feature<Geometry, JsonObject?>> =
         fixture.session.queryRenderedFeatures(
           rect = DpRect(left = 0.dp, top = 0.dp, right = 512.dp, bottom = 512.dp),
           layerIds = null,

@@ -1099,14 +1099,14 @@ internal class MlnFfiMapSession(
     return runOnMap { it.pixelForLatLng(position.toLatLng()).toDpOffset() } ?: DpOffset.Zero
   }
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> =
     query(RenderedQueryGeometry.Point(offset.toScreenPoint()), layerIds, predicate)
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
@@ -1123,21 +1123,37 @@ internal class MlnFfiMapSession(
     )
 
   /** Rendered feature state belongs to the render session, so a query without one is empty. */
-  private fun query(
+  private suspend fun query(
     geometry: RenderedQueryGeometry,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> =
-    withRendererAccess {
+  ): List<Feature<Geometry, JsonObject?>> = suspendCancellableCoroutine { continuation ->
+    if (closed) {
+      continuation.resume(emptyList())
+      return@suspendCancellableCoroutine
+    }
+    val host = hostSession
+    if (host == null) {
+      continuation.resume(emptyList())
+      return@suspendCancellableCoroutine
+    }
+    val accepted = host.enqueueRenderer {
+      if (!continuation.isActive) return@enqueueRenderer
       val session = renderSession
       if (session == null) {
-        logger?.d { "Ignoring a rendered feature query: no render session is attached yet" }
-        return@withRendererAccess emptyList()
+        continuation.resume(emptyList())
+        return@enqueueRenderer
       }
-      session
-        .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
-        .toGeoJsonFeatures()
-    } ?: emptyList()
+      continuation.resumeWith(
+        runCatching {
+          session
+            .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
+            .toGeoJsonFeatures()
+        }
+      )
+    }
+    if (!accepted && continuation.isActive) continuation.resume(emptyList())
+  }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =
     metersPerDpAtLatitude(mirroredCamera.zoom, latitude)

@@ -376,7 +376,7 @@ internal class AndroidMapAdapter(
   override fun screenLocationFromPosition(position: Position): DpOffset =
     map.projection.toScreenLocation(position.toLatLng()).toOffset(density)
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
@@ -388,7 +388,7 @@ internal class AndroidMapAdapter(
       .map { Feature.fromJson(it.toJson()) }
   }
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
