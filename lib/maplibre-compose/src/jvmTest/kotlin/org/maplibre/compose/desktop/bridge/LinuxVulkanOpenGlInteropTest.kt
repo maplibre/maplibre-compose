@@ -166,18 +166,13 @@ class LinuxVulkanOpenGlInteropTest {
         val host = VulkanOpenGlMapHost(EglMapHost(egl))
         try {
           InteropMap(host).use { map ->
-            val first = egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
-            assertNear(
-              FIRST_PIXEL,
-              egl.withCurrent { egl.drawAndRead(host, first) },
-              "live first frame",
-            )
-            val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
-            assertNear(
-              SECOND_PIXEL,
-              egl.withCurrent { egl.drawAndRead(host, second) },
-              "live second frame after reuse",
-            )
+            egl.withCurrent {
+              val first = map.renderStyle(FIRST_STYLE, FIRST_EXTENT)
+              assertNear(FIRST_PIXEL, egl.drawAndRead(host, first), "live first frame")
+              map.presentStyle(SECOND_STYLE, FIRST_EXTENT, SECOND_PIXEL) { target ->
+                egl.drawAndRead(host, target)
+              }
+            }
           }
         } finally {
           host.close()
@@ -191,15 +186,8 @@ class LinuxVulkanOpenGlInteropTest {
   }
 
   private fun assertNear(expected: RgbaPixel, actual: RgbaPixel, label: String) {
-    val differences =
-      listOf(
-        abs(expected.red - actual.red),
-        abs(expected.green - actual.green),
-        abs(expected.blue - actual.blue),
-        abs(expected.alpha - actual.alpha),
-      )
     assertTrue(
-      differences.all { it <= CHANNEL_TOLERANCE },
+      near(expected, actual),
       "$label: expected $expected within $CHANNEL_TOLERANCE per channel, got $actual",
     )
   }
@@ -301,30 +289,65 @@ class LinuxVulkanOpenGlInteropTest {
             "last result: $lastResult, failure: $failure"
         }
         failure?.let { error(it) }
-        val frame =
-          assertIs<MlnFfiMapFrameAcquisition.Acquired>(
-              host.acquireFrame(nextFrameId++, extent, null)
-            )
-            .frame
-        try {
-          val result = host.withProducerAccess(frame) { renderer.render(frame) }
-          lastResult = result
-          if (result == MlnFfiFrameResult.RENDERED) {
-            host.completeProducerAccess(frame)
-            renderedFrames++
-            rendered = frame.target
-          }
-        } finally {
-          host.releaseFrame(frame)
+        val pumped = pumpFrame(extent)
+        lastResult = pumped.result
+        if (pumped.rendered) {
+          renderedFrames++
+          rendered = pumped.target
         }
         Thread.sleep(POLL_INTERVAL_MILLIS)
       }
       return checkNotNull(rendered)
     }
 
+    fun presentStyle(
+      style: BaseStyle,
+      extent: MapExtent,
+      expected: RgbaPixel,
+      read: (MlnFfiRenderTarget) -> RgbaPixel,
+    ): MlnFfiRenderTarget {
+      var target = renderStyle(style, extent)
+      var actual = read(target)
+      val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
+      while (!near(expected, actual)) {
+        check(deadline.hasNotPassedNow()) {
+          "Timed out presenting $expected at $extent, last read $actual"
+        }
+        renderer.onSurfaceChanged(extent)
+        val pumped = pumpFrame(extent)
+        if (pumped.rendered) {
+          target = checkNotNull(pumped.target)
+          actual = read(target)
+        }
+        Thread.sleep(POLL_INTERVAL_MILLIS)
+      }
+      return target
+    }
+
+    private fun pumpFrame(extent: MapExtent): PumpedFrame {
+      val frame =
+        assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent, null))
+          .frame
+      try {
+        val result = host.withProducerAccess(frame) { renderer.render(frame) }
+        if (result == MlnFfiFrameResult.RENDERED) {
+          host.completeProducerAccess(frame)
+          return PumpedFrame(result, frame.target)
+        }
+        return PumpedFrame(result, null)
+      } finally {
+        host.releaseFrame(frame)
+      }
+    }
+
     override fun close() {
       renderer.close()
       cacheDirectory.toFile().deleteRecursively()
+    }
+
+    private class PumpedFrame(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget?) {
+      val rendered: Boolean
+        get() = result == MlnFfiFrameResult.RENDERED && target != null
     }
   }
 
@@ -530,6 +553,12 @@ class LinuxVulkanOpenGlInteropTest {
     const val DRAW_HEIGHT = 240
     const val POLL_INTERVAL_MILLIS = 8L
     const val CHANNEL_TOLERANCE = 2
+
+    fun near(expected: RgbaPixel, actual: RgbaPixel): Boolean =
+      abs(expected.red - actual.red) <= CHANNEL_TOLERANCE &&
+        abs(expected.green - actual.green) <= CHANNEL_TOLERANCE &&
+        abs(expected.blue - actual.blue) <= CHANNEL_TOLERANCE &&
+        abs(expected.alpha - actual.alpha) <= CHANNEL_TOLERANCE
 
     val TEST_TIMEOUT = 30.seconds
 

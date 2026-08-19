@@ -16,9 +16,9 @@ internal val DEFAULT_WORKER_URL: String by lazy {
 }
 
 /**
- * A same-origin worker URL for [workerUrl]. Cross-origin `http(s)` URLs become a blob that
- * `import`s them, which is what MapLibre GL JS 6 does for a CDN worker. Same-origin URLs are
- * returned as they are.
+ * A same-origin worker URL for [workerUrl]. A cross-origin URL becomes a blob that `import`s the
+ * absolute form of that URL, which is what MapLibre GL JS 6 does for a CDN worker. Same-origin URLs
+ * are returned as they are.
  *
  * MapLibre's own laundering uses `new URL(url, import.meta.url)`. Webpack rewrites that into a
  * module lookup, which fails for an `https` URL with "Cannot find module". This path avoids
@@ -30,13 +30,18 @@ internal fun sameOriginWorkerUrl(workerUrl: String): String =
       (function() {
         var loc = globalThis.location;
         if (!loc) return workerUrl;
+        var resolvedWorkerUrl;
         try {
-          if (new URL(workerUrl, loc.href).origin === loc.origin) return workerUrl;
+          resolvedWorkerUrl = new URL(workerUrl, loc.href);
+          if (resolvedWorkerUrl.origin === loc.origin) return workerUrl;
         } catch (e) {
           return workerUrl;
         }
         return URL.createObjectURL(
-          new Blob(["import " + JSON.stringify(workerUrl)], {type: "text/javascript"})
+          new Blob(
+            ["import " + JSON.stringify(resolvedWorkerUrl.href)],
+            {type: "text/javascript"}
+          )
         );
       })()
       """
