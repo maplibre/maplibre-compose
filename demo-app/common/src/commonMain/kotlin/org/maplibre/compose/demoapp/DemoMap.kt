@@ -33,6 +33,7 @@ import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.material3.Material3
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.overlay.include
 
 /** How long the camera takes to fly to a newly selected demo. */
 val DemoFlightDuration = 2.seconds
@@ -73,7 +74,12 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
       onFrame = { state.frameRateState.record() },
       contentWindowInsets = insets,
       overlay =
-        if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default,
+        MapOverlay {
+          include(
+            if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
+          )
+          state.selectedDemo?.let { demo -> key(demo) { with(demo) { Overlay() } } }
+        },
     ) {
       // Keyed: without it, layers and sources are identified by position, so switching demos
       // would dispose and recreate unrelated content.
@@ -85,8 +91,6 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
         }
       }
     }
-
-    state.selectedDemo?.let { demo -> key(demo) { demo.Overlay(state.cameraState) } }
 
     val scope = rememberCoroutineScope()
     state.selectedDemo

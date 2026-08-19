@@ -42,7 +42,11 @@ public class CameraState(firstPosition: CameraPosition) {
       }
     }
 
-  /** null until the CameraState has been attached to a map */
+  /**
+   * Converts between geographic positions and the map's current screen. Null until this state is
+   * attached to a map. A composition that reads this property redraws after a camera move or a
+   * viewport resize, because the instance is replaced when either changes.
+   */
   public val projection: CameraProjection?
     get() = projectionState.value
 

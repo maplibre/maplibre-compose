@@ -15,8 +15,10 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Provides an imperative API to interact with the projection of the map, such as converting
- * coordinates or querying what's visible.
+ * Converts coordinates and queries what is visible on the map's current transform.
+ *
+ * Read a current instance from [CameraState.projection]. That property is replaced when the camera
+ * or the viewport changes.
  */
 public class CameraProjection internal constructor(internal val map: MapAdapter) {
   /**
