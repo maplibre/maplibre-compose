@@ -166,18 +166,13 @@ class LinuxVulkanOpenGlInteropTest {
         val host = VulkanOpenGlMapHost(EglMapHost(egl))
         try {
           InteropMap(host).use { map ->
-            val first = egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
-            assertNear(
-              FIRST_PIXEL,
-              egl.withCurrent { egl.drawAndRead(host, first) },
-              "live first frame",
-            )
-            val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
-            assertNear(
-              SECOND_PIXEL,
-              egl.withCurrent { egl.drawAndRead(host, second) },
-              "live second frame after reuse",
-            )
+            egl.withCurrent {
+              val first = map.renderStyle(FIRST_STYLE, FIRST_EXTENT)
+              assertNear(FIRST_PIXEL, egl.drawAndRead(host, first), "live first frame")
+              map.presentStyle(SECOND_STYLE, FIRST_EXTENT, SECOND_PIXEL) { target ->
+                egl.drawAndRead(host, target)
+              }
+            }
           }
         } finally {
           host.close()
@@ -191,15 +186,8 @@ class LinuxVulkanOpenGlInteropTest {
   }
 
   private fun assertNear(expected: RgbaPixel, actual: RgbaPixel, label: String) {
-    val differences =
-      listOf(
-        abs(expected.red - actual.red),
-        abs(expected.green - actual.green),
-        abs(expected.blue - actual.blue),
-        abs(expected.alpha - actual.alpha),
-      )
     assertTrue(
-      differences.all { it <= CHANNEL_TOLERANCE },
+      near(expected, actual),
       "$label: expected $expected within $CHANNEL_TOLERANCE per channel, got $actual",
     )
   }
@@ -289,19 +277,12 @@ class LinuxVulkanOpenGlInteropTest {
       val expectedStyleLoads = styleLoads + 1
       renderer.setBaseStyle(style)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
+      var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      while (styleLoads < expectedStyleLoads) {
-        check(deadline.hasNotPassedNow()) {
-          "Timed out loading style $style at $extent; " +
-            "style loads: $styleLoads/$expectedStyleLoads, rendered frames: $renderedFrames, " +
-            "last result: $lastResult, failure: $failure"
-        }
-        failure?.let { error(it) }
-        lastResult = pumpFrame(extent).also { if (it.rendered) renderedFrames++ }.result
-        Thread.sleep(POLL_INTERVAL_MILLIS)
-      }
-      while (true) {
+      // Style callbacks and rendering happen on different threads, so wait for both facts
+      // without requiring either to be observed first.
+      while (styleLoads < expectedStyleLoads || rendered == null) {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering style $style at $extent; " +
             "style loads: $styleLoads/$expectedStyleLoads, rendered frames: $renderedFrames, " +
@@ -312,10 +293,35 @@ class LinuxVulkanOpenGlInteropTest {
         lastResult = pumped.result
         if (pumped.rendered) {
           renderedFrames++
-          return checkNotNull(pumped.target)
+          rendered = pumped.target
         }
         Thread.sleep(POLL_INTERVAL_MILLIS)
       }
+      return checkNotNull(rendered)
+    }
+
+    fun presentStyle(
+      style: BaseStyle,
+      extent: MapExtent,
+      expected: RgbaPixel,
+      read: (MlnFfiRenderTarget) -> RgbaPixel,
+    ): MlnFfiRenderTarget {
+      var target = renderStyle(style, extent)
+      var actual = read(target)
+      val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
+      while (!near(expected, actual)) {
+        check(deadline.hasNotPassedNow()) {
+          "Timed out presenting $expected at $extent, last read $actual"
+        }
+        renderer.onSurfaceChanged(extent)
+        val pumped = pumpFrame(extent)
+        if (pumped.rendered) {
+          target = checkNotNull(pumped.target)
+          actual = read(target)
+        }
+        Thread.sleep(POLL_INTERVAL_MILLIS)
+      }
+      return target
     }
 
     private fun pumpFrame(extent: MapExtent): PumpedFrame {
@@ -547,6 +553,12 @@ class LinuxVulkanOpenGlInteropTest {
     const val DRAW_HEIGHT = 240
     const val POLL_INTERVAL_MILLIS = 8L
     const val CHANNEL_TOLERANCE = 2
+
+    fun near(expected: RgbaPixel, actual: RgbaPixel): Boolean =
+      abs(expected.red - actual.red) <= CHANNEL_TOLERANCE &&
+        abs(expected.green - actual.green) <= CHANNEL_TOLERANCE &&
+        abs(expected.blue - actual.blue) <= CHANNEL_TOLERANCE &&
+        abs(expected.alpha - actual.alpha) <= CHANNEL_TOLERANCE
 
     val TEST_TIMEOUT = 30.seconds
 
