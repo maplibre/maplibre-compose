@@ -9,7 +9,15 @@ import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.image
+import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
@@ -17,6 +25,11 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Point
+import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.dsl.addFeature
+import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 class StyleImageTest {
 
@@ -50,14 +63,7 @@ class StyleImageTest {
   @Test
   fun a_translucent_icon_is_premultiplied_exactly_once(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      fixture.loadStyle(ICON_STYLE)
-      val style = assertNotNull(fixture.style)
-      style.addImage(
-        IMAGE_ID,
-        solidBitmap(32, Color.Red.copy(alpha = 0.5f)),
-        sdf = false,
-        resizeOptions = null,
-      )
+      attachProbeIcon(fixture, solidBitmap(32, Color.Red.copy(alpha = 0.5f)))
 
       val center = MapFixture.DEFAULT_EXTENT.physicalWidth / 2
       fixture.pumpUntilPixel(
@@ -75,9 +81,7 @@ class StyleImageTest {
     resizeOptions: ImageResizeOptions? = null,
   ) {
     createMapFixture(extent).use { fixture ->
-      fixture.loadStyle(ICON_STYLE)
-      val style = assertNotNull(fixture.style)
-      style.addImage(IMAGE_ID, solidBitmap(imageSize, Color.Red), sdf = false, resizeOptions)
+      attachProbeIcon(fixture, solidBitmap(imageSize, Color.Red), resizeOptions)
 
       val center = extent.physicalWidth / 2
       // MapLibre draws a style image at `pixels / pixelRatio` logical points, so both cases come
@@ -97,6 +101,39 @@ class StyleImageTest {
     }
   }
 
+  /**
+   * Uploads the image before the symbol layer is attached, so the first layout can resolve
+   * `icon-image`. A JSON layer that names the image before it exists never draws it on GLES.
+   */
+  private suspend fun attachProbeIcon(
+    fixture: MapFixture,
+    bitmap: ImageBitmap,
+    resizeOptions: ImageResizeOptions? = null,
+  ) {
+    fixture.loadStyle(BLACK_STYLE)
+    val style = assertNotNull(fixture.style)
+    style.addImage(IMAGE_ID, bitmap, sdf = false, resizeOptions)
+
+    val source =
+      GeoJsonSource(
+        id = "point",
+        data =
+          GeoJsonData.Features(
+            buildFeatureCollection<Geometry, JsonObject?> {
+              addFeature(geometry = Point(Position(0.0, 0.0))) {}
+            }
+          ),
+        options = GeoJsonOptions(),
+      )
+    style.addSource(source)
+
+    val layer = SymbolLayer("icon", source)
+    layer.setIconImage(image(IMAGE_ID).compile(ExpressionContext.None))
+    layer.setIconAllowOverlap(const(true).compile(ExpressionContext.None))
+    layer.setIconIgnorePlacement(const(true).compile(ExpressionContext.None))
+    style.addLayer(layer)
+  }
+
   private fun solidBitmap(size: Int, color: Color): ImageBitmap {
     val bitmap = ImageBitmap(size, size)
     Canvas(bitmap)
@@ -114,34 +151,14 @@ class StyleImageTest {
     val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
     val BLACK = RgbaPixel(red = 0, green = 0, blue = 0, alpha = 255)
 
-    /** One point at the origin, which at zoom 0 is the middle of the viewport. */
-    val ICON_STYLE =
+    val BLACK_STYLE =
       BaseStyle.Json(
         """
         {
           "version": 8,
-          "sources": {
-            "point": {
-              "type": "geojson",
-              "data": {
-                "type": "Feature",
-                "properties": {},
-                "geometry": { "type": "Point", "coordinates": [0, 0] }
-              }
-            }
-          },
+          "sources": {},
           "layers": [
-            { "id": "bg", "type": "background", "paint": { "background-color": "#000000" } },
-            {
-              "id": "icon",
-              "type": "symbol",
-              "source": "point",
-              "layout": {
-                "icon-image": "$IMAGE_ID",
-                "icon-allow-overlap": true,
-                "icon-ignore-placement": true
-              }
-            }
+            { "id": "bg", "type": "background", "paint": { "background-color": "#000000" } }
           ]
         }
         """
