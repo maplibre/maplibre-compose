@@ -102,8 +102,9 @@ class StyleImageTest {
   }
 
   /**
-   * Uploads the image before the symbol layer is attached, so the first layout can resolve
-   * `icon-image`. A JSON layer that names the image before it exists never draws it on GLES.
+   * GLES keeps a miss from the JSON that creates a symbol layer, even after a later `addImage`. The
+   * image is uploaded and a frame is drawn first, then `icon-image` is set on the live layer so
+   * that name is absent from the creation JSON.
    */
   private suspend fun attachProbeIcon(
     fixture: MapFixture,
@@ -113,6 +114,7 @@ class StyleImageTest {
     fixture.loadStyle(BLACK_STYLE)
     val style = assertNotNull(fixture.style)
     style.addImage(IMAGE_ID, bitmap, sdf = false, resizeOptions)
+    fixture.pump(frames = 1)
 
     val source =
       GeoJsonSource(
@@ -128,10 +130,10 @@ class StyleImageTest {
     style.addSource(source)
 
     val layer = SymbolLayer("icon", source)
-    layer.setIconImage(image(IMAGE_ID).compile(ExpressionContext.None))
     layer.setIconAllowOverlap(const(true).compile(ExpressionContext.None))
     layer.setIconIgnorePlacement(const(true).compile(ExpressionContext.None))
     style.addLayer(layer)
+    layer.setIconImage(image(IMAGE_ID).compile(ExpressionContext.None))
   }
 
   private fun solidBitmap(size: Int, color: Color): ImageBitmap {
