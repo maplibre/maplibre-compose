@@ -825,9 +825,7 @@ class MlnFfiMapInputTest {
         map.performTouchInput {
           swipe(center - Offset(100f, 0f), center + Offset(100f, 0f), durationMillis = 100)
         }
-        mainClock.advanceTimeByFrame()
-        waitForIdle()
-        assertTrue(camera.isCameraMoving, "the released touch gesture did not start momentum")
+        awaitReleasedTouchMomentum(camera)
         map.performMouseInput {
           moveTo(center)
           scroll(-1f)
@@ -857,9 +855,7 @@ class MlnFfiMapInputTest {
         map.performTouchInput {
           swipe(center - Offset(100f, 0f), center + Offset(100f, 0f), durationMillis = 100)
         }
-        mainClock.advanceTimeByFrame()
-        waitForIdle()
-        assertTrue(camera.isCameraMoving, "the released touch gesture did not start momentum")
+        awaitReleasedTouchMomentum(camera)
 
         map.performMouseInput { moveTo(center) }
         mainClock.advanceTimeByFrame()
@@ -879,9 +875,7 @@ class MlnFfiMapInputTest {
         map.performTouchInput {
           swipe(center - Offset(100f, 0f), center + Offset(100f, 0f), durationMillis = 100)
         }
-        mainClock.advanceTimeByFrame()
-        waitForIdle()
-        assertTrue(camera.isCameraMoving, "the released touch gesture did not start momentum")
+        awaitReleasedTouchMomentum(camera)
 
         map.performTouchInput { click(center) }
 
@@ -890,6 +884,18 @@ class MlnFfiMapInputTest {
         mainClock.autoAdvance = true
       }
     }
+
+  /**
+   * Waits until the swipe's camera move is visible. The map reports that move from its owner
+   * thread, which can land after Compose has gone idle. The clock stays frozen. The fling waits for
+   * later frames, and the interruption under test still sees a moving camera.
+   */
+  private fun androidx.compose.ui.test.ComposeUiTest.awaitReleasedTouchMomentum(
+    camera: CameraState
+  ) {
+    mainClock.advanceTimeByFrame()
+    waitUntil(timeoutMillis = TIMEOUT) { camera.isCameraMoving }
+  }
 
   /** Waits for the camera to settle at [zoom]. */
   private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: CameraState, zoom: Double) {
