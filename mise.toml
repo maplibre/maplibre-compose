@@ -129,11 +129,7 @@ description = "Run the Android instrumented test suite on an emulator."
 usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
 depends = [{ task = "android-emulator:boot", args = ["{{usage.api_level}}"] }]
 # One task name per Android plugin; see test:android.
-run = '''
-abi="$(.mise/bin/android-host-abi)"
-./gradlew --no-parallel connectedDebugAndroidTest connectedAndroidDeviceTest \
-  -Pmaplibre.android.abis="$abi"
-'''
+run = '.mise/bin/run-android-device-tests "$usage_api_level"'
 
 [tasks."ios-simulator:boot"]
 description = "Boot an iPhone simulator and print its UDID."
