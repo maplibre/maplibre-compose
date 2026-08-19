@@ -31,7 +31,7 @@ shell = "bash -e -c"
 
 [vars]
 android_cmdline_tools_version = "22.0"
-android_api_level = "35"
+android_api_level = "36"
 actionlint_version = "1.7.12"
 dprint_version = "0.55.2"
 hk_version = "1.54.1"
@@ -168,7 +168,9 @@ run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
 
 [tasks."demo:android"]
 description = "Run the demo app on a connected Android device or emulator."
-usage = 'arg "[serial]" help="adb serial. Prompts when several devices are connected."'
+usage = '''
+arg "[serial]" help="adb serial. Prompts when several devices are connected."
+'''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
 run = ".mise/bin/run-android-demo"

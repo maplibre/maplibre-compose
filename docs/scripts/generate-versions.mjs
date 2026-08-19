@@ -1,8 +1,8 @@
 // Writes the versions the pages quote into src/generated/versions.json.
 //
 // Release and snapshot come from the Git tags, via `version-args` on stdin. The
-// MapLibre platform versions come from the Gradle version catalog, which stays
-// the one place they are pinned.
+// MapLibre SDK versions come from the Gradle version catalog, which stays the
+// one place they are pinned.
 
 import fs from "node:fs";
 import path from "node:path";

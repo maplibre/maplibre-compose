@@ -42,12 +42,24 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
-  override fun addTo(map: MapHandle) {
+  override fun prepareForAttach(): AutoCloseable? {
+    if (dataUrl != null) return null
+    return prepareData()
+  }
+
+  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
     val url = dataUrl
     if (url != null) {
+      prepared?.close()
       map.addGeoJsonSourceUrl(id, url, options.toFfiOptions())
     } else {
-      prepareData().use { map.addGeoJsonSourceData(id, it) }
+      val handle =
+        (prepared as? GeoJsonSourceDataHandle)
+          ?: run {
+            prepared?.close()
+            prepareData()
+          }
+      handle.use { map.addGeoJsonSourceData(id, it) }
     }
   }
 
@@ -58,16 +70,12 @@ public actual class GeoJsonSource : Source {
       mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
     } else {
       // Prepared outside the lambda so the map's owner thread does not parse or index the data.
-      // Closed after the posted mutation: mutateMap queues the work and does not wait.
-      val prepared = prepareData()
-      val posted = mutate { map ->
-        try {
-          map.setGeoJsonSourceData(id, prepared)
-        } finally {
-          prepared.close()
-        }
+      // mutateMap waits until the owner thread has used the handle, so closing it afterward is
+      // safe. synchronousTiling is independent of this: it only changes where viewport tiles are
+      // sliced after the cheap install, on the owner thread (true) or a worker (false).
+      prepareData().use { prepared ->
+        mutate { map -> map.setGeoJsonSourceData(id, prepared) }
       }
-      if (!posted) prepared.close()
     }
   }
 
@@ -194,6 +202,8 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
     it.clusterMaxZoom = clusterMaxZoom.toDouble()
     it.clusterMinPoints = clusterMinPoints
     it.lineMetrics = lineMetrics
+    // Viewport tile slicing during the update pass on the owner thread, not JSON parse. Parse and
+    // index happen in [GeoJsonSourceDataHandle.create], which the caller runs off that thread.
     it.synchronousTiling = synchronousUpdate
     it.clusterProperties = clusterPropertiesBytes()
   }

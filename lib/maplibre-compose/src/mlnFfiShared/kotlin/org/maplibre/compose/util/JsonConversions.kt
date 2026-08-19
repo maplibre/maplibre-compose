@@ -3,8 +3,10 @@ package org.maplibre.compose.util
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 
-/** Encodes one JSON value as UTF-8 for the FFI buffer API. */
+/** Conversions between kotlinx-serialization JSON and the FFI's UTF-8 text. */
+
+/** Converts kotlinx JSON to UTF-8 text. */
 internal fun JsonElement.toJsonBytes(): ByteArray = toString().encodeToByteArray()
 
-/** Decodes one UTF-8 JSON value returned by the FFI buffer API. */
+/** Parses a value the FFI returned as UTF-8 JSON. */
 internal fun ByteArray.toJsonElement(): JsonElement = Json.parseToJsonElement(decodeToString())

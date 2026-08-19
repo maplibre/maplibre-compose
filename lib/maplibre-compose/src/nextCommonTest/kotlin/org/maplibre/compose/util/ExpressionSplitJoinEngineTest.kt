@@ -68,12 +68,7 @@ class ExpressionSplitJoinEngineTest {
         throw error
       }
 
-      val added = style.getLayer("labels")
-      if (added == null && mapLibreFlavor == MapLibreFlavor.NATIVE) {
-        // A rejected add is posted to the owner thread, so the exception never reaches here.
-        return@use
-      }
-      assertNotNull(added)
+      assertNotNull(style.getLayer("labels"))
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }

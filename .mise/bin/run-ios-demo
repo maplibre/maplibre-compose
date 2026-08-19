@@ -67,7 +67,7 @@ list_ready_ios_devices() {
           for (i = 2; i < id_i; i++) name = name " " $i
         }
         if (name == "") name = id
-        printf "%s\t%s\n", id, name
+        printf "%s\t%s (%s)\n", id, name, id
       }
     '
 }
@@ -84,7 +84,7 @@ list_booted_iphone_simulators() {
       / iPhone / && /Booted/ {
         name = $1
         gsub(/^[[:space:]]+|[[:space:]]+$/, "", name)
-        printf "%s\t%s (%s)\n", $2, name, runtime
+        printf "%s\t%s (%s) (%s)\n", $2, name, runtime, $2
       }
     '
 }

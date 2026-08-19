@@ -81,8 +81,8 @@ kotlin {
       }
 
     // commonMain in waiting: the parts of the mln-ffi and MapLibre GL JS platforms that carry no
-    // backend-conditional logic. It exists only because Android and iOS have typed layer actuals
-    // rather than JSON-shaped ones; when those move onto mlnFfiShared, this merges into commonMain.
+    // backend-conditional logic. It exists only because iOS still has typed layer actuals rather
+    // than JSON-shaped ones; when iOS moves onto mlnFfiShared, this merges into commonMain.
     val nextCommonMain =
       create("nextCommonMain") {
         dependsOn(commonMain.get())
@@ -90,9 +90,8 @@ kotlin {
       }
 
     // used to share the integration with the MapLibre Native FFI binding, as opposed to the
-    // platform SDKs. Android, desktop, and (next) Kotlin/Native iOS use the same map, style,
-    // source, layer, and offline path. This source set stays free of java.* so a Native actual can
-    // sit beside the Java one.
+    // platform SDKs. Android and desktop use the same map, style, source, layer, and offline
+    // path. This source set stays free of java.* so a Native actual can sit beside the Java one.
     val mlnFfiShared =
       create("mlnFfiShared") {
         dependsOn(maplibreNativeMain)

@@ -12,6 +12,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
@@ -34,6 +35,7 @@ class ComputedSourceTest {
 
   @Test
   fun a_computed_source_renders_features_a_query_can_hit() {
+    requireCustomGeometrySourceCallbacks()
     val fixture = BridgeMapFixture.create()
     fixture.use {
       val source = it.attachComputedSource()
@@ -64,6 +66,7 @@ class ComputedSourceTest {
 
   @Test
   fun invalidating_a_tile_asks_for_its_features_again() {
+    requireCustomGeometrySourceCallbacks()
     val fixture = BridgeMapFixture.create()
     fixture.use {
       val source = it.attachComputedSource()
@@ -78,6 +81,7 @@ class ComputedSourceTest {
 
   @Test
   fun invalidating_a_region_asks_for_its_features_again() {
+    requireCustomGeometrySourceCallbacks()
     val fixture = BridgeMapFixture.create()
     fixture.use {
       val source = it.attachComputedSource()
@@ -94,6 +98,7 @@ class ComputedSourceTest {
 
   @Test
   fun setdata_replaces_what_a_tile_was_computed_with() {
+    requireCustomGeometrySourceCallbacks()
     val fixture = BridgeMapFixture.create()
     fixture.use {
       val source = it.attachComputedSource()
@@ -130,6 +135,14 @@ class ComputedSourceTest {
   private fun BridgeMapFixture.awaitComputedFeatures() {
     pumpUntil("the computed source to request a tile") { requests.isNotEmpty() }
     pumpUntil("the answered computed source tile to be queryable") { queryCenter().isNotEmpty() }
+  }
+
+  private fun requireCustomGeometrySourceCallbacks() {
+    if (!FfiTestPlatform.runtimeCapabilities.customGeometrySourceCallbacks) {
+      FfiTestPlatform.skip(
+        "The packaged Android FFI binding does not yet deliver custom-geometry callbacks"
+      )
+    }
   }
 
   /** One polygon filling [bounds], so every point of the requested tile is a hit. */

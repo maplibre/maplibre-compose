@@ -6,7 +6,7 @@ set -euo pipefail
 repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 adb="$("$repository_root/.mise/bin/android-sdk-root")/platform-tools/adb"
 
-# mise passes a usage arg as an environment variable; the argument is for
+# mise passes usage args as environment variables; the arguments are for
 # running this script outside of mise.
 requested="${1:-${usage_serial:-}}"
 

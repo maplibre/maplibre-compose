@@ -110,8 +110,9 @@ Next steps:
 Investigation needed:
 
 - [Explore testing strategies for testing map behavior on all platforms.](https://github.com/maplibre/maplibre-compose/issues/29)
-- Explore benchmarking strategies for map rendering and other logic on all
-  platforms.
+- The demo app's Benchmarks screen times a zoom pump, a fly-around, and a large
+  GeoJSON update on a map of its own, after prefetching tiles. Pointer trail is
+  measured there too. Automating those runs in CI is still open.
 
 ## Road to v1.0
 
@@ -146,9 +147,9 @@ gestures for those mobile platforms, so the focus here is on desktop and web.
 
 Desktop now has a working set, tuned to match MapLibre GL JS: drag to pan,
 scroll and double-click to zoom, right-drag or ctrl-drag to rotate and tilt, and
-keyboard control throughout. Touchscreens on the Desktop and Android FFI hosts
-use Android-style pan, pinch, rotate, shove, quick-zoom, and velocity gestures.
-What is left is covering input devices such as multi-touch trackpads and the
+keyboard control throughout. Touchscreens on the Desktop FFI host use
+Android-style pan, pinch, rotate, shove, quick-zoom, and velocity gestures. What
+is left is covering input devices such as multi-touch trackpads and the
 accessibility needs the current controls do not yet reach.
 
 Research Areas:

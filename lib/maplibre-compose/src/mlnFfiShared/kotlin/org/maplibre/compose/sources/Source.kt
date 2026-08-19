@@ -32,40 +32,83 @@ public actual sealed class Source(internal actual val id: String) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
     }
-    // Existence is read synchronously so a duplicate ID still fails on the caller. The add itself
-    // is posted; a same-frame mutate then queues behind it.
-    val exists = binding.readMap { it.styleSourceExists(id) } == true
-    if (this.binding === binding && exists) return
-    check(!exists) { "Source ID '$id' is already owned by a different live source descriptor" }
-    val posted = binding.mutateMap { map ->
-      try {
-        addTo(map)
-      } catch (error: Throwable) {
-        if (error is MaplibreException) {
-          // Native reports what was wrong with the definition but never whose.
-          throw IllegalStateException(
-            "Could not add source '$id' of type " +
-              "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
-            error,
-          )
+    // Before the owner-thread hop: GeoJSON parse and index must not run on the pump. The handle
+    // is a local here, then either addTo consumes it on the owner thread or release() closes it
+    // after mutateMap returns. mutateMap waits until that hop has run or been dropped.
+    var pending: AutoCloseable? =
+      if (!isAttached) {
+        try {
+          prepareForAttach()
+        } catch (error: Throwable) {
+          throw wrapAddError(error)
         }
+      } else {
+        null
+      }
+    fun release() {
+      val handle = pending ?: return
+      pending = null
+      handle.close()
+    }
+    val added =
+      try {
+        binding.mutateMap { map ->
+          // A layer may attach its source before the source effect runs, so re-attaching the same
+          // binding is idempotent; any other descriptor with this ID is rejected.
+          if (this.binding === binding && map.styleSourceExists(id)) return@mutateMap false
+          check(!map.styleSourceExists(id)) {
+            "Source ID '$id' is already owned by a different live source descriptor"
+          }
+          val prepared = pending
+          pending = null
+          try {
+            addTo(map, prepared)
+          } catch (error: Throwable) {
+            throw wrapAddError(error)
+          }
+          binding.reportSourceChanged(id)
+          true
+        }
+      } catch (error: Throwable) {
+        release()
         throw error
       }
-      binding.notifySourceChanged(id)
-    }
-    check(posted) {
+    if (added != true) release()
+    check(added != null) {
       "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
         "fail to attach."
     }
+    if (!added) return
     this.binding = binding
   }
 
+  /** Native reports what was wrong with the definition but never whose. */
+  private fun wrapAddError(error: Throwable): Throwable =
+    if (error is MaplibreException) {
+      IllegalStateException(
+        "Could not add source '$id' of type " +
+          "'${(toJson()["type"] as? JsonPrimitive)?.content}': ${error.message}",
+        error,
+      )
+    } else {
+      error
+    }
+
   /**
-   * Creates this source on [map], on the map's owner thread. MapLibre Native accepts only `vector`,
-   * `raster`, `raster-dem`, `geojson`, and `image` from source JSON; any other source type must
-   * override this with its typed `MapHandle` adder.
+   * Runs on the caller before [addTo] hops to the owner thread. Override to do work that must not
+   * run on the pump, such as GeoJSON parse and index. The returned handle is consumed by [addTo] or
+   * closed by [attach] after the hop has run or been dropped.
    */
-  internal open fun addTo(map: MapHandle) {
+  internal open fun prepareForAttach(): AutoCloseable? = null
+
+  /**
+   * Creates this source on [map], on the map's owner thread. [prepared] is the handle
+   * [prepareForAttach] returned, or null; this call consumes it. MapLibre Native accepts only
+   * `vector`, `raster`, `raster-dem`, `geojson`, and `image` from source JSON; any other source
+   * type must override this with its typed `MapHandle` adder.
+   */
+  internal open fun addTo(map: MapHandle, prepared: AutoCloseable? = null) {
+    prepared?.close()
     map.addStyleSourceJson(id, toJson().toJsonBytes())
   }
 
@@ -82,9 +125,10 @@ public actual sealed class Source(internal actual val id: String) {
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
-    binding.mutateMap { map ->
+    val current = binding
+    current.mutateMap { map ->
       map.removeStyleSource(id)
-      binding.notifySourceChanged(id)
+      current.reportSourceChanged(id)
     }
     binding = MlnFfiStyleBinding.UNLOADED
   }
@@ -93,7 +137,8 @@ public actual sealed class Source(internal actual val id: String) {
    * Applies [update] to the live source. Returns false when the style has unloaded, which is normal
    * for a frame during a style swap.
    */
-  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean = binding.mutateMap(update)
+  protected fun mutate(update: (map: MapHandle) -> Unit): Boolean =
+    binding.mutateMap(update) != null
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }

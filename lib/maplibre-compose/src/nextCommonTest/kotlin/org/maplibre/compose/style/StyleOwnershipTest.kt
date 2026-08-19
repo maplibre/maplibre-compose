@@ -120,7 +120,7 @@ class StyleOwnershipTest {
       val style = requireNotNull(fixture.style)
       val layer = BackgroundLayer("retry-layer")
 
-      runCatching { style.addLayerBelow("missing-anchor", layer) }
+      assertFailsWith<IllegalStateException> { style.addLayerBelow("missing-anchor", layer) }
       assertNull(style.getLayer(layer.id))
 
       style.addLayer(layer)

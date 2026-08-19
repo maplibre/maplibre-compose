@@ -20,6 +20,12 @@ import org.maplibre.nativeffi.runtime.WakeSource
 /** Parks in the native pump until a wake arrives, rather than on a bound. */
 private const val PUMP_PARK_MILLIS = -1L
 
+/**
+ * Caps one native drain below a 120 Hz frame so posted gesture work runs before the next vsync. The
+ * first queued task always runs; leftover work re-arms the wake flag.
+ */
+private const val PUMP_BUDGET_MILLIS = 4L
+
 /** Bound on waiting for the render session to be closed before the map is destroyed. */
 private const val SHUTDOWN_WAIT_MILLIS = 5_000L
 
@@ -105,13 +111,27 @@ internal class MlnFfiMapRuntimeLoop(
   fun isOwnerThread(): Boolean = thread.isCurrent()
 
   /**
-   * Runs [action] on the owner thread and waits for its result. Returns null when there is no map,
-   * or when the loop stopped before the work could run. Runs inline when the caller is already the
-   * owner thread.
+   * Runs [action] on the owner thread and waits until it has run or been dropped. Returns null when
+   * there is no map, or when the loop stopped before the work could run. Runs inline when the
+   * caller is already the owner thread.
+   *
+   * [abandon] runs when [action] will not run: the loop has already stopped, or a queued task is
+   * dropped. An interrupt on the waiting thread does not drop the work. The wait continues, and the
+   * interrupt status is restored when this returns.
    */
-  fun <T> call(action: (MapHandle) -> T): T? {
-    if (thread.isCurrent()) return map?.let(action)
-    if (map == null) return null
+  fun <T> call(action: (MapHandle) -> T, abandon: () -> Unit = {}): T? {
+    if (thread.isCurrent()) {
+      val current = map
+      if (current == null) {
+        abandon()
+        return null
+      }
+      return action(current)
+    }
+    if (map == null) {
+      abandon()
+      return null
+    }
 
     var result: Result<T>? = null
     val done = MlnFfiGate()
@@ -121,13 +141,20 @@ internal class MlnFfiMapRuntimeLoop(
           result = runCatching { action(map) }
           done.open()
         },
-        abandon = { done.open() },
+        abandon = {
+          try {
+            abandon()
+          } finally {
+            done.open()
+          }
+        },
       )
-    if (!posted) return null
+    if (!posted) {
+      abandon()
+      return null
+    }
 
-    done.await()
-    // Null when the wait ended before the owner thread reached the task, which the gate's own
-    // documentation allows.
+    done.awaitUntilOpen()
     return result?.getOrThrow()
   }
 
@@ -213,9 +240,7 @@ internal class MlnFfiMapRuntimeLoop(
       if (stopRequested) break
       check(!acceptLock.isHeldByOwnerThread) { "the pump must not run under acceptLock" }
       // A batch that ran must not park: a task queuing nothing for native has nothing to wake it.
-      // TODO: pass a time budget to runtime.pump once the C API accepts one, so a long tile-load
-      // mailbox cannot delay queued gesture work.
-      runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS)
+      runtime.pump(if (ranTasks) 0L else PUMP_PARK_MILLIS, PUMP_BUDGET_MILLIS)
       drainEvents(runtime, map)
     }
   }

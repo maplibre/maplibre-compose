@@ -1,6 +1,5 @@
 package org.maplibre.compose.util
 
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -9,6 +8,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.nativeffi.query.RenderedFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry as GeoJsonGeometry
@@ -24,16 +24,14 @@ internal fun renderedQueryOptions(
   }
 }
 
-/**
- * Converts a rendered or source feature query result: a JSON array of entries that carry the
- * GeoJSON feature under `feature`.
- */
-internal fun ByteArray.toGeoJsonFeatures(): List<Feature<GeoJsonGeometry, JsonObject?>> {
-  val entries = toJsonElement() as? JsonArray ?: return emptyList()
-  return entries.mapNotNull { entry ->
-    ((entry as? JsonObject)?.get("feature") as? JsonObject)?.let { Feature.fromJson(it.toString()) }
+/** Decodes each hit's GeoJSON Feature. Source ids and feature state stay on [QueriedFeature]. */
+internal fun List<QueriedFeature>.toGeoJsonFeatures(): List<Feature<GeoJsonGeometry, JsonObject?>> =
+  mapNotNull {
+    it.toGeoJsonFeature()
   }
-}
+
+internal fun QueriedFeature.toGeoJsonFeature(): Feature<GeoJsonGeometry, JsonObject?>? =
+  Feature.fromJsonOrNull<GeoJsonGeometry, JsonObject?>(feature.decodeToString())
 
 /**
  * Converts a queried cluster feature back into the GeoJSON `queryFeatureExtension` takes, keeping

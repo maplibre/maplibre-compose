@@ -18,14 +18,15 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
   fun <T> readMap(action: (MapHandle) -> T): T?
 
-  /**
-   * Queues [action] on the owner thread and requests a repaint. Returns whether the work was
-   * accepted; it has not necessarily run yet.
-   */
-  fun mutateMap(action: (MapHandle) -> Unit): Boolean
+  /** Requests a repaint after native accepts the mutation. */
+  fun <T> mutateMap(action: (MapHandle) -> T): T? = mutateMap({}, action)
 
-  /** Tells Compose that [sourceId] changed, so attribution and related state can refresh. */
-  fun notifySourceChanged(sourceId: String) {}
+  /**
+   * Requests a repaint after native accepts the mutation.
+   *
+   * Returns after [action] has run or been dropped. [abandon] runs when [action] will not run.
+   */
+  fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T?
 
   /**
    * Null when the style has unloaded or no session is attached yet — a session exists only between
@@ -33,17 +34,24 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 
+  /**
+   * Reports that [sourceId] was added or removed, so StyleState can refresh that source without
+   * waiting for idle. Call only from the owner thread, after the native add or remove.
+   */
+  fun reportSourceChanged(sourceId: String) {}
+
   override fun attachSource(source: Source) {
     source.attach(this)
   }
 
-  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = mutateMap { map ->
-    try {
-      map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
-    } catch (error: MaplibreException) {
-      throw StyleMutationException(error.message, error)
-    }
-  }
+  override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
+    mutateMap { map ->
+      try {
+        map.addStyleLayerJson(layer.toJsonBytes(), beforeLayerId)
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
+    } != null
 
   override fun removeLayer(layerId: String) {
     mutateMap { map -> map.removeStyleLayer(layerId) }
@@ -64,9 +72,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
       try {
         map.setLayerProperty(layerId, name, value.toJsonBytes())
       } catch (error: MaplibreException) {
-        logger?.w(error) {
-          "Layer '$layerId' kept its previous '$name': MapLibre rejected $value."
-        }
+        throw StyleMutationException(error.message, error)
       }
     }
   }
@@ -79,6 +85,10 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     map.layerProperty(layerId, name)?.toJsonElement()
   }
 
+  override fun layerExists(layerId: String): Boolean? = readMap { map ->
+    map.styleLayerIds().contains(layerId)
+  }
+
   companion object {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: MlnFfiStyleBinding =
@@ -89,7 +99,10 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
         override fun <T> readMap(action: (MapHandle) -> T): T? = null
 
-        override fun mutateMap(action: (MapHandle) -> Unit): Boolean = false
+        override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
+          abandon()
+          return null
+        }
 
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
       }

@@ -9,8 +9,8 @@ import org.maplibre.compose.android.MapLibre
 class MainActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
-    MapLibre.configure(applicationContext)
     enableEdgeToEdge()
+    MapLibre.configure(applicationContext)
     setContent { DemoApp() }
   }
 }

@@ -18,6 +18,19 @@ internal actual class MlnFfiGate actual constructor() {
     }
   }
 
+  actual fun awaitUntilOpen() {
+    var interrupted = false
+    while (true) {
+      try {
+        latch.await()
+        break
+      } catch (interruption: InterruptedException) {
+        interrupted = true
+      }
+    }
+    if (interrupted) Thread.currentThread().interrupt()
+  }
+
   actual fun await(timeoutMillis: Long): Boolean =
     try {
       latch.await(timeoutMillis, TimeUnit.MILLISECONDS)

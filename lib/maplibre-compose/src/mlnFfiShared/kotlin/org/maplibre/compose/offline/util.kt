@@ -8,6 +8,7 @@ import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
 import org.maplibre.nativeffi.offline.OfflineRegionStatus
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.GeometryCollection
 import org.maplibre.spatialk.geojson.toJson
 
 /**
@@ -59,7 +60,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger): Offlin
     is FfiRegionDefinition.GeometryRegion ->
       OfflinePackDefinition.Shape(
         styleUrl = styleUrl,
-        shape = Geometry.fromJson(geometry.decodeToString()),
+        shape = geometry.toGeoJsonGeometry(logger),
         minZoom = minZoom.toInt(),
         maxZoom = maxZoom.takeIf { it.isFinite() }?.toInt(),
       )
@@ -103,4 +104,14 @@ internal fun ResourceErrorReason.toDownloadErrorReason(): String =
     ResourceErrorReason.CONNECTION -> "REASON_CONNECTION"
     ResourceErrorReason.RATE_LIMIT -> "REASON_RATE_LIMIT"
     else -> "REASON_OTHER"
+  }
+
+private fun ByteArray.toGeoJsonGeometry(logger: Logger): Geometry = runCatching {
+  Geometry.fromJson(decodeToString())
+}
+  .getOrElse {
+    // An unreadable shape has no GeoJSON spelling; an empty collection keeps the pack listed and
+    // deletable.
+    logger.w(it) { "Offline region shape has no readable GeoJSON; reporting it as empty" }
+    GeometryCollection<Geometry>(emptyList())
   }

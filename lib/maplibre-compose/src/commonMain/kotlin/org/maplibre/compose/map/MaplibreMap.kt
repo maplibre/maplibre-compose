@@ -8,10 +8,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -139,7 +141,9 @@ public fun MaplibreMap(
   }
 
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
+  val currentLogger by rememberUpdatedState(logger)
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
+  SideEffect { rememberedStyle?.logger = currentLogger }
   val mapClickScope = rememberCoroutineScope()
 
   val callbacks =
@@ -147,7 +151,7 @@ public fun MaplibreMap(
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: Style?) {
           rememberedStyle?.unload()
-          val safeStyle = style?.let { SafeStyle(it) }
+          val safeStyle = style?.let { SafeStyle(it, currentLogger) }
           rememberedStyle = safeStyle
           cameraState.metersPerDpAtTargetState.value =
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
@@ -196,14 +200,20 @@ public fun MaplibreMap(
           if (onMapClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
-              val handle = node.onClick ?: continue
+              if (node.onClick == null) continue
               val features =
                 map.queryRenderedFeatures(
                   offset = offset,
                   layerIds = setOf(node.layer.id),
                   predicate = null,
                 )
-              if (features.isNotEmpty() && handle(features).consumed) break
+              // Recomposition may replace or remove the node while the query is suspended. A
+              // removed node never receives the click; a replaced one answers with the handler
+              // it has now.
+              val currentHandle =
+                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onClick
+                  ?: continue
+              if (features.isNotEmpty() && currentHandle(features).consumed) break
             }
           }
         }
@@ -212,14 +222,20 @@ public fun MaplibreMap(
           if (onMapLongClick(latLng, offset).consumed) return
           mapClickScope.launch {
             for (node in layerNodesInOrder()) {
-              val handle = node.onLongClick ?: continue
+              if (node.onLongClick == null) continue
               val features =
                 map.queryRenderedFeatures(
                   offset = offset,
                   layerIds = setOf(node.layer.id),
                   predicate = null,
                 )
-              if (features.isNotEmpty() && handle(features).consumed) break
+              // Recomposition may replace or remove the node while the query is suspended. A
+              // removed node never receives the click; a replaced one answers with the handler
+              // it has now.
+              val currentHandle =
+                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onLongClick
+                  ?: continue
+              if (features.isNotEmpty() && currentHandle(features).consumed) break
             }
           }
         }

@@ -180,6 +180,7 @@ internal class MlnFfiStyle(
         info?.attribution?.takeIf { it.isNotEmpty() } ?: declaredAttribution(map, id)
       attribution?.let { put("attribution", it) }
       info?.tileSize?.takeIf { it > 0 }?.let { put("tileSize", it) }
+      if (info?.volatileSource == true) put("volatile", true)
       if (info?.type == SourceType.VECTOR) {
         info.vectorEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
       }
