@@ -2,8 +2,9 @@
 
 package org.maplibre.compose.sources
 
-import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
@@ -20,21 +21,21 @@ public actual class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
 
-  // Held parsed because toJson runs again on every re-add after a style change.
-  private var data: JsonElement
+  /** UTF-8 GeoJSON for inline data. Null when [dataUrl] is set. */
+  private var inlineUtf8: ByteArray?
 
-  /** The URI form of [data], when it is one. */
+  /** The URI form of the data, when it is one. */
   private var dataUrl: String?
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
-    this.data = data.toDataJson()
+    this.inlineUtf8 = data.toInlineUtf8()
     this.dataUrl = (data as? GeoJsonData.Uri)?.uri
   }
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "geojson")
-    put("data", data)
+    put("data", dataJson())
     putGeoJsonOptions(options)
     // Neither is in the style spec's GeoJSON source, but MapLibre Native reads both straight off
     // the source JSON.
@@ -64,7 +65,7 @@ public actual class GeoJsonSource : Source {
   }
 
   public actual fun setData(data: GeoJsonData) {
-    this.data = data.toDataJson()
+    this.inlineUtf8 = data.toInlineUtf8()
     this.dataUrl = (data as? GeoJsonData.Uri)?.uri
     if (data is GeoJsonData.Uri) {
       mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
@@ -79,9 +80,16 @@ public actual class GeoJsonSource : Source {
     }
   }
 
+  /**
+   * Style JSON for reads and error messages. Native install uses [inlineUtf8] directly, so this
+   * parse runs only when something asks for the descriptor.
+   */
+  private fun dataJson() =
+    dataUrl?.let { JsonPrimitive(it) } ?: Json.parseToJsonElement(inlineUtf8!!.decodeToString())
+
   /** Prepared with the options the source was added with; a mismatch is rejected at install. */
   private fun prepareData(): GeoJsonSourceDataHandle =
-    GeoJsonSourceDataHandle.create(data.toJsonBytes(), options.toFfiOptions())
+    GeoJsonSourceDataHandle.create(inlineUtf8!!, options.toFfiOptions())
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()

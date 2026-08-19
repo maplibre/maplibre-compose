@@ -120,6 +120,7 @@ val allBenchmarkScenarios: List<BenchmarkScenario> =
   listOf(
     ZoomPumpScenario,
     FlyAroundScenario,
-    GeoJsonLoadScenario,
+    GeoJsonLoadScenario(synchronousUpdate = true),
+    GeoJsonLoadScenario(synchronousUpdate = false),
     GestureTrailScenario,
   )

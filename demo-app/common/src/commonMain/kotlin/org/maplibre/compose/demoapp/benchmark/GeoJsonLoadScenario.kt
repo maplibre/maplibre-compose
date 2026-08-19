@@ -19,10 +19,15 @@ import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 
-internal object GeoJsonLoadScenario : BenchmarkScenario {
-  override val id = "geojson-load"
-  override val title = "GeoJSON load"
-  override val description = "Loads thousands of points, then updates them every frame."
+internal class GeoJsonLoadScenario(private val synchronousUpdate: Boolean) : BenchmarkScenario {
+  override val id = if (synchronousUpdate) "geojson-load-sync" else "geojson-load-async"
+  override val title = if (synchronousUpdate) "GeoJSON load (sync)" else "GeoJSON load (async)"
+  override val description =
+    if (synchronousUpdate) {
+      "Loads thousands of points, then updates them every frame. The next frame includes each update."
+    } else {
+      "Loads thousands of points, then updates them every frame. An update can miss the next frame."
+    }
   override val region = BenchmarkRegion
   override val minZoom = 12
   override val maxZoom = 16
@@ -34,7 +39,7 @@ internal object GeoJsonLoadScenario : BenchmarkScenario {
     val source =
       rememberGeoJsonSource(
         data = GeoJsonData.Features(data),
-        options = GeoJsonOptions(synchronousUpdate = true),
+        options = GeoJsonOptions(synchronousUpdate = synchronousUpdate),
       )
     CircleLayer(
       id = "benchmark-geojson",
@@ -89,8 +94,10 @@ internal object GeoJsonLoadScenario : BenchmarkScenario {
     return root
   }
 
-  private const val PointCount = 8_000
-  private const val Jitter = 0.0004
-  private const val SettleFrames = 30
-  private const val UpdateFrames = 90
+  private companion object {
+    const val PointCount = 8_000
+    const val Jitter = 0.0004
+    const val SettleFrames = 30
+    const val UpdateFrames = 90
+  }
 }
