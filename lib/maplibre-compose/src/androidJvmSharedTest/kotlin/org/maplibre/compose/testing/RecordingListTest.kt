@@ -17,13 +17,13 @@ class RecordingListTest {
     val writer = thread {
       writerStarted.await()
       var value = 0
-      while (!stop.get()) {
+      while (!stop.get() && value < 50_000) {
         list += value++
       }
     }
     try {
       writerStarted.await()
-      repeat(20_000) {
+      while (writer.isAlive) {
         val snapshot = list.toList()
         assertEquals(snapshot.size, snapshot.count { true })
         list.count { it >= 0 }
