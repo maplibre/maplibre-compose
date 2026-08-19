@@ -125,11 +125,11 @@ internal expect fun runMapTest(block: suspend () -> Unit): MapTestResult
 
 internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
-  val events: MutableList<String> = mutableListOf()
+  val events: MutableList<String> = RecordingList()
 
-  val sourceChanges: MutableList<String?> = mutableListOf()
+  val sourceChanges: MutableList<String?> = RecordingList()
 
-  val errors: MutableList<String> = mutableListOf()
+  val errors: MutableList<String> = RecordingList()
 
   var style: Style? = null
     private set

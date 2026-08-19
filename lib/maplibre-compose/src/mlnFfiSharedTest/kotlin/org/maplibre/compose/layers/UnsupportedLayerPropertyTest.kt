@@ -18,13 +18,13 @@ import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.TextRotationAlignment
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.FeatureCollection
