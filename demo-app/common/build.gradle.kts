@@ -89,6 +89,7 @@ kotlin {
 
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.jetbrains.compose.material3)
+      implementation(libs.jetbrains.compose.material3.adaptive)
       implementation(libs.androidx.navigation.compose)
       implementation(libs.spatialk.geojson)
 

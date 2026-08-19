@@ -18,15 +18,6 @@ internal fun BenchmarksScreen(
   onOpenScenario: (BenchmarkScenario) -> Unit,
 ) {
   SettingsSubScreen("Benchmarks", onBack) {
-    Text(
-      text =
-        "Each run uses a map of its own, packs tiles first, then plays a script. Frame times " +
-          "print as a JSON line tagged maplibre-compose-bench. Render and gesture options stay " +
-          "at Standard. Demo settings do not apply.",
-      style = MaterialTheme.typography.bodyMedium,
-      color = MaterialTheme.colorScheme.onSurfaceVariant,
-      modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-    )
     allBenchmarkScenarios.forEach { scenario ->
       SubmenuRow(scenario.title, scenario.description) { onOpenScenario(scenario) }
     }
