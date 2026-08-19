@@ -15,8 +15,8 @@ import org.maplibre.spatialk.geojson.Position
 
 /**
  * A demo lives at a real place in the world. Selecting it composes [MapContent] into the shared map
- * and, when [fliesOnSelect] is true, flies the camera to [region] or [camera]. Each demo owns its
- * state internally.
+ * and [Overlay] on top of the map. When [fliesOnSelect] is true, the camera flies to [region] or
+ * [camera]. Each demo owns its state internally.
  */
 interface Demo {
   val name: String
@@ -46,6 +46,12 @@ interface Demo {
     get() = true
 
   @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
+
+  /**
+   * Compose UI drawn over the map while this demo is selected. Fill the map so screen locations
+   * from the camera projection match this box.
+   */
+  @UiComposable @Composable fun Overlay(cameraState: CameraState) {}
 
   /** Controls shown in the sheet or side panel while this demo is selected. */
   @UiComposable @Composable fun Panel() {}

@@ -54,8 +54,7 @@ section of the pull request template. Disclosure is not penalized.
 
 When planning docs guided the work, commit them on your branch as you go.
 Removing them before merge is fine; reviewers can still follow the process in
-the commit history. Point to the relevant commits or paths in **Context** when
-that history matters for review.
+the commit history.
 
 ## Credits
 

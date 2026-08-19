@@ -1,8 +1,9 @@
 ## Pull requests
 
-When you open a pull request, write **Description** and **Test plan** in at most
-one sentence of prose each. I will expand the PR description if more detail is
-needed. More context: [AI_POLICY.md](./AI_POLICY.md).
+When you open a pull request, adhere to the
+[PULL_REQUEST_TEMPLATE.md](./.github/PULL_REQUEST_TEMPLATE.md) and open it in
+draft mode. The user is responsible for additional details and marking ready for
+review.
 
 ## Development commands
 

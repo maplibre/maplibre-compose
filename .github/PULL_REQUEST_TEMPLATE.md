@@ -1,32 +1,17 @@
-<!-- Thanks for the PR! Please fill out the template below. -->
+<!--
+Thanks for the PR! Please fill out the template below.
+AI agents may write at most one plain sentence per section.
+Additional details, if needed, should be provided by the human driving the agent.
+-->
 
 ## Description
 
 <!-- Please include a summary of the change. -->
 
-## Test plan
+## Validation
 
-<!-- Please describe how you tested the changes. -->
-
-## Checklist
-
-**To your knowledge, are you making any breaking changes?**
-
-<!-- If yes, please describe -->
-
-**Have you tested the changes? On which platforms?**
-
-<!-- Delete any entries you haven't tested -->
-
-- Android: <!-- describe the device and OS version -->
-- iOS: <!-- describe the device and OS version -->
-- Desktop: <!-- describe the OS -->
-- Web: <!-- describe the browser and version -->
+<!-- Have you tested the changes? How? On which platforms? -->
 
 ## AI assistance
 
-<!-- Remove this section if disclosure does not apply. -->
-
-- **Tools:** <!-- e.g. Codex, OpenCode, Claude Code, Cursor -->
-- **Context:**
-  <!-- how AI was used; links to plans, skills, or session exports if any — see AI_POLICY.md -->
+<!-- List the AI tools you used: model, harness, etc. -->

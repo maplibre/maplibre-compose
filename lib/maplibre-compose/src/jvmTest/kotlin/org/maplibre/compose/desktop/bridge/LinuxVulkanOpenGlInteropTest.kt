@@ -21,8 +21,6 @@ import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
-import org.jetbrains.skia.Picture
-import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.makeGLWithInterface
 import org.junit.Assume.assumeTrue
@@ -119,10 +117,10 @@ class LinuxVulkanOpenGlInteropTest {
             val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, SECOND_EXTENT) }
 
             val oldPixel = egl.withCurrent { egl.drawAndRead(host, first) }
-            assertNear(FIRST_PIXEL, oldPixel)
+            assertNear(FIRST_PIXEL, oldPixel, "retired generation after resize")
 
             val newPixel = egl.withCurrent { egl.drawAndRead(host, second) }
-            assertNear(SECOND_PIXEL, newPixel)
+            assertNear(SECOND_PIXEL, newPixel, "current generation after resize")
           }
         } finally {
           host.close()
@@ -140,13 +138,18 @@ class LinuxVulkanOpenGlInteropTest {
           try {
             InteropMap(host).use { map ->
               val first = firstEgl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
-              assertNear(FIRST_PIXEL, firstEgl.withCurrent { firstEgl.drawAndRead(host, first) })
+              assertNear(
+                FIRST_PIXEL,
+                firstEgl.withCurrent { firstEgl.drawAndRead(host, first) },
+                "first context before replacement",
+              )
 
               mapHost.replaceContext(secondEgl)
               val second = secondEgl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
               assertNear(
                 SECOND_PIXEL,
                 secondEgl.withCurrent { secondEgl.drawAndRead(host, second) },
+                "replacement context after a new shared target",
               )
             }
           } finally {
@@ -157,19 +160,17 @@ class LinuxVulkanOpenGlInteropTest {
     }
 
   @Test
-  fun `a recorded frame keeps its pixels when the shared target is reused`() =
-    onLinux("the Vulkan to OpenGL bridge this records exists only on Linux") {
+  fun `reusing the shared target presents the new pixels`() =
+    onLinux("the Vulkan to OpenGL bridge this reuses exists only on Linux") {
       EglTestContext.create().use { egl ->
         val host = VulkanOpenGlMapHost(EglMapHost(egl))
         try {
           InteropMap(host).use { map ->
-            val first = egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
             egl.withCurrent {
-              egl.record(host, first).use { recordedFirst ->
-                val second = map.renderStyle(SECOND_STYLE, FIRST_EXTENT)
-
-                assertNear(FIRST_PIXEL, egl.drawAndRead(recordedFirst))
-                assertNear(SECOND_PIXEL, egl.drawAndRead(host, second))
+              val first = map.renderStyle(FIRST_STYLE, FIRST_EXTENT)
+              assertNear(FIRST_PIXEL, egl.drawAndRead(host, first), "live first frame")
+              map.presentStyle(SECOND_STYLE, FIRST_EXTENT, SECOND_PIXEL) { target ->
+                egl.drawAndRead(host, target)
               }
             }
           }
@@ -184,17 +185,10 @@ class LinuxVulkanOpenGlInteropTest {
     block()
   }
 
-  private fun assertNear(expected: RgbaPixel, actual: RgbaPixel) {
-    val differences =
-      listOf(
-        abs(expected.red - actual.red),
-        abs(expected.green - actual.green),
-        abs(expected.blue - actual.blue),
-        abs(expected.alpha - actual.alpha),
-      )
+  private fun assertNear(expected: RgbaPixel, actual: RgbaPixel, label: String) {
     assertTrue(
-      differences.all { it <= CHANNEL_TOLERANCE },
-      "Expected $expected within $CHANNEL_TOLERANCE per channel, got $actual",
+      near(expected, actual),
+      "$label: expected $expected within $CHANNEL_TOLERANCE per channel, got $actual",
     )
   }
 
@@ -295,30 +289,65 @@ class LinuxVulkanOpenGlInteropTest {
             "last result: $lastResult, failure: $failure"
         }
         failure?.let { error(it) }
-        val frame =
-          assertIs<MlnFfiMapFrameAcquisition.Acquired>(
-              host.acquireFrame(nextFrameId++, extent, null)
-            )
-            .frame
-        try {
-          val result = host.withProducerAccess(frame) { renderer.render(frame) }
-          lastResult = result
-          if (result == MlnFfiFrameResult.RENDERED) {
-            host.completeProducerAccess(frame)
-            renderedFrames++
-            rendered = frame.target
-          }
-        } finally {
-          host.releaseFrame(frame)
+        val pumped = pumpFrame(extent)
+        lastResult = pumped.result
+        if (pumped.rendered) {
+          renderedFrames++
+          rendered = pumped.target
         }
         Thread.sleep(POLL_INTERVAL_MILLIS)
       }
       return checkNotNull(rendered)
     }
 
+    fun presentStyle(
+      style: BaseStyle,
+      extent: MapExtent,
+      expected: RgbaPixel,
+      read: (MlnFfiRenderTarget) -> RgbaPixel,
+    ): MlnFfiRenderTarget {
+      var target = renderStyle(style, extent)
+      var actual = read(target)
+      val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
+      while (!near(expected, actual)) {
+        check(deadline.hasNotPassedNow()) {
+          "Timed out presenting $expected at $extent, last read $actual"
+        }
+        renderer.onSurfaceChanged(extent)
+        val pumped = pumpFrame(extent)
+        if (pumped.rendered) {
+          target = checkNotNull(pumped.target)
+          actual = read(target)
+        }
+        Thread.sleep(POLL_INTERVAL_MILLIS)
+      }
+      return target
+    }
+
+    private fun pumpFrame(extent: MapExtent): PumpedFrame {
+      val frame =
+        assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent, null))
+          .frame
+      try {
+        val result = host.withProducerAccess(frame) { renderer.render(frame) }
+        if (result == MlnFfiFrameResult.RENDERED) {
+          host.completeProducerAccess(frame)
+          return PumpedFrame(result, frame.target)
+        }
+        return PumpedFrame(result, null)
+      } finally {
+        host.releaseFrame(frame)
+      }
+    }
+
     override fun close() {
       renderer.close()
       cacheDirectory.toFile().deleteRecursively()
+    }
+
+    private class PumpedFrame(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget?) {
+      val rendered: Boolean
+        get() = result == MlnFfiFrameResult.RENDERED && target != null
     }
   }
 
@@ -381,28 +410,6 @@ class LinuxVulkanOpenGlInteropTest {
         drew = host.draw(this, target)
       }
       assertTrue(drew, "The OpenGL host did not draw generation ${target.generation}")
-      return readDestination()
-    }
-
-    fun record(host: VulkanOpenGlMapHost, target: MlnFfiRenderTarget): Picture =
-      PictureRecorder().use { recorder ->
-        val canvas = recorder.beginRecording(0f, 0f, DRAW_WIDTH.toFloat(), DRAW_HEIGHT.toFloat())
-        var drew = false
-        CanvasDrawScope().draw(
-          Density(1f),
-          LayoutDirection.Ltr,
-          canvas.asComposeCanvas(),
-          Size(DRAW_WIDTH.toFloat(), DRAW_HEIGHT.toFloat()),
-        ) {
-          drew = host.draw(this, target)
-        }
-        assertTrue(drew, "The OpenGL host did not record generation ${target.generation}")
-        recorder.finishRecordingAsPicture()
-      }
-
-    fun drawAndRead(picture: Picture): RgbaPixel {
-      destination.canvas.clear(0xff00ff00.toInt())
-      destination.canvas.drawPicture(picture)
       return readDestination()
     }
 
@@ -546,6 +553,12 @@ class LinuxVulkanOpenGlInteropTest {
     const val DRAW_HEIGHT = 240
     const val POLL_INTERVAL_MILLIS = 8L
     const val CHANNEL_TOLERANCE = 2
+
+    fun near(expected: RgbaPixel, actual: RgbaPixel): Boolean =
+      abs(expected.red - actual.red) <= CHANNEL_TOLERANCE &&
+        abs(expected.green - actual.green) <= CHANNEL_TOLERANCE &&
+        abs(expected.blue - actual.blue) <= CHANNEL_TOLERANCE &&
+        abs(expected.alpha - actual.alpha) <= CHANNEL_TOLERANCE
 
     val TEST_TIMEOUT = 30.seconds
 
