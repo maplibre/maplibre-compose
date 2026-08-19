@@ -16,6 +16,34 @@ internal val DEFAULT_WORKER_URL: String by lazy {
 }
 
 /**
+ * A same-origin worker URL for [workerUrl]. Cross-origin `http(s)` URLs become a blob that
+ * `import`s them, which is what MapLibre GL JS 6 does for a CDN worker. Same-origin URLs are
+ * returned as they are.
+ *
+ * MapLibre's own laundering uses `new URL(url, import.meta.url)`. Webpack rewrites that into a
+ * module lookup, which fails for an `https` URL with "Cannot find module". This path avoids
+ * `import.meta.url` so the CDN default works when the library is bundled.
+ */
+internal fun sameOriginWorkerUrl(workerUrl: String): String =
+  js(
+      """
+      (function() {
+        var loc = globalThis.location;
+        if (!loc) return workerUrl;
+        try {
+          if (new URL(workerUrl, loc.href).origin === loc.origin) return workerUrl;
+        } catch (e) {
+          return workerUrl;
+        }
+        return URL.createObjectURL(
+          new Blob(["import " + JSON.stringify(workerUrl)], {type: "text/javascript"})
+        );
+      })()
+      """
+    )
+    .unsafeCast<String>()
+
+/**
  * The places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is pinned
  * to internals of one MapLibre version and fails loudly when a version bump moves them.
  */
@@ -26,7 +54,7 @@ internal object GlJsRuntime {
   /** Points MapLibre GL JS 6 at [workerUrl]. The first call wins; later calls are ignored. */
   fun pointAtWorker(workerUrl: String) {
     if (workerUrlConfigured) return
-    setWorkerUrl(workerUrl)
+    setWorkerUrl(sameOriginWorkerUrl(workerUrl))
     workerUrlConfigured = true
   }
 
