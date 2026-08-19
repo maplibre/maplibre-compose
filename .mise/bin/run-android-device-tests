@@ -1,20 +1,21 @@
 #!/usr/bin/env bash
 # Run connected Android tests against the mise-managed emulator.
-# Packages only this host's JNI ABI, and retries once after a session-install hang.
 set -euo pipefail
 
 api_level=${1:?usage: run-android-device-tests <api-level>}
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-project_root="${MISE_PROJECT_ROOT:-$(cd "$script_dir/../.." && pwd)}"
-abi="$("$script_dir/android-host-abi")"
-gradlew="${ANDROID_DEVICE_TEST_GRADLE:-$project_root/gradlew}"
-state_dir="$project_root/build/android-emulator"
-mkdir -p "$state_dir"
-log="$state_dir/device-tests.log"
+# Same selection as boot-android-emulator: the guest image this host can accelerate.
+case "$(uname -m)" in
+  arm64 | aarch64) abi=arm64-v8a ;;
+  *) abi=x86_64 ;;
+esac
+
+project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+mkdir -p "$project_root/build/android-emulator"
+log="$project_root/build/android-emulator/device-tests.log"
 
 run_gradle() {
-  "$gradlew" --no-parallel \
+  "$project_root/gradlew" --no-parallel \
     connectedDebugAndroidTest \
     connectedAndroidDeviceTest \
     -Pmaplibre.android.abis="$abi"
@@ -31,15 +32,15 @@ if ((status == 0)); then
   exit 0
 fi
 
-if ! "$script_dir/android-install-hang" "$log"; then
+# Session install hung: ddmlib never wrote the APK, so the runner started 0 tests.
+if ! grep -q 'Starting 0 tests' "$log" ||
+  ! grep -qE 'ShellCommandUnresponsiveException|Failed to install-write all apks' "$log"; then
   exit "$status"
 fi
 
 echo "Android session install hung; rebooting the emulator and retrying once."
-if [[ -z "${ANDROID_DEVICE_TEST_SKIP_REBOOT:-}" ]]; then
-  "$script_dir/stop-android-emulator"
-  "$script_dir/boot-android-emulator" "$api_level"
-fi
+"$project_root/.mise/bin/stop-android-emulator"
+"$project_root/.mise/bin/boot-android-emulator" "$api_level"
 
 set +e
 {

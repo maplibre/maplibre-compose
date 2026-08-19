@@ -26,8 +26,6 @@ tasks
   .matching { it.name.startsWith("SwiftPackageConfig") }
   .configureEach { usesService(swiftPackageBuilds) }
 
-configureAndroidNativeAbiPackaging()
-
 tasks.withType<AbstractTestTask>().configureEach { failOnNoDiscoveredTests = false }
 
 // Desktop tests may load the MapLibre Native FFI runtime, which needs native access.

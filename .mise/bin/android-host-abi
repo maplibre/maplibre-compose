@@ -1,8 +1,0 @@
-#!/usr/bin/env bash
-# Print the JNI ABI of the Android emulator this host boots.
-set -euo pipefail
-
-case "$(uname -m)" in
-  arm64 | aarch64) printf '%s\n' arm64-v8a ;;
-  *) printf '%s\n' x86_64 ;;
-esac
