@@ -41,11 +41,16 @@ import org.maplibre.compose.mlnffi.TextureOrigin
 internal class OpenGlPresenter : AutoCloseable {
   private val presenters = mutableMapOf<Int, TexturePresenter>()
 
+  /**
+   * @param contentEpoch increments after each Vulkan write into [target]. A new value drops Skia's
+   *   cached surface so the snapshot reads the live import.
+   */
   fun draw(
     scope: DrawScope,
     skiaContext: DirectContext,
     target: OpenGlTextureTarget,
     completion: ComposeFrameCompletion,
+    contentEpoch: Long,
   ): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
@@ -58,6 +63,7 @@ internal class OpenGlPresenter : AutoCloseable {
         target,
         scope.size.width,
         scope.size.height,
+        contentEpoch,
       )
       completion.frameRecorded(presenter::preserveFrame)
       drew = true
@@ -92,6 +98,7 @@ internal class OpenGlPresenter : AutoCloseable {
     private var framebuffer = 0
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
+    private var contentEpoch = Long.MIN_VALUE
 
     fun draw(
       canvas: org.jetbrains.skia.Canvas,
@@ -99,8 +106,9 @@ internal class OpenGlPresenter : AutoCloseable {
       target: OpenGlTextureTarget,
       destinationWidth: Float,
       destinationHeight: Float,
+      contentEpoch: Long,
     ) {
-      ensureSurface(context, target)
+      ensureSurface(context, target, contentEpoch)
       val currentSurface =
         surface ?: throw MlnFfiHostException("Skia could not wrap OpenGL texture $textureName")
 
@@ -124,23 +132,35 @@ internal class OpenGlPresenter : AutoCloseable {
       surface?.notifyContentWillChange(ContentChangeMode.RETAIN)
     }
 
-    private fun ensureSurface(context: DirectContext, target: OpenGlTextureTarget) {
-      if (
+    private fun ensureSurface(
+      context: DirectContext,
+      target: OpenGlTextureTarget,
+      contentEpoch: Long,
+    ) {
+      val sameImport =
         surface != null &&
           renderTarget != null &&
           framebuffer != 0 &&
           width == target.extent.physicalWidth &&
           height == target.extent.physicalHeight &&
           origin == target.origin
-      ) {
-        return
-      }
+      if (sameImport && this.contentEpoch == contentEpoch) return
 
-      closeGpuResources()
-      width = target.extent.physicalWidth
-      height = target.extent.physicalHeight
-      origin = target.origin
-      framebuffer = createFramebuffer(target)
+      if (sameImport) {
+        // Same GL name, new Vulkan writes. Drop Skia's surface so the snapshot
+        // reads the imported texture again. Mesa keeps a stale image across those writes.
+        surface?.close()
+        surface = null
+        renderTarget?.close()
+        renderTarget = null
+      } else {
+        closeGpuResources()
+        width = target.extent.physicalWidth
+        height = target.extent.physicalHeight
+        origin = target.origin
+        framebuffer = createFramebuffer(target)
+      }
+      this.contentEpoch = contentEpoch
       renderTarget =
         BackendRenderTarget.makeGL(
           width = width,
@@ -196,6 +216,7 @@ internal class OpenGlPresenter : AutoCloseable {
       width = 0
       height = 0
       origin = TextureOrigin.TOP_LEFT
+      contentEpoch = Long.MIN_VALUE
     }
 
     fun abandon() {
@@ -207,6 +228,7 @@ internal class OpenGlPresenter : AutoCloseable {
       width = 0
       height = 0
       origin = TextureOrigin.TOP_LEFT
+      contentEpoch = Long.MIN_VALUE
     }
 
     private fun closeGpuResources() {
