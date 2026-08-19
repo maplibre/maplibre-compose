@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfo
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -32,7 +32,7 @@ fun DemoApp() {
   // viewport crosses the side-pane / bottom-sheet breakpoint.
   val panel = remember { movableContentOf { modifier: Modifier -> DemoPanel(state, modifier) } }
   MaterialTheme(colorScheme = colorScheme) {
-    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    val windowSizeClass = currentWindowAdaptiveInfo().windowSizeClass
     if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
       WideLayout(state, panel)
     } else {

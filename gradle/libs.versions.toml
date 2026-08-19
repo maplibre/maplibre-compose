@@ -45,7 +45,8 @@ gradle-spmForKmp = "1.9.5"
 gradle-compose = "1.11.1"
 androidx-compose = "1.11.2"
 jetbrains-compose-material3 = "1.11.0-alpha07"
-jetbrains-compose-material3-adaptive = "1.3.0-alpha07"
+# 1.3.x needs compileSdk 37; AGP 9.1 and this catalog stay on 36.
+jetbrains-compose-material3-adaptive = "1.2.0"
 jetbrains-navigation = "2.9.2"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
