@@ -119,10 +119,10 @@ class LinuxVulkanOpenGlInteropTest {
             val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, SECOND_EXTENT) }
 
             val oldPixel = egl.withCurrent { egl.drawAndRead(host, first) }
-            assertNear(FIRST_PIXEL, oldPixel)
+            assertNear(FIRST_PIXEL, oldPixel, "retired generation after resize")
 
             val newPixel = egl.withCurrent { egl.drawAndRead(host, second) }
-            assertNear(SECOND_PIXEL, newPixel)
+            assertNear(SECOND_PIXEL, newPixel, "current generation after resize")
           }
         } finally {
           host.close()
@@ -140,13 +140,18 @@ class LinuxVulkanOpenGlInteropTest {
           try {
             InteropMap(host).use { map ->
               val first = firstEgl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
-              assertNear(FIRST_PIXEL, firstEgl.withCurrent { firstEgl.drawAndRead(host, first) })
+              assertNear(
+                FIRST_PIXEL,
+                firstEgl.withCurrent { firstEgl.drawAndRead(host, first) },
+                "first context before replacement",
+              )
 
               mapHost.replaceContext(secondEgl)
               val second = secondEgl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
               assertNear(
                 SECOND_PIXEL,
                 secondEgl.withCurrent { secondEgl.drawAndRead(host, second) },
+                "replacement context after a new shared target",
               )
             }
           } finally {
@@ -168,8 +173,16 @@ class LinuxVulkanOpenGlInteropTest {
               egl.record(host, first).use { recordedFirst ->
                 val second = map.renderStyle(SECOND_STYLE, FIRST_EXTENT)
 
-                assertNear(FIRST_PIXEL, egl.drawAndRead(recordedFirst))
-                assertNear(SECOND_PIXEL, egl.drawAndRead(host, second))
+                assertNear(
+                  FIRST_PIXEL,
+                  egl.drawAndRead(recordedFirst),
+                  "recorded first frame after the shared target was reused",
+                )
+                assertNear(
+                  SECOND_PIXEL,
+                  egl.drawAndRead(host, second),
+                  "live second frame on the reused target",
+                )
               }
             }
           }
@@ -184,7 +197,7 @@ class LinuxVulkanOpenGlInteropTest {
     block()
   }
 
-  private fun assertNear(expected: RgbaPixel, actual: RgbaPixel) {
+  private fun assertNear(expected: RgbaPixel, actual: RgbaPixel, label: String) {
     val differences =
       listOf(
         abs(expected.red - actual.red),
@@ -194,7 +207,7 @@ class LinuxVulkanOpenGlInteropTest {
       )
     assertTrue(
       differences.all { it <= CHANNEL_TOLERANCE },
-      "Expected $expected within $CHANNEL_TOLERANCE per channel, got $actual",
+      "$label: expected $expected within $CHANNEL_TOLERANCE per channel, got $actual",
     )
   }
 
