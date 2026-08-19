@@ -72,15 +72,17 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
   val styleUrl = (scenario.style.base as BaseStyle.Uri).uri
 
   LaunchedEffect(scenario.id) {
+    state.benchmark.abandonRun()
     cameraState.position = scenario.camera
     session.geoJson = null
     session.pin = null
     session.pointerPx = null
   }
 
-  LaunchedEffect(state.benchmark.runId, scenario.id) {
+  LaunchedEffect(state.benchmark.runId) {
     if (state.benchmark.runId == 0) return@LaunchedEffect
     val ui = state.benchmark
+    val running = state.selectedScenario
     ui.running = true
     session.geoJson = null
     session.pin = null
@@ -89,18 +91,18 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
     try {
       ui.status = "Waiting for the map"
       mapLoaded.await()
-      cameraState.position = scenario.camera
+      cameraState.position = running.camera
       ui.status = "Prefetching tiles"
       prefetcher.ensurePacked(
-        scenarioId = scenario.id,
+        scenarioId = running.id,
         styleUrl = styleUrl,
-        bounds = scenario.region,
-        minZoom = scenario.minZoom,
-        maxZoom = scenario.maxZoom,
+        bounds = running.region,
+        minZoom = running.minZoom,
+        maxZoom = running.maxZoom,
         camera = cameraState,
         onStatus = { ui.status = it },
       )
-      ui.status = "Running ${scenario.title}"
+      ui.status = "Running ${running.title}"
       session.frames.start()
       val started = TimeSource.Monotonic.markNow()
       coroutineScope {
@@ -117,7 +119,7 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
           }
         }
         try {
-          scenario.run(session)
+          running.run(session)
         } finally {
           composeJob.cancel()
         }
@@ -127,7 +129,7 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
       val gesture = if (session.gestures.stats().samples > 0) session.gestures.stats() else null
       val report =
         BenchmarkReport(
-          scenario = scenario.id,
+          scenario = running.id,
           platform = benchmarkPlatformLabel,
           prefetch = prefetcher.mode,
           durationMs = durationMs,

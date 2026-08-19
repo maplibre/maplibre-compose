@@ -59,3 +59,16 @@ class GestureLatencyTest {
     assertEquals(6.0, stats.medianTrailPx)
   }
 }
+
+class BenchmarkUiStateTest {
+  @Test
+  fun abandonRun_clears_a_leftover_run_token() {
+    val ui = BenchmarkUiState()
+    ui.requestRun()
+    assertEquals(1, ui.runId)
+    ui.abandonRun()
+    assertEquals(0, ui.runId)
+    assertEquals(false, ui.running)
+    assertEquals(null, ui.report)
+  }
+}

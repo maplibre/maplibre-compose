@@ -75,6 +75,14 @@ class BenchmarkUiState {
     status = "Starting"
     runId++
   }
+
+  /** Drops a leftover run token so a new scenario waits for Run. */
+  fun abandonRun() {
+    runId = 0
+    running = false
+    report = null
+    status = "Pick a scenario and run it."
+  }
 }
 
 data class BenchmarkReport(

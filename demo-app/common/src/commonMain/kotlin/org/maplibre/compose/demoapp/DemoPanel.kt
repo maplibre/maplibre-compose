@@ -60,6 +60,7 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
     if (route == "demos") {
       state.selectedDemo = null
       state.shell = DemoShell.Demos
+      state.benchmark.abandonRun()
     }
   }
   // Material 3 shared axis X: siblings slide 30dp while fading through.
