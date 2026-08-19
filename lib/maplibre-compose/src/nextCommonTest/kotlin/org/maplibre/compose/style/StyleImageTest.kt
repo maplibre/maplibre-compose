@@ -12,7 +12,6 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.sources.GeoJsonData
@@ -102,9 +101,12 @@ class StyleImageTest {
   }
 
   /**
-   * GLES keeps a miss from the JSON that creates a symbol layer, even after a later `addImage`. The
-   * image is uploaded and a frame is drawn first, then `icon-image` is set on the live layer so
-   * that name is absent from the creation JSON.
+   * The image is uploaded, a frame is drawn, and then `icon-image` is set on the live layer.
+   *
+   * GLES keeps a miss from creation JSON that names an image that is not in the style yet. The
+   * `image` expression checks the atlas when it evaluates; GLES packs a runtime image when a layout
+   * requests that name, so `["image","probe"]` can stay unresolved. The name as a string is what
+   * that layout requests.
    */
   private suspend fun attachProbeIcon(
     fixture: MapFixture,
@@ -133,7 +135,7 @@ class StyleImageTest {
     layer.setIconAllowOverlap(const(true).compile(ExpressionContext.None))
     layer.setIconIgnorePlacement(const(true).compile(ExpressionContext.None))
     style.addLayer(layer)
-    layer.setIconImage(image(IMAGE_ID).compile(ExpressionContext.None))
+    layer.setIconImage(const(IMAGE_ID).compile(ExpressionContext.None).cast())
   }
 
   private fun solidBitmap(size: Int, color: Color): ImageBitmap {
