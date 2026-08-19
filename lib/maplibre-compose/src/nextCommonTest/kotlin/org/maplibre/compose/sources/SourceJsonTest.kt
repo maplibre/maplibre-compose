@@ -10,6 +10,8 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
+import org.maplibre.spatialk.geojson.toJson
 
 class SourceJsonTest {
 
@@ -75,6 +77,26 @@ class SourceJsonTest {
       (json["tiles"] as JsonArray).map { it.jsonPrimitive.content },
     )
     assertEquals("512", json["tileSize"]?.jsonPrimitive?.content, "tileSize, not tilesize")
+  }
+
+  @Test
+  fun inline_utf8_is_the_feature_json_bytes() {
+    val collection = featureCollectionOf()
+    assertEquals(
+      collection.toJson(),
+      GeoJsonData.Features(collection).toInlineUtf8()!!.decodeToString(),
+    )
+  }
+
+  @Test
+  fun inline_utf8_keeps_a_json_string_verbatim() {
+    val json = """{"type":"Point","coordinates":[1,2]}"""
+    assertEquals(json, GeoJsonData.JsonString(json).toInlineUtf8()!!.decodeToString())
+  }
+
+  @Test
+  fun a_uri_has_no_inline_utf8() {
+    assertNull(GeoJsonData.Uri("https://example.invalid/data.geojson").toInlineUtf8())
   }
 
   @Test

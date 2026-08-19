@@ -45,6 +45,14 @@ internal fun GeoJsonData.toDataJson(): JsonElement =
     is GeoJsonData.Features -> Json.parseToJsonElement(geoJson.toJson())
   }
 
+/** UTF-8 GeoJSON for an inline value, or null when the data is a URL. */
+internal fun GeoJsonData.toInlineUtf8(): ByteArray? =
+  when (this) {
+    is GeoJsonData.Uri -> null
+    is GeoJsonData.JsonString -> json.encodeToByteArray()
+    is GeoJsonData.Features -> geoJson.toJson().encodeToByteArray()
+  }
+
 /**
  * `minzoom` and `synchronousUpdate` are deliberately absent: the spec has no place for them here
  * and GL JS rejects the whole source over an unknown key, so each backend that honours one writes
