@@ -2,6 +2,9 @@
 
 package org.maplibre.compose.sources
 
+import kotlin.concurrent.Volatile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -20,15 +23,17 @@ import org.maplibre.spatialk.geojson.Geometry
 public actual class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
+  private val ffiOptions: GeoJsonSourceOptions
 
   /** UTF-8 GeoJSON for inline data. Null when [dataUrl] is set. */
-  private var inlineUtf8: ByteArray?
+  @Volatile private var inlineUtf8: ByteArray?
 
   /** The URI form of the data, when it is one. */
-  private var dataUrl: String?
+  @Volatile private var dataUrl: String?
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
+    this.ffiOptions = options.toFfiOptions()
     this.inlineUtf8 = data.toInlineUtf8()
     this.dataUrl = (data as? GeoJsonData.Uri)?.uri
   }
@@ -52,7 +57,7 @@ public actual class GeoJsonSource : Source {
     val url = dataUrl
     if (url != null) {
       prepared?.close()
-      map.addGeoJsonSourceUrl(id, url, options.toFfiOptions())
+      map.addGeoJsonSourceUrl(id, url, ffiOptions)
     } else {
       val handle =
         (prepared as? GeoJsonSourceDataHandle)
@@ -70,10 +75,9 @@ public actual class GeoJsonSource : Source {
     if (data is GeoJsonData.Uri) {
       mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
     } else {
-      // Prepared outside the lambda so the map's owner thread does not parse or index the data.
-      // mutateMap waits until the owner thread has used the handle, so closing it afterward is
-      // safe. synchronousTiling is independent of this: it only changes where viewport tiles are
-      // sliced after the cheap install, on the owner thread (true) or a worker (false).
+      // Parse and index on the caller; [publishData] runs this on a worker. mutateMap waits until
+      // the owner thread has installed the handle. synchronousTiling only changes where viewport
+      // tiles are sliced after that install: during the next render (true) or on a worker (false).
       prepareData().use { prepared ->
         mutate { map -> map.setGeoJsonSourceData(id, prepared) }
       }
@@ -89,7 +93,7 @@ public actual class GeoJsonSource : Source {
 
   /** Prepared with the options the source was added with; a mismatch is rejected at install. */
   private fun prepareData(): GeoJsonSourceDataHandle =
-    GeoJsonSourceDataHandle.create(inlineUtf8!!, options.toFfiOptions())
+    GeoJsonSourceDataHandle.create(inlineUtf8!!, ffiOptions)
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
@@ -210,8 +214,7 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
     it.clusterMaxZoom = clusterMaxZoom.toDouble()
     it.clusterMinPoints = clusterMinPoints
     it.lineMetrics = lineMetrics
-    // Viewport tile slicing during the update pass on the owner thread, not JSON parse. Parse and
-    // index happen in [GeoJsonSourceDataHandle.create], which the caller runs off that thread.
+    // Viewport tiles are sliced during the next render when true, or on a worker when false.
     it.synchronousTiling = synchronousUpdate
     it.clusterProperties = clusterPropertiesBytes()
   }
@@ -219,4 +222,8 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
 private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
   if (clusterProperties.isEmpty()) return null
   return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
+}
+
+internal actual suspend fun GeoJsonSource.publishData(data: GeoJsonData) {
+  withContext(Dispatchers.Default) { setData(data) }
 }
