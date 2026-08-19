@@ -7,7 +7,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.DpOffset
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.DemoStyle
@@ -59,7 +58,6 @@ class BenchmarkSession(
 ) {
   var geoJson by mutableStateOf<GeoJsonObject?>(null)
   var pin by mutableStateOf<Position?>(null)
-  var expectedCursor by mutableStateOf<DpOffset?>(null)
   var pointerPx by mutableStateOf<Offset?>(null)
 }
 
@@ -115,6 +113,5 @@ val allBenchmarkScenarios: List<BenchmarkScenario> =
     ZoomPumpScenario,
     FlyAroundScenario,
     GeoJsonLoadScenario,
-    ScriptedPanScenario,
     GestureTrailScenario,
   )

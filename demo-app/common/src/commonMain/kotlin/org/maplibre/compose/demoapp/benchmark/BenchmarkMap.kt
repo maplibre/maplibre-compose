@@ -75,7 +75,6 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
     cameraState.position = scenario.camera
     session.geoJson = null
     session.pin = null
-    session.expectedCursor = null
     session.pointerPx = null
   }
 
@@ -85,7 +84,6 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
     ui.running = true
     session.geoJson = null
     session.pin = null
-    session.expectedCursor = null
     session.pointerPx = null
     session.gestures.reset()
     try {
@@ -242,11 +240,7 @@ private fun samplePin(session: BenchmarkSession) {
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTrail(session: BenchmarkSession) {
-  val composePoint =
-    session.pointerPx
-      ?: session.expectedCursor?.let {
-        with(session.density) { Offset(it.x.toPx(), it.y.toPx()) }
-      }
+  val composePoint = session.pointerPx
   val pin = session.pin
   val projected = pin?.let { session.cameraState.projection?.screenLocationFromPosition(it) }
   val mapPoint = projected?.let { with(session.density) { Offset(it.x.toPx(), it.y.toPx()) } }
