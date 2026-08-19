@@ -205,14 +205,22 @@ private constructor(
     return runBlocking { work.await() }
   }
 
-  /** Applies a style and pumps until it finishes loading. */
+  /**
+   * Applies a style and pumps until that load finishes.
+   *
+   * [MlnFfiMapSession.setBaseStyle] clears the live style before the new document loads, so this
+   * waits for a `STYLE_LOADED` that arrives after the call.
+   */
   fun loadStyle(
     style: BaseStyle,
     timeout: Duration = 60.seconds,
     extent: MapExtent = DEFAULT_EXTENT,
   ) {
+    val styleLoadsBefore = events.count { it == STYLE_LOADED }
     session.setBaseStyle(style)
-    pumpUntil("style $style to load", timeout, extent) { events.contains(STYLE_LOADED) }
+    pumpUntil("style $style to load", timeout, extent) {
+      events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
+    }
   }
 
   override fun close() {

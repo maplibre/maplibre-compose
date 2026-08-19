@@ -198,7 +198,7 @@ class MlnFfiResourceRequestTest {
 
     fun awaitClose() {
       val deadline = TimeSource.Monotonic.markNow() + WAIT_SECONDS.seconds
-      while (closes == 0 && deadline.hasNotPassedNow()) Thread.onSpinWait()
+      while (closes == 0 && deadline.hasNotPassedNow()) Thread.yield()
       assertEquals(1, closes, "the request was never closed")
     }
   }

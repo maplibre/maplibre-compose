@@ -176,7 +176,7 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun `disposing after replacing the camera state resets the replacement`() {
+  fun disposing_after_replacing_the_camera_state_resets_the_replacement() {
     var visible by mutableStateOf(true)
     var cameraState by mutableStateOf(CameraState(CameraPosition()))
     val replacement = CameraState(CameraPosition(zoom = 3.0))
@@ -277,7 +277,7 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun `an animation requested as the camera attaches waits for the native map`() {
+  fun an_animation_requested_as_the_camera_attaches_waits_for_the_native_map() {
     val finalPosition =
       CameraPosition(target = Position(longitude = 12.4924, latitude = 41.8902), zoom = 9.0)
     val cameraState = CameraState(CameraPosition())
@@ -319,7 +319,8 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun overlay_placed_at_follows_the_camera_target_when_the_map_resizes() {
-    val mapWidth = mutableStateOf(256.dp)
+    // A phone-width activity clamps a 512.dp map, so these widths stay inside 320.dp.
+    val mapWidth = mutableStateOf(128.dp)
     val target = Position(longitude = 11.0, latitude = 47.0)
     val camera = CameraState(CameraPosition(target = target, zoom = 3.0))
 
@@ -332,13 +333,13 @@ class MlnFfiMapCompositionTest {
         }
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
           val x = centerX()
-          x != null && abs(x - 128f) < 4f
+          x != null && abs(x - 64f) < 4f
         }
         val first = requireNotNull(centerX())
-        mapWidth.value = 512.dp
+        mapWidth.value = 256.dp
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
           val x = centerX()
-          x != null && abs(x - 256f) < 4f
+          x != null && abs(x - 128f) < 4f
         }
         val second = requireNotNull(centerX())
         assertTrue(

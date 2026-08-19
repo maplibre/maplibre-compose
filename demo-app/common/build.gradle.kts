@@ -41,10 +41,10 @@ kotlin {
   sourceSets {
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
-    // Desktop and web share the nextCommon gesture fields. Android and iOS each have their own
-    // SDK options, so their settings actuals live in the platform source sets.
+    // Android, desktop, and web share the nextCommon gesture fields. iOS still has its own SDK
+    // options, so its settings actuals live in the iOS source set.
     val nonIosShared by creating { dependsOn(commonMain.get()) }
-    // Desktop-only render toggles: tile borders, parse status, and the Surface/Texture hint.
+    // FFI render toggles: tile borders, parse status, and the Surface/Texture hint.
     val mlnFfiShared by creating { dependsOn(commonMain.get()) }
 
     // The offline API exists only on the MapLibre Native platforms, so the offline demo UI lives
@@ -63,6 +63,8 @@ kotlin {
     val jvmShared by creating { dependsOn(nonJsShared) }
 
     androidMain {
+      dependsOn(nonIosShared)
+      dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
       dependsOn(jvmShared)
     }
@@ -93,14 +95,8 @@ kotlin {
       implementation(libs.androidx.navigation.compose)
       implementation(libs.spatialk.geojson)
 
-      // We exclude the android sdk here so we can select a variant via gradle property.
-      // See androidMain below.
-      api(project(":lib:maplibre-compose")) {
-        exclude(group = "org.maplibre.gl", module = "android-sdk")
-      }
-      implementation(project(":lib:maplibre-compose-material3")) {
-        exclude(group = "org.maplibre.gl", module = "android-sdk")
-      }
+      api(project(":lib:maplibre-compose"))
+      implementation(project(":lib:maplibre-compose-material3"))
     }
 
     androidMain {
@@ -109,20 +105,7 @@ kotlin {
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.ktor.client.okhttp)
-        implementation(project(":lib:maplibre-compose-gms")) {
-          exclude(group = "org.maplibre.gl", module = "android-sdk")
-        }
-
-        project.properties["demoAppMaplibreAndroidFlavor"].let { flavor ->
-          when (flavor) {
-            null,
-            "default" -> implementation(libs.maplibre.android)
-            "opengl" -> implementation(libs.maplibre.androidOpenGL)
-            "vulkan" -> implementation(libs.maplibre.androidVulkan)
-            "debug" -> implementation(libs.maplibre.androidDebug)
-            else -> error("Unknown maplibre android flavor: $flavor")
-          }
-        }
+        implementation(project(":lib:maplibre-compose-gms"))
       }
     }
 
