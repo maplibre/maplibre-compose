@@ -100,6 +100,9 @@ object TransitNetworkDemo : Demo {
   private const val FEED_URI =
     "https://business.wsdot.wa.gov/Transit/csv_files/wsf/google_transit.zip"
 
+  /** Camera padding that leaves room for a departure chip above each terminal. */
+  private val RouteFitPadding = PaddingValues(horizontal = 96.dp, vertical = 72.dp)
+
   // WSF's routes.txt assigns no colors, so the demo assigns its own.
   private val palette =
     listOf(
@@ -175,6 +178,23 @@ object TransitNetworkDemo : Demo {
       val tripsByRoute = trips.groupBy { it.routeId }
       val stopTimesByTrip = stopTimes.groupBy { it.tripId }
 
+      val terminalList = stops.mapNotNull { stop ->
+        val longitude = stop.stopLongitude ?: return@mapNotNull null
+        val latitude = stop.stopLatitude ?: return@mapNotNull null
+        Terminal(
+          id = stop.stopId,
+          name = stop.stopName ?: stop.stopId,
+          position = Position(longitude = longitude, latitude = latitude),
+        )
+      }
+      val terminalsById = terminalList.associateBy { it.id }
+      val stopIdsByRoute = tripsByRoute.mapValues { (_, routeTrips) ->
+        routeTrips
+          .flatMap { trip -> stopTimesByTrip[trip.tripId].orEmpty() }
+          .filter { it.allowsBoarding }
+          .mapTo(mutableSetOf()) { it.stopId }
+      }
+
       val lineFeatures = mutableListOf<Feature<LineString, JsonObject>>()
       val routeEntries = mutableListOf<RouteEntry>()
       routes.forEachIndexed { index, route ->
@@ -197,7 +217,9 @@ object TransitNetworkDemo : Demo {
                 },
             )
         }
-        val all = positions.flatten()
+        val all =
+          positions.flatten() +
+            stopIdsByRoute[route.routeId].orEmpty().mapNotNull { id -> terminalsById[id]?.position }
         routeEntries +=
           RouteEntry(
             id = route.routeId,
@@ -213,33 +235,18 @@ object TransitNetworkDemo : Demo {
           )
       }
 
-      val terminalList = stops.mapNotNull { stop ->
-        val longitude = stop.stopLongitude ?: return@mapNotNull null
-        val latitude = stop.stopLatitude ?: return@mapNotNull null
-        Terminal(
-          id = stop.stopId,
-          name = stop.stopName ?: stop.stopId,
-          position = Position(longitude = longitude, latitude = latitude),
-        )
-      }
       val terminalFeatures = terminalList.map { terminal ->
         Feature(
           geometry = Point(terminal.position),
           properties = buildJsonObject { put("name", terminal.name) },
         )
       }
-      val stopIdsByRoute = tripsByRoute.mapValues { (_, routeTrips) ->
-        routeTrips
-          .flatMap { trip -> stopTimesByTrip[trip.tripId].orEmpty() }
-          .filter { it.allowsBoarding }
-          .mapTo(mutableSetOf()) { it.stopId }
-      }
 
       Network(
         routes = routeEntries.sortedBy { it.displayName },
         routeLines = FeatureCollection(lineFeatures),
         terminals = FeatureCollection(terminalFeatures),
-        terminalsById = terminalList.associateBy { it.id },
+        terminalsById = terminalsById,
         stopIdsByRoute = stopIdsByRoute,
         timeZone = agencies.first().agencyTimezone,
         tripsByRoute = tripsByRoute,
@@ -355,7 +362,7 @@ object TransitNetworkDemo : Demo {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
       cameraState.animateTo(
         boundingBox = route.bounds,
-        padding = PaddingValues(48.dp),
+        padding = RouteFitPadding,
         duration = 1.seconds,
       )
     }
