@@ -13,9 +13,9 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.testing.RecordingList
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection

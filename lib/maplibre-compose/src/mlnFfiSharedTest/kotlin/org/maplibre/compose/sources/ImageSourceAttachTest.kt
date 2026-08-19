@@ -7,9 +7,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
-import org.maplibre.compose.mlnffi.RecordingList
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.log.LogCallback
