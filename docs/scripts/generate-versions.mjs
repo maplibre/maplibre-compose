@@ -46,7 +46,6 @@ const catalog = new Map(
 const versions = {
   release: demand(properties, "maplibreReleaseVersion", "version-args"),
   snapshot: demand(properties, "maplibreSnapshotVersion", "version-args"),
-  maplibreAndroid: demand(catalog, "maplibre-android-sdk", catalogPath),
   maplibreIos: demand(catalog, "maplibre-ios", catalogPath),
   maplibreJs: demand(catalog, "maplibre-js", catalogPath),
 };

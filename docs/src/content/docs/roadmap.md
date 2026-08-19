@@ -41,16 +41,14 @@ Next steps:
   Location portal, and macOS uses Core Location. Desktop orientation providers
   still need platform sensor integrations.
 
-### [Native core integration on Android and iOS](https://github.com/maplibre/maplibre-compose/issues/572)
+### [Native core integration on iOS](https://github.com/maplibre/maplibre-compose/issues/572)
 
 **Status:** Needs Exploration 🔍
 
-The goal is to wrap just the MapLibre Native C++ core on Android, iOS, and
-desktop with one common Kotlin JVM+Native wrapper. Desktop consumes
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi), but
-Android uses MapLibre Native's Java/Kotlin bindings and iOS its Obj-C ones. Each
-has a different API, so our multiplatform API tends toward the
-lowest-common-denominator of all three.
+The goal is to wrap just the MapLibre Native C++ core on iOS with the same
+Kotlin Multiplatform binding Android and Desktop now consume. iOS still uses
+MapLibre Native's Obj-C bindings, which keeps its implementation separate from
+the shared Android and Desktop path.
 
 The desktop work above is the evidence this is worth doing: it is a full map
 implementation on the FFI, and several capabilities MapLibre Native offers are
@@ -59,8 +57,6 @@ them.
 
 Research Areas:
 
-- Explore using `maplibre-native-ffi` on Android, with code to integrate with an
-  Android Surface instead of an AWT Canvas.
 - Explore using its Kotlin/Native targets on iOS, with code to integrate with a
   Metal layer.
 - Explore unifying those platforms behind a single, thin, `expect`/`actual`
@@ -201,10 +197,10 @@ which `maplibre-native-ffi` can now produce by reading a rendered map back to
 the CPU.
 
 These are deliberately not being built yet. Doing any of them today means
-writing the same feature four times — against the Android SDK, the iOS SDK,
-`maplibre-native-ffi`, and MapLibre GL JS — and throwing three of those away
-once the native core integration above lands. They become one implementation
-each afterwards, which is why that work comes first.
+writing the same feature three times — against the iOS SDK,
+`maplibre-native-ffi`, and MapLibre GL JS — and throwing two of those away once
+the native core integration above lands. They become one implementation each
+afterwards, which is why that work comes first.
 
 Snapshots carry one extra requirement, since we would like to style them the
 same way interactive maps are styled: the style API has to be usable without a
