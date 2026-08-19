@@ -130,3 +130,7 @@ public actual class GeoJsonSource : Source {
     featureStateUnavailable()
   }
 }
+
+internal actual suspend fun GeoJsonSource.publishData(data: GeoJsonData) {
+  setData(data)
+}

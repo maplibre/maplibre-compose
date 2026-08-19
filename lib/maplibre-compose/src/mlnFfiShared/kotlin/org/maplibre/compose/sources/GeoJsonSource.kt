@@ -2,6 +2,9 @@
 
 package org.maplibre.compose.sources
 
+import kotlin.concurrent.Volatile
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -20,15 +23,25 @@ import org.maplibre.spatialk.geojson.Geometry
 public actual class GeoJsonSource : Source {
 
   private val options: GeoJsonOptions
+  private val ffiOptions: GeoJsonSourceOptions
 
   /** UTF-8 GeoJSON for inline data. Null when [dataUrl] is set. */
-  private var inlineUtf8: ByteArray?
+  @Volatile private var inlineUtf8: ByteArray?
 
   /** The URI form of the data, when it is one. */
-  private var dataUrl: String?
+  @Volatile private var dataUrl: String?
+
+  /**
+   * Incremented at the start of every [setData] and [publishData]. Only the current generation
+   * installs after a parse.
+   */
+  @Volatile private var publishGeneration = 0
+
+  private val installLock = Any()
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
+    this.ffiOptions = options.toFfiOptions()
     this.inlineUtf8 = data.toInlineUtf8()
     this.dataUrl = (data as? GeoJsonData.Uri)?.uri
   }
@@ -52,7 +65,7 @@ public actual class GeoJsonSource : Source {
     val url = dataUrl
     if (url != null) {
       prepared?.close()
-      map.addGeoJsonSourceUrl(id, url, options.toFfiOptions())
+      map.addGeoJsonSourceUrl(id, url, ffiOptions)
     } else {
       val handle =
         (prepared as? GeoJsonSourceDataHandle)
@@ -65,19 +78,46 @@ public actual class GeoJsonSource : Source {
   }
 
   public actual fun setData(data: GeoJsonData) {
-    this.inlineUtf8 = data.toInlineUtf8()
-    this.dataUrl = (data as? GeoJsonData.Uri)?.uri
+    applyData(data, nextPublishGeneration())
+  }
+
+  private fun nextPublishGeneration(): Int = synchronized(installLock) { ++publishGeneration }
+
+  /**
+   * Parses the [data] argument, then installs it when [generation] is still current. mutateMap
+   * waits until the owner thread has used the handle, so closing it afterward is safe.
+   */
+  private fun applyData(data: GeoJsonData, generation: Int) {
     if (data is GeoJsonData.Uri) {
-      mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
-    } else {
-      // Prepared outside the lambda so the map's owner thread does not parse or index the data.
-      // mutateMap waits until the owner thread has used the handle, so closing it afterward is
-      // safe. synchronousTiling is independent of this: it only changes where viewport tiles are
-      // sliced after the cheap install, on the owner thread (true) or a worker (false).
-      prepareData().use { prepared ->
+      installIfCurrent(generation) {
+        inlineUtf8 = null
+        dataUrl = data.uri
+        mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
+      }
+      return
+    }
+    val utf8 = data.toInlineUtf8()!!
+    if (generation != publishGeneration) return
+    GeoJsonSourceDataHandle.create(utf8, ffiOptions).use { prepared ->
+      installIfCurrent(generation) {
+        inlineUtf8 = utf8
+        dataUrl = null
         mutate { map -> map.setGeoJsonSourceData(id, prepared) }
       }
     }
+  }
+
+  private inline fun installIfCurrent(generation: Int, install: () -> Unit) {
+    synchronized(installLock) {
+      if (generation != publishGeneration) return
+      install()
+    }
+  }
+
+  /** Parses and indexes on Default. [applyData] installs only the current generation. */
+  internal suspend fun publishPreparedData(data: GeoJsonData) {
+    val generation = nextPublishGeneration()
+    withContext(Dispatchers.Default) { applyData(data, generation) }
   }
 
   /**
@@ -89,7 +129,7 @@ public actual class GeoJsonSource : Source {
 
   /** Prepared with the options the source was added with; a mismatch is rejected at install. */
   private fun prepareData(): GeoJsonSourceDataHandle =
-    GeoJsonSourceDataHandle.create(inlineUtf8!!, options.toFfiOptions())
+    GeoJsonSourceDataHandle.create(inlineUtf8!!, ffiOptions)
 
   public actual fun isCluster(feature: Feature<*, JsonObject?>): Boolean {
     return CLUSTER_ID_PROPERTY in feature.properties.orEmpty()
@@ -210,8 +250,7 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
     it.clusterMaxZoom = clusterMaxZoom.toDouble()
     it.clusterMinPoints = clusterMinPoints
     it.lineMetrics = lineMetrics
-    // Viewport tile slicing during the update pass on the owner thread, not JSON parse. Parse and
-    // index happen in [GeoJsonSourceDataHandle.create], which the caller runs off that thread.
+    // Viewport tiles are sliced during the next render when true, or on a worker when false.
     it.synchronousTiling = synchronousUpdate
     it.clusterProperties = clusterPropertiesBytes()
   }
@@ -219,4 +258,8 @@ private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
 private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
   if (clusterProperties.isEmpty()) return null
   return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
+}
+
+internal actual suspend fun GeoJsonSource.publishData(data: GeoJsonData) {
+  publishPreparedData(data)
 }
