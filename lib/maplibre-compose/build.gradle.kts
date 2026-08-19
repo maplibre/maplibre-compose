@@ -81,8 +81,8 @@ kotlin {
       }
 
     // commonMain in waiting: the parts of the mln-ffi and MapLibre GL JS platforms that carry no
-    // backend-conditional logic. It exists only because Android and iOS have typed layer actuals
-    // rather than JSON-shaped ones; when those move onto mlnFfiShared, this merges into commonMain.
+    // backend-conditional logic. It exists only because iOS still has typed layer actuals rather
+    // than JSON-shaped ones; when iOS moves onto mlnFfiShared, this merges into commonMain.
     val nextCommonMain =
       create("nextCommonMain") {
         dependsOn(commonMain.get())
@@ -90,7 +90,8 @@ kotlin {
       }
 
     // used to share the integration with the MapLibre Native FFI binding, as opposed to the
-    // MapLibre Android and iOS SDKs. Desktop is its only target today.
+    // platform SDKs. Android and desktop use the same map, style, source, layer, and offline
+    // path. This source set stays free of java.* so a Native actual can sit beside the Java one.
     val mlnFfiShared =
       create("mlnFfiShared") {
         dependsOn(maplibreNativeMain)
@@ -103,10 +104,11 @@ kotlin {
         }
       }
 
-    // Java implementations that Android will share with desktop, including mln-ffi actuals that
-    // Native will provide separately.
+    // Java implementations shared by Android and desktop, including mln-ffi actuals that Native
+    // will provide separately.
     create("androidJvmShared") {
       dependsOn(mlnFfiShared)
+      androidMain.get().dependsOn(this)
       jvmMain.dependsOn(this)
     }
 
@@ -115,7 +117,8 @@ kotlin {
     androidMain {
       dependencies {
         implementation(libs.androidx.activity.compose)
-        api(libs.maplibre.android)
+        // The Android host presents through an EGL window surface.
+        implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
       }
     }
 
@@ -164,6 +167,7 @@ kotlin {
 
     create("androidJvmSharedTest") {
       dependsOn(mlnFfiSharedTest)
+      getByName("androidDeviceTest").dependsOn(this)
       getByName("jvmTest").dependsOn(this)
     }
 

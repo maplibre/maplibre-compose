@@ -122,8 +122,7 @@ fails these tests rather than skipping them.
 Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
 launch on iOS. Every other host has a task:
 
-- Android: `mise run demo:android`. If the app crashes while creating a Vulkan
-  renderer, use the OpenGL flavor: `mise run demo:android --flavor opengl`.
+- Android: `mise run demo:android`
 - Desktop: `mise run demo:desktop`
 - Web: `mise run demo:js`
 - Desktop on the compose-glfw host instead of the AWT one:
