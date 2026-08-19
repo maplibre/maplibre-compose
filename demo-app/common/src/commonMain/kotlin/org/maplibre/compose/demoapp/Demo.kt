@@ -49,7 +49,7 @@ interface Demo {
 
   /**
    * Compose UI drawn over the map while this demo is selected. Use
-   * [org.maplibre.compose.overlay.MapAnchors] to pin children to geographic positions.
+   * [org.maplibre.compose.overlay.MapMarkers] to pin children to geographic positions.
    */
   @UiComposable @Composable fun Overlay(cameraState: CameraState) {}
 

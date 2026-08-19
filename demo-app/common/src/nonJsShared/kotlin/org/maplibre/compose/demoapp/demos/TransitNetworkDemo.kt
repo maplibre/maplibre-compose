@@ -74,7 +74,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.overlay.MapAnchors
+import org.maplibre.compose.overlay.MapMarkers
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -416,7 +416,7 @@ object TransitNetworkDemo : Demo {
       }
     }
 
-    MapAnchors(cameraState) {
+    MapMarkers(cameraState) {
       network.stopIdsByRoute[selected].orEmpty().forEach { stopId ->
         key(stopId) {
           val terminal = network.terminalsById[stopId]
@@ -428,7 +428,7 @@ object TransitNetworkDemo : Demo {
             DepartureChip(
               text = departure,
               modifier =
-                Modifier.anchor(terminal.position, Alignment.BottomCenter).padding(bottom = 8.dp),
+                Modifier.placedAt(terminal.position, Alignment.BottomCenter).padding(bottom = 8.dp),
             )
           }
         }

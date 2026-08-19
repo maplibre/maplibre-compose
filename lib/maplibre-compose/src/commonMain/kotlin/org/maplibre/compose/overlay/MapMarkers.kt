@@ -21,22 +21,22 @@ import org.maplibre.spatialk.geojson.Position
  * Receiver for Compose UI pinned to geographic positions on a
  * [MaplibreMap][org.maplibre.compose.map.MaplibreMap].
  *
- * [Modifier.anchor] places a child so that [alignment] on that child sits on [position], the same
+ * [Modifier.placedAt] places a child so that [alignment] on that child sits on [position], the same
  * way [Modifier.align][androidx.compose.foundation.layout.BoxScope.align] places a child in a box.
  * The parent reads [CameraState.projection] during layout, so a camera move or a viewport resize
  * relocates every child without recomposing them.
  */
 @LayoutScopeMarker
 @Stable
-public interface MapAnchorScope {
-  /** The camera state of the map that these anchors belong to. */
+public interface MapMarkerScope {
+  /** The camera state of the map that these markers belong to. */
   public val cameraState: CameraState
 
   /**
    * Places this child on [position]. [alignment] is the point of the child that sits on that
    * position: [Alignment.BottomCenter] puts the bottom edge on the point.
    */
-  public fun Modifier.anchor(
+  public fun Modifier.placedAt(
     position: Position,
     alignment: Alignment = Alignment.Center,
   ): Modifier
@@ -49,20 +49,20 @@ public interface MapAnchorScope {
  * size when this is a sibling of the map in the same box. The projection is relative to the map
  * composable, and [MapOverlay]'s box is inset from it.
  *
- * Children that sit fully outside this layout, or that omit [Modifier.anchor], are measured and not
- * placed.
+ * Children that sit fully outside this layout, or that omit [Modifier.placedAt], are measured and
+ * not placed.
  *
- * @param cameraState The camera whose projection converts [Modifier.anchor] positions to the
+ * @param cameraState The camera whose projection converts [Modifier.placedAt] positions to the
  *   screen.
  * @param modifier Applied to the layout. Defaults to filling the parent.
  */
 @Composable
-public fun MapAnchors(
+public fun MapMarkers(
   cameraState: CameraState,
   modifier: Modifier = Modifier.fillMaxSize(),
-  content: @Composable @UiComposable MapAnchorScope.() -> Unit,
+  content: @Composable @UiComposable MapMarkerScope.() -> Unit,
 ) {
-  val scope = remember(cameraState) { MapAnchorScopeImpl(cameraState) }
+  val scope = remember(cameraState) { MapMarkerScopeImpl(cameraState) }
   Layout(modifier = modifier, content = { scope.content() }) { measurables, constraints ->
     val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
     val height = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
@@ -72,11 +72,11 @@ public fun MapAnchors(
       val projection = cameraState.projection
       if (projection == null || width == 0 || height == 0) return@layout
       measurables.forEachIndexed { index, measurable ->
-        val anchor = measurable.parentData as? MapAnchorParentData ?: return@forEachIndexed
+        val placement = measurable.parentData as? MapMarkerParentData ?: return@forEachIndexed
         val placeable = placeables[index]
-        val screen = projection.screenLocationFromPosition(anchor.position)
+        val screen = projection.screenLocationFromPosition(placement.position)
         val aligned =
-          anchor.alignment.align(
+          placement.alignment.align(
             size = IntSize(placeable.width, placeable.height),
             space = IntSize.Zero,
             layoutDirection = layoutDirection,
@@ -93,15 +93,15 @@ public fun MapAnchors(
   }
 }
 
-@Immutable private data class MapAnchorParentData(val position: Position, val alignment: Alignment)
+@Immutable private data class MapMarkerParentData(val position: Position, val alignment: Alignment)
 
-private class MapAnchorScopeImpl(override val cameraState: CameraState) : MapAnchorScope {
-  override fun Modifier.anchor(position: Position, alignment: Alignment): Modifier =
-    this.then(MapAnchorElement(position, alignment))
+private class MapMarkerScopeImpl(override val cameraState: CameraState) : MapMarkerScope {
+  override fun Modifier.placedAt(position: Position, alignment: Alignment): Modifier =
+    this.then(MapMarkerElement(position, alignment))
 }
 
-private data class MapAnchorElement(val position: Position, val alignment: Alignment) :
+private data class MapMarkerElement(val position: Position, val alignment: Alignment) :
   ParentDataModifier {
   override fun Density.modifyParentData(parentData: Any?): Any =
-    MapAnchorParentData(position, alignment)
+    MapMarkerParentData(position, alignment)
 }

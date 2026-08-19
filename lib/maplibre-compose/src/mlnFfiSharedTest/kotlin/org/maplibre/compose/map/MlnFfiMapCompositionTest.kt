@@ -53,7 +53,7 @@ import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
-import org.maplibre.compose.overlay.MapAnchors
+import org.maplibre.compose.overlay.MapMarkers
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -318,7 +318,7 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun map_anchors_follow_the_camera_target_when_the_map_resizes() {
+  fun map_markers_follow_the_camera_target_when_the_map_resizes() {
     val mapWidth = mutableStateOf(256.dp)
     val target = Position(longitude = 11.0, latitude = 47.0)
     val camera = CameraState(CameraPosition(target = target, zoom = 3.0))
@@ -326,8 +326,8 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         fun centerX(): Float? {
-          if (onAllNodesWithTag(ANCHOR_TAG).fetchSemanticsNodes().isEmpty()) return null
-          val bounds = onNodeWithTag(ANCHOR_TAG).getUnclippedBoundsInRoot()
+          if (onAllNodesWithTag(MARKER_TAG).fetchSemanticsNodes().isEmpty()) return null
+          val bounds = onNodeWithTag(MARKER_TAG).getUnclippedBoundsInRoot()
           return ((bounds.left + bounds.right) / 2).value
         }
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -357,8 +357,8 @@ class MlnFfiMapCompositionTest {
           onMapLoadFailed = { errors += "mapLoadFailed: $it" },
           onFrame = { onFrame() },
         )
-        MapAnchors(camera, modifier = size) {
-          Box(Modifier.size(4.dp).anchor(target, Alignment.Center).testTag(ANCHOR_TAG))
+        MapMarkers(camera, modifier = size) {
+          Box(Modifier.size(4.dp).placedAt(target, Alignment.Center).testTag(MARKER_TAG))
         }
       }
     }
@@ -388,6 +388,6 @@ class MlnFfiMapCompositionTest {
   private companion object {
     const val RENDER_TIMEOUT_MILLIS = 30_000L
 
-    const val ANCHOR_TAG = "map-anchor"
+    const val MARKER_TAG = "map-marker"
   }
 }

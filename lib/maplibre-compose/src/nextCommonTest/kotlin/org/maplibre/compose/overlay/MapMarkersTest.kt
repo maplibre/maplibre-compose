@@ -12,12 +12,12 @@ import org.maplibre.compose.camera.CameraState
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
-class MapAnchorsTest {
+class MapMarkersTest {
   @Test
-  fun anchors_compose_before_the_map_attaches() = runComposeUiTest {
+  fun markers_compose_before_the_map_attaches() = runComposeUiTest {
     setContent {
-      MapAnchors(CameraState(CameraPosition())) {
-        Box(Modifier.size(8.dp).anchor(Position(0.0, 0.0)))
+      MapMarkers(CameraState(CameraPosition())) {
+        Box(Modifier.size(8.dp).placedAt(Position(0.0, 0.0)))
       }
     }
     waitForIdle()

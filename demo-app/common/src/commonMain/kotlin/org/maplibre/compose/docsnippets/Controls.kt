@@ -15,7 +15,7 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.overlay.ExpandingAttributionButton
-import org.maplibre.compose.overlay.MapAnchors
+import org.maplibre.compose.overlay.MapMarkers
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.spatialk.geojson.Position
@@ -54,15 +54,15 @@ fun Controls() {
 
 @Composable
 fun LocationOverlay(cameraState: CameraState, position: Position) {
-  // #region anchors
+  // #region markers
   Box {
     MaplibreMap(cameraState = cameraState)
-    MapAnchors(cameraState) {
+    MapMarkers(cameraState) {
       Text(
         "Next sailing 12:40",
-        Modifier.anchor(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
+        Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
       )
     }
   }
-  // #endregion anchors
+  // #endregion markers
 }
