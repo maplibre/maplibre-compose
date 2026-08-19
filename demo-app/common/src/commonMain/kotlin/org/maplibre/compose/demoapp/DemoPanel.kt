@@ -2,8 +2,6 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -38,7 +36,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -76,9 +73,6 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
     exitTransition = { sharedAxisExit(-slideDistance) },
     popEnterTransition = { sharedAxisEnter(-slideDistance) },
     popExitTransition = { sharedAxisExit(slideDistance) },
-    // Animate destination size with the shared axis so the wrap-content sheet
-    // slides to the new height.
-    sizeTransform = { sharedAxisSizeTransform },
   ) {
     composable("demos") {
       DemosScreen(
@@ -161,10 +155,6 @@ private fun sharedAxisEnter(slideDistance: Int): EnterTransition =
 private fun sharedAxisExit(slideDistance: Int): ExitTransition =
   slideOutHorizontally(tween(AxisDurationMillis, easing = StandardEasing)) { slideDistance } +
     fadeOut(tween(AxisDurationMillis * 3 / 10, easing = AccelerateEasing))
-
-private val sharedAxisSizeSpec = tween<IntSize>(AxisDurationMillis, easing = StandardEasing)
-
-private val sharedAxisSizeTransform = SizeTransform(clip = false) { _, _ -> sharedAxisSizeSpec }
 
 @Composable
 private fun DemosScreen(
@@ -261,7 +251,7 @@ private fun InterfaceSettingsItems(settings: DemoSettings) {
 
 @Composable
 internal fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
-  Column(Modifier.animateContentSize(sharedAxisSizeSpec)) {
+  Column {
     TopAppBar(
       title = { Text(title) },
       navigationIcon = {

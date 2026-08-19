@@ -1,10 +1,14 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.MaterialTheme
@@ -16,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
 
@@ -48,6 +53,10 @@ private val PanelWidth = 360.dp
 /** How much of the map the collapsed sheet covers. */
 private val SheetPeekHeight = 128.dp
 
+/** Matches the panel's shared-axis duration so the sheet slides with the destination. */
+private val SheetSizeAnimationSpec =
+  tween<IntSize>(300, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
+
 @Composable
 private fun WideLayout(state: DemoAppState, panel: @Composable (Modifier) -> Unit) {
   Row(Modifier.fillMaxSize()) {
@@ -64,7 +73,10 @@ private fun NarrowLayout(state: DemoAppState, panel: @Composable (Modifier) -> U
     sheetPeekHeight = SheetPeekHeight,
     scaffoldState = rememberBottomSheetScaffoldState(),
     // Expanded is the measured height of this content, capped at the scaffold.
-    sheetContent = { panel(Modifier) },
+    // Animate that measurement so the sheet slides with the destination.
+    sheetContent = {
+      panel(Modifier.fillMaxWidth().animateContentSize(SheetSizeAnimationSpec))
+    },
   ) {
     // The map draws under the scaffold content area, so the sheet covers its bottom edge.
     ShellMap(state, sheetInsets = WindowInsets(bottom = SheetPeekHeight))
