@@ -54,6 +54,31 @@ class MlnFfiProjectionTest {
   }
 
   @Test
+  fun a_resize_reprojects_the_camera_target_to_the_new_center() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.session.setCameraPosition(START_CAMERA)
+      fixture.pumpUntil("the camera target to land on the first screen center") {
+        val projected = fixture.session.screenLocationFromPosition(START_CAMERA.target)
+        abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) < 0.01 &&
+          projected.isNear(SCREEN_CENTER)
+      }
+
+      val movedBefore = fixture.events.count { it == "cameraMoved" }
+      fixture.hasRendered = false
+      fixture.pumpUntil("the resized map to render", extent = WIDE_EXTENT) { fixture.hasRendered }
+      fixture.pumpUntil("the camera target to land on the resized screen center") {
+        fixture.session.screenLocationFromPosition(START_CAMERA.target).isNear(WIDE_SCREEN_CENTER)
+      }
+
+      assertTrue(
+        fixture.events.count { it == "cameraMoved" } > movedBefore,
+        "a resize should report cameraMoved so Compose overlays re-read the projection",
+      )
+    }
+  }
+
+  @Test
   fun conversions_succeed_while_the_owner_thread_replaces_the_snapshot() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
@@ -92,6 +117,10 @@ class MlnFfiProjectionTest {
     const val PIXEL_TOLERANCE = 1.0
 
     val SCREEN_CENTER = DpOffset(256.dp, 256.dp)
+
+    val WIDE_EXTENT: MapExtent = MapExtent.fromLogical(width = 640, height = 512, scaleFactor = 1.0)
+
+    val WIDE_SCREEN_CENTER = DpOffset(320.dp, 256.dp)
 
     val START_CAMERA = CameraPosition(target = Position(11.0, 47.0), zoom = 2.0)
 

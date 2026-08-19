@@ -9,6 +9,7 @@ import org.maplibre.compose.demoapp.demos.DataVizDemo
 import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.LocationDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
+import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -48,10 +49,11 @@ interface Demo {
   @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
 
   /**
-   * Compose UI drawn over the map while this demo is selected. Fill the map so screen locations
-   * from the camera projection match this box.
+   * Compose UI drawn over the map while this demo is selected.
+   *
+   * [org.maplibre.compose.overlay.MapOverlayScope.placedAt] pins a child to a geographic position.
    */
-  @UiComposable @Composable fun Overlay(cameraState: CameraState) {}
+  @UiComposable @Composable fun MapOverlayScope.Overlay() {}
 
   /** Controls shown in the sheet or side panel while this demo is selected. */
   @UiComposable @Composable fun Panel() {}

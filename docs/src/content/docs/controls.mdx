@@ -28,8 +28,8 @@ somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-A `MapOverlay` block draws the controls you list in it. The block lays out in a
-box, so `Modifier.align` positions each control against an edge.
+A `MapOverlay` block draws the controls you list in it. `Modifier.align`
+positions a control against an edge of the unobstructed map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
@@ -58,3 +58,14 @@ full-screen map reads the system bars. Add to it when other UI covers the map.
 The camera has its own padding, which moves the point that the map centers and
 rotates around. See
 [`CameraPosition.padding`](/maplibre-compose/api/lib/maplibre-compose/org.maplibre.compose.camera/-camera-position/padding.html).
+
+## Pin Compose UI to a location
+
+`Modifier.placedAt` puts a child on a geographic position. Keep the default
+controls with `include`, then add the child in the same overlay. A pan, a zoom,
+or a window resize moves the child with the map.
+
+<Code code={region(controls, "placedAt")} lang="kotlin" title="App.kt" />
+
+1. `Alignment.BottomCenter` sits the bottom edge of the chip on the point.
+   Padding lifts the chip above the feature.
