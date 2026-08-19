@@ -63,6 +63,7 @@ private fun NarrowLayout(state: DemoAppState, panel: @Composable (Modifier) -> U
   BottomSheetScaffold(
     sheetPeekHeight = SheetPeekHeight,
     scaffoldState = rememberBottomSheetScaffoldState(),
+    // Expanded is the measured height of this content, capped at the scaffold.
     sheetContent = { panel(Modifier) },
   ) {
     // The map draws under the scaffold content area, so the sheet covers its bottom edge.
