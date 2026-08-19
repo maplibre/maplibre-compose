@@ -105,7 +105,7 @@ class GeoJsonSourceAttachTest {
       assertEquals(1, features.size, source.toJson().toString())
       val coordinates =
         ((features.single() as JsonObject)["geometry"] as JsonObject)["coordinates"] as JsonArray
-      assertEquals(9.0, coordinates[0].jsonPrimitive.double)
+      assertEquals(9.0, coordinates[0].jsonPrimitive.content.toDouble())
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
     }
   }
