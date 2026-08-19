@@ -75,7 +75,7 @@ private fun NarrowLayout(state: DemoAppState, panel: @Composable (Modifier) -> U
     // Expanded is the measured height of this content, capped at the scaffold.
     // Animate that measurement so the sheet slides with the destination.
     sheetContent = {
-      panel(Modifier.fillMaxWidth().animateContentSize(SheetSizeAnimationSpec))
+      panel(Modifier.animateContentSize(SheetSizeAnimationSpec).fillMaxWidth())
     },
   ) {
     // The map draws under the scaffold content area, so the sheet covers its bottom edge.
