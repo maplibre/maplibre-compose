@@ -319,7 +319,8 @@ class MlnFfiMapCompositionTest {
 
   @Test
   fun overlay_placed_at_follows_the_camera_target_when_the_map_resizes() {
-    val mapWidth = mutableStateOf(256.dp)
+    // A phone-width activity clamps a 512.dp map, so these widths stay inside 320.dp.
+    val mapWidth = mutableStateOf(128.dp)
     val target = Position(longitude = 11.0, latitude = 47.0)
     val camera = CameraState(CameraPosition(target = target, zoom = 3.0))
 
@@ -332,13 +333,13 @@ class MlnFfiMapCompositionTest {
         }
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
           val x = centerX()
-          x != null && abs(x - 128f) < 4f
+          x != null && abs(x - 64f) < 4f
         }
         val first = requireNotNull(centerX())
-        mapWidth.value = 512.dp
+        mapWidth.value = 256.dp
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
           val x = centerX()
-          x != null && abs(x - 256f) < 4f
+          x != null && abs(x - 128f) < 4f
         }
         val second = requireNotNull(centerX())
         assertTrue(
