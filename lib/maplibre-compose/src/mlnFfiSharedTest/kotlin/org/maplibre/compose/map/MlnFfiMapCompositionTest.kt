@@ -164,7 +164,7 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun `disposing after replacing the camera state resets the replacement`() {
+  fun disposing_after_replacing_the_camera_state_resets_the_replacement() {
     var visible by mutableStateOf(true)
     var cameraState by mutableStateOf(CameraState(CameraPosition()))
     val replacement = CameraState(CameraPosition(zoom = 3.0))
@@ -265,7 +265,7 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun `an animation requested as the camera attaches waits for the native map`() {
+  fun an_animation_requested_as_the_camera_attaches_waits_for_the_native_map() {
     val finalPosition =
       CameraPosition(target = Position(longitude = 12.4924, latitude = 41.8902), zoom = 9.0)
     val cameraState = CameraState(CameraPosition())

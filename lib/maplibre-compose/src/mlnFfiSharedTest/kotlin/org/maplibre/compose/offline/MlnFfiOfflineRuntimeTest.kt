@@ -75,7 +75,7 @@ class MlnFfiOfflineRuntimeTest {
   }
 
   @Test
-  fun `a cancelled task waiting in the queue does not run`() {
+  fun a_cancelled_task_waiting_in_the_queue_does_not_run() {
     val runtime = startRuntime()
     val blockerStarted = CountDownLatch(1)
     val releaseBlocker = CountDownLatch(1)
