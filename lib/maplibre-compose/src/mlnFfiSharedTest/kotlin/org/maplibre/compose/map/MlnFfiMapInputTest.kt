@@ -89,7 +89,9 @@ class MlnFfiMapInputTest {
     try {
       onRoot().performMouseInput { moveTo(center) }
       mainClock.advanceTimeByFrame()
-      waitForIdle()
+      // Overlay layout reads CameraState.projection, and onCameraMoved replaces that instance
+      // on every frame of this ease. waitForIdle() stays busy until those replacements stop,
+      // which is after the pan has ended.
       assertTrue(camera.isCameraMoving, "a hover cancelled the keyboard pan")
 
       mainClock.advanceTimeBy(GestureOptions.Standard.animationDuration.inWholeMilliseconds)
