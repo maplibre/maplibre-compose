@@ -4,19 +4,15 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.skiaCanvas
 import org.jetbrains.skia.BackendRenderTarget
-import org.jetbrains.skia.ColorAlphaType
-import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.FramebufferFormat
-import org.jetbrains.skia.ImageInfo
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
 import org.lwjgl.opengl.GL
 import org.lwjgl.opengl.GL11.GL_NO_ERROR
-import org.lwjgl.opengl.GL11.glFinish
 import org.lwjgl.opengl.GL11.glGetError
 import org.lwjgl.opengl.GL30.GL_COLOR_ATTACHMENT0
 import org.lwjgl.opengl.GL30.GL_FRAMEBUFFER
@@ -96,7 +92,6 @@ internal class OpenGlPresenter : AutoCloseable {
     private var framebuffer = 0
     private var renderTarget: BackendRenderTarget? = null
     private var surface: Surface? = null
-    private var ownedCopy: Surface? = null
 
     fun draw(
       canvas: org.jetbrains.skia.Canvas,
@@ -112,55 +107,21 @@ internal class OpenGlPresenter : AutoCloseable {
       // MapLibre left arbitrary GL state behind; Skia caches its own view of that state and will
       // render incorrectly unless told to re-read it.
       context.resetGLAll()
-      // Vulkan already waited idle; this is the GL-side barrier so the import is visible to Skia.
-      glFinish()
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      currentSurface.makeImageSnapshot().use { imported ->
-        // A snapshot of an EXT_memory_object import can share that allocation. Compose records
-        // the image into a Picture and replays it after MapLibre writes the same memory. Copying
-        // into a surface Skia owns keeps the recorded pixels when the import is reused.
-        val copy = ownedCopySurface(context, imported.width, imported.height)
-        copy.notifyContentWillChange(ContentChangeMode.RETAIN)
-        copy.canvas.drawImageRect(
-          image = imported,
-          src = Rect.makeWH(imported.width.toFloat(), imported.height.toFloat()),
-          dst = Rect.makeWH(imported.width.toFloat(), imported.height.toFloat()),
+      currentSurface.makeImageSnapshot().use { image ->
+        canvas.drawImageRect(
+          image = image,
+          src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+          dst = Rect.makeWH(destinationWidth, destinationHeight),
           samplingMode = SamplingMode.LINEAR,
           paint = null,
           strict = true,
         )
-        copy.flushAndSubmit()
-        copy.makeImageSnapshot().use { owned ->
-          canvas.drawImageRect(
-            image = owned,
-            src = Rect.makeWH(owned.width.toFloat(), owned.height.toFloat()),
-            dst = Rect.makeWH(destinationWidth, destinationHeight),
-            samplingMode = SamplingMode.LINEAR,
-            paint = null,
-            strict = true,
-          )
-        }
       }
     }
 
     fun preserveFrame() {
-      ownedCopy?.notifyContentWillChange(ContentChangeMode.RETAIN)
-    }
-
-    private fun ownedCopySurface(context: DirectContext, copyWidth: Int, copyHeight: Int): Surface {
-      val existing = ownedCopy
-      if (existing != null && existing.width == copyWidth && existing.height == copyHeight) {
-        return existing
-      }
-      existing?.close()
-      val created =
-        Surface.makeRenderTarget(
-          context,
-          false,
-          ImageInfo(copyWidth, copyHeight, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
-        )
-      ownedCopy = created
-      return created
+      surface?.notifyContentWillChange(ContentChangeMode.RETAIN)
     }
 
     private fun ensureSurface(context: DirectContext, target: OpenGlTextureTarget) {
@@ -238,8 +199,6 @@ internal class OpenGlPresenter : AutoCloseable {
     }
 
     fun abandon() {
-      ownedCopy?.close()
-      ownedCopy = null
       surface?.close()
       surface = null
       renderTarget?.close()
@@ -251,8 +210,6 @@ internal class OpenGlPresenter : AutoCloseable {
     }
 
     private fun closeGpuResources() {
-      ownedCopy?.close()
-      ownedCopy = null
       surface?.close()
       surface = null
       renderTarget?.close()

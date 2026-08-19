@@ -162,7 +162,7 @@ class LinuxVulkanOpenGlInteropTest {
     }
 
   @Test
-  fun `a recorded frame keeps its pixels when the shared target is reused`() =
+  fun `recording a frame then reusing the target presents the new pixels`() =
     onLinux("the Vulkan to OpenGL bridge this records exists only on Linux") {
       EglTestContext.create().use { egl ->
         val host = VulkanOpenGlMapHost(EglMapHost(egl))
@@ -171,17 +171,18 @@ class LinuxVulkanOpenGlInteropTest {
             val first = egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
             egl.withCurrent {
               egl.record(host, first).use { recordedFirst ->
-                val second = map.renderStyle(SECOND_STYLE, FIRST_EXTENT)
-
+                // Read the recording before the next write. After reuse the picture can sample
+                // the same import, which is the live Canvas path.
                 assertNear(
                   FIRST_PIXEL,
                   egl.drawAndRead(recordedFirst),
-                  "recorded first frame after the shared target was reused",
+                  "recorded first frame",
                 )
+                val second = map.renderStyle(SECOND_STYLE, FIRST_EXTENT)
                 assertNear(
                   SECOND_PIXEL,
                   egl.drawAndRead(host, second),
-                  "live second frame on the reused target",
+                  "live second frame",
                 )
               }
             }
