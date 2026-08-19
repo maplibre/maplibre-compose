@@ -63,7 +63,8 @@ public fun image(
   value: ImageBitmap,
   isSdf: Boolean = false,
   resizeOptions: ImageResizeOptions? = null,
-): Expression<ImageValue> = BitmapLiteral.of(value, isSdf, resizeOptions).cast()
+): Expression<ImageValue> =
+  FunctionCall.of("image", BitmapLiteral.of(value, isSdf, resizeOptions)).cast()
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -89,7 +90,8 @@ public fun image(
   size: DpSize? = null,
   drawAsSdf: Boolean = false,
   resizeOptions: ImageResizeOptions? = null,
-): Expression<ImageValue> = PainterLiteral.of(value, size, drawAsSdf, resizeOptions).cast()
+): Expression<ImageValue> =
+  FunctionCall.of("image", PainterLiteral.of(value, size, drawAsSdf, resizeOptions)).cast()
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -121,4 +123,8 @@ public fun image(
   alpha: Float = DefaultAlpha,
   colorFilter: ColorFilter? = null,
 ): Expression<ImageValue> =
-  PainterLiteral.of(value, size, drawAsSdf, resizeOptions, alpha, colorFilter).cast()
+  FunctionCall.of(
+      "image",
+      PainterLiteral.of(value, size, drawAsSdf, resizeOptions, alpha, colorFilter),
+    )
+    .cast()

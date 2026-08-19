@@ -674,12 +674,9 @@ internal class MlnFfiMapSession(
       RuntimeEventType.MAP_RENDER_ERROR ->
         logger?.e { "MapLibre render error: ${event.message.ifBlank { "unknown" }}" }
 
-      RuntimeEventType.MAP_STYLE_IMAGE_MISSING -> {
-        // Supplying the image would need a callback the common API does not have. A runtime image
-        // already in the style still needs a later layout to pack it into the GLES atlas.
+      RuntimeEventType.MAP_STYLE_IMAGE_MISSING ->
+        // Supplying the image would need a callback the common API does not have.
         logger?.d { "Style image missing: ${event.message}" }
-        requestRender()
-      }
 
       // Event types are value classes over Int, so an FFI upgrade can add one this build has never
       // seen. Types this session does not select are never queued.

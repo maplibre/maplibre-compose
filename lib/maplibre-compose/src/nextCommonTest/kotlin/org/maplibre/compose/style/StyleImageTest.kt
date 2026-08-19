@@ -5,25 +5,11 @@ import androidx.compose.ui.graphics.Canvas
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Paint
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import kotlin.time.Duration
-import kotlin.time.Duration.Companion.seconds
-import kotlin.time.TimeSource
-import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.expressions.ast.ExpressionContext
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.layers.RasterLayer
-import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.map.MapExtent
-import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
-import org.maplibre.compose.sources.GeoJsonSource
-import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
@@ -31,12 +17,6 @@ import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
 import org.maplibre.compose.util.ImageResizeOptions
-import org.maplibre.compose.util.PositionQuad
-import org.maplibre.spatialk.geojson.Geometry
-import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.geojson.Position
-import org.maplibre.spatialk.geojson.dsl.addFeature
-import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
 
 class StyleImageTest {
 
@@ -70,16 +50,18 @@ class StyleImageTest {
   @Test
   fun a_translucent_icon_is_premultiplied_exactly_once(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
-      attachProbeIcon(
-        fixture,
-        MapFixture.DEFAULT_EXTENT,
+      fixture.loadStyle(ICON_STYLE)
+      val style = assertNotNull(fixture.style)
+      style.addImage(
+        IMAGE_ID,
         solidBitmap(32, Color.Red.copy(alpha = 0.5f)),
+        sdf = false,
+        resizeOptions = null,
       )
 
       val center = MapFixture.DEFAULT_EXTENT.physicalWidth / 2
-      fixture.pumpUntilIconPixel(
+      fixture.pumpUntilPixel(
         "the icon to be drawn half-strength over black",
-        MapFixture.DEFAULT_EXTENT,
         center,
         center,
         RgbaPixel(red = 128, green = 0, blue = 0, alpha = 255),
@@ -93,13 +75,15 @@ class StyleImageTest {
     resizeOptions: ImageResizeOptions? = null,
   ) {
     createMapFixture(extent).use { fixture ->
-      attachProbeIcon(fixture, extent, solidBitmap(imageSize, Color.Red), resizeOptions)
+      fixture.loadStyle(ICON_STYLE)
+      val style = assertNotNull(fixture.style)
+      style.addImage(IMAGE_ID, solidBitmap(imageSize, Color.Red), sdf = false, resizeOptions)
 
       val center = extent.physicalWidth / 2
       // MapLibre draws a style image at `pixels / pixelRatio` logical points, so both cases come
       // out 32 logical points wide.
       val halfWidth = (32 * extent.scaleFactor / 2).toInt()
-      fixture.pumpUntilIconPixel("the icon to be drawn", extent, center, center, RED)
+      fixture.pumpUntilPixel("the icon to be drawn", center, center, RED)
 
       assertTrue(
         fixture.readPixel(center + halfWidth - INSIDE, center).isNear(RED),
@@ -111,54 +95,6 @@ class StyleImageTest {
           "wrong pixel ratio looks like",
       )
     }
-  }
-
-  /**
-   * An image source is drawn first, northwest of the origin, so a black icon pixel can be told
-   * apart from a bitmap that never reached MapLibre.
-   *
-   * Compose registers the bitmap, then adds the layer with `icon-image` already in the creation
-   * JSON. The name as a string is what GLES layout requests for atlas packing; the `image`
-   * expression can stay unresolved. A later setter on a live layer can place the symbol without
-   * packing that name.
-   */
-  private suspend fun attachProbeIcon(
-    fixture: MapFixture,
-    extent: MapExtent,
-    bitmap: ImageBitmap,
-    resizeOptions: ImageResizeOptions? = null,
-  ) {
-    fixture.loadStyle(BLACK_STYLE)
-    val style = assertNotNull(fixture.style)
-
-    val raster = ImageSource("raster", NORTHWEST_QUARTER, solidBitmap(32, Color.Red))
-    style.addSource(raster)
-    style.addLayer(RasterLayer("raster", raster))
-    val controlX = (CONTROL_X * extent.scaleFactor).toInt()
-    val controlY = (CONTROL_Y * extent.scaleFactor).toInt()
-    fixture.pumpUntilPixel("the image-source control to be drawn", controlX, controlY, RED)
-
-    style.addImage(IMAGE_ID, bitmap, sdf = false, resizeOptions)
-    fixture.pump(frames = 1)
-
-    val source =
-      GeoJsonSource(
-        id = "point",
-        data =
-          GeoJsonData.Features(
-            buildFeatureCollection<Geometry, JsonObject?> {
-              addFeature(geometry = Point(Position(0.0, 0.0))) {}
-            }
-          ),
-        options = GeoJsonOptions(),
-      )
-    style.addSource(source)
-
-    val layer = SymbolLayer("icon", source)
-    layer.setIconAllowOverlap(const(true).compile(ExpressionContext.None))
-    layer.setIconIgnorePlacement(const(true).compile(ExpressionContext.None))
-    layer.setIconImage(const(IMAGE_ID).compile(ExpressionContext.None).cast())
-    style.addLayer(layer)
   }
 
   private fun solidBitmap(size: Int, color: Color): ImageBitmap {
@@ -175,61 +111,41 @@ class StyleImageTest {
     const val INSIDE = 6
     const val OUTSIDE = 8
 
-    /**
-     * Logical pixels inside the northwest quarter of the world at zoom 0, away from the icon at the
-     * origin.
-     */
-    const val CONTROL_X = 64
-    const val CONTROL_Y = 128
-
     val RED = RgbaPixel(red = 255, green = 0, blue = 0, alpha = 255)
     val BLACK = RgbaPixel(red = 0, green = 0, blue = 0, alpha = 255)
 
-    val NORTHWEST_QUARTER =
-      PositionQuad(
-        topLeft = Position(-180.0, 85.0),
-        topRight = Position(-90.0, 85.0),
-        bottomRight = Position(-90.0, 0.0),
-        bottomLeft = Position(-180.0, 0.0),
-      )
-
-    val BLACK_STYLE =
+    /** One point at the origin, which at zoom 0 is the middle of the viewport. */
+    val ICON_STYLE =
       BaseStyle.Json(
         """
         {
           "version": 8,
-          "sources": {},
+          "sources": {
+            "point": {
+              "type": "geojson",
+              "data": {
+                "type": "Feature",
+                "properties": {},
+                "geometry": { "type": "Point", "coordinates": [0, 0] }
+              }
+            }
+          },
           "layers": [
-            { "id": "bg", "type": "background", "paint": { "background-color": "#000000" } }
+            { "id": "bg", "type": "background", "paint": { "background-color": "#000000" } },
+            {
+              "id": "icon",
+              "type": "symbol",
+              "source": "point",
+              "layout": {
+                "icon-image": "$IMAGE_ID",
+                "icon-allow-overlap": true,
+                "icon-ignore-placement": true
+              }
+            }
           ]
         }
         """
           .trimIndent()
       )
-  }
-}
-
-private suspend fun MapFixture.pumpUntilIconPixel(
-  description: String,
-  extent: MapExtent,
-  x: Int,
-  y: Int,
-  expected: RgbaPixel,
-  timeout: Duration = 30.seconds,
-) {
-  val deadline = TimeSource.Monotonic.markNow() + timeout
-  var pixel = readPixel(x, y)
-  while (!pixel.isNear(expected)) {
-    if (!deadline.hasNotPassedNow()) {
-      val center = DpOffset((extent.width / 2).dp, (extent.height / 2).dp)
-      val hits = session.queryRenderedFeatures(offset = center, layerIds = setOf("icon"))
-      val layerJson = (style?.getLayer("icon") as? UnknownLayer)?.definition
-      error(
-        "Timed out waiting for $description: ($x, $y) was $pixel, not $expected. " +
-          "Hits: ${hits.size}. Layer JSON: $layerJson. Errors: $errors"
-      )
-    }
-    pump(frames = 1)
-    pixel = readPixel(x, y)
   }
 }
