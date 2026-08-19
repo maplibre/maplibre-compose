@@ -49,7 +49,8 @@ interface Demo {
 
   /**
    * Compose UI drawn over the map while this demo is selected. Fill the map so screen locations
-   * from the camera projection match this box.
+   * from [CameraState.projection] match this box. Read that property so a resize redraws the
+   * overlay.
    */
   @UiComposable @Composable fun Overlay(cameraState: CameraState) {}
 

@@ -2,11 +2,14 @@
 
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -14,10 +17,12 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
+import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -302,6 +307,47 @@ class MlnFfiMapCompositionTest {
         cameraState.animateTo(finalPosition, 50.milliseconds)
         animationFinished = true
       }
+    }
+  }
+
+  @Test
+  fun compose_overlays_reproject_when_the_map_resizes() {
+    val mapWidth = mutableStateOf(256.dp)
+    val camera =
+      CameraState(CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 3.0))
+    var overlayX by mutableStateOf<Float?>(null)
+
+    runBridgeMapTest(
+      body = {
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          overlayX != null && abs(overlayX!! - 128f) < 4f
+        }
+        val first = requireNotNull(overlayX)
+        val firstProjection = camera.projection
+        mapWidth.value = 512.dp
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          camera.projection !== firstProjection && overlayX != null && abs(overlayX!! - 256f) < 4f
+        }
+        val second = requireNotNull(overlayX)
+        assertTrue(
+          abs(second - first * 2f) < 4f,
+          "the camera target should stay at the resized center: first=$first second=$second",
+        )
+      }
+    ) { errors, onFrame ->
+      MaplibreMap(
+        modifier = Modifier.width(mapWidth.value).height(256.dp),
+        baseStyle = BaseStyle.Empty,
+        cameraState = camera,
+        logger = Logger.withTag("composition-test"),
+        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        onFrame = { onFrame() },
+      )
+      val projection = camera.projection
+      overlayX =
+        remember(projection) {
+          projection?.screenLocationFromPosition(camera.position.target)?.x?.value
+        }
     }
   }
 

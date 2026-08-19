@@ -502,10 +502,9 @@ private fun DepartureChip(
   mapWidth: Dp,
   mapHeight: Dp,
 ) {
+  val projection = cameraState.projection
   val screen =
-    remember(position, cameraState.position) {
-      cameraState.projection?.screenLocationFromPosition(position)
-    } ?: return
+    remember(position, projection) { projection?.screenLocationFromPosition(position) } ?: return
   if (screen.x < 0.dp || screen.y < 0.dp || screen.x > mapWidth || screen.y > mapHeight) return
 
   Surface(

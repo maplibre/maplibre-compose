@@ -276,6 +276,9 @@ internal class GlJsMapSession(
     }
     map.setPixelRatio(extent.scaleFactor)
     map.resize()
+    // resize() may also fire `move`; a second onCameraMoved is how overlays learn the viewport
+    // changed when the camera position did not.
+    callbacks.onCameraMoved(this)
   }
 
   private fun maxTextureSize(gl: dynamic): Array<Double> {

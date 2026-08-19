@@ -474,7 +474,7 @@ internal class MlnFfiMapSession(
         retargetCount++
         // The replacement texture holds nothing yet; this request buys the frame that fills it.
         renderRequested.store(true)
-        onMap(::snapshotViewport)
+        onMap(::snapshotViewportAndNotify)
         return true
       }
     }
@@ -493,7 +493,7 @@ internal class MlnFfiMapSession(
     attachedTarget = key
     attachCount++
     publishAttachedViewport()
-    onMap(::snapshotViewport)
+    onMap(::snapshotViewportAndNotify)
     // The new texture holds nothing yet; this request buys the frame that fills it.
     renderRequested.store(true)
     return true
@@ -873,6 +873,16 @@ internal class MlnFfiMapSession(
    * thread swaps the snapshot and closes the outgoing handle only after that conversion returns.
    */
   private val projectionLock = MlnFfiLock()
+
+  /**
+   * A resize changes the projection without a camera event, so Compose overlays that key on
+   * [org.maplibre.compose.camera.CameraState.projection] would keep the previous screen locations
+   * unless this reports the new snapshot.
+   */
+  private fun snapshotViewportAndNotify(map: MapHandle) {
+    snapshotViewport(map)
+    callbacks.onCameraMoved(this)
+  }
 
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {

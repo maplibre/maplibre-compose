@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
+import org.maplibre.compose.camera.CameraProjection
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.overlay.MapOverlay
@@ -181,6 +182,9 @@ public fun MaplibreMap(
           cameraState.positionState.value = map.getCameraPosition()
           cameraState.metersPerDpAtTargetState.value =
             map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
+          // A new instance so a composition that reads CameraState.projection redraws when the
+          // transform changes without the camera position changing, which is what a resize does.
+          cameraState.projectionState.value = CameraProjection(map)
         }
 
         override fun onCameraMoveEnded(map: MapAdapter) {
