@@ -3,7 +3,6 @@ package org.maplibre.compose.resource
 import java.io.FileNotFoundException
 import java.net.URI
 import java.net.URISyntaxException
-import java.nio.file.NoSuchFileException
 import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
 
 internal actual fun readPlatformResourceBytes(url: String): ByteArray =
@@ -24,8 +23,7 @@ internal actual fun readPlatformResourceBytes(url: String): ByteArray =
 
 private fun classify(error: Throwable): MlnFfiResourceReadFailure =
   when (error) {
-    is FileNotFoundException,
-    is NoSuchFileException -> MlnFfiResourceReadFailure.NOT_FOUND
+    is FileNotFoundException -> MlnFfiResourceReadFailure.NOT_FOUND
     is URISyntaxException -> MlnFfiResourceReadFailure.INVALID_URL
     else -> MlnFfiResourceReadFailure.UNREADABLE
   }
