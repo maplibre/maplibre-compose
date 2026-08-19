@@ -6,14 +6,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.absoluteOffset
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -32,8 +28,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import dev.sargunv.mobilitydata.gtfs.schedule.Agency
@@ -80,6 +74,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.overlay.MapAnchors
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -421,7 +416,7 @@ object TransitNetworkDemo : Demo {
       }
     }
 
-    BoxWithConstraints(Modifier.fillMaxSize()) {
+    MapAnchors(cameraState) {
       network.stopIdsByRoute[selected].orEmpty().forEach { stopId ->
         key(stopId) {
           val terminal = network.terminalsById[stopId]
@@ -431,11 +426,9 @@ object TransitNetworkDemo : Demo {
             }
           if (terminal != null && departure != null) {
             DepartureChip(
-              cameraState = cameraState,
-              position = terminal.position,
               text = departure,
-              mapWidth = maxWidth,
-              mapHeight = maxHeight,
+              modifier =
+                Modifier.anchor(terminal.position, Alignment.BottomCenter).padding(bottom = 8.dp),
             )
           }
         }
@@ -495,27 +488,12 @@ object TransitNetworkDemo : Demo {
 }
 
 @Composable
-private fun DepartureChip(
-  cameraState: CameraState,
-  position: Position,
-  text: String,
-  mapWidth: Dp,
-  mapHeight: Dp,
-) {
-  val projection = cameraState.projection
-  val screen =
-    remember(position, projection) { projection?.screenLocationFromPosition(position) } ?: return
-  if (screen.x < 0.dp || screen.y < 0.dp || screen.x > mapWidth || screen.y > mapHeight) return
-
+private fun DepartureChip(text: String, modifier: Modifier = Modifier) {
   Surface(
     shape = RoundedCornerShape(8.dp),
     shadowElevation = 2.dp,
     color = MaterialTheme.colorScheme.surface,
-    modifier =
-      Modifier.wrapContentSize(unbounded = true).absoluteOffset(screen.x, screen.y).graphicsLayer {
-        translationX = -size.width / 2f
-        translationY = -size.height - 8.dp.toPx()
-      },
+    modifier = modifier,
   ) {
     Text(
       text = text,

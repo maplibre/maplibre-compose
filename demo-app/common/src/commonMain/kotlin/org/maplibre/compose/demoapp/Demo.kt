@@ -48,9 +48,8 @@ interface Demo {
   @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
 
   /**
-   * Compose UI drawn over the map while this demo is selected. Fill the map so screen locations
-   * from [CameraState.projection] match this box. Read that property so a resize redraws the
-   * overlay.
+   * Compose UI drawn over the map while this demo is selected. Use
+   * [org.maplibre.compose.overlay.MapAnchors] to pin children to geographic positions.
    */
   @UiComposable @Composable fun Overlay(cameraState: CameraState) {}
 

@@ -2,20 +2,26 @@
 
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
@@ -47,6 +53,7 @@ import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
+import org.maplibre.compose.overlay.MapAnchors
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -311,43 +318,49 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun compose_overlays_reproject_when_the_map_resizes() {
+  fun map_anchors_follow_the_camera_target_when_the_map_resizes() {
     val mapWidth = mutableStateOf(256.dp)
-    val camera =
-      CameraState(CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 3.0))
-    var overlayX by mutableStateOf<Float?>(null)
+    val target = Position(longitude = 11.0, latitude = 47.0)
+    val camera = CameraState(CameraPosition(target = target, zoom = 3.0))
 
     runBridgeMapTest(
       body = {
-        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
-          overlayX != null && abs(overlayX!! - 128f) < 4f
+        fun centerX(): Float? {
+          if (onAllNodesWithTag(ANCHOR_TAG).fetchSemanticsNodes().isEmpty()) return null
+          val bounds = onNodeWithTag(ANCHOR_TAG).getUnclippedBoundsInRoot()
+          return ((bounds.left + bounds.right) / 2).value
         }
-        val first = requireNotNull(overlayX)
-        val firstProjection = camera.projection
+        waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
+          val x = centerX()
+          x != null && abs(x - 128f) < 4f
+        }
+        val first = requireNotNull(centerX())
         mapWidth.value = 512.dp
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
-          camera.projection !== firstProjection && overlayX != null && abs(overlayX!! - 256f) < 4f
+          val x = centerX()
+          x != null && abs(x - 256f) < 4f
         }
-        val second = requireNotNull(overlayX)
+        val second = requireNotNull(centerX())
         assertTrue(
           abs(second - first * 2f) < 4f,
           "the camera target should stay at the resized center: first=$first second=$second",
         )
       }
     ) { errors, onFrame ->
-      MaplibreMap(
-        modifier = Modifier.width(mapWidth.value).height(256.dp),
-        baseStyle = BaseStyle.Empty,
-        cameraState = camera,
-        logger = Logger.withTag("composition-test"),
-        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-        onFrame = { onFrame() },
-      )
-      val projection = camera.projection
-      overlayX =
-        remember(projection) {
-          projection?.screenLocationFromPosition(camera.position.target)?.x?.value
+      val size = Modifier.width(mapWidth.value).height(256.dp)
+      Box {
+        MaplibreMap(
+          modifier = size,
+          baseStyle = BaseStyle.Empty,
+          cameraState = camera,
+          logger = Logger.withTag("composition-test"),
+          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+          onFrame = { onFrame() },
+        )
+        MapAnchors(camera, modifier = size) {
+          Box(Modifier.size(4.dp).anchor(target, Alignment.Center).testTag(ANCHOR_TAG))
         }
+      }
     }
   }
 
@@ -374,5 +387,7 @@ class MlnFfiMapCompositionTest {
 
   private companion object {
     const val RENDER_TIMEOUT_MILLIS = 30_000L
+
+    const val ANCHOR_TAG = "map-anchor"
   }
 }

@@ -58,3 +58,18 @@ full-screen map reads the system bars. Add to it when other UI covers the map.
 The camera has its own padding, which moves the point that the map centers and
 rotates around. See
 [`CameraPosition.padding`](/maplibre-compose/api/lib/maplibre-compose/org.maplibre.compose.camera/-camera-position/padding.html).
+
+## Pin Compose UI to a location
+
+`SymbolLayer` draws labels in the map. `MapAnchors` draws Compose UI on the
+map: a chip, a button, or a callout.
+
+`Modifier.anchor` places each child on a geographic position, the way
+`Modifier.align` places a child in a box. Draw `MapAnchors` as a sibling of
+the map, sized to the map. The layout reads the camera projection, so a pan, a
+zoom, or a window resize moves the children with the map.
+
+<Code code={region(controls, "anchors")} lang="kotlin" title="App.kt" />
+
+1. `Alignment.BottomCenter` sits the bottom edge of the chip on the point.
+   Padding lifts the chip above the feature.
