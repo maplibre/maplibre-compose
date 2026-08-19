@@ -289,42 +289,61 @@ class LinuxVulkanOpenGlInteropTest {
       val expectedStyleLoads = styleLoads + 1
       renderer.setBaseStyle(style)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
-      var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      // Style callbacks and rendering happen on different threads, so wait for both facts
-      // without requiring either to be observed first.
-      while (styleLoads < expectedStyleLoads || rendered == null) {
+      while (styleLoads < expectedStyleLoads) {
+        check(deadline.hasNotPassedNow()) {
+          "Timed out loading style $style at $extent; " +
+            "style loads: $styleLoads/$expectedStyleLoads, rendered frames: $renderedFrames, " +
+            "last result: $lastResult, failure: $failure"
+        }
+        failure?.let { error(it) }
+        lastResult = pumpFrame(extent).also { if (it.rendered) renderedFrames++ }.result
+        Thread.sleep(POLL_INTERVAL_MILLIS)
+      }
+      // Take a frame submitted after the load. A RENDERED result from before onStyleChanged
+      // can still hold the previous style's pixels.
+      while (true) {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering style $style at $extent; " +
             "style loads: $styleLoads/$expectedStyleLoads, rendered frames: $renderedFrames, " +
             "last result: $lastResult, failure: $failure"
         }
         failure?.let { error(it) }
-        val frame =
-          assertIs<MlnFfiMapFrameAcquisition.Acquired>(
-              host.acquireFrame(nextFrameId++, extent, null)
-            )
-            .frame
-        try {
-          val result = host.withProducerAccess(frame) { renderer.render(frame) }
-          lastResult = result
-          if (result == MlnFfiFrameResult.RENDERED) {
-            host.completeProducerAccess(frame)
-            renderedFrames++
-            rendered = frame.target
-          }
-        } finally {
-          host.releaseFrame(frame)
+        val pumped = pumpFrame(extent)
+        lastResult = pumped.result
+        if (pumped.rendered) {
+          renderedFrames++
+          return checkNotNull(pumped.target)
         }
         Thread.sleep(POLL_INTERVAL_MILLIS)
       }
-      return checkNotNull(rendered)
+    }
+
+    private fun pumpFrame(extent: MapExtent): PumpedFrame {
+      val frame =
+        assertIs<MlnFfiMapFrameAcquisition.Acquired>(host.acquireFrame(nextFrameId++, extent, null))
+          .frame
+      try {
+        val result = host.withProducerAccess(frame) { renderer.render(frame) }
+        if (result == MlnFfiFrameResult.RENDERED) {
+          host.completeProducerAccess(frame)
+          return PumpedFrame(result, frame.target)
+        }
+        return PumpedFrame(result, null)
+      } finally {
+        host.releaseFrame(frame)
+      }
     }
 
     override fun close() {
       renderer.close()
       cacheDirectory.toFile().deleteRecursively()
+    }
+
+    private class PumpedFrame(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget?) {
+      val rendered: Boolean
+        get() = result == MlnFfiFrameResult.RENDERED && target != null
     }
   }
 
