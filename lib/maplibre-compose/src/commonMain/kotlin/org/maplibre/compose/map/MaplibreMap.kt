@@ -4,9 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
@@ -26,7 +24,7 @@ import org.maplibre.compose.camera.CameraProjection
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.overlay.MapOverlay
-import org.maplibre.compose.overlay.MapOverlayScopeImpl
+import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.SafeStyle
@@ -68,11 +66,13 @@ import org.maplibre.spatialk.geojson.Position
  * @param onMapLoadFailed Invoked when the map failed to load.
  * @param onMapLoadFinished Invoked when the map finished loading.
  * @param contentWindowInsets The region of the map that other UI covers, such as system bars or a
- *   bottom sheet. [overlay] lays its controls out inside what is left. The default,
+ *   bottom sheet. [overlay] lays aligned controls out inside what is left. The default,
  *   [WindowInsets.safeDrawing], accounts for insets that an ancestor has already consumed, so a map
  *   inside a scaffold gets zero and a full-bleed map gets the system bars.
  * @param overlay Controls drawn on top of the map. [MapOverlay.Default] draws the MapLibre logo and
  *   an attribution button; [MapOverlay.None] draws the map alone.
+ *   [Modifier.placedAt][org.maplibre.compose.overlay.MapOverlayScope.placedAt] in the overlay pins
+ *   Compose UI to a geographic position.
  * @param content The map content additional to what is already part of the map as defined in the
  *   base map style linked in [baseStyle].
  *
@@ -274,16 +274,12 @@ public fun MaplibreMap(
       options = options,
     )
 
-    Box(
-      Modifier.matchParentSize()
-        .windowInsetsPadding(contentWindowInsets)
-        .padding(MapOverlay.Spacing)
-    ) {
-      val scope =
-        remember(this, cameraState, styleState, contentWindowInsets) {
-          MapOverlayScopeImpl(this, cameraState, styleState, contentWindowInsets)
-        }
-      overlay.content(scope)
-    }
+    MapOverlayHost(
+      overlay = overlay,
+      cameraState = cameraState,
+      styleState = styleState,
+      contentWindowInsets = contentWindowInsets,
+      modifier = Modifier.matchParentSize(),
+    )
   }
 }

@@ -74,7 +74,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
-import org.maplibre.compose.overlay.MapMarkers
+import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -404,7 +404,7 @@ object TransitNetworkDemo : Demo {
   }
 
   @Composable
-  override fun Overlay(cameraState: CameraState) {
+  override fun MapOverlayScope.Overlay() {
     LoadFeed()
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId ?: return
@@ -416,21 +416,19 @@ object TransitNetworkDemo : Demo {
       }
     }
 
-    MapMarkers(cameraState) {
-      network.stopIdsByRoute[selected].orEmpty().forEach { stopId ->
-        key(stopId) {
-          val terminal = network.terminalsById[stopId]
-          val departure =
-            remember(selected, now) {
-              terminal?.let { nextDepartureFromStop(network, selected, stopId, now) }
-            }
-          if (terminal != null && departure != null) {
-            DepartureChip(
-              text = departure,
-              modifier =
-                Modifier.placedAt(terminal.position, Alignment.BottomCenter).padding(bottom = 8.dp),
-            )
+    network.stopIdsByRoute[selected].orEmpty().forEach { stopId ->
+      key(stopId) {
+        val terminal = network.terminalsById[stopId]
+        val departure =
+          remember(selected, now) {
+            terminal?.let { nextDepartureFromStop(network, selected, stopId, now) }
           }
+        if (terminal != null && departure != null) {
+          DepartureChip(
+            text = departure,
+            modifier =
+              Modifier.placedAt(terminal.position, Alignment.BottomCenter).padding(bottom = 8.dp),
+          )
         }
       }
     }

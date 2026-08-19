@@ -28,8 +28,8 @@ somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-A `MapOverlay` block draws the controls you list in it. The block lays out in a
-box, so `Modifier.align` positions each control against an edge.
+A `MapOverlay` block draws the controls you list in it. `Modifier.align`
+positions a control against an edge of the unobstructed map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
@@ -61,14 +61,11 @@ rotates around. See
 
 ## Pin Compose UI to a location
 
-`MapMarkers` draws Compose UI on the map: a chip, a button, or a callout.
+`Modifier.placedAt` puts a child on a geographic position. Keep the default
+controls with `include`, then add the child in the same overlay. A pan, a zoom,
+or a window resize moves the child with the map.
 
-`Modifier.placedAt` places each child on a geographic position, the way
-`Modifier.align` places a child in a box. Draw `MapMarkers` as a sibling of
-the map, sized to the map. The layout reads the camera projection, so a pan, a
-zoom, or a window resize moves the children with the map.
-
-<Code code={region(controls, "markers")} lang="kotlin" title="App.kt" />
+<Code code={region(controls, "placedAt")} lang="kotlin" title="App.kt" />
 
 1. `Alignment.BottomCenter` sits the bottom edge of the chip on the point.
    Padding lifts the chip above the feature.

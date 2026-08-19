@@ -53,7 +53,7 @@ import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
-import org.maplibre.compose.overlay.MapMarkers
+import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -318,7 +318,7 @@ class MlnFfiMapCompositionTest {
   }
 
   @Test
-  fun map_markers_follow_the_camera_target_when_the_map_resizes() {
+  fun overlay_placed_at_follows_the_camera_target_when_the_map_resizes() {
     val mapWidth = mutableStateOf(256.dp)
     val target = Position(longitude = 11.0, latitude = 47.0)
     val camera = CameraState(CameraPosition(target = target, zoom = 3.0))
@@ -326,8 +326,8 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         fun centerX(): Float? {
-          if (onAllNodesWithTag(MARKER_TAG).fetchSemanticsNodes().isEmpty()) return null
-          val bounds = onNodeWithTag(MARKER_TAG).getUnclippedBoundsInRoot()
+          if (onAllNodesWithTag(PLACED_AT_TAG).fetchSemanticsNodes().isEmpty()) return null
+          val bounds = onNodeWithTag(PLACED_AT_TAG).getUnclippedBoundsInRoot()
           return ((bounds.left + bounds.right) / 2).value
         }
         waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
@@ -347,20 +347,18 @@ class MlnFfiMapCompositionTest {
         )
       }
     ) { errors, onFrame ->
-      val size = Modifier.width(mapWidth.value).height(256.dp)
-      Box {
-        MaplibreMap(
-          modifier = size,
-          baseStyle = BaseStyle.Empty,
-          cameraState = camera,
-          logger = Logger.withTag("composition-test"),
-          onMapLoadFailed = { errors += "mapLoadFailed: $it" },
-          onFrame = { onFrame() },
-        )
-        MapMarkers(camera, modifier = size) {
-          Box(Modifier.size(4.dp).placedAt(target, Alignment.Center).testTag(MARKER_TAG))
-        }
-      }
+      MaplibreMap(
+        modifier = Modifier.width(mapWidth.value).height(256.dp),
+        baseStyle = BaseStyle.Empty,
+        cameraState = camera,
+        logger = Logger.withTag("composition-test"),
+        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        onFrame = { onFrame() },
+        overlay =
+          MapOverlay {
+            Box(Modifier.size(4.dp).placedAt(target, Alignment.Center).testTag(PLACED_AT_TAG))
+          },
+      )
     }
   }
 
@@ -388,6 +386,6 @@ class MlnFfiMapCompositionTest {
   private companion object {
     const val RENDER_TIMEOUT_MILLIS = 30_000L
 
-    const val MARKER_TAG = "map-marker"
+    const val PLACED_AT_TAG = "map-placed-at"
   }
 }

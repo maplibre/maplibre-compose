@@ -1,7 +1,6 @@
 package org.maplibre.compose.overlay
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.LayoutScopeMarker
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
@@ -9,24 +8,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.layout.ParentDataModifier
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.style.StyleState
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * Receiver for the controls drawn on top of a [MaplibreMap][org.maplibre.compose.map.MaplibreMap].
  *
- * The scope lays its children out in a box that covers the unobstructed region of the map, so
- * `Modifier.align` positions a control against an edge that nothing else covers. The map state that
- * controls read is available here, which is why the default controls take no arguments.
+ * [Modifier.align] positions a child against an edge of the unobstructed region of the map.
+ * [Modifier.placedAt] positions a child on a geographic position of the full map. The map state
+ * that controls read is available here, which is why the default controls take no arguments.
  */
 @LayoutScopeMarker
 @Stable
-public interface MapOverlayScope : BoxScope {
+public interface MapOverlayScope {
   /** The camera state of the map that this overlay belongs to. */
   public val cameraState: CameraState
 
@@ -35,9 +41,35 @@ public interface MapOverlayScope : BoxScope {
 
   /**
    * The obstructed region of the map, as passed to
-   * [MaplibreMap][org.maplibre.compose.map.MaplibreMap]. The overlay box already applies it.
+   * [MaplibreMap][org.maplibre.compose.map.MaplibreMap]. [Modifier.align] already applies it;
+   * [Modifier.placedAt] uses the full map.
    */
   public val contentWindowInsets: WindowInsets
+
+  /**
+   * Places this child against an edge of the unobstructed map region, the same way
+   * [Modifier.align][androidx.compose.foundation.layout.BoxScope.align] places a child in a box.
+   */
+  public fun Modifier.align(alignment: Alignment): Modifier
+
+  /**
+   * Places this child on [position]. [alignment] is the point of the child that sits on that
+   * position: [Alignment.BottomCenter] puts the bottom edge on the point.
+   */
+  public fun Modifier.placedAt(
+    position: Position,
+    alignment: Alignment = Alignment.Center,
+  ): Modifier
+}
+
+/**
+ * Draws [overlay] into this overlay. Use this to keep [MapOverlay.Default] and add children of your
+ * own.
+ */
+@Composable
+@UiComposable
+public fun MapOverlayScope.include(overlay: MapOverlay) {
+  overlay.content(this)
 }
 
 /**
@@ -50,7 +82,7 @@ public class MapOverlay(
   internal val content: @Composable @UiComposable MapOverlayScope.() -> Unit
 ) {
   public companion object {
-    /** Gap between the overlay controls and the edge of the unobstructed map region. */
+    /** Gap between aligned overlay controls and the edge of the unobstructed map region. */
     public val Spacing: Dp = 8.dp
 
     /**
@@ -90,10 +122,100 @@ public class MapOverlay(
   }
 }
 
+@Composable
+internal fun MapOverlayHost(
+  overlay: MapOverlay,
+  cameraState: CameraState,
+  styleState: StyleState,
+  contentWindowInsets: WindowInsets,
+  modifier: Modifier = Modifier,
+) {
+  val scope =
+    remember(cameraState, styleState, contentWindowInsets) {
+      MapOverlayScopeImpl(cameraState, styleState, contentWindowInsets)
+    }
+  Layout(modifier = modifier, content = { overlay.content(scope) }) { measurables, constraints ->
+    val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
+    val height = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
+    val spacing = MapOverlay.Spacing.roundToPx()
+    val innerLeft = contentWindowInsets.getLeft(this, layoutDirection) + spacing
+    val innerTop = contentWindowInsets.getTop(this) + spacing
+    val innerRight = contentWindowInsets.getRight(this, layoutDirection) + spacing
+    val innerBottom = contentWindowInsets.getBottom(this) + spacing
+    val innerWidth = (width - innerLeft - innerRight).coerceAtLeast(0)
+    val innerHeight = (height - innerTop - innerBottom).coerceAtLeast(0)
+    val alignedConstraints = Constraints(maxWidth = innerWidth, maxHeight = innerHeight)
+    val placeables = measurables.map { measurable ->
+      val child = measurable.parentData as? OverlayChildData
+      val childConstraints =
+        if (child is OverlayChildData.PlacedAt) Constraints() else alignedConstraints
+      measurable.measure(childConstraints)
+    }
+    layout(width, height) {
+      val projection = cameraState.projection
+      measurables.forEachIndexed { index, measurable ->
+        val placeable = placeables[index]
+        when (val child = measurable.parentData as? OverlayChildData) {
+          is OverlayChildData.PlacedAt -> {
+            if (projection == null || width == 0 || height == 0) return@forEachIndexed
+            val screen = projection.screenLocationFromPosition(child.position)
+            val aligned =
+              child.alignment.align(
+                size = IntSize(placeable.width, placeable.height),
+                space = IntSize.Zero,
+                layoutDirection = layoutDirection,
+              )
+            val x = screen.x.roundToPx() + aligned.x
+            val y = screen.y.roundToPx() + aligned.y
+            if (x + placeable.width < 0 || y + placeable.height < 0 || x > width || y > height) {
+              return@forEachIndexed
+            }
+            // Geographic x is not mirrored in RTL; Alignment.align already resolved the child's
+            // edge.
+            placeable.place(x, y)
+          }
+          else -> {
+            val alignment = (child as? OverlayChildData.Aligned)?.alignment ?: Alignment.TopStart
+            val offset =
+              alignment.align(
+                size = IntSize(placeable.width, placeable.height),
+                space = IntSize(innerWidth, innerHeight),
+                layoutDirection = layoutDirection,
+              )
+            placeable.place(innerLeft + offset.x, innerTop + offset.y)
+          }
+        }
+      }
+    }
+  }
+}
+
 @Stable
 internal class MapOverlayScopeImpl(
-  boxScope: BoxScope,
   override val cameraState: CameraState,
   override val styleState: StyleState,
   override val contentWindowInsets: WindowInsets,
-) : MapOverlayScope, BoxScope by boxScope
+) : MapOverlayScope {
+  override fun Modifier.align(alignment: Alignment): Modifier = this.then(AlignElement(alignment))
+
+  override fun Modifier.placedAt(position: Position, alignment: Alignment): Modifier =
+    this.then(PlacedAtElement(position, alignment))
+}
+
+@Immutable
+private sealed class OverlayChildData {
+  class Aligned(val alignment: Alignment) : OverlayChildData()
+
+  class PlacedAt(val position: Position, val alignment: Alignment) : OverlayChildData()
+}
+
+private data class AlignElement(val alignment: Alignment) : ParentDataModifier {
+  override fun Density.modifyParentData(parentData: Any?): Any =
+    if (parentData is OverlayChildData.PlacedAt) parentData else OverlayChildData.Aligned(alignment)
+}
+
+private data class PlacedAtElement(val position: Position, val alignment: Alignment) :
+  ParentDataModifier {
+  override fun Density.modifyParentData(parentData: Any?): Any =
+    OverlayChildData.PlacedAt(position, alignment)
+}

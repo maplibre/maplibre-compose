@@ -2,7 +2,6 @@
 
 package org.maplibre.compose.docsnippets
 
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -12,12 +11,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.overlay.ExpandingAttributionButton
-import org.maplibre.compose.overlay.MapMarkers
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
+import org.maplibre.compose.overlay.include
 import org.maplibre.spatialk.geojson.Position
 
 @Composable
@@ -53,16 +51,17 @@ fun Controls() {
 }
 
 @Composable
-fun LocationOverlay(cameraState: CameraState, position: Position) {
-  // #region markers
-  Box {
-    MaplibreMap(cameraState = cameraState)
-    MapMarkers(cameraState) {
-      Text(
-        "Next sailing 12:40",
-        Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
-      )
-    }
-  }
-  // #endregion markers
+fun LocationOverlay(position: Position) {
+  // #region placedAt
+  MaplibreMap(
+    overlay =
+      MapOverlay {
+        include(MapOverlay.Default)
+        Text(
+          "Next sailing 12:40",
+          Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
+        )
+      }
+  )
+  // #endregion placedAt
 }
