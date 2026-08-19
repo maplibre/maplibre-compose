@@ -301,8 +301,6 @@ class LinuxVulkanOpenGlInteropTest {
         lastResult = pumpFrame(extent).also { if (it.rendered) renderedFrames++ }.result
         Thread.sleep(POLL_INTERVAL_MILLIS)
       }
-      // Take a frame submitted after the load. A RENDERED result from before onStyleChanged
-      // can still hold the previous style's pixels.
       while (true) {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering style $style at $extent; " +

@@ -23,9 +23,6 @@ internal val DEFAULT_WORKER_URL: String by lazy {
  * MapLibre's own laundering uses `new URL(url, import.meta.url)`. Webpack rewrites that into a
  * module lookup, which fails for an `https` URL with "Cannot find module". This path avoids
  * `import.meta.url` so the CDN default works when the library is bundled.
- *
- * The blob imports the resolved href so a protocol-relative CDN URL still has a scheme. A blob URL
- * cannot supply one.
  */
 internal fun sameOriginWorkerUrl(workerUrl: String): String =
   js(
