@@ -91,12 +91,11 @@ class MlnFfiMapInputTest {
       mainClock.advanceTimeByFrame()
       waitForIdle()
       assertTrue(camera.isCameraMoving, "a hover cancelled the keyboard pan")
-
-      mainClock.advanceTimeBy(GestureOptions.Standard.animationDuration.inWholeMilliseconds)
-      waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
     } finally {
       mainClock.autoAdvance = true
     }
+    // Camera eases advance on map frames, which the host produces while the Compose clock runs.
+    waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
     assertTrue(camera.position.target.longitude != before, "the pan did not finish after the hover")
   }
 

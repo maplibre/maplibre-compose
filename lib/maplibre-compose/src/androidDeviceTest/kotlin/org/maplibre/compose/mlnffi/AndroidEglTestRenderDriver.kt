@@ -68,9 +68,21 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
 
   override fun readPixel(x: Int, y: Int): RgbaPixel {
     check(surface != EGL14.EGL_NO_SURFACE) { "No Android test frame has been rendered" }
-    // A dedicated session keeps its context current on this thread after render.
+    // A dedicated session keeps its context current on this thread after render. Symbol passes
+    // leave the glyph atlas framebuffer bound, so read the pbuffer (default framebuffer). GLES
+    // origin is the bottom left; fixture coordinates are the top left.
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+    GLES20.glFinish()
     val bytes = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
-    GLES30.glReadPixels(x, y, 1, 1, GLES30.GL_RGBA, GLES30.GL_UNSIGNED_BYTE, bytes)
+    GLES30.glReadPixels(
+      x,
+      extent.physicalHeight - 1 - y,
+      1,
+      1,
+      GLES30.GL_RGBA,
+      GLES30.GL_UNSIGNED_BYTE,
+      bytes,
+    )
     check(GLES20.glGetError() == GLES20.GL_NO_ERROR) { "glReadPixels failed" }
     return RgbaPixel(
       red = bytes.get(0).toInt() and 0xff,
