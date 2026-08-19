@@ -8,8 +8,17 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
+import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
+import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
+import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.rememberStyleState
+
+/** Whether the shell is showing the shared demo map or the isolated benchmark map. */
+enum class DemoShell {
+  Demos,
+  Benchmarks,
+}
 
 /** The state the shell owns: the shared map, the selection, and the settings. */
 @Stable
@@ -21,6 +30,9 @@ class DemoAppState(
 ) {
   var selectedDemo by mutableStateOf<Demo?>(null)
   var selectedStyle by mutableStateOf(DemoStyle.Default)
+  var shell by mutableStateOf(DemoShell.Demos)
+  var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
+  val benchmark = BenchmarkUiState()
 }
 
 @Composable

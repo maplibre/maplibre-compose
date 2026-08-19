@@ -114,8 +114,9 @@ Next steps:
 Investigation needed:
 
 - [Explore testing strategies for testing map behavior on all platforms.](https://github.com/maplibre/maplibre-compose/issues/29)
-- Explore benchmarking strategies for map rendering and other logic on all
-  platforms.
+- The demo app's Benchmarks screen times a zoom pump, a fly-around, and a large
+  GeoJSON update on a map of its own, after prefetching tiles. Pointer trail is
+  measured there too. Automating those runs in CI is still open.
 
 ## Road to v1.0
 
