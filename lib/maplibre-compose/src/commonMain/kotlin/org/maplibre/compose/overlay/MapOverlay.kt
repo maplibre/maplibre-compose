@@ -152,7 +152,10 @@ internal fun MapOverlayHost(
       measurable.measure(childConstraints)
     }
     layout(width, height) {
-      val projection = cameraState.projection
+      val hasPlacedAt = measurables.any { it.parentData is OverlayChildData.PlacedAt }
+      // Aligned children stay put when the camera moves. Reading projection here would
+      // invalidate this layout on every frame of a camera ease.
+      val projection = if (hasPlacedAt) cameraState.projection else null
       measurables.forEachIndexed { index, measurable ->
         val placeable = placeables[index]
         when (val child = measurable.parentData as? OverlayChildData) {
