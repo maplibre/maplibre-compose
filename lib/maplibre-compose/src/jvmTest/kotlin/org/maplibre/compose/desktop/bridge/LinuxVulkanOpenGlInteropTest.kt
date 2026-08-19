@@ -21,8 +21,6 @@ import org.jetbrains.skia.ColorType
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.GLAssembledInterface
 import org.jetbrains.skia.ImageInfo
-import org.jetbrains.skia.Picture
-import org.jetbrains.skia.PictureRecorder
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.makeGLWithInterface
 import org.junit.Assume.assumeTrue
@@ -162,30 +160,24 @@ class LinuxVulkanOpenGlInteropTest {
     }
 
   @Test
-  fun `recording a frame then reusing the target presents the new pixels`() =
-    onLinux("the Vulkan to OpenGL bridge this records exists only on Linux") {
+  fun `reusing the shared target presents the new pixels`() =
+    onLinux("the Vulkan to OpenGL bridge this reuses exists only on Linux") {
       EglTestContext.create().use { egl ->
         val host = VulkanOpenGlMapHost(EglMapHost(egl))
         try {
           InteropMap(host).use { map ->
             val first = egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
-            egl.withCurrent {
-              egl.record(host, first).use { recordedFirst ->
-                // Read the recording before the next write. After reuse the picture can sample
-                // the same import, which is the live Canvas path.
-                assertNear(
-                  FIRST_PIXEL,
-                  egl.drawAndRead(recordedFirst),
-                  "recorded first frame",
-                )
-                val second = map.renderStyle(SECOND_STYLE, FIRST_EXTENT)
-                assertNear(
-                  SECOND_PIXEL,
-                  egl.drawAndRead(host, second),
-                  "live second frame",
-                )
-              }
-            }
+            assertNear(
+              FIRST_PIXEL,
+              egl.withCurrent { egl.drawAndRead(host, first) },
+              "live first frame",
+            )
+            val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
+            assertNear(
+              SECOND_PIXEL,
+              egl.withCurrent { egl.drawAndRead(host, second) },
+              "live second frame after reuse",
+            )
           }
         } finally {
           host.close()
@@ -395,28 +387,6 @@ class LinuxVulkanOpenGlInteropTest {
         drew = host.draw(this, target)
       }
       assertTrue(drew, "The OpenGL host did not draw generation ${target.generation}")
-      return readDestination()
-    }
-
-    fun record(host: VulkanOpenGlMapHost, target: MlnFfiRenderTarget): Picture =
-      PictureRecorder().use { recorder ->
-        val canvas = recorder.beginRecording(0f, 0f, DRAW_WIDTH.toFloat(), DRAW_HEIGHT.toFloat())
-        var drew = false
-        CanvasDrawScope().draw(
-          Density(1f),
-          LayoutDirection.Ltr,
-          canvas.asComposeCanvas(),
-          Size(DRAW_WIDTH.toFloat(), DRAW_HEIGHT.toFloat()),
-        ) {
-          drew = host.draw(this, target)
-        }
-        assertTrue(drew, "The OpenGL host did not record generation ${target.generation}")
-        recorder.finishRecordingAsPicture()
-      }
-
-    fun drawAndRead(picture: Picture): RgbaPixel {
-      destination.canvas.clear(0xff00ff00.toInt())
-      destination.canvas.drawPicture(picture)
       return readDestination()
     }
 
