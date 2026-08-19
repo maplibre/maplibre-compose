@@ -29,7 +29,7 @@ internal fun sameOriginWorkerUrl(workerUrl: String): String =
       """
       (function() {
         var loc = globalThis.location;
-        if (!loc || !/^https?:/.test(workerUrl)) return workerUrl;
+        if (!loc) return workerUrl;
         try {
           if (new URL(workerUrl, loc.href).origin === loc.origin) return workerUrl;
         } catch (e) {
