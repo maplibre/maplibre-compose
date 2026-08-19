@@ -25,7 +25,11 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
 
   override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
 
-  override fun <T> withRendererAccess(action: () -> T): T = action()
+  override fun <T> withRendererAccess(action: () -> T): T {
+    // Symbol passes leave the glyph atlas framebuffer bound. Start each GL call on the pbuffer.
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+    return action()
+  }
 
   override fun resize(extent: MapExtent) {
     ensureSurface(extent)
@@ -64,7 +68,12 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean = false
 
   /** The producer renders directly into this EGL pbuffer, so there is no consumer-side bridge. */
-  override fun present(target: MlnFfiRenderTarget): Boolean = true
+  override fun present(target: MlnFfiRenderTarget): Boolean {
+    // Symbol passes leave the glyph atlas framebuffer bound. The next frame starts on the
+    // pbuffer, which is the map the test reads.
+    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
+    return true
+  }
 
   override fun readPixel(x: Int, y: Int): RgbaPixel {
     check(surface != EGL14.EGL_NO_SURFACE) { "No Android test frame has been rendered" }
