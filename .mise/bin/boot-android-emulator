@@ -5,10 +5,7 @@ set -euo pipefail
 api_level=${1:?usage: boot-android-emulator <api-level>}
 
 # An arm64 host needs an arm64 image to use its native accelerator.
-case "$(uname -m)" in
-  arm64 | aarch64) abi=arm64-v8a ;;
-  *) abi=x86_64 ;;
-esac
+abi="$("$(dirname "${BASH_SOURCE[0]}")/android-host-abi")"
 image="system-images;android-${api_level};default;${abi}"
 serial=emulator-5554
 # The ABI is in the name so a device built for another host is never reused.
