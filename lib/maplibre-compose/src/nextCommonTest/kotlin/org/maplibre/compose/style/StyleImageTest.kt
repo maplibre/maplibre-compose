@@ -117,11 +117,10 @@ class StyleImageTest {
    * An image source is drawn first, northwest of the origin, so a black icon pixel can be told
    * apart from a bitmap that never reached MapLibre.
    *
-   * The style image is uploaded, a frame is drawn, and then `icon-image` is set on the live layer.
-   * GLES keeps a miss from creation JSON that names an image that is not in the style yet. The
-   * `image` expression checks the atlas when it evaluates; GLES packs a runtime image when a layout
-   * requests that name, so `["image","probe"]` can stay unresolved. The name as a string is what
-   * that layout requests.
+   * Compose registers the bitmap, then adds the layer with `icon-image` already in the creation
+   * JSON. The name as a string is what GLES layout requests for atlas packing; the `image`
+   * expression can stay unresolved. A later setter on a live layer can place the symbol without
+   * packing that name.
    */
   private suspend fun attachProbeIcon(
     fixture: MapFixture,
@@ -158,8 +157,8 @@ class StyleImageTest {
     val layer = SymbolLayer("icon", source)
     layer.setIconAllowOverlap(const(true).compile(ExpressionContext.None))
     layer.setIconIgnorePlacement(const(true).compile(ExpressionContext.None))
-    style.addLayer(layer)
     layer.setIconImage(const(IMAGE_ID).compile(ExpressionContext.None).cast())
+    style.addLayer(layer)
   }
 
   private fun solidBitmap(size: Int, color: Color): ImageBitmap {
