@@ -31,6 +31,14 @@ public actual class GeoJsonSource : Source {
   /** The URI form of the data, when it is one. */
   @Volatile private var dataUrl: String?
 
+  /**
+   * Incremented at the start of every [setData] and [publishData]. Only the current generation
+   * installs after a parse.
+   */
+  @Volatile private var publishGeneration = 0
+
+  private val installLock = Any()
+
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
     this.ffiOptions = options.toFfiOptions()
@@ -70,18 +78,46 @@ public actual class GeoJsonSource : Source {
   }
 
   public actual fun setData(data: GeoJsonData) {
-    this.inlineUtf8 = data.toInlineUtf8()
-    this.dataUrl = (data as? GeoJsonData.Uri)?.uri
+    applyData(data, nextPublishGeneration())
+  }
+
+  private fun nextPublishGeneration(): Int = synchronized(installLock) { ++publishGeneration }
+
+  /**
+   * Parses the [data] argument, then installs it when [generation] is still current. mutateMap
+   * waits until the owner thread has used the handle, so closing it afterward is safe.
+   */
+  private fun applyData(data: GeoJsonData, generation: Int) {
     if (data is GeoJsonData.Uri) {
-      mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
-    } else {
-      // Parse and index on the caller; [publishData] runs this on a worker. mutateMap waits until
-      // the owner thread has installed the handle. synchronousTiling only changes where viewport
-      // tiles are sliced after that install: during the next render (true) or on a worker (false).
-      prepareData().use { prepared ->
+      installIfCurrent(generation) {
+        inlineUtf8 = null
+        dataUrl = data.uri
+        mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
+      }
+      return
+    }
+    val utf8 = data.toInlineUtf8()!!
+    if (generation != publishGeneration) return
+    GeoJsonSourceDataHandle.create(utf8, ffiOptions).use { prepared ->
+      installIfCurrent(generation) {
+        inlineUtf8 = utf8
+        dataUrl = null
         mutate { map -> map.setGeoJsonSourceData(id, prepared) }
       }
     }
+  }
+
+  private inline fun installIfCurrent(generation: Int, install: () -> Unit) {
+    synchronized(installLock) {
+      if (generation != publishGeneration) return
+      install()
+    }
+  }
+
+  /** Parses and indexes on Default. [applyData] installs only the current generation. */
+  internal suspend fun publishPreparedData(data: GeoJsonData) {
+    val generation = nextPublishGeneration()
+    withContext(Dispatchers.Default) { applyData(data, generation) }
   }
 
   /**
@@ -225,5 +261,5 @@ private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
 }
 
 internal actual suspend fun GeoJsonSource.publishData(data: GeoJsonData) {
-  withContext(Dispatchers.Default) { setData(data) }
+  publishPreparedData(data)
 }

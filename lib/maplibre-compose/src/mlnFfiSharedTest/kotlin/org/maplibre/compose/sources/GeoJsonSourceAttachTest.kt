@@ -11,7 +11,13 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
@@ -73,9 +79,47 @@ class GeoJsonSourceAttachTest {
     }
   }
 
+  /**
+   * A newer one-point payload remains after a slower older parse finishes. `publishData` parses on
+   * Default without a suspend point, and the older worker runs to completion.
+   */
+  @Test
+  fun a_newer_publish_keeps_its_data_when_an_older_parse_finishes_later() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
+      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(0.0)), GeoJsonOptions())
+      style.addSource(source)
+
+      val older = GeoJsonData.Features(manyPoints(longitude = 2.0, count = 4_000))
+      val newer = GeoJsonData.Features(pointAt(longitude = 9.0))
+      val olderJob =
+        launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+          source.publishData(older)
+        }
+      source.publishData(newer)
+      olderJob.join()
+
+      val features = (source.toJson()["data"] as JsonObject)["features"] as JsonArray
+      assertEquals(1, features.size, source.toJson().toString())
+      val coordinates =
+        ((features.single() as JsonObject)["geometry"] as JsonObject)["coordinates"] as JsonArray
+      assertEquals(9.0, coordinates[0].jsonPrimitive.double)
+      assertEquals(emptyList(), fixture.errors, "the map should report nothing")
+    }
+  }
+
   private fun pointAt(longitude: Double): FeatureCollection<Geometry, JsonObject?> =
     buildFeatureCollection {
       addFeature(geometry = Point(Position(longitude = longitude, latitude = 0.0)))
+    }
+
+  private fun manyPoints(longitude: Double, count: Int): FeatureCollection<Geometry, JsonObject?> =
+    buildFeatureCollection {
+      repeat(count) { index ->
+        addFeature(geometry = Point(Position(longitude = longitude, latitude = index * 0.0001)))
+      }
     }
 
   private companion object {
