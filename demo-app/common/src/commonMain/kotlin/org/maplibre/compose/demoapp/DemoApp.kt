@@ -1,9 +1,5 @@
 package org.maplibre.compose.demoapp
 
-import androidx.compose.animation.animateContentSize
-import androidx.compose.animation.core.CubicBezierEasing
-import androidx.compose.animation.core.tween
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -13,6 +9,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberBottomSheetScaffoldState
@@ -20,8 +17,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
 
 @Composable
@@ -35,27 +32,19 @@ fun DemoApp() {
   // viewport crosses the side-pane / bottom-sheet breakpoint.
   val panel = remember { movableContentOf { modifier: Modifier -> DemoPanel(state, modifier) } }
   MaterialTheme(colorScheme = colorScheme) {
-    BoxWithConstraints(Modifier.fillMaxSize()) {
-      if (maxWidth >= WideLayoutMinWidth) {
-        WideLayout(state, panel)
-      } else {
-        NarrowLayout(state, panel)
-      }
+    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
+    if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
+      WideLayout(state, panel)
+    } else {
+      NarrowLayout(state, panel)
     }
   }
 }
-
-/** Below this width the panel becomes a bottom sheet. */
-private val WideLayoutMinWidth = 720.dp
 
 private val PanelWidth = 360.dp
 
 /** How much of the map the collapsed sheet covers. */
 private val SheetPeekHeight = 128.dp
-
-/** Matches the panel's shared-axis duration so the sheet slides with the destination. */
-private val SheetSizeAnimationSpec =
-  tween<IntSize>(300, easing = CubicBezierEasing(0.2f, 0f, 0f, 1f))
 
 @Composable
 private fun WideLayout(state: DemoAppState, panel: @Composable (Modifier) -> Unit) {
@@ -73,10 +62,8 @@ private fun NarrowLayout(state: DemoAppState, panel: @Composable (Modifier) -> U
     sheetPeekHeight = SheetPeekHeight,
     scaffoldState = rememberBottomSheetScaffoldState(),
     // Expanded is the measured height of this content, capped at the scaffold.
-    // Animate that measurement so the sheet slides with the destination.
-    sheetContent = {
-      panel(Modifier.animateContentSize(SheetSizeAnimationSpec).fillMaxWidth())
-    },
+    // NavHost SizeTransform interpolates that height with the destination.
+    sheetContent = { panel(Modifier.fillMaxWidth()) },
   ) {
     // The map draws under the scaffold content area, so the sheet covers its bottom edge.
     ShellMap(state, sheetInsets = WindowInsets(bottom = SheetPeekHeight))
