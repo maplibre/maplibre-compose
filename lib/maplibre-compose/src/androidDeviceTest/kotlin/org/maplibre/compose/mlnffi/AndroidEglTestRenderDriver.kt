@@ -25,11 +25,7 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
 
   override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
 
-  override fun <T> withRendererAccess(action: () -> T): T {
-    // Symbol passes leave the glyph atlas framebuffer bound. Start each GL call on the pbuffer.
-    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-    return action()
-  }
+  override fun <T> withRendererAccess(action: () -> T): T = action()
 
   override fun resize(extent: MapExtent) {
     ensureSurface(extent)
@@ -68,37 +64,42 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean = false
 
   /** The producer renders directly into this EGL pbuffer, so there is no consumer-side bridge. */
-  override fun present(target: MlnFfiRenderTarget): Boolean {
-    // Symbol passes leave the glyph atlas framebuffer bound. The next frame starts on the
-    // pbuffer, which is the map the test reads.
-    GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-    return true
-  }
+  override fun present(target: MlnFfiRenderTarget): Boolean = true
 
   override fun readPixel(x: Int, y: Int): RgbaPixel {
     check(surface != EGL14.EGL_NO_SURFACE) { "No Android test frame has been rendered" }
     // A dedicated session keeps its context current on this thread after render. Symbol passes
-    // leave the glyph atlas framebuffer bound, so read the pbuffer (default framebuffer). GLES
-    // origin is the bottom left; fixture coordinates are the top left.
+    // leave the glyph atlas framebuffer bound; the map is on the pbuffer. GLES origin is the
+    // bottom left; fixture coordinates are the top left.
+    //
+    // Native's Unique GL context caches the bound framebuffer. Binding the pbuffer for the read
+    // and leaving it bound makes the next symbol pass pack the atlas into the map. Restore the
+    // binding Native left.
+    val previous = IntArray(1)
+    GLES20.glGetIntegerv(GLES20.GL_FRAMEBUFFER_BINDING, previous, 0)
     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0)
-    GLES20.glFinish()
-    val bytes = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
-    GLES30.glReadPixels(
-      x,
-      extent.physicalHeight - 1 - y,
-      1,
-      1,
-      GLES30.GL_RGBA,
-      GLES30.GL_UNSIGNED_BYTE,
-      bytes,
-    )
-    check(GLES20.glGetError() == GLES20.GL_NO_ERROR) { "glReadPixels failed" }
-    return RgbaPixel(
-      red = bytes.get(0).toInt() and 0xff,
-      green = bytes.get(1).toInt() and 0xff,
-      blue = bytes.get(2).toInt() and 0xff,
-      alpha = bytes.get(3).toInt() and 0xff,
-    )
+    try {
+      GLES20.glFinish()
+      val bytes = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
+      GLES30.glReadPixels(
+        x,
+        extent.physicalHeight - 1 - y,
+        1,
+        1,
+        GLES30.GL_RGBA,
+        GLES30.GL_UNSIGNED_BYTE,
+        bytes,
+      )
+      check(GLES20.glGetError() == GLES20.GL_NO_ERROR) { "glReadPixels failed" }
+      return RgbaPixel(
+        red = bytes.get(0).toInt() and 0xff,
+        green = bytes.get(1).toInt() and 0xff,
+        blue = bytes.get(2).toInt() and 0xff,
+        alpha = bytes.get(3).toInt() and 0xff,
+      )
+    } finally {
+      GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, previous[0])
+    }
   }
 
   private fun ensureSurface(next: MapExtent) {
