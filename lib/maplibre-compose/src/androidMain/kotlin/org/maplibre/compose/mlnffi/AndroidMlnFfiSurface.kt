@@ -9,7 +9,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -27,15 +26,11 @@ internal fun AndroidMlnFfiSurface(
 ) {
   val density = LocalDensity.current.density.toDouble()
   val lifecycleOwner = LocalLifecycleOwner.current
-  val displayPeakRefreshHz =
-    LocalView.current.display?.supportedModes?.maxOfOrNull { it.refreshRate } ?: 60f
   val controller =
-    remember(renderer) {
-      AndroidMlnFfiSurfaceController(renderer, logger, maximumFps, displayPeakRefreshHz)
-    }
+    remember(renderer) { AndroidMlnFfiSurfaceController(renderer, logger, maximumFps) }
   val available = MapRenderBackend.OPENGL in runtimeBackends
 
-  SideEffect { controller.setFrameRateVote(maximumFps, displayPeakRefreshHz) }
+  SideEffect { controller.setMaximumFps(maximumFps) }
 
   DisposableEffect(controller, lifecycleOwner) {
     val observer = LifecycleEventObserver { _, event ->
