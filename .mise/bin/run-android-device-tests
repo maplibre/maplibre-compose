@@ -42,7 +42,10 @@ if [[ -z "${ANDROID_DEVICE_TEST_SKIP_REBOOT:-}" ]]; then
 fi
 
 set +e
-run_gradle 2>&1 | tee "$log"
+{
+  printf '\n===== retry after session-install hang =====\n'
+  run_gradle
+} 2>&1 | tee -a "$log"
 status=${PIPESTATUS[0]}
 set -e
 exit "$status"
