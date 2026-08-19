@@ -127,11 +127,6 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
   private var texture: LinuxSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, LinuxSharedTexture>()
   private var generation = 0L
-  /**
-   * Count of completed Vulkan writes into the current import. Skia caches a snapshot of that
-   * texture; a new value makes [OpenGlPresenter] wrap it again so Compose reads the live pixels.
-   */
-  @Volatile private var contentEpoch = 0L
   private var currentExtent = MapExtent.Empty
 
   override val backends: RenderBackendPair =
@@ -164,7 +159,6 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
 
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
     rendererThread.run { vulkan?.waitIdle() }
-    contentEpoch += 1
   }
 
   override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
@@ -187,7 +181,6 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
           context.skiaContext,
           imported.target(target.generation),
           frameCompletion,
-          contentEpoch,
         )
       if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
       drew
