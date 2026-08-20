@@ -47,7 +47,7 @@ public class ImageStretch private constructor(private val spec: Spec) {
      *
      * An empty [x] or [y] omits stretch metadata on that axis. Ranges on an axis must be
      * non-overlapping and lie inside the bitmap; an axis that fails those checks is uploaded
-     * without stretch.
+     * without stretch. A content box that does not lie inside the bitmap is omitted.
      *
      * @param x Horizontal intervals that may stretch, from the left edge.
      * @param y Vertical intervals that may stretch, from the top edge.
@@ -58,7 +58,7 @@ public class ImageStretch private constructor(private val spec: Spec) {
       x: List<ClosedRange<Dp>>,
       y: List<ClosedRange<Dp>>,
       content: DpRect? = null,
-    ): ImageStretch = ImageStretch(Spec.Ranges(x, y, content))
+    ): ImageStretch = ImageStretch(Spec.Ranges(x.toList(), y.toList(), content))
 
     /**
      * A nine-patch. [left], [top], [right], and [bottom] are the fixed border on each edge. The
@@ -156,8 +156,8 @@ public class ImageStretch private constructor(private val spec: Spec) {
         spec.contentRight,
         spec.contentBottom,
       )
-    val stretchOk = stretchBox.isValid
-    val contentOk = contentBox.isValid
+    val stretchOk = stretchBox.fits(imageWidth, imageHeight)
+    val contentOk = contentBox.fits(imageWidth, imageHeight)
     val warning =
       when {
         !stretchOk && !contentOk ->
@@ -202,7 +202,7 @@ public class ImageStretch private constructor(private val spec: Spec) {
           )
         }
       }
-    val contentOk = content == null || content.isValid
+    val contentOk = content == null || content.fits(imageWidth, imageHeight)
     val issues = buildList {
       if (stretchX == null) add("horizontal stretch ranges")
       if (stretchY == null) add("vertical stretch ranges")
@@ -244,6 +244,9 @@ internal data class ImageContentBox(
 ) {
   val isValid: Boolean
     get() = left < right && top < bottom
+
+  fun fits(imageWidth: Int, imageHeight: Int): Boolean =
+    isValid && left >= 0f && top >= 0f && right <= imageWidth && bottom <= imageHeight
 }
 
 private fun PaddingValues.Absolute.edgeLeft(): Dp = calculateLeftPadding(LayoutDirection.Ltr)

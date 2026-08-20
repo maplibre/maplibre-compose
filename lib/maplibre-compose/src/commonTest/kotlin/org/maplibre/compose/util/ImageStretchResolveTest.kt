@@ -128,4 +128,47 @@ class ImageStretchResolveTest {
       resolution.pixels,
     )
   }
+
+  @Test
+  fun a_content_box_outside_the_bitmap_is_omitted() {
+    val resolution =
+      ImageStretch(
+          x = listOf(8.dp..24.dp),
+          y = listOf(4.dp..28.dp),
+          content = DpRect(40.dp, 0.dp, 50.dp, 10.dp),
+        )
+        .resolve(imageWidth = 32, imageHeight = 32, scale = 1f)
+
+    assertNotNull(resolution.warning, "content box outside the image")
+    assertEquals(
+      ImageStretchPixels(
+        stretchX = listOf(8f to 24f),
+        stretchY = listOf(4f to 28f),
+        content = null,
+      ),
+      resolution.pixels,
+    )
+  }
+
+  @Test
+  fun range_lists_are_copied_so_later_mutation_does_not_change_the_value() {
+    val x = mutableListOf(8.dp..24.dp)
+    val stretch = ImageStretch(x = x, y = listOf(4.dp..28.dp))
+    val hashBefore = stretch.hashCode()
+
+    x.clear()
+    x.add(0.dp..32.dp)
+
+    assertEquals(hashBefore, stretch.hashCode())
+    val resolution = stretch.resolve(imageWidth = 32, imageHeight = 32, scale = 1f)
+    assertNull(resolution.warning, "original ranges still fit")
+    assertEquals(
+      ImageStretchPixels(
+        stretchX = listOf(8f to 24f),
+        stretchY = listOf(4f to 28f),
+        content = null,
+      ),
+      resolution.pixels,
+    )
+  }
 }
