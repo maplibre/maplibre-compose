@@ -16,6 +16,9 @@ import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties
 import org.lwjgl.vulkan.VkQueueFamilyProperties
 
+internal fun isWindowsDesktop(): Boolean =
+  System.getProperty("os.name")?.lowercase().orEmpty().contains("win")
+
 internal fun checkVulkan(status: Int, operation: String) {
   check(status == VK_SUCCESS) { "$operation failed with Vulkan status $status" }
 }
@@ -38,12 +41,18 @@ internal fun MemoryStack.vulkanInstanceExtensions(): Set<String> {
     vkEnumerateInstanceExtensionProperties(null as String?, count, null),
     "vkEnumerateInstanceExtensionProperties(count)",
   )
-  val props = VkExtensionProperties.calloc(count[0], this)
-  checkVulkan(
-    vkEnumerateInstanceExtensionProperties(null as String?, count, props),
-    "vkEnumerateInstanceExtensionProperties",
-  )
-  return buildSet { props.forEach { add(it.extensionNameString()) } }
+  if (count[0] == 0) return emptySet()
+  // Heap: a typical ICD reports enough extensions to overflow LWJGL's 32 KiB thread stack.
+  val props = VkExtensionProperties.calloc(count[0])
+  try {
+    checkVulkan(
+      vkEnumerateInstanceExtensionProperties(null as String?, count, props),
+      "vkEnumerateInstanceExtensionProperties",
+    )
+    return buildSet { props.forEach { add(it.extensionNameString()) } }
+  } finally {
+    props.free()
+  }
 }
 
 internal fun MemoryStack.vulkanDeviceExtensions(device: VkPhysicalDevice): Set<String> {
@@ -52,12 +61,17 @@ internal fun MemoryStack.vulkanDeviceExtensions(device: VkPhysicalDevice): Set<S
     vkEnumerateDeviceExtensionProperties(device, null as String?, count, null),
     "vkEnumerateDeviceExtensionProperties(count)",
   )
-  val props = VkExtensionProperties.calloc(count[0], this)
-  checkVulkan(
-    vkEnumerateDeviceExtensionProperties(device, null as String?, count, props),
-    "vkEnumerateDeviceExtensionProperties",
-  )
-  return buildSet { props.forEach { add(it.extensionNameString()) } }
+  if (count[0] == 0) return emptySet()
+  val props = VkExtensionProperties.calloc(count[0])
+  try {
+    checkVulkan(
+      vkEnumerateDeviceExtensionProperties(device, null as String?, count, props),
+      "vkEnumerateDeviceExtensionProperties",
+    )
+    return buildSet { props.forEach { add(it.extensionNameString()) } }
+  } finally {
+    props.free()
+  }
 }
 
 internal fun MemoryStack.vulkanStringBuffer(values: Set<String>): PointerBuffer {

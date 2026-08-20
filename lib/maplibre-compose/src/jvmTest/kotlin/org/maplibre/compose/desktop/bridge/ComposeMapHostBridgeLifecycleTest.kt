@@ -20,6 +20,13 @@ class ComposeMapHostBridgeLifecycleTest {
     }
   }
 
+  @Test
+  fun windows_opengl_resize_waits_for_the_first_gpu_context() {
+    VulkanOpenGlWin32MapHost(ContextlessMapHost(ComposeRenderBackend.OPENGL)).use { host ->
+      host.resize(EXTENT)
+    }
+  }
+
   private class ContextlessMapHost(override val backend: ComposeRenderBackend) : ComposeMapHost {
     override val description: String = "contextless test host"
 
