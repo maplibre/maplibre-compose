@@ -731,22 +731,13 @@ internal class MlnFfiMapSession(
     hostSession?.requestFrame()
   }
 
-  /**
-   * Dirties mbgl and opens the session skip gate. Safe from any thread.
-   *
-   * A discarded pump can consume the `MAP_STYLE_LOADED` requestRepaint. Later pumps stay on
-   * `NO_UPDATE` until the map is dirty again.
-   */
+  /** Dirties mbgl and opens the skip gate. Safe from any thread. */
   internal fun requestRedraw() {
     onMap { map -> map.requestRepaint() }
     requestRender()
   }
 
-  /**
-   * Dirties mbgl so `renderUpdate` draws into an empty replacement texture instead of returning
-   * `NO_UPDATE`, and snapshots the viewport a size or generation change also needs. Posted because
-   * attach and retarget run on the renderer thread.
-   */
+  /** Empty texture. Posted because attach and retarget run on the renderer thread. */
   private fun requestFillOfNewTarget() {
     onMap { map ->
       map.requestRepaint()
