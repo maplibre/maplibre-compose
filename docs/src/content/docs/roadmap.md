@@ -1,6 +1,6 @@
 ---
 title: Roadmap
-description: Projects underway and projects waiting for an interested contributor.
+description: Projects on the path to 1.0, and work that waits until after.
 ---
 
 MapLibre Compose is still primarily developed by
@@ -15,46 +15,20 @@ investigation, or experiment with some proof of concept.
 If you'd like to get involved, please join us in
 [our Slack channel](https://osmus.slack.com/archives/maplibre-compose).
 
-## On deck
+## Road to 1.0
 
-These projects are in progress or ready to start writing code. Community
-contributions are highly welcome.
-
-### [Desktop Parity](https://github.com/maplibre/maplibre-compose/issues/570)
-
-**Status:** Nearly done 🏁
-
-The goal is to support Compose Desktop platforms (macOS, Windows, and Linux) on
-par with our current level of support for Android and iOS.
-
-Desktop is now built on the published
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi) Kotlin
-Multiplatform bindings, rather than JNI bindings and a vendored MapLibre Native
-checkout of our own. The camera, gestures, styles, sources, layers, expressions,
-images, feature queries, Compose resource loading, and the offline manager all
-work. The bridge between MapLibre's renderer and Compose's is a replaceable
-integration point rather than something wired into Skiko's internals.
-
-Next steps:
-
-- Add support for platform location services on Windows. Linux uses the XDG
-  Location portal, and macOS uses Core Location. Desktop orientation providers
-  still need platform sensor integrations.
+These projects should be completed before a v1.0 release of MapLibre Compose.
+Community contributions are highly welcome.
 
 ### [Documentation](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20documentation%20label%3Adocumentation)
 
 **Status:** Needs Exploration 🔍 but some parts are shovel ready 🪏
 
 The goal is to overhaul the documentation to make it easier for newcomers to use
-the library, and to make LLMs more reliable at writing correct code using
-MapLibre Compose.
+the library.
 
 Next steps:
 
-- Improve
-  [the demo app](https://github.com/maplibre/maplibre-compose/issues/486),
-  fixing known bugs and adding demos showing the capabilities of MapLibre
-  Compose.
 - Add inline examples to the documentation site to go with code snippets.
 
 Investigation needed:
@@ -67,37 +41,6 @@ Investigation needed:
 - Explain the style composition and expressions DSL from the Kotlin perspective
   for an audience who may not be familiar with the
   [MapLibre Style Spec](https://maplibre.org/maplibre-style-spec/).
-- Explore generating a useful [`llms.txt`](https://llmstxt.org) file for the
-  documentation site.
-- Explore improving the usefulness of context about MapLibre Compose
-  [on Context7](https://context7.com/maplibre/maplibre-compose).
-
-### Devex improvements
-
-**Status:** Needs Exploration 🔍 but some parts are shovel ready 🪏
-
-The project would benefit from work to improve the experience of developing
-MapLibre Compose for desktop. The biggest pain points right now are:
-
-- Regressions due to limited automatic tests on all platforms.
-- Brittle local development setup.
-
-Next steps:
-
-- [Configure a reproducible build environment.](https://github.com/maplibre/maplibre-compose/issues/684)
-
-Investigation needed:
-
-- [Explore testing strategies for testing map behavior on all platforms.](https://github.com/maplibre/maplibre-compose/issues/29)
-- The demo app's Benchmarks screen times a zoom pump, a fly-around, and a large
-  GeoJSON update on a map of its own, after prefetching tiles. Pointer trail is
-  measured there too. Automating those runs in CI is still open.
-
-## Road to v1.0
-
-These projects should be completed before a v1.0 release of MapLibre Compose,
-but are not currently being worked on. If you're interested and would like to
-take them on, community contributions are of course still welcome!
 
 ### [WASM Parity](https://github.com/maplibre/maplibre-compose/issues/209)
 
@@ -154,13 +97,14 @@ the answers are to replace the layer with `Anchor.Replace` and reproduce its
 properties, or to fetch the style JSON and edit it before handing it to the map.
 Both are workarounds for the same missing thing.
 
-Once every platform is on `maplibre-native-ffi`, the escape hatch may already
-exist. Its handles are an imperative map API, so exposing them — opt-in, and
-marked as delicate — would let an application blocked on something we have not
-wrapped reach past us rather than wait for us, with the same API everywhere.
-Doing that today would mean exposing a different one per platform, which is what
-makes [#538](https://github.com/maplibre/maplibre-compose/issues/538) hard to
-answer well.
+Android, iOS, and Desktop now share `maplibre-native-ffi` handles, which are an
+imperative map API. Exposing them — opt-in, and marked as delicate — would let
+an application reach past us for something we have not wrapped. A common hatch
+is one object per backend: the browser still uses MapLibre GL JS. The shape of
+that API is sketched in
+[`API_REDESIGN.md`](https://github.com/maplibre/maplibre-compose/blob/main/.agents/docs/API_REDESIGN.md).
+Publishing those handles is also the answer to
+[#538](https://github.com/maplibre/maplibre-compose/issues/538).
 
 ### Fill in the missing map capabilities
 
@@ -171,6 +115,8 @@ API for, among them style light, the location indicator layer, alternative
 projections, style transition options, HTTP header transforms, supplying missing
 style images on demand, resource transforms, merging offline databases, and
 [static map snapshots](https://github.com/maplibre/maplibre-compose/issues/28).
+The inventory is in
+[`COMMON_API_GAPS.md`](https://github.com/maplibre/maplibre-compose/blob/main/.agents/docs/COMMON_API_GAPS.md).
 
 Snapshots carry one extra requirement, since we would like to style them the
 same way interactive maps are styled: the style API has to be usable without a

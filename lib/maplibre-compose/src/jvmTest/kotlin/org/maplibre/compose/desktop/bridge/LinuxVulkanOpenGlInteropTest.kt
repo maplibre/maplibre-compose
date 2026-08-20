@@ -146,6 +146,11 @@ class LinuxVulkanOpenGlInteropTest {
 
               mapHost.replaceContext(secondEgl)
               val second = secondEgl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
+              assertTrue(
+                second.generation != first.generation,
+                "replacement context must allocate a new shared target, " +
+                  "got generation ${second.generation} after ${first.generation}",
+              )
               assertNear(
                 SECOND_PIXEL,
                 secondEgl.withCurrent { secondEgl.drawAndRead(host, second) },
@@ -169,9 +174,12 @@ class LinuxVulkanOpenGlInteropTest {
             egl.withCurrent {
               val first = map.renderStyle(FIRST_STYLE, FIRST_EXTENT)
               assertNear(FIRST_PIXEL, egl.drawAndRead(host, first), "live first frame")
-              map.presentStyle(SECOND_STYLE, FIRST_EXTENT, SECOND_PIXEL) { target ->
-                egl.drawAndRead(host, target)
-              }
+              val second = map.renderStyle(SECOND_STYLE, FIRST_EXTENT)
+              assertNear(
+                SECOND_PIXEL,
+                egl.drawAndRead(host, second),
+                "live second frame after reuse",
+              )
             }
           }
         } finally {
@@ -280,8 +288,9 @@ class LinuxVulkanOpenGlInteropTest {
       var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      // Style callbacks and rendering happen on different threads, so wait for both facts
-      // without requiring either to be observed first.
+      // Style application and rendering run on different threads. A frame that started before
+      // the new style was observed is the previous style, even if the callback arrives before
+      // this loop looks again. Sample the load count first, then keep only a later frame.
       while (styleLoads < expectedStyleLoads || rendered == null) {
         check(deadline.hasNotPassedNow()) {
           "Timed out rendering style $style at $extent; " +
@@ -289,39 +298,16 @@ class LinuxVulkanOpenGlInteropTest {
             "last result: $lastResult, failure: $failure"
         }
         failure?.let { error(it) }
+        val loadsBeforePump = styleLoads
         val pumped = pumpFrame(extent)
         lastResult = pumped.result
-        if (pumped.rendered) {
+        if (loadsBeforePump >= expectedStyleLoads && pumped.rendered) {
           renderedFrames++
           rendered = pumped.target
         }
         Thread.sleep(POLL_INTERVAL_MILLIS)
       }
       return checkNotNull(rendered)
-    }
-
-    fun presentStyle(
-      style: BaseStyle,
-      extent: MapExtent,
-      expected: RgbaPixel,
-      read: (MlnFfiRenderTarget) -> RgbaPixel,
-    ): MlnFfiRenderTarget {
-      var target = renderStyle(style, extent)
-      var actual = read(target)
-      val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
-      while (!near(expected, actual)) {
-        check(deadline.hasNotPassedNow()) {
-          "Timed out presenting $expected at $extent, last read $actual"
-        }
-        renderer.onSurfaceChanged(extent)
-        val pumped = pumpFrame(extent)
-        if (pumped.rendered) {
-          target = checkNotNull(pumped.target)
-          actual = read(target)
-        }
-        Thread.sleep(POLL_INTERVAL_MILLIS)
-      }
-      return target
     }
 
     private fun pumpFrame(extent: MapExtent): PumpedFrame {
