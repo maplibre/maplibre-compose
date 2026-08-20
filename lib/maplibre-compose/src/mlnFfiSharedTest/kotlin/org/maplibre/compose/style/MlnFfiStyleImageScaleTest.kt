@@ -26,7 +26,7 @@ class MlnFfiStyleImageScaleTest {
       it.loadStyle(BaseStyle.Empty, extent = extent)
 
       val style = assertNotNull(it.style, "the style should have reached the callbacks")
-      style.addImage(IMAGE_ID, ImageBitmap(SIZE, SIZE), sdf = false, resizeOptions = null)
+      style.addImage(IMAGE_ID, ImageBitmap(SIZE, SIZE), sdf = false, stretch = null)
 
       val info =
         assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be in the style")

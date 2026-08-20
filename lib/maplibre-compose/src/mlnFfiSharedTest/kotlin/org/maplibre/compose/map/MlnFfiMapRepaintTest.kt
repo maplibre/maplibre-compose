@@ -68,7 +68,7 @@ class MlnFfiMapRepaintTest {
   fun removing_an_image_after_the_map_settles_redraws() {
     BridgeMapFixture.create().use { fixture ->
       val style = fixture.loadEmptyStyle()
-      style.addImage("icon", ImageBitmap(4, 4), sdf = false, resizeOptions = null)
+      style.addImage("icon", ImageBitmap(4, 4), sdf = false, stretch = null)
       fixture.assertRedrawsAfter("removing an image") { style.removeImage("icon") }
     }
   }

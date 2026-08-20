@@ -93,7 +93,7 @@ internal class LayerPropertyCompiler(
     }
   }
 
-  private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf, resizeOptions)
+  private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf, stretch)
 
   private fun PainterLiteral.key(
     density: Density,
@@ -105,7 +105,7 @@ internal class LayerPropertyCompiler(
       layoutDirection,
       size,
       sdf,
-      resizeOptions,
+      stretch,
       alpha,
       colorFilter,
     )
