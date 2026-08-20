@@ -19,23 +19,34 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Foreground location permission requester for Android activities.
+ * Foreground location permission building block for Android.
  *
  * Fine and coarse permission map to [LocationPermission.Granted] with precise and approximate
  * accuracy. When permission is absent,
  * [`Activity.shouldShowRequestPermissionRationale`](https://developer.android.com/reference/android/app/Activity#shouldShowRequestPermissionRationale(java.lang.String))
  * maps `true` to [LocationPermission.NotGranted] with `canRequest = true`. Android returns `false`
- * both before the first request and after a permanent denial, so both map to `canRequest = null`.
+ * both before the first request and after a permanent denial, so both map to `canRequest = null`. A
+ * [context] that cannot reach an [Activity] also maps to `canRequest = null`, because the rationale
+ * check requires an activity.
+ *
+ * Android [LocationProvider] implementations hold a requester and expose [status] and
+ * [requestForegroundPermission] through [LocationProvider.permission] and
+ * [LocationProvider.requestPermission]. A requester created by
+ * [rememberAndroidLocationPermissionRequester] launches the system permission dialog and refreshes
+ * [status] when the application resumes. A requester that a provider constructs directly reports
+ * the permission at construction time until [refresh] is called, and its
+ * [requestForegroundPermission] does nothing.
+ *
+ * @param context Any [Context]; the permission status is read from the application package.
  */
-public class AndroidLocationPermissionRequester
-internal constructor(private val activity: Activity) : LocationPermissionRequester {
+public class AndroidLocationPermissionRequester(private val context: Context) {
   private val mutableStatus = MutableStateFlow(readStatus())
-  override val status: StateFlow<LocationPermission> = mutableStatus
+  public val status: StateFlow<LocationPermission> = mutableStatus
 
   private var requestPending = false
   internal var launchRequest: () -> Unit = {}
 
-  override fun requestForegroundPermission() {
+  public fun requestForegroundPermission() {
     val current = refresh()
     if (current is LocationPermission.Granted || requestPending) return
     requestPending = true
@@ -60,26 +71,28 @@ internal constructor(private val activity: Activity) : LocationPermissionRequest
 
   private fun readStatus(): LocationPermission =
     when {
-      activity.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
+      context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED ->
         LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
-      activity.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
+      context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
         PackageManager.PERMISSION_GRANTED ->
         LocationPermission.Granted(LocationAccuracyAuthorization.Approximate)
       else ->
         LocationPermission.NotGranted(
           canRequest =
-            if (
-              activity.shouldShowRequestPermissionRationale(
-                Manifest.permission.ACCESS_FINE_LOCATION
-              ) ||
+            context.findActivityOrNull()?.let { activity ->
+              if (
                 activity.shouldShowRequestPermissionRationale(
-                  Manifest.permission.ACCESS_COARSE_LOCATION
-                )
-            ) {
-              true
-            } else {
-              null
+                  Manifest.permission.ACCESS_FINE_LOCATION
+                ) ||
+                  activity.shouldShowRequestPermissionRationale(
+                    Manifest.permission.ACCESS_COARSE_LOCATION
+                  )
+              ) {
+                true
+              } else {
+                null
+              }
             }
         )
     }
@@ -90,8 +103,7 @@ internal constructor(private val activity: Activity) : LocationPermissionRequest
 public fun rememberAndroidLocationPermissionRequester(
   context: Context = LocalContext.current
 ): AndroidLocationPermissionRequester {
-  val activity = remember(context) { context.findActivity() }
-  val requester = remember(activity) { AndroidLocationPermissionRequester(activity) }
+  val requester = remember(context) { AndroidLocationPermissionRequester(context) }
   val lifecycleOwner = LocalLifecycleOwner.current
   val launcher =
     rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -119,13 +131,9 @@ public fun rememberAndroidLocationPermissionRequester(
   return requester
 }
 
-@Composable
-public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
-  rememberAndroidLocationPermissionRequester()
-
-private tailrec fun Context.findActivity(): Activity =
+internal tailrec fun Context.findActivityOrNull(): Activity? =
   when (this) {
     is Activity -> this
-    is ContextWrapper -> baseContext.findActivity()
-    else -> error("Location permission requests require an Activity context")
+    is ContextWrapper -> baseContext.findActivityOrNull()
+    else -> null
   }

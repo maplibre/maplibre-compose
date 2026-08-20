@@ -12,6 +12,8 @@ import kotlin.time.Instant
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -60,10 +62,24 @@ import web.permissions.query
  * [`TIMEOUT`](https://developer.mozilla.org/en-US/docs/Web/API/GeolocationPositionError/code#geolocationpositionerror.timeout)
  * map to [LocationUnavailableReason.TemporarilyUnavailable]. An exception thrown while starting the
  * live watch maps to [LocationUnavailableReason.UnexpectedFailure].
+ *
+ * [LocationProvider.permission] and [LocationProvider.requestPermission] delegate to a
+ * [BrowserLocationPermissionRequester] that shares the provider's boundary, so a permission denial
+ * during an active watch updates [LocationProvider.permission].
  */
 public class BrowserLocationProvider
-internal constructor(private val boundary: BrowserGeolocationBoundary) : LocationProvider {
-  public constructor() : this(BrowserGeolocation)
+internal constructor(
+  private val boundary: BrowserGeolocationBoundary,
+  coroutineScope: CoroutineScope,
+) : LocationProvider {
+  /**
+   * Creates a provider that observes permission in a coroutine scope that lives as long as the
+   * provider.
+   */
+  public constructor() :
+    this(BrowserGeolocation, CoroutineScope(SupervisorJob() + Dispatchers.Default))
+
+  private val requester = BrowserLocationPermissionRequester(boundary, coroutineScope)
 
   override val backendAvailability: LocationBackendAvailability =
     if (boundary.supported) {
@@ -71,6 +87,11 @@ internal constructor(private val boundary: BrowserGeolocationBoundary) : Locatio
     } else {
       LocationBackendAvailability.Unsupported
     }
+
+  override val permission: StateFlow<LocationPermission>
+    get() = requester.status
+
+  override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     if (!boundary.supported) {
@@ -119,7 +140,8 @@ internal constructor(private val boundary: BrowserGeolocationBoundary) : Locatio
 /** Creates and remembers the browser location provider. */
 @Composable
 public fun rememberBrowserLocationProvider(): BrowserLocationProvider {
-  return remember { BrowserLocationProvider() }
+  val scope = rememberCoroutineScope()
+  return remember(scope) { BrowserLocationProvider(BrowserGeolocation, scope) }
 }
 
 @Composable
@@ -127,26 +149,40 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider =
   rememberBrowserLocationProvider()
 
 @Composable
-public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
-  rememberBrowserLocationPermissionRequester()
-
-@Composable
 public actual fun rememberDefaultOrientationProvider(
   updateInterval: Duration
 ): OrientationProvider = NullOrientationProvider
 
-/** Observes and requests browser geolocation permission. */
-internal class BrowserLocationPermissionRequester(
+/**
+ * Observes and requests browser geolocation permission.
+ *
+ * [BrowserLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to an instance of this class. Construct one with a
+ * [CoroutineScope] to back a custom [LocationProvider], or use
+ * [rememberBrowserLocationPermissionRequester] to bind permission observation to the composition.
+ */
+public class BrowserLocationPermissionRequester
+internal constructor(
   private val boundary: BrowserGeolocationBoundary,
   private val coroutineScope: CoroutineScope,
-) : LocationPermissionRequester {
-  override val backendAvailability: LocationBackendAvailability =
+) {
+  /**
+   * Creates a requester whose permission observation runs in [coroutineScope]. Cancelling the scope
+   * stops the observation.
+   */
+  public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
+
+  /** Whether the browser has a usable Geolocation API. */
+  public val backendAvailability: LocationBackendAvailability =
     if (boundary.supported) {
       LocationBackendAvailability.Available
     } else {
       LocationBackendAvailability.Unsupported
     }
-  override val status: StateFlow<LocationPermission> = boundary.permissionState.status
+
+  /** Current foreground location permission. */
+  public val status: StateFlow<LocationPermission> = boundary.permissionState.status
+
   private var requestPending = false
 
   init {
@@ -158,7 +194,13 @@ internal class BrowserLocationPermissionRequester(
     }
   }
 
-  override fun requestForegroundPermission() {
+  /**
+   * Starts a foreground permission request and returns immediately.
+   *
+   * The result is published to [status]. Calls made while a request is active do not start another
+   * browser request.
+   */
+  public fun requestForegroundPermission() {
     val current = status.value
     if (
       !boundary.supported ||
@@ -211,11 +253,11 @@ internal class BrowserLocationPermissionRequester(
  * maps `granted` to [LocationPermission.Granted], `prompt` to [LocationPermission.NotGranted] with
  * `canRequest = true`, and `denied` to `canRequest = false`. A browser without the Permissions API
  * reports `canRequest = null` until an explicit request determines the result. A missing
- * Geolocation API maps [LocationPermissionRequester.backendAvailability] to
+ * Geolocation API maps [BrowserLocationPermissionRequester.backendAvailability] to
  * [LocationBackendAvailability.Unsupported].
  */
 @Composable
-public fun rememberBrowserLocationPermissionRequester(): LocationPermissionRequester {
+public fun rememberBrowserLocationPermissionRequester(): BrowserLocationPermissionRequester {
   val scope = rememberCoroutineScope()
   return remember(scope) { BrowserLocationPermissionRequester(BrowserGeolocation, scope) }
 }

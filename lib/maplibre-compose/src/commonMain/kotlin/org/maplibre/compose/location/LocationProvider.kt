@@ -17,7 +17,9 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * If you have a more general use case, prefer using the platform APIs directly or using a more
  * powerful wrapper. In that case, you may want to provide your own [LocationProvider]
- * implementation to unify the API underneath. This is an explicitly supported use case.
+ * implementation to unify the API underneath. This is an explicitly supported use case:
+ * [permission] defaults to granted, so a source where permission is not a concept needs no
+ * permission handling.
  *
  * Each collector of [updates] starts an independent platform location request. Cancelling
  * collection must stop that request and unregister its callbacks.
@@ -28,6 +30,28 @@ public interface LocationProvider {
     get() = LocationBackendAvailability.Available
 
   /**
+   * Current foreground location permission.
+   *
+   * This value also reflects changes made outside the application when the platform reports them.
+   *
+   * The default is always [LocationPermission.Granted] at [LocationAccuracyAuthorization.Unknown].
+   * A source where permission is not a concept, such as an external receiver or a network feed,
+   * keeps the default and needs no permission handling.
+   */
+  public val permission: StateFlow<LocationPermission>
+    get() = AlwaysGrantedLocationPermission
+
+  /**
+   * Starts a foreground permission request and returns immediately.
+   *
+   * The result is published to [permission]. Calls made while a request is active must not start
+   * another platform request.
+   *
+   * The default does nothing, to match the default [permission] that is always granted.
+   */
+  public fun requestPermission(): Unit = Unit
+
+  /**
    * Returns a cold stream of foreground location updates.
    *
    * Each collector starts an independent platform location request. Cancelling collection stops
@@ -36,8 +60,11 @@ public interface LocationProvider {
   public fun updates(request: LocationRequest): Flow<LocationEvent>
 }
 
+private val AlwaysGrantedLocationPermission: StateFlow<LocationPermission> =
+  MutableStateFlow(LocationPermission.Granted(LocationAccuracyAuthorization.Unknown))
+
 /**
- * Whether a location provider or permission requester has a usable platform implementation.
+ * Whether a location implementation has a usable platform backend.
  *
  * This describes application and backend setup. It does not describe location permission, system
  * location services, or whether the next request can obtain a fix.
@@ -206,38 +233,6 @@ public sealed interface LocationPermission {
   public data class NotGranted(val canRequest: Boolean?) : LocationPermission
 }
 
-/** Observes foreground location permission and starts platform permission requests. */
-public interface LocationPermissionRequester {
-  /** Whether this requester has a usable platform implementation. */
-  public val backendAvailability: LocationBackendAvailability
-    get() = LocationBackendAvailability.Available
-
-  /**
-   * Current foreground location permission.
-   *
-   * This value also reflects changes made outside the application when the platform reports them.
-   */
-  public val status: StateFlow<LocationPermission>
-
-  /**
-   * Starts a foreground permission request and returns immediately.
-   *
-   * The result is published to [status]. Calls made while a request is active must not start
-   * another platform request.
-   */
-  public fun requestForegroundPermission()
-}
-
-internal object UnsupportedLocationPermissionRequester : LocationPermissionRequester {
-  override val backendAvailability: LocationBackendAvailability =
-    LocationBackendAvailability.Unsupported
-
-  override val status: StateFlow<LocationPermission> =
-    MutableStateFlow(LocationPermission.NotGranted(canRequest = null))
-
-  override fun requestForegroundPermission() = Unit
-}
-
 /** A provider for a target or host that has no installed location implementation. */
 public object UnsupportedLocationProvider : LocationProvider {
   override val backendAvailability: LocationBackendAvailability =
@@ -264,23 +259,3 @@ public object UnsupportedLocationProvider : LocationProvider {
  * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend].
  */
 @Composable public expect fun rememberDefaultLocationProvider(): LocationProvider
-
-/**
- * Creates and remembers the default foreground location permission requester.
- *
- * An unsupported target or host returns a requester whose
- * [LocationPermissionRequester.backendAvailability] is [LocationBackendAvailability.Unsupported]
- * instead of throwing during composition.
- *
- * See
- * [rememberAndroidLocationPermissionRequester][org.maplibre.compose.location.rememberAndroidLocationPermissionRequester],
- * [rememberBrowserLocationPermissionRequester][org.maplibre.compose.location.rememberBrowserLocationPermissionRequester],
- * [rememberIosLocationPermissionRequester][org.maplibre.compose.location.rememberIosLocationPermissionRequester],
- * [LinuxPortalLocationPermissionRequester][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationPermissionRequester],
- * and
- * [MacosLocationPermissionRequester][org.maplibre.compose.location.desktop.macos.MacosLocationPermissionRequester].
- * Desktop implementations are installed through
- * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend].
- */
-@Composable
-public expect fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester

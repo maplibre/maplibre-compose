@@ -15,7 +15,11 @@ import platform.CoreLocation.kCLAuthorizationStatusRestricted
 import platform.darwin.NSObject
 
 /**
- * Foreground Core Location permission requester.
+ * Foreground Core Location permission holder.
+ *
+ * [IosLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
+ * provider needs the same Core Location permission behavior.
  *
  * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
  * maps an authorized status to [LocationPermission.Granted], `notDetermined` to
@@ -24,10 +28,12 @@ import platform.darwin.NSObject
  * [`CLLocationManager.accuracyAuthorization`](https://developer.apple.com/documentation/corelocation/cllocationmanager/accuracyauthorization)
  * distinguishes precise from approximate grants.
  */
-public class IosLocationPermissionRequester : LocationPermissionRequester {
+public class IosLocationPermissionRequester {
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
-  override val status: StateFlow<LocationPermission> = mutableStatus
+
+  /** Current foreground location permission, updated when Core Location reports a change. */
+  public val status: StateFlow<LocationPermission> = mutableStatus
   private var requestPending = false
 
   private val delegate =
@@ -45,7 +51,11 @@ public class IosLocationPermissionRequester : LocationPermissionRequester {
     mutableStatus.value = readStatus(manager)
   }
 
-  override fun requestForegroundPermission() {
+  /**
+   * Starts a foreground permission request and returns immediately. The result is published to
+   * [status].
+   */
+  public fun requestForegroundPermission() {
     val current = readStatus(manager)
     if (current != LocationPermission.NotGranted(canRequest = true) || requestPending) return
     requestPending = true
@@ -74,7 +84,3 @@ public class IosLocationPermissionRequester : LocationPermissionRequester {
 public fun rememberIosLocationPermissionRequester(): IosLocationPermissionRequester = remember {
   IosLocationPermissionRequester()
 }
-
-@Composable
-public actual fun rememberDefaultLocationPermissionRequester(): LocationPermissionRequester =
-  rememberIosLocationPermissionRequester()

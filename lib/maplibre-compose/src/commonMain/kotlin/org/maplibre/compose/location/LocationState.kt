@@ -88,13 +88,13 @@ public sealed interface LocationTrackingStatus {
  * Location updates are collected while [enabled] is `true` and the lifecycle is active. This
  * function never requests permission automatically; the application chooses when to call
  * [LocationState.requestPermission]. Stopping collection releases the platform request while
- * retaining the last measurements in [LocationState]. An unsupported or misconfigured provider or
- * permission requester is reported through [LocationState.status] before permission is requested.
+ * retaining the last measurements in [LocationState]. An unsupported or misconfigured provider is
+ * reported through [LocationState.status] before permission is requested.
  *
  * @param enabled Whether location and orientation updates should run while lifecycle-active.
- * @param provider The [LocationProvider] to use for obtaining location updates.
- * @param permissionRequester The requester used to observe and request foreground location
- *   permission.
+ * @param provider The [LocationProvider] to use for obtaining location updates and for observing
+ *   and requesting foreground location permission. A custom provider whose
+ *   [LocationProvider.permission] keeps the granted default needs no permission handling.
  * @param request Preferences for location updates.
  * @param orientationProvider The optional [OrientationProvider] to use for obtaining device
  *   orientation updates. By default, a provider that emits no orientation updates is used, meaning
@@ -111,25 +111,22 @@ public sealed interface LocationTrackingStatus {
 public fun rememberLocationState(
   enabled: Boolean = true,
   provider: LocationProvider = rememberDefaultLocationProvider(),
-  permissionRequester: LocationPermissionRequester = rememberDefaultLocationPermissionRequester(),
   request: LocationRequest = LocationRequest(),
   orientationProvider: OrientationProvider = rememberNullOrientationProvider(),
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
   coroutineContext: CoroutineContext = EmptyCoroutineContext,
 ): LocationState {
-  val state =
-    remember(provider, permissionRequester) { LocationState(permissionRequester.status.value) }
-  val permission by permissionRequester.status.collectAsState()
+  val state = remember(provider) { LocationState(provider.permission.value) }
+  val permission by provider.permission.collectAsState()
   SideEffect {
     state.permission = permission
-    state.requestPermissionAction = permissionRequester::requestForegroundPermission
+    state.requestPermissionAction = provider::requestPermission
   }
 
   LaunchedEffect(
     enabled,
     provider,
-    permissionRequester,
     request,
     permission,
     state,
@@ -137,66 +134,64 @@ public fun rememberLocationState(
     minActiveState,
     coroutineContext,
   ) {
-    val backendAvailability =
-      listOf(provider.backendAvailability, permissionRequester.backendAvailability)
-    val misconfiguration =
-      backendAvailability
-        .filterIsInstance<LocationBackendAvailability.Misconfigured>()
-        .firstOrNull()
-    when {
-      misconfiguration != null -> {
+    when (val availability = provider.backendAvailability) {
+      is LocationBackendAvailability.Misconfigured -> {
         state.status =
           LocationTrackingStatus.Unavailable(
             LocationUnavailableReason.Misconfigured,
-            misconfiguration.cause,
+            availability.cause,
           )
       }
-      LocationBackendAvailability.Unsupported in backendAvailability -> {
+      LocationBackendAvailability.Unsupported -> {
         state.status = LocationTrackingStatus.Unavailable(LocationUnavailableReason.Unsupported)
       }
-      !enabled -> state.status = LocationTrackingStatus.Stopped
-      permission !is LocationPermission.Granted -> {
-        state.status = LocationTrackingStatus.WaitingForPermission
-      }
-      else -> {
-        state.status = LocationTrackingStatus.Stopped
-        lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
-          try {
-            state.status = LocationTrackingStatus.Starting
-            val collectSession: suspend () -> Unit = {
-              provider
-                .updates(request)
-                .catch { error ->
-                  if (error is CancellationException) throw error
-                  emit(
-                    LocationEvent.Unavailable(
-                      LocationUnavailableReason.UnexpectedFailure,
-                      error,
-                    )
-                  )
-                }
-                .collect { event ->
-                  when (event) {
-                    is LocationEvent.Fix -> state.accept(event)
-                    is LocationEvent.Unavailable ->
-                      state.status = LocationTrackingStatus.Unavailable(event.reason, event.cause)
-                  }
-                }
-            }
-            if (coroutineContext == EmptyCoroutineContext) collectSession()
-            else withContext(coroutineContext) { collectSession() }
-            if (
-              state.status == LocationTrackingStatus.Starting ||
-                state.status == LocationTrackingStatus.Tracking
-            ) {
-              state.status = LocationTrackingStatus.Stopped
-            }
-          } catch (error: CancellationException) {
+      LocationBackendAvailability.Available ->
+        when {
+          !enabled -> state.status = LocationTrackingStatus.Stopped
+          permission !is LocationPermission.Granted -> {
+            state.status = LocationTrackingStatus.WaitingForPermission
+          }
+          else -> {
             state.status = LocationTrackingStatus.Stopped
-            throw error
+            lifecycleOwner.lifecycle.repeatOnLifecycle(minActiveState) {
+              try {
+                state.status = LocationTrackingStatus.Starting
+                val collectSession: suspend () -> Unit = {
+                  provider
+                    .updates(request)
+                    .catch { error ->
+                      if (error is CancellationException) throw error
+                      emit(
+                        LocationEvent.Unavailable(
+                          LocationUnavailableReason.UnexpectedFailure,
+                          error,
+                        )
+                      )
+                    }
+                    .collect { event ->
+                      when (event) {
+                        is LocationEvent.Fix -> state.accept(event)
+                        is LocationEvent.Unavailable ->
+                          state.status =
+                            LocationTrackingStatus.Unavailable(event.reason, event.cause)
+                      }
+                    }
+                }
+                if (coroutineContext == EmptyCoroutineContext) collectSession()
+                else withContext(coroutineContext) { collectSession() }
+                if (
+                  state.status == LocationTrackingStatus.Starting ||
+                    state.status == LocationTrackingStatus.Tracking
+                ) {
+                  state.status = LocationTrackingStatus.Stopped
+                }
+              } catch (error: CancellationException) {
+                state.status = LocationTrackingStatus.Stopped
+                throw error
+              }
+            }
           }
         }
-      }
     }
   }
 

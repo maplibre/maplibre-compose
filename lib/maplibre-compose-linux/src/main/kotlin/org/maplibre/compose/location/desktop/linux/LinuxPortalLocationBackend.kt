@@ -14,13 +14,11 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.XdgPortalWindow
 import org.maplibre.compose.location.DesktopLocationBackend
-import org.maplibre.compose.location.DesktopLocationPermissionRequester
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
-import org.maplibre.compose.location.LocationPermissionRequester
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
@@ -34,10 +32,6 @@ public class LinuxPortalLocationBackend : DesktopLocationBackend {
 
   override fun createProvider(host: ComposeMapHost?): DesktopLocationProvider =
     LinuxPortalLocationProvider(host)
-
-  override fun createPermissionRequester(
-    host: ComposeMapHost?
-  ): DesktopLocationPermissionRequester = LinuxPortalLocationPermissionRequester(host)
 }
 
 // TODO: Add a Linux orientation backend when an independent heading API is available.
@@ -56,6 +50,9 @@ internal suspend fun <T> ComposeMapHost?.withPortalParentWindow(action: suspend 
 /**
  * A desktop provider that delegates to the
  * [XDG Location portal](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html).
+ *
+ * [LocationProvider.permission] and [LocationProvider.requestPermission] delegate to a
+ * [LinuxPortalLocationPermissionRequester] that shares the provider's portal.
  *
  * [LocationAccuracy.BestForNavigation] and [LocationAccuracy.High] map to
  * [`EXACT`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html#org-freedesktop-portal-location-createsession),
@@ -76,8 +73,13 @@ internal suspend fun <T> ComposeMapHost?.withPortalParentWindow(action: suspend 
  * failures map to [LocationUnavailableReason.UnexpectedFailure].
  */
 public class LinuxPortalLocationProvider
-internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationProvider {
+internal constructor(
+  private val portal: LinuxLocationPortal,
+  coroutineScope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+) : DesktopLocationProvider {
   public constructor(host: ComposeMapHost? = null) : this(DbusLocationPortal(host))
+
+  private val requester = LinuxPortalLocationPermissionRequester(portal, coroutineScope)
 
   override val backendAvailability: LocationBackendAvailability =
     if (portal.available) {
@@ -85,6 +87,11 @@ internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationP
     } else {
       LocationBackendAvailability.Unsupported
     }
+
+  override val permission: StateFlow<LocationPermission>
+    get() = requester.status
+
+  override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = flow {
     if (!portal.available) {
@@ -95,6 +102,7 @@ internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationP
   }
 
   override fun close() {
+    requester.close()
     portal.close()
   }
 }
@@ -102,23 +110,27 @@ internal constructor(private val portal: LinuxLocationPortal) : DesktopLocationP
 /**
  * Observes and requests permission through the XDG Location portal.
  *
+ * [LinuxPortalLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
+ * provider needs the same portal permission behavior.
+ *
  * The portal has no permission-status query. Permission therefore remains
  * [LocationPermission.NotGranted] with `canRequest = null` until a successful
  * [`Location.Start`](https://flatpak.github.io/xdg-desktop-portal/docs/doc-org.freedesktop.portal.Location.html#org-freedesktop-portal-location-start)
  * response maps it to [LocationPermission.Granted] with [LocationAccuracyAuthorization.Unknown].
  * Denied and unavailable responses remain `NotGranted` with `canRequest = null`. A missing portal
- * maps [LocationPermissionRequester.backendAvailability] to
- * [LocationBackendAvailability.Unsupported].
+ * maps [backendAvailability] to [LocationBackendAvailability.Unsupported].
  */
 public class LinuxPortalLocationPermissionRequester
 internal constructor(
   private val portal: LinuxLocationPortal,
   private val coroutineScope: CoroutineScope =
     CoroutineScope(SupervisorJob() + Dispatchers.Default),
-) : DesktopLocationPermissionRequester {
+) : AutoCloseable {
   public constructor(host: ComposeMapHost? = null) : this(DbusLocationPortal(host))
 
-  override val backendAvailability: LocationBackendAvailability =
+  /** Whether the XDG Location portal is installed. */
+  public val backendAvailability: LocationBackendAvailability =
     if (portal.available) {
       LocationBackendAvailability.Available
     } else {
@@ -126,10 +138,16 @@ internal constructor(
     }
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
-  override val status: StateFlow<LocationPermission> = mutableStatus
+
+  /** Current foreground location permission. */
+  public val status: StateFlow<LocationPermission> = mutableStatus
   private val requestPending = AtomicBoolean()
 
-  override fun requestForegroundPermission() {
+  /**
+   * Starts a foreground permission request and returns immediately. The result is published to
+   * [status].
+   */
+  public fun requestForegroundPermission() {
     if (
       backendAvailability != LocationBackendAvailability.Available ||
         status.value is LocationPermission.Granted ||
@@ -153,6 +171,7 @@ internal constructor(
     }
   }
 
+  /** Cancels pending requests and closes the portal. */
   override fun close() {
     coroutineScope.cancel()
     portal.close()

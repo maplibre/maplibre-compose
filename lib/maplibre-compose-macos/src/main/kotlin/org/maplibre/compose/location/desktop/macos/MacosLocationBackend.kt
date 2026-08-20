@@ -16,7 +16,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.location.DesktopLocationBackend
-import org.maplibre.compose.location.DesktopLocationPermissionRequester
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationBackendAvailability
@@ -36,15 +35,14 @@ public class MacosLocationBackend : DesktopLocationBackend {
 
   override fun createProvider(host: ComposeMapHost?): DesktopLocationProvider =
     MacosLocationProvider()
-
-  override fun createPermissionRequester(
-    host: ComposeMapHost?
-  ): DesktopLocationPermissionRequester = MacosLocationPermissionRequester()
 }
 
 /**
  * A [LocationProvider] built on
  * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager).
+ *
+ * [LocationProvider.permission] and [LocationProvider.requestPermission] delegate to a
+ * [MacosLocationPermissionRequester] that shares the provider's Core Location client.
  *
  * Each collection creates a
  * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager)
@@ -84,7 +82,14 @@ internal constructor(
 ) : DesktopLocationProvider {
   public constructor() : this(SystemCoreLocationClient())
 
+  private val requester = MacosLocationPermissionRequester(client)
+
   override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+
+  override val permission: StateFlow<LocationPermission>
+    get() = requester.status
+
+  override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     when (val availability = backendAvailability) {
@@ -138,6 +143,7 @@ internal constructor(
     .flowOn(dispatcher)
 
   override fun close() {
+    requester.close()
     client.close()
   }
 
@@ -173,7 +179,11 @@ internal constructor(
 }
 
 /**
- * Foreground Core Location permission requester.
+ * Foreground Core Location permission holder.
+ *
+ * [MacosLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to an instance of this class. Use it directly when a custom
+ * provider needs the same Core Location permission behavior.
  *
  * [`CLAuthorizationStatus`](https://developer.apple.com/documentation/corelocation/clauthorizationstatus)
  * maps an authorized status to [LocationPermission.Granted], `notDetermined` to
@@ -185,13 +195,16 @@ internal constructor(
  * and starts location updates so macOS can present the system prompt.
  */
 public class MacosLocationPermissionRequester
-internal constructor(private val client: CoreLocationClient) : DesktopLocationPermissionRequester {
+internal constructor(private val client: CoreLocationClient) : AutoCloseable {
   public constructor() : this(SystemCoreLocationClient())
 
-  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+  /** Whether the process has a usable Core Location implementation. */
+  public val backendAvailability: LocationBackendAvailability = client.backendAvailability
   private val mutableStatus =
     MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
-  override val status: StateFlow<LocationPermission> = mutableStatus
+
+  /** Current foreground location permission, updated when Core Location reports a change. */
+  public val status: StateFlow<LocationPermission> = mutableStatus
   private val requestPending = AtomicBoolean()
   private val manager = client.createManager()
 
@@ -219,7 +232,11 @@ internal constructor(private val client: CoreLocationClient) : DesktopLocationPe
     mutableStatus.value = currentPermission()
   }
 
-  override fun requestForegroundPermission() {
+  /**
+   * Starts a foreground permission request and returns immediately. The result is published to
+   * [status].
+   */
+  public fun requestForegroundPermission() {
     if (backendAvailability != LocationBackendAvailability.Available) return
     val current = currentPermission()
     if (current != LocationPermission.NotGranted(canRequest = true)) return
@@ -230,6 +247,7 @@ internal constructor(private val client: CoreLocationClient) : DesktopLocationPe
     manager.startUpdatingLocation()
   }
 
+  /** Releases the Core Location manager and client. */
   override fun close() {
     manager.close()
     client.close()

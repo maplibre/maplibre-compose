@@ -99,14 +99,12 @@ class LinuxPortalLocationProviderTest {
   }
 
   @Test
-  fun missingPortalMarksProviderAndRequesterUnsupported() = runTest {
+  fun missingPortalMarksProviderUnsupported() = runTest {
     val portal = FakeLinuxLocationPortal(available = false)
-    val provider = LinuxPortalLocationProvider(portal)
-    val requester = LinuxPortalLocationPermissionRequester(portal, backgroundScope)
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
     assertEquals(LocationBackendAvailability.Unsupported, provider.backendAvailability)
-    assertEquals(LocationBackendAvailability.Unsupported, requester.backendAvailability)
-    requester.requestForegroundPermission()
+    provider.requestPermission()
     runCurrent()
     assertEquals(0, portal.permissionRequests)
   }
@@ -116,21 +114,21 @@ class LinuxPortalLocationProviderTest {
     val portal = FakeLinuxLocationPortal()
     val pendingResult = CompletableDeferred<PortalPermissionResult>()
     portal.permissionResult = { pendingResult.await() }
-    val requester = LinuxPortalLocationPermissionRequester(portal, backgroundScope)
+    val provider = LinuxPortalLocationProvider(portal, backgroundScope)
 
-    requester.requestForegroundPermission()
-    requester.requestForegroundPermission()
+    provider.requestPermission()
+    provider.requestPermission()
     runCurrent()
     assertEquals(1, portal.permissionRequests)
 
     pendingResult.complete(PortalPermissionResult.Granted)
     runCurrent()
     val granted = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
-    assertEquals(granted, requester.status.value)
-    requester.requestForegroundPermission()
+    assertEquals(granted, provider.permission.value)
+    provider.requestPermission()
     assertEquals(1, portal.permissionRequests)
 
-    requester.close()
+    provider.close()
     assertTrue(portal.closed)
   }
 

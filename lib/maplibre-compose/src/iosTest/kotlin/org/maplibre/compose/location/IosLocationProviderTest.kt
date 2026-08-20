@@ -10,6 +10,14 @@ import platform.Foundation.NSError
 
 class IosLocationProviderTest {
   @Test
+  fun exposesPermissionFromItsRequester() {
+    assertEquals(
+      IosLocationPermissionRequester().status.value,
+      IosLocationProvider().permission.value,
+    )
+  }
+
+  @Test
   fun mapsCoreLocationErrorsByRecoverability() {
     assertEquals(
       LocationUnavailableReason.ServicesDisabled,
