@@ -13,6 +13,7 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.testing.RecordingList
@@ -121,7 +122,7 @@ class ComputedSourceTest {
     val style = assertIs<MlnFfiStyle>(this.style, "the style should have reached the callbacks")
     val source =
       ComputedSource(id = SOURCE_ID, options = ComputedSourceOptions()) { bounds, zoom ->
-        requests += Request(zoom, bounds, Thread.currentThread().name)
+        requests += Request(zoom, bounds, currentMlnFfiThreadName())
         cover(bounds, FIRST_NAME)
       }
     style.addSource(source)

@@ -1,7 +1,5 @@
 package org.maplibre.compose.resource
 
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
@@ -12,6 +10,9 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.compose.mlnffi.launchTestTask
+import org.maplibre.compose.mlnffi.parkForTest
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.nativeffi.resource.ResourceErrorReason
 import org.maplibre.nativeffi.resource.ResourceResponse
@@ -50,18 +51,18 @@ class MlnFfiResourceRequestTest {
 
   @Test
   fun taking_a_request_returns_before_the_resource_is_read() {
-    val reading = CountDownLatch(1)
-    val finishRead = CountDownLatch(1)
+    val reading = TestLatch(1)
+    val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
       reading.countDown()
-      finishRead.await(WAIT_SECONDS, TimeUnit.SECONDS)
+      finishRead.await(WAIT_SECONDS * 1_000)
       ok("late")
     }
     val request = RecordedRequest()
 
     provider.take(request, URL, URL)
 
-    assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
+    assertTrue(reading.await(WAIT_SECONDS * 1_000), "the read never started")
     assertEquals(0, request.completions, "the request was answered before the read finished")
     finishRead.countDown()
     request.awaitAnswer()
@@ -84,21 +85,21 @@ class MlnFfiResourceRequestTest {
 
   @Test
   fun shutdown_returns_while_an_accepted_read_finishes_independently() {
-    val reading = CountDownLatch(1)
-    val finishRead = CountDownLatch(1)
+    val reading = TestLatch(1)
+    val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
       reading.countDown()
-      finishRead.await(WAIT_SECONDS, TimeUnit.SECONDS)
+      finishRead.await(WAIT_SECONDS * 1_000)
       ok("in flight")
     }
     val request = RecordedRequest()
     provider.take(request, URL, URL)
-    assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
+    assertTrue(reading.await(WAIT_SECONDS * 1_000), "the read never started")
 
-    val closed = CountDownLatch(1)
-    Thread { provider.close().also { closed.countDown() } }.start()
+    val closed = TestLatch(1)
+    launchTestTask { provider.close().also { closed.countDown() } }
 
-    assertTrue(closed.await(WAIT_SECONDS, TimeUnit.SECONDS), "close should not wait for reads")
+    assertTrue(closed.await(WAIT_SECONDS * 1_000), "close should not wait for reads")
     assertEquals(0, request.completions)
     finishRead.countDown()
     request.awaitAnswer()
@@ -108,24 +109,24 @@ class MlnFfiResourceRequestTest {
 
   @Test
   fun accepted_reads_are_independent_and_still_finish_after_shutdown() {
-    val reading = CountDownLatch(1)
-    val finishRead = CountDownLatch(1)
+    val reading = TestLatch(1)
+    val finishRead = TestLatch(1)
     val provider = provider { _, _ ->
       reading.countDown()
-      finishRead.await(WAIT_SECONDS, TimeUnit.SECONDS)
+      finishRead.await(WAIT_SECONDS * 1_000)
       ok("queued")
     }
     val first = RecordedRequest()
     val second = RecordedRequest()
     provider.take(first, URL, URL)
-    assertTrue(reading.await(WAIT_SECONDS, TimeUnit.SECONDS), "the read never started")
+    assertTrue(reading.await(WAIT_SECONDS * 1_000), "the read never started")
     provider.take(second, OTHER_URL, OTHER_URL)
 
-    val closed = CountDownLatch(1)
-    Thread { provider.close().also { closed.countDown() } }.start()
+    val closed = TestLatch(1)
+    launchTestTask { provider.close().also { closed.countDown() } }
     finishRead.countDown()
 
-    assertTrue(closed.await(WAIT_SECONDS, TimeUnit.SECONDS), "close never returned")
+    assertTrue(closed.await(WAIT_SECONDS * 1_000), "close never returned")
     second.awaitAnswer()
     assertEquals(setOf(URL, OTHER_URL), reads.toSet(), "both accepted reads must run")
     assertEquals(1, second.completions, "a request the provider took must be answered")
@@ -163,13 +164,13 @@ class MlnFfiResourceRequestTest {
   }
 
   private fun ok(body: String) =
-    ResourceResponse(ResourceResponseStatus.OK).also { it.bytes = body.toByteArray() }
+    ResourceResponse(ResourceResponseStatus.OK).also { it.bytes = body.encodeToByteArray() }
 
   /** A request the provider can take, recording what it did with it. */
   @OptIn(ExperimentalAtomicApi::class)
   private class RecordedRequest(private val cancelled: Boolean = false) : TakenResourceRequest {
     private val responses = RecordingList<ResourceResponse>()
-    private val answered = CountDownLatch(1)
+    private val answered = TestLatch(1)
     private val closeCount = AtomicInt(0)
 
     override fun isCancelled(): Boolean = cancelled
@@ -193,12 +194,12 @@ class MlnFfiResourceRequestTest {
       get() = responses.single()
 
     fun awaitAnswer() {
-      assertTrue(answered.await(WAIT_SECONDS, TimeUnit.SECONDS), "the request was never answered")
+      assertTrue(answered.await(WAIT_SECONDS * 1_000), "the request was never answered")
     }
 
     fun awaitClose() {
       val deadline = TimeSource.Monotonic.markNow() + WAIT_SECONDS.seconds
-      while (closes == 0 && deadline.hasNotPassedNow()) Thread.yield()
+      while (closes == 0 && deadline.hasNotPassedNow()) parkForTest(1)
       assertEquals(1, closes, "the request was never closed")
     }
   }

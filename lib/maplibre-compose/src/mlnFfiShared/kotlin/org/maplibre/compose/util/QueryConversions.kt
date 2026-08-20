@@ -1,5 +1,6 @@
 package org.maplibre.compose.util
 
+import kotlin.math.floor
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -74,6 +75,6 @@ private fun JsonPrimitive.toUnsignedOrNull(): Long? {
     return it.toLong()
   }
   val asDouble = content.toDoubleOrNull() ?: return null
-  if (asDouble < 0.0 || asDouble != Math.floor(asDouble)) return null
+  if (asDouble < 0.0 || asDouble != floor(asDouble)) return null
   return asDouble.toLong()
 }

@@ -1,4 +1,4 @@
-@file:JvmName("MlnFfiRasterSourceKt")
+@file:kotlin.jvm.JvmName("MlnFfiRasterSourceKt")
 
 package org.maplibre.compose.sources
 

@@ -6,7 +6,6 @@ plugins {
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.mavenPublish.get().pluginId)
-  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 mavenPublishing {
@@ -20,7 +19,8 @@ mavenPublishing {
 kotlin {
   android { namespace = "org.maplibre.compose.material3" }
 
-  listOf(iosArm64(), iosSimulatorArm64()).forEach { it.configureSpmMaplibre(project) }
+  iosArm64()
+  iosSimulatorArm64()
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 

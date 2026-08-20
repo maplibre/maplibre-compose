@@ -1,8 +1,7 @@
 // Writes the versions the pages quote into src/generated/versions.json.
 //
-// Release and snapshot come from the Git tags, via `version-args` on stdin. The
-// MapLibre SDK versions come from the Gradle version catalog, which stays the
-// one place they are pinned.
+// Release and snapshot come from the Git tags, via `version-args` on stdin.
+// Dependency versions come from the Gradle version catalog.
 
 import fs from "node:fs";
 import path from "node:path";
@@ -46,7 +45,6 @@ const catalog = new Map(
 const versions = {
   release: demand(properties, "maplibreReleaseVersion", "version-args"),
   snapshot: demand(properties, "maplibreSnapshotVersion", "version-args"),
-  maplibreIos: demand(catalog, "maplibre-ios", catalogPath),
   maplibreJs: demand(catalog, "maplibre-js", catalogPath),
 };
 

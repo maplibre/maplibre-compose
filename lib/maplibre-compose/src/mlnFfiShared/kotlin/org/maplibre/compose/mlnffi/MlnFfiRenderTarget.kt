@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
+import kotlin.jvm.JvmInline
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.nativeffi.render.OpenGLClientApi
 import org.maplibre.nativeffi.render.OpenGLContextOwnership
@@ -95,6 +96,25 @@ internal data class MetalTextureTarget(
   val pixelFormat: Long,
   /** Row order of [texture]. */
   val origin: TextureOrigin,
+  override val extent: MapExtent,
+  override val generation: Long,
+) : MlnFfiRenderTarget {
+  override val backend: MapRenderBackend
+    get() = MapRenderBackend.METAL
+}
+
+/**
+ * A `CAMetalLayer` MapLibre renders into and presents directly.
+ *
+ * The session writes the layer's `drawableSize` from [extent]'s physical size when it attaches,
+ * resizes, or retargets.
+ */
+@Immutable
+internal data class MetalSurfaceTarget(
+  /** `id<MTLDevice>` for the session, or [NativeHandle.isNull] for the system default device. */
+  val device: NativeHandle,
+  /** The `CAMetalLayer` MapLibre presents through. */
+  val layer: NativeHandle,
   override val extent: MapExtent,
   override val generation: Long,
 ) : MlnFfiRenderTarget {

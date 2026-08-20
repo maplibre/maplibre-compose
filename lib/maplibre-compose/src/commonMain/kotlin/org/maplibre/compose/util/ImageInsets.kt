@@ -16,8 +16,8 @@ public data class ImageResizeOptions(
   val top: Dp,
   val right: Dp,
   val bottom: Dp,
-  // MapLibre Native and JS also support specifying stretchX and stretchY ranges, but this isn't
-  // exposed on the iOS SDK. So we can't support it until we have native core integration on iOS.
+  // MapLibre Native and JS also support specifying stretchX and stretchY ranges, and the native
+  // FFI binding exposes them. They are not plumbed through the shared style API yet.
   // TODO val stretchX: List<IntRange> = emptyList(),
   // TODO val stretchY: List<IntRange> = emptyList(),
 ) {

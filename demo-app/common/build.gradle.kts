@@ -5,7 +5,6 @@ plugins {
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
-  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 kotlin {
@@ -19,7 +18,6 @@ kotlin {
       baseName = "DemoApp"
       isStatic = true
     }
-    it.configureSpmMaplibre(project)
   }
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
@@ -41,10 +39,11 @@ kotlin {
   sourceSets {
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
-    // Android, desktop, and web share the nextCommon gesture fields. iOS still has its own SDK
-    // options, so its settings actuals live in the iOS source set.
-    val nonIosShared by creating { dependsOn(commonMain.get()) }
-    // FFI render toggles: tile borders, parse status, and the Surface/Texture hint.
+    // Every platform shares the nextCommon gesture fields, so the gesture settings actual lives
+    // in one set.
+    val allPlatformsShared by creating { dependsOn(commonMain.get()) }
+    // FFI render toggles: tile borders, parse status, and the Surface/Texture hint. The web
+    // platform is not on the FFI, so it has its own actual.
     val mlnFfiShared by creating { dependsOn(commonMain.get()) }
 
     // The offline API exists only on the MapLibre Native platforms, so the offline demo UI lives
@@ -63,25 +62,27 @@ kotlin {
     val jvmShared by creating { dependsOn(nonJsShared) }
 
     androidMain {
-      dependsOn(nonIosShared)
+      dependsOn(allPlatformsShared)
       dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
       dependsOn(jvmShared)
     }
 
     jvmMain {
-      dependsOn(nonIosShared)
+      dependsOn(allPlatformsShared)
       dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
       dependsOn(jvmShared)
     }
 
     iosMain {
+      dependsOn(allPlatformsShared)
+      dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
       dependsOn(nonJsShared)
     }
 
-    jsMain { dependsOn(nonIosShared) }
+    jsMain { dependsOn(allPlatformsShared) }
 
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.

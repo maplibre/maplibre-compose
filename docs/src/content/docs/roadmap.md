@@ -41,27 +41,6 @@ Next steps:
   Location portal, and macOS uses Core Location. Desktop orientation providers
   still need platform sensor integrations.
 
-### [Native core integration on iOS](https://github.com/maplibre/maplibre-compose/issues/572)
-
-**Status:** Needs Exploration 🔍
-
-The goal is to wrap just the MapLibre Native C++ core on iOS with the same
-Kotlin Multiplatform binding Android and Desktop now consume. iOS still uses
-MapLibre Native's Obj-C bindings, which keeps its implementation separate from
-the shared Android and Desktop path.
-
-The desktop work above is the evidence this is worth doing: it is a full map
-implementation on the FFI, and several capabilities MapLibre Native offers are
-sitting unused behind it simply because there is no cross-platform API to reach
-them.
-
-Research Areas:
-
-- Explore using its Kotlin/Native targets on iOS, with code to integrate with a
-  Metal layer.
-- Explore unifying those platforms behind a single, thin, `expect`/`actual`
-  interface on top of MapLibre Native.
-
 ### [Documentation](https://github.com/maplibre/maplibre-compose/issues?q=is%3Aissue%20state%3Aopen%20documentation%20label%3Adocumentation)
 
 **Status:** Needs Exploration 🔍 but some parts are shovel ready 🪏
@@ -185,22 +164,13 @@ answer well.
 
 ### Fill in the missing map capabilities
 
-**Status:** Blocked 🚧
+**Status:** Needs Exploration 🔍
 
 MapLibre Native can do a number of things MapLibre Compose has no cross-platform
-API for, among them style light, custom geometry sources, the location indicator
-layer, alternative projections, style transition options, HTTP header
-transforms, supplying missing style images on demand, resource transforms,
-merging offline databases, and
-[static map snapshots](https://github.com/maplibre/maplibre-compose/issues/28) —
-which `maplibre-native-ffi` can now produce by reading a rendered map back to
-the CPU.
-
-These are deliberately not being built yet. Doing any of them today means
-writing the same feature three times — against the iOS SDK,
-`maplibre-native-ffi`, and MapLibre GL JS — and throwing two of those away once
-the native core integration above lands. They become one implementation each
-afterwards, which is why that work comes first.
+API for, among them style light, the location indicator layer, alternative
+projections, style transition options, HTTP header transforms, supplying missing
+style images on demand, resource transforms, merging offline databases, and
+[static map snapshots](https://github.com/maplibre/maplibre-compose/issues/28).
 
 Snapshots carry one extra requirement, since we would like to style them the
 same way interactive maps are styled: the style API has to be usable without a

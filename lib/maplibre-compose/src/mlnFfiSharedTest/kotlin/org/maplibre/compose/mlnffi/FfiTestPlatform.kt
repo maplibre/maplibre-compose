@@ -35,6 +35,14 @@ internal expect fun fileUrlOf(path: Path): String
 /** The path [url] names. Inverse of [fileUrlOf], so that a test can check the round trip. */
 internal expect fun pathOfFileUrl(url: String): Path
 
+/**
+ * A loopback TCP port nothing listens on.
+ *
+ * The port is bound only long enough to learn that it is free, so a connection to it is refused
+ * rather than answered or left hanging.
+ */
+internal expect fun unusedLoopbackPort(): Int
+
 /** Feature availability of the packaged FFI runtime/binding pair. */
 internal data class FfiTestRuntimeCapabilities(val customGeometrySourceCallbacks: Boolean)
 

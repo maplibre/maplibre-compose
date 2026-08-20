@@ -1,4 +1,4 @@
-@file:JvmName("MlnFfiGeoJsonSourceKt")
+@file:kotlin.jvm.JvmName("MlnFfiGeoJsonSourceKt")
 
 package org.maplibre.compose.sources
 
@@ -13,6 +13,8 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.mlnffi.MlnFfiLock
+import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toJsonBytes
@@ -40,7 +42,7 @@ public actual class GeoJsonSource : Source {
   /** The generation of the data last installed. Guarded by [installLock]. */
   @Volatile private var installedGeneration = 0L
 
-  private val installLock = Any()
+  private val installLock = MlnFfiLock()
 
   /** The newest published data not yet claimed by a parse. Guarded by [installLock]. */
   private var pendingPublish: PendingPublish? = null
@@ -92,12 +94,11 @@ public actual class GeoJsonSource : Source {
     applyData(data, nextDataGeneration(discardPending = true))
   }
 
-  private fun nextDataGeneration(discardPending: Boolean = false): Long =
-    synchronized(installLock) {
-      // A synchronous setData supersedes a publication that no parse has claimed yet.
-      if (discardPending) pendingPublish = null
-      ++dataGeneration
-    }
+  private fun nextDataGeneration(discardPending: Boolean = false): Long = installLock.withLock {
+    // A synchronous setData supersedes a publication that no parse has claimed yet.
+    if (discardPending) pendingPublish = null
+    ++dataGeneration
+  }
 
   /**
    * Parses the [data] argument, then installs it when no newer data has installed. mutateMap waits
@@ -128,7 +129,7 @@ public actual class GeoJsonSource : Source {
    * has not parsed yet does not block this install: its own parse follows and overwrites this one.
    */
   private inline fun installIfNewest(generation: Long, install: () -> Unit) {
-    synchronized(installLock) {
+    installLock.withLock {
       if (generation <= installedGeneration) return
       install()
       installedGeneration = generation
@@ -145,17 +146,16 @@ public actual class GeoJsonSource : Source {
    */
   internal suspend fun publishPreparedData(data: GeoJsonData) {
     if (data is GeoJsonData.Uri) {
-      val generation =
-        synchronized(installLock) {
-          pendingPublish = null
-          ++dataGeneration
-        }
+      val generation = installLock.withLock {
+        pendingPublish = null
+        ++dataGeneration
+      }
       withContext(NonCancellable) { applyData(data, generation) }
       return
     }
-    synchronized(installLock) { pendingPublish = PendingPublish(++dataGeneration, data) }
+    installLock.withLock { pendingPublish = PendingPublish(++dataGeneration, data) }
     publishMutex.withLock {
-      val pending = synchronized(installLock) { pendingPublish.also { pendingPublish = null } }
+      val pending = installLock.withLock { pendingPublish.also { pendingPublish = null } }
       // Null when a sibling's parse already claimed this publication's data.
       if (pending != null) {
         // The effect that published this data may already be cancelled by a newer publication,
