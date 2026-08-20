@@ -111,18 +111,10 @@ class LinuxVulkanOpenGlInteropTest {
         try {
           val first =
             InteropMap(host).use { map ->
-              egl.withCurrent {
-                map.presentStyle(FIRST_STYLE, FIRST_EXTENT, FIRST_PIXEL) {
-                  egl.drawAndRead(host, it)
-                }
-              }
+              egl.withCurrent { map.renderStyle(FIRST_STYLE, FIRST_EXTENT) }
             }
           InteropMap(host).use { map ->
-            val second = egl.withCurrent {
-              map.presentStyle(SECOND_STYLE, SECOND_EXTENT, SECOND_PIXEL) {
-                egl.drawAndRead(host, it)
-              }
-            }
+            val second = egl.withCurrent { map.renderStyle(SECOND_STYLE, SECOND_EXTENT) }
 
             val oldPixel = egl.withCurrent { egl.drawAndRead(host, first) }
             assertNear(FIRST_PIXEL, oldPixel, "retired generation after resize")
@@ -301,6 +293,28 @@ class LinuxVulkanOpenGlInteropTest {
     init {
       renderer.start()
       renderer.onSurfaceAvailable(hostSession)
+    }
+
+    /** Fills a target without drawing it into Compose. `draw` drops every retired generation. */
+    fun renderStyle(style: BaseStyle, extent: MapExtent): MlnFfiRenderTarget {
+      val expectedStyleLoads = styleLoads + 1
+      renderer.setBaseStyle(style)
+      val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
+      var lastResult: MlnFfiFrameResult? = null
+      while (true) {
+        check(deadline.hasNotPassedNow()) {
+          "Timed out rendering style $style at $extent; " +
+            "style loads: $styleLoads/$expectedStyleLoads, last result: $lastResult, " +
+            "failure: $failure"
+        }
+        failure?.let { error(it) }
+        val pumped = pumpFrame(extent)
+        lastResult = pumped.result
+        val target = pumped.target
+        if (styleLoads >= expectedStyleLoads && target != null) return target
+        if (pumped.result != MlnFfiFrameResult.RENDERED) renderer.requestRedraw()
+        Thread.sleep(POLL_INTERVAL_MILLIS)
+      }
     }
 
     fun presentStyle(
