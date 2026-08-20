@@ -1,46 +1,19 @@
 package org.maplibre.compose.util
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 
 /**
- * How a style image stretches when a symbol layer sizes the icon to wrap its text, and where that
- * text sits.
+ * Stretch and content-box metadata for a style image used with `icon-text-fit`.
  *
- * [capInsets] is the nine-patch form: a fixed border on each edge, with stretch and text in the
- * interior. `ImageStretch(x, y, content)` names stretch intervals and the text box independently. A
- * speech-bubble caret uses that second form: two horizontal stretch bands with a fixed column
- * between them.
- *
- * Distances are in the same density that the bitmap was rasterized at. At 2x, `8.dp` is 16 image
- * pixels.
- *
- * Omit the stretch argument on [image][org.maplibre.compose.expressions.dsl.image] to upload the
- * bitmap without this metadata. The icon then scales uniformly.
+ * Distances use the density that the bitmap was rasterized at. At 2x, `8.dp` is 16 image pixels.
  */
-public class ImageStretch private constructor(private val spec: Spec) {
-
-  override fun equals(other: Any?): Boolean = other is ImageStretch && spec == other.spec
-
-  override fun hashCode(): Int = spec.hashCode()
-
-  override fun toString(): String =
-    when (spec) {
-      is Spec.Ranges -> "ImageStretch(x=${spec.x}, y=${spec.y}, content=${spec.content})"
-      is Spec.CapInsets ->
-        if (spec.contentEqualsStretch) {
-          "ImageStretch.capInsets(left=${spec.stretchLeft}, top=${spec.stretchTop}, " +
-            "right=${spec.stretchRight}, bottom=${spec.stretchBottom})"
-        } else {
-          "ImageStretch.capInsets(stretch=[${spec.stretchLeft}, ${spec.stretchTop}, " +
-            "${spec.stretchRight}, ${spec.stretchBottom}], content=[${spec.contentLeft}, " +
-            "${spec.contentTop}, ${spec.contentRight}, ${spec.contentBottom}])"
-        }
-    }
-
+@Immutable
+public sealed class ImageStretch {
   public companion object {
     /**
      * Stretch intervals and an optional text box, measured from the top-left of the image.
@@ -58,11 +31,15 @@ public class ImageStretch private constructor(private val spec: Spec) {
       x: List<ClosedRange<Dp>>,
       y: List<ClosedRange<Dp>>,
       content: DpRect? = null,
-    ): ImageStretch = ImageStretch(Spec.Ranges(x.toList(), y.toList(), content))
+    ): ImageStretch = Ranges(x.toList(), y.toList(), content)
 
     /**
-     * A nine-patch. [left], [top], [right], and [bottom] are the fixed border on each edge. The
-     * interior both stretches and receives text.
+     * Fixed insets on each edge of the image. The interior stretches and receives text.
+     *
+     * @param left Unstretched inset from the left edge.
+     * @param top Unstretched inset from the top edge.
+     * @param right Unstretched inset from the right edge.
+     * @param bottom Unstretched inset from the bottom edge.
      */
     public fun capInsets(left: Dp, top: Dp, right: Dp, bottom: Dp): ImageStretch =
       capInsets(
@@ -71,67 +48,73 @@ public class ImageStretch private constructor(private val spec: Spec) {
       )
 
     /**
-     * A nine-patch whose text box is inset independently of the stretch border.
+     * Fixed stretch border and a text box, inset independently.
      *
-     * [stretch] is the fixed border. [content] is the inset of the box that `icon-text-fit` fills
-     * with text.
+     * @param stretch Unstretched border on each edge.
+     * @param content Inset of the box that `icon-text-fit` fills with text.
      */
     public fun capInsets(
       stretch: PaddingValues.Absolute,
       content: PaddingValues.Absolute,
     ): ImageStretch =
-      ImageStretch(
-        Spec.CapInsets(
-          stretchLeft = stretch.edgeLeft(),
-          stretchTop = stretch.calculateTopPadding(),
-          stretchRight = stretch.edgeRight(),
-          stretchBottom = stretch.calculateBottomPadding(),
-          contentLeft = content.edgeLeft(),
-          contentTop = content.calculateTopPadding(),
-          contentRight = content.edgeRight(),
-          contentBottom = content.calculateBottomPadding(),
-        )
+      CapInsets(
+        stretchLeft = stretch.edgeLeft(),
+        stretchTop = stretch.calculateTopPadding(),
+        stretchRight = stretch.edgeRight(),
+        stretchBottom = stretch.calculateBottomPadding(),
+        contentLeft = content.edgeLeft(),
+        contentTop = content.calculateTopPadding(),
+        contentRight = content.edgeRight(),
+        contentBottom = content.calculateBottomPadding(),
       )
   }
 
-  private sealed class Spec {
-    data class Ranges(
-      val x: List<ClosedRange<Dp>>,
-      val y: List<ClosedRange<Dp>>,
-      val content: DpRect?,
-    ) : Spec()
+  private data class Ranges(
+    val x: List<ClosedRange<Dp>>,
+    val y: List<ClosedRange<Dp>>,
+    val content: DpRect?,
+  ) : ImageStretch() {
+    override fun toString(): String = "ImageStretch(x=$x, y=$y, content=$content)"
+  }
 
-    data class CapInsets(
-      val stretchLeft: Dp,
-      val stretchTop: Dp,
-      val stretchRight: Dp,
-      val stretchBottom: Dp,
-      val contentLeft: Dp,
-      val contentTop: Dp,
-      val contentRight: Dp,
-      val contentBottom: Dp,
-    ) : Spec() {
-      val contentEqualsStretch: Boolean
-        get() =
-          contentLeft == stretchLeft &&
-            contentTop == stretchTop &&
-            contentRight == stretchRight &&
-            contentBottom == stretchBottom
-    }
+  private data class CapInsets(
+    val stretchLeft: Dp,
+    val stretchTop: Dp,
+    val stretchRight: Dp,
+    val stretchBottom: Dp,
+    val contentLeft: Dp,
+    val contentTop: Dp,
+    val contentRight: Dp,
+    val contentBottom: Dp,
+  ) : ImageStretch() {
+    private val contentEqualsStretch: Boolean
+      get() =
+        contentLeft == stretchLeft &&
+          contentTop == stretchTop &&
+          contentRight == stretchRight &&
+          contentBottom == stretchBottom
+
+    override fun toString(): String =
+      if (contentEqualsStretch) {
+        "ImageStretch.capInsets(left=$stretchLeft, top=$stretchTop, " +
+          "right=$stretchRight, bottom=$stretchBottom)"
+      } else {
+        "ImageStretch.capInsets(stretch=[$stretchLeft, $stretchTop, $stretchRight, " +
+          "$stretchBottom], content=[$contentLeft, $contentTop, $contentRight, $contentBottom])"
+      }
   }
 
   /**
-   * Turns this description into image-pixel intervals, or empty stretch and a warning when it does
-   * not fit [imageWidth]×[imageHeight] at [scale].
+   * Pixel intervals for [imageWidth]×[imageHeight] at [scale]. Axes or the content box that do not
+   * fit are omitted, with a warning.
    */
   internal fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchResolution =
-    when (val spec = spec) {
-      is Spec.CapInsets -> resolveCapInsets(spec, imageWidth, imageHeight, scale)
-      is Spec.Ranges -> resolveRanges(spec, imageWidth, imageHeight, scale)
+    when (this) {
+      is CapInsets -> resolveCapInsets(imageWidth, imageHeight, scale)
+      is Ranges -> resolveRanges(imageWidth, imageHeight, scale)
     }
 
-  private fun resolveCapInsets(
-    spec: Spec.CapInsets,
+  private fun CapInsets.resolveCapInsets(
     imageWidth: Int,
     imageHeight: Int,
     scale: Float,
@@ -141,20 +124,20 @@ public class ImageStretch private constructor(private val spec: Spec) {
         imageWidth,
         imageHeight,
         scale,
-        spec.stretchLeft,
-        spec.stretchTop,
-        spec.stretchRight,
-        spec.stretchBottom,
+        stretchLeft,
+        stretchTop,
+        stretchRight,
+        stretchBottom,
       )
     val contentBox =
       insetBox(
         imageWidth,
         imageHeight,
         scale,
-        spec.contentLeft,
-        spec.contentTop,
-        spec.contentRight,
-        spec.contentBottom,
+        contentLeft,
+        contentTop,
+        contentRight,
+        contentBottom,
       )
     val stretchOk = stretchBox.fits(imageWidth, imageHeight)
     val contentOk = contentBox.fits(imageWidth, imageHeight)
@@ -183,25 +166,23 @@ public class ImageStretch private constructor(private val spec: Spec) {
     )
   }
 
-  private fun resolveRanges(
-    spec: Spec.Ranges,
+  private fun Ranges.resolveRanges(
     imageWidth: Int,
     imageHeight: Int,
     scale: Float,
   ): ImageStretchResolution {
-    val stretchX = spec.x.toIntervals(axisLength = imageWidth, scale = scale)
-    val stretchY = spec.y.toIntervals(axisLength = imageHeight, scale = scale)
-    val content =
-      spec.content?.let { rect ->
-        with(Density(scale)) {
-          ImageContentBox(
-            left = rect.left.toPx(),
-            top = rect.top.toPx(),
-            right = rect.right.toPx(),
-            bottom = rect.bottom.toPx(),
-          )
-        }
+    val stretchX = x.toIntervals(axisLength = imageWidth, scale = scale)
+    val stretchY = y.toIntervals(axisLength = imageHeight, scale = scale)
+    val content = content?.let { rect ->
+      with(Density(scale)) {
+        ImageContentBox(
+          left = rect.left.toPx(),
+          top = rect.top.toPx(),
+          right = rect.right.toPx(),
+          bottom = rect.bottom.toPx(),
+        )
       }
+    }
     val contentOk = content == null || content.fits(imageWidth, imageHeight)
     val issues = buildList {
       if (stretchX == null) add("horizontal stretch ranges")
