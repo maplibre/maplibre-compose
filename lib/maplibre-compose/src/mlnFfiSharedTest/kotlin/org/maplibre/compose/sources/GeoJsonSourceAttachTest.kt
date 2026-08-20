@@ -1,6 +1,7 @@
 package org.maplibre.compose.sources
 
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
@@ -13,12 +14,20 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.writeString
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -107,6 +116,48 @@ class GeoJsonSourceAttachTest {
         ((features.single() as JsonObject)["geometry"] as JsonObject)["coordinates"] as JsonArray
       assertEquals(9.0, coordinates[0].jsonPrimitive.content.toDouble())
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
+    }
+  }
+
+  /**
+   * A URI has no parse, so it installs without waiting for an in-flight inline parse. When the
+   * older parse finishes, the URI remains.
+   *
+   * The inline job starts on a worker that is not Default, so `withContext(Default)` inside the
+   * parse suspends instead of finishing before `launch` returns.
+   */
+  @Test
+  fun a_uri_publish_installs_while_an_inline_parse_is_still_running() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
+      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(0.0)), GeoJsonOptions())
+      style.addSource(source)
+
+      val cache = FfiTestPlatform.createCacheFile()
+      val executor = Executors.newSingleThreadExecutor()
+      try {
+        val file = Path(requireNotNull(cache.parent), "points.geojson")
+        SystemFileSystem.sink(file).buffered().use {
+          it.writeString("""{"type":"FeatureCollection","features":[]}""")
+        }
+        val url = fileUrlOf(file)
+        val olderJob =
+          launch(executor.asCoroutineDispatcher(), start = CoroutineStart.UNDISPATCHED) {
+            source.publishData(GeoJsonData.Features(manyPoints(longitude = 2.0, count = 8_000)))
+          }
+        val featuresBeforeUri = (source.toJson()["data"] as JsonObject)["features"] as JsonArray
+        assertEquals(1, featuresBeforeUri.size, source.toJson().toString())
+        source.publishData(GeoJsonData.Uri(url))
+        assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
+        olderJob.join()
+        assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
+        assertEquals(emptyList(), fixture.errors, "the map should report nothing")
+      } finally {
+        executor.shutdown()
+        FfiTestPlatform.deleteCacheFile(cache)
+      }
     }
   }
 

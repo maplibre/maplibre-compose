@@ -4,6 +4,9 @@ package org.maplibre.compose.sources
 
 import kotlin.concurrent.Volatile
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
@@ -31,13 +34,21 @@ public actual class GeoJsonSource : Source {
   /** The URI form of the data, when it is one. */
   @Volatile private var dataUrl: String?
 
-  /**
-   * Incremented at the start of every [setData] and [publishData]. Only the current generation
-   * installs after a parse.
-   */
-  @Volatile private var publishGeneration = 0
+  /** Bumped at the start of every [setData] and [publishPreparedData]; orders data by call. */
+  @Volatile private var dataGeneration = 0L
+
+  /** The generation of the data last installed. Guarded by [installLock]. */
+  @Volatile private var installedGeneration = 0L
 
   private val installLock = Any()
+
+  /** The newest published data not yet claimed by a parse. Guarded by [installLock]. */
+  private var pendingPublish: PendingPublish? = null
+
+  private class PendingPublish(val generation: Long, val data: GeoJsonData)
+
+  /** Serializes parses, so a burst of publications conflates into parses of the newest data. */
+  private val publishMutex = Mutex()
 
   public actual constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
@@ -78,18 +89,23 @@ public actual class GeoJsonSource : Source {
   }
 
   public actual fun setData(data: GeoJsonData) {
-    applyData(data, nextPublishGeneration())
+    applyData(data, nextDataGeneration(discardPending = true))
   }
 
-  private fun nextPublishGeneration(): Int = synchronized(installLock) { ++publishGeneration }
+  private fun nextDataGeneration(discardPending: Boolean = false): Long =
+    synchronized(installLock) {
+      // A synchronous setData supersedes a publication that no parse has claimed yet.
+      if (discardPending) pendingPublish = null
+      ++dataGeneration
+    }
 
   /**
-   * Parses the [data] argument, then installs it when [generation] is still current. mutateMap
-   * waits until the owner thread has used the handle, so closing it afterward is safe.
+   * Parses the [data] argument, then installs it when no newer data has installed. mutateMap waits
+   * until the owner thread has used the handle, so closing it afterward is safe.
    */
-  private fun applyData(data: GeoJsonData, generation: Int) {
+  private fun applyData(data: GeoJsonData, generation: Long) {
     if (data is GeoJsonData.Uri) {
-      installIfCurrent(generation) {
+      installIfNewest(generation) {
         inlineUtf8 = null
         dataUrl = data.uri
         mutate { map -> map.setGeoJsonSourceUrl(id, data.uri) }
@@ -97,9 +113,9 @@ public actual class GeoJsonSource : Source {
       return
     }
     val utf8 = data.toInlineUtf8()!!
-    if (generation != publishGeneration) return
+    if (generation <= installedGeneration) return
     GeoJsonSourceDataHandle.create(utf8, ffiOptions).use { prepared ->
-      installIfCurrent(generation) {
+      installIfNewest(generation) {
         inlineUtf8 = utf8
         dataUrl = null
         mutate { map -> map.setGeoJsonSourceData(id, prepared) }
@@ -107,17 +123,48 @@ public actual class GeoJsonSource : Source {
     }
   }
 
-  private inline fun installIfCurrent(generation: Int, install: () -> Unit) {
+  /**
+   * Installs [generation]'s data unless newer data has already installed. A newer publication that
+   * has not parsed yet does not block this install: its own parse follows and overwrites this one.
+   */
+  private inline fun installIfNewest(generation: Long, install: () -> Unit) {
     synchronized(installLock) {
-      if (generation != publishGeneration) return
+      if (generation <= installedGeneration) return
       install()
+      installedGeneration = generation
     }
   }
 
-  /** Parses and indexes on Default. [applyData] installs only the current generation. */
+  /**
+   * Claims the newest pending publication and parses it on Default. Publications that arrive faster
+   * than a parse conflate: each parse works on the newest data rather than every publication paying
+   * for a parse of its own.
+   *
+   * A URI has no parse, so it installs without waiting for [publishMutex]. When an in-flight inline
+   * parse finishes, [installIfNewest] keeps the URI.
+   */
   internal suspend fun publishPreparedData(data: GeoJsonData) {
-    val generation = nextPublishGeneration()
-    withContext(Dispatchers.Default) { applyData(data, generation) }
+    if (data is GeoJsonData.Uri) {
+      val generation =
+        synchronized(installLock) {
+          pendingPublish = null
+          ++dataGeneration
+        }
+      withContext(NonCancellable) { applyData(data, generation) }
+      return
+    }
+    synchronized(installLock) { pendingPublish = PendingPublish(++dataGeneration, data) }
+    publishMutex.withLock {
+      val pending = synchronized(installLock) { pendingPublish.also { pendingPublish = null } }
+      // Null when a sibling's parse already claimed this publication's data.
+      if (pending != null) {
+        // The effect that published this data may already be cancelled by a newer publication,
+        // but this coroutine claimed the pending data; abandoning the parse here would lose it.
+        withContext(NonCancellable + Dispatchers.Default) {
+          applyData(pending.data, pending.generation)
+        }
+      }
+    }
   }
 
   /**
