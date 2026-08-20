@@ -1,6 +1,7 @@
 package org.maplibre.compose.sources
 
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
@@ -13,6 +14,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.buffered
@@ -120,6 +122,9 @@ class GeoJsonSourceAttachTest {
   /**
    * A URI has no parse, so it installs without waiting for an in-flight inline parse. When the
    * older parse finishes, the URI remains.
+   *
+   * The inline job starts on a worker that is not Default, so `withContext(Default)` inside the
+   * parse suspends instead of finishing before `launch` returns.
    */
   @Test
   fun a_uri_publish_installs_while_an_inline_parse_is_still_running() = runBlocking {
@@ -131,6 +136,7 @@ class GeoJsonSourceAttachTest {
       style.addSource(source)
 
       val cache = FfiTestPlatform.createCacheFile()
+      val executor = Executors.newSingleThreadExecutor()
       try {
         val file = Path(requireNotNull(cache.parent), "points.geojson")
         SystemFileSystem.sink(file).buffered().use {
@@ -138,15 +144,18 @@ class GeoJsonSourceAttachTest {
         }
         val url = fileUrlOf(file)
         val olderJob =
-          launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+          launch(executor.asCoroutineDispatcher(), start = CoroutineStart.UNDISPATCHED) {
             source.publishData(GeoJsonData.Features(manyPoints(longitude = 2.0, count = 8_000)))
           }
+        val featuresBeforeUri = (source.toJson()["data"] as JsonObject)["features"] as JsonArray
+        assertEquals(1, featuresBeforeUri.size, source.toJson().toString())
         source.publishData(GeoJsonData.Uri(url))
         assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
         olderJob.join()
         assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
         assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       } finally {
+        executor.shutdown()
         FfiTestPlatform.deleteCacheFile(cache)
       }
     }
