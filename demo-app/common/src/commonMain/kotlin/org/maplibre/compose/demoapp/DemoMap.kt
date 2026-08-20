@@ -70,6 +70,7 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
         MapOptions(
           renderOptions = state.settings.renderOptions,
           gestureOptions = state.settings.gestureOptions,
+          tileLodOptions = state.settings.tileLodOptions,
         ),
       onFrame = { state.frameRateState.record() },
       contentWindowInsets = insets,

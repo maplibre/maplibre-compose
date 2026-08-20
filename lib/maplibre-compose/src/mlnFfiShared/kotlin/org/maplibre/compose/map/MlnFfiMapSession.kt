@@ -14,6 +14,7 @@ import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.resume
 import kotlin.coroutines.resumeWithException
+import kotlin.math.PI
 import kotlin.math.round
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -76,6 +77,8 @@ import org.maplibre.nativeffi.geo.ScreenPoint
 import org.maplibre.nativeffi.map.DebugOption
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapProjectionHandle
+import org.maplibre.nativeffi.map.TileLodMode as FfiTileLodMode
+import org.maplibre.nativeffi.map.TileOptions
 import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.MetalContextDescriptor
@@ -270,6 +273,7 @@ internal class MlnFfiMapSession(
   }
 
   @Volatile private var maximumFps: Int? = null
+  private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
 
   private val frameTimer = TimeSource.Monotonic
@@ -1176,6 +1180,15 @@ internal class MlnFfiMapSession(
     // handling rather than pushed into the map.
   }
 
+  override fun setTileLodSettings(value: TileLodOptions) {
+    if (value == tileLodOptions) return
+    tileLodOptions = value
+    configureMap { map -> map.tileOptions = value.toFfi() }
+  }
+
+  /** Test seam: runs [action] on the owner thread and waits for it. */
+  internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
+
   override fun positionFromScreenLocation(offset: DpOffset): Position =
     withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
       ?: Position(0.0, 0.0)
@@ -1466,3 +1479,18 @@ private fun WglContextHandles.toFfi() =
     getProcAddress = NativePointer.ofAddress(getProcAddress.address),
     ownership = ownership,
   )
+
+private fun TileLodOptions.toFfi(): TileOptions =
+  TileOptions().also {
+    it.lodMode = mode.toFfi()
+    it.lodMinRadius = minRadius
+    it.lodScale = scale
+    it.lodPitchThreshold = pitchThreshold * PI / 180.0
+    it.lodZoomShift = zoomShift
+  }
+
+private fun TileLodMode.toFfi(): FfiTileLodMode =
+  when (this) {
+    TileLodMode.Default -> FfiTileLodMode.DEFAULT
+    TileLodMode.Distance -> FfiTileLodMode.DISTANCE
+  }

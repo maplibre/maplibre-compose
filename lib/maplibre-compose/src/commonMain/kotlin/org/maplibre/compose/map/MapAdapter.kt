@@ -59,6 +59,8 @@ internal interface MapAdapter {
 
   fun setGestureSettings(value: GestureOptions)
 
+  fun setTileLodSettings(value: TileLodOptions)
+
   fun positionFromScreenLocation(offset: DpOffset): Position
 
   fun screenLocationFromPosition(position: Position): DpOffset

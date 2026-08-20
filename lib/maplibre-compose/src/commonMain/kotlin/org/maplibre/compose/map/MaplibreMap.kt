@@ -262,6 +262,7 @@ public fun MaplibreMap(
         map.setMaxPitch(pitchRange.endInclusive.toDouble())
         map.setRenderSettings(options.renderOptions)
         map.setGestureSettings(options.gestureOptions)
+        map.setTileLodSettings(options.tileLodOptions)
         map.setCameraBoundingBox(boundingBox)
       },
       onReset = {
