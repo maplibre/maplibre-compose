@@ -157,4 +157,27 @@ class ImageStretchResolveTest {
       stretch.resolve(imageWidth = 32, imageHeight = 32, scale = 1f),
     )
   }
+
+  @Test
+  fun range_endpoints_are_copied_so_later_mutation_does_not_change_the_value() {
+    val x = MutableDpRange(8.dp, 24.dp)
+    val stretch = ImageStretch(x = listOf(x), y = listOf(4.dp..28.dp))
+    val hashBefore = stretch.hashCode()
+
+    x.start = 0.dp
+    x.endInclusive = 32.dp
+
+    assertEquals(hashBefore, stretch.hashCode())
+    assertEquals(
+      ImageStretchPixels(
+        stretchX = listOf(8f to 24f),
+        stretchY = listOf(4f to 28f),
+        content = null,
+      ),
+      stretch.resolve(imageWidth = 32, imageHeight = 32, scale = 1f),
+    )
+  }
+
+  private class MutableDpRange(override var start: Dp, override var endInclusive: Dp) :
+    ClosedRange<Dp>
 }

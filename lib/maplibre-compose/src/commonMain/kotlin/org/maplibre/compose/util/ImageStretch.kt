@@ -26,7 +26,12 @@ public sealed class ImageStretch {
       x: List<ClosedRange<Dp>>,
       y: List<ClosedRange<Dp>>,
       content: DpRect? = null,
-    ): ImageStretch = Ranges(x.toList(), y.toList(), content)
+    ): ImageStretch =
+      Ranges(
+        x.map { it.start..it.endInclusive },
+        y.map { it.start..it.endInclusive },
+        content,
+      )
 
     /** Fixed insets on each edge. The interior stretches and receives text. */
     public fun capInsets(left: Dp, top: Dp, right: Dp, bottom: Dp): ImageStretch {
