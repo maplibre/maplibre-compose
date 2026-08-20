@@ -91,7 +91,7 @@ class MapLibreConfigurationTest {
     )
     assertEquals("com.example.app", applicationIdFromClassName("com.example.app.DesktopApp"))
     assertNull(applicationIdFromClassName("MainKt"))
-    assertNull(applicationIdFromClassName("com.example.app/MainKt"))
+    assertNull(applicationIdFromClassName("com/example/app.MainKt"))
   }
 
   @Test
