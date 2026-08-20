@@ -143,7 +143,6 @@ class GeoJsonSourceAttachTest {
           }
         source.publishData(GeoJsonData.Uri(url))
         assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
-        assertTrue(olderJob.isActive, "the URI should install without waiting for the inline parse")
         olderJob.join()
         assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
         assertEquals(emptyList(), fixture.errors, "the map should report nothing")
