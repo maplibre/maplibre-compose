@@ -90,10 +90,26 @@ indicators. If you use the Material 3 extension module, pass
 
 ### Custom providers
 
+An application implements `LocationProvider` for any source that is not the
+operating system's location API. That includes a serial or Bluetooth GNSS
+receiver, a vehicle bus, a network feed, a recorded-track replay, and a
+simulator.
+
 A custom `LocationProvider` implements only `updates(request)`. `permission`
 defaults to always granted and `requestPermission()` defaults to a no-op, so a
 source where permission is not a concept, such as an external receiver or a
 network feed, needs no permission handling.
+
+Emit `LocationEvent.Unavailable` when the fix is lost. A single physical
+device shares one flow rather than opening a new request per collector.
+
+Fill `Location.course` with movement direction. Desktop's default orientation
+provider is `NullOrientationProvider`. The puck and camera use that course.
+
+Unlike a wall-clock instant, `Location.timestamp` is a `TimeMark`. A source
+with its own clock marks receipt of the fix.
+
+<Code code={region(location, "custom-provider")} lang="kotlin" />
 
 A provider that wraps a real platform source can delegate permission to the
 building blocks that the default providers use: `AndroidLocationPermissionRequester`
