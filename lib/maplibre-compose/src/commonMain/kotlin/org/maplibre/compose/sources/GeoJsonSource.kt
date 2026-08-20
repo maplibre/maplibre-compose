@@ -178,7 +178,8 @@ private val EmptyInlineGeoJson: GeoJsonData =
 
 /**
  * Replaces the source's data. Native platforms that parse and index inline GeoJSON do that work on
- * a worker; iOS and the browser apply it on the caller. When two publications overlap, the later
- * call is the data the source keeps.
+ * a worker; iOS and the browser apply it on the caller. Publications that outpace the parse
+ * conflate to the newest data, and when two publications overlap, the later call is the data the
+ * source keeps.
  */
 internal expect suspend fun GeoJsonSource.publishData(data: GeoJsonData)
