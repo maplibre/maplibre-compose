@@ -285,14 +285,22 @@ class MacosLocationProviderTest {
   }
 
   @Test
-  fun managerConstructionFailureDoesNotThrowFromProviderConstruction() {
+  fun managerConstructionFailureDoesNotThrowFromProviderConstruction() = runTest {
     val client = FakeCoreLocationClient()
     client.createFailure = IllegalStateException("native failed")
 
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
 
-    assertEquals(LocationPermission.NotGranted(canRequest = null), provider.permission.value)
+    // Permission reports granted at unknown accuracy so that collection reaches the guarded update
+    // path, which retries the allocation and reports the persistent failure.
+    assertEquals(
+      LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+      provider.permission.value,
+    )
     provider.requestPermission()
+    val event = assertIs<LocationEvent.Unavailable>(provider.updates(LocationRequest()).first())
+    assertEquals(LocationUnavailableReason.UnexpectedFailure, event.reason)
+    assertIs<IllegalStateException>(event.cause)
   }
 
   @Test

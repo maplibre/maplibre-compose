@@ -18,6 +18,7 @@ import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.location.DesktopLocationBackend
 import org.maplibre.compose.location.DesktopLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
+import org.maplibre.compose.location.LocationAccuracyAuthorization
 import org.maplibre.compose.location.LocationBackendAvailability
 import org.maplibre.compose.location.LocationEvent
 import org.maplibre.compose.location.LocationPermission
@@ -193,6 +194,11 @@ internal constructor(
  * distinguishes precise from approximate grants. A request calls
  * [`requestWhenInUseAuthorization()`](https://developer.apple.com/documentation/corelocation/cllocationmanager/requestwheninuseauthorization())
  * and starts location updates so macOS can present the system prompt.
+ *
+ * If the manager cannot be allocated, [status] reports [LocationPermission.Granted] at
+ * [LocationAccuracyAuthorization.Unknown] so that collection still reaches the provider's guarded
+ * update path, which retries the allocation and reports a persistent failure as
+ * [LocationUnavailableReason.UnexpectedFailure].
  */
 public class MacosLocationPermissionRequester
 internal constructor(private val client: CoreLocationClient) : AutoCloseable {
@@ -208,7 +214,9 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
   private val requestPending = AtomicBoolean()
 
   // Allocation is fallible and must not throw from construction, so the manager is created through
-  // manager() and retried on each access until an attempt succeeds.
+  // manager() and retried on each access until an attempt succeeds. A failed attempt reports
+  // permission as granted at unknown accuracy, so that rememberLocationState still collects updates
+  // and the provider's own guarded allocation retries or reports UnexpectedFailure.
   private var manager: CoreLocationManager? = null
 
   private fun manager(): CoreLocationManager? =
@@ -217,6 +225,7 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
         client.createManager().also {
           it.setDelegate(delegate)
           manager = it
+          mutableStatus.value = readPermission(it.authorizationStatus, it.accuracyAuthorization)
         }
       } catch (error: Throwable) {
         null
@@ -242,7 +251,9 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
     }
 
   init {
-    manager()?.let { mutableStatus.value = currentPermission() }
+    if (manager() == null) {
+      mutableStatus.value = LocationPermission.Granted(LocationAccuracyAuthorization.Unknown)
+    }
   }
 
   /**
