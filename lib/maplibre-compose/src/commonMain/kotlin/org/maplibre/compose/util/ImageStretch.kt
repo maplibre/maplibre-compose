@@ -6,6 +6,7 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.LayoutDirection
 
 /** Stretch and content-box metadata for a style image used with `icon-text-fit`. */
 @Immutable
@@ -89,8 +90,8 @@ public sealed class ImageStretch {
 
     override fun toString(): String =
       if (stretch == content) {
-        "ImageStretch.capInsets(left=${stretch.left}, top=${stretch.top}, " +
-          "right=${stretch.right}, bottom=${stretch.bottom})"
+        "ImageStretch.capInsets(left=${leftEdge(stretch)}, top=${stretch.calculateTopPadding()}, " +
+          "right=${rightEdge(stretch)}, bottom=${stretch.calculateBottomPadding()})"
       } else {
         "ImageStretch.capInsets(stretch=$stretch, content=$content)"
       }
@@ -111,12 +112,18 @@ private fun insetBox(
 ): Rect =
   with(density) {
     Rect(
-      insets.left.toPx(),
-      insets.top.toPx(),
-      imageWidth - insets.right.toPx(),
-      imageHeight - insets.bottom.toPx(),
+      leftEdge(insets).toPx(),
+      insets.calculateTopPadding().toPx(),
+      imageWidth - rightEdge(insets).toPx(),
+      imageHeight - insets.calculateBottomPadding().toPx(),
     )
   }
+
+private fun leftEdge(insets: PaddingValues.Absolute): Dp =
+  insets.calculateLeftPadding(LayoutDirection.Ltr)
+
+private fun rightEdge(insets: PaddingValues.Absolute): Dp =
+  insets.calculateRightPadding(LayoutDirection.Ltr)
 
 private fun Rect.fits(imageWidth: Int, imageHeight: Int): Boolean =
   left < right &&
