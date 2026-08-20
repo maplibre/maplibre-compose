@@ -28,7 +28,9 @@ if [[ -n "${ANDROID_SDK_ROOT:-}" ]]; then
   candidates+=("$ANDROID_SDK_ROOT")
 fi
 
-for candidate in "${candidates[@]}"; do
+# ${candidates[@]+...} keeps bash 3.2 (macOS) from failing on an empty array
+# under `set -u`; plain "${candidates[@]}" errors before the message below.
+for candidate in ${candidates[@]+"${candidates[@]}"}; do
   if [[ -d "$candidate" ]]; then
     printf '%s\n' "$candidate"
     exit 0
