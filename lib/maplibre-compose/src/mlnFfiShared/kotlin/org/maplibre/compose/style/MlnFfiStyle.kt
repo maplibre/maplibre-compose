@@ -37,9 +37,7 @@ internal class MlnFfiStyle(
   override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     val scale = getScale()
     val pixels = image.toPremultipliedRgba8()
-    val resolution = stretch?.resolve(image.width, image.height, scale)
-    resolution?.warning?.let { message -> binding.logger?.w { "Image '$id' $message" } }
-    val layout = resolution?.pixels
+    val layout = stretch?.resolve(image.width, image.height, scale)
     binding.mutateMap { map ->
       map.setStyleImage(
         imageId = id,

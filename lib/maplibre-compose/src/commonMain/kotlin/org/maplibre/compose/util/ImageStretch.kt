@@ -2,6 +2,7 @@ package org.maplibre.compose.util
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
@@ -89,7 +90,7 @@ public sealed class ImageStretch {
       }
   }
 
-  internal fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchResolution =
+  internal fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchPixels =
     when (this) {
       is CapInsets -> resolveCapInsets(imageWidth, imageHeight, scale)
       is Ranges -> resolveRanges(imageWidth, imageHeight, scale)
@@ -99,7 +100,7 @@ public sealed class ImageStretch {
     imageWidth: Int,
     imageHeight: Int,
     scale: Float,
-  ): ImageStretchResolution {
+  ): ImageStretchPixels {
     val stretchBox =
       insetBox(
         imageWidth,
@@ -122,28 +123,10 @@ public sealed class ImageStretch {
       )
     val stretchOk = stretchBox.fits(imageWidth, imageHeight)
     val contentOk = contentBox.fits(imageWidth, imageHeight)
-    val warning =
-      when {
-        !stretchOk && !contentOk ->
-          "asked for content insets that leave nothing to stretch: at scale $scale they put the " +
-            "box at $stretchBox in a ${imageWidth}x${imageHeight} image. The image is uploaded " +
-            "whole and scales uniformly."
-        !stretchOk ->
-          "asked for cap insets that leave nothing to stretch in a ${imageWidth}x${imageHeight} " +
-            "image at scale $scale. Stretch metadata is omitted."
-        !contentOk ->
-          "asked for a content box that does not fit a ${imageWidth}x${imageHeight} image at " +
-            "scale $scale: $contentBox. The content box is omitted."
-        else -> null
-      }
-    return ImageStretchResolution(
-      pixels =
-        ImageStretchPixels(
-          stretchX = if (stretchOk) listOf(stretchBox.left to stretchBox.right) else emptyList(),
-          stretchY = if (stretchOk) listOf(stretchBox.top to stretchBox.bottom) else emptyList(),
-          content = contentBox.takeIf { contentOk },
-        ),
-      warning = warning,
+    return ImageStretchPixels(
+      stretchX = if (stretchOk) listOf(stretchBox.left to stretchBox.right) else emptyList(),
+      stretchY = if (stretchOk) listOf(stretchBox.top to stretchBox.bottom) else emptyList(),
+      content = contentBox.takeIf { contentOk },
     )
   }
 
@@ -151,65 +134,27 @@ public sealed class ImageStretch {
     imageWidth: Int,
     imageHeight: Int,
     scale: Float,
-  ): ImageStretchResolution {
+  ): ImageStretchPixels {
     val stretchX = x.toIntervals(axisLength = imageWidth, scale = scale)
     val stretchY = y.toIntervals(axisLength = imageHeight, scale = scale)
     val content = content?.let { rect ->
       with(Density(scale)) {
-        ImageContentBox(
-          left = rect.left.toPx(),
-          top = rect.top.toPx(),
-          right = rect.right.toPx(),
-          bottom = rect.bottom.toPx(),
-        )
+        Rect(rect.left.toPx(), rect.top.toPx(), rect.right.toPx(), rect.bottom.toPx())
       }
     }
-    val contentOk = content == null || content.fits(imageWidth, imageHeight)
-    val issues = buildList {
-      if (stretchX == null) add("horizontal stretch ranges")
-      if (stretchY == null) add("vertical stretch ranges")
-      if (!contentOk) add("content box $content")
-    }
-    val warning =
-      if (issues.isEmpty()) null
-      else
-        "asked for ${issues.joinToString(" and ")} that do not fit a ${imageWidth}x${imageHeight} " +
-          "image at scale $scale. Invalid stretch axes and content boxes are omitted."
-    return ImageStretchResolution(
-      pixels =
-        ImageStretchPixels(
-          stretchX = stretchX.orEmpty(),
-          stretchY = stretchY.orEmpty(),
-          content = content.takeIf { contentOk },
-        ),
-      warning = warning,
+    return ImageStretchPixels(
+      stretchX = stretchX.orEmpty(),
+      stretchY = stretchY.orEmpty(),
+      content = content?.takeIf { it.fits(imageWidth, imageHeight) },
     )
   }
 }
 
-internal data class ImageStretchResolution(
-  val pixels: ImageStretchPixels,
-  val warning: String? = null,
-)
-
 internal data class ImageStretchPixels(
   val stretchX: List<Pair<Float, Float>> = emptyList(),
   val stretchY: List<Pair<Float, Float>> = emptyList(),
-  val content: ImageContentBox? = null,
+  val content: Rect? = null,
 )
-
-internal data class ImageContentBox(
-  val left: Float,
-  val top: Float,
-  val right: Float,
-  val bottom: Float,
-) {
-  val isValid: Boolean
-    get() = left < right && top < bottom
-
-  fun fits(imageWidth: Int, imageHeight: Int): Boolean =
-    isValid && left >= 0f && top >= 0f && right <= imageWidth && bottom <= imageHeight
-}
 
 private fun PaddingValues.Absolute.edgeLeft(): Dp = calculateLeftPadding(LayoutDirection.Ltr)
 
@@ -223,15 +168,18 @@ private fun insetBox(
   top: Dp,
   right: Dp,
   bottom: Dp,
-): ImageContentBox =
+): Rect =
   with(Density(scale)) {
-    ImageContentBox(
-      left = left.toPx(),
-      top = top.toPx(),
-      right = imageWidth - right.toPx(),
-      bottom = imageHeight - bottom.toPx(),
-    )
+    Rect(left.toPx(), top.toPx(), imageWidth - right.toPx(), imageHeight - bottom.toPx())
   }
+
+private fun Rect.fits(imageWidth: Int, imageHeight: Int): Boolean =
+  left < right &&
+    top < bottom &&
+    left >= 0f &&
+    top >= 0f &&
+    right <= imageWidth &&
+    bottom <= imageHeight
 
 private fun List<ClosedRange<Dp>>.toIntervals(
   axisLength: Int,

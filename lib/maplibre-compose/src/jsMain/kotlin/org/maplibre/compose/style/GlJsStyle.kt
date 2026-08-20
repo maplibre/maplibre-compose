@@ -30,9 +30,7 @@ internal class GlJsStyle(
   override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     val scale = getScale()
     val pixels = image.toGlJsImage()
-    val resolution = stretch?.resolve(image.width, image.height, scale)
-    resolution?.warning?.let { message -> binding.logger?.w { "Image '$id' $message" } }
-    val layout = resolution?.pixels
+    val layout = stretch?.resolve(image.width, image.height, scale)
     val metadata =
       unsafeJso<StyleImageMetadata> {
         pixelRatio = scale.toDouble()
