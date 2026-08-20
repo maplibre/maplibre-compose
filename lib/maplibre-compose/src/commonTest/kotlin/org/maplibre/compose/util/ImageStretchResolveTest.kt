@@ -2,6 +2,7 @@ package org.maplibre.compose.util
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
@@ -99,6 +100,23 @@ class ImageStretchResolveTest {
     assertEquals(
       ImageStretchPixels(content = Rect(8f, 4f, 24f, 28f)),
       ImageStretch(x = emptyList(), y = emptyList(), content = DpRect(8.dp, 4.dp, 24.dp, 28.dp))
+        .resolve(imageWidth = 32, imageHeight = 32, scale = 1f),
+    )
+  }
+
+  @Test
+  fun unspecified_range_endpoints_drop_that_axis() {
+    assertEquals(
+      ImageStretchPixels(
+        stretchX = emptyList(),
+        stretchY = listOf(4f to 28f),
+        content = Rect(4f, 4f, 28f, 28f),
+      ),
+      ImageStretch(
+          x = listOf(Dp.Unspecified..24.dp),
+          y = listOf(4.dp..28.dp),
+          content = DpRect(4.dp, 4.dp, 28.dp, 28.dp),
+        )
         .resolve(imageWidth = 32, imageHeight = 32, scale = 1f),
     )
   }

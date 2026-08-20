@@ -15,8 +15,8 @@ public sealed class ImageStretch {
     /**
      * Stretch intervals and an optional text box, from the top-left of the image.
      *
-     * Empty [x] or [y] omits stretch on that axis. Overlapping or out-of-image ranges on an axis
-     * are omitted. An out-of-image [content] box is omitted.
+     * Empty [x] or [y] omits stretch on that axis. Overlapping, out-of-image, or unspecified ranges
+     * on an axis are omitted. An out-of-image [content] box is omitted.
      *
      * @param x Horizontal stretch intervals.
      * @param y Vertical stretch intervals.
@@ -143,7 +143,16 @@ private fun stretchIntervals(
     with(density) { ranges.map { it.start.toPx() to it.endInclusive.toPx() } }.sortedBy { it.first }
   var previousEnd = Float.NEGATIVE_INFINITY
   for ((start, end) in intervals) {
-    if (start < 0f || end > axisLength || start >= end || start < previousEnd) return emptyList()
+    if (
+      !start.isFinite() ||
+        !end.isFinite() ||
+        start < 0f ||
+        end > axisLength ||
+        start >= end ||
+        start < previousEnd
+    ) {
+      return emptyList()
+    }
     previousEnd = end
   }
   return intervals
