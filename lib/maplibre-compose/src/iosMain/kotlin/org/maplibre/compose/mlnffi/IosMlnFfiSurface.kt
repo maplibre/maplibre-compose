@@ -5,6 +5,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.viewinterop.UIKitInteropProperties
 import androidx.compose.ui.viewinterop.UIKitView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -66,6 +67,7 @@ internal fun IosMlnFfiSurface(
     return
   }
 
+  // The Metal view only presents. Compose's mapInput modifier handles every gesture.
   UIKitView(
     modifier = modifier,
     factory = {
@@ -77,6 +79,7 @@ internal fun IosMlnFfiSurface(
     },
     update = {},
     onRelease = { controller.surfaceDestroyed() },
+    properties = UIKitInteropProperties(isInteractive = false),
   )
 }
 
@@ -85,7 +88,7 @@ internal fun IosMlnFfiSurface(
  *
  * The view keeps the layer's `contentsScale` in step with its screen and reports each settled
  * extent to the surface controller; the render session writes `drawableSize` from that extent.
- * Touch handling stays with Compose's gesture modifier, so the view accepts no touches of its own.
+ * Compose's gesture modifier owns every pointer, and this view declines UIKit hit-testing.
  */
 private class IosMetalMapView(frame: CValue<CGRect>) : UIView(frame) {
   var onLayoutChanged: ((extent: MapExtent) -> Unit)? = null
