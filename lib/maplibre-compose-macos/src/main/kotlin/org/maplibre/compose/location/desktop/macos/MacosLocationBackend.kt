@@ -206,14 +206,28 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
   /** Current foreground location permission, updated when Core Location reports a change. */
   public val status: StateFlow<LocationPermission> = mutableStatus
   private val requestPending = AtomicBoolean()
-  private val manager = client.createManager()
+
+  // Allocation is fallible and must not throw from construction, so the manager is created through
+  // manager() and retried on each access until an attempt succeeds.
+  private var manager: CoreLocationManager? = null
+
+  private fun manager(): CoreLocationManager? =
+    manager
+      ?: try {
+        client.createManager().also {
+          it.setDelegate(delegate)
+          manager = it
+        }
+      } catch (error: Throwable) {
+        null
+      }
 
   private val delegate =
     object : CoreLocationDelegate {
       override fun didUpdateLocations(locations: List<CoreLocationFix>) = Unit
 
       override fun didFailWithError(error: CoreLocationError) {
-        manager.stopUpdatingLocation()
+        manager?.stopUpdatingLocation()
         requestPending.set(false)
       }
 
@@ -221,15 +235,14 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
         val permission = currentPermission()
         mutableStatus.value = permission
         if (permission != LocationPermission.NotGranted(canRequest = true)) {
-          manager.stopUpdatingLocation()
+          manager?.stopUpdatingLocation()
         }
         requestPending.set(false)
       }
     }
 
   init {
-    manager.setDelegate(delegate)
-    mutableStatus.value = currentPermission()
+    manager()?.let { mutableStatus.value = currentPermission() }
   }
 
   /**
@@ -238,6 +251,7 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
    */
   public fun requestForegroundPermission() {
     if (backendAvailability != LocationBackendAvailability.Available) return
+    val manager = manager() ?: return
     val current = currentPermission()
     if (current != LocationPermission.NotGranted(canRequest = true)) return
     if (!requestPending.compareAndSet(false, true)) return
@@ -249,10 +263,11 @@ internal constructor(private val client: CoreLocationClient) : AutoCloseable {
 
   /** Releases the Core Location manager and client. */
   override fun close() {
-    manager.close()
+    manager?.close()
     client.close()
   }
 
   private fun currentPermission(): LocationPermission =
-    readPermission(manager.authorizationStatus, manager.accuracyAuthorization)
+    manager?.let { readPermission(it.authorizationStatus, it.accuracyAuthorization) }
+      ?: LocationPermission.NotGranted(canRequest = null)
 }

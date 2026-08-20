@@ -285,6 +285,17 @@ class MacosLocationProviderTest {
   }
 
   @Test
+  fun managerConstructionFailureDoesNotThrowFromProviderConstruction() {
+    val client = FakeCoreLocationClient()
+    client.createFailure = IllegalStateException("native failed")
+
+    val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
+
+    assertEquals(LocationPermission.NotGranted(canRequest = null), provider.permission.value)
+    provider.requestPermission()
+  }
+
+  @Test
   fun overlappingPermissionRequestsStartOneAuthorizationRequest() {
     val client = FakeCoreLocationClient()
     val provider = MacosLocationProvider(client, Dispatchers.Unconfined)
