@@ -735,12 +735,6 @@ internal class MlnFfiMapSession(
     hostSession?.requestFrame()
   }
 
-  /** Dirties mbgl and opens the skip gate. Safe from any thread. */
-  internal fun requestRedraw() {
-    onMap { map -> map.requestRepaint() }
-    requestRender()
-  }
-
   /**
    * The cap filters an arriving cadence rather than driving one, hence [FRAME_INTERVAL_SLACK]: a
    * cap at the display's own rate would otherwise halve the frame rate.
