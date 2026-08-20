@@ -1,7 +1,6 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.unit.Density
 import js.objects.unsafeJso
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -14,7 +13,7 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.UnknownSource
-import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toGlJsImage
 import org.maplibre.compose.util.toJsonElement
 
@@ -28,24 +27,30 @@ internal class GlJsStyle(
   private val getScale: () -> Float,
 ) : Style {
 
-  override fun addImage(
-    id: String,
-    image: ImageBitmap,
-    sdf: Boolean,
-    resizeOptions: ImageResizeOptions?,
-  ) {
+  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     val scale = getScale()
     val pixels = image.toGlJsImage()
-    // The stretchable region and the content box are the same four numbers, as on every platform.
-    val box = resizeOptions?.let { contentBox(id, image, it, scale) }
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
     val metadata =
       unsafeJso<StyleImageMetadata> {
         pixelRatio = scale.toDouble()
         this.sdf = sdf
-        box?.let {
-          stretchX = arrayOf(arrayOf(it.left, it.right))
-          stretchY = arrayOf(arrayOf(it.top, it.bottom))
-          content = arrayOf(it.left, it.top, it.right, it.bottom)
+        stretchPx?.let { px ->
+          if (px.stretchX.isNotEmpty()) {
+            stretchX = px.stretchX.toGlJsStretch()
+          }
+          if (px.stretchY.isNotEmpty()) {
+            stretchY = px.stretchY.toGlJsStretch()
+          }
+          px.content?.let { box ->
+            content =
+              arrayOf(
+                box.left.toDouble(),
+                box.top.toDouble(),
+                box.right.toDouble(),
+                box.bottom.toDouble(),
+              )
+          }
         }
       }
     binding.withMap { map ->
@@ -54,40 +59,6 @@ internal class GlJsStyle(
       map.addImage(id, pixels, metadata)
     }
   }
-
-  /**
-   * Null when [resizeOptions] does not fit [image]; MapLibre would divide by a stretch sum of zero.
-   */
-  private fun contentBox(
-    id: String,
-    image: ImageBitmap,
-    resizeOptions: ImageResizeOptions,
-    scale: Float,
-  ): ContentBox? {
-    val box =
-      with(Density(scale)) {
-        ContentBox(
-          left = resizeOptions.left.toPx().toDouble(),
-          top = resizeOptions.top.toPx().toDouble(),
-          right = image.width - resizeOptions.right.toPx().toDouble(),
-          bottom = image.height - resizeOptions.bottom.toPx().toDouble(),
-        )
-      }
-    if (box.left < box.right && box.top < box.bottom) return box
-    binding.logger?.w {
-      "Image '$id' asked for content insets that leave nothing to stretch: at scale $scale they " +
-        "put the box at $box in a ${image.width}x${image.height} image. The image will be " +
-        "uploaded whole, so it scales rather than stretches."
-    }
-    return null
-  }
-
-  private data class ContentBox(
-    val left: Double,
-    val top: Double,
-    val right: Double,
-    val bottom: Double,
-  )
 
   override fun removeImage(id: String) {
     binding.withMap { map -> if (map.hasImage(id)) map.removeImage(id) }
@@ -181,3 +152,8 @@ internal class GlJsStyle(
     return UnknownLayer(id, definition).also { it.bindExisting(binding) }
   }
 }
+
+private fun List<Pair<Float, Float>>.toGlJsStretch(): Array<Array<Double>> = map { (start, end) ->
+  arrayOf(start.toDouble(), end.toDouble())
+}
+  .toTypedArray()

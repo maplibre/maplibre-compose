@@ -3,7 +3,7 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
-import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.ImageStretch
 
 internal class FakeStyle(
   images: List<Pair<String, ImageBitmap>>,
@@ -15,12 +15,7 @@ internal class FakeStyle(
   private val layerList = layers.toMutableList()
   private val layerMap = layers.associateBy { it.id }.toMutableMap()
 
-  override fun addImage(
-    id: String,
-    image: ImageBitmap,
-    sdf: Boolean,
-    resizeOptions: ImageResizeOptions?,
-  ) {
+  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     if (id in imageMap) error("Image ID '${id}' already exists in style")
     imageMap[id] = image
   }

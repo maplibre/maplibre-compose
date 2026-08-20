@@ -1,7 +1,6 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import androidx.compose.ui.unit.Density
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
@@ -16,13 +15,13 @@ import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.toStyleSpecEncoding
 import org.maplibre.compose.sources.toStyleSpecType
-import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toPremultipliedRgba8
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.style.ImageContent
-import org.maplibre.nativeffi.style.ImageStretch
+import org.maplibre.nativeffi.style.ImageStretch as FfiImageStretch
 import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.nativeffi.style.StyleImageOptions
 import org.maplibre.nativeffi.style.TileJson
@@ -35,60 +34,35 @@ internal class MlnFfiStyle(
   private val getScale: () -> Float = { 1f },
 ) : Style {
 
-  override fun addImage(
-    id: String,
-    image: ImageBitmap,
-    sdf: Boolean,
-    resizeOptions: ImageResizeOptions?,
-  ) {
+  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     val scale = getScale()
     val pixels = image.toPremultipliedRgba8()
-    // The stretchable region and the content box are the same four numbers, as on Android.
-    val box = resizeOptions?.let { contentBox(id, image, it, scale) }
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
     binding.mutateMap { map ->
       map.setStyleImage(
         imageId = id,
         image = pixels,
         options =
-          StyleImageOptions().also {
-            it.sdf = sdf
-            it.pixelRatio = scale
-            it.stretchX = box?.let { content -> listOf(ImageStretch(content.left, content.right)) }
-            it.stretchY = box?.let { content -> listOf(ImageStretch(content.top, content.bottom)) }
-            it.content = box
+          StyleImageOptions().also { options ->
+            options.sdf = sdf
+            options.pixelRatio = scale
+            stretchPx?.let { px ->
+              if (px.stretchX.isNotEmpty()) {
+                options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
+              }
+              if (px.stretchY.isNotEmpty()) {
+                options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
+              }
+              px.content?.let { box ->
+                options.content = ImageContent(box.left, box.top, box.right, box.bottom)
+              }
+            }
           },
       )
     }
   }
 
-  /**
-   * Turns [resizeOptions] into a content box in image pixels, or null when it does not fit [image].
-   */
-  private fun contentBox(
-    id: String,
-    image: ImageBitmap,
-    resizeOptions: ImageResizeOptions,
-    scale: Float,
-  ): ImageContent? {
-    val box =
-      with(Density(scale)) {
-        ImageContent(
-          left = resizeOptions.left.toPx(),
-          top = resizeOptions.top.toPx(),
-          right = image.width - resizeOptions.right.toPx(),
-          bottom = image.height - resizeOptions.bottom.toPx(),
-        )
-      }
-    if (box.left < box.right && box.top < box.bottom) return box
-    binding.logger?.w {
-      "Image '$id' asked for content insets that leave nothing to stretch: at scale $scale they " +
-        "put the box at $box in a ${image.width}x${image.height} image. The image will be " +
-        "uploaded whole, so it scales rather than stretches."
-    }
-    return null
-  }
-
-  internal fun imageStretches(id: String): Pair<List<ImageStretch>, List<ImageStretch>>? =
+  internal fun imageStretches(id: String): Pair<List<FfiImageStretch>, List<FfiImageStretch>>? =
     binding.readMap { map ->
       map.styleImageStretches(id)
     }

@@ -5,7 +5,7 @@ import androidx.compose.ui.graphics.DefaultAlpha
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
 import org.maplibre.compose.expressions.value.StringValue
-import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.ImageStretch
 
 /**
  * A [Literal] representing a [Painter] value, which will be drawn to a bitmap and loaded as an
@@ -16,7 +16,7 @@ private constructor(
   override val value: Painter,
   val size: DpSize?,
   val sdf: Boolean,
-  val resizeOptions: ImageResizeOptions?,
+  val stretch: ImageStretch?,
   val alpha: Float,
   val colorFilter: ColorFilter?,
 ) : Literal<StringValue, Painter> {
@@ -30,9 +30,9 @@ private constructor(
       value: Painter,
       size: DpSize?,
       drawAsSdf: Boolean,
-      resizeOptions: ImageResizeOptions?,
+      stretch: ImageStretch?,
       alpha: Float = DefaultAlpha,
       colorFilter: ColorFilter? = null,
-    ): PainterLiteral = PainterLiteral(value, size, drawAsSdf, resizeOptions, alpha, colorFilter)
+    ): PainterLiteral = PainterLiteral(value, size, drawAsSdf, stretch, alpha, colorFilter)
   }
 }

@@ -4,7 +4,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
-import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.ImageStretch
 
 /**
  * A style that tolerates being used after it has been replaced: during a style switch the outgoing
@@ -30,14 +30,9 @@ internal class SafeStyle(private val delegate: Style, internal var logger: Logge
     }
   }
 
-  override fun addImage(
-    id: String,
-    image: ImageBitmap,
-    sdf: Boolean,
-    resizeOptions: ImageResizeOptions?,
-  ) {
+  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     logIfUnloaded("addImage")
-    if (!isUnloaded) delegate.addImage(id, image, sdf, resizeOptions)
+    if (!isUnloaded) delegate.addImage(id, image, sdf, stretch)
   }
 
   override fun removeImage(id: String) {
