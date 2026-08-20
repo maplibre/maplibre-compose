@@ -2,7 +2,6 @@ package org.maplibre.compose.location.desktop.windows
 
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.location.DesktopLocationBackend
-import org.maplibre.compose.location.DesktopLocationPermissionRequester
 import org.maplibre.compose.location.DesktopLocationProvider
 
 /** Scaffold for the Windows desktop location backend. */
@@ -21,8 +20,4 @@ public class WindowsLocationBackend : DesktopLocationBackend {
 
   override fun createProvider(host: ComposeMapHost?): DesktopLocationProvider =
     error("The Windows location backend is not implemented")
-
-  override fun createPermissionRequester(
-    host: ComposeMapHost?
-  ): DesktopLocationPermissionRequester = error("The Windows location backend is not implemented")
 }

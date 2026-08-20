@@ -19,14 +19,18 @@ import java.util.concurrent.Executors
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import org.maplibre.compose.location.AndroidLocationProvider
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationEvent
+import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.asMapLibreLocation
+import org.maplibre.compose.location.rememberAndroidLocationProvider
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.spatialk.units.extensions.inMeters
 
@@ -51,10 +55,47 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * the flow and [rememberLocationState] reports them as
  * [LocationUnavailableReason.UnexpectedFailure].
  *
- * @param locationClient Google Play Services client used for cached and live locations.
+ * The [Context] constructor and [rememberFusedLocationProvider] with a context delegate
+ * [permission] and [requestPermission] to an [AndroidLocationProvider]. The
+ * [FusedLocationProviderClient] constructor keeps the default [LocationProvider.permission], which
+ * is always granted, and its [updates] still surface a `SecurityException` as
+ * [LocationUnavailableReason.PermissionDenied].
  */
-public class FusedLocationProvider(private val locationClient: FusedLocationProviderClient) :
-  LocationProvider {
+public class FusedLocationProvider
+internal constructor(
+  private val locationClient: FusedLocationProviderClient,
+  private val permissionDelegate: LocationProvider?,
+) : LocationProvider {
+
+  /**
+   * Creates a provider backed by [locationClient].
+   *
+   * Permission keeps the [LocationProvider.permission] default, which is always granted.
+   */
+  public constructor(locationClient: FusedLocationProviderClient) : this(locationClient, null)
+
+  /**
+   * Creates a provider with its own fused client and an [AndroidLocationProvider] as its permission
+   * delegate.
+   */
+  public constructor(
+    context: Context
+  ) : this(
+    LocationServices.getFusedLocationProviderClient(context),
+    AndroidLocationProvider(context),
+  )
+
+  override val permission: StateFlow<LocationPermission>
+    get() = permissionDelegate?.permission ?: super.permission
+
+  override fun requestPermission() {
+    if (permissionDelegate != null) {
+      permissionDelegate.requestPermission()
+    } else {
+      super.requestPermission()
+    }
+  }
+
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
   )
@@ -110,16 +151,24 @@ public class FusedLocationProvider(private val locationClient: FusedLocationProv
   }
 }
 
-/** Creates and remembers a fused provider from the current Android [context]. */
+/**
+ * Creates and remembers a fused provider from the current Android [context], with permission
+ * delegated to an [AndroidLocationProvider].
+ */
 @Composable
 public fun rememberFusedLocationProvider(
   context: Context = LocalContext.current
 ): FusedLocationProvider {
   val client = remember(context) { LocationServices.getFusedLocationProviderClient(context) }
-  return rememberFusedLocationProvider(client)
+  val permissionDelegate = rememberAndroidLocationProvider(context)
+  return remember(client, permissionDelegate) { FusedLocationProvider(client, permissionDelegate) }
 }
 
-/** Creates and remembers a fused provider backed by [fusedLocationProviderClient]. */
+/**
+ * Creates and remembers a fused provider backed by [fusedLocationProviderClient].
+ *
+ * Permission keeps the [LocationProvider.permission] default, which is always granted.
+ */
 @Composable
 public fun rememberFusedLocationProvider(
   fusedLocationProviderClient: FusedLocationProviderClient

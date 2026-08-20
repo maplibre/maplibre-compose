@@ -12,20 +12,20 @@ The location module provides a cross-platform way to track and visualize user
 position in MapLibre Compose.
 
 Location support is split into a few small pieces. A `LocationProvider` supplies
-foreground location updates, and `rememberLocationState` collects them according
-to permission and lifecycle state. `LocationPuck` draws the latest fix, and
-`LocationTrackingEffect` can keep the camera in sync with location changes.
+foreground location updates and carries the location permission, and
+`rememberLocationState` collects them according to permission and lifecycle
+state. `LocationPuck` draws the latest fix, and `LocationTrackingEffect` can
+keep the camera in sync with location changes.
 
 ### Overview
 
-| Component                                        | Purpose                                                                            |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| **`rememberDefaultLocationProvider`**            | Creates the platform location provider.                                            |
-| **`rememberDefaultLocationPermissionRequester`** | Observes and requests foreground location permission.                              |
-| **`rememberLocationState`**                      | Collects updates while enabled and lifecycle-active.                               |
-| **`rememberDefaultOrientationProvider`**         | Provides device orientation data from sensors.                                     |
-| **`LocationPuck`**                               | Visual indicator that displays the user's current position and bearing on the map. |
-| **`LocationTrackingEffect`**                     | Applies location changes to application or camera state.                           |
+| Component                                | Purpose                                                                            |
+| ---------------------------------------- | ---------------------------------------------------------------------------------- |
+| **`rememberDefaultLocationProvider`**    | Creates the platform location provider, including its permission handling.         |
+| **`rememberLocationState`**              | Collects updates while enabled and lifecycle-active.                               |
+| **`rememberDefaultOrientationProvider`** | Provides device orientation data from sensors.                                     |
+| **`LocationPuck`**                       | Visual indicator that displays the user's current position and bearing on the map. |
+| **`LocationTrackingEffect`**             | Applies location changes to application or camera state.                           |
 
 Android and iOS provide default location and orientation providers. Web, Linux,
 and macOS provide default location providers but no default orientation
@@ -38,9 +38,12 @@ platform location request. Cancelling collection stops that request and
 unregisters its callbacks. `rememberLocationState` collects updates only while
 `enabled` is true, permission is granted, and the lifecycle is active.
 
-`rememberLocationState` never requests permission automatically. Call
-`requestPermission` when the application is ready to present platform permission
-UI. This may be during startup or in response to an action such as a button click:
+The provider carries the permission: `LocationState.permission` mirrors
+`LocationProvider.permission`, and `LocationState.requestPermission()` delegates
+to `LocationProvider.requestPermission()`. The library never requests permission
+automatically. Call `requestPermission` when the application is ready to present
+platform permission UI. This may be during startup or in response to an action
+such as a button click:
 
 ```kotlin
 if (locationState.permission !is LocationPermission.Granted) {
@@ -85,11 +88,30 @@ indicators. If you use the Material 3 extension module, pass
 `colors = LocationPuckDefaults.colors()` for themed colors. `onClick` and
 `onLongClick` can react to interactions with the puck.
 
+### Custom providers
+
+A custom `LocationProvider` implements only `updates(request)`. `permission`
+defaults to always granted and `requestPermission()` defaults to a no-op, so a
+source where permission is not a concept, such as an external receiver or a
+network feed, needs no permission handling.
+
+A provider that wraps a real platform source can delegate permission to the
+building blocks that the default providers use: `AndroidLocationPermissionRequester`
+on Android, `IosLocationPermissionRequester` on iOS,
+`BrowserLocationPermissionRequester` on web, and
+`MacosLocationPermissionRequester` or `LinuxPortalLocationPermissionRequester`
+on desktop.
+
 ### Platform options
 
 #### Android
 
-The default permission requester uses Android's runtime location permissions.
+The default provider observes and requests Android's runtime location
+permissions. The permission request launches the system dialog through the
+activity that the context resolves to, so it works from a directly constructed
+provider too; with a context that cannot reach an activity, the request does
+nothing and the reported permission stays accurate.
+
 For better accuracy, use the Fused Location/Orientation Provider
 (requires Google Play Services):
 
@@ -97,6 +119,10 @@ For better accuracy, use the Fused Location/Orientation Provider
 val locationProvider = rememberFusedLocationProvider()
 val orientationProvider = rememberFusedOrientationProvider()
 ```
+
+`rememberFusedLocationProvider` delegates permission to the Android provider
+above. The `FusedLocationProvider(client)` constructor keeps the always-granted
+default.
 
 Add the extension module to the Android source set:
 

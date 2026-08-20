@@ -35,17 +35,20 @@ import org.maplibre.spatialk.units.extensions.degrees
 @OptIn(ExperimentalCoroutinesApi::class, ExperimentalTestApi::class)
 class LocationStateTest {
   @Test
-  fun requesterMisconfigurationPrecedesPermissionAndPreventsCollection() = withMainDispatcher {
+  fun providerMisconfigurationPreventsCollection() = withMainDispatcher {
     runComposeUiTest {
       val cause = IllegalStateException("multiple backends")
-      val provider = ActiveLocationProvider(location(13.0))
+      val provider =
+        ActiveLocationProvider(
+          location(13.0),
+          backendAvailability = LocationBackendAvailability.Misconfigured(cause),
+        )
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
             provider = provider,
-            permissionRequester = MisconfiguredPermissionRequester(cause),
             lifecycleOwner = ResumedLifecycleOwner(),
           )
       }
@@ -62,51 +65,50 @@ class LocationStateTest {
   fun permissionGrantStartsAndRevocationStopsProviderUpdates() = withMainDispatcher {
     runComposeUiTest {
       val lifecycleOwner = ResumedLifecycleOwner()
-      val provider = ActiveLocationProvider(location(13.0))
-      val requester = MutablePermissionRequester()
+      val locationProvider = ActiveLocationProvider(location(13.0))
+      val provider = MutablePermissionProvider(locationProvider)
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
             provider = provider,
-            permissionRequester = requester,
             lifecycleOwner = lifecycleOwner,
           )
       }
 
       waitUntil { state?.status == LocationTrackingStatus.WaitingForPermission }
-      assertFalse(provider.active)
+      assertFalse(locationProvider.active)
       runOnIdle { state?.requestPermission() }
-      assertEquals(1, requester.requestCount)
+      assertEquals(1, provider.requestCount)
 
       runOnIdle {
-        requester.status.value = LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+        provider.permission.value =
+          LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
       }
-      waitUntil { provider.active && state?.location == provider.location }
+      waitUntil { locationProvider.active && state?.location == locationProvider.location }
 
       runOnIdle {
-        requester.status.value = LocationPermission.NotGranted(canRequest = false)
+        provider.permission.value = LocationPermission.NotGranted(canRequest = false)
       }
       waitUntil {
-        !provider.active && state?.status == LocationTrackingStatus.WaitingForPermission
+        !locationProvider.active && state?.status == LocationTrackingStatus.WaitingForPermission
       }
-      assertTrue(provider.stopCount > 0)
+      assertTrue(locationProvider.stopCount > 0)
     }
   }
 
   @Test
   fun permissionGrantStartsAndRevocationStopsOrientationUpdates() = withMainDispatcher {
     runComposeUiTest {
-      val requester = MutablePermissionRequester()
+      val provider = MutablePermissionProvider(FiniteLocationProvider())
       val orientationProvider = MutableOrientationProvider()
       var state: LocationState? = null
 
       setContent {
         state =
           rememberLocationState(
-            provider = FiniteLocationProvider(),
-            permissionRequester = requester,
+            provider = provider,
             orientationProvider = orientationProvider,
             lifecycleOwner = ResumedLifecycleOwner(),
           )
@@ -116,14 +118,37 @@ class LocationStateTest {
       assertEquals(0, orientationProvider.orientation.subscriptionCount.value)
 
       runOnIdle {
-        requester.status.value = LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+        provider.permission.value =
+          LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
       }
       waitUntil { orientationProvider.orientation.subscriptionCount.value == 1 }
 
       runOnIdle {
-        requester.status.value = LocationPermission.NotGranted(canRequest = false)
+        provider.permission.value = LocationPermission.NotGranted(canRequest = false)
       }
       waitUntil { orientationProvider.orientation.subscriptionCount.value == 0 }
+    }
+  }
+
+  @Test
+  fun defaultPermissionProviderCollectsWithoutPermissionWiring() = withMainDispatcher {
+    runComposeUiTest {
+      val provider = ActiveLocationProvider(location(13.0))
+      var state: LocationState? = null
+
+      setContent {
+        state =
+          rememberLocationState(
+            provider = provider,
+            lifecycleOwner = ResumedLifecycleOwner(),
+          )
+      }
+
+      waitUntil { provider.active && state?.location == provider.location }
+      assertEquals(
+        LocationPermission.Granted(LocationAccuracyAuthorization.Unknown),
+        state?.permission,
+      )
     }
   }
 
@@ -135,7 +160,6 @@ class LocationStateTest {
       setContent {
         rememberLocationState(
           provider = FiniteLocationProvider(),
-          permissionRequester = GrantedPermissionRequester,
           orientationProvider = orientationProvider,
           lifecycleOwner = ResumedLifecycleOwner(),
           coroutineContext = CoroutineName("location-updates"),
@@ -144,41 +168,6 @@ class LocationStateTest {
 
       waitUntil { orientationProvider.collectionName.isCompleted }
       assertEquals("location-updates", orientationProvider.collectionName.getCompleted())
-    }
-  }
-
-  @Test
-  fun replacingGrantedRequesterMovesLocationCollectionToNewState() = withMainDispatcher {
-    runComposeUiTest {
-      val provider = ActiveLocationProvider(location(13.0))
-      var requester by
-        mutableStateOf<LocationPermissionRequester>(
-          MutablePermissionRequester(
-            LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
-          )
-        )
-      var state: LocationState? = null
-
-      setContent {
-        state =
-          rememberLocationState(
-            provider = provider,
-            permissionRequester = requester,
-            lifecycleOwner = ResumedLifecycleOwner(),
-          )
-      }
-      waitUntil { state?.location == provider.location }
-      val originalState = state
-
-      runOnIdle {
-        requester =
-          MutablePermissionRequester(
-            LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
-          )
-      }
-
-      waitUntil { state !== originalState && state?.location == provider.location }
-      assertTrue(provider.stopCount > 0)
     }
   }
 
@@ -193,7 +182,6 @@ class LocationStateTest {
         state =
           rememberLocationState(
             provider = FiniteLocationProvider(expected),
-            permissionRequester = GrantedPermissionRequester,
             lifecycleOwner = lifecycleOwner,
           )
       }
@@ -217,7 +205,6 @@ class LocationStateTest {
         state =
           rememberLocationState(
             provider = provider,
-            permissionRequester = GrantedPermissionRequester,
             orientationProvider = orientationProvider,
             lifecycleOwner = lifecycleOwner,
           )
@@ -288,7 +275,11 @@ private class FiniteLocationProvider(private vararg val locations: Location) : L
     flowOf(*locations.map(LocationEvent::Fix).toTypedArray())
 }
 
-private class ActiveLocationProvider(val location: Location) : LocationProvider {
+private class ActiveLocationProvider(
+  val location: Location,
+  override val backendAvailability: LocationBackendAvailability =
+    LocationBackendAvailability.Available,
+) : LocationProvider {
   var active = false
   var stopCount = 0
 
@@ -304,32 +295,21 @@ private class ActiveLocationProvider(val location: Location) : LocationProvider 
   }
 }
 
-private class MutablePermissionRequester(
-  initialStatus: LocationPermission = LocationPermission.NotGranted(canRequest = true)
-) : LocationPermissionRequester {
-  override val status = MutableStateFlow(initialStatus)
+private class MutablePermissionProvider(
+  private val delegate: LocationProvider,
+  initialPermission: LocationPermission = LocationPermission.NotGranted(canRequest = true),
+) : LocationProvider {
+  override val backendAvailability: LocationBackendAvailability
+    get() = delegate.backendAvailability
+
+  override val permission = MutableStateFlow(initialPermission)
   var requestCount = 0
 
-  override fun requestForegroundPermission() {
+  override fun requestPermission() {
     requestCount += 1
   }
-}
 
-private class MisconfiguredPermissionRequester(cause: Throwable) : LocationPermissionRequester {
-  override val backendAvailability = LocationBackendAvailability.Misconfigured(cause)
-  override val status =
-    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
-
-  override fun requestForegroundPermission() = Unit
-}
-
-private object GrantedPermissionRequester : LocationPermissionRequester {
-  override val status =
-    MutableStateFlow<LocationPermission>(
-      LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
-    )
-
-  override fun requestForegroundPermission() = Unit
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = delegate.updates(request)
 }
 
 private class MutableOrientationProvider : OrientationProvider {

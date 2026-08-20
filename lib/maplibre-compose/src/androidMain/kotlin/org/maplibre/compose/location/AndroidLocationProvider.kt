@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import org.maplibre.spatialk.units.extensions.inMeters
 
@@ -49,10 +50,24 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * selected provider maps to [LocationUnavailableReason.UnexpectedFailure], because this provider
  * constructs and validates every request argument itself.
  *
+ * [permission] and [requestPermission] delegate to an [AndroidLocationPermissionRequester]; see its
+ * documentation for when the system permission dialog can be shown.
+ *
  * @param context Context used to obtain the platform [LocationManager].
+ * @param requester Permission requester that backs [permission] and [requestPermission].
  */
-public class AndroidLocationProvider(context: Context) : LocationProvider {
+public class AndroidLocationProvider
+internal constructor(context: Context, private val requester: AndroidLocationPermissionRequester) :
+  LocationProvider {
   private val context: Context = context.applicationContext
+
+  /** Creates a provider with its own [AndroidLocationPermissionRequester]. */
+  public constructor(context: Context) : this(context, AndroidLocationPermissionRequester(context))
+
+  override val permission: StateFlow<LocationPermission>
+    get() = requester.status
+
+  override fun requestPermission(): Unit = requester.requestForegroundPermission()
 
   @RequiresPermission(
     anyOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION]
@@ -218,7 +233,10 @@ public actual fun rememberDefaultLocationProvider(): LocationProvider =
 @Composable
 public fun rememberAndroidLocationProvider(
   context: Context = LocalContext.current
-): AndroidLocationProvider = remember(context) { AndroidLocationProvider(context) }
+): AndroidLocationProvider {
+  val requester = rememberAndroidLocationPermissionRequester(context)
+  return remember(context, requester) { AndroidLocationProvider(context, requester) }
+}
 
 private fun Context.hasLocationPermission(): Boolean =
   checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==

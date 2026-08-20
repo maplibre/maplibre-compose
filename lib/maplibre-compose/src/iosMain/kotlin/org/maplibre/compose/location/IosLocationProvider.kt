@@ -6,6 +6,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.flowOn
 import org.maplibre.spatialk.units.extensions.inMeters
@@ -28,6 +29,9 @@ import platform.darwin.NSObject
 /**
  * A [LocationProvider] built on
  * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager).
+ *
+ * [LocationProvider.permission] and [LocationProvider.requestPermission] delegate to an
+ * [IosLocationPermissionRequester].
  *
  * Each collection creates a
  * [`CLLocationManager`](https://developer.apple.com/documentation/corelocation/cllocationmanager)
@@ -56,6 +60,13 @@ import platform.darwin.NSObject
  * [LocationUnavailableReason.UnexpectedFailure].
  */
 public class IosLocationProvider : LocationProvider {
+  private val requester = IosLocationPermissionRequester()
+
+  override val permission: StateFlow<LocationPermission>
+    get() = requester.status
+
+  override fun requestPermission(): Unit = requester.requestForegroundPermission()
+
   override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
     if (!CLLocationManager.locationServicesEnabled()) {
       trySend(LocationEvent.Unavailable(LocationUnavailableReason.ServicesDisabled))
