@@ -621,6 +621,11 @@ internal class MlnFfiMapSession(
         callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
+        // The callback is the signal that the new style is loaded. A producer frame that
+        // started before this event can still hold the previous style, so schedule one that
+        // starts afterward. MAP_RENDER_UPDATE_AVAILABLE does not always follow this event,
+        // especially after a retarget that already consumed the last render request.
+        requestRender()
       }
 
       // mbgl only delivers onDidFinishLoadingMap once a frame has seen the new style as not yet
