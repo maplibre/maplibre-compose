@@ -58,8 +58,7 @@ public fun image(value: String): Expression<ImageValue> = image(const(value))
  *
  * @param isSdf Should be set to true if the bitmap is a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/)
- * @param stretch How the image stretches when a symbol layer sizes the icon to wrap its text. Omit
- *   this to scale the icon uniformly.
+ * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
  */
 public fun image(
   value: ImageBitmap,
@@ -85,8 +84,7 @@ public fun image(
  * @param drawAsSdf If true, will draw the image to a bitmap as a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
  *   Ideal for monochrome vector icons.
- * @param stretch How the image stretches when a symbol layer sizes the icon to wrap its text. Omit
- *   this to scale the icon uniformly.
+ * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
  */
 public fun image(
   value: Painter,
@@ -114,8 +112,7 @@ public fun image(
  * @param drawAsSdf If true, will draw the image to a bitmap as a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
  *   Ideal for monochrome vector icons.
- * @param stretch How the image stretches when a symbol layer sizes the icon to wrap its text. Omit
- *   this to scale the icon uniformly.
+ * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
  * @param alpha passed to [Painter.draw]
  * @param colorFilter passed to [Painter.draw]
  * @see Painter.draw

@@ -30,19 +30,19 @@ internal class GlJsStyle(
   override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     val scale = getScale()
     val pixels = image.toGlJsImage()
-    val layout = stretch?.resolve(image.width, image.height, scale)
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
     val metadata =
       unsafeJso<StyleImageMetadata> {
         pixelRatio = scale.toDouble()
         this.sdf = sdf
-        layout?.let {
-          if (it.stretchX.isNotEmpty()) {
-            stretchX = it.stretchX.toGlJsStretch()
+        stretchPx?.let { px ->
+          if (px.stretchX.isNotEmpty()) {
+            stretchX = px.stretchX.toGlJsStretch()
           }
-          if (it.stretchY.isNotEmpty()) {
-            stretchY = it.stretchY.toGlJsStretch()
+          if (px.stretchY.isNotEmpty()) {
+            stretchY = px.stretchY.toGlJsStretch()
           }
-          it.content?.let { box ->
+          px.content?.let { box ->
             content =
               arrayOf(
                 box.left.toDouble(),

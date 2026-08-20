@@ -37,24 +37,24 @@ internal class MlnFfiStyle(
   override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
     val scale = getScale()
     val pixels = image.toPremultipliedRgba8()
-    val layout = stretch?.resolve(image.width, image.height, scale)
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
     binding.mutateMap { map ->
       map.setStyleImage(
         imageId = id,
         image = pixels,
         options =
-          StyleImageOptions().also {
-            it.sdf = sdf
-            it.pixelRatio = scale
-            if (layout != null) {
-              if (layout.stretchX.isNotEmpty()) {
-                it.stretchX = layout.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
+          StyleImageOptions().also { options ->
+            options.sdf = sdf
+            options.pixelRatio = scale
+            stretchPx?.let { px ->
+              if (px.stretchX.isNotEmpty()) {
+                options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
               }
-              if (layout.stretchY.isNotEmpty()) {
-                it.stretchY = layout.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
+              if (px.stretchY.isNotEmpty()) {
+                options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
               }
-              layout.content?.let { box ->
-                it.content = ImageContent(box.left, box.top, box.right, box.bottom)
+              px.content?.let { box ->
+                options.content = ImageContent(box.left, box.top, box.right, box.bottom)
               }
             }
           },

@@ -13,13 +13,7 @@ import org.maplibre.compose.util.ImageStretch
 import org.maplibre.nativeffi.style.ImageContent
 import org.maplibre.nativeffi.style.ImageStretch as FfiImageStretch
 
-/**
- * Stretch metadata survives the trip into MapLibre as intervals in image pixels.
- *
- * Callers give distances in [androidx.compose.ui.unit.Dp]; MapLibre stores an interval per axis
- * plus a content box in pixels, a conversion that is easy to get right at 1x and wrong everywhere
- * else.
- */
+/** Stretch metadata survives the trip into MapLibre as intervals in image pixels. */
 class MlnFfiStyleImageStretchTest {
 
   @Test
@@ -37,7 +31,6 @@ class MlnFfiStyleImageStretchTest {
       )
 
       val info = assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be uploaded")
-      // Measured from the top-left, so the far sides are the image's size less the inset.
       assertEquals(ImageContent(8f, 4f, 24f, 28f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(8f, 24f)) to listOf(FfiImageStretch(4f, 28f)),
@@ -54,7 +47,6 @@ class MlnFfiStyleImageStretchTest {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.RETINA_EXTENT)
       val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
 
-      // The same logical image as above at 2x, so the insets have to land twice as far in.
       style.addImage(
         IMAGE_ID,
         ImageBitmap(64, 64),
@@ -80,8 +72,6 @@ class MlnFfiStyleImageStretchTest {
       it.loadStyle(BaseStyle.Empty, extent = BridgeMapFixture.DEFAULT_EXTENT)
       val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
 
-      // 20 + 20 in from the sides of a 32-pixel image crosses over, which MapLibre would divide by
-      // zero over.
       style.addImage(
         IMAGE_ID,
         ImageBitmap(32, 32),
@@ -93,8 +83,6 @@ class MlnFfiStyleImageStretchTest {
         assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should still be uploaded")
       assertNull(info.content, "content box")
       assertEquals(0L, info.stretchXCount, "horizontal stretch count")
-      // The vertical axis is dropped with the horizontal one: MapLibre does not draw half a
-      // nine-patch.
       assertEquals(0L, info.stretchYCount, "vertical stretch count")
       assertEquals(
         emptyList<FfiImageStretch>() to emptyList(),

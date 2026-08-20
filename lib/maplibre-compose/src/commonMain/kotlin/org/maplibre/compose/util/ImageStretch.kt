@@ -6,7 +6,6 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
-import androidx.compose.ui.unit.LayoutDirection
 
 /** Stretch and content-box metadata for a style image used with `icon-text-fit`. */
 @Immutable
@@ -29,11 +28,10 @@ public sealed class ImageStretch {
     ): ImageStretch = Ranges(x.toList(), y.toList(), content)
 
     /** Fixed insets on each edge. The interior stretches and receives text. */
-    public fun capInsets(left: Dp, top: Dp, right: Dp, bottom: Dp): ImageStretch =
-      capInsets(
-        stretch = PaddingValues.Absolute(left, top, right, bottom),
-        content = PaddingValues.Absolute(left, top, right, bottom),
-      )
+    public fun capInsets(left: Dp, top: Dp, right: Dp, bottom: Dp): ImageStretch {
+      val insets = PaddingValues.Absolute(left, top, right, bottom)
+      return CapInsets(stretch = insets, content = insets)
+    }
 
     /**
      * @param stretch Fixed border on each edge.
@@ -42,111 +40,60 @@ public sealed class ImageStretch {
     public fun capInsets(
       stretch: PaddingValues.Absolute,
       content: PaddingValues.Absolute,
-    ): ImageStretch =
-      CapInsets(
-        stretchLeft = stretch.edgeLeft(),
-        stretchTop = stretch.calculateTopPadding(),
-        stretchRight = stretch.edgeRight(),
-        stretchBottom = stretch.calculateBottomPadding(),
-        contentLeft = content.edgeLeft(),
-        contentTop = content.calculateTopPadding(),
-        contentRight = content.edgeRight(),
-        contentBottom = content.calculateBottomPadding(),
-      )
+    ): ImageStretch = CapInsets(stretch, content)
   }
+
+  internal abstract fun resolve(
+    imageWidth: Int,
+    imageHeight: Int,
+    scale: Float,
+  ): ImageStretchPixels
 
   private data class Ranges(
     val x: List<ClosedRange<Dp>>,
     val y: List<ClosedRange<Dp>>,
     val content: DpRect?,
   ) : ImageStretch() {
+    override fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchPixels {
+      val density = Density(scale)
+      val contentPx = content?.let { rect ->
+        with(density) {
+          Rect(rect.left.toPx(), rect.top.toPx(), rect.right.toPx(), rect.bottom.toPx())
+        }
+      }
+      return ImageStretchPixels(
+        stretchX = stretchIntervals(x, imageWidth, density),
+        stretchY = stretchIntervals(y, imageHeight, density),
+        content = contentPx?.takeIf { it.fits(imageWidth, imageHeight) },
+      )
+    }
+
     override fun toString(): String = "ImageStretch(x=$x, y=$y, content=$content)"
   }
 
   private data class CapInsets(
-    val stretchLeft: Dp,
-    val stretchTop: Dp,
-    val stretchRight: Dp,
-    val stretchBottom: Dp,
-    val contentLeft: Dp,
-    val contentTop: Dp,
-    val contentRight: Dp,
-    val contentBottom: Dp,
+    val stretch: PaddingValues.Absolute,
+    val content: PaddingValues.Absolute,
   ) : ImageStretch() {
-    private val contentEqualsStretch: Boolean
-      get() =
-        contentLeft == stretchLeft &&
-          contentTop == stretchTop &&
-          contentRight == stretchRight &&
-          contentBottom == stretchBottom
+    override fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchPixels {
+      val density = Density(scale)
+      val stretchBox = insetBox(stretch, imageWidth, imageHeight, density)
+      val contentBox = insetBox(content, imageWidth, imageHeight, density)
+      val stretchOk = stretchBox.fits(imageWidth, imageHeight)
+      return ImageStretchPixels(
+        stretchX = if (stretchOk) listOf(stretchBox.left to stretchBox.right) else emptyList(),
+        stretchY = if (stretchOk) listOf(stretchBox.top to stretchBox.bottom) else emptyList(),
+        content = contentBox.takeIf { it.fits(imageWidth, imageHeight) },
+      )
+    }
 
     override fun toString(): String =
-      if (contentEqualsStretch) {
-        "ImageStretch.capInsets(left=$stretchLeft, top=$stretchTop, " +
-          "right=$stretchRight, bottom=$stretchBottom)"
+      if (stretch == content) {
+        "ImageStretch.capInsets(left=${stretch.left}, top=${stretch.top}, " +
+          "right=${stretch.right}, bottom=${stretch.bottom})"
       } else {
-        "ImageStretch.capInsets(stretch=[$stretchLeft, $stretchTop, $stretchRight, " +
-          "$stretchBottom], content=[$contentLeft, $contentTop, $contentRight, $contentBottom])"
+        "ImageStretch.capInsets(stretch=$stretch, content=$content)"
       }
-  }
-
-  internal fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchPixels =
-    when (this) {
-      is CapInsets -> resolveCapInsets(imageWidth, imageHeight, scale)
-      is Ranges -> resolveRanges(imageWidth, imageHeight, scale)
-    }
-
-  private fun CapInsets.resolveCapInsets(
-    imageWidth: Int,
-    imageHeight: Int,
-    scale: Float,
-  ): ImageStretchPixels {
-    val stretchBox =
-      insetBox(
-        imageWidth,
-        imageHeight,
-        scale,
-        stretchLeft,
-        stretchTop,
-        stretchRight,
-        stretchBottom,
-      )
-    val contentBox =
-      insetBox(
-        imageWidth,
-        imageHeight,
-        scale,
-        contentLeft,
-        contentTop,
-        contentRight,
-        contentBottom,
-      )
-    val stretchOk = stretchBox.fits(imageWidth, imageHeight)
-    val contentOk = contentBox.fits(imageWidth, imageHeight)
-    return ImageStretchPixels(
-      stretchX = if (stretchOk) listOf(stretchBox.left to stretchBox.right) else emptyList(),
-      stretchY = if (stretchOk) listOf(stretchBox.top to stretchBox.bottom) else emptyList(),
-      content = contentBox.takeIf { contentOk },
-    )
-  }
-
-  private fun Ranges.resolveRanges(
-    imageWidth: Int,
-    imageHeight: Int,
-    scale: Float,
-  ): ImageStretchPixels {
-    val stretchX = x.toIntervals(axisLength = imageWidth, scale = scale)
-    val stretchY = y.toIntervals(axisLength = imageHeight, scale = scale)
-    val content = content?.let { rect ->
-      with(Density(scale)) {
-        Rect(rect.left.toPx(), rect.top.toPx(), rect.right.toPx(), rect.bottom.toPx())
-      }
-    }
-    return ImageStretchPixels(
-      stretchX = stretchX.orEmpty(),
-      stretchY = stretchY.orEmpty(),
-      content = content?.takeIf { it.fits(imageWidth, imageHeight) },
-    )
   }
 }
 
@@ -156,21 +103,19 @@ internal data class ImageStretchPixels(
   val content: Rect? = null,
 )
 
-private fun PaddingValues.Absolute.edgeLeft(): Dp = calculateLeftPadding(LayoutDirection.Ltr)
-
-private fun PaddingValues.Absolute.edgeRight(): Dp = calculateRightPadding(LayoutDirection.Ltr)
-
 private fun insetBox(
+  insets: PaddingValues.Absolute,
   imageWidth: Int,
   imageHeight: Int,
-  scale: Float,
-  left: Dp,
-  top: Dp,
-  right: Dp,
-  bottom: Dp,
+  density: Density,
 ): Rect =
-  with(Density(scale)) {
-    Rect(left.toPx(), top.toPx(), imageWidth - right.toPx(), imageHeight - bottom.toPx())
+  with(density) {
+    Rect(
+      insets.left.toPx(),
+      insets.top.toPx(),
+      imageWidth - insets.right.toPx(),
+      imageHeight - insets.bottom.toPx(),
+    )
   }
 
 private fun Rect.fits(imageWidth: Int, imageHeight: Int): Boolean =
@@ -181,16 +126,17 @@ private fun Rect.fits(imageWidth: Int, imageHeight: Int): Boolean =
     right <= imageWidth &&
     bottom <= imageHeight
 
-private fun List<ClosedRange<Dp>>.toIntervals(
+private fun stretchIntervals(
+  ranges: List<ClosedRange<Dp>>,
   axisLength: Int,
-  scale: Float,
-): List<Pair<Float, Float>>? {
-  if (isEmpty()) return emptyList()
+  density: Density,
+): List<Pair<Float, Float>> {
+  if (ranges.isEmpty()) return emptyList()
   val intervals =
-    with(Density(scale)) { map { it.start.toPx() to it.endInclusive.toPx() } }.sortedBy { it.first }
+    with(density) { ranges.map { it.start.toPx() to it.endInclusive.toPx() } }.sortedBy { it.first }
   var previousEnd = Float.NEGATIVE_INFINITY
   for ((start, end) in intervals) {
-    if (start < 0f || end > axisLength || start >= end || start < previousEnd) return null
+    if (start < 0f || end > axisLength || start >= end || start < previousEnd) return emptyList()
     previousEnd = end
   }
   return intervals
