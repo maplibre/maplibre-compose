@@ -4,14 +4,14 @@ import android.content.Context
 import org.maplibre.compose.mlnffi.AndroidMlnFfiPlatform
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 
-/** Process-wide entry point for configuring MapLibre Compose on Android. */
+/** Android configuration for MapLibre Compose. */
 public object MapLibre {
   /**
-   * Installs [options] for every map and offline operation in this process.
+   * Sets the cache file and ambient cache budget for every map and offline operation in this
+   * process.
    *
-   * The first map or offline manager uses [androidCacheFile] and MapLibre's cache budget. Call this
-   * beforehand to choose another file or budget. The first call wins. Repeating the same normalized
-   * configuration is a no-op; a conflicting call throws [IllegalStateException].
+   * Defaults to [androidCacheFile] and MapLibre's cache budget. A conflicting call throws
+   * [IllegalStateException].
    */
   public fun configure(
     context: Context,

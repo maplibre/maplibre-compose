@@ -73,38 +73,11 @@ commonMain.dependencies {
 
 ## Set up Android
 
-The first map uses the application's private cache directory for the ambient
-cache and offline-region database. Call `MapLibre.configure` before composing a
-map to choose another file or cache budget:
-
-```kotlin title="MainActivity.kt"
-MapLibre.configure(
-  applicationContext,
-  AndroidRuntimeOptions(
-    cacheFile = androidCacheFile(applicationContext),
-    maximumCacheSizeBytes = 512L * 1024L * 1024L,
-  ),
-)
-```
-
-Import `MapLibre` from `org.maplibre.compose.android`.
+Maps use the application's private cache directory.
 
 ## Set up iOS
 
-The first map uses the application's caches directory for the ambient cache and
-offline-region database. Call `MapLibre.configure` before composing a map to
-choose another file or cache budget:
-
-```kotlin title="MainViewController.kt"
-MapLibre.configure(
-  IosRuntimeOptions(
-    cacheFile = iosCacheFile(),
-    maximumCacheSizeBytes = 512L * 1024L * 1024L,
-  ),
-)
-```
-
-Import `MapLibre` from `org.maplibre.compose.ios`.
+Maps use the application's caches directory.
 
 The runtime's system libraries link when Xcode links your app, not when Gradle
 builds the framework. Add them to your iOS app target's **Other Linker Flags**:
@@ -168,13 +141,10 @@ sourceSets {
 }
 ```
 
-Provide each AWT window's GPU context. The first map names its cache after the
-package of the process `main` class; pass `applicationId` to pin a name that
-survives moving `main`:
+Provide each AWT window's GPU context:
 
 ```kotlin title="Main.kt"
 fun main() {
-  MapLibre.configure(applicationId = "com.example.myapp")
   singleWindowApplication {
     ProvideMapHost(host = rememberAwtComposeMapHost(window)) {
       App()

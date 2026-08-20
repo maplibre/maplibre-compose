@@ -47,11 +47,7 @@ internal object MlnFfiApplication {
   val isConfigured: Boolean
     get() = state != null
 
-  /**
-   * Runs [installDefault] only when nothing has installed a configuration yet. [installDefault]
-   * should call [configure]; a concurrent caller that already configured a different value still
-   * throws from that call.
-   */
+  /** Runs [installDefault] when no configuration is set. */
   fun ensureConfigured(installDefault: () -> Unit) {
     if (isConfigured) return
     installDefault()

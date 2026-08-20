@@ -1,11 +1,6 @@
 package org.maplibre.compose.desktop
 
-/**
- * Derives the desktop cache namespace from the process `main` class.
- *
- * The package of that class is the default [MapLibre.configure] `applicationId`. Callers that move
- * `main` or share a package across apps should pass `applicationId` explicitly.
- */
+/** Package of the process `main` class, used as the default [MapLibre.configure] applicationId. */
 internal fun inferredApplicationId(): String {
   val className = mainClassName()
   val id = className?.let(::applicationIdFromClassName)
