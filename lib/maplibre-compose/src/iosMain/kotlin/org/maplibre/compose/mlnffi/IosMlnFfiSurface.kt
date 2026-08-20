@@ -79,7 +79,8 @@ internal fun IosMlnFfiSurface(
     },
     update = {},
     onRelease = { controller.surfaceDestroyed() },
-    properties = UIKitInteropProperties(isInteractive = false),
+    properties =
+      UIKitInteropProperties(isInteractive = false, isNativeAccessibilityEnabled = false),
   )
 }
 
