@@ -475,9 +475,7 @@ internal class MlnFfiMapSession(
       if (retargetBorrowedTexture(live, frame.target, extent)) {
         attachedTarget = key
         retargetCount++
-        // The replacement texture holds nothing yet; this request buys the frame that fills it.
-        renderRequested.store(true)
-        onMap(::snapshotViewportAndNotify)
+        requestFillOfNewTarget()
         return true
       }
     }
@@ -496,9 +494,7 @@ internal class MlnFfiMapSession(
     attachedTarget = key
     attachCount++
     publishAttachedViewport()
-    onMap(::snapshotViewportAndNotify)
-    // The new texture holds nothing yet; this request buys the frame that fills it.
-    renderRequested.store(true)
+    requestFillOfNewTarget()
     return true
   }
 
@@ -733,6 +729,30 @@ internal class MlnFfiMapSession(
   private fun requestRender() {
     renderRequested.store(true)
     hostSession?.requestFrame()
+  }
+
+  /**
+   * Dirties mbgl and opens the session skip gate. Safe from any thread.
+   *
+   * A discarded pump can consume the `MAP_STYLE_LOADED` requestRepaint. Later pumps stay on
+   * `NO_UPDATE` until the map is dirty again.
+   */
+  internal fun requestRedraw() {
+    onMap { map -> map.requestRepaint() }
+    requestRender()
+  }
+
+  /**
+   * Dirties mbgl so `renderUpdate` draws into an empty replacement texture instead of returning
+   * `NO_UPDATE`, and snapshots the viewport a size or generation change also needs. Posted because
+   * attach and retarget run on the renderer thread.
+   */
+  private fun requestFillOfNewTarget() {
+    onMap { map ->
+      map.requestRepaint()
+      snapshotViewportAndNotify(map)
+    }
+    renderRequested.store(true)
   }
 
   /**

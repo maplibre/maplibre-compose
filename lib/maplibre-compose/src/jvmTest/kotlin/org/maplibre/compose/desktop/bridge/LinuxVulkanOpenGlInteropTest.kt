@@ -299,6 +299,13 @@ class LinuxVulkanOpenGlInteropTest {
         }
         failure?.let { error(it) }
         val loadsBeforePump = styleLoads
+        // MAP_STYLE_LOADED requestRepaint can run during a pump this loop then discards, because
+        // that pump started before the load. Later pumps stay on NO_UPDATE unless the map is
+        // dirtied again. A replacement Compose context also retargets on that first pump, which
+        // lengthens the window.
+        if (loadsBeforePump >= expectedStyleLoads && rendered == null) {
+          renderer.requestRedraw()
+        }
         val pumped = pumpFrame(extent)
         lastResult = pumped.result
         if (loadsBeforePump >= expectedStyleLoads && pumped.rendered) {
