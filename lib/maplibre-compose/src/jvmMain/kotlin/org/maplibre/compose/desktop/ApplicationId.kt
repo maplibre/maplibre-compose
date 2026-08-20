@@ -17,9 +17,7 @@ internal fun applicationIdFromClassName(className: String): String? {
   return pkg.takeIf { it.isNotEmpty() && APPLICATION_ID.matches(it) }
 }
 
-internal fun mainClassName(): String? =
-  mainClassNameFromStackTraces(Thread.getAllStackTraces())
-    ?: mainClassNameFromJavaCommand(System.getProperty("sun.java.command"))
+internal fun mainClassName(): String? = mainClassNameFromStackTraces(Thread.getAllStackTraces())
 
 internal fun mainClassNameFromStackTraces(traces: Map<Thread, Array<StackTraceElement>>): String? {
   val preferred = traces.entries.firstOrNull { it.key.name == "main" }
@@ -42,13 +40,6 @@ internal fun mainClassNameFromFrames(frames: List<StackTraceElement>): String? =
     .asReversed()
     .firstOrNull { frame -> frame.methodName == "main" && isApplicationClass(frame.className) }
     ?.className
-
-internal fun mainClassNameFromJavaCommand(command: String?): String? {
-  val token = command?.trim()?.substringBefore(' ')?.takeIf { it.isNotEmpty() } ?: return null
-  if ('/' in token || '\\' in token) return null
-  if (token.endsWith(".jar", ignoreCase = true)) return null
-  return token.takeIf(::isApplicationClass)
-}
 
 internal fun isApplicationClass(className: String): Boolean = LAUNCHER_PREFIXES.none {
   className.startsWith(it)

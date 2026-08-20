@@ -141,18 +141,4 @@ class MapLibreConfigurationTest {
 
     assertEquals("org.maplibre.compose.demoapp.MainKt", mainClassNameFromStackTraces(traces))
   }
-
-  @Test
-  fun java_command_yields_the_main_class() {
-    assertEquals(
-      "org.maplibre.compose.demoapp.MainKt",
-      mainClassNameFromJavaCommand("org.maplibre.compose.demoapp.MainKt --foo"),
-    )
-    assertNull(mainClassNameFromJavaCommand("app.jar"))
-    assertNull(mainClassNameFromJavaCommand("/opt/app/app.jar"))
-    assertNull(mainClassNameFromJavaCommand("""C:\opt\app.jar"""))
-    assertNull(mainClassNameFromJavaCommand("org.gradle.wrapper.GradleWrapperMain"))
-    assertNull(mainClassNameFromJavaCommand(null))
-    assertNull(mainClassNameFromJavaCommand("  "))
-  }
 }
