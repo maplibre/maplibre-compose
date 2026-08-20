@@ -475,7 +475,9 @@ internal class MlnFfiMapSession(
       if (retargetBorrowedTexture(live, frame.target, extent)) {
         attachedTarget = key
         retargetCount++
-        requestFillOfNewTarget()
+        // The replacement texture holds nothing yet; this request buys the frame that fills it.
+        renderRequested.store(true)
+        onMap(::snapshotViewportAndNotify)
         return true
       }
     }
@@ -494,7 +496,9 @@ internal class MlnFfiMapSession(
     attachedTarget = key
     attachCount++
     publishAttachedViewport()
-    requestFillOfNewTarget()
+    onMap(::snapshotViewportAndNotify)
+    // The new texture holds nothing yet; this request buys the frame that fills it.
+    renderRequested.store(true)
     return true
   }
 
@@ -735,15 +739,6 @@ internal class MlnFfiMapSession(
   internal fun requestRedraw() {
     onMap { map -> map.requestRepaint() }
     requestRender()
-  }
-
-  /** Empty texture. Posted because attach and retarget run on the renderer thread. */
-  private fun requestFillOfNewTarget() {
-    onMap { map ->
-      map.requestRepaint()
-      snapshotViewportAndNotify(map)
-    }
-    renderRequested.store(true)
   }
 
   /**
