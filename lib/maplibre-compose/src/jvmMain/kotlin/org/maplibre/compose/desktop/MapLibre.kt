@@ -11,7 +11,7 @@ public object MapLibre {
    * Configures every map and offline operation in this process.
    *
    * The first call wins. Repeating the same normalized configuration is a no-op; a conflicting call
-   * fails immediately.
+   * throws [IllegalStateException].
    *
    * @param applicationId Stable reverse-domain application identifier, such as `com.example.myapp`.
    *   MapLibre uses it to isolate the application's cache in the current operating system's

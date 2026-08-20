@@ -4,6 +4,7 @@ package org.maplibre.compose.mlnffi
 
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.Dispatchers
@@ -62,14 +63,16 @@ internal fun launchTestTask(block: () -> Unit) {
  */
 @OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 internal class TestThread(name: String) : AutoCloseable {
+  private val threadContext = newSingleThreadContext(name)
+
   /** The thread as a dispatcher, for launching work that must not start on Default. */
-  val dispatcher = newSingleThreadContext(name)
+  val dispatcher: CoroutineDispatcher = threadContext
   private val scope = CoroutineScope(dispatcher)
 
   /** Runs [block] on the thread and returns its result, throwing whatever it threw. */
   fun <T> submit(block: () -> T): T = runBlocking { scope.async { block() }.await() }
 
   override fun close() {
-    dispatcher.close()
+    threadContext.close()
   }
 }

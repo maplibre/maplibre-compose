@@ -1,8 +1,7 @@
 // Writes the versions the pages quote into src/generated/versions.json.
 //
-// Release and snapshot come from the Git tags, via `version-args` on stdin. The
-// MapLibre GL JS version comes from the Gradle version catalog, which stays the
-// one place it is pinned.
+// Release and snapshot come from the Git tags, via `version-args` on stdin.
+// Dependency versions come from the Gradle version catalog.
 
 import fs from "node:fs";
 import path from "node:path";
