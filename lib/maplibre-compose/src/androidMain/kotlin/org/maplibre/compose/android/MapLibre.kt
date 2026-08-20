@@ -9,9 +9,9 @@ public object MapLibre {
   /**
    * Installs [options] for every map and offline operation in this process.
    *
-   * Call this once from application startup, before composing a map or using offline APIs. The
-   * first call wins. Repeating the same normalized configuration is a no-op; a conflicting call
-   * throws [IllegalStateException].
+   * The first map or offline manager uses [androidCacheFile] and MapLibre's cache budget. Call this
+   * beforehand to choose another file or budget. The first call wins. Repeating the same normalized
+   * configuration is a no-op; a conflicting call throws [IllegalStateException].
    */
   public fun configure(
     context: Context,

@@ -44,6 +44,19 @@ internal object MlnFfiApplication {
     }
   }
 
+  val isConfigured: Boolean
+    get() = state != null
+
+  /**
+   * Runs [installDefault] only when nothing has installed a configuration yet. [installDefault]
+   * should call [configure]; a concurrent caller that already configured a different value still
+   * throws from that call.
+   */
+  fun ensureConfigured(installDefault: () -> Unit) {
+    if (isConfigured) return
+    installDefault()
+  }
+
   val options: MlnFfiRuntimeOptions
     get() = requireState().options
 
@@ -52,7 +65,8 @@ internal object MlnFfiApplication {
 
   private fun requireState(): State =
     checkNotNull(state) {
-      "MapLibre is not configured. Call MapLibre.configure(...) before opening a map."
+      "MapLibre is not configured. Compose a map, call rememberOfflineManager, or call " +
+        "MapLibre.configure(...) first."
     }
 
   /**

@@ -56,7 +56,7 @@ private fun createGpu(): BrowserGpu {
   registry.makeContextCurrent(handle)
 
   // The hook has to be installed before the context is made.
-  MapLibre.initialize(workerUrl = LOCAL_WORKER_URL)
+  MapLibre.configure(workerUrl = LOCAL_WORKER_URL)
   val skia = DirectContext.makeGL()
   check(SkikoGpuBridge.isReady) { SkikoGpuBridge.diagnostic() }
 

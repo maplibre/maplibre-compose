@@ -10,8 +10,10 @@ public object MapLibre {
   /**
    * Configures every map and offline operation in this process.
    *
-   * The first call wins. Repeating the same normalized configuration is a no-op; a conflicting call
-   * throws [IllegalStateException].
+   * The first map or offline manager infers [applicationId] from the package of the process `main`
+   * class. Call this beforehand to pin a name that survives moving `main`, or to set a cache
+   * budget. The first call wins. Repeating the same normalized configuration is a no-op; a
+   * conflicting call throws [IllegalStateException].
    *
    * @param applicationId Stable reverse-domain application identifier, such as `com.example.myapp`.
    *   MapLibre uses it to isolate the application's cache in the current operating system's
@@ -19,7 +21,10 @@ public object MapLibre {
    * @param maximumCacheSizeBytes Maximum ambient cache size in bytes, or null for MapLibre's own
    *   default. Offline regions are not ambient and are not evicted to satisfy this limit.
    */
-  public fun configure(applicationId: String, maximumCacheSizeBytes: Long? = null) {
+  public fun configure(
+    applicationId: String = inferredApplicationId(),
+    maximumCacheSizeBytes: Long? = null,
+  ) {
     require(APPLICATION_ID.matches(applicationId)) {
       "applicationId must contain only nonempty dot-separated letters, digits, underscores, or hyphens"
     }
@@ -53,5 +58,3 @@ internal fun desktopCachePath(applicationId: String): Path {
 
 internal fun absoluteEnvironmentPath(value: String?): Path? =
   value?.takeIf { it.isNotBlank() }?.let(Paths::get)?.takeIf(Path::isAbsolute)
-
-private val APPLICATION_ID = Regex("[A-Za-z0-9_-]+(?:\\.[A-Za-z0-9_-]+)*")

@@ -12,7 +12,7 @@ public object MapLibre {
    * ```kt
    * fun main() {
    *   onWasmReady {
-   *     MapLibre.initialize()
+   *     MapLibre.configure()
    *     ComposeViewport(document.body!!) { App() }
    *   }
    * }
@@ -26,11 +26,16 @@ public object MapLibre {
    *
    * @throws IllegalStateException if skiko is not loaded yet. Call this inside `onWasmReady`.
    */
-  public fun initialize(workerUrl: String = DEFAULT_WORKER_URL) {
+  public fun configure(workerUrl: String = DEFAULT_WORKER_URL) {
     check(SkikoGpuBridge.install()) {
-      "MapLibre.initialize() ran before skiko finished loading, so Compose's graphics context " +
+      "MapLibre.configure() ran before skiko finished loading, so Compose's graphics context " +
         "cannot be reached. Call it inside onWasmReady, immediately before ComposeViewport."
     }
     GlJsRuntime.pointAtWorker(workerUrl)
+  }
+
+  @Deprecated("Renamed to configure", ReplaceWith("configure(workerUrl)"))
+  public fun initialize(workerUrl: String = DEFAULT_WORKER_URL) {
+    configure(workerUrl)
   }
 }

@@ -73,36 +73,38 @@ commonMain.dependencies {
 
 ## Set up Android
 
-Configure MapLibre once during application startup, before composing a map or
-using the offline APIs:
+The first map uses the application's private cache directory for the ambient
+cache and offline-region database. Call `MapLibre.configure` before composing a
+map to choose another file or cache budget:
 
 ```kotlin title="MainActivity.kt"
-override fun onCreate(savedInstanceState: Bundle?) {
-  super.onCreate(savedInstanceState)
-  MapLibre.configure(applicationContext)
-  setContent { App() }
-}
+MapLibre.configure(
+  applicationContext,
+  AndroidRuntimeOptions(
+    cacheFile = androidCacheFile(applicationContext),
+    maximumCacheSizeBytes = 512L * 1024L * 1024L,
+  ),
+)
 ```
 
-Import `MapLibre` from `org.maplibre.compose.android`. By default its ambient
-cache and offline-region database live in the application's private cache
-directory; pass `AndroidRuntimeOptions` to choose another file or cache budget.
+Import `MapLibre` from `org.maplibre.compose.android`.
 
 ## Set up iOS
 
-Configure MapLibre once during application startup, before composing a map or
-using the offline APIs:
+The first map uses the application's caches directory for the ambient cache and
+offline-region database. Call `MapLibre.configure` before composing a map to
+choose another file or cache budget:
 
 ```kotlin title="MainViewController.kt"
-fun MainViewController(): UIViewController {
-  MapLibre.configure()
-  return ComposeUIViewController { App() }
-}
+MapLibre.configure(
+  IosRuntimeOptions(
+    cacheFile = iosCacheFile(),
+    maximumCacheSizeBytes = 512L * 1024L * 1024L,
+  ),
+)
 ```
 
-Import `MapLibre` from `org.maplibre.compose.ios`. By default its ambient
-cache and offline-region database live in the application's caches directory;
-pass `IosRuntimeOptions` to choose another file or cache budget.
+Import `MapLibre` from `org.maplibre.compose.ios`.
 
 The runtime's system libraries link when Xcode links your app, not when Gradle
 builds the framework. Add them to your iOS app target's **Other Linker Flags**:
@@ -133,12 +135,12 @@ kotlin {
 }
 ```
 
-Initialize MapLibre inside `onWasmReady`, before Compose starts.
+Configure MapLibre inside `onWasmReady`, before Compose starts.
 
 ```kotlin title="main.kt"
 fun main() {
   onWasmReady {
-    MapLibre.initialize()
+    MapLibre.configure()
     ComposeViewport(document.body!!) { App() }
   }
 }
@@ -166,7 +168,9 @@ sourceSets {
 }
 ```
 
-Configure MapLibre once, then provide each AWT window's GPU context:
+Provide each AWT window's GPU context. The first map names its cache after the
+package of the process `main` class; pass `applicationId` to pin a name that
+survives moving `main`:
 
 ```kotlin title="Main.kt"
 fun main() {
