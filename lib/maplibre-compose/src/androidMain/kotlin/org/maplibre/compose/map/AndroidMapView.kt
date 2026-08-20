@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.AndroidMapSurfaceKind
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
+import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.SafeStyle
@@ -22,6 +23,7 @@ internal actual fun ComposableMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapOptions,
 ) {
+  EnsureMlnFfiConfigured()
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val surfaceKind =
     when (options.renderOptions.preferredRenderMode) {

@@ -47,10 +47,14 @@ internal object MlnFfiApplication {
   val isConfigured: Boolean
     get() = state != null
 
-  /** Runs [installDefault] when no configuration is set. */
-  fun ensureConfigured(installDefault: () -> Unit) {
+  /** Installs [defaultOptions] when no configuration is set. */
+  fun ensureConfigured(defaultOptions: () -> MlnFfiRuntimeOptions) {
     if (isConfigured) return
-    installDefault()
+    lock.withLock {
+      if (state != null) return
+      val options = defaultOptions().normalized()
+      state = State(options, MlnFfiOfflineManager(options))
+    }
   }
 
   val options: MlnFfiRuntimeOptions

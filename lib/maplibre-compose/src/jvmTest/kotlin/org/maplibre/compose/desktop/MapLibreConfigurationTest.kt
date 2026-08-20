@@ -75,7 +75,7 @@ class MapLibreConfigurationTest {
   fun default_configuration_does_not_replace_an_existing_one() {
     try {
       MapLibre.configure("com.example.first")
-      MlnFfiApplication.ensureConfigured { MapLibre.configure("com.example.second") }
+      MlnFfiApplication.ensureConfigured { desktopRuntimeOptions("com.example.second") }
       val installed = MlnFfiApplication.options.cacheFile.toString()
       assertTrue(installed.contains("com.example.first"))
     } finally {

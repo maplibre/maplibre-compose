@@ -21,14 +21,19 @@ public object MapLibre {
     applicationId: String = inferredApplicationId(),
     maximumCacheSizeBytes: Long? = null,
   ) {
-    require(APPLICATION_ID.matches(applicationId)) {
-      "applicationId must contain only nonempty dot-separated letters, digits, underscores, or hyphens"
-    }
-    val cachePath = desktopCachePath(applicationId)
-    MlnFfiApplication.configure(
-      MlnFfiRuntimeOptions(kotlinx.io.files.Path(cachePath.toString()), maximumCacheSizeBytes)
-    )
+    MlnFfiApplication.configure(desktopRuntimeOptions(applicationId, maximumCacheSizeBytes))
   }
+}
+
+internal fun desktopRuntimeOptions(
+  applicationId: String = inferredApplicationId(),
+  maximumCacheSizeBytes: Long? = null,
+): MlnFfiRuntimeOptions {
+  require(APPLICATION_ID.matches(applicationId)) {
+    "applicationId must contain only nonempty dot-separated letters, digits, underscores, or hyphens"
+  }
+  val cachePath = desktopCachePath(applicationId)
+  return MlnFfiRuntimeOptions(kotlinx.io.files.Path(cachePath.toString()), maximumCacheSizeBytes)
 }
 
 /**
