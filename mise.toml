@@ -194,6 +194,7 @@ run = "./gradlew :demo-app:common:jsBrowserDevelopmentRun"
 description = "Run the demo app on an iOS simulator or a connected iPhone."
 usage = '''
 flag "--device" help="Run on a connected iPhone instead of a simulator."
+flag "--release" help="Build the Release configuration, with the optimized Kotlin/Native binary."
 arg "[udid]" help="Device or simulator UDID. Prompts when several are ready."
 '''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.

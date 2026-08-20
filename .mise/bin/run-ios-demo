@@ -12,16 +12,20 @@ fi
 # mise passes usage values as environment variables; the arguments are for
 # running this script outside of mise.
 target="simulator"
+configuration="Debug"
 requested=""
 for arg in "$@"; do
-  if [[ "$arg" == "--device" ]]; then
-    target="device"
-  else
-    requested="$arg"
-  fi
+  case "$arg" in
+    --device) target="device" ;;
+    --release) configuration="Release" ;;
+    *) requested="$arg" ;;
+  esac
 done
 if [[ "${usage_device:-}" == "true" ]]; then
   target="device"
+fi
+if [[ "${usage_release:-}" == "true" ]]; then
+  configuration="Release"
 fi
 if [[ -z "$requested" && -n "${usage_udid:-}" ]]; then
   requested="$usage_udid"
@@ -122,10 +126,10 @@ if [[ "$target" == "simulator" ]]; then
   fi
   ensure_simulator_booted "$udid"
 
-  xcodebuild -project "$project" -scheme iosApp -configuration Debug \
+  xcodebuild -project "$project" -scheme iosApp -configuration "$configuration" \
     -destination "id=$udid" -derivedDataPath "$derived_data" build
 
-  app="$(app_bundle Debug-iphonesimulator)"
+  app="$(app_bundle "$configuration"-iphonesimulator)"
   [[ -n "$app" ]] || {
     echo "No app bundle under $derived_data." >&2
     exit 1
@@ -148,11 +152,11 @@ udid="$(pick_id "iOS device" "$devices")"
 # Signing needs no setup here: the project carries a DEVELOPMENT_TEAM.
 # Build for a generic device rather than for "id=$udid": xcodebuild identifies a
 # device by its ECID, devicectl by a CoreDevice UUID, and the two do not match.
-xcodebuild -project "$project" -scheme iosApp -configuration Debug \
+xcodebuild -project "$project" -scheme iosApp -configuration "$configuration" \
   -destination "generic/platform=iOS" -derivedDataPath "$derived_data" \
   -allowProvisioningUpdates build
 
-app="$(app_bundle Debug-iphoneos)"
+app="$(app_bundle "$configuration"-iphoneos)"
 [[ -n "$app" ]] || {
   echo "No app bundle under $derived_data." >&2
   exit 1
