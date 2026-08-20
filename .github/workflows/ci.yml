@@ -57,7 +57,17 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           android-emulator: ${{ matrix.api-level }}
-      - run: mise run test:android
+      - id: android-host-tests
+        run: mise run test:android
+      - name: Upload Android host test reports
+        if: ${{ failure() && steps.android-host-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: android-${{ matrix.api-level }}-host-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
       - id: android-device-tests
         run: mise run test:android:device ${{ matrix.api-level }}
       - name: Capture Android emulator diagnostics
@@ -94,7 +104,17 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: "true"
-      - run: mise run test:ios
+      - id: ios-tests
+        run: mise run test:ios
+      - name: Upload iOS test reports
+        if: ${{ failure() && steps.ios-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: ios-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
 
   ios-device:
     timeout-minutes: 45
@@ -116,7 +136,17 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
-      - run: mise run test:js
+      - id: js-tests
+        run: mise run test:js
+      - name: Upload JS test reports
+        if: ${{ failure() && steps.js-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: js-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
 
   desktop:
     strategy:
@@ -153,7 +183,17 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: ${{ matrix.save_toolchains }}
-      - run: mise run test:desktop
+      - id: desktop-tests
+        run: mise run test:desktop
+      - name: Upload desktop test reports
+        if: ${{ failure() && steps.desktop-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: ${{ matrix.artifact_name }}-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
       - run: mise run build:desktop-app
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
