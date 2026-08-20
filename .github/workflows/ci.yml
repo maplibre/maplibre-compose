@@ -219,7 +219,10 @@ jobs:
         with:
           path: docs/dist
 
+  # Branch protection requires this job. always() still runs it after a needed
+  # job fails; GitHub otherwise skips it and treats that skip as a passing check.
   all-good:
+    if: ${{ always() }}
     needs:
       - hygiene
       - android
@@ -231,4 +234,14 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-24.04
     steps:
-      - run: echo 'All checks passed!'
+      - name: Check that every needed job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ', ') }}
+          ANY_BAD: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "needed job results: ${RESULTS}"
+          if [ "${ANY_BAD}" = true ]; then
+            echo "a needed job did not succeed"
+            exit 1
+          fi
+          echo 'All checks passed!'
