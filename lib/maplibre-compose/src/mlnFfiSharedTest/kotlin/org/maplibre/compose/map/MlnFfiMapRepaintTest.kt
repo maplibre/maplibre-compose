@@ -21,10 +21,21 @@ import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
  * Proves that a style change actually redraws, not just that it reaches MapLibre.
  *
  * `addSource`, `removeSource`, and `removeImage` publish no render update on their own, so the
- * style binding requests a repaint for them. Each test settles first, because a frame still in
- * flight would render the mutation by accident.
+ * style binding requests a repaint for them. A base style load can finish during a frame that
+ * started beforehand, so `MAP_STYLE_LOADED` also requests a repaint. Each test settles first,
+ * because a frame still in flight would render the mutation by accident.
  */
 class MlnFfiMapRepaintTest {
+
+  @Test
+  fun replacing_the_base_style_after_the_map_settles_redraws() {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadEmptyStyle()
+      fixture.assertRedrawsAfter("replacing the base style") {
+        fixture.session.setBaseStyle(COLORED_BACKGROUND)
+      }
+    }
+  }
 
   @Test
   fun adding_a_layer_after_the_map_settles_redraws() {
@@ -107,5 +118,14 @@ class MlnFfiMapRepaintTest {
     val REDRAW_TIMEOUT: Duration = 30.seconds
 
     val POLL_WINDOW: Duration = 50.milliseconds
+
+    val COLORED_BACKGROUND =
+      BaseStyle.Json(
+        """
+        {"version":8,"sources":{},"layers":[
+          {"id":"background","type":"background","paint":{"background-color":"#ff0000"}}
+        ]}
+        """
+      )
   }
 }

@@ -129,6 +129,8 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
   private var generation = 0L
   private var currentExtent = MapExtent.Empty
 
+  @Volatile private var acquireProducerWrites = false
+
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 
@@ -159,6 +161,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
 
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
     rendererThread.run { vulkan?.waitIdle() }
+    acquireProducerWrites = true
   }
 
   override fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T =
@@ -172,6 +175,12 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
     if (target !is VulkanImageTarget) return false
     return gpuHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
+      if (acquireProducerWrites) {
+        // EXT_memory_object does not make Vulkan's waitIdle visible to this context. glFinish
+        // acquires those writes.
+        glFinish()
+        acquireProducerWrites = false
+      }
       val sharedTexture =
         if (target.generation == generation) texture else retiredTextures[target.generation]
       val imported = sharedTexture?.imported ?: return@withOpenGlContextOrNull false
@@ -236,6 +245,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
   /** Drops OpenGL names that cannot be used or deleted in the replacement context. */
   private fun abandonContext() {
     presenter.abandon()
+    acquireProducerWrites = false
     // Keep the Vulkan allocation and device alive: MapLibre's render session still refers to both
     // until the next producer frame retargets it.
     texture?.let { retiredTextures[generation] = it }

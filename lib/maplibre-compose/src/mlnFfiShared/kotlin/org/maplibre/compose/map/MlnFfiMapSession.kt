@@ -621,6 +621,11 @@ internal class MlnFfiMapSession(
         callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
+        // A producer frame that started before this callback can still hold the previous style.
+        // requestRepaint dirties mbgl so the next renderUpdate draws instead of returning
+        // NO_UPDATE; requestRender lets that draw through the session skip gate.
+        loop?.map?.requestRepaint()
+        requestRender()
       }
 
       // mbgl only delivers onDidFinishLoadingMap once a frame has seen the new style as not yet
