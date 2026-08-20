@@ -70,6 +70,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun setMaxPitch(maxPitch: Double)
 
+  fun setSourceTileLodParams(maxZoomLevelsOnScreen: Double, tileCountMaxMinRatio: Double)
+
   fun project(lngLat: LngLat): Point
 
   fun unproject(point: Point): LngLat

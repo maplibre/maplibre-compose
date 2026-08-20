@@ -138,6 +138,7 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
     }
     composable("settings/rendering") {
       SettingsSubScreen("Rendering", onBack = { navController.popBackStack() }) {
+        TileLodSettingsItems(state.settings)
         RenderSettingsItems(state.settings)
       }
     }
@@ -232,7 +233,7 @@ private fun StyleSelector(state: DemoAppState) {
 private fun SettingsScreen(onBack: () -> Unit, onOpen: (route: String) -> Unit) {
   SettingsSubScreen("Settings", onBack) {
     SubmenuRow("Gestures", "Which inputs move the camera") { onOpen("gestures") }
-    SubmenuRow("Rendering", "Frame rate cap and debug views") { onOpen("rendering") }
+    SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
     SubmenuRow("Interface", "Map controls and diagnostic overlays") { onOpen("interface") }
   }
 }

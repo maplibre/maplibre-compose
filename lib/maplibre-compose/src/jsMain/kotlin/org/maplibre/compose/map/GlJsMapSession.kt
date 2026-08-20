@@ -118,6 +118,7 @@ internal class GlJsMapSession(
   private var lentContext: WebGL2RenderingContext? = null
 
   private var maximumFps: Int? = null
+  private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
   private var lastFrameTime = TimeSource.Monotonic.markNow()
   private var hasRenderedAFrame = false
@@ -314,6 +315,7 @@ internal class GlJsMapSession(
       styleBinding?.unload()
       val binding = GlJsStyleBinding(map, logger).also { styleBinding = it }
       callbacks.onStyleChanged(this, GlJsStyle(binding) { appliedExtent.scaleFactor.toFloat() })
+      applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true
         runPending(pendingInitialStyleActions, map)
@@ -327,6 +329,7 @@ internal class GlJsMapSession(
     map.subscribe("sourcedata") { event ->
       reportLoadedOnceStyleIsReady(map)
       if (event.sourceDataType == "metadata") {
+        applyTileLod(map)
         event.sourceId?.let { callbacks.onSourceChanged(this, it) }
       }
     }
@@ -573,6 +576,24 @@ internal class GlJsMapSession(
 
   override fun setGestureSettings(value: GestureOptions) {
     // Gestures are implemented in Compose, so the host's input handling reads these.
+  }
+
+  override fun setTileLodSettings(value: TileLodOptions) {
+    if (value == tileLodOptions) return
+    tileLodOptions = value
+    onMap(::applyTileLod)
+  }
+
+  /**
+   * GL JS stores these parameters on each source. A style load or a source added later would
+   * otherwise keep MapLibre's own defaults.
+   */
+  private fun applyTileLod(map: MaplibreMap) {
+    if (!map.isStyleLoaded()) return
+    map.setSourceTileLodParams(
+      tileLodOptions.maxZoomLevelsOnScreen,
+      tileLodOptions.tileCountMaxMinRatio,
+    )
   }
 
   override fun positionFromScreenLocation(offset: DpOffset): Position =
