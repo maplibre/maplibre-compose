@@ -1,40 +1,21 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.map
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.test.ComposeUiTest
-import androidx.compose.ui.test.ExperimentalTestApi
-import co.touchlab.kermit.Logger
-import kotlin.concurrent.atomics.AtomicInt
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
-import kotlin.test.AfterTest
+import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.test.Test
-import kotlin.test.assertTrue
+import kotlin.test.assertEquals
+import kotlin.test.assertIs
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.layers.FillLayer
-import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
-import org.maplibre.compose.mlnffi.runFfiComposeUiTest
-import org.maplibre.compose.mlnffi.setFfiTestMapContent
+import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.rememberGeoJsonSource
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.spatialk.geojson.FeatureCollection
-import org.maplibre.spatialk.geojson.Geometry
-import org.maplibre.spatialk.geojson.Point
-import org.maplibre.spatialk.geojson.Position
-import org.maplibre.spatialk.geojson.dsl.addFeature
-import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
+import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 /**
  * Proves that a style change actually redraws, not just that it reaches MapLibre.
@@ -43,110 +24,88 @@ import org.maplibre.spatialk.geojson.dsl.buildFeatureCollection
  * style binding requests a repaint for them. Each test settles first, because a frame still in
  * flight would render the mutation by accident.
  */
-@OptIn(ExperimentalTestApi::class)
 class MlnFfiMapRepaintTest {
-
-  private val cacheFile = FfiTestPlatform.createCacheFile()
-
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
-
-  @AfterTest
-  fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
-  }
 
   @Test
   fun adding_a_layer_after_the_map_settles_redraws() {
-    var visible by mutableStateOf(false)
-    runRepaintTest(mutate = { visible = true }) { ToggledLayer(visible) }
+    BridgeMapFixture.create().use { fixture ->
+      val style = fixture.loadEmptyStyle()
+      val layer = BackgroundLayer("toggled")
+      fixture.assertRedrawsAfter("adding a layer") { style.addLayer(layer) }
+    }
   }
 
   @Test
   fun removing_a_layer_after_the_map_settles_redraws() {
-    var visible by mutableStateOf(true)
-    runRepaintTest(mutate = { visible = false }) { ToggledLayer(visible) }
+    BridgeMapFixture.create().use { fixture ->
+      val style = fixture.loadEmptyStyle()
+      val layer = BackgroundLayer("toggled")
+      style.addLayer(layer)
+      fixture.assertRedrawsAfter("removing a layer") { style.removeLayer(layer) }
+    }
   }
 
   @Test
-  fun replacing_source_data_after_the_map_settles_redraws() {
-    var data by mutableStateOf(pointAt(longitude = 0.0))
-    runRepaintTest(mutate = { data = pointAt(longitude = 10.0) }) {
-      FillLayer(
-        id = "data-driven",
-        source = rememberGeoJsonSource(data = GeoJsonData.Features(data)),
-        color = const(Color.Red),
-      )
+  fun adding_a_source_after_the_map_settles_redraws() {
+    BridgeMapFixture.create().use { fixture ->
+      val style = fixture.loadEmptyStyle()
+      val source = emptySource()
+      fixture.assertRedrawsAfter("adding a source") { style.addSource(source) }
     }
+  }
+
+  @Test
+  fun removing_a_source_after_the_map_settles_redraws() {
+    BridgeMapFixture.create().use { fixture ->
+      val style = fixture.loadEmptyStyle()
+      val source = emptySource()
+      style.addSource(source)
+      fixture.assertRedrawsAfter("removing a source") { style.removeSource(source) }
+    }
+  }
+
+  @Test
+  fun removing_an_image_after_the_map_settles_redraws() {
+    BridgeMapFixture.create().use { fixture ->
+      val style = fixture.loadEmptyStyle()
+      style.addImage("icon", ImageBitmap(4, 4), sdf = false, resizeOptions = null)
+      fixture.assertRedrawsAfter("removing an image") { style.removeImage("icon") }
+    }
+  }
+
+  private fun BridgeMapFixture.loadEmptyStyle(): MlnFfiStyle {
+    loadStyle(BaseStyle.Empty)
+    pumpUntilRendered()
+    return assertIs<MlnFfiStyle>(style, "Errors: $errors")
   }
 
   /**
-   * Composes [content], settles, runs [mutate], and asserts the map redrew.
+   * Settles, runs [mutate], and asserts the map asked for another rendered frame.
    *
    * The assertion counts frames MapLibre rendered into, not frames acquired: the host hands out a
-   * frame whenever Compose draws.
+   * frame whenever the test pumps.
    */
-  private fun runRepaintTest(mutate: ComposeUiTest.() -> Unit, content: @Composable () -> Unit) =
-    runFfiComposeUiTest {
-      val frames = AtomicInt(0)
-
-      setFfiTestMapContent(runtimeOptions) {
-        MaplibreMap(
-          modifier = Modifier,
-          baseStyle = BaseStyle.Empty,
-          logger = Logger.withTag("repaint-test"),
-          onFrame = { frames.incrementAndFetch() },
-          content = content,
-        )
+  private fun BridgeMapFixture.assertRedrawsAfter(description: String, mutate: () -> Unit) {
+    settle()
+    mutate()
+    val deadline = TimeSource.Monotonic.markNow() + REDRAW_TIMEOUT
+    var drawn = 0
+    while (drawn == 0) {
+      check(deadline.hasNotPassedNow()) {
+        "$description produced no new rendered frame, so it would not appear until something " +
+          "else woke the render loop. Errors: $errors"
       }
-
-      // The map advances on a thread of its own, so settling means observing a real quiet window.
-      // Comparing two adjacent reads can succeed before an already-queued startup frame lands.
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > 0 }
-      var before = frames.load()
-      var unchangedSince = TimeSource.Monotonic.markNow()
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-        val current = frames.load()
-        if (current != before) {
-          before = current
-          unchangedSince = TimeSource.Monotonic.markNow()
-        }
-        unchangedSince.elapsedNow() >= QUIET_WINDOW
-      }
-
-      mutate()
-
-      waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > before }
-      assertTrue(
-        frames.load() > before,
-        "The change produced no new rendered frame ($before before, ${frames.load()} " +
-          "after), so it would not appear until something else woke the render loop.",
-      )
+      drawn += renderOnDemand(POLL_WINDOW)
     }
-
-  @Composable
-  private fun ToggledLayer(visible: Boolean) {
-    if (visible) {
-      FillLayer(
-        id = "toggled",
-        source =
-          rememberGeoJsonSource(
-            data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
-          ),
-        color = const(Color.Red),
-      )
-    }
+    assertEquals(emptyList(), errors, "the map should report nothing")
   }
 
-  private fun pointAt(longitude: Double): FeatureCollection<Geometry, JsonObject?> =
-    buildFeatureCollection {
-      addFeature(geometry = Point(Position(longitude = longitude, latitude = 0.0)))
-    }
+  private fun emptySource() =
+    GeoJsonSource("points", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
 
   private companion object {
-    const val SETTLE_TIMEOUT_MILLIS = 30_000L
+    val REDRAW_TIMEOUT: Duration = 30.seconds
 
-    /** Long enough to outlast work already queued by the initial style composition. */
-    val QUIET_WINDOW = 250.milliseconds
+    val POLL_WINDOW: Duration = 50.milliseconds
   }
 }

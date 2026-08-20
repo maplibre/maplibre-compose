@@ -9,7 +9,8 @@ package org.maplibre.compose.mlnffi
  * thread keeps nothing alive: a host that exits while [body] is still running leaves the thread
  * behind rather than waiting for it.
  *
- * A caller starts the thread once and joins it once.
+ * A caller starts the thread once and joins it at most once; a fire-and-forget worker, such as one
+ * resource read, is never joined.
  *
  * An actual over pthreads has three obligations that the JVM actual gets for free. Darwin's
  * `pthread_setname_np` names only the calling thread, so the thread applies [name] to itself as the
@@ -19,6 +20,10 @@ package org.maplibre.compose.mlnffi
  * run to do it then. Darwin also has no timed join, so [join] waits on a completion flag that the
  * thread publishes, and every such wait belongs in a loop over that flag, because a condition
  * variable returns from a spurious wakeup as readily as from a signal.
+ *
+ * MapLibre's thread-affine, host-pumped execution model is what puts the host on raw threads at
+ * all. Upstream work to move execution into the native core (maplibre-native-ffi#631) would retire
+ * this machinery.
  */
 internal expect class MlnFfiOwnerThread(name: String, body: () -> Unit) {
   /** Starts the thread. Called once. */

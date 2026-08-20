@@ -11,14 +11,20 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.buffered
+import kotlinx.io.files.Path
+import kotlinx.io.files.SystemFileSystem
+import kotlinx.io.writeString
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.double
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
@@ -26,6 +32,9 @@ import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.TestThread
+import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.testing.RgbaPixel
@@ -125,6 +134,78 @@ class GeoJsonSourceUpdateTest {
       } finally {
         publisher.cancelAndJoin()
         poller.cancelAndJoin()
+      }
+    }
+  }
+
+  /**
+   * A newer one-point payload remains after a slower older parse finishes. `publishData` parses on
+   * Default without a suspend point, and the older worker runs to completion.
+   */
+  @Test
+  fun a_newer_publish_keeps_its_data_when_an_older_parse_finishes_later() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
+      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(ORIGIN)), GeoJsonOptions())
+      style.addSource(source)
+
+      val older = GeoJsonData.Features(manyPoints(longitude = 2.0))
+      val newer = GeoJsonData.Features(pointAt(Position(longitude = 9.0, latitude = 0.0)))
+      val olderJob =
+        launch(Dispatchers.Default, start = CoroutineStart.UNDISPATCHED) {
+          source.publishData(older)
+        }
+      source.publishData(newer)
+      olderJob.join()
+
+      val json = source.toJson()
+      val features = (json["data"] as JsonObject)["features"] as JsonArray
+      assertEquals(1, features.size, json.toString())
+      assertEquals(9.0, installedBatch(source), json.toString())
+      assertEquals(emptyList(), fixture.errors, "the map should report nothing")
+    }
+  }
+
+  /**
+   * A URI has no parse, so it installs without waiting for an in-flight inline parse. When the
+   * older parse finishes, the URI remains.
+   *
+   * The inline job starts on a worker that is not Default, so `withContext(Default)` inside the
+   * parse suspends instead of finishing before `launch` returns.
+   */
+  @Test
+  fun a_uri_publish_installs_while_an_inline_parse_is_still_running() = runBlocking {
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Empty)
+      fixture.pumpUntilRendered()
+      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(ORIGIN)), GeoJsonOptions())
+      style.addSource(source)
+
+      val cache = FfiTestPlatform.createCacheFile()
+      TestThread("geojson-parse").use { worker ->
+        try {
+          val file = Path(requireNotNull(cache.parent), "points.geojson")
+          SystemFileSystem.sink(file).buffered().use {
+            it.writeString("""{"type":"FeatureCollection","features":[]}""")
+          }
+          val url = fileUrlOf(file)
+          val olderJob =
+            launch(worker.dispatcher, start = CoroutineStart.UNDISPATCHED) {
+              source.publishData(GeoJsonData.Features(manyPoints(longitude = 2.0)))
+            }
+          val featuresBeforeUri = (source.toJson()["data"] as JsonObject)["features"] as JsonArray
+          assertEquals(1, featuresBeforeUri.size, source.toJson().toString())
+          source.publishData(GeoJsonData.Uri(url))
+          assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
+          olderJob.join()
+          assertEquals(JsonPrimitive(url), source.toJson()["data"], source.toJson().toString())
+          assertEquals(emptyList(), fixture.errors, "the map should report nothing")
+        } finally {
+          FfiTestPlatform.deleteCacheFile(cache)
+        }
       }
     }
   }

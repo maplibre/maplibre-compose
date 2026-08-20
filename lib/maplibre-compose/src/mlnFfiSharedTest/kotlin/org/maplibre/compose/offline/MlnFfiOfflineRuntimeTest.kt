@@ -3,8 +3,6 @@
 package org.maplibre.compose.offline
 
 import co.touchlab.kermit.Logger
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.AfterTest
@@ -12,6 +10,8 @@ import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.TestLatch
+import org.maplibre.compose.mlnffi.parkForTest
 
 /**
  * The offline runtime's owner thread parks in MapLibre's pump and is released by a wake.
@@ -47,11 +47,11 @@ class MlnFfiOfflineRuntimeTest {
     val runtime = startRuntime()
     runtime.parkAfterWarmup()
 
-    val ran = CountDownLatch(1)
+    val ran = TestLatch(1)
     assertTrue(runtime.post(task = { ran.countDown() }, reject = {}), "the task should be accepted")
 
     assertTrue(
-      ran.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+      ran.await(RESPONSE_TIMEOUT_MILLIS),
       "The task did not run within ${RESPONSE_TIMEOUT_MILLIS}ms, so the wake source is not what " +
         "released the pump.",
     )
@@ -64,12 +64,12 @@ class MlnFfiOfflineRuntimeTest {
   @Test
   fun a_task_posted_before_the_wake_source_exists_still_runs_promptly() {
     val runtime = startRuntime()
-    val ran = CountDownLatch(1)
+    val ran = TestLatch(1)
     // No delay between start() and post(): the point is to race the acquisition.
     runtime.post(task = { ran.countDown() }, reject = {})
 
     assertTrue(
-      ran.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+      ran.await(RESPONSE_TIMEOUT_MILLIS),
       "A task posted during startup was left parked behind instead of drained before the park.",
     )
   }
@@ -77,8 +77,8 @@ class MlnFfiOfflineRuntimeTest {
   @Test
   fun a_cancelled_task_waiting_in_the_queue_does_not_run() {
     val runtime = startRuntime()
-    val blockerStarted = CountDownLatch(1)
-    val releaseBlocker = CountDownLatch(1)
+    val blockerStarted = TestLatch(1)
+    val releaseBlocker = TestLatch(1)
     runtime.post(
       task = {
         blockerStarted.countDown()
@@ -87,20 +87,20 @@ class MlnFfiOfflineRuntimeTest {
       reject = {},
     )
     assertTrue(
-      blockerStarted.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+      blockerStarted.await(RESPONSE_TIMEOUT_MILLIS),
       "the blocking task never reached the owner thread",
     )
 
     val cancelled = AtomicBoolean(false)
     val ran = AtomicBoolean(false)
-    val queueDrained = CountDownLatch(1)
+    val queueDrained = TestLatch(1)
     runtime.post(task = { ran.store(true) }, reject = {}, isCancelled = cancelled::load)
     runtime.post(task = { queueDrained.countDown() }, reject = {})
 
     cancelled.store(true)
     releaseBlocker.countDown()
     assertTrue(
-      queueDrained.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+      queueDrained.await(RESPONSE_TIMEOUT_MILLIS),
       "the owner thread did not drain the queued work",
     )
     assertFalse(ran.load(), "the cancelled task must not run")
@@ -125,13 +125,13 @@ class MlnFfiOfflineRuntimeTest {
    * the queue on its way to the first park and the wake is never exercised.
    */
   private fun MlnFfiOfflineRuntime.parkAfterWarmup() {
-    val warmedUp = CountDownLatch(1)
+    val warmedUp = TestLatch(1)
     post(task = { warmedUp.countDown() }, reject = {})
     assertTrue(
-      warmedUp.await(RESPONSE_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS),
+      warmedUp.await(RESPONSE_TIMEOUT_MILLIS),
       "the loop never ran its first task",
     )
-    Thread.sleep(PARK_ENTRY_MILLIS)
+    parkForTest(PARK_ENTRY_MILLIS)
   }
 
   /**

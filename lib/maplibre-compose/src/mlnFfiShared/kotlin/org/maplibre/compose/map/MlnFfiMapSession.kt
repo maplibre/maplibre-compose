@@ -28,6 +28,7 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
+import org.maplibre.compose.mlnffi.MetalSurfaceTarget
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiLock
@@ -77,6 +78,8 @@ import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.map.MapProjectionHandle
 import org.maplibre.nativeffi.query.RenderedQueryGeometry
 import org.maplibre.nativeffi.render.MetalBorrowedTextureDescriptor
+import org.maplibre.nativeffi.render.MetalContextDescriptor
+import org.maplibre.nativeffi.render.MetalSurfaceDescriptor
 import org.maplibre.nativeffi.render.NativePointer
 import org.maplibre.nativeffi.render.OpenGLBorrowedTextureDescriptor
 import org.maplibre.nativeffi.render.OpenGLClientApi
@@ -507,6 +510,7 @@ internal class MlnFfiMapSession(
     when (target) {
       is VulkanImageTarget -> map.attachVulkanBorrowedTexture(target.toDescriptor(extent))
       is MetalTextureTarget -> map.attachMetalBorrowedTexture(target.toDescriptor(extent))
+      is MetalSurfaceTarget -> map.attachMetalSurface(target.toDescriptor(extent))
       is OpenGlTextureTarget -> {
         target.makeContextCurrent()
         map.attachOpenGLBorrowedTexture(target.toDescriptor(extent))
@@ -524,6 +528,7 @@ internal class MlnFfiMapSession(
       when (target) {
         is VulkanImageTarget -> session.setVulkanBorrowedTextureTarget(target.toDescriptor(extent))
         is MetalTextureTarget -> session.setMetalBorrowedTextureTarget(target.toDescriptor(extent))
+        is MetalSurfaceTarget -> session.setMetalSurfaceTarget(target.toDescriptor(extent))
         is OpenGlTextureTarget -> {
           target.makeContextCurrent()
           session.setOpenGLBorrowedTextureTarget(target.toDescriptor(extent))
@@ -574,6 +579,13 @@ internal class MlnFfiMapSession(
       physicalWidth = extent.physicalWidth.coerceAtLeast(1),
       physicalHeight = extent.physicalHeight.coerceAtLeast(1),
       texture = NativePointer.ofAddress(texture.address),
+    )
+
+  private fun MetalSurfaceTarget.toDescriptor(extent: MapExtent) =
+    MetalSurfaceDescriptor(
+      extent = extent.toFfiExtent(),
+      context = MetalContextDescriptor(device = NativePointer.ofAddress(device.address)),
+      layer = NativePointer.ofAddress(layer.address),
     )
 
   private fun OpenGlTextureTarget.toDescriptor(extent: MapExtent) =
@@ -1428,7 +1440,7 @@ private fun EglContextHandles.toFfi() =
     display = NativePointer.ofAddress(display.address),
     config = NativePointer.ofAddress(config.address),
     shareContext =
-      if (ownership == OpenGLContextOwnership.DEDICATED) NativePointer.NULL
+      if (ownership == OpenGLContextOwnership.DEDICATED) NativePointer.NULL_POINTER
       else NativePointer.ofAddress(shareContext.address),
     getProcAddress = NativePointer.ofAddress(getProcAddress.address),
     clientApi =
@@ -1444,7 +1456,7 @@ private fun WglContextHandles.toFfi() =
   org.maplibre.nativeffi.render.WglContextDescriptor(
     deviceContext = NativePointer.ofAddress(deviceContext.address),
     shareContext =
-      if (ownership == OpenGLContextOwnership.DEDICATED) NativePointer.NULL
+      if (ownership == OpenGLContextOwnership.DEDICATED) NativePointer.NULL_POINTER
       else NativePointer.ofAddress(shareContext.address),
     getProcAddress = NativePointer.ofAddress(getProcAddress.address),
     ownership = ownership,

@@ -20,7 +20,6 @@ demo-app/ios/*.xcodeproj/*
 **/xcshareddata/WorkspaceSettings.xcsettings
 demo-app/ios/Build
 demo-app/ios/DerivedData
-exportedSpmMaplibre
 out/
 .cache/
 hs_err_*.log

@@ -1,11 +1,10 @@
 package org.maplibre.compose.map
 
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.style.BaseStyle
 
 /** The rest of the camera-move contract is in [CameraMoveReportingTest], on every platform. */
@@ -19,15 +18,15 @@ class MlnFfiGestureTokenOrderingTest {
       fixture.settle()
       fixture.events.clear()
 
-      val entered = CountDownLatch(1)
-      val release = CountDownLatch(1)
+      val entered = TestLatch(1)
+      val release = TestLatch(1)
       assertTrue(
         fixture.session.postOwnerTaskForTest {
           entered.countDown()
-          check(release.await(5, TimeUnit.SECONDS))
+          check(release.await(5_000))
         }
       )
-      assertTrue(entered.await(5, TimeUnit.SECONDS))
+      assertTrue(entered.await(5_000))
 
       val stale = fixture.session.onGestureStarted()
       fixture.session.moveBy(DRAG_STEP_DP, 0.0, gestureToken = stale)

@@ -157,7 +157,7 @@ private constructor(
       frame(extent)
       frames++
       // A tight loop would starve the network and worker threads.
-      Thread.sleep(POLL_INTERVAL_MILLIS)
+      parkForTest(POLL_INTERVAL_MILLIS)
     }
   }
 
@@ -171,7 +171,7 @@ private constructor(
     var rendered = 0
     while (deadline.hasNotPassedNow()) {
       if (frameRequested && frame() == MlnFfiFrameResult.RENDERED) rendered++
-      Thread.sleep(POLL_INTERVAL_MILLIS)
+      parkForTest(POLL_INTERVAL_MILLIS)
     }
     return rendered
   }
@@ -190,7 +190,7 @@ private constructor(
   fun pump(frames: Int = 30) {
     repeat(frames) {
       frame()
-      Thread.sleep(POLL_INTERVAL_MILLIS)
+      parkForTest(POLL_INTERVAL_MILLIS)
     }
   }
 

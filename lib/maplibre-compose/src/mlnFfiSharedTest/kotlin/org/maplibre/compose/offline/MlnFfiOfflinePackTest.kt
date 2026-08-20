@@ -1,6 +1,5 @@
 package org.maplibre.compose.offline
 
-import java.net.ServerSocket
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -20,6 +19,7 @@ import kotlinx.io.writeString
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.fileUrlOf
+import org.maplibre.compose.mlnffi.unusedLoopbackPort
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Polygon
 import org.maplibre.spatialk.geojson.Position
@@ -335,10 +335,7 @@ class MlnFfiOfflinePackTest {
    * A style URL on a loopback port bound only long enough to be sure it is free, so connecting to
    * it is refused rather than answered or left hanging.
    */
-  private fun unreachableStyleUrl(): String {
-    val port = ServerSocket(0).use { it.localPort }
-    return "http://127.0.0.1:$port/style.json"
-  }
+  private fun unreachableStyleUrl(): String = "http://127.0.0.1:${unusedLoopbackPort()}/style.json"
 
   private fun tilePyramid(styleUrl: String): OfflinePackDefinition.TilePyramid =
     OfflinePackDefinition.TilePyramid(

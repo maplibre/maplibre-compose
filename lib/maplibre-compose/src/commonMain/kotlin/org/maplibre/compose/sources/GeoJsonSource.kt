@@ -13,12 +13,7 @@ import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.GeoJsonObject
 import org.maplibre.spatialk.geojson.Geometry
 
-/**
- * A map data source consisting of geojson data.
- *
- * Feature-state mutation is available on desktop, Android, and the browser. The methods throw
- * [UnsupportedOperationException] on iOS.
- */
+/** A map data source consisting of geojson data. */
 public expect class GeoJsonSource : Source {
   /**
    * @param id Unique identifier for this source
@@ -54,7 +49,7 @@ public expect class GeoJsonSource : Source {
    * feature and absent from [state] stay as they are. [featureId] is matched as text: a GeoJSON
    * `id` of `7` is `"7"`.
    *
-   * A call before the first frame is ignored on desktop.
+   * A call before the first frame is ignored on the native platforms.
    */
   public fun setFeatureState(featureId: String, state: JsonObject)
 
@@ -178,8 +173,7 @@ private val EmptyInlineGeoJson: GeoJsonData =
 
 /**
  * Replaces the source's data. Native platforms that parse and index inline GeoJSON do that work on
- * a worker; iOS and the browser apply it on the caller. Publications that outpace the parse
- * conflate to the newest data, and when two publications overlap, the later call is the data the
- * source keeps.
+ * a worker; the browser applies it on the caller. Publications that outpace the parse conflate to
+ * the newest data, and when two publications overlap, the later call is the data the source keeps.
  */
 internal expect suspend fun GeoJsonSource.publishData(data: GeoJsonData)
