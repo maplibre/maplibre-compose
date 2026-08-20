@@ -56,11 +56,10 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * [LocationUnavailableReason.UnexpectedFailure].
  *
  * The [Context] constructor and [rememberFusedLocationProvider] with a context delegate
- * [permission] and [requestPermission] to an [AndroidLocationProvider]. A provider created by
- * [rememberFusedLocationProvider] can launch the system permission dialog; a directly constructed
- * provider only reports [permission]. The [FusedLocationProviderClient] constructor keeps the
- * default [LocationProvider.permission], which is always granted, and its [updates] still surface a
- * `SecurityException` as [LocationUnavailableReason.PermissionDenied].
+ * [permission] and [requestPermission] to an [AndroidLocationProvider]. The
+ * [FusedLocationProviderClient] constructor keeps the default [LocationProvider.permission], which
+ * is always granted, and its [updates] still surface a `SecurityException` as
+ * [LocationUnavailableReason.PermissionDenied].
  */
 public class FusedLocationProvider
 internal constructor(
@@ -76,12 +75,8 @@ internal constructor(
   public constructor(locationClient: FusedLocationProviderClient) : this(locationClient, null)
 
   /**
-   * Creates a provider with its own fused client and an unwired [AndroidLocationProvider] as its
-   * permission delegate.
-   *
-   * The provider reports [permission], but its [requestPermission] does nothing.
-   * [rememberFusedLocationProvider] creates a provider that can launch the system permission
-   * dialog.
+   * Creates a provider with its own fused client and an [AndroidLocationProvider] as its permission
+   * delegate.
    */
   public constructor(
     context: Context
@@ -157,9 +152,8 @@ internal constructor(
 }
 
 /**
- * Creates and remembers a fused provider from the current Android [context].
- *
- * The provider reports the foreground permission and can launch the system permission dialog.
+ * Creates and remembers a fused provider from the current Android [context], with permission
+ * delegated to an [AndroidLocationProvider].
  */
 @Composable
 public fun rememberFusedLocationProvider(

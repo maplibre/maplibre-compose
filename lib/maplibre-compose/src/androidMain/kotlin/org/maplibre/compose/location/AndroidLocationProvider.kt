@@ -50,9 +50,8 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * selected provider maps to [LocationUnavailableReason.UnexpectedFailure], because this provider
  * constructs and validates every request argument itself.
  *
- * A provider created by [rememberAndroidLocationProvider] launches the system permission dialog
- * from [requestPermission] and refreshes [permission] when the application resumes. A directly
- * constructed provider still reports [permission], but its [requestPermission] does nothing.
+ * [permission] and [requestPermission] delegate to an [AndroidLocationPermissionRequester]; see its
+ * documentation for when the system permission dialog can be shown.
  *
  * @param context Context used to obtain the platform [LocationManager].
  * @param requester Permission requester that backs [permission] and [requestPermission].
@@ -62,13 +61,7 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
   LocationProvider {
   private val context: Context = context.applicationContext
 
-  /**
-   * Creates a provider with its own permission requester.
-   *
-   * The provider reports [permission], but its [requestPermission] does nothing, because the
-   * requester is not wired to an activity result launcher. [rememberAndroidLocationProvider]
-   * creates a provider that can launch the system permission dialog.
-   */
+  /** Creates a provider with its own [AndroidLocationPermissionRequester]. */
   public constructor(context: Context) : this(context, AndroidLocationPermissionRequester(context))
 
   override val permission: StateFlow<LocationPermission>

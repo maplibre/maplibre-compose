@@ -5,16 +5,16 @@ import android.app.Activity
 import android.content.Context
 import android.content.ContextWrapper
 import android.content.pm.PackageManager
-import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.ComponentActivity
+import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.LifecycleOwner
+import java.util.concurrent.atomic.AtomicInteger
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
@@ -31,11 +31,13 @@ import kotlinx.coroutines.flow.StateFlow
  *
  * Android [LocationProvider] implementations hold a requester and expose [status] and
  * [requestForegroundPermission] through [LocationProvider.permission] and
- * [LocationProvider.requestPermission]. A requester created by
- * [rememberAndroidLocationPermissionRequester] launches the system permission dialog and refreshes
- * [status] when the application resumes. A requester that a provider constructs directly reports
- * the permission at construction time until [refresh] is called, and its
- * [requestForegroundPermission] does nothing.
+ * [LocationProvider.requestPermission].
+ *
+ * [requestForegroundPermission] registers a launcher on the activity's result registry at request
+ * time, so a directly constructed requester is fully functional when [context] can reach a
+ * [ComponentActivity]. When it cannot, such as with a service context,
+ * [requestForegroundPermission] does nothing and [status] stays accurate. [status] refreshes when
+ * the resolved activity resumes.
  *
  * @param context Any [Context]; the permission status is read from the application package.
  */
@@ -44,23 +46,44 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
   public val status: StateFlow<LocationPermission> = mutableStatus
 
   private var requestPending = false
-  internal var launchRequest: () -> Unit = {}
+
+  init {
+    (context.findActivityOrNull() as? LifecycleOwner)
+      ?.lifecycle
+      ?.addObserver(
+        LifecycleEventObserver { _, event ->
+          if (event == Lifecycle.Event.ON_RESUME) refresh()
+        }
+      )
+  }
 
   public fun requestForegroundPermission() {
     val current = refresh()
     if (current is LocationPermission.Granted || requestPending) return
+    val activity = context.findActivityOrNull() as? ComponentActivity ?: return
     requestPending = true
+    lateinit var launcher: ActivityResultLauncher<Array<String>>
+    launcher =
+      activity.activityResultRegistry.register(
+        "org.maplibre.compose.location.permission.${nextKey.getAndIncrement()}",
+        ActivityResultContracts.RequestMultiplePermissions(),
+      ) {
+        requestPending = false
+        refresh()
+        launcher.unregister()
+      }
     try {
-      launchRequest()
+      launcher.launch(
+        arrayOf(
+          Manifest.permission.ACCESS_FINE_LOCATION,
+          Manifest.permission.ACCESS_COARSE_LOCATION,
+        )
+      )
     } catch (error: Throwable) {
       requestPending = false
+      launcher.unregister()
       throw error
     }
-  }
-
-  internal fun onRequestResult() {
-    refresh()
-    requestPending = false
   }
 
   public fun refresh(): LocationPermission {
@@ -96,40 +119,18 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
             }
         )
     }
+
+  private companion object {
+    private val nextKey = AtomicInteger()
+  }
 }
 
-/** Creates the permission requester used by Android location providers. */
+/** Remembers the permission requester used by Android location providers. */
 @Composable
 public fun rememberAndroidLocationPermissionRequester(
   context: Context = LocalContext.current
-): AndroidLocationPermissionRequester {
-  val requester = remember(context) { AndroidLocationPermissionRequester(context) }
-  val lifecycleOwner = LocalLifecycleOwner.current
-  val launcher =
-    rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
-      requester.onRequestResult()
-    }
-
-  SideEffect {
-    requester.launchRequest = {
-      launcher.launch(
-        arrayOf(
-          Manifest.permission.ACCESS_FINE_LOCATION,
-          Manifest.permission.ACCESS_COARSE_LOCATION,
-        )
-      )
-    }
-  }
-  DisposableEffect(lifecycleOwner, requester) {
-    val observer = LifecycleEventObserver { _, event ->
-      if (event == Lifecycle.Event.ON_RESUME) requester.refresh()
-    }
-    lifecycleOwner.lifecycle.addObserver(observer)
-    requester.refresh()
-    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-  }
-  return requester
-}
+): AndroidLocationPermissionRequester =
+  remember(context) { AndroidLocationPermissionRequester(context) }
 
 internal tailrec fun Context.findActivityOrNull(): Activity? =
   when (this) {
