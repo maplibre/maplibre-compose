@@ -7,25 +7,19 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 
-/**
- * Stretch and content-box metadata for a style image used with `icon-text-fit`.
- *
- * Distances use the density that the bitmap was rasterized at. At 2x, `8.dp` is 16 image pixels.
- */
+/** Stretch and content-box metadata for a style image used with `icon-text-fit`. */
 @Immutable
 public sealed class ImageStretch {
   public companion object {
     /**
-     * Stretch intervals and an optional text box, measured from the top-left of the image.
+     * Stretch intervals and an optional text box, from the top-left of the image.
      *
-     * An empty [x] or [y] omits stretch metadata on that axis. Ranges on an axis must be
-     * non-overlapping and lie inside the bitmap; an axis that fails those checks is uploaded
-     * without stretch. A content box that does not lie inside the bitmap is omitted.
+     * Empty [x] or [y] omits stretch on that axis. Overlapping or out-of-image ranges on an axis
+     * are omitted. An out-of-image [content] box is omitted.
      *
-     * @param x Horizontal intervals that may stretch, from the left edge.
-     * @param y Vertical intervals that may stretch, from the top edge.
-     * @param content The box that `icon-text-fit` fills with text. When omitted, MapLibre uses the
-     *   whole image.
+     * @param x Horizontal stretch intervals.
+     * @param y Vertical stretch intervals.
+     * @param content Box that `icon-text-fit` fills. When omitted, MapLibre uses the whole image.
      */
     public operator fun invoke(
       x: List<ClosedRange<Dp>>,
@@ -33,14 +27,7 @@ public sealed class ImageStretch {
       content: DpRect? = null,
     ): ImageStretch = Ranges(x.toList(), y.toList(), content)
 
-    /**
-     * Fixed insets on each edge of the image. The interior stretches and receives text.
-     *
-     * @param left Unstretched inset from the left edge.
-     * @param top Unstretched inset from the top edge.
-     * @param right Unstretched inset from the right edge.
-     * @param bottom Unstretched inset from the bottom edge.
-     */
+    /** Fixed insets on each edge. The interior stretches and receives text. */
     public fun capInsets(left: Dp, top: Dp, right: Dp, bottom: Dp): ImageStretch =
       capInsets(
         stretch = PaddingValues.Absolute(left, top, right, bottom),
@@ -48,10 +35,8 @@ public sealed class ImageStretch {
       )
 
     /**
-     * Fixed stretch border and a text box, inset independently.
-     *
-     * @param stretch Unstretched border on each edge.
-     * @param content Inset of the box that `icon-text-fit` fills with text.
+     * @param stretch Fixed border on each edge.
+     * @param content Inset of the text box.
      */
     public fun capInsets(
       stretch: PaddingValues.Absolute,
@@ -104,10 +89,6 @@ public sealed class ImageStretch {
       }
   }
 
-  /**
-   * Pixel intervals for [imageWidth]×[imageHeight] at [scale]. Axes or the content box that do not
-   * fit are omitted, with a warning.
-   */
   internal fun resolve(imageWidth: Int, imageHeight: Int, scale: Float): ImageStretchResolution =
     when (this) {
       is CapInsets -> resolveCapInsets(imageWidth, imageHeight, scale)
@@ -252,10 +233,6 @@ private fun insetBox(
     )
   }
 
-/**
- * Pixel intervals along one axis, or null when the ranges cannot be used. An empty list is valid
- * and means the axis has no stretch metadata.
- */
 private fun List<ClosedRange<Dp>>.toIntervals(
   axisLength: Int,
   scale: Float,
