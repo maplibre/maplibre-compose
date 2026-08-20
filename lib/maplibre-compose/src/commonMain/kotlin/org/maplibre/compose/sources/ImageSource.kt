@@ -41,12 +41,8 @@ public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource
 /**
  * Remember a new [ImageSource] from the given [bitmap].
  *
- * Pass a placeholder [ImageBitmap] and the best-known [PositionQuad] to declare the source before
- * the real image is ready. A transparent 1×1 bitmap is a typical placeholder. When the real image
- * and corners arrive, recomposition updates the same remembered source in place through
- * [ImageSource.setImage] and [ImageSource.setBounds]. Declaring the source once and updating it is
- * cheaper than wrapping the layer in `if (image != null)`. Use the layer's `visible` to show or
- * hide an overlay that is already in the style.
+ * Recomposition updates this source in place through [ImageSource.setImage] and
+ * [ImageSource.setBounds].
  */
 @Composable
 public fun rememberImageSource(position: PositionQuad, bitmap: ImageBitmap): ImageSource =
