@@ -309,7 +309,7 @@ internal class IosMlnFfiSurfaceController(
           val remaining = queue.sortedBy { it.runAtUptimeSeconds }.map { it.action }
           queue.clear()
           queueCondition.unlock()
-          remaining.forEach { it() }
+          remaining.forEach { autoreleasepool { it() } }
           return
         }
         // The earliest scheduled action runs first; posting order breaks ties.
@@ -330,7 +330,9 @@ internal class IosMlnFfiSurfaceController(
         }
       }
       queueCondition.unlock()
-      action()
+      // The render thread has no autorelease pool, so each action drains one. Metal and the
+      // Objective-C bridge leave temporaries otherwise.
+      autoreleasepool { action() }
     }
   }
 
