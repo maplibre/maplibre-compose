@@ -1,10 +1,16 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.BottomSheetScaffold
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +23,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.movableContentOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.window.core.layout.WindowSizeClass
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
@@ -56,17 +63,34 @@ private fun WideLayout(state: DemoAppState, panel: @Composable (Modifier) -> Uni
   }
 }
 
+/** Height of the scaffold's default drag handle, which sits above the sheet content. */
+private val SheetHandleHeight = 48.dp
+
 @Composable
 private fun NarrowLayout(state: DemoAppState, panel: @Composable (Modifier) -> Unit) {
-  BottomSheetScaffold(
-    sheetPeekHeight = SheetPeekHeight,
-    scaffoldState = rememberBottomSheetScaffoldState(),
-    // Expanded is the measured height of this content, capped at the scaffold.
-    // NavHost SizeTransform interpolates that height with the destination.
-    sheetContent = { panel(Modifier.fillMaxWidth()) },
-  ) {
-    // The map draws under the scaffold content area, so the sheet covers its bottom edge.
-    ShellMap(state, sheetInsets = WindowInsets(bottom = SheetPeekHeight))
+  BoxWithConstraints(Modifier.fillMaxSize()) {
+    val topInset = WindowInsets.safeDrawing.getTop(LocalDensity.current)
+    // Expanded is the measured height of this content, capped so the sheet never enters
+    // the top safe area. Only the map draws behind the notch.
+    val maxSheetHeight =
+      maxHeight - with(LocalDensity.current) { topInset.toDp() } - SheetHandleHeight
+    BottomSheetScaffold(
+      sheetPeekHeight = SheetPeekHeight,
+      scaffoldState = rememberBottomSheetScaffoldState(),
+      // NavHost SizeTransform interpolates the expanded height with the destination.
+      sheetContent = {
+        panel(
+          Modifier.fillMaxWidth()
+            .heightIn(max = maxSheetHeight)
+            // Stop the panel's TopAppBar from padding itself for the top inset. The sheet
+            // stays below the safe area, so that padding is just a bare forehead.
+            .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Top))
+        )
+      },
+    ) {
+      // The map draws under the scaffold content area, so the sheet covers its bottom edge.
+      ShellMap(state, sheetInsets = WindowInsets(bottom = SheetPeekHeight))
+    }
   }
 }
 
