@@ -11,7 +11,7 @@ fun main() {
   onWasmReady {
     // Must run before Compose builds its renderer, which creates the GPU context maps composite
     // into.
-    MapLibre.initialize()
+    MapLibre.configure()
     ComposeViewport(document.body!!) { DemoApp() }
   }
 }

@@ -12,6 +12,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
+import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
@@ -77,6 +78,7 @@ internal fun MlnFfiMapView(
   callbacks: MapAdapter.Callbacks,
   options: MapOptions,
 ) {
+  EnsureMlnFfiConfigured()
   val applicationOptions = MlnFfiApplication.options
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current

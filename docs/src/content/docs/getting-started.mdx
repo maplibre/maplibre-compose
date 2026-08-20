@@ -73,36 +73,11 @@ commonMain.dependencies {
 
 ## Set up Android
 
-Configure MapLibre once during application startup, before composing a map or
-using the offline APIs:
-
-```kotlin title="MainActivity.kt"
-override fun onCreate(savedInstanceState: Bundle?) {
-  super.onCreate(savedInstanceState)
-  MapLibre.configure(applicationContext)
-  setContent { App() }
-}
-```
-
-Import `MapLibre` from `org.maplibre.compose.android`. By default its ambient
-cache and offline-region database live in the application's private cache
-directory; pass `AndroidRuntimeOptions` to choose another file or cache budget.
+Maps use the application's private cache directory.
 
 ## Set up iOS
 
-Configure MapLibre once during application startup, before composing a map or
-using the offline APIs:
-
-```kotlin title="MainViewController.kt"
-fun MainViewController(): UIViewController {
-  MapLibre.configure()
-  return ComposeUIViewController { App() }
-}
-```
-
-Import `MapLibre` from `org.maplibre.compose.ios`. By default its ambient
-cache and offline-region database live in the application's caches directory;
-pass `IosRuntimeOptions` to choose another file or cache budget.
+Maps use the application's caches directory.
 
 The runtime's system libraries link when Xcode links your app, not when Gradle
 builds the framework. Add them to your iOS app target's **Other Linker Flags**:
@@ -133,12 +108,12 @@ kotlin {
 }
 ```
 
-Initialize MapLibre inside `onWasmReady`, before Compose starts.
+Configure MapLibre inside `onWasmReady`, before Compose starts.
 
 ```kotlin title="main.kt"
 fun main() {
   onWasmReady {
-    MapLibre.initialize()
+    MapLibre.configure()
     ComposeViewport(document.body!!) { App() }
   }
 }
@@ -166,11 +141,10 @@ sourceSets {
 }
 ```
 
-Configure MapLibre once, then provide each AWT window's GPU context:
+Provide each AWT window's GPU context:
 
 ```kotlin title="Main.kt"
 fun main() {
-  MapLibre.configure(applicationId = "com.example.myapp")
   singleWindowApplication {
     ProvideMapHost(host = rememberAwtComposeMapHost(window)) {
       App()
