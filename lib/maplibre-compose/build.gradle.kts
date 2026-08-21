@@ -126,9 +126,9 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    // Tests that androidHostTest cannot execute. jsTest and every platform that consumes
-    // mlnShared run them. The Android host JVM has no MapLibre runtime and no Compose UI
-    // test host, and it inherits commonTest, so these stay out of that source set.
+    // Live-map and Compose UI tests shared by jsTest and every platform that consumes
+    // mlnShared. androidHostTest inherits commonTest and has no MapLibre runtime and no
+    // Compose UI test host.
     val liveMapTest =
       create("liveMapTest") {
         dependsOn(commonTest.get())
