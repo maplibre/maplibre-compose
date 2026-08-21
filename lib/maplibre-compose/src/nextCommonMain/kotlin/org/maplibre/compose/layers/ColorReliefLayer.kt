@@ -3,6 +3,7 @@ package org.maplibre.compose.layers
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.Source
 
 internal actual class ColorReliefLayer actual constructor(id: String, actual val source: Source) :
@@ -21,5 +22,14 @@ internal actual class ColorReliefLayer actual constructor(id: String, actual val
 
   actual fun setColorReliefOpacity(opacity: CompiledExpression<FloatValue>) {
     setPaintProperty("color-relief-opacity", opacity)
+  }
+
+  /** TODO: write this property once MapLibre Native implements `resampling` on color-relief. */
+  actual fun setResampling(resampling: CompiledExpression<RasterResampling>) {
+    skipUnsupportedProperty(
+      "resampling",
+      resampling,
+      "MapLibre Native does not implement it on color-relief layers.",
+    )
   }
 }

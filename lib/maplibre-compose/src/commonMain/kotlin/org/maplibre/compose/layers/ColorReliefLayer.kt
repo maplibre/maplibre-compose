@@ -4,8 +4,10 @@ import androidx.compose.runtime.Composable
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.util.MaplibreComposable
@@ -24,6 +26,10 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param color Defines the color of each pixel based on its elevation. Should be an expression that
  *   uses [elevation][org.maplibre.compose.expressions.dsl.elevation] as input.
  * @param opacity The global opacity at which the color relief layer will be drawn.
+ * @param resampling The resampling/interpolation method to use for overscaling, also known as
+ *   texture magnification filter.
+ *
+ *   **Note**: This property is not supported on native platforms yet.
  */
 @Composable
 @MaplibreComposable
@@ -35,13 +41,13 @@ public fun ColorReliefLayer(
   visible: Boolean = true,
   color: Expression<ColorValue> = LayerDefaults.ColorReliefColors,
   opacity: Expression<FloatValue> = const(1f),
+  resampling: Expression<RasterResampling> = nil(),
 ) {
-  // The style spec also defines `resampling`, but MapLibre Native refuses the whole layer when the
-  // property is present, so it is not exposed until Native accepts it.
   val compile = rememberPropertyCompiler()
 
   val compiledColor = compile(color)
   val compiledOpacity = compile(opacity)
+  val compiledResampling = compile(resampling)
 
   SourceReferenceEffect(source)
   LayerNode(
@@ -52,6 +58,7 @@ public fun ColorReliefLayer(
       set(visible) { layer.visible = it }
       set(compiledColor) { layer.setColorReliefColor(it) }
       set(compiledOpacity) { layer.setColorReliefOpacity(it) }
+      set(compiledResampling) { layer.setResampling(it) }
     },
     onClick = null,
     onLongClick = null,
@@ -64,4 +71,6 @@ internal expect class ColorReliefLayer(id: String, source: Source) : Layer {
   fun setColorReliefColor(color: CompiledExpression<ColorValue>)
 
   fun setColorReliefOpacity(opacity: CompiledExpression<FloatValue>)
+
+  fun setResampling(resampling: CompiledExpression<RasterResampling>)
 }
