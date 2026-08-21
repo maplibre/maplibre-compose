@@ -119,24 +119,49 @@ public fun FillLayer(
   )
 }
 
-internal expect class FillLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class FillLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "fill"
 
-  fun setFillSortKey(sortKey: CompiledExpression<FloatValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setFillAntialias(antialias: CompiledExpression<BooleanValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setFillOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setFillSortKey(sortKey: CompiledExpression<FloatValue>) {
+    setLayoutProperty("fill-sort-key", sortKey)
+  }
 
-  fun setFillColor(color: CompiledExpression<ColorValue>)
+  fun setFillAntialias(antialias: CompiledExpression<BooleanValue>) {
+    setPaintProperty("fill-antialias", antialias)
+  }
 
-  fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>)
+  fun setFillOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("fill-opacity", opacity)
+  }
 
-  fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setFillColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("fill-color", color)
+  }
 
-  fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("fill-outline-color", outlineColor)
+  }
 
-  fun setFillPattern(pattern: CompiledExpression<ImageValue>)
+  fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("fill-translate", translate)
+  }
+
+  fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("fill-translate-anchor", translateAnchor)
+  }
+
+  fun setFillPattern(pattern: CompiledExpression<ImageValue>) {
+    setPaintProperty("fill-pattern", pattern)
+  }
 }

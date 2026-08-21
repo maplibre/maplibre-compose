@@ -77,9 +77,10 @@ between the two versions, against three lists:
   layer types that the common API could expose.
 
 Bind what one of those three justifies, and leave the rest undeclared. Anything
-new reaches the common API through `commonMain`, so it needs its `expect` and
-the other platforms' actuals, and it belongs in the conformance corpus under
-`nextCommonTest` rather than in a browser-only test.
+new reaches the common API through `commonMain`. Members that still differ by
+backend need an `expect` and the other platforms' actuals; shared work belongs
+in `commonMain` itself. Either way, the test belongs in `nextCommonTest` rather
+than in a browser-only file.
 
 ## 5. Re-check the four runtime shims
 

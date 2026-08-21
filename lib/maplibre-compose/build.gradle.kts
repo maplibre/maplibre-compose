@@ -70,16 +70,6 @@ kotlin {
         iosMain.get().dependsOn(this)
       }
 
-    // commonMain in waiting: the parts of the mln-ffi and MapLibre GL JS platforms that carry no
-    // backend-conditional logic. It existed because iOS had typed layer actuals rather than
-    // JSON-shaped ones; with iOS on mlnFfiShared it could merge into commonMain, but that move
-    // is left to a follow-up to keep the iOS port reviewable.
-    val nextCommonMain =
-      create("nextCommonMain") {
-        dependsOn(commonMain.get())
-        jsMain.get().dependsOn(this)
-      }
-
     // used to share the integration with the MapLibre Native FFI binding, as opposed to the
     // platform SDKs. Android, desktop, and iOS use the same map, style, source, layer, and
     // offline path. This source set stays free of java.* so a Native actual can sit beside the
@@ -87,7 +77,6 @@ kotlin {
     val mlnFfiShared =
       create("mlnFfiShared") {
         dependsOn(maplibreNativeMain)
-        dependsOn(nextCommonMain)
         iosMain.get().dependsOn(this)
         dependencies {
           // Backend-independent binding only; the application selects the native runtime.
@@ -148,7 +137,8 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    // The test counterpart of nextCommonMain, and on the same path into commonTest.
+    // Tests that need a live map. jsTest and every platform that consumes mlnFfiShared run them.
+    // androidHostTest does not: the Android host has no MapLibre runtime.
     val nextCommonTest =
       create("nextCommonTest") {
         dependsOn(commonTest.get())

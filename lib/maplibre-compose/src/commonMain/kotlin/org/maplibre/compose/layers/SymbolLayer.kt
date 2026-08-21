@@ -660,126 +660,253 @@ public fun SymbolLayer(
   )
 }
 
-internal expect class SymbolLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class SymbolLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "symbol"
 
-  fun setSymbolPlacement(placement: CompiledExpression<SymbolPlacement>)
+  override val sourceId: String = source.id
 
-  fun setSymbolSpacing(spacing: CompiledExpression<DpValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setSymbolAvoidEdges(avoidEdges: CompiledExpression<BooleanValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setSymbolSortKey(sortKey: CompiledExpression<FloatValue>)
+  fun setSymbolPlacement(placement: CompiledExpression<SymbolPlacement>) {
+    setLayoutProperty("symbol-placement", placement)
+  }
 
-  fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>)
+  fun setSymbolSpacing(spacing: CompiledExpression<DpValue>) {
+    setLayoutProperty("symbol-spacing", spacing)
+  }
 
-  fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>)
+  fun setSymbolAvoidEdges(avoidEdges: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("symbol-avoid-edges", avoidEdges)
+  }
 
-  fun setIconOverlap(overlap: CompiledExpression<StringValue>)
+  fun setSymbolSortKey(sortKey: CompiledExpression<FloatValue>) {
+    setLayoutProperty("symbol-sort-key", sortKey)
+  }
 
-  fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>)
+  fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>) {
+    setLayoutProperty("symbol-z-order", zOrder)
+  }
 
-  fun setIconOptional(optional: CompiledExpression<BooleanValue>)
+  fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-allow-overlap", allowOverlap)
+  }
 
-  fun setIconRotationAlignment(rotationAlignment: CompiledExpression<IconRotationAlignment>)
+  fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
+    setLayoutProperty("icon-overlap", overlap)
+  }
 
-  fun setIconSize(size: CompiledExpression<FloatValue>)
+  fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-ignore-placement", ignorePlacement)
+  }
 
-  fun setIconTextFit(textFit: CompiledExpression<IconTextFit>)
+  fun setIconOptional(optional: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-optional", optional)
+  }
 
-  fun setIconTextFitPadding(textFitPadding: CompiledExpression<DpPaddingValue>)
+  fun setIconRotationAlignment(rotationAlignment: CompiledExpression<IconRotationAlignment>) {
+    setLayoutProperty("icon-rotation-alignment", rotationAlignment)
+  }
 
-  fun setIconImage(image: CompiledExpression<ImageValue>)
+  fun setIconSize(size: CompiledExpression<FloatValue>) {
+    setLayoutProperty("icon-size", size)
+  }
 
-  fun setIconRotate(rotate: CompiledExpression<FloatValue>)
+  fun setIconTextFit(textFit: CompiledExpression<IconTextFit>) {
+    setLayoutProperty("icon-text-fit", textFit)
+  }
 
-  fun setIconPadding(padding: CompiledExpression<DpPaddingValue>)
+  fun setIconTextFitPadding(textFitPadding: CompiledExpression<DpPaddingValue>) {
+    setLayoutProperty("icon-text-fit-padding", textFitPadding)
+  }
 
-  fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>)
+  fun setIconImage(image: CompiledExpression<ImageValue>) {
+    setLayoutProperty("icon-image", image)
+  }
 
-  fun setIconOffset(offset: CompiledExpression<DpOffsetValue>)
+  fun setIconRotate(rotate: CompiledExpression<FloatValue>) {
+    setLayoutProperty("icon-rotate", rotate)
+  }
 
-  fun setIconAnchor(anchor: CompiledExpression<SymbolAnchor>)
+  fun setIconPadding(padding: CompiledExpression<DpPaddingValue>) {
+    setLayoutProperty("icon-padding", padding)
+  }
 
-  fun setIconPitchAlignment(pitchAlignment: CompiledExpression<IconPitchAlignment>)
+  fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-keep-upright", keepUpright)
+  }
 
-  fun setIconOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setIconOffset(offset: CompiledExpression<DpOffsetValue>) {
+    setLayoutProperty("icon-offset", offset)
+  }
 
-  fun setIconColor(color: CompiledExpression<ColorValue>)
+  fun setIconAnchor(anchor: CompiledExpression<SymbolAnchor>) {
+    setLayoutProperty("icon-anchor", anchor)
+  }
 
-  fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>)
+  fun setIconPitchAlignment(pitchAlignment: CompiledExpression<IconPitchAlignment>) {
+    setLayoutProperty("icon-pitch-alignment", pitchAlignment)
+  }
 
-  fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>)
+  fun setIconOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("icon-opacity", opacity)
+  }
 
-  fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>)
+  fun setIconColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("icon-color", color)
+  }
 
-  fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("icon-halo-color", haloColor)
+  }
 
-  fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>) {
+    setPaintProperty("icon-halo-width", haloWidth)
+  }
 
-  fun setTextPitchAlignment(pitchAlignment: CompiledExpression<TextPitchAlignment>)
+  fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>) {
+    setPaintProperty("icon-halo-blur", haloBlur)
+  }
 
-  fun setTextRotationAlignment(rotationAlignment: CompiledExpression<TextRotationAlignment>)
+  fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("icon-translate", translate)
+  }
 
-  fun setTextField(field: CompiledExpression<FormattedValue>)
+  fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("icon-translate-anchor", translateAnchor)
+  }
 
-  fun setTextFont(font: CompiledExpression<ListValue<StringValue>>)
+  fun setTextPitchAlignment(pitchAlignment: CompiledExpression<TextPitchAlignment>) {
+    setLayoutProperty("text-pitch-alignment", pitchAlignment)
+  }
 
-  fun setTextSize(size: CompiledExpression<DpValue>)
+  fun setTextRotationAlignment(rotationAlignment: CompiledExpression<TextRotationAlignment>) {
+    setLayoutProperty("text-rotation-alignment", rotationAlignment)
+  }
 
-  fun setTextMaxWidth(maxWidth: CompiledExpression<FloatValue>)
+  fun setTextField(field: CompiledExpression<FormattedValue>) {
+    setLayoutProperty("text-field", field)
+  }
 
-  fun setTextLineHeight(lineHeight: CompiledExpression<FloatValue>)
+  fun setTextFont(font: CompiledExpression<ListValue<StringValue>>) {
+    setLayoutProperty("text-font", font)
+  }
 
-  fun setTextLetterSpacing(letterSpacing: CompiledExpression<FloatValue>)
+  fun setTextSize(size: CompiledExpression<DpValue>) {
+    setLayoutProperty("text-size", size)
+  }
 
-  fun setTextJustify(justify: CompiledExpression<TextJustify>)
+  fun setTextMaxWidth(maxWidth: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-max-width", maxWidth)
+  }
 
-  fun setTextRadialOffset(radialOffset: CompiledExpression<FloatValue>)
+  fun setTextLineHeight(lineHeight: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-line-height", lineHeight)
+  }
 
-  fun setTextVariableAnchor(variableAnchor: CompiledExpression<ListValue<SymbolAnchor>>)
+  fun setTextLetterSpacing(letterSpacing: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-letter-spacing", letterSpacing)
+  }
+
+  fun setTextJustify(justify: CompiledExpression<TextJustify>) {
+    setLayoutProperty("text-justify", justify)
+  }
+
+  fun setTextRadialOffset(radialOffset: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-radial-offset", radialOffset)
+  }
+
+  fun setTextVariableAnchor(variableAnchor: CompiledExpression<ListValue<SymbolAnchor>>) {
+    setLayoutProperty("text-variable-anchor", variableAnchor)
+  }
 
   fun setTextVariableAnchorOffset(
     variableAnchorOffset: CompiledExpression<TextVariableAnchorOffsetValue>
-  )
+  ) {
+    setLayoutProperty("text-variable-anchor-offset", variableAnchorOffset)
+  }
 
-  fun setTextAnchor(anchor: CompiledExpression<SymbolAnchor>)
+  fun setTextAnchor(anchor: CompiledExpression<SymbolAnchor>) {
+    setLayoutProperty("text-anchor", anchor)
+  }
 
-  fun setTextMaxAngle(maxAngle: CompiledExpression<FloatValue>)
+  fun setTextMaxAngle(maxAngle: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-max-angle", maxAngle)
+  }
 
-  fun setTextWritingMode(writingMode: CompiledExpression<ListValue<TextWritingMode>>)
+  fun setTextWritingMode(writingMode: CompiledExpression<ListValue<TextWritingMode>>) {
+    setLayoutProperty("text-writing-mode", writingMode)
+  }
 
-  fun setTextRotate(rotate: CompiledExpression<FloatValue>)
+  fun setTextRotate(rotate: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-rotate", rotate)
+  }
 
-  fun setTextPadding(padding: CompiledExpression<DpValue>)
+  fun setTextPadding(padding: CompiledExpression<DpValue>) {
+    setLayoutProperty("text-padding", padding)
+  }
 
-  fun setTextKeepUpright(keepUpright: CompiledExpression<BooleanValue>)
+  fun setTextKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-keep-upright", keepUpright)
+  }
 
-  fun setTextTransform(transform: CompiledExpression<TextTransform>)
+  fun setTextTransform(transform: CompiledExpression<TextTransform>) {
+    setLayoutProperty("text-transform", transform)
+  }
 
-  fun setTextOffset(offset: CompiledExpression<FloatOffsetValue>)
+  fun setTextOffset(offset: CompiledExpression<FloatOffsetValue>) {
+    setLayoutProperty("text-offset", offset)
+  }
 
-  fun setTextAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>)
+  fun setTextAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-allow-overlap", allowOverlap)
+  }
 
-  fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>)
+  fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
+    setLayoutProperty("text-overlap", overlap)
+  }
 
-  fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>)
+  fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-ignore-placement", ignorePlacement)
+  }
 
-  fun setTextOptional(optional: CompiledExpression<BooleanValue>)
+  fun setTextOptional(optional: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-optional", optional)
+  }
 
-  fun setTextOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setTextOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("text-opacity", opacity)
+  }
 
-  fun setTextColor(color: CompiledExpression<ColorValue>)
+  fun setTextColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("text-color", color)
+  }
 
-  fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>)
+  fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("text-halo-color", haloColor)
+  }
 
-  fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>)
+  fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>) {
+    setPaintProperty("text-halo-width", haloWidth)
+  }
 
-  fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>)
+  fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>) {
+    setPaintProperty("text-halo-blur", haloBlur)
+  }
 
-  fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("text-translate", translate)
+  }
 
-  fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("text-translate-anchor", translateAnchor)
+  }
 }

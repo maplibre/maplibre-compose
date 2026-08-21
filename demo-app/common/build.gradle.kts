@@ -39,9 +39,6 @@ kotlin {
   sourceSets {
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
-    // Every platform shares the nextCommon gesture fields, so the gesture settings actual lives
-    // in one set.
-    val allPlatformsShared by creating { dependsOn(commonMain.get()) }
     // FFI render toggles: tile borders, parse status, and the Surface/Texture hint. The web
     // platform is not on the FFI, so it has its own actual.
     val mlnFfiShared by creating { dependsOn(commonMain.get()) }
@@ -62,27 +59,22 @@ kotlin {
     val jvmShared by creating { dependsOn(nonJsShared) }
 
     androidMain {
-      dependsOn(allPlatformsShared)
       dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
       dependsOn(jvmShared)
     }
 
     jvmMain {
-      dependsOn(allPlatformsShared)
       dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
       dependsOn(jvmShared)
     }
 
     iosMain {
-      dependsOn(allPlatformsShared)
       dependsOn(mlnFfiShared)
       dependsOn(maplibreNativeShared)
       dependsOn(nonJsShared)
     }
-
-    jsMain { dependsOn(allPlatformsShared) }
 
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.

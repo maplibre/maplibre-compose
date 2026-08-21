@@ -61,10 +61,19 @@ public fun BackgroundLayer(
   )
 }
 
-internal expect class BackgroundLayer(id: String) : Layer {
-  fun setBackgroundColor(color: CompiledExpression<ColorValue>)
+internal class BackgroundLayer(id: String) : Layer(id) {
 
-  fun setBackgroundPattern(pattern: CompiledExpression<ImageValue>)
+  override val type: String = "background"
 
-  fun setBackgroundOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setBackgroundColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("background-color", color)
+  }
+
+  fun setBackgroundPattern(pattern: CompiledExpression<ImageValue>) {
+    setPaintProperty("background-pattern", pattern)
+  }
+
+  fun setBackgroundOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("background-opacity", opacity)
+  }
 }

@@ -93,18 +93,37 @@ public fun HeatmapLayer(
   )
 }
 
-internal expect class HeatmapLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class HeatmapLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "heatmap"
 
-  fun setHeatmapRadius(radius: CompiledExpression<DpValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setHeatmapWeight(weight: CompiledExpression<FloatValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>)
+  fun setHeatmapRadius(radius: CompiledExpression<DpValue>) {
+    setPaintProperty("heatmap-radius", radius)
+  }
 
-  fun setHeatmapColor(color: CompiledExpression<ColorValue>)
+  fun setHeatmapWeight(weight: CompiledExpression<FloatValue>) {
+    setPaintProperty("heatmap-weight", weight)
+  }
 
-  fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>) {
+    setPaintProperty("heatmap-intensity", intensity)
+  }
+
+  fun setHeatmapColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("heatmap-color", color)
+  }
+
+  fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("heatmap-opacity", opacity)
+  }
 }

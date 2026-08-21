@@ -3,8 +3,9 @@ package org.maplibre.compose.demoapp
 import androidx.compose.runtime.Composable
 import org.maplibre.compose.demoapp.design.SwitchRow
 
+/** Gesture option toggles, as settings list items. */
 @Composable
-actual fun GestureSettingsItems(settings: DemoSettings) {
+fun GestureSettingsItems(settings: DemoSettings) {
   val options = settings.gestureOptions
   SwitchRow("Drag pan", options.isDragPanEnabled) {
     settings.gestureOptions = options.copy(isDragPanEnabled = it)

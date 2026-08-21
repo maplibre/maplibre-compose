@@ -26,12 +26,6 @@ class DemoSettings {
 @Composable fun rememberDemoSettings() = remember { DemoSettings() }
 
 /**
- * The gesture toggles this platform's [GestureOptions] offers, as settings list items. An expect,
- * because each platform integration exposes its own set.
- */
-@Composable expect fun GestureSettingsItems(settings: DemoSettings)
-
-/**
  * The rendering toggles this platform's [RenderOptions] offers — debug flags, the frame rate cap,
  * and where supported the texture-versus-surface choice — as settings list items.
  */

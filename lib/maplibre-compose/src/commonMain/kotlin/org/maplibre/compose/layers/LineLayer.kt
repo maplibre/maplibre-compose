@@ -171,40 +171,81 @@ public fun LineLayer(
   )
 }
 
-internal expect class LineLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class LineLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "line"
 
-  fun setLineCap(cap: CompiledExpression<LineCap>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setLineJoin(join: CompiledExpression<LineJoin>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setLineMiterLimit(miterLimit: CompiledExpression<FloatValue>)
+  fun setLineCap(cap: CompiledExpression<LineCap>) {
+    setLayoutProperty("line-cap", cap)
+  }
 
-  fun setLineRoundLimit(roundLimit: CompiledExpression<FloatValue>)
+  fun setLineJoin(join: CompiledExpression<LineJoin>) {
+    setLayoutProperty("line-join", join)
+  }
 
-  fun setLineSortKey(sortKey: CompiledExpression<FloatValue>)
+  fun setLineMiterLimit(miterLimit: CompiledExpression<FloatValue>) {
+    setLayoutProperty("line-miter-limit", miterLimit)
+  }
 
-  fun setLineOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setLineRoundLimit(roundLimit: CompiledExpression<FloatValue>) {
+    setLayoutProperty("line-round-limit", roundLimit)
+  }
 
-  fun setLineColor(color: CompiledExpression<ColorValue>)
+  fun setLineSortKey(sortKey: CompiledExpression<FloatValue>) {
+    setLayoutProperty("line-sort-key", sortKey)
+  }
 
-  fun setLineTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setLineOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("line-opacity", opacity)
+  }
 
-  fun setLineTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setLineColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("line-color", color)
+  }
 
-  fun setLineWidth(width: CompiledExpression<DpValue>)
+  fun setLineTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("line-translate", translate)
+  }
 
-  fun setLineGapWidth(gapWidth: CompiledExpression<DpValue>)
+  fun setLineTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("line-translate-anchor", translateAnchor)
+  }
 
-  fun setLineOffset(offset: CompiledExpression<DpValue>)
+  fun setLineWidth(width: CompiledExpression<DpValue>) {
+    setPaintProperty("line-width", width)
+  }
 
-  fun setLineBlur(blur: CompiledExpression<DpValue>)
+  fun setLineGapWidth(gapWidth: CompiledExpression<DpValue>) {
+    setPaintProperty("line-gap-width", gapWidth)
+  }
 
-  fun setLineDasharray(dasharray: CompiledExpression<VectorValue<Number>>)
+  fun setLineOffset(offset: CompiledExpression<DpValue>) {
+    setPaintProperty("line-offset", offset)
+  }
 
-  fun setLinePattern(pattern: CompiledExpression<ImageValue>)
+  fun setLineBlur(blur: CompiledExpression<DpValue>) {
+    setPaintProperty("line-blur", blur)
+  }
 
-  fun setLineGradient(gradient: CompiledExpression<ColorValue>)
+  fun setLineDasharray(dasharray: CompiledExpression<VectorValue<Number>>) {
+    setPaintProperty("line-dasharray", dasharray)
+  }
+
+  fun setLinePattern(pattern: CompiledExpression<ImageValue>) {
+    setPaintProperty("line-pattern", pattern)
+  }
+
+  fun setLineGradient(gradient: CompiledExpression<ColorValue>) {
+    setPaintProperty("line-gradient", gradient)
+  }
 }
