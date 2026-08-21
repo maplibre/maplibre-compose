@@ -18,6 +18,7 @@ import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoFlightDuration
 import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.location.LocationPermission
@@ -28,6 +29,7 @@ import org.maplibre.compose.location.LocationTrackingStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberLocationState
+import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -120,6 +122,23 @@ object LocationDemo : Demo {
       color = MaterialTheme.colorScheme.onSurfaceVariant,
       modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
+    val settings = rememberSystemSettingsLauncher()
+    val permission = panelLocationState?.permission
+    if (
+      permission is LocationPermission.NotGranted &&
+        permission.canRequest == false &&
+        settings.canOpenApplicationSettings
+    ) {
+      ButtonRow("Open system settings") { settings.openApplicationSettings() }
+    }
+    val status = panelLocationState?.status
+    if (
+      status is LocationTrackingStatus.Unavailable &&
+        status.reason == LocationUnavailableReason.ServicesDisabled &&
+        settings.canOpenLocationServicesSettings
+    ) {
+      ButtonRow("Open location settings") { settings.openLocationServicesSettings() }
+    }
     SwitchRow("Follow me", follow) { follow = it }
     if (isNativeLocationIndicatorAvailable) {
       SwitchRow("Native indicator", useNativeIndicator) { useNativeIndicator = it }

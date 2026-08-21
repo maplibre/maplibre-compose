@@ -56,9 +56,11 @@ if (locationState.permission !is LocationPermission.Granted) {
 When permission is not granted, `LocationPermission.NotGranted` says which step
 comes next: explain first when `shouldShowRationale` is set (Android only),
 request when `canRequest` is not `false`, and send the user to the system
-settings otherwise.
+settings otherwise. `rememberSystemSettingsLauncher` opens the settings screens
+on the platforms that have them.
 
 ```kotlin
+val settings = rememberSystemSettingsLauncher()
 val permission = locationState.permission
 if (permission is LocationPermission.NotGranted) {
   when {
@@ -66,7 +68,8 @@ if (permission is LocationPermission.NotGranted) {
       LocationRationale(onAccept = locationState::requestPermission)
     permission.canRequest != false ->
       Button(onClick = locationState::requestPermission) { Text("Use my location") }
-    else -> OpenSettingsHint()
+    settings.canOpenApplicationSettings ->
+      Button(onClick = { settings.openApplicationSettings() }) { Text("Open settings") }
   }
 }
 ```

@@ -38,6 +38,15 @@ fun SwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Uni
   )
 }
 
+@Composable
+fun ButtonRow(label: String, onClick: () -> Unit) {
+  ListItem(
+    headlineContent = { Text(label, color = MaterialTheme.colorScheme.primary) },
+    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
+    modifier = Modifier.clickable(role = Role.Button, onClick = onClick),
+  )
+}
+
 /** A single-choice row of short options, as a settings list item. */
 @Composable
 fun <T> SegmentedRow(
