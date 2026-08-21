@@ -6,6 +6,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCompositionContext
@@ -37,9 +38,7 @@ internal fun rememberStyleComposition(
     styleState.attach(rootNode)
     val composition = Composition(MapNodeApplier(rootNode), compositionContext)
 
-    composition.setContent {
-      CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
-    }
+    composition.setContent { StyleContent(rootNode, content) }
 
     try {
       awaitCancellation()
@@ -52,6 +51,18 @@ internal fun rememberStyleComposition(
   SideEffect { nodeState.value?.logger = logger }
 
   return nodeState
+}
+
+@Composable
+internal fun StyleContent(
+  rootNode: StyleNode,
+  content: @Composable @MaplibreComposable () -> Unit,
+) {
+  CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
+  key(rootNode.currentApplyGeneration) {
+    // Side effects run after remember observers, so source effects attach before layers do.
+    SideEffect { rootNode.applyChanges() }
+  }
 }
 
 internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw IllegalStateException() }

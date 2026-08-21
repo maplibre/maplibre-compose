@@ -13,9 +13,6 @@ internal actual class RasterLayer actual constructor(id: String, actual val sour
 
   override val sourceId: String = source.id
 
-  override val sourceDescriptor: Source
-    get() = source
-
   actual fun setRasterOpacity(opacity: CompiledExpression<FloatValue>) {
     setPaintProperty("raster-opacity", opacity)
   }

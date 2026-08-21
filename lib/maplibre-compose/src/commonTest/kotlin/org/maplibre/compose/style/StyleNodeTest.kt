@@ -67,7 +67,7 @@ abstract class StyleNodeTest {
       val newSource =
         GeoJsonSource("new", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       s.sourceManager.addReference(newSource)
-      s.onEndChanges()
+      s.applyChanges()
       assertEquals(4, s.style.getSources().size)
       assertEquals(newSource, s.style.getSource("new"))
     }
@@ -80,7 +80,7 @@ abstract class StyleNodeTest {
       val newSource =
         GeoJsonSource("new", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       s.sourceManager.addReference(newSource)
-      s.onEndChanges()
+      s.applyChanges()
       s.sourceManager.removeReference(newSource)
       assertEquals(3, s.style.getSources().size)
       assertNull(s.style.getSource("new"))
@@ -190,7 +190,7 @@ abstract class StyleNodeTest {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Top) }
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
-      s.onEndChanges()
+      s.applyChanges()
       assertEquals(
         listOf("foo", "bar", "baz", "new0", "new1", "new2"),
         s.style.getLayers().map(Layer::id),
@@ -204,7 +204,7 @@ abstract class StyleNodeTest {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Bottom) }
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
-      s.onEndChanges()
+      s.applyChanges()
       assertEquals(
         listOf("new0", "new1", "new2", "foo", "bar", "baz"),
         s.style.getLayers().map(Layer::id),
@@ -218,7 +218,7 @@ abstract class StyleNodeTest {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Above("foo")) }
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
-      s.onEndChanges()
+      s.applyChanges()
       assertEquals(
         listOf("foo", "new0", "new1", "new2", "bar", "baz"),
         s.style.getLayers().map(Layer::id),
@@ -232,7 +232,7 @@ abstract class StyleNodeTest {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Below("baz")) }
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
-      s.onEndChanges()
+      s.applyChanges()
       assertEquals(
         listOf("foo", "bar", "new0", "new1", "new2", "baz"),
         s.style.getLayers().map(Layer::id),
@@ -247,7 +247,7 @@ abstract class StyleNodeTest {
       val nodes =
         (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Replace("bar")) }
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
-      s.onEndChanges()
+      s.applyChanges()
       assertEquals(listOf("foo", "new0", "new1", "new2", "baz"), s.style.getLayers().map(Layer::id))
     }
   }
@@ -260,12 +260,12 @@ abstract class StyleNodeTest {
         (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Replace("bar")) }
 
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
-      s.onEndChanges()
+      s.applyChanges()
 
       assertEquals(listOf("foo", "new0", "new1", "new2", "baz"), s.style.getLayers().map(Layer::id))
 
       nodes.forEach { node -> s.layerManager.removeLayer(node, 0) }
-      s.onEndChanges()
+      s.applyChanges()
 
       assertEquals(listOf("foo", "bar", "baz"), s.style.getLayers().map(Layer::id))
     }
@@ -279,12 +279,12 @@ abstract class StyleNodeTest {
       val newNode = LayerNode(LineLayer("new", testSources[0]), Anchor.Replace("bar"))
 
       s.layerManager.addLayer(oldNode, 0)
-      s.onEndChanges()
+      s.applyChanges()
       s.style.unload()
 
       s.layerManager.addLayer(newNode, 0)
       s.layerManager.removeLayer(oldNode, 1)
-      s.onEndChanges()
+      s.applyChanges()
       s.layerManager.removeLayer(newNode, 0)
     }
   }
@@ -297,13 +297,13 @@ abstract class StyleNodeTest {
       val l2 = LayerNode(LineLayer("new", testSources[1]), Anchor.Top)
 
       s.layerManager.addLayer(l1, 0)
-      s.onEndChanges()
+      s.applyChanges()
 
       assertEquals(l1.layer, s.style.getLayer("new"))
 
       s.layerManager.addLayer(l2, 0)
       s.layerManager.removeLayer(l1, 1)
-      s.onEndChanges()
+      s.applyChanges()
 
       assertEquals(l2.layer, s.style.getLayer("new"))
     }
@@ -316,13 +316,13 @@ abstract class StyleNodeTest {
 
       s.layerManager.addLayer(LayerNode(LineLayer("b1", testSources[0]), Anchor.Bottom), 0)
       s.layerManager.addLayer(LayerNode(LineLayer("t1", testSources[0]), Anchor.Top), 0)
-      s.onEndChanges()
+      s.applyChanges()
 
       assertEquals(listOf("b1", "foo", "bar", "baz", "t1"), s.style.getLayers().map(Layer::id))
 
       s.layerManager.addLayer(LayerNode(LineLayer("b2", testSources[0]), Anchor.Bottom), 0)
       s.layerManager.addLayer(LayerNode(LineLayer("t2", testSources[0]), Anchor.Top), 0)
-      s.onEndChanges()
+      s.applyChanges()
 
       assertEquals(
         listOf("b2", "b1", "foo", "bar", "baz", "t2", "t1"),

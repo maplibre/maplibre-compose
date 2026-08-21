@@ -3,7 +3,6 @@ package org.maplibre.compose.style
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.sources.Source
 
 /**
  * A layer's connection to its live style, as a layer ID and style-spec JSON. A binding stops
@@ -14,9 +13,6 @@ internal interface StyleBinding {
   val isLoaded: Boolean
 
   val logger: Logger?
-
-  /** Adds [source] unless it is already here, reporting its errors as this binding's own. */
-  fun attachSource(source: Source)
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -68,8 +64,6 @@ internal interface StyleBinding {
         override val isLoaded: Boolean = false
 
         override val logger: Logger? = null
-
-        override fun attachSource(source: Source) = Unit
 
         override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = false
 

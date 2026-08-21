@@ -26,9 +26,6 @@ internal actual sealed class Layer(actual val id: String) {
   /** The source this layer draws from, or null for layers that have none, such as background. */
   protected open val sourceId: String? = null
 
-  internal open val sourceDescriptor: org.maplibre.compose.sources.Source?
-    get() = null
-
   private val layout = mutableMapOf<String, JsonElement>()
   private val paint = mutableMapOf<String, JsonElement>()
   private val root = mutableMapOf<String, JsonElement>()
@@ -187,9 +184,6 @@ internal actual sealed class Layer(actual val id: String) {
       "Layer '$id' already belongs to another loaded style; create a separate layer instance for " +
         "each map"
     }
-    // The source's own effect has not run yet on a fresh style composition, and MapLibre rejects a
-    // layer naming a source that does not exist.
-    sourceDescriptor?.let { binding.attachSource(it) }
     // A duplicate ID fails here, on the caller, with the message that names the cause; the add
     // itself would fail too, but with MapLibre's generic refusal. A same-binding re-attach is
     // idempotent: the layer is already in this style. Null means the check could not run; the add

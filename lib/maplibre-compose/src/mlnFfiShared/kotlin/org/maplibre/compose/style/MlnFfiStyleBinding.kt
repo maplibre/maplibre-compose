@@ -4,7 +4,6 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.error.MaplibreException
@@ -43,10 +42,6 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    * waiting for idle. Call only from the owner thread, after the native add or remove.
    */
   fun reportSourceChanged(sourceId: String) {}
-
-  override fun attachSource(source: Source) {
-    source.attach(this)
-  }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
     mutateMap { map ->

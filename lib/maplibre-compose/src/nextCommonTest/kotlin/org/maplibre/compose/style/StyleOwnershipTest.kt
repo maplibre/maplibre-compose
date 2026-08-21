@@ -129,23 +129,6 @@ class StyleOwnershipTest {
   }
 
   @Test
-  fun layer_before_source_attachment_is_idempotent_for_the_same_descriptor(): MapTestResult =
-    runMapTest {
-      createMapFixture().use { fixture ->
-        fixture.loadStyle(BaseStyle.Empty)
-        val style = requireNotNull(fixture.style)
-        val source = emptySource("layer-first-source")
-        val layer = FillLayer("layer-first", source)
-
-        style.addLayer(layer)
-        style.addSource(source)
-
-        assertNotNull(style.getSource(source.id))
-        assertNotNull(style.getLayer(layer.id))
-      }
-    }
-
-  @Test
   fun a_layer_can_use_a_source_read_from_the_base_style(): MapTestResult = runMapTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BASE_SOURCE_STYLE)
