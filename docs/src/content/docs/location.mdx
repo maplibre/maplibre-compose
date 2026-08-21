@@ -126,20 +126,10 @@ androidMain.dependencies {
 }
 ```
 
-`ServiceLoader` discovers the module, so `rememberDefaultLocationProvider` and
-`rememberDefaultOrientationProvider` return the fused providers on a device
-where Google Play services is available and the framework providers otherwise.
-
-An application that configures the fused providers directly uses them by name:
-
-```kotlin
-val locationProvider = rememberFusedLocationProvider()
-val orientationProvider = rememberFusedOrientationProvider()
-```
-
-`rememberFusedLocationProvider` delegates permission to the Android provider
-above. The `FusedLocationProvider(client)` constructor keeps the always-granted
-default.
+The default providers then use fused location and orientation on a device where
+Google Play services is available, and the framework providers otherwise. Use
+`rememberFusedLocationProvider` and `rememberFusedOrientationProvider` to
+configure the fused providers directly.
 
 #### Web
 
