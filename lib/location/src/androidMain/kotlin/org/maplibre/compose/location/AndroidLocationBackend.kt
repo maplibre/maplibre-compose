@@ -13,14 +13,23 @@ import kotlinx.coroutines.flow.flowOf
  *
  * An installed and available backend supplies the providers that [rememberDefaultLocationProvider]
  * and [rememberDefaultOrientationProvider] create; the framework providers remain the default
- * otherwise. A [ServiceConfigurationError], an exception while checking a backend, or more than one
- * available backend maps [LocationProvider.backendAvailability] to
+ * otherwise. When several backends are available, the highest [priority] wins, and equal priorities
+ * resolve to the first [id] in lexicographic order. A [ServiceConfigurationError] or an exception
+ * while checking a backend maps [LocationProvider.backendAvailability] to
  * [LocationBackendAvailability.Misconfigured]. The installed backend documents its own availability
  * conditions.
  */
 public interface AndroidLocationBackend {
-  /** A stable name used in diagnostics. */
+  /** A stable name used in diagnostics and to break priority ties. */
   public val id: String
+
+  /**
+   * The precedence of this backend when several are available. The backend with the highest
+   * priority supplies the default providers. Backends ship with priority 0; declare a higher value
+   * for a backend that is a better fit on its own hardware, or a negative value for a last resort.
+   */
+  public val priority: Int
+    get() = 0
 
   /** Whether this backend can run on the current device. */
   public fun isAvailable(context: Context): Boolean
@@ -62,18 +71,14 @@ internal object AndroidLocationBackendResolver {
     return resolve(availableBackends)
   }
 
-  fun resolve(availableBackends: List<AndroidLocationBackend>): AndroidBackendResolution =
-    when {
-      availableBackends.isEmpty() -> AndroidBackendResolution.None
-      availableBackends.size > 1 ->
-        AndroidBackendResolution.Misconfigured(
-          IllegalStateException(
-            "Multiple Android location backends are available: " +
-              availableBackends.joinToString { it.id }
-          )
-        )
-      else -> AndroidBackendResolution.Discovered(availableBackends.single())
-    }
+  fun resolve(availableBackends: List<AndroidLocationBackend>): AndroidBackendResolution {
+    val backend =
+      availableBackends.minWithOrNull(
+        compareByDescending<AndroidLocationBackend> { it.priority }.thenBy { it.id }
+      )
+    return if (backend == null) AndroidBackendResolution.None
+    else AndroidBackendResolution.Discovered(backend)
+  }
 }
 
 internal class MisconfiguredLocationProvider(private val cause: Throwable) : LocationProvider {
