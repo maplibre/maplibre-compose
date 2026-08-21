@@ -1457,7 +1457,10 @@ internal class MlnFfiMapSession(
   override fun onPrimaryClick(offset: DpOffset) {
     if (closed) return
     val position = withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
-    if (position == null) return
+    if (position == null) {
+      logger?.w { "Dropped a map click at $offset: the map has no viewport" }
+      return
+    }
     callbacks.onClick(this, position, offset)
   }
 
@@ -1465,7 +1468,10 @@ internal class MlnFfiMapSession(
   override fun onSecondaryClick(offset: DpOffset) {
     if (closed) return
     val position = withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
-    if (position == null) return
+    if (position == null) {
+      logger?.w { "Dropped a map long click at $offset: the map has no viewport" }
+      return
+    }
     callbacks.onLongClick(this, position, offset)
   }
 
