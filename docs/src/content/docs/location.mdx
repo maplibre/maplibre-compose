@@ -112,19 +112,8 @@ activity that the context resolves to, so it works from a directly constructed
 provider too; with a context that cannot reach an activity, the request does
 nothing and the reported permission stays accurate.
 
-For better accuracy, use the Fused Location/Orientation Provider
-(requires Google Play Services):
-
-```kotlin
-val locationProvider = rememberFusedLocationProvider()
-val orientationProvider = rememberFusedOrientationProvider()
-```
-
-`rememberFusedLocationProvider` delegates permission to the Android provider
-above. The `FusedLocationProvider(client)` constructor keeps the always-granted
-default.
-
-Add the extension module to the Android source set:
+For better accuracy, add the Google Play services module to the Android source
+set:
 
 ```toml title="libs.versions.toml"
 [libraries]
@@ -136,6 +125,21 @@ androidMain.dependencies {
   implementation(libs.maplibre.locationRuntimeGms)
 }
 ```
+
+`ServiceLoader` discovers the module, so `rememberDefaultLocationProvider` and
+`rememberDefaultOrientationProvider` return the fused providers on a device
+where Google Play services is available and the framework providers otherwise.
+
+An application that configures the fused providers directly uses them by name:
+
+```kotlin
+val locationProvider = rememberFusedLocationProvider()
+val orientationProvider = rememberFusedOrientationProvider()
+```
+
+`rememberFusedLocationProvider` delegates permission to the Android provider
+above. The `FusedLocationProvider(client)` constructor keeps the always-granted
+default.
 
 #### Web
 
