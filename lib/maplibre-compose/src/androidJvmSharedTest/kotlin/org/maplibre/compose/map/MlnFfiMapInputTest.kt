@@ -14,6 +14,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ComposeTimeoutException
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.MouseButton
 import androidx.compose.ui.test.click
@@ -289,7 +291,7 @@ class MlnFfiMapInputTest {
       release()
     }
 
-    waitUntil(timeoutMillis = TIMEOUT) { clicks.size > clicksBefore }
+    awaitClickCounts("the press was not reported as a map click") { clicks.size > clicksBefore }
     assertEquals(
       longitudeBefore,
       camera.position.target.longitude,
@@ -320,7 +322,7 @@ class MlnFfiMapInputTest {
 
     runInputTest(focusWithMouse = false, parentOnClick = { parentClicks.incrementAndFetch() }) {
       onRoot().performMouseInput { click(center) }
-      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
+      awaitClickCounts("the tap was not reported as a map click") { clicks.size == 1 }
       waitForIdle()
 
       assertEquals(0, parentClicks.load())
@@ -338,7 +340,7 @@ class MlnFfiMapInputTest {
       val map = onRoot()
       map.performTouchInput { down(0, center) }
       mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { longClicks.size == 1 }
+      awaitClickCounts("the press was not reported as a map long click") { longClicks.size == 1 }
       map.performTouchInput { up(0) }
       waitForIdle()
 
@@ -360,7 +362,7 @@ class MlnFfiMapInputTest {
         down(center)
       }
       mainClock.advanceTimeBy(1_000)
-      waitUntil(timeoutMillis = TIMEOUT) { longClicks.size == 1 }
+      awaitClickCounts("the press was not reported as a map long click") { longClicks.size == 1 }
       map.performTouchInput { up() }
       waitForIdle()
       assertEquals(0, clicks.size, "a paired long click reported the first tap as a map click")
@@ -417,7 +419,7 @@ class MlnFfiMapInputTest {
       val anchor = Offset(onRoot().fetchSemanticsNode().size.width * 0.3f, 240f)
       val clicksBefore = clicks.size
       onRoot().performMouseInput { click(anchor) }
-      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == clicksBefore + 1 }
+      awaitClickCounts("the mouse click was not reported") { clicks.size == clicksBefore + 1 }
       val positionBefore = clicks.last()
       val bearingBefore = camera.position.bearing
 
@@ -433,7 +435,9 @@ class MlnFfiMapInputTest {
       waitUntil(timeoutMillis = TIMEOUT) { camera.position.bearing != bearingBefore }
 
       onRoot().performMouseInput { click(anchor) }
-      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == clicksBefore + 2 }
+      awaitClickCounts("the mouse click after the rotation was not reported") {
+        clicks.size == clicksBefore + 2
+      }
       val positionAfter = clicks.last()
       assertEquals(positionBefore.longitude, positionAfter.longitude, 1e-5, "longitude")
       assertEquals(positionBefore.latitude, positionAfter.latitude, 1e-5, "latitude")
@@ -639,7 +643,7 @@ class MlnFfiMapInputTest {
       } finally {
         mainClock.autoAdvance = true
       }
-      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
+      awaitClickCounts("the tap was not reported as a map click") { clicks.size == 1 }
     }
 
   @Test
@@ -737,7 +741,7 @@ class MlnFfiMapInputTest {
         camera.position.target.longitude != before.target.longitude
       }
       assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
-      waitUntil(timeoutMillis = TIMEOUT) { clicks.size == 1 }
+      awaitClickCounts("the tap was not reported as a map click") { clicks.size == 1 }
     }
 
   @Test
@@ -1003,6 +1007,21 @@ class MlnFfiMapInputTest {
     if (focusWithMouse) onRoot().performMouseInput { click(Offset(10f, 10f)) }
 
     body(cameraState)
+  }
+
+  /**
+   * [waitUntil] for the click counters. A timeout reports both counts, so a flaky run in CI shows
+   * which report went missing instead of an anonymous timeout.
+   */
+  private fun ComposeUiTest.awaitClickCounts(description: String, condition: () -> Boolean) {
+    try {
+      waitUntil(timeoutMillis = TIMEOUT, condition = condition)
+    } catch (timeout: ComposeTimeoutException) {
+      throw AssertionError(
+        "$description within ${TIMEOUT}ms (clicks=${clicks.size}, longClicks=${longClicks.size})",
+        timeout,
+      )
+    }
   }
 
   private companion object {
