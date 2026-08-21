@@ -387,7 +387,7 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
    API change. Desktop remains the proof.
 2. Make the JSON-shaped layer and source descriptors the only implementation.
    Layer descriptors now live in `commonMain`. Source descriptors still have a
-   GL JS actual and an `mlnMain` actual.
+   GL JS actual and a `maplibreNativeMain` actual.
 3. Split `MapState` from the composable internally: the session attaches and
    detaches; the state survives recomposition. Still no public change.
 4. Publish `Runtime`, `MapState`, `rememberMapState`, and `MaplibreMap(state)`.
