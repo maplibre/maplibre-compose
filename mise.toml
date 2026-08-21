@@ -61,6 +61,7 @@ xcodes_version = "2.0.3"
 # For tooling outside Gradle; Kotlin/JS brings its own Node and Yarn.
 "core:node" = "{{vars.node_version}}"
 "aqua:pnpm/pnpm" = "{{vars.pnpm_version}}"
+"npm:playwright" = "{{vars.playwright_version}}"
 
 # Runs the Python file tasks under .mise/tasks/.
 "core:python" = "{{vars.python_version}}"
@@ -72,11 +73,21 @@ swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nick
 # The CLI only. Xcode itself comes from `mise run install-xcode`.
 "aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = ["macos"] }
 
+[env]
+PLAYWRIGHT_BROWSERS_PATH = "{{ config_root }}/.cache/playwright"
+CHROME_BIN = { value = '''{{ exec(command="node -e 'console.log(require(process.argv[1]).chromium.executablePath())' \"" ~ tools.playwright.path ~ "/node_modules/playwright\"") }}''', tools = true }
+
 [hooks]
 postinstall = ["hk install --mise --quiet"]
 
 [deps.pnpm]
 auto = true
+
+[deps.chromium]
+auto = true
+sources = ["mise.lock"]
+outputs = [".cache/playwright/chromium-*"]
+run = "playwright install chromium --no-shell"
 
 [tasks.check]
 description = "Run every formatter and linter in report-only mode."
@@ -149,16 +160,7 @@ udid="$(.mise/bin/boot-ios-simulator)"
 
 [tasks."test:js"]
 description = "Run the Kotlin/JS browser test suite."
-depends = ["install:chromium"]
-tools = { "npm:playwright" = "{{vars.playwright_version}}" }
-env = { PLAYWRIGHT_BROWSERS_PATH = "0", CHROME_BIN = '''{{ exec(command="node -e 'console.log(require(process.argv[1]).chromium.executablePath())' \"" ~ tools.playwright.path ~ "/node_modules/playwright\"") }}''' }
 run = "./gradlew jsBrowserTest"
-
-[tasks."install:chromium"]
-hide = true
-tools = { "npm:playwright" = "{{vars.playwright_version}}" }
-env = { PLAYWRIGHT_BROWSERS_PATH = "0" }
-run = "playwright install chromium --no-shell"
 
 [tasks."test:desktop"]
 description = "Run the desktop (JVM) test suite against a real Vulkan or Metal device."
