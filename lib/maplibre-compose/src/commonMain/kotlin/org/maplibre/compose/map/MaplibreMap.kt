@@ -94,6 +94,7 @@ import org.maplibre.spatialk.geojson.Position
  * [layer](https://maplibre.org/maplibre-style-spec/layers/) definition(s), which define how that
  * data is rendered, see:
  * - [BackgroundLayer][org.maplibre.compose.layers.BackgroundLayer]
+ * - [ColorReliefLayer][org.maplibre.compose.layers.ColorReliefLayer]
  * - [LineLayer][org.maplibre.compose.layers.LineLayer]
  * - [FillExtrusionLayer][org.maplibre.compose.layers.FillExtrusionLayer]
  * - [FillLayer][org.maplibre.compose.layers.FillLayer]

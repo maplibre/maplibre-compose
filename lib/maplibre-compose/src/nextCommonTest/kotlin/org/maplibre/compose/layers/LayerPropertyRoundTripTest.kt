@@ -20,6 +20,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.Feature
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.elevation
 import org.maplibre.compose.expressions.dsl.format
 import org.maplibre.compose.expressions.dsl.heatmapDensity
 import org.maplibre.compose.expressions.dsl.image
@@ -150,6 +151,22 @@ class LayerPropertyRoundTripTest {
         )
       style.addSource(source)
       ({ id -> HillshadeLayer(id, source) })
+    }
+  }
+
+  @Test
+  fun color_relief_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
+    assertPropertiesRoundTrip(COLOR_RELIEF_CASES) { style ->
+      val source =
+        RasterDemSource(
+          id = "dem",
+          tiles = listOf(TILE_TEMPLATE),
+          options = TileSetOptions(),
+          tileSize = 256,
+          demEncoding = RasterDemEncoding.Terrarium,
+        )
+      style.addSource(source)
+      ({ id -> ColorReliefLayer(id, source) })
     }
   }
 
@@ -449,6 +466,23 @@ class LayerPropertyRoundTripTest {
         ) {
           it.setHillshadeAccentColor(const(Color.Cyan).c())
         },
+      )
+
+    val COLOR_RELIEF_CASES =
+      listOf<Case<ColorReliefLayer>>(
+        // Like heatmap-color, a ramp rather than a constant, and only over elevation.
+        Case(
+          "color-relief-color",
+          """["interpolate",["linear"],["elevation"],
+             0.0,["rgba",0.0,0.0,255.0,1.0],3000.0,["rgba",255.0,0.0,0.0,1.0]]""",
+          """["interpolate",["linear"],["elevation"],0.0,"rgba(0, 0, 255, 1)",3000.0,"rgba(255, 0, 0, 1)"]""",
+        ) {
+          it.setColorReliefColor(
+            interpolate(linear(), elevation(), 0f to const(Color.Blue), 3000f to const(Color.Red))
+              .c()
+          )
+        },
+        Case("color-relief-opacity", "0.75") { it.setColorReliefOpacity(const(0.75f).c()) },
       )
 
     val SYMBOL_CASES =

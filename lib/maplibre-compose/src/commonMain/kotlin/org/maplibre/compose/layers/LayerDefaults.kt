@@ -3,6 +3,7 @@ package org.maplibre.compose.layers
 import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.elevation
 import org.maplibre.compose.expressions.dsl.heatmapDensity
 import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.linear
@@ -21,6 +22,16 @@ public object LayerDefaults {
       0.5 to const(Color(0xFF00FF00)), // lime
       0.7 to const(Color(0xFFFFFF00)), // yellow
       1 to const(Color(0xFFFF0000)), // red
+    )
+
+  public val ColorReliefColors: Expression<ColorValue> =
+    interpolate(
+      linear(),
+      elevation(),
+      0 to const(Color(0xFF00801E)), // green lowlands
+      1500 to const(Color(0xFFF0E68C)), // khaki foothills
+      3000 to const(Color(0xFF8B5A2B)), // brown mountains
+      4500 to const(Color(0xFFFFFFFF)), // white peaks
     )
 
   public val FontNames: Expression<ListValue<StringValue>> =
