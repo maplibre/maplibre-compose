@@ -102,7 +102,12 @@ public fun rememberFusedOrientationProvider(
   coroutineScope: CoroutineScope = rememberCoroutineScope(),
   sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ): FusedOrientationProvider {
-  return remember(fusedOrientationProviderClient) {
+  return remember(
+    fusedOrientationProviderClient,
+    deviceOrientationRequest,
+    coroutineScope,
+    sharingStarted,
+  ) {
     FusedOrientationProvider(
       orientationClient = fusedOrientationProviderClient,
       deviceOrientationRequest = deviceOrientationRequest,
