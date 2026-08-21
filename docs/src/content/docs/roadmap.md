@@ -111,9 +111,9 @@ Publishing those handles is also the answer to
 **Status:** Needs Exploration 🔍
 
 MapLibre Native can do a number of things MapLibre Compose has no cross-platform
-API for, among them style light, the location indicator layer, alternative
-projections, style transition options, HTTP header transforms, supplying missing
-style images on demand, resource transforms, merging offline databases, and
+API for, among them style light, alternative projections, style transition
+options, HTTP header transforms, supplying missing style images on demand,
+resource transforms, merging offline databases, and
 [static map snapshots](https://github.com/maplibre/maplibre-compose/issues/28).
 The inventory is in
 [`COMMON_API_GAPS.md`](https://github.com/maplibre/maplibre-compose/blob/main/.agents/docs/COMMON_API_GAPS.md).
