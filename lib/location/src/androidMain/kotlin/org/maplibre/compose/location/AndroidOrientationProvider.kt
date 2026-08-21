@@ -23,7 +23,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import org.maplibre.spatialk.units.Bearing
-import org.maplibre.spatialk.units.extensions.degrees
+import org.maplibre.spatialk.units.extensions.radians
 
 /**
  * An [OrientationProvider] built on Android's
@@ -31,8 +31,9 @@ import org.maplibre.spatialk.units.extensions.degrees
  *
  * It maps the azimuth from a
  * [rotation-vector sensor](https://developer.android.com/reference/android/hardware/Sensor#TYPE_ROTATION_VECTOR)
- * to [Orientation.orientation]. Android does not expose heading accuracy in degrees for this
- * sensor, so [BearingWithAccuracy.accuracy] is `null`.
+ * to [Orientation.orientation], and the sensor's estimated heading accuracy to
+ * [BearingWithAccuracy.accuracy]. A sensor that reports its accuracy as unavailable maps to a
+ * `null` accuracy.
  *
  * @param context Context used to obtain the platform sensor manager.
  * @param updateInterval Preferred minimum time between delivered headings.
@@ -63,15 +64,16 @@ public class AndroidOrientationProvider(
                   SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
                   SensorManager.getOrientation(rotationMatrix, orientationAngles)
 
-                  val degrees = Math.toDegrees(orientationAngles[0].toDouble()).degrees
+                  val azimuth = orientationAngles[0].toDouble().radians
+                  // values[4] is the estimated heading accuracy, -1 if unavailable.
+                  val accuracy = event.values.getOrNull(4)?.takeIf { it >= 0f }
 
                   trySend(
                     Orientation(
                       orientation =
                         BearingWithAccuracy(
-                          value = Bearing.North + degrees,
-                          // we can not get accuracy in degrees
-                          accuracy = null,
+                          value = Bearing.North + azimuth,
+                          accuracy = accuracy?.toDouble()?.radians,
                         ),
                       timestamp = TimeSource.Monotonic.markNow(),
                     )
