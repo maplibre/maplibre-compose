@@ -48,8 +48,8 @@ public object Feature {
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
    * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. [state] can only be used with layer properties that support
-   * data-driven styling.
+   * or any primitive data type. Only data-driven paint properties documented as supporting feature
+   * state accept [state].
    */
   public fun <T : ExpressionValue> state(key: Expression<StringValue>): Expression<T> =
     FunctionCall.of("feature-state", key).cast()
@@ -65,8 +65,8 @@ public object Feature {
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
    * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. [state] can only be used with layer properties that support
-   * data-driven styling.
+   * or any primitive data type. Only data-driven paint properties documented as supporting feature
+   * state accept [state].
    */
   public fun <T : ExpressionValue> state(key: String): Expression<T> = state(const(key))
 

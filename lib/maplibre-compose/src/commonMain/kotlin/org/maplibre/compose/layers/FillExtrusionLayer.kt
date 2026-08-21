@@ -32,8 +32,9 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param roundedCornerDistance The distance in meters from each fill extrusion corner, measured
  *   along the adjacent edges, that is replaced by a rounded corner. A value in the range of
@@ -48,15 +49,18 @@ import org.maplibre.compose.util.MaplibreComposable
  *   not per-feature, basis, and data-driven styling is not available. A value in range `[0..1]`.
  * @param color The base color of the extruded fill. The extrusion's surfaces will be shaded
  *   differently based on this color in combination with the root light settings. The alpha
- *   component of the specified color is ignored. Ignored if [pattern] is specified.
+ *   component of the specified color is ignored. The expression may use feature properties and
+ *   feature state. Ignored if [pattern] is specified.
  * @param pattern Name of image in sprite to use for drawing images on extruded fills. For seamless
  *   patterns, image width and height must be a factor of two (2, 4, 8, ..., 512). Note that
- *   zoom-dependent expressions will be evaluated only at integer zoom levels.
+ *   zoom-dependent expressions will be evaluated only at integer zoom levels. The expression may
+ *   use feature properties.
  * @param height The height in meters with which to extrude the geometries, i.e. the upper end of
- *   the 3D polygon. A value in the range of `[0..infinity)`.
+ *   the 3D polygon. A value in the range of `[0..infinity)`. The expression may use feature
+ *   properties and feature state.
  * @param base The height in meters with which to extrude the base of the geometries, i.e. the lower
  *   end of the 3D polygon. A value in the range of `[0..infinity)`. Must be less than or equal to
- *   [height].
+ *   [height]. The expression may use feature properties and feature state.
  * @param verticalGradient Whether to apply a vertical gradient to the sides of this layer. If
  *   `true`, sides will be shaded slightly darker farther down.
  * @param onClick Function to call when any feature in this layer has been clicked.
