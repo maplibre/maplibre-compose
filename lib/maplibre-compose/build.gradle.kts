@@ -127,9 +127,10 @@ kotlin {
     }
 
     // Tests that need a live map. jsTest and every platform that consumes mlnShared run them.
-    // androidHostTest does not: the Android host has no MapLibre runtime.
-    val nextCommonTest =
-      create("nextCommonTest") {
+    // They stay out of commonTest because androidHostTest inherits that source set and has no
+    // MapLibre runtime.
+    val liveMapTest =
+      create("liveMapTest") {
         dependsOn(commonTest.get())
         jsTest.get().dependsOn(this)
       }
@@ -140,7 +141,7 @@ kotlin {
     val mlnSharedTest =
       create("mlnSharedTest") {
         dependsOn(commonTest.get())
-        dependsOn(nextCommonTest)
+        dependsOn(liveMapTest)
       }
 
     // Java implementations of the shared test adapters. This source set also holds the handful of

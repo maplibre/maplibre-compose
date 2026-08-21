@@ -79,7 +79,7 @@ between the two versions, against three lists:
 Bind what one of those three justifies, and leave the rest undeclared. Anything
 new reaches the common API through `commonMain`. Members that still differ by
 backend need an `expect` and the other platforms' actuals; shared work belongs
-in `commonMain` itself. Either way, the test belongs in `nextCommonTest` rather
+in `commonMain` itself. Either way, the test belongs in `liveMapTest` rather
 than in a browser-only file.
 
 ## 5. Re-check the four runtime shims
