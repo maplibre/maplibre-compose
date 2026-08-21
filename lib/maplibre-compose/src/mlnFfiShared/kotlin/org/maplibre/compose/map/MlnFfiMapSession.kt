@@ -1153,7 +1153,6 @@ internal class MlnFfiMapSession(
       visibleRegion = mirror.visibleRegion,
       metersPerDpAtTarget =
         metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
-      map = this,
     )
   }
 

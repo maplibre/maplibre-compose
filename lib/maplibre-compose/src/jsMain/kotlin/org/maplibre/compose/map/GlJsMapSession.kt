@@ -579,7 +579,6 @@ internal class GlJsMapSession(
         visibleBoundingBox = getVisibleBoundingBox(),
         visibleRegion = getVisibleRegion(),
         metersPerDpAtTarget = metersPerDpAtLatitude(camera.zoom, camera.target.latitude),
-        map = this,
       )
     }
 

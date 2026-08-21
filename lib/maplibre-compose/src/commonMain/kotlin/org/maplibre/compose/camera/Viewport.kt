@@ -1,24 +1,12 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.runtime.Immutable
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
-import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.ExpressionContext
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Feature
-import org.maplibre.spatialk.geojson.Geometry
-import org.maplibre.spatialk.geojson.Position
 
 /**
- * What the map shows right now: the size of the map composable, the visible area, and conversions
- * between geographic positions and screen locations.
+ * What the map shows right now: the size of the map composable and the visible area.
  *
  * Read a current instance from [CameraState.viewport]. The instance is immutable; a new one
  * replaces it when the map has adopted a new camera or a new size, so a composition that reads any
@@ -49,70 +37,4 @@ internal constructor(
 
   /** Meters per dp at the camera's target position. */
   public val metersPerDpAtTarget: Double,
-  internal val map: MapAdapter,
-) {
-  /**
-   * Returns an offset from the top-left corner of the map composable that corresponds to the given
-   * [position]. This works for positions that are off-screen, too.
-   *
-   * Always convert through the latest [CameraState.viewport]: an instance kept around after the
-   * camera moved converts with the map's current transform, not the one it was created at.
-   */
-  public fun screenLocationFromPosition(position: Position): DpOffset {
-    return map.screenLocationFromPosition(position)
-  }
-
-  /**
-   * Returns a position that corresponds to the given [offset] from the top-left corner of the map
-   * composable.
-   *
-   * Always convert through the latest [CameraState.viewport]: an instance kept around after the
-   * camera moved converts with the map's current transform, not the one it was created at.
-   */
-  public fun positionFromScreenLocation(offset: DpOffset): Position {
-    return map.positionFromScreenLocation(offset)
-  }
-
-  /**
-   * Returns a list of features that are rendered at the given [offset] from the top-left corner of
-   * the map composable, optionally limited to layers with the given [layerIds] and filtered by the
-   * given [predicate]. The result is sorted by render order, i.e. the feature in front is first in
-   * the list.
-   *
-   * @param offset position from the top-left corner of the map composable to query for
-   * @param layerIds the ids of the layers to limit the query to. If not specified, features in
-   *   *any* layer are returned
-   * @param predicate expression that has to evaluate to true for a feature to be included in the
-   *   result
-   */
-  public suspend fun queryRenderedFeatures(
-    offset: DpOffset,
-    layerIds: Set<String>? = null,
-    predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature<Geometry, JsonObject?>> {
-    val predicateOrNull =
-      predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
-    return map.queryRenderedFeatures(offset, layerIds, predicateOrNull)
-  }
-
-  /**
-   * Returns a list of features whose rendered geometry intersect with the given [rect], optionally
-   * limited to layers with the given [layerIds] and filtered by the given [predicate]. The result
-   * is sorted by render order, i.e. the feature in front is first in the list.
-   *
-   * @param rect rectangle to intersect with rendered geometry
-   * @param layerIds the ids of the layers to limit the query to. If not specified, features in
-   *   *any* layer are returned
-   * @param predicate expression that has to evaluate to true for a feature to be included in the
-   *   result
-   */
-  public suspend fun queryRenderedFeatures(
-    rect: DpRect,
-    layerIds: Set<String>? = null,
-    predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature<Geometry, JsonObject?>> {
-    val predicateOrNull =
-      predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
-    return map.queryRenderedFeatures(rect, layerIds, predicateOrNull)
-  }
-}
+)

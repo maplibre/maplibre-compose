@@ -88,7 +88,9 @@ public fun PointerPinButton(
 ) {
   val viewport = cameraState.viewport
   val dpTarget =
-    remember(targetPosition, viewport) { viewport?.screenLocationFromPosition(targetPosition) }
+    remember(targetPosition, viewport) {
+      if (viewport == null) null else cameraState.screenLocationFromPosition(targetPosition)
+    }
   val target = dpTarget?.toOffset() ?: return
   var area by remember { mutableStateOf<Rect?>(null) }
 

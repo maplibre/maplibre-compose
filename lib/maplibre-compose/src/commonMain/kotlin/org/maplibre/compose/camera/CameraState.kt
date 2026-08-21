@@ -5,12 +5,23 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.flow.first
+import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.expressions.ast.CompiledExpression
+import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 /** Remember a new [CameraState] in the initial state as given in [firstPosition]. */
 @Composable
@@ -41,13 +52,83 @@ public class CameraState(firstPosition: CameraPosition) {
     }
 
   /**
-   * What the map shows right now: the size of the map composable, the visible area, and conversions
-   * between geographic positions and screen locations. Null until the map has rendered its first
-   * viewport. A composition that reads this property recomposes after a camera move or a resize of
-   * the map composable, because the instance is replaced once the map has adopted either change.
+   * What the map shows right now: the size of the map composable and the visible area. Null until
+   * the map has rendered its first viewport. A composition that reads this property recomposes
+   * after a camera move or a resize of the map composable, because the instance is replaced once
+   * the map has adopted either change.
    */
   public val viewport: Viewport?
     get() = viewportState.value
+
+  /**
+   * Returns an offset from the top-left corner of the map composable that corresponds to the given
+   * [position]. This works for positions that are off-screen, too.
+   *
+   * The map answers for its current transform; [DpOffset.Zero] before this state is attached to a
+   * map with a viewport, so gate on [viewport] when that matters. To recompose when the answer
+   * changes, read [viewport] as well: this function is not snapshot state.
+   */
+  public fun screenLocationFromPosition(position: Position): DpOffset {
+    return map?.screenLocationFromPosition(position) ?: DpOffset.Zero
+  }
+
+  /**
+   * Returns a position that corresponds to the given [offset] from the top-left corner of the map
+   * composable.
+   *
+   * The map answers for its current transform; position zero before this state is attached to a map
+   * with a viewport, so gate on [viewport] when that matters. To recompose when the answer changes,
+   * read [viewport] as well: this function is not snapshot state.
+   */
+  public fun positionFromScreenLocation(offset: DpOffset): Position {
+    return map?.positionFromScreenLocation(offset) ?: Position(0.0, 0.0)
+  }
+
+  /**
+   * Returns a list of features that are rendered at the given [offset] from the top-left corner of
+   * the map composable, optionally limited to layers with the given [layerIds] and filtered by the
+   * given [predicate]. The result is sorted by render order, i.e. the feature in front is first in
+   * the list. Empty before this state is attached to a map.
+   *
+   * @param offset position from the top-left corner of the map composable to query for
+   * @param layerIds the ids of the layers to limit the query to. If not specified, features in
+   *   *any* layer are returned
+   * @param predicate expression that has to evaluate to true for a feature to be included in the
+   *   result
+   */
+  public suspend fun queryRenderedFeatures(
+    offset: DpOffset,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> {
+    return map?.queryRenderedFeatures(offset, layerIds, predicate.compileOrNull()) ?: emptyList()
+  }
+
+  /**
+   * Returns a list of features whose rendered geometry intersect with the given [rect], optionally
+   * limited to layers with the given [layerIds] and filtered by the given [predicate]. The result
+   * is sorted by render order, i.e. the feature in front is first in the list. Empty before this
+   * state is attached to a map.
+   *
+   * @param rect rectangle to intersect with rendered geometry
+   * @param layerIds the ids of the layers to limit the query to. If not specified, features in
+   *   *any* layer are returned
+   * @param predicate expression that has to evaluate to true for a feature to be included in the
+   *   result
+   */
+  public suspend fun queryRenderedFeatures(
+    rect: DpRect,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> {
+    return map?.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull()) ?: emptyList()
+  }
+
+  private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? =
+    takeUnless {
+      it == const(true)
+    }
+    ?.compile(ExpressionContext.None)
 
   /** how the camera is oriented towards the map */
   // if the map is not yet initialized, we store the value to apply it later

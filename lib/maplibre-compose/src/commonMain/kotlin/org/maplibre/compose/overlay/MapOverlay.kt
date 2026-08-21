@@ -154,14 +154,15 @@ internal fun MapOverlayHost(
     layout(width, height) {
       val hasPlacedAt = measurables.any { it.parentData is OverlayChildData.PlacedAt }
       // Aligned children stay put when the camera moves. Reading the viewport here would
-      // invalidate this layout on every frame of a camera ease.
+      // invalidate this layout on every frame of a camera ease, so it is read only when a child
+      // needs placing; the read is also what re-runs this layout when the transform changes.
       val viewport = if (hasPlacedAt) cameraState.viewport else null
       measurables.forEachIndexed { index, measurable ->
         val placeable = placeables[index]
         when (val child = measurable.parentData as? OverlayChildData) {
           is OverlayChildData.PlacedAt -> {
             if (viewport == null || width == 0 || height == 0) return@forEachIndexed
-            val screen = viewport.screenLocationFromPosition(child.position)
+            val screen = cameraState.screenLocationFromPosition(child.position)
             val aligned =
               child.alignment.align(
                 size = IntSize(placeable.width, placeable.height),
