@@ -25,8 +25,6 @@ kotlin {
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
   js {
-    // Matches the maplibre-compose module, whose MapLibre GL JS declarations reject UMD output.
-    // Every consumer of that module's js target has to match, including this dependency.
     useEsModules()
     browser { testTask { useKarma { useChromeHeadless() } } }
   }

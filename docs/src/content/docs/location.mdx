@@ -11,10 +11,6 @@ import location from "../../../../demo-app/common/src/commonMain/kotlin/org/mapl
 The location module provides a cross-platform way to track and visualize user
 position in MapLibre Compose.
 
-The providers and `LocationState` live in the `org.maplibre.compose:location`
-artifact, which `maplibre-compose` includes. An application that tracks
-location without a map depends on that artifact directly.
-
 Location support is split into a few small pieces. A `LocationProvider` supplies
 foreground location updates and carries the location permission, and
 `rememberLocationState` collects them according to permission and lifecycle
