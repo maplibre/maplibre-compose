@@ -47,7 +47,9 @@ class AndroidCameraStateRecreationTest {
 
         runOnIdle { firstActivity.recreate() }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-          activity != null && activity !== firstActivity && activity?.cameraState?.map != null
+          activity != null &&
+            activity !== firstActivity &&
+            activity?.cameraState?.map?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         val replacementActivity = requireNotNull(activity)
