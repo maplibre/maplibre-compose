@@ -5,6 +5,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.dp
@@ -54,6 +56,9 @@ public class CameraState(firstPosition: CameraPosition) {
       }
     }
 
+  /** The density of the map composable this state is attached to, or null before composition. */
+  internal var density: Density? = null
+
   /**
    * What the map shows right now: the size of the map composable and the visible area. Null until
    * the map has rendered its first viewport. A composition that reads this property recomposes
@@ -84,6 +89,19 @@ public class CameraState(firstPosition: CameraPosition) {
    */
   public fun positionFromScreenLocation(offset: DpOffset): Position? {
     return map?.positionFromScreenLocation(offset)
+  }
+
+  /**
+   * Returns the position that corresponds to the given [offset] in pixels from the top-left corner
+   * of the map composable, in the units that pointer events report, or null while the map has no
+   * [viewport].
+   *
+   * The answer describes the transform that the map has at the time of the call. To recompose when
+   * the transform changes, read [viewport].
+   */
+  public fun positionFromScreenLocation(offset: Offset): Position? {
+    val density = density ?: return null
+    return positionFromScreenLocation(with(density) { DpOffset(offset.x.toDp(), offset.y.toDp()) })
   }
 
   /**

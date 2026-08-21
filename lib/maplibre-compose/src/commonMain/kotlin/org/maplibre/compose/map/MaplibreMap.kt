@@ -15,6 +15,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
@@ -146,6 +147,9 @@ public fun MaplibreMap(
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
   SideEffect { rememberedStyle?.logger = currentLogger }
   val mapClickScope = rememberCoroutineScope()
+
+  val density = LocalDensity.current
+  SideEffect { cameraState.density = density }
 
   val callbacks =
     remember(cameraState, styleState, styleComposition, mapClickScope) {
