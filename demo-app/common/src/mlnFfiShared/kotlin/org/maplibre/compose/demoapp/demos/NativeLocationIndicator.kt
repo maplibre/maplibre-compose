@@ -1,7 +1,11 @@
 package org.maplibre.compose.demoapp.demos
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
@@ -10,6 +14,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.delay
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.expressions.dsl.nil
@@ -29,21 +36,40 @@ actual val isNativeLocationIndicatorAvailable: Boolean = true
 actual fun NativeLocationIndicator(location: Location?, bearing: BearingWithAccuracy?) {
   if (location == null) return
 
+  val isOld = rememberIsLocationOld(location)
   val colors = LocationPuckDefaults.colors()
-  val dot =
-    remember(colors) { DotPainter(colors.dotFillColorCurrentLocation, colors.dotStrokeColor) }
+  val dotFill = if (isOld) colors.dotFillColorOldLocation else colors.dotFillColorCurrentLocation
+  val dot = remember(dotFill, colors) { DotPainter(dotFill, colors.dotStrokeColor) }
   val arrow = remember(colors) { ArrowPainter(colors.bearingColor) }
 
   LocationIndicatorLayer(
     id = "native-location-indicator",
     location = location.position.value,
     bearing = const(bearing?.let { (it.value - Bearing.North).inDegrees.toFloat() } ?: 0f),
-    accuracyRadius = const(location.position.accuracy?.inMeters?.toFloat() ?: 0f),
+    accuracyRadius =
+      const(if (isOld) 0f else location.position.accuracy?.inMeters?.toFloat() ?: 0f),
     accuracyRadiusColor = const(colors.accuracyFillColor),
     accuracyRadiusBorderColor = const(colors.accuracyStrokeColor),
     topImage = image(dot, size = DpSize(24.dp, 24.dp)),
     bearingImage = if (bearing != null) image(arrow, size = DpSize(56.dp, 56.dp)) else nil(),
   )
+}
+
+/**
+ * Whether [location] is older than the same 30-second threshold [LocationPuck]
+ * [org.maplibre.compose.location.LocationPuck] uses to mark a retained fix as stale.
+ */
+@Composable
+private fun rememberIsLocationOld(location: Location): Boolean {
+  val threshold = 30.seconds
+  var isOld by remember(location) { mutableStateOf(location.timestamp.elapsedNow() > threshold) }
+  LaunchedEffect(location) {
+    if (isOld) return@LaunchedEffect
+    val remaining = threshold - location.timestamp.elapsedNow()
+    if (remaining > Duration.ZERO) delay(remaining)
+    isOld = true
+  }
+  return isOld
 }
 
 /** The location dot: a filled circle with a stroke, sized by the canvas it is drawn into. */
