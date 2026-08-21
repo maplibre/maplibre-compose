@@ -39,16 +39,9 @@ kotlin {
   sourceSets {
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
-    // FFI render toggles: tile borders, parse status, and the Surface/Texture hint. The web
-    // platform is not on the FFI, so it has its own actual.
-    val mlnFfiShared by creating { dependsOn(commonMain.get()) }
-
-    // The offline API exists only on the MapLibre Native platforms, so the offline demo UI lives
-    // in this set and the web target gets an empty actual.
-    val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
-
-    // The WSF GTFS feed sends no CORS headers, so the transit demo exists only off the web.
-    val nonJsShared by creating {
+    // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
+    // so render toggles, offline UI, and the transit demo (no CORS) live here.
+    val mlnShared by creating {
       dependsOn(commonMain.get())
       dependencies {
         implementation(libs.mobilityData.gtfsSchedule)
@@ -56,25 +49,13 @@ kotlin {
         implementation(libs.ktor.client.core)
       }
     }
-    val jvmShared by creating { dependsOn(nonJsShared) }
+    val jvmShared by creating { dependsOn(mlnShared) }
 
-    androidMain {
-      dependsOn(mlnFfiShared)
-      dependsOn(maplibreNativeShared)
-      dependsOn(jvmShared)
-    }
+    androidMain { dependsOn(jvmShared) }
 
-    jvmMain {
-      dependsOn(mlnFfiShared)
-      dependsOn(maplibreNativeShared)
-      dependsOn(jvmShared)
-    }
+    jvmMain { dependsOn(jvmShared) }
 
-    iosMain {
-      dependsOn(mlnFfiShared)
-      dependsOn(maplibreNativeShared)
-      dependsOn(nonJsShared)
-    }
+    iosMain { dependsOn(mlnShared) }
 
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.

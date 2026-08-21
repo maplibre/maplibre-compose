@@ -1,10 +1,5 @@
 package org.maplibre.compose.offline
 
-import androidx.compose.runtime.Composable
-
-/** Acquire an instance of [OfflineManager]. */
-@Composable public expect fun rememberOfflineManager(): OfflineManager
-
 /**
  * An instance of this interface is a singleton that manages offline packs and ambient caching.
  *

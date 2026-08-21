@@ -27,8 +27,9 @@ import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 
+/** Acquire an instance of [OfflineManager]. */
 @Composable
-public actual fun rememberOfflineManager(): OfflineManager {
+public fun rememberOfflineManager(): OfflineManager {
   EnsureMlnFfiConfigured()
   val density = LocalDensity.current.density
   val manager = MlnFfiApplication.offlineManager
