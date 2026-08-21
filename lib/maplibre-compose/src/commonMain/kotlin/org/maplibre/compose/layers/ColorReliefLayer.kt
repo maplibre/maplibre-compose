@@ -30,7 +30,8 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param resampling The resampling/interpolation method to use for overscaling, also known as
  *   texture magnification filter.
  *
- *   **Note**: This property is not supported on native platforms yet.
+ *   **Note**: Ignored with a logged warning on native platforms, which do not implement it yet;
+ *   supported on the web.
  */
 @Composable
 @MaplibreComposable

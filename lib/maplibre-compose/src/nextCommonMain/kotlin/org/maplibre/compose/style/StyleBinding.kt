@@ -54,6 +54,13 @@ internal interface StyleBinding {
    */
   fun layerExists(layerId: String): Boolean?
 
+  /**
+   * Why this engine cannot take a layer property, or null when it can. The style spec is shared,
+   * but each engine implements it at its own pace; a non-null reason keeps the property out of
+   * every write to this binding, and the layer reports it once instead.
+   */
+  fun unsupportedLayerPropertyReason(layerType: String, name: String): String? = null
+
   companion object {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: StyleBinding =

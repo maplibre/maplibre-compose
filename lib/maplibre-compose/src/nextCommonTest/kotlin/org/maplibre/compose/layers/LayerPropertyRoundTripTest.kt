@@ -42,6 +42,7 @@ import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.expressions.value.SymbolAnchor
+import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.SymbolPlacement
 import org.maplibre.compose.expressions.value.SymbolZOrder
 import org.maplibre.compose.expressions.value.TextJustify
@@ -483,7 +484,17 @@ class LayerPropertyRoundTripTest {
           )
         },
         Case("color-relief-opacity", "0.75") { it.setColorReliefOpacity(const(0.75f).c()) },
-      )
+      ) + glJsOnlyColorReliefCases()
+
+    /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
+    fun glJsOnlyColorReliefCases(): List<Case<ColorReliefLayer>> =
+      if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
+      else
+        listOf(
+          Case("resampling", "\"nearest\"") {
+            it.setResampling(const(RasterResampling.Nearest).c())
+          }
+        )
 
     val SYMBOL_CASES =
       listOf<Case<SymbolLayer>>(
@@ -629,6 +640,17 @@ class LayerPropertyRoundTripTest {
         Case("text-translate-anchor", "\"viewport\"") {
           it.setTextTranslateAnchor(const(TranslateAnchor.Viewport).c())
         },
-      )
+      ) + glJsOnlySymbolCases()
+
+    /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
+    fun glJsOnlySymbolCases(): List<Case<SymbolLayer>> =
+      if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
+      else
+        listOf(
+          Case("icon-overlap", "\"cooperative\"") { it.setIconOverlap(const("cooperative").c()) },
+          Case("text-overlap", "\"cooperative\"") {
+            it.setTextOverlap(const(SymbolOverlap.Cooperative).c())
+          },
+        )
   }
 }
