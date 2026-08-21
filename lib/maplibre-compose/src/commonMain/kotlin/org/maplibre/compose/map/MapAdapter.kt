@@ -7,6 +7,7 @@ import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
@@ -54,6 +55,13 @@ internal interface MapAdapter {
   fun getVisibleBoundingBox(): BoundingBox
 
   fun getVisibleRegion(): VisibleRegion
+
+  /**
+   * The viewport the map last adopted, with every property read from the same transform, or null
+   * before the map has one. Implementations answer from where the map's size actually lands, so a
+   * read made from [Callbacks.onCameraMoved] already describes a finished resize.
+   */
+  fun getViewport(): Viewport?
 
   fun setRenderSettings(value: RenderOptions)
 

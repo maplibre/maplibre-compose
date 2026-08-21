@@ -86,9 +86,9 @@ public fun PointerPinButton(
   interactionSource: MutableInteractionSource? = null,
   content: @Composable (BoxScope.() -> Unit),
 ) {
-  val projection = cameraState.projection
+  val viewport = cameraState.viewport
   val dpTarget =
-    remember(targetPosition, projection) { projection?.screenLocationFromPosition(targetPosition) }
+    remember(targetPosition, viewport) { viewport?.screenLocationFromPosition(targetPosition) }
   val target = dpTarget?.toOffset() ?: return
   var area by remember { mutableStateOf<Rect?>(null) }
 

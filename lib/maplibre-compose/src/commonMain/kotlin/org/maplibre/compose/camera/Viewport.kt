@@ -1,7 +1,9 @@
 package org.maplibre.compose.camera
 
+import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.DpSize
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -15,15 +17,46 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Converts coordinates and queries what is visible on the map's current transform.
+ * What the map shows right now: the size of the map composable, the visible area, and conversions
+ * between geographic positions and screen locations.
  *
- * Read a current instance from [CameraState.projection]. That property is replaced when the camera
- * or the viewport changes.
+ * Read a current instance from [CameraState.viewport]. The instance is immutable; a new one
+ * replaces it when the map has adopted a new camera or a new size, so a composition that reads any
+ * of its properties recomposes exactly when the answers change. All properties of one instance
+ * describe the same rendered transform, so they are consistent with each other.
  */
-public class CameraProjection internal constructor(internal val map: MapAdapter) {
+@Immutable
+public class Viewport
+internal constructor(
+  /** The size of the map composable this viewport was computed for. */
+  public val size: DpSize,
+
+  /**
+   * The smallest bounding box that contains the currently visible area.
+   *
+   * Note that the bounding box is always a north-aligned rectangle. I.e. if the map is rotated or
+   * tilted, the returned bounding box will always be larger than the actually visible area. See
+   * [visibleRegion].
+   */
+  public val visibleBoundingBox: BoundingBox,
+
+  /**
+   * The currently visible area, which is a four-sided polygon spanned by the four points each at
+   * one corner of the map composable. If the camera has tilt (pitch), this polygon is a trapezoid
+   * instead of a rectangle.
+   */
+  public val visibleRegion: VisibleRegion,
+
+  /** Meters per dp at the camera's target position. */
+  public val metersPerDpAtTarget: Double,
+  internal val map: MapAdapter,
+) {
   /**
    * Returns an offset from the top-left corner of the map composable that corresponds to the given
    * [position]. This works for positions that are off-screen, too.
+   *
+   * The conversion answers for the map's current transform, which on a retained old instance may be
+   * newer than the transform the properties above describe.
    */
   public fun screenLocationFromPosition(position: Position): DpOffset {
     return map.screenLocationFromPosition(position)
@@ -32,6 +65,9 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
   /**
    * Returns a position that corresponds to the given [offset] from the top-left corner of the map
    * composable.
+   *
+   * The conversion answers for the map's current transform, which on a retained old instance may be
+   * newer than the transform the properties above describe.
    */
   public fun positionFromScreenLocation(offset: DpOffset): Position {
     return map.positionFromScreenLocation(offset)
@@ -80,25 +116,18 @@ public class CameraProjection internal constructor(internal val map: MapAdapter)
     return map.queryRenderedFeatures(rect, layerIds, predicateOrNull)
   }
 
-  /**
-   * Returns the smallest bounding box that contains the currently visible area.
-   *
-   * Note that the bounding box is always a north-aligned rectangle. I.e. if the map is rotated or
-   * tilted, the returned bounding box will always be larger than the actually visible area. See
-   * [queryVisibleRegion].
-   */
-  public fun queryVisibleBoundingBox(): BoundingBox {
-    // TODO at some point, this should be refactored to State, just like the camera position
-    return map.getVisibleBoundingBox()
-  }
+  @Deprecated(
+    "The visible bounding box is a property of the viewport now",
+    ReplaceWith("visibleBoundingBox"),
+  )
+  public fun queryVisibleBoundingBox(): BoundingBox = visibleBoundingBox
 
-  /**
-   * Returns the currently visible area, which is a four-sided polygon spanned by the four points
-   * each at one corner of the map composable. If the camera has tilt (pitch), this polygon is a
-   * trapezoid instead of a rectangle.
-   */
-  public fun queryVisibleRegion(): VisibleRegion {
-    // TODO at some point, this should be refactored to State, just like the camera position
-    return map.getVisibleRegion()
-  }
+  @Deprecated(
+    "The visible region is a property of the viewport now",
+    ReplaceWith("visibleRegion"),
+  )
+  public fun queryVisibleRegion(): VisibleRegion = visibleRegion
 }
+
+@Deprecated("Renamed to Viewport", ReplaceWith("Viewport"))
+public typealias CameraProjection = Viewport

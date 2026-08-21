@@ -62,7 +62,7 @@ fun Interaction() {
     cameraState = camera,
     onMapClick = { pos, offset ->
       scope.launch {
-        val features = camera.projection?.queryRenderedFeatures(offset)
+        val features = camera.viewport?.queryRenderedFeatures(offset)
         if (!features.isNullOrEmpty()) {
           println("Clicked on ${features[0].toJson()}")
         }

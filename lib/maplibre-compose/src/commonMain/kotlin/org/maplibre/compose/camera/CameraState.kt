@@ -2,7 +2,6 @@ package org.maplibre.compose.camera
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -21,10 +20,9 @@ public fun rememberCameraState(firstPosition: CameraPosition = CameraPosition())
 /** Use this class to access information about the map in relation to the camera. */
 public class CameraState(firstPosition: CameraPosition) {
   internal val mapState = mutableStateOf<MapAdapter?>(null)
-  internal val projectionState = mutableStateOf<CameraProjection?>(null)
+  internal val viewportState = mutableStateOf<Viewport?>(null)
   internal val positionState = mutableStateOf(firstPosition)
   internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
-  internal val metersPerDpAtTargetState = mutableDoubleStateOf(0.0)
   internal val isCameraMovingState = mutableStateOf(false)
 
   internal var map: MapAdapter?
@@ -37,18 +35,23 @@ public class CameraState(firstPosition: CameraPosition) {
         // apply deferred state
         map.setCameraPosition(position)
 
-        // initialize imperative API
-        projectionState.value = CameraProjection(map)
+        // usually null until the map reports its first viewport
+        viewportState.value = map.getViewport()
       }
     }
 
   /**
-   * Converts between geographic positions and the map's current screen. Null until this state is
-   * attached to a map. A composition that reads this property redraws after a camera move or a
-   * viewport resize, because the instance is replaced when either changes.
+   * What the map shows right now: the size of the map composable, the visible area, and conversions
+   * between geographic positions and screen locations. Null until the map has rendered its first
+   * viewport. A composition that reads this property recomposes after a camera move or a resize of
+   * the map composable, because the instance is replaced once the map has adopted either change.
    */
-  public val projection: CameraProjection?
-    get() = projectionState.value
+  public val viewport: Viewport?
+    get() = viewportState.value
+
+  @Deprecated("Renamed to viewport", ReplaceWith("viewport"))
+  public val projection: Viewport?
+    get() = viewport
 
   /** how the camera is oriented towards the map */
   // if the map is not yet initialized, we store the value to apply it later
@@ -63,9 +66,12 @@ public class CameraState(firstPosition: CameraPosition) {
   public val moveReason: CameraMoveReason
     get() = moveReasonState.value
 
-  /** meters per dp at the target position. Zero when the map is not initialized yet. */
+  @Deprecated(
+    "The value is a property of the viewport now",
+    ReplaceWith("viewport?.metersPerDpAtTarget ?: 0.0"),
+  )
   public val metersPerDpAtTarget: Double
-    get() = metersPerDpAtTargetState.value
+    get() = viewport?.metersPerDpAtTarget ?: 0.0
 
   /** whether the camera is currently moving */
   public val isCameraMoving: Boolean
@@ -75,10 +81,13 @@ public class CameraState(firstPosition: CameraPosition) {
     return snapshotFlow { map }.first { it != null }!!
   }
 
-  /** Suspends until the CameraState has been attached to the map. */
-  public suspend fun awaitProjection(): CameraProjection {
-    return snapshotFlow { projection }.first { it != null }!!
+  /** Suspends until the map this state is attached to has rendered its first viewport. */
+  public suspend fun awaitViewport(): Viewport {
+    return snapshotFlow { viewport }.first { it != null }!!
   }
+
+  @Deprecated("Renamed to awaitViewport", ReplaceWith("awaitViewport()"))
+  public suspend fun awaitProjection(): Viewport = awaitViewport()
 
   /** Animates the camera towards the [finalPosition] in [duration] time. */
   public suspend fun animateTo(

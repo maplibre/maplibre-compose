@@ -2,9 +2,9 @@ package org.maplibre.compose.map
 
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraProjection
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -117,15 +117,19 @@ class MapVisibleAreaTest {
   }
 
   @Test
-  fun the_projection_query_matches_the_session(): MapTestResult = runMapTest {
+  fun the_viewport_matches_the_session(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.session.setBaseStyle(BaseStyle.Empty)
       it.awaitMapReady()
       it.session.setCameraPosition(ROTATED_CAMERA)
       it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-      val projection = CameraProjection(it.session)
-      assertNear(it.session.getVisibleBoundingBox(), projection.queryVisibleBoundingBox())
+      val viewport = assertNotNull(it.session.getViewport())
+      assertNear(it.session.getVisibleBoundingBox(), viewport.visibleBoundingBox)
+      assertTrue(
+        viewport.size.width.value > 0f && viewport.size.height.value > 0f,
+        "the viewport should carry the map's size, was ${viewport.size}",
+      )
     }
   }
 

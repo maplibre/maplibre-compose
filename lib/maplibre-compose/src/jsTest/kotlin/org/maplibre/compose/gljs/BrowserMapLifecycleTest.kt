@@ -87,12 +87,12 @@ class BrowserMapLifecycleTest {
       }
     }
     waitUntilMap("the first map to load") { loads >= 1 }
-    val firstProjection = cameraState.projection
+    val firstViewport = cameraState.viewport
 
     density = Density(2f)
     waitUntilMap("the replacement map to load at the new density") { loads >= 2 }
 
-    assertNotSame(firstProjection, cameraState.projection, "the camera should attach to a new map")
+    assertNotSame(firstViewport, cameraState.viewport, "the camera should attach to a new map")
     assertEquals(expectedCamera.target, cameraState.position.target, "camera target")
     assertEquals(expectedCamera.zoom, cameraState.position.zoom, 0.001, "camera zoom")
   }
