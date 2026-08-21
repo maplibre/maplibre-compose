@@ -138,7 +138,10 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 - **`lib/`**: Core library modules
   - `maplibre-compose`: Main map composables and core functionality
   - `maplibre-compose-material3`: Material 3 themed UI components
-  - `maplibre-compose-gms`: Google location services components
+  - `location`: Location and orientation providers, usable without a map
+  - `location-runtime-gms`: Google Play Services location providers
+  - `location-runtime-linux|macos|windows`: Desktop location backends, loaded
+    through `ServiceLoader`
 - **`demo-app/`**: Multiplatform demo application
   - `common`: Every line of the app, and the only Kotlin Multiplatform module
   - `android`: An Android application that launches `common`

@@ -7,6 +7,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import java.awt.Window
 import org.maplibre.compose.desktop.skiko.AwtComposeMapHost
+import org.maplibre.compose.location.LocalXdgPortalWindow
 
 /**
  * The [ComposeMapHost] maps in this composition render against.
@@ -20,9 +21,6 @@ public val LocalComposeMapHost: ProvidableCompositionLocal<ComposeMapHost> =
   staticCompositionLocalOf {
     error("No ComposeMapHost is installed. Wrap this window's content in " + "ProvideMapHost(...).")
   }
-
-/** The optional map host for platform services that also work outside [ProvideMapHost]. */
-internal val LocalComposeMapHostOrNull = staticCompositionLocalOf<ComposeMapHost?> { null }
 
 /**
  * Remembers a [ComposeMapHost] backed by Compose Desktop's Skiko layer inside [window].
@@ -49,7 +47,7 @@ public fun rememberAwtComposeMapHost(window: Window): ComposeMapHost =
 public fun ProvideMapHost(host: ComposeMapHost, content: @Composable () -> Unit) {
   CompositionLocalProvider(
     LocalComposeMapHost provides host,
-    LocalComposeMapHostOrNull provides host,
+    LocalXdgPortalWindow provides host.xdgPortalWindow,
     content = content,
   )
 }

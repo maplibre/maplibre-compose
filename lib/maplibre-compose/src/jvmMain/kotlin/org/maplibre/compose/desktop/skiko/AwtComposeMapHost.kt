@@ -7,11 +7,11 @@ import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.Direct3D12ComposeGpuContext
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
-import org.maplibre.compose.desktop.XdgPortalWindow
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
 import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
 import org.maplibre.compose.desktop.skiko.SkikoReflection.staticInvoke
+import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.NativeHandle
 
