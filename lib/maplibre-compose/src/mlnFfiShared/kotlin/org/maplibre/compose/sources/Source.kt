@@ -128,6 +128,7 @@ public actual sealed class Source(internal actual val id: String) {
     val current = binding
     current.mutateMap { map ->
       map.removeStyleSource(id)
+      current.forgetFeatureStates(id)
       current.reportSourceChanged(id)
     }
     binding = MlnFfiStyleBinding.UNLOADED

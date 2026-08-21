@@ -9,12 +9,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 
-/**
- * A map data source of tiled vector data.
- *
- * Feature-state mutation is available on desktop, Android, and the browser. The methods throw
- * [UnsupportedOperationException] on iOS.
- */
+/** A map data source of tiled vector data. */
 public expect class VectorSource : Source {
 
   /**
@@ -54,8 +49,6 @@ public expect class VectorSource : Source {
    * [feature.state][org.maplibre.compose.expressions.dsl.Feature.state]. Keys already on the
    * feature and absent from [state] stay as they are. [featureId] is matched as text: a feature
    * `id` of `7` is `"7"`.
-   *
-   * A call before the first frame is ignored on desktop.
    */
   public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject)
 

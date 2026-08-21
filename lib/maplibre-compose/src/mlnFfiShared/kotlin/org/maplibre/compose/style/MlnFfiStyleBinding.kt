@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
@@ -15,6 +16,9 @@ import org.maplibre.nativeffi.render.RenderSessionHandle
  * the session supplies that hop.
  */
 internal interface MlnFfiStyleBinding : StyleBinding {
+  /** Feature state retained for this loaded style. */
+  val featureStateStore: MlnFfiFeatureStateStore?
+
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
   fun <T> readMap(action: (MapHandle) -> T): T?
 
@@ -29,8 +33,8 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T?
 
   /**
-   * Null when the style has unloaded or no session is attached yet — a session exists only between
-   * the first frame and teardown. The handle must not escape [action].
+   * Null when the style has unloaded or no renderer is ready. The renderer exists after the first
+   * successful frame and until teardown. The handle must not escape [action].
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 
@@ -93,6 +97,8 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: MlnFfiStyleBinding =
       object : MlnFfiStyleBinding {
+        override val featureStateStore: MlnFfiFeatureStateStore? = null
+
         override val isLoaded: Boolean = false
 
         override val logger: Logger? = null

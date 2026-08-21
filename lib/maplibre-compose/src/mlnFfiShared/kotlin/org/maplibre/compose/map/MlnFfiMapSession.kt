@@ -48,6 +48,7 @@ import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
+import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -161,6 +162,12 @@ internal class MlnFfiMapSession(
   /** Renderer-thread state. */
   private var renderSession: RenderSessionHandle? = null
 
+  /** Renderer-thread state; the FFI creates its renderer during the first successful render. */
+  private var renderSessionReady = false
+
+  /** Any thread may publish style or source state that the next rendered update must receive. */
+  private val featureStateReplayPending = AtomicBoolean(false)
+
   @Volatile private var hostSession: MlnFfiMapHostSession? = null
 
   private data class TargetKey(val generation: Long, val extent: MapExtent)
@@ -228,6 +235,8 @@ internal class MlnFfiMapSession(
   private inner class SessionStyleBinding : MlnFfiStyleBinding {
     @Volatile private var loaded = true
 
+    override val featureStateStore = MlnFfiFeatureStateStore()
+
     override val isLoaded: Boolean
       get() = loaded && !closed
 
@@ -239,6 +248,7 @@ internal class MlnFfiMapSession(
     }
 
     override fun reportSourceChanged(sourceId: String) {
+      featureStateReplayPending.store(true)
       reportedUrlAttribution.remove(sourceId)
       callbacks.onSourceChanged(this@MlnFfiMapSession, sourceId)
     }
@@ -262,6 +272,7 @@ internal class MlnFfiMapSession(
     override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
       if (!isLoaded) return null
       return withRendererAccess {
+        if (!renderSessionReady) return@withRendererAccess null
         val session = renderSession
         if (session == null) {
           logger?.d { "Ignoring a render session call: no session is attached yet" }
@@ -340,6 +351,12 @@ internal class MlnFfiMapSession(
       } catch (error: NativeErrorException) {
         throw MlnFfiRecoverableFrameException("The MapLibre render session failed", error)
       }
+    if (update.result == RenderResult.RENDERED) {
+      renderSessionReady = true
+      if (featureStateReplayPending.compareAndSet(true, false)) {
+        if (styleBinding?.featureStateStore?.replay(session) == true) requestRender()
+      }
+    }
     when (update.result) {
       RenderResult.NO_UPDATE,
       RenderResult.SIZE_PENDING -> return MlnFfiFrameResult.SKIPPED
@@ -438,6 +455,7 @@ internal class MlnFfiMapSession(
   private fun closeRenderSession() {
     val handle = renderSession
     renderSession = null
+    renderSessionReady = false
     attachedTarget = null
     if (handle == null) return
 
@@ -497,6 +515,8 @@ internal class MlnFfiMapSession(
         logger?.e(error) { "Failed to attach a render session to the host target" }
         throw error
       }
+    renderSessionReady = false
+    featureStateReplayPending.store(true)
     attachedTarget = key
     attachCount++
     publishAttachedViewport()
@@ -622,6 +642,7 @@ internal class MlnFfiMapSession(
         // Descriptors holding the previous binding must not write into a style that is gone.
         styleBinding?.unload()
         val binding = SessionStyleBinding().also { styleBinding = it }
+        featureStateReplayPending.store(true)
         callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
