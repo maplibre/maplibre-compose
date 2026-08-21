@@ -86,9 +86,10 @@ public fun PointerPinButton(
   interactionSource: MutableInteractionSource? = null,
   content: @Composable (BoxScope.() -> Unit),
 ) {
-  val projection = cameraState.projection
+  // The viewport read recomputes the conversion when the transform changes.
+  val viewport = cameraState.viewport
   val dpTarget =
-    remember(targetPosition, projection) { projection?.screenLocationFromPosition(targetPosition) }
+    remember(targetPosition, viewport) { cameraState.screenLocationFromPosition(targetPosition) }
   val target = dpTarget?.toOffset() ?: return
   var area by remember { mutableStateOf<Rect?>(null) }
 

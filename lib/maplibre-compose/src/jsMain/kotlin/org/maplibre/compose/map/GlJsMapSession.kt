@@ -3,7 +3,9 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
@@ -16,6 +18,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
@@ -564,6 +567,21 @@ internal class GlJsMapSession(
       )
     }
 
+  override fun getViewport(): Viewport? =
+    withMap(null as Viewport?) { map ->
+      // GL JS adopts a resize synchronously in applyExtent, so the applied extent, the bounds, and
+      // the transform the conversions read all describe the same viewport here.
+      val extent = appliedExtent
+      if (extent.isEmpty) return@withMap null
+      val camera = getCameraPosition()
+      Viewport(
+        size = DpSize(extent.width.dp, extent.height.dp),
+        visibleBoundingBox = getVisibleBoundingBox(),
+        visibleRegion = getVisibleRegion(),
+        metersPerDpAtTarget = metersPerDpAtLatitude(camera.zoom, camera.target.latitude),
+      )
+    }
+
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
     onMap { map ->
@@ -596,13 +614,11 @@ internal class GlJsMapSession(
     )
   }
 
-  override fun positionFromScreenLocation(offset: DpOffset): Position =
-    withMap(Position(0.0, 0.0)) { map ->
-      map.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble())
-    }
+  override fun positionFromScreenLocation(offset: DpOffset): Position? =
+    withMap(null) { map -> map.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset =
-    withMap(DpOffset.Zero) { map -> map.project(position.toLngLat()).toDpOffset() }
+  override fun screenLocationFromPosition(position: Position): DpOffset? =
+    withMap(null) { map -> map.project(position.toLngLat()).toDpOffset() }
 
   override suspend fun queryRenderedFeatures(
     offset: DpOffset,

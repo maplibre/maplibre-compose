@@ -20,7 +20,6 @@ import androidx.compose.ui.unit.DpOffset
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
-import org.maplibre.compose.camera.CameraProjection
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.overlay.MapOverlay
@@ -154,8 +153,7 @@ public fun MaplibreMap(
           rememberedStyle?.unload()
           val safeStyle = style?.let { SafeStyle(it, currentLogger) }
           rememberedStyle = safeStyle
-          cameraState.metersPerDpAtTargetState.value =
-            map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
+          if (cameraState.map === map) cameraState.viewportState.value = map.getViewport()
         }
 
         override fun onMapFailLoading(reason: String?) {
@@ -180,11 +178,9 @@ public fun MaplibreMap(
         override fun onCameraMoved(map: MapAdapter) {
           if (cameraState.map !== map) return
           cameraState.positionState.value = map.getCameraPosition()
-          cameraState.metersPerDpAtTargetState.value =
-            map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
-          // A new instance so a composition that reads CameraState.projection redraws when the
+          // A new instance so a composition that reads CameraState.viewport redraws when the
           // transform changes without the camera position changing, which is what a resize does.
-          cameraState.projectionState.value = CameraProjection(map)
+          cameraState.viewportState.value = map.getViewport()
         }
 
         override fun onCameraMoveEnded(map: MapAdapter) {

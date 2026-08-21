@@ -71,9 +71,10 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *   [timestamp][Location.timestamp] determines whether it is styled as old.
  * @param bearing The bearing of the location puck, which determines the rotation of the bearing
  *   indicator. Defaults to `location.course`, which is the direction of travel.
- * @param cameraState The [CameraState] of the map, used only for [CameraState.metersPerDpAtTarget]
- *   to correctly draw the accuracy circle. The camera state is not modified by this composable; if
- *   you want the camera to track the current location, use [LocationTrackingEffect].
+ * @param cameraState The [CameraState] of the map, used only for
+ *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
+ *   correctly draw the accuracy circle. The camera state is not modified by this composable; if you
+ *   want the camera to track the current location, use [LocationTrackingEffect].
  * @param oldLocationThreshold Locations with a [timestamp][Location.timestamp] older than this will
  *   be considered old and will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
@@ -119,7 +120,9 @@ public fun LocationPuck(
       switch(
         condition(test = isOldLocation, output = const(0.dp)),
         fallback =
-          (feature["accuracy"].asNumber() / const(cameraState.metersPerDpAtTarget.toFloat())).dp,
+          (feature["accuracy"].asNumber() /
+              const((cameraState.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
+            .dp,
       ),
     color = const(colors.accuracyFillColor),
     strokeColor = const(colors.accuracyStrokeColor),

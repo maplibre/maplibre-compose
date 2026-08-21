@@ -5,7 +5,9 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -25,6 +27,7 @@ import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.mlnffi.EglContextHandles
@@ -902,6 +905,7 @@ internal class MlnFfiMapSession(
    */
   private data class MirroredViewport(
     val camera: CameraPosition = CameraPosition(),
+    val size: DpSize = DpSize.Zero,
     val visibleRegion: VisibleRegion =
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0)),
     val boundingBox: BoundingBox = BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0)),
@@ -918,7 +922,7 @@ internal class MlnFfiMapSession(
 
   /**
    * A resize changes the projection without a camera event, so Compose overlays that key on
-   * [org.maplibre.compose.camera.CameraState.projection] would keep the previous screen locations
+   * [org.maplibre.compose.camera.CameraState.viewport] would keep the previous screen locations
    * unless this reports the new snapshot.
    */
   private fun snapshotViewportAndNotify(map: MapHandle) {
@@ -949,6 +953,7 @@ internal class MlnFfiMapSession(
     publishViewport(
       MirroredViewport(
         camera = map.camera.toCameraPosition(),
+        size = DpSize(size.width.dp, size.height.dp),
         visibleRegion = visibleRegion,
         boundingBox =
           BoundingBox(
@@ -1159,6 +1164,22 @@ internal class MlnFfiMapSession(
 
   override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
 
+  override fun getViewport(): Viewport? {
+    // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once a
+    // render target has attached with the composable's dimensions.
+    if (!stateLock.withLock { hasAttachedViewport }) return null
+    // One read so every property comes from the same publish.
+    val mirror = mirroredViewport
+    if (mirror.size == DpSize.Zero) return null
+    return Viewport(
+      size = mirror.size,
+      visibleBoundingBox = mirror.boundingBox,
+      visibleRegion = mirror.visibleRegion,
+      metersPerDpAtTarget =
+        metersPerDpAtLatitude(mirror.camera.zoom, mirror.camera.target.latitude),
+    )
+  }
+
   /**
    * The map's corners as positions, ordered top-left, top-right, bottom-left, bottom-right.
    *
@@ -1210,12 +1231,13 @@ internal class MlnFfiMapSession(
   /** Test seam: runs [action] on the owner thread and waits for it. */
   internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
 
-  override fun positionFromScreenLocation(offset: DpOffset): Position =
-    withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
-      ?: Position(0.0, 0.0)
+  override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {
+    it.latLngForPixel(offset.toScreenPoint()).toPosition()
+  }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset =
-    withSnapshotProjection { it.pixelForLatLng(position.toLatLng()).toDpOffset() } ?: DpOffset.Zero
+  override fun screenLocationFromPosition(position: Position): DpOffset? = withSnapshotProjection {
+    it.pixelForLatLng(position.toLatLng()).toDpOffset()
+  }
 
   /**
    * Runs [block] on the snapshot's frozen projection. Holds [projectionLock] for the call so the

@@ -171,13 +171,10 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
               session.pointerPx = Offset(change.position.x, change.position.y)
             }
             if (change.pressed && session.pin == null && scenario.usesGestures) {
-              val projection = cameraState.projection
-              if (projection != null) {
-                session.pin =
-                  projection.positionFromScreenLocation(
-                    with(density) { DpOffset(change.position.x.toDp(), change.position.y.toDp()) }
-                  )
-              }
+              session.pin =
+                cameraState.positionFromScreenLocation(
+                  with(density) { DpOffset(change.position.x.toDp(), change.position.y.toDp()) }
+                )
             }
             session.gestures.onPointer(x, y, change.pressed)
             if (!change.pressed && scenario.usesGestures) {
@@ -236,7 +233,7 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
 
 private fun samplePin(session: BenchmarkSession) {
   val pin = session.pin ?: return
-  val projected = session.cameraState.projection?.screenLocationFromPosition(pin) ?: return
+  val projected = session.cameraState.screenLocationFromPosition(pin) ?: return
   val px = with(session.density) { Offset(projected.x.toPx(), projected.y.toPx()) }
   session.gestures.onMapProjection(px.x.toDouble(), px.y.toDouble())
 }
@@ -244,7 +241,7 @@ private fun samplePin(session: BenchmarkSession) {
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTrail(session: BenchmarkSession) {
   val composePoint = session.pointerPx
   val pin = session.pin
-  val projected = pin?.let { session.cameraState.projection?.screenLocationFromPosition(it) }
+  val projected = pin?.let { session.cameraState.screenLocationFromPosition(it) }
   val mapPoint = projected?.let { with(session.density) { Offset(it.x.toPx(), it.y.toPx()) } }
   if (composePoint != null) {
     val arm = 12.dp.toPx()

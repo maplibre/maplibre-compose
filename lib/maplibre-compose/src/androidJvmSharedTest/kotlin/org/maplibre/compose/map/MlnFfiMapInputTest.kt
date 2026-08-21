@@ -92,7 +92,7 @@ class MlnFfiMapInputTest {
         onRoot().performMouseInput { moveTo(center) }
         mainClock.advanceTimeByFrame()
         // waitForIdle() would wait until overlay layout stops invalidating, which follows
-        // CameraState.projection replacements through the rest of this native ease.
+        // CameraState.viewport replacements through the rest of this native ease.
         assertTrue(camera.isCameraMoving, "a hover cancelled the keyboard pan")
       } finally {
         mainClock.autoAdvance = true
@@ -991,7 +991,7 @@ class MlnFfiMapInputTest {
       }
     }
 
-    cameraState.awaitProjection()
+    cameraState.awaitViewport()
     cameraState.position = initialPosition
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
     waitUntil(timeoutMillis = TIMEOUT) {
