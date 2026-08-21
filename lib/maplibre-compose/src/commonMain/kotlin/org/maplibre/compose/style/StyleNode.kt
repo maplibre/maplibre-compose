@@ -1,5 +1,8 @@
 package org.maplibre.compose.style
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.setValue
 import co.touchlab.kermit.Logger
 
 internal class StyleNode(var style: SafeStyle, logger: Logger?) : MapNode() {
@@ -16,6 +19,17 @@ internal class StyleNode(var style: SafeStyle, logger: Logger?) : MapNode() {
   internal val sourceManager = SourceManager(this)
   internal val layerManager = LayerManager(this)
   internal val imageManager = ImageManager(this)
+
+  // A nested content scope can recompose without its StyleContent parent. This state invalidates
+  // that parent after a structural change so it records the post-observer layer-application effect.
+  private var applyGeneration by mutableIntStateOf(0)
+
+  internal val currentApplyGeneration: Int
+    get() = applyGeneration
+
+  internal fun scheduleApplyChanges() {
+    applyGeneration++
+  }
 
   override fun allowsChild(node: MapNode) = node is LayerNode<*>
 
@@ -34,9 +48,5 @@ internal class StyleNode(var style: SafeStyle, logger: Logger?) : MapNode() {
     layerManager.moveLayer(node, oldIndex, index)
   }
 
-  override fun onEndChanges() {
-    // Only layers: sources are referenced and released from a DisposableEffect, which Compose
-    // dispatches after this hook, so applying them here would always be a frame early.
-    layerManager.applyChanges()
-  }
+  internal fun applyChanges() = layerManager.applyChanges()
 }

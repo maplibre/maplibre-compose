@@ -42,7 +42,7 @@ class TiledSourceAttachTest {
       style.addSource(fromUrl)
 
       val layer = RasterLayer("raster", fromTiles)
-      // The layer must attach a fresh source before MapLibre validates the layer JSON.
+      style.addSource(fromTiles)
       style.addLayer(layer)
 
       layer.onMap { map ->
@@ -75,6 +75,7 @@ class TiledSourceAttachTest {
       style.addSource(fromUrl)
 
       val layer = HillshadeLayer("hillshade", fromTiles)
+      style.addSource(fromTiles)
       style.addLayer(layer)
 
       layer.onMap { map ->

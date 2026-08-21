@@ -13,9 +13,6 @@ internal actual class ColorReliefLayer actual constructor(id: String, actual val
 
   override val sourceId: String = source.id
 
-  override val sourceDescriptor: Source
-    get() = source
-
   actual fun setColorReliefColor(color: CompiledExpression<ColorValue>) {
     setPaintProperty("color-relief-color", color)
   }

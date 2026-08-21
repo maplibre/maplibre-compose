@@ -10,9 +10,6 @@ internal actual sealed class FeatureLayer(id: String, actual val source: Source)
   override val sourceId: String
     get() = source.id
 
-  override val sourceDescriptor: Source
-    get() = source
-
   actual abstract var sourceLayer: String
 
   actual abstract fun setFilter(filter: CompiledExpression<BooleanValue>)

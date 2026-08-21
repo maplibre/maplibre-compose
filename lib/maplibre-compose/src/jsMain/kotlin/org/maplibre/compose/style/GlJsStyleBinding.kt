@@ -12,7 +12,6 @@ import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.subscribe
-import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toJsonElement
 
@@ -42,10 +41,6 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     if (!loaded) return
     loaded = false
     errors.cancel()
-  }
-
-  override fun attachSource(source: Source) {
-    source.attach(this)
   }
 
   fun addSource(id: String, definition: JsonObject) {

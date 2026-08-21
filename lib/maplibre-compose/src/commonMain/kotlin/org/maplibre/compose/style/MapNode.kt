@@ -10,6 +10,4 @@ internal sealed class MapNode {
   open fun onChildRemoved(oldIndex: Int, node: MapNode) {}
 
   open fun onChildMoved(oldIndex: Int, index: Int, node: MapNode) {}
-
-  open fun onEndChanges() {}
 }
