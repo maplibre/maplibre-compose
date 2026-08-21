@@ -223,6 +223,21 @@ private constructor(
     }
   }
 
+  /**
+   * Loads [style] while leaving the render session unattached until the caller requests a frame.
+   */
+  fun loadStyleBeforeRendering(style: BaseStyle, timeout: Duration = 60.seconds) {
+    val styleLoadsBefore = events.count { it == STYLE_LOADED }
+    session.setBaseStyle(style)
+    val deadline = TimeSource.Monotonic.markNow() + timeout
+    while (events.count { it == STYLE_LOADED } <= styleLoadsBefore || this.style == null) {
+      check(deadline.hasNotPassedNow()) {
+        "Timed out waiting for style $style to load before rendering. Errors: $errors"
+      }
+      parkForTest(POLL_INTERVAL_MILLIS)
+    }
+  }
+
   override fun close() {
     runCatching { session.close() }
     runCatching { driver.close() }

@@ -48,8 +48,6 @@ public expect class GeoJsonSource : Source {
    * [feature.state][org.maplibre.compose.expressions.dsl.Feature.state]. Keys already on the
    * feature and absent from [state] stay as they are. [featureId] is matched as text: a GeoJSON
    * `id` of `7` is `"7"`.
-   *
-   * A call before the first frame is ignored on the native platforms.
    */
   public fun setFeatureState(featureId: String, state: JsonObject)
 
