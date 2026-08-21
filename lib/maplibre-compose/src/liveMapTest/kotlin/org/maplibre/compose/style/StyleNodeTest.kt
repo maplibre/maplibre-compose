@@ -21,7 +21,7 @@ import org.maplibre.compose.sources.VectorSource
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 @OptIn(ExperimentalTestApi::class)
-abstract class StyleNodeTest {
+class StyleNodeTest {
   private val testSources by lazy {
     listOf(
       VectorSource("foo", "https://example.com/{z}/{x}/{y}.pbf"),
@@ -49,7 +49,10 @@ abstract class StyleNodeTest {
       options = TileSetOptions(attributionHtml = attribution),
     )
 
-  @BeforeTest open fun platformSetup() {}
+  @BeforeTest
+  fun platformSetup() {
+    prepareStyleNodeTestHost()
+  }
 
   @Test
   fun shoudGetBaseSource() = runComposeUiTest {

@@ -98,7 +98,12 @@ Tests live in platform-specific source sets:
 - Android host tests: `src/androidHostTest`
 - iOS tests: `src/iosTest`
 - Common tests: `src/commonTest`
+- Live-map tests: `src/liveMapTest`
 - Browser tests: `src/jsTest`
+
+`liveMapTest` runs on every platform that hosts a MapLibre runtime. Those tests
+stay out of `commonTest` because `androidHostTest` inherits that source set and
+has no MapLibre runtime and no Compose UI test host.
 
 The browser tests drive a real map in headless Chrome. They need `CHROME_BIN` if
 Karma cannot find one, and they fail as timeouts rather than assertion
