@@ -24,12 +24,7 @@ internal actual class ColorReliefLayer actual constructor(id: String, actual val
     setPaintProperty("color-relief-opacity", opacity)
   }
 
-  /** TODO: write this property once MapLibre Native implements `resampling` on color-relief. */
   actual fun setResampling(resampling: CompiledExpression<RasterResampling>) {
-    skipUnsupportedProperty(
-      "resampling",
-      resampling,
-      "MapLibre Native does not implement it on color-relief layers.",
-    )
+    setPaintProperty("resampling", resampling)
   }
 }

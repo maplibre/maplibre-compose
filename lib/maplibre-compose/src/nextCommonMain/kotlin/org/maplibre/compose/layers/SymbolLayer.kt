@@ -69,17 +69,8 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
     setLayoutProperty("icon-allow-overlap", allowOverlap)
   }
 
-  /**
-   * TODO: write this property once MapLibre Native implements `icon-overlap`, including its
-   *   `cooperative` value, which `icon-allow-overlap` cannot express.
-   */
   actual fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
-    skipUnsupportedProperty(
-      "icon-overlap",
-      overlap,
-      "MapLibre Native does not implement it. Use iconAllowOverlap instead; note that it cannot " +
-        "express the 'cooperative' value.",
-    )
+    setLayoutProperty("icon-overlap", overlap)
   }
 
   actual fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
@@ -252,14 +243,8 @@ internal actual class SymbolLayer actual constructor(id: String, source: Source)
     setLayoutProperty("text-allow-overlap", allowOverlap)
   }
 
-  /** TODO: write this property once MapLibre Native implements `text-overlap`. */
   actual fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
-    skipUnsupportedProperty(
-      "text-overlap",
-      overlap,
-      "MapLibre Native does not implement it. Use textAllowOverlap instead; note that it cannot " +
-        "express the 'cooperative' value.",
-    )
+    setLayoutProperty("text-overlap", overlap)
   }
 
   actual fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {

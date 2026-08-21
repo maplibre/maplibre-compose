@@ -93,7 +93,25 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     map.styleLayerIds().contains(layerId)
   }
 
+  override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? =
+    UNSUPPORTED_LAYER_PROPERTIES[layerType to name]
+
   companion object {
+    /**
+     * Style-spec properties MapLibre Native does not implement; writing one makes it refuse the
+     * entire layer. Revisit when bumping the maplibre-native-ffi pin.
+     */
+    private val UNSUPPORTED_LAYER_PROPERTIES: Map<Pair<String, String>, String> =
+      mapOf(
+        ("symbol" to "icon-overlap") to
+          "MapLibre Native does not implement it. Use iconAllowOverlap instead; note that it " +
+            "cannot express the 'cooperative' value.",
+        ("symbol" to "text-overlap") to
+          "MapLibre Native does not implement it. Use textAllowOverlap instead; note that it " +
+            "cannot express the 'cooperative' value.",
+        ("color-relief" to "resampling") to "MapLibre Native does not implement it.",
+      )
+
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: MlnFfiStyleBinding =
       object : MlnFfiStyleBinding {

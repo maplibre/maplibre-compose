@@ -106,6 +106,7 @@ internal actual sealed class Layer(actual val id: String) {
    * where an escaping exception would kill the composition. [attach] does throw.
    */
   private fun pushProperty(name: String, value: JsonElement, kind: LayerPropertyKind) {
+    if (recordIfUnsupported(name, value)) return
     try {
       binding.setLayerProperty(id, name, value, kind)
     } catch (error: StyleMutationException) {
@@ -121,8 +122,15 @@ internal actual sealed class Layer(actual val id: String) {
   private val unsupportedProperties = mutableMapOf<String, String>()
 
   /**
-   * Drops a property MapLibre Native will not accept, and says so once; writing it anyway would
-   * make MapLibre refuse the entire layer.
+   * Records a property [binding] will not accept, and says so once when attached; writing it anyway
+   * would make MapLibre refuse the entire layer. A null value asks for nothing and is not reported.
+   *
+   * @return whether the property is unsupported and must not be written.
+   */
+  /**
+   * Drops a value MapLibre will not accept for a property it otherwise supports, and says so once.
+   * Properties an engine lacks outright belong in the binding's
+   * [unsupportedLayerPropertyReason][StyleBinding.unsupportedLayerPropertyReason] table instead.
    *
    * @param value the value that was asked for. A null literal asks for nothing and is not reported.
    */
@@ -136,6 +144,18 @@ internal actual sealed class Layer(actual val id: String) {
     if (isAttached) reportUnsupportedProperty(name, reason)
   }
 
+  private fun recordIfUnsupported(
+    name: String,
+    value: JsonElement,
+    binding: StyleBinding = this.binding,
+  ): Boolean {
+    val reason = binding.unsupportedLayerPropertyReason(type, name) ?: return false
+    if (value is JsonNull) return true
+    if (unsupportedProperties.put(name, reason) != null) return true
+    if (isAttached) reportUnsupportedProperty(name, reason)
+    return true
+  }
+
   private fun reportUnsupportedProperty(name: String, reason: String) {
     binding.logger?.w { "Layer '$id' of type '$type' cannot set '$name': $reason" }
   }
@@ -144,16 +164,21 @@ internal actual sealed class Layer(actual val id: String) {
    * The complete layer object, as the style spec defines it. Null-valued properties are omitted;
    * the spec has no null, and MapLibre rejects the whole layer over one.
    */
-  internal fun toJson(): JsonObject = buildJsonObject {
+  internal fun toJson(binding: StyleBinding = this.binding): JsonObject = buildJsonObject {
+    fun accepted(name: String, value: JsonElement) =
+      value !is JsonNull && binding.unsupportedLayerPropertyReason(type, name) == null
+
     // `id` and `type` first: MapLibre reads the type before the properties that depend on it.
     put("id", id)
     put("type", type)
     sourceId?.let { put("source", it) }
     root.forEach { (key, value) -> if (key in ROOT_KEYS && value !is JsonNull) put(key, value) }
     layout
-      .filterValues { it !is JsonNull }
+      .filterTo(mutableMapOf()) { (key, value) -> accepted(key, value) }
       .let { if (it.isNotEmpty()) put("layout", JsonObject(it)) }
-    paint.filterValues { it !is JsonNull }.let { if (it.isNotEmpty()) put("paint", JsonObject(it)) }
+    paint
+      .filterTo(mutableMapOf()) { (key, value) -> accepted(key, value) }
+      .let { if (it.isNotEmpty()) put("paint", JsonObject(it)) }
   }
 
   /** Adds this layer directly below [beforeLayerId], or on top when that is empty. */
@@ -175,14 +200,17 @@ internal actual sealed class Layer(actual val id: String) {
       "Layer ID '$id' is already owned by a different live layer descriptor; create a separate " +
         "layer instance for each map"
     }
+    // Buffered properties this engine cannot take stay out of the JSON; the drain below says so.
+    layout.forEach { (name, value) -> recordIfUnsupported(name, value, binding) }
+    paint.forEach { (name, value) -> recordIfUnsupported(name, value, binding) }
     val added =
       try {
-        binding.addLayer(toJson(), beforeLayerId)
+        binding.addLayer(toJson(binding), beforeLayerId)
       } catch (error: StyleMutationException) {
         throw IllegalStateException(
           "Could not add layer '$id' of type '$type'" +
             (sourceId?.let { " over source '$it'" } ?: "") +
-            ": ${error.message}. Layer JSON: ${toJson()}",
+            ": ${error.message}. Layer JSON: ${toJson(binding)}",
           error,
         )
       }
