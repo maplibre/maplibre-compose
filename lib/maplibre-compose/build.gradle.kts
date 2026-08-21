@@ -52,9 +52,9 @@ kotlin {
       api(libs.spatialk.units)
     }
 
-    // Compose UI hosts that draw through Skia (desktop, iOS, and the browser). Android draws
-    // through the Android Canvas API.
-    create("skiaMain") {
+    // Desktop, iOS, and the browser. Android implements the same expect APIs in androidMain,
+    // because Compose on Android draws through the Android Canvas API instead of Skia.
+    create("nonAndroidMain") {
       dependsOn(commonMain.get())
       jvmMain.dependsOn(this)
       iosMain.get().dependsOn(this)
