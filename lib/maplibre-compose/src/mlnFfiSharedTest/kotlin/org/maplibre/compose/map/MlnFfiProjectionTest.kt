@@ -4,6 +4,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
@@ -44,7 +45,7 @@ class MlnFfiProjectionTest {
 
       val roundTrip =
         fixture.session.screenLocationFromPosition(
-          fixture.session.positionFromScreenLocation(SCREEN_CENTER)
+          assertNotNull(fixture.session.positionFromScreenLocation(SCREEN_CENTER))
         )
       assertTrue(
         roundTrip.isNear(SCREEN_CENTER),
@@ -96,7 +97,7 @@ class MlnFfiProjectionTest {
       }
 
       repeat(200) {
-        val unprojected = fixture.session.positionFromScreenLocation(SCREEN_CENTER)
+        val unprojected = assertNotNull(fixture.session.positionFromScreenLocation(SCREEN_CENTER))
         val projected = fixture.session.screenLocationFromPosition(unprojected)
         assertTrue(
           projected.isNear(SCREEN_CENTER),
@@ -109,8 +110,9 @@ class MlnFfiProjectionTest {
     }
   }
 
-  private fun DpOffset.isNear(other: DpOffset): Boolean =
-    abs(x.value - other.x.value) <= PIXEL_TOLERANCE &&
+  private fun DpOffset?.isNear(other: DpOffset): Boolean =
+    this != null &&
+      abs(x.value - other.x.value) <= PIXEL_TOLERANCE &&
       abs(y.value - other.y.value) <= PIXEL_TOLERANCE
 
   private companion object {

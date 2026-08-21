@@ -1207,12 +1207,13 @@ internal class MlnFfiMapSession(
   /** Test seam: runs [action] on the owner thread and waits for it. */
   internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
 
-  override fun positionFromScreenLocation(offset: DpOffset): Position =
-    withSnapshotProjection { it.latLngForPixel(offset.toScreenPoint()).toPosition() }
-      ?: Position(0.0, 0.0)
+  override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {
+    it.latLngForPixel(offset.toScreenPoint()).toPosition()
+  }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset =
-    withSnapshotProjection { it.pixelForLatLng(position.toLatLng()).toDpOffset() } ?: DpOffset.Zero
+  override fun screenLocationFromPosition(position: Position): DpOffset? = withSnapshotProjection {
+    it.pixelForLatLng(position.toLatLng()).toDpOffset()
+  }
 
   /**
    * Runs [block] on the snapshot's frozen projection. Holds [projectionLock] for the call so the

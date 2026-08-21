@@ -69,9 +69,11 @@ internal interface MapAdapter {
 
   fun setTileLodSettings(value: TileLodOptions)
 
-  fun positionFromScreenLocation(offset: DpOffset): Position
+  /** Null while the map has no viewport to convert with. */
+  fun positionFromScreenLocation(offset: DpOffset): Position?
 
-  fun screenLocationFromPosition(position: Position): DpOffset
+  /** Null while the map has no viewport to convert with. */
+  fun screenLocationFromPosition(position: Position): DpOffset?
 
   suspend fun queryRenderedFeatures(
     offset: DpOffset,

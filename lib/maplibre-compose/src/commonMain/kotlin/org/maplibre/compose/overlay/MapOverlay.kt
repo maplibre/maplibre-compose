@@ -162,7 +162,8 @@ internal fun MapOverlayHost(
         when (val child = measurable.parentData as? OverlayChildData) {
           is OverlayChildData.PlacedAt -> {
             if (viewport == null || width == 0 || height == 0) return@forEachIndexed
-            val screen = cameraState.screenLocationFromPosition(child.position)
+            val screen =
+              cameraState.screenLocationFromPosition(child.position) ?: return@forEachIndexed
             val aligned =
               child.alignment.align(
                 size = IntSize(placeable.width, placeable.height),

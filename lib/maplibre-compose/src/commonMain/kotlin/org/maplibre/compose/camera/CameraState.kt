@@ -61,34 +61,33 @@ public class CameraState(firstPosition: CameraPosition) {
     get() = viewportState.value
 
   /**
-   * Returns an offset from the top-left corner of the map composable that corresponds to the given
-   * [position]. This works for positions that are off-screen, too.
+   * Returns the offset from the top-left corner of the map composable that corresponds to the given
+   * [position], or null while the map has no [viewport]. This works for positions that are
+   * off-screen, too.
    *
-   * The map answers for its current transform; [DpOffset.Zero] before this state is attached to a
-   * map with a viewport, so gate on [viewport] when that matters. To recompose when the answer
-   * changes, read [viewport] as well: this function is not snapshot state.
+   * The answer describes the transform that the map has at the time of the call. To recompose when
+   * the transform changes, read [viewport].
    */
-  public fun screenLocationFromPosition(position: Position): DpOffset {
-    return map?.screenLocationFromPosition(position) ?: DpOffset.Zero
+  public fun screenLocationFromPosition(position: Position): DpOffset? {
+    return map?.screenLocationFromPosition(position)
   }
 
   /**
-   * Returns a position that corresponds to the given [offset] from the top-left corner of the map
-   * composable.
+   * Returns the position that corresponds to the given [offset] from the top-left corner of the map
+   * composable, or null while the map has no [viewport].
    *
-   * The map answers for its current transform; position zero before this state is attached to a map
-   * with a viewport, so gate on [viewport] when that matters. To recompose when the answer changes,
-   * read [viewport] as well: this function is not snapshot state.
+   * The answer describes the transform that the map has at the time of the call. To recompose when
+   * the transform changes, read [viewport].
    */
-  public fun positionFromScreenLocation(offset: DpOffset): Position {
-    return map?.positionFromScreenLocation(offset) ?: Position(0.0, 0.0)
+  public fun positionFromScreenLocation(offset: DpOffset): Position? {
+    return map?.positionFromScreenLocation(offset)
   }
 
   /**
    * Returns a list of features that are rendered at the given [offset] from the top-left corner of
    * the map composable, optionally limited to layers with the given [layerIds] and filtered by the
    * given [predicate]. The result is sorted by render order, i.e. the feature in front is first in
-   * the list. Empty before this state is attached to a map.
+   * the list. The list is empty while this state is not attached to a map.
    *
    * @param offset position from the top-left corner of the map composable to query for
    * @param layerIds the ids of the layers to limit the query to. If not specified, features in
@@ -107,8 +106,8 @@ public class CameraState(firstPosition: CameraPosition) {
   /**
    * Returns a list of features whose rendered geometry intersect with the given [rect], optionally
    * limited to layers with the given [layerIds] and filtered by the given [predicate]. The result
-   * is sorted by render order, i.e. the feature in front is first in the list. Empty before this
-   * state is attached to a map.
+   * is sorted by render order, i.e. the feature in front is first in the list. The list is empty
+   * while this state is not attached to a map.
    *
    * @param rect rectangle to intersect with rendered geometry
    * @param layerIds the ids of the layers to limit the query to. If not specified, features in

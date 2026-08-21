@@ -614,13 +614,11 @@ internal class GlJsMapSession(
     )
   }
 
-  override fun positionFromScreenLocation(offset: DpOffset): Position =
-    withMap(Position(0.0, 0.0)) { map ->
-      map.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble())
-    }
+  override fun positionFromScreenLocation(offset: DpOffset): Position? =
+    withMap(null) { map -> map.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset =
-    withMap(DpOffset.Zero) { map -> map.project(position.toLngLat()).toDpOffset() }
+  override fun screenLocationFromPosition(position: Position): DpOffset? =
+    withMap(null) { map -> map.project(position.toLngLat()).toDpOffset() }
 
   override suspend fun queryRenderedFeatures(
     offset: DpOffset,
