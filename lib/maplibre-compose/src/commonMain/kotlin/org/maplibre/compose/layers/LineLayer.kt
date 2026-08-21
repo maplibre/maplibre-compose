@@ -37,19 +37,22 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param sortKey Sorts features within this layer in ascending order based on this value. Features
- *   with a higher sort key will appear above features with a lower sort key.
+ *   with a higher sort key will appear above features with a lower sort key. The expression may use
+ *   feature properties.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up, respectively.
  * @param translateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [translate] is not set.
  *
- * @param opacity Lines opacity. A value in range `[0..1]`.
- * @param color Lines color.
+ * @param opacity Lines opacity. A value in range `[0..1]`. The expression may use feature
+ *   properties and feature state.
+ * @param color Lines color. The expression may use feature properties and feature state.
  *
  *   Ignored if [pattern] is specified.
  *
@@ -57,28 +60,33 @@ import org.maplibre.compose.util.MaplibreComposable
  *   pattern. The lengths are later scaled by the line width. To convert a dash length to pixels,
  *   multiply the length by the current line width. Note that GeoJSON sources with `lineMetrics =
  *   true` specified won't render dashed lines to the expected scale. Also note that zoom-dependent
- *   expressions will be evaluated only at integer zoom levels. Ignored if [pattern] is specified.
+ *   expressions will be evaluated only at integer zoom levels. The expression may use feature
+ *   properties. Ignored if [pattern] is specified.
  * @param pattern Image to use for drawing image lines. For seamless patterns, image width must be a
  *   factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will be evaluated only
- *   at integer zoom levels.
+ *   at integer zoom levels. The expression may use feature properties.
  * @param gradient Defines a gradient with which to color a line feature. Can only be used with
  *   GeoJSON sources that specify `lineMetrics = true`.
  *
  *   Ignored if [pattern] or [dasharray] is specified.
  *
- * @param blur Blur applied to the lines.
- * @param width Thickness of the lines' stroke.
+ * @param blur Blur applied to the lines. The expression may use feature properties and feature
+ *   state.
+ * @param width Thickness of the lines' stroke. The expression may use feature properties and
+ *   feature state.
  * @param gapWidth If not `0`, instead of one, two lines, each left and right of each line's actual
- *   path are drawn, with the given gap in-between them.
+ *   path are drawn, with the given gap in-between them. The expression may use feature properties
+ *   and feature state.
  * @param offset The lines' offset. For linear features, a positive value offsets the line to the
  *   right, relative to the direction of the line, and a negative value to the left. For polygon
- *   features, a positive value results in an inset, and a negative value results in an outset.
- * @param cap Display of line endings.
- * @param join Display of joined lines.
+ *   features, a positive value results in an inset, and a negative value results in an outset. The
+ *   expression may use feature properties and feature state.
+ * @param cap Display of line endings. The expression may use feature properties.
+ * @param join Display of joined lines. The expression may use feature properties.
  * @param miterLimit Limit at which to automatically convert to bevel join for sharp angles when
- *   [join] is [LineJoin.Miter].
+ *   [join] is [LineJoin.Miter]. The expression may use feature properties.
  * @param roundLimit Limit at which to automatically convert to miter join for sharp angles when
- *   [join] is [LineJoin.Round].
+ *   [join] is [LineJoin.Round]. The expression may use feature properties.
  * @param onClick Function to call when any feature in this layer has been clicked.
  * @param onLongClick Function to call when any feature in this layer has been long-clicked.
  */

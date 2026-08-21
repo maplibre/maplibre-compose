@@ -78,11 +78,13 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param sortKey Sorts features within this layer in ascending order based on this value. Features
- *   with a higher sort key will appear above features with a lower sort key.
+ *   with a higher sort key will appear above features with a lower sort key. The expression may use
+ *   feature properties.
  * @param placement Symbol placement relative to its geometry.
  * @param spacing Distance between two symbol anchors.
  *
@@ -94,32 +96,38 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  * @param zOrder Determines whether overlapping symbols in the same layer are rendered in the order
  *   that they appear in the data source or by their y-position relative to the viewport. To control
  *   the order and prioritization of symbols otherwise, use [sortKey].
- * @param iconImage Image to use for drawing an image background.
+ * @param iconImage Image to use for drawing an image background. The expression may use feature
+ *   properties.
  * @param iconOpacity The opacity at which the icon will be drawn. A value in the range `[0..1]`.
+ *   The expression may use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconColor The color of the icon. This can only be used with SDF icons.
+ * @param iconColor The color of the icon. This can only be used with SDF icons. The expression may
+ *   use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconHaloColor The color of the icon's halo. Icon halos can only be used with SDF icons.
+ *   The expression may use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconHaloWidth Distance of halo to the icon outline. The unit is in dp only for SDF sprites
  *   that were created with a blur radius of 8, multiplied by the display density. I.e., the radius
- *   needs to be 16 for @2x sprites, etc.
+ *   needs to be 16 for @2x sprites, etc. The expression may use feature properties and feature
+ *   state.
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconHaloBlur Fade out the halo towards the outside.
+ * @param iconHaloBlur Fade out the halo towards the outside. The expression may use feature
+ *   properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconSize Scales the original size of the icon by the provided factor. The new pixel size
  *   of the image will be the original pixel size multiplied by [iconSize]. 1 is the original size;
- *   3 triples the size of the image.
+ *   3 triples the size of the image. The expression may use feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
@@ -150,23 +158,25 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconRotate Rotates the icon clockwise by the number in degrees.
+ * @param iconRotate Rotates the icon clockwise by the number in degrees. The expression may use
+ *   feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconAnchor Part of the icon placed closest to the anchor.
+ * @param iconAnchor Part of the icon placed closest to the anchor. The expression may use feature
+ *   properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconOffset Offset distance of icon from its anchor. Positive values indicate right and
  *   down, while negative values indicate left and up. Each component is multiplied by the value of
  *   [iconSize] to obtain the final offset in dp. When combined with [iconRotate] the offset will be
- *   as if the rotated direction was up.
+ *   as if the rotated direction was up. The expression may use feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconPadding Size of additional area round the icon bounding box used for detecting symbol
- *   collisions.
+ *   collisions. The expression may use feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
@@ -202,37 +212,42 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   Ignored if [iconTranslate] is not set.
  *
  * @param textField Value to use for a text label. Use e.g. `format(const("My label"))` to display
- *   the plain string "My label".
+ *   the plain string "My label". The expression may use feature properties.
  *
  *   The text can also be formatted, employing different colors, fonts, etc., see
  *   [format][org.maplibre.compose.expressions.dsl.format].
  *
- * @param textOpacity The opacity at which the text will be drawn.
+ * @param textOpacity The opacity at which the text will be drawn. The expression may use feature
+ *   properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textColor The color with which the text will be drawn.
+ * @param textColor The color with which the text will be drawn. The expression may use feature
+ *   properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textHaloColor The color of the text's halo, which helps it stand out from backgrounds.
+ * @param textHaloColor The color of the text's halo, which helps it stand out from backgrounds. The
+ *   expression may use feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
  * @param textHaloWidth Distance of halo to the font outline. Max text halo width is 1/4 of the
- *   font-size.
+ *   font-size. The expression may use feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textHaloBlur The halo's fadeout distance towards the outside.
+ * @param textHaloBlur The halo's fadeout distance towards the outside. The expression may use
+ *   feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textFont Font stack to use for displaying text.
+ * @param textFont Font stack to use for displaying text. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textSize Font size in SP or EM relative to 16sp.
+ * @param textSize Font size in SP or EM relative to 16sp. The expression may use feature
+ *   properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -241,8 +256,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   units. This is a limitation of the MapLibre expression parser. If text size does not use zoom
  *   interpolation, then those other properties can be defined in either unit.
  *
- * @param textTransform Specifies how to capitalize text.
- * @param textLetterSpacing Text tracking amount.
+ * @param textTransform Specifies how to capitalize text. The expression may use feature properties.
+ * @param textLetterSpacing Text tracking amount. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -261,7 +276,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textMaxWidth The maximum line width for text wrapping.
+ * @param textMaxWidth The maximum line width for text wrapping. The expression may use feature
+ *   properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -269,7 +285,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textJustify Text justification options.
+ * @param textJustify Text justification options. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -289,11 +305,13 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textRotate Rotates the text clockwise. Unit in degrees.
+ * @param textRotate Rotates the text clockwise. Unit in degrees. The expression may use feature
+ *   properties.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textAnchor Part of the text placed closest to the anchor.
+ * @param textAnchor Part of the text placed closest to the anchor. The expression may use feature
+ *   properties.
  *
  *   Overridden by [textVariableAnchorOffset].
  *
@@ -302,7 +320,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  * @param textOffset Offset distance of text from its anchor in ems. Positive values indicate right
  *   and down, while negative values indicate left and up. If used with [textVariableAnchor], input
  *   values will be taken as absolute values. Offsets along the x- and y-axis will be applied
- *   automatically based on the anchor position.
+ *   automatically based on the anchor position. The expression may use feature properties.
  *
  *   Overridden by [textRadialOffset].
  *
@@ -320,7 +338,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  * @param textRadialOffset Radial offset of text, in the direction of the symbol's anchor. Useful in
  *   combination with [textVariableAnchor], which defaults to using the two-dimensional [textOffset]
- *   if present.
+ *   if present. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -328,7 +346,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   map, you can provide an array of [SymbolAnchor] locations, each paired with an offset value.
  *   The renderer will attempt to place the label at each location, in order, before moving on to
  *   the next location+offset. Use [textJustify] = [TextJustify.Auto] to choose justification based
- *   on anchor position.
+ *   on anchor position. The expression may use feature properties.
  *
  * Each anchor location is accompanied by a point which defines the offset when the corresponding
  * anchor location is used. Positive offset values indicate right and down, while negative values

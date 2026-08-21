@@ -31,27 +31,31 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param sortKey Sorts features within this layer in ascending order based on this value. Features
- *   with a higher sort key will appear above features with a lower sort key.
+ *   with a higher sort key will appear above features with a lower sort key. The expression may use
+ *   feature properties.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up, respectively.
  * @param translateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [translate] is not set.
  *
- * @param opacity Fill opacity. A value in range `[0..1]`.
- * @param color Fill color.
+ * @param opacity Fill opacity. A value in range `[0..1]`. The expression may use feature properties
+ *   and feature state.
+ * @param color Fill color. The expression may use feature properties and feature state.
  *
  *   Ignored if [pattern] is specified.
  *
  * @param pattern Image to use for drawing image fills. For seamless patterns, image width and
  *   height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will
- *   be evaluated only at integer zoom levels.
+ *   be evaluated only at integer zoom levels. The expression may use feature properties.
  * @param antialias Whether or not the fill should be antialiased.
- * @param outlineColor The outline color of the fill. The outline is drawn at a hairline width.
+ * @param outlineColor The outline color of the fill. The outline is drawn at a hairline width. The
+ *   expression may use feature properties and feature state.
  *
  *   Ignored if [antialias] is `false`.
  *
