@@ -226,8 +226,17 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
 }
 
 @Composable
-public actual fun rememberDefaultLocationProvider(): LocationProvider =
-  rememberAndroidLocationProvider()
+public actual fun rememberDefaultLocationProvider(): LocationProvider {
+  val context = LocalContext.current
+  return when (
+    val resolution = remember(context) { AndroidLocationBackendResolver.discover(context) }
+  ) {
+    is AndroidBackendResolution.Discovered -> resolution.backend.rememberLocationProvider()
+    is AndroidBackendResolution.Misconfigured ->
+      remember(resolution) { MisconfiguredLocationProvider(resolution.cause) }
+    AndroidBackendResolution.None -> rememberAndroidLocationProvider(context)
+  }
+}
 
 /** Creates the default Android location provider. */
 @Composable
