@@ -75,7 +75,7 @@ swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nick
 
 [env]
 PLAYWRIGHT_BROWSERS_PATH = "{{ config_root }}/.cache/playwright"
-CHROME_BIN = { value = '''{{ exec(command="node -e 'console.log(require(process.argv[1]).chromium.executablePath())' \"" ~ tools.playwright.path ~ "/node_modules/playwright\"") }}''', tools = true }
+CHROME_BIN = { value = '''{{ exec(command="node -e \"console.log(require(process.argv[1]).chromium.executablePath())\" \"" ~ tools.playwright.path ~ "/node_modules/playwright\"") }}''', tools = true }
 
 [hooks]
 postinstall = ["hk install --mise --quiet"]
