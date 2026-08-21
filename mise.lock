@@ -299,6 +299,10 @@ url = "https://nodejs.org/dist/v24.19.0/node-v24.19.0-win-arm64.zip"
 checksum = "sha256:57f71ab3652e797d84acddc79c81cc9ff1c6ddb2a1974cdb83f00fee9bff4c73"
 url = "https://nodejs.org/dist/v24.19.0/node-v24.19.0-win-x64.zip"
 
+[[tools."npm:playwright"]]
+version = "1.62.1"
+backend = "npm:playwright"
+
 [[tools.python]]
 version = "3.14.7"
 backend = "core:python"
