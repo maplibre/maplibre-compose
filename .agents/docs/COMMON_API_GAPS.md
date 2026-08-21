@@ -104,20 +104,6 @@ Design question: the callback boundary. MapLibre calls back on its own worker
 threads to ask for a tile, which has to become something safe and idiomatic to
 implement from Kotlin.
 
-## Location indicator layer
-
-MapLibre's built-in user-location puck — a style layer with a position, bearing,
-and accuracy radius, rendered by the map rather than composed over it.
-
-- FFI: `addLocationIndicatorLayer`, `setLocationIndicatorLocation`,
-  `setLocationIndicatorBearing`, `setLocationIndicatorAccuracyRadius`,
-  `setLocationIndicatorImageName`
-
-Worth weighing against drawing the puck as ordinary layers from
-`org.maplibre.compose.location`, which is portable and already how the demo does
-it. The native indicator's advantage is that it interpolates and renders in the
-same frame as the map.
-
 ## Projection mode
 
 Switching between Mercator and globe projections.

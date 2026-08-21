@@ -53,6 +53,7 @@ object LocationDemo : Demo {
 
   private var follow by mutableStateOf(true)
   private var usePlayServices by mutableStateOf(true)
+  private var useNativeIndicator by mutableStateOf(false)
   private var lastFix by mutableStateOf<Position?>(null)
   private var panelLocationState by mutableStateOf<LocationState?>(null)
 
@@ -95,13 +96,17 @@ object LocationDemo : Demo {
       }
     }
 
-    LocationPuck(
-      idPrefix = "user",
-      location = location,
-      bearing = locationState.mostAccurateBearing(),
-      cameraState = cameraState,
-      colors = LocationPuckDefaults.colors(),
-    )
+    if (useNativeIndicator) {
+      NativeLocationIndicator(location = location, bearing = locationState.mostAccurateBearing())
+    } else {
+      LocationPuck(
+        idPrefix = "user",
+        location = location,
+        bearing = locationState.mostAccurateBearing(),
+        cameraState = cameraState,
+        colors = LocationPuckDefaults.colors(),
+      )
+    }
   }
 
   @Composable
@@ -113,6 +118,9 @@ object LocationDemo : Demo {
       modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
     )
     SwitchRow("Follow me", follow) { follow = it }
+    if (isNativeLocationIndicatorAvailable) {
+      SwitchRow("Native indicator", useNativeIndicator) { useNativeIndicator = it }
+    }
     LocationEngineRow(usePlayServices) { usePlayServices = it }
   }
 }
