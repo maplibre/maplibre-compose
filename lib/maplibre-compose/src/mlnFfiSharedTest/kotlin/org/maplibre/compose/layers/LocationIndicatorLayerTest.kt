@@ -5,6 +5,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import org.maplibre.compose.expressions.ast.ExpressionContext
@@ -40,8 +41,22 @@ class LocationIndicatorLayerTest {
       layer.setPerspectiveCompensation(const(0.9f).compile(ExpressionContext.None))
       style.addLayer(layer)
 
+      // The renderer evaluates the layer only when a frame is drawn, and image properties that
+      // arrive as expressions abort it there rather than at addLayer.
+      it.pumpUntilRendered()
+      repeat(3) { _ -> it.frame() }
+
       layer.onMap { map ->
         assertTrue(map.styleLayerExists("indicator"), "the layer should have been added")
+        // A constant image reads back as an object naming it; an expression would read back as an
+        // ["image", ...] array, which the renderer cannot take.
+        assertEquals(
+          JsonPrimitive("top-icon"),
+          (map.layerProperty("indicator", "top-image")?.toJsonElement() as? JsonObject)?.get(
+            "name"
+          ),
+          "the image should be written as a plain name, which the renderer reads as a constant",
+        )
         assertEquals(
           JsonArray(listOf(JsonPrimitive(48.0), JsonPrimitive(11.0), JsonPrimitive(0.0))),
           map.layerProperty("indicator", "location")?.toJsonElement(),

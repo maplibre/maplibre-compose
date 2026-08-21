@@ -1,11 +1,13 @@
 package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.ImageValue
+import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.Position
 
 internal class LocationIndicatorLayer(id: String) : Layer(id) {
@@ -13,15 +15,39 @@ internal class LocationIndicatorLayer(id: String) : Layer(id) {
   override val type: String = "location-indicator"
 
   fun setTopImage(topImage: CompiledExpression<ImageValue>) {
-    setLayoutProperty("top-image", topImage)
+    setImageProperty("top-image", topImage)
   }
 
   fun setBearingImage(bearingImage: CompiledExpression<ImageValue>) {
-    setLayoutProperty("bearing-image", bearingImage)
+    setImageProperty("bearing-image", bearingImage)
   }
 
   fun setShadowImage(shadowImage: CompiledExpression<ImageValue>) {
-    setLayoutProperty("shadow-image", shadowImage)
+    setImageProperty("shadow-image", shadowImage)
+  }
+
+  /**
+   * MapLibre Native reads this layer's image properties with `asConstant()`, and an expression —
+   * even the constant `["image", name]` wrapper the DSL compiles to — aborts the renderer with
+   * `bad_variant_access` on the first frame. Only a plain image name is safe to write.
+   */
+  private fun setImageProperty(name: String, image: CompiledExpression<ImageValue>) {
+    when (val json = image.toStyleJson()) {
+      is JsonNull,
+      is JsonPrimitive -> setLayoutProperty(name, json)
+      is JsonArray ->
+        if (
+          json.size == 2 &&
+            (json[0] as? JsonPrimitive)?.content == "image" &&
+            json[1] is JsonPrimitive
+        ) {
+          setLayoutProperty(name, json[1])
+        } else {
+          skipUnsupportedProperty(name, image, "MapLibre Native reads only a constant image here")
+        }
+      else ->
+        skipUnsupportedProperty(name, image, "MapLibre Native reads only a constant image here")
+    }
   }
 
   fun setLocation(location: Position) {
