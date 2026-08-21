@@ -1,7 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import java.io.IOException
 
 /** Opens the desktop settings screen related to location. */
@@ -44,9 +42,4 @@ public class DesktopSystemSettingsLauncher : SystemSettingsLauncher {
       false
     }
   }
-}
-
-@Composable
-public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher = remember {
-  DesktopSystemSettingsLauncher()
 }

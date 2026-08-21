@@ -1,8 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
 import kotlin.time.Clock
@@ -79,6 +76,9 @@ internal constructor(
   public constructor() :
     this(BrowserGeolocation, CoroutineScope(SupervisorJob() + Dispatchers.Default))
 
+  /** Creates a provider that observes permission in [coroutineScope]. */
+  public constructor(coroutineScope: CoroutineScope) : this(BrowserGeolocation, coroutineScope)
+
   private val requester = BrowserLocationPermissionRequester(boundary, coroutineScope)
 
   override val backendAvailability: LocationBackendAvailability =
@@ -136,22 +136,6 @@ internal constructor(
     awaitClose { stop?.invoke() }
   }
 }
-
-/** Creates and remembers the browser location provider. */
-@Composable
-public fun rememberBrowserLocationProvider(): BrowserLocationProvider {
-  val scope = rememberCoroutineScope()
-  return remember(scope) { BrowserLocationProvider(BrowserGeolocation, scope) }
-}
-
-@Composable
-public actual fun rememberDefaultLocationProvider(): LocationProvider =
-  rememberBrowserLocationProvider()
-
-@Composable
-public actual fun rememberDefaultOrientationProvider(
-  updateInterval: Duration
-): OrientationProvider = NullOrientationProvider
 
 /**
  * Observes and requests browser geolocation permission.
@@ -256,12 +240,6 @@ internal constructor(
  * Geolocation API maps [BrowserLocationPermissionRequester.backendAvailability] to
  * [LocationBackendAvailability.Unsupported].
  */
-@Composable
-public fun rememberBrowserLocationPermissionRequester(): BrowserLocationPermissionRequester {
-  val scope = rememberCoroutineScope()
-  return remember(scope) { BrowserLocationPermissionRequester(BrowserGeolocation, scope) }
-}
-
 internal enum class BrowserPermission {
   Unknown,
   Prompt,

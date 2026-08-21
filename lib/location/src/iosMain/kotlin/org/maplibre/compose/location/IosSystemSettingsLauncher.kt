@@ -1,7 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import platform.Foundation.NSURL
 import platform.UIKit.UIApplication
 import platform.UIKit.UIApplicationOpenSettingsURLString
@@ -23,9 +21,4 @@ public class IosSystemSettingsLauncher : SystemSettingsLauncher {
 
   /** Returns `false`; iOS exposes no URL that opens the system Location Services screen. */
   override fun openLocationServicesSettings(): Boolean = false
-}
-
-@Composable
-public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher = remember {
-  IosSystemSettingsLauncher()
 }

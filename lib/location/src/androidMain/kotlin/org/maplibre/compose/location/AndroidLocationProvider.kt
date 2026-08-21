@@ -16,9 +16,6 @@ import android.os.Handler
 import android.os.HandlerThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -225,27 +222,18 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
   }
 }
 
-@Composable
-public actual fun rememberDefaultLocationProvider(): LocationProvider {
-  val context = LocalContext.current
-  return when (
-    val resolution = remember(context) { AndroidLocationBackendResolver.discover(context) }
-  ) {
-    is AndroidBackendResolution.Discovered -> resolution.backend.rememberLocationProvider()
-    is AndroidBackendResolution.Misconfigured ->
-      remember(resolution) { MisconfiguredLocationProvider(resolution.cause) }
-    AndroidBackendResolution.None -> rememberAndroidLocationProvider(context)
+/**
+ * Creates the default Android location provider: the discovered backend's provider when one is
+ * available, a provider that reports the failure when discovery is misconfigured, and the framework
+ * [AndroidLocationProvider] otherwise.
+ */
+public fun createDefaultLocationProvider(context: Context): LocationProvider =
+  when (val resolution = AndroidLocationBackendResolver.discover(context)) {
+    is AndroidBackendResolution.Discovered -> resolution.backend.createLocationProvider(context)
+    is AndroidBackendResolution.Misconfigured -> MisconfiguredLocationProvider(resolution.cause)
+    AndroidBackendResolution.None ->
+      AndroidLocationProvider(context, AndroidLocationPermissionRequester(context))
   }
-}
-
-/** Creates the default Android location provider. */
-@Composable
-public fun rememberAndroidLocationProvider(
-  context: Context = LocalContext.current
-): AndroidLocationProvider {
-  val requester = rememberAndroidLocationPermissionRequester(context)
-  return remember(context, requester) { AndroidLocationProvider(context, requester) }
-}
 
 private fun Context.hasLocationPermission(): Boolean =
   checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==

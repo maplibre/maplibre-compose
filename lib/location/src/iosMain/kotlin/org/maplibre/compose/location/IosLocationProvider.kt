@@ -1,7 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.SendChannel
 import kotlinx.coroutines.channels.awaitClose
@@ -132,13 +130,3 @@ internal fun NSError.asUnavailableReason(
       LocationUnavailableReason.TemporarilyUnavailable
     else -> LocationUnavailableReason.UnexpectedFailure
   }
-
-@Composable
-public actual fun rememberDefaultLocationProvider(): LocationProvider =
-  rememberIosLocationProvider()
-
-/** Creates and remembers the default Core Location provider. */
-@Composable
-public fun rememberIosLocationProvider(): IosLocationProvider = remember {
-  IosLocationProvider()
-}

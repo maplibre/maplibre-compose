@@ -15,6 +15,7 @@ java-desktopTarget = "25"
 accompanistPermissions = "0.37.3"
 alchemist = "0.2.0"
 androidx-activity = "1.13.0"
+androidx-testRunner = "1.7.0"
 bytesize = "2.2.1"
 composeGlfw = "0.2.0"
 dbusJava = "5.2.0"
@@ -58,6 +59,7 @@ alchemist = { module = "io.github.kevincianfarini.alchemist:alchemist", version.
 androidx-activity = { module = "androidx.activity:activity", version.ref = "androidx-activity" }
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "androidx-activity" }
 androidx-composeUi-testManifest = { module = "androidx.compose.ui:ui-test-manifest", version.ref = "androidx-compose" }
+androidx-test-runner = { module = "androidx.test:runner", version.ref = "androidx-testRunner" }
 androidx-navigation-compose = { module = "org.jetbrains.androidx.navigation:navigation-compose", version.ref = "jetbrains-navigation" }
 bytesize = { module = "me.saket.bytesize:bytesize", version.ref = "bytesize" }
 composeGlfw = { module = "dev.sargunv:compose-glfw", version.ref = "composeGlfw" }
@@ -80,6 +82,7 @@ ktor-client-js = { module = "io.ktor:ktor-client-js", version.ref = "ktor" }
 ktor-client-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
 ktor-client-contentNegotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-serialization-kotlinxJson = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
+lifecycle-runtime = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime", version.ref = "lifecycleRuntimeCompose" }
 lifecycle-runtime-compose = { module = "org.jetbrains.androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
 jetbrains-compose-components-resources = { module = "org.jetbrains.compose.components:components-resources", version.ref = "gradle-compose" }
 jetbrains-compose-foundation = { module = "org.jetbrains.compose.foundation:foundation", version.ref = "gradle-compose" }

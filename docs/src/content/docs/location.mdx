@@ -148,9 +148,9 @@ androidMain.dependencies {
 ```
 
 The default providers then use fused location and orientation on a device where
-Google Play services is available, and the framework providers otherwise. Use
-`rememberFusedLocationProvider` and `rememberFusedOrientationProvider` to
-configure the fused providers directly.
+Google Play services is available, and the framework providers otherwise.
+Construct `FusedLocationProvider` and `FusedOrientationProvider` directly when
+an application needs the fused providers regardless of discovery.
 
 #### Web
 

@@ -126,7 +126,7 @@ public fun rememberLocationState(
   enabled: Boolean = true,
   provider: LocationProvider = rememberDefaultLocationProvider(),
   request: LocationRequest = LocationRequest(),
-  orientationProvider: OrientationProvider = rememberNullOrientationProvider(),
+  orientationProvider: OrientationProvider = NullOrientationProvider,
   lifecycleOwner: LifecycleOwner = LocalLifecycleOwner.current,
   minActiveState: Lifecycle.State = Lifecycle.State.STARTED,
   coroutineContext: CoroutineContext = EmptyCoroutineContext,
