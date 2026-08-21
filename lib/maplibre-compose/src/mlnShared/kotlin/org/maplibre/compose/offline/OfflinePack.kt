@@ -2,12 +2,7 @@ package org.maplibre.compose.offline
 
 import androidx.compose.runtime.mutableStateOf
 
-/**
- * A collection of resources necessary for viewing a region offline.
- *
- * This is a Compose-facing view of a region, holding no native handle. Every call that touches a
- * region has to run on the manager's owner thread, so the manager does the work.
- */
+/** Represents a collection of resources necessary for viewing a region offline. */
 public class OfflinePack
 internal constructor(
   internal val manager: MlnFfiOfflineManager,

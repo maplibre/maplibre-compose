@@ -78,11 +78,14 @@ public data class GestureOptions(
   val animationDuration: Duration = 300.milliseconds,
 ) {
   public companion object Companion {
+    /** The recommended configuration for most use cases. */
     public val Standard: GestureOptions = GestureOptions()
 
+    /** Disable gestures for moving the camera position. Rotation, tilt and zoom are allowed */
     public val PositionLocked: GestureOptions =
       GestureOptions(isDragPanEnabled = false, isKeyboardPanEnabled = false)
 
+    /** Disable gestures for rotation and tilt. Moving position and zoom are allowed */
     public val RotationLocked: GestureOptions =
       GestureOptions(
         isDragRotateTiltEnabled = false,
@@ -92,6 +95,7 @@ public data class GestureOptions(
         isKeyboardRotateTiltEnabled = false,
       )
 
+    /** Disable all gestures except for zoom. */
     public val ZoomOnly: GestureOptions =
       GestureOptions(
         isDragPanEnabled = false,
@@ -103,6 +107,7 @@ public data class GestureOptions(
         isKeyboardRotateTiltEnabled = false,
       )
 
+    /** All gestures disabled. Useful if you want to have full control over the camera movement. */
     public val AllDisabled: GestureOptions =
       GestureOptions(
         isDragPanEnabled = false,
