@@ -55,8 +55,8 @@ internal constructor(
    * Returns an offset from the top-left corner of the map composable that corresponds to the given
    * [position]. This works for positions that are off-screen, too.
    *
-   * The conversion answers for the map's current transform, which on a retained old instance may be
-   * newer than the transform the properties above describe.
+   * Always convert through the latest [CameraState.viewport]: an instance kept around after the
+   * camera moved converts with the map's current transform, not the one it was created at.
    */
   public fun screenLocationFromPosition(position: Position): DpOffset {
     return map.screenLocationFromPosition(position)
@@ -66,8 +66,8 @@ internal constructor(
    * Returns a position that corresponds to the given [offset] from the top-left corner of the map
    * composable.
    *
-   * The conversion answers for the map's current transform, which on a retained old instance may be
-   * newer than the transform the properties above describe.
+   * Always convert through the latest [CameraState.viewport]: an instance kept around after the
+   * camera moved converts with the map's current transform, not the one it was created at.
    */
   public fun positionFromScreenLocation(offset: DpOffset): Position {
     return map.positionFromScreenLocation(offset)
@@ -115,19 +115,4 @@ internal constructor(
       predicate.takeUnless { it == const(true) }?.compile(ExpressionContext.None)
     return map.queryRenderedFeatures(rect, layerIds, predicateOrNull)
   }
-
-  @Deprecated(
-    "The visible bounding box is a property of the viewport now",
-    ReplaceWith("visibleBoundingBox"),
-  )
-  public fun queryVisibleBoundingBox(): BoundingBox = visibleBoundingBox
-
-  @Deprecated(
-    "The visible region is a property of the viewport now",
-    ReplaceWith("visibleRegion"),
-  )
-  public fun queryVisibleRegion(): VisibleRegion = visibleRegion
 }
-
-@Deprecated("Renamed to Viewport", ReplaceWith("Viewport"))
-public typealias CameraProjection = Viewport

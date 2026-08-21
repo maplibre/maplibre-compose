@@ -49,10 +49,6 @@ public class CameraState(firstPosition: CameraPosition) {
   public val viewport: Viewport?
     get() = viewportState.value
 
-  @Deprecated("Renamed to viewport", ReplaceWith("viewport"))
-  public val projection: Viewport?
-    get() = viewport
-
   /** how the camera is oriented towards the map */
   // if the map is not yet initialized, we store the value to apply it later
   public var position: CameraPosition
@@ -66,13 +62,6 @@ public class CameraState(firstPosition: CameraPosition) {
   public val moveReason: CameraMoveReason
     get() = moveReasonState.value
 
-  @Deprecated(
-    "The value is a property of the viewport now",
-    ReplaceWith("viewport?.metersPerDpAtTarget ?: 0.0"),
-  )
-  public val metersPerDpAtTarget: Double
-    get() = viewport?.metersPerDpAtTarget ?: 0.0
-
   /** whether the camera is currently moving */
   public val isCameraMoving: Boolean
     get() = isCameraMovingState.value
@@ -85,9 +74,6 @@ public class CameraState(firstPosition: CameraPosition) {
   public suspend fun awaitViewport(): Viewport {
     return snapshotFlow { viewport }.first { it != null }!!
   }
-
-  @Deprecated("Renamed to awaitViewport", ReplaceWith("awaitViewport()"))
-  public suspend fun awaitProjection(): Viewport = awaitViewport()
 
   /** Animates the camera towards the [finalPosition] in [duration] time. */
   public suspend fun animateTo(
