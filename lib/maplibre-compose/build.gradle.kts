@@ -61,33 +61,11 @@ kotlin {
       jsMain.get().dependsOn(this)
     }
 
-    // used to expose APIs only available on targets backed by MapLibre Native
-    // (e.g. all but browser targets, which use MapLibre JS)
-    val maplibreNativeMain =
-      create("maplibreNativeMain") {
+    // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS.
+    // This source set stays free of java.* so a Native actual can sit beside the Java one.
+    val mlnShared =
+      create("mlnShared") {
         dependsOn(commonMain.get())
-        androidMain.get().dependsOn(this)
-        iosMain.get().dependsOn(this)
-      }
-
-    // commonMain in waiting: the parts of the mln-ffi and MapLibre GL JS platforms that carry no
-    // backend-conditional logic. It existed because iOS had typed layer actuals rather than
-    // JSON-shaped ones; with iOS on mlnFfiShared it could merge into commonMain, but that move
-    // is left to a follow-up to keep the iOS port reviewable.
-    val nextCommonMain =
-      create("nextCommonMain") {
-        dependsOn(commonMain.get())
-        jsMain.get().dependsOn(this)
-      }
-
-    // used to share the integration with the MapLibre Native FFI binding, as opposed to the
-    // platform SDKs. Android, desktop, and iOS use the same map, style, source, layer, and
-    // offline path. This source set stays free of java.* so a Native actual can sit beside the
-    // Java one.
-    val mlnFfiShared =
-      create("mlnFfiShared") {
-        dependsOn(maplibreNativeMain)
-        dependsOn(nextCommonMain)
         iosMain.get().dependsOn(this)
         dependencies {
           // Backend-independent binding only; the application selects the native runtime.
@@ -100,7 +78,7 @@ kotlin {
     // Java implementations shared by Android and desktop, including mln-ffi actuals that iOS
     // provides separately in iosMain.
     create("androidJvmShared") {
-      dependsOn(mlnFfiShared)
+      dependsOn(mlnShared)
       androidMain.get().dependsOn(this)
       jvmMain.dependsOn(this)
     }
@@ -148,18 +126,19 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    // The test counterpart of nextCommonMain, and on the same path into commonTest.
+    // Tests that need a live map. jsTest and every platform that consumes mlnShared run them.
+    // androidHostTest does not: the Android host has no MapLibre runtime.
     val nextCommonTest =
       create("nextCommonTest") {
         dependsOn(commonTest.get())
         jsTest.get().dependsOn(this)
       }
 
-    // Behavioral contracts for the shared MapLibre Native FFI integration. Every platform that
-    // consumes mlnFfiShared must execute this source set; the platform test source supplies only
+    // Behavioral contracts for the shared MapLibre Native integration. Every platform that
+    // consumes mlnShared must execute this source set; the platform test source supplies only
     // runtime, render-host, storage, and Compose-runner adapters.
-    val mlnFfiSharedTest =
-      create("mlnFfiSharedTest") {
+    val mlnSharedTest =
+      create("mlnSharedTest") {
         dependsOn(commonTest.get())
         dependsOn(nextCommonTest)
       }
@@ -170,14 +149,14 @@ kotlin {
     // cannot (LocalInteropContainer is internal to Compose UI), and one test that exercises JVM
     // thread interruption.
     create("androidJvmSharedTest") {
-      dependsOn(mlnFfiSharedTest)
+      dependsOn(mlnSharedTest)
       getByName("androidDeviceTest").dependsOn(this)
       getByName("jvmTest").dependsOn(this)
     }
 
-    // iOS executes the same shared FFI contract suite; its test source supplies the Native
+    // iOS executes the same shared Native contract suite; its test source supplies the Native
     // platform adapters instead of the Java ones in androidJvmSharedTest.
-    getByName("iosTest").dependsOn(mlnFfiSharedTest)
+    getByName("iosTest").dependsOn(mlnSharedTest)
 
     // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
     // test process; a CI matrix adds processes for additional applicable backends.

@@ -10,16 +10,15 @@ import interaction from "../../../../demo-app/common/src/androidMain/kotlin/org/
 
 ## Gestures
 
-Configuraton options for interaction vary significantly by platform. We provide
-some presets in common code, but if you're working with multiple platforms and
-you want to configure these in detail, you'll need to use expect/actual code.
+Companion presets cover the common cases. Construct `GestureOptions` with
+individual fields to change pan, zoom, rotate, and tilt independently.
 
 <Code code={region(interaction, "common-gestures")} lang="kotlin" title="map.common.kt" />
 
 The map supports pan, zoom, rotate, and tilt gestures. Each of these can be
 enabled or disabled individually.
 
-<Code code={region(interaction, "gesture-settings")} lang="kotlin" title="map.android.kt" />
+<Code code={region(interaction, "gesture-settings")} lang="kotlin" title="map.common.kt" />
 
 ## Camera
 

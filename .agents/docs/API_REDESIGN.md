@@ -32,11 +32,9 @@ and it has to stay useful if that backend later goes away.
 
 ### Facades that exist only to hide four SDKs
 
-`Source`, `Layer`, `Style`, `GestureOptions`, and `RenderOptions` are `expect`
-types. Android's `Layer` wraps `org.maplibre.android.style.layers.Layer`. The
-FFI path has no such object: a layer is an id plus style JSON on a `MapHandle`.
-`nextCommonMain` already implements `Layer` that way, which is why desktop and
-the browser share one class.
+`Source` and `RenderOptions` are still `expect` types, because the backends
+disagree. `Layer` and `GestureOptions` are ordinary common types: a layer is an
+id plus style JSON, which both MapLibre Native and MapLibre GL JS accept.
 
 `conversions.kt` still copies FFI geometry and camera types into Compose and
 spatialk types. Some of those copies earn their keep: spatialk already owns
@@ -102,8 +100,8 @@ application owns. The current wiring is the part that has to change.
 
 The expression DSL is the right way to write paint and layout values. Compose
 types (`Color`, `Dp`, `DpOffset`) and a typed AST beat raw style scalars. That
-DSL already compiles to style JSON in `nextCommonMain`, which is what both
-backends accept.
+DSL already compiles to style JSON in `commonMain`, which is what both backends
+accept.
 
 ## The shape
 
@@ -387,8 +385,9 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
 1. Land FFI on Android and iOS
    ([#572](https://github.com/maplibre/maplibre-compose/issues/572)). No public
    API change. Desktop remains the proof.
-2. Make the `nextCommonMain` layer and source descriptors the only
-   implementation. Delete the classic-SDK `actual` bodies.
+2. Make the JSON-shaped layer and source descriptors the only implementation.
+   Layer descriptors now live in `commonMain`. Source descriptors still have a
+   GL JS actual and an `mlnShared` actual.
 3. Split `MapState` from the composable internally: the session attaches and
    detaches; the state survives recomposition. Still no public change.
 4. Publish `Runtime`, `MapState`, `rememberMapState`, and `MaplibreMap(state)`.

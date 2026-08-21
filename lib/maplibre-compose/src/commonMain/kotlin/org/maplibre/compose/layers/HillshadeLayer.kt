@@ -77,18 +77,33 @@ public fun HillshadeLayer(
   )
 }
 
-internal expect class HillshadeLayer(id: String, source: Source) : Layer {
-  val source: Source
+internal class HillshadeLayer(id: String, val source: Source) : Layer(id) {
 
-  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatValue>)
+  override val type: String = "hillshade"
 
-  fun setHillshadeIlluminationAnchor(anchor: CompiledExpression<IlluminationAnchor>)
+  override val sourceId: String = source.id
 
-  fun setHillshadeExaggeration(exaggeration: CompiledExpression<FloatValue>)
+  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatValue>) {
+    setPaintProperty("hillshade-illumination-direction", direction)
+  }
 
-  fun setHillshadeShadowColor(shadowColor: CompiledExpression<ColorValue>)
+  fun setHillshadeIlluminationAnchor(anchor: CompiledExpression<IlluminationAnchor>) {
+    setPaintProperty("hillshade-illumination-anchor", anchor)
+  }
 
-  fun setHillshadeHighlightColor(highlightColor: CompiledExpression<ColorValue>)
+  fun setHillshadeExaggeration(exaggeration: CompiledExpression<FloatValue>) {
+    setPaintProperty("hillshade-exaggeration", exaggeration)
+  }
 
-  fun setHillshadeAccentColor(accentColor: CompiledExpression<ColorValue>)
+  fun setHillshadeShadowColor(shadowColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("hillshade-shadow-color", shadowColor)
+  }
+
+  fun setHillshadeHighlightColor(highlightColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("hillshade-highlight-color", highlightColor)
+  }
+
+  fun setHillshadeAccentColor(accentColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("hillshade-accent-color", accentColor)
+  }
 }

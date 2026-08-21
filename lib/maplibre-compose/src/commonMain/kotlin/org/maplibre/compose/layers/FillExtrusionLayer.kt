@@ -126,26 +126,53 @@ public fun FillExtrusionLayer(
   )
 }
 
-internal expect class FillExtrusionLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class FillExtrusionLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "fill-extrusion"
 
-  fun setFillExtrusionOpacity(opacity: CompiledExpression<FloatValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setFillExtrusionColor(color: CompiledExpression<ColorValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setFillExtrusionTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setFillExtrusionOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("fill-extrusion-opacity", opacity)
+  }
 
-  fun setFillExtrusionTranslateAnchor(anchor: CompiledExpression<TranslateAnchor>)
+  fun setFillExtrusionColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("fill-extrusion-color", color)
+  }
 
-  fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue>)
+  fun setFillExtrusionTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("fill-extrusion-translate", translate)
+  }
 
-  fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>)
+  fun setFillExtrusionTranslateAnchor(anchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("fill-extrusion-translate-anchor", anchor)
+  }
 
-  fun setFillExtrusionBase(base: CompiledExpression<FloatValue>)
+  fun setFillExtrusionPattern(pattern: CompiledExpression<ImageValue>) {
+    setPaintProperty("fill-extrusion-pattern", pattern)
+  }
 
-  fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>)
+  fun setFillExtrusionHeight(height: CompiledExpression<FloatValue>) {
+    setPaintProperty("fill-extrusion-height", height)
+  }
 
-  fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>)
+  fun setFillExtrusionBase(base: CompiledExpression<FloatValue>) {
+    setPaintProperty("fill-extrusion-base", base)
+  }
+
+  fun setFillExtrusionRoundedCornerDistance(distance: CompiledExpression<FloatValue>) {
+    setLayoutProperty("fill-extrusion-rounded-corner-distance", distance)
+  }
+
+  fun setFillExtrusionVerticalGradient(verticalGradient: CompiledExpression<BooleanValue>) {
+    setPaintProperty("fill-extrusion-vertical-gradient", verticalGradient)
+  }
 }

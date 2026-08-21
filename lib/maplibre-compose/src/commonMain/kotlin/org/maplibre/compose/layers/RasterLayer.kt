@@ -85,22 +85,41 @@ public fun RasterLayer(
   )
 }
 
-internal expect class RasterLayer(id: String, source: Source) : Layer {
-  val source: Source
+internal class RasterLayer(id: String, val source: Source) : Layer(id) {
 
-  fun setRasterOpacity(opacity: CompiledExpression<FloatValue>)
+  override val type: String = "raster"
 
-  fun setRasterHueRotate(hueRotate: CompiledExpression<FloatValue>)
+  override val sourceId: String = source.id
 
-  fun setRasterBrightnessMin(brightnessMin: CompiledExpression<FloatValue>)
+  fun setRasterOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("raster-opacity", opacity)
+  }
 
-  fun setRasterBrightnessMax(brightnessMax: CompiledExpression<FloatValue>)
+  fun setRasterHueRotate(hueRotate: CompiledExpression<FloatValue>) {
+    setPaintProperty("raster-hue-rotate", hueRotate)
+  }
 
-  fun setRasterSaturation(saturation: CompiledExpression<FloatValue>)
+  fun setRasterBrightnessMin(brightnessMin: CompiledExpression<FloatValue>) {
+    setPaintProperty("raster-brightness-min", brightnessMin)
+  }
 
-  fun setRasterContrast(contrast: CompiledExpression<FloatValue>)
+  fun setRasterBrightnessMax(brightnessMax: CompiledExpression<FloatValue>) {
+    setPaintProperty("raster-brightness-max", brightnessMax)
+  }
 
-  fun setRasterResampling(resampling: CompiledExpression<RasterResampling>)
+  fun setRasterSaturation(saturation: CompiledExpression<FloatValue>) {
+    setPaintProperty("raster-saturation", saturation)
+  }
 
-  fun setRasterFadeDuration(fadeDuration: CompiledExpression<MillisecondsValue>)
+  fun setRasterContrast(contrast: CompiledExpression<FloatValue>) {
+    setPaintProperty("raster-contrast", contrast)
+  }
+
+  fun setRasterResampling(resampling: CompiledExpression<RasterResampling>) {
+    setPaintProperty("raster-resampling", resampling)
+  }
+
+  fun setRasterFadeDuration(fadeDuration: CompiledExpression<MillisecondsValue>) {
+    setPaintProperty("raster-fade-duration", fadeDuration)
+  }
 }

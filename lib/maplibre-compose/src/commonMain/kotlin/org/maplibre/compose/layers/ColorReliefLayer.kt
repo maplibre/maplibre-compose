@@ -67,12 +67,21 @@ public fun ColorReliefLayer(
   )
 }
 
-internal expect class ColorReliefLayer(id: String, source: Source) : Layer {
-  val source: Source
+internal class ColorReliefLayer(id: String, val source: Source) : Layer(id) {
 
-  fun setColorReliefColor(color: CompiledExpression<ColorValue>)
+  override val type: String = "color-relief"
 
-  fun setColorReliefOpacity(opacity: CompiledExpression<FloatValue>)
+  override val sourceId: String = source.id
 
-  fun setResampling(resampling: CompiledExpression<RasterResampling>)
+  fun setColorReliefColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("color-relief-color", color)
+  }
+
+  fun setColorReliefOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("color-relief-opacity", opacity)
+  }
+
+  fun setResampling(resampling: CompiledExpression<RasterResampling>) {
+    setPaintProperty("resampling", resampling)
+  }
 }
