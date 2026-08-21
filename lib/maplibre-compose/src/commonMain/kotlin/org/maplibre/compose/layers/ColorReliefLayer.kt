@@ -13,7 +13,8 @@ import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
- * Client-side elevation coloring (hypsometric tinting) based on DEM data. The implementation
+ * Client-side elevation coloring ([hypsometric
+ * tinting](https://en.wikipedia.org/wiki/Hypsometric_tints)) based on DEM data. The implementation
  * supports Mapbox Terrain RGB, Mapzen Terrarium tiles and custom encodings.
  *
  * @param id Unique layer name.
