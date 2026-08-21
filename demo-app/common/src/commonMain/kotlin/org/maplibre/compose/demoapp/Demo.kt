@@ -6,6 +6,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.demos.CastelloPlanDemo
 import org.maplibre.compose.demoapp.demos.DataVizDemo
+import org.maplibre.compose.demoapp.demos.DragDropDemo
 import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.LocationDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
@@ -71,6 +72,6 @@ internal expect val extraDemos: List<Demo>
 
 /** Demos appear in the shell in this order. */
 val allDemos: List<Demo> =
-  listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo) +
+  listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo, DragDropDemo) +
     extraDemos +
     listOf(LocationDemo)
