@@ -19,30 +19,44 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
- * Foreground location permission building block for Android.
+ * Observes and requests foreground location permission on Android.
  *
- * Fine and coarse permission map to [LocationPermission.Granted] with precise and approximate
- * accuracy. When permission is absent,
- * [`Activity.shouldShowRequestPermissionRationale`](https://developer.android.com/reference/android/app/Activity#shouldShowRequestPermissionRationale(java.lang.String))
- * maps `true` to [LocationPermission.NotGranted] with `canRequest = true`. Android returns `false`
- * both before the first request and after a permanent denial, so both map to `canRequest = null`. A
- * [context] that cannot reach an [Activity] also maps to `canRequest = null`, because the rationale
- * check requires an activity.
+ * Android [LocationProvider] implementations hold a requester and expose it through
+ * [LocationProvider.permission] and [LocationProvider.requestPermission].
  *
- * Android [LocationProvider] implementations hold a requester and expose [status] and
- * [requestForegroundPermission] through [LocationProvider.permission] and
- * [LocationProvider.requestPermission].
- *
- * [requestForegroundPermission] registers a launcher on the activity's result registry at request
- * time, so a directly constructed requester is fully functional when [context] can reach a
- * [ComponentActivity]. When it cannot, such as with a service context,
- * [requestForegroundPermission] does nothing and [status] stays accurate. [status] refreshes when
- * the resolved activity resumes.
- *
- * @param context Any [Context]; the permission status is read from the application package.
+ * @param context Any [Context]; the permission status is read from the application package. A
+ *   context that cannot reach an [Activity] cannot answer the rationale check or launch a request.
  */
 public class AndroidLocationPermissionRequester(private val context: Context) {
+
+  private val preferences =
+    context.applicationContext.getSharedPreferences(
+      "org.maplibre.compose.location",
+      Context.MODE_PRIVATE,
+    )
+
+  private var permanentlyDenied: Boolean
+    get() = preferences.getBoolean(PERMANENTLY_DENIED_KEY, false)
+    set(value) {
+      if (value != permanentlyDenied) {
+        preferences.edit().putBoolean(PERMANENTLY_DENIED_KEY, value).apply()
+      }
+    }
+
   private val mutableStatus = MutableStateFlow(readStatus())
+
+  /**
+   * Current foreground location permission.
+   *
+   * Fine permission maps to [LocationPermission.Granted] at precise accuracy, and coarse at
+   * approximate. Otherwise the status is [LocationPermission.NotGranted]:
+   * - `shouldShowRationale = true` when Android advises explaining the request first.
+   * - `canRequest = false` after a permanent denial that [requestForegroundPermission] recorded.
+   * - `canRequest = null` when [context] cannot reach an activity for the rationale check.
+   * - `canRequest = true` otherwise.
+   *
+   * The value refreshes when the resolved activity resumes.
+   */
   public val status: StateFlow<LocationPermission> = mutableStatus
 
   private var requestPending = false
@@ -57,6 +71,19 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
       )
   }
 
+  /**
+   * Starts a foreground permission request and returns immediately. The result is published to
+   * [status].
+   *
+   * The launcher registers on the activity's result registry at request time, so a directly
+   * constructed requester works when [context] can reach a [ComponentActivity]. With a context that
+   * cannot, such as a service context, this call does nothing and [status] stays accurate.
+   *
+   * Android's rationale check returns `false` both before the first request and after a permanent
+   * denial. This requester tells the two apart by recording a denial that arrives while the check
+   * stays `false`. The record lives in a library-owned [android.content.SharedPreferences] file and
+   * clears once permission is granted or the check returns `true`.
+   */
   public fun requestForegroundPermission() {
     val current = refresh()
     if (current is LocationPermission.Granted || requestPending) return
@@ -67,8 +94,12 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
       activity.activityResultRegistry.register(
         "org.maplibre.compose.location.permission.${nextKey.getAndIncrement()}",
         ActivityResultContracts.RequestMultiplePermissions(),
-      ) {
+      ) { results ->
         requestPending = false
+        // The map holds one granted flag per permission; a fine request can still return a coarse
+        // grant. An empty map is a cancelled request, not a user denial.
+        val nothingGranted = results.isNotEmpty() && results.values.none { granted -> granted }
+        if (nothingGranted && readRationale() == false) permanentlyDenied = true
         refresh()
         launcher.unregister()
       }
@@ -86,44 +117,59 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
     }
   }
 
+  /** Re-reads the permission status, publishes it to [status], and returns it. */
   public fun refresh(): LocationPermission {
     val result = readStatus()
     mutableStatus.value = result
     return result
   }
 
-  private fun readStatus(): LocationPermission =
+  private fun readStatus(): LocationPermission {
+    val granted = readGrantedAccuracy()
+    val shouldShowRationale = readRationale()
+    // A grant or a rationale proves the permission is requestable, so any record is stale.
+    if (granted != null || shouldShowRationale == true) permanentlyDenied = false
+    return resolveAndroidLocationPermission(granted, shouldShowRationale, permanentlyDenied)
+  }
+
+  private fun readGrantedAccuracy(): LocationAccuracyAuthorization? =
     when {
       context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==
-        PackageManager.PERMISSION_GRANTED ->
-        LocationPermission.Granted(LocationAccuracyAuthorization.Precise)
+        PackageManager.PERMISSION_GRANTED -> LocationAccuracyAuthorization.Precise
       context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) ==
-        PackageManager.PERMISSION_GRANTED ->
-        LocationPermission.Granted(LocationAccuracyAuthorization.Approximate)
-      else ->
-        LocationPermission.NotGranted(
-          canRequest =
-            context.findActivityOrNull()?.let { activity ->
-              if (
-                activity.shouldShowRequestPermissionRationale(
-                  Manifest.permission.ACCESS_FINE_LOCATION
-                ) ||
-                  activity.shouldShowRequestPermissionRationale(
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                  )
-              ) {
-                true
-              } else {
-                null
-              }
-            }
-        )
+        PackageManager.PERMISSION_GRANTED -> LocationAccuracyAuthorization.Approximate
+      else -> null
+    }
+
+  private fun readRationale(): Boolean? =
+    context.findActivityOrNull()?.let { activity ->
+      activity.shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION) ||
+        activity.shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_COARSE_LOCATION)
     }
 
   private companion object {
+    private const val PERMANENTLY_DENIED_KEY = "permission-permanently-denied"
     private val nextKey = AtomicInteger()
   }
 }
+
+/**
+ * Maps the platform permission signals to [LocationPermission]. [granted] is the granted accuracy,
+ * or null when permission is absent. [shouldShowRationale] is the platform rationale check, or null
+ * when no activity can answer it. [permanentlyDenied] is the recorded permanent denial.
+ */
+internal fun resolveAndroidLocationPermission(
+  granted: LocationAccuracyAuthorization?,
+  shouldShowRationale: Boolean?,
+  permanentlyDenied: Boolean,
+): LocationPermission =
+  when {
+    granted != null -> LocationPermission.Granted(granted)
+    shouldShowRationale == null -> LocationPermission.NotGranted(canRequest = null)
+    shouldShowRationale ->
+      LocationPermission.NotGranted(canRequest = true, shouldShowRationale = true)
+    else -> LocationPermission.NotGranted(canRequest = !permanentlyDenied)
+  }
 
 /** Remembers the permission requester used by Android location providers. */
 @Composable

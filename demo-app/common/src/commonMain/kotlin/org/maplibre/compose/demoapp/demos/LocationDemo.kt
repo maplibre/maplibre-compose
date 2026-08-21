@@ -20,6 +20,7 @@ import org.maplibre.compose.demoapp.DemoFlightDuration
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
+import org.maplibre.compose.location.LocationPermission
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationState
 import org.maplibre.compose.location.LocationTrackingEffect
@@ -138,7 +139,14 @@ object LocationDemo : Demo {
 private fun LocationState.statusMessage(): String =
   when (val status = this.status) {
     LocationTrackingStatus.Stopped -> "Location is off"
-    LocationTrackingStatus.WaitingForPermission -> "Waiting for location permission"
+    LocationTrackingStatus.WaitingForPermission -> {
+      val permission = this.permission
+      if (permission is LocationPermission.NotGranted && permission.canRequest == false) {
+        "Location permission was denied; turn it on in the system settings"
+      } else {
+        "Waiting for location permission"
+      }
+    }
     LocationTrackingStatus.Starting -> "Finding your location"
     LocationTrackingStatus.Tracking -> "Tracking your location"
     is LocationTrackingStatus.Unavailable ->

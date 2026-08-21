@@ -57,7 +57,8 @@ public class IosLocationPermissionRequester {
    */
   public fun requestForegroundPermission() {
     val current = readStatus(manager)
-    if (current != LocationPermission.NotGranted(canRequest = true) || requestPending) return
+    if (current !is LocationPermission.NotGranted || current.canRequest != true || requestPending)
+      return
     requestPending = true
     manager.requestWhenInUseAuthorization()
   }
