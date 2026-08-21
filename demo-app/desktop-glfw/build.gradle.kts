@@ -17,6 +17,7 @@ kotlin {
 dependencies {
   implementation(project(":demo-app:common"))
   implementation(project(":lib:maplibre-compose"))
+  implementation(platform(libs.lwjgl.bom))
   implementation(libs.composeGlfw)
 
   runtimeOnly(desktopHostPlatform.composeGlfwRuntimeDependency(libs.versions.composeGlfw.get()))
