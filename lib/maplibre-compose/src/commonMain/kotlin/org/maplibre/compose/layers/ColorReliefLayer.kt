@@ -36,6 +36,8 @@ public fun ColorReliefLayer(
   color: Expression<ColorValue> = LayerDefaults.ColorReliefColors,
   opacity: Expression<FloatValue> = const(1f),
 ) {
+  // The style spec also defines `resampling`, but MapLibre Native refuses the whole layer when the
+  // property is present, so it is not exposed until Native accepts it.
   val compile = rememberPropertyCompiler()
 
   val compiledColor = compile(color)
