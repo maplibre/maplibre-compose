@@ -41,7 +41,7 @@ kotlin {
       api(libs.kotlinx.coroutines.core)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)
-      implementation(libs.lifecycle.runtime.compose)
+      api(libs.lifecycle.runtime.compose)
     }
 
     // Compose UI appears on Android only, for LocalContext in the remember helpers.
