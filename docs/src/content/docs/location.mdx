@@ -127,9 +127,11 @@ androidMain.dependencies {
 ```
 
 The default providers then use fused location and orientation on a device where
-Google Play services is available, and the framework providers otherwise. Use
-`rememberFusedLocationProvider` and `rememberFusedOrientationProvider` to
-configure the fused providers directly.
+Google Play services is available, and the framework providers otherwise. When
+several Android backends are available, the defaults use the highest-priority
+backend, and the first backend id in alphabetical order if those priorities
+match. Use `rememberFusedLocationProvider` and
+`rememberFusedOrientationProvider` to configure the fused providers directly.
 
 #### Web
 

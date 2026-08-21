@@ -3,7 +3,6 @@ package org.maplibre.compose.location
 import android.content.Context
 import androidx.compose.runtime.Composable
 import kotlin.test.Test
-import kotlin.test.assertContains
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 
@@ -24,17 +23,28 @@ class AndroidLocationBackendResolverTest {
   }
 
   @Test
-  fun multiple_available_backends_are_a_misconfiguration() {
-    val resolution =
-      AndroidLocationBackendResolver.resolve(listOf(FakeBackend("first"), FakeBackend("second")))
+  fun highest_priority_backend_wins_regardless_of_id_order() {
+    val preferred = FakeBackend("zzz-fused", priority = 100)
+    val other = FakeBackend("aaa-fused", priority = 50)
 
-    val cause = assertIs<AndroidBackendResolution.Misconfigured>(resolution).cause
-    assertContains(cause.message.orEmpty(), "first")
-    assertContains(cause.message.orEmpty(), "second")
+    val resolution = AndroidLocationBackendResolver.resolve(listOf(other, preferred))
+
+    assertSame(preferred, assertIs<AndroidBackendResolution.Discovered>(resolution).backend)
+  }
+
+  @Test
+  fun equal_priority_breaks_ties_with_the_lexicographically_first_id() {
+    val later = FakeBackend("hms-fused")
+    val earlier = FakeBackend("gms-fused")
+
+    val resolution = AndroidLocationBackendResolver.resolve(listOf(later, earlier))
+
+    assertSame(earlier, assertIs<AndroidBackendResolution.Discovered>(resolution).backend)
   }
 }
 
-private class FakeBackend(override val id: String) : AndroidLocationBackend {
+private class FakeBackend(override val id: String, override val priority: Int = 0) :
+  AndroidLocationBackend {
   override fun isAvailable(context: Context) = true
 
   @Composable

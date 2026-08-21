@@ -19,10 +19,12 @@ import org.maplibre.compose.location.rememberDefaultOrientationProvider
  * [java.util.ServiceLoader] discovers this backend when an application packages this module, so
  * [rememberDefaultLocationProvider] and [rememberDefaultOrientationProvider] return the fused
  * providers. [isAvailable] reports whether Google Play services is available on the device, and the
- * defaults fall back to the framework providers on a device without it.
+ * defaults fall back to the framework providers on a device without it. [priority] is 100 so this
+ * backend wins over an available backend that keeps the default priority.
  */
 public class GmsLocationBackend : AndroidLocationBackend {
   override val id: String = "gms-fused"
+  override val priority: Int = 100
 
   override fun isAvailable(context: Context): Boolean =
     GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) ==
