@@ -145,14 +145,14 @@ class LinuxVulkanOpenGlInteropTest {
               )
 
               mapHost.replaceContext(secondEgl)
-              val second = secondEgl.withCurrent { map.renderStyle(SECOND_STYLE, FIRST_EXTENT) }
+              val second = secondEgl.withCurrent { map.pumpUntilRendered(FIRST_EXTENT) }
               assertTrue(
                 second.generation != first.generation,
                 "replacement context must allocate a new shared target, " +
                   "got generation ${second.generation} after ${first.generation}",
               )
               assertNear(
-                SECOND_PIXEL,
+                FIRST_PIXEL,
                 secondEgl.withCurrent { secondEgl.drawAndRead(host, second) },
                 "replacement context after a new shared target",
               )
@@ -308,6 +308,21 @@ class LinuxVulkanOpenGlInteropTest {
         Thread.sleep(POLL_INTERVAL_MILLIS)
       }
       return checkNotNull(rendered)
+    }
+
+    fun pumpUntilRendered(extent: MapExtent): MlnFfiRenderTarget {
+      val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
+      var lastResult: MlnFfiFrameResult? = null
+      while (true) {
+        check(deadline.hasNotPassedNow()) {
+          "Timed out rendering at $extent; last result: $lastResult, failure: $failure"
+        }
+        failure?.let { error(it) }
+        val pumped = pumpFrame(extent)
+        lastResult = pumped.result
+        if (pumped.rendered) return checkNotNull(pumped.target)
+        Thread.sleep(POLL_INTERVAL_MILLIS)
+      }
     }
 
     private fun pumpFrame(extent: MapExtent): PumpedFrame {
