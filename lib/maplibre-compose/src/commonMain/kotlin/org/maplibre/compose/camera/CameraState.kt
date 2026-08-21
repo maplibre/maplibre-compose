@@ -48,6 +48,9 @@ public class CameraState(firstPosition: CameraPosition) {
 
         // usually null until the map reports its first viewport
         viewportState.value = map.getViewport()
+      } else if (map == null) {
+        // a snapshot kept past detachment would report a viewport no map is showing
+        viewportState.value = null
       }
     }
 

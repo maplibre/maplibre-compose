@@ -1144,6 +1144,9 @@ internal class MlnFfiMapSession(
   override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
 
   override fun getViewport(): Viewport? {
+    // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once a
+    // render target has attached with the composable's dimensions.
+    if (!stateLock.withLock { hasAttachedViewport }) return null
     // One read so every property comes from the same publish.
     val mirror = mirroredViewport
     if (mirror.size == DpSize.Zero) return null
