@@ -1,0 +1,107 @@
+package org.maplibre.compose.location
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
+import java.util.ServiceConfigurationError
+import java.util.ServiceLoader
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
+
+/**
+ * A host-specific desktop location implementation discovered through [ServiceLoader].
+ *
+ * A backend installs one provider that carries both location updates and permission. No installed
+ * or available backend maps [LocationProvider.backendAvailability] to
+ * [LocationBackendAvailability.Unsupported]. Multiple available backends, a
+ * [ServiceConfigurationError], or an exception while checking or creating a backend maps the
+ * property to [LocationBackendAvailability.Misconfigured]. The selected backend documents its
+ * location-event and permission mappings.
+ */
+public interface DesktopLocationBackend {
+  /** A stable name used in diagnostics. */
+  public val id: String
+
+  /** Whether this backend can run on the current operating system and architecture. */
+  public fun isAvailable(): Boolean
+
+  /** Creates a location provider whose system dialogs are parented to [window]. */
+  public fun createProvider(window: XdgPortalWindow?): DesktopLocationProvider
+}
+
+/** A desktop provider whose process resources can be released with [close]. */
+public interface DesktopLocationProvider : LocationProvider, AutoCloseable
+
+@Composable
+public actual fun rememberDefaultLocationProvider(): LocationProvider {
+  val window = LocalXdgPortalWindow.current
+  val provider = remember(window) { DesktopLocationBackendResolver.discover(window) }
+  DisposableEffect(provider) { onDispose { provider.close() } }
+  return provider
+}
+
+internal object DesktopLocationBackendResolver {
+  fun discover(
+    window: XdgPortalWindow? = null,
+    loadBackends: () -> List<DesktopLocationBackend> = {
+      ServiceLoader.load(DesktopLocationBackend::class.java).toList()
+    },
+  ): DesktopLocationProvider =
+    try {
+      resolve(loadBackends(), window)
+    } catch (error: ServiceConfigurationError) {
+      UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+    }
+
+  fun resolve(
+    backends: List<DesktopLocationBackend>,
+    window: XdgPortalWindow? = null,
+  ): DesktopLocationProvider {
+    val availableBackends =
+      try {
+        backends.filter { it.isAvailable() }
+      } catch (error: Throwable) {
+        return UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+      }
+    return when {
+      availableBackends.isEmpty() ->
+        UnavailableDesktopLocationProvider(LocationBackendAvailability.Unsupported)
+      availableBackends.size > 1 ->
+        UnavailableDesktopLocationProvider(
+          LocationBackendAvailability.Misconfigured(
+            IllegalStateException(
+              "Multiple desktop location backends are available: " +
+                availableBackends.joinToString { it.id }
+            )
+          )
+        )
+      else ->
+        try {
+          availableBackends.single().createProvider(window)
+        } catch (error: Throwable) {
+          UnavailableDesktopLocationProvider(LocationBackendAvailability.Misconfigured(error))
+        }
+    }
+  }
+}
+
+private class UnavailableDesktopLocationProvider(
+  override val backendAvailability: LocationBackendAvailability
+) : DesktopLocationProvider {
+  override fun updates(request: LocationRequest): Flow<LocationEvent> =
+    flowOf(
+      when (val availability = backendAvailability) {
+        LocationBackendAvailability.Available ->
+          error("An unavailable provider cannot report an available backend")
+        is LocationBackendAvailability.Misconfigured ->
+          LocationEvent.Unavailable(
+            LocationUnavailableReason.Misconfigured,
+            availability.cause,
+          )
+        LocationBackendAvailability.Unsupported ->
+          LocationEvent.Unavailable(LocationUnavailableReason.Unsupported)
+      }
+    )
+
+  override fun close() = Unit
+}

@@ -106,7 +106,7 @@ kotlin {
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.ktor.client.okhttp)
-        implementation(project(":lib:maplibre-compose-gms"))
+        implementation(project(":lib:location-runtime-gms"))
       }
     }
 
