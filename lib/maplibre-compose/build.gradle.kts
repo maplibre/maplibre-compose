@@ -63,8 +63,8 @@ kotlin {
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS.
     // This source set stays free of java.* so a Native actual can sit beside the Java one.
-    val mlnShared =
-      create("mlnShared") {
+    val mlnMain =
+      create("mlnMain") {
         dependsOn(commonMain.get())
         iosMain.get().dependsOn(this)
         dependencies {
@@ -77,8 +77,8 @@ kotlin {
 
     // Java implementations shared by Android and desktop, including mln-ffi actuals that iOS
     // provides separately in iosMain.
-    create("androidJvmShared") {
-      dependsOn(mlnShared)
+    create("androidJvmMain") {
+      dependsOn(mlnMain)
       androidMain.get().dependsOn(this)
       jvmMain.dependsOn(this)
     }
@@ -127,7 +127,7 @@ kotlin {
     }
 
     // Live-map and Compose UI tests shared by jsTest and every platform that consumes
-    // mlnShared. androidHostTest inherits commonTest and has no MapLibre runtime and no
+    // mlnMain. androidHostTest inherits commonTest and has no MapLibre runtime and no
     // Compose UI test host.
     val liveMapTest =
       create("liveMapTest") {
@@ -136,10 +136,11 @@ kotlin {
       }
 
     // Behavioral contracts for the shared MapLibre Native integration. Every platform that
-    // consumes mlnShared must execute this source set; the platform test source supplies only
-    // runtime, render-host, storage, and Compose-runner adapters.
-    val mlnSharedTest =
-      create("mlnSharedTest") {
+    // consumes mlnMain must execute this source set except androidHostTest, which has no
+    // MapLibre runtime. The platform test source supplies only runtime, render-host, storage,
+    // and Compose-runner adapters.
+    val mlnTest =
+      create("mlnTest") {
         dependsOn(commonTest.get())
         dependsOn(liveMapTest)
       }
@@ -149,15 +150,15 @@ kotlin {
     // needs a Compose test runner that hosts a native interop view, which the iOS headless runner
     // cannot (LocalInteropContainer is internal to Compose UI), and one test that exercises JVM
     // thread interruption.
-    create("androidJvmSharedTest") {
-      dependsOn(mlnSharedTest)
+    create("androidJvmTest") {
+      dependsOn(mlnTest)
       getByName("androidDeviceTest").dependsOn(this)
       getByName("jvmTest").dependsOn(this)
     }
 
     // iOS executes the same shared Native contract suite; its test source supplies the Native
-    // platform adapters instead of the Java ones in androidJvmSharedTest.
-    getByName("iosTest").dependsOn(mlnSharedTest)
+    // platform adapters instead of the Java ones in androidJvmTest.
+    getByName("iosTest").dependsOn(mlnTest)
 
     // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
     // test process; a CI matrix adds processes for additional applicable backends.

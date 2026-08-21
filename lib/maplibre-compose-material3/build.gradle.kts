@@ -36,15 +36,15 @@ kotlin {
       api(project(":lib:maplibre-compose"))
     }
 
-    val mlnShared by creating { dependsOn(commonMain.get()) }
+    val mlnMain by creating { dependsOn(commonMain.get()) }
 
-    iosMain { dependsOn(mlnShared) }
+    iosMain { dependsOn(mlnMain) }
 
-    androidMain { dependsOn(mlnShared) }
+    androidMain { dependsOn(mlnMain) }
 
     // Desktop is backed by MapLibre Native, so it gets the offline controls.
     val jvmMain by getting
-    jvmMain.dependsOn(mlnShared)
+    jvmMain.dependsOn(mlnMain)
 
     jsMain { dependencies { implementation(libs.kotlin.wrappers.js) } }
 

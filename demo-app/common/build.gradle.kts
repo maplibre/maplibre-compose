@@ -41,7 +41,7 @@ kotlin {
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
     // so render toggles, offline UI, and the transit demo (no CORS) live here.
-    val mlnShared by creating {
+    val mlnMain by creating {
       dependsOn(commonMain.get())
       dependencies {
         implementation(libs.mobilityData.gtfsSchedule)
@@ -49,13 +49,13 @@ kotlin {
         implementation(libs.ktor.client.core)
       }
     }
-    val jvmShared by creating { dependsOn(mlnShared) }
+    val androidJvmMain by creating { dependsOn(mlnMain) }
 
-    androidMain { dependsOn(jvmShared) }
+    androidMain { dependsOn(androidJvmMain) }
 
-    jvmMain { dependsOn(jvmShared) }
+    jvmMain { dependsOn(androidJvmMain) }
 
-    iosMain { dependsOn(mlnShared) }
+    iosMain { dependsOn(mlnMain) }
 
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.
