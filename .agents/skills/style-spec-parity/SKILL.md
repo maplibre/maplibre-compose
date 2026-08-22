@@ -21,8 +21,12 @@ mise run style-spec:parity -- --spec /path/to/v8.json
 
 `--check` fails when a spec layer type, source type, or paint/layout property is
 missing from the API, or when the native unsupported table disagrees with
-`sdk-support`. `video` is an omitted source type; `computed` and
-`location-indicator` are native extensions.
+`sdk-support`.
+
+Types the spec does not list, spec types this API does not construct, and spec
+properties this API writes under another name belong in the extra, omitted, and
+alias sets in `ci/style_spec_parity.py`. Read those sets and the catalog for the
+current list. Do not copy them here.
 
 ## Read the catalog
 
@@ -34,9 +38,6 @@ on engines that implement it, and an issue URL on engines that do not.
   list it on the native binding so a write cannot refuse the whole layer.
 - **native has a version, js does not.** Write the layer type or property only
   in `maplibreNativeMain`, the way `LocationIndicatorLayer` does.
-
-`raster-resampling` already covers the raster layer's newer `resampling` name.
-The catalog records that as an alias rather than a missing property.
 
 ## Add a property both engines implement
 
@@ -56,21 +57,20 @@ Keep the setter in `commonMain`. The binding decides what reaches the engine.
 
 1. Default the composable parameter to `nil()`. A spec default that is always
    written would log an unsupported warning on every layer of that type.
-2. Document the gap on the parameter, with the native issue link, the way
-   `iconOverlap` and color-relief `resampling` already do.
+2. Document the gap on the parameter, with the upstream issue link from
+   `sdk-support`.
 3. Add a row to `MlnFfiStyleBinding.UNSUPPORTED_LAYER_PROPERTIES`. The reason
    string is what the layer logs once.
 4. Add the round-trip case to the `glJsOnly*` list in
    `LayerPropertyRoundTripTest`, so desktop does not assert a write native will
    skip.
 
-The existing overlap cases in `UnsupportedLayerPropertyTest` cover the
-drop-versus-refuse mechanism. Do not add a case per table row.
+`UnsupportedLayerPropertyTest` covers the drop-versus-refuse mechanism. Do not
+add a case per table row.
 
 A value one engine rejects, on a property it otherwise implements, stays out of
 that table. `skipUnsupportedProperty` or the live `StyleMutationException`
-handler covers a rejected value. `text-rotation-alignment: viewport-glyph` is
-that case.
+handler covers a rejected value.
 
 When a later native or GL JS release implements the property, delete the table
 row and move the test from the `glJsOnly*` list into the shared cases.
