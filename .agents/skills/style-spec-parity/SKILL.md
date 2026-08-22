@@ -11,7 +11,7 @@ still declared, and that engine's `StyleBinding` keeps it out of every write.
 
 `mise run style-spec:parity` reads the published
 [`v8.json`](https://github.com/maplibre/maplibre-style-spec/blob/main/src/reference/v8.json)
-and compares it with the layer and source types this repository writes.
+and compares it with every Main source set that writes a layer or source.
 
 ```sh
 mise run style-spec:parity
@@ -19,24 +19,30 @@ mise run style-spec:parity -- --check
 mise run style-spec:parity -- --spec /path/to/v8.json
 ```
 
-`--check` fails when a spec layer type, source type, or paint/layout property is
-missing from the API, or when the native unsupported table disagrees with
-`sdk-support`.
+`--check` fails when a layer type, source type, or paint or layout property that
+the pinned engines implement is missing, written with the other kind, or when
+the native unsupported table disagrees with pinned support.
+
+A `sdk-support` version counts only when it is at most the pin. `maplibre-js` in
+`gradle/libs.versions.toml` is the GL JS pin. The FFI pin is a date stamp, so a
+recorded Android or iOS release counts as native support. Properties that exist
+only in a newer GL JS than the pin stay out of scope until that pin moves.
 
 Types the spec does not list, spec types this API does not construct, and spec
 properties this API writes under another name belong in the extra, omitted, and
 alias sets in `ci/style_spec_parity.py`. Read those sets and the catalog for the
-current list. Do not copy them here.
+current list.
 
 ## Read the catalog
 
 Each spec property's `sdk-support.basic functionality` field is a version string
 on engines that implement it, and an issue URL on engines that do not.
 
-- **js and native both have a version.** Write the property in `commonMain`.
-- **js has a version, native has an issue URL.** Write it in `commonMain` and
-  list it on the native binding so a write cannot refuse the whole layer.
-- **native has a version, js does not.** Write the layer type or property only
+- **js and native both implement it at the pins.** Write the property in
+  `commonMain` with the matching `setPaintProperty` or `setLayoutProperty`.
+- **js implements it, native does not.** Write it in `commonMain` and list it on
+  the native binding so a write cannot refuse the whole layer.
+- **native implements it, js does not.** Write the layer type or property only
   in `maplibreNativeMain`, the way `LocationIndicatorLayer` does.
 
 ## Add a property both engines implement
@@ -93,6 +99,7 @@ browser.
 
 ```sh
 mise run style-spec:parity -- --check
+python3 -m unittest ci.style_spec_parity_test
 mise run test:desktop
 mise run test:js
 mise run check

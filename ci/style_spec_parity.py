@@ -1,9 +1,9 @@
-"""Compare the layer API with MapLibre style-spec metadata.
+"""Compare this repository's style API with the published style spec.
 
-The published spec is shared. MapLibre GL JS and MapLibre Native implement it at
-their own pace. This catalog lists the layer types and paint/layout properties
-the spec defines, which engines implement them, and whether this repository
-exposes them.
+The spec is one document. Each engine implements a versioned slice of it.
+This catalog asks: for the engines this repository pins, is every in-scope
+layer type and paint or layout property written in the right source set,
+with the matching paint or layout setter?
 """
 
 from __future__ import annotations
@@ -15,33 +15,36 @@ import re
 import sys
 import urllib.error
 import urllib.request
-from typing import Any
+from typing import Any, Literal
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
 SPEC_URL = (
     "https://raw.githubusercontent.com/maplibre/maplibre-style-spec/"
     "main/src/reference/v8.json"
 )
-
-LAYERS = pathlib.Path(
-    "lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/layers"
-)
-SOURCES = pathlib.Path(
-    "lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/sources"
-)
+VERSIONS_TOML = pathlib.Path("gradle/libs.versions.toml")
+MODULE = pathlib.Path("lib/maplibre-compose/src")
 NATIVE_BINDING = pathlib.Path(
     "lib/maplibre-compose/src/maplibreNativeMain/kotlin/"
     "org/maplibre/compose/style/MlnFfiStyleBinding.kt"
 )
 
 LAYER_TYPE = re.compile(r'override val type: String = "([^"]+)"')
-PROPERTY_WRITE = re.compile(r'set(?:Layout|Paint|Root)Property\(\s*"([^"]+)"')
-UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')
-
-SHARED_PROPERTIES = frozenset(
-    {"visibility", "minzoom", "maxzoom", "filter", "source-layer"}
+PROPERTY_WRITE = re.compile(
+    r'set(?P<kind>Layout|Paint|Root)Property\(\s*"(?P<name>[^"]+)"'
 )
-LAYER_OBJECT_KEYS = frozenset(
+UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')
+SOURCE_TYPE_WRITE = re.compile(r'put\("type",\s*"([^"]+)"\)')
+COMPUTED_SOURCE = re.compile(r"class ComputedSource\b")
+TOML_STRING = re.compile(r'^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"')
+VERSION_STRING = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:[-+][0-9A-Za-z.-]+)?$")
+
+Kind = Literal["layout", "paint", "root"]
+PaintOrLayout = Literal["layout", "paint"]
+Engine = Literal["js", "native"]
+PropKey = tuple[str, PaintOrLayout, str]
+
+ROOT_KEYS = frozenset(
     {
         "id",
         "type",
@@ -56,8 +59,10 @@ LAYER_OBJECT_KEYS = frozenset(
     }
 )
 
-# Spec property this API writes under another name.
-ALIASES = {("raster", "resampling"): "raster-resampling"}
+# Spec paint/layout key this API satisfies by writing a different key.
+ALIASES: dict[PropKey, PropKey] = {
+    ("raster", "paint", "resampling"): ("raster", "paint", "raster-resampling"),
+}
 
 # Types this API exposes that the published spec does not list.
 EXTRA_LAYER_TYPES = frozenset({"location-indicator"})
@@ -66,102 +71,121 @@ EXTRA_SOURCE_TYPES = frozenset({"computed"})
 # Spec source types this API does not construct.
 OMITTED_SOURCE_TYPES = frozenset({"video"})
 
-SOURCE_CLASSES = {
-    "VectorSource": "vector",
-    "RasterSource": "raster",
-    "RasterDemSource": "raster-dem",
-    "GeoJsonSource": "geojson",
-    "ImageSource": "image",
-    "ComputedSource": "computed",
-}
+
+class Version:
+    """A dotted release number from sdk-support or a pin."""
+
+    def __init__(self, major: int, minor: int, patch: int) -> None:
+        self.major = major
+        self.minor = minor
+        self.patch = patch
+
+    @classmethod
+    def parse(cls, value: object) -> Version | None:
+        """Parse a release. Issue URLs and other non-versions return None."""
+        if not isinstance(value, str):
+            return None
+        match = VERSION_STRING.fullmatch(value)
+        if match is None:
+            return None
+        return cls(int(match[1]), int(match[2]), int(match[3] or 0))
+
+    def __le__(self, other: Version) -> bool:
+        return (self.major, self.minor, self.patch) <= (
+            other.major,
+            other.minor,
+            other.patch,
+        )
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Version):
+            return NotImplemented
+        return (self.major, self.minor, self.patch) == (
+            other.major,
+            other.minor,
+            other.patch,
+        )
+
+    def __str__(self) -> str:
+        return f"{self.major}.{self.minor}.{self.patch}"
 
 
-def is_version(value: object) -> bool:
-    """True when sdk-support records a release rather than an issue URL."""
-    return isinstance(value, str) and value[:1].isdigit()
+class Pins:
+    """Engine releases this repository ships."""
+
+    def __init__(self, js: Version, native_ffi: str | None = None) -> None:
+        self.js = js
+        self.native_ffi = native_ffi
+
+    @classmethod
+    def from_toml(cls, text: str) -> Pins:
+        """Read `maplibre-js` from a `[versions]` catalog."""
+        values = _toml_versions(text)
+        js = Version.parse(values.get("maplibre-js"))
+        if js is None:
+            raise SystemExit(
+                "error: gradle/libs.versions.toml has no maplibre-js version"
+            )
+        return cls(js=js, native_ffi=values.get("maplibre-nativeFfi"))
 
 
-def platforms(support: dict[str, Any] | None) -> set[str]:
-    """Engines that implement basic functionality: js, native, or both."""
-    basic = (support or {}).get("basic functionality") or {}
-    found: set[str] = set()
-    if is_version(basic.get("js")):
-        found.add("js")
-    if is_version(basic.get("android")) or is_version(basic.get("ios")):
-        found.add("native")
-    return found
+class SpecProperty:
+    """One paint or layout property and the engines that implement it."""
+
+    def __init__(
+        self, layer: str, kind: PaintOrLayout, name: str, entry: dict[str, Any]
+    ) -> None:
+        self.layer = layer
+        self.kind = kind
+        self.name = name
+        self.entry = entry
+
+    @property
+    def key(self) -> PropKey:
+        return (self.layer, self.kind, self.name)
+
+    def engines(self, pins: Pins) -> set[Engine]:
+        """Engines whose pinned release implements this property."""
+        basic = (self.entry.get("sdk-support") or {}).get("basic functionality") or {}
+        found: set[Engine] = set()
+        js = Version.parse(basic.get("js"))
+        if js is not None and js <= pins.js:
+            found.add("js")
+        if (
+            Version.parse(basic.get("android")) is not None
+            or Version.parse(basic.get("ios")) is not None
+        ):
+            # The FFI pin is a date stamp, not an Android or iOS SDK version, so
+            # a recorded native release counts as implemented.
+            found.add("native")
+        return found
 
 
-def load_spec(path: pathlib.Path | None) -> tuple[dict[str, Any], str]:
-    """Load v8.json from [path], or fetch the published latest copy."""
-    if path is not None:
-        return json.loads(path.read_text()), str(path)
-    request = urllib.request.Request(
-        SPEC_URL, headers={"User-Agent": "maplibre-compose-style-spec-parity"}
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=30) as response:
-            payload = response.read()
-    except urllib.error.URLError as error:
-        raise SystemExit(f"error: could not fetch {SPEC_URL}: {error}") from error
-    return json.loads(payload), SPEC_URL
+class KotlinApi:
+    """Layer types and property writes collected from every Main source set."""
 
+    def __init__(self) -> None:
+        self.types: dict[str, set[Engine]] = {}
+        self.writes: dict[tuple[str, Kind, str], set[Engine]] = {}
+        self.source_types: set[str] = set()
 
-def spec_layers(spec: dict[str, Any]) -> dict[str, dict[str, dict[str, Any]]]:
-    """Map each spec layer type to its paint and layout properties."""
-    layers: dict[str, dict[str, dict[str, Any]]] = {}
-    for layer_type in spec["layer"]["type"]["values"]:
-        properties: dict[str, dict[str, Any]] = {}
-        for prefix in ("layout", "paint"):
-            for name, entry in (spec.get(f"{prefix}_{layer_type}") or {}).items():
-                if name in LAYER_OBJECT_KEYS or not isinstance(entry, dict):
-                    continue
-                properties[name] = entry
-        layers[layer_type] = properties
-    return layers
+    def add_type(self, name: str, engines: set[Engine]) -> None:
+        self.types.setdefault(name, set()).update(engines)
 
+    def add_write(
+        self, layer: str, kind: Kind, name: str, engines: set[Engine]
+    ) -> None:
+        self.writes.setdefault((layer, kind, name), set()).update(engines)
 
-def spec_sources(spec: dict[str, Any]) -> set[str]:
-    """Style-spec source type names."""
-    names: set[str] = set()
-    for table in spec["source"]:
-        if table.startswith("source_"):
-            names.add(table.removeprefix("source_").replace("_", "-"))
-    return names
+    def writers(self, layer: str, kind: Kind, name: str) -> set[Engine]:
+        return set(self.writes.get((layer, kind, name), ()))
 
-
-def written_layers(root: pathlib.Path) -> dict[str, set[str]]:
-    """Map each API layer type to the style-spec names it writes."""
-    by_type: dict[str, set[str]] = {}
-    shared = set(SHARED_PROPERTIES)
-    for path in sorted((root / LAYERS).glob("*.kt")):
-        text = path.read_text()
-        types = LAYER_TYPE.findall(text)
-        names = set(PROPERTY_WRITE.findall(text))
-        if not types:
-            shared.update(names)
-            continue
-        for layer_type in types:
-            by_type.setdefault(layer_type, set()).update(names)
-    for names in by_type.values():
-        names.update(shared)
-    return by_type
-
-
-def native_unsupported(root: pathlib.Path) -> set[tuple[str, str]]:
-    """Layer properties the native binding refuses to write."""
-    return set(UNSUPPORTED_PAIR.findall((root / NATIVE_BINDING).read_text()))
-
-
-def written_sources(root: pathlib.Path) -> set[str]:
-    """Source types this API constructs."""
-    found: set[str] = set()
-    for path in (root / SOURCES).glob("*.kt"):
-        text = path.read_text()
-        for class_name, source_type in SOURCE_CLASSES.items():
-            if f"class {class_name}" in text:
-                found.add(source_type)
-    return found
+    def kinds_written(self, layer: str, name: str) -> dict[Kind, set[Engine]]:
+        return {
+            kind: set(engines)
+            for (found_layer, kind, found_name), engines in self.writes.items()
+            if found_layer == layer and found_name == name
+        }
 
 
 class Audit:
@@ -180,80 +204,335 @@ class Audit:
         self.errors.append(text)
 
 
-def audit(spec: dict[str, Any], root: pathlib.Path = ROOT) -> Audit:
+def _toml_versions(text: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    in_versions = False
+    for line in text.splitlines():
+        stripped = line.strip()
+        if stripped.startswith("["):
+            in_versions = stripped == "[versions]"
+            continue
+        if not in_versions:
+            continue
+        match = TOML_STRING.match(stripped)
+        if match:
+            values[match[1]] = match[2]
+    return values
+
+
+def load_pins(root: pathlib.Path) -> Pins:
+    """Pins from this repository's version catalog."""
+    return Pins.from_toml((root / VERSIONS_TOML).read_text())
+
+
+def load_spec(path: pathlib.Path | None) -> tuple[dict[str, Any], str]:
+    """Load v8.json from [path], or fetch the published latest copy."""
+    if path is not None:
+        return json.loads(path.read_text()), str(path)
+    request = urllib.request.Request(
+        SPEC_URL, headers={"User-Agent": "maplibre-compose-style-spec-parity"}
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            payload = response.read()
+    except urllib.error.URLError as error:
+        raise SystemExit(f"error: could not fetch {SPEC_URL}: {error}") from error
+    return json.loads(payload), SPEC_URL
+
+
+def spec_layer_types(spec: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    """Map each spec layer type to its type-level metadata."""
+    return dict(spec["layer"]["type"]["values"])
+
+
+def spec_properties(spec: dict[str, Any]) -> dict[PropKey, SpecProperty]:
+    """Map (layer, kind, name) to each paint and layout property."""
+    found: dict[PropKey, SpecProperty] = {}
+    for layer_type in spec_layer_types(spec):
+        for kind in ("layout", "paint"):
+            table = spec.get(f"{kind}_{layer_type}") or {}
+            for name, entry in table.items():
+                if name in ROOT_KEYS or not isinstance(entry, dict):
+                    continue
+                prop = SpecProperty(layer_type, kind, name, entry)
+                found[prop.key] = prop
+    return found
+
+
+def spec_sources(spec: dict[str, Any]) -> set[str]:
+    """Style-spec source type names."""
+    names: set[str] = set()
+    for table in spec["source"]:
+        if table.startswith("source_"):
+            names.add(table.removeprefix("source_").replace("_", "-"))
+    return names
+
+
+def spec_type_engines(entry: dict[str, Any], pins: Pins) -> set[Engine]:
+    """Engines that implement a layer type at the pinned releases."""
+    return SpecProperty("layer", "layout", "type", entry).engines(pins)
+
+
+def source_set_engines(source_set: str) -> set[Engine] | None:
+    """Engines a Kotlin Main source set compiles for. Test sets are ignored."""
+    if not source_set.endswith("Main"):
+        return None
+    if source_set == "commonMain":
+        return {"js", "native"}
+    if source_set == "jsMain":
+        return {"js"}
+    return {"native"}
+
+
+def _kotlin_files(
+    root: pathlib.Path, package: str
+) -> list[tuple[set[Engine], pathlib.Path]]:
+    """Main-source-set Kotlin files under a compose package."""
+    found: list[tuple[set[Engine], pathlib.Path]] = []
+    base = root / MODULE
+    if not base.is_dir():
+        return found
+    for source_set_dir in sorted(base.iterdir()):
+        engines = source_set_engines(source_set_dir.name)
+        if engines is None:
+            continue
+        package_dir = (
+            source_set_dir / "kotlin" / "org" / "maplibre" / "compose" / package
+        )
+        if not package_dir.is_dir():
+            continue
+        for path in sorted(package_dir.rglob("*.kt")):
+            if path.name.startswith("Unknown"):
+                continue
+            found.append((engines, path))
+    return found
+
+
+def _writes_in(text: str) -> list[tuple[Kind, str]]:
+    return [
+        (match["kind"].lower(), match["name"])  # type: ignore[return-value]
+        for match in PROPERTY_WRITE.finditer(text)
+    ]
+
+
+def scan_layers(root: pathlib.Path) -> KotlinApi:
+    """Collect layer types and property writes from every Main source set."""
+    api = KotlinApi()
+    shared: list[tuple[set[Engine], list[tuple[Kind, str]]]] = []
+    typed: list[tuple[set[Engine], list[str], list[tuple[Kind, str]]]] = []
+
+    for engines, path in _kotlin_files(root, "layers"):
+        text = path.read_text()
+        types = LAYER_TYPE.findall(text)
+        writes = _writes_in(text)
+        if types:
+            typed.append((engines, types, writes))
+        else:
+            shared.append((engines, writes))
+
+    for engines, types, _ in typed:
+        for layer_type in types:
+            api.add_type(layer_type, engines)
+
+    for engines, writes in shared:
+        for layer_type, type_engines in api.types.items():
+            if engines <= type_engines:
+                for kind, name in writes:
+                    api.add_write(layer_type, kind, name, engines)
+
+    for engines, types, writes in typed:
+        for layer_type in types:
+            for kind, name in writes:
+                api.add_write(layer_type, kind, name, engines)
+    return api
+
+
+def scan_sources(root: pathlib.Path) -> set[str]:
+    """Source types this API constructs in any Main source set."""
+    found: set[str] = set()
+    for _, path in _kotlin_files(root, "sources"):
+        text = path.read_text()
+        found.update(SOURCE_TYPE_WRITE.findall(text))
+        if COMPUTED_SOURCE.search(text):
+            found.add("computed")
+    return found
+
+
+def native_unsupported(root: pathlib.Path) -> set[tuple[str, str]]:
+    """Layer properties the native binding refuses to write."""
+    path = root / NATIVE_BINDING
+    if not path.is_file():
+        return set()
+    return set(UNSUPPORTED_PAIR.findall(path.read_text()))
+
+
+def _format_engines(engines: set[Engine]) -> str:
+    return (
+        "+".join(engine for engine in ("js", "native") if engine in engines) or "none"
+    )
+
+
+def _label(layer: str, kind: str, name: str) -> str:
+    return f"{layer} {kind} {name}"
+
+
+def _resolved_key(prop: SpecProperty) -> PropKey:
+    return ALIASES.get(prop.key, prop.key)
+
+
+def audit(
+    spec: dict[str, Any],
+    root: pathlib.Path = ROOT,
+    pins: Pins | None = None,
+) -> Audit:
+    pins = pins or load_pins(root)
     report = Audit()
-    spec_props = spec_layers(spec)
-    api_layers = written_layers(root)
+    types = spec_layer_types(spec)
+    properties = spec_properties(spec)
+    api = scan_layers(root)
+    api.source_types = scan_sources(root)
     unsupported = native_unsupported(root)
 
+    report.note(f"Pinned MapLibre GL JS: {pins.js}")
+    if pins.native_ffi:
+        report.note(
+            f"Pinned maplibre-native-ffi: {pins.native_ffi} "
+            "(native sdk-support is a recorded release, not a version comparison)"
+        )
+
+    _audit_layer_types(report, types, api, pins)
+    _audit_properties(report, properties, api, pins)
+    _audit_native_table(report, properties, api, unsupported, pins)
+    _audit_sources(report, spec, api)
+    return report
+
+
+def _audit_layer_types(
+    report: Audit,
+    types: dict[str, dict[str, Any]],
+    api: KotlinApi,
+    pins: Pins,
+) -> None:
     report.note("Layer types")
-    extra_layers = sorted(set(api_layers) - set(spec_props) - EXTRA_LAYER_TYPES)
-    missing_layers = sorted(set(spec_props) - set(api_layers))
-    known_extra_layers = sorted(set(api_layers) & EXTRA_LAYER_TYPES)
-    if known_extra_layers:
-        report.note("  extra (native extension): " + ", ".join(known_extra_layers))
+    extra_layers = sorted(set(api.types) - set(types) - EXTRA_LAYER_TYPES)
+    known_extra = sorted(set(api.types) & EXTRA_LAYER_TYPES)
+    missing = [
+        f"{layer_type} ({_format_engines(spec_type_engines(entry, pins) - api.types.get(layer_type, set()))})"
+        for layer_type, entry in sorted(types.items())
+        if spec_type_engines(entry, pins) - api.types.get(layer_type, set())
+    ]
+    if known_extra:
+        report.note("  extra (native extension): " + ", ".join(known_extra))
     if extra_layers:
         report.error("unexpected extra layer types: " + ", ".join(extra_layers))
-    if missing_layers:
-        report.error("missing layer types: " + ", ".join(missing_layers))
-    if not extra_layers and not missing_layers:
-        report.note("  spec types: all present")
+    if missing:
+        report.error("missing layer types: " + ", ".join(missing))
+    if not extra_layers and not missing:
+        report.note("  spec types: all present at the pinned engines")
 
+
+def _audit_properties(
+    report: Audit,
+    properties: dict[PropKey, SpecProperty],
+    api: KotlinApi,
+    pins: Pins,
+) -> None:
     report.note("Layer properties")
-    for layer_type, properties in sorted(spec_props.items()):
-        written = api_layers.get(layer_type, set())
-        missing: list[str] = []
-        aliased: list[str] = []
-        js_only: list[str] = []
-        for name in sorted(properties):
-            alias = ALIASES.get((layer_type, name))
-            if alias and alias in written:
-                aliased.append(f"{name} -> {alias}")
-                continue
-            if name not in written:
-                missing.append(name)
-                continue
-            if platforms(properties[name].get("sdk-support")) == {"js"}:
-                js_only.append(name)
-        unexpected = sorted(
-            name
-            for name in written
-            if name not in properties
-            and name not in SHARED_PROPERTIES
-            and name not in LAYER_OBJECT_KEYS
-        )
-        if missing:
-            report.error(f"{layer_type} missing properties: " + ", ".join(missing))
-        if unexpected:
-            report.error(f"{layer_type} extra properties: " + ", ".join(unexpected))
-        if aliased:
-            report.note(f"  {layer_type} aliases: " + ", ".join(aliased))
-        if js_only:
-            report.note(f"  {layer_type} js-only (exposed): " + ", ".join(js_only))
-        if not missing and not unexpected and not aliased and not js_only:
-            report.note(f"  {layer_type}: complete")
+    beyond_pin: list[str] = []
+    js_only: list[str] = []
+    aliases: list[str] = []
+    property_errors = 0
 
+    for prop in sorted(properties.values(), key=lambda item: item.key):
+        required = prop.engines(pins)
+        target = _resolved_key(prop)
+        written = api.writers(*target)
+        if prop.key != target and written:
+            aliases.append(f"{prop.layer} {prop.name} -> {target[2]}")
+        if not required:
+            beyond_pin.append(_label(*prop.key))
+            continue
+        if required == {"js"} and "js" in written and prop.key == target:
+            js_only.append(_label(*prop.key))
+
+        other_kinds = [
+            kind
+            for kind, engines in api.kinds_written(prop.layer, prop.name).items()
+            if kind not in {target[1], "root"} and engines
+        ]
+        if other_kinds and "js" not in written and "native" not in written:
+            report.error(
+                f"{_label(*prop.key)} written as {other_kinds[0]}, "
+                f"spec says {prop.kind}"
+            )
+            property_errors += 1
+            continue
+
+        missing = required - written
+        if missing:
+            report.error(f"{_label(*prop.key)} missing on {_format_engines(missing)}")
+            property_errors += 1
+
+    extras = _extra_properties(properties, api)
+    if extras:
+        report.error("unexpected extra properties: " + ", ".join(extras))
+        property_errors += 1
+    for line in aliases:
+        report.note(f"  alias: {line}")
+    if js_only:
+        report.note("  js-only at the pins (exposed): " + ", ".join(js_only))
+    if beyond_pin:
+        report.note("  beyond the JS pin (not required): " + ", ".join(beyond_pin))
+    if property_errors == 0:
+        report.note("  spec properties: complete at the pinned engines")
+
+
+def _extra_properties(
+    properties: dict[PropKey, SpecProperty], api: KotlinApi
+) -> list[str]:
+    spec_layers = {layer for layer, _, _ in properties}
+    spec_keys = set(properties) | set(ALIASES.values())
+    extras: list[str] = []
+    for (layer, kind, name), engines in sorted(api.writes.items()):
+        if layer not in spec_layers:
+            continue
+        if (layer, kind, name) in spec_keys:
+            continue
+        if name in ROOT_KEYS or kind == "root":
+            continue
+        extras.append(f"{_label(layer, kind, name)} ({_format_engines(engines)})")
+    return extras
+
+
+def _audit_native_table(
+    report: Audit,
+    properties: dict[PropKey, SpecProperty],
+    api: KotlinApi,
+    unsupported: set[tuple[str, str]],
+    pins: Pins,
+) -> None:
     report.note("Native unsupported table")
-    stale: list[str] = []
-    missing_rows: list[str] = []
+    by_name = {(prop.layer, prop.name): prop for prop in properties.values()}
     listed: list[str] = []
-    for layer_type, properties in sorted(spec_props.items()):
-        written = api_layers.get(layer_type, set())
-        for name, entry in sorted(properties.items()):
-            if name not in written:
-                continue
-            engine = platforms(entry.get("sdk-support"))
-            in_table = (layer_type, name) in unsupported
-            if engine == {"js"} and not in_table:
-                missing_rows.append(f"{layer_type}.{name}")
-            elif "native" in engine and in_table:
-                stale.append(f"{layer_type}.{name}")
-            elif in_table:
-                listed.append(f"{layer_type}.{name}")
+    missing_rows: list[str] = []
+    stale: list[str] = []
+
+    for prop in sorted(properties.values(), key=lambda item: item.key):
+        if ALIASES.get(prop.key):
+            continue
+        required = prop.engines(pins)
+        written = api.writers(*prop.key)
+        in_table = (prop.layer, prop.name) in unsupported
+        if "native" in required and in_table:
+            stale.append(f"{prop.layer}.{prop.name}")
+        elif "native" not in required and "js" in required and "native" in written:
+            if in_table:
+                listed.append(f"{prop.layer}.{prop.name}")
+            else:
+                missing_rows.append(f"{prop.layer}.{prop.name}")
+
     extra_rows = sorted(
-        f"{layer_type}.{name}"
-        for layer_type, name in unsupported
-        if name not in spec_props.get(layer_type, {})
+        f"{layer}.{name}" for layer, name in unsupported if (layer, name) not in by_name
     )
     if listed:
         report.note("  filtered on native: " + ", ".join(listed))
@@ -273,29 +552,28 @@ def audit(spec: dict[str, Any], root: pathlib.Path = ROOT) -> Audit:
             + ", ".join(extra_rows)
         )
     if not missing_rows and not stale and not extra_rows:
-        report.note("  table matches the spec")
+        report.note("  table matches pinned support")
 
+
+def _audit_sources(report: Audit, spec: dict[str, Any], api: KotlinApi) -> None:
     report.note("Source types")
     spec_source_types = spec_sources(spec)
-    api_source_types = written_sources(root)
-    extra_sources = sorted(api_source_types - spec_source_types - EXTRA_SOURCE_TYPES)
+    extra_sources = sorted(api.source_types - spec_source_types - EXTRA_SOURCE_TYPES)
     missing_sources = sorted(
-        spec_source_types - api_source_types - OMITTED_SOURCE_TYPES
+        spec_source_types - api.source_types - OMITTED_SOURCE_TYPES
     )
-    known_extra_sources = sorted(api_source_types & EXTRA_SOURCE_TYPES)
-    omitted_sources = sorted(spec_source_types & OMITTED_SOURCE_TYPES)
-    if known_extra_sources:
-        report.note("  extra (native extension): " + ", ".join(known_extra_sources))
-    if omitted_sources:
-        report.note("  omitted: " + ", ".join(omitted_sources))
+    known_extra = sorted(api.source_types & EXTRA_SOURCE_TYPES)
+    omitted = sorted(spec_source_types & OMITTED_SOURCE_TYPES)
+    if known_extra:
+        report.note("  extra (native extension): " + ", ".join(known_extra))
+    if omitted:
+        report.note("  omitted: " + ", ".join(omitted))
     if extra_sources:
         report.error("unexpected extra source types: " + ", ".join(extra_sources))
     if missing_sources:
         report.error("missing source types: " + ", ".join(missing_sources))
     if not extra_sources and not missing_sources:
         report.note("  spec types: all present")
-
-    return report
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -308,8 +586,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--check",
         action="store_true",
-        help="Exit 1 when a layer type, property, source type, or native table "
-        "row is out of date.",
+        help="Exit 1 when an in-scope layer type, property, source type, or "
+        "native table row is out of date.",
     )
     args = parser.parse_args(argv)
 
