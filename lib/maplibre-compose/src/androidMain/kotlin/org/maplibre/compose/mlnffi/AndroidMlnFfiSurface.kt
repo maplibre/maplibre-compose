@@ -60,9 +60,7 @@ internal fun AndroidMlnFfiSurface(
     return
   }
 
-  // The map loop loads styles without a surface, so until the first style arrives no window goes
-  // into the hierarchy: an empty SurfaceView would punch a black hole. The placeholder keeps the
-  // map's layout size and gestures in the meantime.
+  // An empty SurfaceView would punch a black hole; styles load without a surface.
   if (!presentWindow) {
     Box(modifier)
     return

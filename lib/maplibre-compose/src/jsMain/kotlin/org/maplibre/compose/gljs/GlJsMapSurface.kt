@@ -94,9 +94,8 @@ internal fun GlJsMapSurface(
               }
               drew = true
             }
-            // Until the first style loads (presentFrames false), the frame is rendered but not
-            // blitted: MapLibre's default framebuffer is black. Style loading is event-driven, so
-            // no further frame is requested here; the map asks for its own repaints.
+            // An unstyled framebuffer is black, so no blit before the first style; the map
+            // requests its own repaints.
           }
         }
       } catch (error: Throwable) {

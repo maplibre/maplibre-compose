@@ -76,9 +76,8 @@ internal fun MlnFfiMapSurface(
     }
   }
 
-  // Also gated on presentFrames: hosts release a replaced target on a later draw, so resizing
-  // while nothing draws would pile up full-size targets. The rerun when presentFrames flips true
-  // sizes the host and requests the frames the map asked for while it was hidden.
+  // Hosts release a replaced target on a later draw, so resizing while hidden would pile up
+  // full-size targets.
   LaunchedEffect(extent, host, renderer, failed, presentFrames) {
     if (!presentFrames || host == null || extent.isEmpty || failed) return@LaunchedEffect
     try {

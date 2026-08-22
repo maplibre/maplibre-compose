@@ -69,8 +69,7 @@ internal fun IosMlnFfiSurface(
     return
   }
 
-  // The map loop loads styles without a surface, so until the first style arrives no Metal view
-  // goes into the hierarchy. The placeholder keeps the map's layout size and gestures.
+  // Styles load without a surface.
   if (!presentWindow) {
     Box(modifier)
     return

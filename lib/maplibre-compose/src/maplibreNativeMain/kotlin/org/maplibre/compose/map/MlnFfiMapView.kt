@@ -130,14 +130,17 @@ internal fun MlnFfiMapView(
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
-  val inputModifier =
-    modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
-
-  // The classic Android SDK covered the map with foregroundLoadColor until the style had drawn.
-  // Styles load on the map loop without rendering, so until this session's first one arrives the
-  // surface presents nothing — MapLibre's unstyled frames are black — and this overlay shows the
-  // load color in its place. A replacement session starts covered until its own style loads.
+  // MapLibre renders black until a style loads.
   val revealSurface = session.hasLoadedFirstStyle
+
+  // Before the first render target attaches, gestures would project through the bootstrap 1x1
+  // viewport and jump the camera.
+  val inputModifier =
+    if (revealSurface) {
+      modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
+    } else {
+      modifier
+    }
 
   Box {
     surface(session, inputModifier, logger, revealSurface)
