@@ -34,6 +34,9 @@ updates:
       - dependency-name: androidx.compose.ui:ui-test-manifest
       - dependency-name: org.jetbrains.compose.material3:material3
       - dependency-name: org.jetbrains.androidx.navigation:navigation-compose
+
+      # compose-glfw generates callbacks against LWJGL's internal ABI.
+      - dependency-name: org.lwjgl:*
     groups:
       kotlin:
         patterns:
