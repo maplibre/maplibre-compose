@@ -181,12 +181,13 @@ public fun LocationPuck(
       iconAllowOverlap = const(true),
     )
 
-    if (showBearingAccuracy && bearing?.accuracy != null) {
+    val bearingAccuracy = bearing?.accuracy
+    if (showBearingAccuracy && bearingAccuracy != null) {
       val bearingAccuracyPainter =
         rememberBearingAccuracyPainter(
           sizes = sizes,
           colors = colors,
-          bearingAccuracy = bearing.accuracy,
+          bearingAccuracy = bearingAccuracy,
         )
 
       SymbolLayer(

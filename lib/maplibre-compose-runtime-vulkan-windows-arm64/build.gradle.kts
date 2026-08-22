@@ -15,7 +15,7 @@ mavenPublishing {
 }
 
 dependencies {
-  runtimeOnly(project(":lib:maplibre-compose-windows"))
+  runtimeOnly(project(":lib:location-runtime-windows"))
 
   DesktopHostPlatform.WindowsArm64.runtimeDependencies(
       backend = DesktopHostPlatform.RenderBackend.VULKAN,

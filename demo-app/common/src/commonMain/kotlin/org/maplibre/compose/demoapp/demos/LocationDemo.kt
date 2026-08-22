@@ -26,6 +26,7 @@ import org.maplibre.compose.location.LocationTrackingStatus
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberLocationState
+import org.maplibre.compose.location.updateCamera
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -92,7 +93,7 @@ object LocationDemo : Demo {
           duration = DemoFlightDuration,
         )
       } else {
-        cameraState.updateFromLocation()
+        updateCamera(cameraState)
       }
     }
 

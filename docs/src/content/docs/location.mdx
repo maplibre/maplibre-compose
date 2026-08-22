@@ -66,7 +66,7 @@ more accurate one should be used.
 
 The puck bearing and camera bearing are separate: `LocationPuck(bearing = ...)`
 rotates only the puck indicator, while `LocationTrackingEffect` and
-`updateFromLocation(updateBearing = ...)` control camera rotation.
+`updateCamera(updateBearing = ...)` control camera rotation.
 
 | Bearing update mode | Camera behavior                                          |
 | ------------------- | -------------------------------------------------------- |
@@ -128,12 +128,12 @@ Add the extension module to the Android source set:
 
 ```toml title="libs.versions.toml"
 [libraries]
-maplibre-composeGms = { module = "org.maplibre.compose:maplibre-compose-gms", version = "{{release}}" }
+maplibre-locationRuntimeGms = { module = "org.maplibre.compose:location-runtime-gms", version = "{{release}}" }
 ```
 
 ```kotlin title="build.gradle.kts"
 androidMain.dependencies {
-  implementation(libs.maplibre.composeGms)
+  implementation(libs.maplibre.locationRuntimeGms)
 }
 ```
 
@@ -161,7 +161,8 @@ reports an unsupported backend through `LocationState.status`.
 
 On the standard AWT map host, the portal attaches its permission dialog to that
 window. A custom X11 or Wayland host can expose its window through
-`ComposeMapHost.xdgPortalWindow`. Other hosts use an unparented dialog.
+`ComposeMapHost.xdgPortalWindow`, and an application without a map host can
+install one with `LocalXdgPortalWindow`. Other setups use an unparented dialog.
 
 Each desktop rendering runtime installs its matching backend. A missing backend
 reports an unsupported backend, and multiple backends report a configuration
