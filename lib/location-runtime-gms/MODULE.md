@@ -1,3 +1,3 @@
 # Module location-runtime-gms
 
-Google Mobile Services extensions for MapLibre Compose.
+Google Play services location backend for MapLibre Compose Android applications.

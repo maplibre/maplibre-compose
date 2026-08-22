@@ -17,7 +17,14 @@ mavenPublishing {
 }
 
 kotlin {
-  android { namespace = "org.maplibre.compose.gms" }
+  android {
+    namespace = "org.maplibre.compose.gms"
+    optimization {
+      // Keeps the ServiceLoader-registered backend in consuming applications.
+      consumerKeepRules.publish = true
+      consumerKeepRules.files.add(project.file("consumer-rules.pro"))
+    }
+  }
 
   applyDefaultHierarchyTemplate()
 

@@ -18,6 +18,7 @@ import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoFlightDuration
 import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationState
@@ -53,7 +54,7 @@ object LocationDemo : Demo {
     }
 
   private var follow by mutableStateOf(true)
-  private var usePlayServices by mutableStateOf(true)
+  private var engine by mutableStateOf(demoLocationEngines.first())
   private var useNativeIndicator by mutableStateOf(false)
   private var lastFix by mutableStateOf<Position?>(null)
   private var panelLocationState by mutableStateOf<LocationState?>(null)
@@ -62,8 +63,8 @@ object LocationDemo : Demo {
   override fun MapContent(cameraState: CameraState) {
     val locationState =
       rememberLocationState(
-        provider = rememberDemoLocationProvider(usePlayServices),
-        orientationProvider = rememberDemoOrientationProvider(usePlayServices),
+        provider = engine.rememberLocationProvider(),
+        orientationProvider = engine.rememberOrientationProvider(),
       )
     DisposableEffect(locationState) {
       panelLocationState = locationState
@@ -122,7 +123,15 @@ object LocationDemo : Demo {
     if (isNativeLocationIndicatorAvailable) {
       SwitchRow("Native indicator", useNativeIndicator) { useNativeIndicator = it }
     }
-    LocationEngineRow(usePlayServices) { usePlayServices = it }
+    if (demoLocationEngines.size > 1) {
+      SegmentedRow(
+        label = "Location engine",
+        options = demoLocationEngines,
+        selected = engine,
+        optionLabel = { it.label },
+        onSelect = { engine = it },
+      )
+    }
   }
 }
 

@@ -111,7 +111,13 @@ public class AndroidOrientationProvider(
 public actual fun rememberDefaultOrientationProvider(
   updateInterval: Duration
 ): OrientationProvider {
-  return rememberAndroidOrientationProvider(updateInterval = updateInterval)
+  val context = LocalContext.current
+  val resolution = remember(context) { AndroidLocationBackendResolver.discover(context) }
+  val backendProvider =
+    (resolution as? AndroidBackendResolution.Discovered)
+      ?.backend
+      ?.rememberOrientationProvider(updateInterval)
+  return backendProvider ?: rememberAndroidOrientationProvider(updateInterval = updateInterval)
 }
 
 /** Creates and remembers the default Android [OrientationProvider]. */
