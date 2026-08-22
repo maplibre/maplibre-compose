@@ -152,6 +152,23 @@ class LinuxPortalLocationProviderTest {
   }
 
   @Test
+  fun convertsUnknownPortalMeasurementsToNull() {
+    val event =
+      mapOf(
+          "Latitude" to Variant(52.0),
+          "Longitude" to Variant(13.0),
+          "Altitude" to Variant(-Double.MAX_VALUE),
+          "Speed" to Variant(-1.0),
+          "Heading" to Variant(-1.0),
+        )
+        .toLocationEvent()
+
+    assertEquals(null, event.location.position.value.altitude)
+    assertEquals(null, event.location.speed)
+    assertEquals(null, event.location.course)
+  }
+
+  @Test
   fun realPortalSessionCanOpenAndClose() = runTest {
     if (System.getenv("MAPLIBRE_TEST_LINUX_LOCATION_PORTAL") != "true") return@runTest
 
