@@ -3,6 +3,9 @@
 # compileSdk 37 is the API floor AGP 9.1.1 supports. targetSdk stays on 36,
 # the latest shipping Android 16 behavior.
 android-compileSdk = "37"
+# The Build-Tools release AGP 9.1.1 consumes. Read by
+# .mise/bin/sync-android-packages, not by Gradle.
+android-buildTools = "36.0.0"
 android-minSdk = "24"
 android-targetSdk = "36"
 # Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.

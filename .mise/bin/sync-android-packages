@@ -37,7 +37,7 @@ fi
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 catalog_version() {
-  sed -n "s/^$1 = \"\\([0-9][0-9]*\\)\"\$/\\1/p" \
+  sed -n "s/^$1 = \"\\([0-9][0-9.]*\\)\"\$/\\1/p" \
     "$repository_root/gradle/libs.versions.toml" | head -n1
 }
 
@@ -47,12 +47,17 @@ if [[ -z "$compile_sdk" ]]; then
   exit 1
 fi
 
+build_tools="$(catalog_version android-buildTools)"
+if [[ -z "$build_tools" ]]; then
+  echo "${0##*/}: could not read android-buildTools from gradle/libs.versions.toml" >&2
+  exit 1
+fi
+
 # Paired with the directory that proves each is installed, so a rerun starts no
 # JVM and reaches no network. The platform for compileSdk 37 is android-37.0.
-# AGP 9.1 consumes Build-Tools 36.0.0.
 packages=(
   "platforms;android-${compile_sdk}.0|platforms/android-${compile_sdk}.0"
-  "build-tools;36.0.0|build-tools/36.0.0"
+  "build-tools;${build_tools}|build-tools/${build_tools}"
   "platform-tools|platform-tools"
 )
 
