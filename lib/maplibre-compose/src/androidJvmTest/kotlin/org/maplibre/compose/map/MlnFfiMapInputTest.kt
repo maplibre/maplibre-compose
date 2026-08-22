@@ -995,7 +995,9 @@ class MlnFfiMapInputTest {
       }
     }
 
-    cameraState.awaitViewport()
+    // The map thread reports the first viewport, and a suspended test body pumps no snapshot apply
+    // notifications; waitUntil polls with frame pumps, so that report can't strand it.
+    waitUntil(timeoutMillis = TIMEOUT) { cameraState.viewport != null }
     cameraState.position = initialPosition
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
     waitUntil(timeoutMillis = TIMEOUT) {

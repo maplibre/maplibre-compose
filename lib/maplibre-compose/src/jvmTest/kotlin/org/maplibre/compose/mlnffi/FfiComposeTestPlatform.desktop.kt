@@ -12,11 +12,41 @@ import org.maplibre.nativeffi.render.RenderBackend
 
 @OptIn(ExperimentalTestApi::class)
 internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit) {
+  val watchdog = startHangWatchdog()
   try {
     runComposeUiTest { block() }
   } finally {
+    watchdog.interrupt()
     MlnFfiApplication.resetForTest()
   }
+}
+
+/**
+ * How long a test may run before the watchdog dumps every thread's stack. Just under the one-minute
+ * `runTest` watchdog, which reports only its own cancellation machinery.
+ */
+private const val HANG_DUMP_DELAY_MILLIS = 50_000L
+
+/** Attributes a hang to a stack trace before `runTest` cancels the test body anonymously. */
+private fun startHangWatchdog(): Thread {
+  val watchdog = Thread {
+    try {
+      Thread.sleep(HANG_DUMP_DELAY_MILLIS)
+    } catch (_: InterruptedException) {
+      return@Thread
+    }
+    System.err.println(
+      "An FFI Compose test has run for ${HANG_DUMP_DELAY_MILLIS} ms; dumping all threads:"
+    )
+    for ((thread, stack) in Thread.getAllStackTraces()) {
+      System.err.println(thread)
+      for (frame in stack) System.err.println("\tat $frame")
+    }
+  }
+  watchdog.name = "ffi-test-hang-watchdog"
+  watchdog.isDaemon = true
+  watchdog.start()
+  return watchdog
 }
 
 @OptIn(ExperimentalTestApi::class)
