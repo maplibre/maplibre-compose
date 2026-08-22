@@ -36,6 +36,8 @@ jobs:
           git diff --exit-code
           git diff --cached --exit-code
       - run: mise run lint:android
+      - run: mise run ci:test-scripts
+      - run: mise run style-spec:parity -- --check
 
   android:
     strategy:

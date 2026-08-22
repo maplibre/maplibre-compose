@@ -107,7 +107,7 @@ browser.
 
 ```sh
 mise run style-spec:parity -- --check
-python3 -m unittest ci.style_spec_parity_test
+mise run ci:test-scripts
 mise run test:desktop
 mise run test:js
 mise run check

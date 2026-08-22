@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# [MISE] description="Run the unit tests for the ci/ scripts."
+set -euo pipefail
+cd "${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+exec python3 -m unittest ci.style_spec_parity_test
