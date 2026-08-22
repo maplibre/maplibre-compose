@@ -18,7 +18,8 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
   } finally {
     watchdog.interrupt()
     // Tests share a JVM; a dump left printing here would interleave into the next test's output.
-    watchdog.join()
+    // Bounded, so a wedged stderr could never hold up teardown for the daemon thread's sake.
+    watchdog.join(1_000)
     MlnFfiApplication.resetForTest()
   }
 }
