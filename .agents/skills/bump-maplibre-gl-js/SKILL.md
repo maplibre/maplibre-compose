@@ -74,7 +74,8 @@ between the two versions, against three lists:
   `git grep -n TODO lib/maplibre-compose/src/jsMain` finds the ones parked
   against a MapLibre GL JS limitation.
 - **New API surface.** New `Map` methods, style-spec properties, and source or
-  layer types that the common API could expose.
+  layer types that the common API could expose. Style-spec gaps go through the
+  `style-spec-parity` skill.
 
 Bind what one of those three justifies, and leave the rest undeclared. Anything
 new reaches the common API through `commonMain`. Members that still differ by
