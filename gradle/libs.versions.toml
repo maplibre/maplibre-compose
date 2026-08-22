@@ -26,7 +26,7 @@ kotlin-wrappers = "2026.8.2"
 kotlinx-coroutines = "1.11.0"
 kotlinx-io = "0.9.1"
 ktor = "3.5.2"
-lifecycleRuntimeCompose = "2.10.0"
+lifecycleRuntimeCompose = "2.11.0"
 # compose-glfw generates callbacks against this version's internal ABI.
 lwjgl = "3.4.1"
 maplibre-js = "6.2.0"
