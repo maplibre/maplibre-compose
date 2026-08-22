@@ -48,25 +48,11 @@ if [[ -z "$compile_sdk" ]]; then
 fi
 
 # Paired with the directory that proves each is installed, so a rerun starts no
-# JVM and reaches no network.
-#
-# API 37 publishes the platform as android-37.0. AGP 9.1 still consumes
-# Build-Tools 36.0.0; there is no 37.0.0 package.
-if ((compile_sdk >= 37)); then
-  platform="platforms;android-${compile_sdk}.0"
-  platform_dir="platforms/android-${compile_sdk}.0"
-  build_tools="build-tools;36.0.0"
-  build_tools_dir="build-tools/36.0.0"
-else
-  platform="platforms;android-${compile_sdk}"
-  platform_dir="platforms/android-${compile_sdk}"
-  build_tools="build-tools;${compile_sdk}.0.0"
-  build_tools_dir="build-tools/${compile_sdk}.0.0"
-fi
-
+# JVM and reaches no network. The platform for compileSdk 37 is android-37.0.
+# AGP 9.1 consumes Build-Tools 36.0.0.
 packages=(
-  "${platform}|${platform_dir}"
-  "${build_tools}|${build_tools_dir}"
+  "platforms;android-${compile_sdk}.0|platforms/android-${compile_sdk}.0"
+  "build-tools;36.0.0|build-tools/36.0.0"
   "platform-tools|platform-tools"
 )
 
