@@ -60,7 +60,7 @@ internal fun GlJsMapSurface(
     }
   }
 
-  // presentFrames is a key so that its flip to true redraws the frame the else branch below
+  // presentFrames is a key so that its flip to true redraws the frame the draw pass below
   // declined to blit.
   LaunchedEffect(extent, renderer, failed, presentFrames) {
     if (extent.isEmpty || failed) return@LaunchedEffect
@@ -93,11 +93,10 @@ internal fun GlJsMapSurface(
                 )
               }
               drew = true
-            } else {
-              // Keep driving the offscreen map so the style can load; do not blit the black
-              // default framebuffer onto a light page.
-              surface.requestFrame()
             }
+            // Until the first style loads (presentFrames false), the frame is rendered but not
+            // blitted: MapLibre's default framebuffer is black. Style loading is event-driven, so
+            // no further frame is requested here; the map asks for its own repaints.
           }
         }
       } catch (error: Throwable) {

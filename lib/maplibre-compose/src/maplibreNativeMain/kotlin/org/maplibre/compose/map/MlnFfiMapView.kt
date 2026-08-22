@@ -141,9 +141,10 @@ internal fun MlnFfiMapView(
     modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
 
   // The classic Android SDK covered the map with foregroundLoadColor until the style had drawn.
-  // Keep presenting the host so the style can load, but do not show those empty black frames: the
-  // host skips blitting them, and this overlay covers a SurfaceView hole. A later style switch
-  // unloads rememberedStyle briefly; the flag stays set so the live map is not hidden again.
+  // Styles load on the map loop without rendering, so until the first one arrives the surface
+  // presents nothing — MapLibre's unstyled frames are black — and this overlay shows the load
+  // color in its place. A later style switch unloads rememberedStyle briefly; the flag stays set
+  // so the live map is not hidden again.
   var revealSurface by remember(session) { mutableStateOf(false) }
   SideEffect { if (rememberedStyle != null) revealSurface = true }
 

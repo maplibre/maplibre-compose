@@ -1,5 +1,6 @@
 package org.maplibre.compose.mlnffi
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -68,12 +69,12 @@ internal fun IosMlnFfiSurface(
     return
   }
 
-  DisposableEffect(controller, renderer) {
-    renderer.onSurfaceAvailable(controller)
-    onDispose { renderer.onSurfaceLost() }
+  // The map loop loads styles without a surface, so until the first style arrives no Metal view
+  // goes into the hierarchy. The placeholder keeps the map's layout size and gestures.
+  if (!presentWindow) {
+    Box(modifier)
+    return
   }
-
-  if (!presentWindow) return
 
   // The Metal view only presents. Compose's mapInput modifier handles every gesture.
   UIKitView(

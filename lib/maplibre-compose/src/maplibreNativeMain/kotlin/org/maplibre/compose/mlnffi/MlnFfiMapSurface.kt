@@ -76,8 +76,10 @@ internal fun MlnFfiMapSurface(
     }
   }
 
-  LaunchedEffect(extent, host, renderer, failed) {
-    if (host == null || extent.isEmpty || failed) return@LaunchedEffect
+  // Also gated on presentFrames: hosts release a replaced target on a later draw, so resizing
+  // while nothing draws would pile up full-size targets. The effect reruns on reveal.
+  LaunchedEffect(extent, host, renderer, failed, presentFrames) {
+    if (!presentFrames || host == null || extent.isEmpty || failed) return@LaunchedEffect
     try {
       host.resize(extent)
       renderer.onSurfaceChanged(extent)
@@ -90,6 +92,8 @@ internal fun MlnFfiMapSurface(
     }
   }
 
+  // The map loop loads styles without rendering, so no frame runs until the first style arrives;
+  // this kick renders the frames the map requested in the meantime.
   LaunchedEffect(presentFrames, session) {
     if (presentFrames) session?.requestFrame()
   }
@@ -99,7 +103,7 @@ internal fun MlnFfiMapSurface(
     frameRequest
 
     var drew = false
-    if (host != null && session != null && !extent.isEmpty && !failed) {
+    if (presentFrames && host != null && session != null && !extent.isEmpty && !failed) {
       val frameId = drawState.nextFrameId()
       val nowNanos = frameClockOrigin.elapsedNow().inWholeNanoseconds
       try {
@@ -117,11 +121,7 @@ internal fun MlnFfiMapSurface(
                 }
                 MlnFfiFrameResult.SKIPPED -> Unit
               }
-              // Drive the map so the style can load; keep the Compose canvas transparent until
-              // that style has arrived, rather than blitting MapLibre's default black frame.
-              if (presentFrames) {
-                drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
-              }
+              drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
             } finally {
               runCatching { host.releaseFrame(frame) }
                 .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
