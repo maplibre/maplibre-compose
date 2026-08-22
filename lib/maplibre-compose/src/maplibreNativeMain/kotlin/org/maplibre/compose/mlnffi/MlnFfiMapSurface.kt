@@ -30,6 +30,7 @@ internal fun MlnFfiMapSurface(
   hostResult: MlnFfiMapHostResult,
   modifier: Modifier = Modifier,
   logger: Logger? = null,
+  presentFrames: Boolean = true,
 ) {
   val density = LocalDensity.current.density.toDouble()
   var physicalSize by remember { mutableStateOf(IntSize.Zero) }
@@ -89,6 +90,10 @@ internal fun MlnFfiMapSurface(
     }
   }
 
+  LaunchedEffect(presentFrames, session) {
+    if (presentFrames) session?.requestFrame()
+  }
+
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {
     // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
     frameRequest
@@ -112,7 +117,11 @@ internal fun MlnFfiMapSurface(
                 }
                 MlnFfiFrameResult.SKIPPED -> Unit
               }
-              drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
+              // Drive the map so the style can load; keep the Compose canvas transparent until
+              // that style has arrived, rather than blitting MapLibre's default black frame.
+              if (presentFrames) {
+                drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
+              }
             } finally {
               runCatching { host.releaseFrame(frame) }
                 .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }

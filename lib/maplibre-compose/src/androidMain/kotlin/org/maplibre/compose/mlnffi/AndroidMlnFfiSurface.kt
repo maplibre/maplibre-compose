@@ -23,6 +23,7 @@ internal fun AndroidMlnFfiSurface(
   maximumFps: Int? = null,
   modifier: Modifier,
   logger: Logger?,
+  presentWindow: Boolean = true,
 ) {
   val density = LocalDensity.current.density.toDouble()
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -57,6 +58,15 @@ internal fun AndroidMlnFfiSurface(
     }
     return
   }
+
+  // Offer the renderer a host before the window exists so the style can load. The window stays
+  // out of the hierarchy until that style arrives; an empty SurfaceView would punch a black hole.
+  DisposableEffect(controller, renderer) {
+    renderer.onSurfaceAvailable(controller)
+    onDispose { renderer.onSurfaceLost() }
+  }
+
+  if (!presentWindow) return
 
   when (kind) {
     AndroidMapSurfaceKind.Texture ->

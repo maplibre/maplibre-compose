@@ -34,6 +34,7 @@ internal fun IosMlnFfiSurface(
   maximumFps: Int? = null,
   modifier: Modifier,
   logger: Logger?,
+  presentWindow: Boolean = true,
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
   val controller = remember(renderer) { IosMlnFfiSurfaceController(renderer, logger, maximumFps) }
@@ -66,6 +67,13 @@ internal fun IosMlnFfiSurface(
     }
     return
   }
+
+  DisposableEffect(controller, renderer) {
+    renderer.onSurfaceAvailable(controller)
+    onDispose { renderer.onSurfaceLost() }
+  }
+
+  if (!presentWindow) return
 
   // The Metal view only presents. Compose's mapInput modifier handles every gesture.
   UIKitView(

@@ -23,13 +23,14 @@ internal actual fun ComposableMapView(
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   MlnFfiMapView(
     renderBackend = MapRenderBackend.METAL,
-    surface = { renderer, surfaceModifier, surfaceLogger ->
+    surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
       IosMlnFfiSurface(
         renderer = renderer,
         runtimeBackends = runtimeBackends,
         maximumFps = options.renderOptions.maximumFps,
         modifier = surfaceModifier,
         logger = surfaceLogger,
+        presentWindow = presentFrames,
       )
     },
     modifier = modifier,

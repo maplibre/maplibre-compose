@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,12 +59,13 @@ internal fun MlnFfiMapView(
 
   MlnFfiMapView(
     renderBackend = hostFactory.backends.producer,
-    surface = { renderer, surfaceModifier, surfaceLogger ->
+    surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
       MlnFfiMapSurface(
         renderer = renderer,
         hostResult = hostResult,
         modifier = surfaceModifier,
         logger = surfaceLogger,
+        presentFrames = presentFrames,
       )
     },
     modifier = modifier,
@@ -81,7 +83,7 @@ internal fun MlnFfiMapView(
 @Composable
 internal fun MlnFfiMapView(
   renderBackend: MapRenderBackend,
-  surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?) -> Unit,
+  surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?, Boolean) -> Unit,
   modifier: Modifier,
   style: BaseStyle,
   rememberedStyle: SafeStyle?,
@@ -139,22 +141,22 @@ internal fun MlnFfiMapView(
   val inputModifier =
     modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
 
-  // The native surface is opaque until MapLibre draws the style, so presenting it earlier punches
-  // a black hole through a light theme. The classic Android SDK covered that with
-  // foregroundLoadColor; keep the surface out of composition until the first style arrives, and
-  // show that color in its place. A later style switch unloads rememberedStyle briefly; the flag
-  // stays set so the live map is not hidden again.
+  // The classic Android SDK covered the map with foregroundLoadColor until the style had drawn.
+  // Keep presenting the host so the style can load, but do not show those empty black frames: the
+  // host skips blitting them, and this overlay covers a SurfaceView hole. A later style switch
+  // unloads rememberedStyle briefly; the flag stays set so the live map is not hidden again.
   var revealSurface by remember(session) { mutableStateOf(false) }
   SideEffect { if (rememberedStyle != null) revealSurface = true }
 
-  if (revealSurface) {
-    surface(session, inputModifier, logger)
-  } else {
-    Box(
-      inputModifier
-        .background(options.renderOptions.foregroundLoadColor)
-        .testTag(MAP_LOAD_PLACEHOLDER_TAG)
-    )
+  Box(inputModifier) {
+    surface(session, Modifier.matchParentSize(), logger, revealSurface)
+    if (!revealSurface) {
+      Box(
+        Modifier.matchParentSize()
+          .background(options.renderOptions.foregroundLoadColor)
+          .testTag(MAP_LOAD_PLACEHOLDER_TAG)
+      )
+    }
   }
 }
 
