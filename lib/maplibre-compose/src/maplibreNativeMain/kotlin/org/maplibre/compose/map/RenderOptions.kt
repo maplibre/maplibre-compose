@@ -8,8 +8,7 @@ import androidx.compose.runtime.Immutable
  * @param isCollisionBoxesEnabled Draws the boxes symbol placement uses to decide what to hide.
  * @param isTileParseStatusEnabled Draws tile parse state on each tile.
  * @param maximumFps Caps how often the map is rendered. Null uses the display refresh rate.
- * @param preferredRenderMode A hint for how the host presents the map. A platform may ignore a
- *   value it does not support.
+ * @param preferredRenderMode How Android presents the map. iOS and desktop ignore this value.
  */
 @Immutable
 public actual data class RenderOptions(
@@ -32,7 +31,7 @@ public actual data class RenderOptions(
   }
 
   /**
-   * A hint for how the host presents the map. A platform may ignore a value it does not support.
+   * How Android presents the map. iOS and desktop ignore this value.
    *
    * [Surface] is preferred for performance. A SurfaceView is a separate window layer, so some
    * Compose modifiers do not apply to it. Use [Texture] when a modifier such as alpha must affect
