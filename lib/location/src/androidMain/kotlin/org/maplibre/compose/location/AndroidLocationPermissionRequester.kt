@@ -29,19 +29,10 @@ import kotlinx.coroutines.flow.StateFlow
  */
 public class AndroidLocationPermissionRequester(private val context: Context) {
 
-  private val preferences =
-    context.applicationContext.getSharedPreferences(
-      "org.maplibre.compose.location",
-      Context.MODE_PRIVATE,
-    )
-
-  private var permanentlyDenied: Boolean
-    get() = preferences.getBoolean(PERMANENTLY_DENIED_KEY, false)
-    set(value) {
-      if (value != permanentlyDenied) {
-        preferences.edit().putBoolean(PERMANENTLY_DENIED_KEY, value).apply()
-      }
-    }
+  // In-memory only: Android can silently make the permission requestable again (auto-reset,
+  // revocation in settings), and no API distinguishes that from a permanent denial, so a
+  // persisted record could go stale forever.
+  private var permanentlyDenied = false
 
   private val mutableStatus = MutableStateFlow(readStatus())
 
@@ -81,8 +72,9 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
    *
    * Android's rationale check returns `false` both before the first request and after a permanent
    * denial. This requester tells the two apart by recording a denial that arrives while the check
-   * stays `false`. The record lives in a library-owned [android.content.SharedPreferences] file and
-   * clears once permission is granted or the check returns `true`.
+   * stays `false`. The record lives only in memory and clears once permission is granted or the
+   * check returns `true`, so the first request in a fresh process may silently return a denial
+   * before [status] reports `canRequest = false` again.
    */
   public fun requestForegroundPermission() {
     val current = refresh()
@@ -148,7 +140,6 @@ public class AndroidLocationPermissionRequester(private val context: Context) {
     }
 
   private companion object {
-    private const val PERMANENTLY_DENIED_KEY = "permission-permanently-denied"
     private val nextKey = AtomicInteger()
   }
 }

@@ -62,9 +62,11 @@ settings otherwise.
 val permission = locationState.permission
 if (permission is LocationPermission.NotGranted) {
   when {
-    permission.shouldShowRationale -> showLocationRationale()
-    permission.canRequest != false -> locationState.requestPermission()
-    else -> showOpenSettingsHint()
+    permission.shouldShowRationale ->
+      LocationRationale(onAccept = locationState::requestPermission)
+    permission.canRequest != false ->
+      Button(onClick = locationState::requestPermission) { Text("Use my location") }
+    else -> OpenSettingsHint()
   }
 }
 ```
