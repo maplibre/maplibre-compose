@@ -17,6 +17,8 @@ internal actual fun runFfiComposeUiTest(block: suspend ComposeUiTest.() -> Unit)
     runComposeUiTest { block() }
   } finally {
     watchdog.interrupt()
+    // Tests share a JVM; a dump left printing here would interleave into the next test's output.
+    watchdog.join()
     MlnFfiApplication.resetForTest()
   }
 }
