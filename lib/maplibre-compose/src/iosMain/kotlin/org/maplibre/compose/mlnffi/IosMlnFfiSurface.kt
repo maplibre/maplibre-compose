@@ -106,7 +106,9 @@ private class IosMetalMapView(frame: CValue<CGRect>) : UIView(frame) {
 
   init {
     userInteractionEnabled = false
-    opaque = true
+    // A Metal layer that has not presented yet would otherwise fill with black.
+    opaque = false
+    metalLayer.opaque = false
     metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm
   }
 

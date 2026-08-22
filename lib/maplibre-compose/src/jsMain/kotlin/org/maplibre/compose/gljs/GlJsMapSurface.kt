@@ -24,7 +24,12 @@ import org.maplibre.compose.map.MapExtent
 
 /** Hosts [renderer] on a Compose drawing surface. Compose owns the frame loop. */
 @Composable
-internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logger: Logger?) {
+internal fun GlJsMapSurface(
+  renderer: GlJsMapRenderer,
+  modifier: Modifier,
+  logger: Logger?,
+  presentFrames: Boolean,
+) {
   val density = LocalDensity.current.density.toDouble()
   var physicalSize by remember { mutableStateOf(IntSize.Zero) }
   val extent =
@@ -55,7 +60,7 @@ internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logge
     }
   }
 
-  LaunchedEffect(extent, renderer, failed) {
+  LaunchedEffect(extent, renderer, failed, presentFrames) {
     if (extent.isEmpty || failed) return@LaunchedEffect
     surface.requestFrame()
   }
@@ -73,18 +78,24 @@ internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logge
           GlJsFrameTarget.NotReady -> surface.requestFrame()
           GlJsFrameTarget.Detached -> Unit
           is GlJsFrameTarget.Composited -> {
-            val target = acquired.target
-            drawIntoCanvas { canvas ->
-              canvas.skiaCanvas.drawImageRect(
-                image = target.image,
-                src = Rect.makeWH(target.widthPx.toFloat(), target.heightPx.toFloat()),
-                dst = Rect.makeWH(size.width, size.height),
-                samplingMode = SamplingMode.LINEAR,
-                paint = null,
-                strict = true,
-              )
+            if (presentFrames) {
+              val target = acquired.target
+              drawIntoCanvas { canvas ->
+                canvas.skiaCanvas.drawImageRect(
+                  image = target.image,
+                  src = Rect.makeWH(target.widthPx.toFloat(), target.heightPx.toFloat()),
+                  dst = Rect.makeWH(size.width, size.height),
+                  samplingMode = SamplingMode.LINEAR,
+                  paint = null,
+                  strict = true,
+                )
+              }
+              drew = true
+            } else {
+              // Keep driving the offscreen map so the style can load; do not blit the black
+              // default framebuffer onto a light page.
+              surface.requestFrame()
             }
-            drew = true
           }
         }
       } catch (error: Throwable) {

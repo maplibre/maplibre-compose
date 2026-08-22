@@ -29,6 +29,7 @@ internal actual fun ComposableMapView(
     hostFactory = hostFactory,
     modifier = modifier,
     style = style,
+    rememberedStyle = rememberedStyle,
     update = update,
     onReset = onReset,
     logger = logger,

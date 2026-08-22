@@ -1,16 +1,22 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -21,9 +27,13 @@ import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.SafeStyle
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
+
+/** Test tag for the color shown until the first style has loaded. */
+internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
 
 /** A map backed by MapLibre Native FFI, rendered through [hostFactory]. */
 @Composable
@@ -31,6 +41,7 @@ internal fun MlnFfiMapView(
   hostFactory: MlnFfiMapHostFactory,
   modifier: Modifier,
   style: BaseStyle,
+  rememberedStyle: SafeStyle?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -57,6 +68,7 @@ internal fun MlnFfiMapView(
     },
     modifier = modifier,
     style = style,
+    rememberedStyle = rememberedStyle,
     update = update,
     onReset = onReset,
     logger = logger,
@@ -72,6 +84,7 @@ internal fun MlnFfiMapView(
   surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?) -> Unit,
   modifier: Modifier,
   style: BaseStyle,
+  rememberedStyle: SafeStyle?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -125,7 +138,24 @@ internal fun MlnFfiMapView(
 
   val inputModifier =
     modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
-  surface(session, inputModifier, logger)
+
+  // The native surface is opaque until MapLibre draws the style, so presenting it earlier punches
+  // a black hole through a light theme. The classic Android SDK covered that with
+  // foregroundLoadColor; keep the surface out of composition until the first style arrives, and
+  // show that color in its place. A later style switch unloads rememberedStyle briefly; the flag
+  // stays set so the live map is not hidden again.
+  var revealSurface by remember(session) { mutableStateOf(false) }
+  SideEffect { if (rememberedStyle != null) revealSurface = true }
+
+  if (revealSurface) {
+    surface(session, inputModifier, logger)
+  } else {
+    Box(
+      inputModifier
+        .background(options.renderOptions.foregroundLoadColor)
+        .testTag(MAP_LOAD_PLACEHOLDER_TAG)
+    )
+  }
 }
 
 private fun createHost(
