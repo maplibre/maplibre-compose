@@ -53,6 +53,24 @@ if (locationState.permission !is LocationPermission.Granted) {
 }
 ```
 
+When permission is not granted, `LocationPermission.NotGranted` says which step
+comes next: explain first when `shouldShowRationale` is set (Android only),
+request when `canRequest` is not `false`, and send the user to the system
+settings otherwise.
+
+```kotlin
+val permission = locationState.permission
+if (permission is LocationPermission.NotGranted) {
+  when {
+    permission.shouldShowRationale ->
+      LocationRationale(onAccept = locationState::requestPermission)
+    permission.canRequest != false ->
+      Button(onClick = locationState::requestPermission) { Text("Use my location") }
+    else -> OpenSettingsHint()
+  }
+}
+```
+
 `locationState.location` is `null` until the first fix arrives, so the puck
 initially draws nothing. Afterward, the state retains the last fix when tracking
 stops or permission changes.

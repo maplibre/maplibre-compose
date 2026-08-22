@@ -85,7 +85,8 @@ public sealed interface LocationBackendAvailability {
    * An installed implementation could not be selected or initialized.
    *
    * For example, a desktop runtime may contain two location backends when exactly one is required.
-   * [cause] contains the underlying setup failure when one is available.
+   *
+   * @property cause The underlying setup failure, when one is available.
    */
   public data class Misconfigured(val cause: Throwable? = null) : LocationBackendAvailability
 }
@@ -226,11 +227,18 @@ public sealed interface LocationPermission {
   /**
    * Foreground authorization is not granted.
    *
-   * [canRequest] is `true` when the platform reports that the application can request
-   * authorization, `false` when it reports that authorization must change outside the application,
-   * and `null` when the platform does not expose that distinction.
+   * @property canRequest `true` when the platform reports that the application can request
+   *   authorization, `false` when it reports that authorization must change outside the
+   *   application, and `null` when the platform does not expose that distinction.
+   * @property shouldShowRationale `true` when the platform advises explaining the request before
+   *   making it, which implies `canRequest = true`. Android reports it from
+   *   [`shouldShowRequestPermissionRationale`](https://developer.android.com/reference/android/app/Activity#shouldShowRequestPermissionRationale(java.lang.String));
+   *   every other platform reports `false`.
    */
-  public data class NotGranted(val canRequest: Boolean?) : LocationPermission
+  public data class NotGranted(
+    val canRequest: Boolean?,
+    val shouldShowRationale: Boolean = false,
+  ) : LocationPermission
 }
 
 /** A provider for a target or host that has no installed location implementation. */
