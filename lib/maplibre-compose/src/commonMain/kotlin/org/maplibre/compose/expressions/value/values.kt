@@ -30,7 +30,8 @@ public sealed interface NumberValue<U> :
   MatchableValue,
   InterpolatableValue<U>,
   ComparableValue<NumberValue<U>>,
-  EquatableValue
+  EquatableValue,
+  FloatOrVectorValue<U>
 
 /** Represents an [ExpressionValue] that resolves to a dimensionless quantity. See [const]. */
 public typealias FloatValue = NumberValue<Number>
@@ -118,7 +119,7 @@ public typealias TextVariableAnchorOffsetValue =
  * @param U the unit type of the number. For dimensionless quantities, use [Number].
  */
 public sealed interface VectorValue<U> :
-  ListValue<NumberValue<U>>, InterpolatableValue<VectorValue<U>>
+  ListValue<NumberValue<U>>, InterpolatableValue<VectorValue<U>>, FloatOrVectorValue<U>
 
 /**
  * Represents an [ExpressionValue] that reoslves to a 2D vector in some unit.

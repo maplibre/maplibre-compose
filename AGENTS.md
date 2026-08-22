@@ -40,6 +40,13 @@ hk runs it, and runs actionlint, ruff, shellcheck, the Actions pins check, JSON
 schema validation, and the documentation site's type check. `hk.pkl` lists the
 steps.
 
+### Style spec
+
+`mise run style-spec:parity` compares the layer API with the pinned MapLibre
+style spec release at the pinned engines. `--check` fails when an in-scope layer
+type, source type, paint or layout property, or native unsupported-table row is
+missing. Follow the `style-spec-parity` skill in `.agents/skills/` to add one.
+
 ### Documentation
 
 - **Generate docs:** `mise run build:docs` (Starlight site and Dokka API
