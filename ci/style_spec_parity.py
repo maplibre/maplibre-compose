@@ -37,6 +37,7 @@ UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')
 SOURCE_TYPE_WRITE = re.compile(r'put\("type",\s*"([^"]+)"\)')
 COMPUTED_SOURCE = re.compile(r"class ComputedSource\b")
 FUN_DECLARATION = re.compile(r"\bfun\s+(\w+)\s*\(")
+CLASS_DECLARATION = re.compile(r"\bclass\s+(\w+)")
 TOML_STRING = re.compile(r'^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"')
 VERSION_STRING = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:[-+][0-9A-Za-z.-]+)?$")
 
@@ -378,12 +379,14 @@ def dead_setters(root: pathlib.Path) -> list[str]:
     """Property-writing functions that no other layers code calls.
 
     A property write proves nothing when the function around it is never
-    called, so each one must appear as a `.name(...)` call somewhere in the
-    layers package. Writes outside a named function, such as the root-property
-    accessors on the base `Layer` class, are out of scope.
+    called. Setter names repeat across layer classes, so a call in another
+    file counts only when that file also names the declaring class: a
+    subclass names the superclass whose setter it calls, and a
+    platform-specific composable names the internal class it constructs.
+    Writes outside a named function, such as the root-property accessors on
+    the base `Layer` class, are out of scope.
     """
     files = [(path, path.read_text()) for _, path in _kotlin_files(root, "layers")]
-    all_text = "\n".join(text for _, text in files)
     dead: set[str] = set()
     for path, text in files:
         declarations = [
@@ -397,7 +400,21 @@ def dead_setters(root: pathlib.Path) -> list[str]:
                 enclosing = name
             if enclosing is None:
                 continue
-            if not re.search(rf"(?<!fun ){enclosing}\s*\(", all_text):
+            owner = None
+            for declaration in CLASS_DECLARATION.finditer(text):
+                if declaration.start() >= write.start():
+                    break
+                owner = declaration[1]
+            call = re.compile(rf"(?<!fun )\b{enclosing}\s*\(")
+            reachable = any(
+                call.search(other_text)
+                and (
+                    other_path == path
+                    or (owner and re.search(rf"\b{owner}\b", other_text))
+                )
+                for other_path, other_text in files
+            )
+            if not reachable:
                 dead.add(f"{path.name}:{enclosing}")
     return sorted(dead)
 

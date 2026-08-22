@@ -44,6 +44,9 @@ def _spec(
     }
 
 
+_LAYERS_DIR = "lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/layers/"
+
+
 def _write(root: pathlib.Path, relative: str, text: str) -> None:
     path = root / relative
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -305,6 +308,64 @@ class AuditTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root = pathlib.Path(tmp)
             _layer_file(root, "commonMain", "FillLayer.kt", "fill", writes)
+            self.assertEqual(dead_setters(root), [])
+
+    def test_a_call_to_another_class_is_not_reachability(self) -> None:
+        setter = (
+            'fun setResampling(value: Any) { setPaintProperty("resampling", value) }'
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _write(
+                root,
+                _LAYERS_DIR + "HillshadeLayer.kt",
+                f"internal class HillshadeLayer : Layer() {{\n  {setter}\n}}\n",
+            )
+            _write(
+                root,
+                _LAYERS_DIR + "ColorReliefLayer.kt",
+                f"internal class ColorReliefLayer : Layer() {{\n  {setter}\n}}\n"
+                "fun update(layer: ColorReliefLayer) { layer.setResampling(1) }\n",
+            )
+            self.assertEqual(dead_setters(root), ["HillshadeLayer.kt:setResampling"])
+
+    def test_a_subclass_call_reaches_an_inherited_setter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _write(
+                root,
+                _LAYERS_DIR + "FeatureLayer.kt",
+                "internal abstract class FeatureLayer : Layer() {\n"
+                "  fun setSourceLayerProperty(value: Any) "
+                '{ setRootProperty("source-layer", value) }\n'
+                "}\n",
+            )
+            _write(
+                root,
+                _LAYERS_DIR + "FillLayer.kt",
+                "internal class FillLayer : FeatureLayer() {\n"
+                "  fun update(value: Any) { setSourceLayerProperty(value) }\n"
+                "}\n",
+            )
+            self.assertEqual(dead_setters(root), [])
+
+    def test_a_composable_in_another_file_reaches_the_setter(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _write(
+                root,
+                _LAYERS_DIR + "LocationLayer.kt",
+                "internal class LocationLayer : Layer() {\n"
+                '  fun setBearing(value: Any) { setPaintProperty("bearing", value) }\n'
+                "}\n",
+            )
+            _write(
+                root,
+                "lib/maplibre-compose/src/maplibreNativeMain/kotlin/org/maplibre/"
+                "compose/layers/LocationLayerComposable.kt",
+                "fun Composable() { val layer = LocationLayer()\n"
+                "  layer.setBearing(1) }\n",
+            )
             self.assertEqual(dead_setters(root), [])
 
     def test_scan_reads_platform_source_sets(self) -> None:
