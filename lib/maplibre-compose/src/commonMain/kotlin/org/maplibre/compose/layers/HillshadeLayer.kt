@@ -7,6 +7,7 @@ import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
+import org.maplibre.compose.expressions.value.FloatOrVectorValue
 import org.maplibre.compose.expressions.value.FloatValue
 import org.maplibre.compose.expressions.value.HillshadeMethod
 import org.maplibre.compose.expressions.value.IlluminationAnchor
@@ -33,10 +34,11 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param method The hillshade algorithm to use.
  * @param illuminationDirection The direction of the light source used to generate the hillshading
  *   in degrees. A value in the range of `[0..360)`. `0` means the top of the viewport or north,
- *   depending on the value of [illuminationAnchor]. Only [HillshadeMethod.Multidirectional] accepts
- *   multiple light sources.
+ *   depending on the value of [illuminationAnchor]. Pass a list of directions, one per light
+ *   source, when [method] is [HillshadeMethod.Multidirectional].
  * @param illuminationAltitude The altitude of the light source, in degrees. `0` is sunset and `90`
- *   is noon. Only [HillshadeMethod.Multidirectional] accepts multiple light sources.
+ *   is noon. Pass a list of altitudes, one per light source, when [method] is
+ *   [HillshadeMethod.Multidirectional].
  * @param illuminationAnchor Direction of light source when map is rotated. See
  *   [illuminationDirection].
  * @param exaggeration Intensity of the hillshade. A value in the range of `[0..1]`.
@@ -58,8 +60,8 @@ public fun HillshadeLayer(
   highlightColor: Expression<ColorValue> = const(Color.White),
   accentColor: Expression<ColorValue> = const(Color.Black),
   method: Expression<HillshadeMethod> = const(HillshadeMethod.Standard),
-  illuminationDirection: Expression<FloatValue> = const(355f),
-  illuminationAltitude: Expression<FloatValue> = const(45f),
+  illuminationDirection: Expression<FloatOrVectorValue> = const(355f),
+  illuminationAltitude: Expression<FloatOrVectorValue> = const(45f),
   illuminationAnchor: Expression<IlluminationAnchor> = const(IlluminationAnchor.Viewport),
   exaggeration: Expression<FloatValue> = const(0.5f),
   resampling: Expression<RasterResampling> = nil(),
@@ -108,11 +110,11 @@ internal class HillshadeLayer(id: String, val source: Source) : Layer(id) {
     setPaintProperty("hillshade-method", method)
   }
 
-  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatValue>) {
+  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatOrVectorValue>) {
     setPaintProperty("hillshade-illumination-direction", direction)
   }
 
-  fun setHillshadeIlluminationAltitude(altitude: CompiledExpression<FloatValue>) {
+  fun setHillshadeIlluminationAltitude(altitude: CompiledExpression<FloatOrVectorValue>) {
     setPaintProperty("hillshade-illumination-altitude", altitude)
   }
 

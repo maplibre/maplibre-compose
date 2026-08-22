@@ -9,8 +9,8 @@ The style spec is one document. MapLibre GL JS and MapLibre Native implement it
 at their own pace. The public API stays common: a property one engine lacks is
 still declared, and that engine's `StyleBinding` keeps it out of every write.
 
-`mise run style-spec:parity` reads the published
-[`v8.json`](https://github.com/maplibre/maplibre-style-spec/blob/main/src/reference/v8.json)
+`mise run style-spec:parity` reads `v8.json` at the pinned
+[maplibre-style-spec](https://github.com/maplibre/maplibre-style-spec) release
 and compares it with every Main source set that writes a layer or source.
 
 ```sh
@@ -20,13 +20,21 @@ mise run style-spec:parity -- --spec /path/to/v8.json
 ```
 
 `--check` fails when a layer type, source type, or paint or layout property that
-the pinned engines implement is missing, written with the other kind, or when
-the native unsupported table disagrees with pinned support.
+the pinned engines implement is missing on an engine that implements it, written
+with the other kind, or wrapped in a setter that nothing calls, or when the
+native unsupported table disagrees with pinned support.
 
 A `sdk-support` version counts only when it is at most the pin. `maplibre-js` in
-`gradle/libs.versions.toml` is the GL JS pin. The FFI pin is a date stamp, so a
-recorded Android or iOS release counts as native support. Properties that exist
-only in a newer GL JS than the pin stay out of scope until that pin moves.
+`gradle/libs.versions.toml` is the GL JS pin, and `maplibre-styleSpec` pins the
+spec release the catalog reads: the one the pinned maplibre-gl release depends
+on, so bump both together. The FFI pin is a date stamp, so a recorded Android or
+iOS release counts as native support, and the pinned spec release keeps that
+from running ahead of the shipped engines. Properties that exist only in a newer
+GL JS than the pin stay out of scope until that pin moves.
+
+GL JS parses every property in the pinned spec, because that release is the one
+it bundles. A property only native renders is therefore still written in
+`commonMain`; the catalog lists it as stored but not rendered on js.
 
 Types the spec does not list, spec types this API does not construct, and spec
 properties this API writes under another name belong in the extra, omitted, and

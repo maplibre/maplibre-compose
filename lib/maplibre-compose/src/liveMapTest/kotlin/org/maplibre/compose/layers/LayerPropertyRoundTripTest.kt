@@ -462,6 +462,15 @@ class LayerPropertyRoundTripTest {
         Case("hillshade-illumination-altitude", "[30.0]", "30.0") {
           it.setHillshadeIlluminationAltitude(const(30f).c())
         },
+        // The multidirectional method takes one direction and altitude per light source.
+        Case("hillshade-illumination-direction", "[210.0,300.0]", """["literal",[210.0,300.0]]""") {
+          it.setHillshadeMethod(const(HillshadeMethod.Multidirectional).c())
+          it.setHillshadeIlluminationDirection(const(listOf(210, 300)).c())
+        },
+        Case("hillshade-illumination-altitude", "[30.0,60.0]", """["literal",[30.0,60.0]]""") {
+          it.setHillshadeMethod(const(HillshadeMethod.Multidirectional).c())
+          it.setHillshadeIlluminationAltitude(const(listOf(30, 60)).c())
+        },
         Case("hillshade-illumination-anchor", "\"map\"") {
           it.setHillshadeIlluminationAnchor(const(IlluminationAnchor.Map).c())
         },

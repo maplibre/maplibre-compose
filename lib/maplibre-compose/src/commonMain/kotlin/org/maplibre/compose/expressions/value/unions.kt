@@ -38,3 +38,9 @@ public sealed interface ComparableValue<T> : ExpressionValue
  * @param T the type of values that can be interpolated between.
  */
 public sealed interface InterpolatableValue<T> : ExpressionValue
+
+/**
+ * Union type for an [Expression] that resolves to either a single number or a list of numbers. The
+ * style spec names this type `numberArray`. See [const].
+ */
+public sealed interface FloatOrVectorValue : ExpressionValue

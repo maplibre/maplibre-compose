@@ -1,4 +1,4 @@
-"""Compare this repository's style API with the published style spec.
+"""Compare this repository's style API with the pinned style spec release.
 
 The spec is one document. Each engine implements a versioned slice of it.
 This catalog asks: for the engines this repository pins, is every in-scope
@@ -18,9 +18,9 @@ import urllib.request
 from typing import Any, Literal
 
 ROOT = pathlib.Path(__file__).resolve().parents[1]
-SPEC_URL = (
+SPEC_URL_TEMPLATE = (
     "https://raw.githubusercontent.com/maplibre/maplibre-style-spec/"
-    "main/src/reference/v8.json"
+    "v{version}/src/reference/v8.json"
 )
 VERSIONS_TOML = pathlib.Path("gradle/libs.versions.toml")
 MODULE = pathlib.Path("lib/maplibre-compose/src")
@@ -36,6 +36,7 @@ PROPERTY_WRITE = re.compile(
 UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')
 SOURCE_TYPE_WRITE = re.compile(r'put\("type",\s*"([^"]+)"\)')
 COMPUTED_SOURCE = re.compile(r"class ComputedSource\b")
+FUN_DECLARATION = re.compile(r"\bfun\s+(\w+)\s*\(")
 TOML_STRING = re.compile(r'^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"')
 VERSION_STRING = re.compile(r"^(\d+)\.(\d+)(?:\.(\d+))?(?:[-+][0-9A-Za-z.-]+)?$")
 
@@ -111,22 +112,33 @@ class Version:
 
 
 class Pins:
-    """Engine releases this repository ships."""
+    """Engine and spec releases this repository ships."""
 
-    def __init__(self, js: Version, native_ffi: str | None = None) -> None:
+    def __init__(
+        self,
+        js: Version,
+        native_ffi: str | None = None,
+        spec: Version | None = None,
+    ) -> None:
         self.js = js
         self.native_ffi = native_ffi
+        self.spec = spec
 
     @classmethod
     def from_toml(cls, text: str) -> Pins:
-        """Read `maplibre-js` from a `[versions]` catalog."""
+        """Read the MapLibre pins from a `[versions]` catalog."""
         values = _toml_versions(text)
         js = Version.parse(values.get("maplibre-js"))
         if js is None:
             raise SystemExit(
                 "error: gradle/libs.versions.toml has no maplibre-js version"
             )
-        return cls(js=js, native_ffi=values.get("maplibre-nativeFfi"))
+        spec = Version.parse(values.get("maplibre-styleSpec"))
+        if spec is None:
+            raise SystemExit(
+                "error: gradle/libs.versions.toml has no maplibre-styleSpec version"
+            )
+        return cls(js=js, native_ffi=values.get("maplibre-nativeFfi"), spec=spec)
 
 
 class SpecProperty:
@@ -156,7 +168,8 @@ class SpecProperty:
             or Version.parse(basic.get("ios")) is not None
         ):
             # The FFI pin is a date stamp, not an Android or iOS SDK version, so
-            # a recorded native release counts as implemented.
+            # a recorded native release counts as implemented. The pinned spec
+            # release keeps this from running ahead of the shipped engines.
             found.add("native")
         return found
 
@@ -167,7 +180,7 @@ class KotlinApi:
     def __init__(self) -> None:
         self.types: dict[str, set[Engine]] = {}
         self.writes: dict[tuple[str, Kind, str], set[Engine]] = {}
-        self.source_types: set[str] = set()
+        self.source_types: dict[str, set[Engine]] = {}
 
     def add_type(self, name: str, engines: set[Engine]) -> None:
         self.types.setdefault(name, set()).update(engines)
@@ -225,19 +238,20 @@ def load_pins(root: pathlib.Path) -> Pins:
     return Pins.from_toml((root / VERSIONS_TOML).read_text())
 
 
-def load_spec(path: pathlib.Path | None) -> tuple[dict[str, Any], str]:
-    """Load v8.json from [path], or fetch the published latest copy."""
+def load_spec(path: pathlib.Path | None, pins: Pins) -> tuple[dict[str, Any], str]:
+    """Load v8.json from [path], or fetch the pinned spec release."""
     if path is not None:
         return json.loads(path.read_text()), str(path)
+    url = SPEC_URL_TEMPLATE.format(version=pins.spec)
     request = urllib.request.Request(
-        SPEC_URL, headers={"User-Agent": "maplibre-compose-style-spec-parity"}
+        url, headers={"User-Agent": "maplibre-compose-style-spec-parity"}
     )
     try:
         with urllib.request.urlopen(request, timeout=30) as response:
             payload = response.read()
     except urllib.error.URLError as error:
-        raise SystemExit(f"error: could not fetch {SPEC_URL}: {error}") from error
-    return json.loads(payload), SPEC_URL
+        raise SystemExit(f"error: could not fetch {url}: {error}") from error
+    return json.loads(payload), url
 
 
 def spec_layer_types(spec: dict[str, Any]) -> dict[str, dict[str, Any]]:
@@ -347,15 +361,45 @@ def scan_layers(root: pathlib.Path) -> KotlinApi:
     return api
 
 
-def scan_sources(root: pathlib.Path) -> set[str]:
-    """Source types this API constructs in any Main source set."""
-    found: set[str] = set()
-    for _, path in _kotlin_files(root, "sources"):
+def scan_sources(root: pathlib.Path) -> dict[str, set[Engine]]:
+    """Source types this API constructs, per engine of the Main source set."""
+    found: dict[str, set[Engine]] = {}
+    for engines, path in _kotlin_files(root, "sources"):
         text = path.read_text()
-        found.update(SOURCE_TYPE_WRITE.findall(text))
+        names = set(SOURCE_TYPE_WRITE.findall(text))
         if COMPUTED_SOURCE.search(text):
-            found.add("computed")
+            names.add("computed")
+        for name in names:
+            found.setdefault(name, set()).update(engines)
     return found
+
+
+def dead_setters(root: pathlib.Path) -> list[str]:
+    """Property-writing functions that no other layers code calls.
+
+    A property write proves nothing when the function around it is never
+    called, so each one must appear as a `.name(...)` call somewhere in the
+    layers package. Writes outside a named function, such as the root-property
+    accessors on the base `Layer` class, are out of scope.
+    """
+    files = [(path, path.read_text()) for _, path in _kotlin_files(root, "layers")]
+    all_text = "\n".join(text for _, text in files)
+    dead: set[str] = set()
+    for path, text in files:
+        declarations = [
+            (match.start(), match[1]) for match in FUN_DECLARATION.finditer(text)
+        ]
+        for write in PROPERTY_WRITE.finditer(text):
+            enclosing = None
+            for start, name in declarations:
+                if start >= write.start():
+                    break
+                enclosing = name
+            if enclosing is None:
+                continue
+            if not re.search(rf"(?<!fun ){enclosing}\s*\(", all_text):
+                dead.add(f"{path.name}:{enclosing}")
+    return sorted(dead)
 
 
 def native_unsupported(root: pathlib.Path) -> set[tuple[str, str]]:
@@ -404,6 +448,7 @@ def audit(
     _audit_properties(report, properties, api, pins)
     _audit_native_table(report, properties, api, unsupported, pins)
     _audit_sources(report, spec, api)
+    _audit_setters(report, root)
     return report
 
 
@@ -440,6 +485,7 @@ def _audit_properties(
     report.note("Layer properties")
     beyond_pin: list[str] = []
     js_only: list[str] = []
+    inert_on_js: list[str] = []
     aliases: list[str] = []
     property_errors = 0
 
@@ -449,6 +495,11 @@ def _audit_properties(
         written = api.writers(*target)
         if prop.key != target and written:
             aliases.append(f"{prop.layer} {prop.name} -> {target[2]}")
+        if "js" in written and "js" not in required:
+            # The pinned spec is the one this GL JS release bundles, so GL JS
+            # parses and stores the property; it renders nothing until a later
+            # release implements it.
+            inert_on_js.append(_label(*prop.key))
         if not required:
             beyond_pin.append(_label(*prop.key))
             continue
@@ -481,6 +532,11 @@ def _audit_properties(
         report.note(f"  alias: {line}")
     if js_only:
         report.note("  js-only at the pins (exposed): " + ", ".join(js_only))
+    if inert_on_js:
+        report.note(
+            "  native-only at the pins (stored but not rendered on js): "
+            + ", ".join(inert_on_js)
+        )
     if beyond_pin:
         report.note("  beyond the JS pin (not required): " + ", ".join(beyond_pin))
     if property_errors == 0:
@@ -555,14 +611,26 @@ def _audit_native_table(
         report.note("  table matches pinned support")
 
 
+def _audit_setters(report: Audit, root: pathlib.Path) -> None:
+    report.note("Setter reachability")
+    dead = dead_setters(root)
+    if dead:
+        report.error("property setters nothing calls: " + ", ".join(dead))
+    else:
+        report.note("  every property setter is called")
+
+
 def _audit_sources(report: Audit, spec: dict[str, Any], api: KotlinApi) -> None:
     report.note("Source types")
     spec_source_types = spec_sources(spec)
-    extra_sources = sorted(api.source_types - spec_source_types - EXTRA_SOURCE_TYPES)
-    missing_sources = sorted(
-        spec_source_types - api.source_types - OMITTED_SOURCE_TYPES
-    )
-    known_extra = sorted(api.source_types & EXTRA_SOURCE_TYPES)
+    constructed = set(api.source_types)
+    extra_sources = sorted(constructed - spec_source_types - EXTRA_SOURCE_TYPES)
+    missing_sources = [
+        f"{name} ({_format_engines({'js', 'native'} - api.source_types.get(name, set()))})"
+        for name in sorted(spec_source_types - OMITTED_SOURCE_TYPES)
+        if {"js", "native"} - api.source_types.get(name, set())
+    ]
+    known_extra = sorted(constructed & EXTRA_SOURCE_TYPES)
     omitted = sorted(spec_source_types & OMITTED_SOURCE_TYPES)
     if known_extra:
         report.note("  extra (native extension): " + ", ".join(known_extra))
@@ -581,7 +649,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--spec",
         type=pathlib.Path,
-        help="Path to a v8.json. Fetches the published latest copy when omitted.",
+        help="Path to a v8.json. Fetches the pinned maplibre-styleSpec release "
+        "when omitted.",
     )
     parser.add_argument(
         "--check",
@@ -591,8 +660,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     args = parser.parse_args(argv)
 
-    spec, origin = load_spec(args.spec)
-    report = audit(spec)
+    pins = load_pins(ROOT)
+    spec, origin = load_spec(args.spec, pins)
+    report = audit(spec, pins=pins)
     print(f"Style spec: {origin}")
     print()
     print("\n".join(report.lines))

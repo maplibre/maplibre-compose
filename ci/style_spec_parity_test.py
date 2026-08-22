@@ -6,7 +6,15 @@ import pathlib
 import tempfile
 import unittest
 
-from ci.style_spec_parity import Pins, SpecProperty, Version, audit, scan_layers
+from ci.style_spec_parity import (
+    Pins,
+    SpecProperty,
+    Version,
+    audit,
+    dead_setters,
+    scan_layers,
+    scan_sources,
+)
 
 
 def _spec(
@@ -224,6 +232,80 @@ class AuditTest(unittest.TestCase):
                 for line in report.errors
             )
         )
+
+    def test_a_native_only_property_in_common_main_is_a_note(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "commonMain",
+                "FillLayer.kt",
+                "fill",
+                'setPaintProperty("fill-opacity", value)',
+            )
+            report = audit(
+                _spec(js=None, android="1.0.0", ios="1.0.0"),
+                root,
+                Pins(js=Version.parse("6.2.0")),
+            )
+        self.assertEqual(report.errors, [])
+        self.assertTrue(
+            any("stored but not rendered on js" in line for line in report.lines)
+        )
+
+    def test_a_js_only_source_is_missing_on_native(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(root, "commonMain", "FillLayer.kt", "fill", "")
+            _write(
+                root,
+                "lib/maplibre-compose/src/jsMain/kotlin/org/maplibre/compose/"
+                "sources/GeoJsonSource.kt",
+                'internal class GeoJsonSource { init { put("type", "geojson") } }\n',
+            )
+            spec = _spec(js="1.0.0", android="1.0.0")
+            spec["source"] = ["source_geojson"]
+            report = audit(spec, root, Pins(js=Version.parse("6.2.0")))
+        self.assertTrue(
+            any(
+                "missing source types: geojson (native)" in line
+                for line in report.errors
+            )
+        )
+
+    def test_a_source_in_common_main_covers_both_engines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _write(
+                root,
+                "lib/maplibre-compose/src/commonMain/kotlin/org/maplibre/compose/"
+                "sources/GeoJsonSource.kt",
+                'internal class GeoJsonSource { init { put("type", "geojson") } }\n',
+            )
+            found = scan_sources(root)
+        self.assertEqual(found, {"geojson": {"js", "native"}})
+
+    def test_an_uncalled_setter_is_dead(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(
+                root,
+                "commonMain",
+                "FillLayer.kt",
+                "fill",
+                'fun setFillOpacity(value: Any) { setPaintProperty("fill-opacity", value) }',
+            )
+            self.assertEqual(dead_setters(root), ["FillLayer.kt:setFillOpacity"])
+
+    def test_a_called_setter_is_reachable(self) -> None:
+        writes = (
+            'fun setFillOpacity(value: Any) { setPaintProperty("fill-opacity", value) }\n'
+            "  fun update(value: Any) { setFillOpacity(value) }"
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            root = pathlib.Path(tmp)
+            _layer_file(root, "commonMain", "FillLayer.kt", "fill", writes)
+            self.assertEqual(dead_setters(root), [])
 
     def test_scan_reads_platform_source_sets(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
