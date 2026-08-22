@@ -1,7 +1,6 @@
 package org.maplibre.compose.location
 
 import android.content.Context
-import androidx.compose.runtime.Composable
 import kotlin.test.Test
 import kotlin.test.assertIs
 import kotlin.test.assertSame
@@ -46,7 +45,6 @@ private class FakeBackend(override val id: String, override val priority: Int = 
   AndroidLocationBackend {
   override fun isAvailable(context: Context) = true
 
-  @Composable
-  override fun rememberLocationProvider(): LocationProvider =
-    error("this test never composes a provider")
+  override fun createLocationProvider(context: Context): LocationProvider =
+    error("this test never creates a provider")
 }

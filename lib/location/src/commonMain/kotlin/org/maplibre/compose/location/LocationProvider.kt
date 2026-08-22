@@ -1,6 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.flow.Flow
@@ -249,21 +248,3 @@ public object UnsupportedLocationProvider : LocationProvider {
   override fun updates(request: LocationRequest): Flow<LocationEvent> =
     flowOf(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
 }
-
-/**
- * Creates and remembers the default location provider for the current platform.
- *
- * Platform-specific provider factories remain available when an application needs configuration
- * beyond [LocationRequest]. An unsupported target or host returns a provider whose
- * [LocationProvider.backendAvailability] is [LocationBackendAvailability.Unsupported] instead of
- * throwing during composition.
- *
- * See [AndroidLocationProvider][org.maplibre.compose.location.AndroidLocationProvider],
- * [BrowserLocationProvider][org.maplibre.compose.location.BrowserLocationProvider],
- * [IosLocationProvider][org.maplibre.compose.location.IosLocationProvider],
- * [LinuxPortalLocationProvider][org.maplibre.compose.location.desktop.linux.LinuxPortalLocationProvider],
- * and [MacosLocationProvider][org.maplibre.compose.location.desktop.macos.MacosLocationProvider].
- * Desktop implementations are installed through
- * [DesktopLocationBackend][org.maplibre.compose.location.DesktopLocationBackend].
- */
-@Composable public expect fun rememberDefaultLocationProvider(): LocationProvider

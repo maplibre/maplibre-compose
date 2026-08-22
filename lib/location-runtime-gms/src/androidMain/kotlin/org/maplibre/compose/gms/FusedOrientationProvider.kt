@@ -1,17 +1,10 @@
 package org.maplibre.compose.gms
 
-import android.content.Context
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import com.google.android.gms.location.DeviceOrientation
 import com.google.android.gms.location.DeviceOrientationRequest
 import com.google.android.gms.location.FusedOrientationProviderClient
-import com.google.android.gms.location.LocationServices
 import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.microseconds
-import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.FlowPreview
@@ -46,7 +39,7 @@ public class FusedOrientationProvider(
   private val orientationClient: FusedOrientationProviderClient,
   private val deviceOrientationRequest: DeviceOrientationRequest,
   coroutineScope: CoroutineScope,
-  sharingStarted: SharingStarted,
+  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ) : OrientationProvider {
   @OptIn(FlowPreview::class)
   override val orientation: StateFlow<Orientation?> = callbackFlow {
@@ -82,40 +75,3 @@ public class FusedOrientationProvider(
         .asCoroutineDispatcher()
   }
 }
-
-/** Creates and remembers a fused provider with the supplied [deviceOrientationRequest]. */
-@Composable
-public fun rememberFusedOrientationProvider(
-  deviceOrientationRequest: DeviceOrientationRequest = defaultDeviceOrientationRequest,
-  context: Context = LocalContext.current,
-): FusedOrientationProvider {
-  val orientationClient =
-    remember(context) { LocationServices.getFusedOrientationProviderClient(context) }
-  return rememberFusedOrientationProvider(orientationClient, deviceOrientationRequest)
-}
-
-/** Creates and remembers a fused provider backed by [fusedOrientationProviderClient]. */
-@Composable
-public fun rememberFusedOrientationProvider(
-  fusedOrientationProviderClient: FusedOrientationProviderClient,
-  deviceOrientationRequest: DeviceOrientationRequest = defaultDeviceOrientationRequest,
-  coroutineScope: CoroutineScope = rememberCoroutineScope(),
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): FusedOrientationProvider {
-  return remember(
-    fusedOrientationProviderClient,
-    deviceOrientationRequest,
-    coroutineScope,
-    sharingStarted,
-  ) {
-    FusedOrientationProvider(
-      orientationClient = fusedOrientationProviderClient,
-      deviceOrientationRequest = deviceOrientationRequest,
-      coroutineScope = coroutineScope,
-      sharingStarted = sharingStarted,
-    )
-  }
-}
-
-private val defaultDeviceOrientationRequest =
-  DeviceOrientationRequest.Builder(1.seconds.inWholeMicroseconds).build()

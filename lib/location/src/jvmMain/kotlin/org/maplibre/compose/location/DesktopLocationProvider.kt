@@ -1,8 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.remember
 import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
 import kotlinx.coroutines.flow.Flow
@@ -32,13 +29,13 @@ public interface DesktopLocationBackend {
 /** A desktop provider whose process resources can be released with [close]. */
 public interface DesktopLocationProvider : LocationProvider, AutoCloseable
 
-@Composable
-public actual fun rememberDefaultLocationProvider(): LocationProvider {
-  val window = LocalXdgPortalWindow.current
-  val provider = remember(window) { DesktopLocationBackendResolver.discover(window) }
-  DisposableEffect(provider) { onDispose { provider.close() } }
-  return provider
-}
+/**
+ * Creates the default desktop location provider from the installed backend. The provider's system
+ * dialogs are parented to [window], and [DesktopLocationProvider.close] releases its process
+ * resources.
+ */
+public fun createDefaultLocationProvider(window: XdgPortalWindow? = null): DesktopLocationProvider =
+  DesktopLocationBackendResolver.discover(window)
 
 internal object DesktopLocationBackendResolver {
   fun discover(

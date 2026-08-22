@@ -2,9 +2,7 @@ plugins {
   id("library-conventions")
   id("android-library-conventions")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
-  id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.android.library.get().pluginId)
-  id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.mavenPublish.get().pluginId)
 }
 
@@ -32,28 +30,17 @@ kotlin {
     commonMain.dependencies { api(project(":lib:location")) }
 
     androidMain.dependencies {
-      // Compose UI for LocalContext in the remember helpers, matching the location module.
-      implementation(libs.jetbrains.compose.ui)
       implementation(libs.playServices.location)
       implementation(libs.kotlinx.coroutines.playServices)
     }
 
-    commonTest.dependencies {
-      implementation(kotlin("test"))
-      implementation(kotlin("test-common"))
-      implementation(kotlin("test-annotations-common"))
-      implementation(libs.jetbrains.compose.ui.test)
-    }
+    // The device test APK must package the instrumentation runner itself.
+    androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
 
     androidHostTest.dependencies {
-      implementation(compose.desktop.currentOs)
+      implementation(kotlin("test"))
       implementation(libs.playServices.location)
       implementation(libs.kotlinx.coroutines.test)
-    }
-
-    androidDeviceTest.dependencies {
-      implementation(libs.jetbrains.compose.ui.testJunit4)
-      implementation(libs.androidx.composeUi.testManifest)
     }
   }
 }

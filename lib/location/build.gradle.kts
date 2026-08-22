@@ -2,16 +2,14 @@ plugins {
   id("library-conventions")
   id("android-library-conventions")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
-  id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.android.library.get().pluginId)
-  id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.mavenPublish.get().pluginId)
 }
 
 mavenPublishing {
   pom {
     name = "MapLibre Compose Location"
-    description = "Multiplatform location and orientation providers for Compose apps."
+    description = "Multiplatform location and orientation providers, usable without Compose."
     url = "https://github.com/maplibre/maplibre-compose"
   }
 }
@@ -37,17 +35,14 @@ kotlin {
     }
 
     commonMain.dependencies {
-      api(libs.jetbrains.compose.runtime)
       api(libs.kotlinx.coroutines.core)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)
-      api(libs.lifecycle.runtime.compose)
     }
 
-    // Compose UI appears on Android only, for LocalContext in the remember helpers.
     androidMain.dependencies {
       implementation(libs.androidx.activity)
-      implementation(libs.jetbrains.compose.ui)
+      implementation(libs.lifecycle.runtime)
     }
 
     jsMain.dependencies {
@@ -60,10 +55,9 @@ kotlin {
       implementation(kotlin("test-common"))
       implementation(kotlin("test-annotations-common"))
       implementation(libs.kotlinx.coroutines.test)
-      implementation(libs.jetbrains.compose.ui.test)
     }
 
-    val jvmTest by getting
-    jvmTest.dependencies { implementation(compose.desktop.currentOs) }
+    // The device test APK must package the instrumentation runner itself.
+    androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }
   }
 }

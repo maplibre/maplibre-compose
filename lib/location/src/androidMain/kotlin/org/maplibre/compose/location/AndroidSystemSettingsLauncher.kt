@@ -5,9 +5,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.provider.Settings
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 
 /**
  * Opens Android settings screens related to location.
@@ -45,10 +42,4 @@ public class AndroidSystemSettingsLauncher(private val context: Context) : Syste
       false
     }
   }
-}
-
-@Composable
-public actual fun rememberSystemSettingsLauncher(): SystemSettingsLauncher {
-  val context = LocalContext.current
-  return remember(context) { AndroidSystemSettingsLauncher(context) }
 }

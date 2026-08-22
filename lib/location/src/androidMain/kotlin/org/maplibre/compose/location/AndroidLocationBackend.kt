@@ -1,18 +1,18 @@
 package org.maplibre.compose.location
 
 import android.content.Context
-import androidx.compose.runtime.Composable
 import java.util.ServiceConfigurationError
 import java.util.ServiceLoader
 import kotlin.time.Duration
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 
 /**
  * An Android location implementation discovered through [ServiceLoader].
  *
- * An installed and available backend supplies the providers that [rememberDefaultLocationProvider]
- * and [rememberDefaultOrientationProvider] create; the framework providers remain the default
+ * An installed and available backend supplies the providers that [createDefaultLocationProvider]
+ * and [createDefaultOrientationProvider] create; the framework providers remain the default
  * otherwise. When several backends are available, the highest [priority] wins, and equal priorities
  * resolve to the first [id] in lexicographic order. A [ServiceConfigurationError], a
  * [LinkageError], or an exception while loading or checking a backend maps
@@ -34,15 +34,18 @@ public interface AndroidLocationBackend {
   /** Whether this backend can run on the current device. */
   public fun isAvailable(context: Context): Boolean
 
-  /** Creates and remembers this backend's location provider. */
-  @Composable public fun rememberLocationProvider(): LocationProvider
+  /** Creates this backend's location provider. */
+  public fun createLocationProvider(context: Context): LocationProvider
 
   /**
-   * Creates and remembers this backend's orientation provider, or returns null so the default
-   * framework orientation provider is used.
+   * Creates this backend's orientation provider, or returns null so the default framework
+   * orientation provider is used. [coroutineScope] shares the provider's orientation flow.
    */
-  @Composable
-  public fun rememberOrientationProvider(updateInterval: Duration): OrientationProvider? = null
+  public fun createOrientationProvider(
+    context: Context,
+    updateInterval: Duration,
+    coroutineScope: CoroutineScope,
+  ): OrientationProvider? = null
 }
 
 internal sealed interface AndroidBackendResolution {

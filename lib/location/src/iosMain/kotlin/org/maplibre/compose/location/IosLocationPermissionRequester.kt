@@ -1,7 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import platform.CoreLocation.CLAccuracyAuthorization.CLAccuracyAuthorizationFullAccuracy
@@ -79,9 +77,4 @@ public class IosLocationPermissionRequester {
       kCLAuthorizationStatusRestricted -> LocationPermission.NotGranted(canRequest = false)
       else -> LocationPermission.NotGranted(canRequest = null)
     }
-}
-
-@Composable
-public fun rememberIosLocationPermissionRequester(): IosLocationPermissionRequester = remember {
-  IosLocationPermissionRequester()
 }

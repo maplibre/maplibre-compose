@@ -3,9 +3,6 @@ package org.maplibre.compose.gms
 import android.Manifest
 import android.content.Context
 import androidx.annotation.RequiresPermission
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import com.google.android.gms.location.FusedLocationProviderClient
 import com.google.android.gms.location.Granularity
 import com.google.android.gms.location.LastLocationRequest
@@ -30,8 +27,6 @@ import org.maplibre.compose.location.LocationProvider
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.compose.location.LocationUnavailableReason
 import org.maplibre.compose.location.asMapLibreLocation
-import org.maplibre.compose.location.rememberAndroidLocationProvider
-import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.spatialk.units.extensions.inMeters
 
 /**
@@ -52,14 +47,12 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * [`LocationAvailability.isLocationAvailable`](https://developers.google.com/android/reference/com/google/android/gms/location/LocationAvailability#isLocationAvailable())
  * equal to `false` maps to [LocationUnavailableReason.TemporarilyUnavailable]. A
  * `SecurityException` maps to [LocationUnavailableReason.PermissionDenied]. Other exceptions escape
- * the flow and [rememberLocationState] reports them as
- * [LocationUnavailableReason.UnexpectedFailure].
+ * the flow, and the collector classifies them as [LocationUnavailableReason.UnexpectedFailure].
  *
- * The [Context] constructor and [rememberFusedLocationProvider] with a context delegate
- * [permission] and [requestPermission] to an [AndroidLocationProvider]. The
- * [FusedLocationProviderClient] constructor keeps the default [LocationProvider.permission], which
- * is always granted, and its [updates] still surface a `SecurityException` as
- * [LocationUnavailableReason.PermissionDenied].
+ * The [Context] constructor delegates [permission] and [requestPermission] to an
+ * [AndroidLocationProvider]. The [FusedLocationProviderClient] constructor keeps the default
+ * [LocationProvider.permission], which is always granted, and its [updates] still surface a
+ * `SecurityException` as [LocationUnavailableReason.PermissionDenied].
  */
 public class FusedLocationProvider
 internal constructor(
@@ -150,30 +143,6 @@ internal constructor(
         .asCoroutineDispatcher()
   }
 }
-
-/**
- * Creates and remembers a fused provider from the current Android [context], with permission
- * delegated to an [AndroidLocationProvider].
- */
-@Composable
-public fun rememberFusedLocationProvider(
-  context: Context = LocalContext.current
-): FusedLocationProvider {
-  val client = remember(context) { LocationServices.getFusedLocationProviderClient(context) }
-  val permissionDelegate = rememberAndroidLocationProvider(context)
-  return remember(client, permissionDelegate) { FusedLocationProvider(client, permissionDelegate) }
-}
-
-/**
- * Creates and remembers a fused provider backed by [fusedLocationProviderClient].
- *
- * Permission keeps the [LocationProvider.permission] default, which is always granted.
- */
-@Composable
-public fun rememberFusedLocationProvider(
-  fusedLocationProviderClient: FusedLocationProviderClient
-): FusedLocationProvider =
-  remember(fusedLocationProviderClient) { FusedLocationProvider(fusedLocationProviderClient) }
 
 private fun LocationRequest.asGmsLocationRequest(): GmsLocationRequest =
   GmsLocationRequest.Builder(

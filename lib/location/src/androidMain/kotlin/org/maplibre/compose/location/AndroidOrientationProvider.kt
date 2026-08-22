@@ -8,10 +8,6 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import android.os.Handler
 import android.os.HandlerThread
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.ui.platform.LocalContext
 import kotlin.time.Duration
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CoroutineScope
@@ -109,33 +105,17 @@ public class AndroidOrientationProvider(
   }
 }
 
-@Composable
-public actual fun rememberDefaultOrientationProvider(
-  updateInterval: Duration
-): OrientationProvider {
-  val context = LocalContext.current
-  val resolution = remember(context) { AndroidLocationBackendResolver.discover(context) }
-  val backendProvider =
-    (resolution as? AndroidBackendResolution.Discovered)
-      ?.backend
-      ?.rememberOrientationProvider(updateInterval)
-  return backendProvider ?: rememberAndroidOrientationProvider(updateInterval = updateInterval)
-}
-
-/** Creates and remembers the default Android [OrientationProvider]. */
-@Composable
-public fun rememberAndroidOrientationProvider(
+/**
+ * Creates the default Android orientation provider: the discovered backend's provider when one is
+ * available, and the sensor-based [AndroidOrientationProvider] otherwise. [coroutineScope] shares
+ * the provider's orientation flow.
+ */
+public fun createDefaultOrientationProvider(
+  context: Context,
   updateInterval: Duration,
-  context: Context = LocalContext.current,
-  coroutineScope: CoroutineScope = rememberCoroutineScope(),
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): AndroidOrientationProvider {
-  return remember(context, updateInterval, coroutineScope, sharingStarted) {
-    AndroidOrientationProvider(
-      context = context,
-      updateInterval = updateInterval,
-      coroutineScope = coroutineScope,
-      sharingStarted = sharingStarted,
-    )
-  }
-}
+  coroutineScope: CoroutineScope,
+): OrientationProvider =
+  (AndroidLocationBackendResolver.discover(context) as? AndroidBackendResolution.Discovered)
+    ?.backend
+    ?.createOrientationProvider(context, updateInterval, coroutineScope)
+    ?: AndroidOrientationProvider(context, updateInterval, coroutineScope)

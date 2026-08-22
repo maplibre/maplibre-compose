@@ -1,7 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-
 /** Opens system settings screens related to location. */
 public interface SystemSettingsLauncher {
   /** Whether [openApplicationSettings] can open a screen on this platform. */
@@ -31,6 +29,3 @@ public interface SystemSettingsLauncher {
    */
   public fun openLocationServicesSettings(): Boolean
 }
-
-/** Creates and remembers the platform [SystemSettingsLauncher]. */
-@Composable public expect fun rememberSystemSettingsLauncher(): SystemSettingsLauncher

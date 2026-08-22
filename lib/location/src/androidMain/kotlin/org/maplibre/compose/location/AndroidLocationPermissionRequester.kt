@@ -8,9 +8,6 @@ import android.content.pm.PackageManager
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.LifecycleOwner
@@ -161,13 +158,6 @@ internal fun resolveAndroidLocationPermission(
       LocationPermission.NotGranted(canRequest = true, shouldShowRationale = true)
     else -> LocationPermission.NotGranted(canRequest = !permanentlyDenied)
   }
-
-/** Remembers the permission requester used by Android location providers. */
-@Composable
-public fun rememberAndroidLocationPermissionRequester(
-  context: Context = LocalContext.current
-): AndroidLocationPermissionRequester =
-  remember(context) { AndroidLocationPermissionRequester(context) }
 
 internal tailrec fun Context.findActivityOrNull(): Activity? =
   when (this) {

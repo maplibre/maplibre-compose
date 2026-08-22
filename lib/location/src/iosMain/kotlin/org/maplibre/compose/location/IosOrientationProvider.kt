@@ -1,8 +1,5 @@
 package org.maplibre.compose.location
 
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
@@ -40,7 +37,7 @@ import platform.darwin.NSObject
 public class IosOrientationProvider(
   updateInterval: Duration,
   coroutineScope: CoroutineScope,
-  sharingStarted: SharingStarted,
+  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
 ) : OrientationProvider {
   override val orientation: StateFlow<Orientation?> = callbackFlow {
     val manager = CLLocationManager()
@@ -79,19 +76,3 @@ public class IosOrientationProvider(
     .sample(updateInterval)
     .stateIn(coroutineScope, sharingStarted, null)
 }
-
-@Composable
-public actual fun rememberDefaultOrientationProvider(
-  updateInterval: Duration
-): OrientationProvider = rememberIosOrientationProvider(updateInterval)
-
-/** Creates and remembers the default iOS [OrientationProvider]. */
-@Composable
-public fun rememberIosOrientationProvider(
-  updateInterval: Duration = 1.seconds,
-  coroutineScope: CoroutineScope = rememberCoroutineScope(),
-  sharingStarted: SharingStarted = SharingStarted.WhileSubscribed(stopTimeoutMillis = 1000),
-): IosOrientationProvider =
-  remember(updateInterval, coroutineScope, sharingStarted) {
-    IosOrientationProvider(updateInterval, coroutineScope, sharingStarted)
-  }
