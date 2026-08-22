@@ -19,9 +19,10 @@ mise run style-spec:parity -- --check
 mise run style-spec:parity -- --spec /path/to/v8.json
 ```
 
-`--check` fails when a spec layer type or paint/layout property is missing from
-the API, or when the native unsupported table disagrees with `sdk-support`.
-Source gaps print as notes and do not fail the check.
+`--check` fails when a spec layer type, source type, or paint/layout property is
+missing from the API, or when the native unsupported table disagrees with
+`sdk-support`. `video` is an omitted source type; `computed` and
+`location-indicator` are native extensions.
 
 ## Read the catalog
 
@@ -62,8 +63,9 @@ Keep the setter in `commonMain`. The binding decides what reaches the engine.
 4. Add the round-trip case to the `glJsOnly*` list in
    `LayerPropertyRoundTripTest`, so desktop does not assert a write native will
    skip.
-5. Extend `UnsupportedLayerPropertyTest` so native still drops the property
-   rather than refusing the layer.
+
+The existing overlap cases in `UnsupportedLayerPropertyTest` cover the
+drop-versus-refuse mechanism. Do not add a case per table row.
 
 A value one engine rejects, on a property it otherwise implements, stays out of
 that table. `skipUnsupportedProperty` or the live `StyleMutationException`

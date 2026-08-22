@@ -42,9 +42,9 @@ steps.
 
 ### Style spec
 
-`mise run style-spec:parity` compares the layer and source API with the
-published MapLibre style spec. `--check` fails when a layer type, paint or
-layout property, or native unsupported-table row is missing. Follow the
+`mise run style-spec:parity` compares the layer API with the published MapLibre
+style spec. `--check` fails when a layer type, source type, paint or layout
+property, or native unsupported-table row is missing. Follow the
 `style-spec-parity` skill in `.agents/skills/` to add one.
 
 ### Documentation
