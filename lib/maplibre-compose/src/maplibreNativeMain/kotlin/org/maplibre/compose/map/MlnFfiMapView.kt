@@ -2,7 +2,6 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.matchParentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -148,8 +147,8 @@ internal fun MlnFfiMapView(
   var revealSurface by remember(session) { mutableStateOf(false) }
   SideEffect { if (rememberedStyle != null) revealSurface = true }
 
-  Box(inputModifier) {
-    surface(session, Modifier.matchParentSize(), logger, revealSurface)
+  Box {
+    surface(session, inputModifier, logger, revealSurface)
     if (!revealSurface) {
       Box(
         Modifier.matchParentSize()
