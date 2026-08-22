@@ -52,6 +52,14 @@ import org.maplibre.compose.util.MaplibreComposable
  *
  * @param opacity Lines opacity. A value in range `[0..1]`. The expression may use feature
  *   properties and feature state.
+ * @param layerOpacity Opacity applied to the layer as a whole. Unlike [opacity] and the alpha of
+ *   [color], which apply per feature and accumulate where lines overlap, this value is applied once
+ *   so overlapping lines appear as a single surface. A value in range `[0..1]`.
+ *
+ *   **Note**: Ignored with a logged warning on native platforms, which do not implement it yet
+ *   ([maplibre-native#4298](https://github.com/maplibre/maplibre-native/issues/4298)); supported on
+ *   the web.
+ *
  * @param color Lines color. The expression may use feature properties and feature state.
  *
  *   Ignored if [pattern] is specified.
@@ -104,6 +112,7 @@ public fun LineLayer(
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
+  layerOpacity: Expression<FloatValue> = nil(),
   color: Expression<ColorValue> = const(Color.Black),
   dasharray: Expression<VectorValue<Number>> = nil(),
   pattern: Expression<ImageValue> = nil(),
@@ -126,6 +135,7 @@ public fun LineLayer(
   val compiledTranslate = compile(translate)
   val compiledTranslateAnchor = compile(translateAnchor)
   val compiledOpacity = compile(opacity)
+  val compiledLayerOpacity = compile(layerOpacity)
   val compiledColor = compile(color)
   val compiledDasharray = compile(dasharray)
   val compiledPattern = compile(pattern)
@@ -155,6 +165,7 @@ public fun LineLayer(
       set(compiledRoundLimit) { layer.setLineRoundLimit(it) }
       set(compiledSortKey) { layer.setLineSortKey(it) }
       set(compiledOpacity) { layer.setLineOpacity(it) }
+      set(compiledLayerOpacity) { layer.setLineLayerOpacity(it) }
       set(compiledColor) { layer.setLineColor(it) }
       set(compiledTranslate) { layer.setLineTranslate(it) }
       set(compiledTranslateAnchor) { layer.setLineTranslateAnchor(it) }
@@ -207,6 +218,10 @@ internal class LineLayer(id: String, source: Source) : FeatureLayer(id, source) 
 
   fun setLineOpacity(opacity: CompiledExpression<FloatValue>) {
     setPaintProperty("line-opacity", opacity)
+  }
+
+  fun setLineLayerOpacity(layerOpacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("line-layer-opacity", layerOpacity)
   }
 
   fun setLineColor(color: CompiledExpression<ColorValue>) {

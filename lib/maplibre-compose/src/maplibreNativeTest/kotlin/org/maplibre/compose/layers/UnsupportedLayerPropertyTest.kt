@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.nil
+import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.TextRotationAlignment
@@ -21,7 +22,10 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.RasterDemEncoding
+import org.maplibre.compose.sources.RasterDemSource
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.testing.RecordingList
@@ -117,6 +121,56 @@ class UnsupportedLayerPropertyTest {
       style.addLayer(layer)
 
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
+    }
+  }
+
+  @Test
+  fun a_js_only_paint_property_is_dropped_rather_than_taking_its_layer_down_with_it() {
+    val fixture = BridgeMapFixture.create()
+    fixture.use {
+      it.loadStyle(BaseStyle.Empty)
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val features = addSource(style)
+      val dem =
+        RasterDemSource(
+            id = "dem",
+            tiles = listOf("https://example.invalid/{z}/{x}/{y}.png"),
+            options = TileSetOptions(),
+            tileSize = 256,
+            demEncoding = RasterDemEncoding.Terrarium,
+          )
+          .also { source -> style.addSource(source) }
+
+      val fill = FillLayer("fills", features)
+      fill.setFillLayerOpacity(const(0.4f).compile(ExpressionContext.None))
+      style.addLayer(fill)
+
+      val line = LineLayer("lines", features)
+      line.setLineLayerOpacity(const(0.4f).compile(ExpressionContext.None))
+      style.addLayer(line)
+
+      val hillshade = HillshadeLayer("shade", dem)
+      hillshade.setResampling(const(RasterResampling.Nearest).compile(ExpressionContext.None))
+      style.addLayer(hillshade)
+
+      fill.onMap { map ->
+        assertTrue(map.styleLayerExists("fills"), "the fill layer should have been added")
+        assertNull(map.layerProperty("fills", "fill-layer-opacity"))
+        assertTrue(map.styleLayerExists("lines"), "the line layer should have been added")
+        assertNull(map.layerProperty("lines", "line-layer-opacity"))
+        assertTrue(map.styleLayerExists("shade"), "the hillshade layer should have been added")
+        assertNull(map.layerProperty("shade", "resampling"))
+      }
+
+      assertEquals(
+        listOf(
+          "Layer 'fills' of type 'fill' cannot set 'fill-layer-opacity'",
+          "Layer 'lines' of type 'line' cannot set 'line-layer-opacity'",
+          "Layer 'shade' of type 'hillshade' cannot set 'resampling'",
+        ),
+        warnings().map { warning -> warning.substringBefore(": MapLibre") },
+      )
+      assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }
 

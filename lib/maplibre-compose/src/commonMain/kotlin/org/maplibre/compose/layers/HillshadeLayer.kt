@@ -5,9 +5,12 @@ import androidx.compose.ui.graphics.Color
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.ColorValue
 import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.expressions.value.HillshadeMethod
 import org.maplibre.compose.expressions.value.IlluminationAnchor
+import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.util.MaplibreComposable
@@ -27,12 +30,22 @@ import org.maplibre.compose.util.MaplibreComposable
  * @param highlightColor The shading color of areas that faces towards the light source.
  * @param accentColor The shading color used to accentuate rugged terrain like sharp cliffs and
  *   gorges.
+ * @param method The hillshade algorithm to use.
  * @param illuminationDirection The direction of the light source used to generate the hillshading
  *   in degrees. A value in the range of `[0..360)`. `0` means the top of the viewport or north,
- *   depending on the value of [illuminationAnchor].
+ *   depending on the value of [illuminationAnchor]. Only [HillshadeMethod.Multidirectional] accepts
+ *   multiple light sources.
+ * @param illuminationAltitude The altitude of the light source, in degrees. `0` is sunset and `90`
+ *   is noon. Only [HillshadeMethod.Multidirectional] accepts multiple light sources.
  * @param illuminationAnchor Direction of light source when map is rotated. See
  *   [illuminationDirection].
  * @param exaggeration Intensity of the hillshade. A value in the range of `[0..1]`.
+ * @param resampling The resampling/interpolation method to use for overscaling, also known as
+ *   texture magnification filter.
+ *
+ *   **Note**: Ignored with a logged warning on native platforms, which do not implement it yet
+ *   ([maplibre-native#4117](https://github.com/maplibre/maplibre-native/issues/4117)); supported on
+ *   the web.
  */
 @Composable
 @MaplibreComposable
@@ -45,18 +58,24 @@ public fun HillshadeLayer(
   shadowColor: Expression<ColorValue> = const(Color.Black),
   highlightColor: Expression<ColorValue> = const(Color.White),
   accentColor: Expression<ColorValue> = const(Color.Black),
+  method: Expression<HillshadeMethod> = const(HillshadeMethod.Standard),
   illuminationDirection: Expression<FloatValue> = const(355f),
+  illuminationAltitude: Expression<FloatValue> = const(45f),
   illuminationAnchor: Expression<IlluminationAnchor> = const(IlluminationAnchor.Viewport),
   exaggeration: Expression<FloatValue> = const(0.5f),
+  resampling: Expression<RasterResampling> = nil(),
 ) {
   val compile = rememberPropertyCompiler()
 
   val compiledShadowColor = compile(shadowColor)
   val compiledHighlightColor = compile(highlightColor)
   val compiledAccentColor = compile(accentColor)
+  val compiledMethod = compile(method)
   val compiledIlluminationDirection = compile(illuminationDirection)
+  val compiledIlluminationAltitude = compile(illuminationAltitude)
   val compiledIlluminationAnchor = compile(illuminationAnchor)
   val compiledExaggeration = compile(exaggeration)
+  val compiledResampling = compile(resampling)
 
   SourceReferenceEffect(source)
   LayerNode(
@@ -65,9 +84,12 @@ public fun HillshadeLayer(
       set(minZoom) { layer.minZoom = it }
       set(maxZoom) { layer.maxZoom = it }
       set(visible) { layer.visible = it }
+      set(compiledMethod) { layer.setHillshadeMethod(it) }
       set(compiledIlluminationDirection) { layer.setHillshadeIlluminationDirection(it) }
+      set(compiledIlluminationAltitude) { layer.setHillshadeIlluminationAltitude(it) }
       set(compiledIlluminationAnchor) { layer.setHillshadeIlluminationAnchor(it) }
       set(compiledExaggeration) { layer.setHillshadeExaggeration(it) }
+      set(compiledResampling) { layer.setResampling(it) }
       set(compiledShadowColor) { layer.setHillshadeShadowColor(it) }
       set(compiledHighlightColor) { layer.setHillshadeHighlightColor(it) }
       set(compiledAccentColor) { layer.setHillshadeAccentColor(it) }
@@ -83,8 +105,16 @@ internal class HillshadeLayer(id: String, val source: Source) : Layer(id) {
 
   override val sourceId: String = source.id
 
+  fun setHillshadeMethod(method: CompiledExpression<HillshadeMethod>) {
+    setPaintProperty("hillshade-method", method)
+  }
+
   fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatValue>) {
     setPaintProperty("hillshade-illumination-direction", direction)
+  }
+
+  fun setHillshadeIlluminationAltitude(altitude: CompiledExpression<FloatValue>) {
+    setPaintProperty("hillshade-illumination-altitude", altitude)
   }
 
   fun setHillshadeIlluminationAnchor(anchor: CompiledExpression<IlluminationAnchor>) {
@@ -105,5 +135,9 @@ internal class HillshadeLayer(id: String, val source: Source) : Layer(id) {
 
   fun setHillshadeAccentColor(accentColor: CompiledExpression<ColorValue>) {
     setPaintProperty("hillshade-accent-color", accentColor)
+  }
+
+  fun setResampling(resampling: CompiledExpression<RasterResampling>) {
+    setPaintProperty("resampling", resampling)
   }
 }
