@@ -6,12 +6,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
@@ -27,7 +24,6 @@ import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.SafeStyle
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -41,7 +37,6 @@ internal fun MlnFfiMapView(
   hostFactory: MlnFfiMapHostFactory,
   modifier: Modifier,
   style: BaseStyle,
-  rememberedStyle: SafeStyle?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -69,7 +64,6 @@ internal fun MlnFfiMapView(
     },
     modifier = modifier,
     style = style,
-    rememberedStyle = rememberedStyle,
     update = update,
     onReset = onReset,
     logger = logger,
@@ -85,7 +79,6 @@ internal fun MlnFfiMapView(
   surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?, Boolean) -> Unit,
   modifier: Modifier,
   style: BaseStyle,
-  rememberedStyle: SafeStyle?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -141,12 +134,10 @@ internal fun MlnFfiMapView(
     modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
 
   // The classic Android SDK covered the map with foregroundLoadColor until the style had drawn.
-  // Styles load on the map loop without rendering, so until the first one arrives the surface
-  // presents nothing — MapLibre's unstyled frames are black — and this overlay shows the load
-  // color in its place. A later style switch unloads rememberedStyle briefly; the flag stays set
-  // so the live map is not hidden again.
-  var revealSurface by remember(session) { mutableStateOf(false) }
-  SideEffect { if (rememberedStyle != null) revealSurface = true }
+  // Styles load on the map loop without rendering, so until this session's first one arrives the
+  // surface presents nothing — MapLibre's unstyled frames are black — and this overlay shows the
+  // load color in its place. A replacement session starts covered until its own style loads.
+  val revealSurface = session.hasLoadedFirstStyle
 
   Box {
     surface(session, inputModifier, logger, revealSurface)

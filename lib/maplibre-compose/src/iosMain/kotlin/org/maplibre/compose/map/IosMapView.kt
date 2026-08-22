@@ -35,7 +35,6 @@ internal actual fun ComposableMapView(
     },
     modifier = modifier,
     style = style,
-    rememberedStyle = rememberedStyle,
     update = update,
     onReset = onReset,
     logger = logger,

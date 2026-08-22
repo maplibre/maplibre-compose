@@ -1,6 +1,9 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -103,6 +106,13 @@ internal class GlJsMapSession(
 
   /** Readiness belongs to a map instance, not to its current, replaceable style. */
   private var hasLoadedInitialStyle = false
+
+  /**
+   * True once this session has loaded a style, and from then on: the surface presents no frame
+   * before the first style, and a later style switch must not blank a live map.
+   */
+  internal var hasLoadedFirstStyle by mutableStateOf(false)
+    private set
 
   private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
@@ -315,6 +325,7 @@ internal class GlJsMapSession(
   private fun wireEvents(map: MaplibreMap) {
     map.subscribe("style.load") {
       styleLoadPending = false
+      hasLoadedFirstStyle = true
       styleBinding?.unload()
       val binding = GlJsStyleBinding(map, logger).also { styleBinding = it }
       callbacks.onStyleChanged(this, GlJsStyle(binding) { appliedExtent.scaleFactor.toFloat() })
