@@ -108,8 +108,8 @@ internal class GlJsMapSession(
   private var hasLoadedInitialStyle = false
 
   /**
-   * True once this session has loaded a style, and from then on: the surface presents no frame
-   * before the first style, and a later style switch must not blank a live map.
+   * True once this session has loaded a style. The surface presents no frame while this is false,
+   * and it stays true so a later style switch does not blank a live map.
    */
   internal var hasLoadedFirstStyle by mutableStateOf(false)
     private set

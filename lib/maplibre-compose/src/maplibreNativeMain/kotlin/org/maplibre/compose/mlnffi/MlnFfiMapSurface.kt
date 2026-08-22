@@ -77,7 +77,8 @@ internal fun MlnFfiMapSurface(
   }
 
   // Also gated on presentFrames: hosts release a replaced target on a later draw, so resizing
-  // while nothing draws would pile up full-size targets. The effect reruns on reveal.
+  // while nothing draws would pile up full-size targets. The rerun when presentFrames flips true
+  // sizes the host and requests the frames the map asked for while it was hidden.
   LaunchedEffect(extent, host, renderer, failed, presentFrames) {
     if (!presentFrames || host == null || extent.isEmpty || failed) return@LaunchedEffect
     try {
@@ -90,12 +91,6 @@ internal fun MlnFfiMapSurface(
       logger?.e(error) { "Map host failed to resize to ${extent.width}x${extent.height}" }
       drawState.closeRenderer(renderer, logger)
     }
-  }
-
-  // The map loop loads styles without rendering, so no frame runs until the first style arrives;
-  // this kick renders the frames the map requested in the meantime.
-  LaunchedEffect(presentFrames, session) {
-    if (presentFrames) session?.requestFrame()
   }
 
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {

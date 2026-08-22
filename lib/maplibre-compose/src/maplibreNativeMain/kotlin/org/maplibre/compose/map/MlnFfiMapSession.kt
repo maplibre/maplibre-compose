@@ -177,7 +177,7 @@ internal class MlnFfiMapSession(
   @Volatile private var hostSession: MlnFfiMapHostSession? = null
 
   /**
-   * True once this session has loaded a style, and from then on: a later style switch must not put
+   * True once this session has loaded a style. It stays true so a later style switch does not put
    * the load placeholder back over a live map.
    */
   internal var hasLoadedFirstStyle by mutableStateOf(false)
