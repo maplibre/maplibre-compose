@@ -30,6 +30,7 @@ internal fun MlnFfiMapSurface(
   hostResult: MlnFfiMapHostResult,
   modifier: Modifier = Modifier,
   logger: Logger? = null,
+  presentFrames: Boolean = true,
 ) {
   val density = LocalDensity.current.density.toDouble()
   var physicalSize by remember { mutableStateOf(IntSize.Zero) }
@@ -75,8 +76,10 @@ internal fun MlnFfiMapSurface(
     }
   }
 
-  LaunchedEffect(extent, host, renderer, failed) {
-    if (host == null || extent.isEmpty || failed) return@LaunchedEffect
+  // Hosts release a replaced target on a later draw, so resizing while hidden would pile up
+  // full-size targets.
+  LaunchedEffect(extent, host, renderer, failed, presentFrames) {
+    if (!presentFrames || host == null || extent.isEmpty || failed) return@LaunchedEffect
     try {
       host.resize(extent)
       renderer.onSurfaceChanged(extent)
@@ -94,7 +97,7 @@ internal fun MlnFfiMapSurface(
     frameRequest
 
     var drew = false
-    if (host != null && session != null && !extent.isEmpty && !failed) {
+    if (presentFrames && host != null && session != null && !extent.isEmpty && !failed) {
       val frameId = drawState.nextFrameId()
       val nowNanos = frameClockOrigin.elapsedNow().inWholeNanoseconds
       try {

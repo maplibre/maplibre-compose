@@ -3,6 +3,9 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.DpSize
@@ -172,6 +175,13 @@ internal class MlnFfiMapSession(
   private val featureStateReplayPending = AtomicBoolean(false)
 
   @Volatile private var hostSession: MlnFfiMapHostSession? = null
+
+  /**
+   * True once this session has loaded a style. It stays true so a later style switch does not put
+   * the load placeholder back over a live map.
+   */
+  internal var hasLoadedFirstStyle by mutableStateOf(false)
+    private set
 
   private data class TargetKey(val generation: Long, val extent: MapExtent)
 
@@ -646,6 +656,7 @@ internal class MlnFfiMapSession(
         styleBinding?.unload()
         val binding = SessionStyleBinding().also { styleBinding = it }
         featureStateReplayPending.store(true)
+        hasLoadedFirstStyle = true
         callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
