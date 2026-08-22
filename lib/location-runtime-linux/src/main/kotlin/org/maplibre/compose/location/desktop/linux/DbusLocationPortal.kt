@@ -43,9 +43,7 @@ import org.maplibre.compose.location.desktop.linux.portal.PortalSession
 import org.maplibre.compose.location.desktop.linux.portal.PortalTimestamp
 import org.maplibre.spatialk.geojson.Position
 import org.maplibre.spatialk.units.Bearing
-import org.maplibre.spatialk.units.Length
 import org.maplibre.spatialk.units.extensions.degrees
-import org.maplibre.spatialk.units.extensions.inMeters
 import org.maplibre.spatialk.units.extensions.meters
 
 internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
@@ -224,10 +222,11 @@ internal class DbusLocationPortal(private val window: XdgPortalWindow? = null) :
     }
   }
 
+  // No distance-threshold: GeoClue emits nothing, not even the first fix, when the position has
+  // not moved that far, and a GeoIP-located desktop never moves.
   private fun sessionOptions(request: LocationRequest): Map<String, Variant<*>> =
     mapOf(
       "session_handle_token" to Variant(newToken()),
-      "distance-threshold" to Variant(UInt32(request.minimumDistance.asPortalThreshold())),
       "time-threshold" to Variant(UInt32(request.minimumInterval.asPortalThreshold())),
       "accuracy" to Variant(UInt32(request.accuracy.portalValue)),
     )
@@ -260,8 +259,6 @@ private val LocationAccuracy.portalValue: Long
       LocationAccuracy.Lowest -> 1L
     }
 
-private fun Length.asPortalThreshold(): Long = ceil(inMeters).toLong().coerceIn(0, UInt32.MAX_VALUE)
-
 private fun Duration.asPortalThreshold(): Long =
   ceil(inWholeMilliseconds / 1_000.0).toLong().coerceIn(0, UInt32.MAX_VALUE)
 
@@ -285,7 +282,8 @@ internal fun Map<String, Variant<*>>.toLocationEvent(): LocationEvent.Fix {
             Position(
               longitude = number("Longitude") ?: error("Portal location has no Longitude"),
               latitude = number("Latitude") ?: error("Portal location has no Latitude"),
-              altitude = number("Altitude"),
+              // GeoClue reports unknown altitude as -G_MAXDOUBLE.
+              altitude = number("Altitude")?.takeIf { it != -Double.MAX_VALUE },
             ),
           accuracy = number("Accuracy")?.meters,
         ),
