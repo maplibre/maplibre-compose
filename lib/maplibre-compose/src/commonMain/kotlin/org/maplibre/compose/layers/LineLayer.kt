@@ -56,9 +56,8 @@ import org.maplibre.compose.util.MaplibreComposable
  *   [color], which apply per feature and accumulate where lines overlap, this value is applied once
  *   so overlapping lines appear as a single surface. A value in range `[0..1]`.
  *
- *   **Note**: Ignored with a logged warning on native platforms, which do not implement it yet
- *   ([maplibre-native#4298](https://github.com/maplibre/maplibre-native/issues/4298)); supported on
- *   the web.
+ *   Not yet supported on native
+ *   ([maplibre-native#4298](https://github.com/maplibre/maplibre-native/issues/4298)).
  *
  * @param color Lines color. The expression may use feature properties and feature state.
  *

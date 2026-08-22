@@ -189,9 +189,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [iconImage] is not specified.
  *
- *   **Note**: Ignored with a logged warning on native platforms, which do not implement it yet
- *   ([maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)); supported on
- *   the web.
+ *   Not yet supported on native
+ *   ([maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)).
  *
  * @param iconIgnorePlacement If true, other symbols can be visible even if they collide with the
  *   icon.
@@ -393,9 +392,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- *   **Note**: Ignored with a logged warning on native platforms, which do not implement it yet
- *   ([maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)); supported on
- *   the web.
+ *   Not yet supported on native
+ *   ([maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)).
  *
  * @param textIgnorePlacement If true, other symbols can be visible even if they collide with the
  *   text.

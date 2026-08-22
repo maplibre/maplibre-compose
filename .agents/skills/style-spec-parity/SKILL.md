@@ -57,8 +57,8 @@ Keep the setter in `commonMain`. The binding decides what reaches the engine.
 
 1. Default the composable parameter to `nil()`. A spec default that is always
    written would log an unsupported warning on every layer of that type.
-2. Document the gap on the parameter, with the upstream issue link from
-   `sdk-support`.
+2. Note on the parameter that it is not yet supported on native or JS, with the
+   issue link from `sdk-support`.
 3. Add a row to `MlnFfiStyleBinding.UNSUPPORTED_LAYER_PROPERTIES`. The reason
    string is what the layer logs once.
 4. Add the round-trip case to the `glJsOnly*` list in
