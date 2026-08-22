@@ -60,6 +60,8 @@ internal fun GlJsMapSurface(
     }
   }
 
+  // presentFrames is a key so that its flip to true redraws the frame the else branch below
+  // declined to blit.
   LaunchedEffect(extent, renderer, failed, presentFrames) {
     if (extent.isEmpty || failed) return@LaunchedEffect
     surface.requestFrame()

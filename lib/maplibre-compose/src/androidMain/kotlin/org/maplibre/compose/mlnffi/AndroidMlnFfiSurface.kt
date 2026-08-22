@@ -70,7 +70,7 @@ internal fun AndroidMlnFfiSurface(
 
   when (kind) {
     AndroidMapSurfaceKind.Texture ->
-      // Translucent until the first swap so an empty TextureView does not fill with black.
+      // Never opaque: before its first swap a TextureView would otherwise fill with black.
       AndroidEmbeddedExternalSurface(modifier = modifier, isOpaque = false) {
         onSurface { surface, width, height ->
           controller.surfaceCreated(surface, width, height, density)
@@ -83,7 +83,7 @@ internal fun AndroidMlnFfiSurface(
     AndroidMapSurfaceKind.Surface ->
       AndroidExternalSurface(
         modifier = modifier,
-        // A hole that has not been swapped yet would otherwise read as black on a light theme.
+        // Never opaque: before its first swap the hole would otherwise read as black.
         isOpaque = false,
         // Behind the window, matching MapLibre's MapView: Compose overlays draw on top of the map.
         zOrder = AndroidExternalSurfaceZOrder.Behind,
