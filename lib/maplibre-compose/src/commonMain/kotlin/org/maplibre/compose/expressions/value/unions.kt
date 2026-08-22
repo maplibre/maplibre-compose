@@ -42,5 +42,7 @@ public sealed interface InterpolatableValue<T> : ExpressionValue
 /**
  * Union type for an [Expression] that resolves to either a single number or a list of numbers. The
  * style spec names this type `numberArray`. See [const].
+ *
+ * @param U the unit type of the numbers. For dimensionless quantities, use `Number`.
  */
-public sealed interface FloatOrVectorValue : ExpressionValue
+public sealed interface FloatOrVectorValue<@Suppress("unused") out U> : ExpressionValue

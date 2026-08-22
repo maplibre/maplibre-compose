@@ -60,8 +60,8 @@ public fun HillshadeLayer(
   highlightColor: Expression<ColorValue> = const(Color.White),
   accentColor: Expression<ColorValue> = const(Color.Black),
   method: Expression<HillshadeMethod> = const(HillshadeMethod.Standard),
-  illuminationDirection: Expression<FloatOrVectorValue> = const(355f),
-  illuminationAltitude: Expression<FloatOrVectorValue> = const(45f),
+  illuminationDirection: Expression<FloatOrVectorValue<Number>> = const(355f),
+  illuminationAltitude: Expression<FloatOrVectorValue<Number>> = const(45f),
   illuminationAnchor: Expression<IlluminationAnchor> = const(IlluminationAnchor.Viewport),
   exaggeration: Expression<FloatValue> = const(0.5f),
   resampling: Expression<RasterResampling> = nil(),
@@ -110,11 +110,11 @@ internal class HillshadeLayer(id: String, val source: Source) : Layer(id) {
     setPaintProperty("hillshade-method", method)
   }
 
-  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatOrVectorValue>) {
+  fun setHillshadeIlluminationDirection(direction: CompiledExpression<FloatOrVectorValue<Number>>) {
     setPaintProperty("hillshade-illumination-direction", direction)
   }
 
-  fun setHillshadeIlluminationAltitude(altitude: CompiledExpression<FloatOrVectorValue>) {
+  fun setHillshadeIlluminationAltitude(altitude: CompiledExpression<FloatOrVectorValue<Number>>) {
     setPaintProperty("hillshade-illumination-altitude", altitude)
   }
 
