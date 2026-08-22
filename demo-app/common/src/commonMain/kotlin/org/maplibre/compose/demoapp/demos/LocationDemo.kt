@@ -134,10 +134,12 @@ object LocationDemo : Demo {
     val status = panelLocationState?.status
     if (
       status is LocationTrackingStatus.Unavailable &&
-        status.reason == LocationUnavailableReason.ServicesDisabled &&
-        settings.canOpenLocationServicesSettings
+        status.reason == LocationUnavailableReason.ServicesDisabled
     ) {
-      ButtonRow("Open location settings") { settings.openLocationServicesSettings() }
+      if (settings.canOpenLocationServicesSettings) {
+        ButtonRow("Open location settings") { settings.openLocationServicesSettings() }
+      }
+      ButtonRow("Retry") { panelLocationState?.retry() }
     }
     SwitchRow("Follow me", follow) { follow = it }
     if (isNativeLocationIndicatorAvailable) {

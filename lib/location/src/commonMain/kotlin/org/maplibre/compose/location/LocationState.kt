@@ -50,9 +50,23 @@ internal constructor(initialPermission: LocationPermission = LocationPermission.
 
   internal var requestPermissionAction: () -> Unit = {}
 
+  internal var retryKey: Int by mutableStateOf(0)
+    private set
+
   /** Requests foreground permission; the result is published to [permission]. */
   public fun requestPermission() {
     requestPermissionAction()
+  }
+
+  /**
+   * Restarts a collection that ended in [LocationTrackingStatus.Unavailable].
+   *
+   * A provider may end its updates on a condition it cannot observe changing, such as the macOS
+   * location services toggle, which the user can flip without the window ever losing its lifecycle
+   * state. Call this when the user asks to try again.
+   */
+  public fun retry() {
+    retryKey++
   }
 
   internal fun accept(event: LocationEvent.Fix) {
@@ -130,6 +144,7 @@ public fun rememberLocationState(
     request,
     permission,
     state,
+    state.retryKey,
     lifecycleOwner.lifecycle,
     minActiveState,
     coroutineContext,
