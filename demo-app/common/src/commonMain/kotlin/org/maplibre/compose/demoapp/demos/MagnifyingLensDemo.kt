@@ -38,7 +38,6 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
-import org.maplibre.compose.demoapp.DemoSettings
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SectionHeader
@@ -60,7 +59,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * loop.
  *
  * On Android, Compose modifiers reach the map only in texture mode, so the panel exposes the lens
- * map's render mode alongside the app's.
+ * map's render mode.
  */
 object MagnifyingLensDemo : Demo {
   override val name = "Magnifying lens"
@@ -154,7 +153,7 @@ object MagnifyingLensDemo : Demo {
 
   @Composable
   override fun Panel(state: DemoAppState) {
-    LensRenderSection(state.settings, lensRenderOptions) { lensRenderOptions = it }
+    LensRenderSection(lensRenderOptions) { lensRenderOptions = it }
 
     SectionHeader("Lens")
     SegmentedRow(
@@ -176,15 +175,11 @@ object MagnifyingLensDemo : Demo {
 }
 
 /**
- * This demo's rendering rows: the app's render mode and the lens map's own, on platforms that offer
- * the choice. Empty on the web target, which has no render mode.
+ * The lens map's render mode row. Android presents the map as a texture or as a surface; every
+ * other platform has one presentation, so the actuals there are empty.
  */
 @Composable
-expect fun LensRenderSection(
-  settings: DemoSettings,
-  lensOptions: RenderOptions,
-  onLensChange: (RenderOptions) -> Unit,
-)
+expect fun LensRenderSection(lensOptions: RenderOptions, onLensChange: (RenderOptions) -> Unit)
 
 /**
  * The lens map's initial render options: texture mode where a texture-versus-surface choice exists,
