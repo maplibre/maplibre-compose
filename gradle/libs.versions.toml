@@ -29,6 +29,7 @@ bytesize = "2.2.1"
 composeGlfw = "0.2.0"
 dbusJava = "5.2.0"
 htmlConverterCompose = "1.1.1"
+hms-location = "6.12.0.300"
 kermit = "2.1.0"
 kotlin-dsv = "0.4.0"
 kotlin-wrappers = "2026.8.3"
@@ -82,6 +83,7 @@ composeGlfw = { module = "dev.sargunv:compose-glfw", version.ref = "composeGlfw"
 dbus-java-core = { module = "com.github.hypfvieh:dbus-java-core", version.ref = "dbusJava" }
 dbus-java-transport-native-unixsocket = { module = "com.github.hypfvieh:dbus-java-transport-native-unixsocket", version.ref = "dbusJava" }
 htmlConverterCompose = { module = "be.digitalia.compose.htmlconverter:htmlconverter", version.ref = "htmlConverterCompose" }
+hms-location = { module = "com.huawei.hms:location", version.ref = "hms-location" }
 kermit = { group = "co.touchlab", name = "kermit", version.ref = "kermit" }
 kotlin-dsv = { module = "dev.sargunv.kotlin-dsv:kotlin-dsv", version.ref = "kotlin-dsv" }
 kotlin-wrappers-browser = { group = "org.jetbrains.kotlin-wrappers", name = "kotlin-browser", version.ref = "kotlin-wrappers" }

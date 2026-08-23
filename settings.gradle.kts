@@ -28,6 +28,9 @@ dependencyResolutionManagement {
       }
     }
     mavenCentral()
+    maven("https://developer.huawei.com/repo/") {
+      content { includeGroupAndSubgroups("com.huawei") }
+    }
   }
 }
 
@@ -45,6 +48,7 @@ include(
   ":lib:maplibre-compose-runtime-vulkan-android",
   ":lib:location",
   ":lib:location-runtime-gms",
+  ":lib:location-runtime-hms",
   ":lib:location-runtime-linux",
   ":lib:location-runtime-macos",
   ":lib:location-runtime-windows",
