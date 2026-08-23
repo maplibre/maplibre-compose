@@ -5,6 +5,7 @@ import android.opengl.EGLConfig
 import android.opengl.EGLDisplay
 import android.opengl.EGLSurface
 import android.view.Surface
+import org.maplibre.compose.map.MapExtent
 import org.maplibre.nativeffi.render.OpenGLClientApi
 import org.maplibre.nativeffi.render.OpenGLContextOwnership
 
@@ -17,7 +18,7 @@ private constructor(
   private val display: EGLDisplay,
   private val config: EGLConfig,
   private var windowSurface: EGLSurface,
-) : AutoCloseable {
+) : AndroidMapGraphicsContext {
 
   val contextHandles: EglContextHandles
     get() =
@@ -33,6 +34,14 @@ private constructor(
 
   val surfaceHandle: NativeHandle
     get() = NativeHandle(windowSurface.nativeHandle)
+
+  override fun target(extent: MapExtent, generation: Long): MlnFfiRenderTarget =
+    OpenGlSurfaceTarget(
+      context = contextHandles,
+      surface = surfaceHandle,
+      extent = extent,
+      generation = generation,
+    )
 
   override fun close() {
     if (windowSurface != EGL14.EGL_NO_SURFACE) {

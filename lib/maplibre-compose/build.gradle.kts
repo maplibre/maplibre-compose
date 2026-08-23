@@ -17,7 +17,14 @@ mavenPublishing {
 }
 
 kotlin {
-  android { namespace = "org.maplibre.compose" }
+  android {
+    namespace = "org.maplibre.compose"
+    optimization {
+      // Keeps the JNI symbols of the Vulkan loader bridge linked by name.
+      consumerKeepRules.publish = true
+      consumerKeepRules.files.add(project.file("consumer-rules.pro"))
+    }
+  }
 
   iosArm64()
   iosSimulatorArm64()
@@ -92,13 +99,8 @@ kotlin {
       }
     }
 
-    androidMain {
-      dependencies {
-        implementation(libs.androidx.activity.compose)
-        // The Android host presents through an EGL window surface.
-        implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
-      }
-    }
+    // The application picks the Android FFI runtime (OpenGL or Vulkan), which names the same
+    // libmaplibre-native-c.so and so cannot be packaged together; see the runtime artifacts.
 
     jvmMain.apply {
       dependencies {
@@ -172,8 +174,12 @@ kotlin {
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
     androidDeviceTest.dependencies {
+      implementation(libs.androidx.activity.compose)
       implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
+      // The device suite drives the OpenGL host; the Vulkan host needs a windowing surface the
+      // test runner does not provide.
+      implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
     }
   }
 }

@@ -13,12 +13,15 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import co.touchlab.kermit.Logger
+import org.maplibre.compose.map.mlnFfiArchitecture
+import org.maplibre.compose.map.mlnFfiOperatingSystem
 
-/** An Android surface that the OpenGL FFI runtime presents into directly. */
+/** An Android surface that the FFI runtime presents into directly. */
 @Composable
 internal fun AndroidMlnFfiSurface(
   renderer: MlnFfiMapRenderer,
   runtimeBackends: Set<MapRenderBackend>,
+  backend: MapRenderBackend,
   kind: AndroidMapSurfaceKind,
   maximumFps: Int? = null,
   modifier: Modifier,
@@ -27,8 +30,10 @@ internal fun AndroidMlnFfiSurface(
   val density = LocalDensity.current.density.toDouble()
   val lifecycleOwner = LocalLifecycleOwner.current
   val controller =
-    remember(renderer) { AndroidMlnFfiSurfaceController(renderer, logger, maximumFps) }
-  val available = MapRenderBackend.OPENGL in runtimeBackends
+    remember(renderer, backend) {
+      AndroidMlnFfiSurfaceController(renderer, backend, logger, maximumFps)
+    }
+  val available = backend in runtimeBackends
 
   SideEffect { controller.setMaximumFps(maximumFps) }
 
@@ -50,8 +55,16 @@ internal fun AndroidMlnFfiSurface(
   if (!available) {
     DisposableEffect(runtimeBackends) {
       logger?.e {
-        "Android MapLibre Compose requires the OpenGL maplibre-native-ffi runtime; " +
-          "available backends: ${runtimeBackends.joinToString().ifEmpty { "none" }}"
+        val hostBackends = RenderBackendPair(backend, ComposeRenderBackend.OPENGL)
+        val diagnostic =
+          backendDiagnostic(
+            runtimeBackends = runtimeBackends,
+            hostBackends = hostBackends,
+            hostDescription = "the Android $backend surface host",
+            operatingSystem = mlnFfiOperatingSystem,
+            architecture = mlnFfiArchitecture,
+          )
+        "Android MapLibre Compose cannot present a map\n${diagnostic ?: "backend $backend"}"
       }
       onDispose {}
     }

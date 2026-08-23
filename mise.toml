@@ -226,10 +226,14 @@ fi
 
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."
+# The Android runtime artifacts build a native shim, so the SDK packages come
+# along before Gradle publishes.
+depends = ["android-sdk-packages"]
 run = ".mise/bin/gradle-with-version snapshot publishToMavenCentral"
 
 [tasks."publish:release"]
 description = "Publish and release the current tag to Maven Central."
+depends = ["android-sdk-packages"]
 run = ".mise/bin/gradle-with-version release publishAndReleaseToMavenCentral --no-configuration-cache"
 
 [tasks.version]
