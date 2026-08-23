@@ -33,6 +33,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +44,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SwitchRow
@@ -53,8 +55,13 @@ import org.maplibre.compose.demoapp.generated.speed_24px
 
 /** The demo list, the style knob, and the selected demo's controls — or the settings page. */
 @Composable
-fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
+fun DemoPanel(
+  state: DemoAppState,
+  modifier: Modifier = Modifier,
+  revealMap: suspend () -> Unit = {},
+) {
   val navController = rememberNavController()
+  val scope = rememberCoroutineScope()
   val route = navController.currentBackStackEntryAsState().value?.destination?.route
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
@@ -85,8 +92,13 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
         state,
         onOpenSettings = { navController.navigate("settings") },
         onOpenDemo = { demo ->
-          state.selectedDemo = demo
-          navController.navigate("demo")
+          scope.launch {
+            revealMap()
+            demo.preferredStyle?.let { state.selectedStyle = it }
+            state.selectedDemo = demo
+            navController.navigate("demo")
+            state.cameraState.flyTo(demo.destination)
+          }
         },
         onOpenBenchmarks = {
           state.selectedDemo = null
@@ -114,8 +126,11 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
       BenchmarksScreen(
         onBack = { navController.popBackStack() },
         onOpenScenario = { scenario ->
-          state.selectedScenario = scenario
-          navController.navigate("benchmark")
+          scope.launch {
+            revealMap()
+            state.selectedScenario = scenario
+            navController.navigate("benchmark")
+          }
         },
       )
     }

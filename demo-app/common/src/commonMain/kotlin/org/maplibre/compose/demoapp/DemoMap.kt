@@ -4,12 +4,8 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -38,33 +34,31 @@ import org.maplibre.compose.overlay.include
 /** How long the camera takes to fly to a newly selected demo. */
 val DemoFlightDuration = 2.seconds
 
-/** Padding between a demo's region and the edge of the map viewport. */
-val DemoRegionPadding = PaddingValues(48.dp)
+/** Padding between fitted bounds and the edge of the map viewport. */
+val DemoBoundsPadding = PaddingValues(48.dp)
 
-private suspend fun CameraState.flyToDemo(demo: Demo) {
-  val camera = demo.camera
-  if (camera != null) {
-    animateTo(finalPosition = camera, duration = DemoFlightDuration)
-  } else {
-    animateTo(boundingBox = demo.region, padding = DemoRegionPadding, duration = DemoFlightDuration)
+internal suspend fun CameraState.flyTo(destination: DemoDestination) {
+  when (destination) {
+    is DemoDestination.ExactCamera ->
+      animateTo(finalPosition = destination.position, duration = DemoFlightDuration)
+    is DemoDestination.FitBounds ->
+      animateTo(
+        boundingBox = destination.bounds,
+        padding = DemoBoundsPadding,
+        duration = DemoFlightDuration,
+      )
+    DemoDestination.None -> Unit
   }
 }
 
 /** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
 @Composable
-fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
-  val insets = WindowInsets.safeDrawing.union(sheetInsets)
-
-  LaunchedEffect(state.selectedDemo) {
-    val demo = state.selectedDemo ?: return@LaunchedEffect
-    demo.preferredStyle?.let { state.selectedStyle = it }
-    if (demo.fliesOnSelect) state.cameraState.flyToDemo(demo)
-  }
-
+fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       baseStyle = state.selectedStyle.base,
       cameraState = state.cameraState,
+      cameraPadding = viewportInsets.asPaddingValues(),
       styleState = state.styleState,
       options =
         MapOptions(
@@ -73,7 +67,7 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
           tileLodOptions = state.settings.tileLodOptions,
         ),
       onFrame = { state.frameRateState.record() },
-      contentWindowInsets = insets,
+      contentWindowInsets = viewportInsets.asWindowInsets(),
       overlay =
         MapOverlay {
           include(
@@ -94,15 +88,14 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
     }
 
     val scope = rememberCoroutineScope()
-    state.selectedDemo
-      ?.takeIf { it.showsPointerPin }
-      ?.let { demo ->
-        // The pin fills this box to place itself; sizing the pin itself is up to its content.
-        Box(Modifier.fillMaxSize().padding(insets.asPaddingValues())) {
+    Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
+      state.selectedDemo?.let { demo ->
+        demo.pointerPin?.let { pointerPin ->
+          // The pin fills this box to place itself; sizing the pin itself is up to its content.
           PointerPinButton(
             cameraState = state.cameraState,
-            targetPosition = demo.center,
-            onClick = { scope.launch { state.cameraState.flyToDemo(demo) } },
+            targetPosition = pointerPin.target,
+            onClick = { scope.launch { state.cameraState.flyTo(pointerPin.destination) } },
           ) {
             Icon(
               vectorResource(Res.drawable.filter_center_focus_24px),
@@ -112,10 +105,8 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
         }
       }
 
-    DiagnosticOverlays(
-      state = state,
-      modifier = Modifier.align(Alignment.TopCenter).padding(insets.asPaddingValues()),
-    )
+      DiagnosticOverlays(state = state, modifier = Modifier.align(Alignment.TopCenter))
+    }
   }
 }
 

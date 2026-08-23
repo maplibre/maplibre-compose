@@ -39,7 +39,6 @@ internal fun lerp(from: CameraPosition, to: CameraPosition, t: Double): CameraPo
       ),
     tilt = lerp(from.tilt, to.tilt, u),
     zoom = lerp(from.zoom, to.zoom, u),
-    padding = from.padding,
   )
 }
 

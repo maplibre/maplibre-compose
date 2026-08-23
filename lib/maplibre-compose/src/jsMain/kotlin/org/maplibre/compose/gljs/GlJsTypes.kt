@@ -160,6 +160,12 @@ internal external interface CameraOptions {
   var pitch: Double?
 }
 
+internal external interface CenterZoomBearing {
+  var center: LngLat?
+  var zoom: Double?
+  var bearing: Double?
+}
+
 internal external interface AnimationOptions {
   var duration: Double?
 }
@@ -170,14 +176,15 @@ internal external interface JumpToOptions : CameraOptions {
 
 internal external interface EaseToOptions : CameraOptions, AnimationOptions {
   var around: LngLat?
+  var padding: PaddingOptions?
 }
 
 internal external interface FlyToOptions : CameraOptions, AnimationOptions {
   var padding: PaddingOptions?
 }
 
-internal external interface FitBoundsOptions : FlyToOptions {
-  var linear: Boolean?
+internal external interface CameraForBoundsOptions : CameraOptions {
+  var padding: PaddingOptions?
 }
 
 internal external interface Painter {

@@ -6,10 +6,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.asNumber
@@ -27,18 +27,15 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Position
 
 object DataVizDemo : Demo {
   override val name = "Data visualization"
   override val description = "A month of earthquakes as points, a heatmap, or clusters."
-  override val region = BoundingBox(west = -180.0, south = -60.0, east = 180.0, north = 70.0)
   override val preferredStyle = OpenFreeMap.Positron
-  override val showsPointerPin = false
 
-  // Centered on the Pacific, so the Ring of Fire frames the data.
-  override val camera =
-    CameraPosition(target = Position(longitude = -160.0, latitude = 10.0), zoom = 1.6)
+  // These bounds cross the antimeridian and frame the Pacific Ring of Fire.
+  override val destination =
+    DemoDestination.FitBounds(BoundingBox(west = 100.0, south = -60.0, east = -65.0, north = 70.0))
 
   /** USGS serves this feed with open CORS headers, so every platform can fetch it directly. */
   private const val FEED_URI =

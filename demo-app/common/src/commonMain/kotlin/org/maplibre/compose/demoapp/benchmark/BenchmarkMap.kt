@@ -3,12 +3,8 @@ package org.maplibre.compose.demoapp.benchmark
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -37,6 +33,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
@@ -52,7 +49,7 @@ private val benchLog = Logger.withTag(BenchmarkReport.LogPrefix)
  * settings do not compose here.
  */
 @Composable
-internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
+internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scenario = state.selectedScenario
   val density = LocalDensity.current
   val prefetcher = rememberTilePrefetcher()
@@ -68,9 +65,7 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
       )
     }
   val mapLoaded = remember(scenario.id) { CompletableDeferred<Unit>() }
-  val insets = WindowInsets.safeDrawing.union(sheetInsets)
   val styleUrl = (scenario.style.base as BaseStyle.Uri).uri
-
   LaunchedEffect(scenario.id) {
     state.benchmark.abandonRun()
     cameraState.position = scenario.camera
@@ -192,6 +187,7 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
       MaplibreMap(
         baseStyle = scenario.style.base,
         cameraState = cameraState,
+        cameraPadding = viewportInsets.asPaddingValues(),
         styleState = styleState,
         options =
           MapOptions(
@@ -204,29 +200,30 @@ internal fun BenchmarkMap(state: DemoAppState, sheetInsets: WindowInsets = Windo
         onMapLoadFailed = { reason ->
           mapLoaded.completeExceptionally(IllegalStateException(reason ?: "Map failed to load"))
         },
-        contentWindowInsets = insets,
+        contentWindowInsets = viewportInsets.asWindowInsets(),
         overlay = MapOverlay.None,
       ) {
         scenario.MapContent(session)
       }
     }
 
-    Column(
-      modifier =
-        Modifier.align(Alignment.TopCenter).padding(insets.asPaddingValues()).padding(8.dp),
-      horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-      Text(
-        text = state.benchmark.status,
-        style = MaterialTheme.typography.labelMedium,
-        color = MaterialTheme.colorScheme.onSurface,
-        modifier =
-          Modifier.background(
-              color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
-              shape = RoundedCornerShape(8.dp),
-            )
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-      )
+    Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
+      Column(
+        modifier = Modifier.align(Alignment.TopCenter).padding(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+      ) {
+        Text(
+          text = state.benchmark.status,
+          style = MaterialTheme.typography.labelMedium,
+          color = MaterialTheme.colorScheme.onSurface,
+          modifier =
+            Modifier.background(
+                color = MaterialTheme.colorScheme.surface.copy(alpha = 0.85f),
+                shape = RoundedCornerShape(8.dp),
+              )
+              .padding(horizontal = 8.dp, vertical = 4.dp),
+        )
+      }
     }
   }
 }

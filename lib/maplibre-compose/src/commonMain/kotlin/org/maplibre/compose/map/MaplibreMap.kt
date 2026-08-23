@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
@@ -18,6 +19,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
@@ -50,6 +52,8 @@ import org.maplibre.spatialk.geojson.Position
  *   [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param cameraState The camera state specifies what position of the map is rendered, at what zoom,
  *   at what tilt, etc.
+ * @param cameraPadding Insets that shift the camera center. A bounds move adds its padding to these
+ *   insets.
  * @param zoomRange The allowable camera zoom range.
  * @param pitchRange The allowable camera pitch range.
  * @param boundingBox The allowable bounds for the camera position. On iOS and Web, it prevents the
@@ -65,10 +69,7 @@ import org.maplibre.spatialk.geojson.Position
  * @param logger kermit logger to use.
  * @param onMapLoadFailed Invoked when the map failed to load.
  * @param onMapLoadFinished Invoked when the map finished loading.
- * @param contentWindowInsets The region of the map that other UI covers, such as system bars or a
- *   bottom sheet. [overlay] lays aligned controls out inside what is left. The default,
- *   [WindowInsets.safeDrawing], accounts for insets that an ancestor has already consumed, so a map
- *   inside a scaffold gets zero and a full-bleed map gets the system bars.
+ * @param contentWindowInsets Insets applied to [overlay]. Defaults to safe drawing insets.
  * @param overlay Controls drawn on top of the map. [MapOverlay.Default] draws the MapLibre logo and
  *   an attribution button; [MapOverlay.None] draws the map alone.
  *   [Modifier.placedAt][org.maplibre.compose.overlay.MapOverlayScope.placedAt] in the overlay pins
@@ -121,6 +122,7 @@ public fun MaplibreMap(
   modifier: Modifier = Modifier,
   baseStyle: BaseStyle = BaseStyle.Demo,
   cameraState: CameraState = rememberCameraState(),
+  cameraPadding: PaddingValues = PaddingValues(0.dp),
   zoomRange: ClosedRange<Float> = 0f..20f,
   pitchRange: ClosedRange<Float> = 0f..60f,
   boundingBox: BoundingBox? = null,
@@ -256,6 +258,7 @@ public fun MaplibreMap(
       modifier = Modifier.fillMaxSize(),
       style = baseStyle,
       update = { map ->
+        map.setCameraPadding(cameraPadding)
         cameraState.map = map
         map.setMinZoom(zoomRange.start.toDouble())
         map.setMaxZoom(zoomRange.endInclusive.toDouble())

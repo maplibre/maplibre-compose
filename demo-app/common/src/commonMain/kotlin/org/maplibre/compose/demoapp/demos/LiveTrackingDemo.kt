@@ -16,7 +16,10 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoDestination
+import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
@@ -32,8 +35,10 @@ import org.maplibre.spatialk.geojson.Position
 object LiveTrackingDemo : Demo {
   override val name = "Live tracking"
   override val description = "A simulated ferry crosses Elliott Bay with a camera-follow toggle."
-  override val region =
+  private val routeRegion =
     BoundingBox(west = -122.5195, south = 47.5925, east = -122.3298, north = 47.6321)
+  override val destination = DemoDestination.FitBounds(routeRegion)
+  override val pointerPin = DemoPointerPin(routeRegion.center, destination)
   override val preferredStyle = OpenFreeMap.Liberty
 
   // The Seattle-Bainbridge ferry crossing, traced from OpenStreetMap (ODbL).
@@ -67,7 +72,7 @@ object LiveTrackingDemo : Demo {
   // The real ferry's ~8 m/s is imperceptible with the whole crossing in the viewport.
   private const val SPEED_METERS_PER_SECOND = 250.0
 
-  // Off by default so the flight to the demo region runs uninterrupted.
+  // Off by default so the initial flight runs uninterrupted.
   private var followVehicle by mutableStateOf(false)
   private var vehiclePosition by mutableStateOf(route.first())
 

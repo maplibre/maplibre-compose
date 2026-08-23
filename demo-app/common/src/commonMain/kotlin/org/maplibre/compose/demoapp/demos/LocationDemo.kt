@@ -17,7 +17,9 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoFlightDuration
+import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SegmentedRow
@@ -41,20 +43,19 @@ object LocationDemo : Demo {
   override val description =
     "The location puck, device heading, and a camera-follow toggle on the real device."
   override val preferredStyle = OpenFreeMap.Liberty
-  override val fliesOnSelect = false
-  override val showsPointerPin
-    get() = lastFix != null
+  override val destination = DemoDestination.None
 
-  override val region: BoundingBox
-    get() {
-      val p = lastFix ?: Position(longitude = 0.0, latitude = 0.0)
+  override val pointerPin: DemoPointerPin?
+    get() = lastFix?.let { position ->
       val delta = 0.005
-      return BoundingBox(
-        west = p.longitude - delta,
-        south = p.latitude - delta,
-        east = p.longitude + delta,
-        north = p.latitude + delta,
-      )
+      val bounds =
+        BoundingBox(
+          west = position.longitude - delta,
+          south = position.latitude - delta,
+          east = position.longitude + delta,
+          north = position.latitude + delta,
+        )
+      DemoPointerPin(position, DemoDestination.FitBounds(bounds))
     }
 
   private var follow by mutableStateOf(true)

@@ -17,36 +17,21 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * A demo lives at a real place in the world. Selecting it composes [MapContent] into the shared map
- * and [Overlay] on top of the map. When [fliesOnSelect] is true, the camera flies to [region] or
- * [camera]. Each demo owns its state internally.
+ * Selecting a demo composes [MapContent] into the shared map and [Overlay] on top of the map. The
+ * camera moves to [destination]. Each demo owns its state internally.
  */
 interface Demo {
   val name: String
   val description: String
-  val region: BoundingBox
+  val destination: DemoDestination
 
   /** Applied once when the demo is selected; a later choice by the user wins. */
   val preferredStyle: DemoStyle?
     get() = null
 
-  /**
-   * The exact camera the flight ends at. Null fits [region] to the viewport instead; set this when
-   * the demo needs a composed view, such as a pitched skyline.
-   */
-  val camera: CameraPosition?
+  /** An optional map pin that restores a useful view of the demo. */
+  val pointerPin: DemoPointerPin?
     get() = null
-
-  /** Whether the pointer pin points back to [region]. A worldwide demo turns it off. */
-  val showsPointerPin: Boolean
-    get() = true
-
-  /**
-   * Whether the shell flies to [region] or [camera] when this demo is selected. A demo that drives
-   * the camera from live data turns this off.
-   */
-  val fliesOnSelect: Boolean
-    get() = true
 
   @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
 
@@ -65,12 +50,29 @@ interface Demo {
   @UiComposable @Composable fun Panel(state: DemoAppState) {}
 }
 
-val Demo.center: Position
-  get() =
-    Position(
-      longitude = (region.west + region.east) / 2,
-      latitude = (region.south + region.north) / 2,
+/** The camera movement that occurs when a demo is selected or its pointer pin is pressed. */
+sealed interface DemoDestination {
+  /** Fits a geographic region inside the camera viewport. */
+  data class FitBounds(val bounds: BoundingBox) : DemoDestination
+
+  /** Moves to a complete camera position without deriving a zoom level from geographic bounds. */
+  data class ExactCamera(val position: CameraPosition) : DemoDestination
+
+  /** Preserves the current camera until the demo moves it from live data or user input. */
+  data object None : DemoDestination
+}
+
+/** A point shown on the map and the camera movement that its button restores. */
+data class DemoPointerPin(val target: Position, val destination: DemoDestination)
+
+internal val BoundingBox.center: Position
+  get() {
+    val centerLongitude = (west + if (east < west) east + 360.0 else east) / 2
+    return Position(
+      longitude = if (centerLongitude > 180.0) centerLongitude - 360.0 else centerLongitude,
+      latitude = (south + north) / 2,
     )
+  }
 
 /** Demos that cannot run in the browser; empty on the js target. */
 internal expect val extraDemos: List<Demo>

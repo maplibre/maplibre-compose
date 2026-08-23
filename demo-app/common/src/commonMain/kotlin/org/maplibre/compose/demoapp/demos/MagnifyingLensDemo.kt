@@ -33,12 +33,14 @@ import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoDestination
+import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.DemoSettings
 import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
@@ -49,7 +51,6 @@ import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Position
 
 /**
  * A second map floats over the shared one as a magnifying lens.
@@ -64,11 +65,13 @@ import org.maplibre.spatialk.geojson.Position
 object MagnifyingLensDemo : Demo {
   override val name = "Magnifying lens"
   override val description = "A second map composited into a draggable lens with Compose modifiers."
-  override val region = BoundingBox(west = -74.002, south = 40.748, east = -73.968, north = 40.768)
   override val preferredStyle = OpenFreeMap.Liberty
 
-  override val camera =
-    CameraPosition(target = Position(longitude = -73.9851, latitude = 40.7589), zoom = 15.0)
+  private val lensRegion =
+    BoundingBox(west = -74.002, south = 40.748, east = -73.968, north = 40.768)
+
+  override val destination = DemoDestination.FitBounds(lensRegion)
+  override val pointerPin = DemoPointerPin(lensRegion.center, destination)
 
   private enum class LensShape(val label: String, val shape: Shape) {
     Circle("Circle", CircleShape),

@@ -3,6 +3,7 @@
 package org.maplibre.compose.docsnippets
 
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.union
@@ -44,8 +45,10 @@ fun Controls() {
   // #endregion custom
 
   // #region insets
+  val mapInsets = WindowInsets.safeDrawing.union(WindowInsets(bottom = 128.dp))
   MaplibreMap(
-    contentWindowInsets = WindowInsets.safeDrawing.union(WindowInsets(bottom = 128.dp)) // (1)!
+    contentWindowInsets = mapInsets, // (1)!
+    cameraPadding = mapInsets.asPaddingValues(),
   )
   // #endregion insets
 }
