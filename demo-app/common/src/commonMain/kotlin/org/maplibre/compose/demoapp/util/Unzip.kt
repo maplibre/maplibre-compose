@@ -1,4 +1,4 @@
 package org.maplibre.compose.demoapp.util
 
-/** Extracts a ZIP archive into a map of entry name to contents, skipping directories. */
+/** Extracts a ZIP archive into a map from entry names to contents, skipping directories. */
 internal expect fun unzip(bytes: ByteArray): Map<String, ByteArray>

@@ -97,9 +97,8 @@ object TransitNetworkDemo : Demo {
   override val pointerPin = DemoPointerPin(networkRegion.center, destination)
   override val preferredStyle = OpenFreeMap.Positron
 
-  /** The feed sends no CORS headers, which is why this demo is absent from the browser. */
-  private const val FEED_URI =
-    "https://business.wsdot.wa.gov/Transit/csv_files/wsf/google_transit.zip"
+  /** Mobility Database refreshes this browser-accessible mirror from WSDOT each day. */
+  private const val FEED_URI = "https://files.mobilitydatabase.org/mdb-283/latest.zip"
 
   /** Camera padding that leaves room for a departure chip above each terminal. */
   private val RouteFitPadding = PaddingValues(horizontal = 96.dp, vertical = 72.dp)
