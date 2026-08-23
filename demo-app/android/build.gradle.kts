@@ -28,8 +28,13 @@ kotlin {
   compilerOptions { jvmTarget = project.getAndroidJvmTarget() }
 }
 
+// opengl or vulkan: the backend of the runtime artifact the APK packages.
+val androidBackend = providers.gradleProperty("maplibre.android.backend").getOrElse("opengl")
+
 dependencies {
   implementation(project(":demo-app:common"))
   implementation(libs.androidx.activity.compose)
   implementation(libs.jetbrains.compose.ui.tooling)
+
+  runtimeOnly(project(":lib:maplibre-compose-runtime-$androidBackend-android"))
 }

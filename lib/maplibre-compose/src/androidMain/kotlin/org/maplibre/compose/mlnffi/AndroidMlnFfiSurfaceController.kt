@@ -12,9 +12,10 @@ import org.maplibre.compose.map.MapExtent
 /**
  * Drives the shared FFI renderer from a dedicated Android render thread.
  *
- * The thread draws, then `eglSwapBuffers` presents. SurfaceView waits on the buffer queue there,
- * matching MapLibre Android's GLSurfaceView loop. TextureView returns from swap without waiting;
- * the next frame is posted when the map requests one, matching MapLibre's TextureView thread.
+ * The thread draws, then the backend presents: `eglSwapBuffers` for OpenGL, the render update for
+ * Vulkan. SurfaceView waits on the buffer queue there, matching MapLibre Android's GLSurfaceView
+ * loop. TextureView returns from swap without waiting; the next frame is posted when the map
+ * requests one, matching MapLibre's TextureView thread.
  *
  * When [maximumFps] is set, the next post is delayed to that interval. Display refresh stays with
  * the window; Compose and the map do not share a SurfaceFlinger vote. `Choreographer.getInstance()`
@@ -23,15 +24,16 @@ import org.maplibre.compose.map.MapExtent
  */
 internal class AndroidMlnFfiSurfaceController(
   private val renderer: MlnFfiMapRenderer,
+  private val backend: MapRenderBackend,
   private val logger: Logger?,
   maximumFps: Int? = null,
 ) : MlnFfiMapHostSession, AutoCloseable {
-  override val backends = RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.OPENGL)
+  override val backends = RenderBackendPair(backend, ComposeRenderBackend.OPENGL)
 
   private val renderThread = HandlerThread("maplibre-compose-render").apply { start() }
   private val renderHandler = Handler(renderThread.looper)
   private val renderFrame = Runnable { renderFrame(System.nanoTime()) }
-  private var graphics: AndroidEglContext? = null
+  private var graphics: AndroidMapGraphicsContext? = null
   private var maximumFps = maximumFps
   private var extent = MapExtent.Empty
   private var generation = 0L
@@ -68,7 +70,7 @@ internal class AndroidMlnFfiSurfaceController(
     if (closed) return
     surfaceDestroyedOnRenderThread()
     try {
-      graphics = AndroidEglContext.create(surface)
+      graphics = AndroidMapGraphicsContext.create(backend, surface)
       extent = MapExtent.fromPhysical(width, height, scaleFactor)
       generation++
       renderer.onSurfaceAvailable(this)
@@ -90,7 +92,7 @@ internal class AndroidMlnFfiSurfaceController(
     val changed = MapExtent.fromPhysical(width, height, scaleFactor)
     if (changed == extent) return
     extent = changed
-    generation++
+    if (backend == MapRenderBackend.OPENGL) generation++
     try {
       renderer.onSurfaceChanged(changed)
       requestFrame()
@@ -108,11 +110,11 @@ internal class AndroidMlnFfiSurfaceController(
     checkRenderThread()
     cancelFrame()
     if (graphics == null) return
-    // The render session names this EGL surface, so it must be closed before EGL destroys it.
+    // The render session names this surface, so it must be closed before the context frees it.
     runCatching { renderer.onSurfaceLost() }
       .onFailure { logger?.e(it) { "Failed to release the Android map render session" } }
     runCatching { graphics?.close() }
-      .onFailure { logger?.e(it) { "Failed to release the Android EGL context" } }
+      .onFailure { logger?.e(it) { "Failed to release the Android map graphics context" } }
     graphics = null
     extent = MapExtent.Empty
     consecutiveFailures = 0
@@ -157,13 +159,7 @@ internal class AndroidMlnFfiSurfaceController(
     if (closed || !active || currentGraphics == null || currentExtent.isEmpty) return
 
     val frameId = nextFrameId++
-    val target =
-      OpenGlSurfaceTarget(
-        context = currentGraphics.contextHandles,
-        surface = currentGraphics.surfaceHandle,
-        extent = currentExtent,
-        generation = generation,
-      )
+    val target = currentGraphics.target(currentExtent, generation)
     val frame = MlnFfiMapFrame(frameId, currentExtent, target, frameTimeNanos)
 
     val frameStartUptimeMs = SystemClock.uptimeMillis()
@@ -248,7 +244,7 @@ internal class AndroidMlnFfiSurfaceController(
     logger?.e(error) { message }
     runCatching { renderer.onSurfaceLost() }
     runCatching { graphics?.close() }
-      .onFailure { logger?.e(it) { "Failed to release the Android EGL context" } }
+      .onFailure { logger?.e(it) { "Failed to release the Android map graphics context" } }
     graphics = null
     extent = MapExtent.Empty
     runCatching { renderer.close() }

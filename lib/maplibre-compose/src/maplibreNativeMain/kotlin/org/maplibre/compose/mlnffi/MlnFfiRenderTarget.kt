@@ -87,6 +87,20 @@ internal data class VulkanImageTarget(
     get() = MapRenderBackend.VULKAN
 }
 
+/** A `VkSurfaceKHR` MapLibre renders into and presents directly. */
+@Immutable
+internal data class VulkanSurfaceTarget(
+  /** The Vulkan context owning [surface]. */
+  val context: VulkanContextHandles,
+  /** `VkSurfaceKHR`. */
+  val surface: NativeHandle,
+  override val extent: MapExtent,
+  override val generation: Long,
+) : MlnFfiRenderTarget {
+  override val backend: MapRenderBackend
+    get() = MapRenderBackend.VULKAN
+}
+
 /** An `id<MTLTexture>` MapLibre renders into. */
 @Immutable
 internal data class MetalTextureTarget(

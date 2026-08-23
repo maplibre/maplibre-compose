@@ -17,7 +17,14 @@ mavenPublishing {
 }
 
 kotlin {
-  android { namespace = "org.maplibre.compose" }
+  android {
+    namespace = "org.maplibre.compose"
+    optimization {
+      // The Vulkan bridge class is resolved by JNI name.
+      consumerKeepRules.publish = true
+      consumerKeepRules.files.add(project.file("consumer-rules.pro"))
+    }
+  }
 
   iosArm64()
   iosSimulatorArm64()
@@ -89,14 +96,6 @@ kotlin {
         // iOS runs the Metal backend, on the device and in the simulator; the runtime klib
         // carries the static MapLibre Native archive and its Apple framework linker opts.
         implementation(libs.maplibre.nativeFfi.runtimeMetalKmp)
-      }
-    }
-
-    androidMain {
-      dependencies {
-        implementation(libs.androidx.activity.compose)
-        // The Android host presents through an EGL window surface.
-        implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
       }
     }
 
@@ -172,8 +171,11 @@ kotlin {
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
     androidDeviceTest.dependencies {
+      implementation(libs.androidx.activity.compose)
       implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
+      // The shared device-test render driver targets OpenGL.
+      implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
     }
   }
 }
