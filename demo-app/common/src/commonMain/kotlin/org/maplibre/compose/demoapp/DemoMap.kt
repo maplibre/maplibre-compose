@@ -1,5 +1,6 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,11 +14,19 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
+import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
@@ -30,6 +39,7 @@ import org.maplibre.compose.material3.Material3
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
+import org.maplibre.spatialk.geojson.Position
 
 /** How long the camera takes to fly to a newly selected demo. */
 val DemoFlightDuration = 2.seconds
@@ -54,6 +64,16 @@ internal suspend fun CameraState.flyTo(destination: DemoDestination) {
 /** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
 @Composable
 fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+  val scope = rememberCoroutineScope()
+  val selectedDemo = state.selectedDemo
+  val pointerPin = selectedDemo?.pointerPin
+  val placementPadding =
+    PaddingValues.Absolute(
+      left = viewportInsets.left + MapOverlay.Spacing,
+      top = viewportInsets.top + MapOverlay.Spacing,
+      right = viewportInsets.right + MapOverlay.Spacing,
+      bottom = viewportInsets.bottom + MapOverlay.Spacing,
+    )
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       baseStyle = state.selectedStyle.base,
@@ -73,7 +93,23 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
           include(
             if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
           )
-          state.selectedDemo?.let { demo -> key(demo) { with(demo) { Overlay(state) } } }
+          selectedDemo?.let { demo ->
+            key(demo) {
+              with(demo) { Overlay(state) }
+              pointerPin?.let {
+                PointerPinButton(
+                  cameraState = cameraState,
+                  targetPosition = it.target,
+                  onClick = { scope.launch { cameraState.flyTo(it.destination) } },
+                ) {
+                  Icon(
+                    vectorResource(Res.drawable.filter_center_focus_24px),
+                    contentDescription = "Fly back to ${demo.name}",
+                  )
+                }
+              }
+            }
+          }
         },
     ) {
       // Keyed: without it, layers and sources are identified by position, so switching demos
@@ -87,27 +123,178 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       }
     }
 
-    val scope = rememberCoroutineScope()
-    Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
-      state.selectedDemo?.let { demo ->
-        demo.pointerPin?.let { pointerPin ->
-          // The pin fills this box to place itself; sizing the pin itself is up to its content.
-          PointerPinButton(
-            cameraState = state.cameraState,
-            targetPosition = pointerPin.target,
-            onClick = { scope.launch { state.cameraState.flyTo(pointerPin.destination) } },
-          ) {
-            Icon(
-              vectorResource(Res.drawable.filter_center_focus_24px),
-              contentDescription = "Fly back to ${demo.name}",
-            )
-          }
-        }
-      }
+    if (state.settings.showPointerPinDiagnostics && pointerPin != null) {
+      PointerPinDestinationOverlay(
+        cameraState = state.cameraState,
+        destination = pointerPin.destination,
+        modifier = Modifier.fillMaxSize(),
+      )
+      PointerPinPlacementOverlay(
+        cameraState = state.cameraState,
+        target = pointerPin.target,
+        placementPadding = placementPadding,
+        modifier = Modifier.fillMaxSize(),
+      )
+    }
 
+    Box(Modifier.fillMaxSize().padding(placementPadding)) {
       DiagnosticOverlays(state = state, modifier = Modifier.align(Alignment.TopCenter))
     }
   }
+}
+
+@Composable
+private fun PointerPinDestinationOverlay(
+  cameraState: CameraState,
+  destination: DemoDestination,
+  modifier: Modifier = Modifier,
+) {
+  // The viewport read recomputes the projection when the camera changes.
+  val viewport = cameraState.viewport
+  val projected =
+    remember(destination, viewport) {
+      when (destination) {
+        is DemoDestination.ExactCamera ->
+          cameraState.screenLocationFromPosition(destination.position.target)?.let(::listOf)
+        is DemoDestination.FitBounds -> {
+          val bounds = destination.bounds
+          listOf(
+              Position(longitude = bounds.west, latitude = bounds.north),
+              Position(longitude = bounds.east, latitude = bounds.north),
+              Position(longitude = bounds.east, latitude = bounds.south),
+              Position(longitude = bounds.west, latitude = bounds.south),
+            )
+            .mapNotNull(cameraState::screenLocationFromPosition)
+            .takeIf { it.size == 4 }
+        }
+        DemoDestination.None -> null
+      }
+    }
+  val color = Color(0xFFE53935)
+
+  if (projected != null) {
+    Canvas(modifier) {
+      val points = projected.map { Offset(it.x.toPx(), it.y.toPx()) }
+      if (points.size == 1) {
+        drawCircle(
+          color = color,
+          radius = 12.dp.toPx(),
+          center = points.single(),
+          style = Stroke(width = 3.dp.toPx()),
+        )
+      } else {
+        val path =
+          Path().apply {
+            moveTo(points.first().x, points.first().y)
+            points.drop(1).forEach { lineTo(it.x, it.y) }
+            close()
+          }
+        drawPath(path = path, color = color, style = Stroke(width = 3.dp.toPx()))
+      }
+    }
+  }
+}
+
+@Composable
+private fun PointerPinPlacementOverlay(
+  cameraState: CameraState,
+  target: Position,
+  placementPadding: PaddingValues,
+  modifier: Modifier = Modifier,
+) {
+  val viewport = cameraState.viewport
+  val projected = remember(target, viewport) { cameraState.screenLocationFromPosition(target) }
+  val layoutDirection = LocalLayoutDirection.current
+
+  Canvas(modifier) {
+    val geometryColor = Color(0xFF00ACC1)
+    val targetColor = Color(0xFFFFB300)
+    val haloColor = Color.White.copy(alpha = 0.9f)
+    val geometryWidth = 2.dp.toPx()
+    val haloWidth = 5.dp.toPx()
+    val area =
+      Rect(
+        left = placementPadding.calculateLeftPadding(layoutDirection).toPx(),
+        top = placementPadding.calculateTopPadding().toPx(),
+        right = size.width - placementPadding.calculateRightPadding(layoutDirection).toPx(),
+        bottom = size.height - placementPadding.calculateBottomPadding().toPx(),
+      )
+    if (area.width <= 0 || area.height <= 0) return@Canvas
+
+    drawOval(
+      color = haloColor,
+      topLeft = area.topLeft,
+      size = area.size,
+      style = Stroke(width = haloWidth),
+    )
+    drawOval(
+      color = geometryColor,
+      topLeft = area.topLeft,
+      size = area.size,
+      style = Stroke(width = geometryWidth),
+    )
+
+    val projectedTarget = projected?.let { Offset(it.x.toPx(), it.y.toPx()) } ?: return@Canvas
+    val intersection = findEllipseIntersection(area, projectedTarget)
+
+    if (intersection != null) {
+      drawLine(
+        color = haloColor,
+        start = intersection,
+        end = projectedTarget,
+        strokeWidth = haloWidth,
+      )
+      drawLine(
+        color = geometryColor,
+        start = intersection,
+        end = projectedTarget,
+        strokeWidth = geometryWidth,
+      )
+      drawCircle(color = haloColor, radius = 6.dp.toPx(), center = intersection)
+      drawCircle(color = geometryColor, radius = 4.dp.toPx(), center = intersection)
+    }
+
+    val targetRadius = 9.dp.toPx()
+    val targetArm = 13.dp.toPx()
+    drawCircle(
+      color = haloColor,
+      radius = targetRadius,
+      center = projectedTarget,
+      style = Stroke(width = haloWidth),
+    )
+    drawCircle(
+      color = targetColor,
+      radius = targetRadius,
+      center = projectedTarget,
+      style = Stroke(width = geometryWidth),
+    )
+    listOf(haloWidth to haloColor, geometryWidth to targetColor).forEach { (width, color) ->
+      drawLine(
+        color = color,
+        start = Offset(projectedTarget.x - targetArm, projectedTarget.y),
+        end = Offset(projectedTarget.x + targetArm, projectedTarget.y),
+        strokeWidth = width,
+      )
+      drawLine(
+        color = color,
+        start = Offset(projectedTarget.x, projectedTarget.y - targetArm),
+        end = Offset(projectedTarget.x, projectedTarget.y + targetArm),
+        strokeWidth = width,
+      )
+    }
+  }
+}
+
+// Matches the placement calculation in PointerPinButton.
+private fun findEllipseIntersection(area: Rect, target: Offset): Offset? {
+  val delta = target - area.center
+  val horizontalRadius = area.width / 2.0
+  val verticalRadius = area.height / 2.0
+  val normalizedDistance =
+    delta.x * delta.x / (horizontalRadius * horizontalRadius) +
+      delta.y * delta.y / (verticalRadius * verticalRadius)
+  if (normalizedDistance < 1.0) return null
+  return area.center + delta * (1.0 / sqrt(normalizedDistance)).toFloat()
 }
 
 @Composable
@@ -126,6 +313,12 @@ private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifie
         .padding(horizontal = 8.dp),
     horizontalAlignment = Alignment.CenterHorizontally,
   ) {
+    if (state.settings.showPointerPinDiagnostics && state.selectedDemo?.pointerPin != null) {
+      Text(
+        text = "Destination: red · target: amber · placement: cyan",
+        style = MaterialTheme.typography.labelMedium,
+      )
+    }
     if (state.settings.showFpsOverlay) {
       Text(
         text = "${state.frameRateState.framesPerSecond.roundToInt()} fps",

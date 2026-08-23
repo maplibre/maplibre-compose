@@ -20,6 +20,7 @@ class DemoSettings {
   var tileLodOptions by mutableStateOf(TileLodOptions.Standard)
   var showFpsOverlay by mutableStateOf(false)
   var showCameraOverlay by mutableStateOf(false)
+  var showPointerPinDiagnostics by mutableStateOf(false)
   var useMaterial3Controls by mutableStateOf(true)
 }
 
