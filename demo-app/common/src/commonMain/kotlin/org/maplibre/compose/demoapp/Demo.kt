@@ -33,7 +33,7 @@ interface Demo {
   val pointerPin: DemoPointerPin?
     get() = null
 
-  @MaplibreComposable @Composable fun MapContent(camera: CameraState) {}
+  @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
 
   /**
    * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's
@@ -52,12 +52,8 @@ interface Demo {
 
 /** The camera movement that occurs when a demo is selected or its pointer pin is pressed. */
 sealed interface DemoDestination {
-  /** Fits a geographic region inside the unobstructed map viewport. */
-  data class FitBounds(
-    val bounds: BoundingBox,
-    val bearing: Double = 0.0,
-    val tilt: Double = 0.0,
-  ) : DemoDestination
+  /** Fits a geographic region inside the camera viewport. */
+  data class FitBounds(val bounds: BoundingBox) : DemoDestination
 
   /** Moves to a complete camera position without deriving a zoom level from geographic bounds. */
   data class ExactCamera(val position: CameraPosition) : DemoDestination
@@ -70,11 +66,13 @@ sealed interface DemoDestination {
 data class DemoPointerPin(val target: Position, val destination: DemoDestination)
 
 internal val BoundingBox.center: Position
-  get() =
-    Position(
-      longitude = (west + east) / 2,
+  get() {
+    val centerLongitude = (west + if (east < west) east + 360.0 else east) / 2
+    return Position(
+      longitude = if (centerLongitude > 180.0) centerLongitude - 360.0 else centerLongitude,
       latitude = (south + north) / 2,
     )
+  }
 
 /** Demos that cannot run in the browser; empty on the js target. */
 internal expect val extraDemos: List<Demo>

@@ -8,7 +8,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
-/** Physical insets around the part of the map that the app can use. */
+/** Physical insets around the map viewport. */
 @Immutable
 data class MapViewportInsets(
   val left: Dp = 0.dp,
@@ -29,10 +29,6 @@ data class MapViewportInsets(
 
   fun asWindowInsets(): WindowInsets =
     WindowInsets(left = left, top = top, right = right, bottom = bottom)
-
-  companion object {
-    val Zero = MapViewportInsets()
-  }
 }
 
 fun WindowInsets.toMapViewportInsets(
@@ -47,16 +43,3 @@ fun WindowInsets.toMapViewportInsets(
       bottom = getBottom(density).toDp(),
     )
   }
-
-internal fun maximumSheetHeight(
-  viewportHeight: Dp,
-  topSafeInset: Dp,
-  minimumUsefulHeight: Dp,
-): Dp =
-  minOf(
-    (viewportHeight - topSafeInset).coerceAtLeast(0.dp),
-    maxOf(viewportHeight / 2, minimumUsefulHeight),
-  )
-
-internal fun visibleSheetHeight(viewportHeightPx: Int, sheetOffsetPx: Float): Int =
-  (viewportHeightPx - sheetOffsetPx).toInt().coerceIn(0, viewportHeightPx)

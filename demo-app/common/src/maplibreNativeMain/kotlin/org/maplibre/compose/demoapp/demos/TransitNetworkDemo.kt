@@ -355,13 +355,13 @@ object TransitNetworkDemo : Demo {
   }
 
   @Composable
-  override fun MapContent(camera: CameraState) {
+  override fun MapContent(cameraState: CameraState) {
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId
 
     LaunchedEffect(selected) {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
-      camera.animateTo(
+      cameraState.animateTo(
         boundingBox = route.bounds,
         padding = RouteFitPadding,
         duration = 1.seconds,

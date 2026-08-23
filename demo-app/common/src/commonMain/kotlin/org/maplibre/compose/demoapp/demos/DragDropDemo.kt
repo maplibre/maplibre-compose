@@ -124,7 +124,7 @@ object DragDropDemo : Demo {
     )
 
   @Composable
-  override fun MapContent(camera: CameraState) {
+  override fun MapContent(cameraState: CameraState) {
     if (mode != Mode.BoundingBox) return
     val source =
       rememberGeoJsonSource(

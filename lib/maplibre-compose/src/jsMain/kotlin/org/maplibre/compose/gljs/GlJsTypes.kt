@@ -187,10 +187,6 @@ internal external interface CameraForBoundsOptions : CameraOptions {
   var padding: PaddingOptions?
 }
 
-internal external interface FitBoundsOptions : FlyToOptions {
-  var linear: Boolean?
-}
-
 internal external interface Painter {
   val context: Context
 }

@@ -97,7 +97,7 @@ fun DemoPanel(
             demo.preferredStyle?.let { state.selectedStyle = it }
             state.selectedDemo = demo
             navController.navigate("demo")
-            state.camera.flyTo(demo.destination)
+            state.cameraState.flyTo(demo.destination)
           }
         },
         onOpenBenchmarks = {

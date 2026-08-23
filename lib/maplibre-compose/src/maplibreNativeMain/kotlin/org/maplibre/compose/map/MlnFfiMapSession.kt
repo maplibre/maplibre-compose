@@ -155,7 +155,7 @@ internal class MlnFfiMapSession(
 
   @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
 
-  @Volatile private var cameraPadding: EdgeInsets = EdgeInsets(0.0, 0.0, 0.0, 0.0)
+  @Volatile private var cameraPadding: EdgeInsets = EdgeInsets.ZERO
 
   /** One-shot map actions accepted before this session starts. Guarded by [stateLock]. */
   private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)

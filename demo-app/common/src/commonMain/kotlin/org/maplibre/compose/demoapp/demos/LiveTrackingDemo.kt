@@ -112,9 +112,9 @@ object LiveTrackingDemo : Demo {
   }
 
   @Composable
-  override fun MapContent(camera: CameraState) {
-    LaunchedEffect(camera.moveReason) {
-      if (camera.moveReason == CameraMoveReason.GESTURE) {
+  override fun MapContent(cameraState: CameraState) {
+    LaunchedEffect(cameraState.moveReason) {
+      if (cameraState.moveReason == CameraMoveReason.GESTURE) {
         followVehicle = false
       }
     }
@@ -129,7 +129,7 @@ object LiveTrackingDemo : Demo {
           vehiclePosition = positionAt(routeLength - abs(phase - routeLength))
         }
         if (followVehicle) {
-          camera.position = camera.position.copy(target = vehiclePosition)
+          cameraState.position = cameraState.position.copy(target = vehiclePosition)
         }
       }
     }

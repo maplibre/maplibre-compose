@@ -34,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -172,7 +173,7 @@ private fun rememberVisibleSheetHeight(
   scaffoldState: BottomSheetScaffoldState,
   viewportHeightPx: Int,
   maximumHeightPx: Int,
-  density: androidx.compose.ui.unit.Density,
+  density: Density,
 ): State<Dp> =
   produceState(
     initialValue = SheetPeekHeight,
@@ -190,6 +191,19 @@ private fun rememberVisibleSheetHeight(
         value = with(density) { visiblePx.toDp() }
       }
   }
+
+private fun maximumSheetHeight(
+  viewportHeight: Dp,
+  topSafeInset: Dp,
+  minimumUsefulHeight: Dp,
+): Dp =
+  minOf(
+    (viewportHeight - topSafeInset).coerceAtLeast(0.dp),
+    maxOf(viewportHeight / 2, minimumUsefulHeight),
+  )
+
+private fun visibleSheetHeight(viewportHeightPx: Int, sheetOffsetPx: Float): Int =
+  (viewportHeightPx - sheetOffsetPx).toInt().coerceIn(0, viewportHeightPx)
 
 @Composable
 private fun ShellMap(state: DemoAppState, viewportInsets: MapViewportInsets) {

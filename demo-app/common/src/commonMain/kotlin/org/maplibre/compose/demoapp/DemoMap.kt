@@ -44,8 +44,6 @@ internal suspend fun CameraState.flyTo(destination: DemoDestination) {
     is DemoDestination.FitBounds ->
       animateTo(
         boundingBox = destination.bounds,
-        bearing = destination.bearing,
-        tilt = destination.tilt,
         padding = DemoBoundsPadding,
         duration = DemoFlightDuration,
       )
@@ -59,7 +57,7 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       baseStyle = state.selectedStyle.base,
-      cameraState = state.camera,
+      cameraState = state.cameraState,
       cameraPadding = viewportInsets.asPaddingValues(),
       styleState = state.styleState,
       options =
@@ -83,7 +81,7 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       allDemos.forEach { demo ->
         key(demo) {
           if (demo == state.selectedDemo) {
-            demo.MapContent(state.camera)
+            demo.MapContent(state.cameraState)
           }
         }
       }
@@ -91,14 +89,13 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
 
     val scope = rememberCoroutineScope()
     Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
-      state.selectedDemo
-        ?.let { demo -> demo.pointerPin?.let { demo to it } }
-        ?.let { (demo, pointerPin) ->
+      state.selectedDemo?.let { demo ->
+        demo.pointerPin?.let { pointerPin ->
           // The pin fills this box to place itself; sizing the pin itself is up to its content.
           PointerPinButton(
-            cameraState = state.camera,
+            cameraState = state.cameraState,
             targetPosition = pointerPin.target,
-            onClick = { scope.launch { state.camera.flyTo(pointerPin.destination) } },
+            onClick = { scope.launch { state.cameraState.flyTo(pointerPin.destination) } },
           ) {
             Icon(
               vectorResource(Res.drawable.filter_center_focus_24px),
@@ -106,6 +103,7 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
             )
           }
         }
+      }
 
       DiagnosticOverlays(state = state, modifier = Modifier.align(Alignment.TopCenter))
     }
@@ -135,7 +133,7 @@ private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifie
       )
     }
     if (state.settings.showCameraOverlay) {
-      val position = state.camera.position
+      val position = state.cameraState.position
       Text(
         text =
           "lat ${position.target.latitude.format(4)} " +

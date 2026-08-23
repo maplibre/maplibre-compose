@@ -23,7 +23,7 @@ enum class DemoShell {
 /** The state the shell owns: the shared map, the selection, and the settings. */
 @Stable
 class DemoAppState(
-  val camera: CameraState,
+  val cameraState: CameraState,
   val styleState: StyleState,
   val settings: DemoSettings,
   val frameRateState: FrameRateState,
@@ -37,9 +37,9 @@ class DemoAppState(
 
 @Composable
 fun rememberDemoAppState(): DemoAppState {
-  val camera = rememberCameraState()
+  val cameraState = rememberCameraState()
   val styleState = rememberStyleState()
   val settings = rememberDemoSettings()
   val frameRateState = remember { FrameRateState() }
-  return remember { DemoAppState(camera, styleState, settings, frameRateState) }
+  return remember { DemoAppState(cameraState, styleState, settings, frameRateState) }
 }

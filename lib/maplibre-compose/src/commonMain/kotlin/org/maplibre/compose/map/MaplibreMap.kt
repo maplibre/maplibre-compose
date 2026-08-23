@@ -52,8 +52,8 @@ import org.maplibre.spatialk.geojson.Position
  *   [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param cameraState The camera state specifies what position of the map is rendered, at what zoom,
  *   at what tilt, etc.
- * @param cameraPadding Insets from the map edges to the camera viewport. The camera targets the
- *   center of this viewport, and bounds-fit padding is additional.
+ * @param cameraPadding Insets that shift the camera center. A bounds move adds its padding to these
+ *   insets.
  * @param zoomRange The allowable camera zoom range.
  * @param pitchRange The allowable camera pitch range.
  * @param boundingBox The allowable bounds for the camera position. On iOS and Web, it prevents the
@@ -69,9 +69,7 @@ import org.maplibre.spatialk.geojson.Position
  * @param logger kermit logger to use.
  * @param onMapLoadFailed Invoked when the map failed to load.
  * @param onMapLoadFinished Invoked when the map finished loading.
- * @param contentWindowInsets Insets applied to [overlay]. The default, [WindowInsets.safeDrawing],
- *   accounts for insets that an ancestor has already consumed, so a map inside a scaffold gets zero
- *   and a full-bleed map gets the system bars.
+ * @param contentWindowInsets Insets applied to [overlay]. Defaults to safe drawing insets.
  * @param overlay Controls drawn on top of the map. [MapOverlay.Default] draws the MapLibre logo and
  *   an attribution button; [MapOverlay.None] draws the map alone.
  *   [Modifier.placedAt][org.maplibre.compose.overlay.MapOverlayScope.placedAt] in the overlay pins

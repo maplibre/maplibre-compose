@@ -53,7 +53,7 @@ object CastelloPlanDemo : Demo {
     )
 
   @Composable
-  override fun MapContent(camera: CameraState) {
+  override fun MapContent(cameraState: CameraState) {
     val source =
       rememberImageSource(position = corners, uri = Res.getUri("files/castello-plan.jpg"))
     RasterLayer(id = "castello-plan", source = source, opacity = const(opacity))

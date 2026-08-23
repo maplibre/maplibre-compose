@@ -52,7 +52,7 @@ object DataVizDemo : Demo {
   private val magnitude = feature["mag"].asNumber()
 
   @Composable
-  override fun MapContent(camera: CameraState) {
+  override fun MapContent(cameraState: CameraState) {
     when (mode) {
       Mode.Points -> Points()
       Mode.Heatmap -> Heatmap()

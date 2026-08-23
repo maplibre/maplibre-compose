@@ -44,8 +44,6 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun getPitch(): Double
 
-  fun getPadding(): PaddingOptions
-
   fun getBounds(): LngLatBounds
 
   fun jumpTo(options: JumpToOptions)
@@ -55,8 +53,6 @@ internal external class MaplibreMap(options: MapOptions) {
   fun flyTo(options: FlyToOptions)
 
   fun cameraForBounds(bounds: LngLatBounds, options: CameraForBoundsOptions): CenterZoomBearing?
-
-  fun fitBounds(bounds: LngLatBounds, options: FitBoundsOptions)
 
   fun panBy(offset: Point, options: EaseToOptions)
 

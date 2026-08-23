@@ -42,19 +42,14 @@ themed from your color scheme and typography.
 
 ## Inset overlays and the camera
 
-Use `contentWindowInsets` to inset overlay controls and `cameraPadding` to inset
-the camera viewport. They can use the same values or vary independently.
-
-The default `contentWindowInsets` is `WindowInsets.safeDrawing`. It excludes
-insets that an ancestor already applied.
+Use `contentWindowInsets` to inset overlay controls. Use `cameraPadding` to shift
+the camera center. They can use the same values or vary independently.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
 1. `union` takes the larger inset on each edge.
 
-`cameraPadding` is persistent while the map is composed. Padding passed to a
-bounding-box camera move adds temporary space around those bounds without
-changing the persistent value.
+Padding on a bounding-box camera move adds to `cameraPadding` for that fit.
 
 ## Pin Compose UI to a location
 
