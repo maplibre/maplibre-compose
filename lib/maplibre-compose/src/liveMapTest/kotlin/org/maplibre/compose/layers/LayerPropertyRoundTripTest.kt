@@ -33,6 +33,7 @@ import org.maplibre.compose.expressions.value.CirclePitchAlignment
 import org.maplibre.compose.expressions.value.CirclePitchScale
 import org.maplibre.compose.expressions.value.ExpressionValue
 import org.maplibre.compose.expressions.value.FloatValue
+import org.maplibre.compose.expressions.value.HillshadeMethod
 import org.maplibre.compose.expressions.value.IconPitchAlignment
 import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.IconTextFit
@@ -326,7 +327,12 @@ class LayerPropertyRoundTripTest {
           it.setFillTranslateAnchor(const(TranslateAnchor.Viewport).c())
         },
         Case("fill-pattern", """["image","brick"]""") { it.setFillPattern(image("brick").c()) },
-      )
+      ) + glJsOnlyFillCases()
+
+    /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
+    fun glJsOnlyFillCases(): List<Case<FillLayer>> =
+      if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
+      else listOf(Case("fill-layer-opacity", "0.4") { it.setFillLayerOpacity(const(0.4f).c()) })
 
     val FILL_EXTRUSION_CASES =
       listOf<Case<FillExtrusionLayer>>(
@@ -420,7 +426,12 @@ class LayerPropertyRoundTripTest {
               .c()
           )
         },
-      )
+      ) + glJsOnlyLineCases()
+
+    /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
+    fun glJsOnlyLineCases(): List<Case<LineLayer>> =
+      if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
+      else listOf(Case("line-layer-opacity", "0.4") { it.setLineLayerOpacity(const(0.4f).c()) })
 
     val RASTER_CASES =
       listOf<Case<RasterLayer>>(
@@ -441,9 +452,24 @@ class LayerPropertyRoundTripTest {
 
     val HILLSHADE_CASES =
       listOf<Case<HillshadeLayer>>(
+        Case("hillshade-method", "\"igor\"") {
+          it.setHillshadeMethod(const(HillshadeMethod.Igor).c())
+        },
         // Reported inside an array: MapLibre Native's hillshade takes a list of light sources.
         Case("hillshade-illumination-direction", "[200.0]", "200.0") {
           it.setHillshadeIlluminationDirection(const(200f).c())
+        },
+        Case("hillshade-illumination-altitude", "[30.0]", "30.0") {
+          it.setHillshadeIlluminationAltitude(const(30f).c())
+        },
+        // The multidirectional method takes one direction and altitude per light source.
+        Case("hillshade-illumination-direction", "[210.0,300.0]", """["literal",[210.0,300.0]]""") {
+          it.setHillshadeMethod(const(HillshadeMethod.Multidirectional).c())
+          it.setHillshadeIlluminationDirection(const(listOf(210, 300)).c())
+        },
+        Case("hillshade-illumination-altitude", "[30.0,60.0]", """["literal",[30.0,60.0]]""") {
+          it.setHillshadeMethod(const(HillshadeMethod.Multidirectional).c())
+          it.setHillshadeIlluminationAltitude(const(listOf(30, 60)).c())
         },
         Case("hillshade-illumination-anchor", "\"map\"") {
           it.setHillshadeIlluminationAnchor(const(IlluminationAnchor.Map).c())
@@ -467,7 +493,17 @@ class LayerPropertyRoundTripTest {
         ) {
           it.setHillshadeAccentColor(const(Color.Cyan).c())
         },
-      )
+      ) + glJsOnlyHillshadeCases()
+
+    /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
+    fun glJsOnlyHillshadeCases(): List<Case<HillshadeLayer>> =
+      if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
+      else
+        listOf(
+          Case("resampling", "\"nearest\"") {
+            it.setResampling(const(RasterResampling.Nearest).c())
+          }
+        )
 
     val COLOR_RELIEF_CASES =
       listOf<Case<ColorReliefLayer>>(

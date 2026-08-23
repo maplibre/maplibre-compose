@@ -46,6 +46,13 @@ import org.maplibre.compose.util.MaplibreComposable
  *
  * @param opacity Fill opacity. A value in range `[0..1]`. The expression may use feature properties
  *   and feature state.
+ * @param layerOpacity Opacity applied to the layer as a whole. Unlike [opacity] and the alpha of
+ *   [color], which apply per feature and accumulate where fills overlap, this value is applied once
+ *   so overlapping fills appear as a single surface. A value in range `[0..1]`.
+ *
+ *   Not yet supported on native
+ *   ([maplibre-native#4298](https://github.com/maplibre/maplibre-native/issues/4298)).
+ *
  * @param color Fill color. The expression may use feature properties and feature state.
  *
  *   Ignored if [pattern] is specified.
@@ -76,6 +83,7 @@ public fun FillLayer(
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
+  layerOpacity: Expression<FloatValue> = nil(),
   color: Expression<ColorValue> = const(Color.Black),
   pattern: Expression<ImageValue> = nil(),
   antialias: Expression<BooleanValue> = const(true),
@@ -90,6 +98,7 @@ public fun FillLayer(
   val compiledTranslate = compile(translate)
   val compiledAntialias = compile(antialias)
   val compiledOpacity = compile(opacity)
+  val compiledLayerOpacity = compile(layerOpacity)
   val compiledColor = compile(color)
   val compiledPattern = compile(pattern)
   val compiledTranslateAnchor = compile(translateAnchor)
@@ -108,6 +117,7 @@ public fun FillLayer(
       set(compiledSortKey) { layer.setFillSortKey(it) }
       set(compiledAntialias) { layer.setFillAntialias(it) }
       set(compiledOpacity) { layer.setFillOpacity(it) }
+      set(compiledLayerOpacity) { layer.setFillLayerOpacity(it) }
       set(compiledColor) { layer.setFillColor(it) }
       set(compiledOutlineColor) { layer.setFillOutlineColor(it) }
       set(compiledTranslate) { layer.setFillTranslate(it) }
@@ -143,6 +153,10 @@ internal class FillLayer(id: String, source: Source) : FeatureLayer(id, source) 
 
   fun setFillOpacity(opacity: CompiledExpression<FloatValue>) {
     setPaintProperty("fill-opacity", opacity)
+  }
+
+  fun setFillLayerOpacity(layerOpacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("fill-layer-opacity", layerOpacity)
   }
 
   fun setFillColor(color: CompiledExpression<ColorValue>) {

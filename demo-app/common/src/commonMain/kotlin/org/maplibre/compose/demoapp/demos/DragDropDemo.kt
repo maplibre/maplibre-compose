@@ -27,6 +27,7 @@ import kotlin.math.roundToInt
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
+import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
@@ -145,7 +146,7 @@ object DragDropDemo : Demo {
   }
 
   @Composable
-  override fun MapOverlayScope.Overlay() {
+  override fun MapOverlayScope.Overlay(state: DemoAppState) {
     when (mode) {
       Mode.Pin ->
         Pin(
@@ -172,7 +173,7 @@ object DragDropDemo : Demo {
   }
 
   @Composable
-  override fun Panel() {
+  override fun Panel(state: DemoAppState) {
     SegmentedRow(
       label = "Drag",
       options = Mode.entries,

@@ -1,5 +1,6 @@
 package org.maplibre.compose.mlnffi
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -34,6 +35,7 @@ internal fun IosMlnFfiSurface(
   maximumFps: Int? = null,
   modifier: Modifier,
   logger: Logger?,
+  presentWindow: Boolean = true,
 ) {
   val lifecycleOwner = LocalLifecycleOwner.current
   val controller = remember(renderer) { IosMlnFfiSurfaceController(renderer, logger, maximumFps) }
@@ -64,6 +66,12 @@ internal fun IosMlnFfiSurface(
       }
       onDispose {}
     }
+    return
+  }
+
+  // Styles load without a surface.
+  if (!presentWindow) {
+    Box(modifier)
     return
   }
 
@@ -106,7 +114,10 @@ private class IosMetalMapView(frame: CValue<CGRect>) : UIView(frame) {
 
   init {
     userInteractionEnabled = false
-    opaque = true
+    // Never opaque, matching MLNMapView: an unpresented Metal layer would otherwise fill with
+    // black.
+    opaque = false
+    metalLayer.opaque = false
     metalLayer.pixelFormat = MTLPixelFormatBGRA8Unorm
   }
 

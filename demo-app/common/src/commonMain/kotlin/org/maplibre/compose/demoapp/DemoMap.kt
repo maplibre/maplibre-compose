@@ -79,7 +79,7 @@ fun DemoMap(state: DemoAppState, sheetInsets: WindowInsets = WindowInsets(0)) {
           include(
             if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
           )
-          state.selectedDemo?.let { demo -> key(demo) { with(demo) { Overlay() } } }
+          state.selectedDemo?.let { demo -> key(demo) { with(demo) { Overlay(state) } } }
         },
     ) {
       // Keyed: without it, layers and sources are identified by position, so switching demos

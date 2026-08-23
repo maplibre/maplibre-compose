@@ -89,6 +89,26 @@ class MlnFfiMapCompositionTest {
     )
   }
 
+  /** Style loading needs no rendering, so no frame runs — and none is drawn — before a style. */
+  @Test
+  fun an_unloaded_style_keeps_the_transparent_load_placeholder() = runFfiComposeUiTest {
+    val errors = RecordingList<String>()
+    val frames = AtomicInt(0)
+    setFfiTestMapContent(runtimeOptions) {
+      MaplibreMap(
+        modifier = Modifier,
+        baseStyle = BaseStyle.Uri("https://example.invalid/style.json"),
+        logger = Logger.withTag("composition-test"),
+        onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+        onFrame = { frames.incrementAndFetch() },
+      )
+    }
+    waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { errors.isNotEmpty() }
+    onNodeWithTag(MAP_LOAD_PLACEHOLDER_TAG).assertExists()
+    assertEquals(0, frames.load(), "A frame was rendered before the style loaded: $errors")
+    assertTrue(errors.any { it.startsWith("mapLoadFailed") }, "The load was not reported: $errors")
+  }
+
   /** The exact shape the offline demo composes, in the no-packs state the screen opens in. */
   @Test
   fun the_offline_demo_layer_composes_without_error() = runBridgeMapTest { errors, onFrame ->

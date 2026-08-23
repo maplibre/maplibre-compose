@@ -15,6 +15,7 @@ import kotlin.math.sqrt
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
+import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
@@ -156,7 +157,7 @@ object LiveTrackingDemo : Demo {
   }
 
   @Composable
-  override fun Panel() {
+  override fun Panel(state: DemoAppState) {
     SwitchRow(
       label = "Follow the ferry",
       checked = followVehicle,

@@ -9,6 +9,7 @@ import org.maplibre.compose.demoapp.demos.DataVizDemo
 import org.maplibre.compose.demoapp.demos.DragDropDemo
 import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.LocationDemo
+import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
@@ -50,14 +51,18 @@ interface Demo {
   @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
 
   /**
-   * Compose UI drawn over the map while this demo is selected.
+   * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's
+   * settings, style, and camera.
    *
    * [org.maplibre.compose.overlay.MapOverlayScope.placedAt] pins a child to a geographic position.
    */
-  @UiComposable @Composable fun MapOverlayScope.Overlay() {}
+  @UiComposable @Composable fun MapOverlayScope.Overlay(state: DemoAppState) {}
 
-  /** Controls shown in the sheet or side panel while this demo is selected. */
-  @UiComposable @Composable fun Panel() {}
+  /**
+   * Controls shown in the sheet or side panel while this demo is selected. [state] exposes the
+   * shell's settings, style, and camera.
+   */
+  @UiComposable @Composable fun Panel(state: DemoAppState) {}
 }
 
 val Demo.center: Position
@@ -72,6 +77,11 @@ internal expect val extraDemos: List<Demo>
 
 /** Demos appear in the shell in this order. */
 val allDemos: List<Demo> =
-  listOf(Manhattan3dDemo, CastelloPlanDemo, DataVizDemo, LiveTrackingDemo, DragDropDemo) +
-    extraDemos +
-    listOf(LocationDemo)
+  listOf(
+    Manhattan3dDemo,
+    CastelloPlanDemo,
+    DataVizDemo,
+    LiveTrackingDemo,
+    DragDropDemo,
+    MagnifyingLensDemo,
+  ) + extraDemos + listOf(LocationDemo)

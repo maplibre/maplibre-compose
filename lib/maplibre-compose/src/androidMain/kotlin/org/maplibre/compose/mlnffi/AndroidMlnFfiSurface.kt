@@ -3,6 +3,7 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.foundation.AndroidEmbeddedExternalSurface
 import androidx.compose.foundation.AndroidExternalSurface
 import androidx.compose.foundation.AndroidExternalSurfaceZOrder
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.SideEffect
@@ -23,6 +24,7 @@ internal fun AndroidMlnFfiSurface(
   maximumFps: Int? = null,
   modifier: Modifier,
   logger: Logger?,
+  presentWindow: Boolean = true,
 ) {
   val density = LocalDensity.current.density.toDouble()
   val lifecycleOwner = LocalLifecycleOwner.current
@@ -58,9 +60,16 @@ internal fun AndroidMlnFfiSurface(
     return
   }
 
+  // An empty SurfaceView would punch a black hole; styles load without a surface.
+  if (!presentWindow) {
+    Box(modifier)
+    return
+  }
+
   when (kind) {
     AndroidMapSurfaceKind.Texture ->
-      AndroidEmbeddedExternalSurface(modifier = modifier, isOpaque = true) {
+      // Never opaque: before its first swap a TextureView would otherwise fill with black.
+      AndroidEmbeddedExternalSurface(modifier = modifier, isOpaque = false) {
         onSurface { surface, width, height ->
           controller.surfaceCreated(surface, width, height, density)
           surface.onChanged { changedWidth, changedHeight ->
@@ -72,7 +81,8 @@ internal fun AndroidMlnFfiSurface(
     AndroidMapSurfaceKind.Surface ->
       AndroidExternalSurface(
         modifier = modifier,
-        isOpaque = true,
+        // Never opaque: before its first swap the hole would otherwise read as black.
+        isOpaque = false,
         // Behind the window, matching MapLibre's MapView: Compose overlays draw on top of the map.
         zOrder = AndroidExternalSurfaceZOrder.Behind,
       ) {

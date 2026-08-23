@@ -15,6 +15,7 @@ import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
+import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.expressions.dsl.const
@@ -55,7 +56,7 @@ object CastelloPlanDemo : Demo {
   }
 
   @Composable
-  override fun Panel() {
+  override fun Panel(state: DemoAppState) {
     Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
       Text("Overlay opacity", style = MaterialTheme.typography.bodyLarge)
       Slider(value = opacity, onValueChange = { opacity = it })
