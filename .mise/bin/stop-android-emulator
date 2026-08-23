@@ -7,6 +7,13 @@ project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." &
 state_dir="$project_root/build/android-emulator"
 pid_file="$state_dir/emulator.pid"
 adb="$("$(dirname "${BASH_SOURCE[0]}")/android-sdk-root")/platform-tools/adb"
+launchd_label=org.maplibre.compose.android-emulator
+
+# A submitted launchd job restarts its process after `adb emu kill`, so remove
+# the job before asking the emulator to shut down.
+if [[ "$(uname -s)" == Darwin ]]; then
+  launchctl remove "$launchd_label" 2>/dev/null || true
+fi
 
 # Unconditional: the port must be free before another AVD can claim it.
 if [[ -x "$adb" ]]; then

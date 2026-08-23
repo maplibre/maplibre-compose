@@ -95,7 +95,7 @@ For a machine with no SDK, install the pinned SDK with
 
 - **Android host:** `mise run test:android`
 - **Android device:** `mise run test:android:device [api-level]` (boots its own
-  headless emulator; `android-emulator:boot`/`:stop` drive it directly)
+  headless emulator; `android-emulator:boot` opens a window by default)
 - **iOS:** `mise run test:ios` (boots its own simulator)
 - **Web:** `mise run test:js`
 - **Desktop:** `mise run test:desktop` (add `--backend <name>` to package a
