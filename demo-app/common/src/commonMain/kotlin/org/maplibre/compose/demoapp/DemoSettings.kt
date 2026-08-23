@@ -31,6 +31,23 @@ class DemoSettings {
  */
 @Composable expect fun RenderSettingsItems(settings: DemoSettings)
 
+/**
+ * The magnifying lens demo's rendering rows: the app's render mode and the lens map's own, on
+ * platforms that offer the choice. Empty on the web target, which has no render mode.
+ */
+@Composable
+expect fun LensRenderSection(
+  settings: DemoSettings,
+  lensOptions: RenderOptions,
+  onLensChange: (RenderOptions) -> Unit,
+)
+
+/**
+ * The lens map's initial render options: texture mode where a texture-versus-surface choice exists,
+ * so the lens's modifiers apply out of the box.
+ */
+expect val LensRenderOptionsDefault: RenderOptions
+
 /** Presets for [TileLodOptions], shared because every platform exposes the same three. */
 @Composable
 fun TileLodSettingsItems(settings: DemoSettings) {

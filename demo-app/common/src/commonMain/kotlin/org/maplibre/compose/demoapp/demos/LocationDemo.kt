@@ -16,6 +16,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
+import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoFlightDuration
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.ButtonRow
@@ -115,7 +116,7 @@ object LocationDemo : Demo {
   }
 
   @Composable
-  override fun Panel() {
+  override fun Panel(state: DemoAppState) {
     Text(
       text = panelLocationState?.statusMessage() ?: "Starting location",
       style = MaterialTheme.typography.bodyMedium,

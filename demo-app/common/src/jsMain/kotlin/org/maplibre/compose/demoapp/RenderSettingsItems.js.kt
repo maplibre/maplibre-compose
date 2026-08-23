@@ -3,6 +3,7 @@ package org.maplibre.compose.demoapp
 import androidx.compose.runtime.Composable
 import org.maplibre.compose.demoapp.design.FpsCapRow
 import org.maplibre.compose.demoapp.design.SwitchRow
+import org.maplibre.compose.map.RenderOptions
 
 @Composable
 actual fun RenderSettingsItems(settings: DemoSettings) {
@@ -21,3 +22,12 @@ actual fun RenderSettingsItems(settings: DemoSettings) {
     settings.renderOptions = options.copy(isOverdrawInspectorEnabled = it)
   }
 }
+
+@Composable
+actual fun LensRenderSection(
+  settings: DemoSettings,
+  lensOptions: RenderOptions,
+  onLensChange: (RenderOptions) -> Unit,
+) {}
+
+actual val LensRenderOptionsDefault: RenderOptions = RenderOptions.Standard
