@@ -33,7 +33,5 @@ dependencies {
   implementation(libs.androidx.activity.compose)
   implementation(libs.jetbrains.compose.ui.tooling)
 
-  // The Android map renders with the backend this runtime carries; swap for
-  // maplibre-compose-runtime-vulkan-android to run the Vulkan host.
-  implementation(project(":lib:maplibre-compose-runtime-opengl-android"))
+  runtimeOnly(project(":lib:maplibre-compose-runtime-opengl-android"))
 }

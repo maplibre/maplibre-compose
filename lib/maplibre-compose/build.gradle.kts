@@ -99,9 +99,6 @@ kotlin {
       }
     }
 
-    // The application picks the Android FFI runtime (OpenGL or Vulkan), which names the same
-    // libmaplibre-native-c.so and so cannot be packaged together; see the runtime artifacts.
-
     jvmMain.apply {
       dependencies {
         implementation(compose.desktop.currentOs)

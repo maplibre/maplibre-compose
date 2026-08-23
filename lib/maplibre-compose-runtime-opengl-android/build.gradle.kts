@@ -21,7 +21,6 @@ android {
 }
 
 dependencies {
-  // The runtime artifacts name the same libmaplibre-native-c.so, so an application packages
-  // exactly one of them; the map picks the host the packaged runtime renders with.
+  // api rather than runtimeOnly: the AAR's classes.jar is what carries the packaging.
   api(libs.maplibre.nativeFfi.runtimeOpenGl)
 }

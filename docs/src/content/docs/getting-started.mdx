@@ -84,7 +84,7 @@ choice; Vulkan serves devices where you prefer it.
 androidMain {
   dependencies {
     // The OpenGL host presents through an EGL window surface.
-    implementation("org.maplibre.compose:maplibre-compose-runtime-opengl-android:{{release}}")
+    runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-opengl-android:{{release}}")
   }
 }
 ```
