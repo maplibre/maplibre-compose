@@ -226,8 +226,8 @@ fi
 
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."
-# The Android runtime artifacts build a native shim, so the SDK packages come
-# along before Gradle publishes.
+# Publishing builds the Vulkan runtime AAR, which compiles its native shim, so
+# the pinned NDK and CMake must be in the SDK the build resolves first.
 depends = ["android-sdk-packages"]
 run = ".mise/bin/gradle-with-version snapshot publishToMavenCentral"
 

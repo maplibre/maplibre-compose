@@ -19,6 +19,10 @@ android {
 
   compileSdk = libs.versions.android.compileSdk.get().toInt()
 
+  // The revision .mise/bin/sync-android-packages pins, so every machine builds
+  // the same shim rather than taking whatever NDK it happens to have.
+  ndkVersion = "28.2.13676358"
+
   defaultConfig {
     minSdk = libs.versions.android.minSdk.get().toInt()
 
