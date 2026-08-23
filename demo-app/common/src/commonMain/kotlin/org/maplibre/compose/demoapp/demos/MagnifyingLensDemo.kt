@@ -37,8 +37,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
-import org.maplibre.compose.demoapp.LensRenderOptionsDefault
-import org.maplibre.compose.demoapp.LensRenderSection
+import org.maplibre.compose.demoapp.DemoSettings
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
@@ -46,6 +45,7 @@ import org.maplibre.compose.demoapp.design.SliderRow
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -171,3 +171,20 @@ object MagnifyingLensDemo : Demo {
     SliderRow("Size", lensSize, 128f..360f) { lensSize = it }
   }
 }
+
+/**
+ * This demo's rendering rows: the app's render mode and the lens map's own, on platforms that offer
+ * the choice. Empty on the web target, which has no render mode.
+ */
+@Composable
+expect fun LensRenderSection(
+  settings: DemoSettings,
+  lensOptions: RenderOptions,
+  onLensChange: (RenderOptions) -> Unit,
+)
+
+/**
+ * The lens map's initial render options: texture mode where a texture-versus-surface choice exists,
+ * because Android applies Compose modifiers to the map only in texture mode.
+ */
+expect val LensRenderOptionsDefault: RenderOptions
