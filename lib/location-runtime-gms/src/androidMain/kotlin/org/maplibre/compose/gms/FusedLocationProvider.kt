@@ -60,6 +60,8 @@ internal constructor(
   private val permissionDelegate: LocationProvider?,
 ) : LocationProvider {
 
+  override val backendId: String = GmsLocationBackendId
+
   /**
    * Creates a provider backed by [locationClient].
    *

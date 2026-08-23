@@ -2,6 +2,7 @@ package org.maplibre.compose.location
 
 import kotlin.test.Test
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
@@ -13,6 +14,11 @@ import kotlinx.coroutines.test.runTest
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class LocationProviderTest {
+  @Test
+  fun backendIdDefaultsToNull() {
+    assertNull(FakeLocationProvider().backendId)
+  }
+
   @Test
   fun cancellingCollectionStopsUpdates() = runTest {
     val provider = FakeLocationProvider()

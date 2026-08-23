@@ -16,7 +16,7 @@ import org.maplibre.compose.location.createDefaultLocationProvider
  * provider on a device without it. Android's framework provider continues to supply orientation.
  */
 public class HmsLocationBackend : AndroidLocationBackend {
-  override val id: String = "hms-fused"
+  override val id: String = HmsLocationBackendId
 
   override fun isAvailable(context: Context): Boolean =
     HuaweiApiAvailability.getInstance().isHuaweiMobileServicesAvailable(context) ==
@@ -25,3 +25,5 @@ public class HmsLocationBackend : AndroidLocationBackend {
   override fun createLocationProvider(context: Context): LocationProvider =
     FusedLocationProvider(context)
 }
+
+internal const val HmsLocationBackendId: String = "hms-fused"

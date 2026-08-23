@@ -63,17 +63,25 @@ object LocationDemo : Demo {
   private var useNativeIndicator by mutableStateOf(false)
   private var lastFix by mutableStateOf<Position?>(null)
   private var panelLocationState by mutableStateOf<LocationState?>(null)
+  private var panelLocationBackendId by mutableStateOf<String?>(null)
 
   @Composable
   override fun MapContent(cameraState: CameraState) {
+    val locationProvider = engine.rememberLocationProvider()
     val locationState =
       rememberLocationState(
-        provider = engine.rememberLocationProvider(),
+        provider = locationProvider,
         orientationProvider = engine.rememberOrientationProvider(),
       )
-    DisposableEffect(locationState) {
+    DisposableEffect(locationState, locationProvider) {
       panelLocationState = locationState
-      onDispose { if (panelLocationState === locationState) panelLocationState = null }
+      panelLocationBackendId = locationProvider.backendId
+      onDispose {
+        if (panelLocationState === locationState) {
+          panelLocationState = null
+          panelLocationBackendId = null
+        }
+      }
     }
     LaunchedEffect(locationState) { locationState.requestPermission() }
 
@@ -155,6 +163,16 @@ object LocationDemo : Demo {
         optionLabel = { it.label },
         onSelect = { engine = it },
       )
+      if (engine === DefaultLocationEngine) {
+        panelLocationBackendId?.let { backendId ->
+          Text(
+            text = "Selected provider: $backendId",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+          )
+        }
+      }
     }
   }
 }

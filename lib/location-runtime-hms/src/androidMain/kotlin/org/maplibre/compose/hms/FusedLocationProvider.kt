@@ -55,6 +55,8 @@ internal constructor(
   private val permissionDelegate: LocationProvider?,
 ) : LocationProvider {
 
+  override val backendId: String = HmsLocationBackendId
+
   /**
    * Creates a provider backed by [locationClient].
    *
