@@ -64,6 +64,16 @@ internal suspend fun CameraState.flyTo(destination: DemoDestination) {
 /** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
 @Composable
 fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+  val scope = rememberCoroutineScope()
+  val selectedDemo = state.selectedDemo
+  val pointerPin = selectedDemo?.pointerPin
+  val placementPadding =
+    PaddingValues.Absolute(
+      left = viewportInsets.left + MapOverlay.Spacing,
+      top = viewportInsets.top + MapOverlay.Spacing,
+      right = viewportInsets.right + MapOverlay.Spacing,
+      bottom = viewportInsets.bottom + MapOverlay.Spacing,
+    )
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       baseStyle = state.selectedStyle.base,
@@ -83,7 +93,23 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
           include(
             if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
           )
-          state.selectedDemo?.let { demo -> key(demo) { with(demo) { Overlay(state) } } }
+          selectedDemo?.let { demo ->
+            key(demo) {
+              with(demo) { Overlay(state) }
+              pointerPin?.let {
+                PointerPinButton(
+                  cameraState = cameraState,
+                  targetPosition = it.target,
+                  onClick = { scope.launch { cameraState.flyTo(it.destination) } },
+                ) {
+                  Icon(
+                    vectorResource(Res.drawable.filter_center_focus_24px),
+                    contentDescription = "Fly back to ${demo.name}",
+                  )
+                }
+              }
+            }
+          }
         },
     ) {
       // Keyed: without it, layers and sources are identified by position, so switching demos
@@ -97,9 +123,6 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       }
     }
 
-    val scope = rememberCoroutineScope()
-    val pointerPin = state.selectedDemo?.pointerPin
-    val placementPadding = viewportInsets.asPaddingValues()
     if (state.settings.showPointerPinDiagnostics && pointerPin != null) {
       PointerPinDestinationOverlay(
         cameraState = state.cameraState,
@@ -112,22 +135,6 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
         placementPadding = placementPadding,
         modifier = Modifier.fillMaxSize(),
       )
-    }
-
-    state.selectedDemo?.let { demo ->
-      pointerPin?.let {
-        PointerPinButton(
-          cameraState = state.cameraState,
-          targetPosition = it.target,
-          placementPadding = placementPadding,
-          onClick = { scope.launch { state.cameraState.flyTo(it.destination) } },
-        ) {
-          Icon(
-            vectorResource(Res.drawable.filter_center_focus_24px),
-            contentDescription = "Fly back to ${demo.name}",
-          )
-        }
-      }
     }
 
     Box(Modifier.fillMaxSize().padding(placementPadding)) {
