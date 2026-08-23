@@ -13,6 +13,7 @@ requested="${1:-${usage_serial:-}}"
 export ANDROID_SERIAL
 ANDROID_SERIAL="$("$repository_root/.mise/bin/pick-android-device" "$requested")"
 
-"$repository_root/gradlew" :demo-app:android:installDebug
+"$repository_root/gradlew" :demo-app:android:installDebug \
+  -Pmaplibre.android.backend="${usage_backend:-opengl}"
 "$adb" -s "$ANDROID_SERIAL" shell am start \
   -n org.maplibre.compose.demoapp/.MainActivity

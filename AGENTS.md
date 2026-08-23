@@ -24,7 +24,8 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 - `mise run build:ios:device`
 - `mise run demo:desktop`
 - `mise run demo:desktop-glfw`
-- `mise run demo:android` (prompts when several devices are connected)
+- `mise run demo:android` (prompts when several devices are connected;
+  `--backend vulkan` packages the Vulkan runtime)
 - `mise run demo:ios` (pass `--device` for a connected iPhone; prompts when
   several are ready; `--release` builds the optimized framework)
 - `mise run demo:js`

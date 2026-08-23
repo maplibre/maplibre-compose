@@ -20,7 +20,7 @@ kotlin {
   android {
     namespace = "org.maplibre.compose"
     optimization {
-      // Keeps the JNI symbols of the Vulkan loader bridge linked by name.
+      // The Vulkan bridge class is resolved by JNI name.
       consumerKeepRules.publish = true
       consumerKeepRules.files.add(project.file("consumer-rules.pro"))
     }
@@ -174,8 +174,7 @@ kotlin {
       implementation(libs.androidx.activity.compose)
       implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
-      // The device suite drives the OpenGL host; the Vulkan host needs a windowing surface the
-      // test runner does not provide.
+      // The shared device-test render driver targets OpenGL.
       implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
     }
   }

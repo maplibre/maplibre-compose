@@ -48,11 +48,8 @@ if [[ -z "$compile_sdk" ]]; then
 fi
 
 # Paired with the directory that proves each is installed, so a rerun starts no
-# JVM and reaches no network.
-#
-# The NDK and CMake build the Vulkan loader shim in
-# lib/maplibre-compose-runtime-vulkan-android. The NDK is AGP's default and the
-# CMake version is the one its externalNativeBuild block pins.
+# JVM and reaches no network. The NDK and CMake build the JNI shim in
+# lib/maplibre-compose-runtime-vulkan-android.
 packages=(
   "platforms;android-${compile_sdk}|platforms/android-${compile_sdk}"
   "build-tools;${compile_sdk}.0.0|build-tools/${compile_sdk}.0.0"

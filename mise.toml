@@ -182,6 +182,7 @@ run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
 description = "Run the demo app on a connected Android device or emulator."
 usage = '''
 arg "[serial]" help="adb serial. Prompts when several devices are connected."
+flag "--backend <backend>" help="Render backend to package: opengl (default) or vulkan."
 '''
 # The device prompt needs the real terminal; mise otherwise pipes stdio.
 raw = true
@@ -226,8 +227,7 @@ fi
 
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."
-# Publishing builds the Vulkan runtime AAR, which compiles its native shim, so
-# the pinned NDK and CMake must be in the SDK the build resolves first.
+# Publishing builds the Vulkan runtime AAR, which needs the pinned NDK and CMake.
 depends = ["android-sdk-packages"]
 run = ".mise/bin/gradle-with-version snapshot publishToMavenCentral"
 

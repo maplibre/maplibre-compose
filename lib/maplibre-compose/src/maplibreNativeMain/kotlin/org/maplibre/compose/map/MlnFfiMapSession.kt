@@ -557,8 +557,6 @@ internal class MlnFfiMapSession(
     try {
       when (target) {
         is VulkanImageTarget -> session.setVulkanBorrowedTextureTarget(target.toDescriptor(extent))
-        // A Vulkan surface target keeps its `VkSurfaceKHR` across a resize; only the session's
-        // size follows the new extent.
         is VulkanSurfaceTarget -> session.resize(extent.width, extent.height, extent.scaleFactor)
         is MetalTextureTarget -> session.setMetalBorrowedTextureTarget(target.toDescriptor(extent))
         is MetalSurfaceTarget -> session.setMetalSurfaceTarget(target.toDescriptor(extent))

@@ -4,11 +4,11 @@ import android.view.Surface
 import org.maplibre.compose.map.MapExtent
 
 /**
- * The graphics context one Android map surface presents through, created for a single [Surface] and
- * closed with it. A context names the render target each frame draws into.
+ * The EGL or Vulkan context backing one host [Surface]. The context and its render target handles
+ * are closed with the surface.
  */
 internal interface AndroidMapGraphicsContext : AutoCloseable {
-  /** The target a frame at [extent] renders into, as allocation [generation] of this context. */
+  /** The render target for a frame at [extent]; [generation] distinguishes reallocations. */
   fun target(extent: MapExtent, generation: Long): MlnFfiRenderTarget
 
   companion object {

@@ -76,26 +76,22 @@ commonMain.dependencies {
 Maps use the application's private cache directory.
 
 Alongside the library, add a runtime: the native libraries for one render
-backend. The map renders with the backend the packaged runtime carries, so an
-application picks its backend by picking a dependency. OpenGL is the default
-choice; Vulkan serves devices where you prefer it.
+backend.
 
 ```kotlin title="build.gradle.kts"
 androidMain {
   dependencies {
-    // The OpenGL host presents through an EGL window surface.
     runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-opengl-android:{{release}}")
   }
 }
 ```
 
+Available runtimes:
+
 | Render backend | Runtime                                   |
 | -------------- | ----------------------------------------- |
 | OpenGL         | `maplibre-compose-runtime-opengl-android` |
 | Vulkan         | `maplibre-compose-runtime-vulkan-android` |
-
-The runtime artifacts name the same `libmaplibre-native-c.so`, so an application
-packages exactly one of them.
 
 ## Set up iOS
 

@@ -4,12 +4,8 @@ import android.view.Surface
 import org.maplibre.compose.map.MapExtent
 
 /**
- * The Vulkan instance, device, and queue a surface session renders with, and the `VkSurfaceKHR`
- * built from the host [Surface].
- *
- * A Vulkan context cannot outlive its window: the host tears it down with the session when the
- * surface goes away, and the next surface builds both anew. A resize keeps it, since the
- * `VkSurfaceKHR` keeps naming the same window.
+ * The Vulkan instance, device, queue, and `VkSurfaceKHR` for one host [Surface]. A new surface
+ * requires a new context; a resize reuses this one.
  */
 internal class AndroidVulkanContext private constructor(private var handle: Long) :
   AndroidMapGraphicsContext {
@@ -49,15 +45,14 @@ internal class AndroidVulkanContext private constructor(private var handle: Long
         AndroidVulkanContext(AndroidVulkanNativeBridge.create(surface))
       } catch (error: UnsatisfiedLinkError) {
         throw IllegalStateException(
-          "The Android Vulkan host needs the maplibre-compose-runtime-vulkan-android runtime, " +
-            "which packages its Vulkan loader shim",
+          "The Vulkan host requires the maplibre-compose-runtime-vulkan-android runtime",
           error,
         )
       }
   }
 }
 
-/** JNI bindings into the Vulkan loader shim the Vulkan runtime artifact packages. */
+/** JNI bindings for the native Vulkan loader shim. */
 private object AndroidVulkanNativeBridge {
   init {
     System.loadLibrary("maplibre_compose_vulkan")

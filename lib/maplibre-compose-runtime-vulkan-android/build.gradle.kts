@@ -19,8 +19,7 @@ android {
 
   compileSdk = libs.versions.android.compileSdk.get().toInt()
 
-  // The revision .mise/bin/sync-android-packages pins, so every machine builds
-  // the same shim rather than taking whatever NDK it happens to have.
+  // Keep in sync with the pin in .mise/bin/sync-android-packages.
   ndkVersion = "28.2.13676358"
 
   defaultConfig {
@@ -41,6 +40,5 @@ android {
 }
 
 dependencies {
-  // api rather than runtimeOnly: the AAR's classes.jar is what carries the packaging.
-  api(libs.maplibre.nativeFfi.runtimeVulkanKmp)
+  runtimeOnly(libs.maplibre.nativeFfi.runtimeVulkanKmp)
 }

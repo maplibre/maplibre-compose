@@ -21,6 +21,5 @@ android {
 }
 
 dependencies {
-  // api rather than runtimeOnly: the AAR's classes.jar is what carries the packaging.
-  api(libs.maplibre.nativeFfi.runtimeOpenGl)
+  runtimeOnly(libs.maplibre.nativeFfi.runtimeOpenGl)
 }

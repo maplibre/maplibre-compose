@@ -12,10 +12,10 @@ import org.maplibre.compose.map.MapExtent
 /**
  * Drives the shared FFI renderer from a dedicated Android render thread.
  *
- * The thread draws, then presents: an OpenGL session through `eglSwapBuffers`, a Vulkan one from
- * its own render update. SurfaceView waits on the buffer queue there, matching MapLibre Android's
- * GLSurfaceView loop. TextureView returns from swap without waiting; the next frame is posted when
- * the map requests one, matching MapLibre's TextureView thread.
+ * The thread draws, then the backend presents: `eglSwapBuffers` for OpenGL, the render update for
+ * Vulkan. SurfaceView waits on the buffer queue there, matching MapLibre Android's GLSurfaceView
+ * loop. TextureView returns from swap without waiting; the next frame is posted when the map
+ * requests one, matching MapLibre's TextureView thread.
  *
  * When [maximumFps] is set, the next post is delayed to that interval. Display refresh stays with
  * the window; Compose and the map do not share a SurfaceFlinger vote. `Choreographer.getInstance()`
@@ -92,8 +92,6 @@ internal class AndroidMlnFfiSurfaceController(
     val changed = MapExtent.fromPhysical(width, height, scaleFactor)
     if (changed == extent) return
     extent = changed
-    // An EGL window surface is re-described to the session at the new size; a resized window keeps
-    // its VkSurfaceKHR, so the Vulkan session follows through a resize instead.
     if (backend == MapRenderBackend.OPENGL) generation++
     try {
       renderer.onSurfaceChanged(changed)

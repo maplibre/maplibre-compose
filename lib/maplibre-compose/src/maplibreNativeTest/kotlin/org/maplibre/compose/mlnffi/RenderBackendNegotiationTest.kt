@@ -25,7 +25,7 @@ class RenderBackendNegotiationTest {
   fun reports_a_missing_runtime_dependency() {
     val message = checkNotNull(diagnostic(emptySet()))
     assertContains(message, "No MapLibre Native FFI runtime is on the classpath")
-    assertContains(message, "maplibre-compose-runtime-<backend>-<os>-<arch>")
+    assertContains(message, "maplibre-compose-runtime-<backend>-<platform>")
   }
 
   @Test

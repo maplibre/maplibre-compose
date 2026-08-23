@@ -25,7 +25,8 @@ internal actual fun ComposableMapView(
 ) {
   EnsureMlnFfiConfigured()
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
-  val renderBackend = remember(runtimeBackends) { pickRenderBackend(runtimeBackends) }
+  val renderBackend =
+    remember(runtimeBackends) { runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL }
   val surfaceKind =
     when (options.renderOptions.preferredRenderMode) {
       RenderOptions.RenderMode.Texture -> AndroidMapSurfaceKind.Texture
@@ -55,12 +56,3 @@ internal actual fun ComposableMapView(
     )
   }
 }
-
-/**
- * The backend the Android surface hosts drive, from what the packaged runtime renders with. The
- * runtime artifacts name one `libmaplibre-native-c.so`, so exactly one backend can be packaged;
- * Vulkan wins when a runtime carrying both ever appears.
- */
-private fun pickRenderBackend(runtimeBackends: Set<MapRenderBackend>): MapRenderBackend =
-  if (MapRenderBackend.VULKAN in runtimeBackends) MapRenderBackend.VULKAN
-  else MapRenderBackend.OPENGL
