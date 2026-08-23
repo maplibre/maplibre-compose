@@ -1,7 +1,9 @@
 package org.maplibre.compose.demoapp.design
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ListItem
@@ -10,6 +12,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -17,6 +20,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
+import kotlin.math.roundToInt
 
 @Composable
 fun SectionHeader(text: String) {
@@ -85,4 +89,26 @@ fun FpsCapRow(maximumFps: Int?, onSelect: (Int?) -> Unit) {
     optionLabel = { it?.toString() ?: "Auto" },
     onSelect = onSelect,
   )
+}
+
+/** A labeled continuous value with its current value on the trailing edge. */
+@Composable
+fun SliderRow(
+  label: String,
+  value: Float,
+  range: ClosedFloatingPointRange<Float>,
+  valueLabel: (Float) -> String = { it.roundToInt().toString() },
+  onChange: (Float) -> Unit,
+) {
+  Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+      Text(label, style = MaterialTheme.typography.bodyLarge)
+      Text(
+        valueLabel(value),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+      )
+    }
+    Slider(value = value, onValueChange = onChange, valueRange = range)
+  }
 }

@@ -107,7 +107,7 @@ fun DemoPanel(state: DemoAppState, modifier: Modifier = Modifier) {
           color = MaterialTheme.colorScheme.onSurfaceVariant,
           modifier = Modifier.padding(horizontal = 16.dp),
         )
-        demo.Panel()
+        demo.Panel(state)
       }
     }
     composable("benchmarks") {

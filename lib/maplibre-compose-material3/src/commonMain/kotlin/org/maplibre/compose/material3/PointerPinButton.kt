@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.toPath
-import androidx.compose.ui.layout.boundsInParent
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -93,7 +92,16 @@ public fun PointerPinButton(
   val target = dpTarget?.toOffset() ?: return
   var area by remember { mutableStateOf<Rect?>(null) }
 
-  Box(modifier = modifier.fillMaxSize().onGloballyPositioned { area = it.boundsInParent() }) {
+  Box(
+    modifier =
+      modifier.fillMaxSize().onGloballyPositioned { coordinates ->
+        area =
+          coordinates.parentLayoutCoordinates?.localBoundingBoxOf(
+            coordinates,
+            clipBounds = false,
+          )
+      }
+  ) {
     val intersection = remember(target, area) { area?.let { findEllipsisIntersection(it, target) } }
 
     intersection?.let { (offset, angle) ->

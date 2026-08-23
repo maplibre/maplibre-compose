@@ -3,6 +3,7 @@ package org.maplibre.compose.demoapp.demos
 import androidx.compose.runtime.Composable
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.Demo
+import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -22,7 +23,7 @@ object Manhattan3dDemo : Demo {
     )
 
   @Composable
-  override fun Panel() {
+  override fun Panel(state: DemoAppState) {
     OfflineRegionSection(region = region, styleUrl = preferredStyle.base.uri, packName = name)
   }
 }
