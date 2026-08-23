@@ -122,7 +122,8 @@ fun main() {
 ## Set up Desktop (JVM)
 
 Alongside the library, add a runtime: the native libraries for one platform and
-one render backend.
+one render backend. The runtime artifact you package is what picks the backend
+the map renders with.
 
 ```kotlin title="build.gradle.kts"
 sourceSets {
@@ -131,7 +132,7 @@ sourceSets {
       implementation(compose.desktop.currentOs)
       implementation("org.maplibre.compose:maplibre-compose:{{release}}")
 
-      // Linux x64, for example.
+      // Linux x64 with Vulkan, for example.
       runtimeOnly(
         "org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:" +
           "{{release}}"
@@ -155,13 +156,21 @@ fun main() {
 
 Available runtimes:
 
-| Platform      | Runtime                                         |
-| ------------- | ----------------------------------------------- |
-| Linux x64     | `maplibre-compose-runtime-vulkan-linux-x64`     |
-| Linux arm64   | `maplibre-compose-runtime-vulkan-linux-arm64`   |
-| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64`    |
-| Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
-| Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
+| Platform      | Backend | Runtime                                         |
+| ------------- | ------- | ----------------------------------------------- |
+| Linux x64     | Vulkan  | `maplibre-compose-runtime-vulkan-linux-x64`     |
+| Linux x64     | OpenGL  | `maplibre-compose-runtime-opengl-linux-x64`     |
+| Linux arm64   | Vulkan  | `maplibre-compose-runtime-vulkan-linux-arm64`   |
+| Linux arm64   | OpenGL  | `maplibre-compose-runtime-opengl-linux-arm64`   |
+| macOS arm64   | Metal   | `maplibre-compose-runtime-metal-macos-arm64`    |
+| Windows x64   | Vulkan  | `maplibre-compose-runtime-vulkan-windows-x64`   |
+| Windows x64   | OpenGL  | `maplibre-compose-runtime-opengl-windows-x64`   |
+| Windows arm64 | Vulkan  | `maplibre-compose-runtime-vulkan-windows-arm64` |
+| Windows arm64 | OpenGL  | `maplibre-compose-runtime-opengl-windows-arm64` |
+
+Prefer Vulkan on Linux and Windows, and Metal on macOS. A runtime also needs
+a Compose bridge for its backend; when the map starts without one, it reports
+a diagnostic naming the bridge that is missing.
 
 To ship several platforms, select the runtime from the host you build on.
 

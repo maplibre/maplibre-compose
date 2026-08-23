@@ -17,23 +17,27 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
   override val description: String
     get() = mapHost.description
 
-  override val backends: RenderBackendPair =
+  override val bridges: List<RenderBackendPair> =
     when (mapHost.backend) {
       ComposeRenderBackend.METAL ->
-        RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
+        listOf(RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
       ComposeRenderBackend.OPENGL ->
-        RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
+        listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
       ComposeRenderBackend.DIRECT3D12 ->
-        RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12)
+        listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12))
     }
 
-  override fun create(): MlnFfiMapHostResult =
+  override fun create(backends: RenderBackendPair): MlnFfiMapHostResult =
     try {
       val host =
-        when (mapHost.backend) {
-          ComposeRenderBackend.METAL -> MetalMapHost(mapHost)
-          ComposeRenderBackend.OPENGL -> VulkanOpenGlMapHost(mapHost)
-          ComposeRenderBackend.DIRECT3D12 -> VulkanDirect3D12MapHost(mapHost)
+        when (backends) {
+          RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL) ->
+            MetalMapHost(mapHost)
+          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL) ->
+            VulkanOpenGlMapHost(mapHost)
+          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
+            VulkanDirect3D12MapHost(mapHost)
+          else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
         }
       MlnFfiMapHostResult.Created(host)
     } catch (error: Throwable) {

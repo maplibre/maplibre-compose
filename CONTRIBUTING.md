@@ -128,6 +128,12 @@ launch on iOS. Every other host has a task:
 - Desktop on the compose-glfw host instead of the AWT one:
   `mise run demo:desktop-glfw`
 
+The desktop demos and test suite take `--backend <name>` to package a different
+Map render backend than the platform default, as in
+`mise run demo:desktop -- --backend=opengl`. It passes the
+`maplibre.desktop.backend` Gradle property, which swaps the packaged
+`maplibre-compose-runtime-*` artifact.
+
 ## Run the tests
 
 CI runs these same tasks, so you can reproduce a failure with the command the

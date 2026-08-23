@@ -1,23 +1,32 @@
 package org.maplibre.compose.mlnffi
 
 /**
- * Validates the platform host's exact backend pair against the loaded FFI runtime.
+ * The first of [bridges] whose producer the packaged FFI runtime provides, or null when the runtime
+ * provides none of them.
+ */
+internal fun selectBridge(
+  runtimeBackends: Set<MapRenderBackend>,
+  bridges: List<RenderBackendPair>,
+): RenderBackendPair? = bridges.firstOrNull { it.producer in runtimeBackends }
+
+/**
+ * Validates the host's available bridges against the loaded FFI runtime.
  *
  * @param runtimeBackends what the loaded FFI runtime was built with, from
  *   `Maplibre.supportedRenderBackends()`
- * @param hostBackends what the bridge into the Compose host carries
+ * @param hostBridges what the bridge into the Compose host can carry, in preference order
  * @param hostDescription names the host in diagnostics
  * @param operatingSystem for diagnostics, e.g. the `os.name` system property
  * @param architecture for diagnostics, e.g. the `os.arch` system property
  */
 internal fun backendDiagnostic(
   runtimeBackends: Set<MapRenderBackend>,
-  hostBackends: RenderBackendPair,
+  hostBridges: List<RenderBackendPair>,
   hostDescription: String,
   operatingSystem: String,
   architecture: String,
 ): String? {
-  if (hostBackends.producer in runtimeBackends) return null
+  if (selectBridge(runtimeBackends, hostBridges) != null) return null
   val cause =
     when {
       runtimeBackends.isEmpty() ->
@@ -25,9 +34,9 @@ internal fun backendDiagnostic(
           "the matching org.maplibre.compose:maplibre-compose-runtime-<backend>-<os>-<arch> " +
           "artifact for this platform."
       else ->
-        "The packaged MapLibre Native FFI runtime renders with " +
-          "${runtimeBackends.describe()}, but $hostDescription requires ${hostBackends.producer}. " +
-          "Package the runtime matching the host."
+        "The packaged MapLibre Native FFI runtime renders with ${runtimeBackends.describe()}, " +
+          "but $hostDescription bridges only ${hostBridges.describe()}. Package the runtime " +
+          "matching one of those bridges."
     }
 
   return buildString {
@@ -36,9 +45,11 @@ internal fun backendDiagnostic(
     appendLine("  operating system: $operatingSystem ($architecture)")
     appendLine("  FFI runtime backends: ${runtimeBackends.describe()}")
     appendLine("  Compose host: $hostDescription")
-    append("  required bridge: $hostBackends")
+    append("  available bridges: ${hostBridges.describe()}")
   }
 }
 
 private fun Set<*>.describe(): String =
   if (isEmpty()) "none" else sortedBy { it.toString() }.joinToString { it.toString() }
+
+private fun List<*>.describe(): String = joinToString { it.toString() }
