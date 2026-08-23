@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Matrix
@@ -90,61 +91,82 @@ public fun PointerPinButton(
   val dpTarget =
     remember(targetPosition, viewport) { cameraState.screenLocationFromPosition(targetPosition) }
   val target = dpTarget?.toOffset() ?: return
-  var area by remember { mutableStateOf<Rect?>(null) }
 
-  Box(
-    modifier =
-      modifier.fillMaxSize().onGloballyPositioned { coordinates ->
-        area =
-          coordinates.parentLayoutCoordinates?.localBoundingBoxOf(
-            coordinates,
-            clipBounds = false,
+  PointerPinPlacement(target = target, modifier = modifier) { offset, angle ->
+    val rotation = angle * 180 / PI
+    val dpOffset = offset.toDpOffset()
+
+    val pointerPinShape = remember(rotation) { PointerPinShape(rotation.toFloat()) }
+
+    ElevatedButton(
+      onClick = onClick,
+      modifier =
+        Modifier
+          // offsetting it to account for the pointy side of the pin depending on the rotation.
+          // (The tip of the pin should be exactly on the ellipsis outline)
+          .proportionalAbsoluteOffset(
+            x = (-sin(angle) / 2.0 - 0.5).toFloat(),
+            y = (cos(angle) / 2.0 - 0.5).toFloat(),
           )
-      }
-  ) {
-    val intersection = remember(target, area) { area?.let { findEllipsisIntersection(it, target) } }
-
-    intersection?.let { (offset, angle) ->
-      val rotation = angle * 180 / PI
-      val dpOffset = offset.toDpOffset()
-
-      val pointerPinShape = remember(rotation) { PointerPinShape(rotation.toFloat()) }
-
-      ElevatedButton(
-        onClick = onClick,
+          // Place the pin tip at the ellipse intersection inside this box.
+          .absoluteOffset(dpOffset.x, dpOffset.y),
+      enabled = enabled,
+      shape = pointerPinShape,
+      colors = colors,
+      elevation = elevation,
+      border = border,
+      contentPadding = PaddingValues(0.dp),
+      interactionSource = interactionSource,
+    ) {
+      Box(
         modifier =
           Modifier
-            // offsetting it to account for the pointy side of the pin depending on the rotation.
-            // (The tip of the pin should be exactly on the ellipsis outline)
-            .proportionalAbsoluteOffset(
-              x = (-sin(angle) / 2.0 - 0.5).toFloat(),
-              y = (cos(angle) / 2.0 - 0.5).toFloat(),
-            )
-            // offsetting the whole pin to place it correctly within the parent layout
-            .absoluteOffset(dpOffset.x, dpOffset.y),
-        enabled = enabled,
-        shape = pointerPinShape,
-        colors = colors,
-        elevation = elevation,
-        border = border,
-        contentPadding = PaddingValues(0.dp),
-        interactionSource = interactionSource,
+            // padding to place the content within the pin correctly, taking into account that the
+            // center of the pointer shape is not the center of to-be-placed icon (due to the
+            // pointy side)
+            .proportionalPadding(PointerPinShape.POINTY_SIZE)
+            .padding(contentPadding)
       ) {
-        Box(
-          modifier =
-            Modifier
-              // padding to place the content within the pin correctly, taking into account that the
-              // center of the pointer shape is not the center of to-be-placed icon (due to the
-              // pointy side)
-              .proportionalPadding(PointerPinShape.POINTY_SIZE)
-              .padding(contentPadding)
-        ) {
-          content()
-        }
+        content()
       }
     }
   }
 }
+
+@Composable
+internal fun PointerPinPlacement(
+  target: Offset,
+  modifier: Modifier = Modifier,
+  content: @Composable BoxScope.(offset: Offset, angle: Double) -> Unit,
+) {
+  var placementSpace by remember { mutableStateOf<PlacementSpace?>(null) }
+
+  Box(
+    modifier =
+      modifier.fillMaxSize().onGloballyPositioned { coordinates ->
+        val parent = coordinates.parentLayoutCoordinates ?: return@onGloballyPositioned
+        val parentToLocal = Matrix()
+        // The projected target uses the parent's coordinates; placement uses this box's.
+        coordinates.transformFrom(parent, parentToLocal)
+        placementSpace =
+          PlacementSpace(
+            area =
+              Rect(0f, 0f, coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
+            parentToLocal = parentToLocal,
+          )
+      }
+  ) {
+    val intersection =
+      remember(target, placementSpace) {
+        placementSpace?.let {
+          findEllipsisIntersection(it.area, it.parentToLocal.map(target))
+        }
+      }
+    intersection?.let { content(it.position, it.angle) }
+  }
+}
+
+private data class PlacementSpace(val area: Rect, val parentToLocal: Matrix)
 
 /** A kind of map-📍 shape, but rotatable */
 private class PointerPinShape(val rotation: Float = 0f) : Shape {
