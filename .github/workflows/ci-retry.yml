@@ -1,0 +1,116 @@
+name: CI retry
+
+on:
+  workflow_run:
+    workflows:
+      - CI
+    types:
+      - completed
+
+permissions:
+  actions: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    name: Retry one failed job
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    if: >-
+      github.event.workflow_run.conclusion == 'failure'
+      && github.event.workflow_run.run_attempt == 1
+    steps:
+      - name: Retry the failed job
+        env:
+          CI_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}
+          CI_RUN_ID: ${{ github.event.workflow_run.id }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          retry() {
+            local attempt=1
+            local delay=2
+
+            until "$@"; do
+              if (( attempt == 4 )); then
+                return 1
+              fi
+              echo "Command failed on attempt $attempt; retrying in $delay seconds." >&2
+              sleep "$delay"
+              ((attempt += 1))
+              ((delay *= 2))
+            done
+          }
+
+          run="repos/${GITHUB_REPOSITORY}/actions/runs/${CI_RUN_ID}"
+          current_attempt="$(retry gh api "$run" --jq '.run_attempt')"
+          if [[ "$current_attempt" != "$CI_RUN_ATTEMPT" ]]; then
+            echo "CI run $CI_RUN_ID is already on attempt $current_attempt."
+            exit 0
+          fi
+
+          jobs="$(
+            retry gh api \
+              "${run}/attempts/${CI_RUN_ATTEMPT}/jobs?per_page=100"
+          )"
+          # A primary failure also fails all-good and can skip dependent jobs.
+          primary_failure_count="$(
+            jq '[
+              .jobs[]
+              | select(.conclusion == "failure" and .name != "all-good")
+            ] | length' <<<"$jobs"
+          )"
+          aggregate_failure_count="$(
+            jq '[
+              .jobs[]
+              | select(.conclusion == "failure" and .name == "all-good")
+            ] | length' <<<"$jobs"
+          )"
+          unexpected_conclusion_count="$(
+            jq '[
+              .jobs[]
+              | select(
+                  .conclusion != "success"
+                  and .conclusion != "failure"
+                  and .conclusion != "skipped"
+                )
+            ] | length' <<<"$jobs"
+          )"
+
+          if ((
+            primary_failure_count != 1
+            || aggregate_failure_count != 1
+            || unexpected_conclusion_count != 0
+          )); then
+            echo "CI run $CI_RUN_ID does not have exactly one retryable failure."
+            jq -r '
+              .jobs[]
+              | select(.conclusion != "success")
+              | "  \(.conclusion): \(.name)"
+            ' <<<"$jobs"
+            exit 0
+          fi
+
+          job_id="$(
+            jq -r '
+              .jobs[]
+              | select(.conclusion == "failure" and .name != "all-good")
+              | .id
+            ' <<<"$jobs"
+          )"
+          job_name="$(
+            jq -r '
+              .jobs[]
+              | select(.conclusion == "failure" and .name != "all-good")
+              | .name
+            ' <<<"$jobs"
+          )"
+          printf 'Retrying %s (job %s).\n' "$job_name" "$job_id"
+          retry gh api \
+            --method POST \
+            "repos/${GITHUB_REPOSITORY}/actions/jobs/${job_id}/rerun" \
+            >/dev/null
