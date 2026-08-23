@@ -39,6 +39,3 @@ internal fun PaddingValues.toPaddingOptions(layoutDirection: LayoutDirection): P
     bottom = calculateBottomPadding().value.toDouble()
     right = calculateRightPadding(layoutDirection).value.toDouble()
   }
-
-internal fun PaddingOptions.toPaddingValues(): PaddingValues =
-  PaddingValues.Absolute(left = left.dp, top = top.dp, right = right.dp, bottom = bottom.dp)

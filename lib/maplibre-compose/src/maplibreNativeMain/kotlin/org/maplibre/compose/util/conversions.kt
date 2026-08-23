@@ -34,7 +34,14 @@ internal fun LatLngBounds.toBoundingBox(): BoundingBox =
   BoundingBox(southwest = southwest.toPosition(), northeast = northeast.toPosition())
 
 internal fun BoundingBox.toLatLngBounds(): LatLngBounds =
-  LatLngBounds(southwest = southwest.toLatLng(), northeast = northeast.toLatLng())
+  LatLngBounds(
+    southwest = southwest.toLatLng(),
+    northeast =
+      LatLng(
+        latitude = north,
+        longitude = if (east < west) east + 360.0 else east,
+      ),
+  )
 
 internal fun PaddingValues.toEdgeInsets(layoutDirection: LayoutDirection): EdgeInsets =
   EdgeInsets(
@@ -43,9 +50,6 @@ internal fun PaddingValues.toEdgeInsets(layoutDirection: LayoutDirection): EdgeI
     bottom = calculateBottomPadding().value.toDouble(),
     right = calculateRightPadding(layoutDirection).value.toDouble(),
   )
-
-internal fun EdgeInsets.toPaddingValues(): PaddingValues =
-  PaddingValues.Absolute(left = left.dp, top = top.dp, right = right.dp, bottom = bottom.dp)
 
 /**
  * Snapshots a camera into an immutable value. [CameraOptions] is a mutable builder for native
@@ -57,16 +61,15 @@ internal fun CameraOptions.toCameraPosition(): CameraPosition =
     zoom = zoom ?: 0.0,
     bearing = bearing ?: 0.0,
     tilt = pitch ?: 0.0,
-    padding = padding?.toPaddingValues() ?: PaddingValues(0.dp),
   )
 
-internal fun CameraPosition.toCameraOptions(layoutDirection: LayoutDirection): CameraOptions =
+internal fun CameraPosition.toCameraOptions(padding: EdgeInsets): CameraOptions =
   CameraOptions().also {
     it.center = target.toLatLng()
     it.zoom = zoom
     it.bearing = bearing
     it.pitch = tilt
-    it.padding = padding.toEdgeInsets(layoutDirection)
+    it.padding = padding
   }
 
 /** Converts physical Compose pixels to the logical pixels MapLibre projects in. */

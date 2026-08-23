@@ -17,7 +17,9 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoFlightDuration
+import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SegmentedRow
@@ -41,20 +43,19 @@ object LocationDemo : Demo {
   override val description =
     "The location puck, device heading, and a camera-follow toggle on the real device."
   override val preferredStyle = OpenFreeMap.Liberty
-  override val fliesOnSelect = false
-  override val showsPointerPin
-    get() = lastFix != null
+  override val destination = DemoDestination.None
 
-  override val region: BoundingBox
-    get() {
-      val p = lastFix ?: Position(longitude = 0.0, latitude = 0.0)
+  override val pointerPin: DemoPointerPin?
+    get() = lastFix?.let { position ->
       val delta = 0.005
-      return BoundingBox(
-        west = p.longitude - delta,
-        south = p.latitude - delta,
-        east = p.longitude + delta,
-        north = p.latitude + delta,
-      )
+      val bounds =
+        BoundingBox(
+          west = position.longitude - delta,
+          south = position.latitude - delta,
+          east = position.longitude + delta,
+          north = position.latitude + delta,
+        )
+      DemoPointerPin(position, DemoDestination.FitBounds(bounds))
     }
 
   private var follow by mutableStateOf(true)
@@ -64,7 +65,7 @@ object LocationDemo : Demo {
   private var panelLocationState by mutableStateOf<LocationState?>(null)
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(camera: CameraState) {
     val locationState =
       rememberLocationState(
         provider = engine.rememberLocationProvider(),
@@ -76,9 +77,9 @@ object LocationDemo : Demo {
     }
     LaunchedEffect(locationState) { locationState.requestPermission() }
 
-    LaunchedEffect(cameraState) {
-      var previous = cameraState.moveReason
-      snapshotFlow { cameraState.moveReason }
+    LaunchedEffect(camera) {
+      var previous = camera.moveReason
+      snapshotFlow { camera.moveReason }
         .collect { reason ->
           // Follow moves the camera programmatically; a pan is the GESTURE that interrupts it.
           if (previous != CameraMoveReason.GESTURE && reason == CameraMoveReason.GESTURE) {
@@ -93,12 +94,12 @@ object LocationDemo : Demo {
 
     LocationTrackingEffect(locationState = locationState, enabled = follow) {
       if (previousLocation == null) {
-        cameraState.animateTo(
+        camera.animateTo(
           CameraPosition(target = currentLocation.position.value, zoom = 16.0),
           duration = DemoFlightDuration,
         )
       } else {
-        updateCamera(cameraState)
+        updateCamera(camera)
       }
     }
 
@@ -109,7 +110,7 @@ object LocationDemo : Demo {
         idPrefix = "user",
         location = location,
         bearing = locationState.mostAccurateBearing(),
-        cameraState = cameraState,
+        cameraState = camera,
         colors = LocationPuckDefaults.colors(),
       )
     }

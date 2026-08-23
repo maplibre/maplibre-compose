@@ -62,7 +62,10 @@ import kotlinx.serialization.json.put
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoDestination
+import org.maplibre.compose.demoapp.DemoPointerPin
 import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.util.unzip
 import org.maplibre.compose.expressions.dsl.asString
@@ -89,7 +92,9 @@ object TransitNetworkDemo : Demo {
   override val name = "Transit network"
   override val description =
     "The Washington State Ferries network from its GTFS feed. Select a route to see the next sailing at each terminal."
-  override val region = BoundingBox(west = -123.2, south = 47.0, east = -122.2, north = 48.8)
+  private val networkRegion = BoundingBox(west = -123.2, south = 47.0, east = -122.2, north = 48.8)
+  override val destination = DemoDestination.FitBounds(networkRegion)
+  override val pointerPin = DemoPointerPin(networkRegion.center, destination)
   override val preferredStyle = OpenFreeMap.Positron
 
   /** The feed sends no CORS headers, which is why this demo is absent from the browser. */
@@ -350,13 +355,13 @@ object TransitNetworkDemo : Demo {
   }
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(camera: CameraState) {
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId
 
     LaunchedEffect(selected) {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
-      cameraState.animateTo(
+      camera.animateTo(
         boundingBox = route.bounds,
         padding = RouteFitPadding,
         duration = 1.seconds,

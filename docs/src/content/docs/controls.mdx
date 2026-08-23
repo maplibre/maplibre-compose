@@ -29,7 +29,7 @@ somewhere else, such as an about screen.
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
 A `MapOverlay` block draws the controls you list in it. `Modifier.align`
-positions a control against an edge of the unobstructed map.
+positions a control against an inset edge of the map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
@@ -40,24 +40,21 @@ positions a control against an edge of the unobstructed map.
 [Material 3 extensions](/maplibre-compose/material3/) draws the same controls,
 themed from your color scheme and typography.
 
-## Make room for other UI
+## Inset overlays and the camera
 
-A system bar or a bottom sheet can cover part of the map. Set
-`contentWindowInsets` to the covered region, and the overlay places its controls
-in the rest.
+Use `contentWindowInsets` to inset overlay controls and `cameraPadding` to inset
+the camera viewport. They can use the same values or vary independently.
 
-The default is `WindowInsets.safeDrawing`. It excludes the insets that an
-ancestor already applied, so a map inside a scaffold reads zero and a
-full-screen map reads the system bars. Add to it when other UI covers the map.
+The default `contentWindowInsets` is `WindowInsets.safeDrawing`. It excludes
+insets that an ancestor already applied.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
-1. `union` takes the larger inset on each edge, so the sheet and the system bars
-   both stay clear.
+1. `union` takes the larger inset on each edge.
 
-The camera has its own padding, which moves the point that the map centers and
-rotates around. See
-[`CameraPosition.padding`](/maplibre-compose/api/lib/maplibre-compose/org.maplibre.compose.camera/-camera-position/padding.html).
+`cameraPadding` is persistent while the map is composed. Padding passed to a
+bounding-box camera move adds temporary space around those bounds without
+changing the persistent value.
 
 ## Pin Compose UI to a location
 

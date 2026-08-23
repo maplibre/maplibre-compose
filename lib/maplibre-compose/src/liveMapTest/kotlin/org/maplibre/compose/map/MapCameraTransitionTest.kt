@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.Test
@@ -131,6 +132,81 @@ class MapCameraTransitionTest {
         )
       }
     }
+
+  @Test
+  fun a_bounds_jump_adds_transient_fit_padding_to_camera_padding(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Empty)
+      it.session.setCameraPadding(CAMERA_PADDING)
+      it.session.setCameraPosition(START)
+      it.awaitMapReady()
+      it.pumpUntil("the camera padding to be applied") {
+        it.cameraTargetMatches(START, CAMERA_PADDING)
+      }
+
+      it.session.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.pumpUntil("the bounds fit to be applied") {
+        abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
+      }
+      val fitAfterPadding = it.session.getCameraPosition()
+      it.assertCameraTarget(fitAfterPadding, CAMERA_PADDING)
+      it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
+
+      it.session.setCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING)
+      it.pump(frames = 2)
+      val repeatedFit = it.session.getCameraPosition()
+      assertSameFit(fitAfterPadding, repeatedFit, "repeating the bounds fit changed its camera")
+
+      it.session.setCameraPadding(REPLACEMENT_CAMERA_PADDING)
+      it.pumpUntil("the replacement camera padding to be applied") {
+        it.cameraTargetMatches(fitAfterPadding, REPLACEMENT_CAMERA_PADDING)
+      }
+    }
+  }
+
+  @Test
+  fun a_bounds_fit_crosses_the_antimeridian_the_short_way(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.startAtOrigin()
+
+      it.session.setCameraPosition(ANTIMERIDIAN_BOUNDS, 0.0, 0.0, PaddingValues(0.dp))
+      it.pumpUntil("the antimeridian bounds fit to be applied") {
+        val camera = it.session.getCameraPosition()
+        abs(abs(camera.target.longitude) - 180.0) < 1.0 && camera.zoom > START.zoom
+      }
+    }
+  }
+
+  @Test
+  fun a_bounds_animation_keeps_fit_padding_transient(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Empty)
+      it.session.setCameraPadding(CAMERA_PADDING)
+      it.session.setCameraPosition(START)
+      it.awaitMapReady()
+      it.pumpUntil("the camera padding to be applied") {
+        it.cameraTargetMatches(START, CAMERA_PADDING)
+      }
+
+      it.awaitWhileRendering("the bounds animation to complete") {
+        it.session.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+      }
+
+      val firstFit = it.session.getCameraPosition()
+      it.assertCameraTarget(firstFit, CAMERA_PADDING)
+      it.assertBoundsInside(CAMERA_PADDING + FIT_PADDING)
+
+      it.awaitWhileRendering("the repeated bounds animation to complete") {
+        it.session.animateCameraPosition(BOUNDS, 0.0, 0.0, FIT_PADDING, 200.milliseconds)
+      }
+
+      assertSameFit(
+        firstFit,
+        it.session.getCameraPosition(),
+        "repeating the bounds animation changed its camera",
+      )
+    }
+  }
 
   @Test
   fun an_animation_completes_and_lands_on_its_target(): MapTestResult = runMapTest {
@@ -298,9 +374,73 @@ class MapCameraTransitionTest {
         southwest = Position(longitude = -5.0, latitude = -5.0),
         northeast = Position(longitude = 5.0, latitude = 5.0),
       )
+    val ANTIMERIDIAN_BOUNDS =
+      BoundingBox(
+        southwest = Position(longitude = 170.0, latitude = -10.0),
+        northeast = Position(longitude = -170.0, latitude = 10.0),
+      )
+    val CAMERA_PADDING =
+      PaddingValues.Absolute(left = 120.dp, top = 10.dp, right = 5.dp, bottom = 30.dp)
+    val FIT_PADDING =
+      PaddingValues.Absolute(left = 40.dp, top = 20.dp, right = 70.dp, bottom = 60.dp)
+    val REPLACEMENT_CAMERA_PADDING =
+      PaddingValues.Absolute(left = 15.dp, top = 35.dp, right = 80.dp, bottom = 5.dp)
+
+    operator fun PaddingValues.plus(other: PaddingValues): PaddingValues =
+      PaddingValues.Absolute(
+        left = left() + other.left(),
+        top = calculateTopPadding() + other.calculateTopPadding(),
+        right = right() + other.right(),
+        bottom = calculateBottomPadding() + other.calculateBottomPadding(),
+      )
+
+    fun PaddingValues.left() = calculateLeftPadding(LayoutDirection.Ltr)
+
+    fun PaddingValues.right() = calculateRightPadding(LayoutDirection.Ltr)
+
+    fun MapFixture.cameraTargetMatches(
+      position: CameraPosition,
+      padding: PaddingValues,
+    ): Boolean {
+      val viewport = session.getViewport() ?: return false
+      val target = session.screenLocationFromPosition(position.target) ?: return false
+      val expectedX = (viewport.size.width + padding.left() - padding.right()) / 2
+      val expectedY =
+        (viewport.size.height + padding.calculateTopPadding() - padding.calculateBottomPadding()) /
+          2
+      return abs(target.x.value - expectedX.value) < 0.01 &&
+        abs(target.y.value - expectedY.value) < 0.01
+    }
+
+    fun MapFixture.assertCameraTarget(position: CameraPosition, padding: PaddingValues) {
+      assertTrue(
+        cameraTargetMatches(position, padding),
+        "the camera target does not use the persistent camera padding",
+      )
+    }
+
+    fun MapFixture.assertBoundsInside(padding: PaddingValues) {
+      val viewport = requireNotNull(session.getViewport())
+      val southwest = requireNotNull(session.screenLocationFromPosition(BOUNDS.southwest))
+      val northeast = requireNotNull(session.screenLocationFromPosition(BOUNDS.northeast))
+      val tolerance = 1.0
+      assertTrue(southwest.x.value + tolerance >= padding.left().value)
+      assertTrue(
+        southwest.y.value - tolerance <=
+          viewport.size.height.value - padding.calculateBottomPadding().value
+      )
+      assertTrue(northeast.x.value - tolerance <= viewport.size.width.value - padding.right().value)
+      assertTrue(northeast.y.value + tolerance >= padding.calculateTopPadding().value)
+    }
 
     fun assertNear(expected: Double, actual: Double, message: String) {
       assertTrue(abs(expected - actual) < 0.01, "$message (expected $expected, was $actual)")
+    }
+
+    fun assertSameFit(expected: CameraPosition, actual: CameraPosition, message: String) {
+      assertNear(expected.zoom, actual.zoom, "$message zoom")
+      assertNear(expected.target.longitude, actual.target.longitude, "$message longitude")
+      assertNear(expected.target.latitude, actual.target.latitude, "$message latitude")
     }
   }
 }

@@ -24,10 +24,10 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
-import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
+import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
@@ -51,14 +51,13 @@ private val DragColor = Color(0xFF00695C)
 object DragDropDemo : Demo {
   override val name = "Drag & drop"
   override val description = "Drag a location-picker pin or the corner handles of a bounding box."
-  override val region =
-    BoundingBox(west = -122.3452, south = 47.6155, east = -122.3252, north = 47.6255)
   override val preferredStyle = OpenFreeMap.Liberty
-  override val showsPointerPin = false
 
-  // A neighborhood zoom gives both modes room to drag in without a detour through the camera.
-  override val camera =
-    CameraPosition(target = Position(longitude = -122.3352, latitude = 47.6205), zoom = 15.0)
+  // A neighborhood view gives both modes room to drag in without a detour through the camera.
+  override val destination =
+    DemoDestination.FitBounds(
+      BoundingBox(west = -122.3452, south = 47.6155, east = -122.3252, north = 47.6255)
+    )
 
   private enum class Mode(val label: String) {
     Pin("Pin"),
@@ -125,7 +124,7 @@ object DragDropDemo : Demo {
     )
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(camera: CameraState) {
     if (mode != Mode.BoundingBox) return
     val source =
       rememberGeoJsonSource(

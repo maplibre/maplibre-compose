@@ -184,6 +184,11 @@ public class CameraState(firstPosition: CameraPosition) {
     awaitMap().animateCameraPosition(finalPosition, duration)
   }
 
+  /** Immediately moves the camera to [finalPosition]. */
+  public suspend fun jumpTo(finalPosition: CameraPosition) {
+    awaitMap().setCameraPosition(finalPosition)
+  }
+
   /**
    * Animates the camera towards the specified [boundingBox] in the given [duration] time with the
    * specified [bearing], [tilt], and [padding].
@@ -191,8 +196,9 @@ public class CameraState(firstPosition: CameraPosition) {
    * @param boundingBox The bounds to animate the camera to.
    * @param bearing The bearing to set during the animation. Defaults to 0.0.
    * @param tilt The tilt to set during the animation. Defaults to 0.0.
-   * @param padding The padding to apply during the animation. Defaults to no padding.
-   * @param duration The duration of the animation. Defaults to 300 ms. Has no effect on JS.
+   * @param padding Additional space between the bounds and the camera viewport. The `cameraPadding`
+   *   configured on [org.maplibre.compose.map.MaplibreMap] remains active after the animation.
+   * @param duration The duration of the animation. Defaults to 300 ms.
    */
   public suspend fun animateTo(
     boundingBox: BoundingBox,
@@ -211,7 +217,8 @@ public class CameraState(firstPosition: CameraPosition) {
    * @param boundingBox The bounds to animate the camera to.
    * @param bearing The bearing to set during the animation. Defaults to 0.0.
    * @param tilt The tilt to set during the animation. Defaults to 0.0.
-   * @param padding The padding to apply during the animation. Defaults to no padding.
+   * @param padding Additional space between the bounds and the camera viewport. The `cameraPadding`
+   *   configured on [org.maplibre.compose.map.MaplibreMap] remains active after the move.
    */
   public suspend fun jumpTo(
     boundingBox: BoundingBox,

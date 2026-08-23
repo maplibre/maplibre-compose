@@ -24,10 +24,10 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.gljs.CameraForBoundsOptions
 import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
-import org.maplibre.compose.gljs.FitBoundsOptions
 import org.maplibre.compose.gljs.FlyToOptions
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsMapRenderer
@@ -37,6 +37,7 @@ import org.maplibre.compose.gljs.GlJsSurfaceSession
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
+import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
@@ -59,7 +60,6 @@ import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toLngLat
 import org.maplibre.compose.util.toLngLatBounds
 import org.maplibre.compose.util.toPaddingOptions
-import org.maplibre.compose.util.toPaddingValues
 import org.maplibre.compose.util.toPoint
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toStyleJson
@@ -473,21 +473,29 @@ internal class GlJsMapSession(
 
   /** Answers camera reads made before the map exists. */
   private var requestedCamera: CameraPosition? = null
+  private var cameraPadding: PaddingOptions = PaddingValues(0.dp).toPaddingOptions(layoutDirection)
 
   override fun getCameraPosition(): CameraPosition =
-    withMap(requestedCamera ?: CameraPosition()) { map ->
-      CameraPosition(
-        bearing = map.getBearing(),
-        target = map.getCenter().toPosition(),
-        tilt = map.getPitch(),
-        zoom = map.getZoom(),
-        padding = map.getPadding().toPaddingValues(),
-      )
-    }
+    withMap(requestedCamera ?: CameraPosition()) { map -> map.cameraPosition() }
+
+  private fun MaplibreMap.cameraPosition(): CameraPosition =
+    CameraPosition(
+      bearing = getBearing(),
+      target = getCenter().toPosition(),
+      tilt = getPitch(),
+      zoom = getZoom(),
+    )
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     requestedCamera = cameraPosition
     onMap { map -> map.jumpTo(cameraPosition.toJumpToOptions()) }
+  }
+
+  override fun setCameraPadding(padding: PaddingValues) {
+    val resolved = padding.toPaddingOptions(layoutDirection)
+    if (cameraPadding.sameAs(resolved)) return
+    cameraPadding = resolved
+    onMap { map -> map.jumpTo(unsafeJso<JumpToOptions> { this.padding = resolved }) }
   }
 
   override fun setCameraPosition(
@@ -496,7 +504,11 @@ internal class GlJsMapSession(
     tilt: Double,
     padding: PaddingValues,
   ) {
-    onMap { map -> map.fitBounds(boundingBox.toLngLatBounds(), fitOptions(bearing, tilt, padding)) }
+    onMap { map ->
+      map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
+        map.jumpTo(it.toJumpToOptions())
+      }
+    }
   }
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
@@ -507,7 +519,7 @@ internal class GlJsMapSession(
           zoom = finalPosition.zoom
           bearing = finalPosition.bearing
           pitch = finalPosition.tilt
-          padding = finalPosition.padding.toPaddingOptions(layoutDirection)
+          padding = cameraPadding
           this.duration = duration.inWholeMilliseconds.toDouble()
         }
       )
@@ -522,24 +534,37 @@ internal class GlJsMapSession(
     duration: Duration,
   ) {
     awaitCameraRelease { map ->
-      map.fitBounds(
-        boundingBox.toLngLatBounds(),
-        fitOptions(bearing, tilt, padding).also {
-          it.duration = duration.inWholeMilliseconds.toDouble()
-        },
-      )
+      map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
+        map.easeTo(it.toEaseToOptions(duration))
+      }
     }
   }
 
-  private fun fitOptions(bearing: Double, tilt: Double, padding: PaddingValues): FitBoundsOptions =
-    unsafeJso {
-      this.bearing = bearing
-      pitch = tilt
-      this.padding = padding.toPaddingOptions(layoutDirection)
-      // flyTo's arc would zoom out and back in on its way to a camera the caller already named.
-      linear = true
-      duration = 0.0
-    }
+  private fun MaplibreMap.cameraPositionForBounds(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition? {
+    val previous = cameraPosition()
+    val result =
+      cameraForBounds(boundingBox.toLngLatBounds(), cameraForBoundsOptions(bearing, padding))
+        ?: return null
+    return CameraPosition(
+      bearing = result.bearing ?: bearing,
+      target = result.center?.toPosition() ?: previous.target,
+      tilt = tilt,
+      zoom = result.zoom ?: previous.zoom,
+    )
+  }
+
+  private fun cameraForBoundsOptions(
+    bearing: Double,
+    padding: PaddingValues,
+  ): CameraForBoundsOptions = unsafeJso {
+    this.bearing = bearing
+    this.padding = padding.toPaddingOptions(layoutDirection)
+  }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
     onMap { map -> map.setMaxBounds(boundingBox?.toLngLatBounds()) }
@@ -880,8 +905,20 @@ internal class GlJsMapSession(
     zoom = this@toJumpToOptions.zoom
     bearing = this@toJumpToOptions.bearing
     pitch = tilt
-    padding = this@toJumpToOptions.padding.toPaddingOptions(layoutDirection)
+    padding = cameraPadding
   }
+
+  private fun CameraPosition.toEaseToOptions(duration: Duration): EaseToOptions = unsafeJso {
+    center = target.toLngLat()
+    zoom = this@toEaseToOptions.zoom
+    bearing = this@toEaseToOptions.bearing
+    pitch = tilt
+    padding = cameraPadding
+    this.duration = duration.inWholeMilliseconds.toDouble()
+  }
+
+  private fun PaddingOptions.sameAs(other: PaddingOptions): Boolean =
+    top == other.top && left == other.left && bottom == other.bottom && right == other.right
 
   private fun MaplibreMap.unprojectAt(x: Double, y: Double): Position =
     unproject(
