@@ -49,6 +49,7 @@ import org.maplibre.compose.mlnffi.OpenGlSurfaceTarget
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
+import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
@@ -99,6 +100,7 @@ import org.maplibre.nativeffi.render.RenderResult
 import org.maplibre.nativeffi.render.RenderSessionHandle
 import org.maplibre.nativeffi.render.RenderTargetExtent
 import org.maplibre.nativeffi.render.VulkanBorrowedTextureDescriptor
+import org.maplibre.nativeffi.render.VulkanSurfaceDescriptor
 import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
@@ -546,6 +548,7 @@ internal class MlnFfiMapSession(
   ): RenderSessionHandle =
     when (target) {
       is VulkanImageTarget -> map.attachVulkanBorrowedTexture(target.toDescriptor(extent))
+      is VulkanSurfaceTarget -> map.attachVulkanSurface(target.toDescriptor(extent))
       is MetalTextureTarget -> map.attachMetalBorrowedTexture(target.toDescriptor(extent))
       is MetalSurfaceTarget -> map.attachMetalSurface(target.toDescriptor(extent))
       is OpenGlTextureTarget -> {
@@ -564,6 +567,7 @@ internal class MlnFfiMapSession(
     try {
       when (target) {
         is VulkanImageTarget -> session.setVulkanBorrowedTextureTarget(target.toDescriptor(extent))
+        is VulkanSurfaceTarget -> session.resize(extent.width, extent.height, extent.scaleFactor)
         is MetalTextureTarget -> session.setMetalBorrowedTextureTarget(target.toDescriptor(extent))
         is MetalSurfaceTarget -> session.setMetalSurfaceTarget(target.toDescriptor(extent))
         is OpenGlTextureTarget -> {
@@ -609,6 +613,13 @@ internal class MlnFfiMapSession(
         initialLayout = initialLayout,
       )
       .also { it.finalLayout = finalLayout }
+
+  private fun VulkanSurfaceTarget.toDescriptor(extent: MapExtent) =
+    VulkanSurfaceDescriptor(
+      extent = extent.toFfiExtent(),
+      context = context.toFfi(),
+      surface = NativePointer.ofAddress(surface.address),
+    )
 
   private fun MetalTextureTarget.toDescriptor(extent: MapExtent) =
     MetalBorrowedTextureDescriptor(

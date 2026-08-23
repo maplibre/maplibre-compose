@@ -6,6 +6,10 @@ android-compileSdk = "37"
 # The Build-Tools release AGP 9.1.1 consumes. Read by
 # .mise/bin/sync-android-packages, not by Gradle.
 android-buildTools = "36.0.0"
+# Build the JNI shim in lib/maplibre-compose-runtime-vulkan-android. Read by
+# .mise/bin/sync-android-packages too.
+android-ndk = "28.2.13676358"
+android-cmake = "4.1.2"
 android-minSdk = "24"
 android-targetSdk = "36"
 # Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.
@@ -111,6 +115,7 @@ maplibre-nativeFfi-runtimeMetal = { module = "org.maplibre.nativeffi:maplibre-na
 maplibre-nativeFfi-runtimeMetalKmp = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-metal", version.ref = "maplibre-nativeFfi" }
 maplibre-nativeFfi-runtimeOpenGl = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-opengl", version.ref = "maplibre-nativeFfi" }
 maplibre-nativeFfi-runtimeVulkan = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan-jvm", version.ref = "maplibre-nativeFfi" }
+maplibre-nativeFfi-runtimeVulkanKmp = { module = "org.maplibre.nativeffi:maplibre-native-ffi-runtime-vulkan", version.ref = "maplibre-nativeFfi" }
 lwjgl-bom = { module = "org.lwjgl:lwjgl-bom", version.ref = "lwjgl" }
 lwjgl-core = { module = "org.lwjgl:lwjgl", version.ref = "lwjgl" }
 lwjgl-egl = { module = "org.lwjgl:lwjgl-egl", version.ref = "lwjgl" }
@@ -124,6 +129,7 @@ spatialk-units = { group = "org.maplibre.spatialk", name = "units", version.ref 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "gradle-android" }
 android-library = { id = "com.android.kotlin.multiplatform.library", version.ref = "gradle-android" }
+android-classicLibrary = { id = "com.android.library", version.ref = "gradle-android" }
 android-lint = { id = "com.android.lint", version.ref = "gradle-android" }
 compose = { id = "org.jetbrains.compose", version.ref = "gradle-compose" }
 dokka = { id = "org.jetbrains.dokka", version.ref = "gradle-dokka" }

@@ -31,8 +31,7 @@ internal fun backendDiagnostic(
     when {
       runtimeBackends.isEmpty() ->
         "No MapLibre Native FFI runtime is on the classpath. Add a runtimeOnly dependency on " +
-          "the matching org.maplibre.compose:maplibre-compose-runtime-<backend>-<os>-<arch> " +
-          "artifact for this platform."
+          "the matching org.maplibre.compose:maplibre-compose-runtime-<backend>-<platform> artifact."
       else ->
         "The packaged MapLibre Native FFI runtime renders with ${runtimeBackends.describe()}, " +
           "but $hostDescription bridges only ${hostBridges.describe()}. Package the runtime " +

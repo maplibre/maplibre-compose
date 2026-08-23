@@ -25,18 +25,21 @@ internal actual fun ComposableMapView(
 ) {
   EnsureMlnFfiConfigured()
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
+  val renderBackend =
+    remember(runtimeBackends) { runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL }
   val surfaceKind =
     when (options.renderOptions.preferredRenderMode) {
       RenderOptions.RenderMode.Texture -> AndroidMapSurfaceKind.Texture
       RenderOptions.RenderMode.Surface -> AndroidMapSurfaceKind.Surface
     }
-  key(surfaceKind) {
+  key(surfaceKind, renderBackend) {
     MlnFfiMapView(
-      renderBackend = MapRenderBackend.OPENGL,
+      renderBackend = renderBackend,
       surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
         AndroidMlnFfiSurface(
           renderer = renderer,
           runtimeBackends = runtimeBackends,
+          backend = renderBackend,
           kind = surfaceKind,
           maximumFps = options.renderOptions.maximumFps,
           modifier = surfaceModifier,
