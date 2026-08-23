@@ -30,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
@@ -92,6 +93,7 @@ object MagnifyingLensDemo : Demo {
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
     val lensCamera = rememberCameraState()
+    val lensSizePx = with(LocalDensity.current) { lensSize.dp.toPx() }
 
     // The overlay's coordinates are the main map's screen coordinates.
     var lensCenter by remember { mutableStateOf<Offset?>(null) }
@@ -128,6 +130,7 @@ object MagnifyingLensDemo : Demo {
           .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
       MaplibreMap(
+        modifier = Modifier.fillMaxSize().radialLensDistortion(lensSizePx),
         baseStyle = state.selectedStyle.base,
         cameraState = lensCamera,
         options =
@@ -186,3 +189,21 @@ expect fun LensRenderSection(lensOptions: RenderOptions, onLensChange: (RenderOp
  * because Android applies Compose modifiers to the map only in texture mode.
  */
 expect val LensRenderOptionsDefault: RenderOptions
+
+/** Applies a convex-lens distortion where the platform supports runtime shaders. */
+@Composable expect fun Modifier.radialLensDistortion(sizePx: Float): Modifier
+
+internal const val LensShader =
+  """
+  uniform shader content;
+  uniform float2 size;
+
+  half4 main(float2 coord) {
+    float2 center = size * 0.5;
+    float2 delta = coord - center;
+    float radius = min(size.x, size.y) * 0.5;
+    float distanceFromCenter = min(length(delta) / radius, 1.0);
+    float scale = 0.82 + 0.18 * distanceFromCenter * distanceFromCenter;
+    return content.eval(center + delta * scale);
+  }
+"""
