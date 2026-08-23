@@ -1,18 +1,9 @@
 plugins {
   id("module-conventions")
   `java-library`
-  id(libs.plugins.mavenPublish.get().pluginId)
 }
 
-mavenPublishing {
-  pom {
-    name = "MapLibre Compose Runtime (OpenGL, Linux x64)"
-    description =
-      "MapLibre Native and LWJGL native libraries for running MapLibre Compose " +
-        "on Linux x64 with the OpenGL backend."
-    url = "https://github.com/maplibre/maplibre-compose"
-  }
-}
+// Local development only until the OpenGL Compose bridge ships; not published.
 
 dependencies {
   runtimeOnly(project(":lib:location-runtime-linux"))
