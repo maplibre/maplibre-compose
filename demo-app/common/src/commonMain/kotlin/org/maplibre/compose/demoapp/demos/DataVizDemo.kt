@@ -13,8 +13,8 @@ import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.asNumber
-import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.convertToString
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.interpolate
 import org.maplibre.compose.expressions.dsl.linear
@@ -121,7 +121,7 @@ object DataVizDemo : Demo {
       id = "earthquake-cluster-counts",
       source = source,
       filter = feature.has("point_count"),
-      textField = feature["point_count_abbreviated"].asString(),
+      textField = feature["point_count_abbreviated"].convertToString(),
       textFont = const(preferredStyle.textFont),
       textColor = const(Color.Black),
     )
