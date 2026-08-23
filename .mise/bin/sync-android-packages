@@ -53,16 +53,26 @@ if [[ -z "$build_tools" ]]; then
   exit 1
 fi
 
+ndk="$(catalog_version android-ndk)"
+if [[ -z "$ndk" ]]; then
+  echo "${0##*/}: could not read android-ndk from gradle/libs.versions.toml" >&2
+  exit 1
+fi
+
+cmake="$(catalog_version android-cmake)"
+if [[ -z "$cmake" ]]; then
+  echo "${0##*/}: could not read android-cmake from gradle/libs.versions.toml" >&2
+  exit 1
+fi
+
 # Paired with the directory that proves each is installed, so a rerun starts no
 # JVM and reaches no network. The platform for compileSdk 37 is android-37.0.
-# The NDK and CMake build the JNI shim in
-# lib/maplibre-compose-runtime-vulkan-android.
 packages=(
   "platforms;android-${compile_sdk}.0|platforms/android-${compile_sdk}.0"
   "build-tools;${build_tools}|build-tools/${build_tools}"
   "platform-tools|platform-tools"
-  "ndk;28.2.13676358|ndk/28.2.13676358"
-  "cmake;4.1.2|cmake/4.1.2"
+  "ndk;${ndk}|ndk/${ndk}"
+  "cmake;${cmake}|cmake/${cmake}"
 )
 
 missing=()

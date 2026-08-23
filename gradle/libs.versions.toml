@@ -6,6 +6,10 @@ android-compileSdk = "37"
 # The Build-Tools release AGP 9.1.1 consumes. Read by
 # .mise/bin/sync-android-packages, not by Gradle.
 android-buildTools = "36.0.0"
+# Build the JNI shim in lib/maplibre-compose-runtime-vulkan-android. Read by
+# .mise/bin/sync-android-packages too.
+android-ndk = "28.2.13676358"
+android-cmake = "4.1.2"
 android-minSdk = "24"
 android-targetSdk = "36"
 # Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.
