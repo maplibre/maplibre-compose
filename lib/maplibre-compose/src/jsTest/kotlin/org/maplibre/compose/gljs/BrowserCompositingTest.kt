@@ -154,6 +154,38 @@ class BrowserCompositingTest {
   }
 
   @Test
+  fun map_frames_clear_sampler_objects_left_by_the_shared_renderer() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { target ->
+      CompositedMap(SPLIT_STYLE).use { map ->
+        map.drawTheWholeStyle(target)
+
+        val sampler = gl.createSampler()
+        check(sampler != null) { "WebGL did not create a sampler object" }
+        val textureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS).unsafeCast<Int>()
+        try {
+          repeat(textureUnits) { unit -> gl.bindSampler(unit, sampler) }
+
+          assertTrue(map.drawOnce(target), "the map should have drawn with foreign GL state")
+
+          repeat(textureUnits) { unit ->
+            gl.activeTexture(gl.TEXTURE0 + unit)
+            assertEquals(
+              null,
+              gl.getParameter(gl.SAMPLER_BINDING),
+              "texture unit $unit should not retain the shared renderer's sampler",
+            )
+          }
+        } finally {
+          repeat(textureUnits) { unit -> gl.bindSampler(unit, null) }
+          gl.activeTexture(gl.TEXTURE0)
+          gl.deleteSampler(sampler)
+        }
+      }
+    }
+  }
+
+  @Test
   fun a_resize_allocates_a_new_target_and_the_map_keeps_drawing() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
     ComposeGlJsCompositor(logger = null).use { compositor ->
