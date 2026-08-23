@@ -14,7 +14,8 @@ import org.maplibre.spatialk.geojson.Position
 
 private const val RENDER_TIMEOUT_MS = 30_000
 
-internal class CompositedMap(style: BaseStyle) : AutoCloseable {
+internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double = 1.0) :
+  AutoCloseable {
 
   private var loadFailure: String? = null
   private var styleLoaded = false
@@ -60,7 +61,7 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
   override fun close() = session.close()
 
   private fun extentOf(target: GlJsRenderTarget) =
-    MapExtent.fromPhysical(target.widthPx, target.heightPx, 1.0)
+    MapExtent.fromPhysical(target.widthPx, target.heightPx, scaleFactor)
 
   private inner class Callbacks : MapAdapter.Callbacks {
     override fun onStyleChanged(map: MapAdapter, style: Style?) = Unit

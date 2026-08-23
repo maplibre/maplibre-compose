@@ -158,7 +158,14 @@ internal class GlJsMapSession(
     if (target is GlJsFrameTarget.NotReady && map == null) return false
     framebuffer = composited?.target?.framebuffer
     val map = ensureMap(composited?.target, extent) ?: return false
-    applyExtent(map, extent)
+    if (composited == null) {
+      applyExtent(map, extent)
+    } else {
+      val mapTarget = composited.target
+      GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
+        applyExtent(map, extent)
+      }
+    }
     if (target is GlJsFrameTarget.NotReady) return false
 
     val now = TimeSource.Monotonic.markNow()
@@ -172,7 +179,10 @@ internal class GlJsMapSession(
       // Skia drives this context between MapLibre's frames, so each renderer is told the other
       // moved the state.
       map.painter.context.setDirty()
-      map.redraw()
+      val mapTarget = composited.target
+      GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
+        map.redraw()
+      }
       SkikoGpuBridge.resetGlState()
     } else {
       // GL JS runs style updates, tile loading and every camera ease from inside its own render, so
@@ -243,7 +253,9 @@ internal class GlJsMapSession(
       else {
         val context = target.gl.unsafeCast<WebGL2RenderingContext>()
         lentContext = context
-        GlJsRuntime.lendingContext(context) { MaplibreMap(options) }
+        GlJsRuntime.withDrawingBufferSize(context, target.widthPx, target.heightPx) {
+          GlJsRuntime.lendingContext(context) { MaplibreMap(options) }
+        }
       }
 
     // Before the style resolves: any render before the redirect lands on Compose's canvas.

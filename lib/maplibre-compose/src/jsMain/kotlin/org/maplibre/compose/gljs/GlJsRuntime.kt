@@ -90,6 +90,45 @@ internal object GlJsRuntime {
   }
 
   /**
+   * Runs [draw] while [gl] reports [width] and [height] as its drawing buffer size.
+   *
+   * MapLibre normally renders into its context's canvas, so some fullscreen passes read the canvas
+   * drawing buffer instead of the current framebuffer. The Compose compositor redirects that
+   * framebuffer to a map-sized texture inside a larger shared canvas.
+   */
+  fun <T> withDrawingBufferSize(
+    gl: WebGL2RenderingContext,
+    width: Int,
+    height: Int,
+    draw: () -> T,
+  ): T {
+    val target = gl.asDynamic()
+    val objects = js("Object")
+    val previousWidth = objects.getOwnPropertyDescriptor(target, "drawingBufferWidth")
+    val previousHeight = objects.getOwnPropertyDescriptor(target, "drawingBufferHeight")
+    val widthDescriptor = js("({configurable: true})")
+    val heightDescriptor = js("({configurable: true})")
+    widthDescriptor.value = width
+    heightDescriptor.value = height
+    try {
+      objects.defineProperty(target, "drawingBufferWidth", widthDescriptor)
+      objects.defineProperty(target, "drawingBufferHeight", heightDescriptor)
+      return draw()
+    } finally {
+      restoreOwnProperty(objects, target, "drawingBufferWidth", previousWidth)
+      restoreOwnProperty(objects, target, "drawingBufferHeight", previousHeight)
+    }
+  }
+
+  private fun restoreOwnProperty(objects: dynamic, target: dynamic, name: String, value: dynamic) {
+    if (value == null || value == undefined) {
+      js("Reflect").deleteProperty(target, name)
+    } else {
+      objects.defineProperty(target, name, value)
+    }
+  }
+
+  /**
    * `bindFramebuffer.set(null)` is the one place in MapLibre's renderer that means "the screen".
    * [target] is read per call, because a resize replaces the framebuffer while the map renders.
    */
