@@ -52,16 +52,14 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * A second map floats over the shared one as a magnifying lens: clipped to a circle, dragged
- * around, and magnifying whatever part of the map it sits on. A
- * [CameraState][org.maplibre.compose.camera.CameraState] binds to a single map, so the lens has its
- * own; a one-way sync copies the main camera over, retargeted to the geographic position under the
- * lens's screen position with the magnification added. The lens map disables gestures, which keeps
- * the sync from looping.
+ * A second map floats over the shared one as a magnifying lens.
  *
- * Compose modifiers do the lens look — clip, shadow, a sweep-gradient rim — and on Android they
- * reach the map only in texture mode, which is why the panel pairs the app's render mode with a
- * render mode for the lens itself.
+ * A [CameraState][org.maplibre.compose.camera.CameraState] binds to a single map, so the lens has
+ * its own, synced one-way from the main camera. The lens map disables gestures so the sync cannot
+ * loop.
+ *
+ * On Android, Compose modifiers reach the map only in texture mode, so the panel exposes the lens
+ * map's render mode alongside the app's.
  */
 object MagnifyingLensDemo : Demo {
   override val name = "Magnifying lens"
@@ -77,13 +75,12 @@ object MagnifyingLensDemo : Demo {
     Square("Rounded square", RoundedCornerShape(24.dp)),
   }
 
-  /** A sweep of grays that reads as a machined metal ring. */
   private val rimBrush =
     Brush.sweepGradient(
       listOf(Color(0xFF9E9E9E), Color(0xFFF5F5F5), Color(0xFF616161), Color(0xFF9E9E9E))
     )
 
-  /** Zoom levels added to the main camera; each level doubles the scale. */
+  /** Each zoom level added doubles the scale, hence the 2×/4×/8× labels. */
   private var magnification by mutableDoubleStateOf(2.0)
   private var lensSize by mutableFloatStateOf(220f)
   private var lensShape by mutableStateOf(LensShape.Circle)
@@ -94,9 +91,7 @@ object MagnifyingLensDemo : Demo {
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
     val lensCamera = rememberCameraState()
 
-    // The lens magnifies what is under it: its target is the geographic position at the lens's
-    // own center, tracked here in the overlay's coordinates, which are the main map's screen
-    // coordinates.
+    // The overlay's coordinates are the main map's screen coordinates.
     var lensCenter by remember { mutableStateOf<Offset?>(null) }
     LaunchedEffect(Unit) {
       snapshotFlow {
@@ -141,7 +136,6 @@ object MagnifyingLensDemo : Demo {
         contentWindowInsets = WindowInsets(0),
         overlay = MapOverlay.None,
       )
-      // The glass: a streak of white fading away from the top left.
       Box(
         Modifier.fillMaxSize()
           .background(

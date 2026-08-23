@@ -44,7 +44,7 @@ expect fun LensRenderSection(
 
 /**
  * The lens map's initial render options: texture mode where a texture-versus-surface choice exists,
- * so the lens's modifiers apply out of the box.
+ * because Android applies Compose modifiers to the map only in texture mode.
  */
 expect val LensRenderOptionsDefault: RenderOptions
 
