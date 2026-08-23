@@ -35,7 +35,7 @@ internal actual fun ComposableMapView(
   key(surfaceKind, renderBackend) {
     MlnFfiMapView(
       renderBackend = renderBackend,
-      surface = { renderer, surfaceModifier, surfaceLogger ->
+      surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
         AndroidMlnFfiSurface(
           renderer = renderer,
           runtimeBackends = runtimeBackends,
@@ -44,6 +44,7 @@ internal actual fun ComposableMapView(
           maximumFps = options.renderOptions.maximumFps,
           modifier = surfaceModifier,
           logger = surfaceLogger,
+          presentWindow = presentFrames,
         )
       },
       modifier = modifier,

@@ -1,6 +1,11 @@
 [versions]
 # Platform floors and toolchain levels.
-android-compileSdk = "36"
+# compileSdk 37 is the API floor AGP 9.1.1 supports. targetSdk stays on 36,
+# the latest shipping Android 16 behavior.
+android-compileSdk = "37"
+# The Build-Tools release AGP 9.1.1 consumes. Read by
+# .mise/bin/sync-android-packages, not by Gradle.
+android-buildTools = "36.0.0"
 android-minSdk = "24"
 android-targetSdk = "36"
 # Compiler JDK for every JVM compilation. Must be >= java-desktopTarget.
@@ -48,7 +53,7 @@ gradle-mavenPublish = "0.37.0"
 gradle-compose = "1.11.1"
 androidx-compose = "1.11.2"
 jetbrains-compose-material3 = "1.11.0-alpha07"
-# 1.3.x needs compileSdk 37; AGP 9.1 and this catalog stay on 36.
+# 1.3.x is still beta.
 jetbrains-compose-material3-adaptive = "1.2.0"
 jetbrains-navigation = "2.9.2"
 
@@ -56,7 +61,9 @@ jetbrains-navigation = "2.9.2"
 # Also note the Gradle and XCode versions in the matrix!
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/multiplatform-compatibility-guide.html
 gradle-kotlin = "2.4.10"
-gradle-android = "9.1.0"
+# Kotlin 2.4.10 documents AGP through 9.1.0. 9.1.1 is the floor for
+# compileSdk 37.
+gradle-android = "9.1.1"
 
 [libraries]
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "accompanistPermissions" }

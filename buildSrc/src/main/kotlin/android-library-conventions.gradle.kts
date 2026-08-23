@@ -28,7 +28,7 @@ kotlin {
         compilerOptions {
           // Set the JVM target on each compilation, because the Android library DSL exposes no
           // property for it and a compilation otherwise inherits the toolchain's Java 25. Still
-          // required as of AGP 9.1.0. https://issuetracker.google.com/issues/379315244
+          // required as of AGP 9.1.1. https://issuetracker.google.com/issues/379315244
           jvmTarget = project.getAndroidJvmTarget()
         }
       }

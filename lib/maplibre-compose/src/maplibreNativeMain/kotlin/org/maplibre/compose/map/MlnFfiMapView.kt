@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -11,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.testTag
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -24,6 +27,9 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
+
+/** Test tag for the color shown until the first style has loaded. */
+internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
 
 /** A map backed by MapLibre Native FFI, rendered through [hostFactory]. */
 @Composable
@@ -47,12 +53,13 @@ internal fun MlnFfiMapView(
 
   MlnFfiMapView(
     renderBackend = hostFactory.backends.producer,
-    surface = { renderer, surfaceModifier, surfaceLogger ->
+    surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
       MlnFfiMapSurface(
         renderer = renderer,
         hostResult = hostResult,
         modifier = surfaceModifier,
         logger = surfaceLogger,
+        presentFrames = presentFrames,
       )
     },
     modifier = modifier,
@@ -69,7 +76,7 @@ internal fun MlnFfiMapView(
 @Composable
 internal fun MlnFfiMapView(
   renderBackend: MapRenderBackend,
-  surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?) -> Unit,
+  surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?, Boolean) -> Unit,
   modifier: Modifier,
   style: BaseStyle,
   update: (map: MapAdapter) -> Unit,
@@ -123,9 +130,28 @@ internal fun MlnFfiMapView(
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
+  // MapLibre renders black until a style loads.
+  val revealSurface = session.hasLoadedFirstStyle
+
+  // Before the first render target attaches, gestures would project through the bootstrap 1x1
+  // viewport and jump the camera.
   val inputModifier =
-    modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
-  surface(session, inputModifier, logger)
+    if (revealSurface) {
+      modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
+    } else {
+      modifier
+    }
+
+  Box {
+    surface(session, inputModifier, logger, revealSurface)
+    if (!revealSurface) {
+      Box(
+        Modifier.matchParentSize()
+          .background(options.renderOptions.foregroundLoadColor)
+          .testTag(MAP_LOAD_PLACEHOLDER_TAG)
+      )
+    }
+  }
 }
 
 private fun createHost(
