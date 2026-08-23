@@ -179,6 +179,87 @@ fi
 description = "Build the documentation site and the Dokka API reference into docs/dist."
 run = "mise run //docs:build"
 
+[tasks."build:js-app"]
+description = "Build the browser demo app for static hosting."
+run = "./gradlew :demo-app:common:jsBrowserDistribution"
+
+[tasks."build:pages"]
+description = "Build the complete GitHub Pages site into docs/dist."
+run = '''
+mise run build:docs
+mise run build:js-app
+mkdir -p docs/dist/demo
+cp -a demo-app/common/build/dist/js/productionExecutable/. docs/dist/demo/
+'''
+
+[tasks."test:pages"]
+description = "Load the browser demo from the complete GitHub Pages build."
+depends = ["build:pages"]
+run = '''
+pages_test_dir="$(mktemp -d)"
+pages_preview_pid=""
+
+cleanup() {
+  if [ -n "$pages_preview_pid" ]; then
+    kill "$pages_preview_pid" 2>/dev/null || true
+    wait "$pages_preview_pid" 2>/dev/null || true
+  fi
+  rm -rf -- "$pages_test_dir"
+}
+trap cleanup EXIT
+
+pnpm --dir docs exec astro preview --host 127.0.0.1 --port 4321 >"$pages_test_dir/preview.log" 2>&1 &
+pages_preview_pid=$!
+
+for _ in {1..30}; do
+  if curl --fail --silent --output /dev/null http://127.0.0.1:4321/maplibre-compose/demo/; then
+    break
+  fi
+  if ! kill -0 "$pages_preview_pid" 2>/dev/null; then
+    cat "$pages_test_dir/preview.log"
+    exit 1
+  fi
+  sleep 1
+done
+
+curl --fail --silent --output /dev/null http://127.0.0.1:4321/maplibre-compose/demo/
+playwright screenshot \
+  --channel chromium \
+  --save-har "$pages_test_dir/demo.har" \
+  --save-har-glob '**/composeResources/**' \
+  --timeout 30000 \
+  --wait-for-selector 'canvas[role="generic"]' \
+  http://127.0.0.1:4321/maplibre-compose/demo/ \
+  "$pages_test_dir/demo.png"
+
+node - "$pages_test_dir/demo.har" <<'NODE'
+const fs = require("node:fs");
+
+const entries = JSON.parse(fs.readFileSync(process.argv[2], "utf8")).log.entries;
+if (entries.length === 0) {
+  throw new Error("The demo requested no Compose resources.");
+}
+
+const expectedPrefix =
+  "http://127.0.0.1:4321/maplibre-compose/demo/composeResources/";
+const misplaced = entries.filter((entry) => !entry.request.url.startsWith(expectedPrefix));
+if (misplaced.length > 0) {
+  throw new Error(
+    `Compose resources used URLs outside the demo: ${misplaced.map((entry) => entry.request.url).join(", ")}`,
+  );
+}
+
+const failed = entries.filter(
+  (entry) => entry.response.status < 200 || entry.response.status >= 400,
+);
+if (failed.length > 0) {
+  throw new Error(
+    `Compose resources failed to load: ${failed.map((entry) => `${entry.response.status} ${entry.request.url}`).join(", ")}`,
+  );
+}
+NODE
+'''
+
 [tasks."build:android-app"]
 description = "Package the demo app as a debug APK."
 run = "./gradlew :demo-app:android:packageDebug"

@@ -28,8 +28,8 @@ export default defineConfig({
       customCss: ["./src/styles/custom.css"],
       plugins: [
         starlightCopyButton(),
-        // Dokka owns /api/, and it is generated rather than checked in.
-        starlightLinksValidator({ exclude: [`${base}/api/**`] }),
+        // Generated static sites own these paths outside Astro's page tree.
+        starlightLinksValidator({ exclude: [`${base}/api/**`, `${base}/demo/**`] }),
       ],
       social: [
         {
@@ -40,6 +40,11 @@ export default defineConfig({
       ],
       sidebar: [
         { label: "Overview", link: "/" },
+        {
+          label: "Live demo",
+          link: "/demo/",
+          attrs: { target: "_blank", rel: "noopener noreferrer" },
+        },
         { label: "Getting started", slug: "getting-started" },
         { label: "Styling", slug: "styling" },
         { label: "Interaction", slug: "interaction" },
