@@ -273,6 +273,9 @@ private fun InterfaceSettingsItems(settings: DemoSettings) {
   SectionHeader("Overlays")
   SwitchRow("Frame rate", settings.showFpsOverlay) { settings.showFpsOverlay = it }
   SwitchRow("Camera state", settings.showCameraOverlay) { settings.showCameraOverlay = it }
+  SwitchRow("Pointer pin geometry", settings.showPointerPinDiagnostics) {
+    settings.showPointerPinDiagnostics = it
+  }
 }
 
 @Composable

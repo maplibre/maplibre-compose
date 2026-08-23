@@ -29,6 +29,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -48,13 +50,14 @@ import org.maplibre.spatialk.geojson.Position
  * parent layout, pointing towards some [targetPosition] off-screen. Only shown if the
  * [targetPosition] is outside of the ellipsis.
  *
- * Note that this composable should fill the whole area in which the pointer pin button will be
- * **placed**, i.e. usually the whole map screen.
+ * This composable should fill the map. Use [placementPadding] to keep the placement ellipse inside
+ * another overlay or inset.
  *
  * @param onClick called when this button is clicked
  * @param cameraState used to calculate where the given [targetPosition] is in screen coordinates
  * @param targetPosition position (off-screen) the pin should point at
  * @param modifier the [Modifier] to be applied to the layout the button is placed in
+ * @param placementPadding padding between the map edges and the placement ellipse
  * @param enabled controls the enabled state of this button. When `false`, this component will not
  *   respond to user input, and it will appear visually disabled and disabled to accessibility
  *   services.
@@ -77,6 +80,7 @@ public fun PointerPinButton(
   cameraState: CameraState,
   targetPosition: Position,
   modifier: Modifier = Modifier,
+  placementPadding: PaddingValues = PaddingValues(0.dp),
   onClick: () -> Unit = {},
   enabled: Boolean = true,
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),
@@ -92,7 +96,11 @@ public fun PointerPinButton(
     remember(targetPosition, viewport) { cameraState.screenLocationFromPosition(targetPosition) }
   val target = dpTarget?.toOffset() ?: return
 
-  PointerPinPlacement(target = target, modifier = modifier) { offset, angle ->
+  PointerPinPlacement(
+    target = target,
+    modifier = modifier,
+    placementPadding = placementPadding,
+  ) { offset, angle ->
     val rotation = angle * 180 / PI
     val dpOffset = offset.toDpOffset()
 
@@ -137,36 +145,31 @@ public fun PointerPinButton(
 internal fun PointerPinPlacement(
   target: Offset,
   modifier: Modifier = Modifier,
+  placementPadding: PaddingValues = PaddingValues(0.dp),
   content: @Composable BoxScope.(offset: Offset, angle: Double) -> Unit,
 ) {
-  var placementSpace by remember { mutableStateOf<PlacementSpace?>(null) }
+  var area by remember { mutableStateOf<Rect?>(null) }
+  val density = LocalDensity.current
+  val layoutDirection = LocalLayoutDirection.current
 
   Box(
     modifier =
       modifier.fillMaxSize().onGloballyPositioned { coordinates ->
-        val parent = coordinates.parentLayoutCoordinates ?: return@onGloballyPositioned
-        val parentToLocal = Matrix()
-        // The projected target uses the parent's coordinates; placement uses this box's.
-        coordinates.transformFrom(parent, parentToLocal)
-        placementSpace =
-          PlacementSpace(
-            area =
-              Rect(0f, 0f, coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
-            parentToLocal = parentToLocal,
-          )
+        val left = with(density) { placementPadding.calculateLeftPadding(layoutDirection).toPx() }
+        val top = with(density) { placementPadding.calculateTopPadding().toPx() }
+        val right =
+          coordinates.size.width -
+            with(density) { placementPadding.calculateRightPadding(layoutDirection).toPx() }
+        val bottom =
+          coordinates.size.height -
+            with(density) { placementPadding.calculateBottomPadding().toPx() }
+        area = if (left < right && top < bottom) Rect(left, top, right, bottom) else null
       }
   ) {
-    val intersection =
-      remember(target, placementSpace) {
-        placementSpace?.let {
-          findEllipsisIntersection(it.area, it.parentToLocal.map(target))
-        }
-      }
+    val intersection = remember(target, area) { area?.let { findEllipsisIntersection(it, target) } }
     intersection?.let { content(it.position, it.angle) }
   }
 }
-
-private data class PlacementSpace(val area: Rect, val parentToLocal: Matrix)
 
 /** A kind of map-📍 shape, but rotatable */
 private class PointerPinShape(val rotation: Float = 0f) : Shape {
