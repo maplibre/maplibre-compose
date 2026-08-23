@@ -28,7 +28,7 @@ class DemoSettings {
 
 /**
  * The rendering toggles this platform's [RenderOptions] offers — debug flags, the frame rate cap,
- * and where supported the texture-versus-surface choice — as settings list items.
+ * and on Android the texture-versus-surface choice — as settings list items.
  */
 @Composable expect fun RenderSettingsItems(settings: DemoSettings)
 

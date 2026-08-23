@@ -5,5 +5,3 @@ import org.maplibre.compose.map.RenderOptions
 
 @Composable
 actual fun LensRenderSection(lensOptions: RenderOptions, onLensChange: (RenderOptions) -> Unit) {}
-
-actual val LensRenderOptionsDefault: RenderOptions = RenderOptions.Standard
