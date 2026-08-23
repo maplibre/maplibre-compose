@@ -171,7 +171,7 @@ internal class FakeMlnFfiMapHost(
 
 /** A [MlnFfiMapHostFactory] producing [FakeMlnFfiMapHost]s. */
 internal class FakeMlnFfiMapHostFactory(
-  override val backends: RenderBackendPair =
+  private val bridge: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL),
   override val description: String = "fake test host",
   private val result: ((MapRenderBackend) -> MlnFfiMapHostResult)? = null,
@@ -182,9 +182,12 @@ internal class FakeMlnFfiMapHostFactory(
   private val configureHost: (FakeMlnFfiMapHost) -> Unit = {},
 ) : MlnFfiMapHostFactory {
 
+  override val bridges: List<RenderBackendPair> = listOf(bridge)
+
   val created: MutableList<FakeMlnFfiMapHost> = mutableListOf()
 
-  override fun create(): MlnFfiMapHostResult {
+  override fun create(backends: RenderBackendPair): MlnFfiMapHostResult {
+    check(backends == bridge) { "The fake factory was asked for $backends, not $bridge" }
     result?.let {
       return it(backends.producer)
     }

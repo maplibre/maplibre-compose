@@ -121,14 +121,18 @@ internal interface MlnFfiMapHostFactory {
   /** A short description of this factory, used in diagnostics. */
   val description: String
 
-  /** The one producer/consumer combination this factory bridges on the current machine. */
-  val backends: RenderBackendPair
+  /**
+   * The producer/consumer combinations this factory can bridge on the current machine, in
+   * preference order. The bridge the map uses is the first whose producer the packaged FFI runtime
+   * provides; the runtime artifact the application packaged is what chooses between them.
+   */
+  val bridges: List<RenderBackendPair>
 
   /**
-   * Creates a host for [backends]. Prefer returning [MlnFfiMapHostResult.Failed] over throwing, so
-   * the failure reaches the user as a diagnostic.
+   * Creates a host for [backends], one of [bridges]. Prefer returning [MlnFfiMapHostResult.Failed]
+   * over throwing, so the failure reaches the user as a diagnostic.
    */
-  fun create(): MlnFfiMapHostResult
+  fun create(backends: RenderBackendPair): MlnFfiMapHostResult
 }
 
 /** The outcome of [MlnFfiMapHostFactory.create]. */

@@ -98,7 +98,8 @@ For a machine with no SDK, install the pinned SDK with
   headless emulator; `android-emulator:boot`/`:stop` drive it directly)
 - **iOS:** `mise run test:ios` (boots its own simulator)
 - **Web:** `mise run test:js`
-- **Desktop:** `mise run test:desktop`
+- **Desktop:** `mise run test:desktop` (add `--backend <name>` to package a
+  non-default render backend, e.g. `opengl` on Linux)
 
 Tests live in platform-specific source sets:
 

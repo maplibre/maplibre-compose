@@ -78,6 +78,8 @@ import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.nativeffi.Maplibre
+import org.maplibre.nativeffi.render.RenderBackend
 import org.maplibre.spatialk.geojson.Position
 
 class LinuxVulkanOpenGlInteropTest {
@@ -190,8 +192,18 @@ class LinuxVulkanOpenGlInteropTest {
 
   private inline fun onLinux(reason: String, block: () -> Unit) {
     assumeTrue(reason, System.getProperty("os.name").orEmpty().lowercase().contains("linux"))
+    assumeTrue(
+      "the Vulkan to OpenGL bridge needs the Vulkan runtime packaged",
+      packagedRuntime() == RenderBackend.VULKAN,
+    )
     block()
   }
+
+  private fun packagedRuntime(): RenderBackend? = runCatching {
+    Maplibre.loadNativeLibrary()
+    Maplibre.supportedRenderBackends().singleOrNull()
+  }
+    .getOrNull()
 
   private fun assertNear(expected: RgbaPixel, actual: RgbaPixel, label: String) {
     assertTrue(

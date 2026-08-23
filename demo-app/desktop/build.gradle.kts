@@ -8,6 +8,10 @@ plugins {
 }
 
 val desktopHostPlatform = DesktopHostPlatform.current()
+val desktopRenderBackend =
+  desktopHostPlatform.selectedRenderBackend(
+    providers.gradleProperty("maplibre.desktop.backend").orNull
+  )
 
 kotlin {
   jvmToolchain(libs.versions.java.toolchain.get().toInt())
@@ -20,7 +24,7 @@ dependencies {
   implementation(compose.desktop.currentOs)
   implementation(libs.kotlinx.coroutines.swing)
 
-  runtimeOnly(project(":lib:${desktopHostPlatform.defaultRuntimeArtifactId}"))
+  runtimeOnly(project(":lib:${desktopHostPlatform.runtimeArtifactId(desktopRenderBackend)}"))
 }
 
 compose.desktop {

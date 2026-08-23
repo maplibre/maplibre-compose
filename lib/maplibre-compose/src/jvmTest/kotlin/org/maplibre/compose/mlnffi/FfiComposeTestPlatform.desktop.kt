@@ -76,21 +76,18 @@ internal actual fun ComposeUiTest.setFfiTestMapContent(
 /** Creates a production bridge for whichever runtime this Desktop test process packages. */
 private class CurrentRuntimeTestMapHostFactory
 private constructor(private var preparedDriver: FfiTestRenderDriver?) : MlnFfiMapHostFactory {
-  override val backends: RenderBackendPair =
-    Maplibre.supportedRenderBackends()
-      .map {
-        when (it) {
-          RenderBackend.METAL ->
-            RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
-          RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.VULKAN, composeBackend())
-          else -> error("No Desktop test map host for $it")
-        }
+  override val bridges: List<RenderBackendPair> =
+    listOf(
+      when (val packaged = Maplibre.supportedRenderBackends().singleOrNull()) {
+        RenderBackend.METAL -> RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
+        RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.VULKAN, composeBackend())
+        else -> error("No Desktop test map host for ${packaged ?: "no packaged runtime"}")
       }
-      .single()
+    )
 
-  override val description: String = "production $backends test bridge"
+  override val description: String = "production ${bridges.single()} test bridge"
 
-  override fun create(): MlnFfiMapHostResult {
+  override fun create(backends: RenderBackendPair): MlnFfiMapHostResult {
     val driver =
       preparedDriver
         ?: return MlnFfiMapHostResult.Failed(

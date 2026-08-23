@@ -22,7 +22,9 @@ import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiMapSurface
+import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.backendDiagnostic
+import org.maplibre.compose.mlnffi.selectBridge
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
@@ -48,15 +50,15 @@ internal fun MlnFfiMapView(
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
   val runtimeBackends = remember { loadRuntimeBackends(logger) }
   val scaleFactor = density.density.toDouble()
-  val hostResult =
-    remember(hostFactory, runtimeBackends, scaleFactor) { createHost(runtimeBackends, hostFactory) }
+  val hostSelection =
+    remember(hostFactory, runtimeBackends, scaleFactor) { selectHost(runtimeBackends, hostFactory) }
 
   MlnFfiMapView(
-    renderBackend = hostFactory.backends.producer,
+    renderBackend = hostSelection.backends.producer,
     surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
       MlnFfiMapSurface(
         renderer = renderer,
-        hostResult = hostResult,
+        hostResult = hostSelection.result,
         modifier = surfaceModifier,
         logger = surfaceLogger,
         presentFrames = presentFrames,
@@ -154,26 +156,39 @@ internal fun MlnFfiMapView(
   }
 }
 
-private fun createHost(
+/** The bridge a map selected, with the outcome of creating its host. */
+private class MlnFfiHostSelection(
+  val backends: RenderBackendPair,
+  val result: MlnFfiMapHostResult,
+)
+
+private fun selectHost(
   runtimeBackends: Set<MapRenderBackend>,
   factory: MlnFfiMapHostFactory,
-): MlnFfiMapHostResult {
+): MlnFfiHostSelection {
+  // The factory's first bridge stands in when nothing matches, so a failed selection still builds
+  // the session the diagnostic is reported against.
+  val backends = selectBridge(runtimeBackends, factory.bridges) ?: factory.bridges.first()
   val diagnostic =
     backendDiagnostic(
       runtimeBackends = runtimeBackends,
-      hostBackends = factory.backends,
+      hostBridges = factory.bridges,
       hostDescription = factory.description,
       operatingSystem = mlnFfiOperatingSystem,
       architecture = mlnFfiArchitecture,
     )
-  if (diagnostic != null) return MlnFfiMapHostResult.Failed(diagnostic)
+  if (diagnostic != null)
+    return MlnFfiHostSelection(backends, MlnFfiMapHostResult.Failed(diagnostic))
 
-  return try {
-    factory.create()
-  } catch (error: Throwable) {
-    rethrowIfFatal(error)
-    MlnFfiMapHostResult.Failed("${factory.description} threw while creating a map host", error)
-  }
+  return MlnFfiHostSelection(
+    backends,
+    try {
+      factory.create(backends)
+    } catch (error: Throwable) {
+      rethrowIfFatal(error)
+      MlnFfiMapHostResult.Failed("${factory.description} threw while creating a map host", error)
+    },
+  )
 }
 
 /**

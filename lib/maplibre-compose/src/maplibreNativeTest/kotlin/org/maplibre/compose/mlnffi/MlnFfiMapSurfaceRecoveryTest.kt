@@ -172,7 +172,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     val renderer = RecordingRenderer()
     val factory = FakeMlnFfiMapHostFactory()
     val size = mutableStateOf(64.dp)
-    val hostResult = factory.create()
+    val hostResult = factory.create(factory.bridges.single())
 
     setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
     waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
@@ -187,7 +187,7 @@ class MlnFfiMapSurfaceRecoveryTest {
     renderer: MlnFfiMapRenderer,
     factory: FakeMlnFfiMapHostFactory,
   ) {
-    val hostResult = factory.create()
+    val hostResult = factory.create(factory.bridges.single())
     setContent {
       MlnFfiMapSurface(
         renderer = renderer,
