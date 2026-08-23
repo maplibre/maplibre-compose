@@ -19,7 +19,7 @@ import platform.zlib.z_stream
 
 // Foundation has no ZIP API, so this walks the archive's central directory and
 // inflates each entry through the platform's zlib.
-internal actual fun unzip(bytes: ByteArray): Map<String, ByteArray> {
+internal actual suspend fun unzip(bytes: ByteArray): Map<String, ByteArray> {
   val eocd = findEndOfCentralDirectory(bytes)
   val entryCount = bytes.u16(eocd + 10)
   var offset = bytes.u32(eocd + 16)
