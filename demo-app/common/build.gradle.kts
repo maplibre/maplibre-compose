@@ -45,12 +45,21 @@ kotlin {
       dependsOn(commonMain.get())
     }
     val androidJvmMain by creating { dependsOn(maplibreNativeMain) }
+    val nonAndroidMain by creating { dependsOn(commonMain.get()) }
 
     androidMain { dependsOn(androidJvmMain) }
 
-    jvmMain { dependsOn(androidJvmMain) }
+    jvmMain {
+      dependsOn(androidJvmMain)
+      dependsOn(nonAndroidMain)
+    }
 
-    iosMain { dependsOn(maplibreNativeMain) }
+    iosMain {
+      dependsOn(maplibreNativeMain)
+      dependsOn(nonAndroidMain)
+    }
+
+    jsMain { dependsOn(nonAndroidMain) }
 
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.

@@ -44,6 +44,7 @@ import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SliderRow
+import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
@@ -89,6 +90,7 @@ object MagnifyingLensDemo : Demo {
   private var lensShape by mutableStateOf(LensShape.Circle)
   private var dragOffset by mutableStateOf(Offset.Zero)
   private var lensRenderOptions by mutableStateOf(LensRenderOptionsDefault)
+  private var lensDistortionEnabled by mutableStateOf(true)
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
@@ -130,7 +132,12 @@ object MagnifyingLensDemo : Demo {
           .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
       MaplibreMap(
-        modifier = Modifier.fillMaxSize().radialLensDistortion(lensSizePx),
+        modifier =
+          if (lensDistortionEnabled) {
+            Modifier.fillMaxSize().radialLensDistortion(lensSizePx)
+          } else {
+            Modifier.fillMaxSize()
+          },
         baseStyle = state.selectedStyle.base,
         cameraState = lensCamera,
         options =
@@ -159,6 +166,7 @@ object MagnifyingLensDemo : Demo {
     LensRenderSection(lensRenderOptions) { lensRenderOptions = it }
 
     SectionHeader("Lens")
+    SwitchRow("Lens distortion", lensDistortionEnabled) { lensDistortionEnabled = it }
     SegmentedRow(
       label = "Magnification",
       options = listOf(1.0, 2.0, 3.0),
