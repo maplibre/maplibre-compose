@@ -16,6 +16,10 @@ internal class GlJsRenderTarget(
   val generation: Long,
 ) : AutoCloseable {
 
+  private val fragmentTextureUnits =
+    (gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) as? Int)
+      ?: error("WebGL did not report its fragment texture unit count")
+
   private val framebufferObject: dynamic
   private val depthStencil: dynamic
 
@@ -76,6 +80,14 @@ internal class GlJsRenderTarget(
         origin = SurfaceOrigin.BOTTOM_LEFT,
         colorType = ColorType.RGBA_8888,
       )
+  }
+
+  /**
+   * Removes sampler objects left by Skia. A sampler object overrides the filtering and wrapping on
+   * MapLibre's textures, and MapLibre does not track sampler bindings in its WebGL state cache.
+   */
+  fun unbindSamplerObjects() {
+    repeat(fragmentTextureUnits) { unit -> gl.bindSampler(unit, null) }
   }
 
   /** The texture is not deleted here: adoption handed it to Skia. */

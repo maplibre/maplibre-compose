@@ -178,6 +178,7 @@ internal class GlJsMapSession(
     if (composited != null) {
       // Skia drives this context between MapLibre's frames, so each renderer is told the other
       // moved the state.
+      composited.target.unbindSamplerObjects()
       map.painter.context.setDirty()
       val mapTarget = composited.target
       GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
