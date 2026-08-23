@@ -225,10 +225,39 @@ done
 curl --fail --silent --output /dev/null http://127.0.0.1:4321/maplibre-compose/demo/
 playwright screenshot \
   --channel chromium \
+  --save-har "$pages_test_dir/demo.har" \
+  --save-har-glob '**/composeResources/**' \
   --timeout 30000 \
-  --wait-for-selector canvas \
+  --wait-for-selector 'canvas[role="generic"]' \
   http://127.0.0.1:4321/maplibre-compose/demo/ \
   "$pages_test_dir/demo.png"
+
+node - "$pages_test_dir/demo.har" <<'NODE'
+const fs = require("node:fs");
+
+const entries = JSON.parse(fs.readFileSync(process.argv[2], "utf8")).log.entries;
+if (entries.length === 0) {
+  throw new Error("The demo requested no Compose resources.");
+}
+
+const expectedPrefix =
+  "http://127.0.0.1:4321/maplibre-compose/demo/composeResources/";
+const misplaced = entries.filter((entry) => !entry.request.url.startsWith(expectedPrefix));
+if (misplaced.length > 0) {
+  throw new Error(
+    `Compose resources used URLs outside the demo: ${misplaced.map((entry) => entry.request.url).join(", ")}`,
+  );
+}
+
+const failed = entries.filter(
+  (entry) => entry.response.status < 200 || entry.response.status >= 400,
+);
+if (failed.length > 0) {
+  throw new Error(
+    `Compose resources failed to load: ${failed.map((entry) => `${entry.response.status} ${entry.request.url}`).join(", ")}`,
+  );
+}
+NODE
 '''
 
 [tasks."build:android-app"]
