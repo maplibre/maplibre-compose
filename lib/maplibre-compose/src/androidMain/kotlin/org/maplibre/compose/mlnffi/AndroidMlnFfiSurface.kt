@@ -57,11 +57,10 @@ internal fun AndroidMlnFfiSurface(
   if (!available) {
     DisposableEffect(runtimeBackends) {
       logger?.e {
-        val hostBackends = RenderBackendPair(backend, ComposeRenderBackend.OPENGL)
         val diagnostic =
           backendDiagnostic(
             runtimeBackends = runtimeBackends,
-            hostBackends = hostBackends,
+            hostBridges = listOf(RenderBackendPair(backend, ComposeRenderBackend.OPENGL)),
             hostDescription = "the Android $backend surface host",
             operatingSystem = mlnFfiOperatingSystem,
             architecture = mlnFfiArchitecture,
