@@ -11,6 +11,7 @@ import org.maplibre.compose.demoapp.demos.LiveTrackingDemo
 import org.maplibre.compose.demoapp.demos.LocationDemo
 import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
+import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -74,9 +75,6 @@ internal val BoundingBox.center: Position
     )
   }
 
-/** Demos that cannot run in the browser; empty on the js target. */
-internal expect val extraDemos: List<Demo>
-
 /** Demos appear in the shell in this order. */
 val allDemos: List<Demo> =
   listOf(
@@ -86,4 +84,6 @@ val allDemos: List<Demo> =
     LiveTrackingDemo,
     DragDropDemo,
     MagnifyingLensDemo,
-  ) + extraDemos + listOf(LocationDemo)
+    TransitNetworkDemo,
+    LocationDemo,
+  )

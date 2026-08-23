@@ -3,7 +3,7 @@ package org.maplibre.compose.demoapp.util
 import java.io.ByteArrayInputStream
 import java.util.zip.ZipInputStream
 
-internal actual fun unzip(bytes: ByteArray): Map<String, ByteArray> {
+internal actual suspend fun unzip(bytes: ByteArray): Map<String, ByteArray> {
   val result = mutableMapOf<String, ByteArray>()
   ZipInputStream(ByteArrayInputStream(bytes)).use { zip ->
     var entry = zip.nextEntry

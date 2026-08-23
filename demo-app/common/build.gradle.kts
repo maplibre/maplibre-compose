@@ -40,14 +40,9 @@ kotlin {
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
 
     // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
-    // so render toggles, offline UI, and the transit demo (no CORS) live here.
+    // so render toggles and offline UI live here.
     val maplibreNativeMain by creating {
       dependsOn(commonMain.get())
-      dependencies {
-        implementation(libs.mobilityData.gtfsSchedule)
-        implementation(libs.kotlin.dsv)
-        implementation(libs.ktor.client.core)
-      }
     }
     val androidJvmMain by creating { dependsOn(maplibreNativeMain) }
 
@@ -67,6 +62,9 @@ kotlin {
       implementation(libs.jetbrains.compose.material3)
       implementation(libs.jetbrains.compose.material3.adaptive)
       implementation(libs.androidx.navigation.compose)
+      implementation(libs.kotlin.dsv)
+      implementation(libs.ktor.client.core)
+      implementation(libs.mobilityData.gtfsSchedule)
       implementation(libs.spatialk.geojson)
 
       api(project(":lib:maplibre-compose"))
@@ -91,7 +89,12 @@ kotlin {
 
     iosMain.dependencies { implementation(libs.ktor.client.darwin) }
 
-    jsMain.dependencies { implementation(libs.jetbrains.compose.html.core) }
+    jsMain.dependencies {
+      implementation(libs.jetbrains.compose.html.core)
+      implementation(libs.kotlin.wrappers.js)
+      implementation(libs.ktor.client.js)
+      implementation(npm("fflate", libs.versions.fflate.get()))
+    }
 
     commonTest.dependencies { implementation(kotlin("test")) }
 

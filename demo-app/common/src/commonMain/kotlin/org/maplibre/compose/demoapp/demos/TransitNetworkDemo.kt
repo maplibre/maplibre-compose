@@ -23,7 +23,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -97,9 +96,8 @@ object TransitNetworkDemo : Demo {
   override val pointerPin = DemoPointerPin(networkRegion.center, destination)
   override val preferredStyle = OpenFreeMap.Positron
 
-  /** The feed sends no CORS headers, which is why this demo is absent from the browser. */
-  private const val FEED_URI =
-    "https://business.wsdot.wa.gov/Transit/csv_files/wsf/google_transit.zip"
+  /** Mobility Database refreshes this browser-accessible mirror from WSDOT each day. */
+  private const val FEED_URI = "https://files.mobilitydatabase.org/mdb-283/latest.zip"
 
   /** Camera padding that leaves room for a departure chip above each terminal. */
   private val RouteFitPadding = PaddingValues(horizontal = 96.dp, vertical = 72.dp)
@@ -141,6 +139,14 @@ object TransitNetworkDemo : Demo {
     val calendars: List<ServiceCalendar>,
   )
 
+  private data class Sailing(val instant: Instant, val headsign: String)
+
+  private data class RouteDepartures(
+    val routeId: String,
+    val nextSailings: List<String>,
+    val nextByStopId: Map<String, String>,
+  )
+
   private sealed interface FeedState {
     data object Loading : FeedState
 
@@ -151,6 +157,7 @@ object TransitNetworkDemo : Demo {
 
   private var feedState by mutableStateOf<FeedState>(FeedState.Loading)
   private var selectedRouteId by mutableStateOf<String?>(null)
+  private var selectedDepartures by mutableStateOf<RouteDepartures?>(null)
 
   private suspend fun loadNetwork(): Network =
     withContext(Dispatchers.Default) {
@@ -283,60 +290,56 @@ object TransitNetworkDemo : Demo {
     return if (headsign.isEmpty()) hhmm else "$hhmm $headsign"
   }
 
-  /** The next few departures from each route's first terminal, over today and tomorrow. */
-  private fun nextDepartures(
+  /** The next route departures over today and tomorrow, computed in one schedule pass. */
+  private fun routeDepartures(
     network: Network,
     routeId: String,
     now: Instant = Clock.System.now(),
     count: Int = 3,
-  ): List<String> {
+  ): RouteDepartures {
     val today = now.toLocalDateTime(network.timeZone).date
-    return listOf(today, today.plus(1, DateTimeUnit.DAY))
-      .flatMap { date ->
-        val services = activeServiceIds(network, date)
-        network.tripsByRoute[routeId]
-          .orEmpty()
-          .filter { it.serviceId in services }
-          .mapNotNull { trip ->
-            val departure = network.firstStopTimeByTrip[trip.tripId]?.departureTime
-            departure?.toInstant(date, network.timeZone)?.let { instant ->
-              instant to (trip.tripHeadsign ?: "")
+    val firstTerminalSailings = mutableListOf<Sailing>()
+    val nextSailingByStopId = mutableMapOf<String, Sailing>()
+    listOf(today, today.plus(1, DateTimeUnit.DAY)).forEach { date ->
+      val services = activeServiceIds(network, date)
+      for (trip in network.tripsByRoute[routeId].orEmpty()) {
+        if (trip.serviceId !in services) continue
+        network.firstStopTimeByTrip[trip.tripId]?.departureTime?.let { departure ->
+          val sailing =
+            Sailing(departure.toInstant(date, network.timeZone), trip.tripHeadsign ?: "")
+          if (sailing.instant >= now) firstTerminalSailings += sailing
+        }
+
+        for (stopTime in network.stopTimesByTrip[trip.tripId].orEmpty()) {
+          val departure = stopTime.departureTime
+          if (departure != null && stopTime.allowsBoarding) {
+            val sailing =
+              Sailing(
+                instant = departure.toInstant(date, network.timeZone),
+                headsign = stopTime.stopHeadsign ?: trip.tripHeadsign ?: "",
+              )
+            val previous = nextSailingByStopId[stopTime.stopId]
+            if (
+              sailing.instant >= now && (previous == null || sailing.instant < previous.instant)
+            ) {
+              nextSailingByStopId[stopTime.stopId] = sailing
             }
           }
+        }
       }
-      .filter { (instant, _) -> instant >= now }
-      .sortedBy { (instant, _) -> instant }
-      .take(count)
-      .map { (instant, headsign) -> formatSailing(instant, headsign, network.timeZone) }
-  }
-
-  /** The next departure from [stopId] on [routeId], or null when none remains today or tomorrow. */
-  private fun nextDepartureFromStop(
-    network: Network,
-    routeId: String,
-    stopId: String,
-    now: Instant,
-  ): String? {
-    val today = now.toLocalDateTime(network.timeZone).date
-    return listOf(today, today.plus(1, DateTimeUnit.DAY))
-      .flatMap { date ->
-        val services = activeServiceIds(network, date)
-        network.tripsByRoute[routeId]
-          .orEmpty()
-          .filter { it.serviceId in services }
-          .mapNotNull { trip ->
-            val stopTime =
-              network.stopTimesByTrip[trip.tripId]?.find {
-                it.stopId == stopId && it.allowsBoarding
-              }
-            val departure = stopTime?.departureTime ?: return@mapNotNull null
-            departure.toInstant(date, network.timeZone) to
-              (stopTime.stopHeadsign ?: trip.tripHeadsign ?: "")
-          }
-      }
-      .filter { (instant, _) -> instant >= now }
-      .minByOrNull { (instant, _) -> instant }
-      ?.let { (instant, headsign) -> formatSailing(instant, headsign, network.timeZone) }
+    }
+    return RouteDepartures(
+      routeId = routeId,
+      nextSailings =
+        firstTerminalSailings
+          .sortedBy { it.instant }
+          .take(count)
+          .map { formatSailing(it.instant, it.headsign, network.timeZone) },
+      nextByStopId =
+        nextSailingByStopId.mapValues { (_, sailing) ->
+          formatSailing(sailing.instant, sailing.headsign, network.timeZone)
+        },
+    )
   }
 
   @Composable
@@ -413,22 +416,24 @@ object TransitNetworkDemo : Demo {
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
     LoadFeed()
     val network = (feedState as? FeedState.Loaded)?.network ?: return
-    val selected = selectedRouteId ?: return
-    var now by remember { mutableStateOf(Clock.System.now()) }
-    LaunchedEffect(Unit) {
+    val selected = selectedRouteId
+    LaunchedEffect(network, selected) {
+      if (selected == null) {
+        selectedDepartures = null
+        return@LaunchedEffect
+      }
       while (true) {
+        selectedDepartures = withContext(Dispatchers.Default) { routeDepartures(network, selected) }
         delay(30.seconds)
-        now = Clock.System.now()
       }
     }
+    val routeId = selected ?: return
+    val departures = selectedDepartures?.takeIf { it.routeId == routeId } ?: return
 
-    network.stopIdsByRoute[selected].orEmpty().forEach { stopId ->
+    network.stopIdsByRoute[routeId].orEmpty().forEach { stopId ->
       key(stopId) {
         val terminal = network.terminalsById[stopId]
-        val departure =
-          remember(selected, now) {
-            terminal?.let { nextDepartureFromStop(network, selected, stopId, now) }
-          }
+        val departure = departures.nextByStopId[stopId]
         if (terminal != null && departure != null) {
           DepartureChip(
             text = departure,
@@ -464,16 +469,16 @@ object TransitNetworkDemo : Demo {
         SectionHeader("Routes")
         state.network.routes.forEach { route ->
           val isSelected = route.id == selectedRouteId
+          val departures = selectedDepartures?.takeIf { it.routeId == route.id }
           ListItem(
             headlineContent = { Text(route.displayName) },
             leadingContent = { Box(Modifier.size(12.dp).background(route.color, CircleShape)) },
             supportingContent =
-              if (isSelected) {
+              if (isSelected && departures != null) {
                 {
-                  val departures = remember(route.id) { nextDepartures(state.network, route.id) }
                   Text(
-                    if (departures.isEmpty()) "No sailings in the next day"
-                    else "Next sailings: ${departures.joinToString(", ")}"
+                    if (departures.nextSailings.isEmpty()) "No sailings in the next day"
+                    else "Next sailings: ${departures.nextSailings.joinToString(", ")}"
                   )
                 }
               } else null,
