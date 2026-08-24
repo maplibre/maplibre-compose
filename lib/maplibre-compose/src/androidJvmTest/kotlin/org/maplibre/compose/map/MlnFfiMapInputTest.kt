@@ -816,6 +816,7 @@ class MlnFfiMapInputTest {
   ): Double {
     val before = camera.position.target.latitude
     onRoot().performTouchInput { swipe(center, center + Offset(0f, swipeY), durationMillis = 100) }
+    awaitReleasedTouchMomentum(camera)
     waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
     return camera.position.target.latitude - before
   }
