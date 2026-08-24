@@ -66,8 +66,9 @@ or a window resize moves the child with the map.
 
 `Modifier.placedTowards` puts a child on the edge of an ellipse inscribed in
 the unobstructed map region, on the line towards a geographic position. The
-child appears only while the position is outside of the ellipse, so it marks a
-target that scrolled out of view.
+child appears only while the position projects outside of that ellipse. A
+position near a corner of the map region can be visible and still lie outside
+the ellipse.
 
 <Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
 

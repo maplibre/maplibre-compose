@@ -13,12 +13,12 @@ import androidx.compose.material3.ButtonElevation
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.toPath
 import androidx.compose.ui.unit.Density
@@ -69,14 +69,17 @@ public fun MapOverlayScope.PointerPinButton(
   content: @Composable (BoxScope.() -> Unit),
 ) {
   val placement = rememberPlacedTowardsState()
-  val rotation = placement.angleDegrees
-  val pointerPinShape = remember(rotation) { PointerPinShape(rotation) }
 
   ElevatedButton(
     onClick = onClick,
-    modifier = modifier.placedTowards(targetPosition, placement),
+    modifier =
+      modifier
+        .placedTowards(targetPosition, placement)
+        // Rotation applies at draw time, after the layout pass writes the angle, so the pin
+        // points at the target on the same frame it is placed.
+        .graphicsLayer { rotationZ = placement.angleDegrees },
     enabled = enabled,
-    shape = pointerPinShape,
+    shape = PointerPinShape,
     colors = colors,
     elevation = elevation,
     border = border,
@@ -86,6 +89,8 @@ public fun MapOverlayScope.PointerPinButton(
     Box(
       modifier =
         Modifier
+          // Counter-rotation keeps the content upright inside the rotated pin.
+          .graphicsLayer { rotationZ = -placement.angleDegrees }
           // padding to place the content within the pin correctly, taking into account that the
           // center of the pointer shape is not the center of to-be-placed icon (due to the
           // pointy side)
@@ -97,33 +102,26 @@ public fun MapOverlayScope.PointerPinButton(
   }
 }
 
-/** A kind of map-📍 shape, but rotatable */
-private class PointerPinShape(val rotation: Float = 0f) : Shape {
+/** A kind of map-📍 shape, pointing up; rotation comes from the button's graphics layer. */
+private object PointerPinShape : Shape {
   override fun createOutline(
     size: Size,
     layoutDirection: LayoutDirection,
     density: Density,
   ): Outline {
     val m = Matrix()
-    val halfWidth = size.width / 2
-    val halfHeight = size.height / 2
-    m.translate(halfWidth, halfHeight)
-    m.rotateZ(rotation)
-    m.translate(-halfWidth, -halfHeight)
     m.scale(x = size.width / PATH_SIZE, y = size.height / PATH_SIZE)
     val p = PATH.toPath()
     p.transform(m)
     return Outline.Generic(p)
   }
 
-  companion object {
-    const val PATH_SIZE = 76f
-    const val POINTY_SIZE = 14f / 76f
-    val PATH =
-      PathParser()
-        .parsePathString(
-          "M 38,62 C 24.745,62 14,51.255 14,38 14.003,32.6405 15.7995,27.4365 19.1035,23.217 L 38,0 56.914,23.2715 C 60.2005,27.4785 61.99,32.6615 62,38 62,51.255 51.255,62 38,62 Z"
-        )
-        .toNodes()
-  }
+  const val PATH_SIZE = 76f
+  const val POINTY_SIZE = 14f / 76f
+  val PATH =
+    PathParser()
+      .parsePathString(
+        "M 38,62 C 24.745,62 14,51.255 14,38 14.003,32.6405 15.7995,27.4365 19.1035,23.217 L 38,0 56.914,23.2715 C 60.2005,27.4785 61.99,32.6615 62,38 62,51.255 51.255,62 38,62 Z"
+      )
+      .toNodes()
 }

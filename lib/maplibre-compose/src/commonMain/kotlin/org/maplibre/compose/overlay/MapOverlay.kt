@@ -73,9 +73,13 @@ public interface MapOverlayScope {
 
   /**
    * Places this child on the edge of an ellipse inscribed in the unobstructed map region, on the
-   * line from the ellipse center towards [position]. The point of the child that faces [position]
-   * sits on the ellipse edge. The child is placed only while [position] projects outside the
-   * ellipse, so a control placed this way appears exactly when its target is out of view.
+   * line from the ellipse center towards [position]. The anchor is the point of an ellipse
+   * inscribed in the child that faces [position], so a child that draws up to its own inscribed
+   * ellipse touches the placement ellipse exactly.
+   *
+   * The child is placed only while [position] projects outside the placement ellipse. The ellipse
+   * is a stricter bound than the map region itself: a position near a corner of the region can be
+   * visible on the map and still lie outside the ellipse.
    *
    * Pass a [state] to read the direction that the child points, e.g. to rotate an arrow towards the
    * target.
