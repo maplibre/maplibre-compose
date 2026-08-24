@@ -6,9 +6,8 @@ import org.maplibre.compose.map.MapExtent
 /**
  * One renderable frame produced by a [MlnFfiMapHost].
  *
- * The host owns the frame from [MlnFfiMapHost.acquireFrame] through [MlnFfiMapHost.produceFrame]. A
- * completed [target] remains available to the consumer until the host replaces its generation or
- * closes.
+ * A frame is valid only between [MlnFfiMapHost.acquireFrame] and [MlnFfiMapHost.releaseFrame]. Its
+ * [target] handles must not be retained past that window.
  */
 internal data class MlnFfiMapFrame(
   /** Monotonically increasing identifier, for logging and frame pacing. */
@@ -31,16 +30,6 @@ internal sealed interface MlnFfiMapFrameAcquisition {
 
   /** The consumer context does not exist yet; retry without changing recovery state. */
   data object NotReady : MlnFfiMapFrameAcquisition
-}
-
-/** The result that a host has made available after producing a frame. */
-internal sealed interface MlnFfiMapFrameProduction {
-  /** A producer invocation finished and its target is safe for the consumer to inspect. */
-  data class Completed(val result: MlnFfiFrameResult, val target: MlnFfiRenderTarget) :
-    MlnFfiMapFrameProduction
-
-  /** The producer is still working. It calls the supplied frame request when work finishes. */
-  data object Pending : MlnFfiMapFrameProduction
 }
 
 /** The map session's view of its host, handed to [MlnFfiMapRenderer.onSurfaceAvailable]. */
@@ -93,28 +82,6 @@ internal interface MlnFfiMapHost : AutoCloseable {
     presentationTimeNanos: Long?,
   ): MlnFfiMapFrameAcquisition
 
-  /**
-   * Produces one frame and owns [frame] until the producer has finished with it.
-   *
-   * Synchronous hosts return [MlnFfiMapFrameProduction.Completed]. An asynchronous host returns
-   * [MlnFfiMapFrameProduction.Pending] and calls [requestFrame] when the result is ready to
-   * collect. [producerRequested] distinguishes renderer work from a draw scheduled only to collect
-   * asynchronous completion. Every implementation releases [frame] exactly once.
-   */
-  fun produceFrame(
-    frame: MlnFfiMapFrame,
-    requestFrame: () -> Unit,
-    producerRequested: Boolean = true,
-    action: () -> MlnFfiFrameResult,
-  ): MlnFfiMapFrameProduction =
-    try {
-      val result = withProducerAccess(frame, action)
-      if (result == MlnFfiFrameResult.RENDERED) completeProducerAccess(frame)
-      MlnFfiMapFrameProduction.Completed(result, frame.target)
-    } finally {
-      releaseFrame(frame)
-    }
-
   /** Runs [action] with the producer side able to render into [frame]'s target. */
   fun <T> withProducerAccess(frame: MlnFfiMapFrame, action: () -> T): T = action()
 
@@ -125,10 +92,7 @@ internal interface MlnFfiMapHost : AutoCloseable {
    */
   fun completeProducerAccess(frame: MlnFfiMapFrame) {}
 
-  /**
-   * Releases producer access to [frame], whether or not it was rendered into. [produceFrame] calls
-   * this exactly once for its default synchronous path.
-   */
+  /** Releases [frame], whether or not it was rendered into. */
   fun releaseFrame(frame: MlnFfiMapFrame) {}
 
   /** Runs [action] with exclusive access to renderer graphics state. */

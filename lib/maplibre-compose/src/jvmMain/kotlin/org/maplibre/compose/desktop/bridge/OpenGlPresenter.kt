@@ -278,6 +278,7 @@ private object AngleOpenGlPresenterBackend : OpenGlPresenterBackend {
 
   override fun createFramebuffer(target: OpenGlTextureTarget): Int {
     ensureUsable()
+    clearAngleGlErrors()
     val previous = AngleGl.getInteger(GL_FRAMEBUFFER_BINDING)
     val next = AngleGl.genFramebuffers()
     try {
@@ -343,4 +344,11 @@ internal fun checkGl(operation: String) {
 private fun checkAngleGl(operation: String) {
   val error = AngleGl.getError()
   check(error == GL_NO_ERROR) { "$operation failed with GL error 0x${error.toString(16)}" }
+}
+
+/** Clears errors left by earlier users of the current ANGLE/GLES context. */
+private fun clearAngleGlErrors() {
+  while (AngleGl.getError() != GL_NO_ERROR) {
+    // Reading the flag clears it.
+  }
 }

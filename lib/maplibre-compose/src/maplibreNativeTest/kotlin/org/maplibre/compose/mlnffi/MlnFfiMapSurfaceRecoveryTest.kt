@@ -55,25 +55,6 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
-  fun pending_production_requests_and_presents_its_terminal_frame() = runFfiComposeUiTest {
-    val renderer = RecordingRenderer()
-    val factory = FakeMlnFfiMapHostFactory(configureHost = { it.pendingProductions = 1 })
-
-    setSurfaceContent(renderer, factory)
-    val host = factory.created.single()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.acquiredFrames > 0 }
-    assertEquals(0, renderer.renderedFrames)
-
-    host.completePendingProduction()
-    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.calls.any { it.startsWith("draw(") } }
-
-    assertEquals(1, renderer.renderedFrames)
-    assertEquals(1, host.completedFrames)
-    assertTrue(host.releasedFrames >= 2)
-    assertTrue(host.leakedFrames.isEmpty())
-  }
-
-  @Test
   fun a_skipped_frame_keeps_drawing_the_last_rendered_target() = runFfiComposeUiTest {
     val renderer =
       RecordingRenderer(

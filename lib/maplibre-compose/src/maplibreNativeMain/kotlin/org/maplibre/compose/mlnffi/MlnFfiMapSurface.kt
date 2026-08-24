@@ -38,13 +38,11 @@ internal fun MlnFfiMapSurface(
     remember(physicalSize, density) {
       MapExtent.fromPhysical(physicalSize.width, physicalSize.height, density)
     }
-  var producerRequest by remember { mutableLongStateOf(0L) }
-  var completionRequest by remember { mutableLongStateOf(0L) }
+  var frameRequest by remember { mutableLongStateOf(0L) }
   var failed by remember(renderer, hostResult) { mutableStateOf(false) }
   val drawState = remember(renderer, hostResult) { MlnFfiMapDrawState() }
   val host = (hostResult as? MlnFfiMapHostResult.Created)?.host
-  val session =
-    remember(host) { host?.let { MlnFfiMapHostSessionImpl(it) { producerRequest += 1 } } }
+  val session = remember(host) { host?.let { MlnFfiMapHostSessionImpl(it) { frameRequest += 1 } } }
 
   DisposableEffect(hostResult, renderer, session) {
     when (hostResult) {
@@ -95,43 +93,33 @@ internal fun MlnFfiMapSurface(
   }
 
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {
-    // Load-bearing reads: producer requests and asynchronous completion both reschedule this
-    // Canvas.
-    val observedProducerRequest = producerRequest
-    completionRequest
+    // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
+    frameRequest
 
     var drew = false
     if (presentFrames && host != null && session != null && !extent.isEmpty && !failed) {
       val frameId = drawState.nextFrameId()
       val nowNanos = frameClockOrigin.elapsedNow().inWholeNanoseconds
-      val producerRequested = drawState.consumeProducerRequest(observedProducerRequest)
       try {
         when (val acquisition = host.acquireFrame(frameId, extent, nowNanos)) {
           MlnFfiMapFrameAcquisition.NotReady -> session.requestFrame()
           is MlnFfiMapFrameAcquisition.Acquired -> {
             val frame = acquisition.frame
             var rendered = false
-            when (
-              val production =
-                host.produceFrame(
-                  frame,
-                  requestFrame = { completionRequest += 1 },
-                  producerRequested = producerRequested,
-                ) {
-                  renderer.render(frame)
+            try {
+              when (host.withProducerAccess(frame) { renderer.render(frame) }) {
+                MlnFfiFrameResult.RENDERED -> {
+                  host.completeProducerAccess(frame)
+                  drawState.lastCompletedTarget = frame.target
+                  rendered = true
                 }
-            ) {
-              MlnFfiMapFrameProduction.Pending -> Unit
-              is MlnFfiMapFrameProduction.Completed ->
-                when (production.result) {
-                  MlnFfiFrameResult.RENDERED -> {
-                    drawState.lastCompletedTarget = production.target
-                    rendered = true
-                  }
-                  MlnFfiFrameResult.SKIPPED -> Unit
-                }
+                MlnFfiFrameResult.SKIPPED -> Unit
+              }
+              drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
+            } finally {
+              runCatching { host.releaseFrame(frame) }
+                .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
             }
-            drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
             if (rendered) drawState.onFrameSucceeded()
           }
         }
@@ -194,7 +182,6 @@ private fun recoverFromFrameFailure(
 private class MlnFfiMapDrawState {
   private var nextFrameId = 1L
   private var rendererClosed = false
-  private var consumedProducerRequest = 0L
 
   var lastCompletedTarget: MlnFfiRenderTarget? = null
 
@@ -202,12 +189,6 @@ private class MlnFfiMapDrawState {
     private set
 
   fun nextFrameId(): Long = nextFrameId++
-
-  fun consumeProducerRequest(request: Long): Boolean {
-    if (request == consumedProducerRequest) return false
-    consumedProducerRequest = request
-    return true
-  }
 
   fun recordFrameFailure(): Int = ++frameFailures
 
@@ -225,7 +206,6 @@ private class MlnFfiMapDrawState {
     lastCompletedTarget = null
     frameFailures = 0
     rendererClosed = false
-    consumedProducerRequest = 0L
   }
 }
 
