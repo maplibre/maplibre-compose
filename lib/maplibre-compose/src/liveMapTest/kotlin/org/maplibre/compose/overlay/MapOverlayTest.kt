@@ -23,6 +23,7 @@ class MapOverlayTest {
         overlay =
           MapOverlay {
             Box(Modifier.size(8.dp).placedAt(Position(0.0, 0.0)))
+            Box(Modifier.size(8.dp).placedTowards(Position(90.0, 0.0)))
             Box(Modifier.size(8.dp).align(Alignment.TopStart))
           },
         cameraState = CameraState(CameraPosition()),

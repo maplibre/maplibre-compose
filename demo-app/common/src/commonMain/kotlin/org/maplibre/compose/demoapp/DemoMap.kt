@@ -98,7 +98,6 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
               with(demo) { Overlay(state) }
               pointerPin?.let {
                 PointerPinButton(
-                  cameraState = cameraState,
                   targetPosition = it.target,
                   onClick = { scope.launch { cameraState.flyTo(it.destination) } },
                 ) {

@@ -6,8 +6,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.absoluteOffset
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ButtonColors
 import androidx.compose.material3.ButtonDefaults
@@ -15,46 +13,31 @@ import androidx.compose.material3.ButtonElevation
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Matrix
 import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.PathParser
 import androidx.compose.ui.graphics.vector.toPath
-import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
-import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.material3.util.findEllipsisIntersection
-import org.maplibre.compose.material3.util.proportionalAbsoluteOffset
 import org.maplibre.compose.material3.util.proportionalPadding
-import org.maplibre.compose.material3.util.toDpOffset
-import org.maplibre.compose.material3.util.toOffset
+import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.compose.overlay.rememberPlacedTowardsState
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * An elevated button in the shape of a pointer pin on the edge of an ellipsis drawn inside the
- * parent layout, pointing towards some [targetPosition] off-screen. Only shown if the
- * [targetPosition] is outside of the ellipsis.
+ * An elevated button in the shape of a pointer pin, placed through
+ * [placedTowards][MapOverlayScope.placedTowards] on the edge of an ellipse inscribed in the
+ * unobstructed map region and pointing towards [targetPosition]. Only shown while [targetPosition]
+ * is outside of the ellipse.
  *
- * Place this composable directly in the map overlay so its parent coordinates match the map's
- * screen coordinates. The overlay keeps the placement ellipse inside the unobstructed map region.
- *
- * @param onClick called when this button is clicked
- * @param cameraState used to calculate where the given [targetPosition] is in screen coordinates
  * @param targetPosition position (off-screen) the pin should point at
- * @param modifier the [Modifier] to be applied to the layout the button is placed in
+ * @param modifier the [Modifier] to be applied to this button
+ * @param onClick called when this button is clicked
  * @param enabled controls the enabled state of this button. When `false`, this component will not
  *   respond to user input, and it will appear visually disabled and disabled to accessibility
  *   services.
@@ -73,8 +56,7 @@ import org.maplibre.spatialk.geojson.Position
  *   still happen internally.
  */
 @Composable
-public fun PointerPinButton(
-  cameraState: CameraState,
+public fun MapOverlayScope.PointerPinButton(
   targetPosition: Position,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
@@ -86,86 +68,34 @@ public fun PointerPinButton(
   interactionSource: MutableInteractionSource? = null,
   content: @Composable (BoxScope.() -> Unit),
 ) {
-  // The viewport read recomputes the conversion when the transform changes.
-  val viewport = cameraState.viewport
-  val dpTarget =
-    remember(targetPosition, viewport) { cameraState.screenLocationFromPosition(targetPosition) }
-  val target = dpTarget?.toOffset() ?: return
+  val placement = rememberPlacedTowardsState()
+  val rotation = placement.angleDegrees
+  val pointerPinShape = remember(rotation) { PointerPinShape(rotation) }
 
-  PointerPinPlacement(target = target, modifier = modifier) { offset, angle ->
-    val rotation = angle * 180 / PI
-    val dpOffset = offset.toDpOffset()
-
-    val pointerPinShape = remember(rotation) { PointerPinShape(rotation.toFloat()) }
-
-    ElevatedButton(
-      onClick = onClick,
+  ElevatedButton(
+    onClick = onClick,
+    modifier = modifier.placedTowards(targetPosition, placement),
+    enabled = enabled,
+    shape = pointerPinShape,
+    colors = colors,
+    elevation = elevation,
+    border = border,
+    contentPadding = PaddingValues(0.dp),
+    interactionSource = interactionSource,
+  ) {
+    Box(
       modifier =
         Modifier
-          // offsetting it to account for the pointy side of the pin depending on the rotation.
-          // (The tip of the pin should be exactly on the ellipsis outline)
-          .proportionalAbsoluteOffset(
-            x = (-sin(angle) / 2.0 - 0.5).toFloat(),
-            y = (cos(angle) / 2.0 - 0.5).toFloat(),
-          )
-          // Place the pin tip at the ellipse intersection inside this box.
-          .absoluteOffset(dpOffset.x, dpOffset.y),
-      enabled = enabled,
-      shape = pointerPinShape,
-      colors = colors,
-      elevation = elevation,
-      border = border,
-      contentPadding = PaddingValues(0.dp),
-      interactionSource = interactionSource,
+          // padding to place the content within the pin correctly, taking into account that the
+          // center of the pointer shape is not the center of to-be-placed icon (due to the
+          // pointy side)
+          .proportionalPadding(PointerPinShape.POINTY_SIZE)
+          .padding(contentPadding)
     ) {
-      Box(
-        modifier =
-          Modifier
-            // padding to place the content within the pin correctly, taking into account that the
-            // center of the pointer shape is not the center of to-be-placed icon (due to the
-            // pointy side)
-            .proportionalPadding(PointerPinShape.POINTY_SIZE)
-            .padding(contentPadding)
-      ) {
-        content()
-      }
+      content()
     }
   }
 }
-
-@Composable
-internal fun PointerPinPlacement(
-  target: Offset,
-  modifier: Modifier = Modifier,
-  content: @Composable BoxScope.(offset: Offset, angle: Double) -> Unit,
-) {
-  var placementSpace by remember { mutableStateOf<PlacementSpace?>(null) }
-
-  Box(
-    modifier =
-      modifier.fillMaxSize().onGloballyPositioned { coordinates ->
-        val parent = coordinates.parentLayoutCoordinates ?: return@onGloballyPositioned
-        val parentToLocal = Matrix()
-        coordinates.transformFrom(parent, parentToLocal)
-        placementSpace =
-          PlacementSpace(
-            area =
-              Rect(0f, 0f, coordinates.size.width.toFloat(), coordinates.size.height.toFloat()),
-            parentToLocal = parentToLocal,
-          )
-      }
-  ) {
-    val intersection =
-      remember(target, placementSpace) {
-        placementSpace?.let {
-          findEllipsisIntersection(it.area, it.parentToLocal.map(target))
-        }
-      }
-    intersection?.let { content(it.position, it.angle) }
-  }
-}
-
-private data class PlacementSpace(val area: Rect, val parentToLocal: Matrix)
 
 /** A kind of map-📍 shape, but rotatable */
 private class PointerPinShape(val rotation: Float = 0f) : Shape {

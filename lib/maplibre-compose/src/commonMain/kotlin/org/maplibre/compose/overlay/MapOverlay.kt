@@ -8,10 +8,15 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.ParentDataModifier
 import androidx.compose.ui.unit.Constraints
@@ -19,6 +24,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import kotlin.math.PI
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.style.StyleState
 import org.maplibre.spatialk.geojson.Position
@@ -27,8 +33,10 @@ import org.maplibre.spatialk.geojson.Position
  * Receiver for the controls drawn on top of a [MaplibreMap][org.maplibre.compose.map.MaplibreMap].
  *
  * [Modifier.align] positions a child against an edge of the unobstructed region of the map.
- * [Modifier.placedAt] positions a child on a geographic position of the full map. The map state
- * that controls read is available here, which is why the default controls take no arguments.
+ * [Modifier.placedAt] positions a child on a geographic position of the full map.
+ * [Modifier.placedTowards] positions a child on the edge of the unobstructed region, pointing
+ * towards an off-screen position. The map state that controls read is available here, which is why
+ * the default controls take no arguments.
  */
 @LayoutScopeMarker
 @Stable
@@ -60,7 +68,43 @@ public interface MapOverlayScope {
     position: Position,
     alignment: Alignment = Alignment.Center,
   ): Modifier
+
+  /**
+   * Places this child on the edge of an ellipse inscribed in the unobstructed map region, on the
+   * line from the ellipse center towards [position]. The point of the child that faces [position]
+   * sits on the ellipse edge. The child is placed only while [position] projects outside the
+   * ellipse, so a control placed this way appears exactly when its target is out of view.
+   *
+   * Pass a [state] to read the direction that the child points, e.g. to rotate an arrow towards the
+   * target.
+   */
+  public fun Modifier.placedTowards(
+    position: Position,
+    state: PlacedTowardsState? = null,
+  ): Modifier
 }
+
+/**
+ * The placement that [MapOverlayScope.placedTowards] last computed for one child. Create one with
+ * [rememberPlacedTowardsState] and pass it to the modifier.
+ */
+@Stable
+public class PlacedTowardsState {
+  /**
+   * The direction that the child points, in degrees clockwise from screen-up. Zero until the child
+   * is first placed.
+   */
+  public var angleDegrees: Float by mutableStateOf(0f)
+    internal set
+
+  /** Whether the child is currently placed, i.e. its target lies outside the ellipse. */
+  public var isPlaced: Boolean by mutableStateOf(false)
+    internal set
+}
+
+/** Remembers a [PlacedTowardsState] to pass to [MapOverlayScope.placedTowards]. */
+@Composable
+public fun rememberPlacedTowardsState(): PlacedTowardsState = remember { PlacedTowardsState() }
 
 /**
  * Draws [overlay] into this overlay. Use this to keep [MapOverlay.Default] and add children of your
@@ -148,11 +192,18 @@ internal fun MapOverlayHost(
     val placeables = measurables.map { measurable ->
       val child = measurable.parentData as? OverlayChildData
       val childConstraints =
-        if (child is OverlayChildData.PlacedAt) Constraints() else alignedConstraints
+        when (child) {
+          is OverlayChildData.PlacedAt,
+          is OverlayChildData.PlacedTowards -> Constraints()
+          else -> alignedConstraints
+        }
       measurable.measure(childConstraints)
     }
     layout(width, height) {
-      val hasPlacedAt = measurables.any { it.parentData is OverlayChildData.PlacedAt }
+      val hasPlacedAt = measurables.any {
+        it.parentData is OverlayChildData.PlacedAt ||
+          it.parentData is OverlayChildData.PlacedTowards
+      }
       // Aligned children stay put when the camera moves. Reading the viewport here would
       // invalidate this layout on every frame of a camera ease, so it is read only when a child
       // needs placing; the read is also what re-runs this layout when the transform changes.
@@ -178,6 +229,35 @@ internal fun MapOverlayHost(
             // Geographic x is not mirrored in RTL; Alignment.align already resolved the child's
             // edge.
             placeable.place(x, y)
+          }
+          is OverlayChildData.PlacedTowards -> {
+            val intersection =
+              if (viewport == null || innerWidth == 0 || innerHeight == 0) null
+              else {
+                cameraState.screenLocationFromPosition(child.position)?.let { screen ->
+                  findEllipseIntersection(
+                    area =
+                      Rect(
+                        left = innerLeft.toFloat(),
+                        top = innerTop.toFloat(),
+                        right = (innerLeft + innerWidth).toFloat(),
+                        bottom = (innerTop + innerHeight).toFloat(),
+                      ),
+                    target = Offset(screen.x.toPx(), screen.y.toPx()),
+                  )
+                }
+              }
+            if (intersection == null) {
+              child.state?.isPlaced = false
+              return@forEachIndexed
+            }
+            val topLeft = placedTowardsTopLeft(intersection, placeable.width, placeable.height)
+            // Geographic direction is not mirrored in RTL.
+            placeable.place(topLeft.x, topLeft.y)
+            child.state?.let { state ->
+              state.angleDegrees = (intersection.angleRadians * 180 / PI).toFloat()
+              state.isPlaced = true
+            }
           }
           else -> {
             val alignment = (child as? OverlayChildData.Aligned)?.alignment ?: Alignment.TopStart
@@ -205,6 +285,9 @@ internal class MapOverlayScopeImpl(
 
   override fun Modifier.placedAt(position: Position, alignment: Alignment): Modifier =
     this.then(PlacedAtElement(position, alignment))
+
+  override fun Modifier.placedTowards(position: Position, state: PlacedTowardsState?): Modifier =
+    this.then(PlacedTowardsElement(position, state))
 }
 
 @Immutable
@@ -212,15 +295,27 @@ private sealed class OverlayChildData {
   class Aligned(val alignment: Alignment) : OverlayChildData()
 
   class PlacedAt(val position: Position, val alignment: Alignment) : OverlayChildData()
+
+  class PlacedTowards(val position: Position, val state: PlacedTowardsState?) : OverlayChildData()
 }
 
 private data class AlignElement(val alignment: Alignment) : ParentDataModifier {
   override fun Density.modifyParentData(parentData: Any?): Any =
-    if (parentData is OverlayChildData.PlacedAt) parentData else OverlayChildData.Aligned(alignment)
+    when (parentData) {
+      is OverlayChildData.PlacedAt,
+      is OverlayChildData.PlacedTowards -> parentData
+      else -> OverlayChildData.Aligned(alignment)
+    }
 }
 
 private data class PlacedAtElement(val position: Position, val alignment: Alignment) :
   ParentDataModifier {
   override fun Density.modifyParentData(parentData: Any?): Any =
     OverlayChildData.PlacedAt(position, alignment)
+}
+
+private data class PlacedTowardsElement(val position: Position, val state: PlacedTowardsState?) :
+  ParentDataModifier {
+  override fun Density.modifyParentData(parentData: Any?): Any =
+    OverlayChildData.PlacedTowards(position, state)
 }
