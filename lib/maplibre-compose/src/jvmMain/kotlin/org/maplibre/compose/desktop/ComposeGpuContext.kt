@@ -59,10 +59,10 @@ public class OpenGlComposeGpuContext(
 
 /** How an OpenGL Compose host exposes textures to the map bridge. */
 public enum class OpenGlInterop {
-  /** A native desktop OpenGL context. */
+  /** A native desktop OpenGL context, supported on Linux. */
   NATIVE,
 
-  /** An ANGLE context backed by Direct3D 11 textures. */
+  /** An ANGLE context backed by Direct3D 11 textures, supported on Windows. */
   ANGLE_D3D11,
 }
 

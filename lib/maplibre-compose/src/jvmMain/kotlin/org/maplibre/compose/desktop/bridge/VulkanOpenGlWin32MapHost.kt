@@ -8,6 +8,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
+import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.VulkanImageTarget
@@ -23,6 +24,8 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
   private val presenter = OpenGlPresenter.angle()
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: WindowsOpenGlVulkanContext? = null
+  private var vulkanAdapterLuid = 0L
+  private var pendingAdapterLuid: Long? = null
   private var texture: WindowsOpenGlSharedTexture? = null
   private val retiredTextures = mutableMapOf<Long, WindowsOpenGlSharedTexture>()
   private var generation = 0L
@@ -92,6 +95,8 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     } finally {
       val closing = vulkan
       vulkan = null
+      vulkanAdapterLuid = 0L
+      pendingAdapterLuid = null
       try {
         closing?.close()
       } finally {
@@ -113,11 +118,33 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     check(adapterLuid != 0L) {
       "ANGLE's ID3D11Device has no DXGI adapter LUID; cannot pick a matching Vulkan device"
     }
+    if (vulkan != null && adapterLuid != vulkanAdapterLuid) {
+      if (pendingAdapterLuid != adapterLuid) {
+        // MapLibre still owns the old Vulkan handles. Recovery closes that render session before
+        // retrying, at which point its allocations and device are safe to replace.
+        pendingAdapterLuid = adapterLuid
+        throw MlnFfiRecoverableFrameException(
+          "ANGLE moved to another graphics adapter; rebuilding the Vulkan bridge",
+          null,
+        )
+      }
+      disposeAllTextures()
+      val closing = vulkan
+      vulkan = null
+      vulkanAdapterLuid = 0L
+      pendingAdapterLuid = null
+      rendererThread.run { closing?.close() }
+    } else {
+      pendingAdapterLuid = null
+    }
     val context =
       vulkan
         ?: rendererThread
           .run { WindowsOpenGlVulkanContext.create(adapterLuid) }
-          .also { vulkan = it }
+          .also {
+            vulkan = it
+            vulkanAdapterLuid = adapterLuid
+          }
     val d3d11 = WindowsD3D11Interop.createSharedTextureOnDevice(angleDevice, extent)
     try {
       val exported = rendererThread.run { context.importD3D11Texture(d3d11.sharedHandle, extent) }

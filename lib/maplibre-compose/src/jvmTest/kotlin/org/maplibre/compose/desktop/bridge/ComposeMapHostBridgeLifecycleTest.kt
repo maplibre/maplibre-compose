@@ -13,23 +13,32 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 class ComposeMapHostBridgeLifecycleTest {
 
   @Test
-  fun native_opengl_selects_the_native_bridge_on_every_platform() {
-    assertEquals(OpenGlBridge.NATIVE, selectOpenGlBridge(OpenGlInterop.NATIVE, windows = false))
-    assertEquals(OpenGlBridge.NATIVE, selectOpenGlBridge(OpenGlInterop.NATIVE, windows = true))
+  fun native_opengl_selects_the_linux_bridge() {
+    assertEquals(
+      OpenGlBridge.NATIVE,
+      selectOpenGlBridge(OpenGlInterop.NATIVE, windows = false, linux = true),
+    )
+  }
+
+  @Test
+  fun native_opengl_reports_an_unsupported_platform() {
+    assertFailsWith<MlnFfiHostException> {
+      selectOpenGlBridge(OpenGlInterop.NATIVE, windows = true, linux = false)
+    }
   }
 
   @Test
   fun angle_d3d11_selects_the_windows_bridge() {
     assertEquals(
       OpenGlBridge.ANGLE_D3D11,
-      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = true),
+      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = true, linux = false),
     )
   }
 
   @Test
   fun angle_d3d11_reports_an_unsupported_platform() {
     assertFailsWith<MlnFfiHostException> {
-      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = false)
+      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = false, linux = true)
     }
   }
 

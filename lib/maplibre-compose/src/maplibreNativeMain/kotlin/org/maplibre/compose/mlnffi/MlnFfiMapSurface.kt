@@ -165,8 +165,13 @@ private fun recoverFromFrameFailure(
       "(attempt $attempt of $MAX_FRAME_RECOVERY_ATTEMPTS)"
   }
   drawState.lastCompletedTarget = null
-  runCatching { renderer.onSurfaceLost() }
-    .onFailure { logger?.e(it) { "Map renderer failed to release the lost surface" } }
+  try {
+    renderer.onSurfaceLost()
+  } catch (releaseError: Throwable) {
+    rethrowIfFatal(releaseError)
+    logger?.e(releaseError) { "Map renderer failed to release the lost surface" }
+    return false
+  }
 
   return try {
     renderer.onSurfaceAvailable(session)

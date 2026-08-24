@@ -320,9 +320,12 @@ private object AngleOpenGlPresenterBackend : OpenGlPresenterBackend {
     val scaleX = if (sourceWidth == 0) 1f else destinationWidth / sourceWidth.toFloat()
     val scaleY = if (sourceHeight == 0) 1f else destinationHeight / sourceHeight.toFloat()
     canvas.save()
-    canvas.scale(scaleX, scaleY)
-    surface.draw(canvas, 0, 0, SamplingMode.LINEAR, null)
-    canvas.restore()
+    try {
+      canvas.scale(scaleX, scaleY)
+      surface.draw(canvas, 0, 0, SamplingMode.LINEAR, null)
+    } finally {
+      canvas.restore()
+    }
   }
 }
 

@@ -31,8 +31,14 @@ internal class FakeMlnFfiMapHost(
   /** How many acquires should report that the consumer context does not exist yet. */
   var notReadyAcquires: Int = 0
 
+  /** Whether each acquired frame should use a fresh allocation and generation. */
+  var rotateTargetsOnAcquire: Boolean = false
+
   /** Every call this host received, in order. */
   val calls: MutableList<String> = mutableListOf()
+
+  /** Every target passed to [draw], in order. */
+  val drawnTargets: MutableList<MlnFfiRenderTarget> = mutableListOf()
 
   var closed: Boolean = false
     private set
@@ -105,6 +111,7 @@ internal class FakeMlnFfiMapHost(
       currentExtent = extent
       generation++
     }
+    if (rotateTargetsOnAcquire) generation++
     acquiredFrames++
     liveFrames += frameId
     return MlnFfiMapFrameAcquisition.Acquired(
@@ -123,8 +130,8 @@ internal class FakeMlnFfiMapHost(
                 getInstanceProcAddr = NativeHandle(5),
                 getDeviceProcAddr = NativeHandle(6),
               ),
-            image = NativeHandle(100 + frameId),
-            imageView = NativeHandle(200 + frameId),
+            image = NativeHandle(100 + generation),
+            imageView = NativeHandle(200 + generation),
             format = 37,
             initialLayout = 0,
             finalLayout = 1,
@@ -160,6 +167,7 @@ internal class FakeMlnFfiMapHost(
 
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     calls += "draw(gen=${target.generation})"
+    drawnTargets += target
     return true
   }
 

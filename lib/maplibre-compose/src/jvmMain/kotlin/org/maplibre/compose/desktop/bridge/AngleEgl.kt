@@ -102,7 +102,7 @@ internal object AngleEgl {
 
   /**
    * Wraps [d3dTexture] (must belong to ANGLE's D3D11 device) as a `GL_TEXTURE_2D`. Restores the
-   * previously current draw surface before returning.
+   * previously current draw and read surfaces before returning.
    */
   fun bindD3dTexture(d3dTexture: Long): AngleBoundD3dTexture {
     val display = currentDisplay()
@@ -131,6 +131,8 @@ internal object AngleEgl {
       check(pbuffer != 0L) {
         "eglCreatePbufferFromClientBuffer failed: 0x${eglError().toString(16)}"
       }
+      var textureName = 0
+      var imageBound = false
       try {
         checkEgl(
           invokeInt(
@@ -143,7 +145,7 @@ internal object AngleEgl {
           "eglMakeCurrent(pbuffer)",
         )
         val previous = AngleGl.getInteger(GL_TEXTURE_BINDING_2D)
-        val textureName = AngleGl.genTextures()
+        textureName = AngleGl.genTextures()
         try {
           AngleGl.bindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, textureName)
           AngleGl.texParameteri(
@@ -171,18 +173,25 @@ internal object AngleEgl {
               EGL_TRUE,
             "eglBindTexImage",
           )
+          imageBound = true
+        } finally {
           AngleGl.bindTexture(org.lwjgl.opengl.GL11.GL_TEXTURE_2D, previous)
-          restoreCurrent(display, hostDraw, hostRead, context)
-          return AngleBoundD3dTexture(textureName, display, pbuffer)
-        } catch (error: Throwable) {
-          if (error is VirtualMachineError) throw error
-          AngleGl.deleteTextures(textureName)
-          throw error
         }
+        restoreCurrent(display, hostDraw, hostRead, context)
+        return AngleBoundD3dTexture(textureName, display, pbuffer)
       } catch (error: Throwable) {
         if (error is VirtualMachineError) throw error
-        restoreCurrent(display, hostDraw, hostRead, context)
-        invokeInt(eglDestroySurface, address(display), address(pbuffer))
+        if (imageBound) {
+          runCatching {
+            invokeInt(eglReleaseTexImage, address(display), address(pbuffer), EGL_BACK_BUFFER)
+          }
+        }
+        if (textureName != 0) runCatching { AngleGl.deleteTextures(textureName) }
+        runCatching { restoreCurrent(display, hostDraw, hostRead, context) }
+          .exceptionOrNull()
+          ?.takeUnless { it === error }
+          ?.let(error::addSuppressed)
+        runCatching { invokeInt(eglDestroySurface, address(display), address(pbuffer)) }
         throw error
       }
     }
@@ -207,9 +216,21 @@ internal object AngleEgl {
 
   private fun restoreCurrent(display: Long, draw: Long, read: Long, context: Long) {
     if (draw != 0L && context != 0L) {
-      invokeInt(eglMakeCurrent, address(display), address(draw), address(read), address(context))
+      checkEgl(
+        invokeInt(
+          eglMakeCurrent,
+          address(display),
+          address(draw),
+          address(read),
+          address(context),
+        ) == EGL_TRUE,
+        "eglMakeCurrent(host)",
+      )
     } else {
-      invokeInt(eglMakeCurrent, address(display), address(0), address(0), address(0))
+      checkEgl(
+        invokeInt(eglMakeCurrent, address(display), address(0), address(0), address(0)) == EGL_TRUE,
+        "eglMakeCurrent(EGL_NO_CONTEXT)",
+      )
     }
   }
 

@@ -62,9 +62,13 @@ internal enum class OpenGlBridge {
 internal fun selectOpenGlBridge(
   interop: OpenGlInterop,
   windows: Boolean = isWindowsDesktop(),
+  linux: Boolean = isLinuxDesktop(),
 ): OpenGlBridge =
   when (interop) {
-    OpenGlInterop.NATIVE -> OpenGlBridge.NATIVE
+    OpenGlInterop.NATIVE -> {
+      if (!linux) throw MlnFfiHostException("NATIVE OpenGL interop requires Linux")
+      OpenGlBridge.NATIVE
+    }
     OpenGlInterop.ANGLE_D3D11 -> {
       if (!windows) {
         throw MlnFfiHostException("ANGLE_D3D11 OpenGL interop requires Windows")
