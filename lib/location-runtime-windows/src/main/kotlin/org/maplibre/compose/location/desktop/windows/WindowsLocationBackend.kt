@@ -50,9 +50,6 @@ public class WindowsLocationBackend : DesktopLocationBackend {
  *
  * Ordinary Windows Runtime calls run in a dedicated multithreaded apartment. Permission requests
  * start on the AWT event-dispatch thread because Windows requires a foreground UI-thread request.
- * Unpackaged Win32 and MSI applications need no capability manifest. Packaged applications must
- * declare the `location` `DeviceCapability` described in Microsoft's
- * [desktop geolocation guidance](https://learn.microsoft.com/en-us/windows/apps/develop/maps-and-location/get-location).
  */
 public class WindowsLocationProvider
 internal constructor(private val client: WindowsLocationClient) : DesktopLocationProvider {
