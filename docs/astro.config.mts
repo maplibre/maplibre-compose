@@ -25,6 +25,7 @@ export default defineConfig({
       editLink: {
         baseUrl: "https://github.com/maplibre/maplibre-compose/edit/main/docs/",
       },
+      routeMiddleware: "./src/banner.ts",
       customCss: ["./src/styles/custom.css"],
       plugins: [
         starlightCopyButton(),
