@@ -177,13 +177,19 @@ fun main() {
 
 Available runtimes:
 
-| Platform      | Runtime                                         |
-| ------------- | ----------------------------------------------- |
-| Linux x64     | `maplibre-compose-runtime-vulkan-linux-x64`     |
-| Linux arm64   | `maplibre-compose-runtime-vulkan-linux-arm64`   |
-| macOS arm64   | `maplibre-compose-runtime-metal-macos-arm64`    |
-| Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
-| Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
+| Platform      | Backend | Runtime                                         |
+| ------------- | ------- | ----------------------------------------------- |
+| Linux x64     | Vulkan  | `maplibre-compose-runtime-vulkan-linux-x64`     |
+| Linux arm64   | Vulkan  | `maplibre-compose-runtime-vulkan-linux-arm64`   |
+| macOS arm64   | Metal   | `maplibre-compose-runtime-metal-macos-arm64`    |
+| Windows x64   | Vulkan  | `maplibre-compose-runtime-vulkan-windows-x64`   |
+| Windows x64   | OpenGL  | `maplibre-compose-runtime-opengl-windows-x64`   |
+| Windows arm64 | Vulkan  | `maplibre-compose-runtime-vulkan-windows-arm64` |
+| Windows arm64 | OpenGL  | `maplibre-compose-runtime-opengl-windows-arm64` |
+
+Package one runtime artifact for each target application. Vulkan remains the
+default Windows choice; select the OpenGL artifact when MapLibre should render
+through the WGL-to-Direct3D 12 bridge.
 
 To ship several platforms, select the runtime from the host you build on.
 Match the runtime's version to the library version you selected above,

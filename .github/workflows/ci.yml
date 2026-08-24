@@ -209,41 +209,64 @@ jobs:
         include:
           - runner: macos-26
             save_toolchains: "false" # ios owns this label
+            backend: metal
+            package: true
             artifact_type: dmg
             artifact_name: demo-app-desktop-macos-arm64
             test_variant: desktop-macos-arm64
           - runner: ubuntu-24.04
             save_toolchains: "false" # hygiene owns this label
+            backend: vulkan
+            package: true
             artifact_type: deb
             artifact_name: demo-app-desktop-linux-x64
             test_variant: desktop-linux-x64
           - runner: ubuntu-24.04-arm
             save_toolchains: "true"
+            backend: vulkan
+            package: true
             artifact_type: deb
             artifact_name: demo-app-desktop-linux-arm64
             test_variant: desktop-linux-arm64
           - runner: windows-2022
             save_toolchains: "true"
+            backend: vulkan
+            package: true
             artifact_type: msi
             artifact_name: demo-app-desktop-windows-x64
-            test_variant: desktop-windows-x64
+            test_variant: desktop-windows-x64-vulkan
           - runner: windows-11-arm
             save_toolchains: "true"
+            backend: vulkan
+            package: true
             artifact_type: msi
             artifact_name: demo-app-desktop-windows-arm64
-            test_variant: desktop-windows-arm64
+            test_variant: desktop-windows-arm64-vulkan
+          - runner: windows-2022
+            save_toolchains: "false"
+            backend: opengl
+            package: false
+            test_variant: desktop-windows-x64-opengl
+          - runner: windows-11-arm
+            save_toolchains: "false"
+            backend: opengl
+            package: false
+            test_variant: desktop-windows-arm64-opengl
     timeout-minutes: 45
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: ./.github/actions/setup-desktop-vulkan
+      - if: ${{ matrix.backend == 'vulkan' }}
+        uses: ./.github/actions/setup-desktop-vulkan
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: ${{ matrix.save_toolchains }}
+      - if: ${{ matrix.backend == 'opengl' }}
+        uses: ./.github/actions/setup-desktop-opengl
       - id: desktop-tests
-        run: mise run test:desktop
+        run: mise run test:desktop --backend ${{ matrix.backend }}
       - name: Upload desktop test results to Trunk
         if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
         continue-on-error: true
@@ -262,12 +285,14 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           if-no-files-found: warn
-          name: ${{ matrix.artifact_name }}-test-reports
+          name: ${{ matrix.test_variant }}-test-reports
           path: |
             **/build/reports/tests
             **/build/test-results
-      - run: mise run build:desktop-app
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - if: ${{ matrix.package }}
+        run: mise run build:desktop-app
+      - if: ${{ matrix.package }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           if-no-files-found: error
           name: ${{ matrix.artifact_name }}

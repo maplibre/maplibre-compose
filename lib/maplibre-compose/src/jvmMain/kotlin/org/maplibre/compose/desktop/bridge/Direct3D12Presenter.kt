@@ -17,6 +17,7 @@ import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
 
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
+internal const val DXGI_FORMAT_R8G8B8A8_UNORM: Int = 28
 
 /** An `ID3D12Resource` texture to composite into Compose's scene. */
 internal data class Direct3DTextureTarget(

@@ -1,0 +1,43 @@
+name: Setup desktop OpenGL
+description: Install Mesa GL-on-D3D12 for Windows WGL bridge tests.
+
+runs:
+  using: composite
+  steps:
+    - name: Install Mesa GL-on-D3D12
+      shell: pwsh
+      run: |
+        $ErrorActionPreference = "Stop"
+        $ProgressPreference = "SilentlyContinue"
+
+        $mesaVersion = "26.1.3"
+        if ($env:RUNNER_ARCH -eq "ARM64") {
+          $architecture = "arm64"
+          $expectedHash = "C7B65C2CDF8774E19CEAB45FA7BBE18D2C7E735D9CE879BC071A25DFFAD46ECF"
+        } else {
+          $architecture = "x64"
+          $expectedHash = "195EA10AE0E682E6B2A265C4C7E96D229F09A8A24C92D5A9BE2D210214D7B14E"
+        }
+
+        $archiveName = "mesa-d3d12-$architecture-$mesaVersion.7z"
+        $mesaUrl = "https://github.com/mmozeiko/build-mesa/releases/download/$mesaVersion/$archiveName"
+        $mesaArchive = Join-Path $env:RUNNER_TEMP $archiveName
+        $mesaRoot = Join-Path $env:RUNNER_TEMP "mesa-d3d12-$mesaVersion-$env:RUNNER_ARCH"
+
+        Invoke-WebRequest -Uri $mesaUrl -OutFile $mesaArchive
+        $actualHash = (Get-FileHash $mesaArchive -Algorithm SHA256).Hash
+        if ($actualHash -ne $expectedHash) {
+          throw "Archive hash mismatch for $mesaUrl`: expected $expectedHash, got $actualHash"
+        }
+        7z x $mesaArchive "-o$mesaRoot" -y | Out-Null
+
+        $openGl = Get-ChildItem $mesaRoot -Recurse -Filter "opengl32.dll" |
+          Select-Object -First 1
+        if (-not $openGl) {
+          throw "Missing WGL opengl32.dll in $mesaArchive"
+        }
+
+        # Both LWJGL and maplibre-native-ffi load opengl32.dll. Put Mesa first in the DLL search
+        # path so both callers resolve the same WGL implementation.
+        $openGl.Directory.FullName | Out-File -FilePath $env:GITHUB_PATH -Append
+        "GALLIUM_DRIVER=d3d12" >> $env:GITHUB_ENV

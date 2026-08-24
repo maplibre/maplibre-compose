@@ -24,7 +24,10 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
       ComposeRenderBackend.OPENGL ->
         listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
       ComposeRenderBackend.DIRECT3D12 ->
-        listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12))
+        listOf(
+          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12),
+          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.DIRECT3D12),
+        )
     }
 
   override fun create(backends: RenderBackendPair): MlnFfiMapHostResult =
@@ -37,6 +40,8 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
             VulkanOpenGlMapHost(mapHost)
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
             VulkanDirect3D12MapHost(mapHost)
+          RenderBackendPair(MapRenderBackend.OPENGL, ComposeRenderBackend.DIRECT3D12) ->
+            OpenGlDirect3D12MapHost(mapHost)
           else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
         }
       MlnFfiMapHostResult.Created(host)

@@ -81,6 +81,7 @@ private constructor(private var preparedDriver: FfiTestRenderDriver?) : MlnFfiMa
       when (val packaged = Maplibre.supportedRenderBackends().singleOrNull()) {
         RenderBackend.METAL -> RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
         RenderBackend.VULKAN -> RenderBackendPair(MapRenderBackend.VULKAN, composeBackend())
+        RenderBackend.OPENGL -> RenderBackendPair(MapRenderBackend.OPENGL, composeBackend())
         else -> error("No Desktop test map host for ${packaged ?: "no packaged runtime"}")
       }
     )
