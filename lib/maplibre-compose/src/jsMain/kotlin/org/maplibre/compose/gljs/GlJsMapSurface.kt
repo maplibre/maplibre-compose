@@ -29,6 +29,7 @@ internal fun GlJsMapSurface(
   modifier: Modifier,
   logger: Logger?,
   presentFrames: Boolean,
+  repaintToken: Any? = null,
 ) {
   val density = LocalDensity.current.density.toDouble()
   var physicalSize by remember { mutableStateOf(IntSize.Zero) }
@@ -68,8 +69,11 @@ internal fun GlJsMapSurface(
   }
 
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {
-    // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
+    // Load-bearing reads: `frameRequest` is what makes requestFrame() reschedule this
+    // Canvas, and `repaintToken` is what makes a render-option change do the same when
+    // the surface itself would otherwise be skipped.
     frameRequest
+    repaintToken
 
     var drew = false
     if (!extent.isEmpty && !failed) {

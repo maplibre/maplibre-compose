@@ -2,7 +2,6 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -46,7 +45,11 @@ internal actual fun ComposableMapView(
   // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
   SideEffect { session.setBaseStyle(style) }
 
-  LaunchedEffect(session, options, update) { update(session) }
+  // Same apply phase: render settings have to be on the map before this frame's Canvas draw.
+  // A later coroutine would set them after the draw, and the setter's `triggerRepaint` only
+  // asks Compose for another frame — which this surface skips when its parameters have not
+  // changed. That is why the overdraw inspector used to wait for a camera move.
+  SideEffect { update(session) }
 
   DisposableEffect(session) {
     onDispose {
@@ -67,6 +70,10 @@ internal actual fun ComposableMapView(
         modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
       logger = logger,
       presentFrames = session.hasLoadedFirstStyle,
+      // Recompose the surface when debug flags change, so the Canvas draws the frame that
+      // SideEffect just applied. `requestFrame` alone is not enough: this composable is
+      // otherwise skipped, and the draw that would read `frameRequest` never runs.
+      repaintToken = options.renderOptions,
     )
   }
 }

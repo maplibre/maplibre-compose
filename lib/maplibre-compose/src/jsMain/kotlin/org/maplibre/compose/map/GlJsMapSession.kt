@@ -114,6 +114,10 @@ internal class GlJsMapSession(
   internal var hasLoadedFirstStyle by mutableStateOf(false)
     private set
 
+  /** What the GL JS overdraw inspector flag was when the last frame that drew ran `redraw`. */
+  internal var lastDrawnOverdrawInspector: Boolean = false
+    private set
+
   private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
 
@@ -198,6 +202,7 @@ internal class GlJsMapSession(
       }
     }
     lastRenderTime = now
+    lastDrawnOverdrawInspector = map.showOverdrawInspector
     reportFrameRate()
     return true
   }
