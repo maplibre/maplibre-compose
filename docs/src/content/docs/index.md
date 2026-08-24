@@ -3,6 +3,9 @@ title: Overview
 description:
   MapLibre Compose embeds interactive vector maps in your Compose Multiplatform
   apps.
+next:
+  link: /maplibre-compose/getting-started/
+  label: Getting started
 ---
 
 MapLibre Compose is a [Compose Multiplatform][compose] wrapper around the
