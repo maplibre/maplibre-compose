@@ -6,6 +6,7 @@ run = '''
 rm -rf docs/public/api
 mkdir -p docs/public/api
 cp -a build/dokka/html/. docs/public/api/
+node docs/scripts/generate-api-index.mjs
 '''
 
 [tasks.versions]

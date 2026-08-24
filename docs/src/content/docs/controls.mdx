@@ -4,13 +4,15 @@ description: Position the logo, attribution, and your own controls on top of the
 ---
 
 import { Aside, Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 
 import controls from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Controls.kt?raw";
 import material3 from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Material3.kt?raw";
 
-`MaplibreMap` draws controls on top of the map. The `overlay` parameter sets
-which ones. The default is a scale bar and a compass along the top edge, and
+<Api of="MaplibreMap" /> draws controls on top of the map. The `overlay`
+parameter sets which ones. The default is a scale bar and a compass along the
+top edge, and
 the MapLibre logo and an attribution button along the bottom edge. The scale
 bar and the compass appear only while they are relevant.
 
@@ -24,13 +26,13 @@ bar and the compass appear only while they are relevant.
 
 ## Choose an overlay
 
-`MapOverlay.None` draws no controls. Use it when your app shows the attribution
-somewhere else, such as an about screen.
+<Api of="MapOverlay.None" /> draws no controls. Use it when your app shows the
+attribution somewhere else, such as an about screen.
 
 <Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
-A `MapOverlay` block draws the controls you list in it. `Modifier.align`
-positions a control against an inset edge of the map.
+A <Api of="MapOverlay" /> block draws the controls you list in it.
+`Modifier.align` positions a control against an inset edge of the map.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
@@ -54,8 +56,10 @@ commonMain.dependencies {
 }
 ```
 
-`MapOverlay.Material3` draws the same controls as `MapOverlay.Default` in the
-same places, so switching to it is one parameter:
+<Api of="Material3" display="MapOverlay.Material3" /> draws the same controls
+as
+<Api of="MapOverlay.Default" /> in the same places, so switching to it is one
+parameter:
 
 <Code code={region(material3, "overlay")} lang="kotlin" title="App.kt" />
 
@@ -81,8 +85,9 @@ Padding on a bounding-box camera move adds to `cameraPadding` for that fit.
 
 ## Pin Compose UI to a location
 
-`Modifier.placedAt` puts a child on a geographic position. Keep the default
-controls with `include`, then add the child in the same overlay. A pan, a zoom,
+<Api of="MapOverlayScope.placedAt" /> puts a child on a geographic position.
+Keep the default controls with <Api of="include" />, then add the child in the
+same overlay. A pan, a zoom,
 or a window resize moves the child with the map.
 
 <Code code={region(controls, "placedAt")} lang="kotlin" title="App.kt" />
@@ -92,8 +97,9 @@ or a window resize moves the child with the map.
 
 ## Point at an off-screen location
 
-`Modifier.placedTowards` puts a child on the edge of an ellipse inscribed in
-the unobstructed map region, on the line towards a geographic position. The
+<Api of="MapOverlayScope.placedTowards" /> puts a child on the edge of an
+ellipse inscribed in the unobstructed map region, on the line towards a
+geographic position. The
 child appears only while the position projects outside of that ellipse. A
 position near a corner of the map region can be visible and still lie outside
 the ellipse.
@@ -103,5 +109,6 @@ the ellipse.
 1. The state carries the placement that the overlay computed.
 2. `angleDegrees` is the direction of the target, clockwise from screen-up.
 
-`PointerPinButton` from the Material 3 module is a styled consumer of this
-modifier: an elevated button in the shape of a pin that points at the target.
+<Api of="PointerPinButton" /> from the Material 3 module is a styled consumer
+of this modifier: an elevated button in the shape of a pin that points at the
+target.

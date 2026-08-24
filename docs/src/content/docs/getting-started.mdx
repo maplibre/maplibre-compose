@@ -4,6 +4,7 @@ description: Add MapLibre Compose to a Compose Multiplatform project and display
 ---
 
 import { Aside, Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
 
@@ -139,9 +140,9 @@ Available runtimes:
 | Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
 | Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
 
-On desktop, a `ComposeMapHost` supplies the window's graphics context. For Java
-AWT windows, use `rememberAwtComposeMapHost`. For an alternative Compose host,
-implement `ComposeMapHost` yourself.
+On desktop, a <Api of="ComposeMapHost" /> supplies the window's graphics
+context. For Java AWT windows, use <Api of="rememberAwtComposeMapHost" />. For
+an alternative Compose host, implement `ComposeMapHost` yourself.
 
 ```kotlin title="Main.kt"
 fun main() {

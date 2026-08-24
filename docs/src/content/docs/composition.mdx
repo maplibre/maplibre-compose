@@ -3,10 +3,12 @@ title: How the map composes
 description: The declarative style model that applies your sources and layers to the map.
 ---
 
-MapLibre Compose has no map view object. `MaplibreMap` is a composable, and
-map state lives in state objects: `CameraState` for the camera and
-`StyleState` for the style. This page explains how the library applies your
-composition to the underlying MapLibre style.
+import Api from "../../components/Api.astro";
+
+MapLibre Compose has no map view object. <Api of="MaplibreMap" /> is a
+composable, and map state lives in state objects: <Api of="CameraState" /> for
+the camera and <Api of="StyleState" /> for the style. This page explains how
+the library applies your composition to the underlying MapLibre style.
 
 ## The style is base plus content
 
@@ -23,7 +25,8 @@ MaplibreMap(baseStyle = BaseStyle.Uri("...")) {
 
 The library manages the sources and layers that you declare in the content
 block, and does not modify the rest of the base style. To change a base style
-layer, replace it with `Anchor.Replace` and declare its replacement yourself.
+layer, replace it with <Api of="Anchor.Replace" /> and declare its replacement
+yourself.
 
 ## Recomposition updates the style
 

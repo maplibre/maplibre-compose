@@ -4,13 +4,14 @@ description: Draw icons from Compose painters or the style sprite, and place an 
 ---
 
 import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
 import { inside, region } from "../../snippets";
 
 import images from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Images.kt?raw";
 
-A `SymbolLayer` draws an icon at each feature in its source. The `image()`
-expression supplies the icon, from a Compose painter, an `ImageBitmap`, or the
-base style's sprite.
+A <Api of="SymbolLayer" /> draws an icon at each feature in its source. The
+<Api of="image" /> expression supplies the icon, from a Compose painter, an
+`ImageBitmap`, or the base style's sprite.
 
 ## Draw icons from a Compose painter
 
@@ -29,7 +30,7 @@ to `image()`:
 
 ## Place an image on the map
 
-An `ImageSource` positions one image on the map by its four corner
-coordinates. A `RasterLayer` draws it:
+An <Api of="ImageSource" /> positions one image on the map by its four corner
+coordinates. A <Api of="RasterLayer" /> draws it:
 
 <Code code={inside("MaplibreMap {", region(images, "image-source"))} lang="kotlin" />

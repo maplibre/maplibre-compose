@@ -4,13 +4,14 @@ description: Download a region as an offline pack, track its progress, and delet
 ---
 
 import { Aside, Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 
 import offline from "../../../../demo-app/common/src/maplibreNativeMain/kotlin/org/maplibre/compose/docsnippets/Offline.kt?raw";
 
 An offline pack holds the resources needed to show a region without a network:
-map tiles, the style, and other assets. The `OfflineManager` creates, tracks,
-and deletes packs.
+map tiles, the style, and other assets. The <Api of="OfflineManager" />
+creates, tracks, and deletes packs.
 
 <Aside type="note">
   Offline packs are available on Android, iOS, and Desktop. The browser
@@ -23,33 +24,34 @@ Get the manager inside a composition:
 
 ## Download a region
 
-A pack is defined by a style URL, a bounding box, and a zoom range. `create`
-registers the pack in a paused state; call `resume` to start the download:
+A pack is defined by a style URL, a bounding box, and a zoom range.
+<Api of="OfflineManager.create" /> registers the pack in a paused state; call
+<Api of="OfflineManager.resume" /> to start the download:
 
 <Code code={region(offline, "create")} lang="kotlin" />
 
 The library does not interpret the `metadata` bytes. Use them to identify the
 pack later, for example with a display name.
 
-`OfflinePackDefinition.Shape` downloads the region that covers a GeoJSON
-geometry instead of a bounding box.
+<Api of="OfflinePackDefinition.Shape" /> downloads the region that covers a
+GeoJSON geometry instead of a bounding box.
 
 ## Track download progress
 
-`OfflineManager.packs` and `OfflinePack.downloadProgress` are backed by
-Compose state, so a composition that reads them recomposes as the download
-proceeds:
+<Api of="OfflineManager.packs" /> and <Api of="OfflinePack.downloadProgress" />
+are backed by Compose state, so a composition that reads them recomposes as
+the download proceeds:
 
 <Code code={region(offline, "progress")} lang="kotlin" />
 
 `pause` and `resume` switch a pack between the `Paused` and `Downloading`
-states. `invalidate` re-checks a pack's tiles against the server and updates
-the ones that changed.
+states. <Api of="OfflineManager.invalidate" /> re-checks a pack's tiles
+against the server and updates the ones that changed.
 
 ## Delete a pack
 
-`delete` unregisters the pack and frees the resources that no remaining pack
-requires:
+<Api of="OfflineManager.delete" /> unregisters the pack and frees the
+resources that no remaining pack requires:
 
 <Code code={region(offline, "delete")} lang="kotlin" />
 
