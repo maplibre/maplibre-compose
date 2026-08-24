@@ -342,7 +342,16 @@ fi
 
 [tasks."demo:desktop-nucleus"]
 description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."
-run = "./gradlew :demo-app:desktop-nucleus:run"
+usage = '''
+flag "--backend <name>" help="Map render backend to run, e.g. opengl or vulkan. Defaults to the platform's preferred backend."
+'''
+run = '''
+args=""
+if [ -n "$usage_backend" ]; then
+  args="-Pmaplibre.desktop.backend=$usage_backend"
+fi
+./gradlew :demo-app:desktop-nucleus:run $args
+'''
 
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."
