@@ -5,6 +5,7 @@ description: The expression DSL that computes layer properties from feature data
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import SnippetDemo from "../../components/SnippetDemo.astro";
 import { region } from "../../snippets";
 
 import expressions from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Expressions.kt?raw";
@@ -43,6 +44,8 @@ radius and a color computed from its own magnitude.
 a smooth value between stops:
 
 <Code code={region(expressions, "zoom")} lang="kotlin" title="App.kt" />
+
+<SnippetDemo id="expressions" />
 
 ## Filter features
 

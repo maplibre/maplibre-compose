@@ -1,0 +1,71 @@
+---
+/**
+ * Embeds an inline demo from the browser demo app next to a code snippet.
+ *
+ * Renders a framed placeholder with a button, and swaps in an iframe of
+ * `/demo/?snippet=<id>` when the reader clicks it. Loading on click keeps the
+ * demo app's bundle and tile requests off the initial page load.
+ */
+import { snippetDemoIds } from "../snippet-demos";
+
+interface Props {
+  id: (typeof snippetDemoIds)[number];
+}
+
+const { id } = Astro.props;
+
+if (!snippetDemoIds.includes(id)) {
+  throw new Error(`<SnippetDemo id="${id}"> is not a registered inline demo`);
+}
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const src = `${base}/demo/?snippet=${id}`;
+---
+
+<div class="snippet-demo not-content" data-src={src}>
+  <button>Run this example</button>
+</div>
+
+<script>
+for (const container of document.querySelectorAll<HTMLElement>(".snippet-demo")) {
+    const button = container.querySelector("button");
+    button?.addEventListener("click", () => {
+      const iframe = document.createElement("iframe");
+      iframe.src = container.dataset.src ?? "";
+      iframe.title = "Live example";
+      container.replaceChildren(iframe);
+    });
+  }
+</script>
+
+<style>
+.snippet-demo {
+  aspect-ratio: 16 / 9;
+  border: 1px solid var(--sl-color-gray-5);
+  border-radius: 0.5rem;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background-color: var(--sl-color-gray-7, var(--sl-color-gray-6));
+}
+
+.snippet-demo button {
+  font: inherit;
+  color: var(--sl-color-white);
+  background-color: var(--sl-color-gray-5);
+  border: 1px solid var(--sl-color-gray-4);
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+}
+
+.snippet-demo button:hover {
+  background-color: var(--sl-color-gray-4);
+}
+
+.snippet-demo iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+</style>

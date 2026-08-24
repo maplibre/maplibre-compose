@@ -5,6 +5,7 @@ description: Set the initial position, animate the camera, fit bounds, and conve
 
 import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import SnippetDemo from "../../components/SnippetDemo.astro";
 import { region } from "../../snippets";
 
 import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
@@ -35,6 +36,8 @@ map:
 
 <Api of="CameraState.jumpTo" /> fits the same bounding box without an
 animation.
+
+<SnippetDemo id="camera" />
 
 ## Read the visible area
 
