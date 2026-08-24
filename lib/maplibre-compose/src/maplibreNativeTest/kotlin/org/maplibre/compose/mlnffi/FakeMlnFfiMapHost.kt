@@ -156,6 +156,7 @@ internal class FakeMlnFfiMapHost(
   override fun produceFrame(
     frame: MlnFfiMapFrame,
     requestFrame: () -> Unit,
+    producerRequested: Boolean,
     action: () -> MlnFfiFrameResult,
   ): MlnFfiMapFrameProduction {
     calls += "produceFrame(${frame.frameId})"
@@ -173,7 +174,7 @@ internal class FakeMlnFfiMapHost(
       pendingProduction = PendingProduction(frame, requestFrame, action)
       return MlnFfiMapFrameProduction.Pending
     }
-    return super<MlnFfiMapHost>.produceFrame(frame, requestFrame, action)
+    return super<MlnFfiMapHost>.produceFrame(frame, requestFrame, producerRequested, action)
   }
 
   /** Completes the producer work that [produceFrame] deferred. */

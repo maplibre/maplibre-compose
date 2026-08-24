@@ -82,22 +82,25 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
   override fun produceFrame(
     frame: MlnFfiMapFrame,
     requestFrame: () -> Unit,
+    producerRequested: Boolean,
     action: () -> MlnFfiFrameResult,
   ): MlnFfiMapFrameProduction {
     var submitted = false
     try {
       val completed = pipeline.collectCompleted()
-      submitted =
-        pipeline.submit(
-          frame,
-          action = {
-            action().also { result ->
-              if (result == MlnFfiFrameResult.RENDERED) vulkan?.waitIdle()
-            }
-          },
-          requestFrame = requestFrame,
-        )
-      return completed ?: MlnFfiMapFrameProduction.Pending
+      if (producerRequested || completed?.shouldSubmitSuccessor == true) {
+        submitted =
+          pipeline.submit(
+            frame,
+            action = {
+              action().also { result ->
+                if (result == MlnFfiFrameResult.RENDERED) vulkan?.waitIdle()
+              }
+            },
+            requestFrame = requestFrame,
+          )
+      }
+      return completed?.production ?: MlnFfiMapFrameProduction.Pending
     } finally {
       if (!submitted) releaseFrame(frame)
     }
@@ -152,12 +155,7 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     runCatching { pipeline.close() }
     try {
       frameCompletion.abandon()
-      runCatching {
-        gpuHost.withOpenGlContext {
-          disposeAllTextures()
-          presenter.close()
-        }
-      }
+      closeAllTexturesForShutdown()
     } finally {
       val closing = vulkan
       vulkan = null
@@ -257,20 +255,56 @@ internal class VulkanOpenGlWin32MapHost(private val gpuHost: ComposeMapHost) : M
     disposeRetiredTextures()
   }
 
+  private fun closeAllTexturesForShutdown() {
+    retireCurrentTextures()
+    val closing = retiredTextures.values.toList()
+    val closedWithContext = runCatching {
+      gpuHost.withOpenGlContext {
+        closing.forEach(WindowsOpenGlSharedTexture::closeImported)
+        presenter.close()
+      }
+    }
+      .isSuccess
+    if (!closedWithContext) {
+      presenter.abandon()
+      closing.forEach(WindowsOpenGlSharedTexture::abandonImported)
+    }
+    closing.forEach { runCatching(it::closeInterop) }
+    retiredTextures.clear()
+  }
+
   private inner class WindowsOpenGlSharedTexture(
     val d3d11: WindowsD3D11SharedTexture,
     val exported: WindowsOpenGlExportedVulkanTexture,
     val imported: WindowsOpenGlImportedTexture,
   ) : AutoCloseable {
+    private var interopClosed = false
+
     override fun close() {
+      try {
+        closeImported()
+      } finally {
+        closeInterop()
+      }
+    }
+
+    fun closeImported() {
       presenter.forget(imported.textureName)
       imported.close()
-      exported.close()
-      d3d11.close()
     }
 
     fun abandonImported() {
       imported.abandon()
+    }
+
+    fun closeInterop() {
+      if (interopClosed) return
+      interopClosed = true
+      try {
+        exported.close()
+      } finally {
+        d3d11.close()
+      }
     }
   }
 }

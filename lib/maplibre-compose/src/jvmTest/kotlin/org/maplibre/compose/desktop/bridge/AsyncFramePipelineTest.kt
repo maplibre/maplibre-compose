@@ -12,7 +12,6 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
-import org.maplibre.compose.mlnffi.MlnFfiMapFrameProduction
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.VulkanContextHandles
 import org.maplibre.compose.mlnffi.VulkanImageTarget
@@ -33,16 +32,40 @@ class AsyncFramePipelineTest {
 
     dispatcher.runNext()
     assertEquals(1, requests)
-    val rendered = assertIs<MlnFfiMapFrameProduction.Completed>(pipeline.collectCompleted())
+    val renderedCompletion = assertIs<AsyncFrameCompletion>(pipeline.collectCompleted())
+    val rendered = renderedCompletion.production
     assertEquals(MlnFfiFrameResult.RENDERED, rendered.result)
+    assertTrue(renderedCompletion.shouldSubmitSuccessor)
     assertEquals(1, pipeline.displayedGeneration)
 
     dispatcher.runNext()
-    val skipped = assertIs<MlnFfiMapFrameProduction.Completed>(pipeline.collectCompleted())
+    val skippedCompletion = assertIs<AsyncFrameCompletion>(pipeline.collectCompleted())
+    val skipped = skippedCompletion.production
     assertEquals(MlnFfiFrameResult.SKIPPED, skipped.result)
+    assertFalse(skippedCompletion.shouldSubmitSuccessor)
     assertEquals(1, pipeline.displayedGeneration)
     assertEquals(listOf(1L, 2L), released)
     assertTrue(pipeline.submit(frame(3), { MlnFfiFrameResult.RENDERED }) {})
+  }
+
+  @Test
+  fun rendered_then_skipped_publishes_the_render_and_stops_the_successor() {
+    val dispatcher = TestDispatcher()
+    val released = mutableListOf<Long>()
+    val pipeline = pipeline(dispatcher, released)
+    pipeline.replaceActiveGenerations(listOf(1, 2, 3))
+    assertTrue(pipeline.submit(frame(1), { MlnFfiFrameResult.RENDERED }) {})
+    assertTrue(pipeline.submit(frame(2), { MlnFfiFrameResult.SKIPPED }) {})
+
+    dispatcher.runNext()
+    dispatcher.runNext()
+
+    val completed = assertIs<AsyncFrameCompletion>(pipeline.collectCompleted())
+    assertEquals(MlnFfiFrameResult.RENDERED, completed.production.result)
+    assertEquals(1, completed.production.target.generation)
+    assertEquals(1, pipeline.displayedGeneration)
+    assertFalse(completed.shouldSubmitSuccessor)
+    assertEquals(listOf(1L, 2L), released)
   }
 
   @Test

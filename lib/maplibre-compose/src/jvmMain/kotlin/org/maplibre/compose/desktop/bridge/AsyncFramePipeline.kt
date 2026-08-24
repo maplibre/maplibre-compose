@@ -7,6 +7,12 @@ import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameProduction
 
+/** The frame to publish and whether producer work should continue after the collected batch. */
+internal data class AsyncFrameCompletion(
+  val production: MlnFfiMapFrameProduction.Completed,
+  val shouldSubmitSuccessor: Boolean,
+)
+
 /**
  * Schedules producer work while the consumer continues drawing completed texture generations.
  *
@@ -53,11 +59,14 @@ internal class AsyncFramePipeline(
   fun acquisitionGeneration(): Long? = freeGeneration() ?: pending.firstOrNull()?.generation
 
   /**
-   * Collects every completed head task and returns the newest result from an active generation.
-   * Retired generations are released without publishing their contents.
+   * Collects every completed head task and returns the newest rendered result from an active
+   * generation, or the newest skipped result when none rendered. Retired generations are released
+   * without publishing their contents.
    */
-  fun collectCompleted(): MlnFfiMapFrameProduction.Completed? {
+  fun collectCompleted(): AsyncFrameCompletion? {
     var newest: MlnFfiMapFrameProduction.Completed? = null
+    var newestRendered: MlnFfiMapFrameProduction.Completed? = null
+    var latestResult: MlnFfiFrameResult? = null
     while (pending.firstOrNull()?.task?.isDone == true) {
       val completed = pending.removeFirst()
       val result =
@@ -69,13 +78,20 @@ internal class AsyncFramePipeline(
           releaseFrame(completed.frame)
         }
       if (completed.generation in activeGenerations) {
+        latestResult = result
+        val production = MlnFfiMapFrameProduction.Completed(result, completed.frame.target)
         if (result == MlnFfiFrameResult.RENDERED) {
           displayedGeneration = completed.generation
+          newestRendered = production
         }
-        newest = MlnFfiMapFrameProduction.Completed(result, completed.frame.target)
+        newest = production
       }
     }
-    return newest
+    val production = newestRendered ?: newest ?: return null
+    return AsyncFrameCompletion(
+      production = production,
+      shouldSubmitSuccessor = latestResult != MlnFfiFrameResult.SKIPPED,
+    )
   }
 
   /** Queues [action] when [frame] names a free active generation and capacity remains. */

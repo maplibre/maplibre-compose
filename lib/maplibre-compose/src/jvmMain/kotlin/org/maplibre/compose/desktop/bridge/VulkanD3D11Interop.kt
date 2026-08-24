@@ -436,8 +436,9 @@ private constructor(private val extent: MapExtent, private var binding: AngleBou
     )
 
   override fun close() {
-    binding?.close()
-    abandon()
+    val closing = binding ?: return
+    binding = null
+    closing.close()
   }
 
   fun abandon() {

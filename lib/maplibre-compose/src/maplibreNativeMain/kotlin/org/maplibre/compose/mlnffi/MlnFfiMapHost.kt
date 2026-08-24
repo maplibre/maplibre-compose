@@ -98,11 +98,13 @@ internal interface MlnFfiMapHost : AutoCloseable {
    *
    * Synchronous hosts return [MlnFfiMapFrameProduction.Completed]. An asynchronous host returns
    * [MlnFfiMapFrameProduction.Pending] and calls [requestFrame] when the result is ready to
-   * collect. Every implementation releases [frame] exactly once.
+   * collect. [producerRequested] distinguishes renderer work from a draw scheduled only to collect
+   * asynchronous completion. Every implementation releases [frame] exactly once.
    */
   fun produceFrame(
     frame: MlnFfiMapFrame,
     requestFrame: () -> Unit,
+    producerRequested: Boolean = true,
     action: () -> MlnFfiFrameResult,
   ): MlnFfiMapFrameProduction =
     try {
