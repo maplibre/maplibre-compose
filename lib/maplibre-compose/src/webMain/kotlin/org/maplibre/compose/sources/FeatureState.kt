@@ -1,6 +1,9 @@
 package org.maplibre.compose.sources
 
 import js.objects.unsafeJso
+import kotlin.js.JsAny
+import kotlin.js.toJsNumber
+import kotlin.js.toJsString
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.gljs.FeatureIdentifier
 import org.maplibre.compose.util.toJsonElement
@@ -25,15 +28,15 @@ internal fun featureIdentifiers(
  * Integer-looking ids therefore target both forms. A leading-zero id such as `"01"` stays a string,
  * because that is not the decimal form of the number.
  */
-private fun jsFeatureIds(featureId: String?): List<Any?> {
+private fun jsFeatureIds(featureId: String?): List<JsAny?> {
   if (featureId == null) return listOf(null)
   val integer = featureId.toLongOrNull()
-  if (integer == null || integer.toString() != featureId) return listOf(featureId)
+  if (integer == null || integer.toString() != featureId) return listOf(featureId.toJsString())
   val number =
-    if (integer in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) integer.toInt()
-    else integer.toDouble()
-  return listOf(featureId, number)
+    if (integer in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) integer.toInt().toJsNumber()
+    else integer.toDouble().toJsNumber()
+  return listOf(featureId.toJsString(), number)
 }
 
-internal fun Any?.toJsonObjectOrEmpty(): JsonObject =
+internal fun JsAny?.toJsonObjectOrEmpty(): JsonObject =
   (toJsonElement() as? JsonObject) ?: JsonObject(emptyMap())
