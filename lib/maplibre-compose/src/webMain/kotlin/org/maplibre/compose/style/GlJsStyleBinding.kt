@@ -5,6 +5,10 @@ import js.objects.unsafeJso
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.DurationUnit
+import kotlin.js.JsAny
+import kotlin.js.JsArray
+import kotlin.js.JsNumber
+import kotlin.js.toJsString
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -35,6 +39,9 @@ import org.maplibre.compose.gljs.StyleSetterOptions
 import org.maplibre.compose.gljs.TransitionSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.keys
+import org.maplibre.compose.gljs.jsNumberAt
+import org.maplibre.compose.gljs.jsPair
+import org.maplibre.compose.gljs.jsUnsafeCast
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
@@ -327,14 +334,17 @@ internal class GlJsStyleBinding(
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     requireLoaded()
-    val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
+    val corners = JsArray<JsArray<JsNumber>>()
+    coordinates.forEachIndexed { index, position ->
+      corners[index] = jsPair(position.longitude, position.latitude)
+    }
     map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
   }
 
   override fun imageSourceCoordinates(sourceId: String): List<Position>? {
     requireLoaded()
-    return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.map {
-      Position(longitude = it[0], latitude = it[1])
+    return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.toList()?.map { row ->
+      Position(longitude = jsNumberAt(row, 0), latitude = jsNumberAt(row, 1))
     }
   }
 
@@ -346,7 +356,7 @@ internal class GlJsStyleBinding(
     requireLoaded()
     mutate("set data on source '$sourceId'") {
       val value =
-        if (data is GeoJsonData.Uri) data.uri.unsafeCast<GeoJsonSourceData>()
+        if (data is GeoJsonData.Uri) jsUnsafeCast<GeoJsonSourceData>(data.uri.toJsString())
         else data.toDataJson().toJsValue<GeoJsonSourceData>()
       map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(value)
     }
@@ -409,7 +419,7 @@ internal class GlJsStyleBinding(
     state: JsonObject,
   ) {
     requireLoaded()
-    val js = state.toJsValue<Any>()
+    val js = state.toJsValue<JsAny>()
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
       map.setFeatureState(ident, js)
     }
@@ -506,7 +516,7 @@ internal class GlJsStyleBinding(
     kind: LayerPropertyKind,
   ) {
     requireLoaded()
-    val js = value.toJsValue<Any?>()
+    val js = value.toJsValue<JsAny?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
         LayerPropertyKind.LAYOUT -> map.setLayoutProperty(layerId, name, js)

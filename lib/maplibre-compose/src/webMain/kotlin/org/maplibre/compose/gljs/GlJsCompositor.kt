@@ -58,11 +58,7 @@ internal class ComposeGlJsCompositor(private val target: WebGLRenderTarget) : Gl
   ): GlJsFrameTarget {
     if (extent.isEmpty) return GlJsFrameTarget.NotReady
     val frameTarget = GlJsFrameTarget.Composited(mapTarget)
-    return if (
-      target.render {
-        renderMap(frameTarget)
-      }
-    ) {
+    return if (target.render { renderMap(frameTarget) }) {
       frameTarget
     } else {
       GlJsFrameTarget.NotReady

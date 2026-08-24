@@ -2,29 +2,34 @@ package org.maplibre.compose.gljs
 
 import js.buffer.ArrayBuffer
 import js.typedarrays.Uint8Array
-import kotlin.js.Date
+import js.date.Date
+import kotlin.js.JsAny
+import kotlin.js.JsArray
+import kotlin.js.JsNumber
+import kotlin.js.JsString
 import kotlin.js.Promise
+import kotlin.js.toJsString
 import web.html.HTMLElement
 
 // The hand-written subset of MapLibre GL JS this platform binds against; GlJsDeclarationsTest
 // checks it against the loaded MapLibre version.
 
-internal external interface Subscription {
+internal external interface Subscription : JsAny {
   fun unsubscribe()
 }
 
 /** Only the `error` event carries an [error]. */
-internal external interface GlJsMapEvent {
+internal external interface GlJsMapEvent : JsAny {
   val error: JsError?
   val sourceId: String?
   val sourceDataType: String?
 }
 
-internal external interface JsError {
+internal external interface JsError : JsAny {
   val message: String?
 }
 
-internal external interface MapOptions {
+internal external interface MapOptions : JsAny {
   var container: HTMLElement
   var interactive: Boolean?
   var attributionControl: Boolean?
@@ -32,23 +37,23 @@ internal external interface MapOptions {
   var pixelRatio: Double?
   var canvasContextAttributes: CanvasContextAttributes?
   /** `[width, height]` in physical pixels, above which MapLibre lowers its own pixel ratio. */
-  var maxCanvasSize: Array<Double>?
-  var transformRequest: ((url: String, resourceType: String?) -> Any?)?
+  var maxCanvasSize: JsArray<JsNumber>?
+  var transformRequest: ((url: String, resourceType: String?) -> JsAny?)?
 }
 
-internal external interface CanvasContextAttributes {
+internal external interface CanvasContextAttributes : JsAny {
   var preserveDrawingBuffer: Boolean?
 }
 
-internal external interface SetStyleOptions {
+internal external interface SetStyleOptions : JsAny {
   var diff: Boolean?
 }
 
 /** What MapLibre loads a style from; see [styleUrl] and [styleJson]. */
-internal external interface StyleSource
+internal external interface StyleSource : JsAny
 
-internal external interface StyleSpecification {
-  val layers: Array<LayerSpecification>
+internal external interface StyleSpecification : JsAny {
+  val layers: JsArray<LayerSpecification>
   val sources: JsRecord<SourceSpecification>
   var transition: TransitionSpecification?
 }
@@ -72,26 +77,38 @@ internal external interface StyleSetterOptions {
   var validate: Boolean?
 }
 
-internal external interface LayerSpecification {
+internal external interface LayerSpecification : JsAny {
   val id: String
 }
 
-internal external interface SourceSpecification
+internal external interface SourceSpecification : JsAny
 
-internal external interface RequestParameters {
+internal external interface RequestParameters : JsAny {
   val url: String
   val headers: Any?
 }
 
-internal external interface ProtocolResponse {
+internal external interface ProtocolResponse : JsAny {
   var data: ArrayBuffer
   var expires: Date?
 }
 
-internal external interface FilterSpecification
+internal external interface ProtocolAbortController : JsAny {
+  val signal: ProtocolAbortSignal
+}
+
+internal external interface ProtocolAbortSignal : JsAny {
+  val aborted: Boolean
+
+  fun addEventListener(type: String, listener: () -> Unit)
+
+  fun removeEventListener(type: String, listener: () -> Unit)
+}
+
+internal external interface FilterSpecification : JsAny
 
 /** MapLibre leaves both zoom bounds undefined on a layer whose stylesheet named neither. */
-internal external interface StyleLayer {
+internal external interface StyleLayer : JsAny {
   val id: String
   val type: String
   val source: String?
@@ -100,7 +117,7 @@ internal external interface StyleLayer {
   val maxzoom: Double?
 }
 
-internal external interface SourceHandle {
+internal external interface SourceHandle : JsAny {
   val type: String
   val attribution: String?
 }
@@ -108,69 +125,69 @@ internal external interface SourceHandle {
 internal external interface GlJsGeoJsonSource : SourceHandle {
   fun setData(data: GeoJsonSourceData)
 
-  fun getClusterExpansionZoom(clusterId: Double): Promise<Double>
+  fun getClusterExpansionZoom(clusterId: Double): Promise<JsNumber>
 
-  fun getClusterChildren(clusterId: Double): Promise<Array<GeoJsonFeature>>
+  fun getClusterChildren(clusterId: Double): Promise<JsArray<GeoJsonFeature>>
 
   fun getClusterLeaves(
     clusterId: Double,
     limit: Double,
     offset: Double,
-  ): Promise<Array<GeoJsonFeature>>
+  ): Promise<JsArray<GeoJsonFeature>>
 }
 
 /** GeoJSON data or its URL, as defined by the style spec's `data` property. */
-internal external interface GeoJsonSourceData
+internal external interface GeoJsonSourceData : JsAny
 
 internal external interface GlJsImageSource : SourceHandle {
-  val coordinates: Array<Array<Double>>
+  val coordinates: JsArray<JsArray<JsNumber>>
 
-  fun setCoordinates(coordinates: Array<Array<Double>>)
+  fun setCoordinates(coordinates: JsArray<JsArray<JsNumber>>)
 
   fun updateImage(options: UpdateImageOptions)
 }
 
-internal external interface UpdateImageOptions {
+internal external interface UpdateImageOptions : JsAny {
   var url: String
 }
 
-internal external interface PaddingOptions {
+internal external interface PaddingOptions : JsAny {
   var top: Double
   var bottom: Double
   var left: Double
   var right: Double
 }
 
-/** Geometry for [org.maplibre.compose.gljs.MaplibreMap.queryRenderedFeatures]. */
-internal external interface QueryGeometry
+/** A point, or the two corners of a box; see [queryBox]. */
+internal external interface QueryGeometry : JsAny
 
-internal external interface Point {
+internal external interface Point : QueryGeometry {
   var x: Double
   var y: Double
 }
 
-internal external interface QueryRenderedFeaturesOptions {
-  var layers: Array<String>?
+internal external interface QueryRenderedFeaturesOptions : JsAny {
+  var layers: JsArray<JsString>?
   var filter: FilterSpecification?
 }
 
-internal external interface QuerySourceFeatureOptions {
+internal external interface QuerySourceFeatureOptions : JsAny {
   var sourceLayer: String?
   var filter: FilterSpecification?
 }
 
 /** Identifies a feature for [org.maplibre.compose.gljs.MaplibreMap.setFeatureState]. */
-internal external interface FeatureIdentifier {
+internal external interface FeatureIdentifier : JsAny {
   var source: String
   var sourceLayer: String?
   /** A GeoJSON string id, or a number when the GeoJSON `id` was unquoted. */
-  var id: Any?
+  var id: JsAny?
 }
 
-internal external interface GeoJsonFeature {
+internal external interface GeoJsonFeature : JsAny {
   val type: String
-  val geometry: Any
-  val properties: Any?
+  val geometry: JsAny
+  val properties: JsAny?
 }
 
 internal external interface MapGeoJsonFeature : GeoJsonFeature {
@@ -178,34 +195,34 @@ internal external interface MapGeoJsonFeature : GeoJsonFeature {
   val sourceLayer: String?
 }
 
-internal external interface StyleImageData {
+internal external interface StyleImageData : JsAny {
   var width: Double
   var height: Double
   var data: Uint8Array<ArrayBuffer>
 }
 
-internal external interface StyleImageMetadata {
+internal external interface StyleImageMetadata : JsAny {
   var pixelRatio: Double
   var sdf: Boolean
-  var stretchX: Array<Array<Double>>?
-  var stretchY: Array<Array<Double>>?
-  var content: Array<Double>?
+  var stretchX: JsArray<JsArray<JsNumber>>?
+  var stretchY: JsArray<JsArray<JsNumber>>?
+  var content: JsArray<JsNumber>?
 }
 
-internal external interface CameraOptions {
+internal external interface CameraOptions : JsAny {
   var center: LngLat?
   var zoom: Double?
   var bearing: Double?
   var pitch: Double?
 }
 
-internal external interface CenterZoomBearing {
+internal external interface CenterZoomBearing : JsAny {
   var center: LngLat?
   var zoom: Double?
   var bearing: Double?
 }
 
-internal external interface AnimationOptions {
+internal external interface AnimationOptions : JsAny {
   var duration: Double?
 }
 
@@ -226,40 +243,41 @@ internal external interface CameraForBoundsOptions : CameraOptions {
   var padding: PaddingOptions?
 }
 
-internal external interface Painter {
+internal external interface Painter : JsAny {
   val context: Context
 }
 
-internal external interface Context {
+internal external interface Context : JsAny {
   fun setDirty()
 }
 
 /** A plain JavaScript object keyed by string. */
-internal external interface JsRecord<out T>
+internal external interface JsRecord<out T : JsAny?> : JsAny
 
 /** MapLibre fetches a string style and reads an object one as the stylesheet itself. */
-internal fun styleUrl(url: String): StyleSource = url.unsafeCast<StyleSource>()
+internal fun styleUrl(url: String): StyleSource = jsUnsafeCast(url.toJsString())
 
-internal fun styleJson(json: String): StyleSource = JSON.parse(json)
+internal fun styleJson(json: String): StyleSource = jsUnsafeCast(parseJson(json))
 
 /** v6 composes a Camera instead of extending it. `isEasing` lives on that Camera, not on Map. */
 internal fun MaplibreMap.isCameraEasing(): Boolean {
-  val camera = asDynamic()._camera
-  check(jsTypeOf(camera.isEasing) == "function") {
+  val camera = jsGet(this, "_camera")
+  check(camera != null && isJsFunction(jsGet(camera, "isEasing"))) {
     "MapLibre's Camera no longer has an isEasing method"
   }
-  return camera.isEasing() as Boolean
+  return call0Boolean(camera, "isEasing")
 }
 
 /**
  * Returns `[x, y]`. GL JS treats only an `Array` or a `Point` instance as query geometry. A plain
  * `{x, y}` object is not geometry, so the query uses the whole viewport.
  */
-internal fun queryPoint(x: Double, y: Double): QueryGeometry =
-  arrayOf(x, y).unsafeCast<QueryGeometry>()
+internal fun queryPoint(x: Double, y: Double): QueryGeometry = jsUnsafeCast(jsPair(x, y))
 
 /** MapLibre tells a box from a point by shape, a box being a two-element array. */
 internal fun queryBox(first: Point, second: Point): QueryGeometry =
-  arrayOf(first, second).unsafeCast<QueryGeometry>()
+  jsUnsafeCast(jsPairAny(first, second))
 
-internal fun JsRecord<*>.keys(): Array<String> = js("Object").keys(this).unsafeCast<Array<String>>()
+internal fun JsRecord<*>.keys(): List<String> = objectKeys(this).toKotlinStrings()
+
+internal fun MaplibreMap.layerIds(): List<String> = getLayersOrder().toKotlinStrings()
