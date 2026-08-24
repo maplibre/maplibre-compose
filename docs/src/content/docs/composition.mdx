@@ -50,5 +50,5 @@ names a base layer applies only when that layer exists in the new style.
 
 Layers and sources have string IDs because the underlying MapLibre style
 identifies them by ID. Within one map, each layer ID must be unique, including
-against the base style's layers. Feature queries and click listeners report
-layers by these IDs.
+against the base style's layers. A feature query takes layer IDs to limit its
+scope, and an `Anchor` names a base style layer by its ID.

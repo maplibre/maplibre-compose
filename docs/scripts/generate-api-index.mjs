@@ -75,7 +75,11 @@ function scanCompanionDir(dir, urlBase, module, pkg, prefix) {
       );
     } else if (isMemberPage(entry.name)) {
       const member = decodeKebab(entry.name.replace(/\.html$/, ""));
-      addSymbol(`${prefix}.${member}`, { module, pkg, url: `${urlBase}/${entry.name}` });
+      const entryValue = { module, pkg, url: `${urlBase}/${entry.name}` };
+      addSymbol(`${prefix}.${member}`, entryValue);
+      // The short name loses deduplication when a companion callable shares
+      // its name with a nested type, so keep an explicit key reachable.
+      addSymbol(`${prefix}.Companion.${member}`, entryValue);
     }
   }
 }
