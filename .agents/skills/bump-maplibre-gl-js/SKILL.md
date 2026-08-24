@@ -6,7 +6,7 @@ description: Update the hand-written MapLibre GL JS bindings after bumping the p
 # Bumping MapLibre GL JS
 
 The bindings in
-`lib/maplibre-compose/src/jsMain/kotlin/org/maplibre/compose/gljs/` are written
+`lib/maplibre-compose/src/webMain/kotlin/org/maplibre/compose/gljs/` are written
 by hand, are `internal`, and cover only the members this platform actually
 calls. Most of an upstream diff is therefore irrelevant; the job is to find the
 parts that touch that subset.
@@ -71,7 +71,7 @@ between the two versions, against three lists:
   browser answers with `NotImplementedError` or `UnsupportedOperationException`.
   A release that closes one is the reason to bind new members.
 - **TODOs waiting on upstream.**
-  `git grep -n TODO lib/maplibre-compose/src/jsMain` finds the ones parked
+  `git grep -n TODO lib/maplibre-compose/src/webMain` finds the ones parked
   against a MapLibre GL JS limitation.
 - **New API surface.** New `Map` methods, style-spec properties, and source or
   layer types that the common API could expose. Style-spec gaps go through the

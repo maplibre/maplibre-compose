@@ -2,13 +2,18 @@ package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
 import js.objects.unsafeJso
+import kotlin.js.JsArray
+import kotlin.js.JsNumber
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.StyleImageMetadata
+import org.maplibre.compose.gljs.jsPair
+import org.maplibre.compose.gljs.jsQuad
 import org.maplibre.compose.gljs.keys
+import org.maplibre.compose.gljs.layerIds
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.Source
@@ -44,7 +49,7 @@ internal class GlJsStyle(
           }
           px.content?.let { box ->
             content =
-              arrayOf(
+              jsQuad(
                 box.left.toDouble(),
                 box.top.toDouble(),
                 box.right.toDouble(),
@@ -84,7 +89,7 @@ internal class GlJsStyle(
   }
 
   override fun getLayers(): List<Layer> =
-    binding.withMap { map -> map.getLayersOrder().map { reconstructLayer(map, it) } }.orEmpty()
+    binding.withMap { map -> map.layerIds().map { reconstructLayer(map, it) } }.orEmpty()
 
   override fun addLayer(layer: Layer) {
     layer.attach(binding, beforeLayerId = "")
@@ -94,7 +99,7 @@ internal class GlJsStyle(
     // "Above id" is "below whatever currently sits above id", which is the next layer along.
     val anchor =
       binding.withMap { map ->
-        val ids = map.getLayersOrder()
+        val ids = map.layerIds()
         val index = ids.indexOf(id)
         require(index >= 0) { "Layer ID '$id' not found in base style" }
         ids.getOrNull(index + 1).orEmpty()
@@ -109,7 +114,7 @@ internal class GlJsStyle(
   override fun addLayerAt(index: Int, layer: Layer) {
     val anchor =
       binding.withMap { map ->
-        val ids = map.getLayersOrder()
+        val ids = map.layerIds()
         require(index in 0..ids.size) {
           "Layer index $index is outside the valid range 0..${ids.size}"
         }
@@ -136,7 +141,7 @@ internal class GlJsStyle(
     source.attribution?.let { put("attribution", it) }
   }
 
-  private fun sourceIds(map: MaplibreMap): List<String> = map.getStyle().sources.keys().toList()
+  private fun sourceIds(map: MaplibreMap): List<String> = map.getStyle().sources.keys()
 
   /**
    * From the stylesheet, not the live layer: `StyleLayer` reports evaluated properties where
@@ -144,7 +149,7 @@ internal class GlJsStyle(
    */
   private fun reconstructLayer(map: MaplibreMap, id: String): Layer {
     val definition =
-      map.getStyle().layers.firstOrNull { it.id == id }?.toJsonElement() as? JsonObject
+      map.getStyle().layers.toList().firstOrNull { it.id == id }?.toJsonElement() as? JsonObject
         ?: buildJsonObject {
           put("id", id)
           map.getLayer(id)?.let { put("type", it.type) }
@@ -153,7 +158,8 @@ internal class GlJsStyle(
   }
 }
 
-private fun List<Pair<Float, Float>>.toGlJsStretch(): Array<Array<Double>> = map { (start, end) ->
-  arrayOf(start.toDouble(), end.toDouble())
+private fun List<Pair<Float, Float>>.toGlJsStretch(): JsArray<JsArray<JsNumber>> {
+  val arr = JsArray<JsArray<JsNumber>>()
+  forEachIndexed { index, (start, end) -> arr[index] = jsPair(start.toDouble(), end.toDouble()) }
+  return arr
 }
-  .toTypedArray()

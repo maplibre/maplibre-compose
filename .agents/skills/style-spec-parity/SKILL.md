@@ -97,7 +97,7 @@ composable in the source set that has the engine:
 - Native only: `maplibreNativeMain`, as `LocationIndicatorLayer` does. The
   internal `Layer` class can stay in `commonMain` so style reconstruction and
   native tests share it.
-- GL JS only: `jsMain`.
+- GL JS only: `webMain`.
 
 The other platform's demo or helper uses `expect`/`actual` when it needs a
 stand-in, the way `NativeLocationIndicator` falls back to nothing on the

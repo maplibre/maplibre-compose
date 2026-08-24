@@ -1,5 +1,6 @@
 package org.maplibre.compose.gljs
 
+import kotlin.js.JsAny
 import web.gl.WebGL2RenderingContext
 
 /**
@@ -26,7 +27,7 @@ internal val DEFAULT_WORKER_URL: String by lazy {
  */
 internal fun sameOriginWorkerUrl(workerUrl: String): String =
   js(
-      """
+    """
       (function() {
         var loc = globalThis.location;
         if (!loc) return workerUrl;
@@ -45,8 +46,112 @@ internal fun sameOriginWorkerUrl(workerUrl: String): String =
         );
       })()
       """
-    )
-    .unsafeCast<String>()
+  )
+
+private fun newCanvasContextHook(): JsAny =
+  js(
+    """({
+    prototype: HTMLCanvasElement.prototype,
+    original: HTMLCanvasElement.prototype.getContext,
+    lent: 0
+  })"""
+  )
+
+private fun installCanvasContextHook(hook: JsAny, gl: WebGL2RenderingContext): Unit =
+  js(
+    """{
+      var original = hook.original;
+      hook.prototype.getContext = function(type, options) {
+        if (this !== gl.canvas && (type === 'webgl2' || type === 'webgl')) {
+          hook.lent = hook.lent + 1;
+          return gl;
+        }
+        return original.call(this, type, options);
+      };
+    }"""
+  )
+
+private fun restoreCanvasContextHook(hook: JsAny): Int =
+  js(
+    """{
+      hook.prototype.getContext = hook.original;
+      return hook.lent;
+    }"""
+  )
+
+private fun defineDrawingBufferSize(gl: WebGL2RenderingContext, width: Int, height: Int): JsAny =
+  js(
+    """{
+      var objects = Object;
+      var previousWidth = objects.getOwnPropertyDescriptor(gl, "drawingBufferWidth");
+      var previousHeight = objects.getOwnPropertyDescriptor(gl, "drawingBufferHeight");
+      objects.defineProperty(gl, "drawingBufferWidth", {configurable: true, value: width});
+      objects.defineProperty(gl, "drawingBufferHeight", {configurable: true, value: height});
+      return {
+        objects: objects,
+        gl: gl,
+        previousWidth: previousWidth,
+        previousHeight: previousHeight
+      };
+    }"""
+  )
+
+private fun restoreDrawingBufferSize(state: JsAny): Unit =
+  js(
+    """{
+      var objects = state.objects;
+      var gl = state.gl;
+      if (state.previousWidth == null) {
+        Reflect.deleteProperty(gl, "drawingBufferWidth");
+      } else {
+        objects.defineProperty(gl, "drawingBufferWidth", state.previousWidth);
+      }
+      if (state.previousHeight == null) {
+        Reflect.deleteProperty(gl, "drawingBufferHeight");
+      } else {
+        objects.defineProperty(gl, "drawingBufferHeight", state.previousHeight);
+      }
+    }"""
+  )
+
+private fun hasBindFramebufferSet(context: Context): Boolean =
+  js("!!context.bindFramebuffer && typeof context.bindFramebuffer.set === 'function'")
+
+private fun installFramebufferRedirect(context: Context, target: () -> JsAny?): Unit =
+  js(
+    """{
+      var binding = context.bindFramebuffer;
+      binding.set = function(requested) {
+        var next = (requested == null) ? target() : requested;
+        if (next !== this.current || this.dirty === true) {
+          this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, next);
+          this.current = next;
+          this.dirty = false;
+        }
+      };
+    }"""
+  )
+
+private fun installLoseContextBlock(gl: WebGL2RenderingContext): JsAny =
+  js(
+    """{
+      var original = gl.getExtension.bind(gl);
+      gl.getExtension = function(name) {
+        if (name === 'WEBGL_lose_context') return null;
+        return original(name);
+      };
+      return original;
+    }"""
+  )
+
+private fun restoreGetExtension(gl: WebGL2RenderingContext, original: JsAny): Unit =
+  js("{ gl.getExtension = original; }")
+
+private fun hasTriggerRepaint(map: MaplibreMap): Boolean =
+  js("typeof map.triggerRepaint === 'function'")
+
+private fun setTriggerRepaint(map: MaplibreMap, onRequest: () -> Unit): Unit =
+  js("{ map.triggerRepaint = onRequest; }")
 
 /**
  * The places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is pinned
@@ -65,23 +170,12 @@ internal object GlJsRuntime {
 
   /** Runs [build] with every WebGL context request on the page answered by [gl]. */
   fun <T> lendingContext(gl: WebGL2RenderingContext, build: () -> T): T {
-    val prototype = js("HTMLCanvasElement").prototype
-    val original = prototype.getContext
-    var lent = 0
-    prototype.getContext = { type: String, options: dynamic ->
-      // `this` is the canvas being asked; skiko's own canvas must keep answering for itself.
-      val receiver = js("this")
-      if (receiver !== gl.canvas && (type == "webgl2" || type == "webgl")) {
-        lent++
-        gl
-      } else {
-        original.call(receiver, type, options)
-      }
-    }
+    val hook = newCanvasContextHook()
+    installCanvasContextHook(hook, gl)
     try {
       return build()
     } finally {
-      prototype.getContext = original
+      val lent = restoreCanvasContextHook(hook)
       check(lent == 1) {
         "MapLibre asked for $lent WebGL contexts while its map was being created, not one. It no " +
           "longer takes its context from its canvas the way this platform assumes."
@@ -102,29 +196,11 @@ internal object GlJsRuntime {
     height: Int,
     draw: () -> T,
   ): T {
-    val target = gl.asDynamic()
-    val objects = js("Object")
-    val previousWidth = objects.getOwnPropertyDescriptor(target, "drawingBufferWidth")
-    val previousHeight = objects.getOwnPropertyDescriptor(target, "drawingBufferHeight")
-    val widthDescriptor = js("({configurable: true})")
-    val heightDescriptor = js("({configurable: true})")
-    widthDescriptor.value = width
-    heightDescriptor.value = height
+    val state = defineDrawingBufferSize(gl, width, height)
     try {
-      objects.defineProperty(target, "drawingBufferWidth", widthDescriptor)
-      objects.defineProperty(target, "drawingBufferHeight", heightDescriptor)
       return draw()
     } finally {
-      restoreOwnProperty(objects, target, "drawingBufferWidth", previousWidth)
-      restoreOwnProperty(objects, target, "drawingBufferHeight", previousHeight)
-    }
-  }
-
-  private fun restoreOwnProperty(objects: dynamic, target: dynamic, name: String, value: dynamic) {
-    if (value == null || value == undefined) {
-      js("Reflect").deleteProperty(target, name)
-    } else {
-      objects.defineProperty(target, name, value)
+      restoreDrawingBufferSize(state)
     }
   }
 
@@ -132,42 +208,28 @@ internal object GlJsRuntime {
    * `bindFramebuffer.set(null)` is the one place in MapLibre's renderer that means "the screen".
    * [target] is read per call, because a resize replaces the framebuffer while the map renders.
    */
-  fun redirectDefaultFramebuffer(context: Context, target: () -> Any?) {
-    val binding = context.asDynamic().bindFramebuffer
-    check(jsTypeOf(binding.set) == "function") {
+  fun redirectDefaultFramebuffer(context: Context, target: () -> JsAny?) {
+    check(hasBindFramebufferSet(context)) {
       "MapLibre's Context.bindFramebuffer no longer has a set method to redirect"
     }
-    binding.set = { requested: dynamic ->
-      val self = js("this")
-      val next = if (requested == null || requested == undefined) target() else requested
-      if (next !== self.current || self.dirty == true) {
-        self.gl.bindFramebuffer(self.gl.FRAMEBUFFER, next)
-        self.current = next
-        self.dirty = false
-      }
-    }
+    installFramebufferRedirect(context, target)
   }
 
   /** `Map.remove` ends by losing its context, which is fatal here: the context is Compose's. */
   fun removingWithoutLosingContext(context: WebGL2RenderingContext, remove: () -> Unit) {
-    val gl = context.asDynamic()
-    val original = gl.getExtension
-    gl.getExtension = { name: String ->
-      if (name == "WEBGL_lose_context") null else original.call(gl, name)
-    }
+    val original = installLoseContextBlock(context)
     try {
       remove()
     } finally {
-      gl.getExtension = original
+      restoreGetExtension(context, original)
     }
   }
 
   /** `triggerRepaint` is MapLibre's only caller of `browser.frame`. */
   fun interceptRepaintRequests(map: MaplibreMap, onRequest: () -> Unit) {
-    val dynamicMap = map.asDynamic()
-    check(jsTypeOf(dynamicMap.triggerRepaint) == "function") {
+    check(hasTriggerRepaint(map)) {
       "MapLibre's Map no longer has a triggerRepaint method to intercept"
     }
-    dynamicMap.triggerRepaint = { onRequest() }
+    setTriggerRepaint(map, onRequest)
   }
 }

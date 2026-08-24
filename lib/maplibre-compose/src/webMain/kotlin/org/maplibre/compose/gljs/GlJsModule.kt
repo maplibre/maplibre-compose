@@ -2,7 +2,12 @@
 
 package org.maplibre.compose.gljs
 
+import kotlin.js.JsAny
+import kotlin.js.JsArray
+import kotlin.js.JsName
+import kotlin.js.JsString
 import kotlin.js.Promise
+import kotlin.js.definedExternally
 import web.html.HTMLCanvasElement
 
 internal external fun getVersion(): String
@@ -11,13 +16,13 @@ internal external fun setWorkerUrl(value: String)
 
 internal external fun addProtocol(
   customProtocol: String,
-  loadFn: (RequestParameters, Any) -> Promise<ProtocolResponse>,
+  loadFn: (RequestParameters, ProtocolAbortController) -> Promise<ProtocolResponse>,
 )
 
 internal external fun removeProtocol(customProtocol: String)
 
 @JsName("Map")
-internal external class MaplibreMap(options: MapOptions) {
+internal external class MaplibreMap(options: MapOptions) : JsAny {
 
   val painter: Painter
 
@@ -97,16 +102,16 @@ internal external class MaplibreMap(options: MapOptions) {
   fun queryRenderedFeatures(
     geometry: QueryGeometry,
     options: QueryRenderedFeaturesOptions,
-  ): Array<MapGeoJsonFeature>
+  ): JsArray<MapGeoJsonFeature>
 
   fun querySourceFeatures(
     sourceId: String,
     options: QuerySourceFeatureOptions,
-  ): Array<GeoJsonFeature>
+  ): JsArray<GeoJsonFeature>
 
-  fun setFeatureState(feature: FeatureIdentifier, state: Any)
+  fun setFeatureState(feature: FeatureIdentifier, state: JsAny)
 
-  fun getFeatureState(feature: FeatureIdentifier): Any?
+  fun getFeatureState(feature: FeatureIdentifier): JsAny?
 
   fun removeFeatureState(feature: FeatureIdentifier, key: String = definedExternally)
 
@@ -115,7 +120,7 @@ internal external class MaplibreMap(options: MapOptions) {
   fun removeSource(id: String)
 
   /** Unbounded: MapLibre bounds this by its own `Source`, which collides with this library's. */
-  fun <T : Any> getSource(id: String): T?
+  fun <T : JsAny> getSource(id: String): T?
 
   fun addLayer(layer: LayerSpecification, beforeId: String = definedExternally)
 
@@ -125,19 +130,19 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun getLayer(id: String): StyleLayer?
 
-  fun getLayersOrder(): Array<String>
+  fun getLayersOrder(): JsArray<JsString>
 
   fun setLayerZoomRange(layerId: String, minzoom: Double, maxzoom: Double)
 
   fun setFilter(layerId: String, filter: FilterSpecification?)
 
-  fun setPaintProperty(layerId: String, name: String, value: Any?)
+  fun setPaintProperty(layerId: String, name: String, value: JsAny?)
 
-  fun getPaintProperty(layerId: String, name: String): Any?
+  fun getPaintProperty(layerId: String, name: String): JsAny?
 
-  fun setLayoutProperty(layerId: String, name: String, value: Any?)
+  fun setLayoutProperty(layerId: String, name: String, value: JsAny?)
 
-  fun getLayoutProperty(layerId: String, name: String): Any?
+  fun getLayoutProperty(layerId: String, name: String): JsAny?
 
   fun addImage(id: String, image: StyleImageData, options: StyleImageMetadata)
 
@@ -146,12 +151,12 @@ internal external class MaplibreMap(options: MapOptions) {
   fun removeImage(id: String)
 }
 
-internal external class LngLat(lng: Double, lat: Double) {
+internal external class LngLat(lng: Double, lat: Double) : JsAny {
   val lng: Double
   val lat: Double
 }
 
-internal external class LngLatBounds(sw: LngLat, ne: LngLat) {
+internal external class LngLatBounds(sw: LngLat, ne: LngLat) : JsAny {
   fun getSouthWest(): LngLat
 
   fun getNorthEast(): LngLat

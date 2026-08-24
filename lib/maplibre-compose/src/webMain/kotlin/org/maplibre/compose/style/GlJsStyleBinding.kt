@@ -3,6 +3,10 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
+import kotlin.js.JsAny
+import kotlin.js.JsArray
+import kotlin.js.JsNumber
+import kotlin.js.toJsString
 import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -25,6 +29,9 @@ import org.maplibre.compose.gljs.QuerySourceFeatureOptions
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
+import org.maplibre.compose.gljs.jsNumberAt
+import org.maplibre.compose.gljs.jsPair
+import org.maplibre.compose.gljs.jsUnsafeCast
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
@@ -206,14 +213,17 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
     if (!loaded) return
-    val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
+    val corners = JsArray<JsArray<JsNumber>>()
+    coordinates.forEachIndexed { index, position ->
+      corners[index] = jsPair(position.longitude, position.latitude)
+    }
     map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
   }
 
   override fun imageSourceCoordinates(sourceId: String): List<Position>? {
     if (!loaded) return null
-    return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.map {
-      Position(longitude = it[0], latitude = it[1])
+    return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.toList()?.map { row ->
+      Position(longitude = jsNumberAt(row, 0), latitude = jsNumberAt(row, 1))
     }
   }
 
@@ -231,7 +241,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
     if (!claim() || !loaded) return
-    map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(url.unsafeCast<GeoJsonSourceData>())
+    map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(jsUnsafeCast(url.toJsString()))
   }
 
   override suspend fun clusterExpansionZoom(
@@ -291,7 +301,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     state: JsonObject,
   ) {
     if (!loaded) return
-    val js = state.toJsValue<Any>()
+    val js = state.toJsValue<JsAny>()
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
       map.setFeatureState(ident, js)
     }
@@ -384,7 +394,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     kind: LayerPropertyKind,
   ) {
     if (!loaded) return
-    val js = value.toJsValue<Any?>()
+    val js = value.toJsValue<JsAny?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
         LayerPropertyKind.LAYOUT -> map.setLayoutProperty(layerId, name, js)

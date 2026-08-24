@@ -12,6 +12,9 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
+import kotlin.js.JsAny
+import kotlin.js.JsArray
+import kotlin.js.JsNumber
 import kotlin.math.log2
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -29,6 +32,7 @@ import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
 import org.maplibre.compose.gljs.FlyToOptions
+import org.maplibre.compose.gljs.GL_MAX_TEXTURE_SIZE
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsMapRenderer
 import org.maplibre.compose.gljs.GlJsRenderTarget
@@ -42,12 +46,15 @@ import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
+import org.maplibre.compose.gljs.glGetNumber
 import org.maplibre.compose.gljs.isCameraEasing
+import org.maplibre.compose.gljs.jsPair
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.gljs.toJsStringArray
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.GlJsStyle
 import org.maplibre.compose.style.GlJsStyleBinding
@@ -126,7 +133,7 @@ internal class GlJsMapSession(
 
   private var appliedExtent: MapExtent = MapExtent.Empty
 
-  private var framebuffer: Any? = null
+  private var framebuffer: JsAny? = null
 
   private var lentContext: WebGL2RenderingContext? = null
 
@@ -253,7 +260,7 @@ internal class GlJsMapSession(
     val created =
       if (target == null) MaplibreMap(options)
       else {
-        val context = target.gl.unsafeCast<WebGL2RenderingContext>()
+        val context = target.gl
         lentContext = context
         GlJsRuntime.withDrawingBufferSize(context, target.widthPx, target.heightPx) {
           GlJsRuntime.lendingContext(context) { MaplibreMap(options) }
@@ -310,9 +317,9 @@ internal class GlJsMapSession(
     callbacks.onCameraMoved(this)
   }
 
-  private fun maxTextureSize(gl: dynamic): Array<Double> {
-    val size = (gl.getParameter(gl.MAX_TEXTURE_SIZE) as? Int)?.toDouble() ?: 4096.0
-    return arrayOf(size, size)
+  private fun maxTextureSize(gl: WebGL2RenderingContext): JsArray<JsNumber> {
+    val size = glGetNumber(gl, GL_MAX_TEXTURE_SIZE) ?: 4096.0
+    return jsPair(size, size)
   }
 
   /**
@@ -709,10 +716,10 @@ internal class GlJsMapSession(
       if (known != null && known.isEmpty()) return@withMap emptyList()
       val options =
         unsafeJso<QueryRenderedFeaturesOptions> {
-          known?.let { layers = it.toTypedArray() }
+          known?.let { layers = it.toJsStringArray() }
           filter = predicate?.toStyleJson()?.toJsValue<FilterSpecification>()
         }
-      map.queryRenderedFeatures(geometry, options).map { it.toGeoJsonFeature() }
+      map.queryRenderedFeatures(geometry, options).toList().map { it.toGeoJsonFeature() }
     }
 
   override fun metersPerDpAtLatitude(latitude: Double): Double =
