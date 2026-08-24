@@ -167,10 +167,11 @@ Pages pull Kotlin from `// #region` blocks in
 with the demo app. Add a region to a snippet file rather than writing Kotlin in
 the page, so a page cannot show code that no longer builds.
 
-Title every code block with its destination. Use the real file or setting when
-the code has one, such as `build.gradle.kts`, `Main.kt`, or Xcode's Other Linker
-Flags. Use a representative filename such as `App.kt` when the code lives
-wherever the reader's composables live.
+Title a code block with the file that the reader edits. Use the real filename
+when the code has one, such as `build.gradle.kts` or `Main.kt`. Use a
+representative filename such as `App.kt` when the code lives wherever the
+reader's composables live. A block whose destination is not a file, such as a
+value pasted into an IDE setting, has no title.
 
 ## Headings mark sections, not paragraphs
 
