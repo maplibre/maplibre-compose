@@ -8,10 +8,10 @@ import { region } from "../../snippets";
 
 import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
 
-The camera defines what part of the world the map shows: a target position, a
-zoom level, a bearing, and a tilt. `rememberCameraState` creates a
-`CameraState` that reads and writes the camera. Pass an initial
-`CameraPosition` to set where the map starts:
+The camera defines the visible part of the map: a target position, a zoom
+level, a bearing, and a tilt. `rememberCameraState` creates a `CameraState`
+that reads and writes the camera. Pass an initial `CameraPosition` to set the
+camera position at startup:
 
 <Code code={region(camera, "first-position")} lang="kotlin" />
 
@@ -36,8 +36,9 @@ map:
 
 ## Read the visible area
 
-`CameraState.viewport` reports what the map shows right now: the size of the
-map composable, the visible bounding box, and the visible region. It is null
+`CameraState.viewport` reports the current state of the rendered map: the size
+of the map composable, the visible bounding box, and the visible region. It is
+null
 until the map renders its first frame. A composition that reads it recomposes
 when the camera moves or the map resizes:
 

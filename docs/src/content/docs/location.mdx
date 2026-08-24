@@ -37,8 +37,8 @@ if (locationState.permission !is LocationPermission.Granted) {
 }
 ```
 
-When permission is not granted, `LocationPermission.NotGranted` says which step
-comes next: explain first when `shouldShowRationale` is set (Android only),
+When permission is not granted, `LocationPermission.NotGranted` reports the
+next step: explain first when `shouldShowRationale` is set (Android only),
 request when `canRequest` is not `false`, and send the user to the system
 settings otherwise. `rememberSystemSettingsLauncher` opens the settings screens
 on the platforms that have them.

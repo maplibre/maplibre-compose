@@ -24,7 +24,8 @@ individual fields:
 ## Map clicks
 
 `onMapClick` and `onMapLongClick` receive the clicked position and its screen
-offset. To find what was clicked, query rendered features. The query suspends,
+offset. To identify the clicked feature, query rendered features. The query
+suspends,
 so launch it in a coroutine. Return `ClickResult.Pass` to send the click on to
 the layer listeners:
 

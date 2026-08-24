@@ -1,19 +1,19 @@
 ---
 title: How the map composes
-description: The declarative style model, and what it means for your sources and layers.
+description: The declarative style model that applies your sources and layers to the map.
 ---
 
 MapLibre Compose has no map view object. `MaplibreMap` is a composable, and
-the state you would read from a view lives in state objects: `CameraState` for
-the camera and `StyleState` for the style. This page explains how the map
-applies your composition to the underlying MapLibre style.
+map state lives in state objects: `CameraState` for the camera and
+`StyleState` for the style. This page explains how the library applies your
+composition to the underlying MapLibre style.
 
 ## The style is base plus content
 
 A MapLibre style is a document with sources and layers. The `baseStyle`
-parameter loads that document as-is. The content block of `MaplibreMap`
-declares additions to it: your sources, your layers, and where your layers sit
-in the stack.
+parameter loads that document without modification. The content block of
+`MaplibreMap` declares additions to it: your sources, your layers, and the
+positions of your layers in the layer stack.
 
 ```kotlin
 MaplibreMap(baseStyle = BaseStyle.Uri("...")) {
@@ -21,16 +21,17 @@ MaplibreMap(baseStyle = BaseStyle.Uri("...")) {
 }
 ```
 
-The library owns what you declare in the content block, and leaves the rest of
-the base style alone. To change a base style layer, replace it with
-`Anchor.Replace` and declare its replacement yourself.
+The library manages the sources and layers that you declare in the content
+block, and does not modify the rest of the base style. To change a base style
+layer, replace it with `Anchor.Replace` and declare its replacement yourself.
 
 ## Recomposition updates the style
 
-The content block is a real composition. When state it reads changes, it
-recomposes, and the library applies the difference to the style: a layer that
-left the composition is removed, a new one is added, and a changed property is
-updated in place. You never issue add or remove calls yourself.
+The content block is a Compose composition. When the state that it reads
+changes, it recomposes, and the library applies the difference to the style: a
+layer that is no longer in the composition is removed from the style, a new
+layer is added, and a changed property is updated in place. You do not call
+add or remove functions yourself.
 
 This is the same contract as Compose UI: describe the map content for the
 current state, and let the runtime reconcile it.
@@ -39,12 +40,12 @@ current state, and let the runtime reconcile it.
 
 When `baseStyle` changes, the map loads the new style and the content block
 recomposes into it. Your sources and layers are declared again on the new
-style, so they survive the switch without extra code. An `Anchor` that names a
-base layer applies only when that layer exists in the new style.
+style, so they persist across the switch without extra code. An `Anchor` that
+names a base layer applies only when that layer exists in the new style.
 
-## IDs name what the map renders
+## Layer and source IDs
 
-Layers and sources carry string IDs because the underlying MapLibre style
+Layers and sources have string IDs because the underlying MapLibre style
 identifies them by ID. Within one map, each layer ID must be unique, including
 against the base style's layers. Feature queries and click listeners report
 layers by these IDs.

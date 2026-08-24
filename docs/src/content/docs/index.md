@@ -15,9 +15,9 @@ target. The Kotlin/Wasm target is not yet supported. Offline map downloads are
 available on every platform except the browser.
 
 The API is not yet stable. Expect breaking changes between minor releases while
-we explore how best to express an interactive map API in Compose.
+the API design evolves.
 
-## Where to go next
+## Next steps
 
 - [Getting started](/maplibre-compose/getting-started/) sets up the library and
   displays a first map.

@@ -28,8 +28,8 @@ registers the pack in a paused state; call `resume` to start the download:
 
 <Code code={region(offline, "create")} lang="kotlin" />
 
-The `metadata` bytes are yours to define. Use them to identify the pack later,
-for example with a display name.
+The library does not interpret the `metadata` bytes. Use them to identify the
+pack later, for example with a display name.
 
 `OfflinePackDefinition.Shape` downloads the region that covers a GeoJSON
 geometry instead of a bounding box.

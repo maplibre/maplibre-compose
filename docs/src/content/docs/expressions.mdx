@@ -14,13 +14,12 @@ per zoom level. The [MapLibre Style Specification][spec-expressions] defines
 expressions as JSON arrays. MapLibre Compose provides a Kotlin DSL that builds
 them with type checking, in `org.maplibre.compose.expressions.dsl`.
 
-The DSL uses Compose types where they fit: `Dp` for sizes, `Color` for colors,
-and `DpOffset` for offsets.
+The DSL uses Compose types when a Compose type matches the property: `Dp` for
+sizes, `Color` for colors, and `DpOffset` for offsets.
 
 ## Constants
 
-An expression that never changes is still an expression. Wrap a plain value in
-`const()`:
+A constant value must also be an expression. Wrap a plain value in `const()`:
 
 <Code code={region(expressions, "constants")} lang="kotlin" />
 
@@ -32,8 +31,8 @@ Functions such as `step` and `switch` select an output from the value:
 
 <Code code={region(expressions, "feature-data")} lang="kotlin" />
 
-The map evaluates this formula once per feature: each earthquake gets a radius
-and a color from its own magnitude.
+The map evaluates this formula once per feature: each earthquake receives a
+radius and a color computed from its own magnitude.
 
 ## React to zoom
 
@@ -49,12 +48,12 @@ features for which it is true:
 
 <Code code={region(expressions, "filter")} lang="kotlin" />
 
-## Kotlin runs before the map, expressions run inside it
+## Kotlin code runs once, expressions run per feature
 
-Code outside an expression runs once, at composition time, on the device's
-CPU. The expression itself runs inside the map renderer, per feature. A Kotlin
-`if` selects which expression to build; an expression `switch` selects a value
-per feature. Use ordinary Kotlin for decisions that depend on app state, and
+Kotlin code outside an expression runs at composition time and produces one
+expression. The expression runs inside the map renderer, once per feature. A
+Kotlin `if` selects which expression to build; an expression `switch` selects
+a value per feature. Use Kotlin for decisions that depend on app state, and
 expressions for decisions that depend on feature data or zoom.
 
 The full set of expression functions is in the
