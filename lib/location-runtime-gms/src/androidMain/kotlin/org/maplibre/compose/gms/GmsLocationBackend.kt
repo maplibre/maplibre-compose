@@ -22,7 +22,7 @@ import org.maplibre.compose.location.createDefaultOrientationProvider
  * defaults fall back to the framework providers on a device without it.
  */
 public class GmsLocationBackend : AndroidLocationBackend {
-  override val id: String = "gms-fused"
+  override val id: String = GmsLocationBackendId
 
   override fun isAvailable(context: Context): Boolean =
     GoogleApiAvailability.getInstance().isGooglePlayServicesAvailable(context) ==
@@ -43,3 +43,5 @@ public class GmsLocationBackend : AndroidLocationBackend {
       coroutineScope = coroutineScope,
     )
 }
+
+internal const val GmsLocationBackendId: String = "gms-fused"

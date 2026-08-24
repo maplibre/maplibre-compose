@@ -127,13 +127,20 @@ or `WindowsLocationPermissionRequester` on desktop.
 #### Android
 
 The default provider observes and requests Android's runtime location
-permissions. The permission request launches the system dialog through the
-activity that the context resolves to, so it works from a directly constructed
-provider too; with a context that cannot reach an activity, the request does
-nothing and the reported permission stays accurate.
+permissions. Declare `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION` in the
+application manifest. Declare `ACCESS_BACKGROUND_LOCATION` only when the
+application tracks location in the background.
 
-For better accuracy, add the Google Play services module to the Android source
-set:
+The permission request launches the system dialog through the activity that the
+context resolves to, so it works from a directly constructed provider too; with
+a context that cannot reach an activity, the request does nothing and the
+reported permission stays accurate.
+
+Choose one fused-location runtime module for automatic discovery. When both
+modules and services are present, automatic discovery selects Google Play
+services.
+
+Add the Google Play services module to the Android source set:
 
 ```toml title="libs.versions.toml"
 [libraries]
@@ -150,6 +157,44 @@ The default providers then use fused location and orientation on a device where
 Google Play services is available, and the framework providers otherwise.
 Construct `FusedLocationProvider` and `FusedOrientationProvider` directly when
 an application needs the fused providers regardless of discovery.
+
+Huawei devices and devices with HMS Core can use the Huawei Mobile Services
+module. Complete Huawei's
+[HMS Core preparation](https://developer.huawei.com/consumer/en/codelab/HMSPreparation/index.html),
+including the AppGallery Connect configuration file and Gradle plugin. Add
+Huawei's repository to dependency resolution:
+
+```kotlin title="settings.gradle.kts"
+dependencyResolutionManagement {
+  repositories {
+    google()
+    mavenCentral()
+    maven("https://developer.huawei.com/repo/") {
+      content { includeGroupAndSubgroups("com.huawei") }
+    }
+  }
+}
+```
+
+Add the module to the Android source set:
+
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-locationRuntimeHms = { module = "org.maplibre.compose:location-runtime-hms", version = "{{release}}" }
+```
+
+```kotlin title="build.gradle.kts"
+androidMain.dependencies {
+  implementation(libs.maplibre.locationRuntimeHms)
+}
+```
+
+The default location provider then uses HMS fused location when HMS Core is
+available. It requests WGS84 coordinates explicitly. Android's framework
+provider continues to supply orientation. HMS Core supports Huawei devices with
+[EMUI 5 or newer and non-Huawei devices with Android 5.1 or newer](https://developer.huawei.com/consumer/en/codelab/HMSLocationKit/index.html).
+Construct `org.maplibre.compose.hms.FusedLocationProvider` directly when an
+application needs the HMS provider regardless of discovery.
 
 #### Web
 

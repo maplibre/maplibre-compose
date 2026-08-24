@@ -18,7 +18,7 @@ internal interface DemoLocationEngine {
 
 /** The providers that the platform selects by default. */
 internal object DefaultLocationEngine : DemoLocationEngine {
-  override val label = "Default"
+  override val label = "Auto"
 
   @Composable
   override fun rememberLocationProvider(): LocationProvider = rememberDefaultLocationProvider()

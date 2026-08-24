@@ -24,6 +24,10 @@ import org.maplibre.spatialk.units.extensions.meters
  * collection must stop that request and unregister its callbacks.
  */
 public interface LocationProvider {
+  /** A stable implementation name for diagnostics, when the provider declares one. */
+  public val backendId: String?
+    get() = null
+
   /** Whether this provider has a usable platform implementation. */
   public val backendAvailability: LocationBackendAvailability
     get() = LocationBackendAvailability.Available

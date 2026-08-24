@@ -58,6 +58,8 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
   LocationProvider {
   private val context: Context = context.applicationContext
 
+  override val backendId: String = "android-framework"
+
   /** Creates a provider with its own [AndroidLocationPermissionRequester]. */
   public constructor(context: Context) : this(context, AndroidLocationPermissionRequester(context))
 
@@ -229,11 +231,20 @@ internal constructor(context: Context, private val requester: AndroidLocationPer
  */
 public fun createDefaultLocationProvider(context: Context): LocationProvider =
   when (val resolution = AndroidLocationBackendResolver.discover(context)) {
-    is AndroidBackendResolution.Discovered -> resolution.backend.createLocationProvider(context)
+    is AndroidBackendResolution.Discovered ->
+      IdentifiedLocationProvider(
+        backendId = resolution.backend.id,
+        delegate = resolution.backend.createLocationProvider(context),
+      )
     is AndroidBackendResolution.Misconfigured -> MisconfiguredLocationProvider(resolution.cause)
     AndroidBackendResolution.None ->
       AndroidLocationProvider(context, AndroidLocationPermissionRequester(context))
   }
+
+private class IdentifiedLocationProvider(
+  override val backendId: String,
+  private val delegate: LocationProvider,
+) : LocationProvider by delegate
 
 private fun Context.hasLocationPermission(): Boolean =
   checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) ==

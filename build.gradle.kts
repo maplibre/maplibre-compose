@@ -10,6 +10,7 @@ dependencies {
   dokka(project(":lib:maplibre-compose-material3"))
   dokka(project(":lib:location"))
   dokka(project(":lib:location-runtime-gms"))
+  dokka(project(":lib:location-runtime-hms"))
   dokka(project(":lib:location-runtime-linux"))
   dokka(project(":lib:location-runtime-macos"))
   dokka(project(":lib:location-runtime-windows"))
