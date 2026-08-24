@@ -123,10 +123,19 @@ description = "Run the Android host (JVM) test suite."
 run = "./gradlew testDebugUnitTest testAndroidHostTest"
 
 [tasks."android-emulator:boot"]
-description = "Boot a headless Android emulator and wait until it is ready."
-usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
+description = "Boot an Android emulator and wait until it is ready."
+usage = '''
+flag "--headless" help="Run the emulator without a window."
+arg "[api_level]" default="{{vars.android_api_level}}"
+'''
 tools = { "core:java" = "{{vars.java_version}}" }
-run = '.mise/bin/boot-android-emulator "$usage_api_level"'
+run = '''
+args=("$usage_api_level")
+if [[ "$usage_headless" == "true" ]]; then
+  args+=(--headless)
+fi
+.mise/bin/boot-android-emulator "${args[@]}"
+'''
 
 [tasks."android-emulator:stop"]
 description = "Stop the Android emulator started by mise."
@@ -139,7 +148,9 @@ run = ".mise/bin/capture-android-emulator-diagnostics"
 [tasks."test:android:device"]
 description = "Run the Android instrumented test suite on an emulator."
 usage = 'arg "[api_level]" default="{{vars.android_api_level}}"'
-depends = [{ task = "android-emulator:boot", args = ["{{usage.api_level}}"] }]
+depends = [
+  { task = "android-emulator:boot", args = ["{{usage.api_level}}", "--headless"] },
+]
 # One task name per Android plugin; see test:android.
 run = '.mise/bin/run-android-device-tests "$usage_api_level"'
 

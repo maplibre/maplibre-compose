@@ -156,11 +156,13 @@ You can drive the emulator on its own:
 
 ```bash
 mise run android-emulator:boot 24
+mise run android-emulator:boot 24 --headless
 mise run android-emulator:stop
 ```
 
-The AVD lives under `build/android-emulator`, so removing the build tree removes
-the device.
+The boot task opens the emulator window by default. Pass `--headless` to run it
+without a window. The AVD lives under `build/android-emulator`, so removing the
+build tree removes the device.
 
 ## Building documentation
 
