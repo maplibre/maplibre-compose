@@ -201,10 +201,21 @@ mise run build:docs
 mise run build:js-app
 mkdir -p docs/dist/demo
 cp -a demo-app/common/build/dist/js/productionExecutable/. docs/dist/demo/
+mise run package:cloudflare-pages
+'''
+
+[tasks."package:cloudflare-pages"]
+description = "Package the complete site for Cloudflare Pages."
+run = '''
+test -d docs/dist
+rm -rf build/cloudflare-pages
+mkdir -p build/cloudflare-pages/maplibre-compose
+cp -a docs/dist/. build/cloudflare-pages/maplibre-compose/
+cp docs/cloudflare-pages/_redirects build/cloudflare-pages/_redirects
 '''
 
 [tasks."test:pages"]
-description = "Load the browser demo from the complete GitHub Pages build."
+description = "Load the browser demo from the packaged Cloudflare Pages site."
 depends = ["build:pages"]
 run = '''
 pages_test_dir="$(mktemp -d)"
@@ -219,7 +230,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-pnpm --dir docs exec astro preview --host 127.0.0.1 --port 4321 >"$pages_test_dir/preview.log" 2>&1 &
+grep --fixed-strings --line-regexp --quiet \
+  "/ /maplibre-compose/ 302" \
+  build/cloudflare-pages/_redirects
+
+python -m http.server 4321 \
+  --bind 127.0.0.1 \
+  --directory build/cloudflare-pages \
+  >"$pages_test_dir/preview.log" 2>&1 &
 pages_preview_pid=$!
 
 for _ in {1..30}; do
