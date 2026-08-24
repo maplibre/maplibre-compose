@@ -106,20 +106,21 @@ internal fun MlnFfiMapSurface(
           is MlnFfiMapFrameAcquisition.Acquired -> {
             val frame = acquisition.frame
             var rendered = false
-            try {
-              when (host.withProducerAccess(frame) { renderer.render(frame) }) {
-                MlnFfiFrameResult.RENDERED -> {
-                  host.completeProducerAccess(frame)
-                  drawState.lastCompletedTarget = frame.target
-                  rendered = true
+            when (
+              val production =
+                host.produceFrame(frame, session::requestFrame) { renderer.render(frame) }
+            ) {
+              MlnFfiMapFrameProduction.Pending -> Unit
+              is MlnFfiMapFrameProduction.Completed ->
+                when (production.result) {
+                  MlnFfiFrameResult.RENDERED -> {
+                    drawState.lastCompletedTarget = production.target
+                    rendered = true
+                  }
+                  MlnFfiFrameResult.SKIPPED -> Unit
                 }
-                MlnFfiFrameResult.SKIPPED -> Unit
-              }
-              drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
-            } finally {
-              runCatching { host.releaseFrame(frame) }
-                .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
             }
+            drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
             if (rendered) drawState.onFrameSucceeded()
           }
         }

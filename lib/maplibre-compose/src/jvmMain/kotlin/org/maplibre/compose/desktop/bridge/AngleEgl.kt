@@ -319,7 +319,7 @@ internal object AngleEgl {
     )
 
   private fun bind(name: String, descriptor: FunctionDescriptor): Lazy<MethodHandle?> = lazy {
-    val addr = AngleEglFunctionProvider.address(name)
+    val addr = AngleSymbols.address(name)
     if (addr == 0L) null else linker.downcallHandle(MemorySegment.ofAddress(addr), descriptor)
   }
 

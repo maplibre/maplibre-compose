@@ -31,6 +31,9 @@ internal class FakeMlnFfiMapHost(
   /** How many acquires should report that the consumer context does not exist yet. */
   var notReadyAcquires: Int = 0
 
+  /** How many producer calls should remain pending until [completePendingProduction]. */
+  var pendingProductions: Int = 0
+
   /** Every call this host received, in order. */
   val calls: MutableList<String> = mutableListOf()
 
@@ -58,6 +61,14 @@ internal class FakeMlnFfiMapHost(
     private set
 
   private val liveFrames = mutableSetOf<Long>()
+  private var pendingProduction: PendingProduction? = null
+  private var readyProduction: MlnFfiMapFrameProduction.Completed? = null
+
+  private data class PendingProduction(
+    val frame: MlnFfiMapFrame,
+    val requestFrame: () -> Unit,
+    val action: () -> MlnFfiFrameResult,
+  )
 
   /** Frames acquired but never released; must be empty after a clean teardown. */
   val leakedFrames: Set<Long>
@@ -140,6 +151,43 @@ internal class FakeMlnFfiMapHost(
   override fun completeProducerAccess(frame: MlnFfiMapFrame) {
     calls += "completeProducerAccess(${frame.frameId})"
     completedFrames++
+  }
+
+  override fun produceFrame(
+    frame: MlnFfiMapFrame,
+    requestFrame: () -> Unit,
+    action: () -> MlnFfiFrameResult,
+  ): MlnFfiMapFrameProduction {
+    calls += "produceFrame(${frame.frameId})"
+    readyProduction?.let { ready ->
+      readyProduction = null
+      releaseFrame(frame)
+      return ready
+    }
+    if (pendingProduction != null) {
+      releaseFrame(frame)
+      return MlnFfiMapFrameProduction.Pending
+    }
+    if (pendingProductions > 0) {
+      pendingProductions--
+      pendingProduction = PendingProduction(frame, requestFrame, action)
+      return MlnFfiMapFrameProduction.Pending
+    }
+    return super<MlnFfiMapHost>.produceFrame(frame, requestFrame, action)
+  }
+
+  /** Completes the producer work that [produceFrame] deferred. */
+  fun completePendingProduction() {
+    val pending = checkNotNull(pendingProduction) { "No fake producer work is pending" }
+    pendingProduction = null
+    try {
+      val result = pending.action()
+      if (result == MlnFfiFrameResult.RENDERED) completeProducerAccess(pending.frame)
+      readyProduction = MlnFfiMapFrameProduction.Completed(result, pending.frame.target)
+    } finally {
+      releaseFrame(pending.frame)
+    }
+    pending.requestFrame()
   }
 
   override fun releaseFrame(frame: MlnFfiMapFrame) {

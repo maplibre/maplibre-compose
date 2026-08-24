@@ -4,9 +4,11 @@ import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.skiaCanvas
 import org.jetbrains.skia.BackendRenderTarget
+import org.jetbrains.skia.Canvas
 import org.jetbrains.skia.ContentChangeMode
 import org.jetbrains.skia.DirectContext
 import org.jetbrains.skia.FramebufferFormat
+import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceColorFormat
@@ -28,16 +30,13 @@ import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.TextureOrigin
 
 /**
- * Draws MapLibre's OpenGL texture into Compose's Skia canvas on Linux and Windows ANGLE hosts.
+ * Draws MapLibre's OpenGL texture into a Compose Skia canvas.
  *
- * Compose owns the GL context and Skia's [DirectContext]; this wraps the texture MapLibre rendered
- * into as a Skia surface and composites it.
- *
- * Every method must be called on the GPU thread with Compose's GL context current — see
- * [withOpenGlContext] — because the Skia objects belong to that context and GL calls go wherever
- * the calling thread's context points.
+ * Every method runs on the GPU thread with Compose's GL context current. [backend] contains the
+ * context-specific GL entry points and the Skia presentation path.
  */
-internal class OpenGlPresenter : AutoCloseable {
+internal class OpenGlPresenter private constructor(private val backend: OpenGlPresenterBackend) :
+  AutoCloseable {
   private val presenters = mutableMapOf<Int, TexturePresenter>()
 
   fun draw(
@@ -48,13 +47,11 @@ internal class OpenGlPresenter : AutoCloseable {
   ): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
-      if (isWindowsDesktop()) {
-        check(AngleGl.isUsable()) { "Compose's ANGLE context has no usable GLES entry points" }
-      } else {
-        ensureCapabilities()
-      }
+      backend.ensureUsable()
       val presenter =
-        presenters.getOrPut(target.textureName) { TexturePresenter(target.textureName) }
+        presenters.getOrPut(target.textureName) {
+          TexturePresenter(target.textureName, backend)
+        }
       presenter.draw(
         composeCanvas.skiaCanvas,
         skiaContext,
@@ -68,14 +65,12 @@ internal class OpenGlPresenter : AutoCloseable {
     return drew
   }
 
-  /**
-   * Drops the Skia wrapper for a texture, which must happen before the texture itself is released.
-   */
+  /** Drops the Skia wrapper before its texture is released. */
   fun forget(textureName: Int) {
     presenters.remove(textureName)?.close()
   }
 
-  /** Drops wrappers whose OpenGL names belonged to a context that no longer exists. */
+  /** Drops wrappers whose names belonged to an OpenGL context that no longer exists. */
   fun abandon() {
     val all = presenters.values.toList()
     presenters.clear()
@@ -88,7 +83,10 @@ internal class OpenGlPresenter : AutoCloseable {
     all.forEach { it.close() }
   }
 
-  private class TexturePresenter(private val textureName: Int) : AutoCloseable {
+  private class TexturePresenter(
+    private val textureName: Int,
+    private val backend: OpenGlPresenterBackend,
+  ) : AutoCloseable {
     private var width = 0
     private var height = 0
     private var origin = TextureOrigin.TOP_LEFT
@@ -97,7 +95,7 @@ internal class OpenGlPresenter : AutoCloseable {
     private var surface: Surface? = null
 
     fun draw(
-      canvas: org.jetbrains.skia.Canvas,
+      canvas: Canvas,
       context: DirectContext,
       target: OpenGlTextureTarget,
       destinationWidth: Float,
@@ -107,29 +105,10 @@ internal class OpenGlPresenter : AutoCloseable {
       val currentSurface =
         surface ?: throw MlnFfiHostException("Skia could not wrap OpenGL texture $textureName")
 
-      // MapLibre left arbitrary GL state behind; Skia caches its own view of that state and will
-      // render incorrectly unless told to re-read it.
+      // MapLibre leaves arbitrary GL state behind. Skia must refresh its cached view of that state.
       context.resetGLAll()
       currentSurface.notifyContentWillChange(ContentChangeMode.DISCARD)
-      if (isWindowsDesktop()) {
-        val scaleX = if (width == 0) 1f else destinationWidth / width.toFloat()
-        val scaleY = if (height == 0) 1f else destinationHeight / height.toFloat()
-        canvas.save()
-        canvas.scale(scaleX, scaleY)
-        currentSurface.draw(canvas, 0, 0, SamplingMode.LINEAR, null)
-        canvas.restore()
-      } else {
-        currentSurface.makeImageSnapshot().use { image ->
-          canvas.drawImageRect(
-            image = image,
-            src = org.jetbrains.skia.Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-            dst = org.jetbrains.skia.Rect.makeWH(destinationWidth, destinationHeight),
-            samplingMode = SamplingMode.LINEAR,
-            paint = null,
-            strict = true,
-          )
-        }
-      }
+      backend.draw(currentSurface, canvas, width, height, destinationWidth, destinationHeight)
     }
 
     fun preserveFrame() {
@@ -152,7 +131,7 @@ internal class OpenGlPresenter : AutoCloseable {
       width = target.extent.physicalWidth
       height = target.extent.physicalHeight
       origin = target.origin
-      framebuffer = createFramebuffer(target)
+      framebuffer = backend.createFramebuffer(target)
       renderTarget =
         BackendRenderTarget.makeGL(
           width = width,
@@ -176,65 +155,9 @@ internal class OpenGlPresenter : AutoCloseable {
           )
     }
 
-    private fun createFramebuffer(target: OpenGlTextureTarget): Int {
-      if (isWindowsDesktop()) return createAngleFramebuffer(target)
-      ensureCapabilities()
-      val previous = glGetInteger(GL_FRAMEBUFFER_BINDING)
-      val next = glGenFramebuffers()
-      try {
-        glBindFramebuffer(GL_FRAMEBUFFER, next)
-        glFramebufferTexture2D(
-          GL_FRAMEBUFFER,
-          GL_COLOR_ATTACHMENT0,
-          target.textureTarget,
-          target.textureName,
-          0,
-        )
-        val status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
-        checkGl("glFramebufferTexture2D")
-        check(status == GL_FRAMEBUFFER_COMPLETE) {
-          "OpenGL framebuffer for texture $textureName is incomplete: 0x${status.toString(16)}"
-        }
-        return next
-      } catch (error: RuntimeException) {
-        runCatching { glDeleteFramebuffers(next) }
-        throw error
-      } finally {
-        glBindFramebuffer(GL_FRAMEBUFFER, previous)
-      }
-    }
-
-    private fun createAngleFramebuffer(target: OpenGlTextureTarget): Int {
-      val previous = AngleGl.getInteger(GL_FRAMEBUFFER_BINDING)
-      val next = AngleGl.genFramebuffers()
-      try {
-        AngleGl.bindFramebuffer(GL_FRAMEBUFFER, next)
-        AngleGl.framebufferTexture2D(
-          GL_FRAMEBUFFER,
-          GL_COLOR_ATTACHMENT0,
-          target.textureTarget,
-          target.textureName,
-          0,
-        )
-        val status = AngleGl.checkFramebufferStatus(GL_FRAMEBUFFER)
-        checkGl("glFramebufferTexture2D")
-        check(status == GL_FRAMEBUFFER_COMPLETE) {
-          "OpenGL framebuffer for texture $textureName is incomplete: 0x${status.toString(16)}"
-        }
-        return next
-      } catch (error: RuntimeException) {
-        runCatching { AngleGl.deleteFramebuffers(next) }
-        throw error
-      } finally {
-        AngleGl.bindFramebuffer(GL_FRAMEBUFFER, previous)
-      }
-    }
-
     override fun close() {
       closeGpuResources()
-      width = 0
-      height = 0
-      origin = TextureOrigin.TOP_LEFT
+      resetMetadata()
     }
 
     fun abandon() {
@@ -243,9 +166,7 @@ internal class OpenGlPresenter : AutoCloseable {
       renderTarget?.close()
       renderTarget = null
       framebuffer = 0
-      width = 0
-      height = 0
-      origin = TextureOrigin.TOP_LEFT
+      resetMetadata()
     }
 
     private fun closeGpuResources() {
@@ -254,37 +175,172 @@ internal class OpenGlPresenter : AutoCloseable {
       renderTarget?.close()
       renderTarget = null
       if (framebuffer != 0) {
-        runCatching {
-          if (isWindowsDesktop()) {
-            if (AngleGl.isUsable()) AngleGl.deleteFramebuffers(framebuffer)
-          } else {
-            ensureCapabilities()
-            glDeleteFramebuffers(framebuffer)
-          }
-        }
+        runCatching { backend.deleteFramebuffer(framebuffer) }
         framebuffer = 0
       }
     }
+
+    private fun resetMetadata() {
+      width = 0
+      height = 0
+      origin = TextureOrigin.TOP_LEFT
+    }
+  }
+
+  companion object {
+    fun native(): OpenGlPresenter = OpenGlPresenter(DesktopOpenGlPresenterBackend)
+
+    fun angle(): OpenGlPresenter = OpenGlPresenter(AngleOpenGlPresenterBackend)
+  }
+}
+
+/** The GL and Skia operations that differ between desktop OpenGL and ANGLE/GLES. */
+private interface OpenGlPresenterBackend {
+  fun ensureUsable()
+
+  fun createFramebuffer(target: OpenGlTextureTarget): Int
+
+  fun deleteFramebuffer(framebuffer: Int)
+
+  fun draw(
+    surface: Surface,
+    canvas: Canvas,
+    sourceWidth: Int,
+    sourceHeight: Int,
+    destinationWidth: Float,
+    destinationHeight: Float,
+  )
+}
+
+private object DesktopOpenGlPresenterBackend : OpenGlPresenterBackend {
+  override fun ensureUsable() {
+    ensureCapabilities()
+  }
+
+  override fun createFramebuffer(target: OpenGlTextureTarget): Int {
+    ensureUsable()
+    val previous = glGetInteger(GL_FRAMEBUFFER_BINDING)
+    val next = glGenFramebuffers()
+    try {
+      glBindFramebuffer(GL_FRAMEBUFFER, next)
+      glFramebufferTexture2D(
+        GL_FRAMEBUFFER,
+        GL_COLOR_ATTACHMENT0,
+        target.textureTarget,
+        target.textureName,
+        0,
+      )
+      val status = glCheckFramebufferStatus(GL_FRAMEBUFFER)
+      checkGl("glFramebufferTexture2D")
+      check(status == GL_FRAMEBUFFER_COMPLETE) {
+        "OpenGL framebuffer for texture ${target.textureName} is incomplete: " +
+          "0x${status.toString(16)}"
+      }
+      return next
+    } catch (error: RuntimeException) {
+      runCatching { glDeleteFramebuffers(next) }
+      throw error
+    } finally {
+      glBindFramebuffer(GL_FRAMEBUFFER, previous)
+    }
+  }
+
+  override fun deleteFramebuffer(framebuffer: Int) {
+    ensureUsable()
+    glDeleteFramebuffers(framebuffer)
+  }
+
+  override fun draw(
+    surface: Surface,
+    canvas: Canvas,
+    sourceWidth: Int,
+    sourceHeight: Int,
+    destinationWidth: Float,
+    destinationHeight: Float,
+  ) {
+    surface.makeImageSnapshot().use { image ->
+      canvas.drawImageRect(
+        image = image,
+        src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
+        dst = Rect.makeWH(destinationWidth, destinationHeight),
+        samplingMode = SamplingMode.LINEAR,
+        paint = null,
+        strict = true,
+      )
+    }
+  }
+}
+
+private object AngleOpenGlPresenterBackend : OpenGlPresenterBackend {
+  override fun ensureUsable() {
+    check(AngleGl.isUsable()) { "Compose's ANGLE context has no usable GLES entry points" }
+  }
+
+  override fun createFramebuffer(target: OpenGlTextureTarget): Int {
+    ensureUsable()
+    val previous = AngleGl.getInteger(GL_FRAMEBUFFER_BINDING)
+    val next = AngleGl.genFramebuffers()
+    try {
+      AngleGl.bindFramebuffer(GL_FRAMEBUFFER, next)
+      AngleGl.framebufferTexture2D(
+        GL_FRAMEBUFFER,
+        GL_COLOR_ATTACHMENT0,
+        target.textureTarget,
+        target.textureName,
+        0,
+      )
+      val status = AngleGl.checkFramebufferStatus(GL_FRAMEBUFFER)
+      checkAngleGl("glFramebufferTexture2D")
+      check(status == GL_FRAMEBUFFER_COMPLETE) {
+        "ANGLE framebuffer for texture ${target.textureName} is incomplete: " +
+          "0x${status.toString(16)}"
+      }
+      return next
+    } catch (error: RuntimeException) {
+      runCatching { AngleGl.deleteFramebuffers(next) }
+      throw error
+    } finally {
+      AngleGl.bindFramebuffer(GL_FRAMEBUFFER, previous)
+    }
+  }
+
+  override fun deleteFramebuffer(framebuffer: Int) {
+    if (AngleGl.isUsable()) AngleGl.deleteFramebuffers(framebuffer)
+  }
+
+  override fun draw(
+    surface: Surface,
+    canvas: Canvas,
+    sourceWidth: Int,
+    sourceHeight: Int,
+    destinationWidth: Float,
+    destinationHeight: Float,
+  ) {
+    val scaleX = if (sourceWidth == 0) 1f else destinationWidth / sourceWidth.toFloat()
+    val scaleY = if (sourceHeight == 0) 1f else destinationHeight / sourceHeight.toFloat()
+    canvas.save()
+    canvas.scale(scaleX, scaleY)
+    surface.draw(canvas, 0, 0, SamplingMode.LINEAR, null)
+    canvas.restore()
   }
 }
 
 internal fun ensureCapabilities() =
   runCatching { GL.getCapabilities() }.getOrNull() ?: GL.createCapabilities()
 
-/**
- * Drops errors left by code that used this shared context before the bridge entered it.
- *
- * OpenGL's error flag is sticky and belongs to the context, not the caller. Without an explicit
- * boundary, [checkGl] can blame the bridge's first call for an error produced earlier by Compose or
- * its window host.
- */
+/** Clears errors left by earlier users of the current desktop OpenGL context. */
 internal fun clearGlErrors() {
   while (glGetError() != GL_NO_ERROR) {
-    // Reading the flag is what clears it; there is nothing to do with the value.
+    // Reading the flag clears it.
   }
 }
 
 internal fun checkGl(operation: String) {
-  val error = if (isWindowsDesktop()) AngleGl.getError() else glGetError()
+  val error = glGetError()
+  check(error == GL_NO_ERROR) { "$operation failed with GL error 0x${error.toString(16)}" }
+}
+
+private fun checkAngleGl(operation: String) {
+  val error = AngleGl.getError()
   check(error == GL_NO_ERROR) { "$operation failed with GL error 0x${error.toString(16)}" }
 }

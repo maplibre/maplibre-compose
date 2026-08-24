@@ -55,6 +55,44 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
+  fun pending_production_requests_and_presents_its_terminal_frame() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory(configureHost = { it.pendingProductions = 1 })
+
+    setSurfaceContent(renderer, factory)
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.acquiredFrames > 0 }
+    assertEquals(0, renderer.renderedFrames)
+
+    host.completePendingProduction()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.calls.any { it.startsWith("draw(") } }
+
+    assertEquals(1, renderer.renderedFrames)
+    assertEquals(1, host.completedFrames)
+    assertTrue(host.releasedFrames >= 2)
+    assertTrue(host.leakedFrames.isEmpty())
+  }
+
+  @Test
+  fun a_skipped_frame_keeps_drawing_the_last_rendered_target() = runFfiComposeUiTest {
+    val renderer =
+      RecordingRenderer(
+        renderResults = ArrayDeque(listOf(MlnFfiFrameResult.RENDERED, MlnFfiFrameResult.SKIPPED)),
+        additionalFrameRequests = 1,
+      )
+    val factory = FakeMlnFfiMapHostFactory()
+
+    setSurfaceContent(renderer, factory)
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames >= 2 }
+    waitForIdle()
+
+    assertEquals(1, host.completedFrames)
+    assertTrue(host.calls.count { it.startsWith("draw(") } >= 2)
+    assertTrue(host.leakedFrames.isEmpty())
+  }
+
+  @Test
   fun extended_not_ready_does_not_consume_recovery() = runFfiComposeUiTest {
     val renderer = RecordingRenderer()
     val factory =
@@ -202,6 +240,8 @@ class MlnFfiMapSurfaceRecoveryTest {
     private var failingRenders: Int = 0,
     private val unexpectedFailure: Boolean = false,
     private val requestAnotherFrame: Boolean = false,
+    private val renderResults: ArrayDeque<MlnFfiFrameResult> = ArrayDeque(),
+    private var additionalFrameRequests: Int = 0,
   ) : MlnFfiMapRenderer {
     override val backend: MapRenderBackend = MapRenderBackend.VULKAN
     val lifecycle: MutableList<String> = mutableListOf()
@@ -242,8 +282,11 @@ class MlnFfiMapSurfaceRecoveryTest {
         else MlnFfiRecoverableFrameException(error, null)
       }
       renderedFrames++
-      if (requestAnotherFrame) hostSession?.requestFrame()
-      return MlnFfiFrameResult.RENDERED
+      if (requestAnotherFrame || additionalFrameRequests > 0) {
+        if (additionalFrameRequests > 0) additionalFrameRequests--
+        hostSession?.requestFrame()
+      }
+      return renderResults.removeFirstOrNull() ?: MlnFfiFrameResult.RENDERED
     }
 
     override fun close() {

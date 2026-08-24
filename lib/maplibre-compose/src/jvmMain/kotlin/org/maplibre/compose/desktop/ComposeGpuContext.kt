@@ -57,6 +57,15 @@ public class OpenGlComposeGpuContext(
     get() = ComposeRenderBackend.OPENGL
 }
 
+/** How an OpenGL Compose host exposes textures to the map bridge. */
+public enum class OpenGlInterop {
+  /** A native desktop OpenGL context. */
+  NATIVE,
+
+  /** An ANGLE context backed by Direct3D 11 textures. */
+  ANGLE_D3D11,
+}
+
 /** A Direct3D 12 context, used by Compose on Windows. */
 @Immutable
 public class Direct3D12ComposeGpuContext(
@@ -90,6 +99,15 @@ public interface ComposeMapHost {
    * front instead of blanking. It must agree with the type [gpuContext] returns.
    */
   public val backend: ComposeRenderBackend
+
+  /**
+   * How this host shares textures when [backend] is [ComposeRenderBackend.OPENGL].
+   *
+   * The value is available before [gpuContext], so the map can select a compatible bridge before
+   * the host creates its graphics context.
+   */
+  public val openGlInterop: OpenGlInterop
+    get() = OpenGlInterop.NATIVE
 
   /**
    * The context Compose is currently drawing with, or null when it does not exist yet — Skia

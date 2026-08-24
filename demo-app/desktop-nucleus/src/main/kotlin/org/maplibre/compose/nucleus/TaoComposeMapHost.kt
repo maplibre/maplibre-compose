@@ -11,6 +11,7 @@ import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
+import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.NativeHandle
 
@@ -29,6 +30,17 @@ public class TaoComposeMapHost(private val renderContext: TaoGpuRenderContext) :
       when (renderContext.backend) {
         TaoRenderBackend.METAL -> ComposeRenderBackend.METAL
         TaoRenderBackend.OPENGL -> ComposeRenderBackend.OPENGL
+      }
+
+  override val openGlInterop: OpenGlInterop
+    get() =
+      if (
+        renderContext.backend == TaoRenderBackend.OPENGL &&
+          System.getProperty("os.name").startsWith("Windows", ignoreCase = true)
+      ) {
+        OpenGlInterop.ANGLE_D3D11
+      } else {
+        OpenGlInterop.NATIVE
       }
 
   override fun gpuContext(): ComposeGpuContext =

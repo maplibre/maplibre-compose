@@ -16,7 +16,7 @@ internal object AngleGl {
 
   fun isUsable(): Boolean = address("glGetError") != 0L && address("glGenTextures") != 0L
 
-  fun address(name: String): Long = AngleEglFunctionProvider.address(name)
+  fun address(name: String): Long = AngleSymbols.address(name)
 
   fun getError(): Int = invokeInt(glGetError)
 

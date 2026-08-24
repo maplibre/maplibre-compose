@@ -1,12 +1,37 @@
 package org.maplibre.compose.desktop.bridge
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapHost
+import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
+import org.maplibre.compose.mlnffi.MlnFfiHostException
 
 class ComposeMapHostBridgeLifecycleTest {
+
+  @Test
+  fun native_opengl_selects_the_native_bridge_on_every_platform() {
+    assertEquals(OpenGlBridge.NATIVE, selectOpenGlBridge(OpenGlInterop.NATIVE, windows = false))
+    assertEquals(OpenGlBridge.NATIVE, selectOpenGlBridge(OpenGlInterop.NATIVE, windows = true))
+  }
+
+  @Test
+  fun angle_d3d11_selects_the_windows_bridge() {
+    assertEquals(
+      OpenGlBridge.ANGLE_D3D11,
+      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = true),
+    )
+  }
+
+  @Test
+  fun angle_d3d11_reports_an_unsupported_platform() {
+    assertFailsWith<MlnFfiHostException> {
+      selectOpenGlBridge(OpenGlInterop.ANGLE_D3D11, windows = false)
+    }
+  }
 
   @Test
   fun metal_resize_waits_for_the_first_gpu_context() {

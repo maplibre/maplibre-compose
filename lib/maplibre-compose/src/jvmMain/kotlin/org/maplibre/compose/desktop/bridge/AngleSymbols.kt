@@ -8,12 +8,11 @@ import java.lang.foreign.SymbolLookup
 import java.lang.foreign.ValueLayout
 
 /**
- * Resolves OpenGL ES entry points the same way Nucleus/Skia does on Windows: `eglGetProcAddress`
- * first, then `libGLESv2` for core 2.0 symbols that some ANGLE builds do not publish through EGL.
+ * Resolves OpenGL ES entry points through `eglGetProcAddress`, then ANGLE's GLES library.
  *
- * The host must have made that EGL context current before any GL call.
+ * The host makes its EGL context current before calling a resolved function.
  */
-internal object AngleEglFunctionProvider {
+internal object AngleSymbols {
   private val linker = Linker.nativeLinker()
   private val eglGetProcAddress =
     linker.downcallHandle(
