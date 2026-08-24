@@ -56,7 +56,7 @@ enum class DesktopHostPlatform(
    * natives. Follows the platform rather than the map's backend: Skiko and compose-glfw agree.
    */
   private val presentsThroughOpenGl: Boolean
-    get() = os == "linux"
+    get() = os == "linux" || os == "windows"
 
   /**
    * Dependency notation for the compose-glfw runtime this platform needs. Its backend names the

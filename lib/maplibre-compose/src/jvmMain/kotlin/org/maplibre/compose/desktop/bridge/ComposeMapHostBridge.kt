@@ -34,7 +34,8 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
           RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL) ->
             MetalMapHost(mapHost)
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL) ->
-            VulkanOpenGlMapHost(mapHost)
+            if (isWindowsDesktop()) VulkanOpenGlWin32MapHost(mapHost)
+            else VulkanOpenGlMapHost(mapHost)
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
             VulkanDirect3D12MapHost(mapHost)
           else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
@@ -91,7 +92,9 @@ internal fun <T> ComposeMapHost.withOpenGlContextOrNull(
   var result: Result<T>? = null
   context.withContextCurrent {
     result = runCatching {
-      ensureCapabilities()
+      // Tao/ANGLE is GLES. LWJGL desktop capabilities bind opengl32 and are not the current
+      // context; Windows uses AngleGl instead.
+      if (!isWindowsDesktop()) ensureCapabilities()
       action(context)
     }
   }

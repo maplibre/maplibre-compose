@@ -37,7 +37,7 @@ public class MetalComposeGpuContext(
 }
 
 /**
- * An OpenGL context, used by Compose on Linux.
+ * An OpenGL context, used by OpenGL-backed Compose hosts.
  *
  * OpenGL work is bound to whichever context is current on the calling thread, so this carries
  * [withContextCurrent] rather than a context handle alone.
