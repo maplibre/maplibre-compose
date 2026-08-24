@@ -137,8 +137,11 @@ context resolves to, so it works from a directly constructed provider too; with
 a context that cannot reach an activity, the request does nothing and the
 reported permission stays accurate.
 
-For better accuracy, add the Google Play services module to the Android source
-set:
+Choose one fused-location runtime module for automatic discovery. When both
+modules and services are present, automatic discovery selects Google Play
+services.
+
+Add the Google Play services module to the Android source set:
 
 ```toml title="libs.versions.toml"
 [libraries]
