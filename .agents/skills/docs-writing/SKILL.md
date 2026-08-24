@@ -167,6 +167,11 @@ Pages pull Kotlin from `// #region` blocks in
 with the demo app. Add a region to a snippet file rather than writing Kotlin in
 the page, so a page cannot show code that no longer builds.
 
+Title a code block only when the destination is the payload: a configuration
+file such as `build.gradle.kts`, an entry point such as `Main.kt`, or a build
+setting such as Xcode's Other Linker Flags. A Kotlin example that lives wherever
+the reader's composables live stays untitled.
+
 ## Headings mark sections, not paragraphs
 
 A heading earns its place when a reader can jump to that section or skip it: a
