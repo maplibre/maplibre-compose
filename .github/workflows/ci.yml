@@ -280,9 +280,6 @@ jobs:
     environment:
       name: cloudflare-pages
       url: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
-    permissions:
-      contents: read
-      deployments: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -315,7 +312,6 @@ jobs:
             pages deploy build/cloudflare-pages
             --project-name=maplibre-compose
             --branch=${{ env.CLOUDFLARE_BRANCH }}
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
           packageManager: pnpm
           wranglerVersion: "4.125.0"
       - name: Report the Cloudflare Pages preview
