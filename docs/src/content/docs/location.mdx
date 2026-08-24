@@ -27,9 +27,8 @@ keep the camera in sync with location changes.
 | **`LocationPuck`**                       | Visual indicator that displays the user's current position and bearing on the map. |
 | **`LocationTrackingEffect`**             | Applies location changes to application or camera state.                           |
 
-Android and iOS provide default location and orientation providers. Web, Linux,
-and macOS provide default location providers but no default orientation
-readings.
+Android and iOS provide default location and orientation providers. Web and
+desktop provide default location providers but no default orientation readings.
 `LocationState.status` reports unsupported or misconfigured
 location setup without throwing.
 
@@ -120,8 +119,8 @@ A provider that wraps a real platform source can delegate permission to the
 building blocks that the default providers use: `AndroidLocationPermissionRequester`
 on Android, `IosLocationPermissionRequester` on iOS,
 `BrowserLocationPermissionRequester` on web, and
-`MacosLocationPermissionRequester` or `LinuxPortalLocationPermissionRequester`
-on desktop.
+`MacosLocationPermissionRequester`, `LinuxPortalLocationPermissionRequester`,
+or `WindowsLocationPermissionRequester` on desktop.
 
 ### Platform options
 
@@ -192,3 +191,9 @@ and
 that Apple requires.
 
 `minimumInterval` is ignored because Core Location filters only by distance.
+
+#### Windows desktop
+
+The backend uses Windows Runtime geolocation and observes location access
+changes from Windows Settings. It applies both `minimumInterval` and
+`minimumDistance` to location updates.

@@ -22,7 +22,12 @@ kotlin {
 dependencies {
   api(project(":lib:location"))
 
+  implementation(libs.kotlinx.coroutines.core)
+
   testImplementation(kotlin("test"))
+  testImplementation(libs.kotlinx.coroutines.test)
 }
+
+tasks.test { jvmArgs(NATIVE_ACCESS_JVM_ARGS) }
 
 tasks.register("jvmTest") { dependsOn(tasks.test) }
