@@ -201,6 +201,17 @@ mise run build:docs
 mise run build:js-app
 mkdir -p docs/dist/demo
 cp -a demo-app/common/build/dist/js/productionExecutable/. docs/dist/demo/
+mise run package:cloudflare-pages
+'''
+
+[tasks."package:cloudflare-pages"]
+description = "Package the complete site for Cloudflare Pages."
+run = '''
+test -d docs/dist
+rm -rf build/cloudflare-pages
+mkdir -p build/cloudflare-pages/maplibre-compose
+cp -a docs/dist/. build/cloudflare-pages/maplibre-compose/
+cp docs/cloudflare-pages/_redirects build/cloudflare-pages/_redirects
 '''
 
 [tasks."test:pages"]
