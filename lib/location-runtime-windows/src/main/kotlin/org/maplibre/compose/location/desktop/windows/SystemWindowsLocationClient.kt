@@ -3,6 +3,7 @@ package org.maplibre.compose.location.desktop.windows
 import java.awt.EventQueue
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
+import java.lang.foreign.MemoryLayout.structLayout
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout.ADDRESS
 import java.lang.foreign.ValueLayout.JAVA_INT
@@ -443,13 +444,19 @@ private fun addEventHandler(
   }
 
 private fun removeEventHandler(instance: MemorySegment, slot: Int, token: Long) {
-  WinRt.callHresult(
-    instance,
-    slot,
-    FunctionDescriptor.of(JAVA_INT, ADDRESS, JAVA_LONG),
-    token,
-  )
+  Arena.ofConfined().use { arena ->
+    val nativeToken = arena.allocate(EVENT_REGISTRATION_TOKEN)
+    nativeToken.set(JAVA_LONG, 0, token)
+    WinRt.callHresult(
+      instance,
+      slot,
+      FunctionDescriptor.of(JAVA_INT, ADDRESS, EVENT_REGISTRATION_TOKEN),
+      nativeToken,
+    )
+  }
 }
+
+private val EVENT_REGISTRATION_TOKEN = structLayout(JAVA_LONG)
 
 private const val APP_CAPABILITY_CLASS =
   "Windows.Security.Authorization.AppCapabilityAccess.AppCapability"
