@@ -33,6 +33,11 @@ for (const container of document.querySelectorAll<HTMLElement>(".snippet-demo"))
       const iframe = document.createElement("iframe");
       iframe.src = container.dataset.src ?? "";
       iframe.title = "Live example";
+      // Astro's scoped styles cannot match an element created after render,
+      // so size the iframe inline.
+      iframe.style.width = "100%";
+      iframe.style.height = "100%";
+      iframe.style.border = "0";
       container.replaceChildren(iframe);
     });
   }
@@ -61,11 +66,5 @@ for (const container of document.querySelectorAll<HTMLElement>(".snippet-demo"))
 
 .snippet-demo button:hover {
   background-color: var(--sl-color-gray-4);
-}
-
-.snippet-demo iframe {
-  width: 100%;
-  height: 100%;
-  border: 0;
 }
 </style>
