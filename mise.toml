@@ -340,6 +340,10 @@ else
 fi
 '''
 
+[tasks."demo:desktop-nucleus"]
+description = "Run the demo app on the Nucleus Tao desktop host instead of the AWT one."
+run = "./gradlew :demo-app:desktop-nucleus:run"
+
 [tasks."publish:snapshot"]
 description = "Publish a snapshot build to Maven Central."
 # Publishing builds the Vulkan runtime AAR, which needs the pinned NDK and CMake.
