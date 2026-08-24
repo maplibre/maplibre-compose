@@ -76,7 +76,11 @@ commonMain.dependencies {
 
 Use the same version for the library and for every runtime artifact below.
 
-## Set up Android
+## Configure your targets
+
+Complete the section for each target that your app supports.
+
+### Android
 
 Alongside the library, add a runtime for one render backend.
 
@@ -95,7 +99,7 @@ Available runtimes:
 | OpenGL         | `maplibre-compose-runtime-opengl-android` |
 | Vulkan         | `maplibre-compose-runtime-vulkan-android` |
 
-## Set up iOS
+### iOS
 
 The runtime's system libraries link when Xcode links your app. Add them to your
 iOS app target's **Other Linker Flags** build setting:
@@ -112,7 +116,7 @@ iOS app target's **Other Linker Flags** build setting:
 -framework QuartzCore
 ```
 
-## Set up Desktop (JVM)
+### Desktop (JVM)
 
 **Desktop requires Java 25.** The native bindings use the FFM API, so the
 desktop target cannot run on an older JVM.
@@ -168,7 +172,7 @@ compose.desktop {
 }
 ```
 
-## Set up Web (JS)
+### Web (JS)
 
 Compile the JS target to ES modules. Non-ESM builds are not supported.
 
