@@ -19,9 +19,19 @@ printf '%s\n' "$flags" | node docs/scripts/generate-versions.mjs
 [tasks.install]
 run = "pnpm exec astro sync"
 
+[tasks.demo]
+description = "Copy the browser demo into the site's public directory."
+dir = ".."
+depends = ["//:build:js-app"]
+run = '''
+rm -rf docs/public/demo
+mkdir -p docs/public/demo
+cp -a demo-app/common/build/dist/js/productionExecutable/. docs/public/demo/
+'''
+
 [tasks.dev]
 description = "Serve the documentation site with live reload."
-depends = ["api", "versions", "install"]
+depends = ["api", "versions", "install", "demo"]
 run = "pnpm run dev"
 
 [tasks.build]
