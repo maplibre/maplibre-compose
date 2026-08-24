@@ -27,6 +27,7 @@ node_modules/
 dist/
 .astro/
 docs/public/api/
+docs/public/demo/
 docs/src/generated/
 __pycache__/
 mise.local.toml

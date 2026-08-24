@@ -1,42 +1,44 @@
 ---
-title: Interacting with the map
-description: Configure gestures, drive the camera, and listen for clicks.
+title: Handle gestures and clicks
+description: Configure gestures, and respond to clicks on the map and on layers.
 ---
 
 import { Code } from "@astrojs/starlight/components";
-import { region } from "../../snippets";
+import Api from "../../components/Api.astro";
+import { inside, region } from "../../snippets";
 
 import interaction from "../../../../demo-app/common/src/androidMain/kotlin/org/maplibre/compose/docsnippets/Interaction.kt?raw";
+import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
 ## Gestures
 
-Companion presets cover the common cases. Construct `GestureOptions` with
-individual fields to change pan, zoom, rotate, and tilt independently.
+The map supports pan, zoom, rotate, and tilt gestures.
+<Api of="GestureOptions" /> presets cover the common cases:
 
-<Code code={region(interaction, "common-gestures")} lang="kotlin" title="map.common.kt" />
+<Code code={region(interaction, "common-gestures")} lang="kotlin" title="App.kt" />
 
-The map supports pan, zoom, rotate, and tilt gestures. Each of these can be
-enabled or disabled individually.
+To enable or disable gestures individually, construct `GestureOptions` with
+individual fields:
 
-<Code code={region(interaction, "gesture-settings")} lang="kotlin" title="map.common.kt" />
+<Code code={region(interaction, "gesture-settings")} lang="kotlin" title="App.kt" />
 
-## Camera
+## Map clicks
 
-If you want to read or mutate the camera state, use `rememberCameraState()`. You
-can use this to set the start position of the map:
+`onMapClick` and `onMapLongClick` receive the clicked position and its screen
+offset. To identify the clicked feature, query rendered features with
+<Api of="CameraState.queryRenderedFeatures" />. The query suspends, so launch
+it in a coroutine. Return <Api of="ClickResult.Pass" /> to send the click on
+to the layer listeners:
 
-<Code code={region(interaction, "camera")} lang="kotlin" />
+<Code code={region(interaction, "click-listeners")} lang="kotlin" title="App.kt" />
 
-You can now use the `camera` reference to move the camera. For example,
-`CameraState` exposes a `suspend fun animateTo` to animate the camera to a new
-position:
+## Layer clicks
 
-<Code code={region(interaction, "camera-animate")} lang="kotlin" />
+Layer composables have click listeners of their own, which receive the features
+that were clicked in that layer:
 
-## Click listeners
+<Code code={inside("MaplibreMap {", region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 
-You can listen for clicks on the map. A rendered feature query suspends. Launch
-the query in a coroutine. Return `ClickResult.Pass` to send the click on to the
-layer listeners:
-
-<Code code={region(interaction, "click-listeners")} lang="kotlin" />
+Click listeners run on the map first, then on layers from the top to the bottom
+of the map. The first listener that returns <Api of="ClickResult.Consume" />
+stops the event from reaching later listeners.
