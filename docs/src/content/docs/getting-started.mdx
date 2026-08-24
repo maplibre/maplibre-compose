@@ -95,9 +95,9 @@ Available runtimes:
 ## Set up iOS
 
 The runtime's system libraries link when Xcode links your app. Add them to your
-iOS app target's **Other Linker Flags**:
+iOS app target's **Other Linker Flags** build setting:
 
-```text
+```text title="Other Linker Flags"
 -l"c++"
 -lz
 -framework CoreFoundation
