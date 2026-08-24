@@ -71,7 +71,6 @@ export default defineConfig({
           link: "/api/",
           attrs: { target: "_blank", rel: "noopener noreferrer" },
         },
-        { label: "Roadmap", slug: "roadmap" },
       ],
     }),
   ],
