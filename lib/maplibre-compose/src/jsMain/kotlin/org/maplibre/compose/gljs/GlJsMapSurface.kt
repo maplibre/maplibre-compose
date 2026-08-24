@@ -62,18 +62,17 @@ internal fun GlJsMapSurface(
   }
 
   // presentFrames is a key so that its flip to true redraws the frame the draw pass below
-  // declined to blit.
-  LaunchedEffect(extent, renderer, failed, presentFrames) {
+  // declined to blit. `repaintToken` is the same for a render-option change: this
+  // composable would otherwise be skipped, and the draw that reads `frameRequest` never
+  // runs.
+  LaunchedEffect(extent, renderer, failed, presentFrames, repaintToken) {
     if (extent.isEmpty || failed) return@LaunchedEffect
     surface.requestFrame()
   }
 
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {
-    // Load-bearing reads: `frameRequest` is what makes requestFrame() reschedule this
-    // Canvas, and `repaintToken` is what makes a render-option change do the same when
-    // the surface itself would otherwise be skipped.
+    // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
     frameRequest
-    repaintToken
 
     var drew = false
     if (!extent.isEmpty && !failed) {
