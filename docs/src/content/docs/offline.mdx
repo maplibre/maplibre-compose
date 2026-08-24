@@ -20,7 +20,7 @@ creates, tracks, and deletes packs.
 
 Get the manager inside a composition:
 
-<Code code={region(offline, "manager")} lang="kotlin" />
+<Code code={region(offline, "manager")} lang="kotlin" title="App.kt" />
 
 ## Download a region
 
@@ -28,7 +28,7 @@ A pack is defined by a style URL, a bounding box, and a zoom range.
 <Api of="OfflineManager.create" /> registers the pack in a paused state; call
 <Api of="OfflineManager.resume" /> to start the download:
 
-<Code code={region(offline, "create")} lang="kotlin" />
+<Code code={region(offline, "create")} lang="kotlin" title="App.kt" />
 
 The library does not interpret the `metadata` bytes. Use them to identify the
 pack later, for example with a display name.
@@ -42,7 +42,7 @@ GeoJSON geometry instead of a bounding box.
 are backed by Compose state, so a composition that reads them recomposes as
 the download proceeds:
 
-<Code code={region(offline, "progress")} lang="kotlin" />
+<Code code={region(offline, "progress")} lang="kotlin" title="App.kt" />
 
 `pause` and `resume` switch a pack between the `Paused` and `Downloading`
 states. <Api of="OfflineManager.invalidate" /> re-checks a pack's tiles
@@ -53,7 +53,7 @@ against the server and updates the ones that changed.
 <Api of="OfflineManager.delete" /> unregisters the pack and frees the
 resources that no remaining pack requires:
 
-<Code code={region(offline, "delete")} lang="kotlin" />
+<Code code={region(offline, "delete")} lang="kotlin" title="App.kt" />
 
 Once a pack is downloaded, the map uses its resources automatically when the
 device has no network. No map configuration is required.

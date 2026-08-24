@@ -14,14 +14,14 @@ level, a bearing, and a tilt. <Api of="rememberCameraState" /> creates a
 <Api of="CameraState" /> that reads and writes the camera. Pass an initial
 <Api of="CameraPosition" /> to set the camera position at startup:
 
-<Code code={region(camera, "first-position")} lang="kotlin" />
+<Code code={region(camera, "first-position")} lang="kotlin" title="App.kt" />
 
 ## Animate the camera
 
 <Api of="CameraState.animateTo" /> is a suspend function that moves the camera
 to a new position over a duration. Call it from a coroutine:
 
-<Code code={region(camera, "animate")} lang="kotlin" />
+<Code code={region(camera, "animate")} lang="kotlin" title="App.kt" />
 
 To move the camera without an animation, assign `CameraState.position`.
 
@@ -31,7 +31,7 @@ An `animateTo` overload accepts a `BoundingBox` and moves the camera to the
 position that fits it. Padding adds space between the box and the edges of the
 map:
 
-<Code code={region(camera, "fit-bounds")} lang="kotlin" />
+<Code code={region(camera, "fit-bounds")} lang="kotlin" title="App.kt" />
 
 <Api of="CameraState.jumpTo" /> fits the same bounding box without an
 animation.
@@ -43,7 +43,7 @@ map: the size of the map composable, the visible bounding box, and the visible
 region. It is null until the map renders its first frame. A composition that
 reads it recomposes when the camera moves or the map resizes:
 
-<Code code={region(camera, "viewport")} lang="kotlin" />
+<Code code={region(camera, "viewport")} lang="kotlin" title="App.kt" />
 
 ## Convert between screen and geographic coordinates
 
@@ -52,4 +52,4 @@ position to an offset from the top-left corner of the map composable.
 <Api of="CameraState.positionFromScreenLocation" /> converts in the other
 direction:
 
-<Code code={region(camera, "convert")} lang="kotlin" />
+<Code code={region(camera, "convert")} lang="kotlin" title="App.kt" />

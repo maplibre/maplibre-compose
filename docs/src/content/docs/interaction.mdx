@@ -15,12 +15,12 @@ import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplib
 The map supports pan, zoom, rotate, and tilt gestures.
 <Api of="GestureOptions" /> presets cover the common cases:
 
-<Code code={region(interaction, "common-gestures")} lang="kotlin" />
+<Code code={region(interaction, "common-gestures")} lang="kotlin" title="App.kt" />
 
 To enable or disable gestures individually, construct `GestureOptions` with
 individual fields:
 
-<Code code={region(interaction, "gesture-settings")} lang="kotlin" />
+<Code code={region(interaction, "gesture-settings")} lang="kotlin" title="App.kt" />
 
 ## Map clicks
 
@@ -30,14 +30,14 @@ offset. To identify the clicked feature, query rendered features with
 it in a coroutine. Return <Api of="ClickResult.Pass" /> to send the click on
 to the layer listeners:
 
-<Code code={region(interaction, "click-listeners")} lang="kotlin" />
+<Code code={region(interaction, "click-listeners")} lang="kotlin" title="App.kt" />
 
 ## Layer clicks
 
 Layer composables have click listeners of their own, which receive the features
 that were clicked in that layer:
 
-<Code code={inside("MaplibreMap {", region(layers, "interaction"))} lang="kotlin" />
+<Code code={inside("MaplibreMap {", region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 
 Click listeners run on the map first, then on layers from the top to the bottom
 of the map. The first listener that returns <Api of="ClickResult.Consume" />

@@ -16,7 +16,7 @@ top edge, and
 the MapLibre logo and an attribution button along the bottom edge. The scale
 bar and the compass appear only while they are relevant.
 
-<Code code={region(controls, "default")} lang="kotlin" />
+<Code code={region(controls, "default")} lang="kotlin" title="App.kt" />
 
 <Aside type="caution">
   Most tile sources require attribution. `MapOverlay.Default` reads it from
@@ -29,12 +29,12 @@ bar and the compass appear only while they are relevant.
 <Api of="MapOverlay.None" /> draws no controls. Use it when your app shows the
 attribution somewhere else, such as an about screen.
 
-<Code code={region(controls, "disabled")} lang="kotlin" />
+<Code code={region(controls, "disabled")} lang="kotlin" title="App.kt" />
 
 A <Api of="MapOverlay" /> block draws the controls you list in it.
 `Modifier.align` positions a control against an inset edge of the map.
 
-<Code code={region(controls, "custom")} lang="kotlin" />
+<Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
 1. The block can read the map's `cameraState` and `styleState`, so a control
    inside it takes no state arguments.
@@ -61,12 +61,12 @@ as
 <Api of="MapOverlay.Default" /> in the same places, so switching to it is one
 parameter:
 
-<Code code={region(material3, "overlay")} lang="kotlin" />
+<Code code={region(material3, "overlay")} lang="kotlin" title="App.kt" />
 
 Each Material 3 control is also a composable you can place in a `MapOverlay`
 of your own:
 
-<Code code={region(material3, "controls")} lang="kotlin" />
+<Code code={region(material3, "controls")} lang="kotlin" title="App.kt" />
 
 1. `ScaleBar` and `CompassButton` stay on screen. The `Disappearing` versions
    that `MapOverlay.Material3` uses fade in when the zoom or the orientation
@@ -77,7 +77,7 @@ of your own:
 Use `contentWindowInsets` to inset overlay controls. Use `cameraPadding` to
 shift the camera center. They can use the same values or vary independently.
 
-<Code code={region(controls, "insets")} lang="kotlin" />
+<Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 
 1. `union` takes the larger inset on each edge.
 
@@ -90,7 +90,7 @@ Keep the default controls with <Api of="include" />, then add the child in the
 same overlay. A pan, a zoom,
 or a window resize moves the child with the map.
 
-<Code code={region(controls, "placedAt")} lang="kotlin" />
+<Code code={region(controls, "placedAt")} lang="kotlin" title="App.kt" />
 
 1. `Alignment.BottomCenter` sits the bottom edge of the chip on the point.
    Padding lifts the chip above the feature.
@@ -104,7 +104,7 @@ child appears only while the position projects outside of that ellipse. A
 position near a corner of the map region can be visible and still lie outside
 the ellipse.
 
-<Code code={region(controls, "placedTowards")} lang="kotlin" />
+<Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
 
 1. The state carries the placement that the overlay computed.
 2. `angleDegrees` is the direction of the target, clockwise from screen-up.

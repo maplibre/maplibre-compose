@@ -23,7 +23,7 @@ sizes, `Color` for colors, and `DpOffset` for offsets.
 A constant value must also be an expression. Wrap a plain value in
 <Api of="const" />:
 
-<Code code={region(expressions, "constants")} lang="kotlin" />
+<Code code={region(expressions, "constants")} lang="kotlin" title="App.kt" />
 
 ## Read feature data
 
@@ -32,7 +32,7 @@ The result is untyped, so convert it with functions such as `asNumber()` or
 `asString()`. Functions such as <Api of="step" /> and <Api of="switch" />
 select an output from the value:
 
-<Code code={region(expressions, "feature-data")} lang="kotlin" />
+<Code code={region(expressions, "feature-data")} lang="kotlin" title="App.kt" />
 
 The map evaluates this formula once per feature: each earthquake receives a
 radius and a color computed from its own magnitude.
@@ -42,14 +42,14 @@ radius and a color computed from its own magnitude.
 <Api of="zoom" /> is the current zoom level. <Api of="interpolate" /> computes
 a smooth value between stops:
 
-<Code code={region(expressions, "zoom")} lang="kotlin" />
+<Code code={region(expressions, "zoom")} lang="kotlin" title="App.kt" />
 
 ## Filter features
 
 The `filter` parameter takes a boolean expression. The layer renders only the
 features for which it is true:
 
-<Code code={region(expressions, "filter")} lang="kotlin" />
+<Code code={region(expressions, "filter")} lang="kotlin" title="App.kt" />
 
 ## Kotlin code runs per recomposition, expressions run per feature
 

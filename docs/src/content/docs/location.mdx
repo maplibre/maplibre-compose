@@ -15,7 +15,7 @@ The location module tracks the user's position and draws it on the map. A
 draws the latest fix, and <Api of="LocationTrackingEffect" /> keeps the camera
 in sync with location changes:
 
-<Code code={region(location, "puck")} lang="kotlin" />
+<Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
 All platforms provide default location providers. Android and iOS also provide
 default orientation providers. <Api of="LocationState.status" /> reports an
@@ -31,7 +31,7 @@ The library never requests location permission automatically. Call
 <Api of="LocationState.requestPermission" /> when the application is ready to
 present the platform permission UI:
 
-```kotlin
+```kotlin title="App.kt"
 if (locationState.permission !is LocationPermission.Granted) {
   Button(onClick = locationState::requestPermission) {
     Text("Use my location")
@@ -45,7 +45,7 @@ reports the next step: explain first when `shouldShowRationale` is set
 the system settings otherwise. <Api of="rememberSystemSettingsLauncher" />
 opens the settings screens on the platforms that have them.
 
-```kotlin
+```kotlin title="App.kt"
 val settings = rememberSystemSettingsLauncher()
 val permission = locationState.permission
 if (permission is LocationPermission.NotGranted) {

@@ -19,18 +19,18 @@ Pass a painter to `image()`. The library rasterizes it and registers it with
 the style. This works with `painterResource`, vector drawables, and any other
 painter:
 
-<Code code={inside("MaplibreMap {", region(images, "icon-painter"))} lang="kotlin" />
+<Code code={inside("MaplibreMap {", region(images, "icon-painter"))} lang="kotlin" title="App.kt" />
 
 ## Draw icons from the style sprite
 
 Base styles usually bundle a sprite: a named set of icons. Pass the icon name
 to `image()`:
 
-<Code code={inside("MaplibreMap {", region(images, "icon-sprite"))} lang="kotlin" />
+<Code code={inside("MaplibreMap {", region(images, "icon-sprite"))} lang="kotlin" title="App.kt" />
 
 ## Place an image on the map
 
 An <Api of="ImageSource" /> positions one image on the map by its four corner
 coordinates. A <Api of="RasterLayer" /> draws it:
 
-<Code code={inside("MaplibreMap {", region(images, "image-source"))} lang="kotlin" />
+<Code code={inside("MaplibreMap {", region(images, "image-source"))} lang="kotlin" title="App.kt" />
