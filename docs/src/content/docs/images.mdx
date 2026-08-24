@@ -1,0 +1,35 @@
+---
+title: Add images and icons
+description: Draw icons from Compose painters or the style sprite, and place an image on the map.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import { inside, region } from "../../snippets";
+
+import images from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Images.kt?raw";
+
+A `SymbolLayer` draws an icon at each feature in its source. The `image()`
+expression supplies the icon, from a Compose painter, an `ImageBitmap`, or the
+base style's sprite.
+
+## Draw icons from a Compose painter
+
+Pass a painter to `image()`. The library rasterizes it and registers it with
+the style. This works with `painterResource`, vector drawables, and any other
+painter:
+
+<Code code={inside("MaplibreMap {", region(images, "icon-painter"))} lang="kotlin" />
+
+## Draw icons from the style sprite
+
+Base styles usually bundle a sprite: a named set of icons. Pass the icon name
+to `image()`:
+
+<Code code={inside("MaplibreMap {", region(images, "icon-sprite"))} lang="kotlin" />
+
+## Place an image on the map
+
+An `ImageSource` positions one image on the map by its four corner
+coordinates. A `RasterLayer` draws it:
+
+<Code code={inside("MaplibreMap {", region(images, "image-source"))} lang="kotlin" />

@@ -1,0 +1,52 @@
+---
+title: Control the camera
+description: Set the initial position, animate the camera, fit bounds, and convert coordinates.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import { region } from "../../snippets";
+
+import camera from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Camera.kt?raw";
+
+The camera defines what part of the world the map shows: a target position, a
+zoom level, a bearing, and a tilt. `rememberCameraState` creates a
+`CameraState` that reads and writes the camera. Pass an initial
+`CameraPosition` to set where the map starts:
+
+<Code code={region(camera, "first-position")} lang="kotlin" />
+
+## Animate the camera
+
+`CameraState.animateTo` is a suspend function that moves the camera to a new
+position over a duration. Call it from a coroutine:
+
+<Code code={region(camera, "animate")} lang="kotlin" />
+
+To move the camera without an animation, assign `CameraState.position`.
+
+## Fit a bounding box
+
+An `animateTo` overload accepts a `BoundingBox` and moves the camera to the
+position that fits it. Padding adds space between the box and the edges of the
+map:
+
+<Code code={region(camera, "fit-bounds")} lang="kotlin" />
+
+`jumpTo` fits the same bounding box without an animation.
+
+## Read the visible area
+
+`CameraState.viewport` reports what the map shows right now: the size of the
+map composable, the visible bounding box, and the visible region. It is null
+until the map renders its first frame. A composition that reads it recomposes
+when the camera moves or the map resizes:
+
+<Code code={region(camera, "viewport")} lang="kotlin" />
+
+## Convert between screen and geographic coordinates
+
+`screenLocationFromPosition` converts a geographic position to an offset from
+the top-left corner of the map composable. `positionFromScreenLocation`
+converts in the other direction:
+
+<Code code={region(camera, "convert")} lang="kotlin" />

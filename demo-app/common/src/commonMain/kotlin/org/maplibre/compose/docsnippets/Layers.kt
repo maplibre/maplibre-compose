@@ -18,7 +18,6 @@ import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.sources.GeoJsonData
-import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.getBaseSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -90,16 +89,5 @@ fun Layers() {
       },
     )
     // #endregion interaction
-  }
-
-  MaplibreMap {
-    // #region synchronous-geojson-updates
-    val livePositions =
-      rememberGeoJsonSource(
-        data = GeoJsonData.JsonString("""{"type":"FeatureCollection","features":[]}"""),
-        options = GeoJsonOptions(synchronousUpdate = true),
-      )
-    CircleLayer(id = "live-positions", source = livePositions)
-    // #endregion synchronous-geojson-updates
   }
 }

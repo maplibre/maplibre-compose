@@ -1,0 +1,50 @@
+---
+title: How the map composes
+description: The declarative style model, and what it means for your sources and layers.
+---
+
+MapLibre Compose has no map view object. `MaplibreMap` is a composable, and
+the state you would read from a view lives in state objects: `CameraState` for
+the camera and `StyleState` for the style. This page explains how the map
+applies your composition to the underlying MapLibre style.
+
+## The style is base plus content
+
+A MapLibre style is a document with sources and layers. The `baseStyle`
+parameter loads that document as-is. The content block of `MaplibreMap`
+declares additions to it: your sources, your layers, and where your layers sit
+in the stack.
+
+```kotlin
+MaplibreMap(baseStyle = BaseStyle.Uri("...")) {
+  // Sources and layers declared here are added to the base style.
+}
+```
+
+The library owns what you declare in the content block, and leaves the rest of
+the base style alone. To change a base style layer, replace it with
+`Anchor.Replace` and declare its replacement yourself.
+
+## Recomposition updates the style
+
+The content block is a real composition. When state it reads changes, it
+recomposes, and the library applies the difference to the style: a layer that
+left the composition is removed, a new one is added, and a changed property is
+updated in place. You never issue add or remove calls yourself.
+
+This is the same contract as Compose UI: describe the map content for the
+current state, and let the runtime reconcile it.
+
+## Style switches re-apply your content
+
+When `baseStyle` changes, the map loads the new style and the content block
+recomposes into it. Your sources and layers are declared again on the new
+style, so they survive the switch without extra code. An `Anchor` that names a
+base layer applies only when that layer exists in the new style.
+
+## IDs name what the map renders
+
+Layers and sources carry string IDs because the underlying MapLibre style
+identifies them by ID. Within one map, each layer ID must be unique, including
+against the base style's layers. Feature queries and click listeners report
+layers by these IDs.
