@@ -6,13 +6,21 @@
  * the Dokka pages that document it. The component resolves against this index
  * at build time, so a page that names a missing symbol fails the site build.
  */
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const docsDir = join(dirname(fileURLToPath(import.meta.url)), "..");
 const apiDir = join(docsDir, "public", "api", "lib");
 const outFile = join(docsDir, "src", "generated", "api-index.json");
+
+// The scan decodes Dokka's html-v1 URL convention. A new format version means
+// the convention may have changed, so fail with the cause instead of building
+// a wrong index.
+const packageList = readFileSync(join(docsDir, "public", "api", "package-list"), "utf8");
+if (!packageList.includes("$dokka.format:html-v1")) {
+  throw new Error("Dokka output is not html-v1; update generate-api-index.mjs for the new format");
+}
 
 /** Decodes Dokka's kebab-case: `-camera-state` -> `CameraState`. */
 function decodeKebab(name) {

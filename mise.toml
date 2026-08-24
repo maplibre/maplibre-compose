@@ -192,6 +192,9 @@ run = "mise run //docs:build"
 
 [tasks."build:js-app"]
 description = "Build the browser demo app for static hosting."
+# The docs api task also runs Gradle; two Gradle builds in one checkout can
+# fail, so run one at a time when a docs task schedules both.
+wait_for = ["//docs:api"]
 run = "./gradlew :demo-app:common:jsBrowserDistribution"
 
 [tasks."build:pages"]

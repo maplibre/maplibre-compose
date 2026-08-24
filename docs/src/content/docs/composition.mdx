@@ -3,7 +3,11 @@ title: How the map composes
 description: The declarative style model that applies your sources and layers to the map.
 ---
 
+import { Code } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Composition.kt?raw";
 
 MapLibre Compose has no map view object. <Api of="MaplibreMap" /> is a
 composable, and map state lives in state objects: <Api of="CameraState" /> for
@@ -17,11 +21,7 @@ parameter loads that document without modification. The content block of
 `MaplibreMap` declares additions to it: your sources, your layers, and the
 positions of your layers in the layer stack.
 
-```kotlin
-MaplibreMap(baseStyle = BaseStyle.Uri("...")) {
-  // Sources and layers declared here are added to the base style.
-}
-```
+<Code code={region(composition, "base-plus-content")} lang="kotlin" />
 
 The library manages the sources and layers that you declare in the content
 block, and does not modify the rest of the base style. To change a base style

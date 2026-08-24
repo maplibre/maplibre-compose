@@ -53,7 +53,9 @@ fun Camera() {
   // #endregion viewport
 
   // #region convert
-  val screenOffset = camera.screenLocationFromPosition(camera.position.target)
-  val geoPosition = camera.positionFromScreenLocation(DpOffset(x = 100.dp, y = 150.dp))
+  if (camera.viewport != null) {
+    val screenOffset = camera.screenLocationFromPosition(camera.position.target)
+    val geoPosition = camera.positionFromScreenLocation(DpOffset(x = 100.dp, y = 150.dp))
+  }
   // #endregion convert
 }

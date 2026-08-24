@@ -23,12 +23,12 @@ import org.maplibre.compose.sources.rememberGeoJsonSource
 @Composable
 fun Expressions() {
   MaplibreMap {
+    // #region constants
     val earthquakes =
       rememberGeoJsonSource(
         GeoJsonData.Uri("https://maplibre.org/maplibre-gl-js/docs/assets/earthquakes.geojson")
       )
 
-    // #region constants
     CircleLayer(
       id = "quakes-constant",
       source = earthquakes,

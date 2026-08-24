@@ -2,6 +2,7 @@
 
 package org.maplibre.compose.docsnippets
 
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.rememberCoroutineScope
@@ -16,22 +17,28 @@ fun Offline() {
   // #region manager
   val offlineManager = rememberOfflineManager()
   // #endregion manager
+  val scope = rememberCoroutineScope()
 
   // #region create
-  val scope = rememberCoroutineScope()
-  scope.launch {
-    val pack =
-      offlineManager.create(
-        definition =
-          OfflinePackDefinition.TilePyramid(
-            styleUrl = "https://tiles.openfreemap.org/styles/liberty",
-            bounds = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
-            minZoom = 10,
-            maxZoom = 14,
-          ),
-        metadata = "Seattle".encodeToByteArray(),
-      )
-    offlineManager.resume(pack)
+  Button(
+    onClick = {
+      scope.launch {
+        val pack =
+          offlineManager.create(
+            definition =
+              OfflinePackDefinition.TilePyramid(
+                styleUrl = "https://tiles.openfreemap.org/styles/liberty",
+                bounds = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
+                minZoom = 10,
+                maxZoom = 14,
+              ),
+            metadata = "Seattle".encodeToByteArray(),
+          )
+        offlineManager.resume(pack)
+      }
+    }
+  ) {
+    Text("Download Seattle")
   }
   // #endregion create
 
@@ -49,6 +56,10 @@ fun Offline() {
   // #endregion progress
 
   // #region delete
-  scope.launch { offlineManager.packs.firstOrNull()?.let { offlineManager.delete(it) } }
+  for (pack in offlineManager.packs) {
+    Button(onClick = { scope.launch { offlineManager.delete(pack) } }) {
+      Text("Delete ${pack.metadata?.decodeToString()}")
+    }
+  }
   // #endregion delete
 }

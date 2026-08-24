@@ -24,10 +24,10 @@ import org.maplibre.spatialk.geojson.Position
 @OptIn(ExperimentalResourceApi::class)
 fun Images() {
   MaplibreMap {
+    // #region icon-painter
     val stations =
       rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
 
-    // #region icon-painter
     SymbolLayer(
       id = "station-icons",
       source = stations,
