@@ -127,6 +127,8 @@ launch on iOS. Every other host has a task:
 - Web: `mise run demo:js`
 - Desktop on the compose-glfw host instead of the AWT one:
   `mise run demo:desktop-glfw`
+- Desktop on the Nucleus Tao host instead of the AWT one:
+  `mise run demo:desktop-nucleus`
 
 The desktop demos and test suite take `--backend <name>` to package a different
 Map render backend than the platform default, as in

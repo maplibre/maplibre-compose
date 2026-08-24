@@ -16,6 +16,12 @@ import org.lwjgl.vulkan.VkPhysicalDevice
 import org.lwjgl.vulkan.VkPhysicalDeviceMemoryProperties
 import org.lwjgl.vulkan.VkQueueFamilyProperties
 
+internal fun isWindowsDesktop(): Boolean =
+  System.getProperty("os.name")?.lowercase().orEmpty().startsWith("windows")
+
+internal fun isLinuxDesktop(): Boolean =
+  System.getProperty("os.name")?.lowercase().orEmpty().contains("linux")
+
 internal fun checkVulkan(status: Int, operation: String) {
   check(status == VK_SUCCESS) { "$operation failed with Vulkan status $status" }
 }

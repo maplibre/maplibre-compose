@@ -121,7 +121,7 @@ private const val VK_STRUCTURE_TYPE_MEMORY_GET_FD_INFO_KHR = 1000074002
 /** Bridges MapLibre's Vulkan rendering into Compose's OpenGL context on Linux. */
 internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost {
   private val rendererThread = MapRendererThread("maplibre-linux-vulkan-renderer")
-  private val presenter = OpenGlPresenter()
+  private val presenter = OpenGlPresenter.native()
   private val frameCompletion = ComposeFrameCompletion()
   private var vulkan: LinuxVulkanContext? = null
   private var texture: LinuxSharedTexture? = null

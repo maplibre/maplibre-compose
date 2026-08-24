@@ -3,6 +3,7 @@ package org.maplibre.compose.desktop.bridge
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
+import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -34,7 +35,10 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
           RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL) ->
             MetalMapHost(mapHost)
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL) ->
-            VulkanOpenGlMapHost(mapHost)
+            when (selectOpenGlBridge(mapHost.openGlInterop)) {
+              OpenGlBridge.NATIVE -> VulkanOpenGlMapHost(mapHost)
+              OpenGlBridge.ANGLE_D3D11 -> VulkanOpenGlWin32MapHost(mapHost)
+            }
           RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
             VulkanDirect3D12MapHost(mapHost)
           else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
@@ -48,6 +52,30 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
       )
     }
 }
+
+internal enum class OpenGlBridge {
+  NATIVE,
+  ANGLE_D3D11,
+}
+
+/** Selects the OpenGL bridge from the host capability instead of inferring it from the OS. */
+internal fun selectOpenGlBridge(
+  interop: OpenGlInterop,
+  windows: Boolean = isWindowsDesktop(),
+  linux: Boolean = isLinuxDesktop(),
+): OpenGlBridge =
+  when (interop) {
+    OpenGlInterop.NATIVE -> {
+      if (!linux) throw MlnFfiHostException("NATIVE OpenGL interop requires Linux")
+      OpenGlBridge.NATIVE
+    }
+    OpenGlInterop.ANGLE_D3D11 -> {
+      if (!windows) {
+        throw MlnFfiHostException("ANGLE_D3D11 OpenGL interop requires Windows")
+      }
+      OpenGlBridge.ANGLE_D3D11
+    }
+  }
 
 /**
  * This host's context right now, or null when it has none yet.
@@ -91,7 +119,11 @@ internal fun <T> ComposeMapHost.withOpenGlContextOrNull(
   var result: Result<T>? = null
   context.withContextCurrent {
     result = runCatching {
-      ensureCapabilities()
+      when (openGlInterop) {
+        OpenGlInterop.NATIVE -> ensureCapabilities()
+        OpenGlInterop.ANGLE_D3D11 ->
+          check(AngleGl.isUsable()) { "Compose's ANGLE context has no usable GLES entry points" }
+      }
       action(context)
     }
   }

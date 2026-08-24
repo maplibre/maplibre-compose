@@ -9,6 +9,8 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapExtent
 
@@ -52,6 +54,29 @@ class MlnFfiMapSurfaceRecoveryTest {
     )
     assertTrue(host.acquireCount >= 2)
     assertEquals(0, renderer.closeCount)
+  }
+
+  @Test
+  fun a_skipped_frame_keeps_drawing_the_last_rendered_target() = runFfiComposeUiTest {
+    val renderer =
+      RecordingRenderer(
+        renderResults = ArrayDeque(listOf(MlnFfiFrameResult.RENDERED, MlnFfiFrameResult.SKIPPED)),
+        additionalFrameRequests = 1,
+      )
+    val factory = FakeMlnFfiMapHostFactory(configureHost = { it.rotateTargetsOnAcquire = true })
+
+    setSurfaceContent(renderer, factory)
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames >= 2 }
+    waitForIdle()
+
+    val renderedTarget = renderer.renderTargets[0]
+    val skippedTarget = renderer.renderTargets[1]
+    assertNotEquals(renderedTarget, skippedTarget)
+    assertEquals(1, host.completedFrames)
+    assertTrue(host.drawnTargets.count { it == renderedTarget } >= 2)
+    assertFalse(skippedTarget in host.drawnTargets)
+    assertTrue(host.leakedFrames.isEmpty())
   }
 
   @Test
@@ -120,6 +145,19 @@ class MlnFfiMapSurfaceRecoveryTest {
 
     assertEquals(1, renderer.surfaceLostCount)
     assertEquals(0, renderer.closeCount)
+  }
+
+  @Test
+  fun a_renderer_that_cannot_release_the_lost_surface_stops_recovery() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer(failingSurfaceLosses = 1)
+    val factory = FakeMlnFfiMapHostFactory(configureHost = { it.failingAcquires = 1 })
+
+    setSurfaceContent(renderer, factory)
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.closeCount == 1 }
+
+    assertEquals(1, renderer.surfaceLostCount)
+    assertEquals(1, factory.created.single().acquireCount)
+    assertEquals(listOf("onSurfaceAvailable", "onSurfaceLost"), renderer.lifecycle)
   }
 
   @Test
@@ -202,9 +240,13 @@ class MlnFfiMapSurfaceRecoveryTest {
     private var failingRenders: Int = 0,
     private val unexpectedFailure: Boolean = false,
     private val requestAnotherFrame: Boolean = false,
+    private val renderResults: ArrayDeque<MlnFfiFrameResult> = ArrayDeque(),
+    private var additionalFrameRequests: Int = 0,
+    private var failingSurfaceLosses: Int = 0,
   ) : MlnFfiMapRenderer {
     override val backend: MapRenderBackend = MapRenderBackend.VULKAN
     val lifecycle: MutableList<String> = mutableListOf()
+    val renderTargets: MutableList<MlnFfiRenderTarget> = mutableListOf()
     var renderedFrames = 0
       private set
 
@@ -232,6 +274,10 @@ class MlnFfiMapSurfaceRecoveryTest {
     override fun onSurfaceLost() {
       surfaceLostCount++
       lifecycle += "onSurfaceLost"
+      if (failingSurfaceLosses > 0) {
+        failingSurfaceLosses--
+        throw IllegalStateException("deliberate surface loss failure")
+      }
     }
 
     override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult {
@@ -242,8 +288,12 @@ class MlnFfiMapSurfaceRecoveryTest {
         else MlnFfiRecoverableFrameException(error, null)
       }
       renderedFrames++
-      if (requestAnotherFrame) hostSession?.requestFrame()
-      return MlnFfiFrameResult.RENDERED
+      renderTargets += frame.target
+      if (requestAnotherFrame || additionalFrameRequests > 0) {
+        if (additionalFrameRequests > 0) additionalFrameRequests--
+        hostSession?.requestFrame()
+      }
+      return renderResults.removeFirstOrNull() ?: MlnFfiFrameResult.RENDERED
     }
 
     override fun close() {

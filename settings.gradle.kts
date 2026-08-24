@@ -41,6 +41,7 @@ include(
   ":demo-app:android",
   ":demo-app:desktop",
   ":demo-app:desktop-glfw",
+  ":demo-app:desktop-nucleus",
   ":lib",
   ":lib:maplibre-compose",
   ":lib:maplibre-compose-material3",
