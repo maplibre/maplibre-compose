@@ -311,56 +311,46 @@ internal object WinRt {
   }
 }
 
-internal class WinRtEventCallback
-private constructor(
-  private val arena: Arena,
-  val segment: MemorySegment,
-) : AutoCloseable {
+internal class WinRtEventCallback private constructor(val segment: MemorySegment) : AutoCloseable {
   private val closed = AtomicBoolean()
 
   override fun close() {
     if (!closed.compareAndSet(false, true)) return
-    WinRtCallbacks.remove(segment.address())
-    arena.close()
+    WinRtCallbacks.releaseReference(segment.address())
   }
 
   companion object {
     fun create(iid: String, invoke: (MemorySegment, MemorySegment) -> Unit): WinRtEventCallback {
-      val arena = Arena.ofShared()
+      val arena = Arena.ofAuto()
       val segment = arena.allocate(ADDRESS)
       segment.set(ADDRESS, 0, WinRtCallbacks.eventVtable)
-      val callback = WinRtEventCallback(arena, segment)
+      val callback = WinRtEventCallback(segment)
       WinRtCallbacks.put(
         segment.address(),
-        WinRtCallbacks.Callback(iid, invoke = invoke),
+        WinRtCallbacks.Callback(iid, segment, invoke = invoke),
       )
       return callback
     }
   }
 }
 
-internal class WinRtAsyncCallback
-private constructor(
-  private val arena: Arena,
-  val segment: MemorySegment,
-) : AutoCloseable {
+internal class WinRtAsyncCallback private constructor(val segment: MemorySegment) : AutoCloseable {
   private val closed = AtomicBoolean()
 
   override fun close() {
     if (!closed.compareAndSet(false, true)) return
-    WinRtCallbacks.remove(segment.address())
-    arena.close()
+    WinRtCallbacks.releaseReference(segment.address())
   }
 
   companion object {
     fun create(iid: String, invoke: (MemorySegment, Int) -> Unit): WinRtAsyncCallback {
-      val arena = Arena.ofShared()
+      val arena = Arena.ofAuto()
       val segment = arena.allocate(ADDRESS)
       segment.set(ADDRESS, 0, WinRtCallbacks.asyncVtable)
-      val callback = WinRtAsyncCallback(arena, segment)
+      val callback = WinRtAsyncCallback(segment)
       WinRtCallbacks.put(
         segment.address(),
-        WinRtCallbacks.Callback(iid, asyncInvoke = invoke),
+        WinRtCallbacks.Callback(iid, segment, asyncInvoke = invoke),
       )
       return callback
     }
@@ -370,10 +360,27 @@ private constructor(
 private object WinRtCallbacks {
   data class Callback(
     val iid: String,
+    val segment: MemorySegment,
     val references: AtomicInteger = AtomicInteger(1),
     val invoke: ((MemorySegment, MemorySegment) -> Unit)? = null,
     val asyncInvoke: ((MemorySegment, Int) -> Unit)? = null,
-  )
+  ) {
+    fun addReference(): Int {
+      while (true) {
+        val current = references.get()
+        if (current == 0) return 0
+        if (references.compareAndSet(current, current + 1)) return current + 1
+      }
+    }
+
+    fun releaseReference(): Int {
+      while (true) {
+        val current = references.get()
+        if (current == 0) return 0
+        if (references.compareAndSet(current, current - 1)) return current - 1
+      }
+    }
+  }
 
   private const val S_OK = 0
   private const val E_NOINTERFACE = -2_147_467_262
@@ -396,8 +403,11 @@ private object WinRtCallbacks {
     callbacks[address] = callback
   }
 
-  fun remove(address: Long) {
-    callbacks.remove(address)
+  fun releaseReference(address: Long): Int {
+    val callback = callbacks[address] ?: return 0
+    return callback.releaseReference().also { remaining ->
+      if (remaining == 0) callbacks.remove(address, callback)
+    }
   }
 
   private fun vtable(event: Boolean): MemorySegment {
@@ -443,9 +453,13 @@ private object WinRtCallbacks {
         WinRt.guidEquals(iid, IID_IAGILE_OBJECT) ||
         WinRt.guidEquals(iid, callback.iid)
     ) {
-      callback.references.incrementAndGet()
-      output.reinterpret(ADDRESS.byteSize()).set(ADDRESS, 0, self)
-      S_OK
+      if (callback.addReference() == 0) {
+        output.reinterpret(ADDRESS.byteSize()).set(ADDRESS, 0, MemorySegment.NULL)
+        E_NOINTERFACE
+      } else {
+        output.reinterpret(ADDRESS.byteSize()).set(ADDRESS, 0, self)
+        S_OK
+      }
     } else {
       output.reinterpret(ADDRESS.byteSize()).set(ADDRESS, 0, MemorySegment.NULL)
       E_NOINTERFACE
@@ -453,12 +467,9 @@ private object WinRtCallbacks {
   }
 
   @JvmStatic
-  private fun addRef(self: MemorySegment): Int =
-    callbacks[self.address()]?.references?.incrementAndGet() ?: 0
+  private fun addRef(self: MemorySegment): Int = callbacks[self.address()]?.addReference() ?: 0
 
-  @JvmStatic
-  private fun release(self: MemorySegment): Int =
-    callbacks[self.address()]?.references?.decrementAndGet()?.coerceAtLeast(0) ?: 0
+  @JvmStatic private fun release(self: MemorySegment): Int = releaseReference(self.address())
 
   @JvmStatic
   private fun invokeEvent(
