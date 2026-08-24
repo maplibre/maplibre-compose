@@ -18,6 +18,7 @@ import org.jetbrains.skia.SamplingMode
 import org.jetbrains.skia.Surface
 import org.jetbrains.skia.SurfaceOrigin
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.BaseStyle
 
 private const val FULL = GPU_CANVAS_SIZE
@@ -279,6 +280,39 @@ class BrowserCompositingTest {
       }
     }
   }
+
+  @Test
+  fun toggling_overdraw_inspector_requests_a_frame_and_shades_it_without_a_camera_move() =
+    gpuTest { gpu ->
+      val gl = gpu.gl.asDynamic()
+      GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { target ->
+        CompositedMap(SPLIT_STYLE).use { map ->
+          map.drawTheWholeStyle(target)
+          val before = histogram(readFramebuffer(gl, target.framebuffer, FULL, FULL))
+          assertEquals(
+            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
+            before,
+            "the split style is the baseline the inspector has to replace",
+          )
+
+          val requestsBefore = map.frameRequests
+          map.applyRenderOptions(RenderOptions(isOverdrawInspectorEnabled = true))
+          assertTrue(
+            map.frameRequests > requestsBefore,
+            "GL JS should ask for a frame when the overdraw inspector is toggled; a camera " +
+              "move should not be what makes the flag visible",
+          )
+
+          assertTrue(map.drawOnce(target), "the requested frame should draw")
+          val after = histogram(readFramebuffer(gl, target.framebuffer, FULL, FULL))
+          assertFalse(
+            after.containsKey(RED) || after.containsKey(BLUE),
+            "overdraw shades every fragment; the split red/blue should be gone without moving " +
+              "the camera. colours=$after",
+          )
+        }
+      }
+    }
 
   @Test
   fun closing_a_composited_map_leaves_the_shared_context_alive() = gpuTest { gpu ->
