@@ -28,7 +28,7 @@ keep the camera in sync with location changes.
 | **`LocationTrackingEffect`**             | Applies location changes to application or camera state.                           |
 
 Android and iOS provide default location and orientation providers. Web, Linux,
-and macOS provide default location providers but no default orientation
+macOS, and Windows provide default location providers but no default orientation
 readings.
 `LocationState.status` reports unsupported or misconfigured
 location setup without throwing.
@@ -120,8 +120,8 @@ A provider that wraps a real platform source can delegate permission to the
 building blocks that the default providers use: `AndroidLocationPermissionRequester`
 on Android, `IosLocationPermissionRequester` on iOS,
 `BrowserLocationPermissionRequester` on web, and
-`MacosLocationPermissionRequester` or `LinuxPortalLocationPermissionRequester`
-on desktop.
+`MacosLocationPermissionRequester`, `LinuxPortalLocationPermissionRequester`,
+or `WindowsLocationPermissionRequester` on desktop.
 
 ### Platform options
 
@@ -192,3 +192,27 @@ and
 that Apple requires.
 
 `minimumInterval` is ignored because Core Location filters only by distance.
+
+#### Windows desktop
+
+The backend uses Windows Runtime geolocation. Unpackaged Win32 applications,
+including applications installed from an MSI, need no capability manifest. A
+packaged application must declare the location device capability, as described
+in Microsoft's
+[desktop geolocation guidance](https://learn.microsoft.com/en-us/windows/apps/develop/maps-and-location/get-location):
+
+```xml title="Package.appxmanifest"
+<Capabilities>
+  <DeviceCapability Name="location" />
+</Capabilities>
+```
+
+The provider observes location access through `AppCapability`, including access
+changes made in Windows Settings. Requesting access starts the Windows prompt on
+the AWT event-dispatch thread. Other Windows Runtime work runs on a dedicated
+multithreaded-apartment thread.
+
+Each collector owns a `Geolocator`. Requested accuracy maps to 1, 10, 100,
+1,000, or 5,000 meters, and the provider applies both `minimumInterval` and
+`minimumDistance` locally after configuring the native report interval. The
+first valid fix is always delivered.

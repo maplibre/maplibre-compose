@@ -1,3 +1,5 @@
 # Module location-runtime-windows
 
-Windows location backend for MapLibre Compose desktop applications.
+Provides the Windows Runtime location backend for MapLibre Compose desktop
+applications. The backend uses `AppCapability` for permission and `Geolocator`
+for independent foreground update sessions.
