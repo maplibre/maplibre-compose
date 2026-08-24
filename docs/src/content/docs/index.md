@@ -21,9 +21,13 @@ the API design evolves.
 
 - [Getting started](/maplibre-compose/getting-started/) sets up the library and
   displays a first map.
-- The [live demo](/maplibre-compose/demo/) shows the library running in your
-  browser, built from the [demo app][repo-demo].
-- The [API reference](/maplibre-compose/api/) documents every public symbol.
+- The
+  <a href="/maplibre-compose/demo/" target="_blank" rel="noopener noreferrer">live
+  demo</a> shows the library running in your browser, built from the
+  [demo app][repo-demo].
+- The
+  <a href="/maplibre-compose/api/" target="_blank" rel="noopener noreferrer">API
+  reference</a> documents every public symbol.
 
 [compose]: https://www.jetbrains.com/compose-multiplatform/
 [maplibre]: https://maplibre.org/
