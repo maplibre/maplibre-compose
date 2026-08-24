@@ -19,6 +19,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.ParentDataModifier
+import androidx.compose.ui.node.ModifierNodeElement
+import androidx.compose.ui.node.ParentDataModifierNode
 import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
@@ -314,8 +316,26 @@ private data class PlacedAtElement(val position: Position, val alignment: Alignm
     OverlayChildData.PlacedAt(position, alignment)
 }
 
+// A node element rather than a plain ParentDataModifier: onDetach resets the state when the
+// child leaves the composition, so a hoisted state never reports a placement that no longer
+// exists.
 private data class PlacedTowardsElement(val position: Position, val state: PlacedTowardsState?) :
-  ParentDataModifier {
+  ModifierNodeElement<PlacedTowardsNode>() {
+  override fun create(): PlacedTowardsNode = PlacedTowardsNode(position, state)
+
+  override fun update(node: PlacedTowardsNode) {
+    if (node.state != state) node.state?.isPlaced = false
+    node.position = position
+    node.state = state
+  }
+}
+
+private class PlacedTowardsNode(var position: Position, var state: PlacedTowardsState?) :
+  Modifier.Node(), ParentDataModifierNode {
   override fun Density.modifyParentData(parentData: Any?): Any =
     OverlayChildData.PlacedTowards(position, state)
+
+  override fun onDetach() {
+    state?.isPlaced = false
+  }
 }
