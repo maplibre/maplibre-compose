@@ -1,14 +1,29 @@
 package org.maplibre.compose.hms
 
+import com.huawei.hmf.tasks.TaskCompletionSource
 import com.huawei.hms.location.LocationRequest as HmsLocationRequest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.location.LocationAccuracy
 import org.maplibre.compose.location.LocationRequest
 import org.maplibre.spatialk.units.extensions.meters
 
 class HmsLocationRequestTest {
+
+  @Test
+  fun cleanupWaitsForRegistration() {
+    val registration = TaskCompletionSource<Void>()
+    var removed = false
+
+    registration.task.invokeOnCompletion { removed = true }
+
+    assertFalse(removed)
+    registration.setResult(null)
+    assertTrue(removed)
+  }
 
   @Test
   fun mapsRequestFieldsAndSelectsWgs84() {

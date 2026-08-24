@@ -29,7 +29,7 @@ kotlin {
   sourceSets {
     commonMain.dependencies { api(project(":lib:location")) }
 
-    androidMain.dependencies { implementation(libs.hms.location) }
+    androidMain.dependencies { api(libs.hms.location) }
 
     // The device test APK must package the instrumentation runner itself.
     androidDeviceTest.dependencies { implementation(libs.androidx.test.runner) }

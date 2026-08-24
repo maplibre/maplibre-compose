@@ -4,6 +4,8 @@ import android.Manifest
 import android.content.Context
 import android.os.HandlerThread
 import androidx.annotation.RequiresPermission
+import com.huawei.hmf.tasks.Task
+import com.huawei.hmf.tasks.TaskExecutors
 import com.huawei.hms.location.FusedLocationProviderClient
 import com.huawei.hms.location.LocationAvailability
 import com.huawei.hms.location.LocationCallback
@@ -105,7 +107,7 @@ internal constructor(
         }
       }
 
-    try {
+    val registrationTask =
       try {
         locationClient.lastLocation
           .addOnSuccessListener { location ->
@@ -118,11 +120,15 @@ internal constructor(
           .addOnFailureListener { error -> handleFailure(error) }
       } catch (error: SecurityException) {
         handleFailure(error)
+        null
       }
 
-      awaitClose()
-    } finally {
-      locationClient.removeLocationUpdates(callback)
+    awaitClose {
+      if (registrationTask == null) {
+        locationClient.removeLocationUpdates(callback)
+      } else {
+        registrationTask.invokeOnCompletion { locationClient.removeLocationUpdates(callback) }
+      }
     }
   }
 
@@ -140,6 +146,10 @@ internal constructor(
       HandlerThread("HmsFusedLocationProvider").apply { start() }
     }
   }
+}
+
+internal fun Task<*>.invokeOnCompletion(block: () -> Unit) {
+  addOnCompleteListener(TaskExecutors.immediate()) { block() }
 }
 
 internal fun LocationRequest.asHmsLocationRequest(): HmsLocationRequest =
