@@ -38,12 +38,13 @@ internal fun MemoryStack.vulkanInstanceExtensions(): Set<String> {
     vkEnumerateInstanceExtensionProperties(null as String?, count, null),
     "vkEnumerateInstanceExtensionProperties(count)",
   )
-  val props = VkExtensionProperties.calloc(count[0], this)
-  checkVulkan(
-    vkEnumerateInstanceExtensionProperties(null as String?, count, props),
-    "vkEnumerateInstanceExtensionProperties",
-  )
-  return buildSet { props.forEach { add(it.extensionNameString()) } }
+  return VkExtensionProperties.calloc(count[0]).use { props ->
+    checkVulkan(
+      vkEnumerateInstanceExtensionProperties(null as String?, count, props),
+      "vkEnumerateInstanceExtensionProperties",
+    )
+    buildSet { props.forEach { add(it.extensionNameString()) } }
+  }
 }
 
 internal fun MemoryStack.vulkanDeviceExtensions(device: VkPhysicalDevice): Set<String> {
@@ -52,12 +53,13 @@ internal fun MemoryStack.vulkanDeviceExtensions(device: VkPhysicalDevice): Set<S
     vkEnumerateDeviceExtensionProperties(device, null as String?, count, null),
     "vkEnumerateDeviceExtensionProperties(count)",
   )
-  val props = VkExtensionProperties.calloc(count[0], this)
-  checkVulkan(
-    vkEnumerateDeviceExtensionProperties(device, null as String?, count, props),
-    "vkEnumerateDeviceExtensionProperties",
-  )
-  return buildSet { props.forEach { add(it.extensionNameString()) } }
+  return VkExtensionProperties.calloc(count[0]).use { props ->
+    checkVulkan(
+      vkEnumerateDeviceExtensionProperties(device, null as String?, count, props),
+      "vkEnumerateDeviceExtensionProperties",
+    )
+    buildSet { props.forEach { add(it.extensionNameString()) } }
+  }
 }
 
 internal fun MemoryStack.vulkanStringBuffer(values: Set<String>): PointerBuffer {
