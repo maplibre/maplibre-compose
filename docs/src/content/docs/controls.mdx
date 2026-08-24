@@ -61,3 +61,21 @@ or a window resize moves the child with the map.
 
 1. `Alignment.BottomCenter` sits the bottom edge of the chip on the point.
    Padding lifts the chip above the feature.
+
+## Point at an off-screen location
+
+`Modifier.placedTowards` puts a child on the edge of an ellipse inscribed in
+the unobstructed map region, on the line towards a geographic position. The
+child appears only while the position projects outside of that ellipse. A
+position near a corner of the map region can be visible and still lie outside
+the ellipse.
+
+<Code code={region(controls, "placedTowards")} lang="kotlin" title="App.kt" />
+
+1. The state carries the placement that the overlay computed.
+2. `angleDegrees` is the direction of the target, clockwise from screen-up.
+
+`PointerPinButton` from the
+[Material 3 extensions](/maplibre-compose/material3/) is a styled consumer of
+this modifier: an elevated button in the shape of a pin that points at the
+target.

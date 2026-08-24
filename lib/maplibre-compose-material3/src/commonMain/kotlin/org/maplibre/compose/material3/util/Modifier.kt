@@ -24,12 +24,3 @@ internal fun Modifier.proportionalPadding(
 
 /** set padding proportional to the composable's size */
 internal fun Modifier.proportionalPadding(all: Float = 0f) = proportionalPadding(all, all, all, all)
-
-/** set absolute offset proportional to the composable's size */
-internal fun Modifier.proportionalAbsoluteOffset(x: Float = 0f, y: Float = 0f) =
-  layout { measurable, constraints ->
-    val placeable = measurable.measure(constraints)
-    val width = placeable.width
-    val height = placeable.height
-    layout(width, height) { placeable.place(x = (x * width).toInt(), y = (y * height).toInt()) }
-  }
