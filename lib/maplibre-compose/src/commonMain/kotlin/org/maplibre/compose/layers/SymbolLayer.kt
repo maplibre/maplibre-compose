@@ -348,31 +348,27 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   the next location+offset. Use [textJustify] = [TextJustify.Auto] to choose justification based
  *   on anchor position. The expression may use feature properties.
  *
- * Each anchor location is accompanied by a point which defines the offset when the corresponding
- * anchor location is used. Positive offset values indicate right and down, while negative values
- * indicate left and up. Anchor locations may repeat, allowing the renderer to try multiple offsets
- * to try and place a label using the same anchor.
+ * Each anchor location has an [androidx.compose.ui.geometry.Offset] in ems. Positive offset values
+ * indicate right and down, while negative values indicate left and up. Anchor locations may repeat,
+ * which lets the renderer try multiple offsets for the same anchor.
  *
  * When present, this property takes precedence over [textAnchor], [textVariableAnchor],
  * [textOffset] and [textRadialOffset].
  *
  * Example:
  * ```kt
- * listOf(
- *   SymbolAnchor.Top to Point(0, 4),
- *   SymbolAnchor.Left to Point(3, 0),
- *   SymbolAnchor.Bottom to Point(1, 1)
+ * textVariableAnchorOffset(
+ *   SymbolAnchor.Top to Offset(0f, 4f),
+ *   SymbolAnchor.Left to Offset(3f, 0f),
+ *   SymbolAnchor.Bottom to Offset(1f, 1f),
  * )
  * ```
  *
  * When the renderer chooses the top anchor, [0, 4] will be used for [textOffset]; the text will be
  * shifted down by 4 ems. When the renderer chooses the left anchor, [3, 0] will be used for
- * [textOffset]; the text will be shifted right by 3 ems. Etc.
+ * [textOffset]; the text will be shifted right by 3 ems.
  *
  * Ignored if [textField] is not specified.
- *
- * NOTE: This property is currently not usable:
- * https://github.com/maplibre/maplibre-compose/issues/143
  *
  * @param textPadding Size of the additional area in dp around the text bounding box used for
  *   detecting symbol collisions.
@@ -499,8 +495,7 @@ public fun SymbolLayer(
   textOffset: Expression<TextUnitOffsetValue> = offset(0f.em, 0f.em),
   textVariableAnchor: Expression<ListValue<SymbolAnchor>> = nil(),
   textRadialOffset: Expression<TextUnitValue> = const(0f.em),
-  //  textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue> = nil(),
-  textVariableAnchorOffset: Expression<Nothing> = nil(),
+  textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue> = nil(),
 
   // text collision
   textPadding: Expression<DpValue> = const(2.dp),
