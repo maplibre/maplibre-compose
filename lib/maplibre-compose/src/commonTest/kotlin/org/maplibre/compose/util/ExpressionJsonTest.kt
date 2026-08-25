@@ -16,6 +16,8 @@ import org.maplibre.compose.expressions.ast.FloatLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.dsl.padding
 
 /**
  * Written against values, not rendered text, wherever a whole number is involved: Kotlin renders
@@ -88,11 +90,21 @@ class ExpressionJsonTest {
 
   @Test
   fun encodes_padding_in_the_style_spec_s_top_right_bottom_left_order() {
-    // PaddingValues reads start/top/end/bottom, so the order has to be rebuilt rather than copied.
     val padding =
-      DpPaddingLiteral.of(
-        PaddingValues.Absolute(left = 4.5.dp, top = 1.5.dp, right = 2.5.dp, bottom = 3.5.dp)
-      )
+      DpPaddingLiteral.of(DpPadding(left = 4.5.dp, top = 1.5.dp, right = 2.5.dp, bottom = 3.5.dp))
+    assertEquals("""["literal",[1.5,2.5,3.5,4.5]]""", json(padding))
+  }
+
+  @Test
+  fun encodes_negative_padding_sides() {
+    val padding = padding(left = 2.5.dp, top = (-2.5).dp, right = 0.dp, bottom = (-7).dp)
+    assertEquals("""["literal",[-2.5,0.0,-7.0,2.5]]""", json(compiled(padding)))
+  }
+
+  @Test
+  fun copies_compose_absolute_padding_into_a_literal() {
+    val padding =
+      const(PaddingValues.Absolute(left = 4.5.dp, top = 1.5.dp, right = 2.5.dp, bottom = 3.5.dp))
     assertEquals("""["literal",[1.5,2.5,3.5,4.5]]""", json(padding))
   }
 }

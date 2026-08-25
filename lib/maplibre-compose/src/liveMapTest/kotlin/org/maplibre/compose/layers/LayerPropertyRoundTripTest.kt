@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.DpOffset
@@ -67,6 +66,7 @@ import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.mapLibreFlavor
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -554,14 +554,17 @@ class LayerPropertyRoundTripTest {
         },
         Case("icon-size", "1.5") { it.setIconSize(const(1.5f).c()) },
         Case("icon-text-fit", "\"both\"") { it.setIconTextFit(const(IconTextFit.Both).c()) },
-        // Style order is top, right, bottom, left, which is not the order PaddingValues reads in.
+        // Style order is top, right, bottom, left, which is not the order DpPadding stores.
         Case("icon-text-fit-padding", "[2.0,3.0,4.0,1.0]", """["literal",[2.0,3.0,4.0,1.0]]""") {
-          it.setIconTextFitPadding(const(PaddingValues.Absolute(1.dp, 2.dp, 3.dp, 4.dp)).c())
+          it.setIconTextFitPadding(const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c())
         },
         Case("icon-image", """["image","marker"]""") { it.setIconImage(image("marker").c()) },
         Case("icon-rotate", "45.0") { it.setIconRotate(const(45f).c()) },
         Case("icon-padding", "[2.0,3.0,4.0,1.0]", """["literal",[2.0,3.0,4.0,1.0]]""") {
-          it.setIconPadding(const(PaddingValues.Absolute(1.dp, 2.dp, 3.dp, 4.dp)).c())
+          it.setIconPadding(const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c())
+        },
+        Case("icon-padding", "[-2.5,0.0,-7.0,2.5]", """["literal",[-2.5,0.0,-7.0,2.5]]""") {
+          it.setIconPadding(const(DpPadding(2.5.dp, (-2.5).dp, 0.dp, (-7).dp)).c())
         },
         Case("icon-keep-upright", "true") { it.setIconKeepUpright(const(true).c()) },
         Case("icon-offset", "[3.0,4.0]", """["literal",[3.0,4.0]]""") {

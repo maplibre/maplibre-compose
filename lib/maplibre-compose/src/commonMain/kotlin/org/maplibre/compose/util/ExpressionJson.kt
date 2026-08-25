@@ -1,7 +1,6 @@
 package org.maplibre.compose.util
 
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.unit.LayoutDirection
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -48,14 +47,14 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
       )
 
     is DpPaddingLiteral ->
-      // Style order is top, right, bottom, left — not the order PaddingValues reads in.
+      // Style order is top, right, bottom, left — not the order DpPadding stores.
       literalArray(
         inLiteral,
         listOf(
-          JsonPrimitive(value.calculateTopPadding().value),
-          JsonPrimitive(value.calculateRightPadding(LayoutDirection.Ltr).value),
-          JsonPrimitive(value.calculateBottomPadding().value),
-          JsonPrimitive(value.calculateLeftPadding(LayoutDirection.Ltr).value),
+          JsonPrimitive(value.top.value),
+          JsonPrimitive(value.right.value),
+          JsonPrimitive(value.bottom.value),
+          JsonPrimitive(value.left.value),
         ),
       )
 

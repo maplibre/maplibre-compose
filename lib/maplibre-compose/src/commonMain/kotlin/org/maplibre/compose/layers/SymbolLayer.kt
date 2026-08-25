@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
@@ -44,6 +43,7 @@ import org.maplibre.compose.expressions.value.TextWritingMode
 import org.maplibre.compose.expressions.value.TranslateAnchor
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.SourceReferenceEffect
+import org.maplibre.compose.util.DpPadding
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 
@@ -145,7 +145,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   Ignored if not both [iconImage] and [textField] are specified.
  *
  * @param iconTextFitPadding Size of the additional area added to dimensions determined by
- *   [iconTextFit].
+ *   [iconTextFit]. A negative value shrinks that side.
  *
  *   Only applicable when if [iconTextFit] is not [IconTextFit.None]. Ignored if not both
  *   [iconImage] and [textField] are specified.
@@ -176,7 +176,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconPadding Size of additional area round the icon bounding box used for detecting symbol
- *   collisions. The expression may use feature properties.
+ *   collisions. A negative value shrinks that side. The expression may use feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
@@ -444,7 +444,7 @@ public fun SymbolLayer(
   iconRotationAlignment: Expression<IconRotationAlignment> = const(IconRotationAlignment.Auto),
   iconPitchAlignment: Expression<IconPitchAlignment> = const(IconPitchAlignment.Auto),
   iconTextFit: Expression<IconTextFit> = const(IconTextFit.None),
-  iconTextFitPadding: Expression<DpPaddingValue> = const(PaddingValues.Absolute(0.dp)),
+  iconTextFitPadding: Expression<DpPaddingValue> = const(DpPadding.Zero),
   iconKeepUpright: Expression<BooleanValue> = const(false),
   iconRotate: Expression<FloatValue> = const(0f),
 
@@ -453,7 +453,7 @@ public fun SymbolLayer(
   iconOffset: Expression<DpOffsetValue> = const(DpOffset.Zero),
 
   // icon collision
-  iconPadding: Expression<DpPaddingValue> = const(PaddingValues.Absolute(2.dp, 2.dp, 2.dp, 2.dp)),
+  iconPadding: Expression<DpPaddingValue> = const(DpPadding(2.dp, 2.dp, 2.dp, 2.dp)),
   iconAllowOverlap: Expression<BooleanValue> = const(false),
   iconOverlap: Expression<StringValue> = nil(),
   iconIgnorePlacement: Expression<BooleanValue> = const(false),

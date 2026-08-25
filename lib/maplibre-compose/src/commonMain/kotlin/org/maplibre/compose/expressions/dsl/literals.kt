@@ -34,6 +34,8 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.expressions.value.TextUnitOffsetValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.VectorValue
+import org.maplibre.compose.util.DpPadding
+import org.maplibre.compose.util.toDpPadding
 
 /** Creates a literal expression for a [String] value. */
 public fun const(string: String): StringLiteral = StringLiteral.of(string)
@@ -75,8 +77,11 @@ public fun const(offset: Offset): OffsetLiteral = OffsetLiteral.of(offset)
 /** Creates a literal expression for a [DpOffset] value. */
 public fun const(dpOffset: DpOffset): DpOffsetLiteral = DpOffsetLiteral.of(dpOffset)
 
-/** Creates a literal expression for a [PaddingValues.Absolute] value. */
-public fun const(padding: PaddingValues.Absolute): DpPaddingLiteral = DpPaddingLiteral.of(padding)
+/** Creates a literal expression for a [DpPadding] value. */
+public fun const(padding: DpPadding): DpPaddingLiteral = DpPaddingLiteral.of(padding)
+
+/** Creates a literal expression from Compose [PaddingValues.Absolute]. */
+public fun const(padding: PaddingValues.Absolute): DpPaddingLiteral = const(padding.toDpPadding())
 
 /** Creates a literal expression for a list. */
 public fun <T : ExpressionValue> const(list: List<Literal<T, *>>): ListLiteral<T> =
@@ -131,11 +136,9 @@ public fun offset(x: Dp, y: Dp): DpOffsetLiteral = DpOffsetLiteral.of(DpOffset(x
 public fun offset(x: TextUnit, y: TextUnit): Expression<TextUnitOffsetValue> =
   TextUnitOffsetCalculation.of(x, y)
 
-/** Creates a literal expression for a [PaddingValues.Absolute] value. */
+/** Creates a literal expression for a [DpPadding] value. */
 public fun padding(left: Dp, top: Dp, right: Dp, bottom: Dp): Expression<DpPaddingValue> =
-  DpPaddingLiteral.of(
-    PaddingValues.Absolute(left = left, top = top, right = right, bottom = bottom)
-  )
+  const(DpPadding(left = left, top = top, right = right, bottom = bottom))
 
 /**
  * Creates a literal expression for a `null` value.
