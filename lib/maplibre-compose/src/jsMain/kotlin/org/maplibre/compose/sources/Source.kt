@@ -14,6 +14,8 @@ public actual sealed class Source(internal actual val id: String) {
   internal var binding: GlJsStyleBinding? = null
     private set
 
+  private var removeUnloadAction: (() -> Unit)? = null
+
   internal val isAttached: Boolean
     get() = binding?.isLoaded == true
 
@@ -48,6 +50,16 @@ public actual sealed class Source(internal actual val id: String) {
       )
     }
     this.binding = binding
+    removeUnloadAction?.invoke()
+    attachedToStyle(binding)
+    val unregister = binding.onUnload {
+      if (this.binding === binding) {
+        this.binding = null
+        removeUnloadAction = null
+        detachedFromStyle()
+      }
+    }
+    if (this.binding === binding) removeUnloadAction = unregister else unregister()
   }
 
   /** Overridable for sources whose pixels cannot travel in style JSON. */
@@ -65,12 +77,22 @@ public actual sealed class Source(internal actual val id: String) {
 
   /** The descriptor survives for a later style. */
   internal fun detach(expectedBinding: GlJsStyleBinding) {
+    if (binding == null && !expectedBinding.isLoaded) return
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
     expectedBinding.removeSource(id)
+    removeUnloadAction?.invoke()
+    removeUnloadAction = null
     binding = null
+    detachedFromStyle()
   }
+
+  /** Called after this descriptor has attached to a loaded style. */
+  internal open fun attachedToStyle(binding: GlJsStyleBinding) = Unit
+
+  /** Called after explicit removal or when the attached style unloads. */
+  internal open fun detachedFromStyle() = Unit
 
   /** False when the style has unloaded, which is normal for a frame during a style swap. */
   internal fun mutate(update: (map: MaplibreMap) -> Unit): Boolean =

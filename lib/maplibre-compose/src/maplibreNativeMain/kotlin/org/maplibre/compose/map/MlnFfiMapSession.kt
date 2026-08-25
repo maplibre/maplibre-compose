@@ -252,6 +252,8 @@ internal class MlnFfiMapSession(
   /** Once [unload] runs, writes are dropped rather than reaching a map whose style was replaced. */
   private inner class SessionStyleBinding : MlnFfiStyleBinding {
     @Volatile private var loaded = true
+    private val unloadActions = mutableSetOf<() -> Unit>()
+    private val unloadActionsLock = MlnFfiLock()
 
     override val featureStateStore = MlnFfiFeatureStateStore()
 
@@ -263,6 +265,30 @@ internal class MlnFfiMapSession(
 
     fun unload() {
       loaded = false
+      val actions = unloadActionsLock.withLock {
+        unloadActions.toList().also { unloadActions.clear() }
+      }
+      actions.forEach { it() }
+    }
+
+    override fun onUnload(action: () -> Unit): () -> Unit {
+      if (!isLoaded) {
+        action()
+        return {}
+      }
+      var runImmediately = false
+      unloadActionsLock.withLock {
+        if (!isLoaded) {
+          runImmediately = true
+        } else {
+          unloadActions += action
+        }
+      }
+      if (runImmediately) {
+        action()
+        return {}
+      }
+      return { unloadActionsLock.withLock { unloadActions -= action } }
     }
 
     override fun reportSourceChanged(sourceId: String) {

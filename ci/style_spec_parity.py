@@ -35,7 +35,6 @@ PROPERTY_WRITE = re.compile(
 )
 UNSUPPORTED_PAIR = re.compile(r'\("([^"]+)"\s+to\s+"([^"]+)"\)')
 SOURCE_TYPE_WRITE = re.compile(r'put\("type",\s*"([^"]+)"\)')
-COMPUTED_SOURCE = re.compile(r"class ComputedSource\b")
 FUN_DECLARATION = re.compile(r"\bfun\s+(\w+)\s*\(")
 CLASS_DECLARATION = re.compile(r"\bclass\s+(\w+)")
 TOML_STRING = re.compile(r'^([A-Za-z0-9_-]+)\s*=\s*"([^"]+)"')
@@ -68,7 +67,7 @@ ALIASES: dict[PropKey, PropKey] = {
 
 # Types this API exposes that the published spec does not list.
 EXTRA_LAYER_TYPES = frozenset({"location-indicator"})
-EXTRA_SOURCE_TYPES = frozenset({"computed"})
+EXTRA_SOURCE_TYPES = frozenset({"custom-geometry"})
 
 # Spec source types this API does not construct.
 OMITTED_SOURCE_TYPES = frozenset({"video"})
@@ -368,8 +367,6 @@ def scan_sources(root: pathlib.Path) -> dict[str, set[Engine]]:
     for engines, path in _kotlin_files(root, "sources"):
         text = path.read_text()
         names = set(SOURCE_TYPE_WRITE.findall(text))
-        if COMPUTED_SOURCE.search(text):
-            names.add("computed")
         for name in names:
             found.setdefault(name, set()).update(engines)
     return found

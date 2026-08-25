@@ -2,11 +2,19 @@
 
 package org.maplibre.compose.gljs
 
+import kotlin.js.Promise
 import web.html.HTMLCanvasElement
 
 internal external fun getVersion(): String
 
 internal external fun setWorkerUrl(value: String)
+
+internal external fun addProtocol(
+  customProtocol: String,
+  loadFn: (RequestParameters, Any) -> Promise<ProtocolResponse>,
+)
+
+internal external fun removeProtocol(customProtocol: String)
 
 @JsName("Map")
 internal external class MaplibreMap(options: MapOptions) {
@@ -35,6 +43,8 @@ internal external class MaplibreMap(options: MapOptions) {
   fun getStyle(): StyleSpecification
 
   fun isStyleLoaded(): Boolean
+
+  fun isSourceLoaded(id: String): Boolean
 
   fun getCenter(): LngLat
 

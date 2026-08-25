@@ -43,7 +43,9 @@ public object Feature {
    *
    * A feature's state is not part of the GeoJSON or vector tile data. Set it with
    * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
-   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState].
+   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState]. A
+   * [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource] has the same operations
+   * as `VectorSource`.
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
@@ -60,7 +62,9 @@ public object Feature {
    *
    * A feature's state is not part of the GeoJSON or vector tile data. Set it with
    * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
-   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState].
+   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState]. A
+   * [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource] has the same operations
+   * as `VectorSource`.
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is

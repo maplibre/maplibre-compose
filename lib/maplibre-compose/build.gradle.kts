@@ -56,6 +56,7 @@ kotlin {
       implementation(libs.htmlConverterCompose)
       api(libs.lifecycle.runtime.compose)
       api(libs.kermit)
+      implementation(libs.kotlinx.coroutines.core)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)
     }
