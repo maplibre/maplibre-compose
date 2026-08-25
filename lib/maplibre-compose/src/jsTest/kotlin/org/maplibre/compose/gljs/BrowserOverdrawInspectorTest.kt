@@ -82,5 +82,12 @@ class BrowserOverdrawInspectorTest {
         "the Compose frame that toggles the inspector should draw with it on; a camera move " +
           "should not be what applies the flag",
       )
+
+      options = MapOptions()
+      waitForIdle()
+      assertFalse(
+        session.lastDrawnOverdrawInspector,
+        "the Compose frame that toggles the inspector off should draw with it off",
+      )
     }
 }

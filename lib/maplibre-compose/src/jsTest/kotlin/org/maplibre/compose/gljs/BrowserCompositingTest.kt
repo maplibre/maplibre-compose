@@ -327,6 +327,14 @@ class BrowserCompositingTest {
             map.frameRequests,
             "applying the same camera limits again should not ask for another frame",
           )
+
+          map.applyRenderOptions(RenderOptions())
+          assertTrue(map.drawOnce(target), "turning the inspector off should draw")
+          assertEquals(
+            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
+            histogram(readFramebuffer(gl, target.framebuffer, FULL, FULL)),
+            "turning the inspector off should restore the split style without a camera move",
+          )
         }
       }
     }

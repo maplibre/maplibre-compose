@@ -162,6 +162,7 @@ internal class GlJsMapSession(
     if (target is GlJsFrameTarget.NotReady && map == null) return false
     framebuffer = composited?.target?.framebuffer
     val map = ensureMap(composited?.target, extent) ?: return false
+    appliedRenderOptions?.let { applyRenderFlags(map, it) }
     if (composited == null) {
       applyExtent(map, extent)
     } else {
@@ -664,13 +665,15 @@ internal class GlJsMapSession(
     maximumFps = value.maximumFps
     if (value == appliedRenderOptions) return
     appliedRenderOptions = value
-    onMap { map ->
-      map.showTileBoundaries = value.isTileBordersEnabled
-      map.showCollisionBoxes = value.isCollisionBoxesEnabled
-      map.showPadding = value.isPaddingEnabled
-      map.showOverdrawInspector = value.isOverdrawInspectorEnabled
-    }
+    onMap { map -> applyRenderFlags(map, value) }
     surface?.requestFrame()
+  }
+
+  private fun applyRenderFlags(map: MaplibreMap, value: RenderOptions) {
+    map.showTileBoundaries = value.isTileBordersEnabled
+    map.showCollisionBoxes = value.isCollisionBoxesEnabled
+    map.showPadding = value.isPaddingEnabled
+    map.showOverdrawInspector = value.isOverdrawInspectorEnabled
   }
 
   override fun setGestureSettings(value: GestureOptions) {
