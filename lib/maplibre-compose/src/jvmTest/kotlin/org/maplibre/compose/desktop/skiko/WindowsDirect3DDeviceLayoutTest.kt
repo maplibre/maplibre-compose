@@ -22,8 +22,7 @@ class WindowsDirect3DDeviceLayoutTest {
 
   @Test
   fun `the offsets were derived from the Skiko on the classpath`() {
-    val version = Class.forName("org.jetbrains.skiko.Version")
-    val skiko = version.getMethod("getSkiko").invoke(version.getField("INSTANCE").get(null))
+    val skiko = SkikoDirect3DDeviceLayout.classpathSkikoVersion()
 
     assertEquals(
       SkikoDirect3DDeviceLayout.VERIFIED_SKIKO_VERSION,

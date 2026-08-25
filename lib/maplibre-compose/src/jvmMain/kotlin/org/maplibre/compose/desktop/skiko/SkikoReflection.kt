@@ -1,5 +1,6 @@
 package org.maplibre.compose.desktop.skiko
 
+import co.touchlab.kermit.Logger
 import java.awt.Component
 import java.awt.Container
 import java.awt.Window
@@ -7,6 +8,7 @@ import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.swing.SwingUtilities
 import org.maplibre.compose.mlnffi.MlnFfiHostException
 
@@ -208,12 +210,13 @@ internal data class SkikoDirect3DDevice(val ptr: Long)
  * `fMemoryAllocator`, `fProtectedContext`, one pointer each), `device` at 48.
  *
  * Skiko assigns both copies of the device from the same local, so reading both and requiring
- * agreement detects a layout change. `WindowsDirect3DDeviceLayoutTest` fails the build when Skiko
- * moves off [VERIFIED_SKIKO_VERSION].
+ * agreement detects a layout change. The first read also compares the classpath Skiko version to
+ * [VERIFIED_SKIKO_VERSION] and warns when they differ; `WindowsDirect3DDeviceLayoutTest` fails the
+ * build on that same mismatch.
  */
 internal object SkikoDirect3DDeviceLayout {
   /** The Skiko version whose sources these offsets were read from. */
-  const val VERIFIED_SKIKO_VERSION: String = "0.144.6"
+  const val VERIFIED_SKIKO_VERSION: String = "0.150.1"
 
   /** `DirectXDevice::backendContext::fDevice`. */
   const val BACKEND_CONTEXT_DEVICE_OFFSET: Long = 16L
@@ -224,12 +227,41 @@ internal object SkikoDirect3DDeviceLayout {
   /** How much of the object has to be addressable for both reads; the real one is far larger. */
   const val READ_SIZE: Long = DEVICE_OFFSET + Long.SIZE_BYTES
 
+  private val warnedAboutSkikoVersion = AtomicBoolean(false)
+  private val logger = Logger.withTag("maplibre-compose")
+
+  /**
+   * Skiko's own version string from `org.jetbrains.skiko.Version`, or null if it is unavailable.
+   */
+  fun classpathSkikoVersion(): String? = runCatching {
+    val version = Class.forName("org.jetbrains.skiko.Version")
+    version.getMethod("getSkiko").invoke(version.getField("INSTANCE").get(null)) as String
+  }
+    .getOrNull()
+
+  /**
+   * Warns once when the classpath Skiko differs from [VERIFIED_SKIKO_VERSION]. The offsets may
+   * still be right; the two-pointer cross-check below catches a moved layout.
+   */
+  fun warnIfUnverifiedSkiko() {
+    if (!warnedAboutSkikoVersion.compareAndSet(false, true)) return
+    val skiko = classpathSkikoVersion() ?: return
+    if (skiko == VERIFIED_SKIKO_VERSION) return
+    logger.w {
+      "Skiko $skiko is on the classpath; the Windows Direct3D host verified its DirectXDevice " +
+        "layout against $VERIFIED_SKIKO_VERSION. Re-read " +
+        "skiko/src/awtMain/cpp/windows/directXRedrawer.cc and update SkikoDirect3DDeviceLayout if " +
+        "the struct moved."
+    }
+  }
+
   /** The `ID3D12Device` inside the `DirectXDevice` [device] points at. */
   fun rawDevice(device: SkikoDirect3DDevice): Long =
     read(MemorySegment.ofAddress(device.ptr).reinterpret(READ_SIZE))
 
   /** Reads both copies out of [struct] and returns them if they agree. */
   fun read(struct: MemorySegment): Long {
+    warnIfUnverifiedSkiko()
     val fromBackendContext =
       struct.get(ValueLayout.ADDRESS, BACKEND_CONTEXT_DEVICE_OFFSET).address()
     val fromDeviceField = struct.get(ValueLayout.ADDRESS, DEVICE_OFFSET).address()

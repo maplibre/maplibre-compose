@@ -58,12 +58,12 @@ gradle-mavenPublish = "0.37.0"
 
 # Libraries coupled to Compose: keep Compose up to date and set others accordingly.
 # https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-compatibility-and-versioning.html#jetpack-compose-artifacts-used
-gradle-compose = "1.11.1"
-androidx-compose = "1.11.2"
-jetbrains-compose-material3 = "1.11.0-alpha07"
+gradle-compose = "1.12.0"
+androidx-compose = "1.12.0"
+jetbrains-compose-material3 = "1.12.0-alpha03"
 # 1.3.x is still beta.
-jetbrains-compose-material3-adaptive = "1.2.0"
-jetbrains-navigation = "2.9.2"
+jetbrains-compose-material3-adaptive = "1.3.0-beta02"
+jetbrains-navigation = "2.10.0-alpha02"
 
 # Android and Kotlin: Keep Kotlin up to date and set Android accordingly.
 # Also note the Gradle and XCode versions in the matrix!
