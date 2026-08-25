@@ -63,9 +63,7 @@ internal fun GlJsMapSurface(
   }
 
   // presentFrames is a key so that its flip to true redraws the frame the draw pass below
-  // declined to blit. `renderOptions` is the same for a debug-flag change: this
-  // composable would otherwise be skipped, and the draw that reads `frameRequest` never
-  // runs.
+  // declined to blit.
   LaunchedEffect(extent, renderer, failed, presentFrames, renderOptions) {
     if (extent.isEmpty || failed) return@LaunchedEffect
     surface.requestFrame()
