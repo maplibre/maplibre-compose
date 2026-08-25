@@ -586,6 +586,7 @@ private fun interface GlProcAddressCallbackI : CallbackI {
   companion object {
     val DESCRIPTOR =
       Callback.Descriptor(
+        GlProcAddressCallbackI::class.java,
         MethodHandles.lookup(),
         apiCreateCIF(ffi_type_pointer, ffi_type_pointer, ffi_type_pointer),
       )
