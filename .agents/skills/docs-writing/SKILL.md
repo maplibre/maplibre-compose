@@ -137,8 +137,6 @@ The sidebar has four parts, after [Diátaxis](https://diataxis.fr/):
 | Concepts        | A reader building a mental model  | The model and its consequences, no steps |
 | API reference   | A reader looking something up     | Every public symbol, generated from KDoc |
 
-The live demo follows the API reference. It embeds the browser demo app.
-
 Each page commits to one part. Serving two modes on one page is the most common
 structural failure. Explanation inside an onboarding page slows the reader who
 wants a working result. Steps inside a concept page make it useless for lookup.
