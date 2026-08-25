@@ -278,7 +278,7 @@ class BrowserCompositingTest {
   @Test
   fun a_new_context_identity_rebuilds_the_map_and_keeps_drawing() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    val alias: dynamic = js("Object").create(gl)
+    val alias = aliasedWebGlContext(gl)
     GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { first ->
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(first)

@@ -74,7 +74,7 @@ class EmscriptenGlTest {
           )
           .target
       val replacement: dynamic = js("({})")
-      replacement.GLctx = js("Object").create(original.GLctx)
+      replacement.GLctx = aliasedWebGlContext(original.GLctx)
       holder.GLctxObject = replacement
       try {
         val again =

@@ -39,6 +39,25 @@ internal suspend fun browserGpu(): BrowserGpu = gpu.await()
 internal fun gpuTest(block: suspend (BrowserGpu) -> Unit): Promise<*> =
   MainScope().promise { block(browserGpu()) }
 
+/**
+ * A distinct object that still forwards every WebGL call to [gl]. A resize can replace the context
+ * identity without changing the underlying GPU, and tests use this stand-in for that.
+ */
+internal fun aliasedWebGlContext(gl: dynamic): dynamic =
+  js(
+      """
+      (function(gl) {
+        return new Proxy(gl, {
+          get: function(target, prop) {
+            var value = target[prop];
+            return typeof value === 'function' ? value.bind(target) : value;
+          }
+        });
+      })
+      """
+    )
+    .unsafeCast<(dynamic) -> dynamic>()(gl)
+
 private val emscriptenContextAttributes: dynamic =
   js(
     "({alpha:1,depth:1,stencil:8,antialias:0,premultipliedAlpha:1,preserveDrawingBuffer:0," +
