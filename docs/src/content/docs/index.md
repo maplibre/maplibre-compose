@@ -3,9 +3,6 @@ title: Overview
 description:
   MapLibre Compose embeds interactive vector maps in your Compose Multiplatform
   apps.
-next:
-  link: /maplibre-compose/getting-started/
-  label: Getting started
 ---
 
 MapLibre Compose is a [Compose Multiplatform][compose] wrapper around the
@@ -24,10 +21,8 @@ the API design evolves.
 
 - [Getting started](/maplibre-compose/getting-started/) sets up the library and
   displays a first map.
-- The
-  <a href="/maplibre-compose/demo/" target="_blank" rel="noopener noreferrer">live
-  demo</a> shows the library running in your browser, built from the
-  [demo app][repo-demo].
+- The [live demo](/maplibre-compose/demo/) shows the library running in your
+  browser, built from the [demo app][repo-demo].
 - The
   <a href="/maplibre-compose/api/" target="_blank" rel="noopener noreferrer">API
   reference</a> documents every public symbol.

@@ -26,8 +26,8 @@ dir = ".."
 depends = ["//:build:js-app"]
 run = '''
 rm -rf docs/public/demo
-mkdir -p docs/public/demo
-cp -a demo-app/common/build/dist/js/productionExecutable/. docs/public/demo/
+mkdir -p docs/public/demo/app
+cp -a demo-app/common/build/dist/js/productionExecutable/. docs/public/demo/app/
 '''
 
 [tasks.dev]

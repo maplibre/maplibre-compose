@@ -202,8 +202,8 @@ description = "Build the complete GitHub Pages site into docs/dist."
 run = '''
 mise run build:docs
 mise run build:js-app
-mkdir -p docs/dist/demo
-cp -a demo-app/common/build/dist/js/productionExecutable/. docs/dist/demo/
+mkdir -p docs/dist/demo/app
+cp -a demo-app/common/build/dist/js/productionExecutable/. docs/dist/demo/app/
 mise run package:cloudflare-pages
 '''
 
@@ -218,7 +218,7 @@ cp docs/cloudflare-pages/_redirects build/cloudflare-pages/_redirects
 '''
 
 [tasks."test:pages"]
-description = "Load the browser demo from the packaged Cloudflare Pages site."
+description = "Load the embedded browser demo from the packaged Cloudflare Pages site."
 depends = ["build:pages"]
 run = '''
 pages_test_dir="$(mktemp -d)"
@@ -244,7 +244,7 @@ python -m http.server 4321 \
 pages_preview_pid=$!
 
 for _ in {1..30}; do
-  if curl --fail --silent --output /dev/null http://127.0.0.1:4321/maplibre-compose/demo/; then
+  if curl --fail --silent --output /dev/null http://127.0.0.1:4321/maplibre-compose/demo/app/; then
     break
   fi
   if ! kill -0 "$pages_preview_pid" 2>/dev/null; then
@@ -255,13 +255,16 @@ for _ in {1..30}; do
 done
 
 curl --fail --silent --output /dev/null http://127.0.0.1:4321/maplibre-compose/demo/
+curl --fail --silent --output /dev/null http://127.0.0.1:4321/maplibre-compose/demo/app/
+demo_page="$(curl --fail --silent http://127.0.0.1:4321/maplibre-compose/demo/)"
+printf '%s\n' "$demo_page" | grep --fixed-strings --quiet 'src="/maplibre-compose/demo/app/"'
 playwright screenshot \
   --channel chromium \
   --save-har "$pages_test_dir/demo.har" \
   --save-har-glob '**/composeResources/**' \
   --timeout 30000 \
   --wait-for-selector 'canvas[role="generic"]' \
-  http://127.0.0.1:4321/maplibre-compose/demo/ \
+  http://127.0.0.1:4321/maplibre-compose/demo/app/ \
   "$pages_test_dir/demo.png"
 
 node - "$pages_test_dir/demo.har" <<'NODE'
@@ -273,7 +276,7 @@ if (entries.length === 0) {
 }
 
 const expectedPrefix =
-  "http://127.0.0.1:4321/maplibre-compose/demo/composeResources/";
+  "http://127.0.0.1:4321/maplibre-compose/demo/app/composeResources/";
 const misplaced = entries.filter((entry) => !entry.request.url.startsWith(expectedPrefix));
 if (misplaced.length > 0) {
   throw new Error(
