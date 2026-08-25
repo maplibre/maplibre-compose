@@ -122,6 +122,14 @@ description = "Run the Android host (JVM) test suite."
 # the library modules use the KMP Android plugin. Either alone covers half.
 run = "./gradlew testDebugUnitTest testAndroidHostTest"
 
+[tasks."test:publishing"]
+description = "Publish the full project to an isolated local Maven repository."
+depends = ["android-sdk-packages"]
+run = '''
+repository="$PWD/build/test-maven-repository"
+rm -rf -- "$repository"
+./gradlew -Dmaven.repo.local="$repository" publishToMavenLocal
+'''
 [tasks."android-emulator:boot"]
 description = "Boot an Android emulator and wait until it is ready."
 usage = '''
