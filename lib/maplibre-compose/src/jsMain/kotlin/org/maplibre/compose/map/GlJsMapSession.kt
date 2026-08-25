@@ -221,17 +221,6 @@ internal class GlJsMapSession(
    * a context from its own canvas and is never drawn.
    */
   private fun ensureMap(target: GlJsRenderTarget?, extent: MapExtent): MaplibreMap? {
-    val incomingContext = target?.gl?.unsafeCast<WebGL2RenderingContext>()
-    if (
-      map != null &&
-        incomingContext != null &&
-        lentContext != null &&
-        incomingContext !== lentContext
-    ) {
-      // MapLibre may keep its map across a new Skia renderer on the same browser context, but its
-      // resources cannot move to a different browser context.
-      destroyMap()
-    }
     map?.let {
       return it
     }
