@@ -18,6 +18,9 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   /** Feature state retained for this loaded style. */
   val featureStateStore: MlnFfiFeatureStateStore?
 
+  /** Runs [action] when this style unloads and returns a function that removes the action. */
+  fun onUnload(action: () -> Unit): () -> Unit
+
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
   fun <T> readMap(action: (MapHandle) -> T): T?
 
@@ -118,6 +121,11 @@ internal interface MlnFfiStyleBinding : StyleBinding {
         override val isLoaded: Boolean = false
 
         override val logger: Logger? = null
+
+        override fun onUnload(action: () -> Unit): () -> Unit {
+          action()
+          return {}
+        }
 
         override fun <T> readMap(action: (MapHandle) -> T): T? = null
 

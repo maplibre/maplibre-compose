@@ -20,6 +20,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   StyleBinding {
 
   private var loaded = true
+  private val unloadActions = mutableSetOf<() -> Unit>()
 
   /**
    * GL JS reports a style change it will not make by firing an `error` event rather than throwing,
@@ -27,6 +28,9 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
    */
   private var errorCount = 0
   private var lastError: String? = null
+
+  internal val lastReportedError: String?
+    get() = lastError
 
   private val errors: GlJsSubscription =
     map.subscribe("error") { event ->
@@ -41,6 +45,19 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     if (!loaded) return
     loaded = false
     errors.cancel()
+    val actions = unloadActions.toList()
+    unloadActions.clear()
+    actions.forEach { it() }
+  }
+
+  /** Runs [action] when this style unloads and returns a function that removes the action. */
+  fun onUnload(action: () -> Unit): () -> Unit {
+    if (!loaded) {
+      action()
+      return {}
+    }
+    unloadActions += action
+    return { unloadActions -= action }
   }
 
   fun addSource(id: String, definition: JsonObject) {

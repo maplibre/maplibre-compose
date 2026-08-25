@@ -82,8 +82,10 @@ import org.maplibre.spatialk.geojson.Position
  *   [GeoJsonSource][org.maplibre.compose.sources.GeoJsonSource]),
  * - [rememberVectorSource][org.maplibre.compose.sources.rememberVectorSource] (see
  *   [VectorSource][org.maplibre.compose.sources.VectorSource]),
- * - [rememberComputedSource][org.maplibre.compose.sources.rememberComputedSource] (see
- *   [ComputedSource][org.maplibre.compose.sources.ComputedSource])
+ * - [rememberCustomGeometrySource][org.maplibre.compose.sources.rememberCustomGeometrySource] (see
+ *   [CustomGeometrySource][org.maplibre.compose.sources.CustomGeometrySource]),
+ * - [rememberCustomVectorSource][org.maplibre.compose.sources.rememberCustomVectorSource] (see
+ *   [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource]),
  * - [rememberRasterSource][org.maplibre.compose.sources.rememberRasterSource] (see
  *   [RasterSource][org.maplibre.compose.sources.RasterSource])
  * - [rememberRasterDemSource][org.maplibre.compose.sources.rememberRasterDemSource] (see

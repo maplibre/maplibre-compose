@@ -51,6 +51,14 @@ internal external interface LayerSpecification {
 
 internal external interface SourceSpecification
 
+internal external interface RequestParameters {
+  val url: String
+}
+
+internal external interface ProtocolResponse {
+  var data: ArrayBuffer
+}
+
 internal external interface FilterSpecification
 
 /** MapLibre leaves both zoom bounds undefined on a layer whose stylesheet named neither. */

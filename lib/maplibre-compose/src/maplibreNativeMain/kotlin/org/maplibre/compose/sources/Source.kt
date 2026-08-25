@@ -19,6 +19,8 @@ public actual sealed class Source(internal actual val id: String) {
   internal var binding: MlnFfiStyleBinding = MlnFfiStyleBinding.UNLOADED
     private set
 
+  private var removeUnloadAction: (() -> Unit)? = null
+
   /** Whether this source currently belongs to a loaded style. */
   internal val isAttached: Boolean
     get() = binding.isLoaded
@@ -80,6 +82,16 @@ public actual sealed class Source(internal actual val id: String) {
     }
     if (!added) return
     this.binding = binding
+    removeUnloadAction?.invoke()
+    attachedToStyle(binding)
+    val unregister = binding.onUnload {
+      if (this.binding === binding) {
+        this.binding = MlnFfiStyleBinding.UNLOADED
+        removeUnloadAction = null
+        detachedFromStyle()
+      }
+    }
+    if (this.binding === binding) removeUnloadAction = unregister else unregister()
   }
 
   /** Native reports what was wrong with the definition but never whose. */
@@ -122,6 +134,7 @@ public actual sealed class Source(internal actual val id: String) {
 
   /** Removes this source from its style; the descriptor survives for a later style. */
   internal fun detach(expectedBinding: MlnFfiStyleBinding) {
+    if (binding === MlnFfiStyleBinding.UNLOADED && !expectedBinding.isLoaded) return
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
@@ -131,8 +144,17 @@ public actual sealed class Source(internal actual val id: String) {
       current.forgetFeatureStates(id)
       current.reportSourceChanged(id)
     }
+    removeUnloadAction?.invoke()
+    removeUnloadAction = null
     binding = MlnFfiStyleBinding.UNLOADED
+    detachedFromStyle()
   }
+
+  /** Called after this descriptor has attached to a loaded style. */
+  internal open fun attachedToStyle(binding: MlnFfiStyleBinding) = Unit
+
+  /** Called after explicit removal or when the attached style unloads. */
+  internal open fun detachedFromStyle() = Unit
 
   /**
    * Applies [update] to the live source. Returns false when the style has unloaded, which is normal
