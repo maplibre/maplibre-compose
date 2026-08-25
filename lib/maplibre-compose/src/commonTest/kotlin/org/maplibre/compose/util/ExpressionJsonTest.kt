@@ -95,7 +95,7 @@ class ExpressionJsonTest {
 
   @Test
   fun encodes_negative_padding_sides() {
-    val padding = padding(left = 2.5.dp, top = (-2.5).dp, right = 0.dp, bottom = (-7).dp)
-    assertEquals("""["literal",[-2.5,0.0,-7.0,2.5]]""", json(compiled(padding)))
+    val padding = padding(left = 2.5.dp, top = (-2.5).dp, right = 0.1.dp, bottom = (-7.1).dp)
+    assertEquals("""["literal",[-2.5,0.1,-7.1,2.5]]""", json(compiled(padding)))
   }
 }

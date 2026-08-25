@@ -560,18 +560,18 @@ class LayerPropertyRoundTripTest {
         },
         Case(
           "icon-text-fit-padding",
-          "[-2.5,0.0,-7.0,2.5]",
-          """["literal",[-2.5,0.0,-7.0,2.5]]""",
+          "[-2.5,0.1,-7.1,2.5]",
+          """["literal",[-2.5,0.1,-7.1,2.5]]""",
         ) {
-          it.setIconTextFitPadding(const(DpPadding(2.5.dp, (-2.5).dp, 0.dp, (-7).dp)).c())
+          it.setIconTextFitPadding(const(DpPadding(2.5.dp, (-2.5).dp, 0.1.dp, (-7.1).dp)).c())
         },
         Case("icon-image", """["image","marker"]""") { it.setIconImage(image("marker").c()) },
         Case("icon-rotate", "45.0") { it.setIconRotate(const(45f).c()) },
         Case("icon-padding", "[2.0,3.0,4.0,1.0]", """["literal",[2.0,3.0,4.0,1.0]]""") {
           it.setIconPadding(const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c())
         },
-        Case("icon-padding", "[-2.5,0.0,-7.0,2.5]", """["literal",[-2.5,0.0,-7.0,2.5]]""") {
-          it.setIconPadding(const(DpPadding(2.5.dp, (-2.5).dp, 0.dp, (-7).dp)).c())
+        Case("icon-padding", "[-2.5,0.1,-7.1,2.5]", """["literal",[-2.5,0.1,-7.1,2.5]]""") {
+          it.setIconPadding(const(DpPadding(2.5.dp, (-2.5).dp, 0.1.dp, (-7.1).dp)).c())
         },
         Case("icon-keep-upright", "true") { it.setIconKeepUpright(const(true).c()) },
         Case("icon-offset", "[3.0,4.0]", """["literal",[3.0,4.0]]""") {
