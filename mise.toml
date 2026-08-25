@@ -122,6 +122,33 @@ description = "Run the Android host (JVM) test suite."
 # the library modules use the KMP Android plugin. Either alone covers half.
 run = "./gradlew testDebugUnitTest testAndroidHostTest"
 
+[tasks."test:android:publishing"]
+description = "Assemble the runtime-only Android publications without uploading them."
+run = '''
+repository="$PWD/build/test-maven-repository"
+rm -rf -- "$repository"
+./gradlew \
+  -Dmaven.repo.local="$repository" \
+  :lib:maplibre-compose-runtime-opengl-android:publishMavenPublicationToMavenLocal \
+  :lib:maplibre-compose-runtime-vulkan-android:publishMavenPublicationToMavenLocal
+
+python - "$repository" <<'PY'
+from pathlib import Path
+import sys
+
+repository = Path(sys.argv[1]) / "org/maplibre/compose"
+expected = {
+    "javadoc jars": "*/*/*-javadoc.jar",
+    "source jars": "*/*/*-sources.jar",
+    "AARs": "*/*/*.aar",
+    "POMs": "*/*/*.pom",
+}
+for label, pattern in expected.items():
+    artifacts = list(repository.glob(pattern))
+    if len(artifacts) != 2:
+        raise SystemExit(f"expected 2 {label}, found {len(artifacts)}")
+PY
+'''
 [tasks."android-emulator:boot"]
 description = "Boot an Android emulator and wait until it is ready."
 usage = '''

@@ -1,3 +1,5 @@
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
+
 plugins {
   id("module-conventions")
   id(libs.plugins.android.classicLibrary.get().pluginId)
@@ -5,6 +7,8 @@ plugins {
 }
 
 mavenPublishing {
+  // This runtime-only AAR has no API sources for AGP's embedded Dokka to document.
+  configure(AndroidSingleVariantLibrary())
   pom {
     name = "MapLibre Compose Runtime (OpenGL, Android)"
     description = "The MapLibre Native FFI OpenGL runtime for MapLibre Compose on Android."

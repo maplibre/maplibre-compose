@@ -1,4 +1,5 @@
 import com.android.build.gradle.internal.cxx.configure.gradleLocalProperties
+import com.vanniktech.maven.publish.AndroidSingleVariantLibrary
 
 plugins {
   id("module-conventions")
@@ -7,6 +8,8 @@ plugins {
 }
 
 mavenPublishing {
+  // This runtime-only AAR has no API sources for AGP's embedded Dokka to document.
+  configure(AndroidSingleVariantLibrary())
   pom {
     name = "MapLibre Compose Runtime (Vulkan, Android)"
     description =
