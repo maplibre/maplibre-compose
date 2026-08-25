@@ -6,6 +6,7 @@ import java.lang.foreign.Linker
 import java.lang.foreign.MemoryLayout
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout.ADDRESS
+import java.lang.foreign.ValueLayout.JAVA_BYTE
 import java.lang.foreign.ValueLayout.JAVA_DOUBLE
 import org.lwjgl.system.JNI
 import org.lwjgl.system.MemoryStack
@@ -88,6 +89,27 @@ internal object ObjectiveC {
       MemorySegment.ofAddress(selector),
       MemorySegment.ofAddress(argument1),
       MemorySegment.ofAddress(argument2),
+    )
+  }
+
+  fun performSelectorOnMainThreadAndWait(
+    receiver: Long,
+    selectorName: String,
+    modes: Long,
+  ) {
+    val dispatchSelector = selector("performSelectorOnMainThread:withObject:waitUntilDone:modes:")
+    val handle =
+      linker.downcallHandle(
+        MemorySegment.ofAddress(implementation(receiver, dispatchSelector)),
+        FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS, ADDRESS, JAVA_BYTE, ADDRESS),
+      )
+    handle.invoke(
+      MemorySegment.ofAddress(receiver),
+      MemorySegment.ofAddress(dispatchSelector),
+      MemorySegment.ofAddress(selector(selectorName)),
+      MemorySegment.NULL,
+      1.toByte(),
+      MemorySegment.ofAddress(modes),
     )
   }
 

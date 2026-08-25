@@ -26,6 +26,10 @@ dependencies {
 
   testImplementation(kotlin("test"))
   testImplementation(libs.kotlinx.coroutines.test)
+  testRuntimeOnly(
+    "org.lwjgl:lwjgl:${libs.versions.lwjgl.get()}:" +
+      DesktopHostPlatform.current().lwjglNativesClassifier
+  )
 }
 
 tasks.test { jvmArgs(NATIVE_ACCESS_JVM_ARGS) }
