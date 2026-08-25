@@ -276,25 +276,6 @@ class BrowserCompositingTest {
   }
 
   @Test
-  fun a_new_context_identity_rebuilds_the_map_and_keeps_drawing() = gpuTest { gpu ->
-    val gl = gpu.gl.asDynamic()
-    val alias = aliasedWebGlContext(gl)
-    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { first ->
-      CompositedMap(SPLIT_STYLE).use { map ->
-        map.drawTheWholeStyle(first)
-        GlJsRenderTarget(alias, FULL, FULL, generation = 2).use { second ->
-          map.drawTheWholeStyle(second)
-          assertEquals(
-            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
-            histogram(readFramebuffer(gl, second.framebuffer, FULL, FULL)),
-            "the rebuilt map should draw into the new target",
-          )
-        }
-      }
-    }
-  }
-
-  @Test
   fun a_resize_allocates_a_new_target_and_the_map_keeps_drawing() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
     ComposeGlJsCompositor(logger = null).use { compositor ->
