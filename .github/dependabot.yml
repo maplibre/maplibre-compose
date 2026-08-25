@@ -11,7 +11,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 3
-    labels: [dependencies, github_actions]
+    labels: [dependencies]
     groups:
       github-actions:
         patterns: ["*"]
@@ -22,7 +22,7 @@ updates:
       interval: weekly
     cooldown:
       default-days: 3
-    labels: [dependencies, kotlin]
+    labels: [dependencies]
     ignore:
       # Follow the Kotlin compatibility matrix, not independent latest releases.
       - dependency-name: gradle-wrapper

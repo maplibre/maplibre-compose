@@ -33,20 +33,22 @@ maps to your Compose UIs across Android, iOS, Desktop, and Web.
 - [API Reference](https://maplibre.org/maplibre-compose/api/)
 - [Demo App](./demo-app)
 
-## Progress
+## Stability
 
-See [the status table][status] for a breakdown of supported features on each
-platform. Android, iOS, and Desktop have the most complete support; Desktop
-still needs user location on Windows. Web covers the same styling and camera
-API, without offline packs or location.
+MapLibre Compose uses [Kotlin's stability levels][stability] to describe update
+risk. The public API is still evolving, and minor releases can contain breaking
+changes.
 
-| Target  | Progress                                                             |
-| ------- | -------------------------------------------------------------------- |
-| Android | ![90%](https://progress-bar.xyz/90/?progress_color=3DDC84&width=200) |
-| iOS     | ![90%](https://progress-bar.xyz/90/?progress_color=147efb&width=200) |
-| Desktop | ![85%](https://progress-bar.xyz/85/?progress_color=CE0000&width=200) |
-| Web     | ![80%](https://progress-bar.xyz/80/?progress_color=FF9500&width=200) |
+| Platform | Stability                                               |
+| -------- | ------------------------------------------------------- |
+| Android  | [![Beta](https://kotl.in/badges/beta.svg)][stability]   |
+| iOS      | [![Beta](https://kotl.in/badges/beta.svg)][stability]   |
+| Desktop  | [![Alpha](https://kotl.in/badges/alpha.svg)][stability] |
+| Web      | [![Alpha](https://kotl.in/badges/alpha.svg)][stability] |
+
+Desktop and Web are Alpha because their platform integrations depend on
+implementation details in Compose and Skia.
 
 [compose]: https://www.jetbrains.com/compose-multiplatform/
 [maplibre]: https://maplibre.org/
-[status]: https://maplibre.org/maplibre-compose/#status
+[stability]: https://kotlinlang.org/docs/components-stability.html
