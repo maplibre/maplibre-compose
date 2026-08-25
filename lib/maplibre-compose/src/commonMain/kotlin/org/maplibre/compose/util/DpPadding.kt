@@ -4,11 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
-/**
- * Four-sided padding in device-independent pixels.
- *
- * A negative value shrinks that side of the box.
- */
+/** Four-sided padding in device-independent pixels. */
 @Immutable
 public data class DpPadding(
   val left: Dp = 0.dp,
