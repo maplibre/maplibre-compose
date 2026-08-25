@@ -21,34 +21,61 @@ internal object EmscriptenGl {
     }
 
   /**
-   * Null before Compose has built its renderer.
+   * The canvas of the WebGL context Skia is drawing with, or null before Compose has built its
+   * renderer.
    *
-   * @throws IllegalStateException if the page holds more than one live WebGL context. The Skia
-   *   context this pairs with is whichever was created last, and WebGL shares no resources between
-   *   contexts, so guessing between them would draw a map from a texture another context owns.
+   * Emscripten keeps every context it created. A resize can leave a previous canvas in that list
+   * after Compose has built a new one. This pairs with the current context when one is bound, and
+   * otherwise with the last live canvas, which is the one Skia created most recently.
+   *
+   * A page with more than one Compose renderer is unsupported, because those contexts do not share
+   * GPU resources.
    */
   fun skikoCanvas(): HTMLCanvasElement? {
-    if (!isAvailable) return null
-    val contexts = registry.contexts ?: return null
-    val length = contexts.length as? Int ?: return null
-    var found: HTMLCanvasElement? = null
+    val live = liveCanvases()
+    if (live.isEmpty()) return null
+    val current = currentCanvas()
+    if (current != null && live.any { it === current }) return current
+    return live.last()
+  }
+
+  /**
+   * Canvases whose WebGL context is still live. A disconnected leftover is kept only when no
+   * connected canvas remains, so a test canvas that was never attached still resolves, and a resize
+   * that left a detached previous canvas does not.
+   */
+  private fun liveCanvases(): List<HTMLCanvasElement> {
+    if (!isAvailable) return emptyList()
+    val contexts = registry.contexts ?: return emptyList()
+    val length = contexts.length as? Int ?: return emptyList()
+    val connected = ArrayList<HTMLCanvasElement>()
+    val disconnected = ArrayList<HTMLCanvasElement>()
     for (index in 0 until length) {
-      val entry = contexts[index]
-      if (entry == null || entry == undefined) continue
-      val canvas = entry.GLctx?.canvas
-      if (canvas == null || canvas == undefined) continue
-      check(found == null) {
-        "MapLibre Compose supports one Compose renderer per page, and this page has more than one " +
-          "live WebGL context."
-      }
-      found = canvas.unsafeCast<HTMLCanvasElement>()
+      val canvas = canvasOf(contexts[index]) ?: continue
+      if (canvas.isConnected) connected.add(canvas) else disconnected.add(canvas)
     }
-    return found
+    return if (connected.isNotEmpty()) connected else disconnected
+  }
+
+  private fun currentCanvas(): HTMLCanvasElement? {
+    if (!isAvailable) return null
+    return canvasOf(registry.currentContext)
+  }
+
+  private fun canvasOf(entry: dynamic): HTMLCanvasElement? {
+    if (entry == null || entry == undefined) return null
+    val gl = entry.GLctx
+    if (gl == null || gl == undefined) return null
+    if (gl.isContextLost() == true) return null
+    val canvas = gl.canvas
+    if (canvas == null || canvas == undefined) return null
+    return canvas.unsafeCast<HTMLCanvasElement>()
   }
 
   fun contextOf(canvas: HTMLCanvasElement): WebGL2RenderingContext? {
     val context = canvas.asDynamic().GLctxObject?.GLctx
     if (context == null || context == undefined) return null
+    if (context.isContextLost() == true) return null
     return context.unsafeCast<WebGL2RenderingContext>()
   }
 

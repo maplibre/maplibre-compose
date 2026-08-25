@@ -34,6 +34,44 @@ private val gpu: Promise<BrowserGpu> by lazy {
 
 internal suspend fun browserGpu(): BrowserGpu = gpu.await()
 
+private val emscriptenContextAttributes: dynamic =
+  js(
+    "({alpha:1,depth:1,stencil:8,antialias:0,premultipliedAlpha:1,preserveDrawingBuffer:0," +
+      "preferLowPowerToHighPerformance:0,failIfMajorPerformanceCaveat:0," +
+      "enableExtensionsByDefault:1,explicitSwapControl:0,renderViaOffscreenBackBuffer:0," +
+      "majorVersion:2})"
+  )
+
+/**
+ * Registers one more Emscripten context, the leftover a resize leaves in `GL.contexts`, then
+ * restores the suite's current context.
+ */
+internal fun withExtraEmscriptenContext(
+  connected: Boolean = false,
+  block: (HTMLCanvasElement) -> Unit,
+) {
+  val registry: dynamic = js("globalThis").GL
+  val previous = registry.currentContext?.handle
+  val canvas = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
+  canvas.width = 8
+  canvas.height = 8
+  if (connected) {
+    document.body.asDynamic().appendChild(canvas)
+  }
+  val handle = registry.createContext(canvas, emscriptenContextAttributes)
+  check(handle != null && handle != undefined && handle != 0) {
+    "no extra WebGL2 context in this browser"
+  }
+  try {
+    if (previous != null && previous != undefined) registry.makeContextCurrent(previous)
+    block(canvas)
+  } finally {
+    registry.deleteContext(handle)
+    canvas.remove()
+    if (previous != null && previous != undefined) registry.makeContextCurrent(previous)
+  }
+}
+
 private fun createGpu(): BrowserGpu {
   val canvas = document.createElement("canvas").unsafeCast<HTMLCanvasElement>()
   canvas.width = GPU_CANVAS_SIZE
@@ -42,14 +80,7 @@ private fun createGpu(): BrowserGpu {
   // Emscripten's registry, not canvas.getContext: skia addresses a context by the integer name only
   // this registers.
   val registry: dynamic = js("globalThis").GL
-  val attributes =
-    js(
-      "({alpha:1,depth:1,stencil:8,antialias:0,premultipliedAlpha:1,preserveDrawingBuffer:0," +
-        "preferLowPowerToHighPerformance:0,failIfMajorPerformanceCaveat:0," +
-        "enableExtensionsByDefault:1,explicitSwapControl:0,renderViaOffscreenBackBuffer:0," +
-        "majorVersion:2})"
-    )
-  val handle = registry.createContext(canvas, attributes)
+  val handle = registry.createContext(canvas, emscriptenContextAttributes)
   check(handle != null && handle != undefined && handle != 0) {
     "no WebGL2 context in this browser"
   }

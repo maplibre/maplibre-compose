@@ -36,18 +36,33 @@ internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsComposit
   private var generation = 0L
   private var reportedUnavailable = false
 
-  /** Null before Compose has built its own. */
+  /**
+   * Null before Compose has built its own. Resolved again when Compose replaces the canvas, which a
+   * resize can do: the previous context is then lost or no longer current.
+   */
   private fun context(): dynamic {
-    if (gl != null) return gl
-    val found = EmscriptenGl.skikoCanvas() ?: return null
-    val context = EmscriptenGl.contextOf(found) ?: return null
-    canvas = found
-    gl = context
-    return context
+    val found = EmscriptenGl.skikoCanvas()
+    val resolved = found?.let { EmscriptenGl.contextOf(it) }
+    if (resolved == null) {
+      val cached = canvas
+      if (cached != null && EmscriptenGl.contextOf(cached) == null) {
+        dropTarget()
+        canvas = null
+        gl = null
+      }
+      return gl
+    }
+    if (found !== canvas) {
+      canvas = found
+      gl = resolved
+      dropTarget()
+    }
+    return resolved
   }
 
   override fun acquire(extent: MapExtent): GlJsFrameTarget {
     if (extent.isEmpty) return GlJsFrameTarget.NotReady
+    val context = context()
     val current = target
     if (
       current != null &&
@@ -56,8 +71,6 @@ internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsComposit
     ) {
       return GlJsFrameTarget.Composited(current)
     }
-
-    val context = context()
     if (context == null || !SkikoGpuBridge.isReady) {
       if (!reportedUnavailable) {
         reportedUnavailable = true
@@ -82,9 +95,14 @@ internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsComposit
     return GlJsFrameTarget.Composited(next)
   }
 
-  override fun close() {
-    target?.close()
+  private fun dropTarget() {
+    val current = target ?: return
     target = null
+    runCatching { current.close() }
+  }
+
+  override fun close() {
+    dropTarget()
   }
 }
 
