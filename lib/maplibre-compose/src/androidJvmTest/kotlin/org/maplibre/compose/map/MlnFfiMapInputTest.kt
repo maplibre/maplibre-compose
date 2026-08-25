@@ -1006,13 +1006,8 @@ class MlnFfiMapInputTest {
     }
 
     // A click is what gives the map focus, so the keyboard cases depend on it too. Keep it outside
-    // the double-click slop and past the pairing window, or a test's first click becomes the
-    // second half of this one. Compose 1.12 can leave event time unmoved between injections.
-    if (focusWithMouse) {
-      onRoot().performMouseInput { click(Offset(10f, 10f)) }
-      mainClock.advanceTimeBy(301)
-      waitForIdle()
-    }
+    // the double-click slop, or a test's first click becomes the second half of this one.
+    if (focusWithMouse) onRoot().performMouseInput { click(Offset(10f, 10f)) }
 
     body(cameraState)
   }
