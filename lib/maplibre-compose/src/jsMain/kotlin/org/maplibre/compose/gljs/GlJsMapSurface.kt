@@ -39,6 +39,11 @@ internal fun GlJsMapSurface(
       MapExtent.fromPhysical(physicalSize.width, physicalSize.height, density)
     }
   var frameRequest by remember { mutableLongStateOf(0L) }
+  var lastRenderOptions by remember { mutableStateOf(renderOptions) }
+  if (lastRenderOptions != renderOptions) {
+    lastRenderOptions = renderOptions
+    frameRequest += 1
+  }
   var failed by remember(renderer) { mutableStateOf(false) }
   val createCompositor = LocalGlJsCompositor.current
   val compositor = remember(renderer, createCompositor) { createCompositor(logger) }
@@ -64,7 +69,7 @@ internal fun GlJsMapSurface(
 
   // presentFrames is a key so that its flip to true redraws the frame the draw pass below
   // declined to blit.
-  LaunchedEffect(extent, renderer, failed, presentFrames, renderOptions) {
+  LaunchedEffect(extent, renderer, failed, presentFrames) {
     if (extent.isEmpty || failed) return@LaunchedEffect
     surface.requestFrame()
   }

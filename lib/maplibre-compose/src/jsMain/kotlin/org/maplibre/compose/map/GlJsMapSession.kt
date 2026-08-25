@@ -134,6 +134,7 @@ internal class GlJsMapSession(
   private var lentContext: WebGL2RenderingContext? = null
 
   private var maximumFps: Int? = null
+  private var appliedRenderOptions: RenderOptions? = null
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
   private var lastFrameTime = TimeSource.Monotonic.markNow()
@@ -295,6 +296,13 @@ internal class GlJsMapSession(
       .onFailure { logger?.e(it) { "MapLibre failed to close" } }
     container?.let { runCatching { it.remove() } }
     container = null
+    minZoom = null
+    maxZoom = null
+    minPitch = null
+    maxPitch = null
+    appliedBoundingBox = null
+    hasAppliedBoundingBox = false
+    appliedRenderOptions = null
     resumeStrandedTransitions()
   }
 
@@ -491,6 +499,12 @@ internal class GlJsMapSession(
   /** Answers camera reads made before the map exists. */
   private var requestedCamera: CameraPosition? = null
   private var cameraPadding: PaddingOptions = PaddingValues(0.dp).toPaddingOptions(layoutDirection)
+  private var minZoom: Double? = null
+  private var maxZoom: Double? = null
+  private var minPitch: Double? = null
+  private var maxPitch: Double? = null
+  private var appliedBoundingBox: BoundingBox? = null
+  private var hasAppliedBoundingBox = false
 
   override fun getCameraPosition(): CameraPosition =
     withMap(requestedCamera ?: CameraPosition()) { map -> map.cameraPosition() }
@@ -584,22 +598,33 @@ internal class GlJsMapSession(
   }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
+    if (hasAppliedBoundingBox && appliedBoundingBox == boundingBox) return
+    hasAppliedBoundingBox = true
+    appliedBoundingBox = boundingBox
     onMap { map -> map.setMaxBounds(boundingBox?.toLngLatBounds()) }
   }
 
   override fun setMaxZoom(maxZoom: Double) {
+    if (this.maxZoom == maxZoom) return
+    this.maxZoom = maxZoom
     onMap { it.setMaxZoom(maxZoom) }
   }
 
   override fun setMinZoom(minZoom: Double) {
+    if (this.minZoom == minZoom) return
+    this.minZoom = minZoom
     onMap { it.setMinZoom(minZoom) }
   }
 
   override fun setMinPitch(minPitch: Double) {
+    if (this.minPitch == minPitch) return
+    this.minPitch = minPitch
     onMap { it.setMinPitch(minPitch) }
   }
 
   override fun setMaxPitch(maxPitch: Double) {
+    if (this.maxPitch == maxPitch) return
+    this.maxPitch = maxPitch
     onMap { it.setMaxPitch(maxPitch) }
   }
 
@@ -637,12 +662,15 @@ internal class GlJsMapSession(
 
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
+    if (value == appliedRenderOptions) return
+    appliedRenderOptions = value
     onMap { map ->
       map.showTileBoundaries = value.isTileBordersEnabled
       map.showCollisionBoxes = value.isCollisionBoxesEnabled
       map.showPadding = value.isPaddingEnabled
       map.showOverdrawInspector = value.isOverdrawInspectorEnabled
     }
+    surface?.requestFrame()
   }
 
   override fun setGestureSettings(value: GestureOptions) {

@@ -310,6 +310,14 @@ class BrowserCompositingTest {
             "overdraw shades every fragment; the split red/blue should be gone without moving " +
               "the camera. colours=$after",
           )
+
+          val requestsAfterToggle = map.frameRequests
+          map.applyRenderOptions(RenderOptions(isOverdrawInspectorEnabled = true))
+          assertEquals(
+            requestsAfterToggle,
+            map.frameRequests,
+            "applying the same render options again should not ask for another frame",
+          )
         }
       }
     }
