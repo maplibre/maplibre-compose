@@ -621,11 +621,15 @@ class LayerPropertyRoundTripTest {
         },
         Case(
           "text-variable-anchor-offset",
-          """["top",[0.0,1.0]]""",
-          """["literal",["top",[0.0,1.0]]]""",
+          """["top",[0.0,1.0],"bottom",[0.0,-2.0]]""",
+          """["literal",["top",[0.0,1.0],"bottom",[0.0,-2.0]]]""",
         ) {
           it.setTextVariableAnchorOffset(
-            textVariableAnchorOffset(SymbolAnchor.Top to Offset(0f, 1f)).c()
+            textVariableAnchorOffset(
+                SymbolAnchor.Top to Offset(0f, 1f),
+                SymbolAnchor.Bottom to Offset(0f, -2f),
+              )
+              .c()
           )
         },
         Case("text-anchor", "\"top-left\"") { it.setTextAnchor(const(SymbolAnchor.TopLeft).c()) },

@@ -100,12 +100,14 @@ public fun const(list: List<Number>): Literal<VectorValue<Number>, *> =
  * Creates a literal expression for [TextVariableAnchorOffsetValue], used by
  * [SymbolLayer][org.maplibre.compose.layers.SymbolLayer]'s `textVariableAnchorOffset` parameter.
  *
- * The offset is measured in a multipler of the text size (EM). It's in [Offset] instead of [offset]
- * because of technical limitations in MapLibre.
+ * Each [Offset] component is measured in ems. This helper uses [Offset] instead of [offset] because
+ * MapLibre requires the offsets inside a literal array. That array cannot evaluate text-unit
+ * expressions.
  */
 public fun textVariableAnchorOffset(
   vararg pairs: Pair<SymbolAnchor, Offset>
 ): Literal<TextVariableAnchorOffsetValue, List<*>> {
+  // TODO: Replace Offset with a dedicated em offset type that makes the unit explicit.
   val elements = buildList {
     pairs.forEach { (anchor, offset) ->
       add(anchor.literal)
