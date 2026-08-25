@@ -8,13 +8,8 @@ import java.lang.foreign.ValueLayout.ADDRESS
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicLong
 import org.lwjgl.system.MemoryUtil.NULL
-import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_LOCAL
-import org.lwjgl.system.macosx.DynamicLinkLoader.RTLD_NOW
-import org.lwjgl.system.macosx.DynamicLinkLoader.dlerror
-import org.lwjgl.system.macosx.DynamicLinkLoader.dlopen
-import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
+import org.lwjgl.system.macosx.ObjCRuntime
 
 /**
  * Runs work on the AppKit main run loop.
@@ -24,33 +19,26 @@ import org.lwjgl.system.macosx.DynamicLinkLoader.dlsym
  * loop of the thread that created the manager, so location and authorization work has to hop here
  * rather than to `Dispatchers.Main`.
  *
- * `dispatch_sync_f` deadlocks if the caller is already on that run loop, so [run] executes inline
- * when
+ * OpenJDK can wait for the AWT event thread from a nested AppKit run loop during an accessibility
+ * query. Work from the AWT thread uses a run-loop selector that the nested loop services. A GCD
+ * main-queue dispatch would deadlock both threads.
+ *
+ * [run] executes inline when the caller is already on the AppKit main thread, because scheduling a
+ * run-loop selector there deadlocks. It uses
  * [NSThread isMainThread](https://developer.apple.com/documentation/foundation/nsthread/ismainthread)
- * is true.
+ * for this check.
  */
 internal object CocoaMain {
   private val linker = Linker.nativeLinker()
   private val stubs = Arena.ofShared()
   private val jobs = ConcurrentHashMap<Long, Runnable>()
-  private val nextId = AtomicLong(1)
-  private val dispatchLibrary: Long by lazy {
-    val handle = dlopen("/usr/lib/system/libdispatch.dylib", RTLD_NOW or RTLD_LOCAL)
-    check(handle != NULL) { "Failed to load libdispatch: ${dlerror()}" }
-    handle
-  }
-  private val mainQueue: MemorySegment by lazy {
-    val address = dlsym(dispatchLibrary, "_dispatch_main_q")
-    check(address != NULL) { "Failed to resolve _dispatch_main_q: ${dlerror()}" }
-    MemorySegment.ofAddress(address)
-  }
-  private val dispatchSyncF by lazy {
-    val address = dlsym(dispatchLibrary, "dispatch_sync_f")
-    check(address != NULL) { "Failed to resolve dispatch_sync_f: ${dlerror()}" }
-    linker.downcallHandle(
-      MemorySegment.ofAddress(address),
-      FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS),
-    )
+  private val jobClass: Long by lazy { registerJobClass() }
+  private val runLoopModes: Long by lazy {
+    ObjectiveC.allocInit("NSMutableArray").also { modes ->
+      OPENJDK_RUN_LOOP_MODES.forEach { mode ->
+        ObjectiveC.sendVoid(modes, "addObject:", ObjectiveC.nsString(mode))
+      }
+    }
   }
   private val workStub: MemorySegment by lazy {
     val handle =
@@ -58,12 +46,16 @@ internal object CocoaMain {
         .findStatic(
           CocoaMain::class.java,
           "invokeWork",
-          MethodType.methodType(Void.TYPE, MemorySegment::class.java),
+          MethodType.methodType(
+            Void.TYPE,
+            MemorySegment::class.java,
+            MemorySegment::class.java,
+          ),
         )
-    linker.upcallStub(handle, FunctionDescriptor.ofVoid(ADDRESS), stubs)
+    linker.upcallStub(handle, FunctionDescriptor.ofVoid(ADDRESS, ADDRESS), stubs)
   }
 
-  fun <T> run(action: () -> T): T = run(isMainThread(), ::dispatchSyncToMain, action)
+  fun <T> run(action: () -> T): T = run(isMainThread(), ::performOnMainThread, action)
 
   internal fun <T> run(
     alreadyOnMain: Boolean,
@@ -81,28 +73,68 @@ internal object CocoaMain {
     return ObjectiveC.sendLong(ObjectiveC.cls("NSThread"), "isMainThread") != 0L
   }
 
-  private fun dispatchSyncToMain(work: Runnable) {
-    val id = nextId.incrementAndGet()
-    jobs[id] = work
+  private fun performOnMainThread(work: Runnable) {
+    check(jobClass != NULL)
+    val performer = ObjectiveC.allocInit(JOB_CLASS_NAME)
+    jobs[performer] = work
     try {
-      dispatchSyncF.invoke(mainQueue, MemorySegment.ofAddress(id), workStub)
+      ObjectiveC.performSelectorOnMainThreadAndWait(
+        receiver = performer,
+        selectorName = INVOKE_SELECTOR,
+        modes = runLoopModes,
+      )
     } finally {
-      jobs.remove(id)
+      jobs.remove(performer)
+      ObjectiveC.release(performer)
     }
   }
 
   @JvmStatic
-  fun invokeWork(context: MemorySegment) {
-    jobs[context.address()]?.run()
+  fun invokeWork(
+    self: MemorySegment,
+    @Suppress("UNUSED_PARAMETER") cmd: MemorySegment,
+  ) {
+    jobs[self.address()]?.run()
+  }
+
+  private fun registerJobClass(): Long {
+    ObjectiveC.loadFramework("Foundation")
+    val existing = ObjCRuntime.objc_getClass(JOB_CLASS_NAME)
+    if (existing != NULL) return existing
+
+    val cls = ObjCRuntime.objc_allocateClassPair(ObjectiveC.cls("NSObject"), JOB_CLASS_NAME, 0)
+    check(cls != NULL) { "Failed to allocate $JOB_CLASS_NAME" }
+    check(
+      ObjCRuntime.class_addMethod(
+        cls,
+        ObjectiveC.selector(INVOKE_SELECTOR),
+        workStub.address(),
+        "v@:",
+      )
+    ) {
+      "Failed to add $INVOKE_SELECTOR to $JOB_CLASS_NAME"
+    }
+    ObjCRuntime.objc_registerClassPair(cls)
+    return cls
   }
 
   private class SyncJob<T>(private val action: () -> T) : Runnable {
-    private var result: Result<T>? = null
+    @Volatile private var result: Result<T>? = null
 
     override fun run() {
       result = runCatching(action)
     }
 
-    fun get(): T = checkNotNull(result) { "AppKit main-queue work did not run" }.getOrThrow()
+    fun get(): T = checkNotNull(result) { "AppKit main-thread work did not run" }.getOrThrow()
   }
+
+  private const val JOB_CLASS_NAME = "MLCocoaMainJob"
+  private const val INVOKE_SELECTOR = "invoke"
+  private val OPENJDK_RUN_LOOP_MODES =
+    listOf(
+      "kCFRunLoopDefaultMode",
+      "NSModalPanelRunLoopMode",
+      "NSEventTrackingRunLoopMode",
+      "AWTRunLoopMode",
+    )
 }
