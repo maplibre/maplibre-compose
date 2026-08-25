@@ -85,12 +85,10 @@ internal class GlJsRenderTarget(
       )
   }
 
-  /**
-   * Removes sampler objects left by Skia. A sampler object overrides the filtering and wrapping on
-   * MapLibre's textures, and MapLibre does not track sampler bindings in its WebGL state cache.
-   */
-  fun unbindSamplerObjects() {
+  /** Clears state that Skia uses but MapLibre does not track before MapLibre draws. */
+  fun prepareMapRender() {
     repeat(fragmentTextureUnits) { unit -> gl.bindSampler(unit, null) }
+    gl.disable(gl.SCISSOR_TEST)
   }
 
   /** Invalidates the Skia state cache for the context that adopted [image]. */

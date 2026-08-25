@@ -8,6 +8,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.spatialk.geojson.Position
@@ -39,6 +40,10 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   /** Synchronous, so a caller can bracket it with GL of its own. */
   fun drawOnce(target: GlJsRenderTarget): Boolean =
     session.render(GlJsFrameTarget.Composited(target), extentOf(target))
+
+  fun setOverdrawInspector(enabled: Boolean) {
+    session.setRenderSettings(RenderOptions(isOverdrawInspectorEnabled = enabled))
+  }
 
   suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: suspend () -> Boolean) {
     val deadline = Date.now() + RENDER_TIMEOUT_MS
