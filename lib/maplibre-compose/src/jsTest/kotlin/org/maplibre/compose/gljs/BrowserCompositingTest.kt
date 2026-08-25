@@ -1,14 +1,11 @@
 package org.maplibre.compose.gljs
 
-import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotEquals
 import kotlin.test.assertTrue
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.promise
 import org.jetbrains.skia.Bitmap
 import org.jetbrains.skia.ColorAlphaType
 import org.jetbrains.skia.ColorType
@@ -292,9 +289,6 @@ class BrowserCompositingTest {
     }
   }
 }
-
-private fun gpuTest(block: suspend (BrowserGpu) -> Unit): Promise<*> =
-  MainScope().promise { block(browserGpu()) }
 
 private suspend fun CompositedMap.drawTheWholeStyle(target: GlJsRenderTarget) {
   drawUntil(target, "the red polygon to reach the render tree") {

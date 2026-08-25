@@ -31,33 +31,25 @@ internal val LocalGlJsCompositor =
 internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsCompositor {
 
   private var canvas: HTMLCanvasElement? = null
-  private var gl: dynamic = null
   private var target: GlJsRenderTarget? = null
   private var generation = 0L
   private var reportedUnavailable = false
 
   /**
-   * Null before Compose has built its own. Resolved again when Compose replaces the canvas, which a
-   * resize can do: the previous context is then lost or no longer current.
+   * Null before Compose has built its own. Re-read each acquire so a canvas Compose replaced during
+   * a resize is picked up.
    */
   private fun context(): dynamic {
-    val found = EmscriptenGl.skikoCanvas()
-    val resolved = found?.let { EmscriptenGl.contextOf(it) }
-    if (resolved == null) {
-      val cached = canvas
-      if (cached != null && EmscriptenGl.contextOf(cached) == null) {
-        dropTarget()
-        canvas = null
-        gl = null
-      }
-      return gl
-    }
-    if (found !== canvas) {
-      canvas = found
-      gl = resolved
-      dropTarget()
-    }
+    bind(EmscriptenGl.skikoCanvas() ?: canvas)
+    val resolved = canvas?.let { EmscriptenGl.contextOf(it) }
+    if (resolved == null) bind(null)
     return resolved
+  }
+
+  private fun bind(next: HTMLCanvasElement?) {
+    if (next === canvas) return
+    dropTarget()
+    canvas = next
   }
 
   override fun acquire(extent: MapExtent): GlJsFrameTarget {
@@ -90,8 +82,8 @@ internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsComposit
         heightPx = extent.physicalHeight,
         generation = ++generation,
       )
+    dropTarget()
     target = next
-    current?.close()
     return GlJsFrameTarget.Composited(next)
   }
 

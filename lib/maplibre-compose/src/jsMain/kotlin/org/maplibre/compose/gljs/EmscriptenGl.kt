@@ -24,49 +24,37 @@ internal object EmscriptenGl {
    * The canvas of the WebGL context Skia is drawing with, or null before Compose has built its
    * renderer.
    *
-   * Emscripten keeps every context it created. A resize can leave a previous canvas in that list
-   * after Compose has built a new one. This pairs with the current context when one is bound, and
-   * otherwise with the last live canvas, which is the one Skia created most recently.
-   *
-   * A page with more than one Compose renderer is unsupported, because those contexts do not share
-   * GPU resources.
+   * Emscripten keeps every context it created, so a resize can leave a previous canvas in the list.
+   * This returns the current context when that canvas is still live, and otherwise the last live
+   * canvas. A disconnected leftover is ignored when a connected canvas remains.
    */
   fun skikoCanvas(): HTMLCanvasElement? {
     val live = liveCanvases()
-    if (live.isEmpty()) return null
     val current = currentCanvas()
-    if (current != null && live.any { it === current }) return current
-    return live.last()
+    return live.firstOrNull { it === current } ?: live.lastOrNull()
   }
 
-  /**
-   * Canvases whose WebGL context is still live. A disconnected leftover is kept only when no
-   * connected canvas remains, so a test canvas that was never attached still resolves, and a resize
-   * that left a detached previous canvas does not.
-   */
+  /** Live canvases, preferring those still in the document. */
   private fun liveCanvases(): List<HTMLCanvasElement> {
     if (!isAvailable) return emptyList()
     val contexts = registry.contexts ?: return emptyList()
     val length = contexts.length as? Int ?: return emptyList()
-    val connected = ArrayList<HTMLCanvasElement>()
-    val disconnected = ArrayList<HTMLCanvasElement>()
+    val all = ArrayList<HTMLCanvasElement>()
     for (index in 0 until length) {
       val canvas = canvasOf(contexts[index]) ?: continue
-      if (canvas.isConnected) connected.add(canvas) else disconnected.add(canvas)
+      all.add(canvas)
     }
-    return if (connected.isNotEmpty()) connected else disconnected
+    val connected = all.filter { it.isConnected }
+    return connected.ifEmpty { all }
   }
 
-  private fun currentCanvas(): HTMLCanvasElement? {
-    if (!isAvailable) return null
-    return canvasOf(registry.currentContext)
-  }
+  private fun currentCanvas(): HTMLCanvasElement? =
+    if (isAvailable) canvasOf(registry.currentContext) else null
 
   private fun canvasOf(entry: dynamic): HTMLCanvasElement? {
     if (entry == null || entry == undefined) return null
     val gl = entry.GLctx
-    if (gl == null || gl == undefined) return null
-    if (gl.isContextLost() == true) return null
+    if (gl == null || gl == undefined || gl.isContextLost() == true) return null
     val canvas = gl.canvas
     if (canvas == null || canvas == undefined) return null
     return canvas.unsafeCast<HTMLCanvasElement>()
@@ -74,8 +62,7 @@ internal object EmscriptenGl {
 
   fun contextOf(canvas: HTMLCanvasElement): WebGL2RenderingContext? {
     val context = canvas.asDynamic().GLctxObject?.GLctx
-    if (context == null || context == undefined) return null
-    if (context.isContextLost() == true) return null
+    if (context == null || context == undefined || context.isContextLost() == true) return null
     return context.unsafeCast<WebGL2RenderingContext>()
   }
 
