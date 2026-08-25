@@ -21,6 +21,7 @@ import co.touchlab.kermit.Logger
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.RenderOptions
 
 /** Hosts [renderer] on a Compose drawing surface. Compose owns the frame loop. */
 @Composable
@@ -29,7 +30,7 @@ internal fun GlJsMapSurface(
   modifier: Modifier,
   logger: Logger?,
   presentFrames: Boolean,
-  repaintToken: Any? = null,
+  renderOptions: RenderOptions,
 ) {
   val density = LocalDensity.current.density.toDouble()
   var physicalSize by remember { mutableStateOf(IntSize.Zero) }
@@ -62,10 +63,10 @@ internal fun GlJsMapSurface(
   }
 
   // presentFrames is a key so that its flip to true redraws the frame the draw pass below
-  // declined to blit. `repaintToken` is the same for a render-option change: this
+  // declined to blit. `renderOptions` is the same for a debug-flag change: this
   // composable would otherwise be skipped, and the draw that reads `frameRequest` never
   // runs.
-  LaunchedEffect(extent, renderer, failed, presentFrames, repaintToken) {
+  LaunchedEffect(extent, renderer, failed, presentFrames, renderOptions) {
     if (extent.isEmpty || failed) return@LaunchedEffect
     surface.requestFrame()
   }

@@ -73,7 +73,7 @@ internal actual fun ComposableMapView(
       // Recompose the surface when debug flags change, so the Canvas draws the frame that
       // SideEffect just applied. `requestFrame` alone is not enough: this composable is
       // otherwise skipped, and the draw that would read `frameRequest` never runs.
-      repaintToken = options.renderOptions,
+      renderOptions = options.renderOptions,
     )
   }
 }
