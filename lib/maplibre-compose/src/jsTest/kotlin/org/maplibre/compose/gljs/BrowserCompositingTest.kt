@@ -189,6 +189,34 @@ class BrowserCompositingTest {
   }
 
   @Test
+  fun overdraw_is_rendered_in_the_first_requested_frame() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+      CompositedMap(SPLIT_STYLE).use { map ->
+        map.drawTheWholeStyle(target)
+        val requestsBefore = map.frameRequests
+
+        map.setOverdrawInspector(true)
+        gl.enable(gl.SCISSOR_TEST)
+        gl.scissor(0, 0, 1, 1)
+
+        assertTrue(map.frameRequests > requestsBefore, "the option should request a frame")
+        assertTrue(map.drawOnce(target), "the requested overdraw frame should render")
+        assertFalse(
+          gl.isEnabled(gl.SCISSOR_TEST).unsafeCast<Boolean>(),
+          "MapLibre should not inherit Compose's damage scissor",
+        )
+        val colors = histogram(readFramebuffer(gl, target.framebuffer, FULL, FULL))
+        assertFalse(
+          RED in colors || BLUE in colors,
+          "the first requested frame should use overdraw",
+        )
+        assertTrue(colors.keys.any { it != "#000000" }, "overdraw should record drawn fragments")
+      }
+    }
+  }
+
+  @Test
   fun a_new_skia_context_replaces_a_same_size_target_and_the_map_keeps_drawing() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
     val compositor = ComposeGlJsCompositor(logger = null)
