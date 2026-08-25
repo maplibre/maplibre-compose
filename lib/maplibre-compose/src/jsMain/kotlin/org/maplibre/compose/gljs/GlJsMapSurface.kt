@@ -18,6 +18,8 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import co.touchlab.kermit.Logger
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.maplibre.compose.map.MapExtent
@@ -71,8 +73,20 @@ internal fun GlJsMapSurface(
     // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
     frameRequest
 
+    // The draw pass can run with an extent captured before the latest layout pass, e.g. when a
+    // transient measurement (max constraints for one frame) is corrected immediately after.
+    // Acquiring a render target for that stale extent can exceed GL limits and kill the map, so
+    // skip the frame and wait for recomposition to deliver the extent that matches this canvas.
+    // The layout size and the draw size can round a fractional device pixel ratio differently,
+    // so one physical pixel of disagreement is normal and draws rather than skips; a chronic
+    // one-pixel skip would otherwise blank the map until the next relayout.
+    val staleExtent =
+      abs(size.width.roundToInt() - extent.physicalWidth) > 1 ||
+        abs(size.height.roundToInt() - extent.physicalHeight) > 1
+    if (staleExtent) surface.requestFrame()
+
     var drew = false
-    if (!extent.isEmpty && !failed) {
+    if (!extent.isEmpty && !failed && !staleExtent) {
       try {
         val acquired = compositor.acquire(extent)
         renderer.render(acquired, extent)
