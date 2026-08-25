@@ -1,18 +1,17 @@
 package org.maplibre.compose.expressions.ast
 
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.ui.unit.dp
 import org.maplibre.compose.expressions.value.DpPaddingValue
+import org.maplibre.compose.util.DpPadding
 
-/** A [Literal] representing a [PaddingValues] value. */
-public data class DpPaddingLiteral private constructor(override val value: PaddingValues.Absolute) :
-  CompiledLiteral<DpPaddingValue, PaddingValues.Absolute> {
+/** A [Literal] representing a [DpPadding] value. */
+public data class DpPaddingLiteral private constructor(override val value: DpPadding) :
+  CompiledLiteral<DpPaddingValue, DpPadding> {
   override fun visit(block: (Expression<*>) -> Unit): Unit = block(this)
 
   public companion object {
-    private val zero = DpPaddingLiteral(PaddingValues.Absolute(0.dp, 0.dp, 0.dp, 0.dp))
+    private val zero = DpPaddingLiteral(DpPadding.Zero)
 
-    public fun of(value: PaddingValues.Absolute): DpPaddingLiteral =
-      if (value == zero.value) zero else DpPaddingLiteral(value)
+    public fun of(value: DpPadding): DpPaddingLiteral =
+      if (value == DpPadding.Zero) zero else DpPaddingLiteral(value)
   }
 }

@@ -1,6 +1,5 @@
 package org.maplibre.compose.expressions.value
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -8,6 +7,7 @@ import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.TextUnit
 import kotlin.time.Duration
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.util.DpPadding
 
 /**
  * Represents a value that an [Expression] can resolve to. Many of these types are never actually
@@ -147,8 +147,8 @@ public typealias DpOffsetValue = OffsetValue<Dp>
 public typealias TextUnitOffsetValue = OffsetValue<TextUnit>
 
 /**
- * Represents an [ExpressionValue] that resolves to an absolute (layout direction unaware) padding
- * applied along the edges inside a box ([PaddingValues.Absolute]). See [const].
+ * Represents an [ExpressionValue] that resolves to four-sided padding in device-independent pixels
+ * ([DpPadding]). See [const] and [padding].
  */
 public sealed interface DpPaddingValue : VectorValue<Dp>
 
