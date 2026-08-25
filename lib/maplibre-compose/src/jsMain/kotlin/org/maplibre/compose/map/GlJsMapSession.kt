@@ -184,6 +184,9 @@ internal class GlJsMapSession(
       GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
         map.redraw()
       }
+      // MapLibre leaves the redirected target bound. Skia samples that texture next, and a bound
+      // color attachment plus a bound sampler on the same texture is illegal feedback.
+      mapTarget.gl.bindFramebuffer(mapTarget.gl.FRAMEBUFFER, null)
       SkikoGpuBridge.resetGlState()
     } else {
       // GL JS runs style updates, tile loading and every camera ease from inside its own render, so
@@ -222,6 +225,12 @@ internal class GlJsMapSession(
    * a context from its own canvas and is never drawn.
    */
   private fun ensureMap(target: GlJsRenderTarget?, extent: MapExtent): MaplibreMap? {
+    val incoming = target?.gl
+    // A resize can replace Compose's WebGL context while this session stays alive. The previous
+    // map's buffers belong to the old context.
+    if (map != null && incoming != null && lentContext != null && incoming !== lentContext) {
+      destroyMap()
+    }
     map?.let {
       return it
     }

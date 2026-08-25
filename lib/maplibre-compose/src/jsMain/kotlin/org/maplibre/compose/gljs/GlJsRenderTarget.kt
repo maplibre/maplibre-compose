@@ -83,11 +83,17 @@ internal class GlJsRenderTarget(
   }
 
   /**
-   * Removes sampler objects left by Skia. A sampler object overrides the filtering and wrapping on
-   * MapLibre's textures, and MapLibre does not track sampler bindings in its WebGL state cache.
+   * Clears sampler objects and 2D texture bindings Skia left on the fragment units. A sampler
+   * object overrides filtering on MapLibre's textures. A 2D binding of this target's color texture
+   * while the framebuffer is bound is illegal feedback.
    */
   fun unbindSamplerObjects() {
-    repeat(fragmentTextureUnits) { unit -> gl.bindSampler(unit, null) }
+    repeat(fragmentTextureUnits) { unit ->
+      gl.activeTexture(gl.TEXTURE0 + unit)
+      gl.bindTexture(gl.TEXTURE_2D, null)
+      gl.bindSampler(unit, null)
+    }
+    gl.activeTexture(gl.TEXTURE0)
   }
 
   /** The texture is not deleted here: adoption handed it to Skia. */

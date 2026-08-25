@@ -25,13 +25,17 @@ internal object EmscriptenGl {
    * renderer.
    *
    * Emscripten keeps every context it created, so a resize can leave a previous canvas in the list.
-   * This returns the current context when that canvas is still live, and otherwise the last live
-   * canvas. A disconnected leftover is ignored when a connected canvas remains.
+   * A connected leftover is ignored in favor of the last live canvas, which is the one Skia created
+   * most recently. When every canvas is detached, this returns the current context.
    */
   fun skikoCanvas(): HTMLCanvasElement? {
     val live = liveCanvases()
+    if (live.isEmpty()) return null
+    // A resize can leave the previous canvas connected and still current for a frame. The last
+    // live canvas is the one Skia created most recently.
+    if (live.any { it.isConnected }) return live.last()
     val current = currentCanvas()
-    return live.firstOrNull { it === current } ?: live.lastOrNull()
+    return live.firstOrNull { it === current } ?: live.last()
   }
 
   /** Live canvases, preferring those still in the document. */

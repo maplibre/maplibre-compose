@@ -248,6 +248,53 @@ class BrowserCompositingTest {
   }
 
   @Test
+  fun a_bound_target_texture_does_not_block_the_next_map_frame() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { target ->
+      CompositedMap(SPLIT_STYLE).use { map ->
+        map.drawTheWholeStyle(target)
+
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer)
+        val texture =
+          gl.getFramebufferAttachmentParameter(
+            gl.FRAMEBUFFER,
+            gl.COLOR_ATTACHMENT0,
+            gl.FRAMEBUFFER_ATTACHMENT_OBJECT_NAME,
+          )
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null)
+        gl.activeTexture(gl.TEXTURE0)
+        gl.bindTexture(gl.TEXTURE_2D, texture)
+
+        assertTrue(map.drawOnce(target), "the map should draw while its target texture was bound")
+        assertEquals(
+          mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
+          histogram(readFramebuffer(gl, target.framebuffer, FULL, FULL)),
+          "the map should have redrawn into its target",
+        )
+      }
+    }
+  }
+
+  @Test
+  fun a_new_context_identity_rebuilds_the_map_and_keeps_drawing() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    val alias: dynamic = js("Object").create(gl)
+    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { first ->
+      CompositedMap(SPLIT_STYLE).use { map ->
+        map.drawTheWholeStyle(first)
+        GlJsRenderTarget(alias, FULL, FULL, generation = 2).use { second ->
+          map.drawTheWholeStyle(second)
+          assertEquals(
+            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
+            histogram(readFramebuffer(gl, second.framebuffer, FULL, FULL)),
+            "the rebuilt map should draw into the new target",
+          )
+        }
+      }
+    }
+  }
+
+  @Test
   fun a_resize_allocates_a_new_target_and_the_map_keeps_drawing() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
     ComposeGlJsCompositor(logger = null).use { compositor ->

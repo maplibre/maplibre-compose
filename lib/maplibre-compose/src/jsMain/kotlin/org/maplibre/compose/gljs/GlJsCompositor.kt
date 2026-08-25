@@ -56,8 +56,11 @@ internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsComposit
     if (extent.isEmpty) return GlJsFrameTarget.NotReady
     val context = context()
     val current = target
+    // Size is not enough: a resize can replace the WebGL context on the same canvas, and a second
+    // map (the magnifying lens) keeps its pixel size while that happens.
     if (
       current != null &&
+        current.gl === context &&
         current.widthPx == extent.physicalWidth &&
         current.heightPx == extent.physicalHeight
     ) {
