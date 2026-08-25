@@ -214,9 +214,10 @@ app:
   </TabItem>
 </Tabs>
 
-### Web (JS)
+### Web
 
-Compile the JS target to ES modules. Non-ESM builds are not supported.
+Use the Kotlin/JS or Kotlin/Wasm browser target. Compile the Kotlin/JS target to
+ES modules. Non-ESM builds are not supported.
 
 <Tabs syncKey="build-system">
   <TabItem label="Gradle" icon="seti:gradle">
@@ -224,6 +225,10 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
     kotlin {
       js {
         useEsModules()
+        browser()
+      }
+
+      wasmJs {
         browser()
       }
     }
@@ -234,7 +239,7 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
     ```yaml title="shared/module.yaml"
     product:
       type: kmp/lib
-      platforms: [jvm, android, iosArm64, iosSimulatorArm64, js]
+      platforms: [jvm, android, iosArm64, iosSimulatorArm64, js, wasmJs]
     ```
 
     ```yaml title="js-app/module.yaml"
