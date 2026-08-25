@@ -30,7 +30,9 @@ export default defineConfig({
       plugins: [
         starlightCopyButton(),
         // Generated static sites own these paths outside Astro's page tree.
-        starlightLinksValidator({ exclude: [`${base}/api/**`, `${base}/demo/**`] }),
+        starlightLinksValidator({
+          exclude: [`${base}/api/**`, `${base}/demo/app/**`],
+        }),
       ],
       social: [
         {
@@ -41,11 +43,6 @@ export default defineConfig({
       ],
       sidebar: [
         { label: "Overview", link: "/" },
-        {
-          label: "Live demo",
-          link: "/demo/",
-          attrs: { target: "_blank", rel: "noopener noreferrer" },
-        },
         { label: "Getting started", slug: "getting-started" },
         {
           label: "Guides",
@@ -72,6 +69,7 @@ export default defineConfig({
           link: "/api/",
           attrs: { target: "_blank", rel: "noopener noreferrer" },
         },
+        { label: "Live demo", slug: "demo" },
       ],
     }),
   ],

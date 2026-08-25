@@ -1,0 +1,18 @@
+---
+/**
+ * Embeds the packaged Compose/JS demo app.
+ *
+ * That app is a complete document: it mounts Compose on `document.body`, owns
+ * the canvas, and loads composeResources relative to its HTML. An iframe keeps
+ * that document separate from the Starlight page.
+ */
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const src = `${base}/demo/app/`;
+---
+
+<iframe
+  class="demo-embed"
+  src={src}
+  title="MapLibre Compose demo app"
+  allow="geolocation; fullscreen"
+></iframe>
