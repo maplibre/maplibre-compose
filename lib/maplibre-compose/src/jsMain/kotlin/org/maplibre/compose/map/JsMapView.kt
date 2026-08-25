@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
@@ -58,6 +59,10 @@ internal actual fun ComposableMapView(
     currentUpdate.value(session)
     session.setRenderSettings(currentOptions.value.renderOptions)
   }
+
+  // Composition can apply the flags before the Canvas paints, and still skip that paint.
+  // A later coroutine turn requests the frame that presents an off toggle.
+  LaunchedEffect(options.renderOptions) { session.requestFrame() }
 
   DisposableEffect(session) {
     onDispose {

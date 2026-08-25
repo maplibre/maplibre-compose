@@ -148,6 +148,10 @@ internal class GlJsMapSession(
     surface.requestFrame()
   }
 
+  internal fun requestFrame() {
+    surface?.requestFrame()
+  }
+
   override fun onSurfaceLost() {
     // The map's context belongs to the surface, so it cannot outlive it.
     destroyMap()
