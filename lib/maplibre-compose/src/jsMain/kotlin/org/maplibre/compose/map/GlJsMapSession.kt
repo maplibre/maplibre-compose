@@ -42,7 +42,6 @@ import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
-import org.maplibre.compose.gljs.SkikoGpuBridge
 import org.maplibre.compose.gljs.isCameraEasing
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.styleJson
@@ -184,7 +183,7 @@ internal class GlJsMapSession(
       GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
         map.redraw()
       }
-      SkikoGpuBridge.resetGlState()
+      mapTarget.resetSkiaState()
     } else {
       // GL JS runs style updates, tile loading and every camera ease from inside its own render, so
       // even a map nothing samples has to be asked to draw.
@@ -222,6 +221,17 @@ internal class GlJsMapSession(
    * a context from its own canvas and is never drawn.
    */
   private fun ensureMap(target: GlJsRenderTarget?, extent: MapExtent): MaplibreMap? {
+    val incomingContext = target?.gl?.unsafeCast<WebGL2RenderingContext>()
+    if (
+      map != null &&
+        incomingContext != null &&
+        lentContext != null &&
+        incomingContext !== lentContext
+    ) {
+      // MapLibre may keep its map across a new Skia renderer on the same browser context, but its
+      // resources cannot move to a different browser context.
+      destroyMap()
+    }
     map?.let {
       return it
     }

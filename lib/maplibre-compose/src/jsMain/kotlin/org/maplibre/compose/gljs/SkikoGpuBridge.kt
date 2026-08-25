@@ -20,7 +20,8 @@ private const val GL_STATES = 0xffff
  *   [JetBrains/skiko#1219](https://github.com/JetBrains/skiko/pull/1219) or an equivalent lands.
  */
 internal object SkikoGpuBridge {
-  private var contextPointer: dynamic = null
+  /** Skia context pointer for each Emscripten renderer generation. */
+  private val contextPointers = mutableMapOf<Int, Any>()
 
   /** Which mangled property this build keeps a managed object's native pointer in. */
   private var pointerField: String? = null
@@ -28,9 +29,6 @@ internal object SkikoGpuBridge {
   private var managedPrototype: dynamic = null
 
   private var hookInstalled = false
-
-  val isReady: Boolean
-    get() = contextPointer != null && pointerField != null
 
   /**
    * Must run after skiko's wasm module has published its exports and before Compose builds its
@@ -42,7 +40,9 @@ internal object SkikoGpuBridge {
     if (original == null || original == undefined) return false
     browserWindow[MAKE_GL_SYMBOL] = {
       val pointer = original()
-      contextPointer = pointer
+      EmscriptenGl.currentHandle()?.let { handle ->
+        contextPointers[handle] = pointer.unsafeCast<Any>()
+      }
       pointer
     }
     hookInstalled = true
@@ -56,8 +56,8 @@ internal object SkikoGpuBridge {
    * development build goes through its accessor. It frees nothing — the pointer belongs to Compose
    * — and no instance method may dispatch on it.
    */
-  fun directContext(): DirectContext? {
-    val pointer = contextPointer ?: return null
+  fun directContext(context: EmscriptenGlContext): DirectContext? {
+    val pointer = contextPointers[context.handle] ?: return null
     val field = pointerField ?: return null
     val prototype = managedPrototype ?: return null
     val stand: dynamic = js("Object").create(prototype)
@@ -66,18 +66,22 @@ internal object SkikoGpuBridge {
   }
 
   /** `DirectContext.resetGLAll()`, through the export, since that method needs a real instance. */
-  fun resetGlState() {
-    val pointer = contextPointer ?: return
+  fun resetGlState(context: EmscriptenGlContext) {
+    val pointer = contextPointers[context.handle] ?: return
     val reset = browserWindow[RESET_SYMBOL]
     if (reset == null || reset == undefined) return
     reset(pointer, GL_STATES)
   }
 
-  fun diagnostic(): String =
+  fun isReady(context: EmscriptenGlContext): Boolean =
+    pointerField != null && contextPointers.containsKey(context.handle)
+
+  fun diagnostic(context: EmscriptenGlContext): String =
     when {
       !hookInstalled -> "skiko's exports were not on the page when MapLibre Compose initialized"
-      contextPointer == null -> "Compose has not created its GPU context yet"
       pointerField == null -> "skiko's native pointer field could not be identified in this build"
+      !contextPointers.containsKey(context.handle) ->
+        "Compose's Skia context was not captured for Emscripten handle ${context.handle}"
       else -> "ready"
     }
 
