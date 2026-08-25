@@ -24,7 +24,7 @@ fun Material3() {
     overlay =
       MapOverlay {
         ScaleBar(
-          cameraState.metersPerDpAtTarget,
+          cameraState.viewport?.metersPerDpAtTarget ?: 0.0,
           modifier = Modifier.align(Alignment.TopStart),
         ) // (1)!
         CompassButton(cameraState, modifier = Modifier.align(Alignment.TopEnd))

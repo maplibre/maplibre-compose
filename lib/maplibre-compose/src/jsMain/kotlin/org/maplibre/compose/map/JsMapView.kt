@@ -66,6 +66,7 @@ internal actual fun ComposableMapView(
       modifier =
         modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
       logger = logger,
+      presentFrames = session.hasLoadedFirstStyle,
     )
   }
 }

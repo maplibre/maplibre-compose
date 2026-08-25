@@ -193,10 +193,9 @@ public object CompassDefaults {
   /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */
   public val ContainerColor: Color = Color.White.copy(alpha = 0.9f)
 
-  public val ShadowElevation: Dp = 1.dp
+  public val ShadowElevation: Dp = 0.dp
 
-  /** Matches the lift that Material's elevated button gives a hovered pointer. */
-  public val HoveredShadowElevation: Dp = 3.dp
+  public val HoveredShadowElevation: Dp = 0.dp
 
   /** Accessibility label for the needle. */
   @Composable public fun contentDescription(): String = stringResource(Res.string.compass)

@@ -27,17 +27,19 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param color Defines the color of each pixel based on its density value in a heatmap. Should be
  *   an expression that uses [heatmapDensity] as input.
  * @param opacity The global opacity at which the heatmap layer will be drawn.
  * @param radius Radius of influence of one heatmap point. Increasing the value makes the heatmap
- *   smoother, but less detailed.
+ *   smoother, but less detailed. The expression may use feature properties and feature state.
  * @param weight A measure of how much an individual point contributes to the heatmap. A value of 10
  *   would be equivalent to having 10 points of weight 1 in the same spot. Especially useful when
- *   combined with clustering. A value in the range of `[0..infinity)`.
+ *   combined with clustering. A value in the range of `[0..infinity)`. The expression may use
+ *   feature properties and feature state.
  * @param intensity Similar to [weight] but controls the intensity of the heatmap globally.
  *   Primarily used for adjusting the heatmap based on zoom level.
  * @param onClick Function to call when any feature in this layer has been clicked.
@@ -91,18 +93,37 @@ public fun HeatmapLayer(
   )
 }
 
-internal expect class HeatmapLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class HeatmapLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "heatmap"
 
-  fun setHeatmapRadius(radius: CompiledExpression<DpValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setHeatmapWeight(weight: CompiledExpression<FloatValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>)
+  fun setHeatmapRadius(radius: CompiledExpression<DpValue>) {
+    setPaintProperty("heatmap-radius", radius)
+  }
 
-  fun setHeatmapColor(color: CompiledExpression<ColorValue>)
+  fun setHeatmapWeight(weight: CompiledExpression<FloatValue>) {
+    setPaintProperty("heatmap-weight", weight)
+  }
 
-  fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setHeatmapIntensity(intensity: CompiledExpression<FloatValue>) {
+    setPaintProperty("heatmap-intensity", intensity)
+  }
+
+  fun setHeatmapColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("heatmap-color", color)
+  }
+
+  fun setHeatmapOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("heatmap-opacity", opacity)
+  }
 }

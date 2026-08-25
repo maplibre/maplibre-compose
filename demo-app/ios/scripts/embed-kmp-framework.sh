@@ -26,4 +26,4 @@ if ! java -version >/dev/null 2>&1; then
 fi
 
 cd "$SRCROOT/../.."
-exec ./gradlew :demo-app:common:embedAndSignAppleFrameworkForXcode
+./gradlew :demo-app:common:embedAndSignAppleFrameworkForXcode

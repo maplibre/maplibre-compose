@@ -36,15 +36,17 @@ jobs:
           git diff --exit-code
           git diff --cached --exit-code
       - run: mise run lint:android
+      - run: mise run ci:test-scripts
+      - run: mise run style-spec:parity -- --check
 
   android:
     strategy:
       fail-fast: false
       matrix:
         include:
-          # the latest, Android 15 (Vanilla Ice Cream); also the leg that ships
+          # the latest, Android 16 (Baklava); also the leg that ships
           # the demo APK, which does not vary by API level
-          - api-level: 35
+          - api-level: 36
             artifact_name: demo-app-android
           # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
           - api-level: 24
@@ -57,9 +59,45 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           android-emulator: ${{ matrix.api-level }}
-      - run: mise run test:android
+      - id: android-host-tests
+        run: mise run test:android
+      - name: Upload Android host test results to Trunk
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/test-results/testDebugUnitTest/TEST-*.xml,**/build/test-results/testAndroidHostTest/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: android-host
+          previous-step-outcome: ${{ steps.android-host-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload Android host test reports
+        if: ${{ failure() && steps.android-host-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: android-${{ matrix.api-level }}-host-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
       - id: android-device-tests
         run: mise run test:android:device ${{ matrix.api-level }}
+      - name: Upload Android device test results to Trunk
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/outputs/androidTest-results/**/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: android-device-api-${{ matrix.api-level }}
+          previous-step-outcome: ${{ steps.android-device-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
       - name: Capture Android emulator diagnostics
         if: ${{ failure() && steps.android-device-tests.outcome == 'failure' }}
         run: mise run android-emulator:diagnostics
@@ -94,7 +132,30 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: "true"
-      - run: mise run test:ios
+      - id: ios-tests
+        run: mise run test:ios
+      - name: Upload iOS test results to Trunk
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/test-results/iosSimulatorArm64Test/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: ios-simulator-arm64
+          previous-step-outcome: ${{ steps.ios-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload iOS test reports
+        if: ${{ failure() && steps.ios-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: ios-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
 
   ios-device:
     timeout-minutes: 45
@@ -116,7 +177,30 @@ jobs:
         with:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
-      - run: mise run test:js
+      - id: js-tests
+        run: mise run test:js
+      - name: Upload JS test results to Trunk
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/test-results/jsBrowserTest/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: js-browser-linux-x64
+          previous-step-outcome: ${{ steps.js-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload JS test reports
+        if: ${{ failure() && steps.js-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: js-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
 
   desktop:
     strategy:
@@ -127,22 +211,27 @@ jobs:
             save_toolchains: "false" # ios owns this label
             artifact_type: dmg
             artifact_name: demo-app-desktop-macos-arm64
+            test_variant: desktop-macos-arm64
           - runner: ubuntu-24.04
             save_toolchains: "false" # hygiene owns this label
             artifact_type: deb
             artifact_name: demo-app-desktop-linux-x64
+            test_variant: desktop-linux-x64
           - runner: ubuntu-24.04-arm
             save_toolchains: "true"
             artifact_type: deb
             artifact_name: demo-app-desktop-linux-arm64
+            test_variant: desktop-linux-arm64
           - runner: windows-2022
             save_toolchains: "true"
             artifact_type: msi
             artifact_name: demo-app-desktop-windows-x64
+            test_variant: desktop-windows-x64
           - runner: windows-11-arm
             save_toolchains: "true"
             artifact_type: msi
             artifact_name: demo-app-desktop-windows-arm64
+            test_variant: desktop-windows-arm64
     timeout-minutes: 45
     runs-on: ${{ matrix.runner }}
     steps:
@@ -153,7 +242,30 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           save-toolchains: ${{ matrix.save_toolchains }}
-      - run: mise run test:desktop
+      - id: desktop-tests
+        run: mise run test:desktop
+      - name: Upload desktop test results to Trunk
+        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        continue-on-error: true
+        uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
+        with:
+          junit-paths: "**/build/test-results/jvmTest/TEST-*.xml,**/build/test-results/test/TEST-*.xml"
+          org-slug: sargunv
+          token: ${{ secrets.TRUNK_API_TOKEN }}
+          variant: ${{ matrix.test_variant }}
+          previous-step-outcome: ${{ steps.desktop-tests.outcome }}
+          allow-missing-junit-files: "false"
+        env:
+          TRUNK_API_TOKEN: ${{ secrets.TRUNK_API_TOKEN }}
+      - name: Upload desktop test reports
+        if: ${{ failure() && steps.desktop-tests.outcome == 'failure' }}
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          if-no-files-found: warn
+          name: ${{ matrix.artifact_name }}-test-reports
+          path: |
+            **/build/reports/tests
+            **/build/test-results
       - run: mise run build:desktop-app
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -165,6 +277,16 @@ jobs:
   docs:
     timeout-minutes: 30
     runs-on: ubuntu-24.04
+    environment:
+      name: cloudflare-pages
+      url: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
+      deployment: >-
+        ${{
+          github.event_name == 'push'
+          || (github.event_name == 'pull_request'
+          && github.actor != 'dependabot[bot]'
+          && github.event.pull_request.head.repo.full_name == github.repository)
+        }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -174,12 +296,56 @@ jobs:
       - uses: ./.github/actions/setup-ci-deps
         with:
           pnpm-cache: "true"
-      - run: mise run build:docs
+      - run: mise run test:pages
+        env:
+          # Marks the Cloudflare Pages preview; release builds set no banner.
+          DOCS_BANNER: >-
+            ${{ github.event_name == 'pull_request'
+            && format(
+              'This site is a preview of <a href="{0}">pull request #{1}</a>.',
+              github.event.pull_request.html_url,
+              github.event.number)
+            || 'This site is a preview of the main branch. The published
+            documentation is at <a
+            href="https://maplibre.org/maplibre-compose/">maplibre.org</a>.' }}
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: docs/dist
+      - name: Deploy the Cloudflare Pages preview
+        id: deploy-cloudflare
+        if: >-
+          github.event_name == 'push'
+          || (github.event_name == 'pull_request'
+          && github.actor != 'dependabot[bot]'
+          && github.event.pull_request.head.repo.full_name == github.repository)
+        uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
+        env:
+          CLOUDFLARE_BRANCH: >-
+            ${{ github.event_name == 'pull_request'
+            && format('pr-{0}', github.event.number)
+            || 'main' }}
+        with:
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          command: >-
+            pages deploy build/cloudflare-pages
+            --project-name=maplibre-compose
+            --branch=${{ env.CLOUDFLARE_BRANCH }}
+          packageManager: pnpm
+          wranglerVersion: "4.125.0"
+      - name: Report the Cloudflare Pages preview
+        if: steps.deploy-cloudflare.outcome == 'success'
+        env:
+          DEPLOYMENT_URL: ${{ steps.deploy-cloudflare.outputs.deployment-url }}
+          PREVIEW_URL: ${{ steps.deploy-cloudflare.outputs.pages-deployment-alias-url }}
+        run: |
+          url="${PREVIEW_URL:-$DEPLOYMENT_URL}"
+          echo "Cloudflare Pages: ${url}/maplibre-compose/" >> "$GITHUB_STEP_SUMMARY"
 
+  # Branch protection requires this job. always() still runs it after a needed
+  # job fails; GitHub otherwise skips it and treats that skip as a passing check.
   all-good:
+    if: ${{ always() }}
     needs:
       - hygiene
       - android
@@ -191,4 +357,14 @@ jobs:
     timeout-minutes: 5
     runs-on: ubuntu-24.04
     steps:
-      - run: echo 'All checks passed!'
+      - name: Check that every needed job succeeded
+        env:
+          RESULTS: ${{ join(needs.*.result, ', ') }}
+          ANY_BAD: ${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}
+        run: |
+          echo "needed job results: ${RESULTS}"
+          if [ "${ANY_BAD}" = true ]; then
+            echo "a needed job did not succeed"
+            exit 1
+          fi
+          echo 'All checks passed!'

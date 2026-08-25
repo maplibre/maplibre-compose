@@ -15,7 +15,7 @@ mavenPublishing {
 }
 
 dependencies {
-  runtimeOnly(project(":lib:maplibre-compose-macos"))
+  runtimeOnly(project(":lib:location-runtime-macos"))
 
   DesktopHostPlatform.MacosArm64.runtimeDependencies(
       backend = DesktopHostPlatform.RenderBackend.METAL,

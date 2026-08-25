@@ -16,6 +16,39 @@ internal val DEFAULT_WORKER_URL: String by lazy {
 }
 
 /**
+ * A same-origin worker URL for [workerUrl]. A cross-origin URL becomes a blob that `import`s the
+ * absolute form of that URL, which is what MapLibre GL JS 6 does for a CDN worker. Same-origin URLs
+ * are returned as they are.
+ *
+ * MapLibre's own laundering uses `new URL(url, import.meta.url)`. Webpack rewrites that into a
+ * module lookup, which fails for an `https` URL with "Cannot find module". This path avoids
+ * `import.meta.url` so the CDN default works when the library is bundled.
+ */
+internal fun sameOriginWorkerUrl(workerUrl: String): String =
+  js(
+      """
+      (function() {
+        var loc = globalThis.location;
+        if (!loc) return workerUrl;
+        var resolvedWorkerUrl;
+        try {
+          resolvedWorkerUrl = new URL(workerUrl, loc.href);
+          if (resolvedWorkerUrl.origin === loc.origin) return workerUrl;
+        } catch (e) {
+          return workerUrl;
+        }
+        return URL.createObjectURL(
+          new Blob(
+            ["import " + JSON.stringify(resolvedWorkerUrl.href)],
+            {type: "text/javascript"}
+          )
+        );
+      })()
+      """
+    )
+    .unsafeCast<String>()
+
+/**
  * The places MapLibre GL JS is bent at runtime to be driven as a headless renderer. Each is pinned
  * to internals of one MapLibre version and fails loudly when a version bump moves them.
  */
@@ -26,7 +59,7 @@ internal object GlJsRuntime {
   /** Points MapLibre GL JS 6 at [workerUrl]. The first call wins; later calls are ignored. */
   fun pointAtWorker(workerUrl: String) {
     if (workerUrlConfigured) return
-    setWorkerUrl(workerUrl)
+    setWorkerUrl(sameOriginWorkerUrl(workerUrl))
     workerUrlConfigured = true
   }
 
@@ -53,6 +86,45 @@ internal object GlJsRuntime {
         "MapLibre asked for $lent WebGL contexts while its map was being created, not one. It no " +
           "longer takes its context from its canvas the way this platform assumes."
       }
+    }
+  }
+
+  /**
+   * Runs [draw] while [gl] reports [width] and [height] as its drawing buffer size.
+   *
+   * MapLibre normally renders into its context's canvas, so some fullscreen passes read the canvas
+   * drawing buffer instead of the current framebuffer. The Compose compositor redirects that
+   * framebuffer to a map-sized texture inside a larger shared canvas.
+   */
+  fun <T> withDrawingBufferSize(
+    gl: WebGL2RenderingContext,
+    width: Int,
+    height: Int,
+    draw: () -> T,
+  ): T {
+    val target = gl.asDynamic()
+    val objects = js("Object")
+    val previousWidth = objects.getOwnPropertyDescriptor(target, "drawingBufferWidth")
+    val previousHeight = objects.getOwnPropertyDescriptor(target, "drawingBufferHeight")
+    val widthDescriptor = js("({configurable: true})")
+    val heightDescriptor = js("({configurable: true})")
+    widthDescriptor.value = width
+    heightDescriptor.value = height
+    try {
+      objects.defineProperty(target, "drawingBufferWidth", widthDescriptor)
+      objects.defineProperty(target, "drawingBufferHeight", heightDescriptor)
+      return draw()
+    } finally {
+      restoreOwnProperty(objects, target, "drawingBufferWidth", previousWidth)
+      restoreOwnProperty(objects, target, "drawingBufferHeight", previousHeight)
+    }
+  }
+
+  private fun restoreOwnProperty(objects: dynamic, target: dynamic, name: String, value: dynamic) {
+    if (value == null || value == undefined) {
+      js("Reflect").deleteProperty(target, name)
+    } else {
+      objects.defineProperty(target, name, value)
     }
   }
 

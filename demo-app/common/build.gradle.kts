@@ -5,8 +5,6 @@ plugins {
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
-  id(libs.plugins.kotlin.serialization.get().pluginId)
-  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 kotlin {
@@ -20,7 +18,6 @@ kotlin {
       baseName = "DemoApp"
       isStatic = true
     }
-    it.configureSpmMaplibre(project)
   }
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
@@ -40,9 +37,29 @@ kotlin {
   }
 
   sourceSets {
-    val jvmMain by getting
-
     all { languageSettings { optIn("androidx.compose.material3.ExperimentalMaterial3Api") } }
+
+    // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS,
+    // so render toggles and offline UI live here.
+    val maplibreNativeMain by creating {
+      dependsOn(commonMain.get())
+    }
+    val androidJvmMain by creating { dependsOn(maplibreNativeMain) }
+    val nonAndroidMain by creating { dependsOn(commonMain.get()) }
+
+    androidMain { dependsOn(androidJvmMain) }
+
+    jvmMain {
+      dependsOn(androidJvmMain)
+      dependsOn(nonAndroidMain)
+    }
+
+    iosMain {
+      dependsOn(maplibreNativeMain)
+      dependsOn(nonAndroidMain)
+    }
+
+    jsMain { dependsOn(nonAndroidMain) }
 
     commonMain.dependencies {
       // The platform modules compose against these, so they are api rather than implementation.
@@ -52,84 +69,52 @@ kotlin {
 
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.jetbrains.compose.material3)
+      implementation(libs.jetbrains.compose.material3.adaptive)
       implementation(libs.androidx.navigation.compose)
+      implementation(libs.kotlin.dsv)
       implementation(libs.ktor.client.core)
-      implementation(libs.ktor.client.contentNegotiation)
-      implementation(libs.ktor.serialization.kotlinxJson)
+      implementation(libs.mobilityData.gtfsSchedule)
       implementation(libs.spatialk.geojson)
 
-      // We exclude the android sdk here so we can select a variant via gradle property.
-      // See androidMain below.
-      api(project(":lib:maplibre-compose")) {
-        exclude(group = "org.maplibre.gl", module = "android-sdk")
-      }
-      implementation(project(":lib:maplibre-compose-material3")) {
-        exclude(group = "org.maplibre.gl", module = "android-sdk")
-      }
+      api(project(":lib:maplibre-compose"))
+      implementation(project(":lib:maplibre-compose-material3"))
     }
 
-    val nonAndroidShared by creating { dependsOn(commonMain.get()) }
-
-    val androidIosShared by creating { dependsOn(commonMain.get()) }
-
-    // Platforms backed by MapLibre Native, where the offline API exists; mirrors the library's own
-    // maplibreNativeMain source set.
-    val maplibreNativeShared by creating { dependsOn(commonMain.get()) }
-
-    val desktopJsShared by creating { dependsOn(commonMain.get()) }
-
     androidMain {
-      dependsOn(androidIosShared)
-      dependsOn(maplibreNativeShared)
       dependencies {
         implementation(libs.jetbrains.compose.ui.tooling)
         implementation(libs.androidx.activity.compose)
         implementation(libs.kotlinx.coroutines.android)
         implementation(libs.ktor.client.okhttp)
-        implementation(libs.accompanist.permissions)
-
-        implementation(project(":lib:maplibre-compose-gms")) {
-          exclude(group = "org.maplibre.gl", module = "android-sdk")
-        }
-
-        project.properties["demoAppMaplibreAndroidFlavor"].let { flavor ->
-          when (flavor) {
-            null,
-            "default" -> implementation(libs.maplibre.android)
-            "opengl" -> implementation(libs.maplibre.androidOpenGL)
-            "vulkan" -> implementation(libs.maplibre.androidVulkan)
-            "debug" -> implementation(libs.maplibre.androidDebug)
-            else -> error("Unknown maplibre android flavor: $flavor")
-          }
-        }
+        implementation(project(":lib:location-runtime-gms"))
+        implementation(project(":lib:location-runtime-hms"))
       }
     }
 
-    iosMain {
-      dependsOn(androidIosShared)
-      dependsOn(maplibreNativeShared)
-      dependsOn(nonAndroidShared)
-      dependencies { implementation(libs.ktor.client.darwin) }
+    jvmMain.dependencies {
+      implementation(compose.desktop.currentOs)
+      implementation(libs.kotlinx.coroutines.swing)
+      implementation(libs.ktor.client.okhttp)
     }
 
-    jvmMain.apply {
-      dependsOn(maplibreNativeShared)
-      dependsOn(nonAndroidShared)
-      dependsOn(desktopJsShared)
-      dependencies {
-        implementation(compose.desktop.currentOs)
-        implementation(libs.kotlinx.coroutines.swing)
-        implementation(libs.ktor.client.okhttp)
-      }
+    iosMain.dependencies { implementation(libs.ktor.client.darwin) }
+
+    jsMain.dependencies {
+      implementation(libs.jetbrains.compose.html.core)
+      implementation(libs.kotlin.wrappers.js)
+      implementation(libs.ktor.client.js)
+      implementation(npm("fflate", libs.versions.fflate.get()))
+      // IANA zone rules for kotlinx-datetime TimeZone.of on Kotlin/JS.
+      implementation(npm("@js-joda/timezone", libs.versions.jsJodaTimezone.get()))
     }
 
-    jsMain {
-      dependsOn(nonAndroidShared)
-      dependsOn(desktopJsShared)
-      dependencies {
-        implementation(libs.jetbrains.compose.html.core)
-        implementation(libs.ktor.client.js)
-      }
+    commonTest.dependencies { implementation(kotlin("test")) }
+
+    // commonTest is on the device test classpath, so the APK must include the
+    // runner android-library-conventions names in the instrumentation manifest.
+    androidDeviceTest.dependencies {
+      implementation(libs.jetbrains.compose.ui.testJunit4)
+      implementation(libs.androidx.composeUi.testManifest)
     }
   }
 }

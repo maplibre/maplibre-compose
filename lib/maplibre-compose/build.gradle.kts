@@ -6,7 +6,6 @@ plugins {
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
   id(libs.plugins.mavenPublish.get().pluginId)
-  id(libs.plugins.spmForKmp.get().pluginId)
 }
 
 mavenPublishing {
@@ -18,19 +17,17 @@ mavenPublishing {
 }
 
 kotlin {
-  android { namespace = "org.maplibre.compose" }
-
-  listOf(iosArm64(), iosSimulatorArm64()).forEach {
-    it.compilations.getByName("main") {
-      cinterops {
-        create("observer") {
-          defFile(project.file("src/nativeInterop/cinterop/observer.def"))
-          packageName("org.maplibre.compose.util")
-        }
-      }
+  android {
+    namespace = "org.maplibre.compose"
+    optimization {
+      // The Vulkan bridge class is resolved by JNI name.
+      consumerKeepRules.publish = true
+      consumerKeepRules.files.add(project.file("consumer-rules.pro"))
     }
-    it.configureSpmMaplibre(project)
   }
+
+  iosArm64()
+  iosSimulatorArm64()
 
   jvm { compilerOptions { jvmTarget = project.getDesktopJvmTarget() } }
 
@@ -56,62 +53,53 @@ kotlin {
     }
 
     commonMain.dependencies {
+      api(project(":lib:location"))
       implementation(libs.jetbrains.compose.foundation)
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.htmlConverterCompose)
-      implementation(libs.lifecycle.runtime.compose)
+      api(libs.lifecycle.runtime.compose)
       api(libs.kermit)
+      implementation(libs.kotlinx.coroutines.core)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)
     }
 
-    // used to share some implementation on targets where Compose UI is backed by Skia directly
-    // (e.g. all but Android, which is backed by the Android Canvas API)
-    create("skiaMain") {
+    // Desktop, iOS, and the browser. Android implements the same expect APIs in androidMain,
+    // because Compose on Android draws through the Android Canvas API instead of Skia.
+    create("nonAndroidMain") {
       dependsOn(commonMain.get())
       jvmMain.dependsOn(this)
       iosMain.get().dependsOn(this)
       jsMain.get().dependsOn(this)
     }
 
-    // used to expose APIs only available on targets backed by MapLibre Native
-    // (e.g. all but browser targets, which use MapLibre JS)
+    // MapLibre Native platforms (Android, iOS, desktop). The browser stays on MapLibre GL JS.
+    // This source set stays free of java.* so a Native actual can sit beside the Java one.
     val maplibreNativeMain =
       create("maplibreNativeMain") {
         dependsOn(commonMain.get())
-        androidMain.get().dependsOn(this)
         iosMain.get().dependsOn(this)
+        dependencies {
+          // Backend-independent binding only; the application selects the native runtime.
+          implementation(libs.maplibre.nativeFfi)
+          // Multiplatform filesystem paths, so this source set stays free of java.io.File.
+          implementation(libs.kotlinx.io.core)
+        }
       }
 
-    // commonMain in waiting: the parts of the mln-ffi and MapLibre GL JS platforms that carry no
-    // backend-conditional logic. It exists only because Android and iOS have typed layer actuals
-    // rather than JSON-shaped ones; when those move onto mlnFfiShared, this merges into commonMain.
-    val nextCommonMain =
-      create("nextCommonMain") {
-        dependsOn(commonMain.get())
-        jsMain.get().dependsOn(this)
-      }
-
-    // used to share the integration with the MapLibre Native FFI binding, as opposed to the
-    // MapLibre Android and iOS SDKs. Desktop is its only target today.
-    create("mlnFfiShared") {
+    // Java implementations shared by Android and desktop, including mln-ffi actuals that iOS
+    // provides separately in iosMain.
+    create("androidJvmMain") {
       dependsOn(maplibreNativeMain)
-      dependsOn(nextCommonMain)
+      androidMain.get().dependsOn(this)
       jvmMain.dependsOn(this)
-      dependencies {
-        // Backend-independent binding only; the application selects the native runtime.
-        implementation(libs.maplibre.nativeFfi)
-        // Multiplatform filesystem paths, so this source set stays free of java.io.File.
-        implementation(libs.kotlinx.io.core)
-      }
     }
 
-    iosMain {}
-
-    androidMain {
+    iosMain {
       dependencies {
-        implementation(libs.androidx.activity.compose)
-        api(libs.maplibre.android)
+        // iOS runs the Metal backend, on the device and in the simulator; the runtime klib
+        // carries the static MapLibre Native archive and its Apple framework linker opts.
+        implementation(libs.maplibre.nativeFfi.runtimeMetalKmp)
       }
     }
 
@@ -119,8 +107,8 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
 
-        // The AWT Compose host needs direct Vulkan/OpenGL access; the natives come from the
-        // runtime artifact the application picks.
+        // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
+        // artifact the application picks.
         implementation(libs.lwjgl.core)
         implementation(libs.lwjgl.opengl)
         implementation(libs.lwjgl.vulkan)
@@ -142,38 +130,61 @@ kotlin {
       implementation(libs.jetbrains.compose.ui.test)
     }
 
-    // The test counterpart of nextCommonMain, and on the same path into commonTest.
-    val nextCommonTest =
-      create("nextCommonTest") {
+    // Live-map and Compose UI tests shared by jsTest and every platform that consumes
+    // maplibreNativeMain. androidHostTest inherits commonTest and has no MapLibre runtime and no
+    // Compose UI test host.
+    val liveMapTest =
+      create("liveMapTest") {
         dependsOn(commonTest.get())
         jsTest.get().dependsOn(this)
       }
 
-    // Behavioral contracts for the shared MapLibre Native FFI integration. Every platform that
-    // consumes mlnFfiShared must execute this source set; the platform test source supplies only
-    // runtime, render-host, storage, and Compose-runner adapters.
-    create("mlnFfiSharedTest") {
-      dependsOn(commonTest.get())
-      dependsOn(nextCommonTest)
+    // Behavioral contracts for the shared MapLibre Native integration. Every platform that
+    // consumes maplibreNativeMain must execute this source set except androidHostTest, which has
+    // no MapLibre runtime. The platform test source supplies only runtime, render-host, storage,
+    // and Compose-runner adapters.
+    val maplibreNativeTest =
+      create("maplibreNativeTest") {
+        dependsOn(commonTest.get())
+        dependsOn(liveMapTest)
+      }
+
+    // Java implementations of the shared test adapters. This source set also holds the handful of
+    // shared-suite tests that only its runners can host: a test that composes the real map view
+    // needs a Compose test runner that hosts a native interop view, which the iOS headless runner
+    // cannot (LocalInteropContainer is internal to Compose UI), and one test that exercises JVM
+    // thread interruption.
+    create("androidJvmTest") {
+      dependsOn(maplibreNativeTest)
+      getByName("androidDeviceTest").dependsOn(this)
       getByName("jvmTest").dependsOn(this)
     }
 
-    // Runtime dependencies belong to platform/backend adapters. One native runtime is loaded per
-    // test process; a CI matrix adds processes for additional applicable backends.
+    // iOS executes the same shared Native contract suite; its test source supplies the Native
+    // platform adapters instead of the Java ones in androidJvmTest.
+    getByName("iosTest").dependsOn(maplibreNativeTest)
+
+    // One native runtime is loaded per test process; `maplibre.desktop.backend` selects which, and
+    // a CI matrix adds processes for additional applicable backends.
     val jvmTest by getting
     jvmTest.dependencies {
-      // Only the EGL interop test binds EGL directly; nothing in the library does.
+      // Only the EGL interop tests bind EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
     }
 
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
 
     androidDeviceTest.dependencies {
+      implementation(libs.androidx.activity.compose)
       implementation(libs.jetbrains.compose.ui.testJunit4)
       implementation(libs.androidx.composeUi.testManifest)
+      // The shared device-test render driver targets OpenGL.
+      implementation(libs.maplibre.nativeFfi.runtimeOpenGl)
     }
   }
 }
+
+val requestedDesktopBackend = providers.gradleProperty("maplibre.desktop.backend")
 
 configurations.named("jvmTestRuntimeOnly") {
   dependencies.addAllLater(
@@ -181,7 +192,7 @@ configurations.named("jvmTestRuntimeOnly") {
       val platform = DesktopHostPlatform.current()
       platform
         .runtimeDependencies(
-          backend = platform.defaultRenderBackend,
+          backend = platform.selectedRenderBackend(requestedDesktopBackend.orNull),
           ffiVersion = libs.versions.maplibre.nativeFfi.get(),
           lwjglVersion = libs.versions.lwjgl.get(),
         )
@@ -191,3 +202,10 @@ configurations.named("jvmTestRuntimeOnly") {
 }
 
 compose.resources { packageOfResClass = "org.maplibre.compose.generated" }
+
+// Kotlin/Native spawns simulator tests with `simctl spawn --standalone`, whose bootstrap context
+// has no access to the GPU daemon, so MTLCreateSystemDefaultDevice returns nil there. The map
+// tests render through Metal, so they run in the regular bootstrap instead.
+tasks.withType<org.jetbrains.kotlin.gradle.targets.native.tasks.KotlinNativeSimulatorTest> {
+  standalone.set(false)
+}

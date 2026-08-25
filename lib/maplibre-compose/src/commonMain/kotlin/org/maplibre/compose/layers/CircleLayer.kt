@@ -34,25 +34,31 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param sortKey Sorts features within this layer in ascending order based on this value. Features
- *   with a higher sort key will appear above features with a lower sort key.
+ *   with a higher sort key will appear above features with a lower sort key. The expression may use
+ *   feature properties.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up, respectively.
  * @param translateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [translate] is not set.
  *
- * @param opacity Circles opacity. A value in range `[0..1]`.
- * @param color Circles fill color.
+ * @param opacity Circles opacity. A value in range `[0..1]`. The expression may use feature
+ *   properties and feature state.
+ * @param color Circles fill color. The expression may use feature properties and feature state.
  * @param blur Amount to blur the circle. A value of `1` blurs the circle such that only the
- *   centerpoint has full opacity.
- * @param radius Circles radius.
- * @param strokeOpacity Opacity of the circles' stroke.
- * @param strokeColor Circles' stroke color.
+ *   centerpoint has full opacity. The expression may use feature properties and feature state.
+ * @param radius Circles radius. The expression may use feature properties and feature state.
+ * @param strokeOpacity Opacity of the circles' stroke. The expression may use feature properties
+ *   and feature state.
+ * @param strokeColor Circles' stroke color. The expression may use feature properties and feature
+ *   state.
  * @param strokeWidth Thickness of the circles' stroke. Strokes are placed outside of the [radius].
+ *   The expression may use feature properties and feature state.
  * @param pitchScale Scaling behavior of circles when the map is pitched.
  * @param pitchAlignment Orientation of circles when the map is pitched.
  * @param onClick Function to call when any feature in this layer has been clicked.
@@ -127,32 +133,65 @@ public fun CircleLayer(
   )
 }
 
-internal expect class CircleLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class CircleLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "circle"
 
-  fun setCircleSortKey(sortKey: CompiledExpression<FloatValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setCircleRadius(radius: CompiledExpression<DpValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setCircleColor(color: CompiledExpression<ColorValue>)
+  fun setCircleSortKey(sortKey: CompiledExpression<FloatValue>) {
+    setLayoutProperty("circle-sort-key", sortKey)
+  }
 
-  fun setCircleBlur(blur: CompiledExpression<FloatValue>)
+  fun setCircleRadius(radius: CompiledExpression<DpValue>) {
+    setPaintProperty("circle-radius", radius)
+  }
 
-  fun setCircleOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setCircleColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("circle-color", color)
+  }
 
-  fun setCircleTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setCircleBlur(blur: CompiledExpression<FloatValue>) {
+    setPaintProperty("circle-blur", blur)
+  }
 
-  fun setCircleTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setCircleOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("circle-opacity", opacity)
+  }
 
-  fun setCirclePitchScale(pitchScale: CompiledExpression<CirclePitchScale>)
+  fun setCircleTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("circle-translate", translate)
+  }
 
-  fun setCirclePitchAlignment(pitchAlignment: CompiledExpression<CirclePitchAlignment>)
+  fun setCircleTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("circle-translate-anchor", translateAnchor)
+  }
 
-  fun setCircleStrokeWidth(strokeWidth: CompiledExpression<DpValue>)
+  fun setCirclePitchScale(pitchScale: CompiledExpression<CirclePitchScale>) {
+    setPaintProperty("circle-pitch-scale", pitchScale)
+  }
 
-  fun setCircleStrokeColor(strokeColor: CompiledExpression<ColorValue>)
+  fun setCirclePitchAlignment(pitchAlignment: CompiledExpression<CirclePitchAlignment>) {
+    setPaintProperty("circle-pitch-alignment", pitchAlignment)
+  }
 
-  fun setCircleStrokeOpacity(strokeOpacity: CompiledExpression<FloatValue>)
+  fun setCircleStrokeWidth(strokeWidth: CompiledExpression<DpValue>) {
+    setPaintProperty("circle-stroke-width", strokeWidth)
+  }
+
+  fun setCircleStrokeColor(strokeColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("circle-stroke-color", strokeColor)
+  }
+
+  fun setCircleStrokeOpacity(strokeOpacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("circle-stroke-opacity", strokeOpacity)
+  }
 }

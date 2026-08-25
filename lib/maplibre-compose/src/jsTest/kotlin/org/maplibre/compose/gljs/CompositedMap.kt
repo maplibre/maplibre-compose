@@ -8,13 +8,15 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.map.GlJsMapSession
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
 import org.maplibre.spatialk.geojson.Position
 
 private const val RENDER_TIMEOUT_MS = 30_000
 
-internal class CompositedMap(style: BaseStyle) : AutoCloseable {
+internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double = 1.0) :
+  AutoCloseable {
 
   private var loadFailure: String? = null
   private var styleLoaded = false
@@ -39,7 +41,11 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
   fun drawOnce(target: GlJsRenderTarget): Boolean =
     session.render(GlJsFrameTarget.Composited(target), extentOf(target))
 
-  suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: () -> Boolean) {
+  fun setOverdrawInspector(enabled: Boolean) {
+    session.setRenderSettings(RenderOptions(isOverdrawInspectorEnabled = enabled))
+  }
+
+  suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: suspend () -> Boolean) {
     val deadline = Date.now() + RENDER_TIMEOUT_MS
     while (!condition()) {
       drawOnce(target)
@@ -54,13 +60,13 @@ internal class CompositedMap(style: BaseStyle) : AutoCloseable {
    * Whether [layerId] is in the render tree, not merely the stylesheet. Never asked before the
    * style loads: MapLibre raises an `error` for a query naming a layer it lacks.
    */
-  fun rendersFeature(layerId: String, x: Int, y: Int): Boolean =
+  suspend fun rendersFeature(layerId: String, x: Int, y: Int): Boolean =
     styleLoaded && session.queryRenderedFeatures(DpOffset(x.dp, y.dp), setOf(layerId)).isNotEmpty()
 
   override fun close() = session.close()
 
   private fun extentOf(target: GlJsRenderTarget) =
-    MapExtent.fromPhysical(target.widthPx, target.heightPx, 1.0)
+    MapExtent.fromPhysical(target.widthPx, target.heightPx, scaleFactor)
 
   private inner class Callbacks : MapAdapter.Callbacks {
     override fun onStyleChanged(map: MapAdapter, style: Style?) = Unit

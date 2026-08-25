@@ -11,7 +11,7 @@ import org.maplibre.compose.expressions.ast.FunctionCall
 import org.maplibre.compose.expressions.ast.PainterLiteral
 import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.StringValue
-import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.ImageStretch
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -58,13 +58,13 @@ public fun image(value: String): Expression<ImageValue> = image(const(value))
  *
  * @param isSdf Should be set to true if the bitmap is a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/)
+ * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
  */
 public fun image(
   value: ImageBitmap,
   isSdf: Boolean = false,
-  resizeOptions: ImageResizeOptions? = null,
-): Expression<ImageValue> =
-  FunctionCall.of("image", BitmapLiteral.of(value, isSdf, resizeOptions)).cast()
+  stretch: ImageStretch? = null,
+): Expression<ImageValue> = FunctionCall.of("image", BitmapLiteral.of(value, isSdf, stretch)).cast()
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -84,14 +84,15 @@ public fun image(
  * @param drawAsSdf If true, will draw the image to a bitmap as a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
  *   Ideal for monochrome vector icons.
+ * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
  */
 public fun image(
   value: Painter,
   size: DpSize? = null,
   drawAsSdf: Boolean = false,
-  resizeOptions: ImageResizeOptions? = null,
+  stretch: ImageStretch? = null,
 ): Expression<ImageValue> =
-  FunctionCall.of("image", PainterLiteral.of(value, size, drawAsSdf, resizeOptions)).cast()
+  FunctionCall.of("image", PainterLiteral.of(value, size, drawAsSdf, stretch)).cast()
 
 /**
  * Returns an image type for use in `iconImage` (see
@@ -111,6 +112,7 @@ public fun image(
  * @param drawAsSdf If true, will draw the image to a bitmap as a
  *   [Signed Distance Field](https://docs.mapbox.com/help/troubleshooting/using-recolorable-images-in-mapbox-maps/).
  *   Ideal for monochrome vector icons.
+ * @param stretch Stretch and content box used when a symbol layer sizes the icon to wrap its text.
  * @param alpha passed to [Painter.draw]
  * @param colorFilter passed to [Painter.draw]
  * @see Painter.draw
@@ -119,12 +121,12 @@ public fun image(
   value: Painter,
   size: DpSize? = null,
   drawAsSdf: Boolean = false,
-  resizeOptions: ImageResizeOptions? = null,
+  stretch: ImageStretch? = null,
   alpha: Float = DefaultAlpha,
   colorFilter: ColorFilter? = null,
 ): Expression<ImageValue> =
   FunctionCall.of(
       "image",
-      PainterLiteral.of(value, size, drawAsSdf, resizeOptions, alpha, colorFilter),
+      PainterLiteral.of(value, size, drawAsSdf, stretch, alpha, colorFilter),
     )
     .cast()

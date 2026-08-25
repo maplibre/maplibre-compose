@@ -43,13 +43,15 @@ public object Feature {
    *
    * A feature's state is not part of the GeoJSON or vector tile data. Set it with
    * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
-   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState].
+   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState]. A
+   * [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource] has the same operations
+   * as `VectorSource`.
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
    * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. [state] can only be used with layer properties that support
-   * data-driven styling.
+   * or any primitive data type. Only data-driven paint properties documented as supporting feature
+   * state accept [state].
    */
   public fun <T : ExpressionValue> state(key: Expression<StringValue>): Expression<T> =
     FunctionCall.of("feature-state", key).cast()
@@ -60,13 +62,15 @@ public object Feature {
    *
    * A feature's state is not part of the GeoJSON or vector tile data. Set it with
    * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
-   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState].
+   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState]. A
+   * [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource] has the same operations
+   * as `VectorSource`.
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
    * provided, features are identified by their `promoteId` property, which may be a number, string,
-   * or any primitive data type. [state] can only be used with layer properties that support
-   * data-driven styling.
+   * or any primitive data type. Only data-driven paint properties documented as supporting feature
+   * state accept [state].
    */
   public fun <T : ExpressionValue> state(key: String): Expression<T> = state(const(key))
 

@@ -1,8 +1,9 @@
 ## Pull requests
 
-When you open a pull request, write **Description** and **Test plan** in at most
-one sentence of prose each. I will expand the PR description if more detail is
-needed. More context: [AI_POLICY.md](./AI_POLICY.md).
+When you open a pull request, adhere to the
+[PULL_REQUEST_TEMPLATE.md](./.github/PULL_REQUEST_TEMPLATE.md) and open it in
+draft mode. The user is responsible for additional details and marking ready for
+review.
 
 ## Development commands
 
@@ -23,8 +24,11 @@ per `./gradlew` invocation. Two together can fail in ways neither does alone.
 - `mise run build:ios:device`
 - `mise run demo:desktop`
 - `mise run demo:desktop-glfw`
-- `mise run demo:android`
-- `mise run demo:ios` (pass `--device` for a connected iPhone)
+- `mise run demo:desktop-nucleus`
+- `mise run demo:android` (prompts when several devices are connected;
+  `--backend vulkan` packages the Vulkan runtime)
+- `mise run demo:ios` (pass `--device` for a connected iPhone; prompts when
+  several are ready; `--release` builds the optimized framework)
 - `mise run demo:js`
 
 ### Formatting and linting
@@ -37,6 +41,13 @@ dprint formats every language in the repository, configured in `dprint.jsonc`.
 hk runs it, and runs actionlint, ruff, shellcheck, the Actions pins check, JSON
 schema validation, and the documentation site's type check. `hk.pkl` lists the
 steps.
+
+### Style spec
+
+`mise run style-spec:parity` compares the layer API with the pinned MapLibre
+style spec release at the pinned engines. `--check` fails when an in-scope layer
+type, source type, paint or layout property, or native unsupported-table row is
+missing. Follow the `style-spec-parity` skill in `.agents/skills/` to add one.
 
 ### Documentation
 
@@ -85,10 +96,11 @@ For a machine with no SDK, install the pinned SDK with
 
 - **Android host:** `mise run test:android`
 - **Android device:** `mise run test:android:device [api-level]` (boots its own
-  headless emulator; `android-emulator:boot`/`:stop` drive it directly)
+  headless emulator; `android-emulator:boot` opens a window by default)
 - **iOS:** `mise run test:ios` (boots its own simulator)
 - **Web:** `mise run test:js`
-- **Desktop:** `mise run test:desktop`
+- **Desktop:** `mise run test:desktop` (add `--backend <name>` to package a
+  non-default render backend, e.g. `opengl` on Linux)
 
 Tests live in platform-specific source sets:
 
@@ -96,7 +108,12 @@ Tests live in platform-specific source sets:
 - Android host tests: `src/androidHostTest`
 - iOS tests: `src/iosTest`
 - Common tests: `src/commonTest`
+- Live-map tests: `src/liveMapTest`
 - Browser tests: `src/jsTest`
+
+`liveMapTest` runs on every platform that hosts a MapLibre runtime. Those tests
+stay out of `commonTest` because `androidHostTest` inherits that source set and
+has no MapLibre runtime and no Compose UI test host.
 
 The browser tests drive a real map in headless Chrome. They need `CHROME_BIN` if
 Karma cannot find one, and they fail as timeouts rather than assertion
@@ -131,14 +148,17 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 - **`lib/`**: Core library modules
   - `maplibre-compose`: Main map composables and core functionality
   - `maplibre-compose-material3`: Material 3 themed UI components
-  - `maplibre-compose-gms`: Google location services components
+  - `location`: Location and orientation providers, usable without a map
+  - `location-runtime-gms|hms|linux|macos|windows`: Location backends that
+    `ServiceLoader` discovers; gms upgrades Android location and orientation
+    through Google Play services, hms upgrades Android location through HMS
+    Core, and the desktop backends supply the only desktop implementations
 - **`demo-app/`**: Multiplatform demo application
   - `common`: Every line of the app, and the only Kotlin Multiplatform module
   - `android`: An Android application that launches `common`
   - `desktop`: A JVM application that launches `common` on the AWT host
-  - `desktop-glfw`: The same JVM application on the compose-glfw host. A module
-    of its own so that its `MainDispatcherFactory`, which outranks
-    `kotlinx-coroutines-swing`, stays off the AWT runtime classpath.
+  - `desktop-glfw`: The same JVM application on the compose-glfw host.
+  - `desktop-nucleus`: The same JVM application on the Nucleus Tao host.
   - `ios`: An Xcode project that embeds the framework `common` produces
 
   The browser app has no module of its own. Its entry point and page live in
@@ -160,9 +180,8 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
 
 The library uses platform-specific implementations:
 
-- **Android/iOS**: MapLibre Native SDKs (MapLibre Android SDK, MapLibre iOS)
+- **Android/Desktop/iOS**: MapLibre Native Core via
+  [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)
 - **Web**: MapLibre GL JS, declared in `org.maplibre.compose.gljs`; the upstream
   types it mirrors are at
   `build/js/node_modules/maplibre-gl/dist/maplibre-gl.d.ts`
-- **Desktop**: MapLibre Native Core via
-  [`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi)

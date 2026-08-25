@@ -110,3 +110,7 @@ public actual class GeoJsonSource : Source {
     const val NO_EXPANSION_ZOOM = 0.0
   }
 }
+
+internal actual suspend fun GeoJsonSource.publishData(data: GeoJsonData) {
+  setData(data)
+}

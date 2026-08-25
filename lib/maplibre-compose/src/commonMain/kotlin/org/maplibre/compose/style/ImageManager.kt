@@ -12,7 +12,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.ceil
-import org.maplibre.compose.util.ImageResizeOptions
+import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toImageBitmap
 
 internal class ImageManager(private val node: StyleNode) {
@@ -27,7 +27,7 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.increment(key) {
       val id = bitmapIds.addId(key)
       node.logger?.i { "Adding bitmap $id" }
-      node.style.addImage(id, key.bitmap, key.isSdf, key.resizeOptions)
+      node.style.addImage(id, key.bitmap, key.isSdf, key.stretch)
     }
     return bitmapIds.getId(key)
   }
@@ -69,7 +69,7 @@ internal class ImageManager(private val node: StyleNode) {
       node.logger?.i { "Adding painter $id" }
       key.drawToBitmap().let { bitmap ->
         painterBitmaps[key] = if (key.drawAsSdf) bitmap.toSdf() else bitmap
-        node.style.addImage(id, bitmap, key.drawAsSdf, key.resizeOptions)
+        node.style.addImage(id, bitmap, key.drawAsSdf, key.stretch)
       }
     }
     return painterIds.getId(key)
@@ -87,7 +87,7 @@ internal class ImageManager(private val node: StyleNode) {
   internal data class BitmapKey(
     val bitmap: ImageBitmap,
     val isSdf: Boolean,
-    val resizeOptions: ImageResizeOptions?,
+    val stretch: ImageStretch?,
   )
 
   internal data class PainterKey(
@@ -96,7 +96,7 @@ internal class ImageManager(private val node: StyleNode) {
     val layoutDirection: LayoutDirection,
     val size: DpSize?,
     val drawAsSdf: Boolean,
-    val resizeOptions: ImageResizeOptions?,
+    val stretch: ImageStretch?,
     val alpha: Float,
     val colorFilter: ColorFilter?,
   )

@@ -1,0 +1,42 @@
+package org.maplibre.compose.demoapp.benchmark
+
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.delay
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
+
+@Composable
+actual fun rememberTilePrefetcher(): TilePrefetcher = remember { HttpWarmupPrefetcher() }
+
+actual val benchmarkPlatformLabel: String = "Web"
+
+private class HttpWarmupPrefetcher : TilePrefetcher {
+  override val mode = "http-warmup"
+
+  override suspend fun ensurePacked(
+    scenarioId: String,
+    styleUrl: String,
+    bounds: BoundingBox,
+    minZoom: Int,
+    maxZoom: Int,
+    camera: CameraState,
+    onStatus: (String) -> Unit,
+  ) {
+    val origin = camera.position
+    val center =
+      Position(
+        longitude = (bounds.west + bounds.east) / 2,
+        latitude = (bounds.south + bounds.north) / 2,
+      )
+    for (zoom in minZoom..maxZoom) {
+      onStatus("Warming zoom $zoom")
+      camera.position = CameraPosition(target = center, zoom = zoom.toDouble())
+      delay(350.milliseconds)
+    }
+    camera.position = origin
+  }
+}

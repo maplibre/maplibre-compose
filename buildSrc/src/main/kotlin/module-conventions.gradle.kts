@@ -1,3 +1,4 @@
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompilationTask
 
 group = "org.maplibre.compose"
@@ -17,16 +18,11 @@ tasks
   .withType<KotlinCompilationTask<*>>()
   .configureEach { compilerOptions { allWarningsAsErrors = false } }
 
-val swiftPackageBuilds =
-  gradle.sharedServices.registerIfAbsent("swiftPackageBuilds", SwiftPackageBuildService::class) {
-    maxParallelUsages = 1
-  }
-
-tasks
-  .matching { it.name.startsWith("SwiftPackageConfig") }
-  .configureEach { usesService(swiftPackageBuilds) }
-
-tasks.withType<AbstractTestTask>().configureEach { failOnNoDiscoveredTests = false }
+tasks.withType<AbstractTestTask>().configureEach {
+  failOnNoDiscoveredTests = false
+  // SHORT prints "Type at File:line" and drops the message. CI needs the message.
+  testLogging { exceptionFormat = TestExceptionFormat.FULL }
+}
 
 // Desktop tests may load the MapLibre Native FFI runtime, which needs native access.
 tasks.withType<Test>().configureEach {

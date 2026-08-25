@@ -42,17 +42,7 @@ Nothing here is a desktop bug.
 
 Not missing capabilities — shapes in the common layer that the desktop rewrite
 had to work around, and that step 3 is the moment to fix rather than reproduce.
-Both are cross-platform; desktop is only where they became visible.
-
-**A layer reaches the style before its source does.** Compose inserts nodes and
-calls the applier's `onEndChanges`, which is where `LayerManager` reaches
-MapLibre, and only afterwards dispatches remember-observers, where
-`SourceReferenceEffect` lives. So a layer names a source that does not exist
-yet. The mobile SDKs tolerate that; the C API rejects it. Desktop works around
-it by having a layer attach its own source first, with `Source.attach` made
-idempotent so the effect's later add is harmless. The ordering is fragile on
-every platform — only desktop is strict enough to notice — so the workaround
-belongs in the shared layer, or the ordering does.
+The desktop rewrite exposed them.
 
 **Unloading the outgoing style is a contract no platform states.** Switching a
 style has to mark the previous one unloaded, because `LayerManager` skips anchor
@@ -103,20 +93,6 @@ and very large client-side datasets.
 Design question: the callback boundary. MapLibre calls back on its own worker
 threads to ask for a tile, which has to become something safe and idiomatic to
 implement from Kotlin.
-
-## Location indicator layer
-
-MapLibre's built-in user-location puck — a style layer with a position, bearing,
-and accuracy radius, rendered by the map rather than composed over it.
-
-- FFI: `addLocationIndicatorLayer`, `setLocationIndicatorLocation`,
-  `setLocationIndicatorBearing`, `setLocationIndicatorAccuracyRadius`,
-  `setLocationIndicatorImageName`
-
-Worth weighing against drawing the puck as ordinary layers from
-`org.maplibre.compose.location`, which is portable and already how the demo does
-it. The native indicator's advantage is that it interpolates and renders in the
-same frame as the map.
 
 ## Projection mode
 

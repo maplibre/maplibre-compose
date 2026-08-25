@@ -22,7 +22,9 @@ body:
       options:
         - label: Android
         - label: iOS
-        - label: Desktop (JVM)
+        - label: Desktop - macOS (JVM)
+        - label: Desktop - Linux (JVM)
+        - label: Desktop - Windows (JVM)
         - label: Browser (JS)
         - label: Browser (Wasm)
     validations:

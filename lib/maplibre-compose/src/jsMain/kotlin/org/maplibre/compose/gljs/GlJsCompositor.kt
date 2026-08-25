@@ -3,7 +3,6 @@ package org.maplibre.compose.gljs
 import androidx.compose.runtime.staticCompositionLocalOf
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.map.MapExtent
-import web.html.HTMLCanvasElement
 
 /** What a map should render into for one frame. */
 internal sealed interface GlJsFrameTarget {
@@ -30,49 +29,39 @@ internal val LocalGlJsCompositor =
 /** A target is never resized in place: WebGL cannot resize a texture. */
 internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsCompositor {
 
-  private var canvas: HTMLCanvasElement? = null
-  private var gl: dynamic = null
   private var target: GlJsRenderTarget? = null
   private var generation = 0L
   private var reportedUnavailable = false
 
-  /** Null before Compose has built its own. */
-  private fun context(): dynamic {
-    if (gl != null) return gl
-    val found = EmscriptenGl.skikoCanvas() ?: return null
-    val context = EmscriptenGl.contextOf(found) ?: return null
-    canvas = found
-    gl = context
-    return context
-  }
-
   override fun acquire(extent: MapExtent): GlJsFrameTarget {
     if (extent.isEmpty) return GlJsFrameTarget.NotReady
-    val current = target
-    if (
-      current != null &&
-        current.widthPx == extent.physicalWidth &&
-        current.heightPx == extent.physicalHeight
-    ) {
-      return GlJsFrameTarget.Composited(current)
-    }
-
-    val context = context()
-    if (context == null || !SkikoGpuBridge.isReady) {
+    val hostContext = EmscriptenGl.currentContext()
+    if (hostContext == null || !SkikoGpuBridge.isReady(hostContext)) {
       if (!reportedUnavailable) {
         reportedUnavailable = true
         logger?.d {
           "Waiting to composite the map: " +
-            if (context == null) "Compose has no WebGL context yet" else SkikoGpuBridge.diagnostic()
+            if (hostContext == null) "Compose has no current WebGL renderer"
+            else SkikoGpuBridge.diagnostic(hostContext)
         }
       }
       return GlJsFrameTarget.NotReady
     }
     reportedUnavailable = false
 
+    val current = target
+    if (
+      current != null &&
+        current.hostContext.handle == hostContext.handle &&
+        current.widthPx == extent.physicalWidth &&
+        current.heightPx == extent.physicalHeight
+    ) {
+      return GlJsFrameTarget.Composited(current)
+    }
+
     val next =
       GlJsRenderTarget(
-        gl = context,
+        hostContext = hostContext,
         widthPx = extent.physicalWidth,
         heightPx = extent.physicalHeight,
         generation = ++generation,

@@ -1,0 +1,65 @@
+---
+title: Expressions in Kotlin
+description: The expression DSL that computes layer properties from feature data and zoom.
+---
+
+import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
+import { region } from "../../snippets";
+
+import expressions from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Expressions.kt?raw";
+
+Layer properties in MapLibre are not plain values. Each property takes an
+expression: a formula that the map evaluates while it renders, per feature and
+per zoom level. The [MapLibre Style Specification][spec-expressions] defines
+expressions as JSON arrays. MapLibre Compose provides a Kotlin DSL that builds
+them with type checking, in <Api of="org.maplibre.compose.expressions.dsl" />.
+
+The DSL uses Compose types when a Compose type matches the property: `Dp` for
+sizes, `Color` for colors, and `DpOffset` for offsets.
+
+## Constants
+
+A constant value must also be an expression. Wrap a plain value in
+<Api of="const" />:
+
+<Code code={region(expressions, "constants")} lang="kotlin" title="App.kt" />
+
+## Read feature data
+
+<Api of="feature" /> accesses the properties of the feature being rendered.
+The result is untyped, so convert it with functions such as `asNumber()` or
+`asString()`. Functions such as <Api of="step" /> and <Api of="switch" />
+select an output from the value:
+
+<Code code={region(expressions, "feature-data")} lang="kotlin" title="App.kt" />
+
+The map evaluates this formula once per feature: each earthquake receives a
+radius and a color computed from its own magnitude.
+
+## React to zoom
+
+<Api of="zoom" /> is the current zoom level. <Api of="interpolate" /> computes
+a smooth value between stops:
+
+<Code code={region(expressions, "zoom")} lang="kotlin" title="App.kt" />
+
+## Filter features
+
+The `filter` parameter takes a boolean expression. The layer renders only the
+features for which it is true:
+
+<Code code={region(expressions, "filter")} lang="kotlin" title="App.kt" />
+
+## Where the code runs
+
+Kotlin code outside an expression runs during composition and produces an
+expression. The expression runs inside the map renderer, once per feature. A
+Kotlin `if` selects which expression to build; an expression `switch` selects
+a value per feature. Use Kotlin for decisions that depend on app state, and
+expressions for decisions that depend on feature data or zoom.
+
+The API reference documents the full set of expression functions under
+<Api of="org.maplibre.compose.expressions.dsl" />.
+
+[spec-expressions]: https://maplibre.org/maplibre-style-spec/expressions/

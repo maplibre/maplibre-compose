@@ -1,0 +1,226 @@
+package org.maplibre.compose.location.desktop.windows
+
+import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.callbackFlow
+import org.maplibre.compose.location.DesktopLocationBackend
+import org.maplibre.compose.location.DesktopLocationProvider
+import org.maplibre.compose.location.LocationAccuracy
+import org.maplibre.compose.location.LocationAccuracyAuthorization
+import org.maplibre.compose.location.LocationBackendAvailability
+import org.maplibre.compose.location.LocationEvent
+import org.maplibre.compose.location.LocationPermission
+import org.maplibre.compose.location.LocationProvider
+import org.maplibre.compose.location.LocationRequest
+import org.maplibre.compose.location.LocationUnavailableReason
+import org.maplibre.compose.location.XdgPortalWindow
+import org.maplibre.spatialk.units.extensions.inMeters
+
+/** Windows desktop location backend backed by Windows Runtime geolocation. */
+public class WindowsLocationBackend : DesktopLocationBackend {
+  override val id: String = "windows-geolocation"
+
+  override fun isAvailable(): Boolean = isWindows(System.getProperty("os.name"))
+
+  override fun createProvider(window: XdgPortalWindow?): DesktopLocationProvider =
+    WindowsLocationProvider()
+}
+
+/**
+ * A [LocationProvider] backed by `Windows.Devices.Geolocation.Geolocator`.
+ *
+ * Each [updates] collector owns an independent `Geolocator`. The provider configures its scalar
+ * desired accuracy to 1, 10, 100, 1,000, or 5,000 meters from [LocationAccuracy.BestForNavigation]
+ * through [LocationAccuracy.Lowest], configures `ReportInterval`, and also enforces
+ * [LocationRequest.minimumInterval] and [LocationRequest.minimumDistance] before delivery. The
+ * first valid fix is always delivered. Cancelling collection removes both native event handlers and
+ * releases the geolocator.
+ *
+ * `Initializing`, `NoData`, and `NotInitialized` report
+ * [LocationUnavailableReason.TemporarilyUnavailable]. `Disabled` reports
+ * [LocationUnavailableReason.PermissionDenied] when access is denied and
+ * [LocationUnavailableReason.ServicesDisabled] when access remains granted. `NotAvailable` reports
+ * [LocationUnavailableReason.Unsupported]. Unexpected native failures report
+ * [LocationUnavailableReason.UnexpectedFailure].
+ *
+ * Ordinary Windows Runtime calls run in a dedicated multithreaded apartment. Permission requests
+ * start on the AWT event-dispatch thread because Windows requires a foreground UI-thread request.
+ */
+public class WindowsLocationProvider
+internal constructor(private val client: WindowsLocationClient) : DesktopLocationProvider {
+  public constructor() : this(SystemWindowsLocationClient())
+
+  private val requester = WindowsLocationPermissionRequester(client, ownsClient = false)
+  private val sessions = ConcurrentHashMap.newKeySet<WindowsCloseable>()
+  private val closed = AtomicBoolean()
+
+  override val backendAvailability: LocationBackendAvailability = client.backendAvailability
+
+  override val permission: StateFlow<LocationPermission>
+    get() = requester.status
+
+  override fun requestPermission(): Unit = requester.requestForegroundPermission()
+
+  override fun updates(request: LocationRequest): Flow<LocationEvent> = callbackFlow {
+    when (val availability = backendAvailability) {
+      is LocationBackendAvailability.Misconfigured -> {
+        trySend(
+          LocationEvent.Unavailable(LocationUnavailableReason.Misconfigured, availability.cause)
+        )
+        close()
+        return@callbackFlow
+      }
+      LocationBackendAvailability.Unsupported -> {
+        trySend(LocationEvent.Unavailable(LocationUnavailableReason.Unsupported))
+        close()
+        return@callbackFlow
+      }
+      LocationBackendAvailability.Available -> Unit
+    }
+    if (closed.get()) {
+      trySend(
+        LocationEvent.Unavailable(
+          LocationUnavailableReason.UnexpectedFailure,
+          IllegalStateException("The Windows location provider is closed"),
+        )
+      )
+      close()
+      return@callbackFlow
+    }
+
+    val filter = WindowsLocationFilter(request.minimumInterval, request.minimumDistance.inMeters)
+    val listener =
+      object : WindowsLocationListener {
+        override fun onPosition(fix: WindowsLocationFix) {
+          val location = fix.asMapLibreLocation() ?: return
+          synchronized(filter) {
+            if (filter.shouldDeliver(fix)) trySend(LocationEvent.Fix(location))
+          }
+        }
+
+        override fun onStatus(status: WindowsPositionStatus) {
+          status.asUnavailableReason(permission.value)?.let {
+            trySend(LocationEvent.Unavailable(it))
+          }
+        }
+
+        override fun onFailure(error: Throwable) {
+          trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+        }
+      }
+    val session =
+      try {
+        client.createSession(
+          WindowsLocationConfiguration(
+            desiredAccuracyMeters = request.accuracy.toDesiredAccuracyMeters(),
+            reportIntervalMilliseconds = request.minimumInterval.toReportIntervalMilliseconds(),
+          ),
+          listener,
+        )
+      } catch (error: Throwable) {
+        trySend(LocationEvent.Unavailable(LocationUnavailableReason.UnexpectedFailure, error))
+        close()
+        return@callbackFlow
+      }
+    sessions += session
+    awaitClose {
+      if (sessions.remove(session)) session.close()
+    }
+  }
+
+  override fun close() {
+    if (!closed.compareAndSet(false, true)) return
+    sessions.toList().forEach {
+      if (sessions.remove(it)) runCatching(it::close)
+    }
+    runCatching(requester::close)
+    runCatching(client::close)
+  }
+}
+
+/**
+ * Foreground Windows location permission holder.
+ *
+ * [WindowsLocationProvider] delegates [LocationProvider.permission] and
+ * [LocationProvider.requestPermission] to this class. Custom providers can use it directly.
+ * `AppCapability.Create("location").CheckAccess()` maps `Allowed` to [LocationPermission.Granted]
+ * with [LocationAccuracyAuthorization.Unknown], `UserPromptRequired` to a requestable
+ * [LocationPermission.NotGranted], user or system denial and a missing packaged capability to a
+ * non-requestable value, and unknown failures to `canRequest = null`. `AccessChanged` keeps
+ * [status] synchronized with changes made in Windows Settings.
+ *
+ * [requestForegroundPermission] suppresses duplicate requests and starts
+ * `Geolocator.RequestAccessAsync()` on the AWT event-dispatch thread.
+ */
+public class WindowsLocationPermissionRequester
+internal constructor(
+  private val client: WindowsLocationClient,
+  private val ownsClient: Boolean = true,
+) : AutoCloseable {
+  public constructor() : this(SystemWindowsLocationClient())
+
+  /** Whether the process has a usable Windows Runtime location implementation. */
+  public val backendAvailability: LocationBackendAvailability = client.backendAvailability
+  private val mutableStatus =
+    MutableStateFlow<LocationPermission>(LocationPermission.NotGranted(canRequest = null))
+
+  /** Current Windows location access, including changes made outside the application. */
+  public val status: StateFlow<LocationPermission> = mutableStatus
+  private val requestPending = AtomicBoolean()
+  private val closed = AtomicBoolean()
+  private var accessObservation: WindowsCloseable? = null
+
+  init {
+    if (backendAvailability == LocationBackendAvailability.Available) {
+      mutableStatus.value = readAccess()
+      accessObservation =
+        try {
+          client.observeAccess { mutableStatus.value = it.asLocationPermission() }
+        } catch (_: Throwable) {
+          mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+          null
+        }
+    }
+  }
+
+  /** Starts a foreground permission request and publishes its result to [status]. */
+  public fun requestForegroundPermission() {
+    if (closed.get() || backendAvailability != LocationBackendAvailability.Available) return
+    if (status.value != LocationPermission.NotGranted(canRequest = true)) return
+    if (!requestPending.compareAndSet(false, true)) return
+    try {
+      client.requestAccess {
+        mutableStatus.value = it.asLocationPermission()
+        requestPending.set(false)
+      }
+    } catch (_: Throwable) {
+      mutableStatus.value = LocationPermission.NotGranted(canRequest = null)
+      requestPending.set(false)
+    }
+  }
+
+  override fun close() {
+    if (!closed.compareAndSet(false, true)) return
+    try {
+      accessObservation?.close()
+    } finally {
+      accessObservation = null
+      if (ownsClient) client.close()
+    }
+  }
+
+  private fun readAccess(): LocationPermission =
+    try {
+      client.checkAccess().asLocationPermission()
+    } catch (_: Throwable) {
+      LocationPermission.NotGranted(canRequest = null)
+    }
+}
+
+internal fun isWindows(osName: String?): Boolean =
+  osName?.lowercase(Locale.ROOT)?.startsWith("windows") == true

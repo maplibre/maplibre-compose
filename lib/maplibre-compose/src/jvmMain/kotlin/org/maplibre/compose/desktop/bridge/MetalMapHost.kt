@@ -73,6 +73,8 @@ internal class MetalMapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost
 
   override fun <T> withRendererAccess(action: () -> T): T = rendererThread.run(action)
 
+  override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
+
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     if (target !is MetalTextureTarget || target.texture.isNull) return false
     return withPreparedContext { context ->

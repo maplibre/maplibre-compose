@@ -1,48 +1,37 @@
 ---
-title: Integrating location
-description: Track the user's position and orientation, draw a puck, and follow it with the camera.
+title: Show the user's location
+description: Track the user's position, draw a puck, and follow it with the camera.
 ---
 
 import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 
 import location from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Location.kt?raw";
 
-The location module provides a cross-platform way to track and visualize user
-position in MapLibre Compose.
+The location module tracks the user's position and draws it on the map. A
+<Api of="LocationProvider" /> supplies location updates,
+<Api of="rememberLocationState" /> collects them, <Api of="LocationPuck" />
+draws the latest fix, and <Api of="LocationTrackingEffect" /> keeps the camera
+in sync with location changes:
 
-Location support is split into a few small pieces. A `LocationProvider` supplies
-foreground location updates, and `rememberLocationState` collects them according
-to permission and lifecycle state. `LocationPuck` draws the latest fix, and
-`LocationTrackingEffect` can keep the camera in sync with location changes.
+<Code code={region(location, "puck")} lang="kotlin" title="App.kt" />
 
-### Overview
+All platforms provide default location providers. Android and iOS also provide
+default orientation providers. <Api of="LocationState.status" /> reports an
+unsupported or misconfigured platform without throwing.
 
-| Component                                        | Purpose                                                                            |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------- |
-| **`rememberDefaultLocationProvider`**            | Creates the platform location provider.                                            |
-| **`rememberDefaultLocationPermissionRequester`** | Observes and requests foreground location permission.                              |
-| **`rememberLocationState`**                      | Collects updates while enabled and lifecycle-active.                               |
-| **`rememberDefaultOrientationProvider`**         | Provides device orientation data from sensors.                                     |
-| **`LocationPuck`**                               | Visual indicator that displays the user's current position and bearing on the map. |
-| **`LocationTrackingEffect`**                     | Applies location changes to application or camera state.                           |
+`locationState.location` is null until the first fix arrives, so the puck
+initially draws nothing. Afterward, the state retains the last fix when
+tracking stops or permission changes.
 
-Android and iOS provide default location and orientation providers. Web, Linux,
-and macOS provide default location providers but no default orientation
-readings.
-`LocationState.status` reports unsupported or misconfigured
-location setup without throwing.
+## Request permission
 
-Each collector of `LocationProvider.updates(request)` starts an independent
-platform location request. Cancelling collection stops that request and
-unregisters its callbacks. `rememberLocationState` collects updates only while
-`enabled` is true, permission is granted, and the lifecycle is active.
+The library never requests location permission automatically. Call
+<Api of="LocationState.requestPermission" /> when the application is ready to
+present the platform permission UI:
 
-`rememberLocationState` never requests permission automatically. Call
-`requestPermission` when the application is ready to present platform permission
-UI. This may be during startup or in response to an action such as a button click:
-
-```kotlin
+```kotlin title="App.kt"
 if (locationState.permission !is LocationPermission.Granted) {
   Button(onClick = locationState::requestPermission) {
     Text("Use my location")
@@ -50,103 +39,70 @@ if (locationState.permission !is LocationPermission.Granted) {
 }
 ```
 
-`locationState.location` is `null` until the first fix arrives, so the puck
-initially draws nothing. Afterward, the state retains the last fix when tracking
-stops or permission changes.
+When permission is not granted, <Api of="LocationPermission.NotGranted" />
+reports the next step: explain first when `shouldShowRationale` is set
+(Android only), request when `canRequest` is not `false`, and send the user to
+the system settings otherwise. <Api of="rememberSystemSettingsLauncher" />
+opens the settings screens on the platforms that have them.
 
-### Bearing
-
-`Location.course` is the direction of movement reported by the location
-provider. `Orientation.orientation` is the direction the device is pointing. Use
-`locationState.mostAccurateBearing()` when either source is acceptable and the
-more accurate one should be used.
-
-The puck bearing and camera bearing are separate: `LocationPuck(bearing = ...)`
-rotates only the puck indicator, while `LocationTrackingEffect` and
-`updateFromLocation(updateBearing = ...)` control camera rotation.
-
-| Bearing update mode | Camera behavior                                          |
-| ------------------- | -------------------------------------------------------- |
-| `IGNORE`            | Keep the current camera bearing.                         |
-| `ALWAYS_NORTH`      | Reset the camera to north.                               |
-| `TRACK_COURSE`      | Rotate the camera with the user's direction of movement. |
-| `TRACK_ORIENTATION` | Rotate the camera with the device orientation.           |
-| `TRACK_AUTOMATIC`   | Use the more accurate course or orientation measurement. |
-
-### Implementation
-
-<Code code={region(location, "puck")} lang="kotlin" />
-
-### Customizing the puck
-
-Use `accuracyThreshold = Float.POSITIVE_INFINITY` to hide the accuracy circle.
-Use `showBearing = false` or `showBearingAccuracy = false` to hide bearing
-indicators. If you use the Material 3 extension module, pass
-`colors = LocationPuckDefaults.colors()` for themed colors. `onClick` and
-`onLongClick` can react to interactions with the puck.
-
-### Platform options
-
-#### Android
-
-The default permission requester uses Android's runtime location permissions.
-For better accuracy, use the Fused Location/Orientation Provider
-(requires Google Play Services):
-
-```kotlin
-val locationProvider = rememberFusedLocationProvider()
-val orientationProvider = rememberFusedOrientationProvider()
-```
-
-Add the extension module to the Android source set:
-
-```toml title="libs.versions.toml"
-[libraries]
-maplibre-composeGms = { module = "org.maplibre.compose:maplibre-compose-gms", version = "{{release}}" }
-```
-
-```kotlin title="build.gradle.kts"
-androidMain.dependencies {
-  implementation(libs.maplibre.composeGms)
+```kotlin title="App.kt"
+val settings = rememberSystemSettingsLauncher()
+val permission = locationState.permission
+if (permission is LocationPermission.NotGranted) {
+  when {
+    permission.shouldShowRationale ->
+      LocationRationale(onAccept = locationState::requestPermission)
+    permission.canRequest != false ->
+      Button(onClick = locationState::requestPermission) { Text("Use my location") }
+    settings.canOpenApplicationSettings ->
+      Button(onClick = { settings.openApplicationSettings() }) { Text("Open settings") }
+  }
 }
 ```
 
-#### Web
+## Platform requirements
 
-The default web provider uses `navigator.geolocation`. Browsers require a
-[secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts),
-except for development origins such as `localhost`, and may also block location
-through the
-[`geolocation` permissions policy](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Permissions-Policy/geolocation).
-Calling `requestPermission` starts a one-shot request so that the browser can
-present its prompt; active tracking then uses a watch that is removed when
-collection stops.
+### Android
 
-The browser API accepts a high-accuracy preference but has no interval or
-distance thresholds. The provider applies `minimumInterval` after receiving
-fixes and ignores `minimumDistance`.
+Declare `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION` in the application
+manifest. Declare `ACCESS_BACKGROUND_LOCATION` only when the application tracks
+location in the background.
 
-#### Linux desktop
+For fused location on devices with Google Play services, add the optional
+runtime module. The default providers then use fused location and orientation
+where Google Play services is available, and the framework providers
+otherwise.
 
-The backend connects to `org.freedesktop.portal.Desktop` on the D-Bus session
-bus. The active portal implementation supplies location data, commonly through
-[GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue). A missing portal
-reports an unsupported backend through `LocationState.status`.
+```kotlin title="build.gradle.kts"
+androidMain.dependencies {
+  implementation("org.maplibre.compose:location-runtime-gms:{{release}}")
+}
+```
 
-On the standard AWT map host, the portal attaches its permission dialog to that
-window. A custom X11 or Wayland host can expose its window through
-`ComposeMapHost.xdgPortalWindow`. Other hosts use an unparented dialog.
+For Huawei devices, `location-runtime-hms` provides fused location through HMS
+Core instead. It requires Huawei's repository and
+[HMS Core preparation](https://developer.huawei.com/consumer/en/codelab/HMSPreparation/index.html).
 
-Each desktop rendering runtime installs its matching backend. A missing backend
-reports an unsupported backend, and multiple backends report a configuration
-failure through `LocationState.status`.
+### iOS
 
-#### macOS desktop
-
-The backend uses Core Location. Add the
+Add the
 [location usage description](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)
-and
-[location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location)
-that Apple requires.
+that Apple requires to your `Info.plist`.
 
-`minimumInterval` is ignored because Core Location filters only by distance.
+### Web
+
+Browsers supply location only in a
+[secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts),
+except for development origins such as `localhost`.
+
+### Desktop
+
+On macOS, add the
+[location usage description](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)
+and the
+[location entitlement](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.security.personal-information.location)
+that Apple requires. On Linux, location comes from the desktop portal on the
+D-Bus session bus, commonly backed by
+[GeoClue](https://gitlab.freedesktop.org/geoclue/geoclue). On Windows, location
+comes from Windows Runtime geolocation. A missing backend reports an
+unsupported status through `LocationState.status`.

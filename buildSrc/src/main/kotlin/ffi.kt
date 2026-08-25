@@ -2,28 +2,31 @@
  * The desktop platforms MapLibre Native FFI publishes a native runtime for.
  *
  * The FFI ships one artifact per render backend, each carrying per-platform natives under a
- * classifier; an application picks exactly one.
+ * classifier; an application picks exactly one. Which backends a platform can run is a property of
+ * the platform; which one runs is the application's choice of runtime artifact.
  */
 enum class DesktopHostPlatform(
   private val os: String,
   private val arch: String,
 
-  /**
-   * The one backend `ComposeMapHostFactory` can bridge here today, not a property of the platform:
-   * the FFI offers OpenGL and Vulkan everywhere, and an application chooses by choosing a runtime.
-   */
-  val defaultRenderBackend: RenderBackend,
+  /** Every backend this platform runs, in preference order. */
+  val supportedBackends: List<RenderBackend>,
 ) {
-  LinuxX64("linux", "x64", RenderBackend.VULKAN),
-  LinuxArm64("linux", "arm64", RenderBackend.VULKAN),
-  MacosArm64("macos", "arm64", RenderBackend.METAL),
-  WindowsX64("windows", "x64", RenderBackend.VULKAN),
-  WindowsArm64("windows", "arm64", RenderBackend.VULKAN);
+  LinuxX64("linux", "x64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL)),
+  LinuxArm64("linux", "arm64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL)),
+  MacosArm64("macos", "arm64", listOf(RenderBackend.METAL)),
+  WindowsX64("windows", "x64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL)),
+  WindowsArm64("windows", "arm64", listOf(RenderBackend.VULKAN, RenderBackend.OPENGL));
 
   enum class RenderBackend(val artifactInfix: String) {
     METAL("metal"),
     VULKAN("vulkan"),
+    OPENGL("opengl"),
   }
+
+  /** The backend packaged when the build does not select one, the first of [supportedBackends]. */
+  val defaultRenderBackend: RenderBackend
+    get() = supportedBackends.first()
 
   /** Classifier of the natives jar for this platform, e.g. `natives-linux-x64`. */
   val nativesClassifier: String
@@ -43,10 +46,6 @@ enum class DesktopHostPlatform(
   /** Our runtime artifact for [backend] on this platform. */
   fun runtimeArtifactId(backend: RenderBackend): String =
     "maplibre-compose-runtime-${backend.artifactInfix}-$artifactSuffix"
-
-  /** Our runtime artifact for [defaultRenderBackend]. */
-  val defaultRuntimeArtifactId: String
-    get() = runtimeArtifactId(defaultRenderBackend)
 
   /** Module carrying [backend]'s native runtime, without a version. */
   fun runtimeModule(backend: RenderBackend): String =
@@ -126,4 +125,25 @@ enum class DesktopHostPlatform(
         )
     }
   }
+}
+
+/**
+ * The backend the `maplibre.desktop.backend` Gradle property selects for this platform, or the
+ * default when the property is unset.
+ *
+ * Pass `providers.gradleProperty("maplibre.desktop.backend").orNull`; the property names a backend
+ * by its artifact infix, as in `-Pmaplibre.desktop.backend=opengl`.
+ */
+fun DesktopHostPlatform.selectedRenderBackend(
+  requested: String?
+): DesktopHostPlatform.RenderBackend {
+  if (requested.isNullOrBlank()) return defaultRenderBackend
+  val backend =
+    DesktopHostPlatform.RenderBackend.entries.singleOrNull { it.artifactInfix == requested }
+  check(backend != null && backend in supportedBackends) {
+    "Backend '$requested' does not run on $artifactSuffix. Choose one of " +
+      supportedBackends.joinToString { it.artifactInfix } +
+      '.'
+  }
+  return backend
 }

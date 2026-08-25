@@ -78,11 +78,13 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param sortKey Sorts features within this layer in ascending order based on this value. Features
- *   with a higher sort key will appear above features with a lower sort key.
+ *   with a higher sort key will appear above features with a lower sort key. The expression may use
+ *   feature properties.
  * @param placement Symbol placement relative to its geometry.
  * @param spacing Distance between two symbol anchors.
  *
@@ -94,32 +96,38 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  * @param zOrder Determines whether overlapping symbols in the same layer are rendered in the order
  *   that they appear in the data source or by their y-position relative to the viewport. To control
  *   the order and prioritization of symbols otherwise, use [sortKey].
- * @param iconImage Image to use for drawing an image background.
+ * @param iconImage Image to use for drawing an image background. The expression may use feature
+ *   properties.
  * @param iconOpacity The opacity at which the icon will be drawn. A value in the range `[0..1]`.
+ *   The expression may use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconColor The color of the icon. This can only be used with SDF icons.
+ * @param iconColor The color of the icon. This can only be used with SDF icons. The expression may
+ *   use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconHaloColor The color of the icon's halo. Icon halos can only be used with SDF icons.
+ *   The expression may use feature properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconHaloWidth Distance of halo to the icon outline. The unit is in dp only for SDF sprites
  *   that were created with a blur radius of 8, multiplied by the display density. I.e., the radius
- *   needs to be 16 for @2x sprites, etc.
+ *   needs to be 16 for @2x sprites, etc. The expression may use feature properties and feature
+ *   state.
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconHaloBlur Fade out the halo towards the outside.
+ * @param iconHaloBlur Fade out the halo towards the outside. The expression may use feature
+ *   properties and feature state.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconSize Scales the original size of the icon by the provided factor. The new pixel size
  *   of the image will be the original pixel size multiplied by [iconSize]. 1 is the original size;
- *   3 triples the size of the image.
+ *   3 triples the size of the image. The expression may use feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
@@ -150,23 +158,25 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconRotate Rotates the icon clockwise by the number in degrees.
+ * @param iconRotate Rotates the icon clockwise by the number in degrees. The expression may use
+ *   feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
- * @param iconAnchor Part of the icon placed closest to the anchor.
+ * @param iconAnchor Part of the icon placed closest to the anchor. The expression may use feature
+ *   properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconOffset Offset distance of icon from its anchor. Positive values indicate right and
  *   down, while negative values indicate left and up. Each component is multiplied by the value of
  *   [iconSize] to obtain the final offset in dp. When combined with [iconRotate] the offset will be
- *   as if the rotated direction was up.
+ *   as if the rotated direction was up. The expression may use feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
  * @param iconPadding Size of additional area round the icon bounding box used for detecting symbol
- *   collisions.
+ *   collisions. The expression may use feature properties.
  *
  *   Ignored if [iconImage] is not specified.
  *
@@ -179,8 +189,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [iconImage] is not specified.
  *
- *   **Note**: This property is not supported on native platforms yet, see
- *   [maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)**
+ *   Not yet supported on native
+ *   ([maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)).
  *
  * @param iconIgnorePlacement If true, other symbols can be visible even if they collide with the
  *   icon.
@@ -202,37 +212,42 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   Ignored if [iconTranslate] is not set.
  *
  * @param textField Value to use for a text label. Use e.g. `format(const("My label"))` to display
- *   the plain string "My label".
+ *   the plain string "My label". The expression may use feature properties.
  *
  *   The text can also be formatted, employing different colors, fonts, etc., see
  *   [format][org.maplibre.compose.expressions.dsl.format].
  *
- * @param textOpacity The opacity at which the text will be drawn.
+ * @param textOpacity The opacity at which the text will be drawn. The expression may use feature
+ *   properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textColor The color with which the text will be drawn.
+ * @param textColor The color with which the text will be drawn. The expression may use feature
+ *   properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textHaloColor The color of the text's halo, which helps it stand out from backgrounds.
+ * @param textHaloColor The color of the text's halo, which helps it stand out from backgrounds. The
+ *   expression may use feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
  * @param textHaloWidth Distance of halo to the font outline. Max text halo width is 1/4 of the
- *   font-size.
+ *   font-size. The expression may use feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textHaloBlur The halo's fadeout distance towards the outside.
+ * @param textHaloBlur The halo's fadeout distance towards the outside. The expression may use
+ *   feature properties and feature state.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textFont Font stack to use for displaying text.
+ * @param textFont Font stack to use for displaying text. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textSize Font size in SP or EM relative to 16sp.
+ * @param textSize Font size in SP or EM relative to 16sp. The expression may use feature
+ *   properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -241,8 +256,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   units. This is a limitation of the MapLibre expression parser. If text size does not use zoom
  *   interpolation, then those other properties can be defined in either unit.
  *
- * @param textTransform Specifies how to capitalize text.
- * @param textLetterSpacing Text tracking amount.
+ * @param textTransform Specifies how to capitalize text. The expression may use feature properties.
+ * @param textLetterSpacing Text tracking amount. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -261,7 +276,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textMaxWidth The maximum line width for text wrapping.
+ * @param textMaxWidth The maximum line width for text wrapping. The expression may use feature
+ *   properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -269,7 +285,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textJustify Text justification options.
+ * @param textJustify Text justification options. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -289,11 +305,13 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textRotate Rotates the text clockwise. Unit in degrees.
+ * @param textRotate Rotates the text clockwise. Unit in degrees. The expression may use feature
+ *   properties.
  *
  *   Ignored if [textField] is not specified.
  *
- * @param textAnchor Part of the text placed closest to the anchor.
+ * @param textAnchor Part of the text placed closest to the anchor. The expression may use feature
+ *   properties.
  *
  *   Overridden by [textVariableAnchorOffset].
  *
@@ -302,7 +320,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  * @param textOffset Offset distance of text from its anchor in ems. Positive values indicate right
  *   and down, while negative values indicate left and up. If used with [textVariableAnchor], input
  *   values will be taken as absolute values. Offsets along the x- and y-axis will be applied
- *   automatically based on the anchor position.
+ *   automatically based on the anchor position. The expression may use feature properties.
  *
  *   Overridden by [textRadialOffset].
  *
@@ -320,7 +338,7 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  * @param textRadialOffset Radial offset of text, in the direction of the symbol's anchor. Useful in
  *   combination with [textVariableAnchor], which defaults to using the two-dimensional [textOffset]
- *   if present.
+ *   if present. The expression may use feature properties.
  *
  *   Ignored if [textField] is not specified.
  *
@@ -328,33 +346,29 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *   map, you can provide an array of [SymbolAnchor] locations, each paired with an offset value.
  *   The renderer will attempt to place the label at each location, in order, before moving on to
  *   the next location+offset. Use [textJustify] = [TextJustify.Auto] to choose justification based
- *   on anchor position.
+ *   on anchor position. The expression may use feature properties.
  *
- * Each anchor location is accompanied by a point which defines the offset when the corresponding
- * anchor location is used. Positive offset values indicate right and down, while negative values
- * indicate left and up. Anchor locations may repeat, allowing the renderer to try multiple offsets
- * to try and place a label using the same anchor.
+ * Each anchor location has an [androidx.compose.ui.geometry.Offset] in ems. Positive offset values
+ * indicate right and down, while negative values indicate left and up. Anchor locations may repeat,
+ * which lets the renderer try multiple offsets for the same anchor.
  *
  * When present, this property takes precedence over [textAnchor], [textVariableAnchor],
  * [textOffset] and [textRadialOffset].
  *
  * Example:
  * ```kt
- * listOf(
- *   SymbolAnchor.Top to Point(0, 4),
- *   SymbolAnchor.Left to Point(3, 0),
- *   SymbolAnchor.Bottom to Point(1, 1)
+ * textVariableAnchorOffset(
+ *   SymbolAnchor.Top to Offset(0f, 4f),
+ *   SymbolAnchor.Left to Offset(3f, 0f),
+ *   SymbolAnchor.Bottom to Offset(1f, 1f),
  * )
  * ```
  *
  * When the renderer chooses the top anchor, [0, 4] will be used for [textOffset]; the text will be
  * shifted down by 4 ems. When the renderer chooses the left anchor, [3, 0] will be used for
- * [textOffset]; the text will be shifted right by 3 ems. Etc.
+ * [textOffset]; the text will be shifted right by 3 ems.
  *
  * Ignored if [textField] is not specified.
- *
- * NOTE: This property is currently not usable:
- * https://github.com/maplibre/maplibre-compose/issues/143
  *
  * @param textPadding Size of the additional area in dp around the text bounding box used for
  *   detecting symbol collisions.
@@ -374,8 +388,8 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  *
  *   Ignored if [textField] is not specified.
  *
- *   **Note**: This property is not supported on native platforms, yet, see
- *   [maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)**
+ *   Not yet supported on native
+ *   ([maplibre-native#251](https://github.com/maplibre/maplibre-native/issues/251)).
  *
  * @param textIgnorePlacement If true, other symbols can be visible even if they collide with the
  *   text.
@@ -481,8 +495,7 @@ public fun SymbolLayer(
   textOffset: Expression<TextUnitOffsetValue> = offset(0f.em, 0f.em),
   textVariableAnchor: Expression<ListValue<SymbolAnchor>> = nil(),
   textRadialOffset: Expression<TextUnitValue> = const(0f.em),
-  //  textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue> = nil(),
-  textVariableAnchorOffset: Expression<Nothing> = nil(),
+  textVariableAnchorOffset: Expression<TextVariableAnchorOffsetValue> = nil(),
 
   // text collision
   textPadding: Expression<DpValue> = const(2.dp),
@@ -640,126 +653,253 @@ public fun SymbolLayer(
   )
 }
 
-internal expect class SymbolLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class SymbolLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "symbol"
 
-  fun setSymbolPlacement(placement: CompiledExpression<SymbolPlacement>)
+  override val sourceId: String = source.id
 
-  fun setSymbolSpacing(spacing: CompiledExpression<DpValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setSymbolAvoidEdges(avoidEdges: CompiledExpression<BooleanValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setSymbolSortKey(sortKey: CompiledExpression<FloatValue>)
+  fun setSymbolPlacement(placement: CompiledExpression<SymbolPlacement>) {
+    setLayoutProperty("symbol-placement", placement)
+  }
 
-  fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>)
+  fun setSymbolSpacing(spacing: CompiledExpression<DpValue>) {
+    setLayoutProperty("symbol-spacing", spacing)
+  }
 
-  fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>)
+  fun setSymbolAvoidEdges(avoidEdges: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("symbol-avoid-edges", avoidEdges)
+  }
 
-  fun setIconOverlap(overlap: CompiledExpression<StringValue>)
+  fun setSymbolSortKey(sortKey: CompiledExpression<FloatValue>) {
+    setLayoutProperty("symbol-sort-key", sortKey)
+  }
 
-  fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>)
+  fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>) {
+    setLayoutProperty("symbol-z-order", zOrder)
+  }
 
-  fun setIconOptional(optional: CompiledExpression<BooleanValue>)
+  fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-allow-overlap", allowOverlap)
+  }
 
-  fun setIconRotationAlignment(rotationAlignment: CompiledExpression<IconRotationAlignment>)
+  fun setIconOverlap(overlap: CompiledExpression<StringValue>) {
+    setLayoutProperty("icon-overlap", overlap)
+  }
 
-  fun setIconSize(size: CompiledExpression<FloatValue>)
+  fun setIconIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-ignore-placement", ignorePlacement)
+  }
 
-  fun setIconTextFit(textFit: CompiledExpression<IconTextFit>)
+  fun setIconOptional(optional: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-optional", optional)
+  }
 
-  fun setIconTextFitPadding(textFitPadding: CompiledExpression<DpPaddingValue>)
+  fun setIconRotationAlignment(rotationAlignment: CompiledExpression<IconRotationAlignment>) {
+    setLayoutProperty("icon-rotation-alignment", rotationAlignment)
+  }
 
-  fun setIconImage(image: CompiledExpression<ImageValue>)
+  fun setIconSize(size: CompiledExpression<FloatValue>) {
+    setLayoutProperty("icon-size", size)
+  }
 
-  fun setIconRotate(rotate: CompiledExpression<FloatValue>)
+  fun setIconTextFit(textFit: CompiledExpression<IconTextFit>) {
+    setLayoutProperty("icon-text-fit", textFit)
+  }
 
-  fun setIconPadding(padding: CompiledExpression<DpPaddingValue>)
+  fun setIconTextFitPadding(textFitPadding: CompiledExpression<DpPaddingValue>) {
+    setLayoutProperty("icon-text-fit-padding", textFitPadding)
+  }
 
-  fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>)
+  fun setIconImage(image: CompiledExpression<ImageValue>) {
+    setLayoutProperty("icon-image", image)
+  }
 
-  fun setIconOffset(offset: CompiledExpression<DpOffsetValue>)
+  fun setIconRotate(rotate: CompiledExpression<FloatValue>) {
+    setLayoutProperty("icon-rotate", rotate)
+  }
 
-  fun setIconAnchor(anchor: CompiledExpression<SymbolAnchor>)
+  fun setIconPadding(padding: CompiledExpression<DpPaddingValue>) {
+    setLayoutProperty("icon-padding", padding)
+  }
 
-  fun setIconPitchAlignment(pitchAlignment: CompiledExpression<IconPitchAlignment>)
+  fun setIconKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("icon-keep-upright", keepUpright)
+  }
 
-  fun setIconOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setIconOffset(offset: CompiledExpression<DpOffsetValue>) {
+    setLayoutProperty("icon-offset", offset)
+  }
 
-  fun setIconColor(color: CompiledExpression<ColorValue>)
+  fun setIconAnchor(anchor: CompiledExpression<SymbolAnchor>) {
+    setLayoutProperty("icon-anchor", anchor)
+  }
 
-  fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>)
+  fun setIconPitchAlignment(pitchAlignment: CompiledExpression<IconPitchAlignment>) {
+    setLayoutProperty("icon-pitch-alignment", pitchAlignment)
+  }
 
-  fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>)
+  fun setIconOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("icon-opacity", opacity)
+  }
 
-  fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>)
+  fun setIconColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("icon-color", color)
+  }
 
-  fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setIconHaloColor(haloColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("icon-halo-color", haloColor)
+  }
 
-  fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setIconHaloWidth(haloWidth: CompiledExpression<DpValue>) {
+    setPaintProperty("icon-halo-width", haloWidth)
+  }
 
-  fun setTextPitchAlignment(pitchAlignment: CompiledExpression<TextPitchAlignment>)
+  fun setIconHaloBlur(haloBlur: CompiledExpression<DpValue>) {
+    setPaintProperty("icon-halo-blur", haloBlur)
+  }
 
-  fun setTextRotationAlignment(rotationAlignment: CompiledExpression<TextRotationAlignment>)
+  fun setIconTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("icon-translate", translate)
+  }
 
-  fun setTextField(field: CompiledExpression<FormattedValue>)
+  fun setIconTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("icon-translate-anchor", translateAnchor)
+  }
 
-  fun setTextFont(font: CompiledExpression<ListValue<StringValue>>)
+  fun setTextPitchAlignment(pitchAlignment: CompiledExpression<TextPitchAlignment>) {
+    setLayoutProperty("text-pitch-alignment", pitchAlignment)
+  }
 
-  fun setTextSize(size: CompiledExpression<DpValue>)
+  fun setTextRotationAlignment(rotationAlignment: CompiledExpression<TextRotationAlignment>) {
+    setLayoutProperty("text-rotation-alignment", rotationAlignment)
+  }
 
-  fun setTextMaxWidth(maxWidth: CompiledExpression<FloatValue>)
+  fun setTextField(field: CompiledExpression<FormattedValue>) {
+    setLayoutProperty("text-field", field)
+  }
 
-  fun setTextLineHeight(lineHeight: CompiledExpression<FloatValue>)
+  fun setTextFont(font: CompiledExpression<ListValue<StringValue>>) {
+    setLayoutProperty("text-font", font)
+  }
 
-  fun setTextLetterSpacing(letterSpacing: CompiledExpression<FloatValue>)
+  fun setTextSize(size: CompiledExpression<DpValue>) {
+    setLayoutProperty("text-size", size)
+  }
 
-  fun setTextJustify(justify: CompiledExpression<TextJustify>)
+  fun setTextMaxWidth(maxWidth: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-max-width", maxWidth)
+  }
 
-  fun setTextRadialOffset(radialOffset: CompiledExpression<FloatValue>)
+  fun setTextLineHeight(lineHeight: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-line-height", lineHeight)
+  }
 
-  fun setTextVariableAnchor(variableAnchor: CompiledExpression<ListValue<SymbolAnchor>>)
+  fun setTextLetterSpacing(letterSpacing: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-letter-spacing", letterSpacing)
+  }
+
+  fun setTextJustify(justify: CompiledExpression<TextJustify>) {
+    setLayoutProperty("text-justify", justify)
+  }
+
+  fun setTextRadialOffset(radialOffset: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-radial-offset", radialOffset)
+  }
+
+  fun setTextVariableAnchor(variableAnchor: CompiledExpression<ListValue<SymbolAnchor>>) {
+    setLayoutProperty("text-variable-anchor", variableAnchor)
+  }
 
   fun setTextVariableAnchorOffset(
     variableAnchorOffset: CompiledExpression<TextVariableAnchorOffsetValue>
-  )
+  ) {
+    setLayoutProperty("text-variable-anchor-offset", variableAnchorOffset)
+  }
 
-  fun setTextAnchor(anchor: CompiledExpression<SymbolAnchor>)
+  fun setTextAnchor(anchor: CompiledExpression<SymbolAnchor>) {
+    setLayoutProperty("text-anchor", anchor)
+  }
 
-  fun setTextMaxAngle(maxAngle: CompiledExpression<FloatValue>)
+  fun setTextMaxAngle(maxAngle: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-max-angle", maxAngle)
+  }
 
-  fun setTextWritingMode(writingMode: CompiledExpression<ListValue<TextWritingMode>>)
+  fun setTextWritingMode(writingMode: CompiledExpression<ListValue<TextWritingMode>>) {
+    setLayoutProperty("text-writing-mode", writingMode)
+  }
 
-  fun setTextRotate(rotate: CompiledExpression<FloatValue>)
+  fun setTextRotate(rotate: CompiledExpression<FloatValue>) {
+    setLayoutProperty("text-rotate", rotate)
+  }
 
-  fun setTextPadding(padding: CompiledExpression<DpValue>)
+  fun setTextPadding(padding: CompiledExpression<DpValue>) {
+    setLayoutProperty("text-padding", padding)
+  }
 
-  fun setTextKeepUpright(keepUpright: CompiledExpression<BooleanValue>)
+  fun setTextKeepUpright(keepUpright: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-keep-upright", keepUpright)
+  }
 
-  fun setTextTransform(transform: CompiledExpression<TextTransform>)
+  fun setTextTransform(transform: CompiledExpression<TextTransform>) {
+    setLayoutProperty("text-transform", transform)
+  }
 
-  fun setTextOffset(offset: CompiledExpression<FloatOffsetValue>)
+  fun setTextOffset(offset: CompiledExpression<FloatOffsetValue>) {
+    setLayoutProperty("text-offset", offset)
+  }
 
-  fun setTextAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>)
+  fun setTextAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-allow-overlap", allowOverlap)
+  }
 
-  fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>)
+  fun setTextOverlap(overlap: CompiledExpression<SymbolOverlap>) {
+    setLayoutProperty("text-overlap", overlap)
+  }
 
-  fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>)
+  fun setTextIgnorePlacement(ignorePlacement: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-ignore-placement", ignorePlacement)
+  }
 
-  fun setTextOptional(optional: CompiledExpression<BooleanValue>)
+  fun setTextOptional(optional: CompiledExpression<BooleanValue>) {
+    setLayoutProperty("text-optional", optional)
+  }
 
-  fun setTextOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setTextOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("text-opacity", opacity)
+  }
 
-  fun setTextColor(color: CompiledExpression<ColorValue>)
+  fun setTextColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("text-color", color)
+  }
 
-  fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>)
+  fun setTextHaloColor(haloColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("text-halo-color", haloColor)
+  }
 
-  fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>)
+  fun setTextHaloWidth(haloWidth: CompiledExpression<DpValue>) {
+    setPaintProperty("text-halo-width", haloWidth)
+  }
 
-  fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>)
+  fun setTextHaloBlur(haloBlur: CompiledExpression<DpValue>) {
+    setPaintProperty("text-halo-blur", haloBlur)
+  }
 
-  fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setTextTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("text-translate", translate)
+  }
 
-  fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setTextTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("text-translate-anchor", translateAnchor)
+  }
 }

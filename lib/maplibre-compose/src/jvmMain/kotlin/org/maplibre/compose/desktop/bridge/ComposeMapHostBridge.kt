@@ -3,6 +3,7 @@ package org.maplibre.compose.desktop.bridge
 import org.maplibre.compose.desktop.ComposeGpuContext
 import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
+import org.maplibre.compose.desktop.OpenGlInterop
 import org.maplibre.compose.desktop.onGpuThread
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -17,23 +18,30 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
   override val description: String
     get() = mapHost.description
 
-  override val backends: RenderBackendPair =
+  override val bridges: List<RenderBackendPair> =
     when (mapHost.backend) {
       ComposeRenderBackend.METAL ->
-        RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL)
+        listOf(RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL))
       ComposeRenderBackend.OPENGL ->
-        RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
+        listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL))
       ComposeRenderBackend.DIRECT3D12 ->
-        RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12)
+        listOf(RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12))
     }
 
-  override fun create(): MlnFfiMapHostResult =
+  override fun create(backends: RenderBackendPair): MlnFfiMapHostResult =
     try {
       val host =
-        when (mapHost.backend) {
-          ComposeRenderBackend.METAL -> MetalMapHost(mapHost)
-          ComposeRenderBackend.OPENGL -> VulkanOpenGlMapHost(mapHost)
-          ComposeRenderBackend.DIRECT3D12 -> VulkanDirect3D12MapHost(mapHost)
+        when (backends) {
+          RenderBackendPair(MapRenderBackend.METAL, ComposeRenderBackend.METAL) ->
+            MetalMapHost(mapHost)
+          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL) ->
+            when (selectOpenGlBridge(mapHost.openGlInterop)) {
+              OpenGlBridge.NATIVE -> VulkanOpenGlMapHost(mapHost)
+              OpenGlBridge.ANGLE_D3D11 -> VulkanOpenGlWin32MapHost(mapHost)
+            }
+          RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.DIRECT3D12) ->
+            VulkanDirect3D12MapHost(mapHost)
+          else -> return MlnFfiMapHostResult.Failed("$description cannot bridge $backends")
         }
       MlnFfiMapHostResult.Created(host)
     } catch (error: Throwable) {
@@ -44,6 +52,30 @@ internal class ComposeMapHostFactory(private val mapHost: ComposeMapHost) : MlnF
       )
     }
 }
+
+internal enum class OpenGlBridge {
+  NATIVE,
+  ANGLE_D3D11,
+}
+
+/** Selects the OpenGL bridge from the host capability instead of inferring it from the OS. */
+internal fun selectOpenGlBridge(
+  interop: OpenGlInterop,
+  windows: Boolean = isWindowsDesktop(),
+  linux: Boolean = isLinuxDesktop(),
+): OpenGlBridge =
+  when (interop) {
+    OpenGlInterop.NATIVE -> {
+      if (!linux) throw MlnFfiHostException("NATIVE OpenGL interop requires Linux")
+      OpenGlBridge.NATIVE
+    }
+    OpenGlInterop.ANGLE_D3D11 -> {
+      if (!windows) {
+        throw MlnFfiHostException("ANGLE_D3D11 OpenGL interop requires Windows")
+      }
+      OpenGlBridge.ANGLE_D3D11
+    }
+  }
 
 /**
  * This host's context right now, or null when it has none yet.
@@ -87,7 +119,11 @@ internal fun <T> ComposeMapHost.withOpenGlContextOrNull(
   var result: Result<T>? = null
   context.withContextCurrent {
     result = runCatching {
-      ensureCapabilities()
+      when (openGlInterop) {
+        OpenGlInterop.NATIVE -> ensureCapabilities()
+        OpenGlInterop.ANGLE_D3D11 ->
+          check(AngleGl.isUsable()) { "Compose's ANGLE context has no usable GLES entry points" }
+      }
       action(context)
     }
   }

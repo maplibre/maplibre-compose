@@ -6,9 +6,16 @@ import web.html.HTMLCanvasElement
 internal const val GL_TEXTURE_2D: Int = 0x0DE1
 internal const val GL_RGBA8: Int = 0x8058
 
+/** The Emscripten context that owns the Compose draw pass currently in progress. */
+internal class EmscriptenGlContext(
+  val handle: Int,
+  val webGlContext: WebGL2RenderingContext,
+)
+
 /**
- * Emscripten's GL bookkeeping, which skiko's loader publishes as a global. It is the only list of
- * the contexts on the page: Compose puts its canvas inside a shadow root.
+ * Emscripten's GL bookkeeping, which Skiko's loader publishes as a global. The current entry
+ * identifies the renderer driving this frame even though Compose puts its canvas inside a shadow
+ * root.
  */
 internal object EmscriptenGl {
   private val registry: dynamic
@@ -20,36 +27,35 @@ internal object EmscriptenGl {
       return gl != null && gl != undefined
     }
 
-  /**
-   * Null before Compose has built its renderer.
-   *
-   * @throws IllegalStateException if the page holds more than one live WebGL context. The Skia
-   *   context this pairs with is whichever was created last, and WebGL shares no resources between
-   *   contexts, so guessing between them would draw a map from a texture another context owns.
-   */
-  fun skikoCanvas(): HTMLCanvasElement? {
+  /** The handle that Skiko made current, including handles from retired renderers. */
+  fun currentHandle(): Int? {
     if (!isAvailable) return null
-    val contexts = registry.contexts ?: return null
-    val length = contexts.length as? Int ?: return null
-    var found: HTMLCanvasElement? = null
-    for (index in 0 until length) {
-      val entry = contexts[index]
-      if (entry == null || entry == undefined) continue
-      val canvas = entry.GLctx?.canvas
-      if (canvas == null || canvas == undefined) continue
-      check(found == null) {
-        "MapLibre Compose supports one Compose renderer per page, and this page has more than one " +
-          "live WebGL context."
-      }
-      found = canvas.unsafeCast<HTMLCanvasElement>()
-    }
-    return found
+    val entry = registry.currentContext
+    if (entry == null || entry == undefined) return null
+    return entry.handle as? Int
   }
 
-  fun contextOf(canvas: HTMLCanvasElement): WebGL2RenderingContext? {
-    val context = canvas.asDynamic().GLctxObject?.GLctx
-    if (context == null || context == undefined) return null
-    return context.unsafeCast<WebGL2RenderingContext>()
+  /**
+   * The context for the Compose draw pass currently in progress.
+   *
+   * Compose can leave one animation frame queued on a renderer that a resize replaced. The canvas
+   * points at the newest Emscripten entry, so a different current entry belongs to a retired frame.
+   */
+  fun currentContext(): EmscriptenGlContext? {
+    if (!isAvailable) return null
+    val entry = registry.currentContext
+    if (entry == null || entry == undefined) return null
+    val handle = entry.handle as? Int ?: return null
+    val context = entry.GLctx
+    if (context == null || context == undefined || context.isContextLost() == true) return null
+    val canvas = context.canvas
+    if (canvas == null || canvas == undefined) return null
+    val typedCanvas = canvas.unsafeCast<HTMLCanvasElement>()
+    if (typedCanvas.asDynamic().GLctxObject !== entry) return null
+    return EmscriptenGlContext(
+      handle = handle,
+      webGlContext = context.unsafeCast<WebGL2RenderingContext>(),
+    )
   }
 
   /** A texture created from JavaScript has no name, and Skia's wasm build addresses it by one. */

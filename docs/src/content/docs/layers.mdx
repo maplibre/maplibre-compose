@@ -1,73 +1,53 @@
 ---
-title: Adding data to the map
-description: Declare sources and layers as composables, style them with expressions, and anchor them in the layer stack.
+title: Add data to the map
+description: Declare sources and layers as composables, and anchor them in the layer stack.
 ---
 
 import { Code } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
 import { inside, region } from "../../snippets";
 
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
-## Sources and layers
+The base style defines the map's content. To show your own data on top of it,
+declare sources and layers inside the `MaplibreMap` block. A source holds the
+data, and a layer draws data from a source.
 
-As covered in [Styling the map](/maplibre-compose/styling/), the data displayed
-on the map is defined by the style, which is provided as a URI to a JSON object.
-However, this library provides a way to add additional data to the map at
-runtime.
+## Reference a base style source
 
-A map style primarily consists of sources and layers. Sources contain the data
-included on the map, and layers configure how that data is displayed. With
-MapLibre Compose, you can dynamically configure sources and layers with
-`@Composable` functions:
+<Api of="getBaseSource" /> looks up a source that the base style defines, so a
+layer of yours can draw data that the style already loads:
 
-<Code code={region(layers, "simple")} lang="kotlin" />
+<Code code={region(layers, "simple")} lang="kotlin" title="App.kt" />
 
-The above example shows how to add a layer referring to a source from the base
-style, but you can also declare new sources:
+## Declare your own source
 
-<Code code={inside("MaplibreMap {", region(layers, "amtrak-1"))} lang="kotlin" />
+<Api of="rememberGeoJsonSource" /> creates a source from a GeoJSON URI or
+string. Layers reference the source object directly:
 
-For small, frequently updated in-memory GeoJSON sources, you can opt into
-synchronous updates. Android, iOS, and desktop apply the option; the browser
-parses GeoJSON on a worker and ignores it.
+<Code code={inside("MaplibreMap {", region(layers, "amtrak-1"))} lang="kotlin" title="App.kt" />
 
-<Code code={inside("MaplibreMap {", region(layers, "synchronous-geojson-updates"))} lang="kotlin" />
+Other source types cover vector tiles, raster tiles, and images. The API
+reference documents them under <Api of="org.maplibre.compose.sources" />.
 
-The full breadth of layer styling options available is out of scope for this
-guide; see the [MapLibre Style Specification][spec-layers] for more information.
+## Style a layer with expressions
 
-## Expressions
+Layer properties accept expressions: formulas that the map evaluates at render
+time. Wrap a constant value in <Api of="const" />. Functions such as
+<Api of="interpolate" /> and <Api of="zoom" /> build dynamic values:
 
-MapLibre styles support expressions, which define a formula for computing the
-value of a property at runtime. The [expressions specification][spec-layers] is
-based on JSON, but this library provides a Kotlin DSL for expressing these
-formulas with some type safety. Where suitable, Compose types like `Dp`,
-`Color`, and `DpOffset` are used instead of their corresponding raw JSON-like
-types. When passing a constant value instead of a formula, wrap it in `const()`
-to turn it into an expression.
+<Code code={region(layers, "amtrak-2")} lang="kotlin" title="App.kt" />
 
-<Code code={region(layers, "amtrak-2")} lang="kotlin" />
+[Expressions in Kotlin](/maplibre-compose/expressions/) explains the expression
+system. The [MapLibre Style Specification][spec-layers] documents every layer
+type and property.
 
-## Anchoring layers
+## Anchor a layer in the stack
 
-The default behavior for layers defined by Composable functions is to place them
-at the top of the map, above the base style layers. However, you can insert them
-at other positions in the stack of layers with `Anchor`:
+By default, your layers draw above the base style layers. <Api of="Anchor" />
+inserts a layer at another position: at the `Bottom`, at the `Top`, `Above` or
+`Below` a named base layer, or as a `Replace`ment for a base layer:
 
-<Code code={region(layers, "anchors")} lang="kotlin" />
-
-Anchors to insert layers at the `Bottom`, `Top`, `Above` a base layer, `Below` a
-base layer, or `Replace` a base layer are provided.
-
-## Interacting with layers
-
-Layer composables provide click listeners, similar to the map itself. You can
-listen for clicks on a layer and consume or pass those click events:
-
-<Code code={region(layers, "interaction")} lang="kotlin" />
-
-Click listeners are called on the map first, then in layer order from the top to
-the bottom of the map. The first listener to consume the event will prevent it
-from propagating to subsequent listeners.
+<Code code={region(layers, "anchors")} lang="kotlin" title="App.kt" />
 
 [spec-layers]: https://maplibre.org/maplibre-style-spec/layers/

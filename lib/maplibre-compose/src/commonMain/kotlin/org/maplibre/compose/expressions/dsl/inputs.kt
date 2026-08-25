@@ -18,3 +18,9 @@ public fun zoom(): Expression<FloatValue> = FunctionCall.of("zoom").cast()
  * [HeatmapLayer][org.maplibre.compose.layers.HeatmapLayer].
  */
 public fun heatmapDensity(): Expression<FloatValue> = FunctionCall.of("heatmap-density").cast()
+
+/**
+ * Gets the elevation of a pixel in meters. Can only be used in the expression for the `color`
+ * parameter in a [ColorReliefLayer][org.maplibre.compose.layers.ColorReliefLayer].
+ */
+public fun elevation(): Expression<FloatValue> = FunctionCall.of("elevation").cast()

@@ -1,0 +1,75 @@
+---
+/**
+ * Links a package or symbol mention to its page in the Dokka API reference.
+ *
+ * `of` accepts a bare symbol (`"CameraState"`), a member (`"CameraState.animateTo"`),
+ * a package (`"org.maplibre.compose.sources"`), a package-qualified symbol for
+ * names that exist in more than one package, and a `module/` prefix for names
+ * that exist in more than one module. Resolution happens at build time against
+ * the index that `scripts/generate-api-index.mjs` writes, so an unknown or
+ * ambiguous name fails the site build.
+ */
+import index from "../generated/api-index.json";
+
+interface Props {
+  of: string;
+  /** Text to show when it differs from the resolved name, e.g. an extension's receiver-qualified spelling. */
+  display?: string;
+}
+
+interface Entry {
+  module: string;
+  pkg?: string;
+  url: string;
+}
+
+const { of: name, display: displayOverride } = Astro.props;
+
+const packages = index.packages as Record<string, Entry[]>;
+const symbols = index.symbols as Record<string, Entry[]>;
+
+let moduleFilter: string | undefined;
+let rest = name;
+if (name.includes("/")) {
+  [moduleFilter, rest] = name.split("/", 2) as [string, string];
+}
+
+function narrow(entries: Entry[]): Entry[] {
+  return moduleFilter ? entries.filter((e) => e.module === moduleFilter) : entries;
+}
+
+let display: string;
+let candidates: Entry[];
+
+if (rest in packages) {
+  display = rest;
+  candidates = narrow(packages[rest] ?? []);
+} else {
+  // Split a package-qualified name on the longest known package prefix.
+  const pkgPrefix = Object.keys(packages)
+    .filter((p) => rest.startsWith(`${p}.`))
+    .sort((a, b) => b.length - a.length)[0];
+  const symbol = pkgPrefix ? rest.slice(pkgPrefix.length + 1) : rest;
+  display = symbol;
+  candidates = narrow(symbols[symbol] ?? []).filter(
+    (e) => !pkgPrefix || e.pkg === pkgPrefix,
+  );
+}
+
+if (candidates.length !== 1) {
+  const found = candidates
+    .map((e) => `${e.module}/${e.pkg ?? ""}`)
+    .join(", ");
+  throw new Error(
+    candidates.length === 0
+      ? `<Api of="${name}"> matches nothing in the API reference`
+      : `<Api of="${name}"> is ambiguous (${found}); qualify it with a package or a module/ prefix`,
+  );
+}
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, "");
+const href = `${base}/api/lib/${candidates[0]!.url}`;
+---
+
+<a href={href} target="_blank" rel="noopener noreferrer"><code
+  >{displayOverride ?? display}</code></a>

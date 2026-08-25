@@ -2,20 +2,18 @@ package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.ExpressionValue
+import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.GeoJsonObject
+import org.maplibre.spatialk.geojson.Geometry
 
-/**
- * A map data source consisting of geojson data.
- *
- * Feature-state mutation is available on desktop, Android, and the browser. The methods throw
- * [UnsupportedOperationException] on iOS.
- */
+/** A map data source consisting of geojson data. */
 public expect class GeoJsonSource : Source {
   /**
    * @param id Unique identifier for this source
@@ -50,8 +48,6 @@ public expect class GeoJsonSource : Source {
    * [feature.state][org.maplibre.compose.expressions.dsl.Feature.state]. Keys already on the
    * feature and absent from [state] stay as they are. [featureId] is matched as text: a GeoJSON
    * `id` of `7` is `"7"`.
-   *
-   * A call before the first frame is ignored on desktop.
    */
   public fun setFeatureState(featureId: String, state: JsonObject)
 
@@ -158,8 +154,24 @@ public fun rememberGeoJsonSource(
   options: GeoJsonOptions = GeoJsonOptions(),
 ): GeoJsonSource =
   key(options) {
-    rememberUserSource(
-      factory = { GeoJsonSource(id = it, data = data, options = options) },
-      update = { setData(data) },
-    )
+    val node = LocalStyleNode.current
+    val source =
+      rememberUserSource(
+        factory = { GeoJsonSource(id = it, data = EmptyInlineGeoJson, options = options) },
+        update = {},
+      )
+    LaunchedEffect(source, data, node.style.isUnloaded) {
+      if (!node.style.isUnloaded) source.publishData(data)
+    }
+    source
   }
+
+private val EmptyInlineGeoJson: GeoJsonData =
+  GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList()))
+
+/**
+ * Replaces the source's data. Native platforms that parse and index inline GeoJSON do that work on
+ * a worker; the browser applies it on the caller. Publications that outpace the parse conflate to
+ * the newest data, and when two publications overlap, the later call is the data the source keeps.
+ */
+internal expect suspend fun GeoJsonSource.publishData(data: GeoJsonData)

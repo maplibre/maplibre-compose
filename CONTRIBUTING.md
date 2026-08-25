@@ -122,12 +122,19 @@ fails these tests rather than skipping them.
 Use IntelliJ or Android Studio to launch the demo app on Android and XCode to
 launch on iOS. Every other host has a task:
 
-- Android: `mise run demo:android`. If the app crashes while creating a Vulkan
-  renderer, use the OpenGL flavor: `mise run demo:android --flavor opengl`.
+- Android: `mise run demo:android`
 - Desktop: `mise run demo:desktop`
 - Web: `mise run demo:js`
 - Desktop on the compose-glfw host instead of the AWT one:
   `mise run demo:desktop-glfw`
+- Desktop on the Nucleus Tao host instead of the AWT one:
+  `mise run demo:desktop-nucleus`
+
+The desktop demos and test suite take `--backend <name>` to package a different
+Map render backend than the platform default, as in
+`mise run demo:desktop -- --backend=opengl`. It passes the
+`maplibre.desktop.backend` Gradle property, which swaps the packaged
+`maplibre-compose-runtime-*` artifact.
 
 ## Run the tests
 
@@ -142,17 +149,22 @@ job ran:
 
 The device suites bring their own device. `test:android:device` boots a headless
 emulator for the API level you name, and installs the emulator and system image
-on first use. `test:ios` boots an iPhone simulator and runs against it.
+on first use. It passes `-Pmaplibre.android.abis=` for this host so the test
+APKs carry only that JNI ABI; published AARs still carry every ABI. If a session
+install hangs, the task reboots the emulator and retries once. `test:ios` boots
+an iPhone simulator and runs against it.
 
 You can drive the emulator on its own:
 
 ```bash
 mise run android-emulator:boot 24
+mise run android-emulator:boot 24 --headless
 mise run android-emulator:stop
 ```
 
-The AVD lives under `build/android-emulator`, so removing the build tree removes
-the device.
+The boot task opens the emulator window by default. Pass `--headless` to run it
+without a window. The AVD lives under `build/android-emulator`, so removing the
+build tree removes the device.
 
 ## Building documentation
 

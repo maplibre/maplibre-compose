@@ -18,13 +18,20 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import co.touchlab.kermit.Logger
+import kotlin.math.abs
+import kotlin.math.roundToInt
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.maplibre.compose.map.MapExtent
 
 /** Hosts [renderer] on a Compose drawing surface. Compose owns the frame loop. */
 @Composable
-internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logger: Logger?) {
+internal fun GlJsMapSurface(
+  renderer: GlJsMapRenderer,
+  modifier: Modifier,
+  logger: Logger?,
+  presentFrames: Boolean,
+) {
   val density = LocalDensity.current.density.toDouble()
   var physicalSize by remember { mutableStateOf(IntSize.Zero) }
   val extent =
@@ -55,7 +62,9 @@ internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logge
     }
   }
 
-  LaunchedEffect(extent, renderer, failed) {
+  // presentFrames is a key so that its flip to true redraws the frame the draw pass below
+  // declined to blit.
+  LaunchedEffect(extent, renderer, failed, presentFrames) {
     if (extent.isEmpty || failed) return@LaunchedEffect
     surface.requestFrame()
   }
@@ -64,8 +73,20 @@ internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logge
     // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
     frameRequest
 
+    // The draw pass can run with an extent captured before the latest layout pass, e.g. when a
+    // transient measurement (max constraints for one frame) is corrected immediately after.
+    // Acquiring a render target for that stale extent can exceed GL limits and kill the map, so
+    // skip the frame and wait for recomposition to deliver the extent that matches this canvas.
+    // The layout size and the draw size can round a fractional device pixel ratio differently,
+    // so one physical pixel of disagreement is normal and draws rather than skips; a chronic
+    // one-pixel skip would otherwise blank the map until the next relayout.
+    val staleExtent =
+      abs(size.width.roundToInt() - extent.physicalWidth) > 1 ||
+        abs(size.height.roundToInt() - extent.physicalHeight) > 1
+    if (staleExtent) surface.requestFrame()
+
     var drew = false
-    if (!extent.isEmpty && !failed) {
+    if (!extent.isEmpty && !failed && !staleExtent) {
       try {
         val acquired = compositor.acquire(extent)
         renderer.render(acquired, extent)
@@ -73,18 +94,22 @@ internal fun GlJsMapSurface(renderer: GlJsMapRenderer, modifier: Modifier, logge
           GlJsFrameTarget.NotReady -> surface.requestFrame()
           GlJsFrameTarget.Detached -> Unit
           is GlJsFrameTarget.Composited -> {
-            val target = acquired.target
-            drawIntoCanvas { canvas ->
-              canvas.skiaCanvas.drawImageRect(
-                image = target.image,
-                src = Rect.makeWH(target.widthPx.toFloat(), target.heightPx.toFloat()),
-                dst = Rect.makeWH(size.width, size.height),
-                samplingMode = SamplingMode.LINEAR,
-                paint = null,
-                strict = true,
-              )
+            if (presentFrames) {
+              val target = acquired.target
+              drawIntoCanvas { canvas ->
+                canvas.skiaCanvas.drawImageRect(
+                  image = target.image,
+                  src = Rect.makeWH(target.widthPx.toFloat(), target.heightPx.toFloat()),
+                  dst = Rect.makeWH(size.width, size.height),
+                  samplingMode = SamplingMode.LINEAR,
+                  paint = null,
+                  strict = true,
+                )
+              }
+              drew = true
             }
-            drew = true
+            // An unstyled framebuffer is black, so no blit before the first style; the map
+            // requests its own repaints.
           }
         }
       } catch (error: Throwable) {

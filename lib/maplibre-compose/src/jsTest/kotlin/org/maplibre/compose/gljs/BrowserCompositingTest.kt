@@ -23,6 +23,7 @@ import org.maplibre.compose.style.BaseStyle
 private const val FULL = GPU_CANVAS_SIZE
 private const val SMALL = FULL / 2
 private const val INSET = FULL / 4
+private const val FRACTIONAL_SCALE = 1.7
 
 private const val RED = "#ff0000"
 private const val BLUE = "#0000ff"
@@ -58,12 +59,51 @@ private val SPLIT_STYLE =
       .trimIndent()
   )
 
+private val HEATMAP_STYLE =
+  BaseStyle.Json(
+    """
+    {
+      "version": 8,
+      "name": "heatmap compositing",
+      "sources": {
+        "point": {
+          "type": "geojson",
+          "data": {
+            "type": "Point",
+            "coordinates": [0, 0]
+          }
+        }
+      },
+      "layers": [
+        {"id": "bg", "type": "background", "paint": {"background-color": "#0000ff"}},
+        {
+          "id": "heatmap",
+          "type": "heatmap",
+          "source": "point",
+          "paint": {
+            "heatmap-radius": 20,
+            "heatmap-color": [
+              "interpolate",
+              ["linear"],
+              ["heatmap-density"],
+              0, "rgba(0, 0, 0, 0)",
+              0.01, "#ff0000",
+              1, "#ff0000"
+            ]
+          }
+        }
+      ]
+    }
+    """
+      .trimIndent()
+  )
+
 class BrowserCompositingTest {
 
   @Test
   fun the_map_lands_in_the_callers_framebuffer_and_never_on_the_canvas() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(target)
 
@@ -93,7 +133,7 @@ class BrowserCompositingTest {
   @Test
   fun the_two_colour_style_splits_the_target_down_the_prime_meridian() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(target)
         assertEquals(
@@ -106,49 +146,153 @@ class BrowserCompositingTest {
   }
 
   @Test
+  fun a_heatmap_uses_the_map_target_size_instead_of_the_shared_canvas_size() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    browserRenderTarget(SMALL, SMALL, generation = 1).use { target ->
+      CompositedMap(HEATMAP_STYLE, scaleFactor = FRACTIONAL_SCALE).use { map ->
+        val extent = MapExtent.fromPhysical(SMALL, SMALL, FRACTIONAL_SCALE)
+        map.drawUntil(target, "the heatmap point to reach the render tree") {
+          map.rendersFeature("heatmap", extent.width / 2, extent.height / 2)
+        }
+
+        val pixels = readFramebuffer(gl, target.framebuffer, SMALL, SMALL)
+        val center = (SMALL / 2 * SMALL + SMALL / 2) * 4
+        assertTrue(
+          pixels[center].toInt() and 0xff > pixels[center + 2].toInt() and 0xff,
+          "the central heatmap point should be red rather than the blue background",
+        )
+        assertEquals(
+          FULL,
+          gl.drawingBufferWidth.unsafeCast<Int>(),
+          "the map draw should restore the shared canvas drawing buffer size",
+        )
+      }
+    }
+  }
+
+  @Test
   fun skia_draws_the_adopted_texture_into_a_gpu_surface() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
       CompositedMap(SPLIT_STYLE).use { map -> map.drawTheWholeStyle(target) }
 
-      val surface =
-        Surface.makeRenderTarget(
-          gpu.skia,
-          false,
-          ImageInfo(FULL, FULL, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
-          0,
-          SurfaceOrigin.TOP_LEFT,
-          null,
-          false,
-        )
-      val bitmap = Bitmap()
-      try {
-        surface.canvas.clear(PAGE_ARGB)
-        surface.canvas.drawImageRect(
-          target.image,
-          Rect.makeWH(FULL.toFloat(), FULL.toFloat()),
-          Rect.makeXYWH(INSET.toFloat(), INSET.toFloat(), SMALL.toFloat(), SMALL.toFloat()),
-          SamplingMode.LINEAR,
-          null,
-          strict = true,
-        )
-        gpu.skia.flush(surface)
-        gpu.skia.submit(true)
+      assertEquals(
+        mapOf(
+          PAGE to FULL * FULL - SMALL * SMALL,
+          RED to SMALL * SMALL / 2,
+          BLUE to SMALL * SMALL / 2,
+        ),
+        drawTargetWithSkia(gpu.skia, target),
+        "Skia should sample MapLibre's texture into exactly the rect it was drawn to",
+      )
+    }
+  }
 
-        bitmap.allocPixels(ImageInfo(FULL, FULL, ColorType.RGBA_8888, ColorAlphaType.UNPREMUL))
-        assertTrue(surface.readPixels(bitmap, 0, 0), "the GPU surface should read back")
-        assertEquals(
-          mapOf(
-            PAGE to FULL * FULL - SMALL * SMALL,
-            RED to SMALL * SMALL / 2,
-            BLUE to SMALL * SMALL / 2,
-          ),
-          histogram(checkNotNull(bitmap.readPixels())),
-          "Skia should sample MapLibre's texture into exactly the rect it was drawn to",
+  @Test
+  fun overdraw_is_rendered_in_the_first_requested_frame() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+      CompositedMap(SPLIT_STYLE).use { map ->
+        map.drawTheWholeStyle(target)
+        val requestsBefore = map.frameRequests
+
+        map.setOverdrawInspector(true)
+        gl.enable(gl.SCISSOR_TEST)
+        gl.scissor(0, 0, 1, 1)
+
+        assertTrue(map.frameRequests > requestsBefore, "the option should request a frame")
+        assertTrue(map.drawOnce(target), "the requested overdraw frame should render")
+        assertFalse(
+          gl.isEnabled(gl.SCISSOR_TEST).unsafeCast<Boolean>(),
+          "MapLibre should not inherit Compose's damage scissor",
         )
+        val colors = histogram(readFramebuffer(gl, target.framebuffer, FULL, FULL))
+        assertFalse(
+          RED in colors || BLUE in colors,
+          "the first requested frame should use overdraw",
+        )
+        assertTrue(colors.keys.any { it != "#000000" }, "overdraw should record drawn fragments")
+      }
+    }
+  }
+
+  @Test
+  fun a_new_skia_context_replaces_a_same_size_target_and_the_map_keeps_drawing() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    val compositor = ComposeGlJsCompositor(logger = null)
+    CompositedMap(SPLIT_STYLE).use { map ->
+      try {
+        val first =
+          assertIs<GlJsFrameTarget.Composited>(
+              compositor.acquire(MapExtent.fromPhysical(FULL, FULL, 1.0))
+            )
+            .target
+        map.drawTheWholeStyle(first)
+
+        gpu.withRecreatedSkiaContext { nextSkia ->
+          val second =
+            assertIs<GlJsFrameTarget.Composited>(
+                compositor.acquire(MapExtent.fromPhysical(FULL, FULL, 1.0))
+              )
+              .target
+          assertNotEquals(
+            first.generation,
+            second.generation,
+            "a new Skia context should replace a same-size target",
+          )
+          assertTrue(first.gl === second.gl, "the browser WebGL context should stay the same")
+
+          map.drawTheWholeStyle(second)
+          assertEquals(
+            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
+            histogram(readFramebuffer(gl, second.framebuffer, FULL, FULL)),
+            "the existing map should draw into the replacement target",
+          )
+          assertEquals(
+            mapOf(
+              PAGE to FULL * FULL - SMALL * SMALL,
+              RED to SMALL * SMALL / 2,
+              BLUE to SMALL * SMALL / 2,
+            ),
+            drawTargetWithSkia(nextSkia, second),
+            "the replacement Skia context should draw the replacement image",
+          )
+          compositor.close()
+        }
       } finally {
-        bitmap.close()
-        surface.close()
+        compositor.close()
+      }
+    }
+  }
+
+  @Test
+  fun map_frames_clear_sampler_objects_left_by_the_shared_renderer() = gpuTest { gpu ->
+    val gl = gpu.gl.asDynamic()
+    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+      CompositedMap(SPLIT_STYLE).use { map ->
+        map.drawTheWholeStyle(target)
+
+        val sampler = gl.createSampler()
+        check(sampler != null) { "WebGL did not create a sampler object" }
+        val textureUnits = gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS).unsafeCast<Int>()
+        try {
+          repeat(textureUnits) { unit -> gl.bindSampler(unit, sampler) }
+
+          assertTrue(map.drawOnce(target), "the map should have drawn with foreign GL state")
+
+          repeat(textureUnits) { unit ->
+            gl.activeTexture(gl.TEXTURE0 + unit)
+            assertEquals(
+              null,
+              gl.getParameter(gl.SAMPLER_BINDING),
+              "texture unit $unit should not retain the shared renderer's sampler",
+            )
+          }
+        } finally {
+          repeat(textureUnits) { unit -> gl.bindSampler(unit, null) }
+          gl.activeTexture(gl.TEXTURE0)
+          gl.deleteSampler(sampler)
+        }
       }
     }
   }
@@ -186,7 +330,7 @@ class BrowserCompositingTest {
   @Test
   fun closing_a_composited_map_leaves_the_shared_context_alive() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    GlJsRenderTarget(gl, FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
       CompositedMap(SPLIT_STYLE).use { map -> map.drawTheWholeStyle(target) }
       assertFalse(
         gl.isContextLost().unsafeCast<Boolean>(),
@@ -202,5 +346,42 @@ private fun gpuTest(block: suspend (BrowserGpu) -> Unit): Promise<*> =
 private suspend fun CompositedMap.drawTheWholeStyle(target: GlJsRenderTarget) {
   drawUntil(target, "the red polygon to reach the render tree") {
     rendersFeature("shape", target.widthPx / 4, target.heightPx / 2)
+  }
+}
+
+private fun drawTargetWithSkia(
+  skia: org.jetbrains.skia.DirectContext,
+  target: GlJsRenderTarget,
+): Map<String, Int> {
+  val surface =
+    Surface.makeRenderTarget(
+      skia,
+      false,
+      ImageInfo(FULL, FULL, ColorType.RGBA_8888, ColorAlphaType.PREMUL),
+      0,
+      SurfaceOrigin.TOP_LEFT,
+      null,
+      false,
+    )
+  val bitmap = Bitmap()
+  try {
+    surface.canvas.clear(PAGE_ARGB)
+    surface.canvas.drawImageRect(
+      target.image,
+      Rect.makeWH(target.widthPx.toFloat(), target.heightPx.toFloat()),
+      Rect.makeXYWH(INSET.toFloat(), INSET.toFloat(), SMALL.toFloat(), SMALL.toFloat()),
+      SamplingMode.LINEAR,
+      null,
+      strict = true,
+    )
+    skia.flush(surface)
+    skia.submit(true)
+
+    bitmap.allocPixels(ImageInfo(FULL, FULL, ColorType.RGBA_8888, ColorAlphaType.UNPREMUL))
+    assertTrue(surface.readPixels(bitmap, 0, 0), "the GPU surface should read back")
+    return histogram(checkNotNull(bitmap.readPixels()))
+  } finally {
+    bitmap.close()
+    surface.close()
   }
 }

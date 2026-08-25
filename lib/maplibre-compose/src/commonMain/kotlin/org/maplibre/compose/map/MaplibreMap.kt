@@ -2,26 +2,31 @@ package org.maplibre.compose.map
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.overlay.MapOverlay
-import org.maplibre.compose.overlay.MapOverlayScopeImpl
+import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerNode
 import org.maplibre.compose.style.SafeStyle
@@ -47,6 +52,8 @@ import org.maplibre.spatialk.geojson.Position
  *   [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param cameraState The camera state specifies what position of the map is rendered, at what zoom,
  *   at what tilt, etc.
+ * @param cameraPadding Insets that shift the camera center. A bounds move adds its padding to these
+ *   insets.
  * @param zoomRange The allowable camera zoom range.
  * @param pitchRange The allowable camera pitch range.
  * @param boundingBox The allowable bounds for the camera position. On iOS and Web, it prevents the
@@ -62,12 +69,11 @@ import org.maplibre.spatialk.geojson.Position
  * @param logger kermit logger to use.
  * @param onMapLoadFailed Invoked when the map failed to load.
  * @param onMapLoadFinished Invoked when the map finished loading.
- * @param contentWindowInsets The region of the map that other UI covers, such as system bars or a
- *   bottom sheet. [overlay] lays its controls out inside what is left. The default,
- *   [WindowInsets.safeDrawing], accounts for insets that an ancestor has already consumed, so a map
- *   inside a scaffold gets zero and a full-bleed map gets the system bars.
+ * @param contentWindowInsets Insets applied to [overlay]. Defaults to safe drawing insets.
  * @param overlay Controls drawn on top of the map. [MapOverlay.Default] draws the MapLibre logo and
  *   an attribution button; [MapOverlay.None] draws the map alone.
+ *   [Modifier.placedAt][org.maplibre.compose.overlay.MapOverlayScope.placedAt] in the overlay pins
+ *   Compose UI to a geographic position.
  * @param content The map content additional to what is already part of the map as defined in the
  *   base map style linked in [baseStyle].
  *
@@ -76,8 +82,10 @@ import org.maplibre.spatialk.geojson.Position
  *   [GeoJsonSource][org.maplibre.compose.sources.GeoJsonSource]),
  * - [rememberVectorSource][org.maplibre.compose.sources.rememberVectorSource] (see
  *   [VectorSource][org.maplibre.compose.sources.VectorSource]),
- * - [rememberComputedSource][org.maplibre.compose.sources.rememberComputedSource] (see
- *   [ComputedSource][org.maplibre.compose.sources.ComputedSource])
+ * - [rememberCustomGeometrySource][org.maplibre.compose.sources.rememberCustomGeometrySource] (see
+ *   [CustomGeometrySource][org.maplibre.compose.sources.CustomGeometrySource]),
+ * - [rememberCustomVectorSource][org.maplibre.compose.sources.rememberCustomVectorSource] (see
+ *   [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource]),
  * - [rememberRasterSource][org.maplibre.compose.sources.rememberRasterSource] (see
  *   [RasterSource][org.maplibre.compose.sources.RasterSource])
  * - [rememberRasterDemSource][org.maplibre.compose.sources.rememberRasterDemSource] (see
@@ -90,6 +98,7 @@ import org.maplibre.spatialk.geojson.Position
  * [layer](https://maplibre.org/maplibre-style-spec/layers/) definition(s), which define how that
  * data is rendered, see:
  * - [BackgroundLayer][org.maplibre.compose.layers.BackgroundLayer]
+ * - [ColorReliefLayer][org.maplibre.compose.layers.ColorReliefLayer]
  * - [LineLayer][org.maplibre.compose.layers.LineLayer]
  * - [FillExtrusionLayer][org.maplibre.compose.layers.FillExtrusionLayer]
  * - [FillLayer][org.maplibre.compose.layers.FillLayer]
@@ -115,6 +124,7 @@ public fun MaplibreMap(
   modifier: Modifier = Modifier,
   baseStyle: BaseStyle = BaseStyle.Demo,
   cameraState: CameraState = rememberCameraState(),
+  cameraPadding: PaddingValues = PaddingValues(0.dp),
   zoomRange: ClosedRange<Float> = 0f..20f,
   pitchRange: ClosedRange<Float> = 0f..60f,
   boundingBox: BoundingBox? = null,
@@ -137,17 +147,22 @@ public fun MaplibreMap(
   }
 
   var rememberedStyle by remember { mutableStateOf<SafeStyle?>(null) }
+  val currentLogger by rememberUpdatedState(logger)
   val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
+  SideEffect { rememberedStyle?.logger = currentLogger }
+  val mapClickScope = rememberCoroutineScope()
+
+  val density = LocalDensity.current
+  SideEffect { cameraState.density = density }
 
   val callbacks =
-    remember(cameraState, styleState, styleComposition) {
+    remember(cameraState, styleState, styleComposition, mapClickScope) {
       object : MapAdapter.Callbacks {
         override fun onStyleChanged(map: MapAdapter, style: Style?) {
           rememberedStyle?.unload()
-          val safeStyle = style?.let { SafeStyle(it) }
+          val safeStyle = style?.let { SafeStyle(it, currentLogger) }
           rememberedStyle = safeStyle
-          cameraState.metersPerDpAtTargetState.value =
-            map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
+          if (cameraState.map === map) cameraState.viewportState.value = map.getViewport()
         }
 
         override fun onMapFailLoading(reason: String?) {
@@ -164,17 +179,21 @@ public fun MaplibreMap(
         }
 
         override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
+          if (cameraState.map !== map) return
           cameraState.moveReasonState.value = reason
           cameraState.isCameraMovingState.value = true
         }
 
         override fun onCameraMoved(map: MapAdapter) {
+          if (cameraState.map !== map) return
           cameraState.positionState.value = map.getCameraPosition()
-          cameraState.metersPerDpAtTargetState.value =
-            map.metersPerDpAtLatitude(map.getCameraPosition().target.latitude)
+          // A new instance so a composition that reads CameraState.viewport redraws when the
+          // transform changes without the camera position changing, which is what a resize does.
+          cameraState.viewportState.value = map.getViewport()
         }
 
         override fun onCameraMoveEnded(map: MapAdapter) {
+          if (cameraState.map !== map) return
           cameraState.isCameraMovingState.value = false
         }
 
@@ -188,29 +207,45 @@ public fun MaplibreMap(
 
         override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
           if (onMapClick(latLng, offset).consumed) return
-          layerNodesInOrder().find { node ->
-            val handle = node.onClick ?: return@find false
-            val features =
-              map.queryRenderedFeatures(
-                offset = offset,
-                layerIds = setOf(node.layer.id),
-                predicate = null,
-              )
-            features.isNotEmpty() && handle(features).consumed
+          mapClickScope.launch {
+            for (node in layerNodesInOrder()) {
+              if (node.onClick == null) continue
+              val features =
+                map.queryRenderedFeatures(
+                  offset = offset,
+                  layerIds = setOf(node.layer.id),
+                  predicate = null,
+                )
+              // Recomposition may replace or remove the node while the query is suspended. A
+              // removed node never receives the click; a replaced one answers with the handler
+              // it has now.
+              val currentHandle =
+                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onClick
+                  ?: continue
+              if (features.isNotEmpty() && currentHandle(features).consumed) break
+            }
           }
         }
 
         override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
           if (onMapLongClick(latLng, offset).consumed) return
-          layerNodesInOrder().find { node ->
-            val handle = node.onLongClick ?: return@find false
-            val features =
-              map.queryRenderedFeatures(
-                offset = offset,
-                layerIds = setOf(node.layer.id),
-                predicate = null,
-              )
-            features.isNotEmpty() && handle(features).consumed
+          mapClickScope.launch {
+            for (node in layerNodesInOrder()) {
+              if (node.onLongClick == null) continue
+              val features =
+                map.queryRenderedFeatures(
+                  offset = offset,
+                  layerIds = setOf(node.layer.id),
+                  predicate = null,
+                )
+              // Recomposition may replace or remove the node while the query is suspended. A
+              // removed node never receives the click; a replaced one answers with the handler
+              // it has now.
+              val currentHandle =
+                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onLongClick
+                  ?: continue
+              if (features.isNotEmpty() && currentHandle(features).consumed) break
+            }
           }
         }
 
@@ -225,6 +260,7 @@ public fun MaplibreMap(
       modifier = Modifier.fillMaxSize(),
       style = baseStyle,
       update = { map ->
+        map.setCameraPadding(cameraPadding)
         cameraState.map = map
         map.setMinZoom(zoomRange.start.toDouble())
         map.setMaxZoom(zoomRange.endInclusive.toDouble())
@@ -232,6 +268,7 @@ public fun MaplibreMap(
         map.setMaxPitch(pitchRange.endInclusive.toDouble())
         map.setRenderSettings(options.renderOptions)
         map.setGestureSettings(options.gestureOptions)
+        map.setTileLodSettings(options.tileLodOptions)
         map.setCameraBoundingBox(boundingBox)
       },
       onReset = {
@@ -244,16 +281,12 @@ public fun MaplibreMap(
       options = options,
     )
 
-    Box(
-      Modifier.matchParentSize()
-        .windowInsetsPadding(contentWindowInsets)
-        .padding(MapOverlay.Spacing)
-    ) {
-      val scope =
-        remember(this, cameraState, styleState, contentWindowInsets) {
-          MapOverlayScopeImpl(this, cameraState, styleState, contentWindowInsets)
-        }
-      overlay.content(scope)
-    }
+    MapOverlayHost(
+      overlay = overlay,
+      cameraState = cameraState,
+      styleState = styleState,
+      contentWindowInsets = contentWindowInsets,
+      modifier = Modifier.matchParentSize(),
+    )
   }
 }

@@ -1,9 +1,14 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
@@ -16,12 +21,13 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.gljs.CameraForBoundsOptions
 import org.maplibre.compose.gljs.DEFAULT_WORKER_URL
 import org.maplibre.compose.gljs.EaseToOptions
 import org.maplibre.compose.gljs.FilterSpecification
-import org.maplibre.compose.gljs.FitBoundsOptions
 import org.maplibre.compose.gljs.FlyToOptions
 import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsMapRenderer
@@ -31,11 +37,11 @@ import org.maplibre.compose.gljs.GlJsSurfaceSession
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.MapOptions
 import org.maplibre.compose.gljs.MaplibreMap
+import org.maplibre.compose.gljs.PaddingOptions
 import org.maplibre.compose.gljs.Point
 import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
-import org.maplibre.compose.gljs.SkikoGpuBridge
 import org.maplibre.compose.gljs.isCameraEasing
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.styleJson
@@ -53,7 +59,6 @@ import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toLngLat
 import org.maplibre.compose.util.toLngLatBounds
 import org.maplibre.compose.util.toPaddingOptions
-import org.maplibre.compose.util.toPaddingValues
 import org.maplibre.compose.util.toPoint
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toStyleJson
@@ -101,6 +106,13 @@ internal class GlJsMapSession(
   /** Readiness belongs to a map instance, not to its current, replaceable style. */
   private var hasLoadedInitialStyle = false
 
+  /**
+   * True once this session has loaded a style. The surface presents no frame while this is false,
+   * and it stays true so a later style switch does not blank a live map.
+   */
+  internal var hasLoadedFirstStyle by mutableStateOf(false)
+    private set
+
   private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
 
@@ -118,6 +130,7 @@ internal class GlJsMapSession(
   private var lentContext: WebGL2RenderingContext? = null
 
   private var maximumFps: Int? = null
+  private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
   private var lastFrameTime = TimeSource.Monotonic.markNow()
   private var hasRenderedAFrame = false
@@ -144,7 +157,14 @@ internal class GlJsMapSession(
     if (target is GlJsFrameTarget.NotReady && map == null) return false
     framebuffer = composited?.target?.framebuffer
     val map = ensureMap(composited?.target, extent) ?: return false
-    applyExtent(map, extent)
+    if (composited == null) {
+      applyExtent(map, extent)
+    } else {
+      val mapTarget = composited.target
+      GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
+        applyExtent(map, extent)
+      }
+    }
     if (target is GlJsFrameTarget.NotReady) return false
 
     val now = TimeSource.Monotonic.markNow()
@@ -157,9 +177,13 @@ internal class GlJsMapSession(
     if (composited != null) {
       // Skia drives this context between MapLibre's frames, so each renderer is told the other
       // moved the state.
+      val mapTarget = composited.target
+      mapTarget.prepareMapRender()
       map.painter.context.setDirty()
-      map.redraw()
-      SkikoGpuBridge.resetGlState()
+      GlJsRuntime.withDrawingBufferSize(mapTarget.gl, mapTarget.widthPx, mapTarget.heightPx) {
+        map.redraw()
+      }
+      mapTarget.resetSkiaState()
     } else {
       // GL JS runs style updates, tile loading and every camera ease from inside its own render, so
       // even a map nothing samples has to be asked to draw.
@@ -229,7 +253,9 @@ internal class GlJsMapSession(
       else {
         val context = target.gl.unsafeCast<WebGL2RenderingContext>()
         lentContext = context
-        GlJsRuntime.lendingContext(context) { MaplibreMap(options) }
+        GlJsRuntime.withDrawingBufferSize(context, target.widthPx, target.heightPx) {
+          GlJsRuntime.lendingContext(context) { MaplibreMap(options) }
+        }
       }
 
     // Before the style resolves: any render before the redirect lands on Compose's canvas.
@@ -276,6 +302,9 @@ internal class GlJsMapSession(
     }
     map.setPixelRatio(extent.scaleFactor)
     map.resize()
+    // resize() may also fire `move`; a second onCameraMoved is how overlays learn the viewport
+    // changed when the camera position did not.
+    callbacks.onCameraMoved(this)
   }
 
   private fun maxTextureSize(gl: dynamic): Array<Double> {
@@ -308,9 +337,11 @@ internal class GlJsMapSession(
   private fun wireEvents(map: MaplibreMap) {
     map.subscribe("style.load") {
       styleLoadPending = false
+      hasLoadedFirstStyle = true
       styleBinding?.unload()
       val binding = GlJsStyleBinding(map, logger).also { styleBinding = it }
       callbacks.onStyleChanged(this, GlJsStyle(binding) { appliedExtent.scaleFactor.toFloat() })
+      applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true
         runPending(pendingInitialStyleActions, map)
@@ -324,6 +355,7 @@ internal class GlJsMapSession(
     map.subscribe("sourcedata") { event ->
       reportLoadedOnceStyleIsReady(map)
       if (event.sourceDataType == "metadata") {
+        applyTileLod(map)
         event.sourceId?.let { callbacks.onSourceChanged(this, it) }
       }
     }
@@ -453,21 +485,29 @@ internal class GlJsMapSession(
 
   /** Answers camera reads made before the map exists. */
   private var requestedCamera: CameraPosition? = null
+  private var cameraPadding: PaddingOptions = PaddingValues(0.dp).toPaddingOptions(layoutDirection)
 
   override fun getCameraPosition(): CameraPosition =
-    withMap(requestedCamera ?: CameraPosition()) { map ->
-      CameraPosition(
-        bearing = map.getBearing(),
-        target = map.getCenter().toPosition(),
-        tilt = map.getPitch(),
-        zoom = map.getZoom(),
-        padding = map.getPadding().toPaddingValues(),
-      )
-    }
+    withMap(requestedCamera ?: CameraPosition()) { map -> map.cameraPosition() }
+
+  private fun MaplibreMap.cameraPosition(): CameraPosition =
+    CameraPosition(
+      bearing = getBearing(),
+      target = getCenter().toPosition(),
+      tilt = getPitch(),
+      zoom = getZoom(),
+    )
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     requestedCamera = cameraPosition
     onMap { map -> map.jumpTo(cameraPosition.toJumpToOptions()) }
+  }
+
+  override fun setCameraPadding(padding: PaddingValues) {
+    val resolved = padding.toPaddingOptions(layoutDirection)
+    if (cameraPadding.sameAs(resolved)) return
+    cameraPadding = resolved
+    onMap { map -> map.jumpTo(unsafeJso<JumpToOptions> { this.padding = resolved }) }
   }
 
   override fun setCameraPosition(
@@ -476,7 +516,11 @@ internal class GlJsMapSession(
     tilt: Double,
     padding: PaddingValues,
   ) {
-    onMap { map -> map.fitBounds(boundingBox.toLngLatBounds(), fitOptions(bearing, tilt, padding)) }
+    onMap { map ->
+      map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
+        map.jumpTo(it.toJumpToOptions())
+      }
+    }
   }
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
@@ -487,7 +531,7 @@ internal class GlJsMapSession(
           zoom = finalPosition.zoom
           bearing = finalPosition.bearing
           pitch = finalPosition.tilt
-          padding = finalPosition.padding.toPaddingOptions(layoutDirection)
+          padding = cameraPadding
           this.duration = duration.inWholeMilliseconds.toDouble()
         }
       )
@@ -502,24 +546,37 @@ internal class GlJsMapSession(
     duration: Duration,
   ) {
     awaitCameraRelease { map ->
-      map.fitBounds(
-        boundingBox.toLngLatBounds(),
-        fitOptions(bearing, tilt, padding).also {
-          it.duration = duration.inWholeMilliseconds.toDouble()
-        },
-      )
+      map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
+        map.easeTo(it.toEaseToOptions(duration))
+      }
     }
   }
 
-  private fun fitOptions(bearing: Double, tilt: Double, padding: PaddingValues): FitBoundsOptions =
-    unsafeJso {
-      this.bearing = bearing
-      pitch = tilt
-      this.padding = padding.toPaddingOptions(layoutDirection)
-      // flyTo's arc would zoom out and back in on its way to a camera the caller already named.
-      linear = true
-      duration = 0.0
-    }
+  private fun MaplibreMap.cameraPositionForBounds(
+    boundingBox: BoundingBox,
+    bearing: Double,
+    tilt: Double,
+    padding: PaddingValues,
+  ): CameraPosition? {
+    val previous = cameraPosition()
+    val result =
+      cameraForBounds(boundingBox.toLngLatBounds(), cameraForBoundsOptions(bearing, padding))
+        ?: return null
+    return CameraPosition(
+      bearing = result.bearing ?: bearing,
+      target = result.center?.toPosition() ?: previous.target,
+      tilt = tilt,
+      zoom = result.zoom ?: previous.zoom,
+    )
+  }
+
+  private fun cameraForBoundsOptions(
+    bearing: Double,
+    padding: PaddingValues,
+  ): CameraForBoundsOptions = unsafeJso {
+    this.bearing = bearing
+    this.padding = padding.toPaddingOptions(layoutDirection)
+  }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
     onMap { map -> map.setMaxBounds(boundingBox?.toLngLatBounds()) }
@@ -558,6 +615,21 @@ internal class GlJsMapSession(
       )
     }
 
+  override fun getViewport(): Viewport? =
+    withMap(null as Viewport?) { map ->
+      // GL JS adopts a resize synchronously in applyExtent, so the applied extent, the bounds, and
+      // the transform the conversions read all describe the same viewport here.
+      val extent = appliedExtent
+      if (extent.isEmpty) return@withMap null
+      val camera = getCameraPosition()
+      Viewport(
+        size = DpSize(extent.width.dp, extent.height.dp),
+        visibleBoundingBox = getVisibleBoundingBox(),
+        visibleRegion = getVisibleRegion(),
+        metersPerDpAtTarget = metersPerDpAtLatitude(camera.zoom, camera.target.latitude),
+      )
+    }
+
   override fun setRenderSettings(value: RenderOptions) {
     maximumFps = value.maximumFps
     onMap { map ->
@@ -572,21 +644,37 @@ internal class GlJsMapSession(
     // Gestures are implemented in Compose, so the host's input handling reads these.
   }
 
-  override fun positionFromScreenLocation(offset: DpOffset): Position =
-    withMap(Position(0.0, 0.0)) { map ->
-      map.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble())
-    }
+  override fun setTileLodSettings(value: TileLodOptions) {
+    if (value == tileLodOptions) return
+    tileLodOptions = value
+    onMap(::applyTileLod)
+  }
 
-  override fun screenLocationFromPosition(position: Position): DpOffset =
-    withMap(DpOffset.Zero) { map -> map.project(position.toLngLat()).toDpOffset() }
+  /**
+   * GL JS stores these parameters on each source. A style load or a source added later would
+   * otherwise keep MapLibre's own defaults.
+   */
+  private fun applyTileLod(map: MaplibreMap) {
+    if (!map.isStyleLoaded()) return
+    map.setSourceTileLodParams(
+      tileLodOptions.maxZoomLevelsOnScreen,
+      tileLodOptions.tileCountMaxMinRatio,
+    )
+  }
 
-  override fun queryRenderedFeatures(
+  override fun positionFromScreenLocation(offset: DpOffset): Position? =
+    withMap(null) { map -> map.unprojectAt(offset.x.value.toDouble(), offset.y.value.toDouble()) }
+
+  override fun screenLocationFromPosition(position: Position): DpOffset? =
+    withMap(null) { map -> map.project(position.toLngLat()).toDpOffset() }
+
+  override suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> = query(offset.toPoint(), layerIds, predicate)
 
-  override fun queryRenderedFeatures(
+  override suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
@@ -829,8 +917,20 @@ internal class GlJsMapSession(
     zoom = this@toJumpToOptions.zoom
     bearing = this@toJumpToOptions.bearing
     pitch = tilt
-    padding = this@toJumpToOptions.padding.toPaddingOptions(layoutDirection)
+    padding = cameraPadding
   }
+
+  private fun CameraPosition.toEaseToOptions(duration: Duration): EaseToOptions = unsafeJso {
+    center = target.toLngLat()
+    zoom = this@toEaseToOptions.zoom
+    bearing = this@toEaseToOptions.bearing
+    pitch = tilt
+    padding = cameraPadding
+    this.duration = duration.inWholeMilliseconds.toDouble()
+  }
+
+  private fun PaddingOptions.sameAs(other: PaddingOptions): Boolean =
+    top == other.top && left == other.left && bottom == other.bottom && right == other.right
 
   private fun MaplibreMap.unprojectAt(x: Double, y: Double): Position =
     unproject(

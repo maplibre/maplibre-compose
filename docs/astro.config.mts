@@ -25,11 +25,14 @@ export default defineConfig({
       editLink: {
         baseUrl: "https://github.com/maplibre/maplibre-compose/edit/main/docs/",
       },
+      routeMiddleware: "./src/banner.ts",
       customCss: ["./src/styles/custom.css"],
       plugins: [
         starlightCopyButton(),
-        // Dokka owns /api/, and it is generated rather than checked in.
-        starlightLinksValidator({ exclude: [`${base}/api/**`] }),
+        // Generated static sites own these paths outside Astro's page tree.
+        starlightLinksValidator({
+          exclude: [`${base}/api/**`, `${base}/demo/app/**`],
+        }),
       ],
       social: [
         {
@@ -41,18 +44,32 @@ export default defineConfig({
       sidebar: [
         { label: "Overview", link: "/" },
         { label: "Getting started", slug: "getting-started" },
-        { label: "Styling", slug: "styling" },
-        { label: "Interaction", slug: "interaction" },
-        { label: "Layers", slug: "layers" },
-        { label: "Location", slug: "location" },
-        { label: "Map controls", slug: "controls" },
-        { label: "Material 3", slug: "material3" },
+        {
+          label: "Guides",
+          items: [
+            { label: "Style the map", slug: "styling" },
+            { label: "Control the camera", slug: "camera" },
+            { label: "Handle gestures and clicks", slug: "interaction" },
+            { label: "Add data to the map", slug: "layers" },
+            { label: "Add images and icons", slug: "images" },
+            { label: "Overlay Compose UI", slug: "controls" },
+            { label: "Show the user's location", slug: "location" },
+            { label: "Download maps for offline use", slug: "offline" },
+          ],
+        },
+        {
+          label: "Concepts",
+          items: [
+            { label: "How the map composes", slug: "composition" },
+            { label: "Expressions in Kotlin", slug: "expressions" },
+          ],
+        },
         {
           label: "API reference",
           link: "/api/",
           attrs: { target: "_blank", rel: "noopener noreferrer" },
         },
-        { label: "Roadmap", slug: "roadmap" },
+        { label: "Live demo", slug: "demo" },
       ],
     }),
   ],

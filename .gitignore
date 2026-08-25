@@ -20,7 +20,6 @@ demo-app/ios/*.xcodeproj/*
 **/xcshareddata/WorkspaceSettings.xcsettings
 demo-app/ios/Build
 demo-app/ios/DerivedData
-exportedSpmMaplibre
 out/
 .cache/
 hs_err_*.log
@@ -28,6 +27,7 @@ node_modules/
 dist/
 .astro/
 docs/public/api/
+docs/public/demo/
 docs/src/generated/
 __pycache__/
 mise.local.toml

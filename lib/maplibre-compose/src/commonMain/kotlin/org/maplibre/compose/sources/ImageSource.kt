@@ -22,7 +22,12 @@ public expect class ImageSource : Source {
   public fun setUri(uri: String)
 }
 
-/** Remember a new [ImageSource] from the given [uri]. */
+/**
+ * Remember a new [ImageSource] from the given [uri].
+ *
+ * Recomposition updates this source in place through [ImageSource.setUri] and
+ * [ImageSource.setBounds].
+ */
 @Composable
 public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource =
   rememberUserSource(
@@ -33,7 +38,12 @@ public fun rememberImageSource(position: PositionQuad, uri: String): ImageSource
     },
   )
 
-/** Remember a new [ImageSource] from the given [bitmap]. */
+/**
+ * Remember a new [ImageSource] from the given [bitmap].
+ *
+ * Recomposition updates this source in place through [ImageSource.setImage] and
+ * [ImageSource.setBounds].
+ */
 @Composable
 public fun rememberImageSource(position: PositionQuad, bitmap: ImageBitmap): ImageSource =
   rememberUserSource(

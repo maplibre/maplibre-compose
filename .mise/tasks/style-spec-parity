@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# [MISE] description="Compare the style API with the published MapLibre style spec."
+# [MISE] alias="style-spec:parity"
+set -euo pipefail
+exec python3 "${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../.." && pwd)}/ci/style_spec_parity.py" "$@"

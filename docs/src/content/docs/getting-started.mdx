@@ -4,18 +4,18 @@ description: Add MapLibre Compose to a Compose Multiplatform project and display
 ---
 
 import { Aside, Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
 
 import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
 
-This documentation assumes you already have a Compose Multiplatform project set
-up. If you haven't already, follow
-[the official JetBrains documentation][compose-guide] to set up a project.
+This page assumes you have a Compose Multiplatform project. To create one,
+follow [the official JetBrains documentation][compose-guide].
 
 ## Add the library to your app
 
-This library is published via [Maven Central][maven], and snapshot builds of
+The library is published on [Maven Central][maven], and snapshot builds of
 `main` are additionally available from [Central Portal Snapshots][snapshots].
 
 <Tabs>
@@ -31,10 +31,10 @@ This library is published via [Maven Central][maven], and snapshot builds of
 
   <TabItem label="Snapshots (Central Portal)">
     <Aside type="caution">
-      The published documentation is for the latest release, and may not match
-      the snapshot version. If using snapshots, always refer to the [latest
-      source code](https://github.com/maplibre/maplibre-compose) for the most
-      accurate information.
+      This site documents the latest release, which may not match the snapshot
+      version. If using snapshots, read the
+      [documentation for the latest `main`](https://maplibre-compose.pages.dev/maplibre-compose/)
+      instead.
     </Aside>
 
     Add the Central Portal Snapshots repository to your `settings.gradle.kts`:
@@ -71,151 +71,54 @@ commonMain.dependencies {
 }
 ```
 
-## Set up iOS
+Use the same version for the library and for every runtime artifact below.
 
-For iOS, you'll additionally need to add the MapLibre framework to your build.
-The easiest way is to select one of these two Gradle plugins:
+## Configure your targets
 
-- JetBrains's [CocoaPods plugin][gradle-cocoapods]
-- Third party [Swift Package Manager plugin][gradle-spm4kmp]
+Complete the section for each target that your app supports.
 
-<Aside type="caution">
-  In Xcode, ensure your Kotlin/Compose framework is linked before
-  `MapLibre.framework`. Select your iOS app target, open **Build Settings**,
-  search for **Other Linker Flags**, and order the flags like this:
+### Android
 
-  ```text
-  -framework ComposeApp
-  -framework MapLibre
-  ```
-
-  Replace `ComposeApp` with your Kotlin framework name. The opposite order can
-  cause broken Compose text rendering on iOS because both Compose and MapLibre
-  include HarfBuzz symbols.
-
-  See [CMP-8882](https://youtrack.jetbrains.com/issue/CMP-8882/)
-</Aside>
-
-### Cocoapods
-
-<Aside>
-  CocoaPods will stop receiving new versions of packages in late 2026. See the
-  [official announcement](https://blog.cocoapods.org/CocoaPods-Support-Plans/).
-</Aside>
-
-Follow the [official setup documentation][gradle-cocoapods], and add the below
-to include MapLibre in your build:
+Alongside the library, add a runtime for one render backend.
 
 ```kotlin title="build.gradle.kts"
-cocoapods {
-  pod("MapLibre", "{{maplibreIos}}")
-}
-```
-
-### Swift Package Manager
-
-<Aside>
-  The [MapLibre Compose repository](https://github.com/maplibre/maplibre-compose)
-  uses this plugin for development, so a working example of this configuration
-  can be found there.
-</Aside>
-
-Follow the [official setup documentation][gradle-spm4kmp], and add the below to
-include MapLibre in your build:
-
-```kotlin title="build.gradle.kts"
-kotlin {
-  listOf(
-    iosX64(),
-    iosArm64(),
-    iosSimulatorArm64()
-  ).forEach { target ->
-    target.swiftPackageConfig {
-      dependency {
-        remotePackageVersion(
-          url = URI("https://github.com/maplibre/maplibre-gl-native-distribution.git"),
-          products = { add("MapLibre", exportToKotlin = true) },
-          packageName = "maplibre-gl-native-distribution",
-          version = "{{maplibreIos}}",
-        )
-      }
-    }
-
-    target.binaries.framework {
-      baseName = "ComposeApp"
-      isStatic = true
-    }
+androidMain {
+  dependencies {
+    runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-android:{{release}}")
   }
 }
 ```
 
-## Revert to OpenGL on Android (Optional)
+Available runtimes:
 
-<Aside type="caution">
-  The OpenGL renderer is available for compatibility, but Vulkan is the default
-  renderer for MapLibre Android 13 and later. Some Android emulators do not
-  expose Vulkan support; use OpenGL when Vulkan initialization fails in an
-  emulator.
-</Aside>
+| Render backend | Runtime                                   |
+| -------------- | ----------------------------------------- |
+| OpenGL         | `maplibre-compose-runtime-opengl-android` |
+| Vulkan         | `maplibre-compose-runtime-vulkan-android` |
 
-By default, we ship with the standard version of MapLibre for Android, which
-uses the Vulkan backend. If you'd prefer to use the OpenGL backend, you can
-update your build.
+### iOS
 
-First, add the OpenGL build of MapLibre to your version catalog:
+The runtime's system libraries link when Xcode links your app. Add them to your
+iOS app target's **Other Linker Flags** build setting:
 
-```toml title="libs.versions.toml"
-[libraries]
-maplibre-android-opengl = { module = "org.maplibre.gl:android-sdk-opengl", version = "{{maplibreAndroid}}" }
+```text
+-l"c++"
+-lz
+-framework CoreFoundation
+-framework CoreGraphics
+-framework CoreText
+-framework Foundation
+-framework ImageIO
+-framework Metal
+-framework QuartzCore
 ```
 
-Then, exclude the standard MapLibre build from your dependency tree, and add the
-OpenGL build to your Android dependencies:
+### Desktop (JVM)
 
-```kotlin title="build.gradle.kts"
-commonMain.dependencies {
-  implementation(libs.maplibre.compose.get().toString()) { // (1)
-    exclude(group = "org.maplibre.gl", module = "android-sdk")
-  }
-}
+**Desktop requires Java 25.** The native bindings use the FFM API, so the
+desktop target cannot run on an older JVM.
 
-androidMain.dependencies {
-  implementation(libs.maplibre.android.opengl)
-}
-```
-
-1. The `.get().toString()` is needed to work around a limitation in the Kotlin
-   Gradle plugin.
-
-## Set up Web (JS)
-
-Compile the JS target to ES modules. MapLibre Compose declares MapLibre GL JS as
-an ES module, which a UMD build cannot load.
-
-```kotlin title="build.gradle.kts"
-kotlin {
-  js {
-    useEsModules()
-    browser()
-  }
-}
-```
-
-Initialize MapLibre inside `onWasmReady`, before Compose starts.
-
-```kotlin title="main.kt"
-fun main() {
-  onWasmReady {
-    MapLibre.initialize()
-    ComposeViewport(document.body!!) { App() }
-  }
-}
-```
-
-## Set up Desktop (JVM)
-
-Alongside the library, add a runtime: the native libraries for one platform and
-one render backend.
+Alongside the library, add a runtime for your platform and one render backend.
 
 ```kotlin title="build.gradle.kts"
 sourceSets {
@@ -224,24 +127,8 @@ sourceSets {
       implementation(compose.desktop.currentOs)
       implementation("org.maplibre.compose:maplibre-compose:{{release}}")
 
-      // Linux x64, for example.
-      runtimeOnly(
-        "org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:" +
-          "{{release}}"
-      )
-    }
-  }
-}
-```
-
-Configure MapLibre once, then provide each AWT window's GPU context:
-
-```kotlin title="Main.kt"
-fun main() {
-  MapLibre.configure(applicationId = "com.example.myapp")
-  singleWindowApplication {
-    ProvideMapHost(host = rememberAwtComposeMapHost(window)) {
-      App()
+      // Linux x64 with Vulkan, for example.
+      runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}")
     }
   }
 }
@@ -257,14 +144,22 @@ Available runtimes:
 | Windows x64   | `maplibre-compose-runtime-vulkan-windows-x64`   |
 | Windows arm64 | `maplibre-compose-runtime-vulkan-windows-arm64` |
 
-To ship several platforms, select the runtime from the host you build on.
+On desktop, a <Api of="ComposeMapHost" /> supplies the window's graphics
+context. For Java AWT windows, use <Api of="rememberAwtComposeMapHost" />. For
+an alternative Compose host, implement `ComposeMapHost` yourself.
 
-**Desktop requires Java 25.** The MapLibre Native FFI binding uses the FFM API,
-so the desktop target cannot run on an older JVM.
+```kotlin title="Main.kt"
+fun main() {
+  singleWindowApplication {
+    ProvideMapHost(host = rememberAwtComposeMapHost(window)) {
+      App()
+    }
+  }
+}
+```
 
-**The JVM needs native access.** MapLibre Native FFI makes FFM downcall. If you
-package your application with Compose Desktop's `nativeDistributions`, add the
-argument to your application configuration:
+The native bindings make FFM downcalls. Enable native access in your
+application configuration:
 
 ```kotlin title="build.gradle.kts"
 compose.desktop {
@@ -274,12 +169,29 @@ compose.desktop {
 }
 ```
 
-If you launch an unpackaged JVM application instead — `java -jar`, an IDE run
-configuration, or a `JavaExec` task — pass the same argument on the command
-line:
+### Web (JS)
 
-```bash
-java --enable-native-access=ALL-UNNAMED -jar your-app.jar
+Compile the JS target to ES modules. Non-ESM builds are not supported.
+
+```kotlin title="build.gradle.kts"
+kotlin {
+  js {
+    useEsModules()
+    browser()
+  }
+}
+```
+
+Configure MapLibre inside `onWasmReady`, before Compose starts. This is
+required to capture Compose's graphics context.
+
+```kotlin title="main.kt"
+fun main() {
+  onWasmReady {
+    MapLibre.configure()
+    ComposeViewport(document.body!!) { App() }
+  }
+}
 ```
 
 ## Display your first map
@@ -288,23 +200,13 @@ In your Composable UI, add a map:
 
 <Code code={region(gettingStarted, "app")} lang="kotlin" title="App.kt" />
 
-<Aside type="caution">
-  Make sure you're importing `org.maplibre.compose.map.MaplibreMap` instead of
-  `org.maplibre.android.map.MaplibreMap`.
-</Aside>
-
-When you run your app, you should see the default [demotiles] map. To learn how
-to get a detailed map with all the features you'd expect, proceed to
-[Styling](/maplibre-compose/styling/).
+When you run your app, the map shows the default [demotiles] style. To load a
+full-featured style, proceed to [Styling](/maplibre-compose/styling/).
 
 [compose-guide]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
 
 [maven]: https://central.sonatype.com/namespace/org.maplibre.compose
 
 [snapshots]: https://central.sonatype.com/repository/maven-snapshots/org/maplibre/compose/
-
-[gradle-cocoapods]: https://kotlinlang.org/docs/native-cocoapods.html
-
-[gradle-spm4kmp]: https://spmforkmp.eu/
 
 [demotiles]: https://demotiles.maplibre.org/

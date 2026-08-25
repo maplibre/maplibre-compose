@@ -56,11 +56,45 @@ private fun createGpu(): BrowserGpu {
   registry.makeContextCurrent(handle)
 
   // The hook has to be installed before the context is made.
-  MapLibre.initialize(workerUrl = LOCAL_WORKER_URL)
+  MapLibre.configure(workerUrl = LOCAL_WORKER_URL)
   val skia = DirectContext.makeGL()
-  check(SkikoGpuBridge.isReady) { SkikoGpuBridge.diagnostic() }
+  val hostContext = checkNotNull(EmscriptenGl.currentContext())
+  check(SkikoGpuBridge.isReady(hostContext)) { SkikoGpuBridge.diagnostic(hostContext) }
 
-  return BrowserGpu(canvas, checkNotNull(EmscriptenGl.contextOf(canvas)), skia)
+  return BrowserGpu(canvas, hostContext.webGlContext, skia)
+}
+
+internal fun browserRenderTarget(width: Int, height: Int, generation: Long): GlJsRenderTarget =
+  GlJsRenderTarget(
+    hostContext = checkNotNull(EmscriptenGl.currentContext()),
+    widthPx = width,
+    heightPx = height,
+    generation = generation,
+  )
+
+/** Repeats Skiko's resize-time context construction on [BrowserGpu.canvas]. */
+internal inline fun <T> BrowserGpu.withRecreatedSkiaContext(block: (DirectContext) -> T): T {
+  val registry: dynamic = js("globalThis").GL
+  val previous = registry.currentContext
+  check(previous != null && previous != undefined) { "the browser GPU has no current context" }
+  val nextHandle = registry.createContext(canvas, previous.attributes)
+  check(nextHandle != null && nextHandle != undefined && nextHandle != 0) {
+    "Emscripten did not recreate the context"
+  }
+  registry.makeContextCurrent(nextHandle)
+  val nextSkia = DirectContext.makeGL()
+  try {
+    val next = checkNotNull(EmscriptenGl.currentContext())
+    check(next.webGlContext === gl) {
+      "Skiko's resize path replaced the browser WebGL context instead of registering a new handle"
+    }
+    return block(nextSkia)
+  } finally {
+    nextSkia.close()
+    registry.deleteContext(nextHandle)
+    canvas.asDynamic().GLctxObject = previous
+    registry.makeContextCurrent(previous.handle)
+  }
 }
 
 /** Reads [framebuffer] — null meaning the canvas itself — as tightly packed RGBA bytes. */

@@ -2,11 +2,19 @@
 
 package org.maplibre.compose.gljs
 
+import kotlin.js.Promise
 import web.html.HTMLCanvasElement
 
 internal external fun getVersion(): String
 
 internal external fun setWorkerUrl(value: String)
+
+internal external fun addProtocol(
+  customProtocol: String,
+  loadFn: (RequestParameters, Any) -> Promise<ProtocolResponse>,
+)
+
+internal external fun removeProtocol(customProtocol: String)
 
 @JsName("Map")
 internal external class MaplibreMap(options: MapOptions) {
@@ -36,6 +44,8 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun isStyleLoaded(): Boolean
 
+  fun isSourceLoaded(id: String): Boolean
+
   fun getCenter(): LngLat
 
   fun getZoom(): Double
@@ -43,8 +53,6 @@ internal external class MaplibreMap(options: MapOptions) {
   fun getBearing(): Double
 
   fun getPitch(): Double
-
-  fun getPadding(): PaddingOptions
 
   fun getBounds(): LngLatBounds
 
@@ -54,7 +62,7 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun flyTo(options: FlyToOptions)
 
-  fun fitBounds(bounds: LngLatBounds, options: FitBoundsOptions)
+  fun cameraForBounds(bounds: LngLatBounds, options: CameraForBoundsOptions): CenterZoomBearing?
 
   fun panBy(offset: Point, options: EaseToOptions)
 
@@ -69,6 +77,8 @@ internal external class MaplibreMap(options: MapOptions) {
   fun setMinPitch(minPitch: Double)
 
   fun setMaxPitch(maxPitch: Double)
+
+  fun setSourceTileLodParams(maxZoomLevelsOnScreen: Double, tileCountMaxMinRatio: Double)
 
   fun project(lngLat: LngLat): Point
 

@@ -31,27 +31,38 @@ import org.maplibre.compose.util.MaplibreComposable
  *   this, the layer will be hidden. A value in the range of `[0..24]`.
  * @param filter An expression specifying conditions on source features. Only features that match
  *   the filter are displayed. Zoom expressions in filters are only evaluated at integer zoom
- *   levels. The [featureState][org.maplibre.compose.expressions.dsl.Feature.state] expression is
- *   not supported in filter expressions.
+ *   levels. The expression may use feature properties. The
+ *   [feature state][org.maplibre.compose.expressions.dsl.Feature.state] expression is not
+ *   supported.
  * @param visible Whether the layer should be displayed.
  * @param sortKey Sorts features within this layer in ascending order based on this value. Features
- *   with a higher sort key will appear above features with a lower sort key.
+ *   with a higher sort key will appear above features with a lower sort key. The expression may use
+ *   feature properties.
  * @param translate The geometry's offset relative to the [translateAnchor]. Negative numbers
  *   indicate left and up, respectively.
  * @param translateAnchor Frame of reference for offsetting geometry.
  *
  *   Ignored if [translate] is not set.
  *
- * @param opacity Fill opacity. A value in range `[0..1]`.
- * @param color Fill color.
+ * @param opacity Fill opacity. A value in range `[0..1]`. The expression may use feature properties
+ *   and feature state.
+ * @param layerOpacity Opacity applied to the layer as a whole. Unlike [opacity] and the alpha of
+ *   [color], which apply per feature and accumulate where fills overlap, this value is applied once
+ *   so overlapping fills appear as a single surface. A value in range `[0..1]`.
+ *
+ *   Not yet supported on native
+ *   ([maplibre-native#4298](https://github.com/maplibre/maplibre-native/issues/4298)).
+ *
+ * @param color Fill color. The expression may use feature properties and feature state.
  *
  *   Ignored if [pattern] is specified.
  *
  * @param pattern Image to use for drawing image fills. For seamless patterns, image width and
  *   height must be a factor of two (2, 4, 8, ..., 512). Note that zoom-dependent expressions will
- *   be evaluated only at integer zoom levels.
+ *   be evaluated only at integer zoom levels. The expression may use feature properties.
  * @param antialias Whether or not the fill should be antialiased.
- * @param outlineColor The outline color of the fill. The outline is drawn at a hairline width.
+ * @param outlineColor The outline color of the fill. The outline is drawn at a hairline width. The
+ *   expression may use feature properties and feature state.
  *
  *   Ignored if [antialias] is `false`.
  *
@@ -72,6 +83,7 @@ public fun FillLayer(
   translate: Expression<DpOffsetValue> = const(DpOffset.Zero),
   translateAnchor: Expression<TranslateAnchor> = const(TranslateAnchor.Map),
   opacity: Expression<FloatValue> = const(1f),
+  layerOpacity: Expression<FloatValue> = nil(),
   color: Expression<ColorValue> = const(Color.Black),
   pattern: Expression<ImageValue> = nil(),
   antialias: Expression<BooleanValue> = const(true),
@@ -86,6 +98,7 @@ public fun FillLayer(
   val compiledTranslate = compile(translate)
   val compiledAntialias = compile(antialias)
   val compiledOpacity = compile(opacity)
+  val compiledLayerOpacity = compile(layerOpacity)
   val compiledColor = compile(color)
   val compiledPattern = compile(pattern)
   val compiledTranslateAnchor = compile(translateAnchor)
@@ -104,6 +117,7 @@ public fun FillLayer(
       set(compiledSortKey) { layer.setFillSortKey(it) }
       set(compiledAntialias) { layer.setFillAntialias(it) }
       set(compiledOpacity) { layer.setFillOpacity(it) }
+      set(compiledLayerOpacity) { layer.setFillLayerOpacity(it) }
       set(compiledColor) { layer.setFillColor(it) }
       set(compiledOutlineColor) { layer.setFillOutlineColor(it) }
       set(compiledTranslate) { layer.setFillTranslate(it) }
@@ -115,24 +129,53 @@ public fun FillLayer(
   )
 }
 
-internal expect class FillLayer(id: String, source: Source) : FeatureLayer {
-  override var sourceLayer: String
+internal class FillLayer(id: String, source: Source) : FeatureLayer(id, source) {
 
-  override fun setFilter(filter: CompiledExpression<BooleanValue>)
+  override val type: String = "fill"
 
-  fun setFillSortKey(sortKey: CompiledExpression<FloatValue>)
+  override var sourceLayer: String = ""
+    set(value) {
+      field = value
+      setSourceLayerProperty(value)
+    }
 
-  fun setFillAntialias(antialias: CompiledExpression<BooleanValue>)
+  override fun setFilter(filter: CompiledExpression<BooleanValue>) {
+    setFilterExpression(filter)
+  }
 
-  fun setFillOpacity(opacity: CompiledExpression<FloatValue>)
+  fun setFillSortKey(sortKey: CompiledExpression<FloatValue>) {
+    setLayoutProperty("fill-sort-key", sortKey)
+  }
 
-  fun setFillColor(color: CompiledExpression<ColorValue>)
+  fun setFillAntialias(antialias: CompiledExpression<BooleanValue>) {
+    setPaintProperty("fill-antialias", antialias)
+  }
 
-  fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>)
+  fun setFillOpacity(opacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("fill-opacity", opacity)
+  }
 
-  fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>)
+  fun setFillLayerOpacity(layerOpacity: CompiledExpression<FloatValue>) {
+    setPaintProperty("fill-layer-opacity", layerOpacity)
+  }
 
-  fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>)
+  fun setFillColor(color: CompiledExpression<ColorValue>) {
+    setPaintProperty("fill-color", color)
+  }
 
-  fun setFillPattern(pattern: CompiledExpression<ImageValue>)
+  fun setFillOutlineColor(outlineColor: CompiledExpression<ColorValue>) {
+    setPaintProperty("fill-outline-color", outlineColor)
+  }
+
+  fun setFillTranslate(translate: CompiledExpression<DpOffsetValue>) {
+    setPaintProperty("fill-translate", translate)
+  }
+
+  fun setFillTranslateAnchor(translateAnchor: CompiledExpression<TranslateAnchor>) {
+    setPaintProperty("fill-translate-anchor", translateAnchor)
+  }
+
+  fun setFillPattern(pattern: CompiledExpression<ImageValue>) {
+    setPaintProperty("fill-pattern", pattern)
+  }
 }

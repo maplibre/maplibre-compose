@@ -1,8 +1,25 @@
 #!/usr/bin/env bash
-# Boots a headless Android emulator and waits until it is ready. Idempotent.
+# Boots an Android emulator and waits until it is ready. Idempotent.
 set -euo pipefail
 
-api_level=${1:?usage: boot-android-emulator <api-level>}
+usage() {
+  echo "Usage: boot-android-emulator <api-level> [--headless]" >&2
+  exit 2
+}
+
+api_level=
+headless=false
+for arg in "$@"; do
+  case "$arg" in
+    --headless) headless=true ;;
+    -*) usage ;;
+    *)
+      [[ -z "$api_level" ]] || usage
+      api_level=$arg
+      ;;
+  esac
+done
+[[ -n "$api_level" ]] || usage
 
 # An arm64 host needs an arm64 image to use its native accelerator.
 case "$(uname -m)" in
@@ -18,6 +35,7 @@ project_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." &
 state_dir="$project_root/build/android-emulator"
 pid_file="$state_dir/emulator.pid"
 log_file="$state_dir/emulator.log"
+launchd_label=org.maplibre.compose.android-emulator
 # In the build tree, not ~/.android: removing the tree removes the device.
 export ANDROID_AVD_HOME="$state_dir/avd"
 
@@ -62,13 +80,31 @@ booted_avd() {
 }
 
 running_avd="$(booted_avd || true)"
-if [[ "$running_avd" == "$avd_name" ]]; then
+running_mode=
+if [[ -f "$pid_file" ]]; then
+  running_pid=$(<"$pid_file")
+  if [[ "$running_pid" =~ ^[0-9]+$ ]] &&
+    kill -0 "$running_pid" 2>/dev/null &&
+    ps -p "$running_pid" -o args= | grep -q "$avd_name"; then
+    if ps -p "$running_pid" -o args= | grep -q -- ' -no-window'; then
+      running_mode=headless
+    else
+      running_mode=visible
+    fi
+  fi
+fi
+desired_mode=visible
+if [[ "$headless" == true ]]; then
+  desired_mode=headless
+fi
+
+if [[ "$running_avd" == "$avd_name" && "$running_mode" == "$desired_mode" ]]; then
   echo "Android emulator for API $api_level ($abi) is ready at $serial."
   exit 0
 fi
 if [[ -n "$running_avd" ]] ||
   { [[ -x "$adb" ]] && adb_probe 20 devices | grep -q "^$serial"; }; then
-  echo "Replacing the emulator on $serial with $avd_name."
+  echo "Replacing the emulator on $serial with $avd_name in $desired_mode mode."
   "$project_root/.mise/bin/stop-android-emulator"
 fi
 
@@ -127,7 +163,6 @@ if [[ ! -f "$pid_file" ]]; then
     -avd "$avd_name"
     # Fixed, so $serial always names this emulator rather than the next free port.
     -port "${serial#emulator-}"
-    -no-window
     -no-audio
     -no-boot-anim
     -no-snapshot
@@ -136,17 +171,46 @@ if [[ ! -f "$pid_file" ]]; then
     -camera-back none
     -camera-front none
   )
+  if [[ "$headless" == true ]]; then
+    launcher+=(-no-window)
+  fi
   # No -accel: the default finds KVM here, Hypervisor.framework on macOS, and
   # WHPX on Windows. Only a missing /dev/kvm is worth warning about.
   if [[ "$(uname -s)" == "Linux" && ! (-r /dev/kvm && -w /dev/kvm) ]]; then
     echo "KVM is inaccessible; falling back to software emulation." >&2
   fi
-  if command -v setsid >/dev/null 2>&1; then
+  if [[ "$(uname -s)" == Darwin && "$headless" == false ]]; then
+    # launchd keeps the macOS GUI process outside the invoking task's process
+    # group, which lets the window remain open after mise exits.
+    launchctl remove "$launchd_label" 2>/dev/null || true
+    launchctl submit \
+      -l "$launchd_label" \
+      -o "$log_file" \
+      -e "$log_file" \
+      -- /usr/bin/env "ANDROID_AVD_HOME=$ANDROID_AVD_HOME" "${launcher[@]}"
+
+    pid=
+    for ((attempt = 0; attempt < 30; attempt++)); do
+      pid=$(launchctl print "gui/$(id -u)/$launchd_label" 2>/dev/null |
+        awk '/pid =/ { print $3; exit }')
+      if [[ "$pid" =~ ^[0-9]+$ ]] && kill -0 "$pid" 2>/dev/null; then
+        break
+      fi
+      sleep 1
+    done
+    if [[ ! "$pid" =~ ^[0-9]+$ ]] || ! kill -0 "$pid" 2>/dev/null; then
+      echo "Android emulator did not start under launchd." >&2
+      launchctl remove "$launchd_label" 2>/dev/null || true
+      tail -100 "$log_file" >&2
+      exit 1
+    fi
+  elif command -v setsid >/dev/null 2>&1; then
     nohup setsid "${launcher[@]}" </dev/null >"$log_file" 2>&1 &
+    pid=$!
   else
     nohup "${launcher[@]}" </dev/null >"$log_file" 2>&1 &
+    pid=$!
   fi
-  pid=$!
   printf '%s\n' "$pid" >"$pid_file"
   echo "Started Android emulator process $pid."
 fi

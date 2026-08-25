@@ -24,7 +24,6 @@ dependencies {
   pluginImplementation(libs.plugins.kotlin.serialization)
   pluginImplementation(libs.plugins.kotlin.composeCompiler)
   pluginImplementation(libs.plugins.mavenPublish)
-  pluginImplementation(libs.plugins.spmForKmp)
 }
 
 fun DependencyHandlerScope.pluginImplementation(notation: Provider<PluginDependency>) {

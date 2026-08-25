@@ -7,6 +7,7 @@ import kotlin.time.Duration
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
@@ -34,6 +35,8 @@ internal interface MapAdapter {
 
   fun setCameraPosition(cameraPosition: CameraPosition)
 
+  fun setCameraPadding(padding: PaddingValues)
+
   fun setCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double,
@@ -55,21 +58,32 @@ internal interface MapAdapter {
 
   fun getVisibleRegion(): VisibleRegion
 
+  /**
+   * The viewport the map last adopted, with every property read from the same transform, or null
+   * before the map has one. Implementations answer from where the map's size actually lands, so a
+   * read made from [Callbacks.onCameraMoved] already describes a finished resize.
+   */
+  fun getViewport(): Viewport?
+
   fun setRenderSettings(value: RenderOptions)
 
   fun setGestureSettings(value: GestureOptions)
 
-  fun positionFromScreenLocation(offset: DpOffset): Position
+  fun setTileLodSettings(value: TileLodOptions)
 
-  fun screenLocationFromPosition(position: Position): DpOffset
+  /** Null while the map has no viewport to convert with. */
+  fun positionFromScreenLocation(offset: DpOffset): Position?
 
-  fun queryRenderedFeatures(
+  /** Null while the map has no viewport to convert with. */
+  fun screenLocationFromPosition(position: Position): DpOffset?
+
+  suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,
   ): List<Feature<Geometry, JsonObject?>>
 
-  fun queryRenderedFeatures(
+  suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,
