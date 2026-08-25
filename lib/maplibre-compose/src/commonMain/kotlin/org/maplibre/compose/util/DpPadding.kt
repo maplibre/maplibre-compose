@@ -1,9 +1,7 @@
 package org.maplibre.compose.util
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.unit.Dp
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -23,12 +21,3 @@ public data class DpPadding(
     public val Zero: DpPadding = DpPadding()
   }
 }
-
-/** Copies the four physical sides of [this] into a [DpPadding]. */
-public fun PaddingValues.Absolute.toDpPadding(): DpPadding =
-  DpPadding(
-    left = calculateLeftPadding(LayoutDirection.Ltr),
-    top = calculateTopPadding(),
-    right = calculateRightPadding(LayoutDirection.Ltr),
-    bottom = calculateBottomPadding(),
-  )

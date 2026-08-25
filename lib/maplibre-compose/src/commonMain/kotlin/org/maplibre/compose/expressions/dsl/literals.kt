@@ -1,6 +1,5 @@
 package org.maplibre.compose.expressions.dsl
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
@@ -35,7 +34,6 @@ import org.maplibre.compose.expressions.value.TextUnitOffsetValue
 import org.maplibre.compose.expressions.value.TextVariableAnchorOffsetValue
 import org.maplibre.compose.expressions.value.VectorValue
 import org.maplibre.compose.util.DpPadding
-import org.maplibre.compose.util.toDpPadding
 
 /** Creates a literal expression for a [String] value. */
 public fun const(string: String): StringLiteral = StringLiteral.of(string)
@@ -79,9 +77,6 @@ public fun const(dpOffset: DpOffset): DpOffsetLiteral = DpOffsetLiteral.of(dpOff
 
 /** Creates a literal expression for a [DpPadding] value. */
 public fun const(padding: DpPadding): DpPaddingLiteral = DpPaddingLiteral.of(padding)
-
-/** Creates a literal expression from Compose [PaddingValues.Absolute]. */
-public fun const(padding: PaddingValues.Absolute): DpPaddingLiteral = const(padding.toDpPadding())
 
 /** Creates a literal expression for a list. */
 public fun <T : ExpressionValue> const(list: List<Literal<T, *>>): ListLiteral<T> =
