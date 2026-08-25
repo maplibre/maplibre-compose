@@ -185,8 +185,11 @@ udid="$(.mise/bin/boot-ios-simulator)"
 '''
 
 [tasks."test:js"]
-description = "Run the Kotlin/JS browser test suite."
-run = "./gradlew jsBrowserTest"
+description = "Run the Kotlin/JS browser test suite and compile the Kotlin/Wasm library targets."
+run = '''
+./gradlew jsBrowserTest
+./gradlew compileKotlinWasmJs
+'''
 
 [tasks."test:desktop"]
 description = "Run the desktop (JVM) test suite against a real Vulkan or Metal device."
