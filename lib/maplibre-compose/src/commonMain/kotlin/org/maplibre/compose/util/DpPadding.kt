@@ -7,8 +7,7 @@ import androidx.compose.ui.unit.dp
 /**
  * Four-sided padding in device-independent pixels.
  *
- * Style-spec padding uses physical sides: left, top, right, and bottom. A negative value shrinks
- * that side of the box.
+ * A negative value shrinks that side of the box.
  */
 @Immutable
 public data class DpPadding(
