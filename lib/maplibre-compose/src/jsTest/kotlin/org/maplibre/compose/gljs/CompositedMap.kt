@@ -11,6 +11,7 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.Style
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 private const val RENDER_TIMEOUT_MS = 30_000
@@ -43,6 +44,20 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
 
   fun applyRenderOptions(options: RenderOptions) {
     session.setRenderSettings(options)
+  }
+
+  fun applyCameraLimits(
+    minZoom: Double = 0.0,
+    maxZoom: Double = 20.0,
+    minPitch: Double = 0.0,
+    maxPitch: Double = 60.0,
+    boundingBox: BoundingBox? = null,
+  ) {
+    session.setMinZoom(minZoom)
+    session.setMaxZoom(maxZoom)
+    session.setMinPitch(minPitch)
+    session.setMaxPitch(maxPitch)
+    session.setCameraBoundingBox(boundingBox)
   }
 
   suspend fun drawUntil(target: GlJsRenderTarget, what: String, condition: suspend () -> Boolean) {

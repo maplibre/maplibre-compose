@@ -318,6 +318,15 @@ class BrowserCompositingTest {
             map.frameRequests,
             "applying the same render options again should not ask for another frame",
           )
+
+          map.applyCameraLimits()
+          val requestsAfterLimits = map.frameRequests
+          map.applyCameraLimits()
+          assertEquals(
+            requestsAfterLimits,
+            map.frameRequests,
+            "applying the same camera limits again should not ask for another frame",
+          )
         }
       }
     }

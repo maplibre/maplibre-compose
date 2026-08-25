@@ -76,15 +76,11 @@ class BrowserOverdrawInspectorTest {
 
       options = MapOptions(renderOptions = RenderOptions(isOverdrawInspectorEnabled = true))
       waitForIdle()
-      repeat(4) {
-        yieldToBrowser()
-        waitForIdle()
-      }
 
       assertTrue(
         session.lastDrawnOverdrawInspector,
-        "the next Compose draw should run with the inspector on; a camera move should not be " +
-          "what applies the flag",
+        "the Compose frame that toggles the inspector should draw with it on; a camera move " +
+          "should not be what applies the flag",
       )
     }
 }

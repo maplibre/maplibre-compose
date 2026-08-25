@@ -41,6 +41,10 @@ internal actual fun ComposableMapView(
   session.layoutDirection = layoutDirection
   val currentOnReset = rememberUpdatedState(onReset)
 
+  // The Canvas draws later in this composition, so render options have to be on the session
+  // before that draw runs. SideEffect is too late: the surface would paint the previous flags.
+  session.setRenderSettings(options.renderOptions)
+
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
   SideEffect {
