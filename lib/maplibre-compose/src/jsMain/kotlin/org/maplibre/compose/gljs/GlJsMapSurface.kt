@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -38,8 +39,10 @@ internal fun GlJsMapSurface(
     }
   var frameRequest by remember { mutableLongStateOf(0L) }
   var failed by remember(renderer) { mutableStateOf(false) }
+  var recoveryEpoch by remember(renderer) { mutableIntStateOf(0) }
+  var consecutiveFailures by remember(renderer) { mutableIntStateOf(0) }
   val createCompositor = LocalGlJsCompositor.current
-  val compositor = remember(renderer, createCompositor) { createCompositor(logger) }
+  val compositor = remember(renderer, createCompositor, recoveryEpoch) { createCompositor(logger) }
   val surface =
     remember(compositor) {
       object : GlJsSurfaceSession {
@@ -98,14 +101,27 @@ internal fun GlJsMapSurface(
             // requests its own repaints.
           }
         }
+        consecutiveFailures = 0
       } catch (error: Throwable) {
-        failed = true
-        logger?.e(error) { "The map failed while rendering a frame and will not be drawn again" }
-        runCatching { renderer.close() }
-          .onFailure { logger?.e(it) { "The map failed to close after a render failure" } }
+        consecutiveFailures += 1
+        if (consecutiveFailures > MAX_FRAME_RECOVERY_ATTEMPTS) {
+          failed = true
+          logger?.e(error) { "The map failed while rendering a frame and will not be drawn again" }
+          runCatching { renderer.close() }
+            .onFailure { logger?.e(it) { "The map failed to close after a render failure" } }
+        } else {
+          logger?.w(error) {
+            "The map failed while rendering a frame; rebuilding the render session " +
+              "(attempt $consecutiveFailures of $MAX_FRAME_RECOVERY_ATTEMPTS)"
+          }
+          recoveryEpoch += 1
+          surface.requestFrame()
+        }
       }
     }
 
     if (!drew) drawRect(Color.Transparent, size = Size(size.width, size.height))
   }
 }
+
+private const val MAX_FRAME_RECOVERY_ATTEMPTS = 3
