@@ -1,27 +1,27 @@
 package org.maplibre.compose.style
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.Composition
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.State
-import androidx.compose.runtime.key
+import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCompositionContext
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
 import kotlinx.coroutines.awaitCancellation
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
- * Hosts the map's content in a subcomposition tied to the style it draws into.
+ * Hosts the map's content in a [StyleCompositionHost] owned here rather than in the UI composition.
  *
- * The subcomposition follows the *loaded* style while [content] follows the style the application
- * has *selected*; during a switch those differ and nothing here reconciles them, so the content
- * recomposes into whichever node is current. The binding dropping writes after unload is what makes
- * that survivable.
+ * The host outlives any one style: a binding swap rebuilds the content composition inside it, and
+ * only leaving the composition closes it. The content follows the style the application has
+ * *selected* while the composition targets the *loaded* style; during a switch those differ and
+ * nothing here reconciles them. The binding dropping writes after unload is what makes that
+ * survivable.
  */
 @Composable
 internal fun rememberStyleComposition(
@@ -31,39 +31,46 @@ internal fun rememberStyleComposition(
   content: @Composable @MaplibreComposable () -> Unit,
 ): State<StyleNode?> {
   val nodeState = remember { mutableStateOf<StyleNode?>(null) }
-  val compositionContext = rememberCompositionContext()
+  val density = LocalDensity.current
+  val layoutDirection = LocalLayoutDirection.current
+  val locals = currentCompositionLocalContext
 
-  LaunchedEffect(styleState, maybeBinding, compositionContext) {
-    val binding = maybeBinding ?: return@LaunchedEffect
+  val host = remember {
+    val hostDispatcher = styleHostDispatcher()
+    StyleCompositionHost(
+        dispatcher = hostDispatcher.dispatcher,
+        density = density,
+        layoutDirection = layoutDirection,
+        logger = logger,
+        onClosed = hostDispatcher::close,
+      )
+      .also { it.inheritedLocals = locals }
+  }
+  DisposableEffect(host) { onDispose { host.close() } }
+
+  LaunchedEffect(styleState, maybeBinding, host) {
+    val binding = maybeBinding
+    if (binding == null) {
+      host.clearContent()
+      return@LaunchedEffect
+    }
     val rootNode = StyleNode(binding, logger).also { nodeState.value = it }
     styleState.attach(rootNode)
-    val composition = Composition(MapNodeApplier(rootNode), compositionContext)
-
-    composition.setContent { StyleContent(rootNode, content) }
+    host.setContent(rootNode, content)
 
     try {
       awaitCancellation()
     } finally {
       nodeState.value = null
-      composition.dispose()
     }
   }
 
-  SideEffect { nodeState.value?.logger = logger }
+  SideEffect {
+    host.density = density
+    host.layoutDirection = layoutDirection
+    host.inheritedLocals = locals
+    nodeState.value?.logger = logger
+  }
 
   return nodeState
 }
-
-@Composable
-internal fun StyleContent(
-  rootNode: StyleNode,
-  content: @Composable @MaplibreComposable () -> Unit,
-) {
-  CompositionLocalProvider(LocalStyleNode provides rootNode) { content() }
-  key(rootNode.currentApplyGeneration) {
-    // Side effects run after remember observers, so source effects attach before layers do.
-    SideEffect { rootNode.applyChanges() }
-  }
-}
-
-internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw IllegalStateException() }

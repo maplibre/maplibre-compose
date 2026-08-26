@@ -1,13 +1,11 @@
 package org.maplibre.compose.style
 
-import androidx.compose.runtime.BroadcastFrameClock
-import androidx.compose.runtime.Composition
-import androidx.compose.runtime.withRunningRecomposer
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.yield
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LayerNode as ComposeLayerNode
@@ -22,39 +20,36 @@ class StyleCompositionOrderTest {
 
   @Test
   fun a_source_reaches_the_style_before_its_layer() = runTest {
-    val frameClock = BroadcastFrameClock()
-    withContext(frameClock) {
-      withRunningRecomposer { recomposer ->
-        val style = SourceBeforeLayerBinding()
-        val rootNode = StyleNode(style, logger = null)
-        val source =
-          GeoJsonSource(
-            "composed-source",
-            GeoJsonData.Features(featureCollectionOf()),
-            GeoJsonOptions(),
-          )
-        val composition = Composition(MapNodeApplier(rootNode), recomposer)
-        try {
-          composition.setContent {
-            StyleContent(rootNode) {
-              SourceReferenceEffect(source)
-              ComposeLayerNode(
-                factory = { FillLayer("composed-layer", source) },
-                update = {},
-                onClick = null,
-                onLongClick = null,
-              )
-            }
-          }
-          while (!frameClock.hasAwaiters) yield()
-          frameClock.sendFrame(0)
-          yield()
-          recomposer.awaitIdle()
-          assertEquals(listOf("source:composed-source", "layer:composed-layer"), style.additions)
-        } finally {
-          composition.dispose()
-        }
+    val style = SourceBeforeLayerBinding()
+    val rootNode = StyleNode(style, logger = null)
+    val source =
+      GeoJsonSource(
+        "composed-source",
+        GeoJsonData.Features(featureCollectionOf()),
+        GeoJsonOptions(),
+      )
+    val host =
+      StyleCompositionHost(
+        dispatcher = StandardTestDispatcher(testScheduler),
+        density = Density(1f),
+        layoutDirection = LayoutDirection.Ltr,
+        logger = null,
+      )
+    try {
+      host.setContent(rootNode) {
+        SourceReferenceEffect(source)
+        ComposeLayerNode(
+          factory = { FillLayer("composed-layer", source) },
+          update = {},
+          onClick = null,
+          onLongClick = null,
+        )
       }
+      testScheduler.advanceUntilIdle()
+      assertEquals(listOf("source:composed-source", "layer:composed-layer"), style.additions)
+    } finally {
+      host.close()
+      testScheduler.advanceUntilIdle()
     }
   }
 

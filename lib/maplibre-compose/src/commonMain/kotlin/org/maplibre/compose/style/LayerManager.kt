@@ -16,7 +16,6 @@ internal class LayerManager(private val styleNode: StyleNode) {
     require(node.layer.id !in baseLayers) {
       "Layer ID '${node.layer.id}' already exists in base style"
     }
-    node.anchor.validate()
     styleNode.logger?.i {
       "Queuing layer ${node.layer.id} for addition at anchor ${node.anchor}, index $index"
     }
@@ -87,6 +86,15 @@ internal class LayerManager(private val styleNode: StyleNode) {
 
     // anything left in missedLayers is a new anchor
     missedLayers.forEach { (anchor, nodes) ->
+      // A style switch recomposes content whose anchors name layers of the incoming base style
+      // before this node's style has been replaced; the nodes stay queued and a later flush, or
+      // the composition built against the new style, adds them.
+      if (!anchor.isResolvable()) {
+        styleNode.logger?.w {
+          "Anchor $anchor names no layer in the current style; deferring its layers"
+        }
+        return@forEach
+      }
       // let's initialize the anchor with one layer
       val tail = nodes.removeAt(nodes.size - 1)
       styleNode.logger?.i { "Initializing anchor $anchor with layer ${tail.layer.id}" }
@@ -96,7 +104,7 @@ internal class LayerManager(private val styleNode: StyleNode) {
         is Anchor.Above -> styleNode.binding.addLayerAbove(anchor.layerId, tail.layer)
         is Anchor.Below -> styleNode.binding.addLayerBelow(anchor.layerId, tail.layer)
         is Anchor.Replace -> {
-          val layerToReplace = styleNode.binding.getLayer(anchor.layerId)!!
+          val layerToReplace = checkNotNull(styleNode.binding.getLayer(anchor.layerId))
           styleNode.binding.addLayerAbove(layerToReplace.id, tail.layer)
           styleNode.logger?.i { "Replacing layer ${layerToReplace.id} with ${tail.layer.id}" }
           styleNode.binding.removeLayer(layerToReplace)
@@ -121,16 +129,9 @@ internal class LayerManager(private val styleNode: StyleNode) {
     added = true
   }
 
-  private fun Anchor.validate() {
-    layerIdOrNull?.let { layerId ->
-      // Every style switch briefly inserts content composed against the incoming style into the
-      // outgoing style's node, so its anchors name layers this node never had; the unloaded flag
-      // marks that window. This throws from inside `addLayer` before `userLayers` is updated, so a
-      // real failure here also desynchronizes the manager's list from Compose's child list.
-      require(baseLayers.containsKey(layerId) || !styleNode.binding.isLoaded) {
-        "Layer ID '$layerId' not found in base style"
-      }
-    }
+  private fun Anchor.isResolvable(): Boolean {
+    val layerId = layerIdOrNull ?: return true
+    return styleNode.binding.layerIds()?.contains(layerId) ?: false
   }
 
   private val Anchor.layerIdOrNull: String?

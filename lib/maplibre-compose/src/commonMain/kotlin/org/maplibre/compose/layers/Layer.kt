@@ -208,9 +208,14 @@ internal sealed class Layer(val id: String) {
           error,
         )
       }
-    check(added) {
-      "Layer '$id' was not added: its style is no longer loaded. It will not appear until the " +
-        "style reloads and the composition re-adds it."
+    // The style can unload on another thread between the caller's loaded check and the add; the
+    // dropped write is the unload contract, not an error.
+    if (!added) {
+      binding.logger?.w {
+        "Layer '$id' was not added: its style unloaded first. It will not appear until the " +
+          "style reloads and the composition re-adds it."
+      }
+      return
     }
     this.binding = binding
     unsupportedProperties.forEach { (name, reason) -> reportUnsupportedProperty(name, reason) }

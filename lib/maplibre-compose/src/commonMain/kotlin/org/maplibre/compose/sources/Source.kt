@@ -59,9 +59,11 @@ public sealed class Source(internal val id: String) {
           error,
         )
       }
-    check(added) {
-      "Source '$id' was not added: its style is no longer loaded. Any layer referencing it will " +
-        "fail to attach."
+    // The style can unload on another thread between the caller's loaded check and the add; the
+    // dropped write is the unload contract, not an error.
+    if (!added) {
+      binding.logger?.w { "Source '$id' was not added: its style unloaded first." }
+      return
     }
     this.binding = binding
     removeUnloadAction?.invoke()
