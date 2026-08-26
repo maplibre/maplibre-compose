@@ -1390,6 +1390,9 @@ internal class MlnFfiMapSession(
           session
             .queryRenderedFeatures(geometry, renderedQueryOptions(layerIds, predicate))
             .toGeoJsonFeatures()
+            // Native walks style layers from the bottom. CameraState and GL JS put
+            // the feature in front first.
+            .asReversed()
         }
       )
     }

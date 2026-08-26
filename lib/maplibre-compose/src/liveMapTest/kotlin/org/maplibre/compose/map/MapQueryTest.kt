@@ -235,8 +235,8 @@ class MapQueryTest {
       )
 
     /**
-     * Two world-covering fills from different sources. The second layer is the one in front, so an
-     * unfiltered query at the centre should list `front` before `back`.
+     * Two world-covering fills from different sources. The second layer is the one in front. The
+     * query API promises that order: front first, then back.
      */
     val OVERLAPPING_FILL_STYLE =
       """
