@@ -429,6 +429,61 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
 [#631](https://github.com/maplibre/maplibre-native-ffi/pull/631) can land
 anywhere in this sequence. The public API is `suspend` before it and after it.
 
+## Deferred into step 4
+
+The step-3 close-out audit and the external review of the stack raised these;
+each was deferred deliberately, because step 4 restructures the code it lives
+in.
+
+Refactors:
+
+- **`MapState` owns style selection.** `MaplibreMap` still passes the base style
+  to the view, whose only use is a `SideEffect` calling `setBaseStyle`. Step 4
+  puts the push in `MapState.applyOptions` and deletes the `style` parameter
+  from the `ComposableMapView` expect and its four actuals. Verify the timing
+  change against `MlnFfiStyleSwitchTest`.
+- **Shared adapter mechanics.** `MlnFfiMapCore` and `GlJsMapSession` duplicate
+  the pending-action queue, the requested-style and requested-camera fallbacks,
+  and stranded-transition resume. Extract with a gate predicate; the native side
+  is lock-guarded and the JS side single-threaded, so the shared type must be
+  thread-agnostic.
+- **One owner-thread loop.** `MlnFfiRuntime` and `MlnFfiMapRuntimeLoop`
+  duplicate the task deque, accept gate, wake source, and teardown. A shared
+  base is the most delicate concurrency change in the module; take it only with
+  the existing loop tests as proof.
+- **A common session-host composable.** `MlnFfiMapView` and `JsMapView` share
+  the session remember and effect wiring; the native side adds the load
+  placeholder and pre-viewport gesture suppression.
+- **`LayerNode`'s `isLoaded` gate.** The binding drops writes after unload and
+  the descriptor buffers properties, so the gate only delays; removing it
+  changes when click handlers become visible. Test with `MlnFfiStyleSwitchTest`
+  and `LayerClickOrderTest`.
+- **One base-style snapshot.** `StyleNode` and `SourceManager` memoize the base
+  layer ids and base sources separately on the same binding identity. The
+  snapshot must stay lazy: `getBaseSource` runs before the first sync.
+
+Hoisting prerequisites the `MlnFfiMapCore` split left:
+
+- The view still creates and closes the core; hoisting inverts that ownership,
+  and the session's `close` then closes only the render half.
+- A hoisted core must tolerate render sessions attaching and detaching mid-life
+  (a re-attach needs an initial render request; `onSurfaceAvailable` provides
+  one), and `hasAttachedViewport` never resets.
+- `MlnFfiRenderSessionAccess` exists for exactly that detached-core state; it
+  stays.
+- Input binds through the session today (`GestureTarget by core`); decide the
+  binding once `MaplibreMap(state)` exists.
+
+Public-surface obligations:
+
+- **An error channel for style failures.** The host logs ordinary composition
+  and apply failures and rethrows only fatal errors; an application cannot
+  observe them. The public `MapState` needs an observable error path.
+- **Documentation debts.** Style content now composes on a dedicated style
+  dispatcher, so effects inside it leave the UI context; GeoJSON and anchor
+  validation surface at attach and apply rather than at construction and insert.
+  Both belong in the step-4 KDoc and site docs.
+
 ## Open questions
 
 **Which members are `suspend`?** Snapshots stay sync. Commands and operations do
