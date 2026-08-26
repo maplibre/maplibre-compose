@@ -5,8 +5,14 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.sources.CustomGeometrySourceOptions
+import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.VectorTileProvider
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -74,6 +80,30 @@ internal class RecordingStyleBinding(
     if (!claim()) return
     installedGeoJson.getOrPut(sourceId) { mutableListOf() } += url
   }
+
+  override fun addCustomGeometrySource(
+    sourceId: String,
+    options: CustomGeometrySourceOptions,
+    provider: GeometryTileProvider,
+  ): Boolean {
+    sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("custom-geometry")))
+    return true
+  }
+
+  override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) = Unit
+
+  override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) = Unit
+
+  override fun addCustomVectorSource(
+    sourceId: String,
+    options: CustomVectorSourceOptions,
+    provider: VectorTileProvider,
+  ): Boolean {
+    sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("vector")))
+    return true
+  }
+
+  override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) = Unit
 
   override suspend fun clusterExpansionZoom(
     sourceId: String,

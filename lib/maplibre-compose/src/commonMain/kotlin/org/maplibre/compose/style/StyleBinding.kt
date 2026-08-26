@@ -6,10 +6,16 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.sources.CustomGeometrySourceOptions
+import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.putGeoJsonOptions
 import org.maplibre.compose.sources.toDataJson
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -163,6 +169,48 @@ internal interface StyleBinding {
   fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean)
 
   /**
+   * Adds a custom geometry source whose feature tiles [provider] supplies. The engine owns the
+   * tile-serving machinery for the source and tears it down on remove or unload.
+   *
+   * @return false if the style has unloaded, in which case nothing was added.
+   * @throws UnsupportedOperationException on an engine with no custom geometry source (MapLibre GL
+   *   JS).
+   * @throws StyleMutationException if MapLibre refuses the source.
+   */
+  fun addCustomGeometrySource(
+    sourceId: String,
+    options: CustomGeometrySourceOptions,
+    provider: GeometryTileProvider,
+  ): Boolean
+
+  /** Requests new features for a custom geometry source's tiles that intersect [bounds]. */
+  fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox)
+
+  /** Requests new features for one tile of a custom geometry source when MapLibre needs it. */
+  fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate)
+
+  /**
+   * Adds a custom vector source whose MVT tiles [provider] supplies. The engine owns the
+   * tile-serving machinery for the source and tears it down on remove or unload.
+   *
+   * @return false if the style has unloaded, in which case nothing was added.
+   * @throws StyleMutationException if MapLibre refuses the source.
+   */
+  fun addCustomVectorSource(
+    sourceId: String,
+    options: CustomVectorSourceOptions,
+    provider: VectorTileProvider,
+  ): Boolean
+
+  /**
+   * Requests new data for one tile of a custom vector source when MapLibre needs it.
+   *
+   * @throws UnsupportedOperationException on MapLibre GL JS, which exposes no public per-tile
+   *   invalidation operation.
+   */
+  fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate)
+
+  /**
    * The zoom at which [feature]'s cluster breaks apart, or null when the feature carries no cluster
    * id, no live source can answer, or the cluster is gone.
    */
@@ -294,6 +342,26 @@ internal interface StyleBinding {
         override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
           claim()
         }
+
+        override fun addCustomGeometrySource(
+          sourceId: String,
+          options: CustomGeometrySourceOptions,
+          provider: GeometryTileProvider,
+        ): Boolean = false
+
+        override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) =
+          Unit
+
+        override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) =
+          Unit
+
+        override fun addCustomVectorSource(
+          sourceId: String,
+          options: CustomVectorSourceOptions,
+          provider: VectorTileProvider,
+        ): Boolean = false
+
+        override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) = Unit
 
         override suspend fun clusterExpansionZoom(
           sourceId: String,

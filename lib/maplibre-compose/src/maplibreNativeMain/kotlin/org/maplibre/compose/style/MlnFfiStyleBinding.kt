@@ -6,32 +6,49 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.sources.CustomGeometrySourceOptions
+import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
+import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
+import org.maplibre.compose.sources.MlnFfiTileRequestCoordinator
+import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.sources.forgetFeatureStates
 import org.maplibre.compose.sources.liveFeatureStateStore
 import org.maplibre.compose.sources.mutateLiveFeatureState
 import org.maplibre.compose.sources.putClusterProperties
 import org.maplibre.compose.sources.toInlineUtf8
+import org.maplibre.compose.sources.toMlnFfiTileId
+import org.maplibre.compose.sources.toTileCoordinate
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.compose.util.toLatLng
+import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toPremultipliedRgba8
 import org.maplibre.nativeffi.error.MaplibreException
+import org.maplibre.nativeffi.geo.CanonicalTileId
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.nativeffi.render.RenderSessionHandle
+import org.maplibre.nativeffi.style.CustomGeometrySourceCallback
+import org.maplibre.nativeffi.style.CustomGeometrySourceOptions as FfiCustomGeometrySourceOptions
+import org.maplibre.nativeffi.style.CustomMvtVectorSourceCallback
+import org.maplibre.nativeffi.style.CustomMvtVectorSourceOptions
 import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceOptions
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
+import org.maplibre.spatialk.geojson.toJson
 
 /**
  * [StyleBinding] over a MapLibre Native map. Every `MapHandle` call has to run on the owner thread;
@@ -40,6 +57,9 @@ import org.maplibre.spatialk.geojson.Position
 internal interface MlnFfiStyleBinding : StyleBinding {
   /** Feature state retained for this loaded style. */
   val featureStateStore: MlnFfiFeatureStateStore?
+
+  /** The tile coordinators serving this loaded style's custom sources; null when unloaded. */
+  val tileCoordinators: MlnFfiTileCoordinatorStore?
 
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
   fun <T> readMap(action: (MapHandle) -> T): T?
@@ -95,6 +115,123 @@ internal interface MlnFfiStyleBinding : StyleBinding {
       forgetFeatureStates(sourceId)
       reportSourceChanged(sourceId)
     }
+    tileCoordinators?.remove(sourceId)
+  }
+
+  override fun addCustomGeometrySource(
+    sourceId: String,
+    options: CustomGeometrySourceOptions,
+    provider: GeometryTileProvider,
+  ): Boolean {
+    val coordinator =
+      MlnFfiTileRequestCoordinator(
+        name = "maplibre-custom-geometry-$sourceId",
+        load = { tile -> provider.loadTile(tile).toJson().encodeToByteArray() },
+        deliver = { map, tile, data -> map.setCustomGeometrySourceTileData(sourceId, tile, data) },
+        fail = { map, tile, error ->
+          logger?.e(error) {
+            "Loading tile ${tile.toTileCoordinate()} of source '$sourceId' failed"
+          }
+          map.setCustomGeometrySourceTileData(sourceId, tile, EMPTY_FEATURE_COLLECTION)
+        },
+      )
+    val callback =
+      object : CustomGeometrySourceCallback {
+        override fun fetchTile(tileId: CanonicalTileId) {
+          coordinator.fetch(tileId)
+        }
+
+        override fun cancelTile(tileId: CanonicalTileId) {
+          coordinator.cancel(tileId)
+        }
+      }
+    return installCoordinator(sourceId, coordinator) { map ->
+      map.addCustomGeometrySource(
+        sourceId,
+        FfiCustomGeometrySourceOptions(callback).also {
+          it.minZoom = options.minZoom.toDouble()
+          it.maxZoom = options.maxZoom.toDouble()
+          it.buffer = options.buffer
+          it.tolerance = options.tolerance.toDouble()
+          it.clip = options.clip
+          it.wrap = options.wrap
+        },
+      )
+    }
+  }
+
+  override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) {
+    mutateMap { map -> map.invalidateCustomGeometrySourceRegion(sourceId, bounds.toLatLngBounds()) }
+  }
+
+  override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) {
+    mutateMap { map -> map.invalidateCustomGeometrySourceTile(sourceId, tile.toMlnFfiTileId()) }
+  }
+
+  override fun addCustomVectorSource(
+    sourceId: String,
+    options: CustomVectorSourceOptions,
+    provider: VectorTileProvider,
+  ): Boolean {
+    val coordinator =
+      MlnFfiTileRequestCoordinator(
+        name = "maplibre-custom-vector-$sourceId",
+        load = provider::loadTile,
+        deliver = { map, tile, data -> map.setCustomMvtVectorSourceTileData(sourceId, tile, data) },
+        fail = { map, tile, error ->
+          map.setCustomMvtVectorSourceTileError(
+            sourceId,
+            tile,
+            error.message ?: "Tile loading failed",
+          )
+        },
+      )
+    val callback =
+      object : CustomMvtVectorSourceCallback {
+        override fun fetchTile(tileId: CanonicalTileId) {
+          coordinator.fetch(tileId)
+        }
+
+        override fun cancelTile(tileId: CanonicalTileId) {
+          coordinator.cancel(tileId)
+        }
+      }
+    return installCoordinator(sourceId, coordinator) { map ->
+      map.addCustomMvtVectorSource(
+        sourceId,
+        CustomMvtVectorSourceOptions(callback).also {
+          it.minZoom = options.minZoom.toDouble()
+          it.maxZoom = options.maxZoom.toDouble()
+        },
+      )
+    }
+  }
+
+  override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) {
+    mutateMap { map -> map.invalidateCustomMvtVectorSourceTile(sourceId, tile.toMlnFfiTileId()) }
+  }
+
+  /**
+   * Attaches [coordinator] before [add] runs, so a fetch fired during the add is not dropped. The
+   * store detaches it again on remove, on unload, and when the add fails.
+   */
+  private fun installCoordinator(
+    sourceId: String,
+    coordinator: MlnFfiTileRequestCoordinator<*>,
+    add: (MapHandle) -> Unit,
+  ): Boolean {
+    val store = tileCoordinators ?: return false
+    coordinator.attach(this)
+    store.put(sourceId, coordinator, onUnload { tileCoordinators?.remove(sourceId) })
+    val added =
+      try {
+        addSourceWith(sourceId, add)
+      } catch (error: Throwable) {
+        store.remove(sourceId)
+        throw error
+      }
+    if (!added) store.remove(sourceId)
+    return added
   }
 
   override fun sourceExists(sourceId: String): Boolean? = readMap { map ->
@@ -373,6 +510,10 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     /** The only extension MapLibre answers for a GeoJSON source; anything else returns nothing. */
     private const val SUPERCLUSTER_EXTENSION = "supercluster"
 
+    /** Delivered for a tile whose provider failed, so the map's load can finish. */
+    private val EMPTY_FEATURE_COLLECTION =
+      """{"type":"FeatureCollection","features":[]}""".encodeToByteArray()
+
     private const val EXPANSION_ZOOM_FIELD = "expansion-zoom"
     private const val CHILDREN_FIELD = "children"
     private const val LEAVES_FIELD = "leaves"
@@ -399,6 +540,8 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     val UNLOADED: MlnFfiStyleBinding =
       object : MlnFfiStyleBinding {
         override val featureStateStore: MlnFfiFeatureStateStore? = null
+
+        override val tileCoordinators: MlnFfiTileCoordinatorStore? = null
 
         override val isLoaded: Boolean = false
 

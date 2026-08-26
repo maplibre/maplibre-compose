@@ -16,9 +16,8 @@ import org.maplibre.compose.style.StyleMutationException
  * One instance may belong to only one loaded map style at a time. Create or remember a separate
  * source inside each [MaplibreMap][org.maplibre.compose.map.MaplibreMap] that uses it.
  */
-// Not sealed: Kotlin forbids extending a sealed class from another source set, and the source types
-// that reach an engine directly still have a platform subclass. The internal constructor closes the
-// hierarchy to callers all the same.
+// Not sealed yet: the platform subclasses are gone, but resealing is its own change. The internal
+// constructor closes the hierarchy to callers all the same.
 public abstract class Source internal constructor(internal val id: String) {
 
   /**
@@ -68,12 +67,10 @@ public abstract class Source internal constructor(internal val id: String) {
     }
     this.binding = binding
     removeUnloadAction?.invoke()
-    attachedToStyle(binding)
     val unregister = binding.onUnload {
       if (this.binding === binding) {
         this.binding = StyleBinding.UNLOADED
         removeUnloadAction = null
-        detachedFromStyle()
       }
     }
     if (this.binding === binding) removeUnloadAction = unregister else unregister()
@@ -81,8 +78,7 @@ public abstract class Source internal constructor(internal val id: String) {
 
   /**
    * Creates this source in the style. Override for a source whose definition cannot travel in style
-   * JSON, such as one carrying pixels or a tile callback, and cast [binding] to the engine's own
-   * type to reach its typed adder.
+   * JSON, such as one carrying pixels or a tile callback, and call the binding's typed adder.
    *
    * @return false if the style has unloaded, in which case nothing was added.
    */
@@ -106,14 +102,7 @@ public abstract class Source internal constructor(internal val id: String) {
     removeUnloadAction?.invoke()
     removeUnloadAction = null
     binding = StyleBinding.UNLOADED
-    detachedFromStyle()
   }
-
-  /** Called after this descriptor has attached to a loaded style. */
-  internal open fun attachedToStyle(binding: StyleBinding) = Unit
-
-  /** Called after explicit removal or when the attached style unloads. */
-  internal open fun detachedFromStyle() = Unit
 
   override fun toString(): String = "${this::class.simpleName}(id=\"$id\")"
 }

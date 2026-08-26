@@ -56,6 +56,7 @@ import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
+import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -256,6 +257,8 @@ internal class MlnFfiMapSession(
     private val unloadActionsLock = MlnFfiLock()
 
     override val featureStateStore = MlnFfiFeatureStateStore()
+
+    override val tileCoordinators = MlnFfiTileCoordinatorStore()
 
     override val isLoaded: Boolean
       get() = loaded && !closed

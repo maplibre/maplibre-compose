@@ -27,8 +27,13 @@ import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
+import org.maplibre.compose.sources.CustomGeometrySourceOptions
+import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureIdentifiers
 import org.maplibre.compose.sources.toDataJson
 import org.maplibre.compose.sources.toJsonObjectOrEmpty
@@ -37,6 +42,7 @@ import org.maplibre.compose.util.toFeatureCollection
 import org.maplibre.compose.util.toGeoJsonFeature
 import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toJsonElement
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -48,6 +54,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   private var loaded = true
   private val unloadActions = mutableSetOf<() -> Unit>()
+  private val customVectorAttachments = mutableMapOf<String, GlJsCustomVectorAttachment>()
 
   /**
    * GL JS reports a style change it will not make by firing an `error` event rather than throwing,
@@ -72,6 +79,9 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     if (!loaded) return
     loaded = false
     errors.cancel()
+    val attachments = customVectorAttachments.values.toList()
+    customVectorAttachments.clear()
+    attachments.forEach { it.close() }
     val actions = unloadActions.toList()
     unloadActions.clear()
     actions.forEach { it() }
@@ -100,9 +110,64 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   }
 
   override fun removeSource(sourceId: String) {
-    if (!loaded) return
-    map.removeSource(sourceId)
+    if (loaded) map.removeSource(sourceId)
+    customVectorAttachments.remove(sourceId)?.close()
   }
+
+  override fun addCustomGeometrySource(
+    sourceId: String,
+    options: CustomGeometrySourceOptions,
+    provider: GeometryTileProvider,
+  ): Boolean =
+    throw UnsupportedOperationException(
+      "Custom geometry source '$sourceId' is not available in the browser. Use " +
+        "CustomVectorSource when the provider can return MVT data, or use GeoJsonSource for " +
+        "geographic features."
+    )
+
+  override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox): Unit =
+    throw UnsupportedOperationException(
+      "Custom geometry source '$sourceId' is not available in the browser."
+    )
+
+  override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate): Unit =
+    throw UnsupportedOperationException(
+      "Custom geometry source '$sourceId' is not available in the browser."
+    )
+
+  override fun addCustomVectorSource(
+    sourceId: String,
+    options: CustomVectorSourceOptions,
+    provider: VectorTileProvider,
+  ): Boolean {
+    if (!loaded) return false
+    customVectorAttachments.remove(sourceId)?.close()
+    val attachment = GlJsCustomVectorAttachment(sourceId, provider)
+    customVectorAttachments[sourceId] = attachment
+    val added =
+      try {
+        addSource(
+          sourceId,
+          buildJsonObject {
+            put("type", "vector")
+            putJsonArray("tiles") { add(attachment.tileUrlTemplate) }
+            put("minzoom", options.minZoom)
+            put("maxzoom", options.maxZoom)
+          },
+        )
+      } catch (error: Throwable) {
+        customVectorAttachments.remove(sourceId)?.close()
+        throw error
+      }
+    if (!added) customVectorAttachments.remove(sourceId)?.close()
+    return added
+  }
+
+  override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate): Unit =
+    throw UnsupportedOperationException(
+      "CustomVectorSource.invalidateTile is not available in the browser because MapLibre GL JS " +
+        "has no public per-tile invalidation operation."
+    )
 
   override fun sourceExists(sourceId: String): Boolean? =
     if (!loaded) null else map.getSource<SourceHandle>(sourceId) != null
