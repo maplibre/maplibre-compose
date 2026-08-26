@@ -3,30 +3,21 @@ title: Getting started
 description: Add MapLibre Compose to a Compose Multiplatform project and display your first map.
 ---
 
-import { Aside, Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
 
 import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
 
-This page assumes you have a Compose Multiplatform project. Create one with
-Gradle from [the official JetBrains documentation][compose-guide], or with the
-[Kotlin Toolchain][kotlin-toolchain] by running `kotlin init
-compose-multiplatform`. The Kotlin Toolchain is Alpha.
-
-The examples stay on the build system that you pick. Gradle is the path that
-the official Compose Multiplatform wizard produces. The Kotlin Toolchain is a
-declarative `module.yaml` alternative.
+This page assumes you have a Compose Multiplatform project. To create one,
+follow [the official JetBrains documentation][compose-guide] or run
+`kotlin init compose-multiplatform`.
 
 ## Add the library
 
 The library is published on [Maven Central][maven]. The latest release is
-**v{versions.release}**.
-
-Gradle and the Kotlin Toolchain both read a version catalog at
-`libs.versions.toml` or `gradle/libs.versions.toml`. Add the coordinates
-there:
+**v{versions.release}**. Add it to the version catalog:
 
 ```toml title="libs.versions.toml"
 [libraries]
@@ -135,8 +126,7 @@ Available runtimes:
 ### iOS
 
 The runtime's system libraries link when Xcode links your app. Add them to
-your iOS app target's **Other Linker Flags** build setting. A Kotlin Toolchain
-`ios/app` module uses that Xcode project.
+your iOS app target's **Other Linker Flags** build setting:
 
 ```text
 -l"c++"
@@ -176,8 +166,6 @@ Alongside the library, add a runtime for your platform and one render backend.
 
   <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
     ```yaml title="jvm-app/module.yaml"
-    product: jvm/app
-
     dependencies:
       - //shared
       - $compose.desktop.currentOs
@@ -186,17 +174,10 @@ Alongside the library, add a runtime for your platform and one render backend.
           scope: runtime-only
 
     settings:
-      compose: enabled
       jvm:
         jdk:
           version: 25
     ```
-
-    <Aside type="caution">
-      Kotlin Toolchain 0.12.0 does not fetch the classified desktop native
-      runtime that Gradle metadata selects. A desktop map does not start from
-      `kotlin run`. Use Gradle to run a desktop map until that fetch works.
-    </Aside>
   </TabItem>
 </Tabs>
 
@@ -266,10 +247,6 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
   </TabItem>
 
   <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
-    The official `compose-multiplatform` template targets Wasm. This library is
-    Kotlin/JS, so add a `js` platform to the shared module and a `js/app`
-    module. A `js/app` build already emits an `.mjs` file.
-
     ```yaml title="shared/module.yaml"
     product:
       type: kmp/lib
@@ -281,13 +258,7 @@ Compile the JS target to ES modules. Non-ESM builds are not supported.
 
     dependencies:
       - //shared
-
-    settings:
-      compose: enabled
     ```
-
-    The Kotlin Toolchain compiles that module. It does not generate an HTML
-    page or run the browser app.
   </TabItem>
 </Tabs>
 
@@ -313,8 +284,6 @@ When you run your app, the map shows the default [demotiles] style. To load a
 full-featured style, proceed to [Styling](/maplibre-compose/styling/).
 
 [compose-guide]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
-
-[kotlin-toolchain]: https://kotlin-toolchain.org/dev/
 
 [maven]: https://central.sonatype.com/namespace/org.maplibre.compose
 
