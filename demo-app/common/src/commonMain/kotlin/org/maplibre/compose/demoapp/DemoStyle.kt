@@ -21,10 +21,12 @@ interface DemoStyle {
   val anchorBelowSymbols: Anchor
 
   companion object {
-    val Default: DemoStyle = OpenFreeMap.Liberty
-
-    val all: List<DemoStyle> =
+    // Lazy because an enum can be the first touchpoint of this interface (e.g. Protomaps.Light as
+    // a property initializer). The enum's <clinit> initializes this companion, and reading
+    // `entries` here would re-enter the enum before its entries array is assigned.
+    val all: List<DemoStyle> by lazy {
       OpenFreeMap.entries + Protomaps.entries + Versatiles.entries + OtherStyles.entries
+    }
   }
 }
 

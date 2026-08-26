@@ -138,7 +138,7 @@ object MagnifyingLensDemo : Demo {
           } else {
             Modifier.fillMaxSize()
           },
-        baseStyle = state.selectedStyle.base,
+        baseStyle = state.appliedStyle.base,
         cameraState = lensCamera,
         options =
           MapOptions(

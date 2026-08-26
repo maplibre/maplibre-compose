@@ -1,5 +1,6 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -35,7 +36,31 @@ class DemoAppState(
   val frameRateState: FrameRateState,
 ) {
   var selectedDemo by mutableStateOf<Demo?>(null)
-  var selectedStyle by mutableStateOf(DemoStyle.Default)
+
+  /** The style applied when [ThemeMode] resolves to light. */
+  var chosenLightStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
+
+  /** The style applied when [ThemeMode] resolves to dark. */
+  var chosenDarkStyle by mutableStateOf<DemoStyle>(Protomaps.Dark)
+
+  /**
+   * The style applied to the map: the selected demo's if it provides one, else the chosen style for
+   * the current [ThemeMode].
+   */
+  val appliedStyle: DemoStyle
+    @Composable
+    get() {
+      selectedDemo?.preferredStyle?.let {
+        return it
+      }
+      val systemDark = isSystemInDarkTheme()
+      return when (settings.themeMode) {
+        ThemeMode.System -> if (systemDark) chosenDarkStyle else chosenLightStyle
+        ThemeMode.Light -> chosenLightStyle
+        ThemeMode.Dark -> chosenDarkStyle
+      }
+    }
+
   var shell by mutableStateOf(DemoShell.Demos)
   var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
   val benchmark = BenchmarkUiState()

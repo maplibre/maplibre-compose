@@ -76,7 +76,7 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
     )
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
-      baseStyle = state.selectedStyle.base,
+      baseStyle = state.appliedStyle.base,
       cameraState = state.cameraState,
       cameraPadding = viewportInsets.asPaddingValues(),
       styleState = state.styleState,

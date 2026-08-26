@@ -26,7 +26,7 @@ interface Demo {
   val description: String
   val destination: DemoDestination
 
-  /** Applied once when the demo is selected; a later choice by the user wins. */
+  /** Replaces the user's chosen style while this demo is selected. See [DemoStyle]. */
   val preferredStyle: DemoStyle?
     get() = null
 

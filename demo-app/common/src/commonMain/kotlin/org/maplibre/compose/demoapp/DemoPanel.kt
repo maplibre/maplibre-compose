@@ -47,6 +47,7 @@ import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.design.SectionHeader
+import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.arrow_back_24px
@@ -94,7 +95,6 @@ fun DemoPanel(
         onOpenDemo = { demo ->
           scope.launch {
             revealMap()
-            demo.preferredStyle?.let { state.selectedStyle = it }
             state.selectedDemo = demo
             navController.navigate("demo")
             state.cameraState.flyTo(demo.destination)
@@ -142,6 +142,7 @@ fun DemoPanel(
     }
     composable("settings") {
       SettingsScreen(
+        state,
         onBack = { navController.popBackStack() },
         onOpen = { navController.navigate("settings/$it") },
       )
@@ -203,8 +204,6 @@ private fun DemosScreen(
       colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
     )
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-      StyleSelector(state)
-
       SectionHeader("Demos")
       allDemos.forEach { demo ->
         SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) }
@@ -214,7 +213,12 @@ private fun DemosScreen(
 }
 
 @Composable
-private fun StyleSelector(state: DemoAppState) {
+private fun StyleSelector(
+  label: String,
+  styles: List<DemoStyle>,
+  selected: DemoStyle,
+  onSelect: (DemoStyle) -> Unit,
+) {
   var expanded by remember { mutableStateOf(false) }
   ExposedDropdownMenuBox(
     expanded = expanded,
@@ -222,20 +226,20 @@ private fun StyleSelector(state: DemoAppState) {
     modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
   ) {
     OutlinedTextField(
-      value = state.selectedStyle.displayName,
+      value = selected.displayName,
       onValueChange = {},
       readOnly = true,
-      label = { Text("Map style") },
+      label = { Text(label) },
       trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
       modifier =
         Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
     )
     ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-      DemoStyle.all.forEach { style ->
+      styles.forEach { style ->
         DropdownMenuItem(
           text = { Text(style.displayName) },
           onClick = {
-            state.selectedStyle = style
+            onSelect(style)
             expanded = false
           },
         )
@@ -245,8 +249,34 @@ private fun StyleSelector(state: DemoAppState) {
 }
 
 @Composable
-private fun SettingsScreen(onBack: () -> Unit, onOpen: (route: String) -> Unit) {
+private fun SettingsScreen(
+  state: DemoAppState,
+  onBack: () -> Unit,
+  onOpen: (route: String) -> Unit,
+) {
   SettingsSubScreen("Settings", onBack) {
+    SectionHeader("Map style")
+    SegmentedRow(
+      label = "Theme",
+      options = ThemeMode.entries,
+      selected = state.settings.themeMode,
+      optionLabel = { it.name },
+      onSelect = { state.settings.themeMode = it },
+    )
+    StyleSelector(
+      label = "Light style",
+      styles = DemoStyle.all.filter { !it.isDark },
+      selected = state.chosenLightStyle,
+      onSelect = { state.chosenLightStyle = it },
+    )
+    StyleSelector(
+      label = "Dark style",
+      styles = DemoStyle.all.filter { it.isDark },
+      selected = state.chosenDarkStyle,
+      onSelect = { state.chosenDarkStyle = it },
+    )
+
+    SectionHeader("Options")
     SubmenuRow("Gestures", "Which inputs move the camera") { onOpen("gestures") }
     SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
     SubmenuRow("Interface", "Map controls and diagnostic overlays") { onOpen("interface") }

@@ -47,7 +47,7 @@ fun DemoApp() {
   val state = rememberDemoAppState()
   val dark =
     if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
-    else state.selectedStyle.isDark
+    else state.appliedStyle.isDark
   val colorScheme = if (dark) darkColorScheme() else lightColorScheme()
   val sheetState = rememberBottomSheetScaffoldState()
   // One composition for the panel, so the NavHost keeps its back stack when the viewport crosses
