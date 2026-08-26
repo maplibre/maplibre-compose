@@ -39,7 +39,6 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
-import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
@@ -66,7 +65,6 @@ import org.maplibre.spatialk.geojson.BoundingBox
 object MagnifyingLensDemo : Demo {
   override val name = "Magnifying lens"
   override val description = "A second map composited into a draggable lens with Compose modifiers."
-  override val preferredStyle = OpenFreeMap.Liberty
 
   private val lensRegion =
     BoundingBox(west = -74.002, south = 40.748, east = -73.968, north = 40.768)

@@ -18,7 +18,6 @@ import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoPointerPin
-import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.center
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
@@ -39,7 +38,6 @@ object LiveTrackingDemo : Demo {
     BoundingBox(west = -122.5195, south = 47.5925, east = -122.3298, north = 47.6321)
   override val destination = DemoDestination.FitBounds(routeRegion)
   override val pointerPin = DemoPointerPin(routeRegion.center, destination)
-  override val preferredStyle = OpenFreeMap.Liberty
 
   // The Seattle-Bainbridge ferry crossing, traced from OpenStreetMap (ODbL).
   private val route =

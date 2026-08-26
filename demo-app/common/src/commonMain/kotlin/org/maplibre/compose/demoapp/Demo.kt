@@ -26,7 +26,14 @@ interface Demo {
   val description: String
   val destination: DemoDestination
 
-  /** Replaces the user's chosen style while this demo is selected. See [DemoStyle]. */
+  /**
+   * Replaces the user's chosen style while this demo is selected. See [DemoStyle].
+   *
+   * Declare this only when the demo genuinely depends on its base style: it reads the style's own
+   * data or glyph endpoint, or its data visualization only reads against a deliberately muted
+   * canvas. Demos whose content is self-contained should stay agnostic and honor the user's chosen
+   * style and theme.
+   */
   val preferredStyle: DemoStyle?
     get() = null
 
