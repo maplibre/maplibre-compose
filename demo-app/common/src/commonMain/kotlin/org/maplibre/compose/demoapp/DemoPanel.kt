@@ -149,9 +149,9 @@ fun DemoPanel(
         RenderSettingsItems(state.settings)
       }
     }
-    composable("settings/interface") {
-      SettingsSubScreen("Interface", onBack = { navController.popBackStack() }) {
-        InterfaceSettingsItems(state.settings)
+    composable("settings/controls") {
+      SettingsSubScreen("Controls", onBack = { navController.popBackStack() }) {
+        ControlSettingsItems(state.settings)
       }
     }
   }
@@ -212,18 +212,11 @@ private fun SettingsScreen(
   SettingsSubScreen("Settings", onBack) {
     SectionHeader("Map style")
     SegmentedRow(
-      label = "Theme",
-      options = ThemeMode.entries,
-      selected = state.settings.themeMode,
+      label = "Light or dark",
+      options = MapStyleMode.entries,
+      selected = state.settings.mapStyleMode,
       optionLabel = { it.name },
-      onSelect = { state.settings.themeMode = it },
-    )
-    DropdownRow(
-      label = "Palette",
-      options = paletteModeOptions,
-      selected = state.settings.paletteMode,
-      optionLabel = { it.name },
-      onSelect = { state.settings.paletteMode = it },
+      onSelect = { state.settings.mapStyleMode = it },
     )
     DropdownRow(
       label = "Light style",
@@ -240,10 +233,19 @@ private fun SettingsScreen(
       onSelect = { state.chosenDarkStyle = it },
     )
 
+    SectionHeader("Material theme")
+    DropdownRow(
+      label = "Palette",
+      options = paletteModeOptions,
+      selected = state.settings.paletteMode,
+      optionLabel = { it.name },
+      onSelect = { state.settings.paletteMode = it },
+    )
+
     SectionHeader("Options")
     SubmenuRow("Gestures", "Which inputs move the camera") { onOpen("gestures") }
     SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
-    SubmenuRow("Interface", "Map controls and diagnostic overlays") { onOpen("interface") }
+    SubmenuRow("Controls", "Map controls and diagnostic overlays") { onOpen("controls") }
   }
 }
 
@@ -258,7 +260,7 @@ internal fun SubmenuRow(label: String, description: String, onClick: () -> Unit)
 }
 
 @Composable
-private fun InterfaceSettingsItems(settings: DemoSettings) {
+private fun ControlSettingsItems(settings: DemoSettings) {
   SectionHeader("Map controls")
   SwitchRow("Material 3 controls", settings.useMaterial3Controls) {
     settings.useMaterial3Controls = it

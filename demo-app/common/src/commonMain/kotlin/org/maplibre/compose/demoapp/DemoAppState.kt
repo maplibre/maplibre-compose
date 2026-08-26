@@ -37,15 +37,15 @@ class DemoAppState(
 ) {
   var selectedDemo by mutableStateOf<Demo?>(null)
 
-  /** The style applied when [ThemeMode] resolves to light. */
+  /** The style applied when [MapStyleMode] resolves to light. */
   var chosenLightStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
 
-  /** The style applied when [ThemeMode] resolves to dark. */
+  /** The style applied when [MapStyleMode] resolves to dark. */
   var chosenDarkStyle by mutableStateOf<DemoStyle>(Protomaps.Dark)
 
   /**
    * The style applied to the map: the selected demo's if it provides one, else the chosen style for
-   * the current [ThemeMode].
+   * the current [MapStyleMode].
    */
   val appliedStyle: DemoStyle
     @Composable
@@ -54,10 +54,10 @@ class DemoAppState(
         return it
       }
       val systemDark = isSystemInDarkTheme()
-      return when (settings.themeMode) {
-        ThemeMode.System -> if (systemDark) chosenDarkStyle else chosenLightStyle
-        ThemeMode.Light -> chosenLightStyle
-        ThemeMode.Dark -> chosenDarkStyle
+      return when (settings.mapStyleMode) {
+        MapStyleMode.System -> if (systemDark) chosenDarkStyle else chosenLightStyle
+        MapStyleMode.Light -> chosenLightStyle
+        MapStyleMode.Dark -> chosenDarkStyle
       }
     }
 
