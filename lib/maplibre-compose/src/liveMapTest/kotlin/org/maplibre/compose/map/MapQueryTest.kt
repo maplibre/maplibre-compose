@@ -183,6 +183,7 @@ class MapQueryTest {
   fun a_query_at_an_off_center_point_returns_only_the_feature_there(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(TWO_HALVES_STYLE))
+      // Zoom 0 keeps ±90 inside the 512 px viewport.
       it.session.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
       it.pump(frames = 30)
 
@@ -196,12 +197,12 @@ class MapQueryTest {
       assertEquals(
         setOf("west"),
         westHits.names(),
-        "A point in the west half. Hits: ${westHits.names()}",
+        "Expected only west. Hits: ${westHits.names()}",
       )
       assertEquals(
         setOf("east"),
         eastHits.names(),
-        "A point in the east half. Hits: ${eastHits.names()}",
+        "Expected only east. Hits: ${eastHits.names()}",
       )
     }
   }
@@ -234,8 +235,8 @@ class MapQueryTest {
       .toSet()
 
     /**
-     * Two non-overlapping fills, one on each side of the prime meridian. A point query at
-     * [WEST_POINT] or [EAST_POINT] must hit only that half.
+     * Two non-overlapping fills, one west and one east of the prime meridian. A point query at
+     * [WEST_POINT] or [EAST_POINT] hits only that half.
      */
     val TWO_HALVES_STYLE =
       """

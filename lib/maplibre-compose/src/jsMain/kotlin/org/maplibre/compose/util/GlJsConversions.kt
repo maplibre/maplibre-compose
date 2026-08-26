@@ -19,6 +19,7 @@ internal fun LngLat.toPosition(): Position = Position(longitude = lng, latitude 
 
 internal fun Position.toLngLat(): LngLat = LngLat(lng = longitude, lat = latitude)
 
+/** A plain `{x, y}`. `Point.convert` accepts this; `queryRenderedFeatures` does not. */
 internal fun DpOffset.toPoint(): Point = unsafeJso {
   x = this@toPoint.x.value.toDouble()
   y = this@toPoint.y.value.toDouble()
