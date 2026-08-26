@@ -42,7 +42,7 @@ class MlnFfiFeatureStateLifecycleTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyleBeforeRendering(BLACK_STYLE)
       assertEquals(0, fixture.attachCount)
-      fixture.session.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 1.0))
+      fixture.core.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 1.0))
       val style = assertNotNull(fixture.style)
       val source = attachPointSource(style)
       attachStateLayer(style, source, "selected")
@@ -59,7 +59,7 @@ class MlnFfiFeatureStateLifecycleTest {
   fun state_survives_surface_loss_and_accepts_detached_mutations() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BLACK_STYLE)
-      fixture.session.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 1.0))
+      fixture.core.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 1.0))
       val style = assertNotNull(fixture.style)
       val source = attachPointSource(style)
       attachStateLayer(style, source, "persistent", "detached")

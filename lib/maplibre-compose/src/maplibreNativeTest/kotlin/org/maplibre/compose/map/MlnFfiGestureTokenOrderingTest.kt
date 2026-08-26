@@ -21,7 +21,7 @@ class MlnFfiGestureTokenOrderingTest {
       val entered = TestLatch(1)
       val release = TestLatch(1)
       assertTrue(
-        fixture.session.postOwnerTaskForTest {
+        fixture.core.postOwnerTaskForTest {
           entered.countDown()
           check(release.await(5_000))
         }

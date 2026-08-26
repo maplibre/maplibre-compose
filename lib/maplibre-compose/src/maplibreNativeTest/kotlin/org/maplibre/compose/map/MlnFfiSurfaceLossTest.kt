@@ -21,10 +21,10 @@ class MlnFfiSurfaceLossTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(STYLE)
-      it.session.setCameraPosition(CAMERA)
+      it.core.setCameraPosition(CAMERA)
       it.pumpUntilRendered()
       it.pumpUntil("the map to reach its camera") {
-        abs(it.session.getCameraPosition().zoom - CAMERA.zoom) < TOLERANCE
+        abs(it.core.getCameraPosition().zoom - CAMERA.zoom) < TOLERANCE
       }
       val attachesBefore = it.attachCount
       val styleLoadsBefore = it.events.count { event -> event == BridgeMapFixture.STYLE_LOADED }
@@ -45,7 +45,7 @@ class MlnFfiSurfaceLossTest {
         it.events.count { event -> event == BridgeMapFixture.STYLE_LOADED },
         "the style lives on the map, so surface loss should not have reloaded it",
       )
-      val camera = it.session.getCameraPosition()
+      val camera = it.core.getCameraPosition()
       assertNear(CAMERA.zoom, camera.zoom, "zoom should survive surface loss")
       assertNear(
         CAMERA.target.longitude,

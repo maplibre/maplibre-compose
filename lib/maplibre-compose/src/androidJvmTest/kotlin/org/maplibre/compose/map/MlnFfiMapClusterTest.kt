@@ -91,7 +91,7 @@ class MlnFfiMapClusterTest {
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > 0 }
-    val session = assertNotNull(cameraState.map as? MlnFfiMapSession, "no FFI session")
+    val session = assertNotNull(cameraState.map as? MlnFfiMapCore, "no FFI session")
 
     fun queryAll(): List<Feature<Geometry, JsonObject?>> {
       val size = onRoot().fetchSemanticsNode().size

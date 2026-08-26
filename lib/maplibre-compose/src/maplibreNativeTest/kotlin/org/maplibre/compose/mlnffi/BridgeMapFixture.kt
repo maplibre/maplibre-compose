@@ -12,6 +12,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.runBlocking
 import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MlnFfiMapCore
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
@@ -48,15 +49,16 @@ private constructor(
   private var frameId = 0L
   private var frameRequested = true
 
-  val session: MlnFfiMapSession =
-    MlnFfiMapSession(
+  val core: MlnFfiMapCore =
+    MlnFfiMapCore(
       callbacks = recorder,
       logger = Logger.withTag("bridge-map"),
-      renderBackend = driver.backends.producer,
       scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,
       cacheFile = cacheFile,
     )
+
+  val session: MlnFfiMapSession = MlnFfiMapSession(core = core, backend = driver.backends.producer)
 
   private val hostSession =
     object : MlnFfiMapHostSession {
@@ -75,7 +77,7 @@ private constructor(
     }
 
   init {
-    session.start()
+    core.start()
     session.onSurfaceAvailable(hostSession)
   }
 
@@ -208,8 +210,8 @@ private constructor(
   /**
    * Applies a style and pumps until that load finishes.
    *
-   * [MlnFfiMapSession.setBaseStyle] clears the live style before the new document loads, so this
-   * waits for a `STYLE_LOADED` that arrives after the call.
+   * [MlnFfiMapCore.setBaseStyle] clears the live style before the new document loads, so this waits
+   * for a `STYLE_LOADED` that arrives after the call.
    */
   fun loadStyle(
     style: BaseStyle,
@@ -217,7 +219,7 @@ private constructor(
     extent: MapExtent = DEFAULT_EXTENT,
   ) {
     val styleLoadsBefore = events.count { it == STYLE_LOADED }
-    session.setBaseStyle(style)
+    core.setBaseStyle(style)
     pumpUntil("style $style to load", timeout, extent) {
       events.count { it == STYLE_LOADED } > styleLoadsBefore && this.style != null
     }
@@ -228,7 +230,7 @@ private constructor(
    */
   fun loadStyleBeforeRendering(style: BaseStyle, timeout: Duration = 60.seconds) {
     val styleLoadsBefore = events.count { it == STYLE_LOADED }
-    session.setBaseStyle(style)
+    core.setBaseStyle(style)
     val deadline = TimeSource.Monotonic.markNow() + timeout
     while (events.count { it == STYLE_LOADED } <= styleLoadsBefore || this.style == null) {
       check(deadline.hasNotPassedNow()) {

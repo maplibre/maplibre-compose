@@ -131,12 +131,12 @@ class CustomGeometrySourceTest {
 
       fixture.pumpUntil("the source to request a tile") { requested.isCompleted }
       assertFalse(
-        fixture.session.readMap { map -> map.isFullyLoaded } ?: true,
+        fixture.core.readMap { map -> map.isFullyLoaded } ?: true,
         "the pending provider must keep the map from finishing its load",
       )
       fail.complete(Unit)
       fixture.pumpUntil("the failed tile request to complete", 5.seconds) {
-        fixture.session.readMap { map -> map.isFullyLoaded } == true
+        fixture.core.readMap { map -> map.isFullyLoaded } == true
       }
 
       assertTrue(runBlocking { fixture.queryCenter() }.isEmpty())
@@ -157,7 +157,7 @@ class CustomGeometrySourceTest {
   }
 
   private suspend fun BridgeMapFixture.queryCenter() =
-    session.queryRenderedFeatures(offset = CENTER, layerIds = null, predicate = null)
+    core.queryRenderedFeatures(offset = CENTER, layerIds = null, predicate = null)
 
   private fun BridgeMapFixture.awaitCustomFeatures() {
     pumpUntil("the custom geometry source to request a tile") { requests.isNotEmpty() }

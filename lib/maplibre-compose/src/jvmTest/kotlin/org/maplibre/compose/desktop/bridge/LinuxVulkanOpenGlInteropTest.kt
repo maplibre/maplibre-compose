@@ -69,6 +69,7 @@ import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.map.MlnFfiMapCore
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
@@ -270,14 +271,15 @@ class LinuxVulkanOpenGlInteropTest {
         override fun onFrame(fps: Double) {}
       }
 
-    private val renderer =
-      MlnFfiMapSession(
+    private val core =
+      MlnFfiMapCore(
         callbacks = callbacks,
         logger = null,
-        renderBackend = host.backends.producer,
         layoutDirection = LayoutDirection.Ltr,
         cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
       )
+
+    private val renderer = MlnFfiMapSession(core = core, backend = host.backends.producer)
 
     private val hostSession =
       object : MlnFfiMapHostSession {
@@ -289,13 +291,13 @@ class LinuxVulkanOpenGlInteropTest {
       }
 
     init {
-      renderer.start()
+      core.start()
       renderer.onSurfaceAvailable(hostSession)
     }
 
     fun renderStyle(style: BaseStyle, extent: MapExtent): MlnFfiRenderTarget {
       val expectedStyleLoads = styleLoads + 1
-      renderer.setBaseStyle(style)
+      core.setBaseStyle(style)
       val deadline = TimeSource.Monotonic.markNow() + TEST_TIMEOUT
       var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0

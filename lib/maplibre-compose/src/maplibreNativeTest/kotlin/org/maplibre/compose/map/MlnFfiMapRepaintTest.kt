@@ -32,7 +32,7 @@ class MlnFfiMapRepaintTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadEmptyStyle()
       fixture.assertRedrawsAfter("replacing the base style") {
-        fixture.session.setBaseStyle(COLORED_BACKGROUND)
+        fixture.core.setBaseStyle(COLORED_BACKGROUND)
       }
     }
   }

@@ -100,7 +100,7 @@ class MlnFfiStyleSwitchTest {
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
     // this test deliberately does not cover.
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 && frames.load() > 0 }
-    val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+    val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
     assertStyleLayers(session, style, extraLayer)
 
     repeat(ROTATIONS) { round ->
@@ -151,7 +151,7 @@ class MlnFfiStyleSwitchTest {
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
-    val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+    val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
     fun replacementLayers(): List<String> =
       session.currentStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
@@ -225,7 +225,7 @@ class MlnFfiStyleSwitchTest {
       }
 
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
-      val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+      val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
       val initialLoads = loadsFinished
 
       style = BaseStyle.Uri(B_STYLE_URL)
@@ -274,7 +274,7 @@ class MlnFfiStyleSwitchTest {
     }
 
   private fun androidx.compose.ui.test.ComposeUiTest.assertStyleLayers(
-    session: MlnFfiMapSession,
+    session: MlnFfiMapCore,
     style: DemoStyle,
     extraLayer: Boolean,
   ) {

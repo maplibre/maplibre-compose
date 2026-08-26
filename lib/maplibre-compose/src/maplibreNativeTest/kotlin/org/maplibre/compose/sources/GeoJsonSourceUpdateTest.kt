@@ -233,7 +233,7 @@ class GeoJsonSourceUpdateTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(STYLE)
       val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
-      fixture.session.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
+      fixture.core.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
 
       val source =
         GeoJsonSource(

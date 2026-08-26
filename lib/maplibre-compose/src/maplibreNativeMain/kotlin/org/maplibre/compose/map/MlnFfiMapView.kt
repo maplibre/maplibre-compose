@@ -93,32 +93,37 @@ internal fun MlnFfiMapView(
   val density = LocalDensity.current
   val scaleFactor = density.density.toDouble()
 
+  // One remember so the core and its render session enter and leave the composition together.
   val session =
     remember(renderBackend, scaleFactor, applicationOptions) {
       MlnFfiMapSession(
-        callbacks = callbacks,
-        logger = logger,
-        renderBackend = renderBackend,
-        scaleFactor = scaleFactor,
-        layoutDirection = layoutDirection,
-        cacheFile = applicationOptions.cacheFile,
-        resourceProviderFactory = applicationOptions.resourceProviderFactory,
+        core =
+          MlnFfiMapCore(
+            callbacks = callbacks,
+            logger = logger,
+            scaleFactor = scaleFactor,
+            layoutDirection = layoutDirection,
+            cacheFile = applicationOptions.cacheFile,
+            resourceProviderFactory = applicationOptions.resourceProviderFactory,
+          ),
+        backend = renderBackend,
       )
     }
+  val core = session.core
 
-  session.callbacks = callbacks
-  session.logger = logger
-  session.layoutDirection = layoutDirection
+  core.callbacks = callbacks
+  core.logger = logger
+  core.layoutDirection = layoutDirection
   val currentOnReset = rememberUpdatedState(onReset)
 
   // Must run in the apply phase, not from a coroutine: the unload has to precede the content
   // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
-  SideEffect { session.setBaseStyle(style) }
+  SideEffect { core.setBaseStyle(style) }
 
   LaunchedEffect(session, options, update) {
     // Attach deferred state before native events can report the map's default state to Compose.
-    update(session)
-    session.start()
+    update(core)
+    core.start()
   }
 
   DisposableEffect(session) {
@@ -133,7 +138,7 @@ internal fun MlnFfiMapView(
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
   // MapLibre renders black until a style loads.
-  val revealSurface = session.hasLoadedFirstStyle
+  val revealSurface = core.hasLoadedFirstStyle
 
   // Before the first render target attaches, gestures would project through the bootstrap 1x1
   // viewport and jump the camera.

@@ -31,7 +31,7 @@ class MlnFfiStyleImageStretchTest {
         stretch = ImageStretch.capInsets(left = 8.dp, top = 4.dp, right = 8.dp, bottom = 4.dp),
       )
 
-      val info = assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
       assertEquals(ImageContent(8f, 4f, 24f, 28f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(8f, 24f)) to listOf(FfiImageStretch(4f, 28f)),
@@ -56,7 +56,7 @@ class MlnFfiStyleImageStretchTest {
         stretch = ImageStretch.capInsets(left = 8.dp, top = 4.dp, right = 8.dp, bottom = 4.dp),
       )
 
-      val info = assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
       assertEquals(2f, info.pixelRatio, "pixel ratio")
       assertEquals(ImageContent(16f, 8f, 48f, 56f), info.content, "content box")
       assertEquals(
@@ -83,7 +83,7 @@ class MlnFfiStyleImageStretchTest {
       )
 
       val info =
-        assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should still be uploaded")
+        assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should still be uploaded")
       assertNull(info.content, "content box")
       assertEquals(0L, info.stretchXCount, "horizontal stretch count")
       assertEquals(0L, info.stretchYCount, "vertical stretch count")
@@ -116,7 +116,7 @@ class MlnFfiStyleImageStretchTest {
           ),
       )
 
-      val info = assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
       assertEquals(ImageContent(25f, 25f, 115f, 100f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(25f, 55f), FfiImageStretch(85f, 115f)) to
@@ -147,7 +147,7 @@ class MlnFfiStyleImageStretchTest {
           ),
       )
 
-      val info = assertNotNull(it.session.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
       assertEquals(2f, info.pixelRatio, "pixel ratio")
       assertEquals(ImageContent(25f, 25f, 115f, 100f), info.content, "content box")
       assertEquals(

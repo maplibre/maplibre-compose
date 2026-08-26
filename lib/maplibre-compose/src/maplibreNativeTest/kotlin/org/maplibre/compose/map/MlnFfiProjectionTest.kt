@@ -25,10 +25,10 @@ class MlnFfiProjectionTest {
   fun an_off_thread_projection_round_trips_under_tilt_and_bearing() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.session.setCameraPosition(ROTATED_CAMERA)
+      fixture.core.setCameraPosition(ROTATED_CAMERA)
       fixture.pumpUntil("the camera target to land on the screen center") {
-        val camera = fixture.session.getCameraPosition()
-        val projected = fixture.session.screenLocationFromPosition(camera.target)
+        val camera = fixture.core.getCameraPosition()
+        val projected = fixture.core.screenLocationFromPosition(camera.target)
         abs(camera.bearing - ROTATED_CAMERA.bearing) < 0.01 &&
           abs(camera.zoom - ROTATED_CAMERA.zoom) < 0.01 &&
           abs(camera.tilt - ROTATED_CAMERA.tilt) < 0.01 &&
@@ -36,16 +36,16 @@ class MlnFfiProjectionTest {
       }
 
       // The test thread is not the owner thread, so both calls take the snapshot handle.
-      val camera = fixture.session.getCameraPosition()
-      val projected = fixture.session.screenLocationFromPosition(camera.target)
+      val camera = fixture.core.getCameraPosition()
+      val projected = fixture.core.screenLocationFromPosition(camera.target)
       assertTrue(
         projected.isNear(SCREEN_CENTER),
         "the camera target ${camera.target} should project to $SCREEN_CENTER ± $PIXEL_TOLERANCE, was $projected",
       )
 
       val roundTrip =
-        fixture.session.screenLocationFromPosition(
-          assertNotNull(fixture.session.positionFromScreenLocation(SCREEN_CENTER))
+        fixture.core.screenLocationFromPosition(
+          assertNotNull(fixture.core.positionFromScreenLocation(SCREEN_CENTER))
         )
       assertTrue(
         roundTrip.isNear(SCREEN_CENTER),
@@ -58,10 +58,10 @@ class MlnFfiProjectionTest {
   fun a_resize_reprojects_the_camera_target_to_the_new_center() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.session.setCameraPosition(START_CAMERA)
+      fixture.core.setCameraPosition(START_CAMERA)
       fixture.pumpUntil("the camera target to land on the first screen center") {
-        val projected = fixture.session.screenLocationFromPosition(START_CAMERA.target)
-        abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) < 0.01 &&
+        val projected = fixture.core.screenLocationFromPosition(START_CAMERA.target)
+        abs(fixture.core.getCameraPosition().zoom - START_CAMERA.zoom) < 0.01 &&
           projected.isNear(SCREEN_CENTER)
       }
 
@@ -69,7 +69,7 @@ class MlnFfiProjectionTest {
       fixture.hasRendered = false
       fixture.pumpUntil("the resized map to render", extent = WIDE_EXTENT) { fixture.hasRendered }
       fixture.pumpUntil("the camera target to land on the resized screen center") {
-        fixture.session.screenLocationFromPosition(START_CAMERA.target).isNear(WIDE_SCREEN_CENTER)
+        fixture.core.screenLocationFromPosition(START_CAMERA.target).isNear(WIDE_SCREEN_CENTER)
       }
 
       assertTrue(
@@ -83,22 +83,22 @@ class MlnFfiProjectionTest {
   fun conversions_succeed_while_the_owner_thread_replaces_the_snapshot() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      fixture.session.setCameraPosition(START_CAMERA)
+      fixture.core.setCameraPosition(START_CAMERA)
       fixture.pumpUntil("the starting camera to apply") {
-        abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) < 0.01
+        abs(fixture.core.getCameraPosition().zoom - START_CAMERA.zoom) < 0.01
       }
 
       val flight =
         CoroutineScope(Dispatchers.Default).launch {
-          fixture.session.animateCameraPosition(ROTATED_CAMERA, 2.seconds)
+          fixture.core.animateCameraPosition(ROTATED_CAMERA, 2.seconds)
         }
       fixture.pumpUntil("the camera to start moving") {
-        abs(fixture.session.getCameraPosition().zoom - START_CAMERA.zoom) > 0.01
+        abs(fixture.core.getCameraPosition().zoom - START_CAMERA.zoom) > 0.01
       }
 
       repeat(200) {
-        val unprojected = assertNotNull(fixture.session.positionFromScreenLocation(SCREEN_CENTER))
-        val projected = fixture.session.screenLocationFromPosition(unprojected)
+        val unprojected = assertNotNull(fixture.core.positionFromScreenLocation(SCREEN_CENTER))
+        val projected = fixture.core.screenLocationFromPosition(unprojected)
         assertTrue(
           projected.isNear(SCREEN_CENTER),
           "a live conversion should round-trip, was $projected from $unprojected",

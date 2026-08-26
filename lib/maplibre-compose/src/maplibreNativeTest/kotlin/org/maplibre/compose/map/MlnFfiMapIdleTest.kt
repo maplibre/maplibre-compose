@@ -60,8 +60,8 @@ class MlnFfiMapIdleTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.pumpUntilRendered()
-      fixture.session.setCameraPosition(
-        fixture.session.getCameraPosition().copy(zoom = 4.0, bearing = 30.0)
+      fixture.core.setCameraPosition(
+        fixture.core.getCameraPosition().copy(zoom = 4.0, bearing = 30.0)
       )
       fixture.settle()
 

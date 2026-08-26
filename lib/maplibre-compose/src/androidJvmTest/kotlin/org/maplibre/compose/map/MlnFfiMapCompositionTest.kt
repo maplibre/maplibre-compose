@@ -162,7 +162,7 @@ class MlnFfiMapCompositionTest {
     lateinit var cameraState: CameraState
     runBridgeMapTest(
       body = {
-        val session = requireNotNull(cameraState.map as? MlnFfiMapSession) { "no desktop session" }
+        val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
         waitUntil { "toggled" in session.currentStyleLayerIds() }
 
         visible = false
@@ -232,7 +232,7 @@ class MlnFfiMapCompositionTest {
 
     runBridgeMapTest(
       body = {
-        val session = requireNotNull(cameraState.map as? MlnFfiMapSession)
+        val session = requireNotNull(cameraState.map as? MlnFfiMapCore)
 
         layoutDirection = LayoutDirection.Rtl
         waitForIdle()

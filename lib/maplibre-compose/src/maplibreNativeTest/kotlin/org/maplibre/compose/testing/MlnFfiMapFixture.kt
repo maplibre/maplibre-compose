@@ -14,7 +14,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   MapFixture {
 
   override val session: MapAdapter
-    get() = bridge.session
+    get() = bridge.core
 
   override val gestures: GestureTarget
     get() = bridge.session

@@ -41,7 +41,7 @@ class GeoJsonSourceAttachTest {
       val entered = CountDownLatch(1)
       val release = CountDownLatch(1)
       assertTrue(
-        fixture.session.postOwnerTaskForTest {
+        fixture.core.postOwnerTaskForTest {
           entered.countDown()
           check(release.await(5, TimeUnit.SECONDS))
         }
