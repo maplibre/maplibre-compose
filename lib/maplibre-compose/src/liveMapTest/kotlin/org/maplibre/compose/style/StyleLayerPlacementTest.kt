@@ -17,7 +17,7 @@ class StyleLayerPlacementTest {
       it.loadStyle(STYLE)
       val style = requireNotNull(it.style)
       val layer = BackgroundLayer("new")
-      val initialOrder = style.layerIds()
+      val initialOrder = requireNotNull(style.layerIds())
 
       assertFailsWith<IllegalArgumentException> { style.addLayerAbove("missing", layer) }
 
@@ -31,7 +31,7 @@ class StyleLayerPlacementTest {
     createMapFixture().use {
       it.loadStyle(STYLE)
       val style = requireNotNull(it.style)
-      val initialOrder = style.layerIds()
+      val initialOrder = requireNotNull(style.layerIds())
 
       style.addLayerAbove(initialOrder.last(), BackgroundLayer("new"))
 
@@ -44,7 +44,7 @@ class StyleLayerPlacementTest {
     createMapFixture().use {
       it.loadStyle(STYLE)
       val style = requireNotNull(it.style)
-      val initialOrder = style.layerIds()
+      val initialOrder = requireNotNull(style.layerIds())
 
       assertFailsWith<IllegalArgumentException> {
         style.addLayerAt(-1, BackgroundLayer("negative"))
@@ -58,8 +58,6 @@ class StyleLayerPlacementTest {
   }
 
   private companion object {
-    fun Style.layerIds(): List<String> = getLayers().map { it.id }
-
     val STYLE =
       BaseStyle.Json(
         """{"version":8,"sources":{},"layers":[{"id":"bottom","type":"background"},{"id":"top","type":"background"}]}"""

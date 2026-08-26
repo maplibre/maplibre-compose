@@ -5,16 +5,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.setValue
 import co.touchlab.kermit.Logger
 
-internal class StyleNode(var style: SafeStyle, logger: Logger?) : MapNode() {
-  internal var logger: Logger? = logger
-    set(value) {
-      field = value
-      style.logger = value
-    }
-
-  init {
-    style.logger = logger
-  }
+internal class StyleNode(val binding: StyleBinding, internal var logger: Logger?) : MapNode() {
 
   internal val sourceManager = SourceManager(this)
   internal val layerManager = LayerManager(this)

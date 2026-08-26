@@ -27,7 +27,7 @@ internal fun <T : Layer> LayerNode(
     ComposeNode<LayerNode<T>, MapNodeApplier>(
       factory = { LayerNode(layer = factory(), anchor = anchor) },
       update = {
-        if (!node.style.isUnloaded) {
+        if (node.binding.isLoaded) {
           update()
           set(onClick) { this.onClick = it }
           set(onLongClick) { this.onLongClick = it }

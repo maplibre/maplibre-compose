@@ -14,7 +14,7 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 /**
@@ -84,10 +84,10 @@ class MlnFfiMapRepaintTest {
     }
   }
 
-  private fun BridgeMapFixture.loadEmptyStyle(): MlnFfiStyle {
+  private fun BridgeMapFixture.loadEmptyStyle(): MlnFfiStyleBinding {
     loadStyle(BaseStyle.Empty)
     pumpUntilRendered()
-    return assertIs<MlnFfiStyle>(style, "Errors: $errors")
+    return assertIs<MlnFfiStyleBinding>(style, "Errors: $errors")
   }
 
   /**

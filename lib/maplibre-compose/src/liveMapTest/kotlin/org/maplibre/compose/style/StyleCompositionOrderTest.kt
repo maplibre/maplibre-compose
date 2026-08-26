@@ -25,8 +25,8 @@ class StyleCompositionOrderTest {
     val frameClock = BroadcastFrameClock()
     withContext(frameClock) {
       withRunningRecomposer { recomposer ->
-        val style = SourceBeforeLayerStyle()
-        val rootNode = StyleNode(SafeStyle(style), logger = null)
+        val style = SourceBeforeLayerBinding()
+        val rootNode = StyleNode(style, logger = null)
         val source =
           GeoJsonSource(
             "composed-source",
@@ -58,18 +58,16 @@ class StyleCompositionOrderTest {
     }
   }
 
-  private class SourceBeforeLayerStyle(
-    private val delegate: Style = FakeStyle(emptyList(), emptyList(), emptyList())
-  ) : Style by delegate {
+  private class SourceBeforeLayerBinding : RecordingStyleBinding() {
     val additions = mutableListOf<String>()
 
     override fun addSource(source: Source) {
-      delegate.addSource(source)
+      super.addSource(source)
       additions += "source:${source.id}"
     }
 
     override fun addLayer(layer: Layer) {
-      delegate.addLayer(layer)
+      super.addLayer(layer)
       additions += "layer:${layer.id}"
     }
   }

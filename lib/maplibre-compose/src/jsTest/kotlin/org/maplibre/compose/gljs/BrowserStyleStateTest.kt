@@ -190,7 +190,7 @@ class BrowserStyleStateTest {
         val source = RasterSource("late-source", "https://tilejson.test/x.json")
         checkNotNull(node).let { liveNode ->
           liveNode.sourceManager.addReference(source)
-          liveNode.style.addLayer(RasterLayer(id = "late-layer", source = source))
+          liveNode.binding.addLayer(RasterLayer(id = "late-layer", source = source))
         }
 
         waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }

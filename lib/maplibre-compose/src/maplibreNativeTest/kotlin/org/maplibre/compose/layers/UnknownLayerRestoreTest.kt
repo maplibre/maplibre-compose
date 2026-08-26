@@ -7,7 +7,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.toJsonElement
 
@@ -22,7 +21,7 @@ class UnknownLayerRestoreTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val original = assertNotNull(style.getLayer(ROADS))
       val binding = assertIs<MlnFfiStyleBinding>(original.binding)
@@ -49,7 +48,7 @@ class UnknownLayerRestoreTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Json(VECTOR_STYLE))
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val original = assertNotNull(style.getLayer(ROADS))
       val binding = assertIs<MlnFfiStyleBinding>(original.binding)

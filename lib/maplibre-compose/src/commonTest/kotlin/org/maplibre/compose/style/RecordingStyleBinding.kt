@@ -5,32 +5,145 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.sources.VectorTileProvider
+import org.maplibre.compose.util.ImageStretch
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
-/** A loaded [StyleBinding] that keeps the JSON it is handed, standing in for an engine. */
-internal class RecordingStyleBinding(
+/**
+ * A loaded [StyleBinding] that keeps the JSON and descriptors it is handed, standing in for an
+ * engine. [baseSources] and [baseLayers] play the part of a loaded base style.
+ */
+internal open class RecordingStyleBinding(
   override val supportsCustomDemEncoding: Boolean = false,
   override val supportsRasterDemScheme: Boolean = true,
+  baseSources: List<Source> = emptyList(),
+  baseLayers: List<Layer> = emptyList(),
 ) : StyleBinding {
 
   val sources: MutableMap<String, JsonObject> = mutableMapOf()
 
-  override val isLoaded: Boolean = true
+  private val imageMap = mutableMapOf<String, ImageBitmap>()
+  private val sourceMap = baseSources.associateBy { it.id }.toMutableMap()
+  private val layerList = baseLayers.toMutableList()
+  private val layerMap = baseLayers.associateBy { it.id }.toMutableMap()
+
+  private var loaded = true
+  private val unloadActions = mutableSetOf<() -> Unit>()
+
+  override val isLoaded: Boolean
+    get() = loaded
 
   override val logger: Logger? = null
 
-  override fun onUnload(action: () -> Unit): () -> Unit = {}
+  fun unload() {
+    if (!loaded) return
+    loaded = false
+    val actions = unloadActions.toList()
+    unloadActions.clear()
+    actions.forEach { it() }
+  }
+
+  override fun onUnload(action: () -> Unit): () -> Unit {
+    if (!loaded) {
+      action()
+      return {}
+    }
+    unloadActions += action
+    return { unloadActions -= action }
+  }
+
+  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
+    if (id in imageMap) error("Image ID '$id' already exists in style")
+    imageMap[id] = image
+  }
+
+  override fun removeImage(id: String) {
+    if (id !in imageMap) error("Image ID '$id' not found in style")
+    imageMap.remove(id)
+  }
+
+  override fun getSource(id: String): Source? = sourceMap[id]
+
+  override fun getSources(): List<Source> = sourceMap.values.toList()
+
+  override fun addSource(source: Source) {
+    if (!loaded) return
+    if (source.id in sourceMap) error("Source ID '${source.id}' already exists in style")
+    source.attach(this)
+    sourceMap[source.id] = source
+  }
+
+  override fun removeSource(source: Source) {
+    if (source.id !in sourceMap) error("Source ID '${source.id}' not found in style")
+    // A base-style descriptor was never attached, so there is nothing to detach.
+    if (source.binding === this) source.detach(this)
+    sourceMap.remove(source.id)
+  }
+
+  internal fun replaceSource(source: Source) {
+    if (source.id !in sourceMap) error("Source ID '${source.id}' not found in style")
+    sourceMap[source.id] = source
+  }
+
+  override fun getLayer(id: String): Layer? = layerMap[id]
+
+  override fun getLayers(): List<Layer> = layerList.toList()
+
+  override fun layerIds(): List<String>? = if (loaded) layerList.map { it.id } else null
+
+  override fun addLayer(layer: Layer) {
+    if (!loaded) return
+    requireNewLayer(layer)
+    layerList.add(layer)
+    layerMap[layer.id] = layer
+  }
+
+  override fun addLayerAbove(layerId: String, layer: Layer) {
+    if (!loaded) return
+    requireNewLayer(layer)
+    val index = layerList.indexOfFirst { it.id == layerId }
+    if (index == -1) error("Layer ID '$layerId' not found in base style")
+    layerList.add(index + 1, layer)
+    layerMap[layer.id] = layer
+  }
+
+  override fun addLayerBelow(layerId: String, layer: Layer) {
+    if (!loaded) return
+    requireNewLayer(layer)
+    val index = layerList.indexOfFirst { it.id == layerId }
+    if (index == -1) error("Layer ID '$layerId' not found in base style")
+    layerList.add(index, layer)
+    layerMap[layer.id] = layer
+  }
+
+  override fun addLayerAt(index: Int, layer: Layer) {
+    if (!loaded) return
+    requireNewLayer(layer)
+    layerList.add(index, layer)
+    layerMap[layer.id] = layer
+  }
+
+  override fun removeLayer(layer: Layer) {
+    if (layer.id !in layerMap) error("Layer ID '${layer.id}' not found in style")
+    if (!layerList.remove(layer)) error("Layer '$layer' not found in style")
+    layerMap.remove(layer.id)
+  }
+
+  private fun requireNewLayer(layer: Layer) {
+    if (layer.id in layerMap) error("Layer ID '${layer.id}' already exists in style")
+  }
 
   override fun addSource(sourceId: String, source: JsonObject): Boolean {
     sources[sourceId] = source
@@ -148,7 +261,7 @@ internal class RecordingStyleBinding(
 
   override fun layerProperty(layerId: String, name: String): JsonElement? = null
 
-  override fun layerExists(layerId: String): Boolean = false
+  override fun layerExists(layerId: String): Boolean = layerId in layerMap
 
   override fun setFeatureState(
     sourceId: String,

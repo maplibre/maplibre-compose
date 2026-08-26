@@ -11,7 +11,7 @@ import org.maplibre.compose.map.GestureTarget
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -24,7 +24,7 @@ internal interface MapFixture : AutoCloseable {
 
   val gestures: GestureTarget
 
-  val style: Style?
+  val style: StyleBinding?
 
   val events: MutableList<String>
 
@@ -131,10 +131,10 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
 
   val errors: MutableList<String> = RecordingList()
 
-  var style: Style? = null
+  var style: StyleBinding? = null
     private set
 
-  override fun onStyleChanged(map: MapAdapter, style: Style?) {
+  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
     this.style = style
     events += if (style == null) "styleChanged(null)" else MapFixture.STYLE_LOADED
   }

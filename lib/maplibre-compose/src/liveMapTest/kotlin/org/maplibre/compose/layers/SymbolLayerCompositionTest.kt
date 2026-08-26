@@ -26,9 +26,8 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
-import org.maplibre.compose.style.FakeStyle
 import org.maplibre.compose.style.MapNodeApplier
-import org.maplibre.compose.style.SafeStyle
+import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.style.StyleContent
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
@@ -40,8 +39,8 @@ class SymbolLayerCompositionTest {
     val frameClock = BroadcastFrameClock()
     withContext(frameClock) {
       withRunningRecomposer { recomposer ->
-        val style = FakeStyle(emptyList(), emptyList(), emptyList())
-        val rootNode = StyleNode(SafeStyle(style), logger = null)
+        val style = RecordingStyleBinding()
+        val rootNode = StyleNode(style, logger = null)
         val source =
           GeoJsonSource(
             "features",

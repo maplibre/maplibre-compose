@@ -60,7 +60,7 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -177,7 +177,7 @@ class LayerPropertyRoundTripTest {
    */
   private suspend fun <L : Layer> assertPropertiesRoundTrip(
     cases: List<Case<L>>,
-    prepare: (Style) -> (String) -> L,
+    prepare: (StyleBinding) -> (String) -> L,
   ) {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
@@ -197,7 +197,7 @@ class LayerPropertyRoundTripTest {
   }
 
   private fun <L : Layer> check(
-    style: Style,
+    style: StyleBinding,
     layer: L,
     case: Case<L>,
     attachFirst: Boolean,
@@ -262,7 +262,7 @@ class LayerPropertyRoundTripTest {
 
     fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
 
-    fun addFeatureSource(style: Style): Source =
+    fun addFeatureSource(style: StyleBinding): Source =
       GeoJsonSource(
           id = SOURCE_ID,
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),

@@ -7,13 +7,11 @@ import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.LocalComposeMapHost
 import org.maplibre.compose.desktop.bridge.ComposeMapHostFactory
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.SafeStyle
 
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
   style: BaseStyle,
-  rememberedStyle: SafeStyle?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,

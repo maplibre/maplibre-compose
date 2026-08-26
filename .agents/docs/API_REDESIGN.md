@@ -86,8 +86,9 @@ idempotent as defense.
 
 Switching a style has to mark the outgoing one unloaded before the content
 subcomposition applies inserts, or `LayerManager` validates anchors against the
-wrong style. Both map views time the unload with a `SideEffect`. The contract is
-unstated. `SafeStyle` exists to survive the window.
+wrong style. Each engine session unloads its outgoing `StyleBinding` before
+reporting the switch, and the binding drops writes after unload; the timing
+contract between session and subcomposition is still unstated.
 
 ### Snapshots need a style without a surface
 
@@ -286,7 +287,8 @@ a later split.
 The applier applies sources before layers. The layer-attaches-its-source
 workaround becomes unnecessary. Unloading a style is the common layer's job: the
 outgoing binding is marked unloaded, then the new style is published, then
-content runs. `SafeStyle` and the unstated adapter contract go away.
+content runs. `SafeStyle` is already gone; the unstated adapter contract goes
+away here.
 
 `StyleBinding` stays internal. It is the hop to the platform map, plus the
 unloaded state. It is not a public type.
@@ -322,9 +324,9 @@ descriptor classes: FFI has no objects for them. A mutable FFI type that exists
 to assemble a value is a builder, named for the value it builds. Which types
 fall where is decided against the FFI surface we ship, not listed here.
 
-Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`,
-`SafeStyle`, the per-platform `actual` `Layer` / `Source` wrappers, and
-`CameraProjection` as a type that exists only after attach.
+Types that exist only to hide four SDKs go away with those SDKs: `MapAdapter`
+and `CameraProjection` as a type that exists only after attach. `SafeStyle` and
+the per-platform `actual` `Layer` / `Source` wrappers are already gone.
 
 ## Web
 

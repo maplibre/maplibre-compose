@@ -14,7 +14,7 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Point
@@ -36,7 +36,7 @@ class GeoJsonSourceAttachTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.pumpUntilRendered()
-      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
 
       val entered = CountDownLatch(1)
       val release = CountDownLatch(1)

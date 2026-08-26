@@ -39,7 +39,10 @@ class StyleNodeTest {
   }
 
   private fun makeStyleNode(): StyleNode {
-    return StyleNode(SafeStyle(FakeStyle(emptyList(), testSources, testLayers)), null)
+    return StyleNode(
+      RecordingStyleBinding(baseSources = testSources, baseLayers = testLayers),
+      null,
+    )
   }
 
   private fun vectorSource(id: String, attribution: String): VectorSource =
@@ -71,8 +74,8 @@ class StyleNodeTest {
         GeoJsonSource("new", GeoJsonData.Features(featureCollectionOf()), GeoJsonOptions())
       s.sourceManager.addReference(newSource)
       s.applyChanges()
-      assertEquals(4, s.style.getSources().size)
-      assertEquals(newSource, s.style.getSource("new"))
+      assertEquals(4, s.binding.getSources().size)
+      assertEquals(newSource, s.binding.getSource("new"))
     }
   }
 
@@ -85,8 +88,8 @@ class StyleNodeTest {
       s.sourceManager.addReference(newSource)
       s.applyChanges()
       s.sourceManager.removeReference(newSource)
-      assertEquals(3, s.style.getSources().size)
-      assertNull(s.style.getSource("new"))
+      assertEquals(3, s.binding.getSources().size)
+      assertNull(s.binding.getSource("new"))
     }
   }
 
@@ -94,9 +97,9 @@ class StyleNodeTest {
   fun unchangedSourceStatePreservesTheSnapshot() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "same")
-      val style = FakeStyle(emptyList(), listOf(source), emptyList())
+      val style = RecordingStyleBinding(baseSources = listOf(source))
       val state = StyleState()
-      state.attach(StyleNode(SafeStyle(style), null))
+      state.attach(StyleNode(style, null))
       val previousSources = state.sources
 
       style.replaceSource(vectorSource("source", "same"))
@@ -112,9 +115,9 @@ class StyleNodeTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
       val stable = vectorSource("stable", "stable attribution")
-      val style = FakeStyle(emptyList(), listOf(source, stable), emptyList())
+      val style = RecordingStyleBinding(baseSources = listOf(source, stable))
       val state = StyleState()
-      state.attach(StyleNode(SafeStyle(style), null))
+      state.attach(StyleNode(style, null))
       val previousSources = state.sources
       val replacement =
         RasterSource(
@@ -136,9 +139,9 @@ class StyleNodeTest {
   fun missingSourceIsRemovedFromState() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
-      val style = FakeStyle(emptyList(), listOf(source), emptyList())
+      val style = RecordingStyleBinding(baseSources = listOf(source))
       val state = StyleState()
-      state.attach(StyleNode(SafeStyle(style), null))
+      state.attach(StyleNode(style, null))
 
       style.removeSource(source)
       state.refreshSource("source")
@@ -151,13 +154,12 @@ class StyleNodeTest {
   fun unloadedStyleIgnoresSourceCallbacks() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
-      val style = FakeStyle(emptyList(), listOf(source), emptyList())
-      val safeStyle = SafeStyle(style)
+      val style = RecordingStyleBinding(baseSources = listOf(source))
       val state = StyleState()
-      state.attach(StyleNode(safeStyle, null))
+      state.attach(StyleNode(style, null))
       val previousSources = state.sources
 
-      safeStyle.unload()
+      style.unload()
       style.removeSource(source)
       state.refreshSource("source")
       state.refreshSources()
@@ -196,7 +198,7 @@ class StyleNodeTest {
       s.applyChanges()
       assertEquals(
         listOf("foo", "bar", "baz", "new0", "new1", "new2"),
-        s.style.getLayers().map(Layer::id),
+        s.binding.getLayers().map(Layer::id),
       )
     }
   }
@@ -210,7 +212,7 @@ class StyleNodeTest {
       s.applyChanges()
       assertEquals(
         listOf("new0", "new1", "new2", "foo", "bar", "baz"),
-        s.style.getLayers().map(Layer::id),
+        s.binding.getLayers().map(Layer::id),
       )
     }
   }
@@ -224,7 +226,7 @@ class StyleNodeTest {
       s.applyChanges()
       assertEquals(
         listOf("foo", "new0", "new1", "new2", "bar", "baz"),
-        s.style.getLayers().map(Layer::id),
+        s.binding.getLayers().map(Layer::id),
       )
     }
   }
@@ -238,7 +240,7 @@ class StyleNodeTest {
       s.applyChanges()
       assertEquals(
         listOf("foo", "bar", "new0", "new1", "new2", "baz"),
-        s.style.getLayers().map(Layer::id),
+        s.binding.getLayers().map(Layer::id),
       )
     }
   }
@@ -251,7 +253,10 @@ class StyleNodeTest {
         (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Replace("bar")) }
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
       s.applyChanges()
-      assertEquals(listOf("foo", "new0", "new1", "new2", "baz"), s.style.getLayers().map(Layer::id))
+      assertEquals(
+        listOf("foo", "new0", "new1", "new2", "baz"),
+        s.binding.getLayers().map(Layer::id),
+      )
     }
   }
 
@@ -265,12 +270,15 @@ class StyleNodeTest {
       nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
       s.applyChanges()
 
-      assertEquals(listOf("foo", "new0", "new1", "new2", "baz"), s.style.getLayers().map(Layer::id))
+      assertEquals(
+        listOf("foo", "new0", "new1", "new2", "baz"),
+        s.binding.getLayers().map(Layer::id),
+      )
 
       nodes.forEach { node -> s.layerManager.removeLayer(node, 0) }
       s.applyChanges()
 
-      assertEquals(listOf("foo", "bar", "baz"), s.style.getLayers().map(Layer::id))
+      assertEquals(listOf("foo", "bar", "baz"), s.binding.getLayers().map(Layer::id))
     }
   }
 
@@ -283,7 +291,7 @@ class StyleNodeTest {
 
       s.layerManager.addLayer(oldNode, 0)
       s.applyChanges()
-      s.style.unload()
+      (s.binding as RecordingStyleBinding).unload()
 
       s.layerManager.addLayer(newNode, 0)
       s.layerManager.removeLayer(oldNode, 1)
@@ -302,13 +310,13 @@ class StyleNodeTest {
       s.layerManager.addLayer(l1, 0)
       s.applyChanges()
 
-      assertEquals(l1.layer, s.style.getLayer("new"))
+      assertEquals(l1.layer, s.binding.getLayer("new"))
 
       s.layerManager.addLayer(l2, 0)
       s.layerManager.removeLayer(l1, 1)
       s.applyChanges()
 
-      assertEquals(l2.layer, s.style.getLayer("new"))
+      assertEquals(l2.layer, s.binding.getLayer("new"))
     }
   }
 
@@ -321,7 +329,7 @@ class StyleNodeTest {
       s.layerManager.addLayer(LayerNode(LineLayer("t1", testSources[0]), Anchor.Top), 0)
       s.applyChanges()
 
-      assertEquals(listOf("b1", "foo", "bar", "baz", "t1"), s.style.getLayers().map(Layer::id))
+      assertEquals(listOf("b1", "foo", "bar", "baz", "t1"), s.binding.getLayers().map(Layer::id))
 
       s.layerManager.addLayer(LayerNode(LineLayer("b2", testSources[0]), Anchor.Bottom), 0)
       s.layerManager.addLayer(LayerNode(LineLayer("t2", testSources[0]), Anchor.Top), 0)
@@ -329,7 +337,7 @@ class StyleNodeTest {
 
       assertEquals(
         listOf("b2", "b1", "foo", "bar", "baz", "t2", "t1"),
-        s.style.getLayers().map(Layer::id),
+        s.binding.getLayers().map(Layer::id),
       )
     }
   }

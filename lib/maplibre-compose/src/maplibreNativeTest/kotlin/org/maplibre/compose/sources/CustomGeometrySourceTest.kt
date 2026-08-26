@@ -19,7 +19,7 @@ import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -92,7 +92,7 @@ class CustomGeometrySourceTest {
     val state = CancellationState()
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}"""))
-      val style = assertIs<MlnFfiStyle>(fixture.style)
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style)
       val source =
         CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions()) {
           state.started = true
@@ -119,7 +119,7 @@ class CustomGeometrySourceTest {
     val fail = CompletableDeferred<Unit>()
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertIs<MlnFfiStyle>(fixture.style)
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style)
       val source =
         CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions()) {
           requested.complete(Unit)
@@ -145,7 +145,7 @@ class CustomGeometrySourceTest {
 
   private fun BridgeMapFixture.attachCustomGeometrySource(): CustomGeometrySource {
     loadStyle(BaseStyle.Empty)
-    val style = assertIs<MlnFfiStyle>(this.style)
+    val style = assertIs<MlnFfiStyleBinding>(this.style)
     val source =
       CustomGeometrySource(id = SOURCE_ID, options = CustomGeometrySourceOptions()) { tile ->
         requests += tile

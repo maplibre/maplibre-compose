@@ -9,7 +9,7 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.onMap
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -31,7 +31,7 @@ class GeoJsonSourceStyleReloadTest {
   fun setData_after_a_style_switch_is_a_no_op() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(0.0)), GeoJsonOptions())
       style.addSource(source)
       assertTrue(source.isAttached)
@@ -48,7 +48,7 @@ class GeoJsonSourceStyleReloadTest {
   fun setData_on_a_source_invalidated_by_a_native_style_load_throws_a_catchable_error() {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(0.0)), GeoJsonOptions())
       style.addSource(source)
 

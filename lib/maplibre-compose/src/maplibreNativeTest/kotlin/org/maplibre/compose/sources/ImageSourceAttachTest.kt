@@ -8,7 +8,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.nativeffi.Maplibre
@@ -48,7 +48,8 @@ class ImageSourceAttachTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
+      val style =
+        assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       val fromBitmap = ImageSource(BITMAP_SOURCE_ID, WORLD, ImageBitmap(4, 4))
       val fromUrl = ImageSource(URL_SOURCE_ID, WORLD, uri = "")

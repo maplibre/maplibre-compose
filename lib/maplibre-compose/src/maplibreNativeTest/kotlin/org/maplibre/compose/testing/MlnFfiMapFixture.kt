@@ -7,7 +7,7 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 
 /** The map runs on threads of its own, so blocking the test thread in a wait stops nothing. */
 internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent: MapExtent) :
@@ -19,7 +19,7 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   override val gestures: GestureTarget
     get() = bridge.session
 
-  override val style: Style?
+  override val style: StyleBinding?
     get() = bridge.style
 
   override val events: MutableList<String>

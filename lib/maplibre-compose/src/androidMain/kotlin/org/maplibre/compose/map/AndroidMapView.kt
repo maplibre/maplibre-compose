@@ -10,13 +10,11 @@ import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.SafeStyle
 
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
   style: BaseStyle,
-  rememberedStyle: SafeStyle?,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,

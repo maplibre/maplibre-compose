@@ -25,16 +25,16 @@ public class StyleState internal constructor() {
       this.styleNode?.sourceManager?.state = null
       this.styleNode = styleNode
       styleNode?.sourceManager?.state = this
-      sourcesState.value = styleNode?.style?.getSources().orEmpty().associateBy { it.id }
+      sourcesState.value = styleNode?.binding?.getSources().orEmpty().associateBy { it.id }
     }
   }
 
   internal fun refreshSource(id: String) {
     val node = styleNode ?: return
-    if (node.style.isUnloaded) return
+    if (!node.binding.isLoaded) return
 
     val current = sourcesState.value
-    val refreshed = node.style.getSource(id)
+    val refreshed = node.binding.getSource(id)
     val previous = current[id]
     when {
       refreshed == null && previous != null -> sourcesState.value = current - id
@@ -49,10 +49,10 @@ public class StyleState internal constructor() {
       if (sourcesState.value.isNotEmpty()) sourcesState.value = emptyMap()
       return
     }
-    if (node.style.isUnloaded) return
+    if (!node.binding.isLoaded) return
 
     val current = sourcesState.value
-    val refreshed = node.style.getSources().associateBy { it.id }
+    val refreshed = node.binding.getSources().associateBy { it.id }
     var changed = current.keys.toList() != refreshed.keys.toList()
     val reconciled = refreshed.mapValues { (id, source) ->
       current[id]?.takeIf { source.hasSameState(it) } ?: source.also { changed = true }

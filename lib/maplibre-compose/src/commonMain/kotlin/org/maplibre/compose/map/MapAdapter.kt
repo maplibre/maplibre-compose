@@ -11,7 +11,7 @@ import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -92,7 +92,8 @@ internal interface MapAdapter {
   fun metersPerDpAtLatitude(latitude: Double): Double
 
   interface Callbacks {
-    fun onStyleChanged(map: MapAdapter, style: Style?)
+    /** A null [style] means the previous style unloaded and no replacement has loaded yet. */
+    fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
 
     fun onMapFinishedLoading(map: MapAdapter)
 

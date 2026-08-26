@@ -76,7 +76,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -245,7 +245,7 @@ class LinuxVulkanOpenGlInteropTest {
 
     private val callbacks =
       object : MapAdapter.Callbacks {
-        override fun onStyleChanged(map: MapAdapter, style: Style?) {
+        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
           if (style != null) styleLoads++
         }
 

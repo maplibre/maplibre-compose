@@ -4,8 +4,15 @@ import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -14,7 +21,9 @@ import org.maplibre.compose.sources.GeometryTileProvider
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.sources.MlnFfiTileRequestCoordinator
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.sources.forgetFeatureStates
@@ -23,7 +32,11 @@ import org.maplibre.compose.sources.mutateLiveFeatureState
 import org.maplibre.compose.sources.putClusterProperties
 import org.maplibre.compose.sources.toInlineUtf8
 import org.maplibre.compose.sources.toMlnFfiTileId
+import org.maplibre.compose.sources.toStyleSpecEncoding
+import org.maplibre.compose.sources.toStyleSpecType
 import org.maplibre.compose.sources.toTileCoordinate
+import org.maplibre.compose.util.ImageStretch
+import org.maplibre.compose.util.toBoundingBox
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toJsonBytes
@@ -43,6 +56,12 @@ import org.maplibre.nativeffi.style.CustomMvtVectorSourceCallback
 import org.maplibre.nativeffi.style.CustomMvtVectorSourceOptions
 import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceOptions
+import org.maplibre.nativeffi.style.ImageContent
+import org.maplibre.nativeffi.style.ImageStretch as FfiImageStretch
+import org.maplibre.nativeffi.style.SourceType
+import org.maplibre.nativeffi.style.StyleImageOptions
+import org.maplibre.nativeffi.style.TileJson
+import org.maplibre.nativeffi.style.TileScheme
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -79,6 +98,10 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    * successful frame and until teardown. The handle must not escape [action].
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
+
+  /** The display scale the images handed to [addImage] were rasterized at. */
+  val imageScale: Float
+    get() = 1f
 
   /**
    * MapLibre Native implements no encoding but mapbox and terrarium.
@@ -506,6 +529,88 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   override fun unsupportedLayerPropertyReason(layerType: String, name: String): String? =
     UNSUPPORTED_LAYER_PROPERTIES[layerType to name]
 
+  /** The bitmap and stretch zones are converted on the caller so the hop only uploads. */
+  override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
+    val scale = imageScale
+    val pixels = image.toPremultipliedRgba8()
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
+    mutateMap { map ->
+      map.setStyleImage(
+        imageId = id,
+        image = pixels,
+        options =
+          StyleImageOptions().also { options ->
+            options.sdf = sdf
+            options.pixelRatio = scale
+            stretchPx?.let { px ->
+              if (px.stretchX.isNotEmpty()) {
+                options.stretchX = px.stretchX.map { (start, end) -> FfiImageStretch(start, end) }
+              }
+              if (px.stretchY.isNotEmpty()) {
+                options.stretchY = px.stretchY.map { (start, end) -> FfiImageStretch(start, end) }
+              }
+              px.content?.let { box ->
+                options.content = ImageContent(box.left, box.top, box.right, box.bottom)
+              }
+            }
+          },
+      )
+    }
+  }
+
+  override fun removeImage(id: String) {
+    mutateMap { map -> map.removeStyleImage(id) }
+  }
+
+  /** Exists for tests. */
+  fun imageStretches(id: String): Pair<List<FfiImageStretch>, List<FfiImageStretch>>? =
+    readMap { map ->
+      map.styleImageStretches(id)
+    }
+
+  override fun layerIds(): List<String>? = readMap { map -> map.styleLayerIds() }
+
+  override fun getLayer(id: String): Layer? = readMap { map ->
+    if (!map.styleLayerExists(id)) null else reconstructLayer(map, id)
+  }
+
+  override fun getLayers(): List<Layer> = readMap { map ->
+    map.styleLayerIds().map { reconstructLayer(map, it) }
+  }
+    .orEmpty()
+
+  override fun getSource(id: String): Source? = readMap { map ->
+    if (!isStyleSource(map, id)) null else reconstructSource(map, id, lazy { declaredSources(map) })
+  }
+
+  override fun getSources(): List<Source> = readMap { map ->
+    val declared = lazy { declaredSources(map) }
+    map
+      .styleSourceIds()
+      .filter { isStyleSource(map, it) }
+      .map { reconstructSource(map, it, declared) }
+  }
+    .orEmpty()
+
+  /**
+   * Rebuilds a source that the base style owns. Only [UnknownSource] is produced: typed source
+   * classes still carry construction options MapLibre does not report back, such as GeoJSON cluster
+   * settings.
+   */
+  private fun reconstructSource(
+    map: MapHandle,
+    id: String,
+    declaredSources: Lazy<JsonObject>,
+  ): Source =
+    UnknownSource(id, sourceDefinition(map, id, declaredSources)).also { it.bindExisting(this) }
+
+  private fun reconstructLayer(map: MapHandle, id: String): Layer {
+    val definition =
+      (map.styleLayerJson(id)?.toJsonElement() as? JsonObject)
+        ?: buildJsonObject { map.styleLayerType(id)?.let { put("type", it) } }
+    return UnknownLayer(id, definition).also { it.bindExisting(this) }
+  }
+
   companion object {
     /** The only extension MapLibre answers for a GeoJSON source; anything else returns nothing. */
     private const val SUPERCLUSTER_EXTENSION = "supercluster"
@@ -561,6 +666,66 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
       }
+  }
+}
+
+/** mbgl keeps an annotations source of its own in every style; no other platform has one. */
+private fun isStyleSource(map: MapHandle, id: String): Boolean =
+  map.styleSourceExists(id) && map.styleSourceType(id) != SourceType.ANNOTATIONS
+
+/**
+ * The sources the loaded style document declares. MapLibre neither parses nor reports attribution
+ * for GeoJSON and image sources, so the document is the only place it survives.
+ */
+private fun declaredSources(map: MapHandle): JsonObject =
+  ((runCatching { map.loadedStyleJson().toJsonElement() }.getOrNull() as? JsonObject)?.get(
+    "sources"
+  ) as? JsonObject) ?: JsonObject(emptyMap())
+
+private fun sourceDefinition(
+  map: MapHandle,
+  id: String,
+  declaredSources: Lazy<JsonObject>,
+): JsonObject {
+  val info = map.styleSourceInfo(id)
+  return buildJsonObject {
+    (info?.type ?: map.styleSourceType(id))?.toStyleSpecType()?.let { put("type", it) }
+    val attribution =
+      info?.attribution?.takeIf { it.isNotEmpty() }
+        ?: ((declaredSources.value[id] as? JsonObject)?.get("attribution") as? JsonPrimitive)
+          ?.contentOrNull
+    attribution?.let { put("attribution", it) }
+    info?.tileSize?.takeIf { it > 0 }?.let { put("tileSize", it) }
+    if (info?.volatileSource == true) put("volatile", true)
+    if (info?.type == SourceType.VECTOR) {
+      info.vectorEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+    }
+    if (info?.type == SourceType.RASTER_DEM) {
+      info.rasterDemEncoding?.toStyleSpecEncoding()?.let { put("encoding", it) }
+    }
+    val url = info?.url?.takeIf { it.isNotEmpty() }
+    if (url != null) put("url", url) else info?.tileJson?.let { putTileJson(it) }
+  }
+}
+
+private fun JsonObjectBuilder.putTileJson(tileJson: TileJson) {
+  if (tileJson.tileUrls.isNotEmpty()) {
+    putJsonArray("tiles") { tileJson.tileUrls.forEach { add(it) } }
+  }
+  put("minzoom", tileJson.minZoom)
+  put("maxzoom", tileJson.maxZoom)
+  when (tileJson.scheme) {
+    TileScheme.XYZ -> put("scheme", "xyz")
+    TileScheme.TMS -> put("scheme", "tms")
+    else -> Unit
+  }
+  tileJson.bounds?.toBoundingBox()?.let { box ->
+    putJsonArray("bounds") {
+      add(box.west)
+      add(box.south)
+      add(box.east)
+      add(box.north)
+    }
   }
 }
 

@@ -20,7 +20,7 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
@@ -117,7 +117,7 @@ class FeatureStateTest {
   }
 
   private fun attachedPointSource(
-    style: Style,
+    style: StyleBinding,
     featureId: String,
     quoteId: Boolean = false,
   ): GeoJsonSource {
@@ -141,7 +141,7 @@ class FeatureStateTest {
     return source
   }
 
-  private fun attachCircleLayer(style: Style, source: GeoJsonSource) {
+  private fun attachCircleLayer(style: StyleBinding, source: GeoJsonSource) {
     val layer = CircleLayer("circles", source)
     layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
     layer.setCircleColor(

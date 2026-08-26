@@ -25,7 +25,7 @@ import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.query.FeatureStateSelector
@@ -144,7 +144,7 @@ class MlnFfiFeatureStateLifecycleTest {
     }
   }
 
-  private fun attachPointSource(style: Style): GeoJsonSource {
+  private fun attachPointSource(style: StyleBinding): GeoJsonSource {
     val source =
       GeoJsonSource(
         id = "points",
@@ -160,7 +160,11 @@ class MlnFfiFeatureStateLifecycleTest {
     return source
   }
 
-  private fun attachStateLayer(style: Style, source: GeoJsonSource, vararg requiredKeys: String) {
+  private fun attachStateLayer(
+    style: StyleBinding,
+    source: GeoJsonSource,
+    vararg requiredKeys: String,
+  ) {
     val layer = CircleLayer("circles", source)
     layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
     layer.setCircleColor(

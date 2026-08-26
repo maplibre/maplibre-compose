@@ -6,15 +6,18 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.putGeoJsonOptions
 import org.maplibre.compose.sources.toDataJson
+import org.maplibre.compose.util.ImageStretch
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -46,6 +49,48 @@ internal interface StyleBinding {
 
   /** Moves a layer to sit directly below [beforeLayerId], or on top when that is empty. */
   fun moveLayer(layerId: String, beforeLayerId: String)
+
+  /** Live layer ids in draw order, or null when the style has unloaded. */
+  fun layerIds(): List<String>?
+
+  /** Adds [layer]'s descriptor on top of the style; dropped when the style has unloaded. */
+  fun addLayer(layer: Layer) {
+    if (!isLoaded) return
+    layer.attach(this, beforeLayerId = "")
+  }
+
+  /** Adds [layer] directly above the live layer named [layerId]. */
+  fun addLayerAbove(layerId: String, layer: Layer) {
+    // "Above id" is "below whatever currently sits above id", which is the next layer along.
+    val ids = layerIds() ?: return
+    val index = ids.indexOf(layerId)
+    require(index >= 0) { "Layer ID '$layerId' not found in base style" }
+    layer.attach(this, beforeLayerId = ids.getOrNull(index + 1).orEmpty())
+  }
+
+  /** Adds [layer] directly below the live layer named [layerId]. */
+  fun addLayerBelow(layerId: String, layer: Layer) {
+    if (!isLoaded) return
+    layer.attach(this, beforeLayerId = layerId)
+  }
+
+  /** Adds [layer] at [index] in the draw order, where 0 is the bottom. */
+  fun addLayerAt(index: Int, layer: Layer) {
+    val ids = layerIds() ?: return
+    require(index in 0..ids.size) { "Layer index $index is outside the valid range 0..${ids.size}" }
+    layer.attach(this, beforeLayerId = ids.getOrNull(index).orEmpty())
+  }
+
+  /** Removes [layer]'s descriptor from the style it belongs to. */
+  fun removeLayer(layer: Layer) {
+    layer.detach(this)
+  }
+
+  /** A descriptor over the live layer with [id], or null if none exists or the style unloaded. */
+  fun getLayer(id: String): Layer?
+
+  /** Descriptors over the live layers in draw order; empty when the style has unloaded. */
+  fun getLayers(): List<Layer>
 
   /**
    * Sets one property on a layer that is already in the style.
@@ -105,6 +150,28 @@ internal interface StyleBinding {
    *   refuses a duplicate in that case.
    */
   fun sourceExists(sourceId: String): Boolean?
+
+  /** Adds [source]'s descriptor to this style; dropped when the style has unloaded. */
+  fun addSource(source: Source) {
+    if (!isLoaded) return
+    source.attach(this)
+  }
+
+  /** Removes [source]'s descriptor from the style it belongs to. */
+  fun removeSource(source: Source) {
+    source.detach(this)
+  }
+
+  /** A descriptor over the live source with [id], or null if none exists or the style unloaded. */
+  fun getSource(id: String): Source?
+
+  /** Descriptors over the live sources; empty when the style has unloaded. */
+  fun getSources(): List<Source>
+
+  /** Adds or replaces a style image, tagged with the engine's display scale. */
+  fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?)
+
+  fun removeImage(id: String)
 
   /**
    * Adds an image source carrying its pixels, for engines whose source JSON can only name a URL.
@@ -302,6 +369,25 @@ internal interface StyleBinding {
         override fun layerProperty(layerId: String, name: String): JsonElement? = null
 
         override fun layerExists(layerId: String): Boolean? = null
+
+        override fun layerIds(): List<String>? = null
+
+        override fun getLayer(id: String): Layer? = null
+
+        override fun getLayers(): List<Layer> = emptyList()
+
+        override fun getSource(id: String): Source? = null
+
+        override fun getSources(): List<Source> = emptyList()
+
+        override fun addImage(
+          id: String,
+          image: ImageBitmap,
+          sdf: Boolean,
+          stretch: ImageStretch?,
+        ) = Unit
+
+        override fun removeImage(id: String) = Unit
 
         // Nothing reads these before a descriptor attaches; they carry the native answers.
         override val supportsCustomDemEncoding: Boolean = false

@@ -121,8 +121,8 @@ public fun getBaseSource(id: String): Source? {
 internal fun <T : Source> rememberUserSource(factory: (String) -> T, update: T.() -> Unit): T {
   val node = LocalStyleNode.current
   val source = remember(node) { factory(node.sourceManager.nextId()) }
-  LaunchedEffect(source, update, node.style.isUnloaded) {
-    if (!node.style.isUnloaded) source.update()
+  LaunchedEffect(source, update, node.binding.isLoaded) {
+    if (node.binding.isLoaded) source.update()
   }
   return source
 }

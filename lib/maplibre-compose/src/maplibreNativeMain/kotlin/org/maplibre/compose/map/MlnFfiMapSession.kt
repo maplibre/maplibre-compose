@@ -58,7 +58,6 @@ import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -265,6 +264,9 @@ internal class MlnFfiMapSession(
 
     override val logger: Logger?
       get() = this@MlnFfiMapSession.logger
+
+    override val imageScale: Float
+      get() = this@MlnFfiMapSession.imageScale()
 
     fun unload() {
       loaded = false
@@ -700,7 +702,7 @@ internal class MlnFfiMapSession(
         val binding = SessionStyleBinding().also { styleBinding = it }
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
-        callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
+        callbacks.onStyleChanged(this, binding)
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
         // A producer frame that started before this callback can still hold the previous style.

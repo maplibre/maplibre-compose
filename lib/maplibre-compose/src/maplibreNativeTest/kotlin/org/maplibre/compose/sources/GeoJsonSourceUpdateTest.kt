@@ -36,7 +36,7 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestThread
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -98,7 +98,7 @@ class GeoJsonSourceUpdateTest {
   fun rapid_publishes_install_during_the_stream() = runBlocking {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(manyPoints(0.0)), GeoJsonOptions())
       style.addSource(source)
 
@@ -147,7 +147,7 @@ class GeoJsonSourceUpdateTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.pumpUntilRendered()
-      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(ORIGIN)), GeoJsonOptions())
       style.addSource(source)
 
@@ -180,7 +180,7 @@ class GeoJsonSourceUpdateTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       fixture.pumpUntilRendered()
-      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(ORIGIN)), GeoJsonOptions())
       style.addSource(source)
 
@@ -232,7 +232,7 @@ class GeoJsonSourceUpdateTest {
   ) = runBlocking {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(STYLE)
-      val style = assertIs<MlnFfiStyle>(fixture.style, "Errors: ${fixture.errors}")
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
       fixture.session.setCameraPosition(CameraPosition(target = ORIGIN, zoom = 14.0))
 
       val source =

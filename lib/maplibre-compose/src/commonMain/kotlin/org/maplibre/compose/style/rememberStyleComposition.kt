@@ -20,21 +20,22 @@ import org.maplibre.compose.util.MaplibreComposable
  *
  * The subcomposition follows the *loaded* style while [content] follows the style the application
  * has *selected*; during a switch those differ and nothing here reconciles them, so the content
- * recomposes into whichever node is current. `SafeStyle.unload` is what makes that survivable.
+ * recomposes into whichever node is current. The binding dropping writes after unload is what makes
+ * that survivable.
  */
 @Composable
 internal fun rememberStyleComposition(
   styleState: StyleState,
-  maybeStyle: SafeStyle?,
+  maybeBinding: StyleBinding?,
   logger: Logger?,
   content: @Composable @MaplibreComposable () -> Unit,
 ): State<StyleNode?> {
   val nodeState = remember { mutableStateOf<StyleNode?>(null) }
   val compositionContext = rememberCompositionContext()
 
-  LaunchedEffect(styleState, maybeStyle, compositionContext) {
-    val style = maybeStyle ?: return@LaunchedEffect
-    val rootNode = StyleNode(style, logger).also { nodeState.value = it }
+  LaunchedEffect(styleState, maybeBinding, compositionContext) {
+    val binding = maybeBinding ?: return@LaunchedEffect
+    val rootNode = StyleNode(binding, logger).also { nodeState.value = it }
     styleState.attach(rootNode)
     val composition = Composition(MapNodeApplier(rootNode), compositionContext)
 

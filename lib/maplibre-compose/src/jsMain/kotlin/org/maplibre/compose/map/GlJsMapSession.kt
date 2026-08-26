@@ -49,7 +49,6 @@ import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.GlJsStyle
 import org.maplibre.compose.style.GlJsStyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -340,8 +339,10 @@ internal class GlJsMapSession(
       styleLoadPending = false
       hasLoadedFirstStyle = true
       styleBinding?.unload()
-      val binding = GlJsStyleBinding(map, logger).also { styleBinding = it }
-      callbacks.onStyleChanged(this, GlJsStyle(binding) { appliedExtent.scaleFactor.toFloat() })
+      val binding =
+        GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
+          .also { styleBinding = it }
+      callbacks.onStyleChanged(this, binding)
       applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true

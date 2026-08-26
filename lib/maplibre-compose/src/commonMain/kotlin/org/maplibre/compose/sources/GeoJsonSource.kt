@@ -295,8 +295,8 @@ public fun rememberGeoJsonSource(
         factory = { GeoJsonSource(id = it, data = EmptyInlineGeoJson, options = options) },
         update = {},
       )
-    LaunchedEffect(source, data, node.style.isUnloaded) {
-      if (!node.style.isUnloaded) source.publishData(data)
+    LaunchedEffect(source, data, node.binding.isLoaded) {
+      if (node.binding.isLoaded) source.publishData(data)
     }
     source
   }

@@ -27,7 +27,7 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.increment(key) {
       val id = bitmapIds.addId(key)
       node.logger?.i { "Adding bitmap $id" }
-      node.style.addImage(id, key.bitmap, key.isSdf, key.stretch)
+      node.binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
     }
     return bitmapIds.getId(key)
   }
@@ -36,7 +36,7 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.decrement(key) {
       val id = bitmapIds.removeId(key)
       node.logger?.i { "Removing bitmap $id" }
-      node.style.removeImage(id)
+      node.binding.removeImage(id)
     }
   }
 
@@ -69,7 +69,7 @@ internal class ImageManager(private val node: StyleNode) {
       node.logger?.i { "Adding painter $id" }
       key.drawToBitmap().let { bitmap ->
         painterBitmaps[key] = if (key.drawAsSdf) bitmap.toSdf() else bitmap
-        node.style.addImage(id, bitmap, key.drawAsSdf, key.stretch)
+        node.binding.addImage(id, bitmap, key.drawAsSdf, key.stretch)
       }
     }
     return painterIds.getId(key)
@@ -80,7 +80,7 @@ internal class ImageManager(private val node: StyleNode) {
       val id = painterIds.removeId(key)
       node.logger?.i { "Removing painter $id" }
       painterBitmaps.remove(key)
-      node.style.removeImage(id)
+      node.binding.removeImage(id)
     }
   }
 

@@ -4,7 +4,7 @@ import org.maplibre.compose.sources.Source
 
 internal class SourceManager(private val node: StyleNode) {
 
-  private val baseSources = node.style.getSources().associateBy { it.id }
+  private val baseSources = node.binding.getSources().associateBy { it.id }
   private val counter = ReferenceCounter<Source>()
   private val sourceIds = IncrementingId("source")
 
@@ -21,7 +21,7 @@ internal class SourceManager(private val node: StyleNode) {
     require(source.id !in baseSources) { "Source ID '${source.id}' already exists in base style" }
     counter.increment(source) {
       node.logger?.i { "Adding source ${source.id}" }
-      node.style.addSource(source)
+      node.binding.addSource(source)
       state?.refreshSource(source.id)
     }
   }
@@ -32,7 +32,7 @@ internal class SourceManager(private val node: StyleNode) {
     }
     counter.decrement(source) {
       node.logger?.i { "Removing source ${source.id}" }
-      node.style.removeSource(source)
+      node.binding.removeSource(source)
       state?.refreshSource(source.id)
     }
   }
