@@ -35,6 +35,8 @@ class DemoAppState(
   val settings: DemoSettings,
   val frameRateState: FrameRateState,
 ) {
+  private var pendingDemoFlight: PendingDemoFlight? = null
+
   var selectedDemo by mutableStateOf<Demo?>(null)
 
   /** The style applied when [MapStyleMode] resolves to light. */
@@ -64,7 +66,39 @@ class DemoAppState(
   var shell by mutableStateOf(DemoShell.Demos)
   var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
   val benchmark = BenchmarkUiState()
+
+  internal fun deferDemoFlight(destination: DemoDestination) {
+    pendingDemoFlight = PendingDemoFlight(destination)
+  }
+
+  internal fun cancelDeferredDemoFlight() {
+    pendingDemoFlight = null
+  }
+
+  internal fun finishDeferredDemoStyleLoad(): DemoDestination? {
+    val pending = pendingDemoFlight ?: return null
+    pending.styleLoaded = true
+    return takeReadyDemoFlight(pending)
+  }
+
+  internal fun finishDeferredDemoPanelCollapse(): DemoDestination? {
+    val pending = pendingDemoFlight ?: return null
+    pending.panelCollapsed = true
+    return takeReadyDemoFlight(pending)
+  }
+
+  private fun takeReadyDemoFlight(pending: PendingDemoFlight): DemoDestination? {
+    if (!pending.styleLoaded || !pending.panelCollapsed) return null
+    pendingDemoFlight = null
+    return pending.destination
+  }
 }
+
+private data class PendingDemoFlight(
+  val destination: DemoDestination,
+  var styleLoaded: Boolean = false,
+  var panelCollapsed: Boolean = false,
+)
 
 @Composable
 fun rememberDemoAppState(): DemoAppState {

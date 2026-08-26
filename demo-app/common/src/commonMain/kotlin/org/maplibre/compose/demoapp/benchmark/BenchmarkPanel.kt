@@ -15,9 +15,10 @@ import org.maplibre.compose.demoapp.design.SectionHeader
 @Composable
 internal fun BenchmarksScreen(
   onBack: () -> Unit,
+  onCollapsePanel: () -> Unit,
   onOpenScenario: (BenchmarkScenario) -> Unit,
 ) {
-  SettingsSubScreen("Benchmarks", onBack) {
+  SettingsSubScreen("Benchmarks", onBack, onCollapsePanel) {
     allBenchmarkScenarios.forEach { scenario ->
       SubmenuRow(scenario.title, scenario.description) { onOpenScenario(scenario) }
     }

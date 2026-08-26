@@ -2,17 +2,22 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SmallFloatingActionButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -33,12 +38,19 @@ import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
+import org.maplibre.compose.demoapp.generated.left_panel_open_24px
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.material3.Material3
+import org.maplibre.compose.material3.DisappearingCompassButton as Material3CompassButton
+import org.maplibre.compose.material3.DisappearingScaleBar as Material3ScaleBar
+import org.maplibre.compose.material3.ExpandingAttributionButton as Material3AttributionButton
 import org.maplibre.compose.material3.PointerPinButton
+import org.maplibre.compose.overlay.DisappearingCompassButton as DefaultCompassButton
+import org.maplibre.compose.overlay.DisappearingScaleBar as DefaultScaleBar
+import org.maplibre.compose.overlay.ExpandingAttributionButton as DefaultAttributionButton
 import org.maplibre.compose.overlay.MapOverlay
-import org.maplibre.compose.overlay.include
+import org.maplibre.compose.overlay.MapOverlayScope
+import org.maplibre.compose.overlay.MaplibreLogo
 import org.maplibre.spatialk.geojson.Position
 
 /** How long the camera takes to fly to a newly selected demo. */
@@ -63,8 +75,18 @@ internal suspend fun CameraState.flyTo(destination: DemoDestination) {
 
 /** The shared map, the selected demo's overlay, the pointer pin, and the diagnostic overlays. */
 @Composable
-fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+fun DemoMap(
+  state: DemoAppState,
+  viewportInsets: MapViewportInsets,
+  showOpenPanelButton: Boolean,
+  onOpenPanel: () -> Unit,
+) {
   val scope = rememberCoroutineScope()
+  val finishDeferredDemoStyleLoad: () -> Unit = {
+    state.finishDeferredDemoStyleLoad()?.let { destination ->
+      scope.launch { state.cameraState.flyTo(destination) }
+    }
+  }
   val selectedDemo = state.selectedDemo
   val pointerPin = selectedDemo?.pointerPin
   val placementPadding =
@@ -87,11 +109,15 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
           tileLodOptions = state.settings.tileLodOptions,
         ),
       onFrame = { state.frameRateState.record() },
+      onMapLoadFailed = { finishDeferredDemoStyleLoad() },
+      onMapLoadFinished = finishDeferredDemoStyleLoad,
       contentWindowInsets = viewportInsets.asWindowInsets(),
       overlay =
         MapOverlay {
-          include(
-            if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
+          DemoMapControls(
+            useMaterial3 = state.settings.useMaterial3Controls,
+            showOpenPanelButton = showOpenPanelButton,
+            onOpenPanel = onOpenPanel,
           )
           selectedDemo?.let { demo ->
             key(demo) {
@@ -139,6 +165,59 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
     Box(Modifier.fillMaxSize().padding(placementPadding)) {
       DiagnosticOverlays(state = state, modifier = Modifier.align(Alignment.TopCenter))
     }
+  }
+}
+
+@Composable
+private fun MapOverlayScope.DemoMapControls(
+  useMaterial3: Boolean,
+  showOpenPanelButton: Boolean,
+  onOpenPanel: () -> Unit,
+) {
+  val metersPerDp = cameraState.viewport?.metersPerDpAtTarget ?: 0.0
+  if (useMaterial3) {
+    Material3ScaleBar(
+      metersPerDp = metersPerDp,
+      zoom = cameraState.position.zoom,
+      modifier = Modifier.align(Alignment.TopStart),
+    )
+    Material3CompassButton(cameraState, Modifier.align(Alignment.TopEnd))
+  } else {
+    DefaultScaleBar(
+      metersPerDp = metersPerDp,
+      zoom = cameraState.position.zoom,
+      modifier = Modifier.align(Alignment.TopStart),
+    )
+    DefaultCompassButton(cameraState, Modifier.align(Alignment.TopEnd))
+  }
+
+  val camera = cameraState
+  val style = styleState
+  Row(
+    Modifier.align(Alignment.BottomStart).fillMaxWidth(),
+    horizontalArrangement = Arrangement.SpaceBetween,
+    verticalAlignment = Alignment.CenterVertically,
+  ) {
+    if (showOpenPanelButton) {
+      OpenDemoPanelButton(onOpenPanel)
+    } else {
+      MaplibreLogo()
+    }
+    if (useMaterial3) {
+      Material3AttributionButton(cameraState = camera, styleState = style)
+    } else {
+      DefaultAttributionButton(cameraState = camera, styleState = style)
+    }
+  }
+}
+
+@Composable
+internal fun OpenDemoPanelButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+  SmallFloatingActionButton(onClick = onClick, modifier = modifier) {
+    Icon(
+      vectorResource(Res.drawable.left_panel_open_24px),
+      contentDescription = "Open demo panel",
+    )
   }
 }
 

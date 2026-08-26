@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -25,10 +24,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -42,6 +41,7 @@ import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.arrow_back_24px
+import org.maplibre.compose.demoapp.generated.left_panel_close_24px
 import org.maplibre.compose.demoapp.generated.settings_24px
 import org.maplibre.compose.demoapp.generated.speed_24px
 
@@ -50,15 +50,19 @@ import org.maplibre.compose.demoapp.generated.speed_24px
 fun DemoPanel(
   state: DemoAppState,
   modifier: Modifier = Modifier,
-  revealMap: suspend () -> Unit = {},
+  collapsePanel: suspend () -> Unit = {},
+  collapseOnSelection: Boolean = true,
 ) {
   val navController = rememberNavController()
   val scope = rememberCoroutineScope()
+  val appliedStyle = state.appliedStyle
+  val collapse: () -> Unit = { scope.launch { collapsePanel() } }
   val route = navController.currentBackStackEntryAsState().value?.destination?.route
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {
     if (route == "demos") {
+      state.cancelDeferredDemoFlight()
       state.selectedDemo = null
       state.shell = DemoShell.Demos
       state.benchmark.abandonRun()
@@ -74,21 +78,39 @@ fun DemoPanel(
     exitTransition = { sharedAxisExit(-slideDistance) },
     popEnterTransition = { sharedAxisEnter(-slideDistance) },
     popExitTransition = { sharedAxisExit(slideDistance) },
-    // Report the incoming destination's size while the outgoing screen is still
-    // composed, so a wrap-content parent (the bottom sheet) shrinks in time
-    // with the shared axis instead of waiting for the exit to finish.
-    sizeTransform = { sharedAxisSizeTransform },
   ) {
     composable("demos") {
       DemosScreen(
         state,
+        onCollapsePanel = collapse,
         onOpenSettings = { navController.navigate("settings") },
         onOpenDemo = { demo ->
           scope.launch {
-            revealMap()
-            state.selectedDemo = demo
-            navController.navigate("demo")
-            state.cameraState.flyTo(demo.destination)
+            state.cancelDeferredDemoFlight()
+            val preferredStyle = demo.preferredStyle
+            val changesStyle = preferredStyle != null && preferredStyle.base != appliedStyle.base
+            if (!collapseOnSelection) {
+              state.selectedDemo = demo
+              navController.navigate("demo")
+              state.cameraState.flyTo(demo.destination)
+            } else if (!changesStyle) {
+              collapsePanel()
+              withFrameNanos {}
+              state.selectedDemo = demo
+              navController.navigate("demo")
+              state.cameraState.flyTo(demo.destination)
+            } else {
+              state.deferDemoFlight(demo.destination)
+              scope.launch {
+                collapsePanel()
+                withFrameNanos {}
+                state.finishDeferredDemoPanelCollapse()?.let { destination ->
+                  state.cameraState.flyTo(destination)
+                }
+              }
+              state.selectedDemo = demo
+              navController.navigate("demo")
+            }
           }
         },
         onOpenBenchmarks = {
@@ -103,6 +125,7 @@ fun DemoPanel(
       SettingsSubScreen(
         demo.name,
         onBack = { navController.popBackStack() },
+        onCollapsePanel = collapse,
       ) {
         Text(
           text = demo.description,
@@ -116,9 +139,10 @@ fun DemoPanel(
     composable("benchmarks") {
       BenchmarksScreen(
         onBack = { navController.popBackStack() },
+        onCollapsePanel = collapse,
         onOpenScenario = { scenario ->
           scope.launch {
-            revealMap()
+            if (collapseOnSelection) collapsePanel()
             state.selectedScenario = scenario
             navController.navigate("benchmark")
           }
@@ -127,7 +151,11 @@ fun DemoPanel(
     }
     composable("benchmark") {
       val scenario = state.selectedScenario
-      SettingsSubScreen(scenario.title, onBack = { navController.popBackStack() }) {
+      SettingsSubScreen(
+        scenario.title,
+        onBack = { navController.popBackStack() },
+        onCollapsePanel = collapse,
+      ) {
         BenchmarkScenarioPanel(state)
       }
     }
@@ -135,22 +163,35 @@ fun DemoPanel(
       SettingsScreen(
         state,
         onBack = { navController.popBackStack() },
+        onCollapsePanel = collapse,
         onOpen = { navController.navigate("settings/$it") },
       )
     }
     composable("settings/gestures") {
-      SettingsSubScreen("Gestures", onBack = { navController.popBackStack() }) {
+      SettingsSubScreen(
+        "Gestures",
+        onBack = { navController.popBackStack() },
+        onCollapsePanel = collapse,
+      ) {
         GestureSettingsItems(state.settings)
       }
     }
     composable("settings/rendering") {
-      SettingsSubScreen("Rendering", onBack = { navController.popBackStack() }) {
+      SettingsSubScreen(
+        "Rendering",
+        onBack = { navController.popBackStack() },
+        onCollapsePanel = collapse,
+      ) {
         TileLodSettingsItems(state.settings)
         RenderSettingsItems(state.settings)
       }
     }
     composable("settings/controls") {
-      SettingsSubScreen("Controls", onBack = { navController.popBackStack() }) {
+      SettingsSubScreen(
+        "Controls",
+        onBack = { navController.popBackStack() },
+        onCollapsePanel = collapse,
+      ) {
         ControlSettingsItems(state.settings)
       }
     }
@@ -170,21 +211,19 @@ private fun sharedAxisExit(slideDistance: Int): ExitTransition =
   slideOutHorizontally(tween(AxisDurationMillis, easing = StandardEasing)) { slideDistance } +
     fadeOut(tween(AxisDurationMillis * 3 / 10, easing = AccelerateEasing))
 
-private val sharedAxisSizeSpec = tween<IntSize>(AxisDurationMillis, easing = StandardEasing)
-
-private val sharedAxisSizeTransform = SizeTransform(clip = false) { _, _ -> sharedAxisSizeSpec }
-
 @Composable
 private fun DemosScreen(
   state: DemoAppState,
+  onCollapsePanel: () -> Unit,
   onOpenSettings: () -> Unit,
   onOpenDemo: (Demo) -> Unit,
   onOpenBenchmarks: () -> Unit,
 ) {
   Column {
     TopAppBar(
-      title = { Text("MapLibre Compose") },
+      title = { Text("Demos") },
       actions = {
+        CollapsePanelButton(onCollapsePanel)
         IconButton(onClick = onOpenBenchmarks) {
           Icon(vectorResource(Res.drawable.speed_24px), contentDescription = "Benchmarks")
         }
@@ -195,7 +234,6 @@ private fun DemosScreen(
       colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
     )
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-      SectionHeader("Demos")
       allDemos.forEach { demo ->
         SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) }
       }
@@ -207,9 +245,10 @@ private fun DemosScreen(
 private fun SettingsScreen(
   state: DemoAppState,
   onBack: () -> Unit,
+  onCollapsePanel: () -> Unit,
   onOpen: (route: String) -> Unit,
 ) {
-  SettingsSubScreen("Settings", onBack) {
+  SettingsSubScreen("Settings", onBack, onCollapsePanel) {
     SectionHeader("Map style")
     SegmentedRow(
       options = MapStyleMode.entries,
@@ -274,7 +313,12 @@ private fun ControlSettingsItems(settings: DemoSettings) {
 }
 
 @Composable
-internal fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Composable () -> Unit) {
+internal fun SettingsSubScreen(
+  title: String,
+  onBack: () -> Unit,
+  onCollapsePanel: () -> Unit,
+  content: @Composable () -> Unit,
+) {
   Column {
     TopAppBar(
       title = { Text(title) },
@@ -283,8 +327,19 @@ internal fun SettingsSubScreen(title: String, onBack: () -> Unit, content: @Comp
           Icon(vectorResource(Res.drawable.arrow_back_24px), contentDescription = "Back")
         }
       },
+      actions = { CollapsePanelButton(onCollapsePanel) },
       colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
     )
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) { content() }
+  }
+}
+
+@Composable
+private fun CollapsePanelButton(onClick: () -> Unit) {
+  IconButton(onClick = onClick) {
+    Icon(
+      vectorResource(Res.drawable.left_panel_close_24px),
+      contentDescription = "Collapse demo panel",
+    )
   }
 }
