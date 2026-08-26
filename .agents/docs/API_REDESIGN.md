@@ -47,30 +47,24 @@ a builder, and if we expose it it is named for the value it builds
 are the ones that exist only because a second SDK used a different name for the
 same value.
 
-### No way out of the composition
+### ~~No way out of the composition~~
 
-The only public handle on a live map is `CameraState`, and it exposes
-projection, queries, and camera animation. Style, images, sources, and the
-platform map stay internal. Changing a base-style layer's visibility still means
-`Anchor.Replace` and a hand-copied layer, or editing the style JSON before load
-([#18](https://github.com/maplibre/maplibre-compose/issues/18)). Reaching a
-missing API means asking us to wrap it, or asking for the platform map
-([#538](https://github.com/maplibre/maplibre-compose/issues/538)).
+Fixed in step 4. The public `MapState` is the handle on a live map: the camera,
+the queries and projections, and the observable `layers` and `sources`
+collections, with imperative writes on map-owned ids
+([#18](https://github.com/maplibre/maplibre-compose/issues/18)). The platform
+map ([#538](https://github.com/maplibre/maplibre-compose/issues/538)) remains
+step 5: exposing `MapHandle` on the FFI platforms, and the GL JS `Map` on the
+browser, is one object per backend.
 
-Exposing `MapAdapter` would publish four different objects. Exposing `MapHandle`
-on the FFI platforms, and the GL JS `Map` on the browser, is one object per
-backend.
+### ~~The map dies with the composable~~
 
-### The map dies with the composable
-
-`ComposableMapView` creates the platform map, and `MaplibreMap` still owns the
-internal `MapState` it attaches sessions to, so the map's lifetime is the
-composable's. The internal split is done: `MlnFfiMapCore` is the hoistable half,
-`MapState` has the attach/detach seam, and the application-scoped
-`MlnFfiRuntime` owns what the process-lifetime cache existed to protect. What
-remains is the public ownership story: a ViewModel can hold `CameraState` and
-`StyleState`, but not the map, a style loaded off-screen, or a snapshot of a map
-that is not composed.
+Fixed in step 4. `MapState` owns the map's platform lifetime through
+`MapEngine`: on the FFI platforms the loaded map survives the composable leaving
+the composition and re-attaches to the next `MaplibreMap`, and on Web the state
+replays the selected style into the next session. A ViewModel can construct a
+`MapState` and call `close`; `rememberMapState` closes the states it creates.
+Snapshots of a map that is not composed remain step 6.
 
 ### ~~Style wiring that leans on Compose effect ordering~~
 
@@ -147,13 +141,14 @@ Application-scoped. One per cache and resource-provider configuration. Offline
 packs, HTTP header transforms, and resource URL rewrites belong here, because
 they outlive any one map.
 
-`OfflineManager` as a remembered type goes away. Offline work is runtime work.
-If the offline API wants its own namespace it can be a child of the runtime; it
-is not a separate owner, and `rememberOfflineManager` is not how it is acquired.
+Step 4 shipped this as `MaplibreRuntime`, because `Runtime` collides with
+`java.lang.Runtime`. `OfflineManager` as a remembered type went away:
+`rememberOfflineManager` is deleted, and `OfflineManager` survives as the
+interface that `MaplibreRuntime.offline` returns. Offline work is runtime work.
 
-On FFI platforms this is a thin owner around `RuntimeHandle`. The handle itself
-is available as an escape hatch. On GL JS (A or B in [Web](#web)) there is no
-runtime object. C uses the FFI runtime.
+On FFI platforms this is a thin owner around `RuntimeHandle`. Publishing the
+handle as an escape hatch is step-5 work. On GL JS (A in [Web](#web), the
+shipped outcome) there is no runtime object. C uses the FFI runtime.
 
 ### MapState
 
@@ -163,30 +158,44 @@ composable stays `MaplibreMap`. Both being "map" is a collision; renaming the
 composable to `MapView` would lean on the Android view system, which Compose
 left.
 
+The shipped step-4 surface:
+
 ```kotlin
 class MapState : AutoCloseable {
   var baseStyle: BaseStyle
   val camera: CameraPosition
+  val viewport: Viewport?
+  val isCameraMoving: Boolean
+  val cameraMoveReason: CameraMoveReason
 
   val sources: StyleSources
   val layers: StyleLayers
+  val styleErrors: SharedFlow<StyleError>
 
-  suspend fun setCamera(to: CameraPosition)
-  suspend fun animateCamera(to: CameraPosition, duration: Duration)
-  suspend fun queryRenderedFeatures(...): List<Feature<Geometry, JsonObject?>>
+  suspend fun setCamera(position: CameraPosition)
+  suspend fun setCamera(boundingBox: BoundingBox, bearing, tilt, padding)
+  suspend fun animateCamera(position: CameraPosition, duration: Duration)
+  suspend fun animateCamera(boundingBox: BoundingBox, bearing, tilt, padding, duration)
 
-  suspend fun snapshot(width: Int, height: Int): ImageBitmap
+  fun screenLocationFromPosition(position: Position): DpOffset?
+  fun positionFromScreenLocation(offset: DpOffset): Position?    // and an Offset overload
+
+  suspend fun queryRenderedFeatures(offset: DpOffset, layerIds, predicate): List<Feature<Geometry, JsonObject?>>
+  suspend fun queryRenderedFeatures(rect: DpRect, layerIds, predicate): List<Feature<Geometry, JsonObject?>>
 
   fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit)
+  override fun close()
 
-  @DelicateMapApi
-  val platform: PlatformMap
+  // Step 5:
+  // @DelicateMapApi val platform: PlatformMap
+  // Step 6:
+  // suspend fun snapshot(width: Int, height: Int): ImageBitmap
 }
 ```
 
-The sketch marks writes and queries `suspend` and leaves unkeyed reads as
-properties. Exactly which members are `suspend` follows the FFI form of each
-call, and that assignment is still moving.
+Writes and queries are `suspend`, and unkeyed reads are properties. The
+projections stayed sync: they answer from the last rendered viewport and return
+null before one exists.
 
 `PlatformMap` is a typealias to `MapHandle` on FFI platforms and to the GL JS
 `Map` on the browser. Common code does not touch `platform`. Platform code that
@@ -195,16 +204,14 @@ is blocked on a missing wrapper does. It is a property, not a lambda:
 runtime thread in native, so the handle is not confined to a hop this library
 owns.
 
-Camera lives on `MapState`. `rememberMapState` can take a first position and
-save it across recreation. Animation and projection methods live on `MapState`.
-`CameraState` goes away unless saving `MapState` proves hard and saveables need
-to come out piecemeal, or the camera wants its own namespace. Overlay controls
-read `state.camera`. `CameraProjection` as a type that is null until attach goes
-away: the state can answer those queries as soon as it exists. A query that
-needs a viewport size waits until a session has attached one, or takes an
-explicit size for a snapshot.
+Camera lives on `MapState`. `rememberMapState` takes a first position and saves
+it across recreation. `CameraState` survived internally as the saveable that
+backs `rememberMapState` — the piecemeal-saveable escape clause above held.
+Overlay controls read `state.camera`. `CameraProjection` as a type that is null
+until attach went away: the state answers those queries as soon as a session has
+rendered a viewport.
 
-`StyleState` goes away. `MapState.sources` and `MapState.layers` are the
+`StyleState` went away. `MapState.sources` and `MapState.layers` are the
 observable collections.
 
 ### Ownership of style objects
@@ -249,11 +256,13 @@ tree. The outgoing content leaves the style; the incoming content is what
 remains. Two trees are not inserted side by side. That would be two appliers on
 one style, which is the wiring this redesign deletes.
 
+The shipped entry points:
+
 ```kotlin
 @Composable
 fun rememberMapState(
+  cameraPosition: CameraPosition = CameraPosition(),
   baseStyle: BaseStyle = BaseStyle.Demo,
-  firstCamera: CameraPosition = CameraPosition(),
   styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
 ): MapState
 
@@ -261,14 +270,19 @@ fun rememberMapState(
 fun MaplibreMap(
   state: MapState,
   modifier: Modifier = Modifier,
-  gestureOptions: GestureOptions = GestureOptions.Standard,
-  overlay: @Composable MapOverlayScope.() -> Unit = { DefaultOverlay() },
+  // camera constraints: cameraPadding, zoomRange, pitchRange, boundingBox
+  // callbacks: onMapClick, onMapLongClick, onFrame, onMapLoadFailed, onMapLoadFinished
+  options: MapOptions = MapOptions(),  // gesture, render, and tile LOD options
+  logger: Logger? = ...,
+  contentWindowInsets: WindowInsets = WindowInsets.safeDrawing,
+  overlay: @Composable MapOverlayScope.() -> Unit = { include(MapOverlay.Default) },
 )
 ```
 
 `rememberMapState` constructs the state. A non-null `styleContent` calls
 `setStyleContent`. `MaplibreMap` does not take a base style, a camera, or style
-content. It attaches a session, applies gestures, and draws the overlay.
+content. It attaches a session, applies per-session options such as gestures and
+camera constraints, and draws the overlay.
 `MaplibreMap(state) { CompassButton() }` is UI on state that already has its
 style. `MapState` and `setStyleContent` use the Compose runtime; `MaplibreMap`,
 overlays, and gestures are Compose UI — one module now, with that line drawn for
@@ -336,7 +350,7 @@ What looks like a runtime is scattered: a process-wide `WorkerPool`
 `RequestManager` / `transformRequest` and tile-cache sizes. There is no
 offline-pack API and no still-image API.
 
-The web `MapState` is a later choice:
+The web `MapState` was a choice among three options:
 
 - **A.** A Kotlin holder for style, camera, and content. The live
   `maplibregl.Map` exists only while `MaplibreMap` is in the composition.
@@ -349,9 +363,10 @@ The web `MapState` is a later choice:
   executor overhaul
   ([#631](https://github.com/maplibre/maplibre-native-ffi/pull/631)).
 
-A or B if this redesign ships before that Wasm build. C if it ships after. A and
-B need no GL JS change. A live `maplibregl.Map` that outlives the context that
-constructed it is outside A and B.
+Step 4 shipped A: `GlJsMapEngine` reports `retainsStyleAcrossDetach = false`,
+the live `maplibregl.Map` exists only while a `MaplibreMap` is composed, and the
+state replays the selected style into the next session. C remains the possible
+future once the mln-ffi Kotlin/Wasm build lands.
 
 ## Default call site
 
@@ -416,8 +431,12 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
    split into the hoistable `MlnFfiMapCore` and a composition-scoped render
    session, and one application-scoped `MlnFfiRuntime` owns the offline thread's
    work.
-4. Publish `Runtime`, `MapState`, `rememberMapState`, and `MaplibreMap(state)`.
-   Lift camera onto the state. Delete `StyleState` and `OfflineManager`.
+4. ~~Publish `Runtime`, `MapState`, `rememberMapState`, and
+   `MaplibreMap(state)`. Lift camera onto the state. Delete `StyleState` and
+   `OfflineManager`.~~ Done, with two corrections: the runtime shipped as
+   `MaplibreRuntime`, because `Runtime` collides with `java.lang.Runtime`, and
+   `OfflineManager` survives as the interface reached through
+   `MaplibreRuntime.offline` — only `rememberOfflineManager` was deleted.
 5. Publish `platform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
    at it.
@@ -435,13 +454,29 @@ The step-3 close-out audit and the external review of the stack raised these;
 each was deferred deliberately, because step 4 restructures the code it lives
 in.
 
-Refactors:
+Landed in step 4:
 
-- **`MapState` owns style selection.** `MaplibreMap` still passes the base style
-  to the view, whose only use is a `SideEffect` calling `setBaseStyle`. Step 4
-  puts the push in `MapState.applyOptions` and deletes the `style` parameter
-  from the `ComposableMapView` expect and its four actuals. Verify the timing
-  change against `MlnFfiStyleSwitchTest`.
+- ~~**`MapState` owns style selection.** `MaplibreMap` still passes the base
+  style to the view, whose only use is a `SideEffect` calling `setBaseStyle`.~~
+  Done, with one correction: the push lives in the `MapState.baseStyle` setter
+  and in `attachSession`, not in `applyOptions`, and the `style` parameter is
+  gone from the `ComposableMapView` expect and its actuals.
+- ~~**An error channel for style failures.** The host logs ordinary composition
+  and apply failures and rethrows only fatal errors; an application cannot
+  observe them.~~ Done: `MapState.styleErrors` is the observable path, and the
+  log remains the always-on record.
+- ~~**Hoisting prerequisites the `MlnFfiMapCore` split left.**~~ Done: the state
+  owns the engine and its platform lifetime, the view attaches and detaches
+  render sessions on a core that outlives them, and input still binds through
+  the session.
+- ~~**Documentation debts.** Style content composes on a dedicated style
+  dispatcher, so effects inside it leave the UI context; GeoJSON and anchor
+  validation surface at attach and apply rather than at construction and
+  insert.~~ Done: both are in the step-4 KDoc and on the site's composition
+  page, along with `styleErrors`.
+
+Still deferred:
+
 - **Shared adapter mechanics.** `MlnFfiMapCore` and `GlJsMapSession` duplicate
   the pending-action queue, the requested-style and requested-camera fallbacks,
   and stranded-transition resume. Extract with a gate predicate; the native side
@@ -462,33 +497,12 @@ Refactors:
   layer ids and base sources separately on the same binding identity. The
   snapshot must stay lazy: `getBaseSource` runs before the first sync.
 
-Hoisting prerequisites the `MlnFfiMapCore` split left:
-
-- The view still creates and closes the core; hoisting inverts that ownership,
-  and the session's `close` then closes only the render half.
-- A hoisted core must tolerate render sessions attaching and detaching mid-life
-  (a re-attach needs an initial render request; `onSurfaceAvailable` provides
-  one), and `hasAttachedViewport` never resets.
-- `MlnFfiRenderSessionAccess` exists for exactly that detached-core state; it
-  stays.
-- Input binds through the session today (`GestureTarget by core`); decide the
-  binding once `MaplibreMap(state)` exists.
-
-Public-surface obligations:
-
-- **An error channel for style failures.** The host logs ordinary composition
-  and apply failures and rethrows only fatal errors; an application cannot
-  observe them. The public `MapState` needs an observable error path.
-- **Documentation debts.** Style content now composes on a dedicated style
-  dispatcher, so effects inside it leave the UI context; GeoJSON and anchor
-  validation surface at attach and apply rather than at construction and insert.
-  Both belong in the step-4 KDoc and site docs.
-
 ## Open questions
 
-**Which members are `suspend`?** Snapshots stay sync. Commands and operations do
-not. The FFI assignment of each call is still moving, so the sketch above is a
-bias, not a list.
+**Which members are `suspend`?** Settled for the shipped surface: the sketch
+above is the list. The step 5-6 members (`platform`, `snapshot`) get their form
+when they ship.
 
-**Which web `MapState`?** A, B, or C in [Web](#web). A or B before the mln-ffi
-Kotlin/Wasm build; C after.
+~~**Which web `MapState`?** A, B, or C in [Web](#web). A or B before the mln-ffi
+Kotlin/Wasm build; C after.~~ Answered in step 4: A shipped, and C remains the
+possible future.

@@ -10,7 +10,7 @@ import { inside, region } from "../../snippets";
 import layers from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Layers.kt?raw";
 
 The base style defines the map's content. To show your own data on top of it,
-declare sources and layers inside the `MaplibreMap` block. A source holds the
+declare sources and layers in the map state's style content. A source holds the
 data, and a layer draws data from a source.
 
 ## Reference a base style source
@@ -25,7 +25,7 @@ layer of yours can draw data that the style already loads:
 <Api of="rememberGeoJsonSource" /> creates a source from a GeoJSON URI or
 string. Layers reference the source object directly:
 
-<Code code={inside("MaplibreMap {", region(layers, "amtrak-1"))} lang="kotlin" title="App.kt" />
+<Code code={inside("val map = rememberMapState {", region(layers, "amtrak-1"))} lang="kotlin" title="App.kt" />
 
 Other source types cover vector tiles, raster tiles, and images. The API
 reference documents them under <Api of="org.maplibre.compose.sources" />.

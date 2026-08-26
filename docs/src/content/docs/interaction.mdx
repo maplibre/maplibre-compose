@@ -26,7 +26,7 @@ individual fields:
 
 `onMapClick` and `onMapLongClick` receive the clicked position and its screen
 offset. To identify the clicked feature, query rendered features with
-<Api of="CameraState.queryRenderedFeatures" />. The query suspends, so launch
+<Api of="MapState.queryRenderedFeatures" />. The query suspends, so launch
 it in a coroutine. Return <Api of="ClickResult.Pass" /> to send the click on
 to the layer listeners:
 
@@ -37,7 +37,7 @@ to the layer listeners:
 Layer composables have click listeners of their own, which receive the features
 that were clicked in that layer:
 
-<Code code={inside("MaplibreMap {", region(layers, "interaction"))} lang="kotlin" title="App.kt" />
+<Code code={inside("val map = rememberMapState {", region(layers, "interaction"))} lang="kotlin" title="App.kt" />
 
 Click listeners run on the map first, then on layers from the top to the bottom
 of the map. The first listener that returns <Api of="ClickResult.Consume" />

@@ -10,41 +10,55 @@ import { region } from "../../snippets";
 import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Composition.kt?raw";
 
 MapLibre Compose has no map view object. <Api of="MaplibreMap" /> is a
-composable, and map state lives in state objects: <Api of="CameraState" /> for
-the camera and <Api of="StyleState" /> for the style. This page explains how
-the library applies your composition to the underlying MapLibre style.
+composable, and the map lives in one state object: <Api of="MapState" /> holds
+the base style, the style content, and the camera.
+<Api of="rememberMapState" /> creates a state that the composition owns. This
+page explains how the library applies your composition to the underlying
+MapLibre style.
 
 ## The style is base plus content
 
 A MapLibre style is a document with sources and layers. The `baseStyle`
-parameter loads that document without modification. The content block of
-`MaplibreMap` declares additions to it: your sources, your layers, and the
-positions of your layers in the layer stack.
+parameter loads that document without modification. The style content, passed
+to `rememberMapState` or set with <Api of="MapState.setStyleContent" />,
+declares additions to it: your sources, your layers, and the positions of your
+layers in the layer stack.
 
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 
-The library manages the sources and layers that you declare in the content
-block, and does not modify the rest of the base style. To change a base style
-layer, replace it with <Api of="Anchor.Replace" /> and declare its replacement
-yourself.
+The library manages the sources and layers that you declare in the style
+content, and does not modify the rest of the base style. To change a base
+style layer, replace it with <Api of="Anchor.Replace" /> and declare its
+replacement yourself.
 
 ## Recomposition updates the style
 
-The content block is a Compose composition. When the state that it reads
+The style content is a Compose composition. When the state that it reads
 changes, it recomposes, and the library applies the difference to the style: a
 layer that is no longer in the composition is removed from the style, a new
 layer is added, and a changed property is updated in place. You do not call
 add or remove functions yourself.
+
+The content composes on a dispatcher that the state owns, so an effect inside
+the content runs outside the UI context.
 
 This is the same contract as Compose UI: describe the map content for the
 current state, and let the runtime reconcile it.
 
 ## Style switches re-apply your content
 
-When `baseStyle` changes, the map loads the new style and the content block
+When `baseStyle` changes, the map loads the new style and the style content
 recomposes into it. Your sources and layers are declared again on the new
 style, so they persist across the switch without extra code. An `Anchor` that
 names a base layer applies only when that layer exists in the new style.
+
+## Style errors
+
+Invalid GeoJSON data and an `Anchor` that names a missing layer surface as
+errors when the content applies to a loaded style, not when the declaring
+composable runs. The map and the state survive each error, and the log records
+every one. <Api of="MapState.styleErrors" /> is a flow of these errors for a
+composition or a test to observe.
 
 ## Layer and source IDs
 

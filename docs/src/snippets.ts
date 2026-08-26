@@ -30,7 +30,7 @@ export function region(source: string, name: string): string {
 /**
  * Nests a region inside the block it belongs to.
  *
- * Some regions sit inside a `MaplibreMap { ... }` in the source, where the
+ * Some regions sit inside a `rememberMapState { ... }` in the source, where the
  * surrounding call is context the page needs but the region should not repeat.
  */
 export function inside(opening: string, body: string): string {

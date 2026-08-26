@@ -11,14 +11,17 @@ import offline from "../../../../demo-app/common/src/maplibreNativeMain/kotlin/o
 
 An offline pack holds the resources needed to show a region without a network:
 map tiles, the style, and other assets. The <Api of="OfflineManager" />
-creates, tracks, and deletes packs.
+creates, tracks, and deletes packs. <Api of="MaplibreRuntime" /> owns the
+manager: every map in the process shares one runtime, and
+<Api of="MaplibreRuntime.offline" /> returns its manager.
 
 <Aside type="note">
   Offline packs are available on Android, iOS, and Desktop. The browser
   platform does not support them.
 </Aside>
 
-Get the manager inside a composition:
+The manager is process-scoped, so the `remember` here caches the lookup and
+does not limit the manager to the composition:
 
 <Code code={region(offline, "manager")} lang="kotlin" title="App.kt" />
 
