@@ -3,22 +3,15 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.ExperimentalTestApi
-import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicInt
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -30,7 +23,6 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
@@ -52,8 +44,8 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * The session leaves and re-enters the composition against the same internal [MapState]: the
- * engine's core, its loaded style, and the camera all survive the detach.
+ * The session leaves and re-enters the composition against the same [MapState]: the engine's core,
+ * its loaded style, and the camera all survive the detach.
  */
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapReattachTest {
@@ -77,58 +69,32 @@ class MlnFfiMapReattachTest {
     var attached by mutableStateOf(true)
     val firstPosition =
       CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 5.0)
-    val cameraState = CameraState(firstPosition)
     lateinit var state: MapState
 
     setContent {
       val factory = remember { MultiUseTestMapHostFactory() }
       CompositionLocalProvider(LocalMlnFfiMapHostFactory provides factory) {
-        val density = LocalDensity.current
-        val layoutDirection = LocalLayoutDirection.current
-        val logger = remember { Logger.withTag("reattach-test") }
-        val mapState = remember {
-          MapState(cameraState, density, layoutDirection, logger, null)
-        }
+        val mapState =
+          rememberMapState(cameraPosition = firstPosition, baseStyle = STYLE) {
+            FillLayer(
+              id = "user-fill",
+              source =
+                rememberGeoJsonSource(
+                  data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
+                ),
+              color = const(Color.Red),
+            )
+          }
         state = mapState
-        DisposableEffect(mapState) { onDispose { mapState.close() } }
-        LaunchedEffect(mapState) { mapState.startStyleComposition() }
-        // The in-composition write path; the public setStyleContent also starts the composition.
-        mapState.updateStyleContent {
-          FillLayer(
-            id = "user-fill",
-            source =
-              rememberGeoJsonSource(
-                data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
-              ),
-            color = const(Color.Red),
-          )
-        }
-        SideEffect {
-          mapState.baseStyle = STYLE
-          mapState.onFrame = { frames.incrementAndFetch() }
-          mapState.onMapLoadFailed = { errors += "mapLoadFailed: $it" }
-          mapState.onMapLoadFinished = { loadsFinished++ }
-        }
         if (attached) {
           Box(Modifier.fillMaxSize()) {
-            ComposableMapView(
+            MaplibreMap(
+              state = mapState,
               modifier = Modifier.fillMaxSize(),
-              engine = mapState.engine,
-              update = { map ->
-                mapState.applyOptions(
-                  map,
-                  PaddingValues(0.dp),
-                  0f..20f,
-                  0f..60f,
-                  null,
-                  MapOptions(),
-                )
-                mapState.attachSession(map)
-              },
-              onReset = { mapState.detachSession() },
-              logger = logger,
-              callbacks = mapState.callbacks,
-              options = MapOptions(),
+              logger = remember { Logger.withTag("reattach-test") },
+              onFrame = { frames.incrementAndFetch() },
+              onMapLoadFailed = { errors += "mapLoadFailed: $it" },
+              onMapLoadFinished = { loadsFinished++ },
             )
           }
         }
@@ -143,18 +109,18 @@ class MlnFfiMapReattachTest {
     }
 
     runOnUiThread { attached = false }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { cameraState.map == null }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { state.cameraState.map == null }
     assertSame(core, engine.core, "the core must survive the session detach")
     val loadsBeforeReattach = loadsFinished
     val framesBeforeReattach = frames.load()
 
     runOnUiThread { attached = true }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      cameraState.map != null && frames.load() > framesBeforeReattach
+      state.cameraState.map != null && frames.load() > framesBeforeReattach
     }
 
     assertSame(core, engine.core, "a re-attach must reuse the live core")
-    assertSame(core, cameraState.map, "the camera must rewire to the same core")
+    assertSame(core, state.cameraState.map, "the camera must rewire to the same core")
     assertEquals(loadsBeforeReattach, loadsFinished, "a re-attach must not reload the style")
     assertTrue(
       "user-fill" in core.currentStyleLayerIds(),

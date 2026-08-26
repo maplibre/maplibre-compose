@@ -18,7 +18,13 @@ import org.maplibre.compose.sources.Source
  */
 public class StyleSources internal constructor(private val state: MapState) {
 
-  /** The snapshot the public reads below share; refreshed as the live style reports changes. */
+  /**
+   * The snapshot the public reads below share; refreshed as the live style reports changes.
+   *
+   * Tests of the refresh path read this for what the public views cannot express: an empty
+   * attribution, which [attributions] filters out, and the instance identity of a reconciled
+   * source.
+   */
   internal val snapshot: Map<String, Source>
     get() = snapshotState.value
 

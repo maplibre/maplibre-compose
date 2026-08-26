@@ -21,7 +21,7 @@ private val ROOT_KEYS =
 internal sealed class Layer(val id: String) {
 
   /** The layer's `type` in the style spec, e.g. `fill`. */
-  protected abstract val type: String
+  internal abstract val type: String
 
   /** The source this layer draws from, or null for layers that have none, such as background. */
   protected open val sourceId: String? = null
@@ -56,29 +56,12 @@ internal sealed class Layer(val id: String) {
       setLayoutProperty("visibility", JsonPrimitive(if (value) "visible" else "none"))
     }
 
-  /** The layer's `type` for callers outside the class hierarchy. */
-  internal val typeName: String
-    get() = type
-
-  /** Writes one layout property from outside the class hierarchy. */
-  internal fun writeLayoutProperty(name: String, value: JsonElement) {
-    setLayoutProperty(name, value)
-  }
-
-  /** Writes one paint property from outside the class hierarchy. */
-  internal fun writePaintProperty(name: String, value: JsonElement) {
-    setPaintProperty(name, value)
-  }
-
-  /** Reads one property from outside the class hierarchy. */
-  internal fun readLayerProperty(name: String): JsonElement = readProperty(name)
-
-  protected fun setLayoutProperty(name: String, value: JsonElement) {
+  internal fun setLayoutProperty(name: String, value: JsonElement) {
     layout[name] = value
     pushProperty(name, value, LayerPropertyKind.LAYOUT)
   }
 
-  protected fun setPaintProperty(name: String, value: JsonElement) {
+  internal fun setPaintProperty(name: String, value: JsonElement) {
     paint[name] = value
     pushProperty(name, value, LayerPropertyKind.PAINT)
   }
@@ -255,7 +238,7 @@ internal sealed class Layer(val id: String) {
   }
 
   /** Reads a property back from the live layer, falling back to the descriptor when detached. */
-  protected fun readProperty(name: String): JsonElement =
+  internal fun readProperty(name: String): JsonElement =
     binding.layerProperty(id, name) ?: layout[name] ?: paint[name] ?: root[name] ?: JsonNull
 
   override fun toString() = "${this::class.simpleName}(id=\"$id\")"

@@ -157,7 +157,7 @@ private class TestHostDispatcher(override val dispatcher: CoroutineDispatcher) :
 class MapStateTest {
 
   private fun TestScope.mapState(
-    cameraState: CameraState,
+    cameraState: CameraState = CameraState(CameraPosition()),
     hostDispatcher: TestHostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler)),
   ) =
     MapState(
@@ -196,7 +196,7 @@ class MapStateTest {
 
     assertNull(cameraState.map)
     assertFalse(state.styleNode.binding.isLoaded)
-    assertTrue(state.sources.snapshot.isEmpty())
+    assertTrue(state.sources.ids.isEmpty())
 
     val second = FakeMapAdapter()
     val secondBinding = OpRecordingStyleBinding()
@@ -220,7 +220,7 @@ class MapStateTest {
   @Test
   fun close_after_detach_shuts_down_the_recomposer_and_the_dispatcher() = runTest {
     val hostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler))
-    val state = mapState(CameraState(CameraPosition()), hostDispatcher)
+    val state = mapState(hostDispatcher = hostDispatcher)
     state.setStyleContent { RasterLayer(id = "raster", source = testSource("tiles")) }
     state.startStyleComposition()
 

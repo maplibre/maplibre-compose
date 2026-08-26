@@ -1,9 +1,9 @@
-package org.maplibre.compose.map
+package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.map.MapState
 
 /**
  * An imperative handle over one live layer, from [MapState.layers].
@@ -29,7 +29,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
 
   /** The layer's `type` in the style spec, such as `fill`. */
   public val type: String
-    get() = descriptor.typeName
+    get() = descriptor.type
 
   /**
    * Whether the layer draws, from the `visibility` layout property.
@@ -75,7 +75,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    */
   public fun setLayoutProperty(name: String, value: Expression<*>) {
     state.checkLayerWritable(id)
-    descriptor.writeLayoutProperty(name, state.compileLayerProperty(value))
+    descriptor.setLayoutProperty(name, state.compileLayerProperty(value))
   }
 
   /**
@@ -86,7 +86,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    */
   public fun setPaintProperty(name: String, value: Expression<*>) {
     state.checkLayerWritable(id)
-    descriptor.writePaintProperty(name, state.compileLayerProperty(value))
+    descriptor.setPaintProperty(name, state.compileLayerProperty(value))
   }
 
   /**
@@ -95,5 +95,5 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    * holds no value for.
    */
   public fun property(name: String): JsonElement? =
-    descriptor.readLayerProperty(name).takeIf { it !is JsonNull }
+    descriptor.readProperty(name).takeIf { it !is JsonNull }
 }

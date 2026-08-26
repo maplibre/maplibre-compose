@@ -12,7 +12,9 @@ import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.map.MapAdapter
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -22,7 +24,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
-class AndroidCameraStateRecreationTest {
+class AndroidMapStateRecreationTest {
 
   @Test
   fun camera_position_survives_activity_recreation() {
@@ -32,29 +34,32 @@ class AndroidCameraStateRecreationTest {
     )
 
     try {
-      runAndroidComposeUiTest<CameraStateRecreationActivity> {
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.cameraState?.map != null }
+      runAndroidComposeUiTest<MapStateRecreationActivity> {
+        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.cameraState?.map != null }
         val firstActivity = requireNotNull(activity)
 
-        runOnIdle { requireNotNull(firstActivity.cameraState).position = EXPECTED_CAMERA }
+        runOnIdle {
+          runBlocking { requireNotNull(firstActivity.mapState).setCamera(EXPECTED_CAMERA) }
+        }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
-          firstActivity.cameraState?.map?.hasCamera(EXPECTED_CAMERA) == true
+          firstActivity.mapState?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         runOnIdle { firstActivity.recreate() }
         waitUntil(timeoutMillis = TIMEOUT_MILLIS) {
           activity != null &&
             activity !== firstActivity &&
-            activity?.cameraState?.map?.hasCamera(EXPECTED_CAMERA) == true
+            activity?.mapState?.hasCamera(EXPECTED_CAMERA) == true
         }
 
         val replacementActivity = requireNotNull(activity)
         assertNotSame(firstActivity, replacementActivity, "the activity should have been recreated")
-        val restoredState = requireNotNull(replacementActivity.cameraState)
-        assertCamera(EXPECTED_CAMERA, restoredState.position, "restored CameraState")
+        val restoredState = requireNotNull(replacementActivity.mapState)
+        assertCamera(EXPECTED_CAMERA, restoredState.camera, "restored MapState")
+        // The live map, which only the internal adapter answers for.
         assertCamera(
           EXPECTED_CAMERA,
-          requireNotNull(restoredState.map).getCameraPosition(),
+          requireNotNull(restoredState.cameraState.map).getCameraPosition(),
           "replacement native map",
         )
         assertTrue(
@@ -80,6 +85,9 @@ class AndroidCameraStateRecreationTest {
         zoom = 8.5,
       )
 
+    fun MapState.hasCamera(expected: CameraPosition): Boolean =
+      cameraState.map?.hasCamera(expected) == true
+
     fun MapAdapter.hasCamera(expected: CameraPosition): Boolean =
       cameraMatches(expected, getCameraPosition())
 
@@ -102,8 +110,8 @@ class AndroidCameraStateRecreationTest {
   }
 }
 
-class CameraStateRecreationActivity : ComponentActivity() {
-  var cameraState: CameraState? = null
+class MapStateRecreationActivity : ComponentActivity() {
+  var mapState: MapState? = null
     private set
 
   val mapLoadFailures = mutableListOf<String?>()
@@ -112,7 +120,7 @@ class CameraStateRecreationActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     setContent {
       val state = rememberMapState(baseStyle = BaseStyle.Empty)
-      SideEffect { cameraState = state.cameraState }
+      SideEffect { mapState = state }
       MaplibreMap(
         state = state,
         modifier = Modifier.fillMaxSize(),

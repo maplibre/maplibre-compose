@@ -39,7 +39,6 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
@@ -203,7 +202,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun disposing_the_map_detaches_the_session_from_the_state() {
     var visible by mutableStateOf(true)
-    val mapState = MapState(cameraState = CameraState(CameraPosition()))
+    val mapState = MapState()
     mapState.baseStyle = BaseStyle.Empty
 
     runBridgeMapTest(
@@ -231,7 +230,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun changing_layout_direction_keeps_the_live_session_and_host() {
     var layoutDirection by mutableStateOf(LayoutDirection.Ltr)
-    val mapState = MapState(cameraState = CameraState(CameraPosition()))
+    val mapState = MapState()
     mapState.baseStyle = BaseStyle.Empty
 
     runBridgeMapTest(
@@ -304,7 +303,7 @@ class MlnFfiMapCompositionTest {
   fun an_animation_requested_as_the_camera_attaches_waits_for_the_native_map() {
     val finalPosition =
       CameraPosition(target = Position(longitude = 12.4924, latitude = 41.8902), zoom = 9.0)
-    val mapState = MapState(cameraState = CameraState(CameraPosition()))
+    val mapState = MapState()
     mapState.baseStyle = BaseStyle.Empty
     var animationFinished by mutableStateOf(false)
 

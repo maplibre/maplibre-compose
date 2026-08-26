@@ -9,8 +9,6 @@ import kotlin.test.assertFails
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
-import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LineLayerDescriptor
@@ -61,7 +59,7 @@ class StyleNodeTest {
 
   /** A state whose style node points at [style], so [MapState.sources] snapshots it. */
   private fun mapStateOver(style: StyleBinding): MapState {
-    val mapState = MapState(cameraState = CameraState(CameraPosition()))
+    val mapState = MapState()
     mapState.styleNode.binding = style
     mapState.sources.refreshSources()
     return mapState

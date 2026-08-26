@@ -62,7 +62,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * after a camera move or a resize of the map composable, because the instance is replaced once
    * the map has adopted either change.
    */
-  public val viewport: Viewport?
+  val viewport: Viewport?
     get() = viewportState.value
 
   /**
@@ -73,7 +73,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * The answer describes the transform that the map has at the time of the call. To recompose when
    * the transform changes, read [viewport].
    */
-  public fun screenLocationFromPosition(position: Position): DpOffset? {
+  fun screenLocationFromPosition(position: Position): DpOffset? {
     return map?.screenLocationFromPosition(position)
   }
 
@@ -84,7 +84,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * The answer describes the transform that the map has at the time of the call. To recompose when
    * the transform changes, read [viewport].
    */
-  public fun positionFromScreenLocation(offset: DpOffset): Position? {
+  fun positionFromScreenLocation(offset: DpOffset): Position? {
     return map?.positionFromScreenLocation(offset)
   }
 
@@ -96,7 +96,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * The answer describes the transform that the map has at the time of the call. To recompose when
    * the transform changes, read [viewport].
    */
-  public fun positionFromScreenLocation(offset: Offset): Position? {
+  fun positionFromScreenLocation(offset: Offset): Position? {
     val density = density ?: return null
     return positionFromScreenLocation(with(density) { DpOffset(offset.x.toDp(), offset.y.toDp()) })
   }
@@ -113,7 +113,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * @param predicate expression that has to evaluate to true for a feature to be included in the
    *   result
    */
-  public suspend fun queryRenderedFeatures(
+  suspend fun queryRenderedFeatures(
     offset: DpOffset,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
@@ -133,7 +133,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * @param predicate expression that has to evaluate to true for a feature to be included in the
    *   result
    */
-  public suspend fun queryRenderedFeatures(
+  suspend fun queryRenderedFeatures(
     rect: DpRect,
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
@@ -149,7 +149,7 @@ internal class CameraState(firstPosition: CameraPosition) {
 
   /** how the camera is oriented towards the map */
   // if the map is not yet initialized, we store the value to apply it later
-  public var position: CameraPosition
+  var position: CameraPosition
     get() = positionState.value
     set(value) {
       map?.setCameraPosition(value)
@@ -157,11 +157,11 @@ internal class CameraState(firstPosition: CameraPosition) {
     }
 
   /** reason why the camera moved, last time it moved */
-  public val moveReason: CameraMoveReason
+  val moveReason: CameraMoveReason
     get() = moveReasonState.value
 
   /** whether the camera is currently moving */
-  public val isCameraMoving: Boolean
+  val isCameraMoving: Boolean
     get() = isCameraMovingState.value
 
   internal suspend fun awaitMap(): MapAdapter {
@@ -169,7 +169,7 @@ internal class CameraState(firstPosition: CameraPosition) {
   }
 
   /** Animates the camera towards the [finalPosition] in [duration] time. */
-  public suspend fun animateTo(
+  suspend fun animateTo(
     finalPosition: CameraPosition,
     duration: Duration = 300.milliseconds,
   ) {
@@ -186,7 +186,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * @param padding Insets added while fitting [boundingBox].
    * @param duration The duration of the animation. Defaults to 300 ms.
    */
-  public suspend fun animateTo(
+  suspend fun animateTo(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
@@ -205,7 +205,7 @@ internal class CameraState(firstPosition: CameraPosition) {
    * @param tilt The tilt to set during the animation. Defaults to 0.0.
    * @param padding Insets added while fitting [boundingBox].
    */
-  public suspend fun jumpTo(
+  suspend fun jumpTo(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,

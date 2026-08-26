@@ -68,7 +68,7 @@ import org.maplibre.spatialk.geojson.Position
 // binding dropping writes after unload is what makes that survivable.
 public class MapState
 internal constructor(
-  cameraState: CameraState,
+  internal val cameraState: CameraState,
   density: Density = Density(1f),
   layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   logger: Logger? = null,
@@ -106,8 +106,6 @@ internal constructor(
       mapState = this,
       onClosed = hostDispatcher::close,
     )
-
-  internal val cameraState: CameraState = cameraState
 
   internal var logger: Logger? = logger
     set(value) {
@@ -149,8 +147,8 @@ internal constructor(
   private val contentState = mutableStateOf<(@Composable @MaplibreComposable () -> Unit)>({})
 
   init {
-    this.cameraState.density = density
-    this.host.inheritedLocals = inheritedLocals
+    cameraState.density = density
+    host.inheritedLocals = inheritedLocals
   }
 
   private var contentStarted = false
@@ -505,7 +503,7 @@ internal constructor(
       override fun onCameraMoved(map: MapAdapter) {
         if (cameraState.map !== map) return
         cameraState.positionState.value = map.getCameraPosition()
-        // A new instance so a composition that reads CameraState.viewport redraws when the
+        // A new instance so a composition that reads MapState.viewport redraws when the
         // transform changes without the camera position changing, which is what a resize does.
         cameraState.viewportState.value = map.getViewport()
       }

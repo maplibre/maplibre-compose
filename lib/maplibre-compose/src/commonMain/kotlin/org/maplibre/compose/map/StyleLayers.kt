@@ -1,5 +1,7 @@
 package org.maplibre.compose.map
 
+import org.maplibre.compose.layers.LayerHandle
+
 /**
  * The loaded style's layers, exposed on [MapState.layers].
  *
