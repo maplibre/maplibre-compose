@@ -87,10 +87,16 @@ internal class LayerPropertyCompiler(
         }
       }
     }
-    return remember(this, expression) {
-      context.reset()
-      expression.compile(context)
-    }
+    return remember(this, expression) { compile(expression) }
+  }
+
+  /**
+   * Compiles [expression] outside a composition, for imperative writes. An image the expression
+   * resolves stays acquired for the style's lifetime, because no disposal scope exists here.
+   */
+  internal fun <T : ExpressionValue> compile(expression: Expression<T>): CompiledExpression<T> {
+    context.reset()
+    return expression.compile(context)
   }
 
   private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf, stretch)

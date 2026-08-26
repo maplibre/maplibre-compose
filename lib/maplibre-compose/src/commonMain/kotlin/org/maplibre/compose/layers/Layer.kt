@@ -56,6 +56,23 @@ internal sealed class Layer(val id: String) {
       setLayoutProperty("visibility", JsonPrimitive(if (value) "visible" else "none"))
     }
 
+  /** The layer's `type` for callers outside the class hierarchy. */
+  internal val typeName: String
+    get() = type
+
+  /** Writes one layout property from outside the class hierarchy. */
+  internal fun writeLayoutProperty(name: String, value: JsonElement) {
+    setLayoutProperty(name, value)
+  }
+
+  /** Writes one paint property from outside the class hierarchy. */
+  internal fun writePaintProperty(name: String, value: JsonElement) {
+    setPaintProperty(name, value)
+  }
+
+  /** Reads one property from outside the class hierarchy. */
+  internal fun readLayerProperty(name: String): JsonElement = readProperty(name)
+
   protected fun setLayoutProperty(name: String, value: JsonElement) {
     layout[name] = value
     pushProperty(name, value, LayerPropertyKind.LAYOUT)

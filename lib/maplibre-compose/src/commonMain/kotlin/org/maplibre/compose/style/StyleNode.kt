@@ -52,6 +52,16 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal var clickRoutes: List<ClickRoute> = emptyList()
     private set
 
+  /** The layer ids the composition owns, published each sync for reads off the host thread. */
+  @Volatile
+  internal var compositionLayerIds: Set<String> = emptySet()
+    private set
+
+  /** The sources the composition owns by id, published each sync for reads off the host thread. */
+  @Volatile
+  internal var compositionSources: Map<String, Source> = emptyMap()
+    private set
+
   override fun allowsChild(node: MapNode) = node is LayerNode<*>
 
   override fun onChildInserted(index: Int, node: MapNode) {
@@ -91,6 +101,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       imageManager.ensureAttached()
       syncedBinding = binding
     }
+    publishCompositionOwnership()
     if (!binding.isLoaded) {
       publishClickRoutes()
       return
@@ -106,6 +117,13 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     desiredByAnchor.forEach { (anchor, group) -> syncAnchorGroup(anchor, group) }
 
     publishClickRoutes()
+  }
+
+  /** Rebuilds the ownership snapshots from the desired state that this sync applies. */
+  private fun publishCompositionOwnership() {
+    compositionLayerIds =
+      children.filterIsInstance<LayerNode<*>>().mapTo(hashSetOf()) { it.layer.id }
+    compositionSources = sourceManager.desiredSources.associateBy { it.id }
   }
 
   /** Rebuilds [clickRoutes] from the live draw order and the composition's handlers. */

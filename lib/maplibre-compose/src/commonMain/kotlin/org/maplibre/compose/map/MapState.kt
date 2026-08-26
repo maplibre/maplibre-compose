@@ -16,6 +16,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
@@ -23,6 +24,7 @@ import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.layers.LayerPropertyCompiler
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.ClickRoute
 import org.maplibre.compose.style.StyleBinding
@@ -35,6 +37,7 @@ import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
+import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -210,6 +213,44 @@ internal constructor(
     contentStarted = true
     host.setContent { contentState.value.invoke() }
   }
+
+  /**
+   * The loaded style's layers, in draw order. See [StyleLayers] for the map-owned versus
+   * composition-owned split. The collection is empty while no style is loaded, and repopulates when
+   * a session loads [baseStyle].
+   */
+  public val layers: StyleLayers = StyleLayers(this)
+
+  /**
+   * The loaded style's sources. See [StyleSources] for the composition-owned read path. The
+   * collection is empty while no style is loaded, and repopulates when a session loads [baseStyle].
+   */
+  public val sources: StyleSources = StyleSources(this)
+
+  /** Backs [StyleLayers.ids]; refreshed by [refreshStyleCollections]. */
+  internal val layerIdsState = mutableStateOf(emptyList<String>())
+
+  /** Backs [StyleSources.ids]; refreshed by [refreshStyleCollections]. */
+  internal val sourceIdsState = mutableStateOf(emptyList<String>())
+
+  private fun refreshStyleCollections() {
+    layerIdsState.value = styleNode.binding.layerIds().orEmpty()
+    sourceIdsState.value = styleNode.binding.getSources().map { it.id }
+  }
+
+  /** Refuses an imperative write on a layer id that the style content owns. */
+  internal fun checkLayerWritable(id: String) {
+    check(id !in styleNode.compositionLayerIds) {
+      "Layer '$id' is owned by the style content composition; change it by recomposing the " +
+        "content rather than through MapState.layers"
+    }
+  }
+
+  /** Compiles [expression] with this state's density and layout direction, as the content does. */
+  internal fun compileLayerProperty(expression: Expression<*>): JsonElement =
+    LayerPropertyCompiler(styleNode, host.density, host.layoutDirection)
+      .compile(expression)
+      .toStyleJson()
 
   /** The attached session's adapter, so a base-style change reaches the live map. */
   private var adapter: MapAdapter? = null
@@ -402,6 +443,7 @@ internal constructor(
   private fun updateBinding(newBinding: StyleBinding?) {
     styleNode.binding = newBinding ?: StyleBinding.UNLOADED
     styleState.refreshSources()
+    refreshStyleCollections()
     host.requestApplyChanges()
   }
 
@@ -428,11 +470,13 @@ internal constructor(
 
       override fun onMapFinishedLoading(map: MapAdapter) {
         styleState.refreshSources()
+        refreshStyleCollections()
         onMapLoadFinished()
       }
 
       override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
         if (sourceId == null) styleState.refreshSources() else styleState.refreshSource(sourceId)
+        refreshStyleCollections()
       }
 
       override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
