@@ -12,17 +12,40 @@ import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.TileLodOptions
 
-/** Which of the two chosen map styles applies: the system's, or a forced light or dark one. */
-enum class ThemeMode {
+/**
+ * Which of the two chosen map styles applies: the system's light or dark choice, or a forced light
+ * or dark style.
+ */
+enum class MapStyleMode {
   System,
   Light,
   Dark,
 }
 
+/**
+ * How the Material 3 chrome colors are generated: Android Material You, or a MapLibre brand palette
+ * style.
+ */
+enum class PaletteMode {
+  System,
+  Tonal,
+  Neutral,
+  Vibrant,
+  Expressive,
+}
+
+/** The palette choices this platform shows in settings. */
+expect val paletteModeOptions: List<PaletteMode>
+
+/** The first choice in [paletteModeOptions]: System on Android, Tonal elsewhere. */
+val defaultPaletteMode: PaletteMode
+  get() = paletteModeOptions.first()
+
 /** App-wide diagnostics and toggles, available regardless of which demo is open. */
 @Stable
 class DemoSettings {
-  var themeMode by mutableStateOf(ThemeMode.System)
+  var mapStyleMode by mutableStateOf(MapStyleMode.System)
+  var paletteMode by mutableStateOf(defaultPaletteMode)
   var gestureOptions by mutableStateOf(GestureOptions.Standard)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var tileLodOptions by mutableStateOf(TileLodOptions.Standard)

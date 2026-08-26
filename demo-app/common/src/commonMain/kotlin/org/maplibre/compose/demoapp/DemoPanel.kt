@@ -11,30 +11,20 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuAnchorType
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -46,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
+import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
@@ -158,9 +149,9 @@ fun DemoPanel(
         RenderSettingsItems(state.settings)
       }
     }
-    composable("settings/interface") {
-      SettingsSubScreen("Interface", onBack = { navController.popBackStack() }) {
-        InterfaceSettingsItems(state.settings)
+    composable("settings/controls") {
+      SettingsSubScreen("Controls", onBack = { navController.popBackStack() }) {
+        ControlSettingsItems(state.settings)
       }
     }
   }
@@ -213,42 +204,6 @@ private fun DemosScreen(
 }
 
 @Composable
-private fun StyleSelector(
-  label: String,
-  styles: List<DemoStyle>,
-  selected: DemoStyle,
-  onSelect: (DemoStyle) -> Unit,
-) {
-  var expanded by remember { mutableStateOf(false) }
-  ExposedDropdownMenuBox(
-    expanded = expanded,
-    onExpandedChange = { expanded = it },
-    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
-  ) {
-    OutlinedTextField(
-      value = selected.displayName,
-      onValueChange = {},
-      readOnly = true,
-      label = { Text(label) },
-      trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-      modifier =
-        Modifier.fillMaxWidth().menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
-    )
-    ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-      styles.forEach { style ->
-        DropdownMenuItem(
-          text = { Text(style.displayName) },
-          onClick = {
-            onSelect(style)
-            expanded = false
-          },
-        )
-      }
-    }
-  }
-}
-
-@Composable
 private fun SettingsScreen(
   state: DemoAppState,
   onBack: () -> Unit,
@@ -257,29 +212,39 @@ private fun SettingsScreen(
   SettingsSubScreen("Settings", onBack) {
     SectionHeader("Map style")
     SegmentedRow(
-      label = "Theme",
-      options = ThemeMode.entries,
-      selected = state.settings.themeMode,
+      options = MapStyleMode.entries,
+      selected = state.settings.mapStyleMode,
       optionLabel = { it.name },
-      onSelect = { state.settings.themeMode = it },
+      onSelect = { state.settings.mapStyleMode = it },
     )
-    StyleSelector(
+    DropdownRow(
       label = "Light style",
-      styles = allDemoStyles.filter { !it.isDark },
+      options = allDemoStyles.filter { !it.isDark },
       selected = state.chosenLightStyle,
+      optionLabel = { it.displayName },
       onSelect = { state.chosenLightStyle = it },
     )
-    StyleSelector(
+    DropdownRow(
       label = "Dark style",
-      styles = allDemoStyles.filter { it.isDark },
+      options = allDemoStyles.filter { it.isDark },
       selected = state.chosenDarkStyle,
+      optionLabel = { it.displayName },
       onSelect = { state.chosenDarkStyle = it },
+    )
+
+    SectionHeader("Material theme")
+    DropdownRow(
+      label = "Palette",
+      options = paletteModeOptions,
+      selected = state.settings.paletteMode,
+      optionLabel = { it.name },
+      onSelect = { state.settings.paletteMode = it },
     )
 
     SectionHeader("Options")
     SubmenuRow("Gestures", "Which inputs move the camera") { onOpen("gestures") }
     SubmenuRow("Rendering", "Frame rate cap, tile detail, and debug views") { onOpen("rendering") }
-    SubmenuRow("Interface", "Map controls and diagnostic overlays") { onOpen("interface") }
+    SubmenuRow("Controls", "Map controls and diagnostic overlays") { onOpen("controls") }
   }
 }
 
@@ -294,7 +259,7 @@ internal fun SubmenuRow(label: String, description: String, onClick: () -> Unit)
 }
 
 @Composable
-private fun InterfaceSettingsItems(settings: DemoSettings) {
+private fun ControlSettingsItems(settings: DemoSettings) {
   SectionHeader("Map controls")
   SwitchRow("Material 3 controls", settings.useMaterial3Controls) {
     settings.useMaterial3Controls = it
