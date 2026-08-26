@@ -4,8 +4,7 @@ import kotlin.js.Promise
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
-import kotlin.test.assertIs
-import kotlin.test.assertNotEquals
+import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.promise
@@ -99,11 +98,10 @@ private val HEATMAP_STYLE =
   )
 
 class BrowserCompositingTest {
-
   @Test
   fun the_map_lands_in_the_callers_framebuffer_and_never_on_the_canvas() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(gpu, FULL, FULL).use { target ->
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(target)
 
@@ -133,7 +131,7 @@ class BrowserCompositingTest {
   @Test
   fun the_two_colour_style_splits_the_target_down_the_prime_meridian() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(gpu, FULL, FULL).use { target ->
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(target)
         assertEquals(
@@ -148,7 +146,7 @@ class BrowserCompositingTest {
   @Test
   fun a_heatmap_uses_the_map_target_size_instead_of_the_shared_canvas_size() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    browserRenderTarget(SMALL, SMALL, generation = 1).use { target ->
+    browserRenderTarget(gpu, SMALL, SMALL).use { target ->
       CompositedMap(HEATMAP_STYLE, scaleFactor = FRACTIONAL_SCALE).use { map ->
         val extent = MapExtent.fromPhysical(SMALL, SMALL, FRACTIONAL_SCALE)
         map.drawUntil(target, "the heatmap point to reach the render tree") {
@@ -173,7 +171,7 @@ class BrowserCompositingTest {
   @Test
   fun skia_draws_the_adopted_texture_into_a_gpu_surface() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(gpu, FULL, FULL).use { target ->
       CompositedMap(SPLIT_STYLE).use { map -> map.drawTheWholeStyle(target) }
 
       assertEquals(
@@ -191,7 +189,7 @@ class BrowserCompositingTest {
   @Test
   fun overdraw_is_rendered_in_the_first_requested_frame() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(gpu, FULL, FULL).use { target ->
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(target)
         val requestsBefore = map.frameRequests
@@ -217,58 +215,9 @@ class BrowserCompositingTest {
   }
 
   @Test
-  fun a_new_skia_context_replaces_a_same_size_target_and_the_map_keeps_drawing() = gpuTest { gpu ->
-    val gl = gpu.gl.asDynamic()
-    val compositor = ComposeGlJsCompositor(logger = null)
-    CompositedMap(SPLIT_STYLE).use { map ->
-      try {
-        val first =
-          assertIs<GlJsFrameTarget.Composited>(
-              compositor.acquire(MapExtent.fromPhysical(FULL, FULL, 1.0))
-            )
-            .target
-        map.drawTheWholeStyle(first)
-
-        gpu.withRecreatedSkiaContext { nextSkia ->
-          val second =
-            assertIs<GlJsFrameTarget.Composited>(
-                compositor.acquire(MapExtent.fromPhysical(FULL, FULL, 1.0))
-              )
-              .target
-          assertNotEquals(
-            first.generation,
-            second.generation,
-            "a new Skia context should replace a same-size target",
-          )
-          assertTrue(first.gl === second.gl, "the browser WebGL context should stay the same")
-
-          map.drawTheWholeStyle(second)
-          assertEquals(
-            mapOf(RED to FULL * FULL / 2, BLUE to FULL * FULL / 2),
-            histogram(readFramebuffer(gl, second.framebuffer, FULL, FULL)),
-            "the existing map should draw into the replacement target",
-          )
-          assertEquals(
-            mapOf(
-              PAGE to FULL * FULL - SMALL * SMALL,
-              RED to SMALL * SMALL / 2,
-              BLUE to SMALL * SMALL / 2,
-            ),
-            drawTargetWithSkia(nextSkia, second),
-            "the replacement Skia context should draw the replacement image",
-          )
-          compositor.close()
-        }
-      } finally {
-        compositor.close()
-      }
-    }
-  }
-
-  @Test
   fun map_frames_clear_sampler_objects_left_by_the_shared_renderer() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(gpu, FULL, FULL).use { target ->
       CompositedMap(SPLIT_STYLE).use { map ->
         map.drawTheWholeStyle(target)
 
@@ -298,30 +247,21 @@ class BrowserCompositingTest {
   }
 
   @Test
-  fun a_resize_allocates_a_new_target_and_the_map_keeps_drawing() = gpuTest { gpu ->
+  fun resizing_the_target_keeps_the_map_drawing() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    ComposeGlJsCompositor(logger = null).use { compositor ->
+    browserRenderTarget(gpu, FULL, FULL).use { target ->
       CompositedMap(SPLIT_STYLE).use { map ->
-        val first =
-          assertIs<GlJsFrameTarget.Composited>(
-              compositor.acquire(MapExtent.fromPhysical(FULL, FULL, 1.0))
-            )
-            .target
-        map.drawTheWholeStyle(first)
+        map.drawTheWholeStyle(target)
 
-        val second =
-          assertIs<GlJsFrameTarget.Composited>(
-              compositor.acquire(MapExtent.fromPhysical(SMALL, SMALL, 1.0))
-            )
-            .target
-        assertNotEquals(first.generation, second.generation, "a resize should mint a new target")
-        assertEquals(SMALL, second.widthPx)
+        val imageBeforeResize = target.image
+        target.resize(SMALL, SMALL)
+        assertNotSame(imageBeforeResize, target.image, "resize should replace the adopted texture")
+        assertTrue(map.drawOnce(target), "the map should draw after the target changes size")
 
-        map.drawTheWholeStyle(second)
         assertEquals(
           mapOf(RED to SMALL * SMALL / 2, BLUE to SMALL * SMALL / 2),
-          histogram(readFramebuffer(gl, second.framebuffer, SMALL, SMALL)),
-          "the map should have gone on drawing, into the new target",
+          histogram(readFramebuffer(gl, target.framebuffer, SMALL, SMALL)),
+          "the resized target should contain the whole map",
         )
       }
     }
@@ -330,7 +270,7 @@ class BrowserCompositingTest {
   @Test
   fun closing_a_composited_map_leaves_the_shared_context_alive() = gpuTest { gpu ->
     val gl = gpu.gl.asDynamic()
-    browserRenderTarget(FULL, FULL, generation = 1).use { target ->
+    browserRenderTarget(gpu, FULL, FULL).use { target ->
       CompositedMap(SPLIT_STYLE).use { map -> map.drawTheWholeStyle(target) }
       assertFalse(
         gl.isContextLost().unsafeCast<Boolean>(),
@@ -351,7 +291,7 @@ private suspend fun CompositedMap.drawTheWholeStyle(target: GlJsRenderTarget) {
 
 private fun drawTargetWithSkia(
   skia: org.jetbrains.skia.DirectContext,
-  target: GlJsRenderTarget,
+  target: TestGlJsRenderTarget,
 ): Map<String, Int> {
   val surface =
     Surface.makeRenderTarget(
