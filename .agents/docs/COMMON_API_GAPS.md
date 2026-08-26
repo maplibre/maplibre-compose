@@ -10,24 +10,24 @@ against it. This is the other direction — what we could build _with_ it.
 
 ## When these land
 
-Not now, and deliberately. The sequence they belong to is:
+The sequence they belong to is:
 
-1. Rewrite the desktop platform on maplibre-native-ffi — the branch this
+1. ~~Rewrite the desktop platform on maplibre-native-ffi — the branch this
    document came from — and upstream fixes until the result is something we are
-   happy with.
-2. Once it surpasses the Android and iOS integrations in quality, rewrite those
-   on maplibre-native-ffi too.
-3. Redesign the public API and internal architecture around one common
-   maplibre-native-ffi integration instead of three different native ones,
-   deciding along the way whether web folds in via Wasm or stays on MapLibre GL
-   JS.
+   happy with.~~ Done.
+2. ~~Once it surpasses the Android and iOS integrations in quality, rewrite
+   those on maplibre-native-ffi too.~~ Done: every non-web platform runs on
+   maplibre-native-ffi.
+3. Redesign the public API and internal architecture around that one native
+   integration, deciding along the way whether web folds in via Wasm or stays on
+   MapLibre GL JS. In progress; [API_REDESIGN.md](./API_REDESIGN.md) is the
+   plan.
 4. Implement the missing common APIs once — twice at most, if web stays separate
    — against that shared integration.
 
-Everything below is step 4 work. Implementing any of it today means writing it
-separately against the Android SDK, the iOS SDK, the FFI, and MapLibre GL JS:
-four implementations of the same feature, three of which are thrown away at step
-2. That cost is the reason the sequence exists.
+Everything below is step 4 work. It waits on step 3 because the redesign decides
+the objects these APIs attach to, such as the runtime that owns HTTP and offline
+work.
 
 The corollary is that **what the FFI can do is the target surface**. Whether the
 Android or iOS SDK exposes a capability today does not decide whether it belongs
@@ -44,32 +44,29 @@ Not missing capabilities — shapes in the common layer that the desktop rewrite
 had to work around, and that step 3 is the moment to fix rather than reproduce.
 The desktop rewrite exposed them.
 
-**Unloading the outgoing style is a contract no platform states.** Switching a
+**Unloading the outgoing style is a contract no engine states.** Switching a
 style has to mark the previous one unloaded, because `LayerManager` skips anchor
 validation against an unloaded style, and that is what stops content briefly
 composed into the dying node from throwing
 `Layer ID '...' not found in base
-style` out of the applier. Both mobile
-adapters happen to do it, by calling `onStyleChanged(this, null)` from
-`setBaseStyle`; nothing says they must, and desktop did not, which is how the
-style selector came to crash. Timing is part of it: the unload has to be
-reported before the content subcomposition applies its inserts, which on Android
-falls out of `AndroidView`'s `update` block running inside the parent's apply. A
-shared integration should make this the common layer's job rather than something
-each platform rediscovers.
+style` out of the applier. Both engine
+sessions do it, by calling `onStyleChanged(this, null)` from `setBaseStyle`, and
+both map views time it with a `SideEffect` so the unload precedes the content
+subcomposition's inserts; nothing in the common layer requires either. The
+redesign makes this the common layer's job rather than a convention each engine
+session repeats.
 
 **Offline manager ownership has no lifecycle.** The FFI integration keeps one
-offline manager, dedicated thread, and native runtime alive for every distinct
-`MlnFfiRuntimeOptions` value passed to `rememberOfflineManager`. This preserves
-downloads when the composable that acquired the manager leaves composition,
-because MapLibre holds active download state in memory, but dynamically changing
-options retains every previous runtime until process exit. The shared
-integration should replace the global cache with an explicit application-scoped
-owner: one that can outlive navigation, can be created once per options value,
-and can be closed deliberately when the application is prepared to stop that
-runtime's active downloads. Composition-level disposal, weak references, and
-automatic eviction are not substitutes because each can silently interrupt a
-download.
+process-wide offline manager, dedicated thread, and native runtime, configured
+by the first `MlnFfiRuntimeOptions` the process uses and permanent after that.
+This preserves downloads when the composable that acquired the manager leaves
+composition, because MapLibre holds active download state in memory, but the
+runtime can never be reconfigured or closed. The redesign replaces the global
+cache with an explicit application-scoped owner: one that can outlive
+navigation, can be created once per options value, and can be closed
+deliberately when the application is prepared to stop that runtime's active
+downloads. Composition-level disposal, weak references, and automatic eviction
+are not substitutes because each can silently interrupt a download.
 
 ## Style light
 
@@ -80,19 +77,6 @@ extrusions shade against.
 
 Naturally a Compose API: a `Light` composable inside `MaplibreMap`'s content,
 set the same way layers are.
-
-## Custom geometry source
-
-A source whose tiles are generated by application code on demand rather than
-fetched or held in memory. The basis for on-the-fly grids, procedural geometry,
-and very large client-side datasets.
-
-- FFI: `addCustomGeometrySource`, `setCustomGeometrySourceTileData`,
-  `invalidateCustomGeometrySourceTile`, `invalidateCustomGeometrySourceRegion`
-
-Design question: the callback boundary. MapLibre calls back on its own worker
-threads to ask for a tile, which has to become something safe and idiomatic to
-implement from Kotlin.
 
 ## Projection mode
 
@@ -131,14 +115,13 @@ to tolerate a platform declining it.
 
 The event MapLibre raises when a style references a sprite that is not in the
 loaded image set, so an application can supply it on demand instead of shipping
-every icon up front. Desktop logs it today and can do nothing else, because
-there is no common callback to route it to — and neither the Android nor the iOS
-adapter exposes one either.
+every icon up front. The FFI session logs it today and can do nothing else,
+because there is no common callback to route it to.
 
 - FFI: the `MAP_STYLE_IMAGE_MISSING` runtime event, paired with the existing
   `setStyleImage`
 
-See the `MAP_STYLE_IMAGE_MISSING` branch in `DesktopMapSession.handleEvent`.
+See the `MAP_STYLE_IMAGE_MISSING` branch in `MlnFfiMapSession.handleEvent`.
 
 ## Resource transform
 
@@ -147,8 +130,8 @@ add API keys, route through a proxy, or redirect to a local mirror.
 
 - FFI: `setResourceTransform`, `clearResourceTransform`
 
-Desktop already has a broader mechanism in `DesktopResourceProvider`, which
-serves resources rather than only rewriting their URLs. The shared integration
+The FFI integration already has a broader mechanism in `MlnFfiResourceProvider`,
+which serves resources rather than only rewriting their URLs. The redesign
 should decide which of the two is the public API, rather than shipping both.
 
 ## Offline database merge
