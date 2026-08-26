@@ -212,7 +212,6 @@ private fun SettingsScreen(
   SettingsSubScreen("Settings", onBack) {
     SectionHeader("Map style")
     SegmentedRow(
-      label = "Light or dark",
       options = MapStyleMode.entries,
       selected = state.settings.mapStyleMode,
       optionLabel = { it.name },

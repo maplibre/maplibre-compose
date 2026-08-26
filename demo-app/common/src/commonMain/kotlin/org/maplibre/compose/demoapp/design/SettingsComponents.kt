@@ -101,15 +101,19 @@ fun <T> DropdownRow(
 /** A single-choice row of short options, as a settings list item. */
 @Composable
 fun <T> SegmentedRow(
-  label: String,
+  label: String? = null,
   options: List<T>,
   selected: T,
   optionLabel: (T) -> String,
   onSelect: (T) -> Unit,
 ) {
   Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
-    Text(label, style = MaterialTheme.typography.bodyLarge)
-    SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth().padding(top = 8.dp)) {
+    if (label != null) {
+      Text(label, style = MaterialTheme.typography.bodyLarge)
+    }
+    SingleChoiceSegmentedButtonRow(
+      Modifier.fillMaxWidth().padding(top = if (label != null) 8.dp else 0.dp)
+    ) {
       options.forEachIndexed { index, option ->
         SegmentedButton(
           selected = option == selected,
