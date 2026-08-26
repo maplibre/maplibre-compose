@@ -1,10 +1,12 @@
 package org.maplibre.compose.style
 
+import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * A source or layer's connection to its live style, as an ID and style-spec JSON. A binding stops
@@ -92,6 +94,32 @@ internal interface StyleBinding {
   fun sourceExists(sourceId: String): Boolean?
 
   /**
+   * Adds an image source carrying its pixels, for engines whose source JSON can only name a URL.
+   *
+   * @param coordinates the four corners in MapLibre's order: top left, top right, bottom right,
+   *   bottom left.
+   * @return false if the style has unloaded, in which case nothing was added.
+   * @throws StyleMutationException if MapLibre refuses the source.
+   */
+  fun addImageSourceImage(
+    sourceId: String,
+    coordinates: List<Position>,
+    image: ImageBitmap,
+  ): Boolean
+
+  /** Replaces an image source's content with a bitmap. */
+  fun setImageSourceImage(sourceId: String, image: ImageBitmap)
+
+  /** Replaces an image source's content with a URL. */
+  fun setImageSourceUrl(sourceId: String, url: String)
+
+  /** Moves an image source's four corners, given in MapLibre's order. */
+  fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>)
+
+  /** @return null if the style has unloaded, or the source is not a live image source. */
+  fun imageSourceCoordinates(sourceId: String): List<Position>?
+
+  /**
    * Reports that [sourceId] was added or removed, so the style state can refresh that source
    * without waiting for idle. An engine that adds sources through its own hop calls this from
    * inside that hop, after the add or remove.
@@ -174,6 +202,20 @@ internal interface StyleBinding {
         override fun removeSource(sourceId: String) = Unit
 
         override fun sourceExists(sourceId: String): Boolean? = null
+
+        override fun addImageSourceImage(
+          sourceId: String,
+          coordinates: List<Position>,
+          image: ImageBitmap,
+        ): Boolean = false
+
+        override fun setImageSourceImage(sourceId: String, image: ImageBitmap) = Unit
+
+        override fun setImageSourceUrl(sourceId: String, url: String) = Unit
+
+        override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) = Unit
+
+        override fun imageSourceCoordinates(sourceId: String): List<Position>? = null
 
         override fun setFeatureState(
           sourceId: String,

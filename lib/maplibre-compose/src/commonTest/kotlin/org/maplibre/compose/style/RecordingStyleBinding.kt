@@ -1,10 +1,13 @@
 package org.maplibre.compose.style
 
+import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 /** A loaded [StyleBinding] that keeps the JSON it is handed, standing in for an engine. */
 internal class RecordingStyleBinding(
@@ -30,6 +33,23 @@ internal class RecordingStyleBinding(
   }
 
   override fun sourceExists(sourceId: String): Boolean = sourceId in sources
+
+  override fun addImageSourceImage(
+    sourceId: String,
+    coordinates: List<Position>,
+    image: ImageBitmap,
+  ): Boolean {
+    sources[sourceId] = JsonObject(mapOf("type" to JsonPrimitive("image")))
+    return true
+  }
+
+  override fun setImageSourceImage(sourceId: String, image: ImageBitmap) = Unit
+
+  override fun setImageSourceUrl(sourceId: String, url: String) = Unit
+
+  override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) = Unit
+
+  override fun imageSourceCoordinates(sourceId: String): List<Position>? = null
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = true
 

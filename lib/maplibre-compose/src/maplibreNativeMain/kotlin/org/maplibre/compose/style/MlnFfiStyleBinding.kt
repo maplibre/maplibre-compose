@@ -1,5 +1,6 @@
 package org.maplibre.compose.style
 
+import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -11,12 +12,16 @@ import org.maplibre.compose.sources.mutateLiveFeatureState
 import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
+import org.maplibre.compose.util.toLatLng
+import org.maplibre.compose.util.toPosition
+import org.maplibre.compose.util.toPremultipliedRgba8
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.nativeffi.render.RenderSessionHandle
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 /**
  * [StyleBinding] over a MapLibre Native map. Every `MapHandle` call has to run on the owner thread;
@@ -84,6 +89,35 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
   override fun sourceExists(sourceId: String): Boolean? = readMap { map ->
     map.styleSourceExists(sourceId)
+  }
+
+  /** The bitmap is converted on the caller so the owner-thread hop only uploads. */
+  override fun addImageSourceImage(
+    sourceId: String,
+    coordinates: List<Position>,
+    image: ImageBitmap,
+  ): Boolean {
+    val pixels = image.toPremultipliedRgba8()
+    val corners = coordinates.map { it.toLatLng() }
+    return addSourceWith(sourceId) { map -> map.addImageSourceImage(sourceId, corners, pixels) }
+  }
+
+  override fun setImageSourceImage(sourceId: String, image: ImageBitmap) {
+    val pixels = image.toPremultipliedRgba8()
+    mutateMap { map -> map.setImageSourceImage(sourceId, pixels) }
+  }
+
+  override fun setImageSourceUrl(sourceId: String, url: String) {
+    mutateMap { map -> map.setImageSourceUrl(sourceId, url) }
+  }
+
+  override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
+    val corners = coordinates.map { it.toLatLng() }
+    mutateMap { map -> map.setImageSourceCoordinates(sourceId, corners) }
+  }
+
+  override fun imageSourceCoordinates(sourceId: String): List<Position>? = readMap { map ->
+    map.imageSourceCoordinates(sourceId)?.map { it.toPosition() }
   }
 
   override fun setFeatureState(

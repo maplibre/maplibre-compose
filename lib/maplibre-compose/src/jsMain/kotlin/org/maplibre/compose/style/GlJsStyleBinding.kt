@@ -1,26 +1,36 @@
 package org.maplibre.compose.style
 
+import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.add
+import kotlinx.serialization.json.addJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.gljs.FilterSpecification
+import org.maplibre.compose.gljs.GlJsImageSource
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.LayerSpecification
 import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
+import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.sources.featureIdentifiers
 import org.maplibre.compose.sources.toJsonObjectOrEmpty
+import org.maplibre.compose.util.toDataUrl
 import org.maplibre.compose.util.toGeoJsonFeature
 import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 /** [StyleBinding] over a MapLibre GL JS map. One binding belongs to one loaded style. */
 internal class GlJsStyleBinding(private val map: MaplibreMap, override val logger: Logger?) :
@@ -86,6 +96,51 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   override fun sourceExists(sourceId: String): Boolean? =
     if (!loaded) null else map.getSource<SourceHandle>(sourceId) != null
+
+  /** MapLibre GL JS names images by URL, so the bitmap is encoded to a `data:` URL. */
+  override fun addImageSourceImage(
+    sourceId: String,
+    coordinates: List<Position>,
+    image: ImageBitmap,
+  ): Boolean =
+    addSource(
+      sourceId,
+      buildJsonObject {
+        put("type", "image")
+        put("url", image.toDataUrl())
+        putJsonArray("coordinates") {
+          coordinates.forEach { corner ->
+            addJsonArray {
+              add(corner.longitude)
+              add(corner.latitude)
+            }
+          }
+        }
+      },
+    )
+
+  override fun setImageSourceImage(sourceId: String, image: ImageBitmap) {
+    setImageSourceUrl(sourceId, image.toDataUrl())
+  }
+
+  override fun setImageSourceUrl(sourceId: String, url: String) {
+    if (!loaded) return
+    val options = unsafeJso<UpdateImageOptions> { this.url = url }
+    map.getSource<GlJsImageSource>(sourceId)?.updateImage(options)
+  }
+
+  override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
+    if (!loaded) return
+    val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
+    map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
+  }
+
+  override fun imageSourceCoordinates(sourceId: String): List<Position>? {
+    if (!loaded) return null
+    return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.map {
+      Position(longitude = it[0], latitude = it[1])
+    }
+  }
 
   override fun setFeatureState(
     sourceId: String,
