@@ -54,6 +54,7 @@ class StyleCompositionHostThreadingTest {
     val rootNode = StyleNode(recording, null)
     val host =
       StyleCompositionHost(
+        rootNode = rootNode,
         dispatcher = dispatcher,
         density = Density(1f),
         layoutDirection = LayoutDirection.Ltr,
@@ -67,7 +68,7 @@ class StyleCompositionHostThreadingTest {
       // The "UI" thread here is the test's main thread; setContent must not run the composition
       // or the slow applies on it.
       val start = System.nanoTime()
-      host.setContent(rootNode) {
+      host.setContent {
         RasterLayer(id = "layer-a", source = a)
         if (showSecond) RasterLayer(id = "layer-b", source = b)
       }

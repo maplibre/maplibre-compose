@@ -38,13 +38,14 @@ class SymbolLayerCompositionTest {
       )
     val host =
       StyleCompositionHost(
+        rootNode = rootNode,
         dispatcher = StandardTestDispatcher(testScheduler),
         density = Density(1f),
         layoutDirection = LayoutDirection.Ltr,
         logger = null,
       )
     try {
-      host.setContent(rootNode) {
+      host.setContent {
         SymbolLayer(
           id = "labels",
           source = source,

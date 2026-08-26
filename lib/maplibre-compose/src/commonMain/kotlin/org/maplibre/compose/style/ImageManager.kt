@@ -18,7 +18,6 @@ import org.maplibre.compose.util.toImageBitmap
 internal class ImageManager(private val node: StyleNode) {
   private val bitmapIds = IncrementingIdMap<BitmapKey>("bitmap")
   private val bitmapCounter = ReferenceCounter<BitmapKey>()
-  private val heldBitmaps = mutableMapOf<BitmapKey, String>()
 
   private val painterIds = IncrementingIdMap<PainterKey>("painter")
   private val painterCounter = ReferenceCounter<PainterKey>()
@@ -31,7 +30,7 @@ internal class ImageManager(private val node: StyleNode) {
     val binding = node.binding
     if (attachedTo === binding) return
     attachedTo = binding
-    heldBitmaps.forEach { (key, id) ->
+    bitmapIds.entries.forEach { (key, id) ->
       node.logger?.i { "Re-adding bitmap $id" }
       binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
     }
@@ -47,7 +46,6 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.increment(key) {
       val id = bitmapIds.addId(key)
       node.logger?.i { "Adding bitmap $id" }
-      heldBitmaps[key] = id
       node.binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
     }
     return bitmapIds.getId(key)
@@ -57,7 +55,6 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.decrement(key) {
       val id = bitmapIds.removeId(key)
       node.logger?.i { "Removing bitmap $id" }
-      heldBitmaps.remove(key)
       node.binding.removeImage(id)
     }
   }

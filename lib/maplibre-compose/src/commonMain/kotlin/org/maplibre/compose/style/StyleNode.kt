@@ -23,7 +23,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal val imageManager = ImageManager(this)
 
   /** Set by the host; asks it to run a sync when desired state changes outside a frame. */
-  internal var requestSync: (() -> Unit)? = null
+  internal var requestSync: () -> Unit = {}
 
   /** The binding the applied snapshot below belongs to; a mismatch with [binding] resets it. */
   private var syncedBinding: StyleBinding? = null

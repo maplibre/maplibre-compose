@@ -290,7 +290,8 @@ internal class GlJsMapSession(
       .onFailure { logger?.e(it) { "MapLibre failed to close" } }
     container?.let { runCatching { it.remove() } }
     container = null
-    resumeStrandedTransitions()
+    // No `moveend` follows a map that is going away.
+    resumeTransitions()
   }
 
   private fun applyExtent(map: MaplibreMap, extent: MapExtent) {
@@ -760,11 +761,6 @@ internal class GlJsMapSession(
     val resuming = transitionWaiters.toList()
     transitionWaiters.clear()
     resuming.forEach { waiter -> if (waiter.isActive) runCatching { waiter.resume(Unit) } }
-  }
-
-  /** No `moveend` follows a map that is going away. */
-  private fun resumeStrandedTransitions() {
-    resumeTransitions()
   }
 
   override fun cancelTransitions() {

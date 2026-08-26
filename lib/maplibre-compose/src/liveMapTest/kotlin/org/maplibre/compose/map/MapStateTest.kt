@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -196,8 +197,7 @@ class MapStateTest {
     val firstOpsAfterDetach = firstBinding.ops.toList()
 
     assertNull(cameraState.map)
-    assertNull(state.binding)
-    assertNull(state.loadedStyleNode)
+    assertFalse(state.styleNode.binding.isLoaded)
     assertTrue(styleState.sources.isEmpty())
 
     val second = FakeMapAdapter()

@@ -63,38 +63,28 @@ backend.
 
 ### The map dies with the composable
 
-`ComposableMapView` creates the platform map. `CameraState.map` is set from the
-view's update block and cleared in `onReset`. `rememberStyleComposition` is a
-`LaunchedEffect` on the loaded style, so the content tree is torn down when the
-composable leaves the tree.
+`ComposableMapView` creates the platform map, and `MaplibreMap` still owns the
+internal `MapState` it attaches sessions to, so the map's lifetime is the
+composable's. The internal split is done: `MlnFfiMapCore` is the hoistable half,
+`MapState` has the attach/detach seam, and the application-scoped
+`MlnFfiRuntime` owns what the process-lifetime cache existed to protect. What
+remains is the public ownership story: a ViewModel can hold `CameraState` and
+`StyleState`, but not the map, a style loaded off-screen, or a snapshot of a map
+that is not composed.
 
-A ViewModel can hold `CameraState` and `StyleState`. It cannot hold the map,
-keep a style loaded off-screen, or snapshot a map that is not currently
-composed. The offline manager already ran into this: composition-scoped disposal
-interrupts downloads, so the FFI integration caches runtimes for the process
-lifetime instead. That cache is a workaround for a missing application-scoped
-owner.
+### ~~Style wiring that leans on Compose effect ordering~~
 
-### Style wiring that leans on Compose effect ordering
-
-`rememberStyleComposition` hosts content in a subcomposition that inherits the
-UI recomposer. Sources attach from `DisposableEffect`s; layer inserts apply from
-a generation-keyed `SideEffect`, which Compose runs after remembered observers
-in the same apply pass. That ordering is correct, and nothing states it: it
-holds because of Compose effect-ordering trivia, and `Source.attach` stays
-idempotent as defense.
-
-Switching a style has to mark the outgoing one unloaded before the content
-subcomposition applies inserts, or `LayerManager` validates anchors against the
-wrong style. Each engine session unloads its outgoing `StyleBinding` before
-reporting the switch, and the binding drops writes after unload; the timing
-contract between session and subcomposition is still unstated.
+Fixed in step 3. The style composition runs in a state-owned
+`StyleCompositionHost`; `StyleNode.applyChanges` syncs desired state in one
+stated order, sources before layers; `Source.attach` idempotency survives only
+as defense against a mid-switch unload, not as an ordering crutch; and one
+persistent composition per map replaces the per-style teardown.
 
 ### Snapshots need a style without a surface
 
-`maplibre-native-ffi` can render a map to a CPU image. The style API that would
-fill that image lives on `MaplibreMap`'s content lambda. Snapshots stay blocked
-on decoupling those two
+`maplibre-native-ffi` can render a map to a CPU image. The style composition no
+longer needs a UI composition or a surface; the remaining work is the public
+`snapshot` operation itself
 ([#28](https://github.com/maplibre/maplibre-compose/issues/28)).
 
 ## What to keep
@@ -417,8 +407,15 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
 2. ~~Make the JSON-shaped layer and source descriptors the only
    implementation.~~ Done: layer and source descriptors are common classes over
    the internal `StyleBinding` contract.
-3. Split `MapState` from the composable internally: the session attaches and
-   detaches; the state survives recomposition. Still no public change.
+3. ~~Split `MapState` from the composable internally: the session attaches and
+   detaches; the state survives recomposition. Still no public change.~~ Done,
+   beyond the promise: the style mutation stack collapsed onto `StyleBinding`,
+   the style composition runs in a state-owned host, the apply machinery is a
+   desired-state sync with one persistent composition per map, an internal
+   `MapState` owns the callbacks and the attach/detach seam, `MlnFfiMapSession`
+   split into the hoistable `MlnFfiMapCore` and a composition-scoped render
+   session, and one application-scoped `MlnFfiRuntime` owns the offline thread's
+   work.
 4. Publish `Runtime`, `MapState`, `rememberMapState`, and `MaplibreMap(state)`.
    Lift camera onto the state. Delete `StyleState` and `OfflineManager`.
 5. Publish `platform` as a delicate API. Close

@@ -20,16 +20,11 @@ public class StyleState internal constructor() {
 
   private val sourcesState = mutableStateOf(emptyMap<String, Source>())
 
-  internal fun attach(styleNode: StyleNode?) {
-    if (this.styleNode != styleNode) {
-      this.styleNode?.sourceManager?.state = null
-      this.styleNode = styleNode
-      styleNode?.sourceManager?.state = this
-      sourcesState.value = styleNode?.binding?.getSources().orEmpty().associateBy { it.id }
-    } else {
-      // The node persists across style swaps, so a re-attach re-reads the re-pointed binding.
-      refreshSources()
-    }
+  internal fun attach(styleNode: StyleNode) {
+    this.styleNode?.sourceManager?.state = null
+    this.styleNode = styleNode
+    styleNode.sourceManager.state = this
+    sourcesState.value = styleNode.binding.getSources().associateBy { it.id }
   }
 
   /** The inverse of [attach]: a detached state stops reporting a dead map's sources. */

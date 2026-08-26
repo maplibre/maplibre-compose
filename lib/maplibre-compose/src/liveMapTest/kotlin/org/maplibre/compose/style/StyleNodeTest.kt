@@ -27,9 +27,8 @@ private fun StyleNode.insertLayer(node: LayerNode<*>, index: Int) {
 }
 
 /** Removes a layer from the desired state the way the applier does. */
-private fun StyleNode.removeLayerAt(node: LayerNode<*>, index: Int) {
+private fun StyleNode.removeLayerAt(index: Int) {
   children.removeAt(index)
-  onChildRemoved(index, node)
 }
 
 @OptIn(ExperimentalTestApi::class)
@@ -296,7 +295,7 @@ class StyleNodeTest {
         s.binding.getLayers().map(Layer::id),
       )
 
-      nodes.forEach { node -> s.removeLayerAt(node, 0) }
+      repeat(nodes.size) { s.removeLayerAt(0) }
       s.applyChanges()
 
       assertEquals(listOf("foo", "bar", "baz"), s.binding.getLayers().map(Layer::id))
@@ -315,9 +314,9 @@ class StyleNodeTest {
       (s.binding as RecordingStyleBinding).unload()
 
       s.insertLayer(newNode, 0)
-      s.removeLayerAt(oldNode, 1)
+      s.removeLayerAt(1)
       s.applyChanges()
-      s.removeLayerAt(newNode, 0)
+      s.removeLayerAt(0)
     }
   }
 
@@ -334,7 +333,7 @@ class StyleNodeTest {
       assertEquals(l1.layer, s.binding.getLayer("new"))
 
       s.insertLayer(l2, 0)
-      s.removeLayerAt(l1, 1)
+      s.removeLayerAt(1)
       s.applyChanges()
 
       assertEquals(l2.layer, s.binding.getLayer("new"))

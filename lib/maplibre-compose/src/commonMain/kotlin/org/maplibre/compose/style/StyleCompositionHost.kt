@@ -33,12 +33,13 @@ import kotlinx.coroutines.launch
  * observer stands in for the platform's GlobalSnapshotManager so plain snapshot writes reach the
  * recomposer even when no UI composition is running.
  *
- * [setContent] and [clearContent] marshal onto [dispatcher], so a caller on the UI thread never
- * runs a style mutation. The host calls [StyleNode.applyChanges] after the initial composition and
- * after each frame; sources still attach before layers because effects run inside the frame and
- * this flush runs after it.
+ * [setContent] marshals onto [dispatcher], so a caller on the UI thread never runs a style
+ * mutation. The host calls [StyleNode.applyChanges] after the initial composition and after each
+ * frame; sources still attach before layers because effects run inside the frame and this flush
+ * runs after it.
  */
 internal class StyleCompositionHost(
+  private val rootNode: StyleNode,
   private val dispatcher: CoroutineDispatcher,
   density: Density,
   layoutDirection: LayoutDirection,
@@ -71,8 +72,10 @@ internal class StyleCompositionHost(
   internal val recomposer = Recomposer(scope.coroutineContext)
 
   // Host-thread confined; every access rides a coroutine on the single-threaded dispatcher.
-  private var rootNode: StyleNode? = null
   private var composition: Composition? = null
+
+  /** True before the first [setContent] and after each disposal; there is nothing to sync then. */
+  private var disposed = true
 
   private var closed = false
 
@@ -87,6 +90,7 @@ internal class StyleCompositionHost(
   private val writeObserver = Snapshot.registerGlobalWriteObserver { snapshotSignal.trySend(Unit) }
 
   init {
+    rootNode.requestSync = ::requestApplyChanges
     scope.launch {
       try {
         recomposer.runRecomposeAndApplyChanges()
@@ -112,15 +116,14 @@ internal class StyleCompositionHost(
    * composition, if any, is disposed first. The composition happens on the host dispatcher, so this
    * returns before the content has applied.
    */
-  fun setContent(rootNode: StyleNode, content: @Composable () -> Unit) {
+  fun setContent(content: @Composable () -> Unit) {
     if (closed) {
       logger?.w { "setContent on a closed StyleCompositionHost; content dropped" }
       return
     }
     scope.launch {
       disposeComposition()
-      this@StyleCompositionHost.rootNode = rootNode
-      rootNode.requestSync = ::requestApplyChanges
+      disposed = false
       val composition = Composition(MapNodeApplier(rootNode), recomposer)
       this@StyleCompositionHost.composition = composition
       try {
@@ -149,12 +152,6 @@ internal class StyleCompositionHost(
     if (locals == null) content() else CompositionLocalProvider(locals, content = content)
   }
 
-  /** Disposes the current content composition, leaving the host ready for a new [setContent]. */
-  fun clearContent() {
-    if (closed) return
-    scope.launch { disposeComposition() }
-  }
-
   /** Idempotent; the teardown itself runs on the host dispatcher after any in-flight frame. */
   override fun close() {
     if (closed) return
@@ -172,7 +169,7 @@ internal class StyleCompositionHost(
   }
 
   private fun applyChanges() {
-    val rootNode = rootNode ?: return
+    if (disposed) return
     try {
       rootNode.applyChanges()
     } catch (error: Throwable) {
@@ -206,21 +203,19 @@ internal class StyleCompositionHost(
   }
 
   private fun disposeComposition() {
-    val disposedRoot = rootNode
+    if (disposed) return
     try {
       composition?.dispose()
     } finally {
       composition = null
-      rootNode = null
+      disposed = true
     }
     // Disposal only empties the desired state; this sync removes the content from the engine.
-    disposedRoot?.let {
-      try {
-        it.applyChanges()
-      } catch (error: Throwable) {
-        contentError = error
-        logger?.e(error) { "Applying style changes after disposal failed" }
-      }
+    try {
+      rootNode.applyChanges()
+    } catch (error: Throwable) {
+      contentError = error
+      logger?.e(error) { "Applying style changes after disposal failed" }
     }
   }
 }

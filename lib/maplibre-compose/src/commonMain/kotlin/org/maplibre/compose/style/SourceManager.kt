@@ -41,21 +41,25 @@ internal class SourceManager(private val node: StyleNode) {
 
   internal fun nextId(): String = sourceIds.next()
 
-  internal fun addReference(source: Source) {
-    require(source.id !in baseSources()) { "Source ID '${source.id}' already exists in base style" }
+  /**
+   * Records a reference to [source] unless it is the base source of that id, and returns whether a
+   * reference was taken; only a taken reference may be given back through [removeReference].
+   */
+  internal fun addReference(source: Source): Boolean {
+    val base = baseSources()[source.id]
+    if (base === source) return false
+    require(base == null) { "Source id '${source.id}' conflicts with a base source" }
     counter.increment(source) {
       desiredSources += source
-      node.requestSync?.invoke()
+      node.requestSync()
     }
+    return true
   }
 
   internal fun removeReference(source: Source) {
-    require(source.id !in baseSources()) {
-      "Source ID '${source.id}' is part of the base style and can't be removed here"
-    }
     counter.decrement(source) {
       desiredSources -= source
-      node.requestSync?.invoke()
+      node.requestSync()
     }
   }
 }

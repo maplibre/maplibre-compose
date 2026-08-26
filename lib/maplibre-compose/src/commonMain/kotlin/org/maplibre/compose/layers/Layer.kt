@@ -185,12 +185,9 @@ internal sealed class Layer(val id: String) {
         "each map"
     }
     // A duplicate ID fails here, on the caller, with the message that names the cause; the add
-    // itself would fail too, but with MapLibre's generic refusal. A same-binding re-attach is
-    // idempotent: the layer is already in this style. Null means the check could not run; the add
-    // still refuses a duplicate.
-    val exists = binding.layerExists(id)
-    if (this.binding === binding && exists == true) return
-    check(exists != true) {
+    // itself would fail too, but with MapLibre's generic refusal. Null means the check could not
+    // run; the add still refuses a duplicate.
+    check(binding.layerExists(id) != true) {
       "Layer ID '$id' is already owned by a different live layer descriptor; create a separate " +
         "layer instance for each map"
     }

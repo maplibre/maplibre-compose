@@ -24,8 +24,9 @@ private fun testSource(id: String) =
 @OptIn(ExperimentalCoroutinesApi::class)
 class StyleCompositionHostTest {
 
-  private fun TestScope.testHost() =
+  private fun TestScope.testHost(rootNode: StyleNode) =
     StyleCompositionHost(
+      rootNode = rootNode,
       dispatcher = StandardTestDispatcher(testScheduler),
       density = Density(1f),
       layoutDirection = LayoutDirection.Ltr,
@@ -36,20 +37,20 @@ class StyleCompositionHostTest {
   fun initial_content_applies_off_the_caller_with_sources_before_layers() = runTest {
     val recording = OpRecordingStyleBinding()
     val rootNode = StyleNode(recording, null)
-    val host = testHost()
+    val host = testHost(rootNode)
     val source = testSource("tiles")
 
-    host.setContent(rootNode) { RasterLayer(id = "raster", source = source) }
+    host.setContent { RasterLayer(id = "raster", source = source) }
 
     // setContent marshals onto the host dispatcher, so nothing has applied on the caller.
     assertTrue(recording.ops.isEmpty())
 
-    host.awaitPendingWork()
+    testScheduler.advanceUntilIdle()
     assertEquals(listOf("addSource:tiles", "addLayer:raster"), recording.ops.toList())
     assertNull(host.contentError)
 
     // Settling adds no further ops.
-    host.awaitPendingWork()
+    testScheduler.advanceUntilIdle()
     assertEquals(listOf("addSource:tiles", "addLayer:raster"), recording.ops.toList())
 
     host.close()
@@ -60,16 +61,16 @@ class StyleCompositionHostTest {
   fun snapshot_state_change_applies_after_host_pumped_frames() = runTest {
     val recording = OpRecordingStyleBinding()
     val rootNode = StyleNode(recording, null)
-    val host = testHost()
+    val host = testHost(rootNode)
     val a = testSource("a")
     val b = testSource("b")
     var showSecond by mutableStateOf(false)
 
-    host.setContent(rootNode) {
+    host.setContent {
       RasterLayer(id = "layer-a", source = a)
       if (showSecond) RasterLayer(id = "layer-b", source = b)
     }
-    host.awaitPendingWork()
+    testScheduler.advanceUntilIdle()
     val framesBefore = host.framesPumped
     recording.ops.clear()
 
@@ -78,7 +79,7 @@ class StyleCompositionHostTest {
     // notification, and the pumped frame all ride the host dispatcher.
     assertTrue(recording.ops.isEmpty())
 
-    host.awaitPendingWork()
+    testScheduler.advanceUntilIdle()
     assertNull(host.contentError)
     assertEquals(listOf("addSource:b", "addLayerAbove:layer-b"), recording.ops.toList())
     assertTrue(host.framesPumped > framesBefore, "the update rode a host-pumped frame")
@@ -91,23 +92,23 @@ class StyleCompositionHostTest {
   fun post_frame_apply_keeps_sources_before_layers_on_a_structural_update() = runTest {
     val recording = OpRecordingStyleBinding()
     val rootNode = StyleNode(recording, null)
-    val host = testHost()
+    val host = testHost(rootNode)
     val a = testSource("a")
     val b = testSource("b")
     var showSecond by mutableStateOf(false)
 
-    host.setContent(rootNode) {
+    host.setContent {
       RasterLayer(id = "layer-a", source = a)
       if (showSecond) RasterLayer(id = "layer-b", source = b)
     }
-    host.awaitPendingWork()
+    testScheduler.advanceUntilIdle()
     // Sources attach before layers: DisposableEffects run inside the composition apply, and the
     // host's explicit applyChanges runs after it.
     assertEquals(listOf("addSource:a", "addLayer:layer-a"), recording.ops.toList())
     recording.ops.clear()
 
     showSecond = true
-    host.awaitPendingWork()
+    testScheduler.advanceUntilIdle()
     assertEquals(listOf("addSource:b", "addLayerAbove:layer-b"), recording.ops.toList())
 
     host.close()
@@ -118,12 +119,12 @@ class StyleCompositionHostTest {
   fun teardown_disposes_content_and_stops_everything() = runTest {
     val recording = OpRecordingStyleBinding()
     val rootNode = StyleNode(recording, null)
-    val host = testHost()
+    val host = testHost(rootNode)
     val source = testSource("tiles")
     var minZoom by mutableStateOf(1f)
 
-    host.setContent(rootNode) { RasterLayer(id = "raster", source = source, minZoom = minZoom) }
-    host.awaitPendingWork()
+    host.setContent { RasterLayer(id = "raster", source = source, minZoom = minZoom) }
+    testScheduler.advanceUntilIdle()
     recording.ops.clear()
 
     host.close()
@@ -145,26 +146,30 @@ class StyleCompositionHostTest {
   }
 
   @Test
-  fun a_binding_swap_rebuilds_the_content_composition() = runTest {
-    val first = OpRecordingStyleBinding()
-    val second = OpRecordingStyleBinding()
-    val host = testHost()
-    val source = testSource("tiles")
+  fun a_second_set_content_replaces_the_previous_composition() = runTest {
+    val recording = OpRecordingStyleBinding()
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+    val first = testSource("first")
+    val second = testSource("second")
 
-    host.setContent(StyleNode(first, null)) {
-      RasterLayer(id = "raster", source = source)
-    }
-    host.awaitPendingWork()
-    assertEquals(listOf("addSource:tiles", "addLayer:raster"), first.ops.toList())
-    first.ops.clear()
+    host.setContent { RasterLayer(id = "layer-first", source = first) }
+    testScheduler.advanceUntilIdle()
+    assertEquals(listOf("addSource:first", "addLayer:layer-first"), recording.ops.toList())
+    recording.ops.clear()
 
-    host.setContent(StyleNode(second, null)) {
-      RasterLayer(id = "raster", source = source)
-    }
-    host.awaitPendingWork()
-    // The old composition left the old binding before the new one composed into the new binding.
-    assertEquals(listOf("removeLayer:raster", "removeSource:tiles"), first.ops.toList())
-    assertEquals(listOf("addSource:tiles", "addLayer:raster"), second.ops.toList())
+    host.setContent { RasterLayer(id = "layer-second", source = second) }
+    testScheduler.advanceUntilIdle()
+    // The old composition left the style before the new one composed into it.
+    assertEquals(
+      listOf(
+        "removeLayer:layer-first",
+        "removeSource:first",
+        "addSource:second",
+        "addLayer:layer-second",
+      ),
+      recording.ops.toList(),
+    )
 
     host.close()
     testScheduler.advanceUntilIdle()
@@ -174,16 +179,16 @@ class StyleCompositionHostTest {
   fun property_update_reaches_the_layer_without_structural_ops() = runTest {
     val recording = OpRecordingStyleBinding()
     val rootNode = StyleNode(recording, null)
-    val host = testHost()
+    val host = testHost(rootNode)
     val source = testSource("tiles")
     var minZoom by mutableStateOf(1f)
 
-    host.setContent(rootNode) { RasterLayer(id = "raster", source = source, minZoom = minZoom) }
-    host.awaitPendingWork()
+    host.setContent { RasterLayer(id = "raster", source = source, minZoom = minZoom) }
+    testScheduler.advanceUntilIdle()
     recording.ops.clear()
 
     minZoom = 7f
-    host.awaitPendingWork()
+    testScheduler.advanceUntilIdle()
     // A property change updates the retained Layer object; it is not a structural style op.
     assertEquals(7f, (recording.getLayer("raster") ?: error("missing")).minZoom)
     assertTrue(recording.ops.isEmpty(), "no structural ops for a property change: ${recording.ops}")

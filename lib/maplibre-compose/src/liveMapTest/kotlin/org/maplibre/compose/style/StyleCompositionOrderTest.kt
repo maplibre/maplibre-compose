@@ -30,13 +30,14 @@ class StyleCompositionOrderTest {
       )
     val host =
       StyleCompositionHost(
+        rootNode = rootNode,
         dispatcher = StandardTestDispatcher(testScheduler),
         density = Density(1f),
         layoutDirection = LayoutDirection.Ltr,
         logger = null,
       )
     try {
-      host.setContent(rootNode) {
+      host.setContent {
         SourceReferenceEffect(source)
         ComposeLayerNode(
           factory = { FillLayerDescriptor("composed-layer", source) },

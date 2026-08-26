@@ -1,8 +1,12 @@
 package org.maplibre.compose.style
 
-internal class IncrementingIdMap<in T>(private val name: String) {
+internal class IncrementingIdMap<T>(private val name: String) {
   private val ids = IncrementingId(name)
   private val map = mutableMapOf<T, String>()
+
+  /** The values that hold an id, each paired with it. */
+  val entries: Set<Map.Entry<T, String>>
+    get() = map.entries
 
   fun addId(value: T): String {
     return map.getOrPut(value) { ids.next() }

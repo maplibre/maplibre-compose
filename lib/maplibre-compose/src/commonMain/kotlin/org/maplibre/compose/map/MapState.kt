@@ -21,6 +21,7 @@ import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.styleHostDispatcher
 import org.maplibre.compose.util.ClickResult
+import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -49,28 +50,17 @@ internal class MapState(
   hostDispatcher: StyleHostDispatcher = styleHostDispatcher(),
 ) : AutoCloseable {
 
+  internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
+
   internal val host: StyleCompositionHost =
     StyleCompositionHost(
+      rootNode = styleNode,
       dispatcher = hostDispatcher.dispatcher,
       density = density,
       layoutDirection = layoutDirection,
       logger = logger,
       onClosed = hostDispatcher::close,
     )
-
-  internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
-
-  private val bindingState = mutableStateOf<StyleBinding?>(null)
-
-  /** The style the attached session has loaded, or null while none is loaded. */
-  internal val binding: StyleBinding?
-    get() = bindingState.value
-
-  private val styleNodeState = mutableStateOf<StyleNode?>(null)
-
-  /** The style node while a style is loaded, or null; overlay click routing walks its children. */
-  internal val loadedStyleNode: StyleNode?
-    get() = styleNodeState.value
 
   /** The base style the application has requested; the session loads it, not this state. */
   internal var baseStyle: BaseStyle = BaseStyle.Demo
@@ -150,12 +140,13 @@ internal class MapState(
   internal fun startStyleComposition() {
     if (contentStarted) return
     contentStarted = true
-    host.setContent(styleNode) { contentState.value.invoke() }
+    host.setContent { contentState.value.invoke() }
   }
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
     cameraState.map = adapter
+    styleState.attach(styleNode)
   }
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
@@ -186,11 +177,9 @@ internal class MapState(
   }
 
   private fun updateBinding(newBinding: StyleBinding?) {
-    bindingState.value = newBinding
     styleNode.binding = newBinding ?: StyleBinding.UNLOADED
-    styleState.attach(styleNode)
+    styleState.refreshSources()
     host.requestApplyChanges()
-    styleNodeState.value = if (newBinding != null) styleNode else null
   }
 
   override fun close() {
@@ -237,21 +226,23 @@ internal class MapState(
         cameraState.isCameraMovingState.value = false
       }
 
+      /** The layer nodes the composition holds, topmost drawn first. */
       private fun layerNodesInOrder(): List<LayerNode<*>> {
         val layerNodes =
-          (loadedStyleNode?.children?.filterIsInstance<LayerNode<*>>() ?: emptyList())
-            .associateBy { node ->
-              node.layer.id
-            }
-        val layers = loadedStyleNode?.binding?.getLayers() ?: emptyList()
-        return layers.asReversed().mapNotNull { layer -> layerNodes[layer.id] }
+          styleNode.children.filterIsInstance<LayerNode<*>>().associateBy { it.layer.id }
+        val ids = styleNode.binding.layerIds().orEmpty()
+        return ids.asReversed().mapNotNull { id -> layerNodes[id] }
       }
 
-      override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-        if (onMapClick(latLng, offset).consumed) return
+      /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */
+      private fun routeClick(
+        map: MapAdapter,
+        offset: DpOffset,
+        handlerOf: (LayerNode<*>) -> FeaturesClickHandler?,
+      ) {
         clickScope?.launch {
           for (node in layerNodesInOrder()) {
-            if (node.onClick == null) continue
+            if (handlerOf(node) == null) continue
             val features =
               map.queryRenderedFeatures(
                 offset = offset,
@@ -262,32 +253,21 @@ internal class MapState(
             // removed node never receives the click; a replaced one answers with the handler
             // it has now.
             val currentHandle =
-              layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onClick ?: continue
-            if (features.isNotEmpty() && currentHandle(features).consumed) break
-          }
-        }
-      }
-
-      override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-        if (onMapLongClick(latLng, offset).consumed) return
-        clickScope?.launch {
-          for (node in layerNodesInOrder()) {
-            if (node.onLongClick == null) continue
-            val features =
-              map.queryRenderedFeatures(
-                offset = offset,
-                layerIds = setOf(node.layer.id),
-                predicate = null,
-              )
-            // Recomposition may replace or remove the node while the query is suspended. A
-            // removed node never receives the click; a replaced one answers with the handler
-            // it has now.
-            val currentHandle =
-              layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onLongClick
+              layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.let(handlerOf)
                 ?: continue
             if (features.isNotEmpty() && currentHandle(features).consumed) break
           }
         }
+      }
+
+      override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
+        if (onMapClick(latLng, offset).consumed) return
+        routeClick(map, offset) { it.onClick }
+      }
+
+      override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
+        if (onMapLongClick(latLng, offset).consumed) return
+        routeClick(map, offset) { it.onLongClick }
       }
 
       override fun onFrame(fps: Double) {

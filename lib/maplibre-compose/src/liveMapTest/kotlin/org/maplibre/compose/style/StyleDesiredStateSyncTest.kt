@@ -69,6 +69,7 @@ class StyleDesiredStateSyncTest {
     val rootNode = StyleNode(first, null)
     val host =
       StyleCompositionHost(
+        rootNode = rootNode,
         dispatcher = StandardTestDispatcher(testScheduler),
         density = Density(1f),
         layoutDirection = LayoutDirection.Ltr,
@@ -78,7 +79,7 @@ class StyleDesiredStateSyncTest {
       RasterSource("tiles", listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())
 
     try {
-      host.setContent(rootNode) {
+      host.setContent {
         RasterLayer(id = "layer-1", source = source)
         RasterLayer(id = "layer-2", source = source)
       }
