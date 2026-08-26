@@ -51,7 +51,7 @@ class UnsupportedLayerPropertyTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
-      val layer = SymbolLayer("labels", source)
+      val layer = SymbolLayerDescriptor("labels", source)
       layer.setIconAllowOverlap(const(true).compile(ExpressionContext.None))
       layer.setTextAllowOverlap(const(true).compile(ExpressionContext.None))
       layer.setIconOverlap(const("cooperative").compile(ExpressionContext.None))
@@ -111,7 +111,7 @@ class UnsupportedLayerPropertyTest {
 
       // What every SymbolLayer composable does: an optional property nobody set compiles to a null
       // literal and is handed to the setter anyway.
-      val layer = SymbolLayer("labels", source)
+      val layer = SymbolLayerDescriptor("labels", source)
       layer.setIconOverlap(nil().cast<StringValue>().compile(ExpressionContext.None))
       layer.setTextOverlap(nil().cast<SymbolOverlap>().compile(ExpressionContext.None))
       style.addLayer(layer)
@@ -128,7 +128,7 @@ class UnsupportedLayerPropertyTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
-      val layer = SymbolLayer("labels", source)
+      val layer = SymbolLayerDescriptor("labels", source)
       layer.setTextRotationAlignment(
         const(TextRotationAlignment.Map).compile(ExpressionContext.None)
       )

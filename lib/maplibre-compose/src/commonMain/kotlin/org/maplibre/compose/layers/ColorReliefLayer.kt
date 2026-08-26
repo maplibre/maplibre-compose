@@ -52,7 +52,7 @@ public fun ColorReliefLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { ColorReliefLayer(id = id, source = source) },
+    factory = { ColorReliefLayerDescriptor(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }
       set(maxZoom) { layer.maxZoom = it }
@@ -66,7 +66,7 @@ public fun ColorReliefLayer(
   )
 }
 
-internal class ColorReliefLayer(id: String, val source: Source) : Layer(id) {
+internal class ColorReliefLayerDescriptor(id: String, val source: Source) : Layer(id) {
 
   override val type: String = "color-relief"
 

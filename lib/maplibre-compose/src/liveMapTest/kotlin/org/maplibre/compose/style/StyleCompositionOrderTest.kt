@@ -6,7 +6,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
-import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.FillLayerDescriptor
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LayerNode as ComposeLayerNode
 import org.maplibre.compose.sources.GeoJsonData
@@ -39,7 +39,7 @@ class StyleCompositionOrderTest {
       host.setContent(rootNode) {
         SourceReferenceEffect(source)
         ComposeLayerNode(
-          factory = { FillLayer("composed-layer", source) },
+          factory = { FillLayerDescriptor("composed-layer", source) },
           update = {},
           onClick = null,
           onLongClick = null,

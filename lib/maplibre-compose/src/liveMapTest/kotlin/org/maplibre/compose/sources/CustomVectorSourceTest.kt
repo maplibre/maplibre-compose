@@ -15,7 +15,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.CircleLayerDescriptor
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
@@ -40,7 +40,7 @@ class CustomVectorSourceTest {
           POINT_TILE
         }
       style.addSource(source)
-      val layer = CircleLayer("custom-vector-points", source)
+      val layer = CircleLayerDescriptor("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
       layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
       layer.setCircleColor(const(Color.Blue).compile(ExpressionContext.None))
@@ -95,7 +95,7 @@ class CustomVectorSourceTest {
           }
         }
       style.addSource(source)
-      val layer = CircleLayer("custom-vector-points", source)
+      val layer = CircleLayerDescriptor("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
       style.addLayer(layer)
       fixture.pumpUntil("the custom MVT provider to start") { state.started }
@@ -121,7 +121,7 @@ class CustomVectorSourceTest {
             state.cancelled = true
           }
         }
-      val layer = CircleLayer("custom-vector-points", source)
+      val layer = CircleLayerDescriptor("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
       style.addSource(source)
       style.addLayer(layer)

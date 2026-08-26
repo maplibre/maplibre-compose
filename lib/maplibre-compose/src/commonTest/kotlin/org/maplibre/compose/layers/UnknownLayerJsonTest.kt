@@ -11,7 +11,7 @@ class UnknownLayerJsonTest {
   fun a_reconstructed_layer_emits_back_every_key_maplibre_reported() {
     val definition = Json.parseToJsonElement(REPORTED_LINE_LAYER).jsonObject
 
-    assertEquals(definition, UnknownLayer("roads", definition).toJson())
+    assertEquals(definition, UnknownLayerDescriptor("roads", definition).toJson())
   }
 
   private companion object {

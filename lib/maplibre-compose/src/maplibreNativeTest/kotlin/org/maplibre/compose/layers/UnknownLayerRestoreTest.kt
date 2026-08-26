@@ -29,7 +29,7 @@ class UnknownLayerRestoreTest {
         assertNotNull(binding.readMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
       assertEquals("transportation", binding.readMap { map -> map.layerSourceLayer(ROADS) })
 
-      val replacement = BackgroundLayer("user-replacement")
+      val replacement = BackgroundLayerDescriptor("user-replacement")
       // The exact sequence LayerManager runs.
       style.addLayerAbove(ROADS, replacement)
       style.removeLayer(original)

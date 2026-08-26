@@ -5,7 +5,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.CircleLayerDescriptor
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MlnFfiMapFixture
@@ -29,7 +29,7 @@ class CustomVectorSourceNativeTest {
           release.await()
           byteArrayOf()
         }
-      val layer = CircleLayer("empty-points", source)
+      val layer = CircleLayerDescriptor("empty-points", source)
       layer.sourceLayer = "points"
       style.addSource(source)
       style.addLayer(layer)

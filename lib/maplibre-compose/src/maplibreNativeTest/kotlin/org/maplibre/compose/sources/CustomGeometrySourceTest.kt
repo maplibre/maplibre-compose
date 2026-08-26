@@ -15,7 +15,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
-import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.FillLayerDescriptor
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
@@ -103,7 +103,7 @@ class CustomGeometrySourceTest {
           }
         }
       style.addSource(source)
-      style.addLayer(FillLayer(id = "custom-fill", source = source))
+      style.addLayer(FillLayerDescriptor(id = "custom-fill", source = source))
       fixture.pumpUntil("the provider to start") { state.started }
 
       fixture.loadStyle(BaseStyle.Empty)
@@ -127,7 +127,7 @@ class CustomGeometrySourceTest {
           error("fixture provider failure")
         }
       style.addSource(source)
-      style.addLayer(FillLayer(id = "custom-fill", source = source))
+      style.addLayer(FillLayerDescriptor(id = "custom-fill", source = source))
 
       fixture.pumpUntil("the source to request a tile") { requested.isCompleted }
       assertFalse(
@@ -152,7 +152,7 @@ class CustomGeometrySourceTest {
         cover(tile.bounds, featureName)
       }
     style.addSource(source)
-    style.addLayer(FillLayer(id = "custom-fill", source = source))
+    style.addLayer(FillLayerDescriptor(id = "custom-fill", source = source))
     return source
   }
 

@@ -74,7 +74,7 @@ public fun HeatmapLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { HeatmapLayer(id = id, source = source) },
+    factory = { HeatmapLayerDescriptor(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
       set(sourceLayer) { layer.sourceLayer = it }
@@ -93,7 +93,7 @@ public fun HeatmapLayer(
   )
 }
 
-internal class HeatmapLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class HeatmapLayerDescriptor(id: String, source: Source) : FeatureLayer(id, source) {
 
   override val type: String = "heatmap"
 

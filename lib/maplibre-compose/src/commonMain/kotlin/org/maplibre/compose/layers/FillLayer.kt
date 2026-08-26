@@ -106,7 +106,7 @@ public fun FillLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { FillLayer(id = id, source = source) },
+    factory = { FillLayerDescriptor(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
       set(sourceLayer) { layer.sourceLayer = it }
@@ -129,7 +129,7 @@ public fun FillLayer(
   )
 }
 
-internal class FillLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class FillLayerDescriptor(id: String, source: Source) : FeatureLayer(id, source) {
 
   override val type: String = "fill"
 

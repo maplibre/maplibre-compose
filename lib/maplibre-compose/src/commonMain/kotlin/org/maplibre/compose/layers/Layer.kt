@@ -92,7 +92,7 @@ internal sealed class Layer(val id: String) {
     setFilterJson(filter.toStyleJson())
   }
 
-  /** Sets this layer's filter from style JSON, for [UnknownLayer]. Same null contract. */
+  /** Sets this layer's filter from style JSON, for [UnknownLayerDescriptor]. Same null contract. */
   protected fun setFilterJson(filter: JsonElement) {
     root["filter"] = filter
     binding.setLayerFilter(id, filter)

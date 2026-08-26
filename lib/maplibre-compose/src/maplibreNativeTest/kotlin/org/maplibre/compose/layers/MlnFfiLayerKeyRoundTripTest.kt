@@ -39,7 +39,7 @@ class MlnFfiLayerKeyRoundTripTest {
           )
           .also { source -> style.addSource(source) }
 
-      val beforeAttach = SymbolLayer("before", source)
+      val beforeAttach = SymbolLayerDescriptor("before", source)
       beforeAttach.sourceLayer = "places"
       beforeAttach.minZoom = 3f
       beforeAttach.maxZoom = 15f
@@ -49,7 +49,7 @@ class MlnFfiLayerKeyRoundTripTest {
       )
       style.addLayer(beforeAttach)
 
-      val afterAttach = SymbolLayer("after", source)
+      val afterAttach = SymbolLayerDescriptor("after", source)
       style.addLayer(afterAttach)
       afterAttach.sourceLayer = "roads"
       afterAttach.minZoom = 4f

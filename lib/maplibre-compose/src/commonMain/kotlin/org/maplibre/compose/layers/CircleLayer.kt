@@ -107,7 +107,7 @@ public fun CircleLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { CircleLayer(id = id, source = source) },
+    factory = { CircleLayerDescriptor(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
       set(sourceLayer) { layer.sourceLayer = it }
@@ -133,7 +133,7 @@ public fun CircleLayer(
   )
 }
 
-internal class CircleLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class CircleLayerDescriptor(id: String, source: Source) : FeatureLayer(id, source) {
 
   override val type: String = "circle"
 

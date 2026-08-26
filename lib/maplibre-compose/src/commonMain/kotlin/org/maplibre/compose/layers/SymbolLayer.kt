@@ -579,7 +579,7 @@ public fun SymbolLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { SymbolLayer(id = id, source = source) },
+    factory = { SymbolLayerDescriptor(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
       set(sourceLayer) { layer.sourceLayer = it }
@@ -653,7 +653,7 @@ public fun SymbolLayer(
   )
 }
 
-internal class SymbolLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class SymbolLayerDescriptor(id: String, source: Source) : FeatureLayer(id, source) {
 
   override val type: String = "symbol"
 

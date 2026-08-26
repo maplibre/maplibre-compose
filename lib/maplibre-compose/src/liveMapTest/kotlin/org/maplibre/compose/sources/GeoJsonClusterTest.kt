@@ -8,7 +8,7 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.CircleLayerDescriptor
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -43,7 +43,7 @@ class GeoJsonClusterTest {
           options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
         )
       style.addSource(source)
-      style.addLayer(CircleLayer("clusters", source))
+      style.addLayer(CircleLayerDescriptor("clusters", source))
 
       suspend fun queryAll(): List<Feature<Geometry, JsonObject?>> =
         fixture.session.queryRenderedFeatures(

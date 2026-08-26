@@ -177,9 +177,7 @@ class MapStateTest {
     val state = mapState(cameraState, styleState)
     val source = testSource("tiles")
 
-    // minZoom forces the composable overload: from a test source set the internal RasterLayer
-    // *class* constructor is visible and otherwise wins resolution.
-    state.setStyleContent { RasterLayer(id = "raster", source = source, minZoom = 0f) }
+    state.setStyleContent { RasterLayer(id = "raster", source = source) }
     state.startStyleComposition()
 
     val first = FakeMapAdapter()
@@ -225,7 +223,7 @@ class MapStateTest {
   fun close_after_detach_shuts_down_the_recomposer_and_the_dispatcher() = runTest {
     val hostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler))
     val state = mapState(CameraState(CameraPosition()), StyleState(), hostDispatcher)
-    state.setStyleContent { RasterLayer(id = "raster", source = testSource("tiles"), minZoom = 0f) }
+    state.setStyleContent { RasterLayer(id = "raster", source = testSource("tiles")) }
     state.startStyleComposition()
 
     val adapter = FakeMapAdapter()

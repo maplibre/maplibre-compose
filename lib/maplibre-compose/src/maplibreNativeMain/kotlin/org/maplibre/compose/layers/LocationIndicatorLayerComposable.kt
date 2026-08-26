@@ -88,7 +88,7 @@ public fun LocationIndicatorLayer(
   val compiledPerspectiveCompensation = compile(perspectiveCompensation)
 
   LayerNode(
-    factory = { LocationIndicatorLayer(id = id) },
+    factory = { LocationIndicatorLayerDescriptor(id = id) },
     update = {
       set(minZoom) { layer.minZoom = it }
       set(maxZoom) { layer.maxZoom = it }

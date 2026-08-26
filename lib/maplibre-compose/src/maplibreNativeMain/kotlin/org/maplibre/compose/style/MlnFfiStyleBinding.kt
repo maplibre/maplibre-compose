@@ -12,7 +12,7 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.layers.UnknownLayerDescriptor
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
@@ -608,7 +608,7 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     val definition =
       (map.styleLayerJson(id)?.toJsonElement() as? JsonObject)
         ?: buildJsonObject { map.styleLayerType(id)?.let { put("type", it) } }
-    return UnknownLayer(id, definition).also { it.bindExisting(this) }
+    return UnknownLayerDescriptor(id, definition).also { it.bindExisting(this) }
   }
 
   companion object {

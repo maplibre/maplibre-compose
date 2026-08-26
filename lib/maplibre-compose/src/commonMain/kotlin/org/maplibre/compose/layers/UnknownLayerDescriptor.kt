@@ -8,7 +8,7 @@ import kotlinx.serialization.json.JsonPrimitive
  *
  * @param definition the layer object as MapLibre reported it, from `styleLayerJson`.
  */
-internal class UnknownLayer(id: String, internal val definition: JsonObject) : Layer(id) {
+internal class UnknownLayerDescriptor(id: String, internal val definition: JsonObject) : Layer(id) {
 
   override val type: String = (definition["type"] as? JsonPrimitive)?.content.orEmpty()
 

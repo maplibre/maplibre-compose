@@ -4,8 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.serialization.json.Json
-import org.maplibre.compose.layers.HillshadeLayer
-import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.layers.HillshadeLayerDescriptor
+import org.maplibre.compose.layers.RasterLayerDescriptor
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
@@ -41,7 +41,7 @@ class TiledSourceAttachTest {
       val fromUrl = RasterSource(id = "url", uri = TILEJSON_URL, tileSize = 256)
       style.addSource(fromUrl)
 
-      val layer = RasterLayer("raster", fromTiles)
+      val layer = RasterLayerDescriptor("raster", fromTiles)
       style.addSource(fromTiles)
       style.addLayer(layer)
 
@@ -74,7 +74,7 @@ class TiledSourceAttachTest {
       val fromUrl = RasterDemSource(id = "dem-url", uri = TILEJSON_URL, tileSize = 256)
       style.addSource(fromUrl)
 
-      val layer = HillshadeLayer("hillshade", fromTiles)
+      val layer = HillshadeLayerDescriptor("hillshade", fromTiles)
       style.addSource(fromTiles)
       style.addLayer(layer)
 
@@ -173,7 +173,7 @@ class TiledSourceAttachTest {
       // The descriptor keeps the encoding it was given; the downgrade happens on the way in.
       assertEquals(Json.parseToJsonElement("\"custom\""), source.toJson()["encoding"])
 
-      val layer = HillshadeLayer("hillshade", source)
+      val layer = HillshadeLayerDescriptor("hillshade", source)
       style.addSource(source)
       style.addLayer(layer)
 

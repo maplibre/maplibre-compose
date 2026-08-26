@@ -80,7 +80,7 @@ public fun HillshadeLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { HillshadeLayer(id = id, source = source) },
+    factory = { HillshadeLayerDescriptor(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }
       set(maxZoom) { layer.maxZoom = it }
@@ -100,7 +100,7 @@ public fun HillshadeLayer(
   )
 }
 
-internal class HillshadeLayer(id: String, val source: Source) : Layer(id) {
+internal class HillshadeLayerDescriptor(id: String, val source: Source) : Layer(id) {
 
   override val type: String = "hillshade"
 

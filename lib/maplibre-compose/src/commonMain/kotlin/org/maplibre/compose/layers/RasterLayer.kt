@@ -66,7 +66,7 @@ public fun RasterLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { RasterLayer(id = id, source = source) },
+    factory = { RasterLayerDescriptor(id = id, source = source) },
     update = {
       set(minZoom) { layer.minZoom = it }
       set(maxZoom) { layer.maxZoom = it }
@@ -85,7 +85,7 @@ public fun RasterLayer(
   )
 }
 
-internal class RasterLayer(id: String, val source: Source) : Layer(id) {
+internal class RasterLayerDescriptor(id: String, val source: Source) : Layer(id) {
 
   override val type: String = "raster"
 

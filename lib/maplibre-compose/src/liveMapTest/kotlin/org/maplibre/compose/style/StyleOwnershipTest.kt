@@ -5,8 +5,8 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
-import org.maplibre.compose.layers.BackgroundLayer
-import org.maplibre.compose.layers.FillLayer
+import org.maplibre.compose.layers.BackgroundLayerDescriptor
+import org.maplibre.compose.layers.FillLayerDescriptor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -45,7 +45,7 @@ class StyleOwnershipTest {
         second.loadStyle(BaseStyle.Empty)
         val firstStyle = assertNotNull(first.style)
         val secondStyle = assertNotNull(second.style)
-        val layer = BackgroundLayer("shared-layer")
+        val layer = BackgroundLayerDescriptor("shared-layer")
         firstStyle.addLayer(layer)
 
         assertFailsWith<IllegalStateException> { secondStyle.addLayer(layer) }
@@ -62,7 +62,7 @@ class StyleOwnershipTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val source = emptySource("reusable-source")
-      val layer = BackgroundLayer("reusable-layer")
+      val layer = BackgroundLayerDescriptor("reusable-layer")
       assertNotNull(fixture.style).also { style ->
         style.addSource(source)
         style.addLayer(layer)
@@ -87,7 +87,7 @@ class StyleOwnershipTest {
         second.loadStyle(BaseStyle.Empty)
         val source = emptySource("cross-map-source")
         requireNotNull(first.style).addSource(source)
-        val layer = FillLayer("cross-map-layer", source)
+        val layer = FillLayerDescriptor("cross-map-layer", source)
 
         assertFailsWith<IllegalStateException> { requireNotNull(second.style).addLayer(layer) }
 
@@ -118,7 +118,7 @@ class StyleOwnershipTest {
     createMapFixture().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val style = requireNotNull(fixture.style)
-      val layer = BackgroundLayer("retry-layer")
+      val layer = BackgroundLayerDescriptor("retry-layer")
 
       assertFailsWith<IllegalStateException> { style.addLayerBelow("missing-anchor", layer) }
       assertNull(style.getLayer(layer.id))
@@ -135,7 +135,7 @@ class StyleOwnershipTest {
       val style = requireNotNull(fixture.style)
       val source = requireNotNull(style.getSource("base-source"))
 
-      style.addLayer(FillLayer("over-base-source", source))
+      style.addLayer(FillLayerDescriptor("over-base-source", source))
 
       assertNotNull(style.getLayer("over-base-source"))
       assertNotNull(style.getSource("base-source"))

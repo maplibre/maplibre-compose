@@ -150,7 +150,7 @@ public fun LineLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { LineLayer(id = id, source = source) },
+    factory = { LineLayerDescriptor(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
       set(sourceLayer) { layer.sourceLayer = it }
@@ -181,7 +181,7 @@ public fun LineLayer(
   )
 }
 
-internal class LineLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class LineLayerDescriptor(id: String, source: Source) : FeatureLayer(id, source) {
 
   override val type: String = "line"
 

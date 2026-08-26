@@ -68,8 +68,8 @@ class StyleCompositionHostThreadingTest {
       // or the slow applies on it.
       val start = System.nanoTime()
       host.setContent(rootNode) {
-        RasterLayer(id = "layer-a", source = a, minZoom = 0f)
-        if (showSecond) RasterLayer(id = "layer-b", source = b, minZoom = 0f)
+        RasterLayer(id = "layer-a", source = a)
+        if (showSecond) RasterLayer(id = "layer-b", source = b)
       }
       val setContentMillis = (System.nanoTime() - start) / 1_000_000
       assertTrue(setContentMillis < 100, "setContent did not block: ${setContentMillis}ms")

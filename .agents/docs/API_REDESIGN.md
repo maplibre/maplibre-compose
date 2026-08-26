@@ -311,6 +311,12 @@ mechanics:
   [#631](https://github.com/maplibre/maplibre-native-ffi/pull/631) improves
   this; nothing waits on it.
 
+The prototype also found a name collision: each internal layer descriptor class
+had the name of its public layer composable, so
+`RasterLayer(id = ..., source = ...)` in a friend module or a test resolved to
+the class constructor and did nothing. Every descriptor class now has a
+`Descriptor` suffix, such as `RasterLayerDescriptor`.
+
 ### Expressions
 
 No redesign. The DSL compiles to style JSON; both backends set properties from

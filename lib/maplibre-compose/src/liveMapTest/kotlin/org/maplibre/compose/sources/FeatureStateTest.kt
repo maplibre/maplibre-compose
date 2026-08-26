@@ -18,7 +18,7 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.CircleLayerDescriptor
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapTestResult
@@ -142,7 +142,7 @@ class FeatureStateTest {
   }
 
   private fun attachCircleLayer(style: StyleBinding, source: GeoJsonSource) {
-    val layer = CircleLayer("circles", source)
+    val layer = CircleLayerDescriptor("circles", source)
     layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
     layer.setCircleColor(
       switch(

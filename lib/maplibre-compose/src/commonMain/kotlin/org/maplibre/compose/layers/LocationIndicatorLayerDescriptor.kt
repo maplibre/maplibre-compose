@@ -10,7 +10,7 @@ import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.Position
 
-internal class LocationIndicatorLayer(id: String) : Layer(id) {
+internal class LocationIndicatorLayerDescriptor(id: String) : Layer(id) {
 
   override val type: String = "location-indicator"
 

@@ -14,7 +14,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.LineLayerDescriptor
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
@@ -37,13 +37,13 @@ class StyleDesiredStateSyncTest {
   fun reordering_replace_anchored_layers_never_restores_the_replaced_layer() = runComposeUiTest {
     runOnUiThread {
       val baseSource = VectorSource("base-source", "https://example.invalid/{z}/{x}/{y}.pbf")
-      val target = LineLayer("target", baseSource)
+      val target = LineLayerDescriptor("target", baseSource)
       val binding =
         OpRecordingStyleBinding(baseSources = listOf(baseSource), baseLayers = listOf(target))
       val node = StyleNode(binding, null)
       val anchor = Anchor.Replace("target")
-      val x = LayerNode(LineLayer("x", baseSource), anchor)
-      val y = LayerNode(LineLayer("y", baseSource), anchor)
+      val x = LayerNode(LineLayerDescriptor("x", baseSource), anchor)
+      val y = LayerNode(LineLayerDescriptor("y", baseSource), anchor)
 
       node.insertLayer(x, 0)
       node.insertLayer(y, 1)
@@ -79,8 +79,8 @@ class StyleDesiredStateSyncTest {
 
     try {
       host.setContent(rootNode) {
-        RasterLayer(id = "layer-1", source = source, minZoom = 0f)
-        RasterLayer(id = "layer-2", source = source, minZoom = 0f)
+        RasterLayer(id = "layer-1", source = source)
+        RasterLayer(id = "layer-2", source = source)
       }
       testScheduler.advanceUntilIdle()
       assertEquals(

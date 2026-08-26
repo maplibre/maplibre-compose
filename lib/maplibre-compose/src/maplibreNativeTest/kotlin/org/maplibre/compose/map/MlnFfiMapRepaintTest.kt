@@ -8,7 +8,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
-import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.BackgroundLayerDescriptor
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
@@ -41,7 +41,7 @@ class MlnFfiMapRepaintTest {
   fun adding_a_layer_after_the_map_settles_redraws() {
     BridgeMapFixture.create().use { fixture ->
       val style = fixture.loadEmptyStyle()
-      val layer = BackgroundLayer("toggled")
+      val layer = BackgroundLayerDescriptor("toggled")
       fixture.assertRedrawsAfter("adding a layer") { style.addLayer(layer) }
     }
   }
@@ -50,7 +50,7 @@ class MlnFfiMapRepaintTest {
   fun removing_a_layer_after_the_map_settles_redraws() {
     BridgeMapFixture.create().use { fixture ->
       val style = fixture.loadEmptyStyle()
-      val layer = BackgroundLayer("toggled")
+      val layer = BackgroundLayerDescriptor("toggled")
       style.addLayer(layer)
       fixture.assertRedrawsAfter("removing a layer") { style.removeLayer(layer) }
     }

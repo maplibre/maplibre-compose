@@ -8,7 +8,7 @@ import androidx.compose.ui.graphics.Paint
 import kotlin.test.Test
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
-import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.layers.RasterLayerDescriptor
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RgbaPixel
@@ -30,7 +30,7 @@ class ImageSourceDrawTest {
 
         val source = ImageSource("image", WESTERN_HALF, splitBitmap(64, Color.Red, Color.Green))
         style.addSource(source)
-        style.addLayer(RasterLayer("image-layer", source))
+        style.addLayer(RasterLayerDescriptor("image-layer", source))
 
         // The western half of the world fills the western half of the viewport at zoom 0, with the
         // image's own halves either side of a quarter in.

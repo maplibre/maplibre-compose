@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNull
-import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.BackgroundLayerDescriptor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -16,7 +16,7 @@ class StyleLayerPlacementTest {
     createMapFixture().use {
       it.loadStyle(STYLE)
       val style = requireNotNull(it.style)
-      val layer = BackgroundLayer("new")
+      val layer = BackgroundLayerDescriptor("new")
       val initialOrder = requireNotNull(style.layerIds())
 
       assertFailsWith<IllegalArgumentException> { style.addLayerAbove("missing", layer) }
@@ -33,7 +33,7 @@ class StyleLayerPlacementTest {
       val style = requireNotNull(it.style)
       val initialOrder = requireNotNull(style.layerIds())
 
-      style.addLayerAbove(initialOrder.last(), BackgroundLayer("new"))
+      style.addLayerAbove(initialOrder.last(), BackgroundLayerDescriptor("new"))
 
       assertEquals(initialOrder + "new", style.layerIds())
     }
@@ -47,10 +47,10 @@ class StyleLayerPlacementTest {
       val initialOrder = requireNotNull(style.layerIds())
 
       assertFailsWith<IllegalArgumentException> {
-        style.addLayerAt(-1, BackgroundLayer("negative"))
+        style.addLayerAt(-1, BackgroundLayerDescriptor("negative"))
       }
       assertFailsWith<IllegalArgumentException> {
-        style.addLayerAt(initialOrder.size + 1, BackgroundLayer("past-end"))
+        style.addLayerAt(initialOrder.size + 1, BackgroundLayerDescriptor("past-end"))
       }
 
       assertEquals(initialOrder, style.layerIds())

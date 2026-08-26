@@ -47,7 +47,7 @@ public fun BackgroundLayer(
   val compiledPattern = compile(pattern)
 
   LayerNode(
-    factory = { BackgroundLayer(id = id) },
+    factory = { BackgroundLayerDescriptor(id = id) },
     update = {
       set(minZoom) { layer.minZoom = it }
       set(maxZoom) { layer.maxZoom = it }
@@ -61,7 +61,7 @@ public fun BackgroundLayer(
   )
 }
 
-internal class BackgroundLayer(id: String) : Layer(id) {
+internal class BackgroundLayerDescriptor(id: String) : Layer(id) {
 
   override val type: String = "background"
 

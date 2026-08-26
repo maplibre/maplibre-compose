@@ -11,7 +11,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertSame
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.layers.LineLayerDescriptor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -44,9 +44,9 @@ class StyleNodeTest {
 
   private val testLayers by lazy {
     listOf(
-      LineLayer("foo", testSources[0]),
-      LineLayer("bar", testSources[1]),
-      LineLayer("baz", testSources[2]),
+      LineLayerDescriptor("foo", testSources[0]),
+      LineLayerDescriptor("bar", testSources[1]),
+      LineLayerDescriptor("baz", testSources[2]),
     )
   }
 
@@ -206,7 +206,8 @@ class StyleNodeTest {
   fun shouldAnchorTop() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
-      val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Top) }
+      val nodes =
+        (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Top) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
@@ -220,7 +221,8 @@ class StyleNodeTest {
   fun shouldAnchorBottom() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
-      val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Bottom) }
+      val nodes =
+        (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Bottom) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
@@ -234,7 +236,8 @@ class StyleNodeTest {
   fun shouldAnchorAbove() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
-      val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Above("foo")) }
+      val nodes =
+        (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Above("foo")) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
@@ -248,7 +251,8 @@ class StyleNodeTest {
   fun shouldAnchorBelow() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
-      val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Below("baz")) }
+      val nodes =
+        (0..2).map { LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Below("baz")) }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
@@ -263,7 +267,9 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
-        (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Replace("bar")) }
+        (0..2).map {
+          LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Replace("bar"))
+        }
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
@@ -278,7 +284,9 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
-        (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Replace("bar")) }
+        (0..2).map {
+          LayerNode(LineLayerDescriptor("new$it", testSources[0]), Anchor.Replace("bar"))
+        }
 
       nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
@@ -299,8 +307,8 @@ class StyleNodeTest {
   fun shouldAllowReplacementRecreationAfterUnload() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
-      val oldNode = LayerNode(LineLayer("old", testSources[0]), Anchor.Replace("bar"))
-      val newNode = LayerNode(LineLayer("new", testSources[0]), Anchor.Replace("bar"))
+      val oldNode = LayerNode(LineLayerDescriptor("old", testSources[0]), Anchor.Replace("bar"))
+      val newNode = LayerNode(LineLayerDescriptor("new", testSources[0]), Anchor.Replace("bar"))
 
       s.insertLayer(oldNode, 0)
       s.applyChanges()
@@ -317,8 +325,8 @@ class StyleNodeTest {
   fun shouldAllowAddLayerBeforeRemove() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
-      val l1 = LayerNode(LineLayer("new", testSources[0]), Anchor.Top)
-      val l2 = LayerNode(LineLayer("new", testSources[1]), Anchor.Top)
+      val l1 = LayerNode(LineLayerDescriptor("new", testSources[0]), Anchor.Top)
+      val l2 = LayerNode(LineLayerDescriptor("new", testSources[1]), Anchor.Top)
 
       s.insertLayer(l1, 0)
       s.applyChanges()
@@ -338,14 +346,14 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
 
-      s.insertLayer(LayerNode(LineLayer("b1", testSources[0]), Anchor.Bottom), 0)
-      s.insertLayer(LayerNode(LineLayer("t1", testSources[0]), Anchor.Top), 0)
+      s.insertLayer(LayerNode(LineLayerDescriptor("b1", testSources[0]), Anchor.Bottom), 0)
+      s.insertLayer(LayerNode(LineLayerDescriptor("t1", testSources[0]), Anchor.Top), 0)
       s.applyChanges()
 
       assertEquals(listOf("b1", "foo", "bar", "baz", "t1"), s.binding.getLayers().map(Layer::id))
 
-      s.insertLayer(LayerNode(LineLayer("b2", testSources[0]), Anchor.Bottom), 0)
-      s.insertLayer(LayerNode(LineLayer("t2", testSources[0]), Anchor.Top), 0)
+      s.insertLayer(LayerNode(LineLayerDescriptor("b2", testSources[0]), Anchor.Bottom), 0)
+      s.insertLayer(LayerNode(LineLayerDescriptor("t2", testSources[0]), Anchor.Top), 0)
       s.applyChanges()
 
       assertEquals(

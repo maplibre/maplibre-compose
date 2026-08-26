@@ -11,7 +11,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.browser.window
-import org.maplibre.compose.layers.RasterLayer
+import org.maplibre.compose.layers.RasterLayerDescriptor
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
@@ -192,7 +192,9 @@ class BrowserStyleStateTest {
 
         // The reference records desired state; the layer add has to wait for the host's sync.
         waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }
-        checkNotNull(node).binding.addLayer(RasterLayer(id = "late-layer", source = source))
+        checkNotNull(node)
+          .binding
+          .addLayer(RasterLayerDescriptor(id = "late-layer", source = source))
         assertEquals(listOf(""), state?.sources?.values?.map { it.attributionHtml })
         val initialSource = state?.sources?.values?.single()
 

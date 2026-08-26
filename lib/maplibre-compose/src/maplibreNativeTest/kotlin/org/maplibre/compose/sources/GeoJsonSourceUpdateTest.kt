@@ -30,7 +30,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.layers.CircleLayer
+import org.maplibre.compose.layers.CircleLayerDescriptor
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.TestThread
@@ -242,7 +242,7 @@ class GeoJsonSourceUpdateTest {
           GeoJsonOptions(synchronousUpdate = synchronousUpdate),
         )
       style.addSource(source)
-      val layer = CircleLayer(LAYER_ID, source)
+      val layer = CircleLayerDescriptor(LAYER_ID, source)
       layer.setCircleRadius(const(16.dp).compile(ExpressionContext.None))
       layer.setCircleColor(const(Color.Black))
       layer.setCircleOpacity(const(1.0f))

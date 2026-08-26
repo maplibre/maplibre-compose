@@ -29,7 +29,7 @@ import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
 import org.maplibre.compose.layers.Layer
-import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.layers.UnknownLayerDescriptor
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
@@ -452,7 +452,7 @@ internal class GlJsStyleBinding(
           put("id", id)
           map.getLayer(id)?.let { put("type", it.type) }
         }
-    return UnknownLayer(id, definition).also { it.bindExisting(this) }
+    return UnknownLayerDescriptor(id, definition).also { it.bindExisting(this) }
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {

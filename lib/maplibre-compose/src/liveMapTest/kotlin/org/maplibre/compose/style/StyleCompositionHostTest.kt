@@ -39,10 +39,7 @@ class StyleCompositionHostTest {
     val host = testHost()
     val source = testSource("tiles")
 
-    // minZoom is passed everywhere in these tests to force the composable overload: from a test
-    // source set the internal RasterLayer *class* constructor is visible and otherwise wins
-    // resolution.
-    host.setContent(rootNode) { RasterLayer(id = "raster", source = source, minZoom = 0f) }
+    host.setContent(rootNode) { RasterLayer(id = "raster", source = source) }
 
     // setContent marshals onto the host dispatcher, so nothing has applied on the caller.
     assertTrue(recording.ops.isEmpty())
@@ -69,8 +66,8 @@ class StyleCompositionHostTest {
     var showSecond by mutableStateOf(false)
 
     host.setContent(rootNode) {
-      RasterLayer(id = "layer-a", source = a, minZoom = 0f)
-      if (showSecond) RasterLayer(id = "layer-b", source = b, minZoom = 0f)
+      RasterLayer(id = "layer-a", source = a)
+      if (showSecond) RasterLayer(id = "layer-b", source = b)
     }
     host.awaitPendingWork()
     val framesBefore = host.framesPumped
@@ -100,8 +97,8 @@ class StyleCompositionHostTest {
     var showSecond by mutableStateOf(false)
 
     host.setContent(rootNode) {
-      RasterLayer(id = "layer-a", source = a, minZoom = 0f)
-      if (showSecond) RasterLayer(id = "layer-b", source = b, minZoom = 0f)
+      RasterLayer(id = "layer-a", source = a)
+      if (showSecond) RasterLayer(id = "layer-b", source = b)
     }
     host.awaitPendingWork()
     // Sources attach before layers: DisposableEffects run inside the composition apply, and the
@@ -155,14 +152,14 @@ class StyleCompositionHostTest {
     val source = testSource("tiles")
 
     host.setContent(StyleNode(first, null)) {
-      RasterLayer(id = "raster", source = source, minZoom = 0f)
+      RasterLayer(id = "raster", source = source)
     }
     host.awaitPendingWork()
     assertEquals(listOf("addSource:tiles", "addLayer:raster"), first.ops.toList())
     first.ops.clear()
 
     host.setContent(StyleNode(second, null)) {
-      RasterLayer(id = "raster", source = source, minZoom = 0f)
+      RasterLayer(id = "raster", source = source)
     }
     host.awaitPendingWork()
     // The old composition left the old binding before the new one composed into the new binding.

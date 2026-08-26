@@ -74,14 +74,14 @@ class LayerPropertyRoundTripTest {
 
   @Test
   fun background_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
-    assertPropertiesRoundTrip(BACKGROUND_CASES) { _ -> ({ id -> BackgroundLayer(id) }) }
+    assertPropertiesRoundTrip(BACKGROUND_CASES) { _ -> ({ id -> BackgroundLayerDescriptor(id) }) }
   }
 
   @Test
   fun circle_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(CIRCLE_CASES) { style ->
       val source = addFeatureSource(style)
-      ({ id -> CircleLayer(id, source) })
+      ({ id -> CircleLayerDescriptor(id, source) })
     }
   }
 
@@ -89,7 +89,7 @@ class LayerPropertyRoundTripTest {
   fun fill_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(FILL_CASES) { style ->
       val source = addFeatureSource(style)
-      ({ id -> FillLayer(id, source) })
+      ({ id -> FillLayerDescriptor(id, source) })
     }
   }
 
@@ -97,7 +97,7 @@ class LayerPropertyRoundTripTest {
   fun fill_extrusion_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(FILL_EXTRUSION_CASES) { style ->
       val source = addFeatureSource(style)
-      ({ id -> FillExtrusionLayer(id, source) })
+      ({ id -> FillExtrusionLayerDescriptor(id, source) })
     }
   }
 
@@ -105,7 +105,7 @@ class LayerPropertyRoundTripTest {
   fun heatmap_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(HEATMAP_CASES) { style ->
       val source = addFeatureSource(style)
-      ({ id -> HeatmapLayer(id, source) })
+      ({ id -> HeatmapLayerDescriptor(id, source) })
     }
   }
 
@@ -113,7 +113,7 @@ class LayerPropertyRoundTripTest {
   fun line_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(LINE_CASES) { style ->
       val source = addFeatureSource(style)
-      ({ id -> LineLayer(id, source) })
+      ({ id -> LineLayerDescriptor(id, source) })
     }
   }
 
@@ -121,7 +121,7 @@ class LayerPropertyRoundTripTest {
   fun symbol_layer_properties_reach_maplibre(): MapTestResult = runMapTest {
     assertPropertiesRoundTrip(SYMBOL_CASES) { style ->
       val source = addFeatureSource(style)
-      ({ id -> SymbolLayer(id, source) })
+      ({ id -> SymbolLayerDescriptor(id, source) })
     }
   }
 
@@ -136,7 +136,7 @@ class LayerPropertyRoundTripTest {
           tileSize = 256,
         )
       style.addSource(source)
-      ({ id -> RasterLayer(id, source) })
+      ({ id -> RasterLayerDescriptor(id, source) })
     }
   }
 
@@ -152,7 +152,7 @@ class LayerPropertyRoundTripTest {
           demEncoding = RasterDemEncoding.Terrarium,
         )
       style.addSource(source)
-      ({ id -> HillshadeLayer(id, source) })
+      ({ id -> HillshadeLayerDescriptor(id, source) })
     }
   }
 
@@ -168,7 +168,7 @@ class LayerPropertyRoundTripTest {
           demEncoding = RasterDemEncoding.Terrarium,
         )
       style.addSource(source)
-      ({ id -> ColorReliefLayer(id, source) })
+      ({ id -> ColorReliefLayerDescriptor(id, source) })
     }
   }
 
@@ -271,7 +271,7 @@ class LayerPropertyRoundTripTest {
         .also { style.addSource(it) }
 
     val BACKGROUND_CASES =
-      listOf<Case<BackgroundLayer>>(
+      listOf<Case<BackgroundLayerDescriptor>>(
         Case("background-color", """["rgba",0.0,0.0,255.0,1.0]""", "\"rgba(0, 0, 255, 1)\"") {
           it.setBackgroundColor(const(Color.Blue).c())
         },
@@ -282,7 +282,7 @@ class LayerPropertyRoundTripTest {
       )
 
     val CIRCLE_CASES =
-      listOf<Case<CircleLayer>>(
+      listOf<Case<CircleLayerDescriptor>>(
         Case("circle-sort-key", "2.0") { it.setCircleSortKey(const(2f).c()) },
         Case("circle-radius", "8.0") { it.setCircleRadius(const(8.dp).c()) },
         Case("circle-color", """["rgba",255.0,0.0,0.0,1.0]""", "\"rgba(255, 0, 0, 1)\"") {
@@ -310,7 +310,7 @@ class LayerPropertyRoundTripTest {
       )
 
     val FILL_CASES =
-      listOf<Case<FillLayer>>(
+      listOf<Case<FillLayerDescriptor>>(
         Case("fill-sort-key", "2.0") { it.setFillSortKey(const(2f).c()) },
         Case("fill-antialias", "false") { it.setFillAntialias(const(false).c()) },
         Case("fill-opacity", "0.5") { it.setFillOpacity(const(0.5f).c()) },
@@ -330,12 +330,12 @@ class LayerPropertyRoundTripTest {
       ) + glJsOnlyFillCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
-    fun glJsOnlyFillCases(): List<Case<FillLayer>> =
+    fun glJsOnlyFillCases(): List<Case<FillLayerDescriptor>> =
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
       else listOf(Case("fill-layer-opacity", "0.4") { it.setFillLayerOpacity(const(0.4f).c()) })
 
     val FILL_EXTRUSION_CASES =
-      listOf<Case<FillExtrusionLayer>>(
+      listOf<Case<FillExtrusionLayerDescriptor>>(
         Case("fill-extrusion-rounded-corner-distance", "10.0") {
           it.setFillExtrusionRoundedCornerDistance(const(10f).c())
         },
@@ -364,7 +364,7 @@ class LayerPropertyRoundTripTest {
       )
 
     val HEATMAP_CASES =
-      listOf<Case<HeatmapLayer>>(
+      listOf<Case<HeatmapLayerDescriptor>>(
         Case("heatmap-radius", "12.0") { it.setHeatmapRadius(const(12.dp).c()) },
         Case("heatmap-weight", "0.5") { it.setHeatmapWeight(const(0.5f).c()) },
         Case("heatmap-intensity", "2.0") { it.setHeatmapIntensity(const(2f).c()) },
@@ -385,7 +385,7 @@ class LayerPropertyRoundTripTest {
       )
 
     val LINE_CASES =
-      listOf<Case<LineLayer>>(
+      listOf<Case<LineLayerDescriptor>>(
         Case("line-cap", "\"round\"") { it.setLineCap(const(LineCap.Round).c()) },
         Case("line-join", "\"bevel\"") { it.setLineJoin(const(LineJoin.Bevel).c()) },
         Case("line-miter-limit", "1.5") { it.setLineMiterLimit(const(1.5f).c()) },
@@ -429,12 +429,12 @@ class LayerPropertyRoundTripTest {
       ) + glJsOnlyLineCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
-    fun glJsOnlyLineCases(): List<Case<LineLayer>> =
+    fun glJsOnlyLineCases(): List<Case<LineLayerDescriptor>> =
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
       else listOf(Case("line-layer-opacity", "0.4") { it.setLineLayerOpacity(const(0.4f).c()) })
 
     val RASTER_CASES =
-      listOf<Case<RasterLayer>>(
+      listOf<Case<RasterLayerDescriptor>>(
         Case("raster-opacity", "0.5") { it.setRasterOpacity(const(0.5f).c()) },
         Case("raster-hue-rotate", "45.0") { it.setRasterHueRotate(const(45f).c()) },
         Case("raster-brightness-min", "0.25") { it.setRasterBrightnessMin(const(0.25f).c()) },
@@ -451,7 +451,7 @@ class LayerPropertyRoundTripTest {
       )
 
     val HILLSHADE_CASES =
-      listOf<Case<HillshadeLayer>>(
+      listOf<Case<HillshadeLayerDescriptor>>(
         Case("hillshade-method", "\"igor\"") {
           it.setHillshadeMethod(const(HillshadeMethod.Igor).c())
         },
@@ -496,7 +496,7 @@ class LayerPropertyRoundTripTest {
       ) + glJsOnlyHillshadeCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
-    fun glJsOnlyHillshadeCases(): List<Case<HillshadeLayer>> =
+    fun glJsOnlyHillshadeCases(): List<Case<HillshadeLayerDescriptor>> =
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
       else
         listOf(
@@ -506,7 +506,7 @@ class LayerPropertyRoundTripTest {
         )
 
     val COLOR_RELIEF_CASES =
-      listOf<Case<ColorReliefLayer>>(
+      listOf<Case<ColorReliefLayerDescriptor>>(
         // Like heatmap-color, a ramp rather than a constant, and only over elevation.
         Case(
           "color-relief-color",
@@ -523,7 +523,7 @@ class LayerPropertyRoundTripTest {
       ) + glJsOnlyColorReliefCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
-    fun glJsOnlyColorReliefCases(): List<Case<ColorReliefLayer>> =
+    fun glJsOnlyColorReliefCases(): List<Case<ColorReliefLayerDescriptor>> =
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
       else
         listOf(
@@ -533,7 +533,7 @@ class LayerPropertyRoundTripTest {
         )
 
     val SYMBOL_CASES =
-      listOf<Case<SymbolLayer>>(
+      listOf<Case<SymbolLayerDescriptor>>(
         Case("symbol-placement", "\"line\"") {
           it.setSymbolPlacement(const(SymbolPlacement.Line).c())
         },
@@ -693,7 +693,7 @@ class LayerPropertyRoundTripTest {
       ) + glJsOnlySymbolCases()
 
     /** Properties MapLibre GL JS implements and MapLibre Native does not, yet. */
-    fun glJsOnlySymbolCases(): List<Case<SymbolLayer>> =
+    fun glJsOnlySymbolCases(): List<Case<SymbolLayerDescriptor>> =
       if (mapLibreFlavor != MapLibreFlavor.GL_JS) emptyList()
       else
         listOf(

@@ -20,7 +20,7 @@ import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
-import org.maplibre.compose.layers.UnknownLayer
+import org.maplibre.compose.layers.UnknownLayerDescriptor
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.TileSetOptions
@@ -166,7 +166,7 @@ class BrowserStyleConformanceTest {
     val failures = mutableListOf<String>()
 
     fun liveSourceLayer(): String? =
-      ((style?.getLayer("switching-source-layer") as? UnknownLayer)
+      ((style?.getLayer("switching-source-layer") as? UnknownLayerDescriptor)
           ?.definition
           ?.get("source-layer"))
         ?.jsonPrimitive

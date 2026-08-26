@@ -103,7 +103,7 @@ public fun FillExtrusionLayer(
 
   SourceReferenceEffect(source)
   LayerNode(
-    factory = { FillExtrusionLayer(id = id, source = source) },
+    factory = { FillExtrusionLayerDescriptor(id = id, source = source) },
     recreateKey = sourceLayer,
     update = {
       set(sourceLayer) { layer.sourceLayer = it }
@@ -126,7 +126,7 @@ public fun FillExtrusionLayer(
   )
 }
 
-internal class FillExtrusionLayer(id: String, source: Source) : FeatureLayer(id, source) {
+internal class FillExtrusionLayerDescriptor(id: String, source: Source) : FeatureLayer(id, source) {
 
   override val type: String = "fill-extrusion"
 

@@ -11,7 +11,7 @@ import org.maplibre.compose.expressions.dsl.contains
 import org.maplibre.compose.expressions.dsl.feature
 import org.maplibre.compose.expressions.dsl.join
 import org.maplibre.compose.expressions.dsl.split
-import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.layers.SymbolLayerDescriptor
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -41,7 +41,7 @@ class ExpressionSplitJoinEngineTest {
         )
       style.addSource(source)
 
-      val layer = SymbolLayer("labels", source)
+      val layer = SymbolLayerDescriptor("labels", source)
       layer.setFilter(
         feature["cuisine"]
           .asString()
