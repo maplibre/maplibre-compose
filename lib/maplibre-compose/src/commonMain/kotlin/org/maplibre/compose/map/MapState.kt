@@ -12,6 +12,7 @@ import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.ClickRoute
@@ -29,19 +30,28 @@ import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * The map's identity, split from the composable that shows it: the style composition and its host,
- * the loaded [StyleBinding], and the wiring into the [CameraState] and [StyleState] the public API
- * hands in.
+ * The map's identity, held apart from the composable that shows it: the selected [baseStyle] and
+ * the style content that [setStyleContent] composes over it.
  *
- * The host, the root [StyleNode], and the content composition all live as long as this state. A
- * session ([MapAdapter]) attaches through [attachSession] and detaches through [detachSession]; the
- * style the session loads arrives through [callbacks] and re-points the persistent node, which
- * reapplies the whole desired state to the new style. The content follows the style the application
- * has *selected* while the node targets the *loaded* style; during a switch those differ and
- * nothing here reconciles them. The binding dropping writes after unload is what makes that
- * survivable.
+ * A state outlives any one [MaplibreMap] composable. On Android, iOS, and Desktop the loaded map
+ * survives the composable leaving the composition, with its style and camera intact, and
+ * re-attaches to the next [MaplibreMap] that receives this state. On Web the live map exists only
+ * while a [MaplibreMap] is composed, and the state replays the selected style into the next one.
+ *
+ * Construct a state directly to own the map outside the composition, for example in a ViewModel,
+ * and pass it to [MaplibreMap]. Inside a composition, [rememberMapState] constructs one and closes
+ * it when the composition leaves. The owner that constructed a state calls [close]; a closed state
+ * cannot show a map again.
  */
-internal class MapState(
+// Internally this also owns the style composition host, the root StyleNode over the loaded
+// StyleBinding, and the wiring into CameraState and StyleState. A session (MapAdapter) attaches
+// through attachSession and detaches through detachSession; the style the session loads arrives
+// through callbacks and re-points the persistent node, which reapplies the whole desired state to
+// the new style. The content follows the style the application has *selected* while the node
+// targets the *loaded* style; during a switch those differ and nothing here reconciles them. The
+// binding dropping writes after unload is what makes that survivable.
+public class MapState
+internal constructor(
   cameraState: CameraState,
   styleState: StyleState,
   density: Density = Density(1f),
@@ -50,6 +60,22 @@ internal class MapState(
   inheritedLocals: CompositionLocalContext? = null,
   hostDispatcher: StyleHostDispatcher = styleHostDispatcher(),
 ) : AutoCloseable {
+
+  /**
+   * Creates a state that owns its own camera and style wiring.
+   *
+   * A detached state rasterizes painters in the style content at [density] and [layoutDirection]; a
+   * [MaplibreMap] that later receives this state replaces both with the composition's values.
+   */
+  public constructor(
+    density: Density = Density(1f),
+    layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+  ) : this(
+    cameraState = CameraState(CameraPosition()),
+    styleState = StyleState(),
+    density = density,
+    layoutDirection = layoutDirection,
+  )
 
   internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
 
@@ -66,21 +92,31 @@ internal class MapState(
       onClosed = hostDispatcher::close,
     )
 
-  internal var cameraState: CameraState = cameraState
+  // Snapshot-backed so a composition that reads the wired state recomposes when a legacy
+  // MaplibreMap call swaps a new CameraState or StyleState in.
+  private val cameraStateHolder = mutableStateOf(cameraState)
+
+  internal var cameraState: CameraState
+    get() = cameraStateHolder.value
     set(value) {
-      if (field === value) return
-      val adapter = field.map
-      field.map = null
-      field = value
+      val current = cameraStateHolder.value
+      if (current === value) return
+      val adapter = current.map
+      current.map = null
+      cameraStateHolder.value = value
       value.density = host.density
       value.map = adapter
     }
 
-  internal var styleState: StyleState = styleState
+  private val styleStateHolder = mutableStateOf(styleState)
+
+  internal var styleState: StyleState
+    get() = styleStateHolder.value
     set(value) {
-      if (field === value) return
-      field.detach()
-      field = value
+      val current = styleStateHolder.value
+      if (current === value) return
+      current.detach()
+      styleStateHolder.value = value
       value.attach(styleNode)
     }
 
@@ -88,6 +124,7 @@ internal class MapState(
     set(value) {
       field = value
       styleNode.logger = value
+      host.logger = value
     }
 
   internal var density: Density
@@ -129,8 +166,25 @@ internal class MapState(
 
   private var contentStarted = false
 
+  /**
+   * Replaces the style content of this map with [content].
+   *
+   * The content composes into the map's style the way `setContent` composes a window's UI tree: one
+   * composition per map, and a second call replaces the whole content. Snapshot state that the
+   * content reads recomposes it. The composition runs on a dispatcher this state owns, so effects
+   * inside the content run outside the UI context, and source and anchor validation surface when
+   * the content applies to a loaded style rather than at the call.
+   *
+   * Call this on a state that lives outside the composition, such as one a ViewModel owns. Inside a
+   * composition, pass the content to [rememberMapState] instead.
+   */
+  public fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
+    updateStyleContent(content)
+    startStyleComposition()
+  }
+
   /** Replaces the style content; the host recomposes because it reads this state. */
-  internal fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
+  internal fun updateStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
     // A write with no read, so a UI composition calling this never subscribes to the state.
     contentState.value = content
   }
@@ -149,11 +203,19 @@ internal class MapState(
   /** The attached session's adapter, so a base-style change reaches the live map. */
   private var adapter: MapAdapter? = null
 
-  /** The selected base style; the push is a no-op on an adapter that already has it. */
-  internal var baseStyle: BaseStyle? = null
+  /** The style the application selected; null until the first [baseStyle] assignment. */
+  private var selectedBaseStyle: BaseStyle? = null
+
+  /**
+   * The URI or JSON of the style the map loads underneath the composed content, initially
+   * [BaseStyle.Demo]. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/). Assigning a
+   * new value reloads the style on the live map; the map re-adds the composed content over it.
+   */
+  public var baseStyle: BaseStyle
+    get() = selectedBaseStyle ?: BaseStyle.Demo
     set(value) {
-      if (value == null || value == field) return
-      field = value
+      if (value == selectedBaseStyle) return
+      selectedBaseStyle = value
       engine.setBaseStyle(value)
       adapter?.setBaseStyle(value)
     }
@@ -161,7 +223,7 @@ internal class MapState(
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
     this.adapter = adapter
-    baseStyle?.let(adapter::setBaseStyle)
+    selectedBaseStyle?.let(adapter::setBaseStyle)
     cameraState.map = adapter
     styleState.attach(styleNode)
   }
@@ -201,6 +263,10 @@ internal class MapState(
     host.requestApplyChanges()
   }
 
+  /**
+   * Releases the map and the style composition. The owner that constructed the state calls this;
+   * [rememberMapState] closes the states it created when the composition leaves.
+   */
   override fun close() {
     detachSession()
     engine.close()

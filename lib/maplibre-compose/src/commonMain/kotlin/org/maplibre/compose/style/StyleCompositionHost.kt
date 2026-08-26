@@ -45,7 +45,8 @@ internal class StyleCompositionHost(
   private val dispatcher: CoroutineDispatcher,
   density: Density,
   layoutDirection: LayoutDirection,
-  private val logger: Logger?,
+  // Mutable so a host constructed before the composable's logger is known picks it up.
+  var logger: Logger?,
   private val onClosed: () -> Unit = {},
 ) : AutoCloseable {
 

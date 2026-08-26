@@ -94,7 +94,8 @@ class MlnFfiMapReattachTest {
         state = mapState
         DisposableEffect(mapState) { onDispose { mapState.close() } }
         LaunchedEffect(mapState) { mapState.startStyleComposition() }
-        mapState.setStyleContent {
+        // The in-composition write path; the public setStyleContent also starts the composition.
+        mapState.updateStyleContent {
           FillLayer(
             id = "user-fill",
             source =
