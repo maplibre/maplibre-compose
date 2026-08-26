@@ -7,36 +7,30 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import kotlinx.coroutines.launch
-import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LayerNode
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleState
-import org.maplibre.compose.style.rememberStyleComposition
 import org.maplibre.compose.style.rememberStyleState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Position
 
 /**
  * Displays a MapLibre based map.
@@ -144,133 +138,47 @@ public fun MaplibreMap(
     return
   }
 
-  var rememberedStyle by remember { mutableStateOf<StyleBinding?>(null) }
-  val styleComposition by rememberStyleComposition(styleState, rememberedStyle, logger, content)
+  val density = LocalDensity.current
+  val layoutDirection = LocalLayoutDirection.current
+  val locals = currentCompositionLocalContext
   val mapClickScope = rememberCoroutineScope()
 
-  val density = LocalDensity.current
-  SideEffect { cameraState.density = density }
+  // Keyed on nothing: changed inputs update the state below rather than recreate it.
+  val mapState = remember {
+    MapState(cameraState, styleState, density, layoutDirection, logger, locals)
+  }
+  DisposableEffect(mapState) { onDispose { mapState.close() } }
+  LaunchedEffect(mapState) { mapState.startStyleComposition() }
 
-  val callbacks =
-    remember(cameraState, styleState, styleComposition, mapClickScope) {
-      object : MapAdapter.Callbacks {
-        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-          rememberedStyle = style
-          if (cameraState.map === map) cameraState.viewportState.value = map.getViewport()
-        }
+  mapState.setStyleContent(content)
 
-        override fun onMapFailLoading(reason: String?) {
-          onMapLoadFailed(reason)
-        }
-
-        override fun onMapFinishedLoading(map: MapAdapter) {
-          styleState.refreshSources()
-          onMapLoadFinished()
-        }
-
-        override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-          if (sourceId == null) styleState.refreshSources() else styleState.refreshSource(sourceId)
-        }
-
-        override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-          if (cameraState.map !== map) return
-          cameraState.moveReasonState.value = reason
-          cameraState.isCameraMovingState.value = true
-        }
-
-        override fun onCameraMoved(map: MapAdapter) {
-          if (cameraState.map !== map) return
-          cameraState.positionState.value = map.getCameraPosition()
-          // A new instance so a composition that reads CameraState.viewport redraws when the
-          // transform changes without the camera position changing, which is what a resize does.
-          cameraState.viewportState.value = map.getViewport()
-        }
-
-        override fun onCameraMoveEnded(map: MapAdapter) {
-          if (cameraState.map !== map) return
-          cameraState.isCameraMovingState.value = false
-        }
-
-        private fun layerNodesInOrder(): List<LayerNode<*>> {
-          val layerNodes =
-            (styleComposition?.children?.filterIsInstance<LayerNode<*>>() ?: emptyList())
-              .associateBy { node -> node.layer.id }
-          val layers = styleComposition?.binding?.getLayers() ?: emptyList()
-          return layers.asReversed().mapNotNull { layer -> layerNodes[layer.id] }
-        }
-
-        override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-          if (onMapClick(latLng, offset).consumed) return
-          mapClickScope.launch {
-            for (node in layerNodesInOrder()) {
-              if (node.onClick == null) continue
-              val features =
-                map.queryRenderedFeatures(
-                  offset = offset,
-                  layerIds = setOf(node.layer.id),
-                  predicate = null,
-                )
-              // Recomposition may replace or remove the node while the query is suspended. A
-              // removed node never receives the click; a replaced one answers with the handler
-              // it has now.
-              val currentHandle =
-                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onClick
-                  ?: continue
-              if (features.isNotEmpty() && currentHandle(features).consumed) break
-            }
-          }
-        }
-
-        override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-          if (onMapLongClick(latLng, offset).consumed) return
-          mapClickScope.launch {
-            for (node in layerNodesInOrder()) {
-              if (node.onLongClick == null) continue
-              val features =
-                map.queryRenderedFeatures(
-                  offset = offset,
-                  layerIds = setOf(node.layer.id),
-                  predicate = null,
-                )
-              // Recomposition may replace or remove the node while the query is suspended. A
-              // removed node never receives the click; a replaced one answers with the handler
-              // it has now.
-              val currentHandle =
-                layerNodesInOrder().firstOrNull { it.layer.id == node.layer.id }?.onLongClick
-                  ?: continue
-              if (features.isNotEmpty() && currentHandle(features).consumed) break
-            }
-          }
-        }
-
-        override fun onFrame(fps: Double) {
-          onFrame(fps)
-        }
-      }
-    }
+  SideEffect {
+    mapState.cameraState = cameraState
+    mapState.styleState = styleState
+    mapState.density = density
+    mapState.layoutDirection = layoutDirection
+    mapState.inheritedLocals = locals
+    mapState.logger = logger
+    mapState.baseStyle = baseStyle
+    mapState.onMapClick = onMapClick
+    mapState.onMapLongClick = onMapLongClick
+    mapState.onFrame = onFrame
+    mapState.onMapLoadFailed = onMapLoadFailed
+    mapState.onMapLoadFinished = onMapLoadFinished
+    mapState.clickScope = mapClickScope
+  }
 
   Box(modifier.fillMaxSize()) {
     ComposableMapView(
       modifier = Modifier.fillMaxSize(),
       style = baseStyle,
       update = { map ->
-        map.setCameraPadding(cameraPadding)
-        cameraState.map = map
-        map.setMinZoom(zoomRange.start.toDouble())
-        map.setMaxZoom(zoomRange.endInclusive.toDouble())
-        map.setMinPitch(pitchRange.start.toDouble())
-        map.setMaxPitch(pitchRange.endInclusive.toDouble())
-        map.setRenderSettings(options.renderOptions)
-        map.setGestureSettings(options.gestureOptions)
-        map.setTileLodSettings(options.tileLodOptions)
-        map.setCameraBoundingBox(boundingBox)
+        mapState.applyOptions(map, cameraPadding, zoomRange, pitchRange, boundingBox, options)
+        mapState.attachSession(map)
       },
-      onReset = {
-        cameraState.map = null
-        rememberedStyle = null
-      },
+      onReset = { mapState.detachSession() },
       logger = logger,
-      callbacks = callbacks,
+      callbacks = mapState.callbacks,
       options = options,
     )
 

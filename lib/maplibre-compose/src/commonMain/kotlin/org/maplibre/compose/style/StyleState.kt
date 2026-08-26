@@ -32,6 +32,13 @@ public class StyleState internal constructor() {
     }
   }
 
+  /** The inverse of [attach]: a detached state stops reporting a dead map's sources. */
+  internal fun detach() {
+    styleNode?.sourceManager?.state = null
+    styleNode = null
+    if (sourcesState.value.isNotEmpty()) sourcesState.value = emptyMap()
+  }
+
   internal fun refreshSource(id: String) {
     val node = styleNode ?: return
     if (!node.binding.isLoaded) return
