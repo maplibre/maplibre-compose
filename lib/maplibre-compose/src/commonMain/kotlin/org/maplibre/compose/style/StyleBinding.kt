@@ -63,6 +63,15 @@ internal interface StyleBinding {
   fun unsupportedLayerPropertyReason(layerType: String, name: String): String? = null
 
   /**
+   * Whether this engine decodes a raster-dem source's custom encoding factors; an engine that does
+   * not takes the Mapbox encoding instead.
+   */
+  val supportsCustomDemEncoding: Boolean
+
+  /** Whether this engine takes a `scheme` on a raster-dem source; the style spec has none. */
+  val supportsRasterDemScheme: Boolean
+
+  /**
    * Adds a source from its style-spec definition.
    *
    * @return false if the style has unloaded, in which case nothing was added.
@@ -154,6 +163,11 @@ internal interface StyleBinding {
         override fun layerProperty(layerId: String, name: String): JsonElement? = null
 
         override fun layerExists(layerId: String): Boolean? = null
+
+        // Nothing reads these before a descriptor attaches; they carry the native answers.
+        override val supportsCustomDemEncoding: Boolean = false
+
+        override val supportsRasterDemScheme: Boolean = true
 
         override fun addSource(sourceId: String, source: JsonObject): Boolean = false
 

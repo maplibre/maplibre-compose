@@ -152,22 +152,34 @@ class TiledSourceAttachTest {
   }
 
   /**
-   * MapLibre Native understands only `mapbox` and `terrarium`, and refuses the source outright on
-   * anything else, where MapLibre GL JS implements the custom encoding. See
-   * [maplibre-native#2783](https://github.com/maplibre/maplibre-native/issues/2783).
+   * MapLibre Native implements only `mapbox` and `terrarium`, so the binding takes the downgraded
+   * form; RasterDemSourceJsonTest asserts the downgrade itself.
    */
   @Test
-  fun a_custom_dem_encoding_falls_back_to_mapbox() {
-    val source =
-      RasterDemSource(
-        id = "dem",
-        tiles = listOf(TILE_TEMPLATE),
-        options = TileSetOptions(),
-        tileSize = 256,
-        demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
-      )
+  fun a_custom_dem_encoding_still_reaches_the_style() {
+    val fixture = BridgeMapFixture.create()
+    fixture.use {
+      it.loadStyle(BaseStyle.Empty)
+      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
 
-    assertEquals(Json.parseToJsonElement("\"mapbox\""), source.toJson()["encoding"])
+      val source =
+        RasterDemSource(
+          id = "dem",
+          tiles = listOf(TILE_TEMPLATE),
+          options = TileSetOptions(),
+          tileSize = 256,
+          demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
+        )
+      // The descriptor keeps the encoding it was given; the downgrade happens on the way in.
+      assertEquals(Json.parseToJsonElement("\"custom\""), source.toJson()["encoding"])
+
+      val layer = HillshadeLayer("hillshade", source)
+      style.addSource(source)
+      style.addLayer(layer)
+
+      layer.onMap { map -> assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem")) }
+      assertEquals(emptyList(), it.errors, "the map should report nothing")
+    }
   }
 
   private companion object {

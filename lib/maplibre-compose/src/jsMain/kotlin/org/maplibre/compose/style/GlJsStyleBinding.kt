@@ -66,6 +66,11 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     return { unloadActions -= action }
   }
 
+  override val supportsCustomDemEncoding: Boolean = true
+
+  /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
+  override val supportsRasterDemScheme: Boolean = false
+
   override fun addSource(sourceId: String, source: JsonObject): Boolean {
     if (!loaded) return false
     mutate("add source '$sourceId'") {

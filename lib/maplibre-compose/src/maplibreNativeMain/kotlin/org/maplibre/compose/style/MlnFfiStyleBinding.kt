@@ -45,6 +45,16 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 
+  /**
+   * MapLibre Native implements no encoding but mapbox and terrarium.
+   * [#2783](https://github.com/maplibre/maplibre-native/issues/2783)
+   */
+  override val supportsCustomDemEncoding: Boolean
+    get() = false
+
+  override val supportsRasterDemScheme: Boolean
+    get() = true
+
   override fun addSource(sourceId: String, source: JsonObject): Boolean =
     addSourceWith(sourceId) { map -> map.addStyleSourceJson(sourceId, source.toJsonBytes()) }
 
