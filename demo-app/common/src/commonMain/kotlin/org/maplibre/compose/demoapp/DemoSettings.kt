@@ -12,9 +12,17 @@ import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.TileLodOptions
 
+/** Which of the two chosen map styles applies: the system's, or a forced light or dark one. */
+enum class ThemeMode {
+  System,
+  Light,
+  Dark,
+}
+
 /** App-wide diagnostics and toggles, available regardless of which demo is open. */
 @Stable
 class DemoSettings {
+  var themeMode by mutableStateOf(ThemeMode.System)
   var gestureOptions by mutableStateOf(GestureOptions.Standard)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var tileLodOptions by mutableStateOf(TileLodOptions.Standard)

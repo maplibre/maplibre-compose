@@ -19,14 +19,17 @@ interface DemoStyle {
 
   /** An anchor that keeps a demo's layers below the style's labels. */
   val anchorBelowSymbols: Anchor
-
-  companion object {
-    val Default: DemoStyle = OpenFreeMap.Liberty
-
-    val all: List<DemoStyle> =
-      OpenFreeMap.entries + Protomaps.entries + Versatiles.entries + OtherStyles.entries
-  }
 }
+
+/**
+ * The styles the user can pick from, in picker order.
+ *
+ * Top-level rather than on [DemoStyle] because a list of implementors must not live on the type
+ * they implement: initializing an enum entry first initializes the interface, and reading `entries`
+ * there would re-enter the enum before its entries array is assigned.
+ */
+val allDemoStyles: List<DemoStyle> =
+  OpenFreeMap.entries + Protomaps.entries + Versatiles.entries + OtherStyles.entries
 
 enum class OpenFreeMap(override val isDark: Boolean = false) : DemoStyle {
   Bright,

@@ -20,7 +20,6 @@ import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
 import org.maplibre.compose.demoapp.DemoFlightDuration
 import org.maplibre.compose.demoapp.DemoPointerPin
-import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.ButtonRow
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.demoapp.design.SwitchRow
@@ -42,7 +41,6 @@ object LocationDemo : Demo {
   override val name = "My location"
   override val description =
     "The location puck, device heading, and a camera-follow toggle on the real device."
-  override val preferredStyle = OpenFreeMap.Liberty
   override val destination = DemoDestination.None
 
   override val pointerPin: DemoPointerPin?

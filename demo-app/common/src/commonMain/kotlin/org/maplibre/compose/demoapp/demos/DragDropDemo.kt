@@ -28,7 +28,6 @@ import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
-import org.maplibre.compose.demoapp.OpenFreeMap
 import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
@@ -51,7 +50,6 @@ private val DragColor = Color(0xFF00695C)
 object DragDropDemo : Demo {
   override val name = "Drag & drop"
   override val description = "Drag a location-picker pin or the corner handles of a bounding box."
-  override val preferredStyle = OpenFreeMap.Liberty
 
   // A neighborhood view gives both modes room to drag in without a detour through the camera.
   override val destination =
