@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.ClickRoute
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleCompositionHost
@@ -51,6 +52,9 @@ internal class MapState(
 ) : AutoCloseable {
 
   internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
+
+  /** Owns the map's platform lifetime; on some platforms the map outlives the composition. */
+  internal val engine: MapEngine = createMapEngine(this)
 
   internal val host: StyleCompositionHost =
     StyleCompositionHost(
@@ -142,16 +146,32 @@ internal class MapState(
     host.setContent { contentState.value.invoke() }
   }
 
+  /** The attached session's adapter, so a base-style change reaches the live map. */
+  private var adapter: MapAdapter? = null
+
+  /** The selected base style; the push is a no-op on an adapter that already has it. */
+  internal var baseStyle: BaseStyle? = null
+    set(value) {
+      if (value == null || value == field) return
+      field = value
+      engine.setBaseStyle(value)
+      adapter?.setBaseStyle(value)
+    }
+
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
+    this.adapter = adapter
+    baseStyle?.let(adapter::setBaseStyle)
     cameraState.map = adapter
     styleState.attach(styleNode)
   }
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
   internal fun detachSession() {
+    adapter = null
     cameraState.map = null
-    updateBinding(null)
+    // An engine that keeps the map alive keeps its loaded binding and the applied snapshot too.
+    if (!engine.retainsStyleAcrossDetach) updateBinding(null)
     styleState.detach()
   }
 
@@ -183,6 +203,7 @@ internal class MapState(
 
   override fun close() {
     detachSession()
+    engine.close()
     host.close()
   }
 

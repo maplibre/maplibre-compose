@@ -153,6 +153,7 @@ public fun MaplibreMap(
   mapState.setStyleContent(content)
 
   SideEffect {
+    mapState.baseStyle = baseStyle
     mapState.cameraState = cameraState
     mapState.styleState = styleState
     mapState.density = density
@@ -170,7 +171,7 @@ public fun MaplibreMap(
   Box(modifier.fillMaxSize()) {
     ComposableMapView(
       modifier = Modifier.fillMaxSize(),
-      style = baseStyle,
+      engine = mapState.engine,
       update = { map ->
         mapState.applyOptions(map, cameraPadding, zoomRange, pitchRange, boundingBox, options)
         mapState.attachSession(map)

@@ -72,7 +72,9 @@ internal class MlnFfiMapFixture(val bridge: BridgeMapFixture, private val extent
   ): T = bridge.awaitWhileRendering(description, timeout, block)
 
   override fun closeSession() {
+    // The render session alone no longer tears the map down, and these tests close the map.
     bridge.session.close()
+    bridge.core.close()
   }
 
   override fun close() {

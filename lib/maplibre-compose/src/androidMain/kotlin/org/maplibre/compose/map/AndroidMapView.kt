@@ -9,12 +9,11 @@ import org.maplibre.compose.mlnffi.AndroidMapSurfaceKind
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.style.BaseStyle
 
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
-  style: BaseStyle,
+  engine: MapEngine,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -46,7 +45,7 @@ internal actual fun ComposableMapView(
         )
       },
       modifier = modifier,
-      style = style,
+      engine = engine,
       update = update,
       onReset = onReset,
       logger = logger,

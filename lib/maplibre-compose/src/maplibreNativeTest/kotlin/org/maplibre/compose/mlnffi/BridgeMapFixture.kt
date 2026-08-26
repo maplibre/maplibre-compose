@@ -242,6 +242,7 @@ private constructor(
 
   override fun close() {
     runCatching { session.close() }
+    runCatching { core.close() }
     runCatching { driver.close() }
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }

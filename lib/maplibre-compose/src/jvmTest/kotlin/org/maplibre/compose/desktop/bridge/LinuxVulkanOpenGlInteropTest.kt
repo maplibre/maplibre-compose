@@ -357,6 +357,7 @@ class LinuxVulkanOpenGlInteropTest {
 
     override fun close() {
       renderer.close()
+      core.close()
       cacheDirectory.toFile().deleteRecursively()
     }
 

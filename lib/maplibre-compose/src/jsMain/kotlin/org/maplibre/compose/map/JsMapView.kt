@@ -3,7 +3,6 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -14,12 +13,11 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.gljs.GlJsMapSurface
-import org.maplibre.compose.style.BaseStyle
 
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
-  style: BaseStyle,
+  engine: MapEngine,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -39,10 +37,6 @@ internal actual fun ComposableMapView(
   session.logger = logger
   session.layoutDirection = layoutDirection
   val currentOnReset = rememberUpdatedState(onReset)
-
-  // Must run in the apply phase, not from a coroutine: the unload has to precede the content
-  // subcomposition inserting layers, or a style switch crashes on anchor validation (see #269).
-  SideEffect { session.setBaseStyle(style) }
 
   LaunchedEffect(session, options, update) { update(session) }
 

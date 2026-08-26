@@ -6,12 +6,11 @@ import androidx.compose.ui.Modifier
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.LocalComposeMapHost
 import org.maplibre.compose.desktop.bridge.ComposeMapHostFactory
-import org.maplibre.compose.style.BaseStyle
 
 @Composable
 internal actual fun ComposableMapView(
   modifier: Modifier,
-  style: BaseStyle,
+  engine: MapEngine,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -26,7 +25,7 @@ internal actual fun ComposableMapView(
   MlnFfiMapView(
     hostFactory = hostFactory,
     modifier = modifier,
-    style = style,
+    engine = engine,
     update = update,
     onReset = onReset,
     logger = logger,

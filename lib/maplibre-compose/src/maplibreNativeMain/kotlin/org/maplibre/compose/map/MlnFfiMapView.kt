@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -17,7 +16,6 @@ import androidx.compose.ui.platform.testTag
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiMapHostFactory
 import org.maplibre.compose.mlnffi.MlnFfiMapHostResult
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
@@ -25,7 +23,6 @@ import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.mlnffi.selectBridge
-import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -38,7 +35,7 @@ internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
 internal fun MlnFfiMapView(
   hostFactory: MlnFfiMapHostFactory,
   modifier: Modifier,
-  style: BaseStyle,
+  engine: MapEngine,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -65,7 +62,7 @@ internal fun MlnFfiMapView(
       )
     },
     modifier = modifier,
-    style = style,
+    engine = engine,
     update = update,
     onReset = onReset,
     logger = logger,
@@ -80,7 +77,7 @@ internal fun MlnFfiMapView(
   renderBackend: MapRenderBackend,
   surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?, Boolean) -> Unit,
   modifier: Modifier,
-  style: BaseStyle,
+  engine: MapEngine,
   update: (map: MapAdapter) -> Unit,
   onReset: () -> Unit,
   logger: Logger?,
@@ -88,37 +85,23 @@ internal fun MlnFfiMapView(
   options: MapOptions,
 ) {
   EnsureMlnFfiConfigured()
-  val applicationOptions = MlnFfiApplication.options
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
   val scaleFactor = density.density.toDouble()
 
-  // One remember so the core and its render session enter and leave the composition together.
-  val session =
-    remember(renderBackend, scaleFactor, applicationOptions) {
-      MlnFfiMapSession(
-        core =
-          MlnFfiMapCore(
-            callbacks = callbacks,
-            logger = logger,
-            scaleFactor = scaleFactor,
-            layoutDirection = layoutDirection,
-            cacheFile = applicationOptions.cacheFile,
-            resourceProviderFactory = applicationOptions.resourceProviderFactory,
-          ),
-        backend = renderBackend,
-      )
+  // The engine reuses a live core whose density and backend match, so re-entering the composition
+  // re-attaches to the same map instead of recreating it.
+  val mapEngine = engine as MlnFfiMapEngine
+  val core =
+    remember(mapEngine, renderBackend, scaleFactor) {
+      mapEngine.acquireCore(scaleFactor, layoutDirection, renderBackend)
     }
-  val core = session.core
+  val session = remember(core, renderBackend) { MlnFfiMapSession(core, renderBackend) }
 
   core.callbacks = callbacks
   core.logger = logger
   core.layoutDirection = layoutDirection
   val currentOnReset = rememberUpdatedState(onReset)
-
-  // Must run in the apply phase, not from a coroutine: the unload has to precede the content
-  // subcomposition inserting layers, or a style switch fails anchor validation (see #269).
-  SideEffect { core.setBaseStyle(style) }
 
   LaunchedEffect(session, options, update) {
     // Attach deferred state before native events can report the map's default state to Compose.

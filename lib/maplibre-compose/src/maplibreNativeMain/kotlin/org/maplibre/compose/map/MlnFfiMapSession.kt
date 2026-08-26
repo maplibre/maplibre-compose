@@ -51,7 +51,7 @@ private const val FRAME_INTERVAL_SLACK = 0.1
  * The render session over an [MlnFfiMapCore]: the host surface, the [RenderSessionHandle], and
  * frame scheduling, all on the host's renderer thread. A camera transition only steps while frames
  * are being drawn: mbgl advances it from `onDidFinishRenderingFrame`. Closing this session closes
- * the core with it.
+ * only the render half; the core belongs to the [MlnFfiMapEngine] that owns it.
  */
 internal class MlnFfiMapSession(
   internal val core: MlnFfiMapCore,
@@ -243,12 +243,12 @@ internal class MlnFfiMapSession(
     return MlnFfiFrameResult.RENDERED
   }
 
-  /** Closes the core too; its stop closes this render session while the host is still reachable. */
+  /** Closes only the render half and detaches from the core, which survives for a later session. */
   override fun close() {
     if (closed) return
     closed = true
     try {
-      core.close()
+      closeRenderSession()
     } finally {
       hostSession = null
       core.detachRenderSession(this)
