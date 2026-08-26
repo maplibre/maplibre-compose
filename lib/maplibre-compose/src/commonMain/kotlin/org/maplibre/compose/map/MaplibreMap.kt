@@ -13,6 +13,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
 import androidx.compose.ui.graphics.Color
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.camera.CameraStateSaver
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
@@ -191,6 +193,9 @@ public fun MaplibreMap(
  * Remembers a [MapState] that the composition owns: created once, and closed when the composition
  * leaves. Pass the returned state to [MaplibreMap].
  *
+ * @param cameraPosition The first camera position. The camera position saves across recreation with
+ *   `rememberSaveable`, and a recreated composition starts the camera at the saved position instead
+ *   of this one.
  * @param baseStyle The URI or JSON of the map style to use. Assigned to [MapState.baseStyle] on
  *   every recomposition. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param styleContent The sources and layers composed over [baseStyle]; null sets no content. See
@@ -198,6 +203,7 @@ public fun MaplibreMap(
  */
 @Composable
 public fun rememberMapState(
+  cameraPosition: CameraPosition = CameraPosition(),
   baseStyle: BaseStyle = BaseStyle.Demo,
   styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
 ): MapState {
@@ -205,10 +211,13 @@ public fun rememberMapState(
   val layoutDirection = LocalLayoutDirection.current
   val locals = currentCompositionLocalContext
 
+  // The camera is the saveable piece; the MapState object itself is not saveable.
+  val cameraState = rememberSaveable(saver = CameraStateSaver) { CameraState(cameraPosition) }
+
   // Keyed on nothing: changed inputs update the state below rather than recreate it.
   val mapState = remember {
     MapState(
-      cameraState = CameraState(CameraPosition()),
+      cameraState = cameraState,
       styleState = StyleState(),
       density = density,
       layoutDirection = layoutDirection,

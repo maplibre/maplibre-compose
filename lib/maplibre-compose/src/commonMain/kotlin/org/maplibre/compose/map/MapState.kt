@@ -4,16 +4,25 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalContext
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
+import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.ClickRoute
 import org.maplibre.compose.style.StyleBinding
@@ -27,11 +36,13 @@ import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * The map's identity, held apart from the composable that shows it: the selected [baseStyle] and
- * the style content that [setStyleContent] composes over it.
+ * The map's identity, held apart from the composable that shows it: the selected [baseStyle], the
+ * style content that [setStyleContent] composes over it, and the [camera].
  *
  * A state outlives any one [MaplibreMap] composable. On Android, iOS, and Desktop the loaded map
  * survives the composable leaving the composition, with its style and camera intact, and
@@ -219,6 +230,137 @@ internal constructor(
       engine.setBaseStyle(value)
       adapter?.setBaseStyle(value)
     }
+
+  /**
+   * The camera position of the map. A composition that reads this property recomposes after each
+   * camera move.
+   *
+   * While no session is attached, this property reports the position that the state last recorded.
+   * On Android, iOS, and Desktop the loaded map keeps its camera across detach, and the recorded
+   * position matches it. On Web the next session starts the map at the recorded position.
+   *
+   * [setCamera] and [animateCamera] write the camera.
+   */
+  public val camera: CameraPosition
+    get() = cameraState.position
+
+  /** Whether the camera is currently moving. */
+  public val isCameraMoving: Boolean
+    get() = cameraState.isCameraMoving
+
+  /** The reason for the most recent camera move. */
+  public val cameraMoveReason: CameraMoveReason
+    get() = cameraState.moveReason
+
+  /**
+   * Moves the camera to [position] with no animation.
+   *
+   * A call before a session attaches records the position, and the map starts there when a session
+   * attaches.
+   */
+  public suspend fun setCamera(position: CameraPosition) {
+    cameraState.position = position
+  }
+
+  /**
+   * Animates the camera to [position] over [duration] and returns when the animation ends.
+   *
+   * A call before a session attaches suspends until a session attaches and runs the animation.
+   */
+  public suspend fun animateCamera(
+    position: CameraPosition,
+    duration: Duration = 300.milliseconds,
+  ) {
+    cameraState.animateTo(position, duration)
+  }
+
+  /**
+   * Animates the camera to fit [boundingBox] over [duration] and returns when the animation ends.
+   *
+   * A call before a session attaches suspends until a session attaches and runs the animation.
+   *
+   * @param boundingBox The bounds that the animation fits into the viewport.
+   * @param bearing The bearing that the animation sets. Defaults to 0.0.
+   * @param tilt The tilt that the animation sets. Defaults to 0.0.
+   * @param padding Insets added while fitting [boundingBox].
+   * @param duration The duration of the animation. Defaults to 300 ms.
+   */
+  public suspend fun animateCamera(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+    duration: Duration = 300.milliseconds,
+  ) {
+    cameraState.animateTo(boundingBox, bearing, tilt, padding, duration)
+  }
+
+  /**
+   * Returns the offset from the top-left corner of the map composable that corresponds to the given
+   * [position], including a [position] outside the viewport. Returns null while no attached session
+   * has rendered a viewport.
+   *
+   * The answer describes the transform that the map has at the time of the call.
+   */
+  public fun screenLocationFromPosition(position: Position): DpOffset? =
+    cameraState.screenLocationFromPosition(position)
+
+  /**
+   * Returns the position that corresponds to the given [offset] from the top-left corner of the map
+   * composable. Returns null while no attached session has rendered a viewport.
+   *
+   * The answer describes the transform that the map has at the time of the call.
+   */
+  public fun positionFromScreenLocation(offset: DpOffset): Position? =
+    cameraState.positionFromScreenLocation(offset)
+
+  /**
+   * Returns the position that corresponds to the given [offset] in pixels from the top-left corner
+   * of the map composable, in the units that pointer events report. Returns null while no attached
+   * session has rendered a viewport.
+   *
+   * The answer describes the transform that the map has at the time of the call.
+   */
+  public fun positionFromScreenLocation(offset: Offset): Position? =
+    cameraState.positionFromScreenLocation(offset)
+
+  /**
+   * Returns the features that are rendered at the given [offset] from the top-left corner of the
+   * map composable, optionally limited to layers with the given [layerIds] and filtered by the
+   * given [predicate]. The result is sorted by render order, so the feature in front is first in
+   * the list. The list is empty while no session is attached.
+   *
+   * @param offset The offset from the top-left corner of the map composable to query.
+   * @param layerIds The ids of the layers that limit the query. If not specified, the query returns
+   *   features in *any* layer.
+   * @param predicate An expression that has to evaluate to true for a feature to be included in the
+   *   result.
+   */
+  public suspend fun queryRenderedFeatures(
+    offset: DpOffset,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> =
+    cameraState.queryRenderedFeatures(offset, layerIds, predicate)
+
+  /**
+   * Returns the features whose rendered geometry intersects the given [rect], optionally limited to
+   * layers with the given [layerIds] and filtered by the given [predicate]. The result is sorted by
+   * render order, so the feature in front is first in the list. The list is empty while no session
+   * is attached.
+   *
+   * @param rect The rectangle to intersect with rendered geometry.
+   * @param layerIds The ids of the layers that limit the query. If not specified, the query returns
+   *   features in *any* layer.
+   * @param predicate An expression that has to evaluate to true for a feature to be included in the
+   *   result.
+   */
+  public suspend fun queryRenderedFeatures(
+    rect: DpRect,
+    layerIds: Set<String>? = null,
+    predicate: Expression<BooleanValue> = const(true),
+  ): List<Feature<Geometry, JsonObject?>> =
+    cameraState.queryRenderedFeatures(rect, layerIds, predicate)
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
