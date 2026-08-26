@@ -7,11 +7,14 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.Feature
 import org.maplibre.compose.expressions.dsl.const
@@ -22,6 +25,9 @@ import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
+import org.maplibre.spatialk.geojson.Feature as GeoJsonFeature
+import org.maplibre.spatialk.geojson.Geometry
+import org.maplibre.spatialk.geojson.Position
 
 class MapQueryTest {
 
@@ -174,6 +180,34 @@ class MapQueryTest {
   }
 
   @Test
+  fun a_query_at_an_off_center_point_returns_only_the_feature_there(): MapTestResult = runMapTest {
+    createMapFixture().use {
+      it.loadStyle(BaseStyle.Json(TWO_HALVES_STYLE))
+      // Zoom 0 keeps ±90 inside the 512 px viewport.
+      it.session.setCameraPosition(CameraPosition(target = Position(0.0, 0.0), zoom = 0.0))
+      it.pump(frames = 30)
+
+      val westAt = assertNotNull(it.session.screenLocationFromPosition(WEST_POINT))
+      val eastAt = assertNotNull(it.session.screenLocationFromPosition(EAST_POINT))
+      val westHits =
+        it.session.queryRenderedFeatures(offset = westAt, layerIds = null, predicate = null)
+      val eastHits =
+        it.session.queryRenderedFeatures(offset = eastAt, layerIds = null, predicate = null)
+
+      assertEquals(
+        setOf("west"),
+        westHits.names(),
+        "Expected only west. Hits: ${westHits.names()}",
+      )
+      assertEquals(
+        setOf("east"),
+        eastHits.names(),
+        "Expected only east. Hits: ${eastHits.names()}",
+      )
+    }
+  }
+
+  @Test
   fun a_queried_feature_keeps_its_geojson_id(): MapTestResult = runMapTest {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Json(WORLD_POLYGON_STYLE))
@@ -190,6 +224,63 @@ class MapQueryTest {
   private companion object {
     /** The center of [MapFixture.DEFAULT_EXTENT], in the logical pixels a query takes. */
     val CENTER = DpOffset(256.dp, 256.dp)
+
+    val WEST_POINT = Position(longitude = -90.0, latitude = 0.0)
+
+    val EAST_POINT = Position(longitude = 90.0, latitude = 0.0)
+
+    fun List<GeoJsonFeature<Geometry, JsonObject?>>.names(): Set<String?> = map { feature ->
+      feature.properties?.get("name")?.jsonPrimitive?.content
+    }
+      .toSet()
+
+    /**
+     * Two non-overlapping fills, one west and one east of the prime meridian. A point query at
+     * [WEST_POINT] or [EAST_POINT] hits only that half.
+     */
+    val TWO_HALVES_STYLE =
+      """
+      {
+        "version": 8,
+        "name": "query-halves-test",
+        "sources": {
+          "test": {
+            "type": "geojson",
+            "data": {
+              "type": "FeatureCollection",
+              "features": [
+                {
+                  "type": "Feature",
+                  "id": 1,
+                  "properties": { "name": "west" },
+                  "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                      [[-170, -80], [-10, -80], [-10, 80], [-170, 80], [-170, -80]]
+                    ]
+                  }
+                },
+                {
+                  "type": "Feature",
+                  "id": 2,
+                  "properties": { "name": "east" },
+                  "geometry": {
+                    "type": "Polygon",
+                    "coordinates": [
+                      [[10, -80], [170, -80], [170, 80], [10, 80], [10, -80]]
+                    ]
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "layers": [
+          { "id": "test-fill", "type": "fill", "source": "test", "paint": { "fill-color": "#ff0000" } }
+        ]
+      }
+      """
+        .trimIndent()
 
     /** A polygon covering most of the world, so the viewport center is a hit at any zoom. */
     val WORLD_POLYGON_STYLE =

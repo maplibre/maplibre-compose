@@ -110,10 +110,10 @@ internal external interface PaddingOptions {
   var right: Double
 }
 
-/** A point, or the two corners of a box; see [queryBox]. */
+/** Geometry for [org.maplibre.compose.gljs.MaplibreMap.queryRenderedFeatures]. */
 internal external interface QueryGeometry
 
-internal external interface Point : QueryGeometry {
+internal external interface Point {
   var x: Double
   var y: Double
 }
@@ -219,6 +219,13 @@ internal fun MaplibreMap.isCameraEasing(): Boolean {
   }
   return camera.isEasing() as Boolean
 }
+
+/**
+ * Returns `[x, y]`. GL JS treats only an `Array` or a `Point` instance as query geometry. A plain
+ * `{x, y}` object is not geometry, so the query uses the whole viewport.
+ */
+internal fun queryPoint(x: Double, y: Double): QueryGeometry =
+  arrayOf(x, y).unsafeCast<QueryGeometry>()
 
 /** MapLibre tells a box from a point by shape, a box being a two-element array. */
 internal fun queryBox(first: Point, second: Point): QueryGeometry =
