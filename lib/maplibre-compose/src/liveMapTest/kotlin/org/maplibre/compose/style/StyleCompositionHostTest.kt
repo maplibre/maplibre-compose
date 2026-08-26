@@ -8,15 +8,25 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.layers.BackgroundLayer
+import org.maplibre.compose.layers.FillLayerDescriptor
+import org.maplibre.compose.layers.LayerNode as ComposeLayerNode
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.SourceReferenceEffect
 import org.maplibre.compose.sources.TileSetOptions
+import org.maplibre.compose.util.ClickResult
+import org.maplibre.compose.util.FeaturesClickHandler
 
 private fun testSource(id: String) =
   RasterSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())
@@ -170,6 +180,107 @@ class StyleCompositionHostTest {
       ),
       recording.ops.toList(),
     )
+
+    host.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun a_structural_toggle_with_no_source_effect_still_syncs() = runTest {
+    val recording = OpRecordingStyleBinding()
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+    var show by mutableStateOf(false)
+
+    host.setContent { if (show) BackgroundLayer(id = "bg") }
+    testScheduler.advanceUntilIdle()
+    assertTrue(recording.ops.isEmpty())
+
+    show = true
+    testScheduler.advanceUntilIdle()
+    assertEquals(listOf("addLayer:bg"), recording.ops.toList())
+
+    show = false
+    testScheduler.advanceUntilIdle()
+    assertEquals(listOf("addLayer:bg", "removeLayer:bg"), recording.ops.toList())
+    assertNull(host.contentError)
+
+    host.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun the_click_routing_snapshot_reflects_the_tree_after_sync() = runTest {
+    val recording = OpRecordingStyleBinding()
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+    val source = testSource("tiles")
+    val handler: FeaturesClickHandler = { ClickResult.Consume }
+    var showSecond by mutableStateOf(false)
+
+    host.setContent {
+      SourceReferenceEffect(source)
+      ComposeLayerNode(
+        factory = { FillLayerDescriptor("a", source) },
+        update = {},
+        onClick = handler,
+        onLongClick = null,
+      )
+      if (showSecond) {
+        ComposeLayerNode(
+          factory = { FillLayerDescriptor("b", source) },
+          update = {},
+          onClick = null,
+          onLongClick = null,
+        )
+      }
+    }
+    testScheduler.advanceUntilIdle()
+    assertEquals(listOf("a"), rootNode.clickRoutes.map { it.layerId })
+    assertSame(handler, rootNode.clickRoutes.single().onClick)
+
+    showSecond = true
+    testScheduler.advanceUntilIdle()
+    // Topmost drawn layer first, each with the handlers the composition holds now.
+    assertEquals(listOf("b", "a"), rootNode.clickRoutes.map { it.layerId })
+    assertNull(rootNode.clickRoutes.first { it.layerId == "b" }.onClick)
+    assertSame(handler, rootNode.clickRoutes.first { it.layerId == "a" }.onClick)
+
+    host.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun an_ordinary_apply_failure_is_recorded_and_logged_not_rethrown() = runTest {
+    val recording =
+      object : OpRecordingStyleBinding() {
+        override fun addSource(source: Source) = throw RuntimeException("engine refused")
+      }
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+
+    host.setContent { RasterLayer(id = "raster", source = testSource("tiles")) }
+    testScheduler.advanceUntilIdle()
+
+    assertIs<RuntimeException>(host.contentError)
+
+    host.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun cancellation_is_not_swallowed_as_a_content_error() = runTest {
+    val recording =
+      object : OpRecordingStyleBinding() {
+        override fun addSource(source: Source) = throw CancellationException("cancelled")
+      }
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+
+    host.setContent { RasterLayer(id = "raster", source = testSource("tiles")) }
+    testScheduler.advanceUntilIdle()
+
+    assertNull(host.contentError)
 
     host.close()
     testScheduler.advanceUntilIdle()

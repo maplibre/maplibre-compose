@@ -1,7 +1,6 @@
 package org.maplibre.compose.style
 
 import androidx.compose.ui.graphics.ImageBitmap
-import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
@@ -640,32 +639,6 @@ internal interface MlnFfiStyleBinding : StyleBinding {
         ("hillshade" to "resampling") to "MapLibre Native does not implement it.",
         ("color-relief" to "resampling") to "MapLibre Native does not implement it.",
       )
-
-    /** A binding for a descriptor that has never been added to a style. */
-    val UNLOADED: MlnFfiStyleBinding =
-      object : MlnFfiStyleBinding {
-        override val featureStateStore: MlnFfiFeatureStateStore? = null
-
-        override val tileCoordinators: MlnFfiTileCoordinatorStore? = null
-
-        override val isLoaded: Boolean = false
-
-        override val logger: Logger? = null
-
-        override fun onUnload(action: () -> Unit): () -> Unit {
-          action()
-          return {}
-        }
-
-        override fun <T> readMap(action: (MapHandle) -> T): T? = null
-
-        override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-          abandon()
-          return null
-        }
-
-        override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
-      }
   }
 }
 

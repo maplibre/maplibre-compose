@@ -4,9 +4,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import co.touchlab.kermit.Logger
+import kotlin.concurrent.Volatile
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.util.FeaturesClickHandler
+
+/** One layer's click handlers, captured on the host thread for the UI thread to read. */
+internal class ClickRoute(
+  val layerId: String,
+  val onClick: FeaturesClickHandler?,
+  val onLongClick: FeaturesClickHandler?,
+)
 
 /**
  * The root of the style composition. The composition's callbacks record desired state only; [sync]
@@ -35,6 +44,11 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   private val appliedLayers = LinkedHashMap<Anchor, MutableList<LayerNode<*>>>()
   private val replacedLayers = mutableMapOf<Anchor.Replace, Layer>()
 
+  /** The click-routing snapshot, topmost layer first; the UI thread reads only this. */
+  @Volatile
+  internal var clickRoutes: List<ClickRoute> = emptyList()
+    private set
+
   override fun allowsChild(node: MapNode) = node is LayerNode<*>
 
   override fun onChildInserted(index: Int, node: MapNode) {
@@ -55,7 +69,11 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     return baseLayerIds
   }
 
-  /** Diffs the desired state against the applied snapshot and mutates the engine to match. */
+  /**
+   * Diffs the desired state against the applied snapshot and mutates the engine to match. Every
+   * bookkeeping update happens only after its engine operation succeeds, so a sync that throws
+   * resumes from the true engine state on the next flush.
+   */
   internal fun applyChanges() {
     val binding = binding
     if (syncedBinding !== binding) {
@@ -69,7 +87,10 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       imageManager.ensureAttached()
       syncedBinding = binding
     }
-    if (!binding.isLoaded) return
+    if (!binding.isLoaded) {
+      publishClickRoutes()
+      return
+    }
 
     val desiredLayers = children.filterIsInstance<LayerNode<*>>()
     removeUndesiredLayers(desiredLayers)
@@ -78,6 +99,18 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     val desiredByAnchor = LinkedHashMap<Anchor, MutableList<LayerNode<*>>>()
     desiredLayers.forEach { desiredByAnchor.getOrPut(it.anchor) { mutableListOf() }.add(it) }
     desiredByAnchor.forEach { (anchor, group) -> syncAnchorGroup(anchor, group) }
+
+    publishClickRoutes()
+  }
+
+  /** Rebuilds [clickRoutes] from the live draw order and the composition's handlers. */
+  private fun publishClickRoutes() {
+    val layerNodes = children.filterIsInstance<LayerNode<*>>().associateBy { it.layer.id }
+    val ids = binding.layerIds().orEmpty()
+    clickRoutes =
+      ids.asReversed().mapNotNull { id ->
+        layerNodes[id]?.let { ClickRoute(id, it.onClick, it.onLongClick) }
+      }
   }
 
   private fun removeUndesiredLayers(desiredLayers: List<LayerNode<*>>) {
@@ -88,15 +121,17 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       group
         .filter { it !in desired }
         .forEach { node ->
-          group.remove(node)
-          if (anchor is Anchor.Replace && group.isEmpty()) {
-            replacedLayers.remove(anchor)?.let { original ->
+          // Removing the group's last layer restores the replaced original first.
+          if (anchor is Anchor.Replace && group.size == 1) {
+            replacedLayers[anchor]?.let { original ->
               logger?.i { "Restoring layer ${anchor.layerId}" }
               binding.addLayerBelow(node.layer.id, original)
+              replacedLayers.remove(anchor)
             }
           }
           logger?.i { "Removing layer ${node.layer.id}" }
           binding.removeLayer(node.layer)
+          group.remove(node)
         }
       if (group.isEmpty()) anchors.remove()
     }
@@ -104,34 +139,35 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
 
   private fun syncSources() {
     val desired = sourceManager.desiredSources
-    desired.forEach { source ->
-      if (appliedSources.add(source)) {
-        logger?.i { "Adding source ${source.id}" }
-        binding.addSource(source)
-        sourceManager.state?.refreshSource(source.id)
-      }
-    }
+    // Obsolete sources leave first so a replacement instance may reuse a freed id.
     appliedSources
       .filter { it !in desired }
       .forEach { source ->
-        appliedSources.remove(source)
         logger?.i { "Removing source ${source.id}" }
         binding.removeSource(source)
+        appliedSources.remove(source)
         sourceManager.state?.refreshSource(source.id)
       }
+    desired.forEach { source ->
+      if (source !in appliedSources) {
+        logger?.i { "Adding source ${source.id}" }
+        binding.addSource(source)
+        appliedSources.add(source)
+        sourceManager.state?.refreshSource(source.id)
+      }
+    }
   }
 
   private fun syncAnchorGroup(anchor: Anchor, desired: List<LayerNode<*>>) {
-    val applied = appliedLayers[anchor] ?: mutableListOf()
-    if (applied.isEmpty()) {
+    val applied = appliedLayers[anchor]
+    if (applied.isNullOrEmpty()) {
       // A style switch can recompose content whose anchors name layers of the incoming base style
       // before this node's style has been swapped; the group waits for a later sync.
       if (!anchor.isResolvable()) {
-        logger?.w { "Anchor $anchor names no layer in the current style; deferring its layers" }
+        logger?.w { "Anchor $anchor names no layer in the base style; deferring its layers" }
         return
       }
       initializeAnchor(anchor, desired)
-      appliedLayers[anchor] = desired.toMutableList()
       return
     }
 
@@ -156,16 +192,20 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
         node in appliedIndex -> {
           logger?.i { "Moving layer ${layer.id} above $previousId" }
           moveLayerAbove(checkNotNull(previousId), layer)
+          applied.remove(node)
+          applied.add(applied.indexOfFirst { it.layer.id == previousId } + 1, node)
         }
         previousId != null -> {
           logger?.i { "Adding layer ${layer.id} above $previousId" }
           binding.addLayerAbove(checkNotNull(previousId), layer)
+          applied.add(applied.indexOfFirst { it.layer.id == previousId } + 1, node)
         }
         else -> {
           // The first applied node in desired order is always stable, so a head insert finds it.
           val head = desired.drop(position + 1).first { it in stable }
           logger?.i { "Adding layer ${layer.id} below ${head.layer.id}" }
           binding.addLayerBelow(head.layer.id, layer)
+          applied.add(applied.indexOf(head), node)
         }
       }
       previousId = layer.id
@@ -174,6 +214,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   }
 
   private fun initializeAnchor(anchor: Anchor, desired: List<LayerNode<*>>) {
+    val applied = appliedLayers.getOrPut(anchor) { mutableListOf() }
     val first = desired.first()
     logger?.i { "Initializing anchor $anchor with layer ${first.layer.id}" }
     when (anchor) {
@@ -184,15 +225,18 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       is Anchor.Replace -> {
         val layerToReplace = checkNotNull(binding.getLayer(anchor.layerId))
         binding.addLayerAbove(layerToReplace.id, first.layer)
+        applied += first
         logger?.i { "Replacing layer ${layerToReplace.id} with ${first.layer.id}" }
         binding.removeLayer(layerToReplace)
         replacedLayers[anchor] = layerToReplace
       }
     }
+    if (applied.isEmpty()) applied += first
     var previous = first
     desired.drop(1).forEach { node ->
       logger?.i { "Adding layer ${node.layer.id} above ${previous.layer.id}" }
       binding.addLayerAbove(previous.layer.id, node.layer)
+      applied += node
       previous = node
     }
   }
@@ -213,6 +257,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
         is Anchor.Replace -> layerId
         else -> return true
       }
-    return binding.layerIds()?.contains(layerId) ?: false
+    // Anchors name base-style layers only, per Anchor's contract.
+    return layerId in baseLayerIds()
   }
 }

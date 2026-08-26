@@ -159,7 +159,6 @@ public fun MaplibreMap(
     mapState.layoutDirection = layoutDirection
     mapState.inheritedLocals = locals
     mapState.logger = logger
-    mapState.baseStyle = baseStyle
     mapState.onMapClick = onMapClick
     mapState.onMapLongClick = onMapLongClick
     mapState.onFrame = onFrame

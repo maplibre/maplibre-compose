@@ -16,6 +16,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -23,6 +24,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import org.maplibre.compose.util.rethrowIfFatal
 
 /**
  * Owns one style [Composition], its [Recomposer], and the frame clock that drives it, with no
@@ -94,7 +96,10 @@ internal class StyleCompositionHost(
     scope.launch {
       try {
         recomposer.runRecomposeAndApplyChanges()
+      } catch (error: CancellationException) {
+        throw error
       } catch (error: Throwable) {
+        rethrowIfFatal(error)
         contentError = error
         logger?.e(error) { "Style composition failed; the style stops updating" }
       }
@@ -139,7 +144,10 @@ internal class StyleCompositionHost(
           }
         }
         rootNode.applyChanges()
+      } catch (error: CancellationException) {
+        throw error
       } catch (error: Throwable) {
+        rethrowIfFatal(error)
         contentError = error
         logger?.e(error) { "Style content failed to compose" }
       }
@@ -172,7 +180,10 @@ internal class StyleCompositionHost(
     if (disposed) return
     try {
       rootNode.applyChanges()
+    } catch (error: CancellationException) {
+      throw error
     } catch (error: Throwable) {
+      rethrowIfFatal(error)
       contentError = error
       logger?.e(error) { "Applying style changes failed" }
     }
@@ -213,7 +224,10 @@ internal class StyleCompositionHost(
     // Disposal only empties the desired state; this sync removes the content from the engine.
     try {
       rootNode.applyChanges()
+    } catch (error: CancellationException) {
+      throw error
     } catch (error: Throwable) {
+      rethrowIfFatal(error)
       contentError = error
       logger?.e(error) { "Applying style changes after disposal failed" }
     }

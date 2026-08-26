@@ -192,6 +192,8 @@ class MapStateTest {
     assertEquals(listOf("addSource:tiles", "addLayer:raster"), firstBinding.ops.toList())
 
     state.detachSession()
+    // The engine session unloads its style when it goes away; the fake models that here.
+    firstBinding.unload()
     testScheduler.advanceUntilIdle()
     val firstCallsAfterDetach = first.calls.toList()
     val firstOpsAfterDetach = firstBinding.ops.toList()

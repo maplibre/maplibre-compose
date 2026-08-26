@@ -16,4 +16,4 @@ internal fun <T> Layer.onMap(block: (MapHandle) -> T): T =
 
 /** The same for a source. */
 internal fun <T> Source.onMap(block: (MapHandle) -> T): T =
-  assertNotNull(ffiBinding.readMap(block), "Source '$id' is not bound to a loaded style")
+  assertNotNull(ffiBinding?.readMap(block), "Source '$id' is not bound to a loaded style")
