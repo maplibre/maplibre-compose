@@ -146,6 +146,29 @@ class StyleSyncResilienceTest {
   }
 
   @Test
+  fun an_abandoned_replace_with_a_pending_removal_keeps_the_original() = runComposeUiTest {
+    runOnUiThread {
+      val baseSource = vectorSource("base-source")
+      val base = LineLayerDescriptor("base", baseSource)
+      val binding = FlakyStyleBinding(baseSources = listOf(baseSource), baseLayers = listOf(base))
+      val node = StyleNode(binding, null)
+      val replacement = LayerNode(LineLayerDescriptor("mine", baseSource), Anchor.Replace("base"))
+      node.insertLayer(replacement, 0)
+
+      binding.failOnOpNumber = 2
+      assertFails { node.applyChanges() }
+
+      // The replacement leaves before the original's removal ever succeeds.
+      node.children.remove(replacement)
+      node.applyChanges()
+
+      assertEquals(listOf("addLayerAbove:mine", "removeLayer:mine"), binding.ops.toList())
+      assertNotNull(binding.getLayer("base"))
+      assertNull(binding.getLayer("mine"))
+    }
+  }
+
+  @Test
   fun a_same_id_source_swap_removes_the_old_instance_before_adding_the_new() = runComposeUiTest {
     runOnUiThread {
       val binding = OpRecordingStyleBinding()

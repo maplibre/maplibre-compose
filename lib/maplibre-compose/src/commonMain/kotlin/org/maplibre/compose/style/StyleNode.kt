@@ -97,7 +97,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     }
 
     val desiredLayers = children.filterIsInstance<LayerNode<*>>()
-    retryPendingReplaceRemovals()
+    retryPendingReplaceRemovals(desiredLayers.mapTo(hashSetOf()) { it.anchor })
     removeUndesiredLayers(desiredLayers)
     syncSources()
 
@@ -119,8 +119,13 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   }
 
   /** Finishes a Replace whose original survived a thrown removal after its replacement landed. */
-  private fun retryPendingReplaceRemovals() {
+  private fun retryPendingReplaceRemovals(desiredAnchors: Set<Anchor>) {
     pendingReplaceRemovals.entries.toList().forEach { (anchor, original) ->
+      // Nothing wants the replacement any more, so the never-removed original simply stays.
+      if (anchor !in desiredAnchors) {
+        pendingReplaceRemovals.remove(anchor)
+        return@forEach
+      }
       logger?.i { "Retrying removal of replaced layer ${original.id}" }
       binding.removeLayer(original)
       pendingReplaceRemovals.remove(anchor)
