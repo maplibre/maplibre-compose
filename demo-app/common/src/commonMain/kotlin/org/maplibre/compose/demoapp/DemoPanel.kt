@@ -265,13 +265,13 @@ private fun SettingsScreen(
     )
     StyleSelector(
       label = "Light style",
-      styles = DemoStyle.all.filter { !it.isDark },
+      styles = allDemoStyles.filter { !it.isDark },
       selected = state.chosenLightStyle,
       onSelect = { state.chosenLightStyle = it },
     )
     StyleSelector(
       label = "Dark style",
-      styles = DemoStyle.all.filter { it.isDark },
+      styles = allDemoStyles.filter { it.isDark },
       selected = state.chosenDarkStyle,
       onSelect = { state.chosenDarkStyle = it },
     )
