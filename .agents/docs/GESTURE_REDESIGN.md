@@ -235,6 +235,44 @@ consumption rules needs no support from this design: the map's gestures attach
 as a modifier, and the caller's own `pointerInput` composes with them under
 Compose's existing ordering.
 
+## Trackpad primitives in Compose
+
+The pinned Compose Multiplatform provides two routes to trackpad gestures,
+verified against the 1.11.1 artifacts.
+
+**Scroll.** A two-finger trackpad scroll and a mouse wheel are the same
+`PointerEventType.Scroll` event with `PointerType.Mouse`, with no source flag.
+The data differs: a trackpad reports fractional deltas on both axes in high-rate
+bursts, and a wheel reports whole detents on one axis. `ScrollNotches.kt`
+already normalizes each host's delta to notch units. Classifying a scroll as
+continuous (trackpad) or discrete (wheel) is a heuristic on those values — the
+same heuristic MapLibre GL JS and Compose's own web target use. `ScrollEvent`
+carries the classification, and scroll bindings filter on it: continuous scroll
+pans, discrete scroll zooms, and a user who disables the pan falls back to zoom
+for both.
+
+**Platform-recognized gestures.** `PointerEventType.ScaleStart`, `ScaleChange`,
+`ScaleEnd`, `PanStart`, `PanMove`, and `PanEnd` exist in `commonMain`, with
+`PointerInputChange.scaleFactor` and `PointerInputChange.panOffset`, behind
+`ComposeUiFlags.isTrackpadGestureHandlingEnabled`. Emission is per platform:
+
+- **Android** emits them for platform-recognized trackpad gestures on API 34 and
+  later, and reports trackpad pointers as `PointerType.Mouse`.
+- **Desktop AWT** emits none of them: no AWT bridge class touches `scaleFactor`
+  or `panOffset`, AWT surfaces no magnify events, and JetBrains tracks native
+  trackpad support as CMP-1610. An alternative host such as Nucleus can
+  synthesize them, because the scene layer accepts these event types from any
+  host.
+- **Web** emits none of them, but browsers report trackpad pinch as a wheel
+  event with the Ctrl modifier. A scroll binding filtered on Ctrl and mapped to
+  zoom is trackpad pinch on web.
+- **Trackpad rotate** has no primitive on any platform.
+
+The arena maps `Scale` and `Pan` events into the same pinch and drag event
+streams as two-pointer recognition, so a binding never distinguishes a pinch of
+two touch pointers from a platform-recognized trackpad pinch, and a platform
+that gains emission later lights up with no API change.
+
 ## Attachment
 
 `MaplibreMap(state)` takes `gestures: MapGestures = MapGestures.Standard` in
@@ -248,8 +286,10 @@ extracted later without breaking the parameter form, so it waits for demand.
 - **#230**: bindings cover the configurability list — key assignments, mouse
   conventions (Mapbox, Google, and Apple styles are each a `copy()`),
   per-gesture pointer-type filters, quick-zoom direction, decay. The device gaps
-  (trackpad scroll-pan, trackpad pinch and rotate, tilt velocity, Shift-drag box
-  zoom) become new recognizers and built-in bindings in the new model.
+  (trackpad scroll-pan, trackpad pinch, tilt velocity, Shift-drag box zoom)
+  become new recognizers and built-in bindings in the new model, within the
+  platform limits in
+  [Trackpad primitives in Compose](#trackpad-primitives-in-compose).
 - **#951**: the hover event on the map, plus opt-in per-layer hover.
 - **#952**: the double-tap chain, with the camera zoom as its fallthrough.
 
@@ -275,8 +315,11 @@ is in flight on the `api-redesign-*` branches.
    merge, because those PRs are rewriting the files it touches. The conflicts
    confined to the attach points (`MaplibreMap.kt`, `MlnFfiMapView.kt`,
    `JsMapView.kt`) are mechanical.
-5. **Device work.** Trackpad scroll-pan, trackpad pinch and rotate, tilt
-   velocity, Shift-drag box zoom, as recognizers and bindings in the new model.
+5. **Device work.** Trackpad scroll-pan through the continuous-scroll heuristic,
+   trackpad pinch through Ctrl-scroll on web and the `Scale` events where a
+   platform emits them, tilt velocity, and Shift-drag box zoom, as recognizers
+   and bindings in the new model. Trackpad rotate waits for a platform
+   primitive.
 
 ## Open questions
 
