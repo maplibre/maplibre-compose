@@ -248,7 +248,18 @@ internal open class RecordingStyleBinding(
 
   override fun removeLayer(layerId: String) = Unit
 
-  override fun moveLayer(layerId: String, beforeLayerId: String) = Unit
+  override fun moveLayer(layerId: String, beforeLayerId: String) {
+    if (!loaded) return
+    val layer = layerMap[layerId] ?: error("Layer ID '$layerId' not found in style")
+    layerList.remove(layer)
+    if (beforeLayerId.isEmpty()) {
+      layerList.add(layer)
+    } else {
+      val index = layerList.indexOfFirst { it.id == beforeLayerId }
+      if (index == -1) error("Layer ID '$beforeLayerId' not found in style")
+      layerList.add(index, layer)
+    }
+  }
 
   override fun setLayerProperty(
     layerId: String,

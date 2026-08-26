@@ -116,14 +116,15 @@ public sealed class Source(internal val id: String) {
 @Composable
 public fun getBaseSource(id: String): Source? {
   val node = LocalStyleNode.current
-  return remember(node, id) { node.sourceManager.getBaseSource(id) }
+  // Keyed on the binding so a style swap re-reads the new base style.
+  return remember(node, node.binding, id) { node.sourceManager.getBaseSource(id) }
 }
 
 @Composable
 internal fun <T : Source> rememberUserSource(factory: (String) -> T, update: T.() -> Unit): T {
   val node = LocalStyleNode.current
   val source = remember(node) { factory(node.sourceManager.nextId()) }
-  LaunchedEffect(source, update, node.binding.isLoaded) {
+  LaunchedEffect(source, update, node.binding) {
     if (node.binding.isLoaded) source.update()
   }
   return source

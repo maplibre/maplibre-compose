@@ -119,6 +119,7 @@ internal class StyleCompositionHost(
     scope.launch {
       disposeComposition()
       this@StyleCompositionHost.rootNode = rootNode
+      rootNode.requestSync = ::requestApplyChanges
       val composition = Composition(MapNodeApplier(rootNode), recomposer)
       this@StyleCompositionHost.composition = composition
       try {
@@ -179,12 +180,28 @@ internal class StyleCompositionHost(
     }
   }
 
+  /** Runs the desired-state sync outside a pumped frame, for a style swap. */
+  fun requestApplyChanges() {
+    if (closed) return
+    scope.launch { applyChanges() }
+  }
+
   private fun disposeComposition() {
+    val disposedRoot = rootNode
     try {
       composition?.dispose()
     } finally {
       composition = null
       rootNode = null
+    }
+    // Disposal only empties the desired state; this sync removes the content from the engine.
+    disposedRoot?.let {
+      try {
+        it.applyChanges()
+      } catch (error: Throwable) {
+        contentError = error
+        logger?.e(error) { "Applying style changes after disposal failed" }
+      }
     }
   }
 }

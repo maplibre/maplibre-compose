@@ -20,6 +20,18 @@ import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
+/** Records a layer into the desired state the way the applier does. */
+private fun StyleNode.insertLayer(node: LayerNode<*>, index: Int) {
+  children.add(index, node)
+  onChildInserted(index, node)
+}
+
+/** Removes a layer from the desired state the way the applier does. */
+private fun StyleNode.removeLayerAt(node: LayerNode<*>, index: Int) {
+  children.removeAt(index)
+  onChildRemoved(index, node)
+}
+
 @OptIn(ExperimentalTestApi::class)
 class StyleNodeTest {
   private val testSources by lazy {
@@ -88,6 +100,7 @@ class StyleNodeTest {
       s.sourceManager.addReference(newSource)
       s.applyChanges()
       s.sourceManager.removeReference(newSource)
+      s.applyChanges()
       assertEquals(3, s.binding.getSources().size)
       assertNull(s.binding.getSource("new"))
     }
@@ -194,7 +207,7 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Top) }
-      nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
+      nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
         listOf("foo", "bar", "baz", "new0", "new1", "new2"),
@@ -208,7 +221,7 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Bottom) }
-      nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
+      nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
         listOf("new0", "new1", "new2", "foo", "bar", "baz"),
@@ -222,7 +235,7 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Above("foo")) }
-      nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
+      nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
         listOf("foo", "new0", "new1", "new2", "bar", "baz"),
@@ -236,7 +249,7 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes = (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Below("baz")) }
-      nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
+      nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
         listOf("foo", "bar", "new0", "new1", "new2", "baz"),
@@ -251,7 +264,7 @@ class StyleNodeTest {
       val s = makeStyleNode()
       val nodes =
         (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Replace("bar")) }
-      nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
+      nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
       assertEquals(
         listOf("foo", "new0", "new1", "new2", "baz"),
@@ -267,7 +280,7 @@ class StyleNodeTest {
       val nodes =
         (0..2).map { LayerNode(LineLayer("new$it", testSources[0]), Anchor.Replace("bar")) }
 
-      nodes.forEachIndexed { i, node -> s.layerManager.addLayer(node, i) }
+      nodes.forEachIndexed { i, node -> s.insertLayer(node, i) }
       s.applyChanges()
 
       assertEquals(
@@ -275,7 +288,7 @@ class StyleNodeTest {
         s.binding.getLayers().map(Layer::id),
       )
 
-      nodes.forEach { node -> s.layerManager.removeLayer(node, 0) }
+      nodes.forEach { node -> s.removeLayerAt(node, 0) }
       s.applyChanges()
 
       assertEquals(listOf("foo", "bar", "baz"), s.binding.getLayers().map(Layer::id))
@@ -289,14 +302,14 @@ class StyleNodeTest {
       val oldNode = LayerNode(LineLayer("old", testSources[0]), Anchor.Replace("bar"))
       val newNode = LayerNode(LineLayer("new", testSources[0]), Anchor.Replace("bar"))
 
-      s.layerManager.addLayer(oldNode, 0)
+      s.insertLayer(oldNode, 0)
       s.applyChanges()
       (s.binding as RecordingStyleBinding).unload()
 
-      s.layerManager.addLayer(newNode, 0)
-      s.layerManager.removeLayer(oldNode, 1)
+      s.insertLayer(newNode, 0)
+      s.removeLayerAt(oldNode, 1)
       s.applyChanges()
-      s.layerManager.removeLayer(newNode, 0)
+      s.removeLayerAt(newNode, 0)
     }
   }
 
@@ -307,13 +320,13 @@ class StyleNodeTest {
       val l1 = LayerNode(LineLayer("new", testSources[0]), Anchor.Top)
       val l2 = LayerNode(LineLayer("new", testSources[1]), Anchor.Top)
 
-      s.layerManager.addLayer(l1, 0)
+      s.insertLayer(l1, 0)
       s.applyChanges()
 
       assertEquals(l1.layer, s.binding.getLayer("new"))
 
-      s.layerManager.addLayer(l2, 0)
-      s.layerManager.removeLayer(l1, 1)
+      s.insertLayer(l2, 0)
+      s.removeLayerAt(l1, 1)
       s.applyChanges()
 
       assertEquals(l2.layer, s.binding.getLayer("new"))
@@ -325,14 +338,14 @@ class StyleNodeTest {
     runOnUiThread {
       val s = makeStyleNode()
 
-      s.layerManager.addLayer(LayerNode(LineLayer("b1", testSources[0]), Anchor.Bottom), 0)
-      s.layerManager.addLayer(LayerNode(LineLayer("t1", testSources[0]), Anchor.Top), 0)
+      s.insertLayer(LayerNode(LineLayer("b1", testSources[0]), Anchor.Bottom), 0)
+      s.insertLayer(LayerNode(LineLayer("t1", testSources[0]), Anchor.Top), 0)
       s.applyChanges()
 
       assertEquals(listOf("b1", "foo", "bar", "baz", "t1"), s.binding.getLayers().map(Layer::id))
 
-      s.layerManager.addLayer(LayerNode(LineLayer("b2", testSources[0]), Anchor.Bottom), 0)
-      s.layerManager.addLayer(LayerNode(LineLayer("t2", testSources[0]), Anchor.Top), 0)
+      s.insertLayer(LayerNode(LineLayer("b2", testSources[0]), Anchor.Bottom), 0)
+      s.insertLayer(LayerNode(LineLayer("t2", testSources[0]), Anchor.Top), 0)
       s.applyChanges()
 
       assertEquals(

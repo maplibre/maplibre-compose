@@ -246,6 +246,8 @@ class BrowserStyleConformanceTest {
   @MaplibreComposable
   private fun CaptureStyle(onStyle: (StyleBinding) -> Unit) {
     val node = LocalStyleNode.current
-    LaunchedEffect(node) { onStyle(node.binding) }
+    // The persistent node starts unloaded; capture the binding once a style swap loads one.
+    val binding = node.binding
+    LaunchedEffect(binding) { if (binding.isLoaded) onStyle(binding) }
   }
 }

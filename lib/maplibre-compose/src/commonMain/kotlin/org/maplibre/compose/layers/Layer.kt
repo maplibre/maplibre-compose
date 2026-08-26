@@ -240,11 +240,6 @@ internal sealed class Layer(val id: String) {
     binding = StyleBinding.UNLOADED
   }
 
-  /** Moves this layer to sit directly below [beforeLayerId], or on top when that is empty. */
-  internal fun moveTo(beforeLayerId: String) {
-    binding.moveLayer(id, beforeLayerId)
-  }
-
   /** Reads a property back from the live layer, falling back to the descriptor when detached. */
   protected fun readProperty(name: String): JsonElement =
     binding.layerProperty(id, name) ?: layout[name] ?: paint[name] ?: root[name] ?: JsonNull

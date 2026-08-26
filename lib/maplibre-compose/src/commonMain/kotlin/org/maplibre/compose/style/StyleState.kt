@@ -26,6 +26,9 @@ public class StyleState internal constructor() {
       this.styleNode = styleNode
       styleNode?.sourceManager?.state = this
       sourcesState.value = styleNode?.binding?.getSources().orEmpty().associateBy { it.id }
+    } else {
+      // The node persists across style swaps, so a re-attach re-reads the re-pointed binding.
+      refreshSources()
     }
   }
 

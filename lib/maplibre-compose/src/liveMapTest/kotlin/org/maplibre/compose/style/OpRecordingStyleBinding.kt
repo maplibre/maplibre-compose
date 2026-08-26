@@ -4,7 +4,10 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 
 /** Records the order of structural style mutations, standing in for an engine. */
-internal open class OpRecordingStyleBinding : RecordingStyleBinding() {
+internal open class OpRecordingStyleBinding(
+  baseSources: List<Source> = emptyList(),
+  baseLayers: List<Layer> = emptyList(),
+) : RecordingStyleBinding(baseSources = baseSources, baseLayers = baseLayers) {
   val ops: MutableList<String> = mutableListOf()
 
   protected open fun op(name: String) {
@@ -44,5 +47,10 @@ internal open class OpRecordingStyleBinding : RecordingStyleBinding() {
   override fun removeLayer(layer: Layer) {
     op("removeLayer:${layer.id}")
     super.removeLayer(layer)
+  }
+
+  override fun moveLayer(layerId: String, beforeLayerId: String) {
+    op("moveLayer:$layerId")
+    super.moveLayer(layerId, beforeLayerId)
   }
 }

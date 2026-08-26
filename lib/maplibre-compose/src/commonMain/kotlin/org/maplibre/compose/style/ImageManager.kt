@@ -18,15 +18,36 @@ import org.maplibre.compose.util.toImageBitmap
 internal class ImageManager(private val node: StyleNode) {
   private val bitmapIds = IncrementingIdMap<BitmapKey>("bitmap")
   private val bitmapCounter = ReferenceCounter<BitmapKey>()
+  private val heldBitmaps = mutableMapOf<BitmapKey, String>()
 
   private val painterIds = IncrementingIdMap<PainterKey>("painter")
   private val painterCounter = ReferenceCounter<PainterKey>()
   private val painterBitmaps = mutableMapOf<PainterKey, ImageBitmap>()
 
+  private var attachedTo: StyleBinding = node.binding
+
+  /** Re-adds every held image when the node has been re-pointed at a new style. */
+  internal fun ensureAttached() {
+    val binding = node.binding
+    if (attachedTo === binding) return
+    attachedTo = binding
+    heldBitmaps.forEach { (key, id) ->
+      node.logger?.i { "Re-adding bitmap $id" }
+      binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
+    }
+    painterBitmaps.keys.forEach { key ->
+      val id = painterIds.getId(key)
+      node.logger?.i { "Re-adding painter $id" }
+      binding.addImage(id, key.drawToBitmap(), key.drawAsSdf, key.stretch)
+    }
+  }
+
   internal fun acquireBitmap(key: BitmapKey): String {
+    ensureAttached()
     bitmapCounter.increment(key) {
       val id = bitmapIds.addId(key)
       node.logger?.i { "Adding bitmap $id" }
+      heldBitmaps[key] = id
       node.binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
     }
     return bitmapIds.getId(key)
@@ -36,6 +57,7 @@ internal class ImageManager(private val node: StyleNode) {
     bitmapCounter.decrement(key) {
       val id = bitmapIds.removeId(key)
       node.logger?.i { "Removing bitmap $id" }
+      heldBitmaps.remove(key)
       node.binding.removeImage(id)
     }
   }
@@ -64,6 +86,7 @@ internal class ImageManager(private val node: StyleNode) {
   }
 
   internal fun acquirePainter(key: PainterKey): String {
+    ensureAttached()
     painterCounter.increment(key) {
       val id = painterIds.addId(key)
       node.logger?.i { "Adding painter $id" }

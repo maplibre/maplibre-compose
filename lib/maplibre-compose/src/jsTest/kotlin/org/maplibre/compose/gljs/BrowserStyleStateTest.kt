@@ -188,12 +188,11 @@ class BrowserStyleStateTest {
         waitUntilMap("the empty map to finish loading") { loads == 1 && node != null }
 
         val source = RasterSource("late-source", "https://tilejson.test/x.json")
-        checkNotNull(node).let { liveNode ->
-          liveNode.sourceManager.addReference(source)
-          liveNode.binding.addLayer(RasterLayer(id = "late-layer", source = source))
-        }
+        checkNotNull(node).sourceManager.addReference(source)
 
+        // The reference records desired state; the layer add has to wait for the host's sync.
         waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }
+        checkNotNull(node).binding.addLayer(RasterLayer(id = "late-layer", source = source))
         assertEquals(listOf(""), state?.sources?.values?.map { it.attributionHtml })
         val initialSource = state?.sources?.values?.single()
 
