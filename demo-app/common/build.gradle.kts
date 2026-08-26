@@ -70,6 +70,7 @@ kotlin {
       implementation(libs.jetbrains.compose.components.resources)
       implementation(libs.jetbrains.compose.material3)
       implementation(libs.jetbrains.compose.material3.adaptive)
+      implementation(libs.materialKolor)
       implementation(libs.androidx.navigation.compose)
       implementation(libs.kotlin.dsv)
       implementation(libs.ktor.client.core)

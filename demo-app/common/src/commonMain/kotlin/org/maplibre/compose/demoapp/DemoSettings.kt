@@ -19,10 +19,30 @@ enum class ThemeMode {
   Dark,
 }
 
+/**
+ * How the Material 3 color scheme is generated: Android Material You, or a MapLibre brand palette
+ * style.
+ */
+enum class PaletteMode {
+  System,
+  Tonal,
+  Neutral,
+  Vibrant,
+  Expressive,
+}
+
+/** The palette choices this platform shows in settings. */
+expect val paletteModeOptions: List<PaletteMode>
+
+/** The first choice in [paletteModeOptions]: System on Android, Tonal elsewhere. */
+val defaultPaletteMode: PaletteMode
+  get() = paletteModeOptions.first()
+
 /** App-wide diagnostics and toggles, available regardless of which demo is open. */
 @Stable
 class DemoSettings {
   var themeMode by mutableStateOf(ThemeMode.System)
+  var paletteMode by mutableStateOf(defaultPaletteMode)
   var gestureOptions by mutableStateOf(GestureOptions.Standard)
   var renderOptions by mutableStateOf(RenderOptions.Standard)
   var tileLodOptions by mutableStateOf(TileLodOptions.Standard)

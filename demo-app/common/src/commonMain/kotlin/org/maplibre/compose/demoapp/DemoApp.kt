@@ -20,8 +20,6 @@ import androidx.compose.material3.BottomSheetScaffoldState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
@@ -48,7 +46,7 @@ fun DemoApp() {
   val dark =
     if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
     else state.appliedStyle.isDark
-  val colorScheme = if (dark) darkColorScheme() else lightColorScheme()
+  val colorScheme = rememberDemoColorScheme(dark, state.settings.paletteMode)
   val sheetState = rememberBottomSheetScaffoldState()
   // One composition for the panel, so the NavHost keeps its back stack when the viewport crosses
   // the floating-panel / bottom-sheet breakpoint.
