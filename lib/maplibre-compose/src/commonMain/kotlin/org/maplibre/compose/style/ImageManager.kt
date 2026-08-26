@@ -21,7 +21,6 @@ internal class ImageManager(private val node: StyleNode) {
 
   private val painterIds = IncrementingIdMap<PainterKey>("painter")
   private val painterCounter = ReferenceCounter<PainterKey>()
-  private val painterBitmaps = mutableMapOf<PainterKey, ImageBitmap>()
 
   private var attachedTo: StyleBinding = node.binding
 
@@ -34,10 +33,9 @@ internal class ImageManager(private val node: StyleNode) {
       node.logger?.i { "Re-adding bitmap $id" }
       binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
     }
-    painterBitmaps.keys.forEach { key ->
-      val id = painterIds.getId(key)
+    painterIds.entries.forEach { (key, id) ->
       node.logger?.i { "Re-adding painter $id" }
-      binding.addImage(id, key.drawToBitmap(), key.drawAsSdf, key.stretch)
+      binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
     }
   }
 
@@ -82,15 +80,16 @@ internal class ImageManager(private val node: StyleNode) {
     return pixels.toImageBitmap(w, pixels.size / w)
   }
 
+  /** The pixels MapLibre receives: an SDF painter's rasterization converted to a distance field. */
+  private fun PainterKey.renderToImage(): ImageBitmap =
+    drawToBitmap().let { if (drawAsSdf) it.toSdf() else it }
+
   internal fun acquirePainter(key: PainterKey): String {
     ensureAttached()
     painterCounter.increment(key) {
       val id = painterIds.addId(key)
       node.logger?.i { "Adding painter $id" }
-      key.drawToBitmap().let { bitmap ->
-        painterBitmaps[key] = if (key.drawAsSdf) bitmap.toSdf() else bitmap
-        node.binding.addImage(id, bitmap, key.drawAsSdf, key.stretch)
-      }
+      node.binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
     }
     return painterIds.getId(key)
   }
@@ -99,7 +98,6 @@ internal class ImageManager(private val node: StyleNode) {
     painterCounter.decrement(key) {
       val id = painterIds.removeId(key)
       node.logger?.i { "Removing painter $id" }
-      painterBitmaps.remove(key)
       node.binding.removeImage(id)
     }
   }
