@@ -7,3 +7,7 @@ import org.maplibre.compose.desktop.desktopRuntimeOptions
 internal actual fun EnsureMlnFfiConfigured() {
   MlnFfiApplication.ensureConfigured { desktopRuntimeOptions() }
 }
+
+internal actual fun ensureMlnFfiDefaultConfigured() {
+  MlnFfiApplication.ensureConfigured { desktopRuntimeOptions() }
+}

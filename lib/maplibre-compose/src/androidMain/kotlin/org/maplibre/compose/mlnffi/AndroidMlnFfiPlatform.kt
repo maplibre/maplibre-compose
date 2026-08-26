@@ -11,6 +11,10 @@ internal object AndroidMlnFfiPlatform {
   val applicationContext: Context
     get() = checkNotNull(application) { "MapLibre Compose has not initialized its Android context" }
 
+  /** The initialized application, or null before [initialize] has run. */
+  val applicationOrNull: Context?
+    get() = application
+
   fun initialize(context: Context) {
     if (application != null) return
     synchronized(this) {

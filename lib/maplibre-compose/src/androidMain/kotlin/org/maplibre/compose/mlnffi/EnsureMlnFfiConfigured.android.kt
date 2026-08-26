@@ -14,3 +14,16 @@ internal actual fun EnsureMlnFfiConfigured() {
     AndroidRuntimeOptions(androidCacheFile(context)).toMlnFfiRuntimeOptions()
   }
 }
+
+internal actual fun ensureMlnFfiDefaultConfigured() {
+  MlnFfiApplication.ensureConfigured {
+    // The default cache lives in the app's cache directory, so it needs the application context.
+    val context =
+      AndroidMlnFfiPlatform.applicationOrNull
+        ?: error(
+          "MapLibre has no Android context yet; call MapLibre.configure(context) or compose a " +
+            "map before MaplibreRuntime.default()"
+        )
+    AndroidRuntimeOptions(androidCacheFile(context)).toMlnFfiRuntimeOptions()
+  }
+}

@@ -11,3 +11,9 @@ internal actual fun EnsureMlnFfiConfigured() {
     IosRuntimeOptions(iosCacheFile()).toMlnFfiRuntimeOptions()
   }
 }
+
+internal actual fun ensureMlnFfiDefaultConfigured() {
+  MlnFfiApplication.ensureConfigured {
+    IosRuntimeOptions(iosCacheFile()).toMlnFfiRuntimeOptions()
+  }
+}

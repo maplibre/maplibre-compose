@@ -13,10 +13,10 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
-import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.runtime.MaplibreRuntime
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -33,7 +33,7 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 public fun rememberOfflineManager(): OfflineManager {
   EnsureMlnFfiConfigured()
   val density = LocalDensity.current.density
-  val manager = MlnFfiApplication.offlineManager
+  val manager = MaplibreRuntime.default().ffiOffline
   // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
   return remember(manager, density) { DensityScopedOfflineManager(manager, density) }
 }

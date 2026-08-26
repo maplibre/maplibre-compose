@@ -22,7 +22,9 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import org.maplibre.compose.util.rethrowIfFatal
 
@@ -90,6 +92,19 @@ internal class StyleCompositionHost(
   internal var contentError: Throwable? = null
     private set
 
+  /** Sized so a burst of failures between collections is kept rather than suspended on. */
+  private val errors = MutableSharedFlow<StyleError>(extraBufferCapacity = 16)
+
+  /** Backs `MapState.styleErrors`; every ordinary failure the host records is emitted here. */
+  internal val styleErrors: SharedFlow<StyleError> = errors.asSharedFlow()
+
+  /** Records, publishes, and logs an ordinary failure; tryEmit never blocks the host thread. */
+  private fun reportError(message: String, error: Throwable) {
+    contentError = error
+    errors.tryEmit(StyleError(message, error))
+    logger?.e(error) { message }
+  }
+
   private val writeObserver = Snapshot.registerGlobalWriteObserver { snapshotSignal.trySend(Unit) }
 
   init {
@@ -101,8 +116,7 @@ internal class StyleCompositionHost(
         throw error
       } catch (error: Throwable) {
         rethrowIfFatal(error)
-        contentError = error
-        logger?.e(error) { "Style composition failed; the style stops updating" }
+        reportError("Style composition failed; the style stops updating", error)
       }
     }
     scope.launch { for (unused in snapshotSignal) Snapshot.sendApplyNotifications() }
@@ -149,8 +163,7 @@ internal class StyleCompositionHost(
         throw error
       } catch (error: Throwable) {
         rethrowIfFatal(error)
-        contentError = error
-        logger?.e(error) { "Style content failed to compose" }
+        reportError("Style content failed to compose", error)
       }
     }
   }
@@ -185,8 +198,7 @@ internal class StyleCompositionHost(
       throw error
     } catch (error: Throwable) {
       rethrowIfFatal(error)
-      contentError = error
-      logger?.e(error) { "Applying style changes failed" }
+      reportError("Applying style changes failed", error)
     }
   }
 
@@ -194,24 +206,6 @@ internal class StyleCompositionHost(
   fun requestApplyChanges() {
     if (closed) return
     scope.launch { applyChanges() }
-  }
-
-  /**
-   * Suspends until the host is quiescent: every task queued on the host dispatcher has run and the
-   * recomposer reports no pending work. A recomposition can queue further host tasks — a snapshot
-   * notification, a pumped frame, the sync after it — so one queued marker is not enough; the loop
-   * re-joins until a marker runs with the recomposer still idle across two consecutive checks.
-   */
-  internal suspend fun awaitPendingWork() {
-    if (closed) return
-    while (true) {
-      recomposer.currentState.first { it != Recomposer.State.PendingWork }
-      scope.launch {}.join()
-      if (recomposer.currentState.value == Recomposer.State.PendingWork) continue
-      // A notification queued during the last task must be delivered before deciding.
-      scope.launch {}.join()
-      if (recomposer.currentState.value != Recomposer.State.PendingWork) return
-    }
   }
 
   private fun disposeComposition() {
@@ -229,8 +223,7 @@ internal class StyleCompositionHost(
       throw error
     } catch (error: Throwable) {
       rethrowIfFatal(error)
-      contentError = error
-      logger?.e(error) { "Applying style changes after disposal failed" }
+      reportError("Applying style changes after disposal failed", error)
     }
   }
 }

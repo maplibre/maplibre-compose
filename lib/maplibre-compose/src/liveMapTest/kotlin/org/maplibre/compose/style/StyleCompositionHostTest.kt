@@ -14,6 +14,7 @@ import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
@@ -258,12 +259,47 @@ class StyleCompositionHostTest {
       }
     val rootNode = StyleNode(recording, null)
     val host = testHost(rootNode)
+    val errors = mutableListOf<StyleError>()
+    val collector = launch { host.styleErrors.collect { errors += it } }
+    // The collector must subscribe before the host emits; a SharedFlow replays nothing.
+    testScheduler.runCurrent()
 
     host.setContent { RasterLayer(id = "raster", source = testSource("tiles")) }
     host.awaitPendingWork()
 
     assertIs<RuntimeException>(host.contentError)
+    // The composed content and the retrying frame pump each report their failed apply.
+    assertTrue(errors.isNotEmpty())
+    assertSame(host.contentError, errors.last().cause)
 
+    collector.cancel()
+    host.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun a_throwing_content_lambda_surfaces_one_style_error_and_the_host_survives() = runTest {
+    val recording = OpRecordingStyleBinding()
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+    val errors = mutableListOf<StyleError>()
+    val collector = launch { host.styleErrors.collect { errors += it } }
+    // The collector must subscribe before the host emits; a SharedFlow replays nothing.
+    testScheduler.runCurrent()
+
+    host.setContent { throw RuntimeException("content refused") }
+    testScheduler.advanceUntilIdle()
+
+    assertEquals(1, errors.size)
+    assertEquals("Style content failed to compose", errors.single().message)
+
+    // Replacement content still composes and applies after the failure.
+    host.setContent { RasterLayer(id = "raster", source = testSource("tiles")) }
+    testScheduler.advanceUntilIdle()
+    assertEquals(listOf("addSource:tiles", "addLayer:raster"), recording.ops.toList())
+    assertEquals(1, errors.size)
+
+    collector.cancel()
     host.close()
     testScheduler.advanceUntilIdle()
   }

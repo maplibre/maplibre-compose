@@ -15,6 +15,7 @@ import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
@@ -29,6 +30,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.ClickRoute
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleCompositionHost
+import org.maplibre.compose.style.StyleError
 import org.maplibre.compose.style.StyleHostDispatcher
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.StyleState
@@ -213,6 +215,17 @@ internal constructor(
     contentStarted = true
     host.setContent { contentState.value.invoke() }
   }
+
+  /**
+   * Failures in the style content composition or in applying its changes to the loaded style. The
+   * map and this state survive each failure and keep working; fatal errors propagate instead of
+   * arriving here.
+   *
+   * An error emitted while nothing collects the flow is dropped, and a slow collector loses errors
+   * beyond a small buffer. The log records every failure.
+   */
+  public val styleErrors: SharedFlow<StyleError>
+    get() = host.styleErrors
 
   /**
    * The loaded style's layers, in draw order. See [StyleLayers] for the map-owned versus
