@@ -10,35 +10,63 @@ import versions from "../../generated/versions.json";
 
 import gettingStarted from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/GettingStarted.kt?raw";
 
-This page assumes you have a Compose Multiplatform project. To create one,
-follow [the official JetBrains documentation][compose-guide].
+This page assumes you have a Compose Multiplatform project. Create one with
+Gradle from [the official JetBrains documentation][compose-guide], or with the
+[Kotlin Toolchain][kotlin-toolchain] by running `kotlin init
+compose-multiplatform`. The Kotlin Toolchain is Alpha.
 
-## Add the library to your app
+The examples stay on the build system that you pick. Gradle is the path that
+the official Compose Multiplatform wizard produces. The Kotlin Toolchain is a
+declarative `module.yaml` alternative.
 
-The library is published on [Maven Central][maven], and snapshot builds of
-`main` are additionally available from [Central Portal Snapshots][snapshots].
+## Add the library
 
-<Tabs>
-  <TabItem label="Releases (Maven Central)">
-    The latest release is **v{versions.release}**. In your Gradle version
-    catalog, add:
+The library is published on [Maven Central][maven]. The latest release is
+**v{versions.release}**.
 
-    ```toml title="libs.versions.toml"
-    [libraries]
-    maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{release}}" }
+Gradle and the Kotlin Toolchain both read a version catalog at
+`libs.versions.toml` or `gradle/libs.versions.toml`. Add the coordinates
+there:
+
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{release}}" }
+```
+
+Declare the dependency in the shared source set:
+
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
+    ```kotlin title="build.gradle.kts"
+    commonMain.dependencies {
+      implementation(libs.maplibre.compose)
+    }
     ```
   </TabItem>
 
-  <TabItem label="Snapshots (Central Portal)">
-    <Aside type="caution">
-      This site documents the latest release, which may not match the snapshot
-      version. If using snapshots, read the
-      [documentation for the latest `main`](https://maplibre-compose.pages.dev/maplibre-compose/)
-      instead.
-    </Aside>
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```yaml title="shared/module.yaml"
+    dependencies:
+      - $libs.maplibre.compose
+    ```
+  </TabItem>
+</Tabs>
 
-    Add the Central Portal Snapshots repository to your `settings.gradle.kts`:
+Use the same version for the library and for every runtime artifact below.
 
+### Snapshots
+
+Snapshot builds of `main` are available from [Central Portal
+Snapshots][snapshots]. This site documents the latest release, which may not
+match the snapshot. If you use snapshots, read the
+[documentation for the latest `main`](https://maplibre-compose.pages.dev/maplibre-compose/)
+instead.
+
+Add the snapshot repository, then set the catalog version to
+**v{versions.snapshot}**.
+
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
     ```kotlin title="settings.gradle.kts"
     repositories {
       maven {
@@ -52,26 +80,21 @@ The library is published on [Maven Central][maven], and snapshot builds of
       }
     }
     ```
+  </TabItem>
 
-    The latest snapshot is **v{versions.snapshot}**. In your Gradle version
-    catalog, add:
-
-    ```toml title="libs.versions.toml"
-    [libraries]
-    maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{snapshot}}" }
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```yaml title="shared/module.yaml"
+    repositories:
+      - id: central-portal-snapshots
+        url: https://central.sonatype.com/repository/maven-snapshots/
     ```
   </TabItem>
 </Tabs>
 
-In your Gradle build script, add:
-
-```kotlin title="build.gradle.kts"
-commonMain.dependencies {
-  implementation(libs.maplibre.compose)
-}
+```toml title="libs.versions.toml"
+[libraries]
+maplibre-compose = { module = "org.maplibre.compose:maplibre-compose", version = "{{snapshot}}" }
 ```
-
-Use the same version for the library and for every runtime artifact below.
 
 ## Configure your targets
 
@@ -81,13 +104,26 @@ Complete the section for each target that your app supports.
 
 Alongside the library, add a runtime for one render backend.
 
-```kotlin title="build.gradle.kts"
-androidMain {
-  dependencies {
-    runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-android:{{release}}")
-  }
-}
-```
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
+    ```kotlin title="build.gradle.kts"
+    androidMain {
+      dependencies {
+        runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-android:{{release}}")
+      }
+    }
+    ```
+  </TabItem>
+
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```yaml title="android-app/module.yaml"
+    dependencies:
+      - //shared
+      - org.maplibre.compose:maplibre-compose-runtime-vulkan-android:{{release}}:
+          scope: runtime-only
+    ```
+  </TabItem>
+</Tabs>
 
 Available runtimes:
 
@@ -98,8 +134,9 @@ Available runtimes:
 
 ### iOS
 
-The runtime's system libraries link when Xcode links your app. Add them to your
-iOS app target's **Other Linker Flags** build setting:
+The runtime's system libraries link when Xcode links your app. Add them to
+your iOS app target's **Other Linker Flags** build setting. A Kotlin Toolchain
+`ios/app` module uses that Xcode project.
 
 ```text
 -l"c++"
@@ -120,19 +157,48 @@ desktop target cannot run on an older JVM.
 
 Alongside the library, add a runtime for your platform and one render backend.
 
-```kotlin title="build.gradle.kts"
-sourceSets {
-  val jvmMain by getting {
-    dependencies {
-      implementation(compose.desktop.currentOs)
-      implementation("org.maplibre.compose:maplibre-compose:{{release}}")
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
+    ```kotlin title="build.gradle.kts"
+    sourceSets {
+      val jvmMain by getting {
+        dependencies {
+          implementation(compose.desktop.currentOs)
+          implementation("org.maplibre.compose:maplibre-compose:{{release}}")
 
-      // Linux x64 with Vulkan, for example.
-      runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}")
+          // Linux x64 with Vulkan, for example.
+          runtimeOnly("org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}")
+        }
+      }
     }
-  }
-}
-```
+    ```
+  </TabItem>
+
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```yaml title="jvm-app/module.yaml"
+    product: jvm/app
+
+    dependencies:
+      - //shared
+      - $compose.desktop.currentOs
+      - $libs.maplibre.compose
+      - org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}:
+          scope: runtime-only
+
+    settings:
+      compose: enabled
+      jvm:
+        jdk:
+          version: 25
+    ```
+
+    <Aside type="caution">
+      Kotlin Toolchain 0.12.0 does not fetch the classified desktop native
+      runtime that Gradle metadata selects. A desktop map does not start from
+      `kotlin run`. Use Gradle to run a desktop map until that fetch works.
+    </Aside>
+  </TabItem>
+</Tabs>
 
 Available runtimes:
 
@@ -148,8 +214,12 @@ On desktop, a <Api of="ComposeMapHost" /> supplies the window's graphics
 context. For Java AWT windows, use <Api of="rememberAwtComposeMapHost" />. For
 an alternative Compose host, implement `ComposeMapHost` yourself.
 
+Call `MapLibre.configure` before the window opens. Pass a reverse-domain
+`applicationId`. A packaged `main` can omit that argument.
+
 ```kotlin title="Main.kt"
 fun main() {
+  MapLibre.configure(applicationId = "com.example.myapp")
   singleWindowApplication {
     ProvideMapHost(host = rememberAwtComposeMapHost(window)) {
       App()
@@ -158,29 +228,68 @@ fun main() {
 }
 ```
 
-The native bindings make FFM downcalls. Enable native access in your
-application configuration:
+The native bindings make FFM downcalls. Enable native access when you run the
+app:
 
-```kotlin title="build.gradle.kts"
-compose.desktop {
-  application {
-    jvmArgs += "--enable-native-access=ALL-UNNAMED"
-  }
-}
-```
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
+    ```kotlin title="build.gradle.kts"
+    compose.desktop {
+      application {
+        jvmArgs += "--enable-native-access=ALL-UNNAMED"
+      }
+    }
+    ```
+  </TabItem>
+
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    ```text
+    kotlin run --jvm-args="--enable-native-access=ALL-UNNAMED"
+    ```
+  </TabItem>
+</Tabs>
 
 ### Web (JS)
 
 Compile the JS target to ES modules. Non-ESM builds are not supported.
 
-```kotlin title="build.gradle.kts"
-kotlin {
-  js {
-    useEsModules()
-    browser()
-  }
-}
-```
+<Tabs syncKey="build-system">
+  <TabItem label="Gradle" icon="seti:gradle">
+    ```kotlin title="build.gradle.kts"
+    kotlin {
+      js {
+        useEsModules()
+        browser()
+      }
+    }
+    ```
+  </TabItem>
+
+  <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
+    The official `compose-multiplatform` template targets Wasm. This library is
+    Kotlin/JS, so add a `js` platform to the shared module and a `js/app`
+    module. A `js/app` build already emits an `.mjs` file.
+
+    ```yaml title="shared/module.yaml"
+    product:
+      type: kmp/lib
+      platforms: [jvm, android, iosArm64, iosSimulatorArm64, js]
+    ```
+
+    ```yaml title="js-app/module.yaml"
+    product: js/app
+
+    dependencies:
+      - //shared
+
+    settings:
+      compose: enabled
+    ```
+
+    The Kotlin Toolchain compiles that module. It does not generate an HTML
+    page or run the browser app.
+  </TabItem>
+</Tabs>
 
 Configure MapLibre inside `onWasmReady`, before Compose starts. This is
 required to capture Compose's graphics context.
@@ -204,6 +313,8 @@ When you run your app, the map shows the default [demotiles] style. To load a
 full-featured style, proceed to [Styling](/maplibre-compose/styling/).
 
 [compose-guide]: https://www.jetbrains.com/help/kotlin-multiplatform-dev/compose-multiplatform-create-first-app.html
+
+[kotlin-toolchain]: https://kotlin-toolchain.org/dev/
 
 [maven]: https://central.sonatype.com/namespace/org.maplibre.compose
 
