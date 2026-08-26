@@ -102,48 +102,58 @@ A binding is a filter plus an action. The filter is the promoted form of today's
 inline conditionals:
 
 ```kotlin
-data class PointerFilter(
+class PointerFilter(
   val pointerTypes: Set<PointerType>? = null, // null: any
   val button: PointerButton = PointerButton.Primary,
   val modifierKeys: ModifierKeys = ModifierKeys.None,
 )
 ```
 
-`MapGestures` is the ordered collection of bindings. `Standard` is a value the
-user can `copy()`, and it doubles as the specification of the defaults:
+`MapGestures` is the ordered collection of bindings, built with a builder DSL
+and immutable once built. It is not a data class: a public constructor, `copy`,
+and `componentN` make every added option a source and binary break, and this
+surface grows with every new binding and scalar. A DSL addition is a new
+optional builder member, which breaks nothing.
+
+`MapGestures { }` yields the standard defaults; the lambda edits a builder
+pre-populated with them, the way `Json { }` edits a default configuration.
+`MapGestures.None` is the empty value, and `MapGestures(from = other) { }`
+rebases on another value.
 
 ```kotlin
-val Standard = MapGestures(
-  drag = listOf(
-    DragBinding(PointerFilter(button = Primary), DragAction.Pan(fling = Fling.Standard)),
-    DragBinding(PointerFilter(button = Secondary), DragAction.RotateTilt()),
-    DragBinding(PointerFilter(button = Primary, modifierKeys = Ctrl), DragAction.RotateTilt()),
-  ),
-  pinchZoom = PinchBinding(anchor = Anchor.Centroid),
-  twoFingerRotate = TwoFingerRotateBinding(),
-  shoveTilt = ShoveBinding(),
-  scroll = listOf(ScrollBinding(PointerFilter(), ScrollAction.Zoom(step = 0.15))),
-  tap = TapChain(),
-  doubleTap = TapChain(fallthrough = TapAction.ZoomIn(step = 1.0)),
-  longPress = TapChain(),
-  twoFingerTap = TapChain(fallthrough = TapAction.ZoomOut(step = 1.0)),
-  quickZoom = QuickZoomBinding(
-    filter = PointerFilter(pointerTypes = setOf(Touch)),
-    direction = QuickZoomDirection.DownZoomsIn,
-  ),
-  keys = KeyBindings.Standard, // arrows pan, Shift+arrows rotate/tilt, +/- zoom
-)
+val gestures = MapGestures {
+  // The defaults are present. Blocks edit them; adders and removers change the list.
+  dragRotateTilt { filter = PointerFilter(button = Primary, modifierKeys = Alt) }
+  scrollZoom { modifierKeys = Ctrl } // a map embedded in a scrollable page
+  doubleTap {
+    onEvent { event -> ClickResult.Consume } // consuming suppresses the zoom
+    zoom = null                              // or remove the camera fallthrough
+  }
+  quickZoom { direction = QuickZoomDirection.UpZoomsIn }
+  keys {
+    rotate(Shift + LeftRight)
+    clearZoom()
+  }
+  drag(PointerFilter(button = Primary, modifierKeys = Shift)) { onEvent(boxZoomTool) }
+}
 ```
 
-Every configurability item from #230 is a `copy()` on this value: Apple-style
-Alt-drag rotate, Ctrl-gated scroll for a map inside a scrollable page,
-touch-only or mouse-only gestures per binding, quick-zoom direction, key
-assignments, decay per gesture. The current presets return as named values built
-from `Standard`, and `MapGestures.None` removes everything.
+Every configurability item from #230 is one builder edit: Apple-style Alt-drag
+rotate, Ctrl-gated scroll, touch-only or mouse-only gestures per binding,
+quick-zoom direction, key assignments, decay per gesture. The current presets
+return as named values built with the DSL.
 
 Scalars move onto the binding they configure. `isRotateVelocityEnabled` becomes
 `continuation = null` on the rotate binding; the decay constants in
 `GestureMath` become a `Fling` value on the pan action.
+
+The built value has content-based equality, because it keys the arena's
+`pointerInput`: a recomposition that rebuilds an equal configuration must not
+restart an in-flight gesture. User handlers are the exception — a lambda
+recreated on each recomposition compares unequal by reference — so the arena
+diffs on the configuration data only and reads handlers through latest-value
+indirection, the `rememberUpdatedState` pattern `Modifier.clickable` uses. A
+fresh lambda updates in place; only a data change restarts the arena.
 
 ### Actions
 
@@ -294,7 +304,7 @@ extracted later without breaking the parameter form, so it waits for demand.
 ## How the milestone issues land
 
 - **#230**: bindings cover the configurability list — key assignments, mouse
-  conventions (Mapbox, Google, and Apple styles are each a `copy()`),
+  conventions (Mapbox, Google, and Apple styles are each one builder edit),
   per-gesture pointer-type filters, quick-zoom direction, decay. The device gaps
   (trackpad scroll-pan, trackpad pinch, tilt velocity, Shift-drag box zoom)
   become new recognizers and built-in bindings in the new model, within the
