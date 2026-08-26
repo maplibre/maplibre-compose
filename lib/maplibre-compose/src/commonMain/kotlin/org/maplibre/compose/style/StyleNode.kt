@@ -186,14 +186,14 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
         logger?.i { "Removing source ${source.id}" }
         binding.removeSource(source)
         appliedSources.remove(source)
-        sourceManager.state?.refreshSource(source.id)
+        sourceManager.sources?.refreshSource(source.id)
       }
     desired.forEach { source ->
       if (source !in appliedSources) {
         logger?.i { "Adding source ${source.id}" }
         binding.addSource(source)
         appliedSources.add(source)
-        sourceManager.state?.refreshSource(source.id)
+        sourceManager.sources?.refreshSource(source.id)
       }
     }
   }

@@ -9,9 +9,12 @@ import kotlin.test.assertFails
 import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
+import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LineLayerDescriptor
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
@@ -54,6 +57,14 @@ class StyleNodeTest {
       RecordingStyleBinding(baseSources = testSources, baseLayers = testLayers),
       null,
     )
+  }
+
+  /** A state whose style node points at [style], so [MapState.sources] snapshots it. */
+  private fun mapStateOver(style: StyleBinding): MapState {
+    val mapState = MapState(cameraState = CameraState(CameraPosition()))
+    mapState.styleNode.binding = style
+    mapState.sources.refreshSources()
+    return mapState
   }
 
   private fun vectorSource(id: String, attribution: String): VectorSource =
@@ -110,15 +121,18 @@ class StyleNodeTest {
     runOnUiThread {
       val source = vectorSource("source", "same")
       val style = RecordingStyleBinding(baseSources = listOf(source))
-      val state = StyleState()
-      state.attach(StyleNode(style, null))
-      val previousSources = state.sources
+      val state = mapStateOver(style)
+      try {
+        val previousSources = state.sources.snapshot
 
-      style.replaceSource(vectorSource("source", "same"))
-      state.refreshSource("source")
+        style.replaceSource(vectorSource("source", "same"))
+        state.sources.refreshSource("source")
 
-      assertSame(previousSources, state.sources)
-      assertSame(source, state.sources["source"])
+        assertSame(previousSources, state.sources.snapshot)
+        assertSame(source, state.sources.snapshot["source"])
+      } finally {
+        state.close()
+      }
     }
   }
 
@@ -128,22 +142,25 @@ class StyleNodeTest {
       val source = vectorSource("source", "attribution")
       val stable = vectorSource("stable", "stable attribution")
       val style = RecordingStyleBinding(baseSources = listOf(source, stable))
-      val state = StyleState()
-      state.attach(StyleNode(style, null))
-      val previousSources = state.sources
-      val replacement =
-        RasterSource(
-          id = "source",
-          tiles = listOf("https://example.com/{z}/{x}/{y}.png"),
-          options = TileSetOptions(attributionHtml = "changed attribution"),
-        )
+      val state = mapStateOver(style)
+      try {
+        val previousSources = state.sources.snapshot
+        val replacement =
+          RasterSource(
+            id = "source",
+            tiles = listOf("https://example.com/{z}/{x}/{y}.png"),
+            options = TileSetOptions(attributionHtml = "changed attribution"),
+          )
 
-      style.replaceSource(replacement)
-      state.refreshSource("source")
+        style.replaceSource(replacement)
+        state.sources.refreshSource("source")
 
-      assertNotSame(previousSources, state.sources)
-      assertSame(replacement, state.sources["source"])
-      assertSame(stable, state.sources["stable"])
+        assertNotSame(previousSources, state.sources.snapshot)
+        assertSame(replacement, state.sources.snapshot["source"])
+        assertSame(stable, state.sources.snapshot["stable"])
+      } finally {
+        state.close()
+      }
     }
   }
 
@@ -152,13 +169,15 @@ class StyleNodeTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
       val style = RecordingStyleBinding(baseSources = listOf(source))
-      val state = StyleState()
-      state.attach(StyleNode(style, null))
+      val state = mapStateOver(style)
+      try {
+        style.removeSource(source)
+        state.sources.refreshSource("source")
 
-      style.removeSource(source)
-      state.refreshSource("source")
-
-      assertNull(state.sources["source"])
+        assertNull(state.sources.snapshot["source"])
+      } finally {
+        state.close()
+      }
     }
   }
 
@@ -167,17 +186,20 @@ class StyleNodeTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
       val style = RecordingStyleBinding(baseSources = listOf(source))
-      val state = StyleState()
-      state.attach(StyleNode(style, null))
-      val previousSources = state.sources
+      val state = mapStateOver(style)
+      try {
+        val previousSources = state.sources.snapshot
 
-      style.unload()
-      style.removeSource(source)
-      state.refreshSource("source")
-      state.refreshSources()
+        style.unload()
+        style.removeSource(source)
+        state.sources.refreshSource("source")
+        state.sources.refreshSources()
 
-      assertSame(previousSources, state.sources)
-      assertSame(source, state.sources["source"])
+        assertSame(previousSources, state.sources.snapshot)
+        assertSame(source, state.sources.snapshot["source"])
+      } finally {
+        state.close()
+      }
     }
   }
 

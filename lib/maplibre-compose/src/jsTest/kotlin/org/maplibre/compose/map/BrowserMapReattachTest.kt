@@ -27,7 +27,6 @@ import org.maplibre.compose.gljs.setBrowserMapContent
 import org.maplibre.compose.gljs.waitUntilMap
 import org.maplibre.compose.gljs.yieldToBrowser
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleState
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -51,13 +50,12 @@ class BrowserMapReattachTest {
     val firstPosition =
       CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
     val cameraState = CameraState(firstPosition)
-    val styleState = StyleState()
 
     setBrowserMapContent {
       val density = LocalDensity.current
       val layoutDirection = LocalLayoutDirection.current
       val mapState = remember {
-        MapState(cameraState, styleState, density, layoutDirection, null, null)
+        MapState(cameraState, density, layoutDirection, null, null)
       }
       DisposableEffect(mapState) { onDispose { mapState.close() } }
       LaunchedEffect(mapState) { mapState.startStyleComposition() }

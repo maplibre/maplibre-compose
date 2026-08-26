@@ -1,5 +1,6 @@
 package org.maplibre.compose.style
 
+import org.maplibre.compose.map.StyleSources
 import org.maplibre.compose.sources.Source
 
 /**
@@ -18,7 +19,7 @@ internal class SourceManager(private val node: StyleNode) {
   internal val desiredSources = LinkedHashSet<Source>()
 
   /** Receives updates on changes to the style */
-  internal var state: StyleState? = null
+  internal var sources: StyleSources? = null
 
   /** Recaptures the base set from the current binding; only valid before user sources are added. */
   internal fun captureBaseSources() {

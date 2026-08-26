@@ -50,6 +50,7 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.compass
 import org.maplibre.compose.generated.compass_needle
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.AngleMath
 
@@ -59,7 +60,8 @@ import org.maplibre.compose.util.AngleMath
  * This component draws with Compose Foundation alone. The
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
  *
- * @param state The map whose camera the needle follows and that a click resets.
+ * @param state The map whose camera the needle follows and that a click resets. Defaults to the map
+ *   that [LocalMapState] provides.
  * @param onClick Called after the camera animation starts.
  * @param style Colors, shape, and elevation of the button behind the needle.
  * @param contentDescription Accessibility label for the needle.
@@ -70,7 +72,7 @@ import org.maplibre.compose.util.AngleMath
  */
 @Composable
 public fun CompassButton(
-  state: MapState,
+  state: MapState = LocalMapState.current,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),
@@ -130,7 +132,7 @@ public fun CompassButton(
  */
 @Composable
 public fun DisappearingCompassButton(
-  state: MapState,
+  state: MapState = LocalMapState.current,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   style: CompassButtonStyle = CompassDefaults.style(),

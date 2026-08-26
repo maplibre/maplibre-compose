@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.CompassButton as BaseCompassButton
 import org.maplibre.compose.overlay.CompassButtonStyle
@@ -30,7 +31,8 @@ import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearin
  * This is [org.maplibre.compose.overlay.CompassButton] with the colors, shape, and elevation of an
  * [ElevatedButton].
  *
- * @param state The map whose camera the needle follows and that a click resets.
+ * @param state The map whose camera the needle follows and that a click resets. Defaults to the map
+ *   that [LocalMapState] provides.
  * @param onClick Called after the camera animation starts.
  * @param colors Container and content colors, defaulting to those of an [ElevatedButton].
  * @param contentDescription Accessibility label for the needle.
@@ -42,7 +44,7 @@ import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearin
  */
 @Composable
 public fun CompassButton(
-  state: MapState,
+  state: MapState = LocalMapState.current,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),
@@ -79,7 +81,7 @@ public fun CompassButton(
  */
 @Composable
 public fun DisappearingCompassButton(
-  state: MapState,
+  state: MapState = LocalMapState.current,
   modifier: Modifier = Modifier,
   onClick: () -> Unit = {},
   colors: ButtonColors = ButtonDefaults.elevatedButtonColors(),

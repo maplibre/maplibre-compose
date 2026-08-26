@@ -52,9 +52,9 @@ private class OfflinePackPrefetcher(
               bounds = bounds,
               minZoom = minZoom,
               maxZoom = maxZoom,
+              pixelRatio = pixelRatio,
             ),
           metadata = metadata,
-          pixelRatio = pixelRatio,
         )
     val alreadyDone =
       pack.downloadProgress.let { progress ->

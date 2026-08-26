@@ -127,7 +127,7 @@ class BrowserStyleStateTest {
 
       assertEquals(
         listOf("fetched attribution"),
-        state?.styleState?.sources?.values?.map { it.attributionHtml },
+        state?.sources?.snapshot?.values?.map { it.attributionHtml },
         "loading is only finished once a source's TileJSON has arrived; the attribution UI reads " +
           "this the moment it is told",
       )
@@ -156,7 +156,7 @@ class BrowserStyleStateTest {
 
       current = tileJsonStyle
       waitUntilMap("the switched style's attribution to be reported") {
-        state?.styleState?.sources?.values?.map { it.attributionHtml } ==
+        state?.sources?.snapshot?.values?.map { it.attributionHtml } ==
           listOf("fetched attribution")
       }
     } finally {
@@ -188,20 +188,20 @@ class BrowserStyleStateTest {
         checkNotNull(node).sourceManager.addReference(source)
 
         // The reference records desired state; the layer add has to wait for the host's sync.
-        waitUntilMap("the late source's initial snapshot") { state?.styleState?.sources?.size == 1 }
+        waitUntilMap("the late source's initial snapshot") { state?.sources?.snapshot?.size == 1 }
         checkNotNull(node)
           .binding
           .addLayer(RasterLayerDescriptor(id = "late-layer", source = source))
-        assertEquals(listOf(""), state?.styleState?.sources?.values?.map { it.attributionHtml })
-        val initialSource = state?.styleState?.sources?.values?.single()
+        assertEquals(listOf(""), state?.sources?.snapshot?.values?.map { it.attributionHtml })
+        val initialSource = state?.sources?.snapshot?.values?.single()
 
         waitUntilMap("MapLibre to request the TileJSON") { tileJson.isRequested() }
         tileJson.resolve()
         waitUntilMap("the late source's attribution") {
-          state?.styleState?.sources?.values?.map { it.attributionHtml } ==
+          state?.sources?.snapshot?.values?.map { it.attributionHtml } ==
             listOf("fetched attribution")
         }
-        assertNotSame(initialSource, state?.styleState?.sources?.values?.single())
+        assertNotSame(initialSource, state?.sources?.snapshot?.values?.single())
         assertEquals(1, loads, "source metadata must not report another map load")
       } finally {
         tileJson.restore()
@@ -223,11 +223,11 @@ class BrowserStyleStateTest {
       )
     }
     waitUntilMap("the first style to load") {
-      loads >= 1 && state?.styleState?.sources?.isNotEmpty() == true
+      loads >= 1 && state?.sources?.snapshot?.isNotEmpty() == true
     }
     assertEquals(
       listOf("first attribution"),
-      state?.styleState?.sources?.values?.map { it.attributionHtml },
+      state?.sources?.snapshot?.values?.map { it.attributionHtml },
     )
 
     // Sampled per frame, not just at the end: a window where the attribution is empty would flicker
@@ -235,13 +235,13 @@ class BrowserStyleStateTest {
     val observed = mutableListOf<List<String>>()
     current = styleWith("second", "second-source")
     waitUntilMap("the second style's sources to be reported") {
-      state?.styleState?.sources?.values?.map { it.attributionHtml }?.let { observed += it }
-      loads >= 2 && state?.styleState?.sources?.keys == setOf("second-source")
+      state?.sources?.snapshot?.values?.map { it.attributionHtml }?.let { observed += it }
+      loads >= 2 && state?.sources?.snapshot?.keys == setOf("second-source")
     }
 
     assertEquals(
       listOf("second attribution"),
-      state?.styleState?.sources?.values?.map { it.attributionHtml },
+      state?.sources?.snapshot?.values?.map { it.attributionHtml },
     )
     assertTrue(
       observed.none { attributions -> attributions.any { it.isEmpty() } },

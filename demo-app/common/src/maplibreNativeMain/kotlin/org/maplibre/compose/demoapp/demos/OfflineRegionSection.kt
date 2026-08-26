@@ -62,9 +62,9 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                       bounds = region,
                       minZoom = 12,
                       maxZoom = 15,
+                      pixelRatio = pixelRatio,
                     ),
                   metadata = metadata,
-                  pixelRatio = pixelRatio,
                 )
               offlineManager.resume(newPack)
             } catch (e: CancellationException) {

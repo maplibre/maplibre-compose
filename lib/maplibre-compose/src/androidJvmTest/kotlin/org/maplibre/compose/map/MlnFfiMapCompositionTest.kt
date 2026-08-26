@@ -55,7 +55,6 @@ import org.maplibre.compose.runtime.MaplibreRuntime
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -204,7 +203,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun disposing_the_map_detaches_the_session_from_the_state() {
     var visible by mutableStateOf(true)
-    val mapState = MapState(cameraState = CameraState(CameraPosition()), styleState = StyleState())
+    val mapState = MapState(cameraState = CameraState(CameraPosition()))
     mapState.baseStyle = BaseStyle.Empty
 
     runBridgeMapTest(
@@ -232,7 +231,7 @@ class MlnFfiMapCompositionTest {
   @Test
   fun changing_layout_direction_keeps_the_live_session_and_host() {
     var layoutDirection by mutableStateOf(LayoutDirection.Ltr)
-    val mapState = MapState(cameraState = CameraState(CameraPosition()), styleState = StyleState())
+    val mapState = MapState(cameraState = CameraState(CameraPosition()))
     mapState.baseStyle = BaseStyle.Empty
 
     runBridgeMapTest(
@@ -305,7 +304,7 @@ class MlnFfiMapCompositionTest {
   fun an_animation_requested_as_the_camera_attaches_waits_for_the_native_map() {
     val finalPosition =
       CameraPosition(target = Position(longitude = 12.4924, latitude = 41.8902), zoom = 9.0)
-    val mapState = MapState(cameraState = CameraState(CameraPosition()), styleState = StyleState())
+    val mapState = MapState(cameraState = CameraState(CameraPosition()))
     mapState.baseStyle = BaseStyle.Empty
     var animationFinished by mutableStateOf(false)
 

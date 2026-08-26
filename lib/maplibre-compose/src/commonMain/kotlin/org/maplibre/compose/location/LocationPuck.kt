@@ -46,6 +46,7 @@ import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
@@ -73,8 +74,10 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *   indicator. Defaults to `location.course`, which is the direction of travel.
  * @param state The [MapState] of the map, used only for
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
- *   correctly draw the accuracy circle. The camera is not modified by this composable; if you want
- *   the camera to track the current location, use [LocationTrackingEffect].
+ *   correctly draw the accuracy circle. Defaults to the map that
+ *   [LocalMapState][org.maplibre.compose.map.LocalMapState] provides. The camera is not modified by
+ *   this composable; if you want the camera to track the current location, use
+ *   [LocationTrackingEffect].
  * @param oldLocationThreshold Locations with a [timestamp][Location.timestamp] older than this will
  *   be considered old and will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
@@ -93,7 +96,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
 public fun LocationPuck(
   idPrefix: String,
   location: Location?,
-  state: MapState,
+  state: MapState = LocalMapState.current,
   bearing: BearingWithAccuracy? = location?.course,
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Float = 50f,

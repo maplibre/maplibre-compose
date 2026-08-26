@@ -20,8 +20,8 @@ bar and the compass appear only while they are relevant.
 
 <Aside type="caution">
   Most tile sources require attribution. `MapOverlay.Default` reads it from
-  `StyleState.attributions()`. If you replace the overlay, show that attribution
-  yourself.
+  `MapState.sources.attributions`. If you replace the overlay, show that
+  attribution yourself.
 </Aside>
 
 ## Choose an overlay
@@ -36,8 +36,8 @@ A <Api of="MapOverlay" /> block draws the controls you list in it.
 
 <Code code={region(controls, "custom")} lang="kotlin" title="App.kt" />
 
-1. The block can read the map's `cameraState` and `styleState`, so a control
-   inside it takes no state arguments.
+1. The block reads the map through `LocalMapState` or the scope's `map`
+   property, so a control inside it takes no state arguments.
 
 ## Theme the controls with Material 3
 

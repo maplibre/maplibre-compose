@@ -16,6 +16,12 @@ public sealed interface OfflinePackDefinition {
   public val maxZoom: Int?
 
   /**
+   * The pixel ratio that raster tiles download at. A downloaded raster tile cannot be rescaled, so
+   * pass the density of the window that shows the map, such as `LocalDensity.current.density`.
+   */
+  public val pixelRatio: Float
+
+  /**
    * An offline region defined by a style URL, geographic coordinate bounds, and range of zoom
    * levels.
    *
@@ -28,6 +34,7 @@ public sealed interface OfflinePackDefinition {
     public val bounds: BoundingBox,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
+    override val pixelRatio: Float = 1f,
   ) : OfflinePackDefinition
 
   /** An offline region defined by a style URL, geographic shape, and range of zoom levels. */
@@ -37,5 +44,6 @@ public sealed interface OfflinePackDefinition {
     public val shape: Geometry,
     override val minZoom: Int = 0,
     override val maxZoom: Int? = null,
+    override val pixelRatio: Float = 1f,
   ) : OfflinePackDefinition
 }

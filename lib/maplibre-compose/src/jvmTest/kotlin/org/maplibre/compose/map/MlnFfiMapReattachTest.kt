@@ -45,7 +45,6 @@ import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleState
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -79,7 +78,6 @@ class MlnFfiMapReattachTest {
     val firstPosition =
       CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 5.0)
     val cameraState = CameraState(firstPosition)
-    val styleState = StyleState()
     lateinit var state: MapState
 
     setContent {
@@ -89,7 +87,7 @@ class MlnFfiMapReattachTest {
         val layoutDirection = LocalLayoutDirection.current
         val logger = remember { Logger.withTag("reattach-test") }
         val mapState = remember {
-          MapState(cameraState, styleState, density, layoutDirection, logger, null)
+          MapState(cameraState, density, layoutDirection, logger, null)
         }
         state = mapState
         DisposableEffect(mapState) { onDispose { mapState.close() } }

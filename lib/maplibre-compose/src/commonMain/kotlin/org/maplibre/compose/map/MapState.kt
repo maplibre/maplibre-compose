@@ -34,7 +34,6 @@ import org.maplibre.compose.style.StyleCompositionHost
 import org.maplibre.compose.style.StyleError
 import org.maplibre.compose.style.StyleHostDispatcher
 import org.maplibre.compose.style.StyleNode
-import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.style.styleHostDispatcher
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.FeaturesClickHandler
@@ -61,7 +60,7 @@ import org.maplibre.spatialk.geojson.Position
  * cannot show a map again.
  */
 // Internally this also owns the style composition host, the root StyleNode over the loaded
-// StyleBinding, and the wiring into CameraState and StyleState. A session (MapAdapter) attaches
+// StyleBinding, and the wiring into CameraState and StyleSources. A session (MapAdapter) attaches
 // through attachSession and detaches through detachSession; the style the session loads arrives
 // through callbacks and re-points the persistent node, which reapplies the whole desired state to
 // the new style. The content follows the style the application has *selected* while the node
@@ -70,7 +69,6 @@ import org.maplibre.spatialk.geojson.Position
 public class MapState
 internal constructor(
   cameraState: CameraState,
-  styleState: StyleState,
   density: Density = Density(1f),
   layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   logger: Logger? = null,
@@ -89,7 +87,6 @@ internal constructor(
     layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   ) : this(
     cameraState = CameraState(CameraPosition()),
-    styleState = StyleState(),
     density = density,
     layoutDirection = layoutDirection,
   )
@@ -106,12 +103,11 @@ internal constructor(
       density = density,
       layoutDirection = layoutDirection,
       logger = logger,
+      mapState = this,
       onClosed = hostDispatcher::close,
     )
 
   internal val cameraState: CameraState = cameraState
-
-  internal val styleState: StyleState = styleState
 
   internal var logger: Logger? = logger
     set(value) {
@@ -150,8 +146,7 @@ internal constructor(
   /** The scope click queries launch on; null drops clicks, which only a missing UI would cause. */
   @Volatile internal var clickScope: CoroutineScope? = null
 
-  private val contentState =
-    mutableStateOf<(@Composable @MaplibreComposable MapState.() -> Unit)>({})
+  private val contentState = mutableStateOf<(@Composable @MaplibreComposable () -> Unit)>({})
 
   init {
     this.cameraState.density = density
@@ -169,19 +164,19 @@ internal constructor(
    * inside the content run outside the UI context, and source and anchor validation surface when
    * the content applies to a loaded style rather than at the call.
    *
-   * The content receives this state as its receiver, so it can read the camera and the viewport of
-   * the map it composes into.
+   * Inside the content, [LocalMapState] returns this state, so the content can read the camera and
+   * the viewport of the map it composes into.
    *
    * Call this on a state that lives outside the composition, such as one a ViewModel owns. Inside a
    * composition, pass the content to [rememberMapState] instead.
    */
-  public fun setStyleContent(content: @Composable @MaplibreComposable MapState.() -> Unit) {
+  public fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
     updateStyleContent(content)
     startStyleComposition()
   }
 
   /** Replaces the style content; the host recomposes because it reads this state. */
-  internal fun updateStyleContent(content: @Composable @MaplibreComposable MapState.() -> Unit) {
+  internal fun updateStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
     // A write with no read, so a UI composition calling this never subscribes to the state.
     contentState.value = content
   }
@@ -194,7 +189,7 @@ internal constructor(
   internal fun startStyleComposition() {
     if (contentStarted) return
     contentStarted = true
-    host.setContent { contentState.value.invoke(this) }
+    host.setContent { contentState.value.invoke() }
   }
 
   /**
@@ -224,12 +219,9 @@ internal constructor(
   /** Backs [StyleLayers.ids]; refreshed by [refreshStyleCollections]. */
   internal val layerIdsState = mutableStateOf(emptyList<String>())
 
-  /** Backs [StyleSources.ids]; refreshed by [refreshStyleCollections]. */
-  internal val sourceIdsState = mutableStateOf(emptyList<String>())
-
   private fun refreshStyleCollections() {
     layerIdsState.value = styleNode.binding.layerIds().orEmpty()
-    sourceIdsState.value = styleNode.binding.getSources().map { it.id }
+    sources.refreshSources()
   }
 
   /** Refuses an imperative write on a layer id that the style content owns. */
@@ -435,7 +427,7 @@ internal constructor(
     this.adapter = adapter
     selectedBaseStyle?.let(adapter::setBaseStyle)
     cameraState.map = adapter
-    styleState.attach(styleNode)
+    sources.refreshSources()
   }
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
@@ -444,7 +436,7 @@ internal constructor(
     cameraState.map = null
     // An engine that keeps the map alive keeps its loaded binding and the applied snapshot too.
     if (!engine.retainsStyleAcrossDetach) updateBinding(null)
-    styleState.detach()
+    sources.clear()
   }
 
   /** Applies the composable's per-composition options; attach-independent, safe to repeat. */
@@ -469,7 +461,6 @@ internal constructor(
 
   private fun updateBinding(newBinding: StyleBinding?) {
     styleNode.binding = newBinding ?: StyleBinding.UNLOADED
-    styleState.refreshSources()
     refreshStyleCollections()
     host.requestApplyChanges()
   }
@@ -496,14 +487,13 @@ internal constructor(
       }
 
       override fun onMapFinishedLoading(map: MapAdapter) {
-        styleState.refreshSources()
         refreshStyleCollections()
         onMapLoadFinished()
       }
 
       override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-        if (sourceId == null) styleState.refreshSources() else styleState.refreshSource(sourceId)
-        refreshStyleCollections()
+        if (sourceId == null) sources.refreshSources() else sources.refreshSource(sourceId)
+        layerIdsState.value = styleNode.binding.layerIds().orEmpty()
       }
 
       override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {

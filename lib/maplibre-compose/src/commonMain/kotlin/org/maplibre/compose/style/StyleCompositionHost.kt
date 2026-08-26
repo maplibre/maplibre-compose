@@ -26,6 +26,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
+import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.rethrowIfFatal
 
 /**
@@ -49,6 +51,8 @@ internal class StyleCompositionHost(
   layoutDirection: LayoutDirection,
   // Mutable so a host constructed before the composable's logger is known picks it up.
   var logger: Logger?,
+  // Null only in tests that compose a style with no owning map.
+  private val mapState: MapState? = null,
   private val onClosed: () -> Unit = {},
 ) : AutoCloseable {
 
@@ -149,13 +153,14 @@ internal class StyleCompositionHost(
       try {
         composition.setContent {
           WithInheritedLocals {
-            CompositionLocalProvider(
-              LocalDensity provides density,
-              LocalLayoutDirection provides layoutDirection,
-              LocalStyleNode provides rootNode,
-            ) {
-              content()
-            }
+            val locals =
+              listOfNotNull(
+                LocalDensity provides density,
+                LocalLayoutDirection provides layoutDirection,
+                LocalStyleNode provides rootNode,
+                mapState?.let { LocalMapState provides it },
+              )
+            CompositionLocalProvider(*locals.toTypedArray()) { content() }
           }
         }
         rootNode.applyChanges()

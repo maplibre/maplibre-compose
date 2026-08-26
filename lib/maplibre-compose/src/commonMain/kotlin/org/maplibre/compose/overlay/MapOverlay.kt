@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
@@ -27,6 +28,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.geojson.Position
 
@@ -36,14 +38,15 @@ import org.maplibre.spatialk.geojson.Position
  * [Modifier.align] positions a child against an edge of the unobstructed region of the map.
  * [Modifier.placedAt] positions a child on a geographic position of the full map.
  * [Modifier.placedTowards] positions a child on the edge of the unobstructed region, pointing
- * towards an off-screen position. The map state that controls read is available here, which is why
- * the default controls take no arguments.
+ * towards an off-screen position. [map] and [LocalMapState][org.maplibre.compose.map.LocalMapState]
+ * both name the state of the map that this overlay draws over, which is why the default controls
+ * take no arguments.
  */
 @LayoutScopeMarker
 @Stable
 public interface MapOverlayScope {
   /** The state of the map that this overlay belongs to. */
-  public val state: MapState
+  public val map: MapState
 
   /**
    * The obstructed region of the map, as passed to
@@ -140,22 +143,20 @@ public class MapOverlay(
      */
     public val Default: MapOverlay = MapOverlay {
       DisappearingScaleBar(
-        metersPerDp = state.viewport?.metersPerDpAtTarget ?: 0.0,
-        zoom = state.camera.zoom,
+        metersPerDp = map.viewport?.metersPerDpAtTarget ?: 0.0,
+        zoom = map.camera.zoom,
         modifier = Modifier.align(Alignment.TopStart),
       )
 
-      DisappearingCompassButton(state = state, modifier = Modifier.align(Alignment.TopEnd))
+      DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
 
-      // Read before entering the Row, whose scope shadows this one.
-      val map = state
       Row(
         Modifier.align(Alignment.BottomStart).fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
         MaplibreLogo()
-        ExpandingAttributionButton(state = map)
+        ExpandingAttributionButton()
       }
     }
 
@@ -173,7 +174,12 @@ internal fun MapOverlayHost(
 ) {
   val scope =
     remember(state, contentWindowInsets) { MapOverlayScopeImpl(state, contentWindowInsets) }
-  Layout(modifier = modifier, content = { overlay.content(scope) }) { measurables, constraints ->
+  Layout(
+    modifier = modifier,
+    content = {
+      CompositionLocalProvider(LocalMapState provides state) { overlay.content(scope) }
+    },
+  ) { measurables, constraints ->
     val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
     val height = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
     val spacing = MapOverlay.Spacing.roundToPx()
@@ -271,7 +277,7 @@ internal fun MapOverlayHost(
 
 @Stable
 internal class MapOverlayScopeImpl(
-  override val state: MapState,
+  override val map: MapState,
   override val contentWindowInsets: WindowInsets,
 ) : MapOverlayScope {
   override fun Modifier.align(alignment: Alignment): Modifier = this.then(AlignElement(alignment))

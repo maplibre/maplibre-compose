@@ -18,7 +18,6 @@ import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleState
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
@@ -86,7 +85,7 @@ class BrowserMapLifecycleTest {
     val expectedCamera =
       CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
     val cameraState = CameraState(expectedCamera)
-    val mapState = MapState(cameraState = cameraState, styleState = StyleState())
+    val mapState = MapState(cameraState = cameraState)
     mapState.baseStyle = style
 
     setBrowserMapContent {

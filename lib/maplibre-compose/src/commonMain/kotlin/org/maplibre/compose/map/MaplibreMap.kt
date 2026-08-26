@@ -30,7 +30,6 @@ import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.overlay.include
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.util.ClickResult
 import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
@@ -45,14 +44,14 @@ import org.maplibre.spatialk.geojson.BoundingBox
  *   of this one.
  * @param baseStyle The URI or JSON of the map style to use. Assigned to [MapState.baseStyle] on
  *   every recomposition. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
- * @param styleContent The sources and layers composed over [baseStyle]; null sets no content. The
- *   content receives the returned state as its receiver. See [MapState.setStyleContent].
+ * @param styleContent The sources and layers composed over [baseStyle]; null sets no content.
+ *   Inside the content, [LocalMapState] returns the returned state. See [MapState.setStyleContent].
  */
 @Composable
 public fun rememberMapState(
   cameraPosition: CameraPosition = CameraPosition(),
   baseStyle: BaseStyle = BaseStyle.Demo,
-  styleContent: (@Composable @MaplibreComposable MapState.() -> Unit)? = null,
+  styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
 ): MapState {
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
@@ -65,7 +64,6 @@ public fun rememberMapState(
   val mapState = remember {
     MapState(
       cameraState = cameraState,
-      styleState = StyleState(),
       density = density,
       layoutDirection = layoutDirection,
       logger = Logger.withTag("maplibre-compose"),

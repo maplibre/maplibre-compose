@@ -34,9 +34,9 @@ fun Offline() {
                 bounds = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
                 minZoom = 10,
                 maxZoom = 14,
+                pixelRatio = density, // (1)!
               ),
             metadata = "Seattle".encodeToByteArray(),
-            pixelRatio = density, // (1)!
           )
         offlineManager.resume(pack)
       }

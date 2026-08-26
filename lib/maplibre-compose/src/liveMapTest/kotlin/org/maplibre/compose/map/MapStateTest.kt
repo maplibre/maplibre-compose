@@ -30,7 +30,6 @@ import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.OpRecordingStyleBinding
 import org.maplibre.compose.style.StyleHostDispatcher
-import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -159,12 +158,10 @@ class MapStateTest {
 
   private fun TestScope.mapState(
     cameraState: CameraState,
-    styleState: StyleState,
     hostDispatcher: TestHostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler)),
   ) =
     MapState(
       cameraState = cameraState,
-      styleState = styleState,
       density = Density(1f),
       layoutDirection = LayoutDirection.Ltr,
       logger = null,
@@ -174,8 +171,7 @@ class MapStateTest {
   @Test
   fun survives_a_detach_attach_cycle_and_rewires_a_new_session() = runTest {
     val cameraState = CameraState(CameraPosition())
-    val styleState = StyleState()
-    val state = mapState(cameraState, styleState)
+    val state = mapState(cameraState)
     val source = testSource("tiles")
 
     state.setStyleContent { RasterLayer(id = "raster", source = source) }
@@ -200,7 +196,7 @@ class MapStateTest {
 
     assertNull(cameraState.map)
     assertFalse(state.styleNode.binding.isLoaded)
-    assertTrue(styleState.sources.isEmpty())
+    assertTrue(state.sources.snapshot.isEmpty())
 
     val second = FakeMapAdapter()
     val secondBinding = OpRecordingStyleBinding()
@@ -224,7 +220,7 @@ class MapStateTest {
   @Test
   fun close_after_detach_shuts_down_the_recomposer_and_the_dispatcher() = runTest {
     val hostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler))
-    val state = mapState(CameraState(CameraPosition()), StyleState(), hostDispatcher)
+    val state = mapState(CameraState(CameraPosition()), hostDispatcher)
     state.setStyleContent { RasterLayer(id = "raster", source = testSource("tiles")) }
     state.startStyleComposition()
 

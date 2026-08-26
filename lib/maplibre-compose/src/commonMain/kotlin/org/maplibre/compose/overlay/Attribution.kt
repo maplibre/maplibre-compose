@@ -62,6 +62,7 @@ import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.attribution
 import org.maplibre.compose.generated.info
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.horizontal
 import org.maplibre.compose.util.reverse
@@ -76,6 +77,7 @@ import org.maplibre.compose.util.vertical
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
  *
  * @param state The map whose attributions are displayed; a gesture on it dismisses the popup.
+ *   Defaults to the map that [LocalMapState] provides.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -90,7 +92,7 @@ import org.maplibre.compose.util.vertical
  */
 @Composable
 public fun ExpandingAttributionButton(
-  state: MapState,
+  state: MapState = LocalMapState.current,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
@@ -134,7 +136,8 @@ public fun ExpandingAttributionButton(
  *
  * @param expanded Whether the attribution text is expanded.
  * @param onClick Called when the button is pressed. Should toggle the expanded state.
- * @param state The map whose attributions are displayed.
+ * @param state The map whose attributions are displayed. Defaults to the map that [LocalMapState]
+ *   provides.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -151,7 +154,7 @@ public fun ExpandingAttributionButton(
 public fun ExpandingAttributionButton(
   expanded: Boolean,
   onClick: () -> Unit,
-  state: MapState,
+  state: MapState = LocalMapState.current,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,

@@ -20,7 +20,7 @@ import org.maplibre.spatialk.geojson.toJson
  */
 private const val INCLUDE_IDEOGRAPHS = true
 
-internal fun OfflinePackDefinition.toFfiRegionDefinition(pixelRatio: Float): FfiRegionDefinition =
+internal fun OfflinePackDefinition.toFfiRegionDefinition(): FfiRegionDefinition =
   when (this) {
     is OfflinePackDefinition.TilePyramid ->
       FfiRegionDefinition.TilePyramid(
@@ -56,6 +56,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger): Offlin
         minZoom = minZoom.toInt(),
         // MapLibre spells "no maximum" as infinity, which does not survive a conversion to Int.
         maxZoom = maxZoom.takeIf { it.isFinite() }?.toInt(),
+        pixelRatio = pixelRatio,
       )
     is FfiRegionDefinition.GeometryRegion ->
       OfflinePackDefinition.Shape(
@@ -63,6 +64,7 @@ internal fun FfiRegionDefinition.toOfflinePackDefinition(logger: Logger): Offlin
         shape = geometry.toGeoJsonGeometry(logger),
         minZoom = minZoom.toInt(),
         maxZoom = maxZoom.takeIf { it.isFinite() }?.toInt(),
+        pixelRatio = pixelRatio,
       )
     else -> {
       logger.w { "Ignoring an offline region with an unrecognized definition: $this" }

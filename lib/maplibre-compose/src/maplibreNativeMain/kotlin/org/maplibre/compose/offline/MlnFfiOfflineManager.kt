@@ -124,9 +124,8 @@ internal class MlnFfiOfflineManager(
   override suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray,
-    pixelRatio: Float,
   ): OfflinePack {
-    val ffiDefinition = definition.toFfiRegionDefinition(pixelRatio)
+    val ffiDefinition = definition.toFfiRegionDefinition()
     // Copied because the caller still owns the array it passed and native reads it later.
     val ffiMetadata = metadata.copyOf()
     return runOperation(

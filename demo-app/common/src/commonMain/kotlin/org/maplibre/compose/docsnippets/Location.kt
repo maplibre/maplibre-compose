@@ -11,6 +11,7 @@ import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
 import org.maplibre.compose.location.rememberLocationState
+import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 
@@ -30,17 +31,17 @@ fun Location() {
     )
 
   val map = rememberMapState {
-    // The style content receives the map state as its receiver.
     LocationPuck(
       idPrefix = "user",
       location = locationState.location,
       // optional: combine course and orientation bearing
       bearing = locationState.mostAccurateBearing(),
-      state = this,
     )
 
+    // LocalMapState names the map that this content composes into.
+    val mapState = LocalMapState.current
     LocationTrackingEffect(locationState = locationState) {
-      animateCamera(CameraPosition(target = currentLocation.position.value, zoom = 15.0))
+      mapState.animateCamera(CameraPosition(target = currentLocation.position.value, zoom = 15.0))
     }
   }
   MaplibreMap(map)
