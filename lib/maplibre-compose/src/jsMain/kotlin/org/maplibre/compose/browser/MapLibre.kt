@@ -21,9 +21,4 @@ public object MapLibre {
     }
     GlJsRuntime.pointAtWorker(workerUrl)
   }
-
-  @Deprecated("Renamed to configure", ReplaceWith("configure(workerUrl)"))
-  public fun initialize(workerUrl: String = DEFAULT_WORKER_URL) {
-    configure(workerUrl)
-  }
 }
