@@ -133,11 +133,16 @@ internal class MlnFfiMapSession(
         renderSession = null
         renderSessionReady = false
         attachedTarget = null
-        handle?.close()
+        // Close inside its own guard so a throwing handle still counts as the closure running.
+        handle?.let { live ->
+          runCatching { live.close() }
+            .onFailure { core.logger?.e(it) { "Failed to close the MapLibre render session" } }
+        }
+        true
       }
     }
-    result.onFailure { core.logger?.e(it) { "Failed to close the MapLibre render session" } }
-    if (result.getOrNull() != null) return
+    result.onFailure { core.logger?.e(it) { "Could not reach the renderer to close the session" } }
+    if (result.getOrNull() == true) return
     // The renderer is unreachable, so nothing races these fields; a live handle can only leak
     // because only the thread that attached it may close it.
     if (renderSession != null) {

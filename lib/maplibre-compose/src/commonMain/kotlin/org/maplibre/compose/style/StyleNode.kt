@@ -44,6 +44,9 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   private val appliedLayers = LinkedHashMap<Anchor, MutableList<LayerNode<*>>>()
   private val replacedLayers = mutableMapOf<Anchor.Replace, Layer>()
 
+  /** Originals whose removal threw after their replacement was added; retried each sync. */
+  private val pendingReplaceRemovals = mutableMapOf<Anchor.Replace, Layer>()
+
   /** The click-routing snapshot, topmost layer first; the UI thread reads only this. */
   @Volatile
   internal var clickRoutes: List<ClickRoute> = emptyList()
@@ -80,6 +83,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       appliedSources.clear()
       appliedLayers.clear()
       replacedLayers.clear()
+      pendingReplaceRemovals.clear()
       // The base snapshots must capture the pristine style before this sync mutates it.
       baseLayersFor = null
       baseLayerIds()
@@ -93,6 +97,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     }
 
     val desiredLayers = children.filterIsInstance<LayerNode<*>>()
+    retryPendingReplaceRemovals()
     removeUndesiredLayers(desiredLayers)
     syncSources()
 
@@ -113,6 +118,16 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       }
   }
 
+  /** Finishes a Replace whose original survived a thrown removal after its replacement landed. */
+  private fun retryPendingReplaceRemovals() {
+    pendingReplaceRemovals.entries.toList().forEach { (anchor, original) ->
+      logger?.i { "Retrying removal of replaced layer ${original.id}" }
+      binding.removeLayer(original)
+      pendingReplaceRemovals.remove(anchor)
+      replacedLayers[anchor] = original
+    }
+  }
+
   private fun removeUndesiredLayers(desiredLayers: List<LayerNode<*>>) {
     val desired = desiredLayers.toHashSet()
     val anchors = appliedLayers.entries.iterator()
@@ -121,8 +136,10 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       group
         .filter { it !in desired }
         .forEach { node ->
-          // Removing the group's last layer restores the replaced original first.
+          // Removing the group's last layer restores the replaced original first. An original
+          // whose removal is still pending needs no restore: it never left the style.
           if (anchor is Anchor.Replace && group.size == 1) {
+            pendingReplaceRemovals.remove(anchor)
             replacedLayers[anchor]?.let { original ->
               logger?.i { "Restoring layer ${anchor.layerId}" }
               binding.addLayerBelow(node.layer.id, original)
@@ -227,7 +244,10 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
         binding.addLayerAbove(layerToReplace.id, first.layer)
         applied += first
         logger?.i { "Replacing layer ${layerToReplace.id} with ${first.layer.id}" }
+        // Recorded before the removal so a thrown removal is retried by the next sync.
+        pendingReplaceRemovals[anchor] = layerToReplace
         binding.removeLayer(layerToReplace)
+        pendingReplaceRemovals.remove(anchor)
         replacedLayers[anchor] = layerToReplace
       }
     }

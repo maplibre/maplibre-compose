@@ -117,6 +117,35 @@ class StyleSyncResilienceTest {
   }
 
   @Test
+  fun a_failed_replace_removal_is_retried_instead_of_keeping_both_layers() = runComposeUiTest {
+    runOnUiThread {
+      val baseSource = vectorSource("base-source")
+      val base = LineLayerDescriptor("base", baseSource)
+      val binding = FlakyStyleBinding(baseSources = listOf(baseSource), baseLayers = listOf(base))
+      val node = StyleNode(binding, null)
+      val replacement = LayerNode(LineLayerDescriptor("mine", baseSource), Anchor.Replace("base"))
+      node.insertLayer(replacement, 0)
+
+      // Op 1 adds the replacement; op 2 is the original's removal.
+      binding.failOnOpNumber = 2
+      assertFails { node.applyChanges() }
+      assertNotNull(binding.getLayer("base"))
+      assertNotNull(binding.getLayer("mine"))
+
+      node.applyChanges()
+
+      assertEquals(listOf("addLayerAbove:mine", "removeLayer:base"), binding.ops.toList())
+      assertNull(binding.getLayer("base"))
+
+      // The finished replace still restores the original when the replacement leaves.
+      node.children.remove(replacement)
+      node.applyChanges()
+      assertNotNull(binding.getLayer("base"))
+      assertNull(binding.getLayer("mine"))
+    }
+  }
+
+  @Test
   fun a_same_id_source_swap_removes_the_old_instance_before_adding_the_new() = runComposeUiTest {
     runOnUiThread {
       val binding = OpRecordingStyleBinding()

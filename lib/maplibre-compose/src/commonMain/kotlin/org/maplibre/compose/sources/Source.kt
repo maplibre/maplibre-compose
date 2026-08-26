@@ -42,9 +42,11 @@ public sealed class Source(internal val id: String) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
     }
-    val exists = binding.sourceExists(id)
     // Defends against a re-entrant attach of the same source to the same style, not ordering.
-    if (this.binding === binding && exists == true) return
+    // Decided before the engine query so a concurrent unload cannot turn the re-entry into a
+    // duplicate-id failure.
+    if (this.binding === binding) return
+    val exists = binding.sourceExists(id)
     // Null means the check could not run; the add still refuses a duplicate.
     check(exists != true) {
       "Source ID '$id' is already owned by a different live source descriptor"
