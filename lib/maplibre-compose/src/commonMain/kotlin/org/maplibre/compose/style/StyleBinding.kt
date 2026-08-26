@@ -4,7 +4,14 @@ import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
+import org.maplibre.compose.sources.putGeoJsonOptions
+import org.maplibre.compose.sources.toDataJson
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
@@ -120,6 +127,62 @@ internal interface StyleBinding {
   fun imageSourceCoordinates(sourceId: String): List<Position>?
 
   /**
+   * Adds a GeoJSON source from its data and options. The default writes the style-spec JSON; an
+   * engine with a typed adder overrides it.
+   *
+   * @return false if the style has unloaded, in which case nothing was added.
+   * @throws StyleMutationException if MapLibre refuses the source or the data.
+   */
+  fun addGeoJsonSource(sourceId: String, data: GeoJsonData, options: GeoJsonOptions): Boolean =
+    addSource(
+      sourceId,
+      buildJsonObject {
+        put("type", "geojson")
+        put("data", data.toDataJson())
+        putGeoJsonOptions(options)
+      },
+    )
+
+  /**
+   * Converts inline [data] into this engine's install form on the caller, so an expensive parse
+   * stays off the map's owner thread. A URL installs through [setGeoJsonSourceUrl] instead.
+   */
+  fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson
+
+  /**
+   * Installs [prepared] on a live GeoJSON source when [claim] answers true.
+   *
+   * [claim] runs where this engine serializes installs, so overlapping installs resolve their order
+   * in one place. It runs even when the style has unloaded or the install is dropped, so the
+   * descriptor still records the data. Returns after the install has run or been dropped, so the
+   * caller may close [prepared].
+   */
+  fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson, claim: () -> Boolean)
+
+  /** Points a live GeoJSON source at [url]; [claim] follows the [setGeoJsonSourceData] contract. */
+  fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean)
+
+  /**
+   * The zoom at which [feature]'s cluster breaks apart, or null when the feature carries no cluster
+   * id, no live source can answer, or the cluster is gone.
+   */
+  suspend fun clusterExpansionZoom(sourceId: String, feature: Feature<*, JsonObject?>): Double?
+
+  /** The features one level down from [feature]'s cluster; null as [clusterExpansionZoom]. */
+  suspend fun clusterChildren(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): FeatureCollection<Geometry, JsonObject?>?
+
+  /** The original points under [feature]'s cluster; null as [clusterExpansionZoom]. */
+  suspend fun clusterLeaves(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    limit: Long,
+    offset: Long,
+  ): FeatureCollection<Geometry, JsonObject?>?
+
+  /**
    * Reports that [sourceId] was added or removed, so the style state can refresh that source
    * without waiting for idle. An engine that adds sources through its own hop calls this from
    * inside that hop, after the add or remove.
@@ -217,6 +280,38 @@ internal interface StyleBinding {
 
         override fun imageSourceCoordinates(sourceId: String): List<Position>? = null
 
+        override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
+          NoPreparedGeoJson
+
+        override fun setGeoJsonSourceData(
+          sourceId: String,
+          prepared: PreparedGeoJson,
+          claim: () -> Boolean,
+        ) {
+          claim()
+        }
+
+        override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
+          claim()
+        }
+
+        override suspend fun clusterExpansionZoom(
+          sourceId: String,
+          feature: Feature<*, JsonObject?>,
+        ): Double? = null
+
+        override suspend fun clusterChildren(
+          sourceId: String,
+          feature: Feature<*, JsonObject?>,
+        ): FeatureCollection<Geometry, JsonObject?>? = null
+
+        override suspend fun clusterLeaves(
+          sourceId: String,
+          feature: Feature<*, JsonObject?>,
+          limit: Long,
+          offset: Long,
+        ): FeatureCollection<Geometry, JsonObject?>? = null
+
         override fun setFeatureState(
           sourceId: String,
           sourceLayerId: String?,
@@ -246,6 +341,14 @@ internal interface StyleBinding {
         ): List<Feature<Geometry, JsonObject?>> = emptyList()
       }
   }
+}
+
+/** An engine's install form of one GeoJSON payload. [close] releases what the engine holds. */
+internal interface PreparedGeoJson : AutoCloseable
+
+/** The prepared form of an engine with nothing to prepare. */
+internal object NoPreparedGeoJson : PreparedGeoJson {
+  override fun close() = Unit
 }
 
 /** Which part of a layer object a property belongs to. */

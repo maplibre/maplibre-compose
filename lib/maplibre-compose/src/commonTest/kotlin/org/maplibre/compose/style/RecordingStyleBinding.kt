@@ -5,7 +5,10 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
@@ -50,6 +53,53 @@ internal class RecordingStyleBinding(
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) = Unit
 
   override fun imageSourceCoordinates(sourceId: String): List<Position>? = null
+
+  /** The GeoJSON data each install applied, in order, keyed by source. */
+  val installedGeoJson: MutableMap<String, MutableList<Any>> = mutableMapOf()
+
+  override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
+    RecordedPreparedGeoJson(data)
+
+  override fun setGeoJsonSourceData(
+    sourceId: String,
+    prepared: PreparedGeoJson,
+    claim: () -> Boolean,
+  ) {
+    if (!claim()) return
+    installedGeoJson.getOrPut(sourceId) { mutableListOf() } +=
+      (prepared as RecordedPreparedGeoJson).data
+  }
+
+  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
+    if (!claim()) return
+    installedGeoJson.getOrPut(sourceId) { mutableListOf() } += url
+  }
+
+  override suspend fun clusterExpansionZoom(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): Double? = null
+
+  override suspend fun clusterChildren(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): FeatureCollection<Geometry, JsonObject?>? = null
+
+  override suspend fun clusterLeaves(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    limit: Long,
+    offset: Long,
+  ): FeatureCollection<Geometry, JsonObject?>? = null
+
+  class RecordedPreparedGeoJson(val data: GeoJsonData) : PreparedGeoJson {
+    var closed: Boolean = false
+      private set
+
+    override fun close() {
+      closed = true
+    }
+  }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = true
 

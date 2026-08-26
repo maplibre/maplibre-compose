@@ -3,6 +3,7 @@ package org.maplibre.compose.style
 import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
+import kotlinx.coroutines.await
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -10,9 +11,12 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.add
 import kotlinx.serialization.json.addJsonArray
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.gljs.FilterSpecification
+import org.maplibre.compose.gljs.GeoJsonSourceData
+import org.maplibre.compose.gljs.GlJsGeoJsonSource
 import org.maplibre.compose.gljs.GlJsImageSource
 import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.LayerSpecification
@@ -22,13 +26,19 @@ import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
 import org.maplibre.compose.gljs.UpdateImageOptions
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.featureIdentifiers
+import org.maplibre.compose.sources.toDataJson
 import org.maplibre.compose.sources.toJsonObjectOrEmpty
 import org.maplibre.compose.util.toDataUrl
+import org.maplibre.compose.util.toFeatureCollection
 import org.maplibre.compose.util.toGeoJsonFeature
 import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
@@ -140,6 +150,73 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.map {
       Position(longitude = it[0], latitude = it[1])
     }
+  }
+
+  override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
+    GlJsPreparedGeoJson(data.toDataJson().toJsValue())
+
+  override fun setGeoJsonSourceData(
+    sourceId: String,
+    prepared: PreparedGeoJson,
+    claim: () -> Boolean,
+  ) {
+    if (!claim() || !loaded) return
+    map.getSource<GlJsGeoJsonSource>(sourceId)?.setData((prepared as GlJsPreparedGeoJson).data)
+  }
+
+  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
+    if (!claim() || !loaded) return
+    map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(url.unsafeCast<GeoJsonSourceData>())
+  }
+
+  override suspend fun clusterExpansionZoom(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): Double? {
+    val query = clusterQuery(sourceId, feature) ?: return null
+    return query.source.getClusterExpansionZoom(query.clusterId).await()
+  }
+
+  override suspend fun clusterChildren(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): FeatureCollection<Geometry, JsonObject?>? {
+    val query = clusterQuery(sourceId, feature) ?: return null
+    return query.source.getClusterChildren(query.clusterId).await().toFeatureCollection()
+  }
+
+  override suspend fun clusterLeaves(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    limit: Long,
+    offset: Long,
+  ): FeatureCollection<Geometry, JsonObject?>? {
+    val query = clusterQuery(sourceId, feature) ?: return null
+    return query.source
+      .getClusterLeaves(
+        query.clusterId,
+        limit.coerceAtLeast(0).toDouble(),
+        offset.coerceAtLeast(0).toDouble(),
+      )
+      .await()
+      .toFeatureCollection()
+  }
+
+  private class ClusterQuery(val source: GlJsGeoJsonSource, val clusterId: Double)
+
+  /** Null when the feature is not a cluster or the style has unloaded. */
+  private fun clusterQuery(sourceId: String, feature: Feature<*, JsonObject?>): ClusterQuery? {
+    val clusterId =
+      (feature.properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.doubleOrNull
+        ?: run {
+          logger?.w {
+            "Cluster query on a feature with no '$CLUSTER_ID_PROPERTY' in source '$sourceId'"
+          }
+          return null
+        }
+    if (!loaded) return null
+    val source = map.getSource<GlJsGeoJsonSource>(sourceId) ?: return null
+    return ClusterQuery(source, clusterId)
   }
 
   override fun setFeatureState(
@@ -292,6 +369,11 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   override fun layerExists(layerId: String): Boolean? =
     if (!loaded) null else map.getLayer(layerId) != null
+
+  /** The engine parses in a web worker of its own, so there is nothing to prepare here. */
+  private class GlJsPreparedGeoJson(val data: GeoJsonSourceData) : PreparedGeoJson {
+    override fun close() = Unit
+  }
 
   private inline fun mutate(what: String, action: () -> Unit) {
     val before = errorCount

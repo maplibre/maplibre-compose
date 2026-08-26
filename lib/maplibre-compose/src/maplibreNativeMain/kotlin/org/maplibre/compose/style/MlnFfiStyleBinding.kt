@@ -4,11 +4,18 @@ import androidx.compose.ui.graphics.ImageBitmap
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.featureStateSelector
 import org.maplibre.compose.sources.forgetFeatureStates
 import org.maplibre.compose.sources.liveFeatureStateStore
 import org.maplibre.compose.sources.mutateLiveFeatureState
+import org.maplibre.compose.sources.putClusterProperties
+import org.maplibre.compose.sources.toInlineUtf8
+import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
@@ -19,7 +26,10 @@ import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.nativeffi.render.RenderSessionHandle
+import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
+import org.maplibre.nativeffi.style.GeoJsonSourceOptions
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
@@ -118,6 +128,136 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
   override fun imageSourceCoordinates(sourceId: String): List<Position>? = readMap { map ->
     map.imageSourceCoordinates(sourceId)?.map { it.toPosition() }
+  }
+
+  /**
+   * The parse and index run here, on the caller, because they must not run on the map's owner
+   * thread. `addSourceWith` returns once its hop has run or been dropped, so the handle outlives
+   * every use of it.
+   */
+  override fun addGeoJsonSource(
+    sourceId: String,
+    data: GeoJsonData,
+    options: GeoJsonOptions,
+  ): Boolean {
+    val ffiOptions = options.toFfiOptions()
+    if (data is GeoJsonData.Uri) {
+      return addSourceWith(sourceId) { map ->
+        map.addGeoJsonSourceUrl(sourceId, data.uri, ffiOptions)
+      }
+    }
+    // The parse reports a bad document the same way the add reports a bad source.
+    val prepared =
+      try {
+        GeoJsonSourceDataHandle.create(data.toInlineUtf8()!!, ffiOptions)
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
+    return prepared.use { handle ->
+      addSourceWith(sourceId) { map -> map.addGeoJsonSourceData(sourceId, handle) }
+    }
+  }
+
+  /** Prepared with the options the source was added with; a mismatch is rejected at install. */
+  override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
+    MlnFfiPreparedGeoJson(
+      GeoJsonSourceDataHandle.create(data.toInlineUtf8()!!, options.toFfiOptions())
+    )
+
+  /**
+   * [claim] runs on the owner thread, which serializes installs. mutateMap waits until the owner
+   * thread has used the handle, so the caller may close it afterward.
+   */
+  override fun setGeoJsonSourceData(
+    sourceId: String,
+    prepared: PreparedGeoJson,
+    claim: () -> Boolean,
+  ) {
+    val handle = (prepared as MlnFfiPreparedGeoJson).handle
+    mutateMap(abandon = { claim() }) { map ->
+      if (claim()) map.setGeoJsonSourceData(sourceId, handle)
+    }
+  }
+
+  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
+    mutateMap(abandon = { claim() }) { map -> if (claim()) map.setGeoJsonSourceUrl(sourceId, url) }
+  }
+
+  override suspend fun clusterExpansionZoom(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): Double? {
+    val result = queryClusterExtension(sourceId, feature, EXPANSION_ZOOM_FIELD) ?: return null
+    val zoom = result.decodeToString().toDoubleOrNull()
+    if (zoom == null) reportClusterMiss(sourceId, EXPANSION_ZOOM_FIELD, result)
+    return zoom
+  }
+
+  override suspend fun clusterChildren(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): FeatureCollection<Geometry, JsonObject?>? =
+    queryClusterFeatures(sourceId, feature, CHILDREN_FIELD, null)
+
+  override suspend fun clusterLeaves(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    limit: Long,
+    offset: Long,
+  ): FeatureCollection<Geometry, JsonObject?>? =
+    queryClusterFeatures(
+      sourceId,
+      feature,
+      LEAVES_FIELD,
+      // Both must be unsigned: MapLibre type-checks them exactly and silently falls back to its own
+      // default of ten otherwise, and it ignores offset unless limit is present. A non-negative
+      // integer literal parses as unsigned.
+      // https://github.com/maplibre/maplibre-native-ffi/pull/340
+      buildJsonObject {
+        put("limit", limit.coerceAtLeast(0))
+        put("offset", offset.coerceAtLeast(0))
+      }
+        .toJsonBytes(),
+    )
+
+  /**
+   * Runs one supercluster query against the render session. Returns null when the feature carries
+   * no cluster id, when no render session is attached yet, or when the query failed.
+   */
+  private fun queryClusterExtension(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    field: String,
+    arguments: ByteArray? = null,
+  ): ByteArray? {
+    val ffiFeature = feature.toFfiClusterFeature() ?: return null
+    return withRenderSession { session ->
+      session.queryFeatureExtension(sourceId, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
+    }
+  }
+
+  private fun queryClusterFeatures(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    field: String,
+    arguments: ByteArray?,
+  ): FeatureCollection<Geometry, JsonObject?>? {
+    val result = queryClusterExtension(sourceId, feature, field, arguments) ?: return null
+    val collection =
+      FeatureCollection.fromJsonOrNull<Geometry, JsonObject?>(result.decodeToString())
+    if (collection == null) reportClusterMiss(sourceId, field, result)
+    return collection
+  }
+
+  /**
+   * Reports a lookup that found no cluster. MapLibre answers a successful query with a feature
+   * collection, even an empty one, and a failed one with a null value.
+   */
+  private fun reportClusterMiss(sourceId: String, field: String, result: ByteArray) {
+    logger?.w {
+      "Cluster '$field' query matched no cluster in source '$sourceId'; the feature's cluster_id " +
+        "is probably stale. MapLibre answered with ${result.decodeToString()}."
+    }
   }
 
   override fun setFeatureState(
@@ -230,6 +370,13 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     UNSUPPORTED_LAYER_PROPERTIES[layerType to name]
 
   companion object {
+    /** The only extension MapLibre answers for a GeoJSON source; anything else returns nothing. */
+    private const val SUPERCLUSTER_EXTENSION = "supercluster"
+
+    private const val EXPANSION_ZOOM_FIELD = "expansion-zoom"
+    private const val CHILDREN_FIELD = "children"
+    private const val LEAVES_FIELD = "leaves"
+
     /**
      * Style-spec properties MapLibre Native does not implement; writing one makes it refuse the
      * entire layer. Revisit when bumping the maplibre-native-ffi pin.
@@ -272,4 +419,33 @@ internal interface MlnFfiStyleBinding : StyleBinding {
         override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? = null
       }
   }
+}
+
+/** A parsed and indexed GeoJSON document, ready to install on the owner thread. */
+private class MlnFfiPreparedGeoJson(val handle: GeoJsonSourceDataHandle) : PreparedGeoJson {
+  override fun close() {
+    handle.close()
+  }
+}
+
+/** The same options the descriptor writes into source JSON, as the typed adder takes them. */
+private fun GeoJsonOptions.toFfiOptions(): GeoJsonSourceOptions =
+  GeoJsonSourceOptions().also {
+    it.minZoom = minZoom.toDouble()
+    it.maxZoom = maxZoom.toDouble()
+    it.tolerance = tolerance.toDouble()
+    it.buffer = buffer
+    it.cluster = cluster
+    it.clusterRadius = clusterRadius
+    it.clusterMaxZoom = clusterMaxZoom.toDouble()
+    it.clusterMinPoints = clusterMinPoints
+    it.lineMetrics = lineMetrics
+    // Viewport tiles are sliced during the next render when true, or on a worker when false.
+    it.synchronousTiling = synchronousUpdate
+    it.clusterProperties = clusterPropertiesBytes()
+  }
+
+private fun GeoJsonOptions.clusterPropertiesBytes(): ByteArray? {
+  if (clusterProperties.isEmpty()) return null
+  return buildJsonObject { putClusterProperties(clusterProperties) }.toJsonBytes()
 }
