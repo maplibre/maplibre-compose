@@ -245,11 +245,15 @@ verified against the 1.11.1 artifacts.
 The data differs: a trackpad reports fractional deltas on both axes in high-rate
 bursts, and a wheel reports whole detents on one axis. `ScrollNotches.kt`
 already normalizes each host's delta to notch units. Classifying a scroll as
-continuous (trackpad) or discrete (wheel) is a heuristic on those values — the
-same heuristic MapLibre GL JS and Compose's own web target use. `ScrollEvent`
-carries the classification, and scroll bindings filter on it: continuous scroll
-pans, discrete scroll zooms, and a user who disables the pan falls back to zoom
-for both.
+continuous (trackpad) or discrete (wheel) is a heuristic on those values. The
+prior art is `ScrollZoomHandler.wheel()` in MapLibre GL JS, inherited from
+Mapbox GL JS: a nonzero `deltaY` that is an exact multiple of 4.000244140625 — a
+Chromium wheel quantum — is a wheel, a magnitude under 4 is a trackpad, and an
+ambiguous delta classifies by inter-event timing, with a 40 ms deferral for a
+lone event. Compose's own web target added a similar Chrome heuristic in 1.12.
+`ScrollEvent` carries the classification, and scroll bindings filter on it:
+continuous scroll pans, discrete scroll zooms, and a user who disables the pan
+falls back to zoom for both.
 
 **Platform-recognized gestures.** `PointerEventType.ScaleStart`, `ScaleChange`,
 `ScaleEnd`, `PanStart`, `PanMove`, and `PanEnd` exist in `commonMain`, with
@@ -258,6 +262,12 @@ for both.
 
 - **Android** emits them for platform-recognized trackpad gestures on API 34 and
   later, and reports trackpad pointers as `PointerType.Mouse`.
+- **iOS** emits them: the `ui-iosarm64` artifact wires
+  `UIPinchGestureRecognizer` and `UIPanGestureRecognizer` into the `Scale` and
+  `Pan` events for indirect (trackpad) input. Precise indirect pinch on iPadOS
+  requires the `UIApplicationSupportsIndirectInputEvents` Info.plist key;
+  without it, UIKit drives the recognizers with simulated touches, which arrive
+  as two touch pointers and hit the two-finger recognizer instead.
 - **Desktop AWT** emits none of them: no AWT bridge class touches `scaleFactor`
   or `panOffset`, AWT surfaces no magnify events, and JetBrains tracks native
   trackpad support as CMP-1610. An alternative host such as Nucleus can
@@ -319,7 +329,8 @@ is in flight on the `api-redesign-*` branches.
    trackpad pinch through Ctrl-scroll on web and the `Scale` events where a
    platform emits them, tilt velocity, and Shift-drag box zoom, as recognizers
    and bindings in the new model. Trackpad rotate waits for a platform
-   primitive.
+   primitive. The demo iOS app gains `UIApplicationSupportsIndirectInputEvents`
+   in its Info.plist, which it does not set today.
 
 ## Open questions
 
