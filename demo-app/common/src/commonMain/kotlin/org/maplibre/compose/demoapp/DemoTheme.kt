@@ -4,7 +4,6 @@ import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.materialkolor.PaletteStyle
-import com.materialkolor.dynamicColorScheme
 import com.materialkolor.dynamiccolor.ColorSpec
 import com.materialkolor.rememberDynamicColorScheme
 
@@ -19,15 +18,6 @@ internal fun PaletteMode.toPaletteStyle(): PaletteStyle? =
     PaletteMode.Vibrant -> PaletteStyle.Vibrant
     PaletteMode.Expressive -> PaletteStyle.Expressive
   }
-
-/** A 2025-spec scheme seeded with [MapLibreBrand] for the given [PaletteStyle]. */
-internal fun brandColorScheme(dark: Boolean, style: PaletteStyle): ColorScheme =
-  dynamicColorScheme(
-    seedColor = MapLibreBrand,
-    isDark = dark,
-    style = style,
-    specVersion = ColorSpec.SpecVersion.SPEC_2025,
-  )
 
 /** The Material You color scheme, or null when this platform has none. */
 @Composable internal expect fun rememberSystemColorScheme(dark: Boolean): ColorScheme?
