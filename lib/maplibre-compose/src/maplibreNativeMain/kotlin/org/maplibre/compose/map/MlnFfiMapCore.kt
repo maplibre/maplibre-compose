@@ -328,8 +328,8 @@ internal class MlnFfiMapCore(
 
   /**
    * A resize changes the projection without a camera event, so Compose overlays that key on
-   * [org.maplibre.compose.camera.CameraState.viewport] would keep the previous screen locations
-   * unless this reports the new snapshot.
+   * [org.maplibre.compose.map.MapState.viewport] would keep the previous screen locations unless
+   * this reports the new snapshot.
    */
   internal fun postViewportSnapshot() {
     onMap(::snapshotViewportAndNotify)

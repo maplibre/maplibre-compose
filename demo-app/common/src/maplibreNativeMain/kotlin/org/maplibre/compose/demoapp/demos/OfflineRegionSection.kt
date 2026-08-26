@@ -13,17 +13,20 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.launch
 import org.maplibre.compose.demoapp.design.SectionHeader
 import org.maplibre.compose.material3.OfflinePackListItem
 import org.maplibre.compose.offline.OfflinePackDefinition
-import org.maplibre.compose.offline.rememberOfflineManager
+import org.maplibre.compose.runtime.MaplibreRuntime
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName: String) {
-  val offlineManager = rememberOfflineManager()
+  val offlineManager = remember { MaplibreRuntime.default().offline }
+  // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
+  val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
   val pack = offlineManager.packs.firstOrNull { it.metadata?.contentEquals(metadata) == true }
@@ -61,6 +64,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                       maxZoom = 15,
                     ),
                   metadata = metadata,
+                  pixelRatio = pixelRatio,
                 )
               offlineManager.resume(newPack)
             } catch (e: CancellationException) {

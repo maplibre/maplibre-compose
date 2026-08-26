@@ -5,7 +5,6 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.runtime.Composable
 import org.jetbrains.compose.resources.ExperimentalResourceApi
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.location.LocationPuck
 import org.maplibre.compose.location.LocationTrackingEffect
 import org.maplibre.compose.location.mostAccurateBearing
@@ -13,6 +12,7 @@ import org.maplibre.compose.location.rememberDefaultLocationProvider
 import org.maplibre.compose.location.rememberDefaultOrientationProvider
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 
 @Composable
 @OptIn(ExperimentalResourceApi::class)
@@ -20,8 +20,6 @@ import org.maplibre.compose.map.MaplibreMap
 // app, which the documentation covers in prose.
 fun Location() {
   // #region puck
-  val cameraState = rememberCameraState()
-
   val locationProvider = rememberDefaultLocationProvider()
   val orientationProvider =
     rememberDefaultOrientationProvider() // optional: get device orientation from sensors
@@ -31,18 +29,20 @@ fun Location() {
       orientationProvider = orientationProvider,
     )
 
-  MaplibreMap(cameraState = cameraState) {
+  val map = rememberMapState {
+    // The style content receives the map state as its receiver.
     LocationPuck(
       idPrefix = "user",
       location = locationState.location,
       // optional: combine course and orientation bearing
       bearing = locationState.mostAccurateBearing(),
-      cameraState = cameraState,
+      state = this,
     )
 
     LocationTrackingEffect(locationState = locationState) {
-      cameraState.animateTo(CameraPosition(target = currentLocation.position.value, zoom = 15.0))
+      animateCamera(CameraPosition(target = currentLocation.position.value, zoom = 15.0))
     }
   }
+  MaplibreMap(map)
   // #endregion puck
 }

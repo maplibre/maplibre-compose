@@ -11,6 +11,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -39,7 +40,6 @@ import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.asString
 import org.maplibre.compose.expressions.dsl.case
 import org.maplibre.compose.expressions.dsl.const
@@ -50,12 +50,12 @@ import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
-import org.maplibre.compose.offline.rememberOfflineManager
 import org.maplibre.compose.offline.rememberOfflinePacksSource
-import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.runtime.MaplibreRuntime
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleState
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
@@ -81,8 +81,8 @@ class MlnFfiMapCompositionTest {
   @Test
   fun an_empty_style_composes_without_error() = runBridgeMapTest { errors, onFrame ->
     MaplibreMap(
+      state = rememberMapState(baseStyle = BaseStyle.Empty),
       modifier = Modifier,
-      baseStyle = BaseStyle.Empty,
       logger = Logger.withTag("composition-test"),
       onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       onFrame = { onFrame() },
@@ -96,8 +96,8 @@ class MlnFfiMapCompositionTest {
     val frames = AtomicInt(0)
     setFfiTestMapContent(runtimeOptions) {
       MaplibreMap(
+        state = rememberMapState(baseStyle = BaseStyle.Uri("https://example.invalid/style.json")),
         modifier = Modifier,
-        baseStyle = BaseStyle.Uri("https://example.invalid/style.json"),
         logger = Logger.withTag("composition-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onFrame = { frames.incrementAndFetch() },
@@ -112,57 +112,62 @@ class MlnFfiMapCompositionTest {
   /** The exact shape the offline demo composes, in the no-packs state the screen opens in. */
   @Test
   fun the_offline_demo_layer_composes_without_error() = runBridgeMapTest { errors, onFrame ->
+    val state =
+      rememberMapState(baseStyle = BaseStyle.Empty) {
+        val offlineManager = remember { MaplibreRuntime.default().offline }
+        FillLayer(
+          id = "offline-packs",
+          source = rememberOfflinePacksSource(offlineManager.packs),
+          opacity = const(0.5f),
+          color =
+            switch(
+              feature["status"].asString(),
+              case(label = "Complete", output = const(Color.Green)),
+              case(label = "Downloading", output = const(Color.Blue)),
+              case(label = "Paused", output = const(Color.Yellow)),
+              fallback = const(Color.Red),
+            ),
+        )
+      }
     MaplibreMap(
+      state = state,
       modifier = Modifier,
-      baseStyle = BaseStyle.Empty,
       logger = Logger.withTag("composition-test"),
       onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       onFrame = { onFrame() },
-    ) {
-      val offlineManager = rememberOfflineManager()
-      FillLayer(
-        id = "offline-packs",
-        source = rememberOfflinePacksSource(offlineManager.packs),
-        opacity = const(0.5f),
-        color =
-          switch(
-            feature["status"].asString(),
-            case(label = "Complete", output = const(Color.Green)),
-            case(label = "Downloading", output = const(Color.Blue)),
-            case(label = "Paused", output = const(Color.Yellow)),
-            fallback = const(Color.Red),
-          ),
-      )
-    }
+    )
   }
 
   @Test
   fun an_empty_geojson_source_composes_without_error() = runBridgeMapTest { errors, onFrame ->
+    val state =
+      rememberMapState(baseStyle = BaseStyle.Empty) {
+        FillLayer(
+          id = "empty",
+          source =
+            rememberGeoJsonSource(
+              data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
+            ),
+          color = const(Color.Red),
+        )
+      }
     MaplibreMap(
+      state = state,
       modifier = Modifier,
-      baseStyle = BaseStyle.Empty,
       logger = Logger.withTag("composition-test"),
       onMapLoadFailed = { errors += "mapLoadFailed: $it" },
       onFrame = { onFrame() },
-    ) {
-      FillLayer(
-        id = "empty",
-        source =
-          rememberGeoJsonSource(
-            data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
-          ),
-        color = const(Color.Red),
-      )
-    }
+    )
   }
 
   @Test
   fun a_layer_removed_and_re_added_comes_back() {
     var visible by mutableStateOf(true)
-    lateinit var cameraState: CameraState
+    lateinit var mapState: MapState
     runBridgeMapTest(
       body = {
-        val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
+        val session =
+          requireNotNull(mapState.cameraState.map as? MlnFfiMapCore) { "no desktop session" }
         waitUntil { "toggled" in session.currentStyleLayerIds() }
 
         visible = false
@@ -172,51 +177,50 @@ class MlnFfiMapCompositionTest {
         waitUntil { "toggled" in session.currentStyleLayerIds() }
       }
     ) { errors, onFrame ->
-      cameraState = rememberCameraState()
+      mapState =
+        rememberMapState(baseStyle = BaseStyle.Empty) {
+          if (visible) {
+            FillLayer(
+              id = "toggled",
+              source =
+                rememberGeoJsonSource(
+                  data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
+                ),
+              color = const(Color.Red),
+            )
+          }
+        }
       MaplibreMap(
+        state = mapState,
         modifier = Modifier,
-        baseStyle = BaseStyle.Empty,
-        cameraState = cameraState,
         logger = Logger.withTag("composition-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onFrame = { onFrame() },
-      ) {
-        if (visible) {
-          FillLayer(
-            id = "toggled",
-            source =
-              rememberGeoJsonSource(
-                data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>())
-              ),
-            color = const(Color.Red),
-          )
-        }
-      }
+      )
     }
   }
 
+  /** The state survives the composable, so disposing the map only detaches the session. */
   @Test
-  fun disposing_after_replacing_the_camera_state_resets_the_replacement() {
+  fun disposing_the_map_detaches_the_session_from_the_state() {
     var visible by mutableStateOf(true)
-    var cameraState by mutableStateOf(CameraState(CameraPosition()))
-    val replacement = CameraState(CameraPosition(zoom = 3.0))
+    val mapState = MapState(cameraState = CameraState(CameraPosition()), styleState = StyleState())
+    mapState.baseStyle = BaseStyle.Empty
 
     runBridgeMapTest(
       body = {
-        waitUntil { cameraState.map != null }
-        cameraState = replacement
-        waitUntil { replacement.map != null }
+        waitUntil { mapState.cameraState.map != null }
 
         visible = false
-        waitUntil { replacement.map == null }
-        assertNull(replacement.map)
+        waitUntil { mapState.cameraState.map == null }
+        assertNull(mapState.cameraState.map)
+        mapState.close()
       }
     ) { errors, onFrame ->
       if (visible) {
         MaplibreMap(
+          state = mapState,
           modifier = Modifier,
-          baseStyle = BaseStyle.Empty,
-          cameraState = cameraState,
           logger = Logger.withTag("composition-test"),
           onMapLoadFailed = { errors += "mapLoadFailed: $it" },
           onFrame = { onFrame() },
@@ -228,24 +232,25 @@ class MlnFfiMapCompositionTest {
   @Test
   fun changing_layout_direction_keeps_the_live_session_and_host() {
     var layoutDirection by mutableStateOf(LayoutDirection.Ltr)
-    val cameraState = CameraState(CameraPosition())
+    val mapState = MapState(cameraState = CameraState(CameraPosition()), styleState = StyleState())
+    mapState.baseStyle = BaseStyle.Empty
 
     runBridgeMapTest(
       body = {
-        val session = requireNotNull(cameraState.map as? MlnFfiMapCore)
+        val session = requireNotNull(mapState.cameraState.map as? MlnFfiMapCore)
 
         layoutDirection = LayoutDirection.Rtl
         waitForIdle()
 
-        assertSame(session, cameraState.map)
+        assertSame(session, mapState.cameraState.map)
         assertEquals(LayoutDirection.Rtl, session.layoutDirection)
+        mapState.close()
       }
     ) { errors, onFrame ->
       CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
         MaplibreMap(
+          state = mapState,
           modifier = Modifier,
-          baseStyle = BaseStyle.Empty,
-          cameraState = cameraState,
           logger = Logger.withTag("composition-test"),
           onMapLoadFailed = { errors += "mapLoadFailed: $it" },
           onFrame = { onFrame() },
@@ -262,11 +267,12 @@ class MlnFfiMapCompositionTest {
         zoom = 11.0,
         tilt = 35.0,
       )
-    lateinit var cameraState: CameraState
+    lateinit var mapState: MapState
 
     runBridgeMapTest(
       body = {
-        val map = requireNotNull(cameraState.map) { "The map never reached the camera state" }
+        val map =
+          requireNotNull(mapState.cameraState.map) { "The map never reached the camera state" }
         val actual = map.getCameraPosition()
         assertEquals(
           firstPosition.target.longitude,
@@ -284,11 +290,10 @@ class MlnFfiMapCompositionTest {
         assertEquals(firstPosition.tilt, actual.tilt, POSITION_TOLERANCE, "tilt")
       }
     ) { errors, onFrame ->
-      cameraState = rememberCameraState(firstPosition = firstPosition)
+      mapState = rememberMapState(cameraPosition = firstPosition, baseStyle = BaseStyle.Empty)
       MaplibreMap(
+        state = mapState,
         modifier = Modifier,
-        baseStyle = BaseStyle.Empty,
-        cameraState = cameraState,
         logger = Logger.withTag("composition-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onFrame = { onFrame() },
@@ -300,13 +305,14 @@ class MlnFfiMapCompositionTest {
   fun an_animation_requested_as_the_camera_attaches_waits_for_the_native_map() {
     val finalPosition =
       CameraPosition(target = Position(longitude = 12.4924, latitude = 41.8902), zoom = 9.0)
-    val cameraState = CameraState(CameraPosition())
+    val mapState = MapState(cameraState = CameraState(CameraPosition()), styleState = StyleState())
+    mapState.baseStyle = BaseStyle.Empty
     var animationFinished by mutableStateOf(false)
 
     runBridgeMapTest(
       body = {
         waitUntil(timeoutMillis = 10_000) { animationFinished }
-        val actual = requireNotNull(cameraState.map).getCameraPosition()
+        val actual = requireNotNull(mapState.cameraState.map).getCameraPosition()
         assertEquals(
           finalPosition.target.longitude,
           actual.target.longitude,
@@ -320,18 +326,18 @@ class MlnFfiMapCompositionTest {
           "latitude",
         )
         assertEquals(finalPosition.zoom, actual.zoom, POSITION_TOLERANCE, "zoom")
+        mapState.close()
       }
     ) { errors, onFrame ->
       MaplibreMap(
+        state = mapState,
         modifier = Modifier,
-        baseStyle = BaseStyle.Empty,
-        cameraState = cameraState,
         logger = Logger.withTag("composition-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onFrame = { onFrame() },
       )
-      LaunchedEffect(cameraState) {
-        cameraState.animateTo(finalPosition, 50.milliseconds)
+      LaunchedEffect(mapState) {
+        mapState.animateCamera(finalPosition, 50.milliseconds)
         animationFinished = true
       }
     }
@@ -342,7 +348,6 @@ class MlnFfiMapCompositionTest {
     // A phone-width activity clamps a 512.dp map, so these widths stay inside 320.dp.
     val mapWidth = mutableStateOf(128.dp)
     val target = Position(longitude = 11.0, latitude = 47.0)
-    val camera = CameraState(CameraPosition(target = target, zoom = 3.0))
 
     runBridgeMapTest(
       body = {
@@ -369,16 +374,18 @@ class MlnFfiMapCompositionTest {
       }
     ) { errors, onFrame ->
       MaplibreMap(
+        state =
+          rememberMapState(
+            cameraPosition = CameraPosition(target = target, zoom = 3.0),
+            baseStyle = BaseStyle.Empty,
+          ),
         modifier = Modifier.width(mapWidth.value).height(256.dp),
-        baseStyle = BaseStyle.Empty,
-        cameraState = camera,
         logger = Logger.withTag("composition-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onFrame = { onFrame() },
-        overlay =
-          MapOverlay {
-            Box(Modifier.size(4.dp).placedAt(target, Alignment.Center).testTag(PLACED_AT_TAG))
-          },
+        overlay = {
+          Box(Modifier.size(4.dp).placedAt(target, Alignment.Center).testTag(PLACED_AT_TAG))
+        },
       )
     }
   }

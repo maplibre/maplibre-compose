@@ -34,7 +34,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -48,16 +47,15 @@ import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
-import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.spatialk.geojson.BoundingBox
 
 /**
  * A second map floats over the shared one as a magnifying lens.
  *
- * A [CameraState][org.maplibre.compose.camera.CameraState] binds to a single map, so the lens has
- * its own, synced one-way from the main camera. The lens map disables gestures so the sync cannot
- * loop.
+ * A [MapState][org.maplibre.compose.map.MapState] holds a single map, so the lens has its own,
+ * synced one-way from the main camera. The lens map disables gestures so the sync cannot loop.
  *
  * On Android, Compose modifiers reach the map only in texture mode, so the panel exposes the lens
  * map's render mode.
@@ -92,19 +90,19 @@ object MagnifyingLensDemo : Demo {
 
   @Composable
   override fun MapOverlayScope.Overlay(state: DemoAppState) {
-    val lensCamera = rememberCameraState()
+    val lensMap = rememberMapState(baseStyle = state.appliedStyle.base)
     val lensSizePx = with(LocalDensity.current) { lensSize.dp.toPx() }
 
     // The overlay's coordinates are the main map's screen coordinates.
     var lensCenter by remember { mutableStateOf<Offset?>(null) }
     LaunchedEffect(Unit) {
       snapshotFlow {
-        val position = cameraState.position
+        val position = state.mapState.camera
         val target =
-          lensCenter?.let { cameraState.positionFromScreenLocation(it) } ?: position.target
+          lensCenter?.let { state.mapState.positionFromScreenLocation(it) } ?: position.target
         position.copy(target = target, zoom = position.zoom + magnification)
       }
-        .collect { lensCamera.position = it }
+        .collect { lensMap.setCamera(it) }
     }
 
     Box(
@@ -130,21 +128,20 @@ object MagnifyingLensDemo : Demo {
           .background(MaterialTheme.colorScheme.surfaceVariant)
     ) {
       MaplibreMap(
+        state = lensMap,
         modifier =
           if (lensDistortionEnabled) {
             Modifier.fillMaxSize().radialLensDistortion(lensSizePx)
           } else {
             Modifier.fillMaxSize()
           },
-        baseStyle = state.appliedStyle.base,
-        cameraState = lensCamera,
         options =
           MapOptions(
             renderOptions = lensRenderOptions,
             gestureOptions = GestureOptions.AllDisabled,
           ),
         contentWindowInsets = WindowInsets(0),
-        overlay = MapOverlay.None,
+        overlay = {},
       )
       Box(
         Modifier.fillMaxSize()

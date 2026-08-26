@@ -2,21 +2,21 @@ package org.maplibre.compose.location
 
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
-import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.units.Bearing
 import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 
 /**
- * Convenience method for keeping [camera] in sync with the location change that triggered this
- * [LocationTrackingEffect] callback.
+ * Convenience method for keeping the camera of [map] in sync with the location change that
+ * triggered this [LocationTrackingEffect] callback.
  *
- * @param animationDuration if `null`, updates [CameraState.position] directly without animation;
- *   otherwise, specifies the duration of the camera animation.
- * @param updateBearing determines how the bearing affects the camera state.
+ * @param animationDuration if `null`, sets the camera directly without animation; otherwise,
+ *   specifies the duration of the camera animation.
+ * @param updateBearing determines how the bearing affects the camera.
  */
 public suspend fun LocationChangeScope.updateCamera(
-  camera: CameraState,
+  map: MapState,
   animationDuration: Duration? = 300.milliseconds,
   updateBearing: BearingUpdate = BearingUpdate.TRACK_AUTOMATIC,
 ) {
@@ -30,17 +30,17 @@ public suspend fun LocationChangeScope.updateCamera(
     }
 
   val newPosition =
-    camera.position.copy(
+    map.camera.copy(
       target = currentLocation.position.value,
       bearing =
         when (updateBearing) {
-          BearingUpdate.IGNORE -> camera.position.bearing
-          else -> selectedBearing?.let { (it - Bearing.North).inDegrees } ?: camera.position.bearing
+          BearingUpdate.IGNORE -> map.camera.bearing
+          else -> selectedBearing?.let { (it - Bearing.North).inDegrees } ?: map.camera.bearing
         },
     )
 
-  if (animationDuration == null) camera.position = newPosition
-  else camera.animateTo(newPosition, animationDuration)
+  if (animationDuration == null) map.setCamera(newPosition)
+  else map.animateCamera(newPosition, animationDuration)
 }
 
 /** How [updateCamera] updates camera bearing. */

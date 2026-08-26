@@ -13,7 +13,6 @@ import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.sqrt
 import org.maplibre.compose.camera.CameraMoveReason
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -23,6 +22,7 @@ import org.maplibre.compose.demoapp.design.SwitchRow
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -110,9 +110,9 @@ object LiveTrackingDemo : Demo {
   }
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
-    LaunchedEffect(cameraState.moveReason) {
-      if (cameraState.moveReason == CameraMoveReason.GESTURE) {
+  override fun MapContent(map: MapState) {
+    LaunchedEffect(map.cameraMoveReason) {
+      if (map.cameraMoveReason == CameraMoveReason.GESTURE) {
         followVehicle = false
       }
     }
@@ -127,7 +127,7 @@ object LiveTrackingDemo : Demo {
           vehiclePosition = positionAt(routeLength - abs(phase - routeLength))
         }
         if (followVehicle) {
-          cameraState.position = cameraState.position.copy(target = vehiclePosition)
+          map.setCamera(map.camera.copy(target = vehiclePosition))
         }
       }
     }

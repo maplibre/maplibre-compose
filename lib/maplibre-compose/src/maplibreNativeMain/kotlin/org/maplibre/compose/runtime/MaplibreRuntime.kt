@@ -2,7 +2,6 @@ package org.maplibre.compose.runtime
 
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.ensureMlnFfiDefaultConfigured
-import org.maplibre.compose.offline.MlnFfiOfflineManager
 import org.maplibre.compose.offline.OfflineManager
 
 /**
@@ -15,19 +14,14 @@ import org.maplibre.compose.offline.OfflineManager
  */
 public class MaplibreRuntime private constructor() {
 
-  /** The concrete manager, so [org.maplibre.compose.offline.rememberOfflineManager] can wrap it. */
-  internal val ffiOffline: MlnFfiOfflineManager
-    get() = MlnFfiApplication.offlineManager
-
   /**
    * Offline packs and the ambient cache of this runtime.
    *
-   * [OfflineManager.create] renders raster tiles at a pixel ratio of 1. Inside a composition,
-   * [org.maplibre.compose.offline.rememberOfflineManager] wraps this manager and creates packs at
-   * the window's density instead.
+   * [OfflineManager.create] renders raster tiles at a pixel ratio of 1 unless the call passes the
+   * density of the window that shows the map.
    */
   public val offline: OfflineManager
-    get() = ffiOffline
+    get() = MlnFfiApplication.offlineManager
 
   public companion object {
     private val instance = MaplibreRuntime()

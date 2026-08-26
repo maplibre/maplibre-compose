@@ -21,7 +21,6 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
@@ -71,30 +70,31 @@ class MlnFfiStyleSwitchTest {
     lateinit var cameraState: CameraState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState = rememberCameraState()
+      val mapState =
+        rememberMapState(baseStyle = style.base) {
+          val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+          // Two layers on one source at different anchors, so the re-add order matters.
+          CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
+          // A different base-style anchor per style, so the anchor changes in the same
+          // recomposition as the style itself.
+          Anchor.At(style.anchor) {
+            FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
+            // Comes and goes across the rotation, covering removal of a layer that was added while
+            // its anchor was unresolvable.
+            if (extraLayer) {
+              FillLayer(id = "user-extra", source = points, color = const(Color.Green))
+            }
+          }
+        }
+      cameraState = mapState.cameraState
       MaplibreMap(
+        state = mapState,
         modifier = Modifier,
-        baseStyle = style.base,
-        cameraState = cameraState,
         logger = Logger.withTag("style-switch-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onMapLoadFinished = { loadsFinished++ },
         onFrame = { frames.incrementAndFetch() },
-      ) {
-        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-        // Two layers on one source at different anchors, so the re-add order matters.
-        CircleLayer(id = "user-circles", source = points, color = const(Color.Red))
-        // A different base-style anchor per style, so the anchor changes in the same
-        // recomposition as the style itself.
-        Anchor.At(style.anchor) {
-          FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-          // Comes and goes across the rotation, covering removal of a layer that was added while
-          // its anchor was unresolvable.
-          if (extraLayer) {
-            FillLayer(id = "user-extra", source = points, color = const(Color.Green))
-          }
-        }
-      }
+      )
     }
 
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
@@ -127,27 +127,28 @@ class MlnFfiStyleSwitchTest {
     lateinit var cameraState: CameraState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState = rememberCameraState()
+      val mapState =
+        rememberMapState(baseStyle = style) {
+          val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+          if (showReplacement) {
+            Anchor.Replace("base-slot") {
+              FillLayer(
+                id = "user-replacement",
+                source = points,
+                sourceLayer = sourceLayer,
+                color = const(Color.Blue),
+              )
+            }
+          }
+        }
+      cameraState = mapState.cameraState
       MaplibreMap(
+        state = mapState,
         modifier = Modifier,
-        baseStyle = style,
-        cameraState = cameraState,
         logger = Logger.withTag("replacement-style-switch-test"),
         onMapLoadFailed = { errors += "mapLoadFailed: $it" },
         onMapLoadFinished = { loadsFinished++ },
-      ) {
-        val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-        if (showReplacement) {
-          Anchor.Replace("base-slot") {
-            FillLayer(
-              id = "user-replacement",
-              source = points,
-              sourceLayer = sourceLayer,
-              color = const(Color.Blue),
-            )
-          }
-        }
-      }
+      )
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
@@ -199,29 +200,31 @@ class MlnFfiStyleSwitchTest {
       lateinit var cameraState: CameraState
 
       setFfiTestMapContent(options) {
-        cameraState = rememberCameraState()
+        val mapState =
+          rememberMapState(baseStyle = style) {
+            val points =
+              rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
+            val anchor =
+              when (style) {
+                INITIAL_STYLE -> "base-initial"
+                BaseStyle.Uri(B_STYLE_URL) -> "base-b"
+                else -> "base-c"
+              }
+            Anchor.Below(anchor) {
+              FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
+              if (showExtraLayer) {
+                FillLayer(id = "user-extra", source = points, color = const(Color.Green))
+              }
+            }
+          }
+        cameraState = mapState.cameraState
         MaplibreMap(
+          state = mapState,
           modifier = Modifier,
-          baseStyle = style,
-          cameraState = cameraState,
           logger = Logger.withTag("in-flight-style-switch-test"),
           onMapLoadFailed = { errors += "mapLoadFailed: $it" },
           onMapLoadFinished = { loadsFinished++ },
-        ) {
-          val points = rememberGeoJsonSource(data = GeoJsonData.Features(pointAt(longitude = 0.0)))
-          val anchor =
-            when (style) {
-              INITIAL_STYLE -> "base-initial"
-              BaseStyle.Uri(B_STYLE_URL) -> "base-b"
-              else -> "base-c"
-            }
-          Anchor.Below(anchor) {
-            FillLayer(id = "user-fill", source = points, color = const(Color.Blue))
-            if (showExtraLayer) {
-              FillLayer(id = "user-extra", source = points, color = const(Color.Green))
-            }
-          }
-        }
+        )
       }
 
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }

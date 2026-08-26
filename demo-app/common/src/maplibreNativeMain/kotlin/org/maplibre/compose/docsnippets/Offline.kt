@@ -5,18 +5,21 @@ package org.maplibre.compose.docsnippets
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalDensity
 import kotlinx.coroutines.launch
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.OfflinePackDefinition
-import org.maplibre.compose.offline.rememberOfflineManager
+import org.maplibre.compose.runtime.MaplibreRuntime
 import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 fun Offline() {
   // #region manager
-  val offlineManager = rememberOfflineManager()
+  val offlineManager = remember { MaplibreRuntime.default().offline }
   // #endregion manager
+  val density = LocalDensity.current.density
   val scope = rememberCoroutineScope()
 
   // #region create
@@ -33,6 +36,7 @@ fun Offline() {
                 maxZoom = 14,
               ),
             metadata = "Seattle".encodeToByteArray(),
+            pixelRatio = density, // (1)!
           )
         offlineManager.resume(pack)
       }

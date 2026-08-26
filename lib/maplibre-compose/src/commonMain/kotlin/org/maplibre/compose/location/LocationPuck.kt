@@ -29,7 +29,6 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.delay
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.asBoolean
 import org.maplibre.compose.expressions.dsl.asNumber
 import org.maplibre.compose.expressions.dsl.condition
@@ -47,6 +46,7 @@ import org.maplibre.compose.expressions.value.IconRotationAlignment
 import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -71,10 +71,10 @@ import org.maplibre.spatialk.units.extensions.inMeters
  *   [timestamp][Location.timestamp] determines whether it is styled as old.
  * @param bearing The bearing of the location puck, which determines the rotation of the bearing
  *   indicator. Defaults to `location.course`, which is the direction of travel.
- * @param cameraState The [CameraState] of the map, used only for
+ * @param state The [MapState] of the map, used only for
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
- *   correctly draw the accuracy circle. The camera state is not modified by this composable; if you
- *   want the camera to track the current location, use [LocationTrackingEffect].
+ *   correctly draw the accuracy circle. The camera is not modified by this composable; if you want
+ *   the camera to track the current location, use [LocationTrackingEffect].
  * @param oldLocationThreshold Locations with a [timestamp][Location.timestamp] older than this will
  *   be considered old and will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when
@@ -93,7 +93,7 @@ import org.maplibre.spatialk.units.extensions.inMeters
 public fun LocationPuck(
   idPrefix: String,
   location: Location?,
-  cameraState: CameraState,
+  state: MapState,
   bearing: BearingWithAccuracy? = location?.course,
   oldLocationThreshold: Duration = 30.seconds,
   accuracyThreshold: Float = 50f,
@@ -121,7 +121,7 @@ public fun LocationPuck(
         condition(test = isOldLocation, output = const(0.dp)),
         fallback =
           (feature["accuracy"].asNumber() /
-              const((cameraState.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
+              const((state.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
             .dp,
       ),
     color = const(colors.accuracyFillColor),

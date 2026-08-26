@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -30,15 +31,16 @@ import kotlin.math.sqrt
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.filter_center_focus_24px
 import org.maplibre.compose.map.MapOptions
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.material3.Material3
 import org.maplibre.compose.material3.PointerPinButton
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.include
+import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.Position
 
 /** How long the camera takes to fly to a newly selected demo. */
@@ -47,17 +49,32 @@ val DemoFlightDuration = 2.seconds
 /** Padding between fitted bounds and the edge of the map viewport. */
 val DemoBoundsPadding = PaddingValues(48.dp)
 
-internal suspend fun CameraState.flyTo(destination: DemoDestination) {
+internal suspend fun MapState.flyTo(destination: DemoDestination) {
   when (destination) {
     is DemoDestination.ExactCamera ->
-      animateTo(finalPosition = destination.position, duration = DemoFlightDuration)
+      animateCamera(position = destination.position, duration = DemoFlightDuration)
     is DemoDestination.FitBounds ->
-      animateTo(
+      animateCamera(
         boundingBox = destination.bounds,
         padding = DemoBoundsPadding,
         duration = DemoFlightDuration,
       )
     DemoDestination.None -> Unit
+  }
+}
+
+/** The selected demo's sources and layers, composed into the shared map's style. */
+@Composable
+@MaplibreComposable
+internal fun DemoMapContent(state: DemoAppState) {
+  // Keyed: without it, layers and sources are identified by position, so switching demos
+  // would dispose and recreate unrelated content.
+  allDemos.forEach { demo ->
+    key(demo) {
+      if (demo == state.selectedDemo) {
+        demo.MapContent(state.mapState)
+      }
+    }
   }
 }
 
@@ -75,12 +92,11 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       right = viewportInsets.right + MapOverlay.Spacing,
       bottom = viewportInsets.bottom + MapOverlay.Spacing,
     )
+  SideEffect { state.mapState.baseStyle = appliedBase }
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
-      baseStyle = appliedBase,
-      cameraState = state.cameraState,
+      state = state.mapState,
       cameraPadding = viewportInsets.asPaddingValues(),
-      styleState = state.styleState,
       options =
         MapOptions(
           renderOptions = state.settings.renderOptions,
@@ -91,48 +107,37 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
       onMapLoadFailed = { state.noteStyleLoad(appliedBase) },
       onMapLoadFinished = { state.noteStyleLoad(appliedBase) },
       contentWindowInsets = viewportInsets.asWindowInsets(),
-      overlay =
-        MapOverlay {
-          include(
-            if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
-          )
-          selectedDemo?.let { demo ->
-            key(demo) {
-              with(demo) { Overlay(state) }
-              pointerPin?.let {
-                PointerPinButton(
-                  targetPosition = it.target,
-                  onClick = { scope.launch { cameraState.flyTo(it.destination) } },
-                ) {
-                  Icon(
-                    vectorResource(Res.drawable.filter_center_focus_24px),
-                    contentDescription = "Fly back to ${demo.name}",
-                  )
-                }
+      overlay = {
+        include(
+          if (state.settings.useMaterial3Controls) MapOverlay.Material3 else MapOverlay.Default
+        )
+        selectedDemo?.let { demo ->
+          key(demo) {
+            with(demo) { Overlay(state) }
+            pointerPin?.let {
+              PointerPinButton(
+                targetPosition = it.target,
+                onClick = { scope.launch { state.mapState.flyTo(it.destination) } },
+              ) {
+                Icon(
+                  vectorResource(Res.drawable.filter_center_focus_24px),
+                  contentDescription = "Fly back to ${demo.name}",
+                )
               }
             }
           }
-        },
-    ) {
-      // Keyed: without it, layers and sources are identified by position, so switching demos
-      // would dispose and recreate unrelated content.
-      allDemos.forEach { demo ->
-        key(demo) {
-          if (demo == state.selectedDemo) {
-            demo.MapContent(state.cameraState)
-          }
         }
-      }
-    }
+      },
+    )
 
     if (state.settings.showPointerPinDiagnostics && pointerPin != null) {
       PointerPinDestinationOverlay(
-        cameraState = state.cameraState,
+        map = state.mapState,
         destination = pointerPin.destination,
         modifier = Modifier.fillMaxSize(),
       )
       PointerPinPlacementOverlay(
-        cameraState = state.cameraState,
+        map = state.mapState,
         target = pointerPin.target,
         placementPadding = placementPadding,
         modifier = Modifier.fillMaxSize(),
@@ -147,17 +152,17 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
 
 @Composable
 private fun PointerPinDestinationOverlay(
-  cameraState: CameraState,
+  map: MapState,
   destination: DemoDestination,
   modifier: Modifier = Modifier,
 ) {
   // The viewport read recomputes the projection when the camera changes.
-  val viewport = cameraState.viewport
+  val viewport = map.viewport
   val projected =
     remember(destination, viewport) {
       when (destination) {
         is DemoDestination.ExactCamera ->
-          cameraState.screenLocationFromPosition(destination.position.target)?.let(::listOf)
+          map.screenLocationFromPosition(destination.position.target)?.let(::listOf)
         is DemoDestination.FitBounds -> {
           val bounds = destination.bounds
           listOf(
@@ -166,7 +171,7 @@ private fun PointerPinDestinationOverlay(
               Position(longitude = bounds.east, latitude = bounds.south),
               Position(longitude = bounds.west, latitude = bounds.south),
             )
-            .mapNotNull(cameraState::screenLocationFromPosition)
+            .mapNotNull(map::screenLocationFromPosition)
             .takeIf { it.size == 4 }
         }
         DemoDestination.None -> null
@@ -199,13 +204,13 @@ private fun PointerPinDestinationOverlay(
 
 @Composable
 private fun PointerPinPlacementOverlay(
-  cameraState: CameraState,
+  map: MapState,
   target: Position,
   placementPadding: PaddingValues,
   modifier: Modifier = Modifier,
 ) {
-  val viewport = cameraState.viewport
-  val projected = remember(target, viewport) { cameraState.screenLocationFromPosition(target) }
+  val viewport = map.viewport
+  val projected = remember(target, viewport) { map.screenLocationFromPosition(target) }
   val layoutDirection = LocalLayoutDirection.current
 
   Canvas(modifier) {
@@ -328,7 +333,7 @@ private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifie
       )
     }
     if (state.settings.showCameraOverlay) {
-      val position = state.cameraState.position
+      val position = state.mapState.camera
       Text(
         text =
           "lat ${position.target.latitude.format(4)} " +

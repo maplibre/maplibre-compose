@@ -17,12 +17,13 @@ import org.maplibre.compose.expressions.dsl.switch
 import org.maplibre.compose.expressions.dsl.zoom
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 
 @Composable
 fun Expressions() {
-  MaplibreMap {
+  val map = rememberMapState {
     // #region constants
     val earthquakes =
       rememberGeoJsonSource(
@@ -78,4 +79,5 @@ fun Expressions() {
     )
     // #endregion filter
   }
+  MaplibreMap(map)
 }

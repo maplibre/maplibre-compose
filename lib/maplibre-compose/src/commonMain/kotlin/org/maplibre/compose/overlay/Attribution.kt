@@ -59,11 +59,10 @@ import be.digitalia.compose.htmlconverter.htmlToAnnotatedString
 import org.jetbrains.compose.resources.painterResource
 import org.jetbrains.compose.resources.stringResource
 import org.maplibre.compose.camera.CameraMoveReason
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.generated.Res
 import org.maplibre.compose.generated.attribution
 import org.maplibre.compose.generated.info
-import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.horizontal
 import org.maplibre.compose.util.reverse
 import org.maplibre.compose.util.toArrangement
@@ -76,8 +75,7 @@ import org.maplibre.compose.util.vertical
  * This component draws with Compose Foundation alone. The
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
  *
- * @param cameraState Used to dismiss the attribution when the user interacts with the map.
- * @param styleState Used to get the attribution links to display.
+ * @param state The map whose attributions are displayed; a gesture on it dismisses the popup.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -92,8 +90,7 @@ import org.maplibre.compose.util.vertical
  */
 @Composable
 public fun ExpandingAttributionButton(
-  cameraState: CameraState,
-  styleState: StyleState,
+  state: MapState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
@@ -107,8 +104,8 @@ public fun ExpandingAttributionButton(
   var expanded by remember { mutableStateOf(true) }
 
   // dismiss on any map gesture
-  LaunchedEffect(cameraState.isCameraMoving, cameraState.moveReason) {
-    if (cameraState.isCameraMoving && cameraState.moveReason == CameraMoveReason.GESTURE) {
+  LaunchedEffect(state.isCameraMoving, state.cameraMoveReason) {
+    if (state.isCameraMoving && state.cameraMoveReason == CameraMoveReason.GESTURE) {
       expanded = false
     }
   }
@@ -116,7 +113,7 @@ public fun ExpandingAttributionButton(
   ExpandingAttributionButton(
     expanded = expanded,
     onClick = { expanded = !expanded },
-    styleState = styleState,
+    state = state,
     modifier = modifier,
     contentAlignment = contentAlignment,
     toggleButton = toggleButton,
@@ -137,7 +134,7 @@ public fun ExpandingAttributionButton(
  *
  * @param expanded Whether the attribution text is expanded.
  * @param onClick Called when the button is pressed. Should toggle the expanded state.
- * @param styleState Used to get the attribution links to display.
+ * @param state The map whose attributions are displayed.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -154,7 +151,7 @@ public fun ExpandingAttributionButton(
 public fun ExpandingAttributionButton(
   expanded: Boolean,
   onClick: () -> Unit,
-  styleState: StyleState,
+  state: MapState,
   modifier: Modifier = Modifier,
   contentAlignment: Alignment = Alignment.BottomEnd,
   toggleButton: @Composable (onClick: () -> Unit) -> Unit = AttributionDefaults.button,
@@ -165,7 +162,7 @@ public fun ExpandingAttributionButton(
   expand: (Alignment) -> EnterTransition = AttributionDefaults.expand,
   collapse: (Alignment) -> ExitTransition = AttributionDefaults.collapse,
 ) {
-  val attributions by remember(styleState) { derivedStateOf { styleState.attributions() } }
+  val attributions by remember(state) { derivedStateOf { state.sources.attributions } }
   if (attributions.isEmpty()) return
 
   val style = if (expanded) expandedStyle else collapsedStyle
@@ -260,13 +257,6 @@ public fun AttributionLinks(
     }
   }
 }
-
-/**
- * The distinct attribution texts of every source in the style, in the order that the style declares
- * them. Sources that declare no attribution are skipped.
- */
-public fun StyleState.attributions(): List<String> =
-  sources.values.map { it.attributionHtml }.filter { it.isNotEmpty() }.distinct()
 
 public object AttributionDefaults {
   /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */

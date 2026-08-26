@@ -14,6 +14,7 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
@@ -110,12 +111,11 @@ class CameraStateRecreationActivity : ComponentActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     setContent {
-      val state = rememberCameraState()
-      SideEffect { cameraState = state }
+      val state = rememberMapState(baseStyle = BaseStyle.Empty)
+      SideEffect { cameraState = state.cameraState }
       MaplibreMap(
+        state = state,
         modifier = Modifier.fillMaxSize(),
-        baseStyle = BaseStyle.Empty,
-        cameraState = state,
         onMapLoadFailed = { mapLoadFailures += it },
       )
     }

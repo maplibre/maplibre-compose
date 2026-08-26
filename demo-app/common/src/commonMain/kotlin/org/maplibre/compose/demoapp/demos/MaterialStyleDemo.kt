@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.sp
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -61,6 +60,7 @@ import org.maplibre.compose.layers.FillExtrusionLayer
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.rememberVectorSource
 import org.maplibre.compose.style.BaseStyle
@@ -134,7 +134,7 @@ object MaterialStyleDemo : Demo {
     interpolate(exponential(1.6f), zoom(), *stops)
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(map: MapState) {
     val tiles = rememberVectorSource("$TILES?key=$PROTOMAPS_API_KEY")
     val colors = MaterialTheme.colorScheme
 

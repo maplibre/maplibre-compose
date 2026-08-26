@@ -35,7 +35,7 @@ import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
 import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePack
-import org.maplibre.compose.offline.rememberOfflineManager
+import org.maplibre.compose.runtime.MaplibreRuntime
 
 /**
  * A [ListItem] to manage an [OfflinePack].
@@ -53,7 +53,7 @@ import org.maplibre.compose.offline.rememberOfflineManager
 public fun OfflinePackListItem(
   pack: OfflinePack,
   modifier: Modifier = Modifier,
-  offlineManager: OfflineManager = rememberOfflineManager(),
+  offlineManager: OfflineManager = remember { MaplibreRuntime.default().offline },
   leadingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.LeadingContent(pack, offlineManager)
   },
@@ -84,7 +84,7 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun LeadingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = rememberOfflineManager(),
+    offlineManager: OfflineManager = remember { MaplibreRuntime.default().offline },
     completedIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.check_circle_filled),
@@ -140,7 +140,7 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun TrailingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = rememberOfflineManager(),
+    offlineManager: OfflineManager = remember { MaplibreRuntime.default().offline },
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
   ): Unit = Row {
     PauseResumeUpdateButton(pack, offlineManager)

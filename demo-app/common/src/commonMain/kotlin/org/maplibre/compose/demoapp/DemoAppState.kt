@@ -2,6 +2,7 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -10,14 +11,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import kotlinx.coroutines.flow.first
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.benchmark.BenchmarkScenario
 import org.maplibre.compose.demoapp.benchmark.BenchmarkUiState
 import org.maplibre.compose.demoapp.benchmark.allBenchmarkScenarios
+import org.maplibre.compose.map.MapState
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.StyleState
-import org.maplibre.compose.style.rememberStyleState
 import org.maplibre.spatialk.geojson.Position
 
 /** New York City at a metro-area zoom, so every demo's fly-in has somewhere to go. */
@@ -33,8 +32,7 @@ enum class DemoShell {
 /** The state the shell owns: the shared map, the selection, and the settings. */
 @Stable
 class DemoAppState(
-  val cameraState: CameraState,
-  val styleState: StyleState,
+  val mapState: MapState,
   val settings: DemoSettings,
   val frameRateState: FrameRateState,
 ) {
@@ -89,9 +87,16 @@ internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 
 @Composable
 fun rememberDemoAppState(): DemoAppState {
-  val cameraState = rememberCameraState(firstPosition = StartPosition)
-  val styleState = rememberStyleState()
   val settings = rememberDemoSettings()
   val frameRateState = remember { FrameRateState() }
-  return remember { DemoAppState(cameraState, styleState, settings, frameRateState) }
+  // The app state needs the map state and the style content needs the app state, so a holder
+  // breaks the cycle: the content composes nothing until the app state exists.
+  val stateRef = remember { mutableStateOf<DemoAppState?>(null) }
+  val mapState =
+    rememberMapState(cameraPosition = StartPosition) {
+      stateRef.value?.let { DemoMapContent(it) }
+    }
+  val state = remember { DemoAppState(mapState, settings, frameRateState) }
+  SideEffect { stateRef.value = state }
+  return state
 }

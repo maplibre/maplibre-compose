@@ -1,9 +1,6 @@
 package org.maplibre.compose.offline
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.ui.platform.LocalDensity
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
@@ -12,11 +9,9 @@ import kotlin.coroutines.resumeWithException
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
-import org.maplibre.compose.runtime.MaplibreRuntime
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
 import org.maplibre.nativeffi.offline.OfflineRegionDownloadState
@@ -27,25 +22,6 @@ import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
-
-/** Acquire an instance of [OfflineManager]. */
-@Composable
-public fun rememberOfflineManager(): OfflineManager {
-  EnsureMlnFfiConfigured()
-  val density = LocalDensity.current.density
-  val manager = MaplibreRuntime.default().ffiOffline
-  // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
-  return remember(manager, density) { DensityScopedOfflineManager(manager, density) }
-}
-
-/** Captures the calling window's density while sharing the process-lifetime native runtime. */
-private class DensityScopedOfflineManager(
-  private val manager: MlnFfiOfflineManager,
-  private val pixelRatio: Float,
-) : OfflineManager by manager {
-  override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack =
-    manager.create(definition, metadata, pixelRatio)
-}
 
 /**
  * The MapLibre Native FFI [OfflineManager], backed by the application-scoped [MlnFfiRuntime].
@@ -145,11 +121,7 @@ internal class MlnFfiOfflineManager(
     throw IllegalStateException(message, cause)
   }
 
-  override suspend fun create(definition: OfflinePackDefinition, metadata: ByteArray): OfflinePack {
-    return create(definition, metadata, pixelRatio = 1f)
-  }
-
-  internal suspend fun create(
+  override suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray,
     pixelRatio: Float,

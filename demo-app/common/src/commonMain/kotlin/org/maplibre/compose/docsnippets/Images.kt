@@ -14,6 +14,7 @@ import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.layers.SymbolLayer
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberImageSource
@@ -23,7 +24,7 @@ import org.maplibre.spatialk.geojson.Position
 @Composable
 @OptIn(ExperimentalResourceApi::class)
 fun Images() {
-  MaplibreMap {
+  val iconMap = rememberMapState {
     // #region icon-painter
     val stations =
       rememberGeoJsonSource(GeoJsonData.Uri(Res.getUri("files/data/amtrak_stations.geojson")))
@@ -39,8 +40,9 @@ fun Images() {
     SymbolLayer(id = "station-markers", source = stations, iconImage = image("marker"))
     // #endregion icon-sprite
   }
+  MaplibreMap(iconMap)
 
-  MaplibreMap {
+  val imageMap = rememberMapState {
     // #region image-source
     val corners =
       PositionQuad(
@@ -53,4 +55,5 @@ fun Images() {
     RasterLayer(id = "castello-plan", source = plan, opacity = const(0.8f))
     // #endregion image-source
   }
+  MaplibreMap(imageMap)
 }

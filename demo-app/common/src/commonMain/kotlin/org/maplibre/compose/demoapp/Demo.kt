@@ -3,7 +3,6 @@ package org.maplibre.compose.demoapp
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.UiComposable
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.demos.CastelloPlanDemo
 import org.maplibre.compose.demoapp.demos.DataVizDemo
 import org.maplibre.compose.demoapp.demos.DragDropDemo
@@ -13,6 +12,7 @@ import org.maplibre.compose.demoapp.demos.MagnifyingLensDemo
 import org.maplibre.compose.demoapp.demos.Manhattan3dDemo
 import org.maplibre.compose.demoapp.demos.MaterialStyleDemo
 import org.maplibre.compose.demoapp.demos.TransitNetworkDemo
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -42,7 +42,7 @@ interface Demo {
   val pointerPin: DemoPointerPin?
     get() = null
 
-  @MaplibreComposable @Composable fun MapContent(cameraState: CameraState) {}
+  @MaplibreComposable @Composable fun MapContent(map: MapState) {}
 
   /**
    * Compose UI drawn over the map while this demo is selected. [state] exposes the shell's

@@ -23,9 +23,9 @@ import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -144,59 +144,60 @@ class LayerClickOrderTest {
     lateinit var cameraState: CameraState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState =
-        rememberCameraState(
-          firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
-        )
+      val mapState =
+        rememberMapState(
+          cameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
+          baseStyle = BaseStyle.Empty,
+        ) {
+          val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
+
+          val front: @Composable () -> Unit = {
+            FillLayer(
+              id = FRONT,
+              source = source,
+              color = const(Color.Red),
+              onClick = {
+                clicked += FRONT
+                frontResult
+              },
+              onLongClick = {
+                longClicked += FRONT
+                frontResult
+              },
+            )
+          }
+          val back: @Composable () -> Unit = {
+            FillLayer(
+              id = BACK,
+              source = source,
+              color = const(Color.Blue),
+              onClick = {
+                clicked += BACK
+                ClickResult.Consume
+              },
+              onLongClick = {
+                longClicked += BACK
+                ClickResult.Consume
+              },
+            )
+          }
+
+          if (composeFrontLayerFirst) {
+            // `back` is composed second, and the anchor is the only reason it ends up behind.
+            front()
+            Anchor.Bottom { back() }
+          } else {
+            back()
+            front()
+          }
+        }
+      cameraState = mapState.cameraState
       MaplibreMap(
+        state = mapState,
         modifier = Modifier.fillMaxSize(),
-        baseStyle = BaseStyle.Empty,
-        cameraState = cameraState,
         onFrame = { frames.incrementAndFetch() },
         logger = Logger.withTag("layer-click-order"),
-      ) {
-        val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))
-
-        val front: @Composable () -> Unit = {
-          FillLayer(
-            id = FRONT,
-            source = source,
-            color = const(Color.Red),
-            onClick = {
-              clicked += FRONT
-              frontResult
-            },
-            onLongClick = {
-              longClicked += FRONT
-              frontResult
-            },
-          )
-        }
-        val back: @Composable () -> Unit = {
-          FillLayer(
-            id = BACK,
-            source = source,
-            color = const(Color.Blue),
-            onClick = {
-              clicked += BACK
-              ClickResult.Consume
-            },
-            onLongClick = {
-              longClicked += BACK
-              ClickResult.Consume
-            },
-          )
-        }
-
-        if (composeFrontLayerFirst) {
-          // `back` is composed second, and the anchor is the only reason it ends up behind.
-          front()
-          Anchor.Bottom { back() }
-        } else {
-          back()
-          front()
-        }
-      }
+      )
     }
 
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }

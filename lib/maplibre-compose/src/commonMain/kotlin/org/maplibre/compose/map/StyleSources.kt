@@ -27,4 +27,16 @@ public class StyleSources internal constructor(private val state: MapState) {
   /** Returns the source with [id], or null when the style has no such source. */
   public operator fun get(id: String): Source? =
     state.styleNode.compositionSources[id] ?: state.styleNode.binding.getSource(id)
+
+  /**
+   * The distinct attribution texts of every source in the style, in the order that the style
+   * declares them. Sources that declare no attribution are skipped. A composition that reads this
+   * property recomposes when the attributions change.
+   */
+  public val attributions: List<String>
+    get() =
+      state.styleState.sources.values
+        .map { it.attributionHtml }
+        .filter { it.isNotEmpty() }
+        .distinct()
 }

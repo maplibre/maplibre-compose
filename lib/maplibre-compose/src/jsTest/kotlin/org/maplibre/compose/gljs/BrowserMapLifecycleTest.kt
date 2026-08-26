@@ -14,8 +14,11 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleState
 import org.maplibre.spatialk.geojson.Position
 
 @OptIn(ExperimentalTestApi::class)
@@ -35,7 +38,11 @@ class BrowserMapLifecycleTest {
     var loaded = false
     setBrowserMapContent {
       if (visible) {
-        MaplibreMap(modifier = Modifier, baseStyle = style, onMapLoadFinished = { loaded = true })
+        MaplibreMap(
+          state = rememberMapState(baseStyle = style),
+          modifier = Modifier,
+          onMapLoadFinished = { loaded = true },
+        )
       }
     }
     waitUntilMap("the map to load") { loaded }
@@ -54,7 +61,11 @@ class BrowserMapLifecycleTest {
     var loads = 0
     setBrowserMapContent {
       if (visible) {
-        MaplibreMap(modifier = Modifier, baseStyle = style, onMapLoadFinished = { loads += 1 })
+        MaplibreMap(
+          state = rememberMapState(baseStyle = style),
+          modifier = Modifier,
+          onMapLoadFinished = { loads += 1 },
+        )
       }
     }
     waitUntilMap("the first map to load") { loads >= 1 }
@@ -75,15 +86,12 @@ class BrowserMapLifecycleTest {
     val expectedCamera =
       CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
     val cameraState = CameraState(expectedCamera)
+    val mapState = MapState(cameraState = cameraState, styleState = StyleState())
+    mapState.baseStyle = style
 
     setBrowserMapContent {
       CompositionLocalProvider(LocalDensity provides density) {
-        MaplibreMap(
-          modifier = Modifier,
-          baseStyle = style,
-          cameraState = cameraState,
-          onMapLoadFinished = { loads += 1 },
-        )
+        MaplibreMap(state = mapState, modifier = Modifier, onMapLoadFinished = { loads += 1 })
       }
     }
     waitUntilMap("the first map to load") { loads >= 1 }
@@ -102,7 +110,11 @@ class BrowserMapLifecycleTest {
     var current by mutableStateOf(style)
     var loads = 0
     setBrowserMapContent {
-      MaplibreMap(modifier = Modifier, baseStyle = current, onMapLoadFinished = { loads += 1 })
+      MaplibreMap(
+        state = rememberMapState(baseStyle = current),
+        modifier = Modifier,
+        onMapLoadFinished = { loads += 1 },
+      )
     }
     waitUntilMap("the first style to load") { loads >= 1 }
 

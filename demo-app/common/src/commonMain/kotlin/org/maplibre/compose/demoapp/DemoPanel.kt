@@ -100,7 +100,7 @@ fun DemoPanel(
               withFrameNanos {}
             }
             if (newBase != null) state.awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
-            state.cameraState.flyTo(demo.destination)
+            state.mapState.flyTo(demo.destination)
           }
         },
         onOpenBenchmarks = {

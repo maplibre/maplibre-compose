@@ -22,6 +22,7 @@ import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -108,33 +109,9 @@ internal constructor(
       onClosed = hostDispatcher::close,
     )
 
-  // Snapshot-backed so a composition that reads the wired state recomposes when a legacy
-  // MaplibreMap call swaps a new CameraState or StyleState in.
-  private val cameraStateHolder = mutableStateOf(cameraState)
+  internal val cameraState: CameraState = cameraState
 
-  internal var cameraState: CameraState
-    get() = cameraStateHolder.value
-    set(value) {
-      val current = cameraStateHolder.value
-      if (current === value) return
-      val adapter = current.map
-      current.map = null
-      cameraStateHolder.value = value
-      value.density = host.density
-      value.map = adapter
-    }
-
-  private val styleStateHolder = mutableStateOf(styleState)
-
-  internal var styleState: StyleState
-    get() = styleStateHolder.value
-    set(value) {
-      val current = styleStateHolder.value
-      if (current === value) return
-      current.detach()
-      styleStateHolder.value = value
-      value.attach(styleNode)
-    }
+  internal val styleState: StyleState = styleState
 
   internal var logger: Logger? = logger
     set(value) {
@@ -173,7 +150,8 @@ internal constructor(
   /** The scope click queries launch on; null drops clicks, which only a missing UI would cause. */
   @Volatile internal var clickScope: CoroutineScope? = null
 
-  private val contentState = mutableStateOf<(@Composable @MaplibreComposable () -> Unit)>({})
+  private val contentState =
+    mutableStateOf<(@Composable @MaplibreComposable MapState.() -> Unit)>({})
 
   init {
     this.cameraState.density = density
@@ -191,16 +169,19 @@ internal constructor(
    * inside the content run outside the UI context, and source and anchor validation surface when
    * the content applies to a loaded style rather than at the call.
    *
+   * The content receives this state as its receiver, so it can read the camera and the viewport of
+   * the map it composes into.
+   *
    * Call this on a state that lives outside the composition, such as one a ViewModel owns. Inside a
    * composition, pass the content to [rememberMapState] instead.
    */
-  public fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
+  public fun setStyleContent(content: @Composable @MaplibreComposable MapState.() -> Unit) {
     updateStyleContent(content)
     startStyleComposition()
   }
 
   /** Replaces the style content; the host recomposes because it reads this state. */
-  internal fun updateStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
+  internal fun updateStyleContent(content: @Composable @MaplibreComposable MapState.() -> Unit) {
     // A write with no read, so a UI composition calling this never subscribes to the state.
     contentState.value = content
   }
@@ -213,7 +194,7 @@ internal constructor(
   internal fun startStyleComposition() {
     if (contentStarted) return
     contentStarted = true
-    host.setContent { contentState.value.invoke() }
+    host.setContent { contentState.value.invoke(this) }
   }
 
   /**
@@ -285,6 +266,11 @@ internal constructor(
       adapter?.setBaseStyle(value)
     }
 
+  /** Selects [BaseStyle.Demo] on a state that never selected a style, so a session has one. */
+  internal fun ensureBaseStyleSelected() {
+    if (selectedBaseStyle == null) baseStyle = BaseStyle.Demo
+  }
+
   /**
    * The camera position of the map. A composition that reads this property recomposes after each
    * camera move.
@@ -297,6 +283,15 @@ internal constructor(
    */
   public val camera: CameraPosition
     get() = cameraState.position
+
+  /**
+   * What the map shows right now: the size of the map composable and the visible area. Null while
+   * no attached session has rendered a viewport. A composition that reads this property recomposes
+   * after a camera move or a resize of the map composable, because the instance is replaced once
+   * the map has adopted either change.
+   */
+  public val viewport: Viewport?
+    get() = cameraState.viewport
 
   /** Whether the camera is currently moving. */
   public val isCameraMoving: Boolean
@@ -314,6 +309,25 @@ internal constructor(
    */
   public suspend fun setCamera(position: CameraPosition) {
     cameraState.position = position
+  }
+
+  /**
+   * Moves the camera to fit [boundingBox] with no animation.
+   *
+   * A call before a session attaches suspends until a session attaches and applies the move.
+   *
+   * @param boundingBox The bounds that the move fits into the viewport.
+   * @param bearing The bearing that the move sets. Defaults to 0.0.
+   * @param tilt The tilt that the move sets. Defaults to 0.0.
+   * @param padding Insets added while fitting [boundingBox].
+   */
+  public suspend fun setCamera(
+    boundingBox: BoundingBox,
+    bearing: Double = 0.0,
+    tilt: Double = 0.0,
+    padding: PaddingValues = PaddingValues(0.dp),
+  ) {
+    cameraState.jumpTo(boundingBox, bearing, tilt, padding)
   }
 
   /**

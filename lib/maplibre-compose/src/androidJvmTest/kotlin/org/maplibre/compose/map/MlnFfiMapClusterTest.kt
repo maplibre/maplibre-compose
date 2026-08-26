@@ -22,7 +22,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -69,25 +68,26 @@ class MlnFfiMapClusterTest {
     lateinit var cameraState: CameraState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState =
-        rememberCameraState(
-          firstPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
-        )
+      val mapState =
+        rememberMapState(
+          cameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
+          baseStyle = BaseStyle.Empty,
+        ) {
+          source =
+            rememberGeoJsonSource(
+              data = GeoJsonData.Features(nearbyPoints()),
+              // Zoomed out far enough that all three points fall inside one cluster.
+              options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
+            )
+          CircleLayer(id = "clusters", source = source, color = const(Color.Red))
+        }
+      cameraState = mapState.cameraState
       MaplibreMap(
+        state = mapState,
         modifier = Modifier.fillMaxSize(),
-        baseStyle = BaseStyle.Empty,
-        cameraState = cameraState,
         logger = Logger.withTag("cluster-test"),
         onFrame = { frames.incrementAndFetch() },
-      ) {
-        source =
-          rememberGeoJsonSource(
-            data = GeoJsonData.Features(nearbyPoints()),
-            // Zoomed out far enough that all three points fall inside one cluster.
-            options = GeoJsonOptions(cluster = true, clusterRadius = 200, clusterMaxZoom = 14),
-          )
-        CircleLayer(id = "clusters", source = source, color = const(Color.Red))
-      }
+      )
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > 0 }

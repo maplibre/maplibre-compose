@@ -48,7 +48,6 @@ import kotlin.time.Duration.Companion.seconds
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -964,12 +963,12 @@ class MlnFfiMapInputTest {
     lateinit var cameraState: CameraState
 
     setFfiTestMapContent(runtimeOptions) {
-      cameraState = rememberCameraState(firstPosition = initialPosition)
+      val mapState = rememberMapState(cameraPosition = initialPosition, baseStyle = BaseStyle.Empty)
+      cameraState = mapState.cameraState
       val content: @Composable () -> Unit = {
         MaplibreMap(
+          state = mapState,
           modifier = mapModifier(),
-          baseStyle = BaseStyle.Empty,
-          cameraState = cameraState,
           options = MapOptions(gestureOptions = gestures),
           onMapClick = { position, _ ->
             clicks.add(position)

@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.overlay.ExpandingAttributionButton
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
@@ -24,31 +25,31 @@ import org.maplibre.spatialk.geojson.Position
 @Composable
 fun Controls() {
   // #region default
-  MaplibreMap()
+  MaplibreMap(rememberMapState())
   // #endregion default
 
   // #region disabled
-  MaplibreMap(overlay = MapOverlay.None)
+  MaplibreMap(rememberMapState(), overlay = {})
   // #endregion disabled
 
   // #region custom
   MaplibreMap(
-    overlay =
-      MapOverlay {
-        MaplibreLogo(Modifier.align(Alignment.BottomStart))
-        ExpandingAttributionButton(
-          cameraState = cameraState, // (1)!
-          styleState = styleState,
-          modifier = Modifier.align(Alignment.TopEnd),
-          contentAlignment = Alignment.TopEnd,
-        )
-      }
+    rememberMapState(),
+    overlay = {
+      MaplibreLogo(Modifier.align(Alignment.BottomStart))
+      ExpandingAttributionButton(
+        state = state, // (1)!
+        modifier = Modifier.align(Alignment.TopEnd),
+        contentAlignment = Alignment.TopEnd,
+      )
+    },
   )
   // #endregion custom
 
   // #region insets
   val mapInsets = WindowInsets.safeDrawing.union(WindowInsets(bottom = 128.dp))
   MaplibreMap(
+    rememberMapState(),
     contentWindowInsets = mapInsets, // (1)!
     cameraPadding = mapInsets.asPaddingValues(),
   )
@@ -59,14 +60,14 @@ fun Controls() {
 fun LocationOverlay(position: Position) {
   // #region placedAt
   MaplibreMap(
-    overlay =
-      MapOverlay {
-        include(MapOverlay.Default)
-        Text(
-          "Next sailing 12:40",
-          Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
-        )
-      }
+    rememberMapState(),
+    overlay = {
+      include(MapOverlay.Default)
+      Text(
+        "Next sailing 12:40",
+        Modifier.placedAt(position, Alignment.BottomCenter).padding(bottom = 8.dp), // (1)!
+      )
+    },
   )
   // #endregion placedAt
 }
@@ -75,17 +76,17 @@ fun LocationOverlay(position: Position) {
 fun OffScreenIndicator(position: Position) {
   // #region placedTowards
   MaplibreMap(
-    overlay =
-      MapOverlay {
-        include(MapOverlay.Default)
-        val placement = rememberPlacedTowardsState() // (1)!
-        Text(
-          "▲",
-          Modifier.placedTowards(position, placement).graphicsLayer {
-            rotationZ = placement.angleDegrees // (2)!
-          },
-        )
-      }
+    rememberMapState(),
+    overlay = {
+      include(MapOverlay.Default)
+      val placement = rememberPlacedTowardsState() // (1)!
+      Text(
+        "▲",
+        Modifier.placedTowards(position, placement).graphicsLayer {
+          rotationZ = placement.angleDegrees // (2)!
+        },
+      )
+    },
   )
   // #endregion placedTowards
 }

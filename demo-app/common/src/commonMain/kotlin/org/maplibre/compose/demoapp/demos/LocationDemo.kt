@@ -14,7 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -33,6 +32,7 @@ import org.maplibre.compose.location.mostAccurateBearing
 import org.maplibre.compose.location.rememberLocationState
 import org.maplibre.compose.location.rememberSystemSettingsLauncher
 import org.maplibre.compose.location.updateCamera
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.material3.LocationPuckDefaults
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -64,7 +64,7 @@ object LocationDemo : Demo {
   private var panelLocationBackendId by mutableStateOf<String?>(null)
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(map: MapState) {
     val locationProvider = engine.rememberLocationProvider()
     val locationState =
       rememberLocationState(
@@ -83,9 +83,9 @@ object LocationDemo : Demo {
     }
     LaunchedEffect(locationState) { locationState.requestPermission() }
 
-    LaunchedEffect(cameraState) {
-      var previous = cameraState.moveReason
-      snapshotFlow { cameraState.moveReason }
+    LaunchedEffect(map) {
+      var previous = map.cameraMoveReason
+      snapshotFlow { map.cameraMoveReason }
         .collect { reason ->
           // Follow moves the camera programmatically; a pan is the GESTURE that interrupts it.
           if (previous != CameraMoveReason.GESTURE && reason == CameraMoveReason.GESTURE) {
@@ -100,12 +100,12 @@ object LocationDemo : Demo {
 
     LocationTrackingEffect(locationState = locationState, enabled = follow) {
       if (previousLocation == null) {
-        cameraState.animateTo(
+        map.animateCamera(
           CameraPosition(target = currentLocation.position.value, zoom = 16.0),
           duration = DemoFlightDuration,
         )
       } else {
-        updateCamera(cameraState)
+        updateCamera(map)
       }
     }
 
@@ -116,7 +116,7 @@ object LocationDemo : Demo {
         idPrefix = "user",
         location = location,
         bearing = locationState.mostAccurateBearing(),
-        cameraState = cameraState,
+        state = map,
         colors = LocationPuckDefaults.colors(),
       )
     }

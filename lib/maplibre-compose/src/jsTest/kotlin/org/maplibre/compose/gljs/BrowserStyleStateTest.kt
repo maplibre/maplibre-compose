@@ -12,13 +12,13 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.browser.window
 import org.maplibre.compose.layers.RasterLayerDescriptor
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleNode
-import org.maplibre.compose.style.StyleState
-import org.maplibre.compose.style.rememberStyleState
 
 @OptIn(ExperimentalTestApi::class)
 class BrowserStyleStateTest {
@@ -112,15 +112,14 @@ class BrowserStyleStateTest {
   fun a_source_reports_the_attribution_its_tilejson_carries(): Promise<*> = runBrowserMapTest {
     val restoreFetch = installSlowTileJson()
     try {
-      var state: StyleState? = null
+      var state: MapState? = null
       var loaded = false
       setBrowserMapContent {
-        val styleState = rememberStyleState()
-        state = styleState
+        val mapState = rememberMapState(baseStyle = tileJsonStyle)
+        state = mapState
         MaplibreMap(
+          state = mapState,
           modifier = Modifier,
-          baseStyle = tileJsonStyle,
-          styleState = styleState,
           onMapLoadFinished = { loaded = true },
         )
       }
@@ -128,7 +127,7 @@ class BrowserStyleStateTest {
 
       assertEquals(
         listOf("fetched attribution"),
-        state?.sources?.values?.map { it.attributionHtml },
+        state?.styleState?.sources?.values?.map { it.attributionHtml },
         "loading is only finished once a source's TileJSON has arrived; the attribution UI reads " +
           "this the moment it is told",
       )
@@ -142,15 +141,14 @@ class BrowserStyleStateTest {
     val restoreFetch = installSlowTileJson()
     try {
       var current by mutableStateOf(styleWith("first", "first-source"))
-      var state: StyleState? = null
+      var state: MapState? = null
       var loads = 0
       setBrowserMapContent {
-        val styleState = rememberStyleState()
-        state = styleState
+        val mapState = rememberMapState(baseStyle = current)
+        state = mapState
         MaplibreMap(
+          state = mapState,
           modifier = Modifier,
-          baseStyle = current,
-          styleState = styleState,
           onMapLoadFinished = { loads += 1 },
         )
       }
@@ -158,7 +156,8 @@ class BrowserStyleStateTest {
 
       current = tileJsonStyle
       waitUntilMap("the switched style's attribution to be reported") {
-        state?.sources?.values?.map { it.attributionHtml } == listOf("fetched attribution")
+        state?.styleState?.sources?.values?.map { it.attributionHtml } ==
+          listOf("fetched attribution")
       }
     } finally {
       restoreFetch()
@@ -171,19 +170,17 @@ class BrowserStyleStateTest {
       val tileJson = installDeferredTileJson()
       try {
         var node: StyleNode? = null
-        var state: StyleState? = null
+        var state: MapState? = null
         var loads = 0
         setBrowserMapContent {
-          val styleState = rememberStyleState()
-          state = styleState
+          val mapState =
+            rememberMapState(baseStyle = BaseStyle.Empty) { node = LocalStyleNode.current }
+          state = mapState
           MaplibreMap(
+            state = mapState,
             modifier = Modifier,
-            baseStyle = BaseStyle.Empty,
-            styleState = styleState,
             onMapLoadFinished = { loads += 1 },
-          ) {
-            node = LocalStyleNode.current
-          }
+          )
         }
         waitUntilMap("the empty map to finish loading") { loads == 1 && node != null }
 
@@ -191,19 +188,20 @@ class BrowserStyleStateTest {
         checkNotNull(node).sourceManager.addReference(source)
 
         // The reference records desired state; the layer add has to wait for the host's sync.
-        waitUntilMap("the late source's initial snapshot") { state?.sources?.size == 1 }
+        waitUntilMap("the late source's initial snapshot") { state?.styleState?.sources?.size == 1 }
         checkNotNull(node)
           .binding
           .addLayer(RasterLayerDescriptor(id = "late-layer", source = source))
-        assertEquals(listOf(""), state?.sources?.values?.map { it.attributionHtml })
-        val initialSource = state?.sources?.values?.single()
+        assertEquals(listOf(""), state?.styleState?.sources?.values?.map { it.attributionHtml })
+        val initialSource = state?.styleState?.sources?.values?.single()
 
         waitUntilMap("MapLibre to request the TileJSON") { tileJson.isRequested() }
         tileJson.resolve()
         waitUntilMap("the late source's attribution") {
-          state?.sources?.values?.map { it.attributionHtml } == listOf("fetched attribution")
+          state?.styleState?.sources?.values?.map { it.attributionHtml } ==
+            listOf("fetched attribution")
         }
-        assertNotSame(initialSource, state?.sources?.values?.single())
+        assertNotSame(initialSource, state?.styleState?.sources?.values?.single())
         assertEquals(1, loads, "source metadata must not report another map load")
       } finally {
         tileJson.restore()
@@ -213,31 +211,38 @@ class BrowserStyleStateTest {
   @Test
   fun switching_styles_keeps_the_sources_visible(): Promise<*> = runBrowserMapTest {
     var current by mutableStateOf(styleWith("first", "first-source"))
-    var state: StyleState? = null
+    var state: MapState? = null
     var loads = 0
     setBrowserMapContent {
-      val styleState = rememberStyleState()
-      state = styleState
+      val mapState = rememberMapState(baseStyle = current)
+      state = mapState
       MaplibreMap(
+        state = mapState,
         modifier = Modifier,
-        baseStyle = current,
-        styleState = styleState,
         onMapLoadFinished = { loads += 1 },
       )
     }
-    waitUntilMap("the first style to load") { loads >= 1 && state?.sources?.isNotEmpty() == true }
-    assertEquals(listOf("first attribution"), state?.sources?.values?.map { it.attributionHtml })
+    waitUntilMap("the first style to load") {
+      loads >= 1 && state?.styleState?.sources?.isNotEmpty() == true
+    }
+    assertEquals(
+      listOf("first attribution"),
+      state?.styleState?.sources?.values?.map { it.attributionHtml },
+    )
 
     // Sampled per frame, not just at the end: a window where the attribution is empty would flicker
     // the attribution UI.
     val observed = mutableListOf<List<String>>()
     current = styleWith("second", "second-source")
     waitUntilMap("the second style's sources to be reported") {
-      state?.sources?.values?.map { it.attributionHtml }?.let { observed += it }
-      loads >= 2 && state?.sources?.keys == setOf("second-source")
+      state?.styleState?.sources?.values?.map { it.attributionHtml }?.let { observed += it }
+      loads >= 2 && state?.styleState?.sources?.keys == setOf("second-source")
     }
 
-    assertEquals(listOf("second attribution"), state?.sources?.values?.map { it.attributionHtml })
+    assertEquals(
+      listOf("second attribution"),
+      state?.styleState?.sources?.values?.map { it.attributionHtml },
+    )
     assertTrue(
       observed.none { attributions -> attributions.any { it.isEmpty() } },
       "No source should ever report an empty attribution across a style switch. Observed: $observed",

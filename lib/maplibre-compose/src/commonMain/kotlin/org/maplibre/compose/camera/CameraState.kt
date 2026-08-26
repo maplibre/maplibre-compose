@@ -1,9 +1,7 @@
 package org.maplibre.compose.camera
 
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Density
@@ -25,13 +23,12 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
-/** Remember a new [CameraState] in the initial state as given in [firstPosition]. */
-@Composable
-public fun rememberCameraState(firstPosition: CameraPosition = CameraPosition()): CameraState =
-  rememberSaveable(saver = CameraStateSaver) { CameraState(firstPosition) }
-
-/** Use this class to access information about the map in relation to the camera. */
-public class CameraState(firstPosition: CameraPosition) {
+/**
+ * The camera half of a [MapState][org.maplibre.compose.map.MapState]: the recorded position, the
+ * viewport, and the projection and query calls against the attached [MapAdapter]. The public
+ * surface is [MapState][org.maplibre.compose.map.MapState], which delegates here.
+ */
+internal class CameraState(firstPosition: CameraPosition) {
   internal val mapState = mutableStateOf<MapAdapter?>(null)
   internal val viewportState = mutableStateOf<Viewport?>(null)
   internal val positionState = mutableStateOf(firstPosition)
@@ -169,11 +166,6 @@ public class CameraState(firstPosition: CameraPosition) {
 
   internal suspend fun awaitMap(): MapAdapter {
     return snapshotFlow { map }.first { it != null }!!
-  }
-
-  /** Suspends until the map this state is attached to has rendered its first viewport. */
-  public suspend fun awaitViewport(): Viewport {
-    return snapshotFlow { viewport }.first { it != null }!!
   }
 
   /** Animates the camera towards the [finalPosition] in [duration] time. */

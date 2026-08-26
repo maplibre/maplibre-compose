@@ -22,6 +22,7 @@ import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.UnknownLayerDescriptor
 import org.maplibre.compose.map.MaplibreMap
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -173,28 +174,30 @@ class BrowserStyleConformanceTest {
         ?.content
 
     setBrowserMapContent {
-      MaplibreMap(
-        modifier = Modifier,
-        baseStyle = baseStyle,
-        onMapLoadFailed = { failures += it.orEmpty() },
-      ) {
-        CaptureStyle { style = it }
-        val source =
-          rememberVectorSource(
-            tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
-            options = TileSetOptions(minZoom = 24, maxZoom = 24),
-          )
-        Anchor.Replace("base-fill") {
-          if (showLayer) {
-            FillLayer(
-              id = "switching-source-layer",
-              source = source,
-              sourceLayer = sourceLayer,
-              color = const(Color.Blue),
+      val mapState =
+        rememberMapState(baseStyle = baseStyle) {
+          CaptureStyle { style = it }
+          val source =
+            rememberVectorSource(
+              tiles = listOf("https://example.invalid/{z}/{x}/{y}.pbf"),
+              options = TileSetOptions(minZoom = 24, maxZoom = 24),
             )
+          Anchor.Replace("base-fill") {
+            if (showLayer) {
+              FillLayer(
+                id = "switching-source-layer",
+                source = source,
+                sourceLayer = sourceLayer,
+                color = const(Color.Blue),
+              )
+            }
           }
         }
-      }
+      MaplibreMap(
+        state = mapState,
+        modifier = Modifier,
+        onMapLoadFailed = { failures += it.orEmpty() },
+      )
     }
 
     waitUntilMap("the initial source layer to reach the live style") {
@@ -228,14 +231,16 @@ class BrowserStyleConformanceTest {
     var style by mutableStateOf<StyleBinding?>(null)
     val failures = mutableListOf<String>()
     setBrowserMapContent {
+      val mapState =
+        rememberMapState(baseStyle = baseStyle) {
+          CaptureStyle { style = it }
+          content()
+        }
       MaplibreMap(
+        state = mapState,
         modifier = Modifier,
-        baseStyle = baseStyle,
         onMapLoadFailed = { failures += it.orEmpty() },
-      ) {
-        CaptureStyle { style = it }
-        content()
-      }
+      )
     }
     waitUntilMap("the style to load") { style != null }
     assertTrue(failures.isEmpty(), "the map reported load failures: $failures")

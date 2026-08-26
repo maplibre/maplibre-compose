@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -31,16 +32,14 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
-import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.RenderOptions
-import org.maplibre.compose.overlay.MapOverlay
+import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.rememberStyleState
 
 private val benchLog = Logger.withTag(BenchmarkReport.LogPrefix)
 
@@ -53,22 +52,30 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
   val scenario = state.selectedScenario
   val density = LocalDensity.current
   val prefetcher = rememberTilePrefetcher()
-  val cameraState = rememberCameraState(firstPosition = scenario.camera)
-  val styleState = rememberStyleState()
+  // The session needs the map state and the style content needs the session, so a holder breaks
+  // the cycle: the content composes nothing until the session exists.
+  val sessionHolder = remember { mutableStateOf<BenchmarkSession?>(null) }
+  val mapState =
+    rememberMapState(cameraPosition = scenario.camera, baseStyle = scenario.style.base) {
+      sessionHolder.value?.let { session ->
+        key(state.selectedScenario.id) { state.selectedScenario.MapContent(session) }
+      }
+    }
   val session =
-    remember(cameraState, prefetcher, density) {
+    remember(mapState, prefetcher, density) {
       BenchmarkSession(
-        cameraState = cameraState,
+        map = mapState,
         ui = state.benchmark,
         prefetcher = prefetcher,
         density = density,
       )
     }
+  sessionHolder.value = session
   val mapLoaded = remember(scenario.id) { CompletableDeferred<Unit>() }
   val styleUrl = (scenario.style.base as BaseStyle.Uri).uri
   LaunchedEffect(scenario.id) {
     state.benchmark.abandonRun()
-    cameraState.position = scenario.camera
+    mapState.setCamera(scenario.camera)
     session.geoJson = null
     session.pin = null
     session.pointerPx = null
@@ -86,7 +93,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
     try {
       ui.status = "Waiting for the map"
       mapLoaded.await()
-      cameraState.position = running.camera
+      mapState.setCamera(running.camera)
       ui.status = "Prefetching tiles"
       prefetcher.ensurePacked(
         scenarioId = running.id,
@@ -94,7 +101,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
         bounds = running.region,
         minZoom = running.minZoom,
         maxZoom = running.maxZoom,
-        camera = cameraState,
+        map = mapState,
         onStatus = { ui.status = it },
       )
       ui.status = "Running ${running.title}"
@@ -167,7 +174,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
             }
             if (change.pressed && session.pin == null && scenario.usesGestures) {
               session.pin =
-                cameraState.positionFromScreenLocation(
+                mapState.positionFromScreenLocation(
                   with(density) { DpOffset(change.position.x.toDp(), change.position.y.toDp()) }
                 )
             }
@@ -185,10 +192,8 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
   ) {
     key(scenario.id) {
       MaplibreMap(
-        baseStyle = scenario.style.base,
-        cameraState = cameraState,
+        state = mapState,
         cameraPadding = viewportInsets.asPaddingValues(),
-        styleState = styleState,
         options =
           MapOptions(
             renderOptions = RenderOptions.Standard,
@@ -201,10 +206,8 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
           mapLoaded.completeExceptionally(IllegalStateException(reason ?: "Map failed to load"))
         },
         contentWindowInsets = viewportInsets.asWindowInsets(),
-        overlay = MapOverlay.None,
-      ) {
-        scenario.MapContent(session)
-      }
+        overlay = {},
+      )
     }
 
     Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
@@ -230,7 +233,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
 
 private fun samplePin(session: BenchmarkSession) {
   val pin = session.pin ?: return
-  val projected = session.cameraState.screenLocationFromPosition(pin) ?: return
+  val projected = session.map.screenLocationFromPosition(pin) ?: return
   val px = with(session.density) { Offset(projected.x.toPx(), projected.y.toPx()) }
   session.gestures.onMapProjection(px.x.toDouble(), px.y.toDouble())
 }
@@ -238,7 +241,7 @@ private fun samplePin(session: BenchmarkSession) {
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTrail(session: BenchmarkSession) {
   val composePoint = session.pointerPx
   val pin = session.pin
-  val projected = pin?.let { session.cameraState.screenLocationFromPosition(it) }
+  val projected = pin?.let { session.map.screenLocationFromPosition(it) }
   val mapPoint = projected?.let { with(session.density) { Offset(it.x.toPx(), it.y.toPx()) } }
   if (composePoint != null) {
     val arm = 12.dp.toPx()

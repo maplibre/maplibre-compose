@@ -8,9 +8,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Density
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.OpenFreeMap
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.GeoJsonObject
@@ -49,7 +49,7 @@ interface BenchmarkScenario {
 /** Mutable state one scenario run reads and writes while the isolated map is live. */
 @Stable
 class BenchmarkSession(
-  val cameraState: CameraState,
+  val map: MapState,
   val ui: BenchmarkUiState,
   val prefetcher: TilePrefetcher,
   val density: Density,

@@ -1,21 +1,17 @@
 package org.maplibre.compose.style
 
-import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import org.maplibre.compose.sources.Source
 
-/** Remember a new [StyleState]. */
-@Composable
-public fun rememberStyleState(): StyleState {
-  return remember { StyleState() }
-}
-
-/** Use this class to access information about the style, such as sources and layers. */
-public class StyleState internal constructor() {
+/**
+ * The snapshot-backed source map of a [MapState][org.maplibre.compose.map.MapState], refreshed as
+ * the live style reports source changes. The public read path is
+ * [StyleSources][org.maplibre.compose.map.StyleSources].
+ */
+internal class StyleState {
   private var styleNode: StyleNode? = null
 
-  public val sources: Map<String, Source>
+  val sources: Map<String, Source>
     get() = sourcesState.value
 
   private val sourcesState = mutableStateOf(emptyMap<String, Source>())

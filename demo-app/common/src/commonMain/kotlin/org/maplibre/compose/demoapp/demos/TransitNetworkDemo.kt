@@ -58,7 +58,6 @@ import kotlinx.datetime.toLocalDateTime
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.demoapp.Demo
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.DemoDestination
@@ -77,6 +76,7 @@ import org.maplibre.compose.expressions.value.SymbolAnchor
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.layers.LineLayer
 import org.maplibre.compose.layers.SymbolLayer
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.overlay.MapOverlayScope
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
@@ -358,13 +358,13 @@ object TransitNetworkDemo : Demo {
   }
 
   @Composable
-  override fun MapContent(cameraState: CameraState) {
+  override fun MapContent(map: MapState) {
     val network = (feedState as? FeedState.Loaded)?.network ?: return
     val selected = selectedRouteId
 
     LaunchedEffect(selected) {
       val route = network.routes.find { it.id == selected } ?: return@LaunchedEffect
-      cameraState.animateTo(
+      map.animateCamera(
         boundingBox = route.bounds,
         padding = RouteFitPadding,
         duration = 1.seconds,

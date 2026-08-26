@@ -27,8 +27,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import kotlin.math.PI
-import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.style.StyleState
+import org.maplibre.compose.map.MapState
 import org.maplibre.spatialk.geojson.Position
 
 /**
@@ -43,11 +42,8 @@ import org.maplibre.spatialk.geojson.Position
 @LayoutScopeMarker
 @Stable
 public interface MapOverlayScope {
-  /** The camera state of the map that this overlay belongs to. */
-  public val cameraState: CameraState
-
-  /** The style state of the map that this overlay belongs to. */
-  public val styleState: StyleState
+  /** The state of the map that this overlay belongs to. */
+  public val state: MapState
 
   /**
    * The obstructed region of the map, as passed to
@@ -144,26 +140,22 @@ public class MapOverlay(
      */
     public val Default: MapOverlay = MapOverlay {
       DisappearingScaleBar(
-        metersPerDp = cameraState.viewport?.metersPerDpAtTarget ?: 0.0,
-        zoom = cameraState.position.zoom,
+        metersPerDp = state.viewport?.metersPerDpAtTarget ?: 0.0,
+        zoom = state.camera.zoom,
         modifier = Modifier.align(Alignment.TopStart),
       )
 
-      DisappearingCompassButton(
-        cameraState = cameraState,
-        modifier = Modifier.align(Alignment.TopEnd),
-      )
+      DisappearingCompassButton(state = state, modifier = Modifier.align(Alignment.TopEnd))
 
       // Read before entering the Row, whose scope shadows this one.
-      val camera = cameraState
-      val style = styleState
+      val map = state
       Row(
         Modifier.align(Alignment.BottomStart).fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
       ) {
         MaplibreLogo()
-        ExpandingAttributionButton(cameraState = camera, styleState = style)
+        ExpandingAttributionButton(state = map)
       }
     }
 
@@ -175,15 +167,12 @@ public class MapOverlay(
 @Composable
 internal fun MapOverlayHost(
   overlay: MapOverlay,
-  cameraState: CameraState,
-  styleState: StyleState,
+  state: MapState,
   contentWindowInsets: WindowInsets,
   modifier: Modifier = Modifier,
 ) {
   val scope =
-    remember(cameraState, styleState, contentWindowInsets) {
-      MapOverlayScopeImpl(cameraState, styleState, contentWindowInsets)
-    }
+    remember(state, contentWindowInsets) { MapOverlayScopeImpl(state, contentWindowInsets) }
   Layout(modifier = modifier, content = { overlay.content(scope) }) { measurables, constraints ->
     val width = if (constraints.hasBoundedWidth) constraints.maxWidth else 0
     val height = if (constraints.hasBoundedHeight) constraints.maxHeight else 0
@@ -213,14 +202,13 @@ internal fun MapOverlayHost(
       // Aligned children stay put when the camera moves. Reading the viewport here would
       // invalidate this layout on every frame of a camera ease, so it is read only when a child
       // needs placing; the read is also what re-runs this layout when the transform changes.
-      val viewport = if (hasPlacedAt) cameraState.viewport else null
+      val viewport = if (hasPlacedAt) state.viewport else null
       measurables.forEachIndexed { index, measurable ->
         val placeable = placeables[index]
         when (val child = measurable.parentData as? OverlayChildData) {
           is OverlayChildData.PlacedAt -> {
             if (viewport == null || width == 0 || height == 0) return@forEachIndexed
-            val screen =
-              cameraState.screenLocationFromPosition(child.position) ?: return@forEachIndexed
+            val screen = state.screenLocationFromPosition(child.position) ?: return@forEachIndexed
             val aligned =
               child.alignment.align(
                 size = IntSize(placeable.width, placeable.height),
@@ -240,7 +228,7 @@ internal fun MapOverlayHost(
             val intersection =
               if (viewport == null || innerWidth == 0 || innerHeight == 0) null
               else {
-                cameraState.screenLocationFromPosition(child.position)?.let { screen ->
+                state.screenLocationFromPosition(child.position)?.let { screen ->
                   findEllipseIntersection(
                     area =
                       Rect(
@@ -283,8 +271,7 @@ internal fun MapOverlayHost(
 
 @Stable
 internal class MapOverlayScopeImpl(
-  override val cameraState: CameraState,
-  override val styleState: StyleState,
+  override val state: MapState,
   override val contentWindowInsets: WindowInsets,
 ) : MapOverlayScope {
   override fun Modifier.align(alignment: Alignment): Modifier = this.then(AlignElement(alignment))

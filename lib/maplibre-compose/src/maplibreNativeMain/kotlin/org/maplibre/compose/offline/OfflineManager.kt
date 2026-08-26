@@ -21,11 +21,15 @@ public interface OfflineManager {
    * Creates and registers an offline pack that downloads the resources needed to use the given
    * region offline. The pack starts paused; to actually start the download, call [resume].
    *
+   * @param pixelRatio The pixel ratio that raster tiles download at. A downloaded raster tile
+   *   cannot be rescaled, so pass the density of the window that shows the map, such as
+   *   `LocalDensity.current.density`.
    * @throws [OfflineManagerException] if the operation failed.
    */
   public suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray = ByteArray(0),
+    pixelRatio: Float = 1f,
   ): OfflinePack
 
   /**
