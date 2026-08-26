@@ -3,7 +3,7 @@ title: Getting started
 description: Add MapLibre Compose to a Compose Multiplatform project and display your first map.
 ---
 
-import { Code, TabItem, Tabs } from "@astrojs/starlight/components";
+import { Aside, Code, TabItem, Tabs } from "@astrojs/starlight/components";
 import Api from "../../components/Api.astro";
 import { region } from "../../snippets";
 import versions from "../../generated/versions.json";
@@ -165,19 +165,10 @@ Alongside the library, add a runtime for your platform and one render backend.
   </TabItem>
 
   <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
-    ```yaml title="jvm-app/module.yaml"
-    dependencies:
-      - //shared
-      - $compose.desktop.currentOs
-      - $libs.maplibre.compose
-      - org.maplibre.compose:maplibre-compose-runtime-vulkan-linux-x64:{{release}}:
-          scope: runtime-only
-
-    settings:
-      jvm:
-        jdk:
-          version: 25
-    ```
+    <Aside type="caution">
+      Use Gradle for the desktop target. Kotlin Toolchain 0.12.0 cannot fetch the
+      native runtime.
+    </Aside>
   </TabItem>
 </Tabs>
 
@@ -224,9 +215,10 @@ app:
   </TabItem>
 
   <TabItem label="Kotlin Toolchain" icon="seti:kotlin">
-    ```text
-    kotlin run --jvm-args="--enable-native-access=ALL-UNNAMED"
-    ```
+    <Aside type="caution">
+      Use Gradle for the desktop target. Kotlin Toolchain 0.12.0 cannot fetch the
+      native runtime.
+    </Aside>
   </TabItem>
 </Tabs>
 
