@@ -1,5 +1,6 @@
 package org.maplibre.compose.offline
 
+import co.touchlab.kermit.Logger
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -17,6 +18,7 @@ import kotlinx.io.files.Path
 import kotlinx.io.files.SystemFileSystem
 import kotlinx.io.writeString
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.fileUrlOf
 import org.maplibre.compose.mlnffi.unusedLoopbackPort
@@ -292,8 +294,10 @@ class MlnFfiOfflinePackTest {
 
   // region fixtures
 
-  private fun manager(): MlnFfiOfflineManager =
-    MlnFfiOfflineManager(options).also { managers += it }
+  private fun manager(): MlnFfiOfflineManager {
+    val runtime = MlnFfiRuntime(options, Logger.withTag("offline-pack-test")).also { it.start() }
+    return MlnFfiOfflineManager(options, runtime).also { managers += it }
+  }
 
   /** Creates a pack over a local style and starts it; the caller waits for the part it needs. */
   private suspend fun downloadedPack(

@@ -1,5 +1,6 @@
 package org.maplibre.compose.offline
 
+import co.touchlab.kermit.Logger
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
@@ -9,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.io.files.Path
 import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 
 /** Exercises the application cache's offline manager without a UI. */
@@ -59,11 +61,16 @@ class MlnFfiOfflineManagerTest {
 
   @Test
   fun an_initial_cache_budget_failure_fails_manager_construction() {
+    val badOptions = options.copy(maximumCacheSizeBytes = -1)
+    // The failed construction stops the runtime it was given, so nothing here needs cleanup.
     assertFailsWith<IllegalStateException> {
-      MlnFfiOfflineManager(options.copy(maximumCacheSizeBytes = -1))
+      MlnFfiOfflineManager(badOptions, startRuntime(badOptions))
     }
   }
 
+  private fun startRuntime(options: MlnFfiRuntimeOptions): MlnFfiRuntime =
+    MlnFfiRuntime(options, Logger.withTag("offline-manager-test")).also { it.start() }
+
   private fun manager(options: MlnFfiRuntimeOptions = this.options): MlnFfiOfflineManager =
-    MlnFfiOfflineManager(options).also { managers += it }
+    MlnFfiOfflineManager(options, startRuntime(options)).also { managers += it }
 }

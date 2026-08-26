@@ -15,6 +15,7 @@ import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiGate
+import org.maplibre.compose.mlnffi.MlnFfiRuntime
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.MaplibreStatus
@@ -47,12 +48,15 @@ private class DensityScopedOfflineManager(
 }
 
 /**
- * The MapLibre Native FFI [OfflineManager], backed by a MapLibre runtime of its own.
+ * The MapLibre Native FFI [OfflineManager], backed by the application-scoped [MlnFfiRuntime].
  *
  * The process-wide application instance is never disposed: mbgl holds download state in memory
  * only, so closing the runtime silently destroys in-flight downloads.
  */
-internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) : OfflineManager {
+internal class MlnFfiOfflineManager(
+  private val options: MlnFfiRuntimeOptions,
+  private val runtime: MlnFfiRuntime,
+) : OfflineManager {
 
   private val logger = Logger.withTag("maplibre-compose")
 
@@ -65,8 +69,6 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   /** Owner-thread state: the packs this manager has seen, keyed by native region id. */
   private val packsById = mutableMapOf<Long, OfflinePack>()
 
-  private val runtime = MlnFfiOfflineRuntime(options.cacheFile, logger, ::handleEvent)
-
   /** The application has one writer; this prevents concurrent suspending calls from overlapping. */
   private val cacheBudgetMutex = Mutex()
 
@@ -74,7 +76,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     get() = packsState.value
 
   init {
-    runtime.start()
+    runtime.addEventListener(::handleEvent)
     awaitConfiguredRuntime()
     submit(
       description = "list the offline packs",
@@ -136,6 +138,8 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
   }
 
   private fun failStartup(message: String, cause: Throwable): Nothing {
+    // A runtime whose budget failed must not be published, so it is stopped even though the
+    // application owns it.
     runtime.shutdown()
     runCatching { runtime.awaitStopped(30_000) }
     throw IllegalStateException(message, cause)
@@ -211,7 +215,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
     }
   }
 
-  /** Stops this otherwise process-lifetime owner. Tests only. */
+  /** Stops the otherwise process-lifetime application runtime. Tests only. */
   internal fun closeForTest(timeoutMillis: Long = 30_000): Boolean {
     runtime.shutdown()
     return runtime.awaitStopped(timeoutMillis)
@@ -336,7 +340,7 @@ internal class MlnFfiOfflineManager(private val options: MlnFfiRuntimeOptions) :
       else ->
         // Event types are value classes over Int, so an FFI upgrade can deliver a type this build
         // has never seen.
-        logger.v { "Ignoring MapLibre event ${event.type} on the offline runtime" }
+        logger.v { "Ignoring MapLibre event ${event.type} on the application runtime" }
     }
   }
 

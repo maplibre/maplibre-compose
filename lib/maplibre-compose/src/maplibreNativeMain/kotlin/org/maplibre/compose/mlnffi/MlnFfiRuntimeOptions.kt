@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.runtime.Immutable
+import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlinx.io.files.Path
 import org.maplibre.compose.offline.MlnFfiOfflineManager
@@ -23,7 +24,11 @@ internal fun MlnFfiRuntimeOptions.normalized(): MlnFfiRuntimeOptions {
 
 /** The one process-wide MapLibre Native configuration and the runtime that owns its cache. */
 internal object MlnFfiApplication {
-  private class State(val options: MlnFfiRuntimeOptions, val offlineManager: MlnFfiOfflineManager)
+  private class State(
+    val options: MlnFfiRuntimeOptions,
+    val runtime: MlnFfiRuntime,
+    val offlineManager: MlnFfiOfflineManager,
+  )
 
   private val lock = MlnFfiLock()
 
@@ -40,7 +45,7 @@ internal object MlnFfiApplication {
         return
       }
 
-      state = State(options, MlnFfiOfflineManager(options))
+      state = createState(options)
     }
   }
 
@@ -52,13 +57,22 @@ internal object MlnFfiApplication {
     if (isConfigured) return
     lock.withLock {
       if (state != null) return
-      val options = defaultOptions().normalized()
-      state = State(options, MlnFfiOfflineManager(options))
+      state = createState(defaultOptions().normalized())
     }
+  }
+
+  /** Starts the shared runtime; the offline manager's construction gates on its configuration. */
+  private fun createState(options: MlnFfiRuntimeOptions): State {
+    val runtime = MlnFfiRuntime(options, Logger.withTag("maplibre-compose"))
+    runtime.start()
+    return State(options, runtime, MlnFfiOfflineManager(options, runtime))
   }
 
   val options: MlnFfiRuntimeOptions
     get() = requireState().options
+
+  val runtime: MlnFfiRuntime
+    get() = requireState().runtime
 
   val offlineManager: MlnFfiOfflineManager
     get() = requireState().offlineManager
@@ -74,7 +88,8 @@ internal object MlnFfiApplication {
    */
   internal fun resetForTest(): Boolean {
     val previous = lock.withLock { state.also { state = null } } ?: return true
-    return previous.offlineManager.closeForTest()
+    previous.runtime.shutdown()
+    return previous.runtime.awaitStopped(30_000)
   }
 }
 

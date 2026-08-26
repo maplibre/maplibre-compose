@@ -1,13 +1,8 @@
-package org.maplibre.compose.offline
+package org.maplibre.compose.mlnffi
 
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.io.files.Path
-import org.maplibre.compose.mlnffi.MlnFfiOwnerLock
-import org.maplibre.compose.mlnffi.MlnFfiOwnerThread
-import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
-import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
 import org.maplibre.nativeffi.runtime.RuntimeEvent
@@ -22,23 +17,22 @@ import org.maplibre.nativeffi.runtime.WakeSource
 private const val PUMP_PARK_MILLIS = -1L
 
 /** Names the owner thread, and names it again in the message a wrong-thread call fails with. */
-private const val OWNER_THREAD_NAME = "maplibre-compose-offline"
+private const val OWNER_THREAD_NAME = "maplibre-compose-runtime"
 
 /**
- * The thread that owns the offline manager's MapLibre runtime, and the only place native offline
- * calls happen.
+ * The application-scoped MapLibre runtime: one owner thread, one [RuntimeHandle] with its resource
+ * provider, and the only place native calls on either happen.
  *
  * A runtime belongs to the thread that created it, there may be only one per thread, and that
  * thread may not be the AWT event thread or any other pooled thread that something else might also
- * put a runtime on. Hence a dedicated thread rather than a borrowed one: offline management
- * outlives any particular map, so a map's renderer thread will not do. Two runtimes sharing one
- * cache database is safe, measured by `SharedCacheDatabaseTest`, so this costs a thread and not
- * correctness.
+ * put a runtime on. Hence a dedicated thread rather than a borrowed one: this runtime outlives any
+ * particular map, so a map's owner thread will not do. Each map still runs its own runtime on its
+ * own thread; two runtimes sharing one cache database is safe, measured by
+ * `MlnFfiSharedCacheDatabaseTest`.
  */
-internal class MlnFfiOfflineRuntime(
-  private val cacheFile: Path,
+internal class MlnFfiRuntime(
+  private val options: MlnFfiRuntimeOptions,
   private val logger: Logger,
-  private val onEvent: (RuntimeEvent) -> Unit,
 ) {
 
   /** Work for the owner thread, with the failure path it must take if it never gets to run. */
@@ -62,12 +56,15 @@ internal class MlnFfiOfflineRuntime(
   private val thread = MlnFfiOwnerThread(OWNER_THREAD_NAME, ::runLoop)
 
   /**
-   * Guards [tasks], [accepting], and [wake] together: no task may be queued after the final drain,
-   * and no signal may race the wake source's close.
+   * Guards [tasks], [accepting], [listeners], and [wake] together: no task may be queued after the
+   * final drain, and no signal may race the wake source's close.
    */
   private val acceptLock = MlnFfiOwnerLock(thread)
   private val tasks = ArrayDeque<OwnerTask>()
   private var accepting = true
+
+  /** Consumers of every runtime event that is not an operation completion. */
+  private val listeners = mutableListOf<(RuntimeEvent) -> Unit>()
 
   /**
    * Releases the owner thread from a parked pump. Acquired on that thread; signalled from any, but
@@ -85,6 +82,11 @@ internal class MlnFfiOfflineRuntime(
 
   fun start() {
     thread.start()
+  }
+
+  /** Subscribes [listener] to every event this runtime raises, on the owner thread. */
+  fun addEventListener(listener: (RuntimeEvent) -> Unit) {
+    acceptLock.withLock { listeners.add(listener) }
   }
 
   /** Waits for the owner thread to finish, reporting whether it did. For tests and diagnostics. */
@@ -142,28 +144,33 @@ internal class MlnFfiOfflineRuntime(
       post(
         task = {
           val operation = pending.remove(handle.id) ?: return@post
-          closeQuietly(operation.handle, "a cancelled offline operation")
-          operation.discard(CancellationException("The offline operation was cancelled"))
+          closeQuietly(operation.handle, "a cancelled runtime operation")
+          operation.discard(CancellationException("The runtime operation was cancelled"))
         },
         // Teardown already closed every outstanding handle.
         reject = {},
       )
     if (!posted) {
-      logger.v { "Offline operation ${handle.id} was cancelled after its runtime closed" }
+      logger.v { "Runtime operation ${handle.id} was cancelled after its runtime closed" }
     }
   }
 
   private fun runLoop() {
     val runtime =
       try {
-        MlnFfiRuntimeOwner.open(cacheFile, { logger }, "MapLibre offline runtime")
+        MlnFfiRuntimeOwner.open(
+            options.cacheFile,
+            { logger },
+            "MapLibre application runtime",
+            options.resourceProviderFactory,
+          )
           .also { runtimeOwner = it }
           .runtime
       } catch (error: Throwable) {
-        logger.e(error) { "Could not create the MapLibre runtime for offline management" }
+        logger.e(error) { "Could not create the MapLibre application runtime" }
         rejectQueuedTasks(
-          OfflineManagerException(
-            "The MapLibre offline runtime could not be created: " +
+          IllegalStateException(
+            "The MapLibre application runtime could not be created: " +
               (error.message ?: error::class.simpleName)
           )
         )
@@ -175,7 +182,7 @@ internal class MlnFfiOfflineRuntime(
         // Owner-thread affine (validated natively), so this cannot be hoisted into start().
         runtime.acquireWakeSource()
       } catch (error: Throwable) {
-        logger.e(error) { "Could not acquire a wake source for the MapLibre offline runtime" }
+        logger.e(error) { "Could not acquire a wake source for the MapLibre application runtime" }
         teardown(runtime)
         return
       }
@@ -194,7 +201,7 @@ internal class MlnFfiOfflineRuntime(
         drainEvents(runtime)
       }
     } catch (error: Throwable) {
-      logger.e(error) { "The MapLibre offline runtime loop failed" }
+      logger.e(error) { "The MapLibre application runtime loop failed" }
     } finally {
       teardown(runtime)
     }
@@ -206,15 +213,19 @@ internal class MlnFfiOfflineRuntime(
       try {
         runtime.drainEvents().events
       } catch (error: Throwable) {
-        logger.e(error) { "Failed to drain MapLibre offline runtime events" }
+        logger.e(error) { "Failed to drain MapLibre application runtime events" }
         return
       }
+    if (events.isEmpty()) return
+    val handlers = acceptLock.withLock { listeners.toList() }
     for (event in events) {
       if (event.type == RuntimeEventType.OFFLINE_OPERATION_COMPLETED) {
         completeOperation(runtime, event)
       } else {
-        runCatching { onEvent(event) }
-          .onFailure { logger.e(it) { "Failed to handle offline event ${event.type}" } }
+        handlers.forEach { handler ->
+          runCatching { handler(event) }
+            .onFailure { logger.e(it) { "Failed to handle runtime event ${event.type}" } }
+        }
       }
     }
   }
@@ -222,21 +233,21 @@ internal class MlnFfiOfflineRuntime(
   private fun completeOperation(runtime: RuntimeHandle, event: RuntimeEvent) {
     val payload = event.payload as? RuntimeEventPayload.OfflineOperationCompleted
     if (payload == null) {
-      logger.w { "An offline operation completed without a payload naming it" }
+      logger.w { "A runtime operation completed without a payload naming it" }
       return
     }
 
     val operation = pending.remove(payload.operationId)
     if (operation == null) {
       // Expected after a cancellation: the caller discarded the operation before native finished.
-      logger.v { "Ignoring the completion of unknown offline operation ${payload.operationId}" }
+      logger.v { "Ignoring the completion of unknown runtime operation ${payload.operationId}" }
       return
     }
 
     try {
       operation.complete(runtime, event)
     } catch (error: Throwable) {
-      logger.e(error) { "Failed to complete the offline operation to ${operation.description}" }
+      logger.e(error) { "Failed to complete the operation to ${operation.description}" }
     } finally {
       closeQuietly(operation.handle, "the operation to ${operation.description}")
     }
@@ -254,12 +265,12 @@ internal class MlnFfiOfflineRuntime(
       // Check at the execution boundary so a queued cancellation cannot start a destructive native
       // operation whose result nobody is waiting for.
       if (task.isCancelled()) {
-        task.reject(CancellationException("The offline operation was cancelled before it started"))
+        task.reject(CancellationException("The runtime operation was cancelled before it started"))
         return
       }
       task.run(runtime)
     } catch (error: Throwable) {
-      logger.e(error) { "An offline runtime task failed" }
+      logger.e(error) { "A runtime task failed" }
       // The task may have failed before reporting anything; a caller that already heard ignores
       // this.
       runCatching { task.reject(error) }
@@ -269,7 +280,7 @@ internal class MlnFfiOfflineRuntime(
   private fun teardown(runtime: RuntimeHandle) {
     assertOwnerThread("teardown")
     val disposed =
-      OfflineManagerException("The offline manager was disposed before the operation finished")
+      IllegalStateException("The MapLibre runtime was shut down before the operation finished")
 
     rejectQueuedTasks(disposed)
 
@@ -303,7 +314,7 @@ internal class MlnFfiOfflineRuntime(
     // A wake source is its own native handle: closing the runtime does not release it.
     source?.let { closing ->
       runCatching { closing.close() }
-        .onFailure { logger.w(it) { "Failed to close the offline runtime's wake source" } }
+        .onFailure { logger.w(it) { "Failed to close the application runtime's wake source" } }
     }
   }
 
@@ -313,8 +324,8 @@ internal class MlnFfiOfflineRuntime(
 
   private fun assertOwnerThread(operation: String) {
     check(thread.isCurrent()) {
-      "$operation must run on the offline runtime's own thread ($OWNER_THREAD_NAME), but ran on " +
-        "${currentMlnFfiThreadName()}. MapLibre enforces this natively, so the failure would " +
+      "$operation must run on the application runtime's own thread ($OWNER_THREAD_NAME), but ran " +
+        "on ${currentMlnFfiThreadName()}. MapLibre enforces this natively, so the failure would " +
         "otherwise surface as a WrongThreadException at the FFI boundary."
     }
   }

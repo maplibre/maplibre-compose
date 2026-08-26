@@ -1,6 +1,6 @@
 @file:OptIn(ExperimentalAtomicApi::class)
 
-package org.maplibre.compose.offline
+package org.maplibre.compose.mlnffi
 
 import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicBoolean
@@ -9,21 +9,18 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
-import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.TestLatch
-import org.maplibre.compose.mlnffi.parkForTest
 
 /**
- * The offline runtime's owner thread parks in MapLibre's pump and is released by a wake.
+ * The application runtime's owner thread parks in MapLibre's pump and is released by a wake.
  *
  * Every test here uses a one-minute park, so a wake that is missing or signalled somewhere it
  * cannot be seen fails the test rather than passing late.
  */
-class MlnFfiOfflineRuntimeTest {
+class MlnFfiRuntimeTest {
 
   private val cacheFile = FfiTestPlatform.createCacheFile()
 
-  private val runtimes = mutableListOf<MlnFfiOfflineRuntime>()
+  private val runtimes = mutableListOf<MlnFfiRuntime>()
 
   @AfterTest
   fun cleanUp() {
@@ -31,11 +28,10 @@ class MlnFfiOfflineRuntimeTest {
     FfiTestPlatform.deleteCacheFile(cacheFile)
   }
 
-  private fun startRuntime(): MlnFfiOfflineRuntime =
-    MlnFfiOfflineRuntime(
-        cacheFile = cacheFile,
-        logger = Logger.withTag("offline-runtime-test"),
-        onEvent = {},
+  private fun startRuntime(): MlnFfiRuntime =
+    MlnFfiRuntime(
+        options = MlnFfiRuntimeOptions(cacheFile = cacheFile),
+        logger = Logger.withTag("runtime-test"),
       )
       .also {
         runtimes += it
@@ -124,7 +120,7 @@ class MlnFfiOfflineRuntimeTest {
    * Runs one task and then waits for the loop to be inside its park. Without this the loop drains
    * the queue on its way to the first park and the wake is never exercised.
    */
-  private fun MlnFfiOfflineRuntime.parkAfterWarmup() {
+  private fun MlnFfiRuntime.parkAfterWarmup() {
     val warmedUp = TestLatch(1)
     post(task = { warmedUp.countDown() }, reject = {})
     assertTrue(
