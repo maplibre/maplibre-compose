@@ -44,6 +44,7 @@ import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
 import org.maplibre.compose.gljs.isCameraEasing
 import org.maplibre.compose.gljs.queryBox
+import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
 import org.maplibre.compose.gljs.styleUrl
 import org.maplibre.compose.gljs.subscribe
@@ -672,7 +673,8 @@ internal class GlJsMapSession(
     offset: DpOffset,
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> = query(offset.toPoint(), layerIds, predicate)
+  ): List<Feature<Geometry, JsonObject?>> =
+    query(queryPoint(offset.x.value.toDouble(), offset.y.value.toDouble()), layerIds, predicate)
 
   override suspend fun queryRenderedFeatures(
     rect: DpRect,
