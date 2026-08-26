@@ -16,9 +16,7 @@ import org.maplibre.compose.style.StyleMutationException
  * One instance may belong to only one loaded map style at a time. Create or remember a separate
  * source inside each [MaplibreMap][org.maplibre.compose.map.MaplibreMap] that uses it.
  */
-// Not sealed yet: the platform subclasses are gone, but resealing is its own change. The internal
-// constructor closes the hierarchy to callers all the same.
-public abstract class Source internal constructor(internal val id: String) {
+public sealed class Source(internal val id: String) {
 
   /**
    * This source's definition as style JSON, used to add it and to answer reads before attachment.
