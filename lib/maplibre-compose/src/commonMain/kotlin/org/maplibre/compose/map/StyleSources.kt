@@ -8,8 +8,7 @@ import org.maplibre.compose.sources.Source
  *
  * The collection reads a snapshot of the live style, refreshed on style load, on a
  * [MapState.baseStyle] change, when a source is added to or removed from the live style, and when a
- * source's TileJSON metadata arrives. While no style is loaded, [ids] is empty and [get] returns
- * null for every id.
+ * source's TileJSON metadata arrives. While no style is loaded, [ids] is empty.
  *
  * For a source that the style content composed, [get] returns the live [Source] instance the
  * content owns, so data updates such as
@@ -35,13 +34,20 @@ public class StyleSources internal constructor(private val state: MapState) {
   }
 
   /**
-   * The live source ids, in the order that the style declares them. A composition that reads this
-   * property recomposes when the snapshot refreshes.
+   * The live source ids, in the order that the style declares them. The list describes the loaded
+   * style only, so it is empty while no style is loaded even when [get] can resolve a
+   * composition-owned source. A composition that reads this property recomposes when the snapshot
+   * refreshes.
    */
   public val ids: List<String>
     get() = snapshotState.value.keys.toList()
 
-  /** Returns the source with [id], or null when the style has no such source. */
+  /**
+   * Returns the source with [id], or null when the style has no such source. A source that the
+   * style content owns resolves regardless of load state — before its id appears in [ids] — so a
+   * data update such as [GeoJsonSource.setData][org.maplibre.compose.sources.GeoJsonSource.setData]
+   * is legal on a detached state and applies when a style loads.
+   */
   public operator fun get(id: String): Source? =
     state.styleNode.compositionSources[id] ?: snapshotState.value[id]
 

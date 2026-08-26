@@ -205,10 +205,11 @@ runtime thread in native, so the handle is not confined to a hop this library
 owns.
 
 Camera lives on `MapState`. `rememberMapState` takes a first position and saves
-it across recreation. `CameraState` survived internally as the saveable that
-backs `rememberMapState` — the piecemeal-saveable escape clause above held.
-Overlay controls read `state.camera`. `CameraProjection` as a type that is null
-until attach went away: the state answers those queries as soon as a session has
+it across recreation. `CameraState` is gone entirely: the saveable rides
+`CameraPosition`, and a recreated composition constructs the state at the
+restored position — the piecemeal-saveable escape clause above held. Overlay
+controls read `state.camera`. `CameraProjection` as a type that is null until
+attach went away: the state answers those queries as soon as a session has
 rendered a viewport.
 
 `StyleState` went away. `MapState.sources` and `MapState.layers` are the
@@ -390,7 +391,7 @@ fun Screen() {
 
 ```kotlin
 class RouteViewModel : ViewModel() {
-  val mapState = runtime.createMapState().apply {
+  val mapState = MapState().apply {
     baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")
     layers["poi-label"]?.visible = false
     setStyleContent {
@@ -440,8 +441,10 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
 5. Publish `platform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
    at it.
-6. Let `setStyleContent` run on a map that has no session. Implement still
-   images ([#28](https://github.com/maplibre/maplibre-compose/issues/28)).
+6. Implement still images
+   ([#28](https://github.com/maplibre/maplibre-compose/issues/28)). The other
+   half of this step — `setStyleContent` on a map that has no session — shipped
+   in step 4 with tests.
 7. Fill the capabilities in [COMMON_API_GAPS.md](./COMMON_API_GAPS.md). Each is
    one implementation, or two if the browser stays on GL JS.
 

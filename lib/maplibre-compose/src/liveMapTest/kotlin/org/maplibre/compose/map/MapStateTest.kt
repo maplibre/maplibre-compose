@@ -1,146 +1,36 @@
 package org.maplibre.compose.map
 
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Recomposer
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.DpOffset
-import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlin.time.Duration
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.Viewport
-import org.maplibre.compose.expressions.ast.CompiledExpression
-import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
-import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.OpRecordingStyleBinding
 import org.maplibre.compose.style.StyleHostDispatcher
-import org.maplibre.compose.util.VisibleRegion
-import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Feature
-import org.maplibre.spatialk.geojson.Geometry
-import org.maplibre.spatialk.geojson.Position
 
 private fun testSource(id: String) =
   RasterSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())
-
-/** Records every adapter call by name, standing in for a render session. */
-private class FakeMapAdapter : MapAdapter {
-  val calls: MutableList<String> = mutableListOf()
-
-  override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
-    calls += "animateCameraPosition"
-  }
-
-  override suspend fun animateCameraPosition(
-    boundingBox: BoundingBox,
-    bearing: Double,
-    tilt: Double,
-    padding: PaddingValues,
-    duration: Duration,
-  ) {
-    calls += "animateCameraPosition"
-  }
-
-  override fun setBaseStyle(style: BaseStyle) {
-    calls += "setBaseStyle"
-  }
-
-  override fun getCameraPosition(): CameraPosition {
-    calls += "getCameraPosition"
-    return CameraPosition()
-  }
-
-  override fun setCameraPosition(cameraPosition: CameraPosition) {
-    calls += "setCameraPosition"
-  }
-
-  override fun setCameraPadding(padding: PaddingValues) {
-    calls += "setCameraPadding"
-  }
-
-  override fun setCameraPosition(
-    boundingBox: BoundingBox,
-    bearing: Double,
-    tilt: Double,
-    padding: PaddingValues,
-  ) {
-    calls += "setCameraPosition"
-  }
-
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
-    calls += "setCameraBoundingBox"
-  }
-
-  override fun setMaxZoom(maxZoom: Double) {
-    calls += "setMaxZoom"
-  }
-
-  override fun setMinZoom(minZoom: Double) {
-    calls += "setMinZoom"
-  }
-
-  override fun setMinPitch(minPitch: Double) {
-    calls += "setMinPitch"
-  }
-
-  override fun setMaxPitch(maxPitch: Double) {
-    calls += "setMaxPitch"
-  }
-
-  override fun getVisibleBoundingBox(): BoundingBox = error("unused in these tests")
-
-  override fun getVisibleRegion(): VisibleRegion = error("unused in these tests")
-
-  override fun getViewport(): Viewport? {
-    calls += "getViewport"
-    return null
-  }
-
-  override fun setRenderSettings(value: RenderOptions) {
-    calls += "setRenderSettings"
-  }
-
-  override fun setGestureSettings(value: GestureOptions) {
-    calls += "setGestureSettings"
-  }
-
-  override fun setTileLodSettings(value: TileLodOptions) {
-    calls += "setTileLodSettings"
-  }
-
-  override fun positionFromScreenLocation(offset: DpOffset): Position? = null
-
-  override fun screenLocationFromPosition(position: Position): DpOffset? = null
-
-  override suspend fun queryRenderedFeatures(
-    offset: DpOffset,
-    layerIds: Set<String>?,
-    predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> = emptyList()
-
-  override suspend fun queryRenderedFeatures(
-    rect: DpRect,
-    layerIds: Set<String>?,
-    predicate: CompiledExpression<BooleanValue>?,
-  ): List<Feature<Geometry, JsonObject?>> = emptyList()
-
-  override fun metersPerDpAtLatitude(latitude: Double): Double = 1.0
-}
 
 private class TestHostDispatcher(override val dispatcher: CoroutineDispatcher) :
   StyleHostDispatcher {
@@ -233,5 +123,108 @@ class MapStateTest {
 
     assertEquals(Recomposer.State.ShutDown, state.host.recomposer.currentState.value)
     assertTrue(hostDispatcher.closed)
+  }
+
+  @Test
+  fun a_closed_state_refuses_a_new_session_and_close_is_idempotent() = runTest {
+    val state = mapState()
+    state.close()
+    state.close()
+    testScheduler.advanceUntilIdle()
+
+    val error = assertFailsWith<IllegalStateException> { state.attachSession(FakeMapAdapter()) }
+    assertTrue(
+      "closed" in error.message.orEmpty(),
+      "the error names the closed-state contract: ${error.message}",
+    )
+  }
+
+  @Test
+  fun a_second_concurrent_session_attach_throws() = runTest {
+    val state = mapState()
+    val first = FakeMapAdapter()
+    state.attachSession(first)
+
+    val error = assertFailsWith<IllegalStateException> { state.attachSession(FakeMapAdapter()) }
+    assertTrue(
+      "one MapState shows one MaplibreMap" in error.message.orEmpty(),
+      "the error names the single-session contract: ${error.message}",
+    )
+
+    // The same session may re-attach, which the composable does when its options change.
+    state.attachSession(first)
+    assertSame(first, state.attachedAdapter)
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun a_pre_attach_camera_call_fails_on_close_instead_of_hanging() = runTest {
+    val state = mapState()
+    var failure: Throwable? = null
+    val waiter = launch {
+      try {
+        state.animateCamera(CameraPosition(zoom = 3.0))
+      } catch (error: IllegalStateException) {
+        failure = error
+      }
+    }
+    testScheduler.advanceUntilIdle()
+    assertFalse(waiter.isCompleted, "the call waits while the state is open")
+
+    state.close()
+    Snapshot.sendApplyNotifications()
+    testScheduler.advanceUntilIdle()
+
+    assertTrue(waiter.isCompleted, "the call fails promptly once the state closes")
+    assertIs<IllegalStateException>(failure)
+  }
+
+  @Test
+  fun composition_layer_changes_refresh_the_layer_ids() = runTest {
+    val state = mapState()
+    var show by mutableStateOf(true)
+    state.setStyleContent { if (show) BackgroundLayer(id = "bg-toggled") }
+
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, OpRecordingStyleBinding())
+    testScheduler.advanceUntilIdle()
+    assertTrue("bg-toggled" in state.layers.ids, "the composed layer reaches layers.ids")
+
+    show = false
+    Snapshot.sendApplyNotifications()
+    testScheduler.advanceUntilIdle()
+    assertFalse("bg-toggled" in state.layers.ids, "the removed layer leaves layers.ids")
+
+    show = true
+    Snapshot.sendApplyNotifications()
+    testScheduler.advanceUntilIdle()
+    assertTrue("bg-toggled" in state.layers.ids, "the re-added layer returns to layers.ids")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun clearing_the_style_content_removes_it_from_the_style() = runTest {
+    val state = mapState()
+    state.setStyleContent { BackgroundLayer(id = "bg-cleared") }
+
+    val adapter = FakeMapAdapter()
+    val binding = OpRecordingStyleBinding()
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, binding)
+    testScheduler.advanceUntilIdle()
+    assertTrue(binding.layerExists("bg-cleared"), "the content applies to the style")
+
+    state.clearStyleContent()
+    Snapshot.sendApplyNotifications()
+    testScheduler.advanceUntilIdle()
+    assertFalse(binding.layerExists("bg-cleared"), "clearing removes the content from the style")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
   }
 }

@@ -7,7 +7,6 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
@@ -96,12 +95,15 @@ internal fun MlnFfiMapView(
     remember(mapEngine, renderBackend, scaleFactor) {
       mapEngine.acquireCore(scaleFactor, layoutDirection, renderBackend)
     }
-  val session = remember(core, renderBackend) { MlnFfiMapSession(core, renderBackend) }
+  val session = remember(core, renderBackend) { mapEngine.createSession(core, renderBackend) }
 
   core.callbacks = callbacks
   core.logger = logger
   core.layoutDirection = layoutDirection
-  val currentOnReset = rememberUpdatedState(onReset)
+
+  // Captured at session creation: a later composition may pass another state's detach, and the
+  // dying session must detach the state that owns it.
+  val sessionOnReset = remember(session) { onReset }
 
   LaunchedEffect(session, options, update) {
     // Attach deferred state before native events can report the map's default state to Compose.
@@ -112,7 +114,8 @@ internal fun MlnFfiMapView(
   DisposableEffect(session) {
     onDispose {
       session.close()
-      currentOnReset.value()
+      mapEngine.releaseSession(session)
+      sessionOnReset()
     }
   }
 

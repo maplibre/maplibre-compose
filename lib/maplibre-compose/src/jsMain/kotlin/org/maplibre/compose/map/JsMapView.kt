@@ -6,7 +6,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
@@ -28,22 +27,29 @@ internal actual fun ComposableMapView(
   val layoutDirection = LocalLayoutDirection.current
   val scaleFactor = density.density.toDouble()
 
+  // Keyed on the engine so swapping the composable's state tears the session down with its map.
+  val mapEngine = engine as GlJsMapEngine
   val session =
-    remember(scaleFactor) {
+    remember(mapEngine, scaleFactor) {
       GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
+        .also { mapEngine.session = it }
     }
 
   session.callbacks = callbacks
   session.logger = logger
   session.layoutDirection = layoutDirection
-  val currentOnReset = rememberUpdatedState(onReset)
+
+  // Captured at session creation: a later composition may pass another state's detach, and the
+  // dying session must detach the state that owns it.
+  val sessionOnReset = remember(session) { onReset }
 
   LaunchedEffect(session, options, update) { update(session) }
 
   DisposableEffect(session) {
     onDispose {
       session.close()
-      currentOnReset.value()
+      if (mapEngine.session === session) mapEngine.session = null
+      sessionOnReset()
     }
   }
 

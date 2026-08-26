@@ -49,6 +49,13 @@ private val benchLog = Logger.withTag(BenchmarkReport.LogPrefix)
  */
 @Composable
 internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
+  // A benchmark wants a cold load, so each scenario gets a fresh map state and a real load event.
+  key(state.selectedScenario.id) { BenchmarkScenarioMap(state, viewportInsets) }
+}
+
+/** One scenario's map; the key above recreates everything here when the scenario changes. */
+@Composable
+private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scenario = state.selectedScenario
   val density = LocalDensity.current
   val prefetcher = rememberTilePrefetcher()
@@ -57,9 +64,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
   val sessionHolder = remember { mutableStateOf<BenchmarkSession?>(null) }
   val mapState =
     rememberMapState(cameraPosition = scenario.camera, baseStyle = scenario.style.base) {
-      sessionHolder.value?.let { session ->
-        key(state.selectedScenario.id) { state.selectedScenario.MapContent(session) }
-      }
+      sessionHolder.value?.let { session -> scenario.MapContent(session) }
     }
   val session =
     remember(mapState, prefetcher, density) {
@@ -71,20 +76,15 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
       )
     }
   sessionHolder.value = session
-  val mapLoaded = remember(scenario.id) { CompletableDeferred<Unit>() }
+  val mapLoaded = remember { CompletableDeferred<Unit>() }
   val styleUrl = (scenario.style.base as BaseStyle.Uri).uri
-  LaunchedEffect(scenario.id) {
-    state.benchmark.abandonRun()
-    mapState.setCamera(scenario.camera)
-    session.geoJson = null
-    session.pin = null
-    session.pointerPx = null
-  }
+  // The state, session, and camera start fresh per scenario; only a leftover run token remains.
+  LaunchedEffect(Unit) { state.benchmark.abandonRun() }
 
   LaunchedEffect(state.benchmark.runId) {
     if (state.benchmark.runId == 0) return@LaunchedEffect
     val ui = state.benchmark
-    val running = state.selectedScenario
+    val running = scenario
     ui.running = true
     session.geoJson = null
     session.pin = null
@@ -190,25 +190,23 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
         drawTrail(session)
       }
   ) {
-    key(scenario.id) {
-      MaplibreMap(
-        state = mapState,
-        cameraPadding = viewportInsets.asPaddingValues(),
-        options =
-          MapOptions(
-            renderOptions = RenderOptions.Standard,
-            gestureOptions =
-              if (scenario.usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled,
-          ),
-        onFrame = { fps -> session.frames.recordMapFps(fps) },
-        onMapLoadFinished = { mapLoaded.complete(Unit) },
-        onMapLoadFailed = { reason ->
-          mapLoaded.completeExceptionally(IllegalStateException(reason ?: "Map failed to load"))
-        },
-        contentWindowInsets = viewportInsets.asWindowInsets(),
-        overlay = {},
-      )
-    }
+    MaplibreMap(
+      state = mapState,
+      cameraPadding = viewportInsets.asPaddingValues(),
+      options =
+        MapOptions(
+          renderOptions = RenderOptions.Standard,
+          gestureOptions =
+            if (scenario.usesGestures) GestureOptions.Standard else GestureOptions.AllDisabled,
+        ),
+      onFrame = { fps -> session.frames.recordMapFps(fps) },
+      onMapLoadFinished = { mapLoaded.complete(Unit) },
+      onMapLoadFailed = { reason ->
+        mapLoaded.completeExceptionally(IllegalStateException(reason ?: "Map failed to load"))
+      },
+      contentWindowInsets = viewportInsets.asWindowInsets(),
+      overlay = {},
+    )
 
     Box(Modifier.fillMaxSize().padding(viewportInsets.asPaddingValues())) {
       Column(

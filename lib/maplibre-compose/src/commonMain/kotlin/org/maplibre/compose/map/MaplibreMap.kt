@@ -44,8 +44,9 @@ import org.maplibre.spatialk.geojson.BoundingBox
  *   of this one.
  * @param baseStyle The URI or JSON of the map style to use. Assigned to [MapState.baseStyle] on
  *   every recomposition. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
- * @param styleContent The sources and layers composed over [baseStyle]; null sets no content.
- *   Inside the content, [LocalMapState] returns the returned state. See [MapState.setStyleContent].
+ * @param styleContent The sources and layers composed over [baseStyle]; null composes no content,
+ *   so a recomposition that passes null after content clears that content from the map. Inside the
+ *   content, [LocalMapState] returns the returned state. See [MapState.setStyleContent].
  */
 @Composable
 public fun rememberMapState(
@@ -84,7 +85,8 @@ public fun rememberMapState(
   // Deferred past this snapshot's apply: the host would otherwise read records it cannot yet see.
   LaunchedEffect(mapState) { mapState.startStyleComposition() }
 
-  styleContent?.let(mapState::updateStyleContent)
+  if (styleContent != null) mapState.updateStyleContent(styleContent)
+  else mapState.clearStyleContent()
 
   SideEffect { mapState.baseStyle = baseStyle }
 

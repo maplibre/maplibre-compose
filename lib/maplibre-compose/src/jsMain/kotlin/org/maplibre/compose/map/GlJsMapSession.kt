@@ -92,6 +92,10 @@ internal class GlJsMapSession(
   private var surface: GlJsSurfaceSession? = null
   private var closed = false
 
+  /** True after [close]; the engine and tests read it to observe a state-driven teardown. */
+  internal val isClosed: Boolean
+    get() = closed
+
   private class PendingMapAction(
     val run: (MaplibreMap) -> Unit,
     val abandon: () -> Unit,

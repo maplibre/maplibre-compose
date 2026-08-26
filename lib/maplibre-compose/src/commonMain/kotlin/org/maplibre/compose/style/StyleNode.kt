@@ -34,6 +34,9 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   /** Set by the host; asks it to run a sync when desired state changes outside a frame. */
   internal var requestSync: () -> Unit = {}
 
+  /** Set by the state; called after each sync so its layer-id snapshot follows the composition. */
+  internal var onLayersSynced: () -> Unit = {}
+
   /** The binding the applied snapshot below belongs to; a mismatch with [binding] resets it. */
   private var syncedBinding: StyleBinding? = null
 
@@ -104,6 +107,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     publishCompositionOwnership()
     if (!binding.isLoaded) {
       publishClickRoutes()
+      onLayersSynced()
       return
     }
 
@@ -117,6 +121,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     desiredByAnchor.forEach { (anchor, group) -> syncAnchorGroup(anchor, group) }
 
     publishClickRoutes()
+    onLayersSynced()
   }
 
   /** Rebuilds the ownership snapshots from the desired state that this sync applies. */

@@ -100,6 +100,9 @@ internal constructor(
 
   // The camera records; the session callbacks below write them and the public members read them.
   internal val adapterState = mutableStateOf<MapAdapter?>(null)
+
+  // Snapshot-backed so a suspended awaitAdapter observes the close instead of hanging.
+  private val closedState = mutableStateOf(false)
   internal val viewportState = mutableStateOf<Viewport?>(null)
   internal val positionState = mutableStateOf(cameraPosition)
   internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
@@ -165,6 +168,8 @@ internal constructor(
 
   init {
     host.inheritedLocals = inheritedLocals
+    // The engine callbacks report only map-driven changes, so the sync reports composition ones.
+    styleNode.onLayersSynced = { layerIdsState.value = styleNode.binding.layerIds().orEmpty() }
   }
 
   private var contentStarted = false
@@ -191,8 +196,21 @@ internal constructor(
 
   /** Replaces the style content; the host recomposes because it reads this state. */
   internal fun updateStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
+    hasStyleContent = true
     // A write with no read, so a UI composition calling this never subscribes to the state.
     contentState.value = content
+  }
+
+  /** True after content was set, so clearing a state that never had content stays a no-op. */
+  private var hasStyleContent = false
+
+  /**
+   * Composes empty content in place of the previous content; untouched without previous content.
+   */
+  internal fun clearStyleContent() {
+    if (!hasStyleContent) return
+    hasStyleContent = false
+    contentState.value = {}
   }
 
   /**
@@ -306,7 +324,11 @@ internal constructor(
 
   /** Suspends until a session attaches, for the camera calls that need a live map. */
   private suspend fun awaitAdapter(): MapAdapter {
-    return snapshotFlow { attachedAdapter }.first { it != null }!!
+    val (adapter, closed) =
+      snapshotFlow { attachedAdapter to closedState.value }
+        .first { (adapter, closed) -> adapter != null || closed }
+    check(!closed) { "MapState is closed; no MaplibreMap can attach to run this camera call" }
+    return checkNotNull(adapter)
   }
 
   /**
@@ -448,7 +470,11 @@ internal constructor(
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
+    check(!closedState.value) { "MapState is closed; a closed state cannot show a map again" }
     val previous = adapterState.value
+    check(previous == null || previous === adapter) {
+      "MapState already has an attached MaplibreMap; one MapState shows one MaplibreMap at a time"
+    }
     adapterState.value = adapter
     selectedBaseStyle?.let(adapter::setBaseStyle)
     if (adapter !== previous) {
@@ -498,10 +524,15 @@ internal constructor(
   }
 
   /**
-   * Releases the map and the style composition. The owner that constructed the state calls this;
-   * [rememberMapState] closes the states it created when the composition leaves.
+   * Releases the map and the style composition, including a session that is still attached. The
+   * owner that constructed the state calls this; [rememberMapState] closes the states it created
+   * when the composition leaves. Closing is idempotent, and a closed state cannot show a map again:
+   * a later attach throws [IllegalStateException], and a camera call waiting for a session fails
+   * the same way instead of suspending forever.
    */
   override fun close() {
+    if (closedState.value) return
+    closedState.value = true
     detachSession()
     engine.close()
     host.close()

@@ -25,6 +25,23 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
   private var coreBackend: MapRenderBackend? = null
   private var closed = false
 
+  /** The live render session; the shared core makes the adapter-level attach guard blind here. */
+  private var activeSession: MlnFfiMapSession? = null
+
+  /** Creates the render session over [core], refusing a second session on the same live core. */
+  internal fun createSession(core: MlnFfiMapCore, backend: MapRenderBackend): MlnFfiMapSession {
+    val current = activeSession
+    check(current == null || current.core !== core) {
+      "MapState already has an attached MaplibreMap; one MapState shows one MaplibreMap at a time"
+    }
+    return MlnFfiMapSession(core, backend).also { activeSession = it }
+  }
+
+  /** Forgets [session] once its composable leaves, so the next composable may create one. */
+  internal fun releaseSession(session: MlnFfiMapSession) {
+    if (activeSession === session) activeSession = null
+  }
+
   /** Returns the live core when [scaleFactor] and [backend] still match, or replaces it. */
   internal fun acquireCore(
     scaleFactor: Double,
@@ -62,6 +79,7 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
   override fun close() {
     if (closed) return
     closed = true
+    activeSession = null
     core?.close()
     core = null
   }
