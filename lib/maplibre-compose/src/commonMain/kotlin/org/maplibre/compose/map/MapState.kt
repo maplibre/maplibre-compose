@@ -8,6 +8,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import kotlin.concurrent.Volatile
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraMoveReason
@@ -104,14 +105,16 @@ internal class MapState(
       host.inheritedLocals = value
     }
 
-  internal var onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass }
-  internal var onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass }
-  internal var onFrame: (framesPerSecond: Double) -> Unit = {}
-  internal var onMapLoadFailed: (reason: String?) -> Unit = {}
-  internal var onMapLoadFinished: () -> Unit = {}
+  // A UI SideEffect writes these hooks and the map's owner and renderer threads read them, so
+  // Volatile supplies the only happens-before edge between the write and those reads.
+  @Volatile internal var onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass }
+  @Volatile internal var onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass }
+  @Volatile internal var onFrame: (framesPerSecond: Double) -> Unit = {}
+  @Volatile internal var onMapLoadFailed: (reason: String?) -> Unit = {}
+  @Volatile internal var onMapLoadFinished: () -> Unit = {}
 
   /** The scope click queries launch on; null drops clicks, which only a missing UI would cause. */
-  internal var clickScope: CoroutineScope? = null
+  @Volatile internal var clickScope: CoroutineScope? = null
 
   private val contentState = mutableStateOf<(@Composable @MaplibreComposable () -> Unit)>({})
 

@@ -267,25 +267,38 @@ internal class MlnFfiMapCore(
       callbacks.onSourceChanged(this@MlnFfiMapCore, sourceId)
     }
 
+    /** A style load can unload this binding between a caller's check and its queued closure. */
+    private val isCurrent: Boolean
+      get() = isLoaded && styleBinding === this
+
     override fun <T> readMap(action: (MapHandle) -> T): T? {
-      if (!isLoaded) return null
-      return runOnMap(action)
+      if (!isCurrent) return null
+      return runOnMap<T?> { map -> if (isCurrent) action(map) else null }
     }
 
     /**
      * `addSource`, `removeSource` and `removeImage` notify mbgl of nothing, so they render stale.
      */
     override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-      if (!isLoaded) {
+      if (!isCurrent) {
         abandon()
         return null
       }
-      return runOnMap(abandon) { map -> action(map).also { map.requestRepaint() } }
+      return runOnMap<T?>(abandon) { map ->
+        if (!isCurrent) {
+          abandon()
+          null
+        } else {
+          action(map).also { map.requestRepaint() }
+        }
+      }
     }
 
     override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
-      if (!isLoaded) return null
-      return renderAccess?.withRenderSession(action)
+      if (!isCurrent) return null
+      return renderAccess?.withRenderSession<T?> { session ->
+        if (isCurrent) action(session) else null
+      }
     }
   }
 
@@ -330,6 +343,9 @@ internal class MlnFfiMapCore(
     if (closed) return
     closed = true
     try {
+      // The onUnload actions must run before the map they clean up after is destroyed.
+      styleBinding?.unload()
+      styleBinding = null
       stopLoop(endOutstandingMove = true)
     } finally {
       // The owner thread is gone, so this is the last published handle. Destruction is any-thread.

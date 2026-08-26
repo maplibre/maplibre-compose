@@ -121,25 +121,31 @@ internal class MlnFfiMapSession(
   }
 
   /**
-   * Never throws. The bookkeeping is cleared first and unconditionally: a stale [attachedTarget]
-   * would leave the next frame attaching a second session to a map that permits only one.
+   * Never throws. The capture, the reset, and the close all run under renderer access:
+   * [renderSession], [renderSessionReady], and [attachedTarget] are renderer-thread state, and
+   * touching them from the arbitrary thread reaching here through [MlnFfiMapCore.close] could race
+   * a concurrent retarget into a double close.
    */
   override fun closeRenderSession() {
-    val handle = renderSession
+    val result = runCatching {
+      withRendererAccess {
+        val handle = renderSession
+        renderSession = null
+        renderSessionReady = false
+        attachedTarget = null
+        handle?.close()
+      }
+    }
+    result.onFailure { core.logger?.e(it) { "Failed to close the MapLibre render session" } }
+    if (result.getOrNull() != null) return
+    // The renderer is unreachable, so nothing races these fields; a live handle can only leak
+    // because only the thread that attached it may close it.
+    if (renderSession != null) {
+      core.logger?.w { "Leaking a MapLibre render session: its host surface is already gone" }
+    }
     renderSession = null
     renderSessionReady = false
     attachedTarget = null
-    if (handle == null) return
-
-    val host = hostSession
-    if (host == null) {
-      // Only the thread that attached the handle may close it, and that is reached through the
-      // host.
-      core.logger?.w { "Leaking a MapLibre render session: its host surface is already gone" }
-      return
-    }
-    runCatching { host.withRendererAccess { handle.close() } }
-      .onFailure { core.logger?.e(it) { "Failed to close the MapLibre render session" } }
   }
 
   // endregion

@@ -113,6 +113,32 @@ class CustomGeometrySourceTest {
   }
 
   @Test
+  fun closing_the_session_cancels_an_outstanding_provider_call() {
+    requireCustomGeometrySourceCallbacks()
+    val state = CancellationState()
+    BridgeMapFixture.create().use { fixture ->
+      fixture.loadStyle(BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}"""))
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style)
+      val source =
+        CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions()) {
+          state.started = true
+          try {
+            awaitCancellation()
+          } finally {
+            state.cancelled = true
+          }
+        }
+      style.addSource(source)
+      style.addLayer(FillLayerDescriptor(id = "custom-fill", source = source))
+      fixture.pumpUntil("the provider to start") { state.started }
+
+      fixture.session.close()
+
+      fixture.pumpUntil("the provider to be cancelled by the close") { state.cancelled }
+    }
+  }
+
+  @Test
   fun provider_failure_completes_as_an_empty_tile() {
     requireCustomGeometrySourceCallbacks()
     val requested = CompletableDeferred<Unit>()

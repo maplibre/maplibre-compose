@@ -109,13 +109,32 @@ public class GeoJsonSource : Source {
    */
   private fun applyData(data: GeoJsonData, generation: Long) {
     val binding = binding
+    var claimed = false
+    val claim = { claimInstall(generation, data).also { claimed = it } }
     if (data is GeoJsonData.Uri) {
-      binding.setGeoJsonSourceUrl(id, data.uri) { claimInstall(generation, data) }
-      return
+      binding.setGeoJsonSourceUrl(id, data.uri, claim)
+    } else {
+      if (generation <= installed.load().generation) return
+      binding.prepareGeoJson(data, options).use { prepared ->
+        binding.setGeoJsonSourceData(id, prepared, claim)
+      }
     }
-    if (generation <= installed.load().generation) return
-    binding.prepareGeoJson(data, options).use { prepared ->
-      binding.setGeoJsonSourceData(id, prepared) { claimInstall(generation, data) }
+    // A style swap during the install lets the old binding's abandon path claim the generation
+    // without the new binding ever receiving the data; one replay hands the claimed data to the
+    // live binding, and the attach-time re-add covers a swap this misses.
+    if (claimed && this.binding !== binding) replayInstall(data, generation)
+  }
+
+  /** Installs [data] on the current binding while it is still the newest installed data. */
+  private fun replayInstall(data: GeoJsonData, generation: Long) {
+    val binding = binding
+    val claim = { installed.load().generation == generation }
+    if (data is GeoJsonData.Uri) {
+      binding.setGeoJsonSourceUrl(id, data.uri, claim)
+    } else {
+      binding.prepareGeoJson(data, options).use { prepared ->
+        binding.setGeoJsonSourceData(id, prepared, claim)
+      }
     }
   }
 

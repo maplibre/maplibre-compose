@@ -53,6 +53,32 @@ class GeoJsonConflationTest {
   }
 
   @Test
+  fun a_claim_through_a_replaced_binding_replays_onto_the_live_binding() {
+    val next = RecordingStyleBinding()
+    val source = GeoJsonSource("s", pointAt(0.0), GeoJsonOptions())
+    val old =
+      object : RecordingStyleBinding() {
+        override fun setGeoJsonSourceData(
+          sourceId: String,
+          prepared: PreparedGeoJson,
+          claim: () -> Boolean,
+        ) {
+          // A style swap lands mid-install, and the replaced binding's abandon path still claims.
+          unload()
+          source.attach(next)
+          claim()
+        }
+      }
+    source.attach(old)
+
+    val data = pointAt(5.0)
+    source.setData(data)
+
+    assertEquals<List<Any>?>(listOf(data), next.installedGeoJson["s"])
+    assertEquals(data.toDataJson(), source.toJson()["data"])
+  }
+
+  @Test
   fun setData_while_detached_still_reaches_the_next_attach() {
     val binding = RecordingStyleBinding()
     val source = GeoJsonSource("s", pointAt(0.0), GeoJsonOptions())
