@@ -57,10 +57,10 @@ class BrowserMapReattachTest {
     }
 
     waitUntilMap("the first map to load") { loads >= 1 }
-    val firstAdapter = assertNotNull(state.cameraState.map, "no adapter after the first attach")
+    val firstAdapter = assertNotNull(state.attachedAdapter, "no adapter after the first attach")
 
     attached = false
-    waitUntilMap("the session to detach") { state.cameraState.map == null }
+    waitUntilMap("the session to detach") { state.attachedAdapter == null }
     repeat(3) {
       yieldToBrowser()
       waitForIdle()
@@ -68,7 +68,7 @@ class BrowserMapReattachTest {
 
     attached = true
     waitUntilMap("the replacement map to load the recorded style") { loads >= 2 }
-    val secondAdapter = assertNotNull(state.cameraState.map, "no adapter after the re-attach")
+    val secondAdapter = assertNotNull(state.attachedAdapter, "no adapter after the re-attach")
     assertNotSame(firstAdapter, secondAdapter, "the browser map is recreated per composition")
 
     waitUntilMap("the recorded camera to replay into the new map") {

@@ -109,18 +109,18 @@ class MlnFfiMapReattachTest {
     }
 
     runOnUiThread { attached = false }
-    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { state.cameraState.map == null }
+    waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { state.attachedAdapter == null }
     assertSame(core, engine.core, "the core must survive the session detach")
     val loadsBeforeReattach = loadsFinished
     val framesBeforeReattach = frames.load()
 
     runOnUiThread { attached = true }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      state.cameraState.map != null && frames.load() > framesBeforeReattach
+      state.attachedAdapter != null && frames.load() > framesBeforeReattach
     }
 
     assertSame(core, engine.core, "a re-attach must reuse the live core")
-    assertSame(core, state.cameraState.map, "the camera must rewire to the same core")
+    assertSame(core, state.attachedAdapter, "the camera must rewire to the same core")
     assertEquals(loadsBeforeReattach, loadsFinished, "a re-attach must not reload the style")
     assertTrue(
       "user-fill" in core.currentStyleLayerIds(),

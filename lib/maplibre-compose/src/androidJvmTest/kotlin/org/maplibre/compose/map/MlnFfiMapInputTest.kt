@@ -45,9 +45,9 @@ import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
@@ -75,16 +75,16 @@ class MlnFfiMapInputTest {
 
   @Test
   fun arrow_keys_pan_the_map() = runInputTest { camera ->
-    val before = camera.position.target.longitude
+    val before = camera.camera.target.longitude
     onRoot().performKeyInput { pressKey(Key.DirectionRight) }
-    waitUntil(timeoutMillis = TIMEOUT) { camera.position.target.longitude != before }
-    assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
+    waitUntil(timeoutMillis = TIMEOUT) { camera.camera.target.longitude != before }
+    assertEquals(CameraMoveReason.GESTURE, camera.cameraMoveReason)
   }
 
   @Test
   fun a_hover_does_not_cancel_an_arrow_key_pan() =
     runInputTest(gestures = GestureOptions.Standard.copy(animationDuration = 2.seconds)) { camera ->
-      val before = camera.position.target.longitude
+      val before = camera.camera.target.longitude
       onRoot().performKeyInput { pressKey(Key.DirectionRight) }
       waitUntil(timeoutMillis = TIMEOUT) { camera.isCameraMoving }
 
@@ -93,7 +93,7 @@ class MlnFfiMapInputTest {
         onRoot().performMouseInput { moveTo(center) }
         mainClock.advanceTimeByFrame()
         // waitForIdle() would wait until overlay layout stops invalidating, which follows
-        // CameraState.viewport replacements through the rest of this native ease.
+        // MapState.viewport replacements through the rest of this native ease.
         assertTrue(camera.isCameraMoving, "a hover cancelled the keyboard pan")
       } finally {
         mainClock.autoAdvance = true
@@ -101,7 +101,7 @@ class MlnFfiMapInputTest {
       // Camera eases advance on map frames, which the host produces while the Compose clock runs.
       waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
       assertTrue(
-        camera.position.target.longitude != before,
+        camera.camera.target.longitude != before,
         "the pan did not finish after the hover",
       )
     }
@@ -120,7 +120,7 @@ class MlnFfiMapInputTest {
   fun double_click_zooms_in() = runInputTest { camera ->
     onRoot().performMouseInput { doubleClick() }
     awaitZoom(camera, START_ZOOM + 1.0)
-    assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
+    assertEquals(CameraMoveReason.GESTURE, camera.cameraMoveReason)
   }
 
   /** A mouse never waits for a second click; only touch taps do. */
@@ -142,7 +142,7 @@ class MlnFfiMapInputTest {
 
     onRoot().performMouseInput { doubleClick() }
     waitUntil(timeoutMillis = TIMEOUT) {
-      val zoom = camera.position.zoom
+      val zoom = camera.camera.zoom
       if (zoom > START_ZOOM + 0.01 && zoom < target - 0.01) {
         sawIntermediate = true
         if (!camera.isCameraMoving) endedWhileIntermediate = true
@@ -169,7 +169,7 @@ class MlnFfiMapInputTest {
     try {
       onRoot().performMouseInput { scroll(-1f) }
 
-      waitUntil(timeoutMillis = TIMEOUT) { camera.moveReason == CameraMoveReason.GESTURE }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.cameraMoveReason == CameraMoveReason.GESTURE }
 
       mainClock.advanceTimeBy(SCROLL_HOLD_MILLIS + FRAME_MILLIS)
       waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
@@ -195,7 +195,7 @@ class MlnFfiMapInputTest {
         mainClock.advanceTimeByFrame()
         waitForIdle()
         assertTrue(camera.isCameraMoving, "the burst was reported as more than one camera move")
-        assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
+        assertEquals(CameraMoveReason.GESTURE, camera.cameraMoveReason)
       }
 
       onRoot().performMouseInput { scroll(-1f) }
@@ -256,7 +256,7 @@ class MlnFfiMapInputTest {
 
   @Test
   fun secondary_mouse_drag_rotates_and_tilts() = runInputTest { camera ->
-    val before = camera.position
+    val before = camera.camera
     onRoot().performMouseInput {
       moveTo(center)
       press(MouseButton.Secondary)
@@ -264,22 +264,22 @@ class MlnFfiMapInputTest {
       release(MouseButton.Secondary)
     }
     waitUntil(timeoutMillis = TIMEOUT) {
-      camera.position.bearing != before.bearing && camera.position.tilt != before.tilt
+      camera.camera.bearing != before.bearing && camera.camera.tilt != before.tilt
     }
   }
 
   @Test
   fun shift_and_arrow_keys_rotate_and_tilt() = runInputTest { camera ->
     onRoot().performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionRight) } }
-    waitUntil(timeoutMillis = TIMEOUT) { camera.position.bearing > 0.0 }
+    waitUntil(timeoutMillis = TIMEOUT) { camera.camera.bearing > 0.0 }
 
     onRoot().performKeyInput { withKeyDown(Key.ShiftLeft) { pressKey(Key.DirectionUp) } }
-    waitUntil(timeoutMillis = TIMEOUT) { camera.position.tilt > 0.0 }
+    waitUntil(timeoutMillis = TIMEOUT) { camera.camera.tilt > 0.0 }
   }
 
   @Test
   fun a_press_that_jitters_within_the_slop_still_clicks() = runInputTest { camera ->
-    val longitudeBefore = camera.position.target.longitude
+    val longitudeBefore = camera.camera.target.longitude
     val clicksBefore = clicks.size
 
     onRoot().performMouseInput {
@@ -293,7 +293,7 @@ class MlnFfiMapInputTest {
     awaitClickCounts("the press was not reported as a map click") { clicks.size > clicksBefore }
     assertEquals(
       longitudeBefore,
-      camera.position.target.longitude,
+      camera.camera.target.longitude,
       TARGET_TOLERANCE,
       "the jitter panned the map",
     )
@@ -301,7 +301,7 @@ class MlnFfiMapInputTest {
 
   @Test
   fun a_press_past_the_slop_drags_instead_of_clicking() = runInputTest { camera ->
-    val longitudeBefore = camera.position.target.longitude
+    val longitudeBefore = camera.camera.target.longitude
     val clicksBefore = clicks.size
 
     onRoot().performMouseInput {
@@ -311,7 +311,7 @@ class MlnFfiMapInputTest {
       release()
     }
 
-    waitUntil(timeoutMillis = TIMEOUT) { camera.position.target.longitude != longitudeBefore }
+    waitUntil(timeoutMillis = TIMEOUT) { camera.camera.target.longitude != longitudeBefore }
     assertEquals(clicksBefore, clicks.size, "the drag reported a click")
   }
 
@@ -376,9 +376,9 @@ class MlnFfiMapInputTest {
   @Test
   fun one_finger_pans_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
-      val before = camera.position.target.longitude
+      val before = camera.camera.target.longitude
       onRoot().performTouchInput { swipe(center, center + Offset(80f, 0f), durationMillis = 100) }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.target.longitude != before }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.target.longitude != before }
     }
 
   @Test
@@ -393,13 +393,13 @@ class MlnFfiMapInputTest {
           durationMillis = 200,
         )
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > START_ZOOM + 0.5 }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.zoom > START_ZOOM + 0.5 }
     }
 
   @Test
   fun two_finger_rotation_rotates_the_map() =
     runInputTest(focusWithMouse = false) { camera ->
-      val before = camera.position.bearing
+      val before = camera.camera.bearing
       onRoot().performTouchInput {
         down(0, center - Offset(80f, 0f))
         down(1, center + Offset(80f, 0f))
@@ -409,7 +409,7 @@ class MlnFfiMapInputTest {
         up(0)
         up(1)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.bearing != before }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.bearing != before }
     }
 
   @Test
@@ -420,7 +420,7 @@ class MlnFfiMapInputTest {
       onRoot().performMouseInput { click(anchor) }
       awaitClickCounts("the mouse click was not reported") { clicks.size == clicksBefore + 1 }
       val positionBefore = clicks.last()
-      val bearingBefore = camera.position.bearing
+      val bearingBefore = camera.camera.bearing
 
       onRoot().performTouchInput {
         down(0, anchor - Offset(70f, 0f))
@@ -431,7 +431,7 @@ class MlnFfiMapInputTest {
         up(0)
         up(1)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.bearing != bearingBefore }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.bearing != bearingBefore }
 
       onRoot().performMouseInput { click(anchor) }
       awaitClickCounts("the mouse click after the rotation was not reported") {
@@ -457,7 +457,7 @@ class MlnFfiMapInputTest {
         up(0)
         up(1)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.tilt > 0.0 }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.tilt > 0.0 }
     }
 
   @Test
@@ -476,14 +476,14 @@ class MlnFfiMapInputTest {
         move(delayMillis = 30)
         up(1)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > START_ZOOM + 0.5 }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.zoom > START_ZOOM + 0.5 }
 
-      val longitudeBeforeTakeover = camera.position.target.longitude
+      val longitudeBeforeTakeover = camera.camera.target.longitude
       map.performTouchInput { moveTo(0, center + Offset(100f, 0f), delayMillis = 100) }
       waitUntil(timeoutMillis = TIMEOUT) {
-        camera.position.target.longitude != longitudeBeforeTakeover
+        camera.camera.target.longitude != longitudeBeforeTakeover
       }
-      val zoomAtTakeover = camera.position.zoom
+      val zoomAtTakeover = camera.camera.zoom
 
       map.performTouchInput { up(0) }
       mainClock.advanceTimeBy(1_000)
@@ -491,7 +491,7 @@ class MlnFfiMapInputTest {
 
       assertEquals(
         zoomAtTakeover,
-        camera.position.zoom,
+        camera.camera.zoom,
         ZOOM_TOLERANCE,
         "releasing the one-finger pan resumed stale pinch momentum",
       )
@@ -507,7 +507,7 @@ class MlnFfiMapInputTest {
         up(1)
       }
       awaitZoom(camera, START_ZOOM - 1.0)
-      assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
+      assertEquals(CameraMoveReason.GESTURE, camera.cameraMoveReason)
     }
 
   @Test
@@ -515,7 +515,7 @@ class MlnFfiMapInputTest {
     runInputTest(focusWithMouse = false) { camera ->
       onRoot().performTouchInput { doubleClick() }
       awaitZoom(camera, START_ZOOM + 1.0)
-      assertEquals(CameraMoveReason.GESTURE, camera.moveReason)
+      assertEquals(CameraMoveReason.GESTURE, camera.cameraMoveReason)
       mainClock.advanceTimeBy(1_000)
       waitForIdle()
       assertEquals(0, clicks.size, "a double tap leaked its first tap as a map click")
@@ -550,7 +550,7 @@ class MlnFfiMapInputTest {
       }
       mainClock.advanceTimeBy(1_000)
       waitForIdle()
-      assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+      assertEquals(START_ZOOM, camera.camera.zoom, ZOOM_TOLERANCE)
     }
 
   @Test
@@ -569,7 +569,7 @@ class MlnFfiMapInputTest {
       }
       mainClock.advanceTimeBy(1_000)
       waitForIdle()
-      assertEquals(START_ZOOM, camera.position.zoom, ZOOM_TOLERANCE)
+      assertEquals(START_ZOOM, camera.camera.zoom, ZOOM_TOLERANCE)
     }
 
   @Test
@@ -611,7 +611,7 @@ class MlnFfiMapInputTest {
         moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
         up(0)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > START_ZOOM + 0.25 }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.zoom > START_ZOOM + 0.25 }
     }
 
   @Test
@@ -624,7 +624,7 @@ class MlnFfiMapInputTest {
         moveTo(0, center + Offset(0f, 100f), delayMillis = 100)
         up(0)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > START_ZOOM + 0.25 }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.zoom > START_ZOOM + 0.25 }
       mainClock.advanceTimeBy(1_000)
       waitForIdle()
       assertEquals(0, clicks.size, "a quick zoom leaked its first tap as a map click")
@@ -689,13 +689,13 @@ class MlnFfiMapInputTest {
         moveTo(0, center - Offset(0f, 100f), delayMillis = 100)
         up(0)
       }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom < START_ZOOM - 0.25 }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.zoom < START_ZOOM - 0.25 }
     }
 
   @Test
   fun horizontal_motion_disqualifies_quick_zoom_for_the_rest_of_the_press() =
     runInputTest(focusWithMouse = false) { camera ->
-      val before = camera.position
+      val before = camera.camera
       onRoot().performTouchInput {
         click(center)
         advanceEventTime(SECOND_TAP_GAP_MILLIS)
@@ -707,10 +707,10 @@ class MlnFfiMapInputTest {
       mainClock.advanceTimeBy(500)
       waitForIdle()
 
-      assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
+      assertEquals(before.zoom, camera.camera.zoom, ZOOM_TOLERANCE)
       assertEquals(
         before.target.longitude,
-        camera.position.target.longitude,
+        camera.camera.target.longitude,
         TARGET_TOLERANCE,
         "a rejected quick zoom became a pan",
       )
@@ -727,7 +727,7 @@ class MlnFfiMapInputTest {
         ),
       focusWithMouse = false,
     ) { camera ->
-      val before = camera.position
+      val before = camera.camera
       onRoot().performTouchInput {
         click(center)
         advanceEventTime(SECOND_TAP_GAP_MILLIS)
@@ -737,9 +737,9 @@ class MlnFfiMapInputTest {
       }
 
       waitUntil(timeoutMillis = TIMEOUT) {
-        camera.position.target.longitude != before.target.longitude
+        camera.camera.target.longitude != before.target.longitude
       }
-      assertEquals(before.zoom, camera.position.zoom, ZOOM_TOLERANCE)
+      assertEquals(before.zoom, camera.camera.zoom, ZOOM_TOLERANCE)
       awaitClickCounts("the tap was not reported as a map click") { clicks.size == 1 }
     }
 
@@ -762,7 +762,7 @@ class MlnFfiMapInputTest {
       waitUntil(timeoutMillis = TIMEOUT) { map.fetchSemanticsNode().size.height < initialHeight }
       val resizedHeight = map.fetchSemanticsNode().size.height
       val displacement = resizedHeight / 4f
-      val before = camera.position
+      val before = camera.camera
 
       map.performTouchInput {
         click(center)
@@ -775,10 +775,10 @@ class MlnFfiMapInputTest {
       val expectedZoom =
         before.zoom + displacement / resizedHeight * gestures.quickZoomMaxZoomChange
       waitUntil(timeoutMillis = TIMEOUT) {
-        abs(camera.position.zoom - expectedZoom) < ZOOM_TOLERANCE
+        abs(camera.camera.zoom - expectedZoom) < ZOOM_TOLERANCE
       }
-      assertEquals(before.target.longitude, camera.position.target.longitude, 1e-5, "longitude")
-      assertEquals(before.target.latitude, camera.position.target.latitude, 1e-5, "latitude")
+      assertEquals(before.target.longitude, camera.camera.target.longitude, 1e-5, "longitude")
+      assertEquals(before.target.latitude, camera.camera.target.latitude, 1e-5, "latitude")
     }
   }
 
@@ -786,13 +786,13 @@ class MlnFfiMapInputTest {
   fun pitched_fling_up_and_down_travel_similar_ground_distance() =
     runInputTest(focusWithMouse = false) { camera ->
       val start = CameraPosition(target = Position(0.0, 0.0), zoom = 8.0, tilt = 60.0)
-      camera.position = start
-      waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.tilt - 60.0) < 0.5 }
+      runBlocking { camera.setCamera(start) }
+      waitUntil(timeoutMillis = TIMEOUT) { abs(camera.camera.tilt - 60.0) < 0.5 }
 
       val down = verticalFlingLatitudeDelta(camera, swipeY = 200f)
-      camera.position = start
+      runBlocking { camera.setCamera(start) }
       waitUntil(timeoutMillis = TIMEOUT) {
-        abs(camera.position.target.latitude) < 1e-4 && abs(camera.position.tilt - 60.0) < 0.5
+        abs(camera.camera.target.latitude) < 1e-4 && abs(camera.camera.tilt - 60.0) < 0.5
       }
       val up = -verticalFlingLatitudeDelta(camera, swipeY = -200f)
 
@@ -810,14 +810,14 @@ class MlnFfiMapInputTest {
    * swipes are positive Y and move the camera north.
    */
   private fun androidx.compose.ui.test.ComposeUiTest.verticalFlingLatitudeDelta(
-    camera: CameraState,
+    camera: MapState,
     swipeY: Float,
   ): Double {
-    val before = camera.position.target.latitude
+    val before = camera.camera.target.latitude
     onRoot().performTouchInput { swipe(center, center + Offset(0f, swipeY), durationMillis = 100) }
     awaitReleasedTouchMomentum(camera)
     waitUntil(timeoutMillis = TIMEOUT) { !camera.isCameraMoving }
-    return camera.position.target.latitude - before
+    return camera.camera.target.latitude - before
   }
 
   @Test
@@ -850,9 +850,9 @@ class MlnFfiMapInputTest {
       }
 
       waitUntil(timeoutMillis = TIMEOUT) {
-        abs(camera.position.zoom - expectedZoom) < ZOOM_TOLERANCE
+        abs(camera.camera.zoom - expectedZoom) < ZOOM_TOLERANCE
       }
-      assertEquals(expectedZoom, camera.position.zoom, ZOOM_TOLERANCE)
+      assertEquals(expectedZoom, camera.camera.zoom, ZOOM_TOLERANCE)
     }
 
   @Test
@@ -899,27 +899,25 @@ class MlnFfiMapInputTest {
    * thread, which can land after Compose has gone idle. The clock stays frozen. The fling waits for
    * later frames, and the interruption under test still sees a moving camera.
    */
-  private fun androidx.compose.ui.test.ComposeUiTest.awaitReleasedTouchMomentum(
-    camera: CameraState
-  ) {
+  private fun androidx.compose.ui.test.ComposeUiTest.awaitReleasedTouchMomentum(camera: MapState) {
     mainClock.advanceTimeByFrame()
     waitUntil(timeoutMillis = TIMEOUT) { camera.isCameraMoving }
   }
 
   /** Waits for the camera to settle at [zoom]. */
-  private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: CameraState, zoom: Double) {
-    waitUntil(timeoutMillis = TIMEOUT) { abs(camera.position.zoom - zoom) < ZOOM_TOLERANCE }
+  private fun androidx.compose.ui.test.ComposeUiTest.awaitZoom(camera: MapState, zoom: Double) {
+    waitUntil(timeoutMillis = TIMEOUT) { abs(camera.camera.zoom - zoom) < ZOOM_TOLERANCE }
   }
 
   @Test
   fun position_locked_zooms_without_moving_the_camera() =
     runInputTest(gestures = GestureOptions.PositionLocked) { camera ->
-      val before = camera.position
+      val before = camera.camera
       // Off centre, so an anchored zoom would visibly drag the target toward it.
       onRoot().performMouseInput { doubleClick(Offset(width * 0.2f, height * 0.2f)) }
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.zoom > before.zoom }
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.zoom > before.zoom }
 
-      val after = camera.position
+      val after = camera.camera
       assertEquals(before.target.longitude, after.target.longitude, TARGET_TOLERANCE, "longitude")
       assertEquals(before.target.latitude, after.target.latitude, TARGET_TOLERANCE, "latitude")
     }
@@ -930,7 +928,7 @@ class MlnFfiMapInputTest {
       gestures = GestureOptions.PositionLocked.copy(isRotateVelocityEnabled = false),
       focusWithMouse = false,
     ) { camera ->
-      val before = camera.position
+      val before = camera.camera
       val anchor = Offset(onRoot().fetchSemanticsNode().size.width * 0.3f, 240f)
 
       onRoot().performTouchInput {
@@ -943,8 +941,8 @@ class MlnFfiMapInputTest {
         up(1)
       }
 
-      waitUntil(timeoutMillis = TIMEOUT) { camera.position.bearing != before.bearing }
-      val after = camera.position
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.bearing != before.bearing }
+      val after = camera.camera
       assertEquals(before.target.longitude, after.target.longitude, TARGET_TOLERANCE, "longitude")
       assertEquals(before.target.latitude, after.target.latitude, TARGET_TOLERANCE, "latitude")
     }
@@ -956,15 +954,15 @@ class MlnFfiMapInputTest {
     mapModifier: @Composable () -> Modifier = { Modifier.fillMaxSize() },
     parentOnClick: (() -> Unit)? = null,
     parentOnLongClick: (() -> Unit)? = null,
-    body: androidx.compose.ui.test.ComposeUiTest.(CameraState) -> Unit,
+    body: androidx.compose.ui.test.ComposeUiTest.(MapState) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInt(0)
     val initialPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM)
-    lateinit var cameraState: CameraState
+    lateinit var state: MapState
 
     setFfiTestMapContent(runtimeOptions) {
       val mapState = rememberMapState(cameraPosition = initialPosition, baseStyle = BaseStyle.Empty)
-      cameraState = mapState.cameraState
+      state = mapState
       val content: @Composable () -> Unit = {
         MaplibreMap(
           state = mapState,
@@ -997,18 +995,18 @@ class MlnFfiMapInputTest {
 
     // The map thread reports the first viewport, and a suspended test body pumps no snapshot apply
     // notifications; waitUntil polls with frame pumps, so that report can't strand it.
-    waitUntil(timeoutMillis = TIMEOUT) { cameraState.viewport != null }
-    cameraState.position = initialPosition
+    waitUntil(timeoutMillis = TIMEOUT) { state.viewport != null }
+    runBlocking { state.setCamera(initialPosition) }
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
     waitUntil(timeoutMillis = TIMEOUT) {
-      kotlin.math.abs(cameraState.position.zoom - START_ZOOM) < 0.001
+      kotlin.math.abs(state.camera.zoom - START_ZOOM) < 0.001
     }
 
     // A click is what gives the map focus, so the keyboard cases depend on it too. Keep it outside
     // the double-click slop, or a test's first click becomes the second half of this one.
     if (focusWithMouse) onRoot().performMouseInput { click(Offset(10f, 10f)) }
 
-    body(cameraState)
+    body(state)
   }
 
   /**

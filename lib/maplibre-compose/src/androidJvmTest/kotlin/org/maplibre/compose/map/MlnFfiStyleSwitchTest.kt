@@ -20,7 +20,6 @@ import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.CircleLayer
@@ -67,7 +66,7 @@ class MlnFfiStyleSwitchTest {
     var loadsFinished = 0
     var style by mutableStateOf(STYLES[0])
     var extraLayer by mutableStateOf(false)
-    lateinit var cameraState: CameraState
+    lateinit var state: MapState
 
     setFfiTestMapContent(runtimeOptions) {
       val mapState =
@@ -86,7 +85,7 @@ class MlnFfiStyleSwitchTest {
             }
           }
         }
-      cameraState = mapState.cameraState
+      state = mapState
       MaplibreMap(
         state = mapState,
         modifier = Modifier,
@@ -100,7 +99,7 @@ class MlnFfiStyleSwitchTest {
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
     // this test deliberately does not cover.
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 && frames.load() > 0 }
-    val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
+    val session = requireNotNull(state.attachedAdapter as? MlnFfiMapCore) { "no desktop session" }
     assertStyleLayers(session, style, extraLayer)
 
     repeat(ROTATIONS) { round ->
@@ -124,7 +123,7 @@ class MlnFfiStyleSwitchTest {
     var style by mutableStateOf(REPLACEMENT_STYLES[0])
     var sourceLayer by mutableStateOf("places")
     var showReplacement by mutableStateOf(true)
-    lateinit var cameraState: CameraState
+    lateinit var state: MapState
 
     setFfiTestMapContent(runtimeOptions) {
       val mapState =
@@ -141,7 +140,7 @@ class MlnFfiStyleSwitchTest {
             }
           }
         }
-      cameraState = mapState.cameraState
+      state = mapState
       MaplibreMap(
         state = mapState,
         modifier = Modifier,
@@ -152,7 +151,7 @@ class MlnFfiStyleSwitchTest {
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
-    val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
+    val session = requireNotNull(state.attachedAdapter as? MlnFfiMapCore) { "no desktop session" }
     fun replacementLayers(): List<String> =
       session.currentStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
@@ -197,7 +196,7 @@ class MlnFfiStyleSwitchTest {
       var loadsFinished = 0
       var style by mutableStateOf<BaseStyle>(INITIAL_STYLE)
       var showExtraLayer by mutableStateOf(false)
-      lateinit var cameraState: CameraState
+      lateinit var state: MapState
 
       setFfiTestMapContent(options) {
         val mapState =
@@ -217,7 +216,7 @@ class MlnFfiStyleSwitchTest {
               }
             }
           }
-        cameraState = mapState.cameraState
+        state = mapState
         MaplibreMap(
           state = mapState,
           modifier = Modifier,
@@ -228,7 +227,7 @@ class MlnFfiStyleSwitchTest {
       }
 
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
-      val session = requireNotNull(cameraState.map as? MlnFfiMapCore) { "no desktop session" }
+      val session = requireNotNull(state.attachedAdapter as? MlnFfiMapCore) { "no desktop session" }
       val initialLoads = loadsFinished
 
       style = BaseStyle.Uri(B_STYLE_URL)

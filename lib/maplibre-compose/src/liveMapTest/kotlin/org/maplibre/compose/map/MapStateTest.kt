@@ -20,7 +20,6 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
@@ -157,11 +156,11 @@ private class TestHostDispatcher(override val dispatcher: CoroutineDispatcher) :
 class MapStateTest {
 
   private fun TestScope.mapState(
-    cameraState: CameraState = CameraState(CameraPosition()),
+    cameraPosition: CameraPosition = CameraPosition(),
     hostDispatcher: TestHostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler)),
   ) =
     MapState(
-      cameraState = cameraState,
+      cameraPosition = cameraPosition,
       density = Density(1f),
       layoutDirection = LayoutDirection.Ltr,
       logger = null,
@@ -170,8 +169,7 @@ class MapStateTest {
 
   @Test
   fun survives_a_detach_attach_cycle_and_rewires_a_new_session() = runTest {
-    val cameraState = CameraState(CameraPosition())
-    val state = mapState(cameraState)
+    val state = mapState()
     val source = testSource("tiles")
 
     state.setStyleContent { RasterLayer(id = "raster", source = source) }
@@ -183,7 +181,7 @@ class MapStateTest {
     state.callbacks.onStyleChanged(first, firstBinding)
     testScheduler.advanceUntilIdle()
 
-    assertSame(first, cameraState.map)
+    assertSame(first, state.attachedAdapter)
     assertEquals(1, first.calls.count { it == "setCameraPosition" })
     assertEquals(listOf("addSource:tiles", "addLayer:raster"), firstBinding.ops.toList())
 
@@ -194,7 +192,7 @@ class MapStateTest {
     val firstCallsAfterDetach = first.calls.toList()
     val firstOpsAfterDetach = firstBinding.ops.toList()
 
-    assertNull(cameraState.map)
+    assertNull(state.attachedAdapter)
     assertFalse(state.styleNode.binding.isLoaded)
     assertTrue(state.sources.ids.isEmpty())
 
@@ -205,7 +203,7 @@ class MapStateTest {
     testScheduler.advanceUntilIdle()
 
     // The new session gets the deferred camera and a fresh apply of the same desired state.
-    assertSame(second, cameraState.map)
+    assertSame(second, state.attachedAdapter)
     assertEquals(1, second.calls.count { it == "setCameraPosition" })
     assertEquals(listOf("addSource:tiles", "addLayer:raster"), secondBinding.ops.toList())
 

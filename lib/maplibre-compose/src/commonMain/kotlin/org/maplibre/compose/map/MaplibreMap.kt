@@ -13,6 +13,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
@@ -23,8 +24,7 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
-import org.maplibre.compose.camera.CameraStateSaver
+import org.maplibre.compose.camera.CameraPositionSaver
 import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MapOverlayHost
 import org.maplibre.compose.overlay.MapOverlayScope
@@ -57,19 +57,29 @@ public fun rememberMapState(
   val layoutDirection = LocalLayoutDirection.current
   val locals = currentCompositionLocalContext
 
-  // The camera is the saveable piece; the MapState object itself is not saveable.
-  val cameraState = rememberSaveable(saver = CameraStateSaver) { CameraState(cameraPosition) }
-
-  // Keyed on nothing: changed inputs update the state below rather than recreate it.
-  val mapState = remember {
+  val newMapState = { position: CameraPosition ->
     MapState(
-      cameraState = cameraState,
+      cameraPosition = position,
       density = density,
       layoutDirection = layoutDirection,
       logger = Logger.withTag("maplibre-compose"),
       inheritedLocals = locals,
     )
   }
+
+  // The camera is the saveable piece: the saver reads the state's current position, and a
+  // recreated composition constructs the state at the restored one. Keyed on nothing: changed
+  // inputs update the state below rather than recreate it.
+  val mapState =
+    rememberSaveable(
+      saver =
+        Saver(
+          save = { state -> with(CameraPositionSaver) { save(state.camera) } },
+          restore = { saved -> newMapState(CameraPositionSaver.restore(saved)) },
+        )
+    ) {
+      newMapState(cameraPosition)
+    }
   DisposableEffect(mapState) { onDispose { mapState.close() } }
   // Deferred past this snapshot's apply: the host would otherwise read records it cannot yet see.
   LaunchedEffect(mapState) { mapState.startStyleComposition() }

@@ -165,7 +165,7 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         val session =
-          requireNotNull(mapState.cameraState.map as? MlnFfiMapCore) { "no desktop session" }
+          requireNotNull(mapState.attachedAdapter as? MlnFfiMapCore) { "no desktop session" }
         waitUntil { "toggled" in session.currentStyleLayerIds() }
 
         visible = false
@@ -207,11 +207,11 @@ class MlnFfiMapCompositionTest {
 
     runBridgeMapTest(
       body = {
-        waitUntil { mapState.cameraState.map != null }
+        waitUntil { mapState.attachedAdapter != null }
 
         visible = false
-        waitUntil { mapState.cameraState.map == null }
-        assertNull(mapState.cameraState.map)
+        waitUntil { mapState.attachedAdapter == null }
+        assertNull(mapState.attachedAdapter)
         mapState.close()
       }
     ) { errors, onFrame ->
@@ -235,12 +235,12 @@ class MlnFfiMapCompositionTest {
 
     runBridgeMapTest(
       body = {
-        val session = requireNotNull(mapState.cameraState.map as? MlnFfiMapCore)
+        val session = requireNotNull(mapState.attachedAdapter as? MlnFfiMapCore)
 
         layoutDirection = LayoutDirection.Rtl
         waitForIdle()
 
-        assertSame(session, mapState.cameraState.map)
+        assertSame(session, mapState.attachedAdapter)
         assertEquals(LayoutDirection.Rtl, session.layoutDirection)
         mapState.close()
       }
@@ -270,7 +270,7 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         val map =
-          requireNotNull(mapState.cameraState.map) { "The map never reached the camera state" }
+          requireNotNull(mapState.attachedAdapter) { "The map never reached the camera state" }
         val actual = map.getCameraPosition()
         assertEquals(
           firstPosition.target.longitude,
@@ -310,7 +310,7 @@ class MlnFfiMapCompositionTest {
     runBridgeMapTest(
       body = {
         waitUntil(timeoutMillis = 10_000) { animationFinished }
-        val actual = requireNotNull(mapState.cameraState.map).getCameraPosition()
+        val actual = requireNotNull(mapState.attachedAdapter).getCameraPosition()
         assertEquals(
           finalPosition.target.longitude,
           actual.target.longitude,

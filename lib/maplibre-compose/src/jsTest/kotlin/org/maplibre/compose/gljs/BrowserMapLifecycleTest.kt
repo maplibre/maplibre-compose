@@ -13,7 +13,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
@@ -84,8 +83,7 @@ class BrowserMapLifecycleTest {
     var loads = 0
     val expectedCamera =
       CameraPosition(target = Position(longitude = 11.0, latitude = 47.0), zoom = 8.0)
-    val cameraState = CameraState(expectedCamera)
-    val mapState = MapState(cameraState = cameraState)
+    val mapState = MapState(cameraPosition = expectedCamera)
     mapState.baseStyle = style
 
     setBrowserMapContent {
@@ -94,14 +92,14 @@ class BrowserMapLifecycleTest {
       }
     }
     waitUntilMap("the first map to load") { loads >= 1 }
-    val firstViewport = cameraState.viewport
+    val firstViewport = mapState.viewport
 
     density = Density(2f)
     waitUntilMap("the replacement map to load at the new density") { loads >= 2 }
 
-    assertNotSame(firstViewport, cameraState.viewport, "the camera should attach to a new map")
-    assertEquals(expectedCamera.target, cameraState.position.target, "camera target")
-    assertEquals(expectedCamera.zoom, cameraState.position.zoom, 0.001, "camera zoom")
+    assertNotSame(firstViewport, mapState.viewport, "the camera should attach to a new map")
+    assertEquals(expectedCamera.target, mapState.camera.target, "camera target")
+    assertEquals(expectedCamera.zoom, mapState.camera.zoom, 0.001, "camera zoom")
   }
 
   @Test

@@ -21,7 +21,6 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -65,7 +64,7 @@ class MlnFfiMapClusterTest {
     val frames = AtomicInt(0)
 
     lateinit var source: GeoJsonSource
-    lateinit var cameraState: CameraState
+    lateinit var state: MapState
 
     setFfiTestMapContent(runtimeOptions) {
       val mapState =
@@ -81,7 +80,7 @@ class MlnFfiMapClusterTest {
             )
           CircleLayer(id = "clusters", source = source, color = const(Color.Red))
         }
-      cameraState = mapState.cameraState
+      state = mapState
       MaplibreMap(
         state = mapState,
         modifier = Modifier.fillMaxSize(),
@@ -91,7 +90,7 @@ class MlnFfiMapClusterTest {
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > 0 }
-    val session = assertNotNull(cameraState.map as? MlnFfiMapCore, "no FFI session")
+    val session = assertNotNull(state.attachedAdapter as? MlnFfiMapCore, "no FFI session")
 
     fun queryAll(): List<Feature<Geometry, JsonObject?>> {
       val size = onRoot().fetchSemanticsNode().size

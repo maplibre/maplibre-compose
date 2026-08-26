@@ -86,7 +86,7 @@ class MlnFfiMapStateEntryTest {
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
 
-    val session = requireNotNull(state.cameraState.map as? MlnFfiMapCore) { "no session" }
+    val session = requireNotNull(state.attachedAdapter as? MlnFfiMapCore) { "no session" }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       "state-entry-fill" in session.currentStyleLayerIds()
     }
@@ -113,7 +113,7 @@ class MlnFfiMapStateEntryTest {
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
 
-    val session = requireNotNull(state.cameraState.map) { "no session" }
+    val session = requireNotNull(state.attachedAdapter) { "no session" }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
       session.getCameraPosition().isNear(FIRST_POSITION)
     }
@@ -138,7 +138,7 @@ class MlnFfiMapStateEntryTest {
 
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
-    val session = requireNotNull(state.cameraState.map) { "no session" }
+    val session = requireNotNull(state.attachedAdapter) { "no session" }
 
     state.setCamera(JUMP_POSITION)
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {

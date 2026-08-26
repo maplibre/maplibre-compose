@@ -22,7 +22,7 @@ if (!packageList.includes("$dokka.format:html-v1")) {
   throw new Error("Dokka output is not html-v1; update generate-api-index.mjs for the new format");
 }
 
-/** Decodes Dokka's kebab-case: `-camera-state` -> `CameraState`. */
+/** Decodes Dokka's kebab-case: `-map-state` -> `MapState`. */
 function decodeKebab(name) {
   return name.replace(/-([a-z0-9])/g, (_, c) => c.toUpperCase());
 }

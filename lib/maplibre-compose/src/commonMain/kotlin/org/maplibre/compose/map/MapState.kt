@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalContext
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
@@ -16,14 +17,16 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.Expression
+import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerPropertyCompiler
@@ -60,15 +63,15 @@ import org.maplibre.spatialk.geojson.Position
  * cannot show a map again.
  */
 // Internally this also owns the style composition host, the root StyleNode over the loaded
-// StyleBinding, and the wiring into CameraState and StyleSources. A session (MapAdapter) attaches
-// through attachSession and detaches through detachSession; the style the session loads arrives
-// through callbacks and re-points the persistent node, which reapplies the whole desired state to
-// the new style. The content follows the style the application has *selected* while the node
-// targets the *loaded* style; during a switch those differ and nothing here reconciles them. The
-// binding dropping writes after unload is what makes that survivable.
+// StyleBinding, and the wiring into the camera records and StyleSources. A session (MapAdapter)
+// attaches through attachSession and detaches through detachSession; the style the session loads
+// arrives through callbacks and re-points the persistent node, which reapplies the whole desired
+// state to the new style. The content follows the style the application has *selected* while the
+// node targets the *loaded* style; during a switch those differ and nothing here reconciles them.
+// The binding dropping writes after unload is what makes that survivable.
 public class MapState
 internal constructor(
-  internal val cameraState: CameraState,
+  cameraPosition: CameraPosition,
   density: Density = Density(1f),
   layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   logger: Logger? = null,
@@ -79,17 +82,32 @@ internal constructor(
   /**
    * Creates a state that owns its own camera and style wiring.
    *
+   * The camera starts at [cameraPosition], and a session that attaches starts the map there.
+   *
    * A detached state rasterizes painters in the style content at [density] and [layoutDirection]; a
    * [MaplibreMap] that later receives this state replaces both with the composition's values.
    */
   public constructor(
+    cameraPosition: CameraPosition = CameraPosition(),
     density: Density = Density(1f),
     layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   ) : this(
-    cameraState = CameraState(CameraPosition()),
+    cameraPosition = cameraPosition,
     density = density,
     layoutDirection = layoutDirection,
+    logger = null,
   )
+
+  // The camera records; the session callbacks below write them and the public members read them.
+  internal val adapterState = mutableStateOf<MapAdapter?>(null)
+  internal val viewportState = mutableStateOf<Viewport?>(null)
+  internal val positionState = mutableStateOf(cameraPosition)
+  internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
+  internal val isCameraMovingState = mutableStateOf(false)
+
+  /** The attached session's adapter, or null while no session is attached. */
+  internal val attachedAdapter: MapAdapter?
+    get() = adapterState.value
 
   internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
 
@@ -118,7 +136,6 @@ internal constructor(
     get() = host.density
     set(value) {
       host.density = value
-      cameraState.density = value
     }
 
   internal var layoutDirection: LayoutDirection
@@ -147,7 +164,6 @@ internal constructor(
   private val contentState = mutableStateOf<(@Composable @MaplibreComposable () -> Unit)>({})
 
   init {
-    cameraState.density = density
     host.inheritedLocals = inheritedLocals
   }
 
@@ -236,9 +252,6 @@ internal constructor(
       .compile(expression)
       .toStyleJson()
 
-  /** The attached session's adapter, so a base-style change reaches the live map. */
-  private var adapter: MapAdapter? = null
-
   /** The style the application selected; null until the first [baseStyle] assignment. */
   private var selectedBaseStyle: BaseStyle? = null
 
@@ -253,7 +266,7 @@ internal constructor(
       if (value == selectedBaseStyle) return
       selectedBaseStyle = value
       engine.setBaseStyle(value)
-      adapter?.setBaseStyle(value)
+      attachedAdapter?.setBaseStyle(value)
     }
 
   /** Selects [BaseStyle.Demo] on a state that never selected a style, so a session has one. */
@@ -272,7 +285,7 @@ internal constructor(
    * [setCamera] and [animateCamera] write the camera.
    */
   public val camera: CameraPosition
-    get() = cameraState.position
+    get() = positionState.value
 
   /**
    * What the map shows right now: the size of the map composable and the visible area. Null while
@@ -281,15 +294,20 @@ internal constructor(
    * the map has adopted either change.
    */
   public val viewport: Viewport?
-    get() = cameraState.viewport
+    get() = viewportState.value
 
   /** Whether the camera is currently moving. */
   public val isCameraMoving: Boolean
-    get() = cameraState.isCameraMoving
+    get() = isCameraMovingState.value
 
   /** The reason for the most recent camera move. */
   public val cameraMoveReason: CameraMoveReason
-    get() = cameraState.moveReason
+    get() = moveReasonState.value
+
+  /** Suspends until a session attaches, for the camera calls that need a live map. */
+  private suspend fun awaitAdapter(): MapAdapter {
+    return snapshotFlow { attachedAdapter }.first { it != null }!!
+  }
 
   /**
    * Moves the camera to [position] with no animation.
@@ -298,7 +316,8 @@ internal constructor(
    * attaches.
    */
   public suspend fun setCamera(position: CameraPosition) {
-    cameraState.position = position
+    attachedAdapter?.setCameraPosition(position)
+    positionState.value = position
   }
 
   /**
@@ -317,7 +336,7 @@ internal constructor(
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
   ) {
-    cameraState.jumpTo(boundingBox, bearing, tilt, padding)
+    awaitAdapter().setCameraPosition(boundingBox, bearing, tilt, padding)
   }
 
   /**
@@ -329,7 +348,7 @@ internal constructor(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
   ) {
-    cameraState.animateTo(position, duration)
+    awaitAdapter().animateCameraPosition(position, duration)
   }
 
   /**
@@ -350,7 +369,7 @@ internal constructor(
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
   ) {
-    cameraState.animateTo(boundingBox, bearing, tilt, padding, duration)
+    awaitAdapter().animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
   }
 
   /**
@@ -361,7 +380,7 @@ internal constructor(
    * The answer describes the transform that the map has at the time of the call.
    */
   public fun screenLocationFromPosition(position: Position): DpOffset? =
-    cameraState.screenLocationFromPosition(position)
+    attachedAdapter?.screenLocationFromPosition(position)
 
   /**
    * Returns the position that corresponds to the given [offset] from the top-left corner of the map
@@ -370,7 +389,7 @@ internal constructor(
    * The answer describes the transform that the map has at the time of the call.
    */
   public fun positionFromScreenLocation(offset: DpOffset): Position? =
-    cameraState.positionFromScreenLocation(offset)
+    attachedAdapter?.positionFromScreenLocation(offset)
 
   /**
    * Returns the position that corresponds to the given [offset] in pixels from the top-left corner
@@ -380,7 +399,7 @@ internal constructor(
    * The answer describes the transform that the map has at the time of the call.
    */
   public fun positionFromScreenLocation(offset: Offset): Position? =
-    cameraState.positionFromScreenLocation(offset)
+    positionFromScreenLocation(with(host.density) { DpOffset(offset.x.toDp(), offset.y.toDp()) })
 
   /**
    * Returns the features that are rendered at the given [offset] from the top-left corner of the
@@ -399,7 +418,8 @@ internal constructor(
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> =
-    cameraState.queryRenderedFeatures(offset, layerIds, predicate)
+    attachedAdapter?.queryRenderedFeatures(offset, layerIds, predicate.compileOrNull())
+      ?: emptyList()
 
   /**
    * Returns the features whose rendered geometry intersects the given [rect], optionally limited to
@@ -418,20 +438,34 @@ internal constructor(
     layerIds: Set<String>? = null,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> =
-    cameraState.queryRenderedFeatures(rect, layerIds, predicate)
+    attachedAdapter?.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull()) ?: emptyList()
+
+  private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? =
+    takeUnless {
+      it == const(true)
+    }
+    ?.compile(ExpressionContext.None)
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
-    this.adapter = adapter
+    val previous = adapterState.value
+    adapterState.value = adapter
     selectedBaseStyle?.let(adapter::setBaseStyle)
-    cameraState.map = adapter
+    if (adapter !== previous) {
+      // apply deferred state
+      adapter.setCameraPosition(positionState.value)
+
+      // usually null until the map reports its first viewport
+      viewportState.value = adapter.getViewport()
+    }
     sources.refreshSources()
   }
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
   internal fun detachSession() {
-    adapter = null
-    cameraState.map = null
+    adapterState.value = null
+    // a snapshot kept past detachment would report a viewport no map is showing
+    viewportState.value = null
     // An engine that keeps the map alive keeps its loaded binding and the applied snapshot too.
     if (!engine.retainsStyleAcrossDetach) updateBinding(null)
     sources.clear()
@@ -477,7 +511,7 @@ internal constructor(
     object : MapAdapter.Callbacks {
       override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
         updateBinding(style)
-        if (cameraState.map === map) cameraState.viewportState.value = map.getViewport()
+        if (attachedAdapter === map) viewportState.value = map.getViewport()
       }
 
       override fun onMapFailLoading(reason: String?) {
@@ -495,22 +529,22 @@ internal constructor(
       }
 
       override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-        if (cameraState.map !== map) return
-        cameraState.moveReasonState.value = reason
-        cameraState.isCameraMovingState.value = true
+        if (attachedAdapter !== map) return
+        moveReasonState.value = reason
+        isCameraMovingState.value = true
       }
 
       override fun onCameraMoved(map: MapAdapter) {
-        if (cameraState.map !== map) return
-        cameraState.positionState.value = map.getCameraPosition()
+        if (attachedAdapter !== map) return
+        positionState.value = map.getCameraPosition()
         // A new instance so a composition that reads MapState.viewport redraws when the
         // transform changes without the camera position changing, which is what a resize does.
-        cameraState.viewportState.value = map.getViewport()
+        viewportState.value = map.getViewport()
       }
 
       override fun onCameraMoveEnded(map: MapAdapter) {
-        if (cameraState.map !== map) return
-        cameraState.isCameraMovingState.value = false
+        if (attachedAdapter !== map) return
+        isCameraMovingState.value = false
       }
 
       /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */

@@ -35,7 +35,7 @@ class AndroidMapStateRecreationTest {
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.cameraState?.map != null }
+        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.attachedAdapter != null }
         val firstActivity = requireNotNull(activity)
 
         runOnIdle {
@@ -59,7 +59,7 @@ class AndroidMapStateRecreationTest {
         // The live map, which only the internal adapter answers for.
         assertCamera(
           EXPECTED_CAMERA,
-          requireNotNull(restoredState.cameraState.map).getCameraPosition(),
+          requireNotNull(restoredState.attachedAdapter).getCameraPosition(),
           "replacement native map",
         )
         assertTrue(
@@ -86,7 +86,7 @@ class AndroidMapStateRecreationTest {
       )
 
     fun MapState.hasCamera(expected: CameraPosition): Boolean =
-      cameraState.map?.hasCamera(expected) == true
+      attachedAdapter?.hasCamera(expected) == true
 
     fun MapAdapter.hasCamera(expected: CameraPosition): Boolean =
       cameraMatches(expected, getCameraPosition())

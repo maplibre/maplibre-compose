@@ -73,7 +73,7 @@ class BrowserMapStateEntryTest {
     }
 
     waitUntilMap("the map to load at the first camera position") {
-      loads >= 1 && (state.cameraState.map?.getCameraPosition()?.isNear(FIRST_POSITION) ?: false)
+      loads >= 1 && (state.attachedAdapter?.getCameraPosition()?.isNear(FIRST_POSITION) ?: false)
     }
     assertTrue(errors.isEmpty(), "the map reported errors: $errors")
   }

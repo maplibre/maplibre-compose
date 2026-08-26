@@ -22,8 +22,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotNull
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.camera.CameraState
 import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.mlnffi.FfiTestPlatform
@@ -141,7 +141,7 @@ class LayerClickOrderTest {
     body: ComposeUiTest.(center: Offset) -> Unit,
   ) = runFfiComposeUiTest {
     val frames = AtomicInt(0)
-    lateinit var cameraState: CameraState
+    lateinit var state: MapState
 
     setFfiTestMapContent(runtimeOptions) {
       val mapState =
@@ -191,7 +191,7 @@ class LayerClickOrderTest {
             front()
           }
         }
-      cameraState = mapState.cameraState
+      state = mapState
       MaplibreMap(
         state = mapState,
         modifier = Modifier.fillMaxSize(),
@@ -202,7 +202,7 @@ class LayerClickOrderTest {
 
     waitUntil(timeoutMillis = TIMEOUT) { frames.load() > 0 }
 
-    val map = assertNotNull(cameraState.map, "the camera never attached to a map")
+    val map = assertNotNull(state.attachedAdapter, "the camera never attached to a map")
     val size = onRoot().fetchSemanticsNode().size
     val centerDp = with(density) { DpOffset((size.width / 2).toDp(), (size.height / 2).toDp()) }
 

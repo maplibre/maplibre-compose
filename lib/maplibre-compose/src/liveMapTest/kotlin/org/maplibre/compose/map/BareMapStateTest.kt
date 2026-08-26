@@ -44,7 +44,7 @@ class BareMapStateTest {
 
     // The composition runs on the state's own dispatcher, so the wait leaves the test dispatcher.
     withContext(Dispatchers.Default) { withTimeout(30.seconds) { composed.await() } }
-    assertNull(state.cameraState.map, "no session ever attached")
+    assertNull(state.attachedAdapter, "no session ever attached")
 
     state.close()
     withContext(Dispatchers.Default) {
