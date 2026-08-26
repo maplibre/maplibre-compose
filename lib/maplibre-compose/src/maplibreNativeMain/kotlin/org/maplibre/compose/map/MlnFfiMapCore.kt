@@ -170,6 +170,10 @@ internal class MlnFfiMapCore(
 
   @Volatile private var closed = false
 
+  /** True after [close]; tests read it to observe eviction ordering. */
+  internal val isClosed: Boolean
+    get() = closed
+
   @Volatile private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
 

@@ -32,7 +32,7 @@ internal actual fun ComposableMapView(
   val session =
     remember(mapEngine, scaleFactor) {
       GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
-        .also { mapEngine.session = it }
+        .also { mapEngine.registerSession(it) }
     }
 
   session.callbacks = callbacks
@@ -43,12 +43,13 @@ internal actual fun ComposableMapView(
   // dying session must detach the state that owns it.
   val sessionOnReset = remember(session) { onReset }
 
-  LaunchedEffect(session, options, update) { update(session) }
+  // A session the closed engine refused must not attach; the closed state would throw.
+  LaunchedEffect(session, options, update) { if (!session.isClosed) update(session) }
 
   DisposableEffect(session) {
     onDispose {
       session.close()
-      if (mapEngine.session === session) mapEngine.session = null
+      mapEngine.releaseSession(session)
       sessionOnReset()
     }
   }

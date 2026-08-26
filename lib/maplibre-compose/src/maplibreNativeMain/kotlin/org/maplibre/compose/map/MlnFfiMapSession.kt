@@ -84,6 +84,11 @@ internal class MlnFfiMapSession(
   private var hasRenderedAFrame = false
 
   @Volatile private var closed = false
+
+  /** True after [close]; the engine and tests read it to observe an eviction. */
+  internal val isClosed: Boolean
+    get() = closed
+
   private var failureReported = false
 
   private var lastRenderTime = TimeSource.Monotonic.markNow()

@@ -51,6 +51,12 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
     check(!closed) { "Cannot attach a render session to a closed map state" }
     core?.let { live ->
       if (coreScaleFactor == scaleFactor && coreBackend == backend) return live
+      // A live session must be evicted before its core closes, or it keeps rendering a destroyed
+      // map; the close is idempotent with the session composable's own later dispose.
+      activeSession?.let { session ->
+        session.close()
+        activeSession = null
+      }
       // The loop's scale factor is fixed per map and a renderer is built for one backend.
       live.close()
     }
@@ -79,6 +85,8 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
   override fun close() {
     if (closed) return
     closed = true
+    // The session closes before the core for the same reason acquireCore evicts before recreating.
+    activeSession?.close()
     activeSession = null
     core?.close()
     core = null
