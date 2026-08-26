@@ -1,105 +1,53 @@
 package org.maplibre.compose.gljs
 
-import org.jetbrains.skia.BackendTexture
-import org.jetbrains.skia.ColorType
-import org.jetbrains.skia.Image
-import org.jetbrains.skia.SurfaceOrigin
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.platform.webgl.WebGLRenderTarget
 
-/**
- * The texture MapLibre GL JS renders into and Compose draws from, sized in physical pixels and
- * never resized in place. The texture and adopted image belong to one Emscripten and Skia renderer
- * generation.
- */
-internal class GlJsRenderTarget(
-  val hostContext: EmscriptenGlContext,
-  val widthPx: Int,
-  val heightPx: Int,
-  val generation: Long,
-) : AutoCloseable {
+/** The WebGL target that MapLibre renders into for a composited frame. */
+internal interface GlJsRenderTarget : AutoCloseable {
+  val gl: dynamic
+  val framebuffer: Any
+  val widthPx: Int
+  val heightPx: Int
 
-  val gl: dynamic = hostContext.webGlContext.asDynamic()
+  /** Clears state that Compose uses but MapLibre GL JS does not track. */
+  fun prepareMapRender()
 
+  /** Restores state used by another renderer after MapLibre GL JS renders. */
+  fun finishMapRender()
+}
+
+internal class GlJsMapRenderState(private val gl: dynamic) {
   private val fragmentTextureUnits =
     (gl.getParameter(gl.MAX_TEXTURE_IMAGE_UNITS) as? Int)
       ?: error("WebGL did not report its fragment texture unit count")
 
-  private val framebufferObject: dynamic
-  private val depthStencil: dynamic
-
-  /** Skia owns the texture behind it from the moment it is adopted. */
-  val image: Image
-
-  val framebuffer: Any
-    get() = framebufferObject.unsafeCast<Any>()
-
-  init {
-    val texture = gl.createTexture()
-    gl.bindTexture(gl.TEXTURE_2D, texture)
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, widthPx, heightPx, 0, gl.RGBA, gl.UNSIGNED_BYTE, null)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-    val textureName = EmscriptenGl.registerTexture(texture.unsafeCast<Any>())
-
-    // MapLibre draws fills through the stencil buffer, so the target needs one.
-    depthStencil = gl.createRenderbuffer()
-    gl.bindRenderbuffer(gl.RENDERBUFFER, depthStencil)
-    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, widthPx, heightPx)
-
-    framebufferObject = gl.createFramebuffer()
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebufferObject)
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0)
-    gl.framebufferRenderbuffer(
-      gl.FRAMEBUFFER,
-      gl.DEPTH_STENCIL_ATTACHMENT,
-      gl.RENDERBUFFER,
-      depthStencil,
-    )
-    val status = gl.checkFramebufferStatus(gl.FRAMEBUFFER)
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null)
-    check(status == gl.FRAMEBUFFER_COMPLETE) {
-      "MapLibre's render target is incomplete at ${widthPx}x$heightPx: $status"
-    }
-
-    val context =
-      checkNotNull(SkikoGpuBridge.directContext(hostContext)) {
-        "Compose's GPU context is not available: ${SkikoGpuBridge.diagnostic(hostContext)}"
-      }
-    val backendTexture =
-      BackendTexture.makeGL(
-        width = widthPx,
-        height = heightPx,
-        isMipmapped = false,
-        textureId = textureName,
-        textureTarget = GL_TEXTURE_2D,
-        textureFormat = GL_RGBA8,
-      )
-    image =
-      Image.adoptTextureFrom(
-        context = context,
-        backendTexture = backendTexture,
-        // GL renders bottom-up.
-        origin = SurfaceOrigin.BOTTOM_LEFT,
-        colorType = ColorType.RGBA_8888,
-      )
-  }
-
-  /** Clears state that Skia uses but MapLibre does not track before MapLibre draws. */
-  fun prepareMapRender() {
+  fun prepare() {
     repeat(fragmentTextureUnits) { unit -> gl.bindSampler(unit, null) }
     gl.disable(gl.SCISSOR_TEST)
   }
+}
 
-  /** Invalidates the Skia state cache for the context that adopted [image]. */
-  fun resetSkiaState() {
-    SkikoGpuBridge.resetGlState(hostContext)
+/** Adapts Compose UI's WebGL target to the renderer-independent MapLibre surface contract. */
+@OptIn(ExperimentalComposeUiApi::class)
+internal class ComposeGlJsRenderTarget(private val target: WebGLRenderTarget) : GlJsRenderTarget {
+  override val gl: dynamic = target.webGLContext.asDynamic()
+  private val mapRenderState = GlJsMapRenderState(gl)
+
+  override val framebuffer: Any
+    get() = target.framebuffer.unsafeCast<Any>()
+
+  override val widthPx: Int
+    get() = target.size.width
+
+  override val heightPx: Int
+    get() = target.size.height
+
+  override fun prepareMapRender() {
+    mapRenderState.prepare()
   }
 
-  /** The texture is not deleted here: adoption handed it to Skia. */
-  override fun close() {
-    gl.deleteFramebuffer(framebufferObject)
-    gl.deleteRenderbuffer(depthStencil)
-    image.close()
-  }
+  override fun finishMapRender() = Unit
+
+  override fun close() = Unit
 }

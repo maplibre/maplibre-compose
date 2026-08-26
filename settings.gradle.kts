@@ -20,6 +20,10 @@ pluginManagement {
 dependencyResolutionManagement {
   @Suppress("UnstableApiUsage")
   repositories {
+    mavenLocal { content { includeGroupAndSubgroups("org.jetbrains.compose") } }
+    maven("https://packages.jetbrains.team/maven/p/cmp/dev") {
+      content { includeGroup("org.jetbrains.skiko") }
+    }
     google {
       mavenContent {
         includeGroupAndSubgroups("androidx")

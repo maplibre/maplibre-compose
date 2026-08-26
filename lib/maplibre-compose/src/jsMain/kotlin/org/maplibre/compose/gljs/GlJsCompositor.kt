@@ -1,85 +1,90 @@
 package org.maplibre.compose.gljs
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
-import co.touchlab.kermit.Logger
+import androidx.compose.ui.ExperimentalComposeUiApi
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.platform.webgl.WebGLRenderTarget
+import androidx.compose.ui.platform.webgl.rememberWebGLRenderTarget
+import androidx.compose.ui.unit.IntSize
 import org.maplibre.compose.map.MapExtent
 
-/** What a map should render into for one frame. */
+/** The target for one map frame. */
 internal sealed interface GlJsFrameTarget {
   data class Composited(val target: GlJsRenderTarget) : GlJsFrameTarget
 
-  /** Compose has not finished building the renderer whose context the map shares. */
+  /** Compose has not finished creating its GPU renderer. */
   data object NotReady : GlJsFrameTarget
 
-  /** A Compose surface with no GPU behind it: the map runs on a canvas nothing samples. */
+  /** A Compose surface without a GPU renderer. The map renders into an unobserved canvas. */
   data object Detached : GlJsFrameTarget
 }
 
-/** Supplies the render target for one map, frame by frame. */
+/** Runs MapLibre frames and supplies the painter that presents them. */
 internal interface GlJsCompositor : AutoCloseable {
-  fun acquire(extent: MapExtent): GlJsFrameTarget
+  val painter: Painter?
+
+  /** Runs [render] in the WebGL period that this compositor provides. */
+  fun render(extent: MapExtent, renderMap: (GlJsFrameTarget) -> Unit): GlJsFrameTarget
 }
 
-/** A seam for tests that run against a raster surface with no WebGL context. */
-internal val LocalGlJsCompositor =
-  staticCompositionLocalOf<(Logger?) -> GlJsCompositor> {
-    { logger -> ComposeGlJsCompositor(logger) }
+internal typealias GlJsCompositorFactory = @Composable (size: IntSize) -> GlJsCompositor
+
+/** Supplies a test compositor when a Compose surface has no WebGL context. */
+internal val LocalGlJsCompositor = staticCompositionLocalOf<GlJsCompositorFactory?> { null }
+
+@OptIn(ExperimentalComposeUiApi::class)
+@Composable
+internal fun rememberGlJsCompositor(size: IntSize): GlJsCompositor {
+  val factory = LocalGlJsCompositor.current
+  if (factory != null) return factory(size)
+  val target = rememberWebGLRenderTarget(size)
+  return remember(target) {
+    if (target == null) DetachedGlJsCompositor() else ComposeGlJsCompositor(target)
   }
+}
 
-/** A target is never resized in place: WebGL cannot resize a texture. */
-internal class ComposeGlJsCompositor(private val logger: Logger?) : GlJsCompositor {
+/** Uses the WebGL target and lifecycle that Compose UI provides. */
+@OptIn(ExperimentalComposeUiApi::class)
+internal class ComposeGlJsCompositor(private val target: WebGLRenderTarget) : GlJsCompositor {
+  private val mapTarget = ComposeGlJsRenderTarget(target)
 
-  private var target: GlJsRenderTarget? = null
-  private var generation = 0L
-  private var reportedUnavailable = false
+  override val painter: Painter = target.painter
 
-  override fun acquire(extent: MapExtent): GlJsFrameTarget {
+  override fun render(
+    extent: MapExtent,
+    renderMap: (GlJsFrameTarget) -> Unit,
+  ): GlJsFrameTarget {
     if (extent.isEmpty) return GlJsFrameTarget.NotReady
-    val hostContext = EmscriptenGl.currentContext()
-    if (hostContext == null || !SkikoGpuBridge.isReady(hostContext)) {
-      if (!reportedUnavailable) {
-        reportedUnavailable = true
-        logger?.d {
-          "Waiting to composite the map: " +
-            if (hostContext == null) "Compose has no current WebGL renderer"
-            else SkikoGpuBridge.diagnostic(hostContext)
-        }
+    val frameTarget = GlJsFrameTarget.Composited(mapTarget)
+    return if (
+      target.render {
+        renderMap(frameTarget)
       }
-      return GlJsFrameTarget.NotReady
-    }
-    reportedUnavailable = false
-
-    val current = target
-    if (
-      current != null &&
-        current.hostContext.handle == hostContext.handle &&
-        current.widthPx == extent.physicalWidth &&
-        current.heightPx == extent.physicalHeight
     ) {
-      return GlJsFrameTarget.Composited(current)
+      frameTarget
+    } else {
+      GlJsFrameTarget.NotReady
     }
-
-    val next =
-      GlJsRenderTarget(
-        hostContext = hostContext,
-        widthPx = extent.physicalWidth,
-        heightPx = extent.physicalHeight,
-        generation = ++generation,
-      )
-    target = next
-    current?.close()
-    return GlJsFrameTarget.Composited(next)
   }
 
   override fun close() {
-    target?.close()
-    target = null
+    target.markGLStateStale()
   }
 }
 
-/** A compositor for a Compose surface that has no GPU behind it. See [GlJsFrameTarget.Detached]. */
+/** A compositor for a Compose surface without a GPU renderer. */
 internal class DetachedGlJsCompositor : GlJsCompositor {
-  override fun acquire(extent: MapExtent): GlJsFrameTarget = GlJsFrameTarget.Detached
+  override val painter: Painter? = null
+
+  override fun render(
+    extent: MapExtent,
+    renderMap: (GlJsFrameTarget) -> Unit,
+  ): GlJsFrameTarget {
+    renderMap(GlJsFrameTarget.Detached)
+    return GlJsFrameTarget.Detached
+  }
 
   override fun close() = Unit
 }
