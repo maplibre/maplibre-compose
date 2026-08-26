@@ -6,9 +6,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.nativeffi.geo.CanonicalTileId
-import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.style.CustomGeometrySourceCallback
 import org.maplibre.nativeffi.style.CustomGeometrySourceOptions as FfiCustomGeometrySourceOptions
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -49,28 +49,28 @@ public actual class CustomGeometrySource : Source {
       )
   }
 
-  override fun attachedToStyle(binding: MlnFfiStyleBinding) {
-    coordinator.attach(binding)
+  override fun attachedToStyle(binding: StyleBinding) {
+    coordinator.attach(binding as MlnFfiStyleBinding)
   }
 
   override fun detachedFromStyle() {
     coordinator.detach()
   }
 
-  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
-    prepared?.close()
-    map.addCustomGeometrySource(
-      id,
-      FfiCustomGeometrySourceOptions(callback).also {
-        it.minZoom = options.minZoom.toDouble()
-        it.maxZoom = options.maxZoom.toDouble()
-        it.buffer = options.buffer
-        it.tolerance = options.tolerance.toDouble()
-        it.clip = options.clip
-        it.wrap = options.wrap
-      },
-    )
-  }
+  override fun addTo(binding: StyleBinding): Boolean =
+    (binding as MlnFfiStyleBinding).addSourceWith(id) { map ->
+      map.addCustomGeometrySource(
+        id,
+        FfiCustomGeometrySourceOptions(callback).also {
+          it.minZoom = options.minZoom.toDouble()
+          it.maxZoom = options.maxZoom.toDouble()
+          it.buffer = options.buffer
+          it.tolerance = options.tolerance.toDouble()
+          it.clip = options.clip
+          it.wrap = options.wrap
+        },
+      )
+    }
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "custom-geometry")

@@ -8,13 +8,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.ExpressionContext
-import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.util.toGeoJsonFeatures
-import org.maplibre.compose.util.toJsonBytes
-import org.maplibre.compose.util.toStyleJson
-import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -42,40 +36,22 @@ public actual class VectorSource : Source {
   public actual fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
-  ): List<Feature<Geometry, JsonObject?>> {
-    if (sourceLayerIds.isEmpty()) return emptyList()
-
-    val options =
-      SourceFeatureQueryOptions().also {
-        it.sourceLayerIds = sourceLayerIds.toList()
-        // A scalar true is not a valid filter; MapLibre reads an absent one as "match everything".
-        it.filter =
-          predicate
-            .takeUnless { expression -> expression == const(true) }
-            ?.compile(ExpressionContext.None)
-            ?.toStyleJson()
-            ?.toJsonBytes()
-      }
-    // Empty rather than an exception when no session is attached.
-    return binding
-      .withRenderSession { session -> session.querySourceFeatures(id, options) }
-      ?.toGeoJsonFeatures()
-      .orEmpty()
-  }
+  ): List<Feature<Geometry, JsonObject?>> =
+    binding.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
 
   public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
-    binding.setFeatureState(id, featureId, state, sourceLayerId)
+    binding.setFeatureState(id, sourceLayerId, featureId, state)
   }
 
   public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
-    binding.getFeatureState(id, featureId, sourceLayerId)
+    binding.featureState(id, sourceLayerId, featureId)
 
   public actual fun removeFeatureState(
     sourceLayerId: String,
     featureId: String,
     stateKey: String?,
   ) {
-    binding.removeFeatureState(id, featureId, stateKey, sourceLayerId)
+    binding.removeFeatureState(id, sourceLayerId, featureId, stateKey)
   }
 
   public actual fun resetFeatureStates(sourceLayerId: String) {

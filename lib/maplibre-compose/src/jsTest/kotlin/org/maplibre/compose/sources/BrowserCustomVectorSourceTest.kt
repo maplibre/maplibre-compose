@@ -37,7 +37,7 @@ class BrowserCustomVectorSourceTest {
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
       fun isSourceLoaded(): Boolean =
-        source.binding?.withMap { map -> map.isSourceLoaded(source.id) } == true
+        source.glJsBinding?.withMap { map -> map.isSourceLoaded(source.id) } == true
 
       assertFalse(isSourceLoaded())
       release.complete(Unit)
@@ -81,11 +81,11 @@ class BrowserCustomVectorSourceTest {
       style.addLayer(layer)
 
       fixture.pumpUntil("the rejected protocol request to reach MapLibre GL JS") {
-        requested && source.binding?.lastReportedError != null
+        requested && source.glJsBinding?.lastReportedError != null
       }
 
       assertTrue(requested)
-      assertNotNull(source.binding?.lastReportedError)
+      assertNotNull(source.glJsBinding?.lastReportedError)
     }
   }
 }

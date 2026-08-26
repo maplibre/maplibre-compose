@@ -76,17 +76,18 @@ public actual class GeoJsonSource : Source {
   }
 
   public actual fun setFeatureState(featureId: String, state: JsonObject) {
-    setJsFeatureState(featureId = featureId, state = state)
+    binding.setFeatureState(id, sourceLayerId = null, featureId = featureId, state = state)
   }
 
-  public actual fun getFeatureState(featureId: String): JsonObject = jsFeatureState(featureId)
+  public actual fun getFeatureState(featureId: String): JsonObject =
+    binding.featureState(id, sourceLayerId = null, featureId = featureId)
 
   public actual fun removeFeatureState(featureId: String, stateKey: String?) {
-    removeJsFeatureState(featureId = featureId, stateKey = stateKey)
+    binding.removeFeatureState(id, sourceLayerId = null, featureId = featureId, stateKey = stateKey)
   }
 
   public actual fun resetFeatureStates() {
-    removeJsFeatureState()
+    binding.resetFeatureStates(id, sourceLayerId = null)
   }
 
   private class ClusterQuery(val source: GlJsGeoJsonSource, val clusterId: Double)
@@ -96,7 +97,7 @@ public actual class GeoJsonSource : Source {
     val clusterId =
       (feature.properties?.get(CLUSTER_ID_PROPERTY) as? JsonPrimitive)?.doubleOrNull
         ?: run {
-          binding?.logger?.w {
+          binding.logger?.w {
             "Cluster query on a feature with no '$CLUSTER_ID_PROPERTY' in source '$id'"
           }
           return null

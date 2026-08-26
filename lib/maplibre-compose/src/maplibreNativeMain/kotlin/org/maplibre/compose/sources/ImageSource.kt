@@ -10,11 +10,12 @@ import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.compose.util.toLatLng
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toPremultipliedRgba8
-import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.render.PremultipliedRgba8Image
 import org.maplibre.spatialk.geojson.Position
 
@@ -45,12 +46,11 @@ public actual class ImageSource : Source {
    * Adds the source with its pixels when it has them; source JSON can only name a URL, so a
    * pixel-backed source added from [toJson] would be added empty.
    */
-  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
-    val pixels = image
-    if (pixels == null) super.addTo(map, prepared)
-    else {
-      prepared?.close()
-      map.addImageSourceImage(id, bounds.toCorners().map { it.toLatLng() }, pixels)
+  override fun addTo(binding: StyleBinding): Boolean {
+    val pixels = image ?: return super.addTo(binding)
+    val corners = bounds.toCorners().map { it.toLatLng() }
+    return (binding as MlnFfiStyleBinding).addSourceWith(id) { map ->
+      map.addImageSourceImage(id, corners, pixels)
     }
   }
 
@@ -65,7 +65,7 @@ public actual class ImageSource : Source {
    * The corners MapLibre holds for this source, or null when its style has unloaded. Exists so a
    * test can assert the corner order, which MapLibre does not validate.
    */
-  internal fun attachedCorners(): List<Position>? = binding.readMap { map ->
+  internal fun attachedCorners(): List<Position>? = ffiBinding.readMap { map ->
     map.imageSourceCoordinates(id)?.map { it.toPosition() }
   }
 

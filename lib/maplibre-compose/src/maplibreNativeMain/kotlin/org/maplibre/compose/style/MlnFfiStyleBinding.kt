@@ -4,11 +4,19 @@ import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
+import org.maplibre.compose.sources.featureStateSelector
+import org.maplibre.compose.sources.forgetFeatureStates
+import org.maplibre.compose.sources.liveFeatureStateStore
+import org.maplibre.compose.sources.mutateLiveFeatureState
+import org.maplibre.compose.util.toGeoJsonFeatures
 import org.maplibre.compose.util.toJsonBytes
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.nativeffi.render.RenderSessionHandle
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
 
 /**
  * [StyleBinding] over a MapLibre Native map. Every `MapHandle` call has to run on the owner thread;
@@ -17,9 +25,6 @@ import org.maplibre.nativeffi.render.RenderSessionHandle
 internal interface MlnFfiStyleBinding : StyleBinding {
   /** Feature state retained for this loaded style. */
   val featureStateStore: MlnFfiFeatureStateStore?
-
-  /** Runs [action] when this style unloads and returns a function that removes the action. */
-  fun onUnload(action: () -> Unit): () -> Unit
 
   /** Null if the style has unloaded; reads should then fall back to the descriptor. */
   fun <T> readMap(action: (MapHandle) -> T): T?
@@ -40,11 +45,97 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    */
   fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T?
 
+  override fun addSource(sourceId: String, source: JsonObject): Boolean =
+    addSourceWith(sourceId) { map -> map.addStyleSourceJson(sourceId, source.toJsonBytes()) }
+
   /**
-   * Reports that [sourceId] was added or removed, so StyleState can refresh that source without
-   * waiting for idle. Call only from the owner thread, after the native add or remove.
+   * Adds a source on the owner thread, for the types MapLibre Native creates from a typed adder
+   * rather than from source JSON. Reports the change and wraps a refusal the way [addSource] does.
+   *
+   * @return false if the style has unloaded, in which case [add] did not run.
    */
-  fun reportSourceChanged(sourceId: String) {}
+  fun addSourceWith(sourceId: String, add: (MapHandle) -> Unit): Boolean =
+    mutateMap { map ->
+      try {
+        add(map)
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
+      reportSourceChanged(sourceId)
+    } != null
+
+  override fun removeSource(sourceId: String) {
+    mutateMap { map ->
+      map.removeStyleSource(sourceId)
+      forgetFeatureStates(sourceId)
+      reportSourceChanged(sourceId)
+    }
+  }
+
+  override fun sourceExists(sourceId: String): Boolean? = readMap { map ->
+    map.styleSourceExists(sourceId)
+  }
+
+  override fun setFeatureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+    state: JsonObject,
+  ) {
+    val store = liveFeatureStateStore() ?: return
+    store.set(sourceId, sourceLayerId, featureId, state)
+    mutateLiveFeatureState { session ->
+      session.setFeatureState(
+        featureStateSelector(sourceId, sourceLayerId, featureId),
+        state.toJsonBytes(),
+      )
+    }
+  }
+
+  override fun featureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+  ): JsonObject =
+    liveFeatureStateStore()?.get(sourceId, sourceLayerId, featureId) ?: JsonObject(emptyMap())
+
+  override fun removeFeatureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+    stateKey: String?,
+  ) {
+    val store = liveFeatureStateStore() ?: return
+    store.remove(sourceId, sourceLayerId, featureId, stateKey)
+    mutateLiveFeatureState { session ->
+      session.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
+    }
+  }
+
+  override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
+    val store = liveFeatureStateStore() ?: return
+    store.reset(sourceId, sourceLayerId)
+    mutateLiveFeatureState { session ->
+      session.removeFeatureState(featureStateSelector(sourceId, sourceLayerId))
+    }
+  }
+
+  /** Empty rather than an exception when no render session is attached. */
+  override fun querySourceFeatures(
+    sourceId: String,
+    sourceLayerIds: Set<String>,
+    filter: JsonElement?,
+  ): List<Feature<Geometry, JsonObject?>> {
+    if (sourceLayerIds.isEmpty()) return emptyList()
+    val options =
+      SourceFeatureQueryOptions().also {
+        it.sourceLayerIds = sourceLayerIds.toList()
+        it.filter = filter?.toJsonBytes()
+      }
+    return withRenderSession { session -> session.querySourceFeatures(sourceId, options) }
+      ?.toGeoJsonFeatures()
+      .orEmpty()
+  }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean =
     mutateMap { map ->

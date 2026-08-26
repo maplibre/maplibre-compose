@@ -8,7 +8,10 @@ import kotlinx.serialization.json.add
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import kotlinx.serialization.json.putJsonObject
+import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.ast.ExpressionContext
+import org.maplibre.compose.expressions.dsl.const
+import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.toJson
 
@@ -82,3 +85,13 @@ internal fun JsonObjectBuilder.putClusterProperties(
     }
   }
 }
+
+/**
+ * A source-feature query's predicate as a style-spec filter, or null to match every feature.
+ * MapLibre reads an absent filter as "match everything", and a scalar true is not a filter.
+ */
+internal fun Expression<BooleanValue>.toFilterJson(): JsonElement? = takeUnless {
+  it == const(true)
+}
+  ?.compile(ExpressionContext.None)
+  ?.toStyleJson()

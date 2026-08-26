@@ -3,9 +3,11 @@ package org.maplibre.compose.style
 import co.touchlab.kermit.Logger
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.Geometry
 
 /**
- * A layer's connection to its live style, as a layer ID and style-spec JSON. A binding stops
+ * A source or layer's connection to its live style, as an ID and style-spec JSON. A binding stops
  * working when its style unloads, after which mutations are dropped and reads answer null rather
  * than throwing.
  */
@@ -13,6 +15,9 @@ internal interface StyleBinding {
   val isLoaded: Boolean
 
   val logger: Logger?
+
+  /** Runs [action] when this style unloads and returns a function that removes the action. */
+  fun onUnload(action: () -> Unit): () -> Unit
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -57,6 +62,67 @@ internal interface StyleBinding {
    */
   fun unsupportedLayerPropertyReason(layerType: String, name: String): String? = null
 
+  /**
+   * Adds a source from its style-spec definition.
+   *
+   * @return false if the style has unloaded, in which case nothing was added.
+   * @throws StyleMutationException if MapLibre refuses the source.
+   */
+  fun addSource(sourceId: String, source: JsonObject): Boolean
+
+  /** Removes a source and forgets the feature state that belonged to it. */
+  fun removeSource(sourceId: String)
+
+  /**
+   * Reports whether a live source with [sourceId] is in the style, so a duplicate can be refused on
+   * the caller with the message that names the cause.
+   *
+   * @return null if the style has unloaded or the answer could not be determined; the add still
+   *   refuses a duplicate in that case.
+   */
+  fun sourceExists(sourceId: String): Boolean?
+
+  /**
+   * Reports that [sourceId] was added or removed, so the style state can refresh that source
+   * without waiting for idle. An engine that adds sources through its own hop calls this from
+   * inside that hop, after the add or remove.
+   */
+  fun reportSourceChanged(sourceId: String) {}
+
+  /** Merges [state] into the state of one feature; a null value in [state] drops that key. */
+  fun setFeatureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+    state: JsonObject,
+  )
+
+  /** @return an empty object when the feature has no state, or the style has unloaded. */
+  fun featureState(sourceId: String, sourceLayerId: String?, featureId: String): JsonObject
+
+  /** Removes one key of a feature's state, or the whole state when [stateKey] is null. */
+  fun removeFeatureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+    stateKey: String?,
+  )
+
+  /** Removes the state of every feature in a source, or in one of its source layers. */
+  fun resetFeatureStates(sourceId: String, sourceLayerId: String?)
+
+  /**
+   * Queries the features a source has loaded, whether or not they are drawn.
+   *
+   * @param filter a style-spec filter expression, or null to match every feature.
+   * @return empty when the style has unloaded or nothing has rendered yet.
+   */
+  fun querySourceFeatures(
+    sourceId: String,
+    sourceLayerIds: Set<String>,
+    filter: JsonElement?,
+  ): List<Feature<Geometry, JsonObject?>>
+
   companion object {
     /** A binding for a descriptor that has never been added to a style. */
     val UNLOADED: StyleBinding =
@@ -64,6 +130,11 @@ internal interface StyleBinding {
         override val isLoaded: Boolean = false
 
         override val logger: Logger? = null
+
+        override fun onUnload(action: () -> Unit): () -> Unit {
+          action()
+          return {}
+        }
 
         override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = false
 
@@ -83,6 +154,40 @@ internal interface StyleBinding {
         override fun layerProperty(layerId: String, name: String): JsonElement? = null
 
         override fun layerExists(layerId: String): Boolean? = null
+
+        override fun addSource(sourceId: String, source: JsonObject): Boolean = false
+
+        override fun removeSource(sourceId: String) = Unit
+
+        override fun sourceExists(sourceId: String): Boolean? = null
+
+        override fun setFeatureState(
+          sourceId: String,
+          sourceLayerId: String?,
+          featureId: String,
+          state: JsonObject,
+        ) = Unit
+
+        override fun featureState(
+          sourceId: String,
+          sourceLayerId: String?,
+          featureId: String,
+        ): JsonObject = JsonObject(emptyMap())
+
+        override fun removeFeatureState(
+          sourceId: String,
+          sourceLayerId: String?,
+          featureId: String,
+          stateKey: String?,
+        ) = Unit
+
+        override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) = Unit
+
+        override fun querySourceFeatures(
+          sourceId: String,
+          sourceLayerIds: Set<String>,
+          filter: JsonElement?,
+        ): List<Feature<Geometry, JsonObject?>> = emptyList()
       }
   }
 }

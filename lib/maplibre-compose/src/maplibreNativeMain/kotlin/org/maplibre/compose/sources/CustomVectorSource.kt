@@ -7,16 +7,10 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.ExpressionContext
-import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.MlnFfiStyleBinding
-import org.maplibre.compose.util.toGeoJsonFeatures
-import org.maplibre.compose.util.toJsonBytes
-import org.maplibre.compose.util.toStyleJson
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.nativeffi.geo.CanonicalTileId
-import org.maplibre.nativeffi.map.MapHandle
-import org.maplibre.nativeffi.query.SourceFeatureQueryOptions
 import org.maplibre.nativeffi.style.CustomMvtVectorSourceCallback
 import org.maplibre.nativeffi.style.CustomMvtVectorSourceOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -54,24 +48,24 @@ public actual class CustomVectorSource : Source {
       )
   }
 
-  override fun attachedToStyle(binding: MlnFfiStyleBinding) {
-    coordinator.attach(binding)
+  override fun attachedToStyle(binding: StyleBinding) {
+    coordinator.attach(binding as MlnFfiStyleBinding)
   }
 
   override fun detachedFromStyle() {
     coordinator.detach()
   }
 
-  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
-    prepared?.close()
-    map.addCustomMvtVectorSource(
-      id,
-      CustomMvtVectorSourceOptions(callback).also {
-        it.minZoom = options.minZoom.toDouble()
-        it.maxZoom = options.maxZoom.toDouble()
-      },
-    )
-  }
+  override fun addTo(binding: StyleBinding): Boolean =
+    (binding as MlnFfiStyleBinding).addSourceWith(id) { map ->
+      map.addCustomMvtVectorSource(
+        id,
+        CustomMvtVectorSourceOptions(callback).also {
+          it.minZoom = options.minZoom.toDouble()
+          it.maxZoom = options.maxZoom.toDouble()
+        },
+      )
+    }
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "vector")
@@ -87,37 +81,22 @@ public actual class CustomVectorSource : Source {
   public actual fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
-  ): List<Feature<Geometry, JsonObject?>> {
-    if (sourceLayerIds.isEmpty()) return emptyList()
-    val query =
-      SourceFeatureQueryOptions().also {
-        it.sourceLayerIds = sourceLayerIds.toList()
-        it.filter =
-          predicate
-            .takeUnless { expression -> expression == const(true) }
-            ?.compile(ExpressionContext.None)
-            ?.toStyleJson()
-            ?.toJsonBytes()
-      }
-    return binding
-      .withRenderSession { session -> session.querySourceFeatures(id, query) }
-      ?.toGeoJsonFeatures()
-      .orEmpty()
-  }
+  ): List<Feature<Geometry, JsonObject?>> =
+    binding.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
 
   public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
-    binding.setFeatureState(id, featureId, state, sourceLayerId)
+    binding.setFeatureState(id, sourceLayerId, featureId, state)
   }
 
   public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
-    binding.getFeatureState(id, featureId, sourceLayerId)
+    binding.featureState(id, sourceLayerId, featureId)
 
   public actual fun removeFeatureState(
     sourceLayerId: String,
     featureId: String,
     stateKey: String?,
   ) {
-    binding.removeFeatureState(id, featureId, stateKey, sourceLayerId)
+    binding.removeFeatureState(id, sourceLayerId, featureId, stateKey)
   }
 
   public actual fun resetFeatureStates(sourceLayerId: String) {

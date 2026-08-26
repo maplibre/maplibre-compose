@@ -22,19 +22,12 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.ast.ExpressionContext
-import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
-import org.maplibre.compose.gljs.FilterSpecification
 import org.maplibre.compose.gljs.ProtocolResponse
-import org.maplibre.compose.gljs.QuerySourceFeatureOptions
 import org.maplibre.compose.gljs.RequestParameters
 import org.maplibre.compose.gljs.addProtocol
 import org.maplibre.compose.gljs.removeProtocol
-import org.maplibre.compose.style.GlJsStyleBinding
-import org.maplibre.compose.util.toGeoJsonFeature
-import org.maplibre.compose.util.toJsValue
-import org.maplibre.compose.util.toStyleJson
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 
@@ -61,7 +54,7 @@ public actual class CustomVectorSource : Source {
     this.provider = provider
   }
 
-  override fun addTo(binding: GlJsStyleBinding) {
+  override fun addTo(binding: StyleBinding): Boolean {
     closeAttachment()
     val protocol = "maplibre-compose-custom-vector-${nextProtocolId++}"
     val current =
@@ -77,12 +70,15 @@ public actual class CustomVectorSource : Source {
     addProtocol(protocol) { request, abortController ->
       loadProtocolTile(current, request, abortController)
     }
-    try {
-      binding.addSource(id, sourceJson(protocol))
-    } catch (error: Throwable) {
-      closeAttachment()
-      throw error
-    }
+    val added =
+      try {
+        binding.addSource(id, sourceJson(protocol))
+      } catch (error: Throwable) {
+        closeAttachment()
+        throw error
+      }
+    if (!added) closeAttachment()
+    return added
   }
 
   override fun detachedFromStyle() {
@@ -158,45 +154,26 @@ public actual class CustomVectorSource : Source {
   public actual fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue>,
-  ): List<Feature<Geometry, JsonObject?>> {
-    if (sourceLayerIds.isEmpty()) return emptyList()
-    val filter: FilterSpecification? =
-      predicate
-        .takeUnless { it == const(true) }
-        ?.compile(ExpressionContext.None)
-        ?.toStyleJson()
-        ?.toJsValue()
-    return binding
-      ?.withMap { map ->
-        sourceLayerIds.flatMap { layer ->
-          val query =
-            unsafeJso<QuerySourceFeatureOptions> {
-              sourceLayer = layer
-              this.filter = filter
-            }
-          map.querySourceFeatures(id, query).map { it.toGeoJsonFeature() }
-        }
-      }
-      .orEmpty()
-  }
+  ): List<Feature<Geometry, JsonObject?>> =
+    binding.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
 
   public actual fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
-    setJsFeatureState(featureId = featureId, sourceLayerId = sourceLayerId, state = state)
+    binding.setFeatureState(id, sourceLayerId, featureId, state)
   }
 
   public actual fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
-    jsFeatureState(featureId, sourceLayerId)
+    binding.featureState(id, sourceLayerId, featureId)
 
   public actual fun removeFeatureState(
     sourceLayerId: String,
     featureId: String,
     stateKey: String?,
   ) {
-    removeJsFeatureState(featureId = featureId, sourceLayerId = sourceLayerId, stateKey = stateKey)
+    binding.removeFeatureState(id, sourceLayerId, featureId, stateKey)
   }
 
   public actual fun resetFeatureStates(sourceLayerId: String) {
-    removeJsFeatureState(sourceLayerId = sourceLayerId)
+    binding.resetFeatureStates(id, sourceLayerId)
   }
 
   private companion object {

@@ -15,10 +15,13 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.util.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.util.toFfiClusterFeature
 import org.maplibre.compose.util.toJsonBytes
-import org.maplibre.nativeffi.map.MapHandle
+import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.style.GeoJsonSourceDataHandle
 import org.maplibre.nativeffi.style.GeoJsonSourceOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -69,24 +72,26 @@ public actual class GeoJsonSource : Source {
     put("synchronousUpdate", options.synchronousUpdate)
   }
 
-  override fun prepareForAttach(): AutoCloseable? {
-    if (dataUrl != null) return null
-    return prepareData()
-  }
-
-  override fun addTo(map: MapHandle, prepared: AutoCloseable?) {
+  /**
+   * The parse and index run here, on the caller, because they must not run on the map's owner
+   * thread. `addSourceWith` returns once its hop has run or been dropped, so the handle outlives
+   * every use of it.
+   */
+  override fun addTo(binding: StyleBinding): Boolean {
+    val ffi = binding as MlnFfiStyleBinding
     val url = dataUrl
     if (url != null) {
-      prepared?.close()
-      map.addGeoJsonSourceUrl(id, url, ffiOptions)
-    } else {
-      val handle =
-        (prepared as? GeoJsonSourceDataHandle)
-          ?: run {
-            prepared?.close()
-            prepareData()
-          }
-      handle.use { map.addGeoJsonSourceData(id, it) }
+      return ffi.addSourceWith(id) { map -> map.addGeoJsonSourceUrl(id, url, ffiOptions) }
+    }
+    // The parse reports a bad document the same way the add reports a bad source.
+    val prepared =
+      try {
+        prepareData()
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
+    return prepared.use { handle ->
+      ffi.addSourceWith(id) { map -> map.addGeoJsonSourceData(id, handle) }
     }
   }
 
@@ -197,18 +202,18 @@ public actual class GeoJsonSource : Source {
   ): FeatureCollection<*, JsonObject?> = queryClusterFeatures(feature, CHILDREN_FIELD, null)
 
   public actual fun setFeatureState(featureId: String, state: JsonObject) {
-    binding.setFeatureState(id, featureId, state)
+    binding.setFeatureState(id, sourceLayerId = null, featureId = featureId, state = state)
   }
 
   public actual fun getFeatureState(featureId: String): JsonObject =
-    binding.getFeatureState(id, featureId)
+    binding.featureState(id, sourceLayerId = null, featureId = featureId)
 
   public actual fun removeFeatureState(featureId: String, stateKey: String?) {
-    binding.removeFeatureState(id, featureId, stateKey)
+    binding.removeFeatureState(id, sourceLayerId = null, featureId = featureId, stateKey = stateKey)
   }
 
   public actual fun resetFeatureStates() {
-    binding.resetFeatureStates(id)
+    binding.resetFeatureStates(id, sourceLayerId = null)
   }
 
   public actual suspend fun getClusterLeaves(
@@ -240,7 +245,7 @@ public actual class GeoJsonSource : Source {
     arguments: ByteArray? = null,
   ): ByteArray? {
     val ffiFeature = feature.toFfiClusterFeature() ?: return null
-    return binding.withRenderSession { session ->
+    return ffiBinding.withRenderSession { session ->
       session.queryFeatureExtension(id, ffiFeature, SUPERCLUSTER_EXTENSION, field, arguments)
     }
   }

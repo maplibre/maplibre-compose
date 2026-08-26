@@ -3,6 +3,7 @@ package org.maplibre.compose.util
 import kotlin.test.assertNotNull
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.ffiBinding
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.nativeffi.map.MapHandle
 
@@ -15,4 +16,4 @@ internal fun <T> Layer.onMap(block: (MapHandle) -> T): T =
 
 /** The same for a source. */
 internal fun <T> Source.onMap(block: (MapHandle) -> T): T =
-  assertNotNull(binding.readMap(block), "Source '$id' is not bound to a loaded style")
+  assertNotNull(ffiBinding.readMap(block), "Source '$id' is not bound to a loaded style")
