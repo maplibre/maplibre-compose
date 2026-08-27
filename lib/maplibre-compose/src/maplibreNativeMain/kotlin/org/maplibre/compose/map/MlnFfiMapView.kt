@@ -34,17 +34,13 @@ internal const val MAP_LOAD_PLACEHOLDER_TAG = "maplibre-map-load-placeholder"
 internal fun MlnFfiMapView(
   hostFactory: MlnFfiMapHostFactory,
   modifier: Modifier,
-  engine: MapEngine,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: Logger?,
-  callbacks: MapAdapter.Callbacks,
+  state: MapState,
   options: MapOptions,
 ) {
   val density = LocalDensity.current
 
   // Safe to call off the owner thread: it only inspects what the loaded library was built with.
-  val runtimeBackends = remember { loadRuntimeBackends(logger) }
+  val runtimeBackends = remember { loadRuntimeBackends(state.logger) }
   val scaleFactor = density.density.toDouble()
   val hostSelection =
     remember(hostFactory, runtimeBackends, scaleFactor) { selectHost(runtimeBackends, hostFactory) }
@@ -61,11 +57,7 @@ internal fun MlnFfiMapView(
       )
     },
     modifier = modifier,
-    engine = engine,
-    update = update,
-    onReset = onReset,
-    logger = logger,
-    callbacks = callbacks,
+    state = state,
     options = options,
   )
 }
@@ -76,46 +68,43 @@ internal fun MlnFfiMapView(
   renderBackend: MapRenderBackend,
   surface: @Composable (MlnFfiMapRenderer, Modifier, Logger?, Boolean) -> Unit,
   modifier: Modifier,
-  engine: MapEngine,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: Logger?,
-  callbacks: MapAdapter.Callbacks,
+  state: MapState,
   options: MapOptions,
 ) {
   EnsureMlnFfiConfigured()
   val layoutDirection = LocalLayoutDirection.current
   val density = LocalDensity.current
   val scaleFactor = density.density.toDouble()
+  val logger = state.logger
 
   // The engine reuses a live core whose density and backend match, so re-entering the composition
   // re-attaches to the same map instead of recreating it.
-  val mapEngine = engine as MlnFfiMapEngine
+  val engine = state.engine
   val core =
-    remember(mapEngine, renderBackend, scaleFactor) {
-      mapEngine.acquireCore(scaleFactor, layoutDirection, renderBackend)
+    remember(engine, renderBackend, scaleFactor) {
+      engine.acquireCore(scaleFactor, layoutDirection, renderBackend)
     }
-  val session = remember(core, renderBackend) { mapEngine.createSession(core, renderBackend) }
+  val session = remember(core, renderBackend) { engine.createSession(core, renderBackend) }
 
-  core.callbacks = callbacks
+  core.callbacks = state.callbacks
   core.logger = logger
   core.layoutDirection = layoutDirection
 
-  // Captured at session creation: a later composition may pass another state's detach, and the
-  // dying session must detach the state that owns it.
-  val sessionOnReset = remember(session) { onReset }
+  // Captured at session creation: a later composition may pass another state, and the session must
+  // attach and detach the state that owns it.
+  val sessionState = remember(session) { state }
 
-  LaunchedEffect(session, options, update) {
+  LaunchedEffect(session) {
     // Attach deferred state before native events can report the map's default state to Compose.
-    update(core)
+    sessionState.attachSession(core)
     core.start()
   }
 
   DisposableEffect(session) {
     onDispose {
       session.close()
-      mapEngine.releaseSession(session)
-      sessionOnReset()
+      engine.releaseSession(session)
+      sessionState.detachSession()
     }
   }
 

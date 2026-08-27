@@ -86,7 +86,7 @@ class BrowserMapStateSwapTest {
 
     waitUntilMap("the map to load") { loads >= 1 }
     val session = assertIs<GlJsMapSession>(state.attachedAdapter)
-    val engine = assertIs<GlJsMapEngine>(state.engine)
+    val engine = state.engine
 
     state.close()
 
@@ -137,7 +137,7 @@ class BrowserMapStateSwapTest {
     }
 
     waitUntilMap("the map to load") { loads >= 1 }
-    val engine = assertIs<GlJsMapEngine>(state.engine)
+    val engine = state.engine
     val firstSession = assertIs<GlJsMapSession>(state.attachedAdapter)
 
     state.close()

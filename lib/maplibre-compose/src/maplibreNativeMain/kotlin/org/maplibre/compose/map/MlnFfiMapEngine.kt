@@ -12,9 +12,8 @@ import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.createSnapshotTarget
 import org.maplibre.compose.mlnffi.ensureMlnFfiConfigured
-import org.maplibre.compose.style.BaseStyle
 
-/** How long [MlnFfiMapEngine.snapshot] parks between style-loaded polls. */
+/** How long [MapEngine.snapshot] parks between style-loaded polls. */
 private const val STYLE_POLL_MILLIS = 8L
 
 /**
@@ -22,11 +21,13 @@ private const val STYLE_POLL_MILLIS = 8L
  * because that is the first moment the density and the render backend are known, and it survives
  * detach so a re-entering composition re-attaches to the live map instead of recreating it.
  */
-internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
+internal actual class MapEngine actual constructor(private val state: MapState) : AutoCloseable {
 
-  /** The core keeps its loaded style across detach, so the state must keep its binding too. */
-  override val retainsStyleAcrossDetach: Boolean
-    get() = true
+  /**
+   * The core keeps its loaded style across detach, so the state keeps its binding while it lives.
+   */
+  actual val detachedAdapter: MapAdapter?
+    get() = core
 
   internal var core: MlnFfiMapCore? = null
     private set
@@ -38,12 +39,13 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
   /** The live render session; the shared core makes the adapter-level attach guard blind here. */
   private var activeSession: MlnFfiMapSession? = null
 
-  /** Creates the render session over [core], refusing a second session on the same live core. */
+  /**
+   * Creates the render session over [core], refusing a second session on the same live core. The
+   * refusal happens at composition, before [MapState.attachSession] can state the same rule.
+   */
   internal fun createSession(core: MlnFfiMapCore, backend: MapRenderBackend): MlnFfiMapSession {
     val current = activeSession
-    check(current == null || current.core !== core) {
-      "MapState already has an attached MaplibreMap; one MapState shows one MaplibreMap at a time"
-    }
+    check(current == null || current.core !== core) { SINGLE_SESSION_ERROR }
     return MlnFfiMapSession(core, backend).also { activeSession = it }
   }
 
@@ -83,14 +85,10 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
     return created
   }
 
-  override fun setBaseStyle(style: BaseStyle) {
-    core?.setBaseStyle(style)
-  }
-
   /** Serializes snapshots: the map has one live render session, so two cannot pump at once. */
   private val snapshotMutex = Mutex()
 
-  override suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
+  actual suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
     val deadline = TimeSource.Monotonic.markNow() + timeout
     snapshotMutex.withLock {
       check(activeSession == null && state.attachedAdapter == null) {
@@ -146,7 +144,7 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
     }
   }
 
-  override fun close() {
+  actual override fun close() {
     if (closed) return
     closed = true
     // The session closes before the core for the same reason acquireCore evicts before recreating.
@@ -156,5 +154,3 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
     core = null
   }
 }
-
-internal actual fun createMapEngine(state: MapState): MapEngine = MlnFfiMapEngine(state)

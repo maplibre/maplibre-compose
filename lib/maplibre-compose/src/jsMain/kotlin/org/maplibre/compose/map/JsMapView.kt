@@ -10,47 +10,43 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import co.touchlab.kermit.Logger
 import org.maplibre.compose.gljs.GlJsMapSurface
 
 @Composable
-internal actual fun ComposableMapView(
-  modifier: Modifier,
-  engine: MapEngine,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: Logger?,
-  callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
-) {
+internal actual fun ComposableMapView(state: MapState, modifier: Modifier, options: MapOptions) {
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
   val scaleFactor = density.density.toDouble()
+  val logger = state.logger
 
   // Keyed on the engine so swapping the composable's state tears the session down with its map.
-  val mapEngine = engine as GlJsMapEngine
+  val engine = state.engine
   val session =
-    remember(mapEngine, scaleFactor) {
-      GlJsMapSession(callbacks = callbacks, logger = logger, layoutDirection = layoutDirection)
-        .also { mapEngine.registerSession(it) }
+    remember(engine, scaleFactor) {
+      GlJsMapSession(
+          callbacks = state.callbacks,
+          logger = logger,
+          layoutDirection = layoutDirection,
+        )
+        .also { engine.registerSession(it) }
     }
 
-  session.callbacks = callbacks
+  session.callbacks = state.callbacks
   session.logger = logger
   session.layoutDirection = layoutDirection
 
-  // Captured at session creation: a later composition may pass another state's detach, and the
-  // dying session must detach the state that owns it.
-  val sessionOnReset = remember(session) { onReset }
+  // Captured at session creation: a later composition may pass another state, and the session must
+  // attach and detach the state that owns it.
+  val sessionState = remember(session) { state }
 
   // A session the closed engine refused must not attach; the closed state would throw.
-  LaunchedEffect(session, options, update) { if (!session.isClosed) update(session) }
+  LaunchedEffect(session) { if (!session.isClosed) sessionState.attachSession(session) }
 
   DisposableEffect(session) {
     onDispose {
       session.close()
-      mapEngine.releaseSession(session)
-      sessionOnReset()
+      engine.releaseSession(session)
+      sessionState.detachSession()
     }
   }
 
@@ -58,7 +54,7 @@ internal actual fun ComposableMapView(
   val inputScope = rememberCoroutineScope()
   val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
 
-  // A new Canvas delays the first frame until the update path attaches the camera to the session.
+  // A new Canvas delays the first frame until the attach path wires the camera to the session.
   key(session) {
     GlJsMapSurface(
       renderer = session,

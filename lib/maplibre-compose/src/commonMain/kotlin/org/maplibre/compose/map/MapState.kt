@@ -115,7 +115,7 @@ internal constructor(
   internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
 
   /** Owns the map's platform lifetime; on some platforms the map outlives the composition. */
-  internal val engine: MapEngine = createMapEngine(this)
+  internal val engine: MapEngine = MapEngine(this)
 
   internal val host: StyleCompositionHost =
     StyleCompositionHost(
@@ -266,8 +266,7 @@ internal constructor(
     set(value) {
       if (value == selectedBaseStyle) return
       selectedBaseStyle = value
-      engine.setBaseStyle(value)
-      attachedAdapter?.setBaseStyle(value)
+      (attachedAdapter ?: engine.detachedAdapter)?.setBaseStyle(value)
     }
 
   /** Selects [BaseStyle.Demo] on a state that never selected a style, so a session has one. */
@@ -480,13 +479,20 @@ internal constructor(
     }
     ?.compile(ExpressionContext.None)
 
+  /** The per-composable session options; attach applies them, and a change reaches a live map. */
+  internal var sessionOptions: SessionOptions? = null
+    set(value) {
+      if (value == field) return
+      field = value
+      if (value != null) attachedAdapter?.let(value::applyTo)
+    }
+
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
     check(!closedState.value) { "MapState is closed; a closed state cannot show a map again" }
     val previous = adapterState.value
-    check(previous == null || previous === adapter) {
-      "MapState already has an attached MaplibreMap; one MapState shows one MaplibreMap at a time"
-    }
+    check(previous == null || previous === adapter) { SINGLE_SESSION_ERROR }
+    sessionOptions?.applyTo(adapter)
     adapterState.value = adapter
     selectedBaseStyle?.let(adapter::setBaseStyle)
     if (adapter !== previous) {
@@ -505,7 +511,7 @@ internal constructor(
     // a snapshot kept past detachment would report a viewport no map is showing
     viewportState.value = null
     // An engine that keeps the map alive keeps its loaded binding and the applied snapshot too.
-    if (!engine.retainsStyleAcrossDetach) updateBinding(null)
+    if (engine.detachedAdapter == null) updateBinding(null)
     sources.clear()
   }
 
@@ -538,3 +544,7 @@ internal constructor(
   /** The session callbacks and the per-composition hooks they invoke. */
   internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 }
+
+/** The one statement of the single-session rule; the engine's session guard raises it too. */
+internal const val SINGLE_SESSION_ERROR: String =
+  "MapState already has an attached MaplibreMap; one MapState shows one MaplibreMap at a time"

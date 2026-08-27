@@ -3,21 +3,12 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.IosMlnFfiSurface
 import org.maplibre.compose.mlnffi.MapRenderBackend
 
 @Composable
-internal actual fun ComposableMapView(
-  modifier: Modifier,
-  engine: MapEngine,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: Logger?,
-  callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
-) {
-  val runtimeBackends = remember { loadRuntimeBackends(logger) }
+internal actual fun ComposableMapView(state: MapState, modifier: Modifier, options: MapOptions) {
+  val runtimeBackends = remember { loadRuntimeBackends(state.logger) }
   MlnFfiMapView(
     renderBackend = MapRenderBackend.METAL,
     surface = { renderer, surfaceModifier, surfaceLogger, presentFrames ->
@@ -31,11 +22,7 @@ internal actual fun ComposableMapView(
       )
     },
     modifier = modifier,
-    engine = engine,
-    update = update,
-    onReset = onReset,
-    logger = logger,
-    callbacks = callbacks,
+    state = state,
     options = options,
   )
 }

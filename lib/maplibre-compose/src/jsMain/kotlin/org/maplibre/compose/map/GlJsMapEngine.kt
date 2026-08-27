@@ -3,7 +3,6 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Dp
 import kotlin.time.Duration
-import org.maplibre.compose.style.BaseStyle
 
 /**
  * A thin holder: MapLibre GL JS fuses the map with its WebGL context, so the live map exists only
@@ -11,7 +10,12 @@ import org.maplibre.compose.style.BaseStyle
  * session at attach. The engine tracks the live session so closing the state closes a map that is
  * still composed.
  */
-internal class GlJsMapEngine : MapEngine {
+internal actual class MapEngine actual constructor(@Suppress("unused") state: MapState) :
+  AutoCloseable {
+
+  /** No map outlives the composition here, so the state replays the style into the next one. */
+  actual val detachedAdapter: MapAdapter?
+    get() = null
 
   /** The composed session, or null while no [MaplibreMap] shows this state. */
   internal var session: GlJsMapSession? = null
@@ -36,24 +40,15 @@ internal class GlJsMapEngine : MapEngine {
     if (this.session === session) this.session = null
   }
 
-  override val retainsStyleAcrossDetach: Boolean
-    get() = false
-
-  override fun setBaseStyle(style: BaseStyle) {
-    // There is no map to receive it while detached; the state re-pushes the style at attach.
-  }
-
-  override suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
+  actual suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
     throw UnsupportedOperationException(
       "MapLibre GL JS has no still-image API; MapState.snapshot is unavailable in the browser"
     )
   }
 
-  override fun close() {
+  actual override fun close() {
     closed = true
     session?.close()
     session = null
   }
 }
-
-internal actual fun createMapEngine(state: MapState): MapEngine = GlJsMapEngine()

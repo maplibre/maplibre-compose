@@ -102,7 +102,7 @@ class MlnFfiMapReattachTest {
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 && frames.load() > 0 }
-    val engine = state.engine as MlnFfiMapEngine
+    val engine = state.engine
     val core = requireNotNull(engine.core) { "no core after the first attach" }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       "user-fill" in core.currentStyleLayerIds()

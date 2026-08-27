@@ -4,24 +4,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.AndroidMapSurfaceKind
 import org.maplibre.compose.mlnffi.AndroidMlnFfiSurface
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
 
 @Composable
-internal actual fun ComposableMapView(
-  modifier: Modifier,
-  engine: MapEngine,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: Logger?,
-  callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
-) {
+internal actual fun ComposableMapView(state: MapState, modifier: Modifier, options: MapOptions) {
   EnsureMlnFfiConfigured()
-  val runtimeBackends = remember { loadRuntimeBackends(logger) }
+  val runtimeBackends = remember { loadRuntimeBackends(state.logger) }
   val renderBackend =
     remember(runtimeBackends) { runtimeBackends.firstOrNull() ?: MapRenderBackend.OPENGL }
   val surfaceKind =
@@ -45,11 +36,7 @@ internal actual fun ComposableMapView(
         )
       },
       modifier = modifier,
-      engine = engine,
-      update = update,
-      onReset = onReset,
-      logger = logger,
-      callbacks = callbacks,
+      state = state,
       options = options,
     )
   }

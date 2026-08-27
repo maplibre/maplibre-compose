@@ -3,22 +3,17 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Dp
 import kotlin.time.Duration
-import org.maplibre.compose.style.BaseStyle
 
 /**
  * The platform strategy behind a [MapState]'s lifetime: where the platform allows it, the engine
  * owns the map beyond any one composition, and the composition only attaches render sessions.
  */
-internal interface MapEngine : AutoCloseable {
-  /** Whether a session detach leaves the loaded style and its applied content in place. */
-  val retainsStyleAcrossDetach: Boolean
-
-  /** Records the selected base style and carries it to a map the engine owns while detached. */
-  fun setBaseStyle(style: BaseStyle)
+internal expect class MapEngine(state: MapState) : AutoCloseable {
+  /** The live map that outlives the composition, or null where the platform keeps none. */
+  val detachedAdapter: MapAdapter?
 
   /** Backs [MapState.snapshot]; the state validates size and closed state before this call. */
   suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap
-}
 
-/** Creates the engine that gives [state] its platform lifetime. */
-internal expect fun createMapEngine(state: MapState): MapEngine
+  override fun close()
+}

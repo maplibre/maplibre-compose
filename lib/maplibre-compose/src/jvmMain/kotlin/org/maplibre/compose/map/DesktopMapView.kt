@@ -3,33 +3,15 @@ package org.maplibre.compose.map
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import co.touchlab.kermit.Logger
 import org.maplibre.compose.desktop.LocalComposeMapHost
 import org.maplibre.compose.desktop.bridge.ComposeMapHostFactory
 
 @Composable
-internal actual fun ComposableMapView(
-  modifier: Modifier,
-  engine: MapEngine,
-  update: (map: MapAdapter) -> Unit,
-  onReset: () -> Unit,
-  logger: Logger?,
-  callbacks: MapAdapter.Callbacks,
-  options: MapOptions,
-) {
+internal actual fun ComposableMapView(state: MapState, modifier: Modifier, options: MapOptions) {
   val hostFactory =
     LocalMlnFfiMapHostFactory.current
       ?: LocalComposeMapHost.current.let { mapHost ->
         remember(mapHost) { ComposeMapHostFactory(mapHost) }
       }
-  MlnFfiMapView(
-    hostFactory = hostFactory,
-    modifier = modifier,
-    engine = engine,
-    update = update,
-    onReset = onReset,
-    logger = logger,
-    callbacks = callbacks,
-    options = options,
-  )
+  MlnFfiMapView(hostFactory = hostFactory, modifier = modifier, state = state, options = options)
 }

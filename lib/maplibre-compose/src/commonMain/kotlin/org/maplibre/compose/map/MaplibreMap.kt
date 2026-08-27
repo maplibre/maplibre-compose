@@ -170,6 +170,8 @@ public fun MaplibreMap(
     state.density = density
     state.layoutDirection = layoutDirection
     state.inheritedLocals = locals
+    state.sessionOptions =
+      SessionOptions(cameraPadding, zoomRange, pitchRange, boundingBox, options)
     state.callbacks.onMapClick = onMapClick
     state.callbacks.onMapLongClick = onMapLongClick
     state.callbacks.onFrame = onFrame
@@ -181,18 +183,7 @@ public fun MaplibreMap(
   val overlayHolder = remember(overlay) { MapOverlay(overlay) }
 
   Box(modifier.fillMaxSize()) {
-    ComposableMapView(
-      modifier = Modifier.fillMaxSize(),
-      engine = state.engine,
-      update = { map ->
-        map.applyOptions(cameraPadding, zoomRange, pitchRange, boundingBox, options)
-        state.attachSession(map)
-      },
-      onReset = { state.detachSession() },
-      logger = logger,
-      callbacks = state.callbacks,
-      options = options,
-    )
+    ComposableMapView(state = state, modifier = Modifier.fillMaxSize(), options = options)
 
     MapOverlayHost(
       overlay = overlayHolder,
@@ -203,20 +194,22 @@ public fun MaplibreMap(
   }
 }
 
-/** Applies the composable's per-composition options; attach-independent, safe to repeat. */
-private fun MapAdapter.applyOptions(
-  cameraPadding: PaddingValues,
-  zoomRange: ClosedRange<Float>,
-  pitchRange: ClosedRange<Float>,
-  boundingBox: BoundingBox?,
-  options: MapOptions,
+/** The composable's per-session options; attach-independent, safe to repeat on a live map. */
+internal data class SessionOptions(
+  val cameraPadding: PaddingValues,
+  val zoomRange: ClosedRange<Float>,
+  val pitchRange: ClosedRange<Float>,
+  val boundingBox: BoundingBox?,
+  val options: MapOptions,
 ) {
-  setCameraPadding(cameraPadding)
-  setMinZoom(zoomRange.start.toDouble())
-  setMaxZoom(zoomRange.endInclusive.toDouble())
-  setMinPitch(pitchRange.start.toDouble())
-  setMaxPitch(pitchRange.endInclusive.toDouble())
-  setRenderSettings(options.renderOptions)
-  setTileLodSettings(options.tileLodOptions)
-  setCameraBoundingBox(boundingBox)
+  fun applyTo(map: MapAdapter) {
+    map.setCameraPadding(cameraPadding)
+    map.setMinZoom(zoomRange.start.toDouble())
+    map.setMaxZoom(zoomRange.endInclusive.toDouble())
+    map.setMinPitch(pitchRange.start.toDouble())
+    map.setMaxPitch(pitchRange.endInclusive.toDouble())
+    map.setRenderSettings(options.renderOptions)
+    map.setTileLodSettings(options.tileLodOptions)
+    map.setCameraBoundingBox(boundingBox)
+  }
 }

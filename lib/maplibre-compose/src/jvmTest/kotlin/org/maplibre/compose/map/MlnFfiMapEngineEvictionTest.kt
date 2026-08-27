@@ -20,8 +20,8 @@ import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.RenderBackendPair
 
 /**
- * A second [MlnFfiMapEngine.acquireCore] with another density or backend must evict the live
- * session before it closes the core, so no session ever renders against a destroyed core.
+ * A second [MapEngine.acquireCore] with another density or backend must evict the live session
+ * before it closes the core, so no session ever renders against a destroyed core.
  */
 class MlnFfiMapEngineEvictionTest {
 
@@ -74,14 +74,14 @@ class MlnFfiMapEngineEvictionTest {
     }
   }
 
-  private fun engine(): MlnFfiMapEngine {
+  private fun engine(): MapEngine {
     MlnFfiApplication.configure(
       MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
     )
     val created = MapState()
     created.logger = logger
     state = created
-    return created.engine as MlnFfiMapEngine
+    return created.engine
   }
 
   @Test
