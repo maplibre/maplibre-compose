@@ -65,13 +65,14 @@ internal suspend fun renderStillImage(
   height: Int,
   deadline: TimeSource.Monotonic.ValueTimeMark,
   loadFailure: () -> String?,
+  onViewportReady: suspend () -> Unit = {},
 ): ImageBitmap {
   // A fresh single-threaded dispatcher, because every render-session call must come from the
   // thread that attached it.
   val snapshotDispatcher = styleHostDispatcher()
   try {
     return withContext(snapshotDispatcher.dispatcher) {
-      pumpStillImage(core, target, width, height, deadline, loadFailure)
+      pumpStillImage(core, target, width, height, deadline, loadFailure, onViewportReady)
     }
   } finally {
     snapshotDispatcher.close()
@@ -85,6 +86,7 @@ private suspend fun pumpStillImage(
   height: Int,
   deadline: TimeSource.Monotonic.ValueTimeMark,
   loadFailure: () -> String?,
+  onViewportReady: suspend () -> Unit,
 ): ImageBitmap {
   val access = SnapshotRenderAccess()
   core.attachRenderSession(access)
@@ -102,6 +104,9 @@ private suspend fun pumpStillImage(
       core.markFeatureStateReplayPending()
       // The still-image target supplies the map's real dimensions, as a composed target would.
       core.publishAttachedViewport()
+      core.refreshViewportNow()
+      // Style content conditioned on the viewport can only compose once the dimensions exist.
+      onViewportReady()
       var sealed = false
       while (true) {
         checkSnapshotHealthy(core, access, deadline, loadFailure)

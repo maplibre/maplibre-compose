@@ -502,6 +502,8 @@ internal class MlnFfiMapCore(
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
 
       RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
+        // A transition resuming after a detach gets no new will-change, so the report re-arms here.
+        beginCameraMove()
         loop?.map?.let(::snapshotViewport)
         callbacks.onCameraMoved(this)
       }
@@ -620,6 +622,11 @@ internal class MlnFfiMapCore(
 
   /** Test seam reading whether a render target's dimensions are current. */
   internal fun hasAttachedViewportForTest(): Boolean = stateLock.withLock { hasAttachedViewport }
+
+  /** Publishes the attached target's dimensions to the mirrored viewport before returning. */
+  internal fun refreshViewportNow() {
+    runOnMap(::snapshotViewport)
+  }
 
   /** Renderer thread, when the first real render target attaches its dimensions. */
   internal fun publishAttachedViewport() {
@@ -958,6 +965,17 @@ internal class MlnFfiMapCore(
       if (wasCurrent) map.cancelTransitions()
     }
   }
+
+  /**
+   * A detached session stops the frames that step a transition, so the frozen map must not report
+   * itself moving; the transition waiters stay for the session that re-attaches.
+   */
+  internal fun pauseCameraMoveForDetach() {
+    onMap { endCameraMove() }
+  }
+
+  /** Test seam counting the transitions that await a finish event. */
+  internal fun transitionWaiterCountForTest(): Int = runOnMap { transitionWaiters.size } ?: 0
 
   /** Closing a map discards its queued events, so no finish event will follow. */
   private fun resumeStrandedTransitions() {

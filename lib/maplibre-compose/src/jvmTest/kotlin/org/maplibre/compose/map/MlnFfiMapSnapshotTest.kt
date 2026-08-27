@@ -8,6 +8,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
@@ -58,6 +59,27 @@ class MlnFfiMapSnapshotTest {
     val pixels = image.toPixelMap()
     assertColor(Color.Red, pixels[4, 4], "the base style's background at the corner")
     assertColor(Color.Blue, pixels[100, 75], "the content's circle at the camera target")
+  }
+
+  /** The snapshot publishes its viewport to the state, so viewport-conditioned content renders. */
+  @Test
+  fun a_snapshot_composes_content_conditioned_on_the_viewport() {
+    val state = bareState()
+    state.baseStyle = RED_BACKGROUND_STYLE
+    state.setStyleContent {
+      if (LocalMapState.current.viewport != null) {
+        val dot = rememberGeoJsonSource(GeoJsonData.Features(Point(Position(0.0, 0.0))))
+        CircleLayer(id = "dot", source = dot, color = const(Color.Blue), radius = const(30.dp))
+      }
+    }
+
+    val image = runBlocking {
+      state.snapshot(width = 200.dp, height = 150.dp, timeout = 60.seconds)
+    }
+
+    val pixels = image.toPixelMap()
+    assertColor(Color.Blue, pixels[100, 75], "the viewport-conditioned circle at the target")
+    assertNull(state.viewport, "the snapshot's viewport must not outlive it")
   }
 
   /** A premultiplied readback must divide out before packing, or translucent pixels darken. */

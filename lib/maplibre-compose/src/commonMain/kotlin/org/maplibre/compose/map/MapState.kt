@@ -372,7 +372,9 @@ internal constructor(
   /**
    * Animates the camera to [position] over [duration] and returns when the animation ends.
    *
-   * A call before a session attaches suspends until a session attaches and runs the animation.
+   * A call before a session attaches suspends until a session attaches and runs the animation. A
+   * detach during the animation pauses it and keeps the call suspended until a session re-attaches;
+   * [close] ends the call.
    */
   public suspend fun animateCamera(
     position: CameraPosition,
@@ -386,7 +388,8 @@ internal constructor(
    *
    * The fit needs a live viewport, so a call before a session attaches suspends until a session
    * attaches and runs the animation, and fails with [IllegalStateException] when the state closes
-   * first.
+   * first. A detach during the animation pauses it and keeps the call suspended until a session
+   * re-attaches; [close] ends the call.
    *
    * @param padding Insets between the viewport edges and the fitted bounds.
    */
@@ -528,6 +531,9 @@ internal constructor(
     adapterState.value = null
     // a snapshot kept past detachment would report a viewport no map is showing
     viewportState.value = null
+    // A detached map renders no frames, so it is not moving; a re-attach reports a resumed move.
+    isCameraMovingState.value = false
+    moveReasonState.value = CameraMoveReason.NONE
     // The hooks belong to the departed composable; the next attach's SideEffect rewires them.
     callbacks.resetSessionHooks()
     // An engine that keeps the map alive keeps its loaded binding, the applied snapshot, and the

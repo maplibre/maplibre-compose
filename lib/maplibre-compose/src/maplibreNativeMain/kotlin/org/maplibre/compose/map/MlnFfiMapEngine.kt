@@ -77,6 +77,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         activeSession = null
         // The departed target's dimensions are stale, so the next bounds fit waits for a real one.
         core?.resetAttachedViewport()
+        // Frames stop with the session, so a mid-flight transition must not report the camera as
+        // moving until a session re-attaches.
+        core?.pauseCameraMoveForDetach()
       }
     }
   }
@@ -198,11 +201,20 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         height = height.value.roundToInt(),
         deadline = deadline,
         loadFailure = { state.lastLoadFailure.value },
+        onViewportReady = {
+          // The target's dimensions are published, so viewport-conditioned content can compose.
+          state.viewportState.value = core.getViewport()
+          // One more sync so that content reaches the loaded style before the final frame.
+          state.host.requestApplyChanges()
+          state.host.awaitPendingWork()
+        },
       )
     } finally {
       target.close()
       // The snapshot's target stamped its own dimensions on the retained map.
       sessionLock.withLock { core?.resetAttachedViewport() }
+      // The published viewport died with the target; the next attach publishes its own.
+      state.viewportState.value = null
     }
   }
 

@@ -10,6 +10,10 @@ import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTime
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.BackgroundLayerDescriptor
@@ -106,6 +110,30 @@ class MlnFfiRetainedCoreTest {
 
     assertTrue("base-src" in state.sources.ids, "a retained core keeps the source snapshot")
     assertTrue("base-layer" in state.layers.ids, "sources and layers persist together")
+  }
+
+  @Test
+  fun a_close_ends_a_camera_animation_suspended_across_frames() {
+    val state = bareState()
+    val core = state.engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.VULKAN)
+    core.start()
+    state.attachSession(core)
+    runBlocking {
+      val move =
+        async(Dispatchers.Default) {
+          state.animateCamera(CameraPosition(zoom = 5.0), duration = 60.seconds)
+        }
+      // With no render session, no frame steps the transition, so only the close can end it.
+      while (core.transitionWaiterCountForTest() == 0) {
+        check(!move.isCompleted) { "the animation must stay suspended until the close" }
+        delay(10)
+      }
+      val elapsed = measureTime {
+        state.close()
+        move.await()
+      }
+      assertTrue(elapsed < 10.seconds, "the close ended the animation only after $elapsed")
+    }
   }
 
   @Test
