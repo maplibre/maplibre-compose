@@ -70,18 +70,25 @@ public class StyleSources internal constructor(private val state: MapState) {
    *   MapLibre refuses the source.
    */
   public suspend fun add(source: Source) {
+    // A racy fast-fail only; the serialized block below re-checks against the host-confined truth.
+    require(source.id !in state.styleNode.compositionSources) {
+      "Source id '${source.id}' is owned by the style content composition"
+    }
     state.host.runSerialized {
       val node = state.styleNode
       val binding = node.binding
       check(binding.isLoaded) { "No loaded style; a source can only be added to a loaded style" }
       node.ensureAppTablesFor(binding)
       val id = source.id
-      require(id !in node.compositionSources) {
+      // The published snapshot can trail a reference recorded on the host, so ownership is decided
+      // on the host-confined desired set.
+      require(node.sourceManager.desiredSources.none { it.id == id }) {
         "Source id '$id' is owned by the style content composition"
       }
       require(id !in node.appSources) { "Source id '$id' was already added through this state" }
       require(binding.sourceExists(id) != true && binding.getSource(id) == null) {
-        "Source id '$id' already exists in the loaded style"
+        "Source id '$id' is owned by the base style; select a different MapState.baseStyle to " +
+          "change it"
       }
       binding.addSource(source)
       node.appSources[id] = source
@@ -106,7 +113,8 @@ public class StyleSources internal constructor(private val state: MapState) {
         "No loaded style; a source can only be removed from a loaded style"
       }
       node.ensureAppTablesFor(binding)
-      check(id !in node.compositionSources) {
+      // The host-confined desired set, not the published snapshot, decides ownership here too.
+      check(node.sourceManager.desiredSources.none { it.id == id }) {
         "Source '$id' is owned by the style content composition; remove it by recomposing the " +
           "content rather than through MapState.sources"
       }

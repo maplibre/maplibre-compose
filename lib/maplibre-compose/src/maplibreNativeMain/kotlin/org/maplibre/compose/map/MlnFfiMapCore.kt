@@ -38,6 +38,7 @@ import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.DeclaredSourceCache
 import org.maplibre.compose.style.MlnFfiStyleBinding
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
@@ -175,8 +176,28 @@ internal class MlnFfiMapCore(
   internal val isClosed: Boolean
     get() = closed
 
-  @Volatile private var requestedStyle: BaseStyle? = null
+  /** The requested style paired with its generation, so the owner thread reads them together. */
+  private class RequestedStyle(val style: BaseStyle, val generation: Long)
+
+  @Volatile private var requestedStyle: RequestedStyle? = null
   private var appliedStyle: BaseStyle? = null
+
+  private val styleGenerationCounter = AtomicLong(0L)
+
+  /** The generation of the most recently requested base style; each [setBaseStyle] bumps it. */
+  internal val requestedStyleGeneration: Long
+    get() = styleGenerationCounter.load()
+
+  /** Owner thread only; the generation of the style the owner thread last pushed to the map. */
+  private var appliedStyleGeneration = 0L
+
+  /**
+   * The generation of the most recently loaded style. [hasLoadedFirstStyle] is sticky, so a waiter
+   * that must observe a NEW style's load compares this against [requestedStyleGeneration] instead.
+   */
+  @Volatile
+  internal var loadedStyleGeneration: Long = 0L
+    private set
 
   /** Gesture attribution is owner-thread state; input threads communicate only through tokens. */
   private var isGestureInProgress = false
@@ -229,6 +250,8 @@ internal class MlnFfiMapCore(
 
     override val tileCoordinators = MlnFfiTileCoordinatorStore()
 
+    override val declaredSourceCache = DeclaredSourceCache()
+
     override val isLoaded: Boolean
       get() = loaded && !closed
 
@@ -240,6 +263,7 @@ internal class MlnFfiMapCore(
 
     fun unload() {
       loaded = false
+      declaredSourceCache.invalidate()
       val actions = unloadActionsLock.withLock {
         unloadActions.toList().also { unloadActions.clear() }
       }
@@ -437,6 +461,7 @@ internal class MlnFfiMapCore(
         val binding = SessionStyleBinding().also { styleBinding = it }
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
+        loadedStyleGeneration = appliedStyleGeneration
         callbacks.onStyleChanged(this, binding)
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
@@ -588,6 +613,14 @@ internal class MlnFfiMapCore(
     return current?.post(action, abandon) ?: false
   }
 
+  /** When a render target goes away its dimensions are stale, so bounds fits queue again. */
+  internal fun resetAttachedViewport() {
+    stateLock.withLock { hasAttachedViewport = false }
+  }
+
+  /** Test seam reading whether a render target's dimensions are current. */
+  internal fun hasAttachedViewportForTest(): Boolean = stateLock.withLock { hasAttachedViewport }
+
   /** Renderer thread, when the first real render target attaches its dimensions. */
   internal fun publishAttachedViewport() {
     val (current, pending) =
@@ -626,9 +659,9 @@ internal class MlnFfiMapCore(
   // region MapAdapter
 
   override fun setBaseStyle(style: BaseStyle) {
-    if (style == requestedStyle) return
+    if (style == requestedStyle?.style) return
     styleBinding?.unload()
-    requestedStyle = style
+    requestedStyle = RequestedStyle(style, styleGenerationCounter.incrementAndFetch())
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // fail anchor validation against the base layers being replaced.
     callbacks.onStyleChanged(this, null)
@@ -637,7 +670,8 @@ internal class MlnFfiMapCore(
 
   /** Owner thread only. */
   private fun applyRequestedStyle(map: MapHandle) {
-    val style = requestedStyle ?: return
+    val requested = requestedStyle ?: return
+    val style = requested.style
     if (style == appliedStyle) return
     // setStyleJson parses inline, so a malformed style throws as well as queueing
     // MAP_LOADING_FAILED; the queued event is what reports it.
@@ -647,6 +681,7 @@ internal class MlnFfiMapCore(
         is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
       }
       appliedStyle = style
+      appliedStyleGeneration = requested.generation
     } catch (error: MaplibreException) {
       // appliedStyle stays unset so rebuilding the map retries.
       logger?.e(error) { "Failed to apply style $style" }

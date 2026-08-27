@@ -528,9 +528,14 @@ internal constructor(
     adapterState.value = null
     // a snapshot kept past detachment would report a viewport no map is showing
     viewportState.value = null
-    // An engine that keeps the map alive keeps its loaded binding and the applied snapshot too.
-    if (engine.detachedAdapter == null) updateBinding(null)
-    sources.clear()
+    // The hooks belong to the departed composable; the next attach's SideEffect rewires them.
+    callbacks.resetSessionHooks()
+    // An engine that keeps the map alive keeps its loaded binding, the applied snapshot, and the
+    // source snapshot too; only an unloading binding empties the collections.
+    if (engine.detachedAdapter == null) {
+      updateBinding(null)
+      sources.clear()
+    }
   }
 
   /**
@@ -555,6 +560,8 @@ internal constructor(
     if (closedState.value) return
     closedState.value = true
     detachSession()
+    // A retained engine kept the snapshot across detach; the close is where the map dies.
+    sources.clear()
     engine.close()
     host.close()
   }

@@ -1,8 +1,10 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -17,6 +19,12 @@ import org.maplibre.compose.mlnffi.withLock
 
 /** How long [MapEngine.snapshot] parks between style-loaded polls. */
 private const val STYLE_POLL_MILLIS = 8L
+
+/** mbgl's own zoom ceiling, so a snapshot renders as if no session had constrained the camera. */
+private const val UNCONSTRAINED_MAX_ZOOM = 25.5
+
+/** mbgl's own pitch ceiling. */
+private const val UNCONSTRAINED_MAX_PITCH = 60.0
 
 /**
  * Owns the [MlnFfiMapCore] behind a [MapState]. The core is created at the first session attach,
@@ -64,7 +72,13 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
 
   /** Forgets [session] once its composable leaves, so the next composable may create one. */
   internal fun releaseSession(session: MlnFfiMapSession) {
-    sessionLock.withLock { if (activeSession === session) activeSession = null }
+    sessionLock.withLock {
+      if (activeSession === session) {
+        activeSession = null
+        // The departed target's dimensions are stale, so the next bounds fit waits for a real one.
+        core?.resetAttachedViewport()
+      }
+    }
   }
 
   /** Returns the live core when [scaleFactor] and [backend] still match, or replaces it. */
@@ -85,12 +99,14 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     scaleFactor: Double,
     layoutDirection: LayoutDirection,
     backend: MapRenderBackend,
+    evictAsSnapshotHolder: Boolean = false,
   ): MlnFfiMapCore {
     check(!closed) { "Cannot attach a render session to a closed map state" }
     core?.let { live ->
       if (coreScaleFactor == scaleFactor && coreBackend == backend) return live
-      // An eviction under a live snapshot would destroy the core the snapshot is rendering.
-      check(!snapshotReserved) { SNAPSHOT_SESSION_ERROR }
+      // An eviction under a live snapshot would destroy the core the snapshot is rendering,
+      // unless the caller is that snapshot's own reservation.
+      check(evictAsSnapshotHolder || !snapshotReserved) { SNAPSHOT_SESSION_ERROR }
       // A live session must be evicted before its core closes, or it keeps rendering a destroyed
       // map; the close is idempotent with the session composable's own later dispose.
       activeSession?.let { session ->
@@ -145,20 +161,30 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     state.ensureBaseStyleSelected()
     val target = createSnapshotTarget()
     try {
-      // A live core keeps its loaded style and scale; a detached bare state gets a fresh one,
-      // allocated under the lock as the reservation holder so a close cannot orphan it.
+      // A live core keeps its loaded style and scale only while its backend matches the snapshot
+      // target's; a mismatch or a detached bare state gets a fresh one, allocated under the lock
+      // as the reservation holder so a close cannot orphan it.
       val core = sessionLock.withLock {
-        core
-          ?: acquireCoreLocked(
-            scaleFactor = state.density.density.toDouble(),
-            layoutDirection = state.layoutDirection,
-            backend = target.backend,
-          )
+        val retainedMatches = core != null && coreBackend == target.backend
+        acquireCoreLocked(
+          scaleFactor = if (retainedMatches) coreScaleFactor else state.density.density.toDouble(),
+          layoutDirection = state.layoutDirection,
+          backend = target.backend,
+          evictAsSnapshotHolder = true,
+        )
       }
       // A session attach pushes the selected style; a snapshot has no session, so it pushes it
       // here. The core drops a style it already has.
       core.setBaseStyle(state.baseStyle)
       core.start()
+      // A retained session's camera constraints must not clamp the snapshot; the next session
+      // attach restores them through its SessionOptions.
+      core.setCameraBoundingBox(null)
+      core.setMinZoom(0.0)
+      core.setMaxZoom(UNCONSTRAINED_MAX_ZOOM)
+      core.setMinPitch(0.0)
+      core.setMaxPitch(UNCONSTRAINED_MAX_PITCH)
+      core.setCameraPadding(PaddingValues(0.dp))
       core.setCameraPosition(state.camera)
       awaitStyleLoaded(core, deadline, timeout)
       // One sync of the desired style content against the loaded style before rendering, so
@@ -175,6 +201,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       )
     } finally {
       target.close()
+      // The snapshot's target stamped its own dimensions on the retained map.
+      sessionLock.withLock { core?.resetAttachedViewport() }
     }
   }
 
@@ -183,7 +211,10 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     deadline: TimeSource.Monotonic.ValueTimeMark,
     timeout: Duration,
   ) {
-    while (!core.hasLoadedFirstStyle) {
+    // hasLoadedFirstStyle is sticky across style changes, so the wait compares generations: the
+    // selected style's request must have loaded, not merely some earlier one.
+    val requested = core.requestedStyleGeneration
+    while (core.loadedStyleGeneration < requested) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
       check(!core.isClosed) { "MapState was closed while a snapshot was rendering" }
       state.lastLoadFailure.value?.let { reason ->

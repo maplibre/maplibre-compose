@@ -29,6 +29,16 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   /** The scope click queries launch on; null drops clicks, which only a missing UI would cause. */
   @Volatile var clickScope: CoroutineScope? = null
 
+  /** Detach resets the hooks so a retained core's later events reach no disposed composable. */
+  fun resetSessionHooks() {
+    onMapClick = { _, _ -> ClickResult.Pass }
+    onMapLongClick = { _, _ -> ClickResult.Pass }
+    onFrame = {}
+    onMapLoadFailed = {}
+    onMapLoadFinished = {}
+    clickScope = null
+  }
+
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
     if (style != null) state.lastLoadFailure.value = null
     state.updateBinding(style)

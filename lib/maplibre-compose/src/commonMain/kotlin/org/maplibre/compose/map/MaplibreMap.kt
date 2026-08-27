@@ -22,6 +22,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraPositionSaver
@@ -158,16 +159,10 @@ public fun MaplibreMap(
   val mapClickScope = rememberCoroutineScope()
 
   // Reading each side during composition recomposes this map when the insets change, so the
-  // session receives the new padding.
+  // session receives the new padding. Resolving against the current layout direction here makes a
+  // direction flip change the captured SessionOptions, so directional padding reapplies.
   val insetPadding = contentWindowInsets.asPaddingValues()
-  val resolvedCameraPadding =
-    cameraPadding
-      ?: PaddingValues.Absolute(
-        left = insetPadding.calculateLeftPadding(layoutDirection),
-        top = insetPadding.calculateTopPadding(),
-        right = insetPadding.calculateRightPadding(layoutDirection),
-        bottom = insetPadding.calculateBottomPadding(),
-      )
+  val resolvedCameraPadding = (cameraPadding ?: insetPadding).resolveAbsolute(layoutDirection)
 
   // Written during composition: a session can attach in the same apply pass, before any SideEffect,
   // and the native core captures the logger when it is created.
@@ -201,6 +196,15 @@ public fun MaplibreMap(
     )
   }
 }
+
+/** Resolves [this] into absolute sides so the captured padding no longer depends on direction. */
+internal fun PaddingValues.resolveAbsolute(direction: LayoutDirection): PaddingValues.Absolute =
+  PaddingValues.Absolute(
+    left = calculateLeftPadding(direction),
+    top = calculateTopPadding(),
+    right = calculateRightPadding(direction),
+    bottom = calculateBottomPadding(),
+  )
 
 /** The composable's per-session options; attach-independent, safe to repeat on a live map. */
 internal data class SessionOptions(

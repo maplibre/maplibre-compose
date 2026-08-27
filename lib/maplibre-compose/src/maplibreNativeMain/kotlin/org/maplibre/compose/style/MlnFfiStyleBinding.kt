@@ -536,6 +536,8 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
   /** The bitmap and stretch zones are converted on the caller so the hop only uploads. */
   override fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
+    // An unloaded style drops the add anyway, so skip the pixel conversion too, as GL JS does.
+    if (!isLoaded) return
     val scale = imageScale
     val pixels = image.toPremultipliedRgba8()
     val stretchPx = stretch?.resolve(image.width, image.height, scale)
@@ -578,12 +580,20 @@ internal interface MlnFfiStyleBinding : StyleBinding {
   }
     .orEmpty()
 
+  /** The style document parses once per binding when a cache is provided. */
+  val declaredSourceCache: DeclaredSourceCache?
+    get() = null
+
+  private fun declaredSourcesLazy(map: MapHandle): Lazy<JsonObject> = lazy {
+    declaredSourceCache?.get { declaredSources(map) } ?: declaredSources(map)
+  }
+
   override fun getSource(id: String): Source? = readMap { map ->
-    if (!isStyleSource(map, id)) null else reconstructSource(map, id, lazy { declaredSources(map) })
+    if (!isStyleSource(map, id)) null else reconstructSource(map, id, declaredSourcesLazy(map))
   }
 
   override fun getSources(): List<Source> = readMap { map ->
-    val declared = lazy { declaredSources(map) }
+    val declared = declaredSourcesLazy(map)
     map
       .styleSourceIds()
       .filter { isStyleSource(map, it) }
@@ -639,6 +649,17 @@ internal interface MlnFfiStyleBinding : StyleBinding {
         ("hillshade" to "resampling") to "MapLibre Native does not implement it.",
         ("color-relief" to "resampling") to "MapLibre Native does not implement it.",
       )
+  }
+}
+
+/** One loaded style's parsed source declarations, filled and read on the map's owner thread. */
+internal class DeclaredSourceCache {
+  private var cached: JsonObject? = null
+
+  fun get(load: () -> JsonObject): JsonObject = cached ?: load().also { cached = it }
+
+  fun invalidate() {
+    cached = null
   }
 }
 

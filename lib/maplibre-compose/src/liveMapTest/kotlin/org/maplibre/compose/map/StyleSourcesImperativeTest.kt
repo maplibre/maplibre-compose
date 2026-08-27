@@ -10,14 +10,19 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
+import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.maplibre.compose.camera.CameraPosition
@@ -158,7 +163,7 @@ class StyleSourcesImperativeTest {
 
     val error =
       assertFailsWith<IllegalArgumentException> { state.sources.add(testSource("base-src")) }
-    assertTrue("already exists" in error.message.orEmpty(), "names the owner: ${error.message}")
+    assertTrue("base style" in error.message.orEmpty(), "names the owner: ${error.message}")
     assertNull(state.styleNode.appSourceSnapshot["base-src"])
 
     state.close()
@@ -249,6 +254,119 @@ class StyleSourcesImperativeTest {
     // The reloaded style takes the source again, the reapplication path.
     state.sources.add(testSource("app-src"))
     assertTrue("app-src" in state.sources.ids)
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  /** Starts [block] on the caller so its host op is queued before this returns. */
+  private fun <T> TestScope.startOp(block: suspend () -> T): Deferred<Result<T>> =
+    async(
+      context = UnconfinedTestDispatcher(testScheduler),
+      start = CoroutineStart.UNDISPATCHED,
+    ) {
+      runCatching { block() }
+    }
+
+  @Test
+  fun an_add_racing_a_recorded_but_unpublished_composition_reference_throws() = runTest {
+    val state = mapState()
+    val errors = collectStyleErrors(state.host)
+    state.setStyleContent {}
+    val binding = OpRecordingStyleBinding()
+    attach(state, binding)
+
+    // The exact window: the reference is recorded on the host, but no sync has published it.
+    val compositionSource = testSource("clash-src")
+    state.host.runSerialized {
+      val node = state.styleNode
+      val suspendedSync = node.requestSync
+      node.requestSync = {}
+      node.sourceManager.addReference(compositionSource)
+      node.requestSync = suspendedSync
+    }
+    assertTrue("clash-src" !in state.styleNode.compositionSources, "the window is staged")
+
+    val error =
+      assertFailsWith<IllegalArgumentException> { state.sources.add(testSource("clash-src")) }
+    assertTrue("composition" in error.message.orEmpty(), "names the owner: ${error.message}")
+    assertNull(state.styleNode.appSourceSnapshot["clash-src"], "the refused add recorded nothing")
+
+    // The sync that publishes the reference still succeeds.
+    state.host.requestApplyChanges()
+    testScheduler.advanceUntilIdle()
+    assertEquals(emptyList(), errors.map { it.message })
+    assertEquals(1, binding.ops.count { it == "addSource:clash-src" })
+    assertSame(compositionSource, state.sources["clash-src"])
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun an_op_held_across_a_binding_swap_throws_and_corrupts_nothing() = runTest {
+    val state = mapState()
+    state.setStyleContent {}
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    val first = OpRecordingStyleBinding()
+    state.callbacks.onStyleChanged(adapter, first)
+    testScheduler.advanceUntilIdle()
+
+    // The op is queued on the host, then the binding swaps before the host runs it.
+    val held = startOp { state.sources.add(testSource("app-src")) }
+    first.unload()
+    state.callbacks.onStyleChanged(adapter, null)
+    testScheduler.advanceUntilIdle()
+
+    assertIs<IllegalStateException>(held.await().exceptionOrNull())
+    assertTrue(state.styleNode.appSourceSnapshot.isEmpty(), "the held op recorded nothing")
+    assertEquals(0, first.ops.count { it == "addSource:app-src" })
+
+    // The state is not corrupted: the next loaded style takes the source.
+    state.callbacks.onStyleChanged(adapter, OpRecordingStyleBinding())
+    testScheduler.advanceUntilIdle()
+    state.sources.add(testSource("app-src"))
+    assertNotNull(state.sources["app-src"])
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun close_racing_an_in_flight_op_throws_and_corrupts_nothing() = runTest {
+    val state = mapState()
+    state.setStyleContent {}
+    attach(state, OpRecordingStyleBinding())
+
+    // The op suspends on its host await, then close lands before the host runs it.
+    val held = startOp { state.sources.add(testSource("app-src")) }
+    state.close()
+    testScheduler.advanceUntilIdle()
+
+    assertIs<IllegalStateException>(held.await().exceptionOrNull())
+    assertTrue(state.styleNode.appSourceSnapshot.isEmpty(), "the held op recorded nothing")
+    assertFailsWith<IllegalStateException> { state.sources.add(testSource("late")) }
+  }
+
+  @Test
+  fun a_removal_serialized_behind_the_layer_installing_sync_throws() = runTest {
+    val state = mapState()
+    val compositionSource = testSource("comp-src")
+    state.setStyleContent { RasterLayer(id = "comp-layer", source = compositionSource) }
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    val binding = OpRecordingStyleBinding()
+    state.callbacks.onStyleChanged(adapter, binding)
+
+    // The removal is queued behind the sync that installs the layer drawing from the source.
+    val held = startOp { state.sources.remove("comp-src") }
+    testScheduler.advanceUntilIdle()
+
+    val error = assertIs<IllegalStateException>(held.await().exceptionOrNull())
+    assertTrue("composition" in error.message.orEmpty(), "names the owner: ${error.message}")
+    assertTrue(binding.layerExists("comp-layer"), "the refused removal keeps the layer")
+    assertSame(compositionSource, state.sources["comp-src"])
 
     state.close()
     testScheduler.advanceUntilIdle()

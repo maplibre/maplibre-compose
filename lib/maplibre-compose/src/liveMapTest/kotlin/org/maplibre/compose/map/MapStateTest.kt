@@ -199,6 +199,31 @@ class MapStateTest {
   }
 
   @Test
+  fun detach_resets_the_session_hooks_so_a_later_load_event_fires_nothing() = runTest {
+    val state = mapState()
+    state.setStyleContent {}
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, OpRecordingStyleBinding())
+    testScheduler.advanceUntilIdle()
+
+    var finished = 0
+    var failed = 0
+    state.callbacks.onMapLoadFinished = { finished++ }
+    state.callbacks.onMapLoadFailed = { failed++ }
+    state.detachSession()
+
+    // A retained core can deliver load events after the composable is gone.
+    state.callbacks.onMapFinishedLoading(adapter)
+    state.callbacks.onMapFailLoading("late failure")
+    assertEquals(0, finished, "a disposed composable's load hook fired")
+    assertEquals(0, failed, "a disposed composable's failure hook fired")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
   fun clearing_the_style_content_removes_it_from_the_style() = runTest {
     val state = mapState()
     state.setStyleContent { BackgroundLayer(id = "bg-cleared") }
