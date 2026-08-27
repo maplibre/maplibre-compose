@@ -50,7 +50,7 @@ class StyleCompositionHostThreadingTest {
   fun blocking_style_calls_stall_the_host_thread_but_not_the_caller() = runBlocking {
     val executor = Executors.newSingleThreadExecutor { r -> Thread(r, "style-host") }
     val dispatcher = executor.asCoroutineDispatcher()
-    val recording = BlockingRecordingStyleBinding(mutationDelayMillis = 150)
+    val recording = BlockingRecordingStyleBinding(mutationDelayMillis = MUTATION_DELAY_MILLIS)
     val rootNode = StyleNode(recording, null)
     val host =
       StyleCompositionHost(
@@ -73,7 +73,10 @@ class StyleCompositionHostThreadingTest {
         if (showSecond) RasterLayer(id = "layer-b", source = b)
       }
       val setContentMillis = (System.nanoTime() - start) / 1_000_000
-      assertTrue(setContentMillis < 100, "setContent did not block: ${setContentMillis}ms")
+      assertTrue(
+        setContentMillis < CALLER_BUDGET_MILLIS,
+        "setContent waited for the two ${MUTATION_DELAY_MILLIS}ms applies: ${setContentMillis}ms",
+      )
 
       withTimeout(5_000) { while (recording.opsSnapshot().size < 2) delay(10) }
       assertEquals(listOf("addSource:a", "addLayer:layer-a"), recording.opsSnapshot())
@@ -87,7 +90,10 @@ class StyleCompositionHostThreadingTest {
       val writeStart = System.nanoTime()
       showSecond = true
       val writeMillis = (System.nanoTime() - writeStart) / 1_000_000
-      assertTrue(writeMillis < 100, "state write did not block: ${writeMillis}ms")
+      assertTrue(
+        writeMillis < CALLER_BUDGET_MILLIS,
+        "the state write waited for the two ${MUTATION_DELAY_MILLIS}ms applies: ${writeMillis}ms",
+      )
 
       withTimeout(5_000) { while (recording.opsSnapshot().size < 2) delay(10) }
       assertEquals(listOf("addSource:b", "addLayerAbove:layer-b"), recording.opsSnapshot())
@@ -99,5 +105,16 @@ class StyleCompositionHostThreadingTest {
       host.close()
       executor.shutdown()
     }
+  }
+
+  private companion object {
+    /** How long each recorded style mutation blocks the thread that applies it. */
+    const val MUTATION_DELAY_MILLIS = 150L
+
+    /**
+     * The budget for a caller that must not wait for the applies. Each step below applies two
+     * mutations, so a caller that ran them would need at least twice the mutation delay.
+     */
+    const val CALLER_BUDGET_MILLIS = 2 * MUTATION_DELAY_MILLIS
   }
 }

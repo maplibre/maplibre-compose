@@ -22,8 +22,12 @@ import org.maplibre.compose.testing.RecordingMapCallbacks
 import org.maplibre.compose.testing.RgbaPixel
 
 /**
- * Runs a real [MlnFfiMapSession] against the packaged runtime and production presentation bridge,
- * without a Compose composition. Frames are driven explicitly by the caller.
+ * Runs a real [MlnFfiMapCore] and the [MlnFfiMapSession] that renders it against the packaged
+ * runtime and the production presentation bridge, without a Compose composition.
+ *
+ * [core] holds the map, its style, and its camera. [session] holds one render surface, which
+ * [loseSurface] and [restoreSurface] take away and hand back. The caller drives every frame, with
+ * [frame] or with one of the pump helpers.
  */
 internal class BridgeMapFixture
 private constructor(

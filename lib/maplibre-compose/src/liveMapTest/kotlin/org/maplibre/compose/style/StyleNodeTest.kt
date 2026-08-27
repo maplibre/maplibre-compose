@@ -21,17 +21,6 @@ import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.VectorSource
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
-/** Records a layer into the desired state the way the applier does. */
-private fun StyleNode.insertLayer(node: LayerNode<*>, index: Int) {
-  children.add(index, node)
-  onChildInserted(index, node)
-}
-
-/** Removes a layer from the desired state the way the applier does. */
-private fun StyleNode.removeLayerAt(index: Int) {
-  children.removeAt(index)
-}
-
 @OptIn(ExperimentalTestApi::class)
 class StyleNodeTest {
   private val testSources by lazy {
@@ -78,7 +67,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shoudGetBaseSource() = runComposeUiTest {
+  fun gets_a_base_source_by_its_exact_id() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       assertEquals(testSources[1], s.sourceManager.getBaseSource("bar"))
@@ -87,7 +76,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldAddUserSource() = runComposeUiTest {
+  fun adds_a_user_source() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val newSource =
@@ -100,7 +89,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldRemoveUserSource() = runComposeUiTest {
+  fun removes_a_user_source() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val newSource =
@@ -115,7 +104,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun unchangedSourceStatePreservesTheSnapshot() = runComposeUiTest {
+  fun unchanged_source_state_preserves_the_snapshot() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "same")
       val style = RecordingStyleBinding(baseSources = listOf(source))
@@ -135,7 +124,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun changedSourceStateReplacesOnlyTheAffectedSource() = runComposeUiTest {
+  fun changed_source_state_replaces_only_the_affected_source() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
       val stable = vectorSource("stable", "stable attribution")
@@ -163,7 +152,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun missingSourceIsRemovedFromState() = runComposeUiTest {
+  fun a_missing_source_is_removed_from_the_state() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
       val style = RecordingStyleBinding(baseSources = listOf(source))
@@ -180,7 +169,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun unloadedStyleIgnoresSourceCallbacks() = runComposeUiTest {
+  fun an_unloaded_style_ignores_source_callbacks() = runComposeUiTest {
     runOnUiThread {
       val source = vectorSource("source", "attribution")
       val style = RecordingStyleBinding(baseSources = listOf(source))
@@ -202,7 +191,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldNotReplaceBaseSource() = runComposeUiTest {
+  fun a_user_source_may_not_replace_a_base_source() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       assertFails {
@@ -214,7 +203,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldNotRemoveBaseSource() = runComposeUiTest {
+  fun a_base_source_may_not_be_removed() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       assertFails { s.sourceManager.removeReference(testSources[1]) }
@@ -222,7 +211,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldAnchorTop() = runComposeUiTest {
+  fun anchor_top_places_layers_over_the_base_style() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
@@ -237,7 +226,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldAnchorBottom() = runComposeUiTest {
+  fun anchor_bottom_places_layers_under_the_base_style() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
@@ -252,7 +241,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldAnchorAbove() = runComposeUiTest {
+  fun anchor_above_places_layers_over_the_named_layer() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
@@ -267,7 +256,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldAnchorBelow() = runComposeUiTest {
+  fun anchor_below_places_layers_under_the_named_layer() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
@@ -282,7 +271,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldAnchorReplace() = runComposeUiTest {
+  fun anchor_replace_takes_the_place_of_the_named_layer() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
@@ -299,7 +288,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldRestoreAfterReplace() = runComposeUiTest {
+  fun removing_every_replacement_restores_the_replaced_layer() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val nodes =
@@ -323,7 +312,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldAllowReplacementRecreationAfterUnload() = runComposeUiTest {
+  fun recreating_a_replacement_after_an_unload_leaves_the_style_alone() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val oldNode = LayerNode(LineLayerDescriptor("old", testSources[0]), Anchor.Replace("bar"))
@@ -337,11 +326,14 @@ class StyleNodeTest {
       s.removeLayerAt(1)
       s.applyChanges()
       s.removeLayerAt(0)
+
+      // An unloaded style takes no mutations, so it keeps the layers the last loaded sync left.
+      assertEquals(listOf("foo", "old", "baz"), s.binding.getLayers().map(Layer::id))
     }
   }
 
   @Test
-  fun shouldAllowAddLayerBeforeRemove() = runComposeUiTest {
+  fun a_same_id_layer_swap_adds_before_it_removes() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
       val l1 = LayerNode(LineLayerDescriptor("new", testSources[0]), Anchor.Top)
@@ -361,7 +353,7 @@ class StyleNodeTest {
   }
 
   @Test
-  fun shouldMergeAnchors() = runComposeUiTest {
+  fun repeated_anchors_merge_into_one_group() = runComposeUiTest {
     runOnUiThread {
       val s = makeStyleNode()
 

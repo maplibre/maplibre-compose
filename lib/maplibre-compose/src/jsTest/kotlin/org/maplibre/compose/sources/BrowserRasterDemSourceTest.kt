@@ -5,7 +5,7 @@ import kotlin.test.assertContains
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
-import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -47,10 +47,24 @@ class BrowserRasterDemSourceTest {
 
       style.addSource(source)
 
-      assertEquals("custom", source.toJson()["encoding"]?.jsonPrimitive?.content)
+      // MapLibre GL JS keeps the encoding on the live source, which is what the map renders with.
+      assertEquals("custom", source.liveEncoding())
+      assertEquals(2.0, source.liveRedFactor())
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
     }
   }
+
+  /** The DEM encoding that MapLibre GL JS holds for this live source. */
+  private fun RasterDemSource.liveEncoding(): String? =
+    glJsBinding
+      ?.withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.encoding }
+      ?.unsafeCast<String?>()
+
+  /** The custom encoding's red factor that MapLibre GL JS holds for this live source. */
+  private fun RasterDemSource.liveRedFactor(): Double? =
+    glJsBinding
+      ?.withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.redFactor }
+      ?.unsafeCast<Double?>()
 
   private companion object {
     /** Unresolvable on purpose: tests must not reach the network. */

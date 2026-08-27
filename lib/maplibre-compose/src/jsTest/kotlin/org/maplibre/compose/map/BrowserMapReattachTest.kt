@@ -60,7 +60,7 @@ class BrowserMapReattachTest {
     val firstAdapter = assertNotNull(state.attachedAdapter, "no adapter after the first attach")
 
     attached = false
-    waitUntilMap("the session to detach") { state.attachedAdapter == null }
+    waitUntilMap("the session to detach") { !state.isAttached }
     repeat(3) {
       yieldToBrowser()
       waitForIdle()

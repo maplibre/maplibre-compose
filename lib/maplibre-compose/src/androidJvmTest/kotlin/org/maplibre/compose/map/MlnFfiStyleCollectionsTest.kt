@@ -21,8 +21,7 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.FillLayer
-import org.maplibre.compose.mlnffi.FfiTestPlatform
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
+import org.maplibre.compose.mlnffi.FfiTestCache
 import org.maplibre.compose.mlnffi.runFfiComposeUiTest
 import org.maplibre.compose.mlnffi.setFfiTestMapContent
 import org.maplibre.compose.sources.GeoJsonData
@@ -38,14 +37,11 @@ import org.maplibre.spatialk.geojson.Geometry
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiStyleCollectionsTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
-
-  private val runtimeOptions =
-    MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
+  private val cache = FfiTestCache()
 
   @AfterTest
   fun cleanUp() {
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    cache.close()
   }
 
   @Test
@@ -56,7 +52,7 @@ class MlnFfiStyleCollectionsTest {
     lateinit var state: MapState
     lateinit var contentSource: Source
 
-    setFfiTestMapContent(runtimeOptions) {
+    setFfiTestMapContent(cache.options) {
       state =
         rememberMapState(baseStyle = BASE_STYLE) {
           val source = remember {
@@ -126,7 +122,7 @@ class MlnFfiStyleCollectionsTest {
     val frames = AtomicInt(0)
     lateinit var state: MapState
 
-    setFfiTestMapContent(runtimeOptions) {
+    setFfiTestMapContent(cache.options) {
       state = rememberMapState(baseStyle = BASE_STYLE)
       MaplibreMap(
         state = state,

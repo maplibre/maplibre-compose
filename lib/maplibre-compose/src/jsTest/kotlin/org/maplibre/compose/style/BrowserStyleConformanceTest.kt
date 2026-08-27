@@ -1,4 +1,4 @@
-package org.maplibre.compose.gljs
+package org.maplibre.compose.style
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +17,9 @@ import kotlin.test.assertTrue
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.feature
+import org.maplibre.compose.gljs.runBrowserMapTest
+import org.maplibre.compose.gljs.setBrowserMapContent
+import org.maplibre.compose.gljs.waitUntilMap
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.layers.LineLayer
@@ -27,9 +30,6 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.sources.rememberVectorSource
-import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LocalStyleNode
-import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.MaplibreComposable
 
 @OptIn(ExperimentalTestApi::class)

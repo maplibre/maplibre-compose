@@ -35,7 +35,7 @@ class AndroidMapStateRecreationTest {
 
     try {
       runAndroidComposeUiTest<MapStateRecreationActivity> {
-        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.attachedAdapter != null }
+        waitUntil(timeoutMillis = TIMEOUT_MILLIS) { activity?.mapState?.isAttached == true }
         val firstActivity = requireNotNull(activity)
 
         runOnIdle {

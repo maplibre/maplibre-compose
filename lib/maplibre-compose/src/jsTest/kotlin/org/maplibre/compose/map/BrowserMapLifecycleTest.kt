@@ -1,4 +1,4 @@
-package org.maplibre.compose.gljs
+package org.maplibre.compose.map
 
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -13,9 +13,10 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
-import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.MaplibreMap
-import org.maplibre.compose.map.rememberMapState
+import org.maplibre.compose.gljs.runBrowserMapTest
+import org.maplibre.compose.gljs.setBrowserMapContent
+import org.maplibre.compose.gljs.waitUntilMap
+import org.maplibre.compose.gljs.yieldToBrowser
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 

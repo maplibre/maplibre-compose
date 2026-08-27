@@ -1,10 +1,6 @@
 package org.maplibre.compose.map
 
 import androidx.compose.ui.unit.LayoutDirection
-import co.touchlab.kermit.LogWriter
-import co.touchlab.kermit.Logger
-import co.touchlab.kermit.Severity
-import co.touchlab.kermit.StaticConfig
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
@@ -12,12 +8,12 @@ import kotlin.test.assertFalse
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
-import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.FfiTestCache
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.mlnffi.RenderBackendPair
+import org.maplibre.compose.testing.RecordingLogger
 
 /**
  * A second [MapEngine.acquireCore] with another density or backend must evict the live session
@@ -25,30 +21,9 @@ import org.maplibre.compose.mlnffi.RenderBackendPair
  */
 class MlnFfiMapEngineEvictionTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
+  private val cache = FfiTestCache()
 
-  private val errors = mutableListOf<String>()
-
-  private val logger =
-    Logger(
-      config =
-        StaticConfig(
-          logWriterList =
-            listOf(
-              object : LogWriter() {
-                override fun log(
-                  severity: Severity,
-                  message: String,
-                  tag: String,
-                  throwable: Throwable?,
-                ) {
-                  if (severity >= Severity.Error) errors += message
-                }
-              }
-            )
-        ),
-      tag = "eviction-test",
-    )
+  private val log = RecordingLogger("eviction-test")
 
   private var state: MapState? = null
 
@@ -56,7 +31,7 @@ class MlnFfiMapEngineEvictionTest {
   fun cleanUp() {
     state?.close()
     MlnFfiApplication.resetForTest()
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    cache.close()
   }
 
   /** Records whether the core was already closed whenever the session reaches its renderer. */
@@ -75,13 +50,22 @@ class MlnFfiMapEngineEvictionTest {
   }
 
   private fun engine(): MapEngine {
-    MlnFfiApplication.configure(
-      MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
-    )
+    cache.configure()
     val created = MapState()
-    created.logger = logger
+    created.logger = log.logger
     state = created
     return created.engine
+  }
+
+  /** Asserts the eviction contract: the live session closes first, and the core closes after. */
+  private fun assertEvicted(
+    session: MlnFfiMapSession,
+    host: ObservingHostSession,
+    core: MlnFfiMapCore,
+  ) {
+    assertTrue(session.isClosed, "the live session must be evicted by the second acquire")
+    assertTrue(core.isClosed, "the mismatched core must be closed")
+    assertFalse(host.sawClosedCore, "the session must close before its core does")
   }
 
   @Test
@@ -98,9 +82,7 @@ class MlnFfiMapEngineEvictionTest {
     val core2 = engine.acquireCore(2.0, LayoutDirection.Ltr, VULKAN)
 
     assertNotSame(core1, core2, "a scale change must recreate the core")
-    assertTrue(session1.isClosed, "the live session must be evicted by the second acquire")
-    assertTrue(core1.isClosed, "the mismatched core must be closed")
-    assertFalse(host.sawClosedCore, "the session must close before its core does")
+    assertEvicted(session1, host, core1)
 
     val session2 = engine.createSession(core2, VULKAN)
     assertFalse(session2.isClosed)
@@ -110,7 +92,7 @@ class MlnFfiMapEngineEvictionTest {
     assertFailsWith<IllegalStateException>("the new core's session refusal must survive it") {
       engine.createSession(core2, VULKAN)
     }
-    assertTrue(errors.isEmpty(), "the eviction logged errors: $errors")
+    assertTrue(log.messages.isEmpty(), "the eviction logged errors: ${log.messages}")
   }
 
   @Test
@@ -124,10 +106,8 @@ class MlnFfiMapEngineEvictionTest {
     val core2 = engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.OPENGL)
 
     assertNotSame(core1, core2, "a backend change must recreate the core")
-    assertTrue(session1.isClosed, "the live session must be evicted by the second acquire")
-    assertTrue(core1.isClosed, "the mismatched core must be closed")
-    assertFalse(host.sawClosedCore, "the session must close before its core does")
-    assertTrue(errors.isEmpty(), "the eviction logged errors: $errors")
+    assertEvicted(session1, host, core1)
+    assertTrue(log.messages.isEmpty(), "the eviction logged errors: ${log.messages}")
   }
 
   private companion object {

@@ -1,4 +1,4 @@
-package org.maplibre.compose.gljs
+package org.maplibre.compose.style
 
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -11,14 +11,14 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
 import kotlinx.browser.window
+import org.maplibre.compose.gljs.runBrowserMapTest
+import org.maplibre.compose.gljs.setBrowserMapContent
+import org.maplibre.compose.gljs.waitUntilMap
 import org.maplibre.compose.layers.RasterLayerDescriptor
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.map.MaplibreMap
 import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.sources.RasterSource
-import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.LocalStyleNode
-import org.maplibre.compose.style.StyleNode
 
 @OptIn(ExperimentalTestApi::class)
 class BrowserStyleSourcesTest {

@@ -89,10 +89,6 @@ internal class StyleCompositionHost(
 
   private var closed = false
 
-  /** How many frames this host has pumped; a diagnostic counter for tests. */
-  internal var framesPumped: Int = 0
-    private set
-
   /** Non-null when the recomposition loop or a content composition died. */
   internal var contentError: Throwable? = null
     private set
@@ -128,7 +124,6 @@ internal class StyleCompositionHost(
     scope.launch {
       var time = 0L
       for (unused in frameSignal) {
-        framesPumped++
         time += 16_000_000L
         clock.sendFrame(time)
         applyChanges()

@@ -13,7 +13,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.layers.BackgroundLayer
-import org.maplibre.compose.style.OpRecordingStyleBinding
+import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.util.MaplibreComposable
 
 /** [rememberMapState] receives `styleContent = null` after content: the content clears. */
@@ -41,7 +41,7 @@ class RememberMapStateContentTest {
     waitForIdle()
 
     val adapter = FakeMapAdapter()
-    val binding = OpRecordingStyleBinding()
+    val binding = RecordingStyleBinding()
     state.attachSession(adapter)
     state.callbacks.onStyleChanged(adapter, binding)
     awaitStyle { binding.layerExists("bg-user") }

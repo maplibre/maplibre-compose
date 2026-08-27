@@ -13,9 +13,8 @@ import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.runBlocking
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
-import org.maplibre.compose.mlnffi.FfiTestPlatform
+import org.maplibre.compose.mlnffi.FfiTestCache
 import org.maplibre.compose.mlnffi.MlnFfiApplication
-import org.maplibre.compose.mlnffi.MlnFfiRuntimeOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.rememberGeoJsonSource
 import org.maplibre.compose.style.BaseStyle
@@ -25,7 +24,7 @@ import org.maplibre.spatialk.geojson.Position
 /** [MapState.snapshot] renders a bare state with no [MaplibreMap] anywhere. */
 class MlnFfiMapSnapshotTest {
 
-  private val cacheFile = FfiTestPlatform.createCacheFile()
+  private val cache = FfiTestCache()
 
   private var state: MapState? = null
 
@@ -33,13 +32,11 @@ class MlnFfiMapSnapshotTest {
   fun cleanUp() {
     state?.close()
     MlnFfiApplication.resetForTest()
-    FfiTestPlatform.deleteCacheFile(cacheFile)
+    cache.close()
   }
 
   private fun bareState(): MapState {
-    MlnFfiApplication.configure(
-      MlnFfiRuntimeOptions(cacheFile = cacheFile, maximumCacheSizeBytes = null)
-    )
+    cache.configure()
     return MapState().also { state = it }
   }
 

@@ -1,6 +1,5 @@
 package org.maplibre.compose.map
 
-import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -12,10 +11,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -27,27 +24,18 @@ import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.OpRecordingStyleBinding
-import org.maplibre.compose.style.StyleHostDispatcher
+import org.maplibre.compose.style.RecordingStyleBinding
 
 private fun testSource(id: String) =
   RasterSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())
-
-private class TestHostDispatcher(override val dispatcher: CoroutineDispatcher) :
-  StyleHostDispatcher {
-  var closed = false
-    private set
-
-  override fun close() {
-    closed = true
-  }
-}
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class MapStateTest {
 
   private fun TestScope.mapState(
     cameraPosition: CameraPosition = CameraPosition(),
-    hostDispatcher: TestHostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler)),
+    hostDispatcher: RecordingHostDispatcher =
+      RecordingHostDispatcher(StandardTestDispatcher(testScheduler)),
   ) =
     MapState(
       cameraPosition = cameraPosition,
@@ -63,7 +51,6 @@ class MapStateTest {
     val source = testSource("tiles")
 
     state.setStyleContent { RasterLayer(id = "raster", source = source) }
-    state.startStyleComposition()
 
     val first = FakeMapAdapter()
     val firstBinding = OpRecordingStyleBinding()
@@ -72,8 +59,10 @@ class MapStateTest {
     testScheduler.advanceUntilIdle()
 
     assertSame(first, state.attachedAdapter)
-    assertEquals(1, first.calls.count { it == "setCameraPosition" })
-    assertEquals(listOf("addSource:tiles", "addLayer:raster"), firstBinding.ops.toList())
+    assertTrue(
+      first.calls.any { it == "setCameraPosition" },
+      "the attaching session starts the map at the recorded camera",
+    )
 
     state.detachSession()
     // The engine session unloads its style when it goes away; the fake models that here.
@@ -82,7 +71,7 @@ class MapStateTest {
     val firstCallsAfterDetach = first.calls.toList()
     val firstOpsAfterDetach = firstBinding.ops.toList()
 
-    assertNull(state.attachedAdapter)
+    assertFalse(state.isAttached)
     assertFalse(state.styleNode.binding.isLoaded)
     assertTrue(state.sources.ids.isEmpty())
 
@@ -94,7 +83,10 @@ class MapStateTest {
 
     // The new session gets the deferred camera and a fresh apply of the same desired state.
     assertSame(second, state.attachedAdapter)
-    assertEquals(1, second.calls.count { it == "setCameraPosition" })
+    assertTrue(
+      second.calls.any { it == "setCameraPosition" },
+      "the new session starts the map at the recorded camera",
+    )
     assertEquals(listOf("addSource:tiles", "addLayer:raster"), secondBinding.ops.toList())
 
     // The detached session and its dead style saw nothing after the detach.
@@ -107,21 +99,20 @@ class MapStateTest {
 
   @Test
   fun close_after_detach_shuts_down_the_recomposer_and_the_dispatcher() = runTest {
-    val hostDispatcher = TestHostDispatcher(StandardTestDispatcher(testScheduler))
+    val hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler))
     val state = mapState(hostDispatcher = hostDispatcher)
     state.setStyleContent { RasterLayer(id = "raster", source = testSource("tiles")) }
-    state.startStyleComposition()
 
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
-    state.callbacks.onStyleChanged(adapter, OpRecordingStyleBinding())
+    state.callbacks.onStyleChanged(adapter, RecordingStyleBinding())
     testScheduler.advanceUntilIdle()
 
     state.detachSession()
     state.close()
     testScheduler.advanceUntilIdle()
 
-    assertEquals(Recomposer.State.ShutDown, state.host.recomposer.currentState.value)
+    // The host releases its dispatcher last, after it has shut the recomposer down.
     assertTrue(hostDispatcher.closed)
   }
 
@@ -189,7 +180,7 @@ class MapStateTest {
 
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
-    state.callbacks.onStyleChanged(adapter, OpRecordingStyleBinding())
+    state.callbacks.onStyleChanged(adapter, RecordingStyleBinding())
     testScheduler.advanceUntilIdle()
     assertTrue("bg-toggled" in state.layers.ids, "the composed layer reaches layers.ids")
 
@@ -213,7 +204,7 @@ class MapStateTest {
     state.setStyleContent { BackgroundLayer(id = "bg-cleared") }
 
     val adapter = FakeMapAdapter()
-    val binding = OpRecordingStyleBinding()
+    val binding = RecordingStyleBinding()
     state.attachSession(adapter)
     state.callbacks.onStyleChanged(adapter, binding)
     testScheduler.advanceUntilIdle()

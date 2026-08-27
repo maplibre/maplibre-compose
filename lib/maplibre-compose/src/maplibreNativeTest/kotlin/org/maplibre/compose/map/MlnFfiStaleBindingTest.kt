@@ -1,6 +1,9 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.map
 
-import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
@@ -8,7 +11,6 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.TestLatch
 import org.maplibre.compose.mlnffi.launchTestTask
-import org.maplibre.compose.mlnffi.parkForTest
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
 
@@ -18,12 +20,12 @@ import org.maplibre.compose.style.MlnFfiStyleBinding
  */
 class MlnFfiStaleBindingTest {
 
-  @Volatile private var mutationRan = false
-  @Volatile private var mutationAbandoned = false
-  @Volatile private var mutationReturnedNull = false
-
   @Test
   fun a_mutation_queued_before_an_unload_is_dropped() {
+    val mutationRan = AtomicBoolean(false)
+    val mutationAbandoned = AtomicBoolean(false)
+    val mutationReturnedNull = AtomicBoolean(false)
+
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val stale = assertIs<MlnFfiStyleBinding>(fixture.style)
@@ -33,13 +35,16 @@ class MlnFfiStaleBindingTest {
       assertTrue(fixture.core.postOwnerTaskForTest { hold.await() })
 
       // The loaded pre-check passes here; the queued closure runs only after the swap's unload.
+      val queued = TestLatch(1)
       val done = TestLatch(1)
       launchTestTask {
-        val result = stale.mutateMap(abandon = { mutationAbandoned = true }) { mutationRan = true }
-        mutationReturnedNull = result == null
+        queued.countDown()
+        val result =
+          stale.mutateMap(abandon = { mutationAbandoned.store(true) }) { mutationRan.store(true) }
+        mutationReturnedNull.store(result == null)
         done.countDown()
       }
-      parkForTest(200)
+      assertTrue(queued.await(30_000), "the mutating task never started")
 
       fixture.core.setBaseStyle(
         BaseStyle.Json("""{"version":8,"name":"swap","sources":{},"layers":[]}""")
@@ -47,9 +52,9 @@ class MlnFfiStaleBindingTest {
       hold.countDown()
 
       assertTrue(done.await(30_000), "the stale mutation was never released")
-      assertFalse(mutationRan, "a stale binding's mutation must not reach the map")
-      assertTrue(mutationAbandoned, "the dropped mutation must run its abandon path")
-      assertTrue(mutationReturnedNull, "a dropped mutation must answer null")
+      assertFalse(mutationRan.load(), "a stale binding's mutation must not reach the map")
+      assertTrue(mutationAbandoned.load(), "the dropped mutation must run its abandon path")
+      assertTrue(mutationReturnedNull.load(), "a dropped mutation must answer null")
 
       fixture.pumpUntil("the swapped style to load") {
         fixture.style != null && fixture.style !== stale

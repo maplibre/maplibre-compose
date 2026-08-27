@@ -33,7 +33,7 @@ import kotlin.math.abs
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
+import kotlin.test.assertFalse
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
@@ -207,11 +207,11 @@ class MlnFfiMapCompositionTest {
 
     runBridgeMapTest(
       body = {
-        waitUntil { mapState.attachedAdapter != null }
+        waitUntil { mapState.isAttached }
 
         visible = false
-        waitUntil { mapState.attachedAdapter == null }
-        assertNull(mapState.attachedAdapter)
+        waitUntil { !mapState.isAttached }
+        assertFalse(mapState.isAttached)
         mapState.close()
       }
     ) { errors, onFrame ->

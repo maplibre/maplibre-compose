@@ -1,7 +1,7 @@
 package org.maplibre.compose.map
 
-import androidx.compose.runtime.Recomposer
 import kotlin.test.Test
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
@@ -32,7 +33,8 @@ class BareMapStateTest {
 
   @Test
   fun a_bare_state_composes_content_and_closes_without_a_session() = runTest {
-    val state = MapState()
+    val hostDispatcher = recordingHostDispatcher()
+    val state = MapState(cameraPosition = CameraPosition(), hostDispatcher = hostDispatcher)
     val composed = CompletableDeferred<Unit>()
     val source =
       RasterSource("tiles", listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())
@@ -44,13 +46,12 @@ class BareMapStateTest {
 
     // The composition runs on the state's own dispatcher, so the wait leaves the test dispatcher.
     withContext(Dispatchers.Default) { withTimeout(30.seconds) { composed.await() } }
-    assertNull(state.attachedAdapter, "no session ever attached")
+    assertFalse(state.isAttached, "no session ever attached")
 
     state.close()
+    // The host releases its dispatcher last, after it has disposed the content.
     withContext(Dispatchers.Default) {
-      withTimeout(30.seconds) {
-        state.host.recomposer.currentState.first { it == Recomposer.State.ShutDown }
-      }
+      withTimeout(30.seconds) { hostDispatcher.closedState.first { it } }
     }
   }
 }

@@ -106,6 +106,17 @@ internal constructor(
   internal val attachedAdapter: MapAdapter?
     get() = adapterState.value
 
+  /**
+   * Whether a [MaplibreMap] shows this state right now. A composition that reads this property
+   * recomposes when a map attaches or detaches.
+   *
+   * The camera calls and the query calls need an attached map. A call made while this property is
+   * false waits for a map, records the value, or returns an empty result, as its own documentation
+   * states.
+   */
+  public val isAttached: Boolean
+    get() = adapterState.value != null
+
   internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
 
   /** Owns the map's platform lifetime; on some platforms the map outlives the composition. */
