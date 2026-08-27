@@ -16,7 +16,9 @@ kotlin {
     // https://youtrack.jetbrains.com/issue/CMP-8232
     experimentalProperties["android.experimental.kmp.enableAndroidResources"] = true
 
-    withHostTestBuilder {}.configure {}
+    // TODO(logging): remove once kermit is dropped — the stubbed android.util.Log otherwise throws
+    // from host tests that merely log, keeping runtime-free suites out of commonTest.
+    withHostTestBuilder {}.configure { isReturnDefaultValues = true }
     withDeviceTestBuilder { sourceSetTreeName = "test" }
       .configure {
         animationsDisabled = true
