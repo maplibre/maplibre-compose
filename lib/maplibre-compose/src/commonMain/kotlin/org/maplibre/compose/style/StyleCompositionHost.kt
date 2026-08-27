@@ -28,6 +28,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
@@ -227,10 +228,24 @@ internal class StyleCompositionHost(
     scope.launch { applyChanges() }
   }
 
-  /** Suspends until every task queued on the host dispatcher before this call has run. */
+  /**
+   * Suspends until the host is quiescent: every task queued on the host dispatcher has run and the
+   * recomposer reports no pending work. A recomposition can queue further host tasks — a snapshot
+   * notification, a pumped frame, the sync after it — so one queued marker is not enough; the loop
+   * re-joins until a marker runs with the recomposer still idle across two consecutive checks.
+   * Waiting out pending work rides the recomposer's state flow, which queues no dispatcher task, so
+   * a virtual-time test clock is free to advance the frame pacing delay meanwhile.
+   */
   internal suspend fun awaitPendingWork() {
     if (closed) return
-    scope.launch {}.join()
+    while (true) {
+      recomposer.currentState.first { it != Recomposer.State.PendingWork }
+      scope.launch {}.join()
+      if (recomposer.currentState.value == Recomposer.State.PendingWork) continue
+      // A notification queued during the last task must be delivered before deciding.
+      scope.launch {}.join()
+      if (recomposer.currentState.value != Recomposer.State.PendingWork) return
+    }
   }
 
   private fun disposeComposition() {
