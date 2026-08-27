@@ -1,100 +1,121 @@
 # Common API gaps
 
-Capabilities MapLibre Native FFI provides that MapLibre Compose has no
-cross-platform API for.
+Capabilities that maplibre-native-ffi provides and MapLibre Compose has no
+cross-platform API for. This is a staging document: a place to write findings
+down while they are fresh, to be converted into issues rather than lived in.
 
-This is a staging document: a place to write findings down while they are fresh,
-to be converted into issues rather than lived in. Its counterpart tracked what
-we wanted _from_ maplibre-native-ffi and is gone, because nothing is left open
-against it. This is the other direction — what we could build _with_ it.
+The API redesign shipped: `MapState` and `MaplibreMap(state)` are the public
+surface, `MaplibreRuntime` owns the process-scoped work, and every non-web
+platform runs on maplibre-native-ffi while the browser runs on MapLibre GL JS.
+This document is the remaining capability work, plus the internal refactors that
+the redesign deferred.
 
-## When these land
+**What the FFI can do is the target surface.** Whether the Android or iOS SDK
+exposed a capability does not decide whether it belongs here; those SDKs are
+gone. Each capability is one implementation on the FFI engine and one on the GL
+JS engine, and where GL JS has no equivalent, the web declines the call the way
+`MapState.snapshot` does.
 
-The sequence they belong to is:
+FFI names below are verified against maplibre-native-ffi 0.202608.3, and GL JS
+names against the maplibre-gl 6.2.0 type declarations.
 
-1. ~~Rewrite the desktop platform on maplibre-native-ffi — the branch this
-   document came from — and upstream fixes until the result is something we are
-   happy with.~~ Done.
-2. ~~Once it surpasses the Android and iOS integrations in quality, rewrite
-   those on maplibre-native-ffi too.~~ Done: every non-web platform runs on
-   maplibre-native-ffi.
-3. Redesign the public API and internal architecture around that one native
-   integration, deciding along the way whether web folds in via Wasm or stays on
-   MapLibre GL JS. In progress; [API_REDESIGN.md](./API_REDESIGN.md) is the
-   plan.
-4. Implement the missing common APIs once — twice at most, if web stays separate
-   — against that shared integration.
+## Imperative style mutation
 
-Everything below is step 4 work. It waits on step 3 because the redesign decides
-the objects these APIs attach to, such as the runtime that owns HTTP and offline
-work.
+`MapState.layers` and `MapState.sources` mutate properties of existing entries
+and update source data. Three gaps remain.
 
-The corollary is that **what the FFI can do is the target surface**. Whether the
-Android or iOS SDK exposes a capability today does not decide whether it belongs
-here; those SDKs are on their way out. Where current availability is noted below
-it is context, not a gate.
+**Layer filters.** `LayerHandle` has no filter member, and
+`StyleBinding.setLayerFilter` already exists on both engines. One `var` on the
+handle, with the null-clears contract the composable layers state.
 
-Found by diffing the public surface of `MapHandle`, `RuntimeHandle`, and
-`RenderSessionHandle` against desktop call sites during the desktop rewrite.
-Nothing here is a desktop bug.
+**Imperative add and remove.** Neither collection inserts or removes. The
+desired-state sync never touches ids outside its applied snapshot, so map-owned
+inserts cannot fight it; the open decision is placement. Proposal: an imperative
+insert places relative to live layer ids only, and the sync treats an
+imperatively added layer as it treats a base layer — an anchor may name it, and
+the composition may not claim its id.
 
-## Architecture to fix at step 3
+- FFI: `MapHandle.addStyleLayerJson`, `removeStyleLayer`, `addStyleSourceJson`,
+  `removeStyleSource` — the calls `StyleBinding` already wraps.
+- GL JS: `Map.addLayer`, `removeLayer`, `addSource`, `removeSource` — likewise.
 
-Not missing capabilities — shapes in the common layer that the desktop rewrite
-had to work around, and that step 3 is the moment to fix rather than reproduce.
-The desktop rewrite exposed them.
-
-**Unloading the outgoing style is a contract no engine states.** Switching a
-style has to mark the previous one unloaded, because `LayerManager` skips anchor
-validation against an unloaded style, and that is what stops content briefly
-composed into the dying node from throwing
-`Layer ID '...' not found in base
-style` out of the applier. Both engine
-sessions do it, by calling `onStyleChanged(this, null)` from `setBaseStyle`, and
-both map views time it with a `SideEffect` so the unload precedes the content
-subcomposition's inserts; nothing in the common layer requires either. The
-redesign makes this the common layer's job rather than a convention each engine
-session repeats.
-
-**Offline manager ownership has no lifecycle.** The FFI integration keeps one
-process-wide offline manager, dedicated thread, and native runtime, configured
-by the first `MlnFfiRuntimeOptions` the process uses and permanent after that.
-This preserves downloads when the composable that acquired the manager leaves
-composition, because MapLibre holds active download state in memory, but the
-runtime can never be reconfigured or closed. The redesign replaces the global
-cache with an explicit application-scoped owner: one that can outlive
-navigation, can be created once per options value, and can be closed
-deliberately when the application is prepared to stop that runtime's active
-downloads. Composition-level disposal, weak references, and automatic eviction
-are not substitutes because each can silently interrupt a download.
+**Images.** No public imperative image registration exists; the style content's
+painter and bitmap parameters are the only route. Design this with the missing
+style images entry below: one `MapState.images` surface serves both the up-front
+registration and the on-demand resolver.
 
 ## Style light
 
 Position, color, intensity, and anchor of the style's light source, which fill
 extrusions shade against.
 
-- FFI: `setStyleLightJson`, `setStyleLightProperty`, `styleLightProperty`
+A `Light` composable in the style content, set the same way layers are. The
+composition owns it, the properties are expression DSL values, and the node
+compiles them to light JSON in `commonMain`:
 
-Naturally a Compose API: a `Light` composable inside `MaplibreMap`'s content,
-set the same way layers are.
+```kotlin
+@Composable
+@MaplibreComposable
+public fun Light(
+  anchor: Expression<EnumValue<IlluminationAnchor>> = nil(),
+  position: Expression<VectorValue<Number>> = nil(),
+  color: Expression<ColorValue> = nil(),
+  intensity: Expression<FloatValue> = nil(),
+)
+```
+
+`IlluminationAnchor` already exists in the expression values for
+`HillshadeLayer`. A second `Light` in the content is an error: the style has one
+light.
+
+- FFI: `MapHandle.setStyleLightJson(json)` applies the compiled object;
+  `MapHandle.setStyleLightProperty(name, json)` and
+  `MapHandle.styleLightProperty(name)` are the per-property forms.
+- GL JS: `Map.setLight(light)` and `Map.getLight()`, taking the same
+  specification object the compiled JSON deserializes to.
 
 ## Projection mode
 
-Switching between Mercator and globe projections.
+The pinned FFI's projection mode is the axonometric projection:
+`ProjectionModeOptions` carries `axonometric`, `xSkew`, and `ySkew`. It has no
+globe. GL JS has the opposite: `Style.setProjection` and `Style.getProjection`
+take a `ProjectionSpecification` whose type is `mercator`, `globe`, or
+`vertical-perspective`, and GL JS has no axonometric projection. A globe API
+waits for the FFI to expose globe; an axonometric API is native-only. Neither
+half is worth a common API until one side closes the gap, so this entry stays a
+watch item.
 
-- FFI: `projectionMode`
+- FFI: `MapHandle.setProjectionMode(options)` and
+  `MapHandle.getProjectionMode()`.
+- GL JS: `Style.setProjection(projection)` and `Style.getProjection()`.
 
 ## Style transition options
 
 The style's global transition duration and delay, and whether symbol placement
-cross-fades. What every paint property's animation takes its default from, so
-this is the one setting that changes how the whole map feels when data updates.
+cross-fades. Every paint property's animation takes its default from this, so it
+is the one setting that changes how the whole map feels when data updates.
 
-- FFI: `setStyleTransitionOptions`, `styleTransitionOptions`
-  ([#465](https://github.com/maplibre/maplibre-native-ffi/pull/465))
+Map-owned state on `MapState`, following the snapshot-read, suspend-write
+convention:
 
-Naturally a parameter on `MaplibreMap` or its style content, alongside the other
-per-map options.
+```kotlin
+public data class StyleTransitionOptions(
+  val duration: Duration? = null,
+  val delay: Duration? = null,
+  val enablePlacementTransitions: Boolean? = null,
+)
+
+// on MapState
+public val styleTransitionOptions: StyleTransitionOptions
+public suspend fun setStyleTransitionOptions(options: StyleTransitionOptions)
+```
+
+- FFI: `MapHandle.setStyleTransitionOptions(options)` and
+  `MapHandle.styleTransitionOptions()`; the FFI type carries `durationMs`,
+  `delayMs`, and `enablePlacementTransitions`.
+- GL JS: `Style.getTransition()` reads the value, but GL JS has no runtime
+  setter — the style JSON's `transition` property is the only input, so the web
+  declines the write.
 
 ## HTTP header transforms
 
@@ -102,37 +123,75 @@ A hook to add or rewrite request headers for every resource the map fetches —
 the usual home for an `Authorization` header or an API key that does not belong
 in a URL.
 
-- FFI: `setHttpHeaderTransform`, `clearHttpHeaderTransform`
-  ([#509](https://github.com/maplibre/maplibre-native-ffi/pull/509))
+Runtime-scoped, because it outlives any one map. `MaplibreRuntime` is a
+native-only object today, so this entry either moves it into `commonMain` or
+adds a common facade for the members both engines implement:
 
-Related to the resource-transform entry below, and worth designing with it: one
-rewrites the URL, the other the headers, and an application adding credentials
-needs whichever the server expects. Note the FFI reports this as unsupported on
-OpenHarmony, whose HTTP client cannot intercept redirects, so a common API has
+```kotlin
+// on MaplibreRuntime
+public fun setHttpHeaderTransform(transform: ((url: String, headers: Map<String, String>) -> Map<String, String>)?)
+```
+
+Design this together with the resource transform below: one rewrites the URL,
+the other the headers, and an application adding credentials needs whichever the
+server expects. The FFI reports the header transform as unsupported on
+OpenHarmony, whose HTTP client cannot intercept redirects, so the common API has
 to tolerate a platform declining it.
+
+- FFI: `RuntimeHandle.setHttpHeaderTransform(callback)` and
+  `RuntimeHandle.clearHttpHeaderTransform()`; the callback maps an
+  `HttpHeaderTransformRequest` to a `List<HttpHeader>`.
+- GL JS: `Map.setTransformRequest(fn)`, whose function returns
+  `RequestParameters` with `headers` and `credentials`. The hook is per map, so
+  the web engine installs the runtime's transform on each map it creates.
 
 ## Missing style images
 
 The event MapLibre raises when a style references a sprite that is not in the
-loaded image set, so an application can supply it on demand instead of shipping
-every icon up front. The FFI session logs it today and can do nothing else,
-because there is no common callback to route it to.
+loaded image set, so an application can supply icons on demand instead of
+shipping every icon up front. The FFI engine logs the event today and can do
+nothing else, because there is no common callback to route it to.
 
-- FFI: the `MAP_STYLE_IMAGE_MISSING` runtime event, paired with the existing
-  `setStyleImage`
+Map-owned on `MapState`, because the resolver answers for whatever style the map
+has loaded:
 
-See the `MAP_STYLE_IMAGE_MISSING` branch in `MlnFfiMapSession.handleEvent`.
+```kotlin
+// on MapState
+public fun setMissingImageResolver(resolver: (suspend (id: String) -> ImageBitmap?)?)
+```
+
+A non-null return registers the image under the requested id; null leaves the
+reference unresolved. The registration path is the one `ImageManager` already
+uses.
+
+- FFI: the `RuntimeEventType.MAP_STYLE_IMAGE_MISSING` event (see the branch in
+  `MlnFfiMapCore.handleEvent`), answered with
+  `MapHandle.setStyleImage(id, image, options)`.
+- GL JS: `Map.setMissingStyleImageResolver(resolver)`, answered with
+  `Map.addImage`; the `styleimagemissing` event is the lower-level form.
 
 ## Resource transform
 
 A hook to rewrite every resource URL before it is requested — how applications
 add API keys, route through a proxy, or redirect to a local mirror.
 
-- FFI: `setResourceTransform`, `clearResourceTransform`
+Runtime-scoped, beside the header transform above:
 
-The FFI integration already has a broader mechanism in `MlnFfiResourceProvider`,
-which serves resources rather than only rewriting their URLs. The redesign
-should decide which of the two is the public API, rather than shipping both.
+```kotlin
+// on MaplibreRuntime
+public fun setResourceTransform(transform: ((url: String) -> String)?)
+```
+
+The FFI engine already has a broader mechanism in `MlnFfiResourceProvider`,
+which serves resources rather than only rewriting their URLs, and the FFI
+exposes both (`setResourceProvider` / `clearResourceProvider`). Decide which of
+the two is the public API rather than shipping both.
+
+- FFI: `RuntimeHandle.setResourceTransform(callback)` and
+  `RuntimeHandle.clearResourceTransform()`; the callback maps a
+  `ResourceTransformRequest` to a URL string.
+- GL JS: the same `Map.setTransformRequest(fn)` hook as the header transform —
+  `RequestParameters.url` is the rewritten URL.
 
 ## Offline database merge
 
@@ -140,8 +199,42 @@ Merging a side-loaded offline database into the running one, which is how an
 application ships pre-downloaded regions rather than making every user download
 them.
 
-- FFI: `startMergeOfflineRegionsDatabase`,
-  `takeMergeOfflineRegionsDatabaseResult`
+One suspending member on `MaplibreRuntime`, beside `createOfflinePack`:
 
-One suspending function on the existing `OfflineManager` interface, so this is
-the smallest entry here.
+```kotlin
+// on MaplibreRuntime
+public suspend fun mergeOfflineDatabase(path: String): List<OfflinePack>
+```
+
+The result lists the packs the merge added, which also land in `offlinePacks`.
+
+- FFI: `RuntimeHandle.startMergeOfflineRegionsDatabase(path)` returns an
+  `OfflineOperationHandle`, and
+  `RuntimeHandle.takeMergeOfflineRegionsDatabaseResult(handle)` returns the
+  `List<OfflineRegionInfo>`.
+- GL JS: web declines — GL JS has no offline API.
+
+## Deferred internal refactors
+
+The redesign's close-out audits deferred these. Each is an internal cleanup with
+no public surface.
+
+- **Shared adapter mechanics.** `MlnFfiMapCore` and `GlJsMapSession` duplicate
+  the pending-action queue, the requested-style and requested-camera fallbacks,
+  and stranded-transition resume. Extract with a gate predicate; the native side
+  is lock-guarded and the JS side single-threaded, so the shared type must be
+  thread-agnostic.
+- **One owner-thread loop.** `MlnFfiRuntime` and `MlnFfiMapRuntimeLoop`
+  duplicate the task deque, accept gate, wake source, and teardown. A shared
+  base is the most delicate concurrency change in the module; take it only with
+  the existing loop tests as proof.
+- **A common session-host composable.** `MlnFfiMapView` and `JsMapView` share
+  the session remember and effect wiring; the native side adds the load
+  placeholder and pre-viewport gesture suppression.
+- **`LayerNode`'s `isLoaded` gate.** The binding drops writes after unload and
+  the descriptor buffers properties, so the gate only delays; removing it
+  changes when click handlers become visible. Test with `MlnFfiStyleSwitchTest`
+  and `LayerClickOrderTest`.
+- **One base-style snapshot.** `StyleNode` and `SourceManager` memoize the base
+  layer ids and base sources separately on the same binding identity. The
+  snapshot must stay lazy: `getBaseSource` runs before the first sync.
