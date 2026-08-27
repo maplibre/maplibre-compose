@@ -53,7 +53,7 @@ class MlnFfiRetainedCoreTest {
     val stale = state.engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.OPENGL)
 
     val image = runBlocking {
-      state.snapshot(width = 10.dp, height = 10.dp, timeout = 60.seconds)
+      state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 60.seconds)
     }
 
     assertEquals(10, image.width)
@@ -72,7 +72,7 @@ class MlnFfiRetainedCoreTest {
     core.setMaxZoom(2.0)
     runBlocking { state.setCamera(CameraPosition(zoom = 5.0)) }
 
-    runBlocking { state.snapshot(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
+    runBlocking { state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
 
     assertSame(core, state.engine.core, "a matching backend keeps the retained core")
     assertEquals(5.0, core.getCameraPosition().zoom, 0.01, "the snapshot must not clamp the zoom")

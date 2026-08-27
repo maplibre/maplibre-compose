@@ -69,7 +69,7 @@ class MlnFfiMapClusterTest {
     setFfiTestMapContent(runtimeOptions) {
       val mapState =
         rememberMapState(
-          cameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
+          initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
           baseStyle = BaseStyle.Empty,
         ) {
           source =

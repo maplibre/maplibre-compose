@@ -55,7 +55,7 @@ class MlnFfiPlatformMapTest {
   fun a_snapshotted_state_reads_the_live_map_while_detached() {
     val state = bareState()
     state.baseStyle = BACKGROUND_STYLE
-    runBlocking { state.snapshot(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
+    runBlocking { state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
 
     val layerIds = runBlocking { state.withPlatformMap { it.styleLayerIds() } }
 
@@ -66,7 +66,7 @@ class MlnFfiPlatformMapTest {
   fun a_state_closed_after_a_snapshot_throws() {
     val state = bareState()
     state.baseStyle = BACKGROUND_STYLE
-    runBlocking { state.snapshot(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
+    runBlocking { state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
     state.close()
     assertFailsWith<IllegalStateException> {
       runBlocking { state.withPlatformMap { it.styleLayerIds() } }

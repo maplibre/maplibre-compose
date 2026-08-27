@@ -28,7 +28,7 @@ import org.maplibre.compose.map.MapState
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
  *
  * The bar reads the scale and the zoom from [state] and renders nothing until the map has rendered
- * a viewport. An overload takes both as numbers instead.
+ * a viewport.
  *
  * @param state the map whose scale the bar shows. Defaults to the map that [LocalMapState]
  *   provides.
@@ -53,57 +53,8 @@ public fun DisappearingScaleBar(
   enterTransition: EnterTransition = fadeIn(),
   exitTransition: ExitTransition = fadeOut(),
 ) {
-  val metersPerDp = state.viewport?.metersPerDpAtTarget ?: return
-  DisappearingScaleBar(
-    metersPerDp = metersPerDp,
-    zoom = state.camera.zoom,
-    modifier = modifier,
-    measures = measures,
-    color = color,
-    haloColor = haloColor,
-    haloWidth = haloWidth,
-    barWidth = barWidth,
-    textStyle = textStyle,
-    alignment = alignment,
-    visibilityDuration = visibilityDuration,
-    enterTransition = enterTransition,
-    exitTransition = exitTransition,
-  )
-}
-
-/**
- * An animated scale bar that appears when the [zoom] level of the map changes, and then disappears
- * after [visibilityDuration]. This composable wraps [ScaleBar] with visibility animations.
- *
- * This overload takes the scale and the zoom as numbers, for a caller that computes its own. The
- * overload that takes a [MapState] reads both from the map.
- *
- * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
- *   scale. See
- *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
- * @param zoom The zoom level whose change shows the bar.
- * @param measures The measures to show. The default follows the system settings, or otherwise the
- *   user's locale.
- * @param haloColor A halo color that keeps the bar readable over the map.
- * @param textStyle The text style. The text size sets the size of the whole bar.
- * @param visibilityDuration How long the bar stays visible after the zoom changes.
- */
-@Composable
-public fun DisappearingScaleBar(
-  metersPerDp: Double,
-  zoom: Double,
-  modifier: Modifier = Modifier,
-  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
-  color: Color = ScaleBarDefaults.ContentColor,
-  haloColor: Color = ScaleBarDefaults.HaloColor,
-  haloWidth: Dp = ScaleBarDefaults.HaloWidth,
-  barWidth: Dp = ScaleBarDefaults.BarWidth,
-  textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
-  alignment: Alignment.Horizontal = Alignment.Start,
-  visibilityDuration: Duration = 3.seconds,
-  enterTransition: EnterTransition = fadeIn(),
-  exitTransition: ExitTransition = fadeOut(),
-) {
+  if (state.viewport == null) return
+  val zoom = state.camera.zoom
   val visible = remember { MutableTransitionState(true) }
 
   LaunchedEffect(zoom) {
@@ -121,7 +72,7 @@ public fun DisappearingScaleBar(
     exit = exitTransition,
   ) {
     ScaleBar(
-      metersPerDp = metersPerDp,
+      state = state,
       measures = measures,
       haloColor = haloColor,
       haloWidth = haloWidth,

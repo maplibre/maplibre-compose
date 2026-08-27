@@ -57,7 +57,7 @@ internal actual fun createSnapshotTarget(): MlnFfiSnapshotTarget {
     RenderBackend.METAL in backends -> JvmMetalSnapshotTarget()
     else ->
       throw UnsupportedOperationException(
-        "MapState.snapshot has no still-image path for the packaged desktop runtime " +
+        "MapState.captureStillImage has no still-image path for the packaged desktop runtime " +
           "(${backends.joinToString().ifEmpty { "none" }}); package the Vulkan or Metal runtime"
       )
   }

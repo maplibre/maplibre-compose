@@ -61,7 +61,7 @@ class MlnFfiMapReattachTest {
 
     setMultiUseFfiTestMapContent {
       val mapState =
-        rememberMapState(cameraPosition = firstPosition, baseStyle = STYLE) {
+        rememberMapState(initialCameraPosition = firstPosition, baseStyle = STYLE) {
           FillLayer(
             id = "user-fill",
             source =

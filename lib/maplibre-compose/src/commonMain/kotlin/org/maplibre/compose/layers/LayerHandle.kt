@@ -3,10 +3,8 @@ package org.maplibre.compose.layers
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.util.toCompiledExpression
 
 /**
  * An imperative handle over one live layer, from [MapState.layers].
@@ -59,23 +57,13 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
     }
 
   /**
-   * The layer's filter: the condition that source features must match to be drawn. Assigning
+   * Sets the layer's filter: the condition that source features must match to be drawn. Passing
    * [nil][org.maplibre.compose.expressions.dsl.nil] clears the filter, and every feature matches.
-   *
-   * The getter answers with a compiled form of the filter that this handle's definition captured or
-   * that this handle wrote; it reads as `nil` while the layer has no filter.
    */
-  public var filter: Expression<BooleanValue>
-    get() =
-      descriptor
-        .readProperty("filter")
-        .takeIf { it !is JsonNull }
-        ?.toCompiledExpression()
-        ?.cast<BooleanValue>() ?: nil()
-    set(value) {
-      state.checkLayerWritable(id)
-      descriptor.setFilterJson(state.compileLayerProperty(value))
-    }
+  public fun setFilter(filter: Expression<BooleanValue>) {
+    state.checkLayerWritable(id)
+    descriptor.setFilterJson(state.compileLayerProperty(filter))
+  }
 
   /**
    * Sets the layout property named [name] in the style spec to [value]. A value that MapLibre

@@ -14,14 +14,14 @@ the redesign deferred.
 exposed a capability does not decide whether it belongs here; those SDKs are
 gone. Each capability is one implementation on the FFI engine and one on the GL
 JS engine, and where GL JS has no equivalent, the web declines the call the way
-`MapState.snapshot` does.
+`MapState.captureStillImage` does.
 
 FFI names below are verified against maplibre-native-ffi 0.202608.3, and GL JS
 names against the maplibre-gl 6.2.0 type declarations.
 
 ## Imperative style mutation
 
-`LayerHandle.filter`, `StyleSources.add`/`remove`, and `MapState.images`
+`LayerHandle.setFilter`, `StyleSources.add`/`remove`, and `MapState.images`
 shipped. One gap remains.
 
 **Imperative layer add.** `MapState.layers` reads and mutates the layers the

@@ -20,7 +20,7 @@ fun Camera() {
   // #region first-position
   val map =
     rememberMapState(
-      cameraPosition =
+      initialCameraPosition =
         CameraPosition(target = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0)
     )
   MaplibreMap(map)

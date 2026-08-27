@@ -18,7 +18,7 @@ internal actual fun createSnapshotTarget(): MlnFfiSnapshotTarget {
   val backends = Maplibre.supportedRenderBackends()
   if (RenderBackend.OPENGL !in backends) {
     throw UnsupportedOperationException(
-      "MapState.snapshot has no still-image path for the packaged Android runtime " +
+      "MapState.captureStillImage has no still-image path for the packaged Android runtime " +
         "(${backends.joinToString().ifEmpty { "none" }}); package the OpenGL runtime"
     )
   }

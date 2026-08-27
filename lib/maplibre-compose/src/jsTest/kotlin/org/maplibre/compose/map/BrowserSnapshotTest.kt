@@ -5,7 +5,7 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlinx.coroutines.test.runTest
 
-/** MapLibre GL JS has no still-image API, and [MapState.snapshot] reports that. */
+/** MapLibre GL JS has no still-image API, and [MapState.captureStillImage] reports that. */
 class BrowserSnapshotTest {
 
   @Test
@@ -13,7 +13,7 @@ class BrowserSnapshotTest {
     val state = MapState()
     try {
       assertFailsWith<UnsupportedOperationException> {
-        state.snapshot(width = 10.dp, height = 10.dp)
+        state.captureStillImage(width = 10.dp, height = 10.dp)
       }
     } finally {
       state.close()

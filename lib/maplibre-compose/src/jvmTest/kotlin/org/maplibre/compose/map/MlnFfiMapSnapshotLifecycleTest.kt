@@ -89,7 +89,7 @@ class MlnFfiMapSnapshotLifecycleTest {
       runBlocking {
         val image =
           async(Dispatchers.Default) {
-            state.snapshot(width = 20.dp, height = 20.dp, timeout = 60.seconds)
+            state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds)
           }
         assertTrue(
           server.requestArrived.await(30, TimeUnit.SECONDS),
@@ -102,8 +102,8 @@ class MlnFfiMapSnapshotLifecycleTest {
             engine.createSession(core, MapRenderBackend.VULKAN)
           }
         assertTrue(
-          refusal.message.orEmpty().contains("snapshot"),
-          "the refusal must name the snapshot, got: ${refusal.message}",
+          refusal.message.orEmpty().contains("still image"),
+          "the refusal must name the still image, got: ${refusal.message}",
         )
         assertFailsWith<IllegalStateException>("an eviction must not close the snapshot's core") {
           engine.acquireCore(123.0, LayoutDirection.Ltr, MapRenderBackend.VULKAN)
@@ -127,7 +127,7 @@ class MlnFfiMapSnapshotLifecycleTest {
         supervisorScope {
           val image =
             async(Dispatchers.Default) {
-              state.snapshot(width = 20.dp, height = 20.dp, timeout = 60.seconds)
+              state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds)
             }
           assertTrue(
             server.requestArrived.await(30, TimeUnit.SECONDS),
@@ -196,12 +196,12 @@ class MlnFfiMapSnapshotLifecycleTest {
     val state = bareState()
     state.baseStyle = BaseStyle.Json("this is not a style")
     assertFailsWith<IllegalStateException>("the broken style must fail the snapshot") {
-      runBlocking { state.snapshot(width = 10.dp, height = 10.dp, timeout = 30.seconds) }
+      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 30.seconds) }
     }
 
     state.baseStyle = GOOD_STYLE
     val image = runBlocking {
-      state.snapshot(width = 10.dp, height = 10.dp, timeout = 60.seconds)
+      state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 60.seconds)
     }
     assertEquals(10, image.width)
   }

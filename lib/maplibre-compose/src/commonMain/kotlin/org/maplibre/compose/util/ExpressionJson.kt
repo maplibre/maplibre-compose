@@ -16,7 +16,6 @@ import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
-import org.maplibre.compose.expressions.ast.RawJsonExpression
 import org.maplibre.compose.expressions.ast.StringLiteral
 
 /**
@@ -32,8 +31,6 @@ internal fun CompiledExpression<*>.toStyleJson(): JsonElement = normalizeJsonLik
  */
 private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonElement =
   when (this) {
-    is RawJsonExpression -> json
-
     NullLiteral -> JsonNull
     is BooleanLiteral -> JsonPrimitive(value)
     is FloatLiteral -> JsonPrimitive(value)
@@ -82,10 +79,3 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
 private fun literalArray(inLiteral: Boolean, values: List<JsonElement>): JsonElement =
   if (inLiteral) JsonArray(values)
   else JsonArray(listOf(JsonPrimitive("literal"), JsonArray(values)))
-
-/**
- * Wraps MapLibre style JSON as a compiled expression whose [toStyleJson] reproduces the input
- * verbatim. The inverse of [toStyleJson] over the JSON that MapLibre reports back, such as a
- * layer's filter.
- */
-internal fun JsonElement.toCompiledExpression(): CompiledExpression<*> = RawJsonExpression(this)

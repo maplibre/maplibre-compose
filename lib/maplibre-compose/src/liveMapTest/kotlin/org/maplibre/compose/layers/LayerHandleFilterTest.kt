@@ -11,6 +11,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonNull
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
@@ -43,27 +45,38 @@ class LayerHandleFilterTest {
     testScheduler.advanceUntilIdle()
   }
 
+  private class FilterRecordingBinding(baseLayers: List<Layer>) :
+    OpRecordingStyleBinding(baseLayers = baseLayers) {
+    val filters = mutableListOf<Pair<String, JsonElement>>()
+
+    override fun setLayerFilter(layerId: String, filter: JsonElement) {
+      filters.add(layerId to filter)
+      super.setLayerFilter(layerId, filter)
+    }
+  }
+
   @Test
-  fun a_filter_write_round_trips_through_the_handle() = runTest {
+  fun a_filter_write_reaches_the_binding() = runTest {
     val state = mapState()
     state.setStyleContent {}
-    val binding = OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg-base")))
+    val descriptor = BackgroundLayerDescriptor("bg-base")
+    val binding = FilterRecordingBinding(baseLayers = listOf(descriptor))
     attach(state, binding)
+    descriptor.bindExisting(binding)
 
     val handle = assertNotNull(state.layers["bg-base"])
-    assertEquals(nil(), handle.filter, "an unset filter reads as nil")
+    assertNull(handle.property("filter"), "an unset filter reads as null")
 
     val written = feature.get("class").cast<EquatableValue>() eq const("park")
-    handle.filter = written
-    val readBack = assertNotNull(state.layers["bg-base"]).filter
-
+    handle.setFilter(written)
     val expected = written.compile(ExpressionContext.None).toStyleJson()
-    assertEquals(expected, readBack.compile(ExpressionContext.None).toStyleJson())
+    assertEquals("bg-base" to expected, binding.filters.last())
 
-    handle.filter = nil()
+    handle.setFilter(nil())
+    assertEquals("bg-base" to (JsonNull as JsonElement), binding.filters.last())
     assertNull(
       assertNotNull(state.layers["bg-base"]).property("filter"),
-      "assigning nil clears the filter",
+      "passing nil clears the filter",
     )
 
     state.close()
@@ -77,7 +90,7 @@ class LayerHandleFilterTest {
     attach(state, OpRecordingStyleBinding())
 
     val handle = assertNotNull(state.layers["comp-layer"])
-    assertFailsWith<IllegalStateException> { handle.filter = const(true) }
+    assertFailsWith<IllegalStateException> { handle.setFilter(const(true)) }
 
     state.close()
     testScheduler.advanceUntilIdle()

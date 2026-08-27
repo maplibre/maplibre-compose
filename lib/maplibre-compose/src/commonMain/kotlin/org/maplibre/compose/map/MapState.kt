@@ -68,13 +68,12 @@ private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
  * # Imperative style mutation
  *
  * [layers], [sources], and [images] mutate the loaded style directly, outside the style content.
- * Structure is declared in the style content; these collections mutate what exists. Sources and
- * images are the two structural exceptions: [StyleSources.add], [StyleSources.remove],
- * [StyleImages.add], and [StyleImages.remove] insert into and remove from the loaded style, while
- * [layers] only reads and mutates the layers the style already has.
+ * [StyleSources.add], [StyleSources.remove], [StyleImages.add], and [StyleImages.remove] insert
+ * into and remove from the loaded style. [layers] reads and mutates the layers the style already
+ * has; the style content adds and removes layers.
  *
- * One rule covers every imperative mutation: a [baseStyle] reload drops it. The reloaded style
- * starts from its own definition, with no imperatively added source or image and no
+ * A [baseStyle] reload drops every imperative mutation. The reloaded style starts from its own
+ * definition, with no imperatively added source or image and no
  * [LayerHandle][org.maplibre.compose.layers.LayerHandle] write. Reapply the mutations when the new
  * style is ready: from the [MaplibreMap] `onMapLoadFinished` callback, and watch [styleErrors] for
  * a reapplication the new style refuses.
@@ -112,8 +111,8 @@ internal constructor(
   internal val positionState = mutableStateOf(cameraPosition)
 
   /**
-   * The most recent map load failure, surfaced by [snapshot]; cleared when a style loads or when
-   * [baseStyle] selects a new style.
+   * The most recent map load failure, surfaced by [captureStillImage]; cleared when a style loads
+   * or when [baseStyle] selects a new style.
    */
   internal val lastLoadFailure = mutableStateOf<String?>(null)
   internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
@@ -470,7 +469,7 @@ internal constructor(
    *
    * The image shows the selected [baseStyle], the applied style content, and the recorded [camera],
    * fit to a viewport of [width] by [height]. The state does not need a [MaplibreMap]: a state
-   * constructed in a ViewModel with [setStyleContent] can render a snapshot with no UI. The
+   * constructed in a ViewModel with [setStyleContent] can render a still image with no UI. The
    * returned bitmap is in physical pixels, [width] and [height] scaled by the state's density.
    *
    * The call waits for the base style and its sources to finish loading before it renders, so the
@@ -478,20 +477,20 @@ internal constructor(
    * [IllegalStateException] naming the failure, and a map that never finishes loading fails the
    * same way when [timeout] passes.
    *
-   * On Android, iOS, and Desktop a snapshot renders only while no [MaplibreMap] shows this state; a
-   * call with one attached throws [IllegalStateException]. On Web this function always throws
-   * [UnsupportedOperationException], because MapLibre GL JS has no still-image API.
+   * On Android, iOS, and Desktop a still image renders only while no [MaplibreMap] shows this
+   * state; a call with one attached throws [IllegalStateException]. On Web this function always
+   * throws [UnsupportedOperationException], because MapLibre GL JS has no still-image API.
    */
-  public suspend fun snapshot(
+  public suspend fun captureStillImage(
     width: Dp,
     height: Dp,
     timeout: Duration = 30.seconds,
   ): ImageBitmap {
-    check(!closedState.value) { "MapState is closed; a closed state cannot render a snapshot" }
+    check(!closedState.value) { "MapState is closed; a closed state cannot render a still image" }
     require(width > 0.dp && height > 0.dp) {
-      "Snapshot size must be positive, got $width x $height"
+      "Still image size must be positive, got $width x $height"
     }
-    return engine.snapshot(width, height, timeout)
+    return engine.captureStillImage(width, height, timeout)
   }
 
   private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? =

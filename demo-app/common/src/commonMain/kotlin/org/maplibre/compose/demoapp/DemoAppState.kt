@@ -93,7 +93,7 @@ fun rememberDemoAppState(): DemoAppState {
   // breaks the cycle: the content composes nothing until the app state exists.
   val stateRef = remember { mutableStateOf<DemoAppState?>(null) }
   val mapState =
-    rememberMapState(cameraPosition = StartPosition) {
+    rememberMapState(initialCameraPosition = StartPosition) {
       stateRef.value?.let { DemoMapContent(it) }
     }
   val state = remember { DemoAppState(mapState, settings, frameRateState) }

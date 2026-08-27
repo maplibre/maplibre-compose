@@ -146,7 +146,7 @@ class LayerClickOrderTest {
     setFfiTestMapContent(runtimeOptions) {
       val mapState =
         rememberMapState(
-          cameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
+          initialCameraPosition = CameraPosition(target = Position(0.0, 0.0), zoom = START_ZOOM),
           baseStyle = BaseStyle.Empty,
         ) {
           val source = rememberGeoJsonSource(data = GeoJsonData.JsonString(WORLD_POLYGON))

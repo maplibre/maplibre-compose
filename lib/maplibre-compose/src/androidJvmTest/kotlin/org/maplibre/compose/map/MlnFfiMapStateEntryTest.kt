@@ -95,7 +95,7 @@ class MlnFfiMapStateEntryTest {
     lateinit var state: MapState
 
     setFfiTestMapContent(cache.options) {
-      state = rememberMapState(cameraPosition = FIRST_POSITION, baseStyle = BaseStyle.Empty)
+      state = rememberMapState(initialCameraPosition = FIRST_POSITION, baseStyle = BaseStyle.Empty)
       MaplibreMap(
         state = state,
         modifier = Modifier,
@@ -170,7 +170,8 @@ class MlnFfiMapStateEntryTest {
         val currentRegistry = remember { SaveableStateRegistry(savedValues) { true } }
         registry = currentRegistry
         CompositionLocalProvider(LocalSaveableStateRegistry provides currentRegistry) {
-          state = rememberMapState(cameraPosition = FIRST_POSITION, baseStyle = BaseStyle.Empty)
+          state =
+            rememberMapState(initialCameraPosition = FIRST_POSITION, baseStyle = BaseStyle.Empty)
         }
       }
     }

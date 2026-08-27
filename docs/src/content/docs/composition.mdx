@@ -57,15 +57,13 @@ names a base layer applies only when that layer exists in the new style.
 
 <Api of="MapState.layers" />, <Api of="MapState.sources" />, and
 <Api of="MapState.images" /> mutate the loaded style directly, outside the
-style content. Structure is declared in the style content; these collections
-mutate what exists. Sources and images are the two structural exceptions:
-their `add` and `remove` insert into and remove from the loaded style, while
-`layers` only reads and mutates the layers the style already has.
+style content. The `add` and `remove` members of `sources` and `images` insert
+into and remove from the loaded style, and `layers` reads and mutates the
+layers the style already has.
 
-One rule covers every imperative mutation: a `baseStyle` reload drops it, and
-the application reapplies it when the new style is ready — from the
-`onMapLoadFinished` callback, watching <Api of="MapState.styleErrors" /> for a
-reapplication the new style refuses.
+A `baseStyle` reload drops every imperative mutation. Reapply the mutations
+when the new style is ready — from the `onMapLoadFinished` callback, watching
+<Api of="MapState.styleErrors" /> for a reapplication the new style refuses.
 
 | Collection         | Reads                      | Mutates                             | Inserts and removes |
 | ------------------ | -------------------------- | ----------------------------------- | ------------------- |

@@ -60,7 +60,7 @@ private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewpor
   // the cycle: the content composes nothing until the session exists.
   val sessionHolder = remember { mutableStateOf<BenchmarkSession?>(null) }
   val mapState =
-    rememberMapState(cameraPosition = scenario.camera, baseStyle = scenario.style.base) {
+    rememberMapState(initialCameraPosition = scenario.camera, baseStyle = scenario.style.base) {
       sessionHolder.value?.let { session -> scenario.MapContent(session) }
     }
   val session =

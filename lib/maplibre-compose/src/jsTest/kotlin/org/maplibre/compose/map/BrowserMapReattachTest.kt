@@ -43,7 +43,7 @@ class BrowserMapReattachTest {
     lateinit var state: MapState
 
     setBrowserMapContent {
-      val mapState = rememberMapState(cameraPosition = firstPosition, baseStyle = style)
+      val mapState = rememberMapState(initialCameraPosition = firstPosition, baseStyle = style)
       state = mapState
       if (attached) {
         MaplibreMap(

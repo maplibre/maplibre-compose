@@ -284,7 +284,8 @@ class MlnFfiMapCompositionTest {
         assertEquals(firstPosition.tilt, actual.tilt, POSITION_TOLERANCE, "tilt")
       }
     ) { errors, onFrame ->
-      mapState = rememberMapState(cameraPosition = firstPosition, baseStyle = BaseStyle.Empty)
+      mapState =
+        rememberMapState(initialCameraPosition = firstPosition, baseStyle = BaseStyle.Empty)
       MaplibreMap(
         state = mapState,
         modifier = Modifier,
@@ -370,7 +371,7 @@ class MlnFfiMapCompositionTest {
       MaplibreMap(
         state =
           rememberMapState(
-            cameraPosition = CameraPosition(target = target, zoom = 3.0),
+            initialCameraPosition = CameraPosition(target = target, zoom = 3.0),
             baseStyle = BaseStyle.Empty,
           ),
         modifier = Modifier.width(mapWidth.value).height(256.dp),

@@ -40,9 +40,8 @@ import org.maplibre.spatialk.geojson.BoundingBox
  * Remembers a [MapState] that the composition owns: created once, and closed when the composition
  * leaves. Pass the returned state to [MaplibreMap].
  *
- * @param cameraPosition The first camera position. The camera position saves across recreation with
- *   `rememberSaveable`, and a recreated composition starts the camera at the saved position instead
- *   of this one.
+ * @param initialCameraPosition Sets the camera once, when the state is created; a recreated
+ *   composition restores the saved camera position instead.
  * @param baseStyle The URI or JSON of the map style to use. Assigned to [MapState.baseStyle] on
  *   every recomposition. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param styleContent The sources and layers composed over [baseStyle]; null composes no content,
@@ -51,7 +50,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
  */
 @Composable
 public fun rememberMapState(
-  cameraPosition: CameraPosition = CameraPosition(),
+  initialCameraPosition: CameraPosition = CameraPosition(),
   baseStyle: BaseStyle = BaseStyle.Demo,
   styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
 ): MapState {
@@ -80,7 +79,7 @@ public fun rememberMapState(
           restore = { saved -> newMapState(CameraPositionSaver.restore(saved)) },
         )
     ) {
-      newMapState(cameraPosition)
+      newMapState(initialCameraPosition)
     }
   DisposableEffect(mapState) { onDispose { mapState.close() } }
   // Deferred past this snapshot's apply: the host would otherwise read records it cannot yet see.

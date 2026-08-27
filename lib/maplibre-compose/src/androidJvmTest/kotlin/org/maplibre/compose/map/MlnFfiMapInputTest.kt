@@ -961,7 +961,8 @@ class MlnFfiMapInputTest {
     lateinit var state: MapState
 
     setFfiTestMapContent(runtimeOptions) {
-      val mapState = rememberMapState(cameraPosition = initialPosition, baseStyle = BaseStyle.Empty)
+      val mapState =
+        rememberMapState(initialCameraPosition = initialPosition, baseStyle = BaseStyle.Empty)
       state = mapState
       val content: @Composable () -> Unit = {
         MaplibreMap(

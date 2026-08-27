@@ -22,7 +22,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Point
 import org.maplibre.spatialk.geojson.Position
 
-/** [MapState.snapshot] renders a bare state with no [MaplibreMap] anywhere. */
+/** [MapState.captureStillImage] renders a bare state with no [MaplibreMap] anywhere. */
 class MlnFfiMapSnapshotTest {
 
   private val cache = FfiTestCache()
@@ -51,7 +51,7 @@ class MlnFfiMapSnapshotTest {
     }
 
     val image = runBlocking {
-      state.snapshot(width = 200.dp, height = 150.dp, timeout = 60.seconds)
+      state.captureStillImage(width = 200.dp, height = 150.dp, timeout = 60.seconds)
     }
 
     assertEquals(200, image.width)
@@ -74,7 +74,7 @@ class MlnFfiMapSnapshotTest {
     }
 
     val image = runBlocking {
-      state.snapshot(width = 200.dp, height = 150.dp, timeout = 60.seconds)
+      state.captureStillImage(width = 200.dp, height = 150.dp, timeout = 60.seconds)
     }
 
     val pixels = image.toPixelMap()
@@ -89,7 +89,7 @@ class MlnFfiMapSnapshotTest {
     state.baseStyle = TRANSLUCENT_RED_STYLE
 
     val image = runBlocking {
-      state.snapshot(width = 20.dp, height = 20.dp, timeout = 60.seconds)
+      state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds)
     }
 
     val pixels = image.toPixelMap()
@@ -101,7 +101,7 @@ class MlnFfiMapSnapshotTest {
     val state = bareState()
     state.close()
     assertFailsWith<IllegalStateException> {
-      runBlocking { state.snapshot(width = 10.dp, height = 10.dp) }
+      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp) }
     }
   }
 
@@ -110,7 +110,7 @@ class MlnFfiMapSnapshotTest {
     val state = bareState()
     state.attachSession(FakeMapAdapter())
     assertFailsWith<IllegalStateException> {
-      runBlocking { state.snapshot(width = 10.dp, height = 10.dp) }
+      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp) }
     }
   }
 

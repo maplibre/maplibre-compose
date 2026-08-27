@@ -5,7 +5,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlinx.serialization.json.Json
 import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
@@ -98,18 +97,5 @@ class ExpressionJsonTest {
   fun encodes_negative_padding_sides() {
     val padding = padding(left = 2.5.dp, top = (-2.5).dp, right = 0.1.dp, bottom = (-7.1).dp)
     assertEquals("""["literal",[-2.5,0.1,-7.1,2.5]]""", json(compiled(padding)))
-  }
-
-  @Test
-  fun a_decoded_number_beyond_float_precision_round_trips_exactly() {
-    // 16777217 is the first integer a Float cannot represent.
-    val element = Json.parseToJsonElement("""["==",["get","big"],16777217]""")
-    assertEquals(element, element.toCompiledExpression().toStyleJson())
-  }
-
-  @Test
-  fun a_decoded_literal_array_of_objects_round_trips() {
-    val element = Json.parseToJsonElement("""["literal",[{"a":1},{"b":[2,3]}]]""")
-    assertEquals(element, element.toCompiledExpression().toStyleJson())
   }
 }

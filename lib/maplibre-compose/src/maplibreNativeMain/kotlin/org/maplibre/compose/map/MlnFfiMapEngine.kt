@@ -17,7 +17,7 @@ import org.maplibre.compose.mlnffi.createSnapshotTarget
 import org.maplibre.compose.mlnffi.ensureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.withLock
 
-/** How long [MapEngine.snapshot] parks between style-loaded polls. */
+/** How long [MapEngine.captureStillImage] parks between style-loaded polls. */
 private const val STYLE_POLL_MILLIS = 8L
 
 /** mbgl's own zoom ceiling, so a snapshot renders as if no session had constrained the camera. */
@@ -55,7 +55,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   /** The live render session; the shared core makes the adapter-level attach guard blind here. */
   private var activeSession: MlnFfiMapSession? = null
 
-  /** True while [snapshot] holds the render slot, so a session cannot attach under it. */
+  /** True while [captureStillImage] holds the render slot, so a session cannot attach under it. */
   private var snapshotReserved = false
 
   /**
@@ -135,12 +135,12 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   /** Serializes snapshots: the map has one live render session, so two cannot pump at once. */
   private val snapshotMutex = Mutex()
 
-  actual suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
+  actual suspend fun captureStillImage(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
     val deadline = TimeSource.Monotonic.markNow() + timeout
     snapshotMutex.withLock {
       sessionLock.withLock {
         check(activeSession == null && state.attachedAdapter == null) {
-          "MapState has an attached MaplibreMap; detach it before rendering a snapshot"
+          "MapState has an attached MaplibreMap; detach it before rendering a still image"
         }
         // The reservation holds the render slot until the finally below releases it, so a session
         // cannot attach or evict the core while the snapshot renders.
@@ -228,7 +228,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     val requested = core.requestedStyleGeneration
     while (core.loadedStyleGeneration < requested) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
-      check(!core.isClosed) { "MapState was closed while a snapshot was rendering" }
+      check(!core.isClosed) { "MapState was closed while a still image was rendering" }
       state.lastLoadFailure.value?.let { reason ->
         throw IllegalStateException("The map failed to load: $reason")
       }
@@ -256,4 +256,4 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
 
 /** The snapshot flavor of the single-session rule, naming the conflict the caller can end. */
 internal const val SNAPSHOT_SESSION_ERROR: String =
-  "MapState is rendering a snapshot; one MapState renders one session at a time"
+  "MapState is rendering a still image; one MapState renders one session at a time"

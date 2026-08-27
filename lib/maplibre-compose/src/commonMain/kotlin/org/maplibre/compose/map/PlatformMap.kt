@@ -32,12 +32,11 @@ public expect class PlatformMap
  * handle is legal; map work queues behind the block, so keep it brief. The loaded map survives
  * detach on these platforms, so the call works while no [MaplibreMap] is composed. The call fails
  * with [IllegalStateException] on a closed state, and on a state that never created a map — the map
- * is created at the first [MaplibreMap] attach or [MapState.snapshot].
+ * is created at the first [MaplibreMap] attach or [MapState.captureStillImage].
  *
  * On Web, [block] runs on the calling thread. The live map exists only while a [MaplibreMap] is
  * composed, so a call on a detached or closed state fails with [IllegalStateException].
  *
  * Use the map only inside [block]: a reference kept past the call can outlive the map it points at.
- * A property form may replace this function when the engine owns the map's thread.
  */
 @DelicateMapApi public expect suspend fun <T> MapState.withPlatformMap(block: (PlatformMap) -> T): T

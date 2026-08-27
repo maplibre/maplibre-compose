@@ -40,9 +40,10 @@ internal actual class MapEngine actual constructor(@Suppress("unused") state: Ma
     if (this.session === session) this.session = null
   }
 
-  actual suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
+  actual suspend fun captureStillImage(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
     throw UnsupportedOperationException(
-      "MapLibre GL JS has no still-image API; MapState.snapshot is unavailable in the browser"
+      "MapLibre GL JS has no still-image API; MapState.captureStillImage is unavailable in the " +
+        "browser"
     )
   }
 

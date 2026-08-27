@@ -63,7 +63,7 @@ class BrowserMapStateEntryTest {
     lateinit var state: MapState
 
     setBrowserMapContent {
-      state = rememberMapState(cameraPosition = FIRST_POSITION, baseStyle = style)
+      state = rememberMapState(initialCameraPosition = FIRST_POSITION, baseStyle = style)
       MaplibreMap(
         state = state,
         modifier = Modifier,

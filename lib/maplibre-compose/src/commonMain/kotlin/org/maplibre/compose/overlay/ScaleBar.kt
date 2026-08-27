@@ -39,7 +39,6 @@ import org.maplibre.spatialk.units.extensions.meters
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
  *
  * The bar reads the scale from [state] and renders nothing until the map has rendered a viewport.
- * An overload takes the scale as a number instead.
  *
  * @param state the map whose scale the bar shows. Defaults to the map that [LocalMapState]
  *   provides.
@@ -61,49 +60,6 @@ public fun ScaleBar(
   alignment: Alignment.Horizontal = Alignment.Start,
 ) {
   val metersPerDp = state.viewport?.metersPerDpAtTarget ?: return
-  ScaleBar(
-    metersPerDp = metersPerDp,
-    modifier = modifier,
-    measures = measures,
-    color = color,
-    haloColor = haloColor,
-    haloWidth = haloWidth,
-    barWidth = barWidth,
-    textStyle = textStyle,
-    alignment = alignment,
-  )
-}
-
-/**
- * A scale bar composable that shows the current scale of the map in feet, meters or feet and meters
- * when zoomed in to the map, changing to miles and kilometers, respectively, when zooming out.
- *
- * This overload takes the scale as a number, for a caller that computes its own. The overload that
- * takes a [MapState] reads the scale from the map.
- *
- * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
- *   scale. See
- *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]. A
- *   value of 0 renders nothing; it stands for a map that has not rendered a viewport yet.
- * @param measures The measures to show. The default follows the system settings, or otherwise the
- *   user's locale.
- * @param haloColor A halo color that keeps the bar readable over the map.
- * @param textStyle The text style. The text size sets the size of the whole bar.
- */
-@Composable
-public fun ScaleBar(
-  metersPerDp: Double,
-  modifier: Modifier = Modifier,
-  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
-  color: Color = ScaleBarDefaults.ContentColor,
-  haloColor: Color = ScaleBarDefaults.HaloColor,
-  haloWidth: Dp = ScaleBarDefaults.HaloWidth,
-  barWidth: Dp = ScaleBarDefaults.BarWidth,
-  textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
-  alignment: Alignment.Horizontal = Alignment.Start,
-) {
-  // A scale of 0 stands for a map with no viewport, and it would divide the bar length below.
-  if (metersPerDp == 0.0) return
 
   val textMeasurer = rememberTextMeasurer()
 
