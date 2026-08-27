@@ -4,10 +4,11 @@ package org.maplibre.compose.demoapp.util
 
 import js.buffer.ArrayBuffer
 import js.typedarrays.Uint8Array
+import kotlin.js.JsAny
 
-internal external interface ZipEntries
+internal external interface ZipEntries : JsAny
 
-internal external interface FlateError {
+internal external interface FlateError : JsAny {
   val message: String?
 }
 
