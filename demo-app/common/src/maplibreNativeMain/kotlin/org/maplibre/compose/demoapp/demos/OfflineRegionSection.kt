@@ -24,18 +24,18 @@ import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName: String) {
-  val offlineManager = remember { MaplibreRuntime.offline }
   // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
   val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()
   val metadata = remember(packName) { packName.encodeToByteArray() }
-  val pack = offlineManager.packs.firstOrNull { it.metadata?.contentEquals(metadata) == true }
+  val pack =
+    MaplibreRuntime.offlinePacks.firstOrNull { it.metadata?.contentEquals(metadata) == true }
   var creating by remember { mutableStateOf(false) }
   var errorMessage by remember { mutableStateOf<String?>(null) }
 
   SectionHeader("Offline")
   if (pack != null) {
-    OfflinePackListItem(pack = pack, offlineManager = offlineManager) { Text(packName) }
+    OfflinePackListItem(pack = pack) { Text(packName) }
   } else {
     ListItem(
       headlineContent = { Text("Download this region") },
@@ -55,7 +55,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
           scope.launch {
             try {
               val newPack =
-                offlineManager.create(
+                MaplibreRuntime.createOfflinePack(
                   definition =
                     OfflinePackDefinition.TilePyramid(
                       styleUrl = styleUrl,
@@ -66,7 +66,7 @@ actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName:
                     ),
                   metadata = metadata,
                 )
-              offlineManager.resume(newPack)
+              MaplibreRuntime.resume(newPack)
             } catch (e: CancellationException) {
               throw e
             } catch (e: Exception) {

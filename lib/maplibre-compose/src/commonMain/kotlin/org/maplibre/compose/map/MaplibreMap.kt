@@ -106,26 +106,21 @@ public fun rememberMapState(
  * explicit size using modifiers like [Modifier.size][androidx.compose.foundation.layout.size].
  *
  * @param state The map to display: its base style, style content, and camera.
- * @param modifier The modifier to be applied to the layout.
  * @param cameraPadding Insets that shift the camera center. Null follows [contentWindowInsets],
  *   resolved against the current layout direction, so the camera centers on the unobstructed
  *   region. A bounds move adds its padding to these insets.
- * @param zoomRange The allowable camera zoom range.
- * @param pitchRange The allowable camera pitch range.
+ * @param zoomRange The camera zoom range that gestures and camera calls stay within.
+ * @param pitchRange The camera pitch range that gestures and camera calls stay within.
  * @param boundingBox The allowable bounds for the camera position. On iOS and Web, it prevents the
  *   camera **edges** from going out of bounds. If null is provided, the bounds are reset. On
  *   Android, it prevents the camera **center** from going out of bounds. See
  *   [this GH Issue](https://github.com/maplibre/maplibre-native/issues/3128).
- * @param onMapClick Invoked when the map is clicked. A click callback can be defined per layer,
- *   too, see e.g. the `onClick` parameter for [LineLayer][org.maplibre.compose.layers.LineLayer].
- *   However, this callback is always called first and can thus prevent subsequent callbacks to be
- *   invoked by consuming the event.
+ * @param onMapClick Invoked when the map is clicked, before any per-layer click callback such as
+ *   [LineLayer][org.maplibre.compose.layers.LineLayer]'s `onClick`. Consuming the event here stops
+ *   the per-layer callbacks.
  * @param onMapLongClick Invoked when the map is long-clicked. See [onMapClick].
- * @param onFrame Invoked on every rendered frame.
+ * @param onFrame Invoked on every rendered frame with the current frame rate.
  * @param options Gesture, render, and tile level-of-detail options for this session.
- * @param logger kermit logger to use.
- * @param onMapLoadFailed Invoked when the map failed to load.
- * @param onMapLoadFinished Invoked when the map finished loading.
  * @param contentWindowInsets Insets applied to [overlay]. Defaults to safe drawing insets.
  * @param overlay Controls drawn on top of the map; the default draws
  *   [MapOverlay.Default][org.maplibre.compose.overlay.MapOverlay.Companion.Default].

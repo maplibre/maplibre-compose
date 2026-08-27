@@ -18,7 +18,7 @@ internal actual fun ensureMlnFfiConfigured() {
       AndroidMlnFfiPlatform.applicationOrNull
         ?: error(
           "MapLibre has no Android context yet; call MapLibre.configure(context) or compose a " +
-            "map before reading MaplibreRuntime.offline"
+            "map before using MaplibreRuntime"
         )
     AndroidRuntimeOptions(androidCacheFile(context)).toMlnFfiRuntimeOptions()
   }

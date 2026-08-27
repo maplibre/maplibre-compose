@@ -112,10 +112,6 @@ internal constructor(
   /**
    * Whether a [MaplibreMap] shows this state right now. A composition that reads this property
    * recomposes when a map attaches or detaches.
-   *
-   * The camera calls and the query calls need an attached map. A call made while this property is
-   * false waits for a map, records the value, or returns an empty result, as its own documentation
-   * states.
    */
   public val isAttached: Boolean
     get() = adapterState.value != null
@@ -174,9 +170,9 @@ internal constructor(
    *
    * The content composes into the map's style the way `setContent` composes a window's UI tree: one
    * composition per map, and a second call replaces the whole content. Snapshot state that the
-   * content reads recomposes it. The composition runs on a dispatcher this state owns, so effects
-   * inside the content run outside the UI context, and source and anchor validation surface when
-   * the content applies to a loaded style rather than at the call.
+   * content reads recomposes it. Effects inside the content run outside the UI context, and source
+   * and anchor validation surface when the content applies to a loaded style rather than at the
+   * call.
    *
    * Inside the content, [LocalMapState] returns this state, so the content can read the camera and
    * the viewport of the map it composes into.
@@ -300,8 +296,7 @@ internal constructor(
   /**
    * What the map shows right now: the size of the map composable and the visible area. Null while
    * no attached session has rendered a viewport. A composition that reads this property recomposes
-   * after a camera move or a resize of the map composable, because the instance is replaced once
-   * the map has adopted either change.
+   * after a camera move or a resize of the map composable.
    */
   public val viewport: Viewport?
     get() = viewportState.value
@@ -341,10 +336,7 @@ internal constructor(
    * attaches and applies the move, and fails with [IllegalStateException] when the state closes
    * first.
    *
-   * @param boundingBox The bounds that the move fits into the viewport.
-   * @param bearing The bearing that the move sets. Defaults to 0.0.
-   * @param tilt The tilt that the move sets. Defaults to 0.0.
-   * @param padding Insets added while fitting [boundingBox].
+   * @param padding Insets between the viewport edges and the fitted bounds.
    */
   public suspend fun fitCamera(
     boundingBox: BoundingBox,
@@ -374,11 +366,7 @@ internal constructor(
    * attaches and runs the animation, and fails with [IllegalStateException] when the state closes
    * first.
    *
-   * @param boundingBox The bounds that the animation fits into the viewport.
-   * @param bearing The bearing that the animation sets. Defaults to 0.0.
-   * @param tilt The tilt that the animation sets. Defaults to 0.0.
-   * @param padding Insets added while fitting [boundingBox].
-   * @param duration The duration of the animation. Defaults to 300 ms.
+   * @param padding Insets between the viewport edges and the fitted bounds.
    */
   public suspend fun animateCameraToFit(
     boundingBox: BoundingBox,
@@ -400,13 +388,7 @@ internal constructor(
   public fun screenLocationFromPosition(position: Position): DpOffset? =
     attachedAdapter?.screenLocationFromPosition(position)
 
-  /**
-   * Returns the offset in pixels from the top-left corner of the map composable that corresponds to
-   * the given [position], in the units that pointer events report, including a [position] outside
-   * the viewport. Returns null while no attached session has rendered a viewport.
-   *
-   * The answer describes the transform that the map has at the time of the call.
-   */
+  /** [screenLocationFromPosition] in pixels, the units that pointer events report. */
   public fun screenOffsetFromPosition(position: Position): Offset? =
     screenLocationFromPosition(position)?.let {
       with(host.density) { Offset(it.x.toPx(), it.y.toPx()) }
@@ -422,26 +404,18 @@ internal constructor(
     attachedAdapter?.positionFromScreenLocation(offset)
 
   /**
-   * Returns the position that corresponds to the given [offset] in pixels from the top-left corner
-   * of the map composable, in the units that pointer events report. Returns null while no attached
-   * session has rendered a viewport.
-   *
-   * The answer describes the transform that the map has at the time of the call.
+   * [positionFromScreenLocation] with an [offset] in pixels, the units that pointer events report.
    */
   public fun positionFromScreenLocation(offset: Offset): Position? =
     positionFromScreenLocation(with(host.density) { DpOffset(offset.x.toDp(), offset.y.toDp()) })
 
   /**
-   * Returns the features that are rendered at the given [offset] from the top-left corner of the
-   * map composable, optionally limited to layers with the given [layerIds] and filtered by the
-   * given [predicate]. The result is sorted by render order, so the feature in front is first in
-   * the list. The list is empty while no session is attached.
+   * Returns the features rendered at the given [offset] from the top-left corner of the map
+   * composable. The result is sorted by render order, so the feature in front is first in the list.
+   * The list is empty while no session is attached.
    *
-   * @param offset The offset from the top-left corner of the map composable to query.
-   * @param layerIds The ids of the layers that limit the query. If not specified, the query returns
-   *   features in *any* layer.
-   * @param predicate An expression that has to evaluate to true for a feature to be included in the
-   *   result.
+   * @param layerIds Limits the query to these layers; null queries every layer.
+   * @param predicate Keeps only the features for which this expression is true.
    */
   public suspend fun queryRenderedFeatures(
     offset: DpOffset,
@@ -452,16 +426,12 @@ internal constructor(
       ?: emptyList()
 
   /**
-   * Returns the features whose rendered geometry intersects the given [rect], optionally limited to
-   * layers with the given [layerIds] and filtered by the given [predicate]. The result is sorted by
-   * render order, so the feature in front is first in the list. The list is empty while no session
-   * is attached.
+   * Returns the features whose rendered geometry intersects the given [rect]. The result is sorted
+   * by render order, so the feature in front is first in the list. The list is empty while no
+   * session is attached.
    *
-   * @param rect The rectangle to intersect with rendered geometry.
-   * @param layerIds The ids of the layers that limit the query. If not specified, the query returns
-   *   features in *any* layer.
-   * @param predicate An expression that has to evaluate to true for a feature to be included in the
-   *   result.
+   * @param layerIds Limits the query to these layers; null queries every layer.
+   * @param predicate Keeps only the features for which this expression is true.
    */
   public suspend fun queryRenderedFeatures(
     rect: DpRect,

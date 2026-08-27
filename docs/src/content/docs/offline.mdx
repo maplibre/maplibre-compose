@@ -10,26 +10,19 @@ import { region } from "../../snippets";
 import offline from "../../../../demo-app/common/src/maplibreNativeMain/kotlin/org/maplibre/compose/docsnippets/Offline.kt?raw";
 
 An offline pack holds the resources needed to show a region without a network:
-map tiles, the style, and other assets. The <Api of="OfflineManager" />
-creates, tracks, and deletes packs. <Api of="MaplibreRuntime" /> owns the
-manager: every map in the process shares one runtime, and
-<Api of="MaplibreRuntime.offline" /> returns its manager.
+map tiles, the style, and other assets. <Api of="MaplibreRuntime" /> creates,
+tracks, and deletes packs, and every map in the process shares that runtime.
 
 <Aside type="note">
   Offline packs are available on Android, iOS, and Desktop. The browser
   platform does not support them.
 </Aside>
 
-The manager is process-scoped, so the `remember` here caches the lookup and
-does not limit the manager to the composition:
-
-<Code code={region(offline, "manager")} lang="kotlin" title="App.kt" />
-
 ## Download a region
 
 A pack is defined by a style URL, a bounding box, and a zoom range.
-<Api of="OfflineManager.create" /> registers the pack in a paused state; call
-<Api of="OfflineManager.resume" /> to start the download:
+<Api of="MaplibreRuntime.createOfflinePack" /> registers the pack in a paused state; call
+<Api of="MaplibreRuntime.resume" /> to start the download:
 
 <Code code={region(offline, "create")} lang="kotlin" title="App.kt" />
 
@@ -41,19 +34,19 @@ GeoJSON geometry instead of a bounding box.
 
 ## Track download progress
 
-<Api of="OfflineManager.packs" /> and <Api of="OfflinePack.downloadProgress" />
+<Api of="MaplibreRuntime.offlinePacks" /> and <Api of="OfflinePack.downloadProgress" />
 are backed by Compose state, so a composition that reads them recomposes as
 the download proceeds:
 
 <Code code={region(offline, "progress")} lang="kotlin" title="App.kt" />
 
 `pause` and `resume` switch a pack between the `Paused` and `Downloading`
-states. <Api of="OfflineManager.invalidate" /> re-checks a pack's tiles
+states. <Api of="MaplibreRuntime.invalidate" /> re-checks a pack's tiles
 against the server and updates the ones that changed.
 
 ## Delete a pack
 
-<Api of="OfflineManager.delete" /> unregisters the pack and frees the
+<Api of="MaplibreRuntime.delete" /> unregisters the pack and frees the
 resources that no remaining pack requires:
 
 <Code code={region(offline, "delete")} lang="kotlin" title="App.kt" />

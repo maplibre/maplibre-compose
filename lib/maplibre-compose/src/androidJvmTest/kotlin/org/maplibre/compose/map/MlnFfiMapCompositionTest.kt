@@ -11,7 +11,6 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -112,10 +111,9 @@ class MlnFfiMapCompositionTest {
   fun the_offline_demo_layer_composes_without_error() = runBridgeMapTest { errors, onFrame ->
     val state =
       rememberMapState(baseStyle = BaseStyle.Empty) {
-        val offlineManager = remember { MaplibreRuntime.offline }
         FillLayer(
           id = "offline-packs",
-          source = rememberOfflinePacksSource(offlineManager.packs),
+          source = rememberOfflinePacksSource(MaplibreRuntime.offlinePacks),
           opacity = const(0.5f),
           color =
             switch(

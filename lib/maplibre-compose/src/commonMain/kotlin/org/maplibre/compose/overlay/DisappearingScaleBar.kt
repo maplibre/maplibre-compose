@@ -32,19 +32,11 @@ import org.maplibre.compose.map.MapState
  *
  * @param state the map whose scale the bar shows. Defaults to the map that [LocalMapState]
  *   provides.
- * @param modifier the [Modifier] to be applied to this layout node
- * @param measures which measures to show on the scale bar. The default follows the system settings,
- *   or otherwise the user's locale.
- * @param color scale bar and text color.
- * @param haloColor halo for better visibility when displayed on top of the map
- * @param haloWidth scale bar and text halo width
- * @param barWidth scale bar width
- * @param textStyle the text style. The text size is the deciding factor how large the scale bar is
- *   is displayed.
- * @param alignment horizontal alignment of the scale bar and text
- * @param visibilityDuration how long it should be visible after the zoom changed
- * @param enterTransition EnterTransition(s) used for the appearing animation
- * @param exitTransition ExitTransition(s) used for the disappearing animation
+ * @param measures The measures to show. The default follows the system settings, or otherwise the
+ *   user's locale.
+ * @param haloColor A halo color that keeps the bar readable over the map.
+ * @param textStyle The text style. The text size sets the size of the whole bar.
+ * @param visibilityDuration How long the bar stays visible after the zoom changes.
  */
 @Composable
 public fun DisappearingScaleBar(
@@ -89,20 +81,12 @@ public fun DisappearingScaleBar(
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
- * @param zoom zoom level of the map
- * @param modifier the [Modifier] to be applied to this layout node
- * @param measures which measures to show on the scale bar. The default follows the system settings,
- *   or otherwise the user's locale.
- * @param color scale bar and text color.
- * @param haloColor halo for better visibility when displayed on top of the map
- * @param haloWidth scale bar and text halo width
- * @param barWidth scale bar width
- * @param textStyle the text style. The text size is the deciding factor how large the scale bar is
- *   is displayed.
- * @param alignment horizontal alignment of the scale bar and text
- * @param visibilityDuration how long it should be visible after the zoom changed
- * @param enterTransition EnterTransition(s) used for the appearing animation
- * @param exitTransition ExitTransition(s) used for the disappearing animation
+ * @param zoom The zoom level whose change shows the bar.
+ * @param measures The measures to show. The default follows the system settings, or otherwise the
+ *   user's locale.
+ * @param haloColor A halo color that keeps the bar readable over the map.
+ * @param textStyle The text style. The text size sets the size of the whole bar.
+ * @param visibilityDuration How long the bar stays visible after the zoom changes.
  */
 @Composable
 public fun DisappearingScaleBar(

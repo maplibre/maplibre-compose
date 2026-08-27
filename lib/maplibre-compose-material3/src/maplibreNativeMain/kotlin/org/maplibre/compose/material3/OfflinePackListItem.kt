@@ -33,7 +33,6 @@ import org.maplibre.compose.material3.generated.sync
 import org.maplibre.compose.material3.generated.warning_filled
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
-import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePack
 import org.maplibre.compose.runtime.MaplibreRuntime
 
@@ -53,16 +52,11 @@ import org.maplibre.compose.runtime.MaplibreRuntime
 public fun OfflinePackListItem(
   pack: OfflinePack,
   modifier: Modifier = Modifier,
-  offlineManager: OfflineManager = remember { MaplibreRuntime.offline },
-  leadingContent: @Composable () -> Unit = {
-    OfflinePackListItemDefaults.LeadingContent(pack, offlineManager)
-  },
+  leadingContent: @Composable () -> Unit = { OfflinePackListItemDefaults.LeadingContent(pack) },
   supportingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.SupportingContent(pack.downloadProgress)
   },
-  trailingContent: @Composable () -> Unit = {
-    OfflinePackListItemDefaults.TrailingContent(pack, offlineManager)
-  },
+  trailingContent: @Composable () -> Unit = { OfflinePackListItemDefaults.TrailingContent(pack) },
   headlineContent: @Composable () -> Unit,
 ) {
   // TODO swipe to delete? confirmation to delete?
@@ -84,7 +78,6 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun LeadingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = remember { MaplibreRuntime.offline },
     completedIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.check_circle_filled),
@@ -140,11 +133,10 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun TrailingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = remember { MaplibreRuntime.offline },
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
   ): Unit = Row {
-    PauseResumeUpdateButton(pack, offlineManager)
-    DeleteButton(pack, offlineManager)
+    PauseResumeUpdateButton(pack)
+    DeleteButton(pack)
   }
 
   /**
@@ -185,13 +177,13 @@ public object OfflinePackListItemDefaults {
 }
 
 @Composable
-private fun DeleteButton(pack: OfflinePack, offlineManager: OfflineManager) {
+private fun DeleteButton(pack: OfflinePack) {
   val coroutineScope = rememberCoroutineScope()
   var deleting by remember { mutableStateOf(false) }
 
   fun onDelete() {
     deleting = true
-    coroutineScope.launch { offlineManager.delete(pack) }.invokeOnCompletion { deleting = false }
+    coroutineScope.launch { MaplibreRuntime.delete(pack) }.invokeOnCompletion { deleting = false }
   }
 
   IconButton(onClick = ::onDelete, enabled = !deleting) {
@@ -221,15 +213,15 @@ private fun DownloadProgressCircle(pack: OfflinePack) {
 }
 
 @Composable
-private fun PauseResumeUpdateButton(pack: OfflinePack, offlineManager: OfflineManager) {
+private fun PauseResumeUpdateButton(pack: OfflinePack) {
   val status = (pack.downloadProgress as? DownloadProgress.Healthy)?.status ?: return
   val coroutineScope = rememberCoroutineScope()
 
   fun onClick() {
     when (status) {
-      DownloadStatus.Paused -> offlineManager.resume(pack)
-      DownloadStatus.Downloading -> offlineManager.pause(pack)
-      DownloadStatus.Complete -> coroutineScope.launch { offlineManager.invalidate(pack) }
+      DownloadStatus.Paused -> MaplibreRuntime.resume(pack)
+      DownloadStatus.Downloading -> MaplibreRuntime.pause(pack)
+      DownloadStatus.Complete -> coroutineScope.launch { MaplibreRuntime.invalidate(pack) }
     }
   }
 

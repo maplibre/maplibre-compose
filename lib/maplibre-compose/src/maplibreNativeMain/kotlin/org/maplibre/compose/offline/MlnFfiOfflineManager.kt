@@ -24,7 +24,8 @@ import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
 
 /**
- * The MapLibre Native FFI [OfflineManager], backed by the application-scoped [MlnFfiRuntime].
+ * The offline engine behind [org.maplibre.compose.runtime.MaplibreRuntime], backed by the
+ * application-scoped [MlnFfiRuntime].
  *
  * The process-wide application instance is never disposed: mbgl holds download state in memory
  * only, so closing the runtime silently destroys in-flight downloads.
@@ -32,7 +33,7 @@ import org.maplibre.nativeffi.runtime.RuntimeHandle
 internal class MlnFfiOfflineManager(
   private val options: MlnFfiRuntimeOptions,
   private val runtime: MlnFfiRuntime,
-) : OfflineManager {
+) {
 
   private val logger = Logger.withTag("maplibre-compose")
 
@@ -48,7 +49,7 @@ internal class MlnFfiOfflineManager(
   /** The application has one writer; this prevents concurrent suspending calls from overlapping. */
   private val cacheBudgetMutex = Mutex()
 
-  override val packs: Set<OfflinePack>
+  val packs: Set<OfflinePack>
     get() = packsState.value
 
   init {
@@ -121,7 +122,7 @@ internal class MlnFfiOfflineManager(
     throw IllegalStateException(message, cause)
   }
 
-  override suspend fun create(
+  suspend fun create(
     definition: OfflinePackDefinition,
     metadata: ByteArray,
   ): OfflinePack {
@@ -140,15 +141,15 @@ internal class MlnFfiOfflineManager(
     )
   }
 
-  override fun resume(pack: OfflinePack) {
+  fun resume(pack: OfflinePack) {
     setDownloadState(pack, OfflineRegionDownloadState.ACTIVE)
   }
 
-  override fun pause(pack: OfflinePack) {
+  fun pause(pack: OfflinePack) {
     setDownloadState(pack, OfflineRegionDownloadState.INACTIVE)
   }
 
-  override suspend fun delete(pack: OfflinePack) {
+  suspend fun delete(pack: OfflinePack) {
     runOperation(
       description = "delete offline pack ${pack.regionId}",
       start = { it.startDeleteOfflineRegion(pack.regionId) },
@@ -159,7 +160,7 @@ internal class MlnFfiOfflineManager(
     )
   }
 
-  override suspend fun invalidate(pack: OfflinePack) {
+  suspend fun invalidate(pack: OfflinePack) {
     runOperation(
       description = "invalidate offline pack ${pack.regionId}",
       start = { it.startInvalidateOfflineRegion(pack.regionId) },
@@ -167,15 +168,15 @@ internal class MlnFfiOfflineManager(
     )
   }
 
-  override suspend fun invalidateAmbientCache() {
+  suspend fun invalidateAmbientCache() {
     runAmbientCacheOperation("invalidate the ambient cache", AmbientCacheOperation.INVALIDATE)
   }
 
-  override suspend fun clearAmbientCache() {
+  suspend fun clearAmbientCache() {
     runAmbientCacheOperation("clear the ambient cache", AmbientCacheOperation.CLEAR)
   }
 
-  override suspend fun setMaximumAmbientCacheSize(size: Long) {
+  suspend fun setMaximumAmbientCacheSize(size: Long) {
     // Lowering the budget evicts ambient resources to fit; offline packs are left alone.
     cacheBudgetMutex.withLock {
       runOperation(
@@ -192,7 +193,7 @@ internal class MlnFfiOfflineManager(
     return runtime.awaitStopped(timeoutMillis)
   }
 
-  override fun setTileCountLimit(limit: Long) {
+  fun setTileCountLimit(limit: Long) {
     // maplibre-native-ffi does not expose mbgl's setOfflineMapboxTileCountLimit; it applies only to
     // canonical Mapbox tile URLs. MapLibre's own limit still reports as TileLimitExceeded.
     logger.i {

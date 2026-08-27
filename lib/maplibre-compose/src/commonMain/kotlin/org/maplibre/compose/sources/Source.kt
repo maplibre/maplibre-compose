@@ -114,7 +114,7 @@ public sealed class Source(internal val id: String) {
  * [MapState.baseStyle][org.maplibre.compose.map.MapState.baseStyle] selects, or null when the
  * loaded style has no such source.
  *
- * This form keys on the loaded style binding, so a style swap returns the new base style's source;
+ * After a style swap, this returns the new base style's source.
  * [MapState.sources][org.maplibre.compose.map.MapState.sources] reads the same sources outside the
  * style content.
  */

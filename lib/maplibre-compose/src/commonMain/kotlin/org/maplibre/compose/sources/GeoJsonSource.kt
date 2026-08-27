@@ -51,11 +51,6 @@ public class GeoJsonSource : Source {
 
   private class PendingPublish(val generation: Long, val data: GeoJsonData)
 
-  /**
-   * @param id Unique identifier for this source
-   * @param data The GeoJSON data in this source
-   * @param options see [GeoJsonOptions]
-   */
   public constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
     this.installed = AtomicReference(Installed(0L, data))

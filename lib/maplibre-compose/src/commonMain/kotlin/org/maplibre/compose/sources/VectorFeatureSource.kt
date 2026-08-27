@@ -17,14 +17,10 @@ import org.maplibre.spatialk.geojson.Geometry
 public sealed interface VectorFeatureSource {
 
   /**
-   * Returns a list of features from the source, limited to source layers with the given
-   * [sourceLayerIds] and filtered by the given [predicate].
+   * Returns the features in the given [sourceLayerIds], or an empty list when [sourceLayerIds] is
+   * empty or no feature matches.
    *
-   * @param sourceLayerIds A set of source layer IDs to query features from.
-   * @param predicate An expression used to filter the features. If not specified, all features from
-   *   the source are returned.
-   * @return A list of features that match the query, or an empty list if the [sourceLayerIds] is
-   *   empty or no features are found.
+   * @param predicate Keeps only the features for which this expression is true.
    */
   public fun querySourceFeatures(
     sourceLayerIds: Set<String>,

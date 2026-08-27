@@ -8,7 +8,6 @@ import kotlinx.coroutines.flow.first
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.offline.DownloadProgress
 import org.maplibre.compose.offline.DownloadStatus
-import org.maplibre.compose.offline.OfflineManager
 import org.maplibre.compose.offline.OfflinePackDefinition
 import org.maplibre.compose.runtime.MaplibreRuntime
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -17,18 +16,14 @@ import org.maplibre.spatialk.geojson.BoundingBox
 actual fun rememberTilePrefetcher(): TilePrefetcher {
   // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
   val pixelRatio = LocalDensity.current.density
-  val manager = remember { MaplibreRuntime.offline }
-  return remember(manager, pixelRatio) { OfflinePackPrefetcher(manager, pixelRatio) }
+  return remember(pixelRatio) { OfflinePackPrefetcher(pixelRatio) }
 }
 
 actual val benchmarkPlatformLabel: String = nativeBenchmarkPlatformLabel()
 
 internal expect fun nativeBenchmarkPlatformLabel(): String
 
-private class OfflinePackPrefetcher(
-  private val manager: OfflineManager,
-  private val pixelRatio: Float,
-) : TilePrefetcher {
+private class OfflinePackPrefetcher(private val pixelRatio: Float) : TilePrefetcher {
   override val mode = "offline-pack"
 
   override suspend fun ensurePacked(
@@ -40,12 +35,13 @@ private class OfflinePackPrefetcher(
     map: MapState,
     onStatus: (String) -> Unit,
   ) {
-    manager.setTileCountLimit(50_000)
+    MaplibreRuntime.setTileCountLimit(50_000)
     val metadata = "bench:v1:$scenarioId".encodeToByteArray()
-    val existing = manager.packs.firstOrNull { it.metadata?.contentEquals(metadata) == true }
+    val existing =
+      MaplibreRuntime.offlinePacks.firstOrNull { it.metadata?.contentEquals(metadata) == true }
     val pack =
       existing
-        ?: manager.create(
+        ?: MaplibreRuntime.createOfflinePack(
           definition =
             OfflinePackDefinition.TilePyramid(
               styleUrl = styleUrl,
@@ -64,7 +60,7 @@ private class OfflinePackPrefetcher(
       onStatus("Tiles ready")
       return
     }
-    manager.resume(pack)
+    MaplibreRuntime.resume(pack)
     try {
       val terminal = snapshotFlow {
         pack.downloadProgress
@@ -94,7 +90,7 @@ private class OfflinePackPrefetcher(
       val progress = pack.downloadProgress
       val complete =
         progress is DownloadProgress.Healthy && progress.status == DownloadStatus.Complete
-      if (!complete) manager.pause(pack)
+      if (!complete) MaplibreRuntime.pause(pack)
     }
   }
 }

@@ -43,16 +43,10 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * @param state the map whose scale the bar shows. Defaults to the map that [LocalMapState]
  *   provides.
- * @param modifier the [Modifier] to be applied to this layout node
- * @param measures which measures to show on the scale bar. The default follows the system settings,
- *   or otherwise the user's locale.
- * @param color scale bar and text color.
- * @param haloColor halo for better visibility when displayed on top of the map
- * @param haloWidth scale bar and text halo width
- * @param barWidth scale bar width
- * @param textStyle the text style. The text size is the deciding factor how large the scale bar is
- *   is displayed.
- * @param alignment horizontal alignment of the scale bar and text
+ * @param measures The measures to show. The default follows the system settings, or otherwise the
+ *   user's locale.
+ * @param haloColor A halo color that keeps the bar readable over the map.
+ * @param textStyle The text style. The text size sets the size of the whole bar.
  */
 @Composable
 public fun ScaleBar(
@@ -91,16 +85,10 @@ public fun ScaleBar(
  *   scale. See
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]. A
  *   value of 0 renders nothing; it stands for a map that has not rendered a viewport yet.
- * @param modifier the [Modifier] to be applied to this layout node
- * @param measures which measures to show on the scale bar. The default follows the system settings,
- *   or otherwise the user's locale.
- * @param color scale bar and text color.
- * @param haloColor halo for better visibility when displayed on top of the map
- * @param haloWidth scale bar and text halo width
- * @param barWidth scale bar width
- * @param textStyle the text style. The text size is the deciding factor how large the scale bar is
- *   is displayed.
- * @param alignment horizontal alignment of the scale bar and text
+ * @param measures The measures to show. The default follows the system settings, or otherwise the
+ *   user's locale.
+ * @param haloColor A halo color that keeps the bar readable over the map.
+ * @param textStyle The text style. The text size sets the size of the whole bar.
  */
 @Composable
 public fun ScaleBar(

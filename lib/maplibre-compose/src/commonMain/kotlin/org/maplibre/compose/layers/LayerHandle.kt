@@ -31,11 +31,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
   public val type: String
     get() = descriptor.type
 
-  /**
-   * Whether the layer draws, from the `visibility` layout property.
-   *
-   * @throws IllegalStateException on write when the style content owns this layer.
-   */
+  /** Whether the layer draws, from the `visibility` layout property. */
   public var visible: Boolean
     get() = descriptor.visible
     set(value) {
@@ -43,11 +39,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
       descriptor.visible = value
     }
 
-  /**
-   * The minimum zoom level at which the layer draws.
-   *
-   * @throws IllegalStateException on write when the style content owns this layer.
-   */
+  /** The minimum zoom level at which the layer draws. */
   public var minZoom: Float
     get() = descriptor.minZoom
     set(value) {
@@ -55,11 +47,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
       descriptor.minZoom = value
     }
 
-  /**
-   * The maximum zoom level at which the layer draws.
-   *
-   * @throws IllegalStateException on write when the style content owns this layer.
-   */
+  /** The maximum zoom level at which the layer draws. */
   public var maxZoom: Float
     get() = descriptor.maxZoom
     set(value) {
@@ -70,8 +58,6 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
   /**
    * Sets the layout property named [name] in the style spec to [value]. A value that MapLibre
    * rejects is logged, and the layer keeps its previous value.
-   *
-   * @throws IllegalStateException when the style content owns this layer.
    */
   public fun setLayoutProperty(name: String, value: Expression<*>) {
     state.checkLayerWritable(id)
@@ -81,8 +67,6 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
   /**
    * Sets the paint property named [name] in the style spec to [value]. A value that MapLibre
    * rejects is logged, and the layer keeps its previous value.
-   *
-   * @throws IllegalStateException when the style content owns this layer.
    */
   public fun setPaintProperty(name: String, value: Expression<*>) {
     state.checkLayerWritable(id)

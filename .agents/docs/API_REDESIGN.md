@@ -148,11 +148,11 @@ they outlive any one map.
 
 Step 4 shipped this as `MaplibreRuntime`, because `Runtime` collides with
 `java.lang.Runtime`. The final audit made it an `object`: the process has one
-runtime, so `MaplibreRuntime.offline` replaces `default().offline`, and the
-getter installs the platform default configuration when none is set.
-`OfflineManager` as a remembered type went away: `rememberOfflineManager` is
-deleted, and `OfflineManager` survives as the interface that
-`MaplibreRuntime.offline` returns. Offline work is runtime work.
+runtime, and the first member access installs the platform default configuration
+when none is set. The `OfflineManager` interface is gone — offline work is
+runtime work, so its members live on `MaplibreRuntime` directly (`offlinePacks`,
+`createOfflinePack`, `resume`, `pause`, `delete`, `invalidate`, and the
+ambient-cache controls), delegating to the internal engine.
 
 On FFI platforms this is a thin owner around `RuntimeHandle`. Publishing the
 handle as an escape hatch is step-5 work. On GL JS (A in [Web](#web), the
@@ -449,10 +449,10 @@ val image = vm.mapState.snapshot(width = 800.dp, height = 600.dp)
    work.
 4. ~~Publish `Runtime`, `MapState`, `rememberMapState`, and
    `MaplibreMap(state)`. Lift camera onto the state. Delete `StyleState` and
-   `OfflineManager`.~~ Done, with two corrections: the runtime shipped as
-   `MaplibreRuntime`, because `Runtime` collides with `java.lang.Runtime`, and
-   `OfflineManager` survives as the interface reached through
-   `MaplibreRuntime.offline` — only `rememberOfflineManager` was deleted.
+   `OfflineManager`.~~ Done, with one correction: the runtime shipped as
+   `MaplibreRuntime`, because `Runtime` collides with `java.lang.Runtime`. The
+   `OfflineManager` interface is deleted and its members live on
+   `MaplibreRuntime`.
 5. Publish `platform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
    at it.
