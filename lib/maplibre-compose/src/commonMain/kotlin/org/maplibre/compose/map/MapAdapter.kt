@@ -44,15 +44,7 @@ internal interface MapAdapter {
     padding: PaddingValues,
   )
 
-  fun setCameraBoundingBox(boundingBox: BoundingBox?)
-
-  fun setMaxZoom(maxZoom: Double)
-
-  fun setMinZoom(minZoom: Double)
-
-  fun setMinPitch(minPitch: Double)
-
-  fun setMaxPitch(maxPitch: Double)
+  fun setCameraConstraints(value: CameraConstraints)
 
   fun getVisibleBoundingBox(): BoundingBox
 

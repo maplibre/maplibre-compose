@@ -56,6 +56,16 @@ internal external class MaplibreMap(options: MapOptions) {
 
   fun getBounds(): LngLatBounds
 
+  fun getMaxBounds(): LngLatBounds?
+
+  fun getMinZoom(): Double
+
+  fun getMaxZoom(): Double
+
+  fun getMinPitch(): Double
+
+  fun getMaxPitch(): Double
+
   fun jumpTo(options: JumpToOptions)
 
   fun easeTo(options: EaseToOptions)
