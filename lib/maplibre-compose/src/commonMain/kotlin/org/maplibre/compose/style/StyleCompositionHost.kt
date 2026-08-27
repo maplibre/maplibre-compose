@@ -21,6 +21,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 /**
@@ -184,6 +185,24 @@ internal class StyleCompositionHost(
   fun requestApplyChanges() {
     if (closed) return
     scope.launch { applyChanges() }
+  }
+
+  /**
+   * Suspends until the host is quiescent: every task queued on the host dispatcher has run and the
+   * recomposer reports no pending work. A recomposition can queue further host tasks — a snapshot
+   * notification, a pumped frame, the sync after it — so one queued marker is not enough; the loop
+   * re-joins until a marker runs with the recomposer still idle across two consecutive checks.
+   */
+  internal suspend fun awaitPendingWork() {
+    if (closed) return
+    while (true) {
+      recomposer.currentState.first { it != Recomposer.State.PendingWork }
+      scope.launch {}.join()
+      if (recomposer.currentState.value == Recomposer.State.PendingWork) continue
+      // A notification queued during the last task must be delivered before deciding.
+      scope.launch {}.join()
+      if (recomposer.currentState.value != Recomposer.State.PendingWork) return
+    }
   }
 
   private fun disposeComposition() {
