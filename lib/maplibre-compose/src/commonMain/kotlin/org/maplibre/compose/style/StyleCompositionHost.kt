@@ -16,12 +16,15 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import kotlin.time.Duration.Companion.nanoseconds
+import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -35,9 +38,10 @@ import org.maplibre.compose.util.rethrowIfFatal
  * hosting UI composition.
  *
  * The host pumps its own frames: [BroadcastFrameClock.onNewAwaiters] fires when the recomposer
- * needs a frame, and the frame-pump coroutine answers it on [dispatcher]. A global snapshot write
- * observer stands in for the platform's GlobalSnapshotManager so plain snapshot writes reach the
- * recomposer even when no UI composition is running.
+ * needs a frame, and the frame-pump coroutine answers it on [dispatcher], pacing back-to-back
+ * requests to a display frame interval so time-based animations play in real time. A global
+ * snapshot write observer stands in for the platform's GlobalSnapshotManager so plain snapshot
+ * writes reach the recomposer even when no UI composition is running.
  *
  * [setContent] marshals onto [dispatcher], so a caller on the UI thread never runs a style
  * mutation. The host calls [StyleNode.applyChanges] after the initial composition and after each
@@ -110,6 +114,11 @@ internal class StyleCompositionHost(
 
   init {
     rootNode.requestSync = ::requestApplyChanges
+    // Emits without touching contentError, because a reported sync condition is not a dead style.
+    rootNode.reportError = { error ->
+      errors.tryEmit(error)
+      logger?.e(error.cause) { error.message }
+    }
     scope.launch {
       try {
         recomposer.runRecomposeAndApplyChanges()
@@ -122,10 +131,19 @@ internal class StyleCompositionHost(
     }
     scope.launch { for (unused in snapshotSignal) Snapshot.sendApplyNotifications() }
     scope.launch {
-      var time = 0L
+      val clockStart = TimeSource.Monotonic.markNow()
+      var lastFrameNanos = Long.MIN_VALUE
       for (unused in frameSignal) {
-        time += 16_000_000L
-        clock.sendFrame(time)
+        // A request arriving within a frame interval of the previous frame waits out the rest.
+        if (lastFrameNanos != Long.MIN_VALUE) {
+          val sinceLast = clockStart.elapsedNow().inWholeNanoseconds - lastFrameNanos
+          if (sinceLast < FRAME_INTERVAL_NANOS)
+            delay((FRAME_INTERVAL_NANOS - sinceLast).nanoseconds)
+        }
+        // The bump keeps timestamps strictly increasing when a virtual-time delay skips real time.
+        val frameNanos = maxOf(clockStart.elapsedNow().inWholeNanoseconds, lastFrameNanos + 1)
+        clock.sendFrame(frameNanos)
+        lastFrameNanos = frameNanos
         applyChanges()
       }
     }
@@ -236,3 +254,6 @@ internal class StyleCompositionHost(
 }
 
 internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw IllegalStateException() }
+
+/** The pacing floor between pumped frames, matching a 60 Hz display. */
+private const val FRAME_INTERVAL_NANOS = 16_000_000L

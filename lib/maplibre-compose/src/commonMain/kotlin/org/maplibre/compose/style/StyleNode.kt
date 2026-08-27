@@ -34,6 +34,9 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   /** Set by the host; asks it to run a sync when desired state changes outside a frame. */
   internal var requestSync: () -> Unit = {}
 
+  /** Set by the host; publishes a survivable failure to the host's style-error flow. */
+  internal var reportError: (StyleError) -> Unit = {}
+
   /**
    * The live style's layer ids in draw order, backing
    * [StyleLayers.ids][org.maplibre.compose.map.StyleLayers.ids]. Snapshot-backed so a composition
@@ -59,6 +62,9 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
 
   /** Originals whose removal threw after their replacement was added; retried each sync. */
   private val pendingReplaceRemovals = mutableMapOf<Anchor.Replace, Layer>()
+
+  /** Anchors already reported unresolvable on the current binding, so each reports once. */
+  private val reportedUnresolvableAnchors = mutableSetOf<Anchor>()
 
   /** The click-routing snapshot, topmost layer first; the UI thread reads only this. */
   @Volatile
@@ -107,6 +113,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       appliedLayers.clear()
       replacedLayers.clear()
       pendingReplaceRemovals.clear()
+      reportedUnresolvableAnchors.clear()
       // The base snapshots must capture the pristine style before this sync mutates it.
       baseLayersFor = null
       baseLayerIds()
@@ -223,6 +230,13 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       // before this node's style has been swapped; the group waits for a later sync.
       if (!anchor.isResolvable()) {
         logger?.w { "Anchor $anchor names no layer in the base style; deferring its layers" }
+        // On a loaded style the deferral will not resolve by itself, so it surfaces as an error.
+        if (binding.isLoaded && reportedUnresolvableAnchors.add(anchor)) {
+          val message =
+            "Anchor $anchor names no layer '${anchor.anchorLayerId()}' in the loaded base style; " +
+              "its layers are deferred"
+          reportError(StyleError(message, IllegalStateException(message)))
+        }
         return
       }
       initializeAnchor(anchor, desired)
@@ -310,14 +324,17 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     binding.moveLayer(layer.id, above)
   }
 
+  /** The base-style layer id this anchor names, or null for anchors that name none. */
+  private fun Anchor.anchorLayerId(): String? =
+    when (this) {
+      is Anchor.Above -> layerId
+      is Anchor.Below -> layerId
+      is Anchor.Replace -> layerId
+      else -> null
+    }
+
   private fun Anchor.isResolvable(): Boolean {
-    val layerId =
-      when (this) {
-        is Anchor.Above -> layerId
-        is Anchor.Below -> layerId
-        is Anchor.Replace -> layerId
-        else -> return true
-      }
+    val layerId = anchorLayerId() ?: return true
     // Anchors name base-style layers only, per Anchor's contract.
     return layerId in baseLayerIds()
   }

@@ -1,14 +1,17 @@
 package org.maplibre.compose.style
 
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Recomposer
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -17,6 +20,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
+import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.FillLayerDescriptor
 import org.maplibre.compose.layers.LayerNode as ComposeLayerNode
@@ -316,6 +320,69 @@ class StyleCompositionHostTest {
     // A property change updates the retained Layer object; it is not a structural style op.
     assertEquals(7f, (recording.getLayer("raster") ?: error("missing")).minZoom)
     assertTrue(recording.ops.isEmpty(), "no structural ops for a property change: ${recording.ops}")
+
+    host.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun an_unresolvable_anchor_on_a_loaded_style_reports_one_error_and_still_defers() = runTest {
+    val baseSource = testSource("base-source")
+    val first = OpRecordingStyleBinding(baseSources = listOf(baseSource))
+    val rootNode = StyleNode(first, null)
+    val host = testHost(rootNode)
+    val errors = collectStyleErrors(host)
+
+    try {
+      host.setContent {
+        Anchor.Above("missing") { RasterLayer(id = "anchored", source = testSource("tiles")) }
+      }
+      testScheduler.advanceUntilIdle()
+      assertNull(first.getLayer("anchored"))
+      assertEquals(1, errors.size, "expected one style error: $errors")
+      assertTrue("missing" in errors.single().message, "message names no layer id: $errors")
+
+      // Repeated syncs on the same binding never re-report the same anchor.
+      repeat(3) {
+        host.requestApplyChanges()
+        testScheduler.advanceUntilIdle()
+      }
+      assertEquals(1, errors.size, "repeated syncs re-reported the anchor: $errors")
+
+      // The deferred layer lands once a binding whose base style has the layer arrives.
+      val second =
+        OpRecordingStyleBinding(
+          baseSources = listOf(baseSource),
+          baseLayers = listOf(FillLayerDescriptor("missing", baseSource)),
+        )
+      first.unload()
+      rootNode.binding = second
+      host.requestApplyChanges()
+      testScheduler.advanceUntilIdle()
+      assertNotNull(second.getLayer("anchored"), "the deferred layer never landed")
+    } finally {
+      host.close()
+      testScheduler.advanceUntilIdle()
+    }
+  }
+
+  @Test
+  fun pumped_frame_timestamps_are_strictly_increasing() = runTest {
+    val recording = OpRecordingStyleBinding()
+    val rootNode = StyleNode(recording, null)
+    val host = testHost(rootNode)
+    val frameTimes = mutableListOf<Long>()
+
+    host.setContent {
+      LaunchedEffect(Unit) { repeat(5) { withFrameNanos { time -> frameTimes += time } } }
+    }
+    testScheduler.advanceUntilIdle()
+
+    assertEquals(5, frameTimes.size)
+    assertTrue(
+      frameTimes.zipWithNext().all { (previous, next) -> next > previous },
+      "frame timestamps are not strictly increasing: $frameTimes",
+    )
 
     host.close()
     testScheduler.advanceUntilIdle()
