@@ -70,10 +70,8 @@ public class StyleSources internal constructor(private val state: MapState) {
    *   MapLibre refuses the source.
    */
   public suspend fun add(source: Source) {
-    // A racy fast-fail only; the serialized block below re-checks against the host-confined truth.
-    require(source.id !in state.styleNode.compositionSources) {
-      "Source id '${source.id}' is owned by the style content composition"
-    }
+    // No pre-check outside the serialized block: the published snapshot can trail the host-confined
+    // truth in either direction, and a stale rejection would refuse a legal add.
     state.host.runSerialized {
       val node = state.styleNode
       val binding = node.binding

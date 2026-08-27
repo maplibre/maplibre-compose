@@ -344,6 +344,9 @@ class StyleSourcesImperativeTest {
     state.close()
     testScheduler.advanceUntilIdle()
 
+    // Two legal refusals race here: the host's teardown queues behind the held op, so the op
+    // usually runs first and hits the unloaded-binding check; a cancellation instead maps to the
+    // closed message. Both are the contracted IllegalStateException.
     assertIs<IllegalStateException>(held.await().exceptionOrNull())
     assertTrue(state.styleNode.appSourceSnapshot.isEmpty(), "the held op recorded nothing")
     assertFailsWith<IllegalStateException> { state.sources.add(testSource("late")) }
@@ -367,6 +370,28 @@ class StyleSourcesImperativeTest {
     assertTrue("composition" in error.message.orEmpty(), "names the owner: ${error.message}")
     assertTrue(binding.layerExists("comp-layer"), "the refused removal keeps the layer")
     assertSame(compositionSource, state.sources["comp-src"])
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun a_removal_racing_a_live_layer_install_hits_the_in_use_guard() = runTest {
+    val state = mapState()
+    state.setStyleContent {}
+    val binding = OpRecordingStyleBinding()
+    attach(state, binding)
+    state.sources.add(testSource("app-src"))
+
+    // The removal queues on the host, then a live layer starts drawing the source before it runs,
+    // so the in-use guard itself, not ownership, is what refuses.
+    val held = startOp { state.sources.remove("app-src") }
+    binding.addLayer(FillLayerDescriptor("live-layer", testSource("app-src")))
+    testScheduler.advanceUntilIdle()
+
+    val error = assertIs<IllegalStateException>(held.await().exceptionOrNull())
+    assertTrue("live-layer" in error.message.orEmpty(), "names the layer: ${error.message}")
+    assertNotNull(state.sources["app-src"], "the refused removal keeps the source")
 
     state.close()
     testScheduler.advanceUntilIdle()
