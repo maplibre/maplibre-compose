@@ -1,44 +1,47 @@
 package org.maplibre.compose.demoapp
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
-import androidx.compose.material3.BottomSheetDefaults
-import androidx.compose.material3.BottomSheetScaffold
-import androidx.compose.material3.BottomSheetScaffoldState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
-import androidx.compose.material3.rememberBottomSheetScaffoldState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.State
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.movableContentOf
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.Density
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.window.core.layout.WindowSizeClass
-import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
+import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.demoapp.generated.chevron_left_24px
+import org.maplibre.compose.demoapp.generated.chevron_right_24px
 
 @Composable
 fun DemoApp() {
@@ -47,161 +50,175 @@ fun DemoApp() {
     if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
     else state.appliedStyle.isDark
   val colorScheme = rememberDemoColorScheme(dark, state.settings.paletteMode)
-  val sheetState = rememberBottomSheetScaffoldState()
-  // One composition for the panel, so the NavHost keeps its back stack when the viewport crosses
-  // the floating-panel / bottom-sheet breakpoint.
-  val panel = remember {
-    movableContentOf { modifier: Modifier, revealMap: suspend () -> Unit ->
-      DemoPanel(state, modifier, revealMap)
-    }
-  }
   MaterialTheme(colorScheme = colorScheme) {
-    val windowSizeClass = currentWindowAdaptiveInfoV2().windowSizeClass
-    if (windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)) {
-      WideLayout(state, panel)
-    } else {
-      NarrowLayout(state, sheetState, panel)
-    }
+    DemoShell(state)
   }
 }
 
-private val PanelWidth = 360.dp
+private val MediumPanelWidth = 280.dp
+private val ExpandedPanelWidth = 360.dp
 private val ShellSpacing = 16.dp
-private val SheetPeekHeight = 128.dp
-private val SheetHandleHeight = 48.dp
-private val MinimumUsefulSheetHeight = 320.dp
+private val HandleWidth = 28.dp
+private val HandleHeight = 56.dp
+
+/** How far the handle tucks under the panel, so their shadows merge into one attached surface. */
+private val HandleOverlap = 6.dp
+private val HandleProtrusion = HandleWidth - HandleOverlap
+private const val PanelMotionDurationMillis = 220
+private val PanelMotionEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
 @Composable
-private fun WideLayout(
-  state: DemoAppState,
-  panel: @Composable (Modifier, suspend () -> Unit) -> Unit,
-) {
-  val density = LocalDensity.current
-  val layoutDirection = LocalLayoutDirection.current
-  val safeInsets = WindowInsets.safeDrawing.toMapViewportInsets(density, layoutDirection)
-  val panelEdge =
-    when (layoutDirection) {
-      LayoutDirection.Ltr ->
-        MapViewportInsets(left = safeInsets.left + ShellSpacing + PanelWidth + ShellSpacing)
-      LayoutDirection.Rtl ->
-        MapViewportInsets(right = safeInsets.right + ShellSpacing + PanelWidth + ShellSpacing)
-    }
-  val viewportInsets = safeInsets.union(panelEdge)
-
-  Box(Modifier.fillMaxSize()) {
-    ShellMap(state, viewportInsets)
-    Box(
-      modifier =
-        Modifier.align(Alignment.CenterStart)
-          .fillMaxHeight()
-          .padding(safeInsets.asPaddingValues())
-          .padding(ShellSpacing)
-    ) {
-      Surface(
-        modifier = Modifier.width(PanelWidth).fillMaxHeight(),
-        shape = MaterialTheme.shapes.extraLarge,
-        tonalElevation = 2.dp,
-        shadowElevation = 8.dp,
-      ) {
-        panel(
-          Modifier.fillMaxHeight().consumeWindowInsets(WindowInsets.safeDrawing),
-          {},
-        )
-      }
-    }
-  }
-}
-
-@Composable
-private fun NarrowLayout(
-  state: DemoAppState,
-  scaffoldState: BottomSheetScaffoldState,
-  panel: @Composable (Modifier, suspend () -> Unit) -> Unit,
-) {
+private fun DemoShell(state: DemoAppState) {
   BoxWithConstraints(Modifier.fillMaxSize()) {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val safeInsets = WindowInsets.safeDrawing.toMapViewportInsets(density, layoutDirection)
-    val maxSheetHeight =
-      maximumSheetHeight(
-        viewportHeight = maxHeight,
-        topSafeInset = safeInsets.top,
-        minimumUsefulHeight = MinimumUsefulSheetHeight,
-      )
-    val sheetHeight by
-      rememberVisibleSheetHeight(
-        scaffoldState = scaffoldState,
-        viewportHeightPx = constraints.maxHeight,
-        maximumHeightPx = with(density) { maxSheetHeight.roundToPx() },
-        density = density,
-      )
-    val viewportInsets = safeInsets.union(MapViewportInsets(bottom = sheetHeight))
-
-    BottomSheetScaffold(
-      sheetPeekHeight = SheetPeekHeight,
-      scaffoldState = scaffoldState,
-      sheetDragHandle = {
-        Box(
-          modifier = Modifier.fillMaxWidth().height(SheetHandleHeight),
-          contentAlignment = Alignment.Center,
-        ) {
-          BottomSheetDefaults.DragHandle()
+    val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
+    val windowSizeClass = windowAdaptiveInfo.windowSizeClass
+    val isMediumOrWider =
+      windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
+    val isExpandedOrWider =
+      windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
+    val panelWidth = resolvedPanelWidth(maxWidth, safeInsets, isMediumOrWider, isExpandedOrWider)
+    var panelOpen by rememberSaveable { mutableStateOf(true) }
+    val panelProgress = remember { Animatable(if (panelOpen) 1f else 0f) }
+    val scope = rememberCoroutineScope()
+    val setPanelOpen: suspend (Boolean) -> Unit =
+      remember(panelProgress) {
+        { open ->
+          if (open) panelOpen = true
+          panelProgress.animateTo(
+            targetValue = if (open) 1f else 0f,
+            animationSpec = tween(PanelMotionDurationMillis, easing = PanelMotionEasing),
+          )
+          if (!open) panelOpen = false
         }
-      },
-      sheetContent = {
-        panel(
-          Modifier.fillMaxWidth()
-            .heightIn(max = (maxSheetHeight - SheetHandleHeight).coerceAtLeast(0.dp))
-            // The sheet already stays below the top safe area.
-            .consumeWindowInsets(WindowInsets.safeDrawing.only(WindowInsetsSides.Top)),
-          {
-            val sheet = scaffoldState.bottomSheetState
-            if (sheet.hasPartiallyExpandedState) sheet.partialExpand()
-          },
-        )
-      },
-    ) {
-      ShellMap(state, viewportInsets)
+      }
+    val viewportInsets =
+      safeInsets.withLeadingPanel(panelWidth, panelProgress.value, layoutDirection)
+    val hiddenTranslation =
+      with(density) {
+        val distance =
+          when (layoutDirection) {
+            LayoutDirection.Ltr -> safeInsets.left + panelWidth + ShellSpacing * 2
+            LayoutDirection.Rtl -> safeInsets.right + panelWidth + ShellSpacing * 2
+          }
+        distance.toPx() * if (layoutDirection == LayoutDirection.Ltr) -1 else 1
+      }
+    val panelTranslation = hiddenTranslation * (1f - panelProgress.value)
+
+    // The handle rides tucked under the panel's trailing edge, and rests against the safe area's
+    // leading edge when the panel is collapsed.
+    val handleTranslation =
+      with(density) {
+        val trailingEdge =
+          lerp(0.dp, ShellSpacing + panelWidth - HandleOverlap, panelProgress.value)
+        when (layoutDirection) {
+          LayoutDirection.Ltr -> (safeInsets.left + trailingEdge).toPx()
+          LayoutDirection.Rtl -> -(safeInsets.right + trailingEdge).toPx()
+        }
+      }
+
+    Box(Modifier.fillMaxSize()) {
+      Box(
+        Modifier.fillMaxSize().semantics {
+          if (!isMediumOrWider && panelOpen) hideFromAccessibility()
+        }
+      ) {
+        ShellMap(state = state, viewportInsets = viewportInsets)
+      }
+      // Behind the panel, so the panel hides the tucked-under part and its shadow.
+      PanelToggleHandle(
+        panelOpen = panelOpen,
+        onClick = { scope.launch { setPanelOpen(!panelOpen) } },
+        modifier =
+          Modifier.align(Alignment.CenterStart).graphicsLayer { translationX = handleTranslation },
+      )
+      Box(
+        modifier =
+          Modifier.align(Alignment.CenterStart)
+            .fillMaxHeight()
+            .padding(safeInsets.asPaddingValues())
+            .padding(ShellSpacing)
+            .graphicsLayer { translationX = panelTranslation }
+            .semantics { if (!panelOpen) hideFromAccessibility() }
+      ) {
+        Surface(
+          modifier = Modifier.width(panelWidth).fillMaxHeight(),
+          shape = MaterialTheme.shapes.extraLarge,
+          tonalElevation = 2.dp,
+          shadowElevation = 8.dp,
+        ) {
+          DemoPanel(
+            state = state,
+            modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
+            collapsePanel = { setPanelOpen(false) },
+            collapseOnSelection = !isMediumOrWider,
+          )
+        }
+      }
     }
   }
 }
 
+/** The tab on the panel's trailing edge that collapses it, left at the screen edge to reopen it. */
 @Composable
-private fun rememberVisibleSheetHeight(
-  scaffoldState: BottomSheetScaffoldState,
-  viewportHeightPx: Int,
-  maximumHeightPx: Int,
-  density: Density,
-): State<Dp> =
-  produceState(
-    initialValue = SheetPeekHeight,
-    scaffoldState,
-    viewportHeightPx,
-    maximumHeightPx,
-    density,
+private fun PanelToggleHandle(
+  panelOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.width(HandleWidth).height(HandleHeight),
+    shape = RoundedCornerShape(topEnd = HandleWidth / 2, bottomEnd = HandleWidth / 2),
+    tonalElevation = 2.dp,
+    shadowElevation = 8.dp,
   ) {
-    snapshotFlow {
-      runCatching { scaffoldState.bottomSheetState.requireOffset() }.getOrNull()
+    // Center the icon in the part that protrudes past the panel.
+    Box(
+      Modifier.fillMaxSize().padding(start = HandleOverlap),
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(
+        vectorResource(
+          if (panelOpen) Res.drawable.chevron_left_24px else Res.drawable.chevron_right_24px
+        ),
+        contentDescription = if (panelOpen) "Collapse demo panel" else "Expand demo panel",
+      )
     }
-      .filterNotNull()
-      .collect { offset ->
-        val visiblePx = visibleSheetHeight(viewportHeightPx, offset).coerceAtMost(maximumHeightPx)
-        value = with(density) { visiblePx.toDp() }
-      }
   }
+}
 
-private fun maximumSheetHeight(
-  viewportHeight: Dp,
-  topSafeInset: Dp,
-  minimumUsefulHeight: Dp,
-): Dp =
-  minOf(
-    (viewportHeight - topSafeInset).coerceAtLeast(0.dp),
-    maxOf(viewportHeight / 2, minimumUsefulHeight),
-  )
+private fun resolvedPanelWidth(
+  viewportWidth: Dp,
+  safeInsets: MapViewportInsets,
+  isMediumOrWider: Boolean,
+  isExpandedOrWider: Boolean,
+): Dp {
+  val availableWidth =
+    (viewportWidth - safeInsets.left - safeInsets.right - ShellSpacing * 2).coerceAtLeast(0.dp)
+  return when {
+    isExpandedOrWider -> minOf(ExpandedPanelWidth, availableWidth)
+    isMediumOrWider -> minOf(MediumPanelWidth, availableWidth)
+    // Leave room beside a full-width panel for the handle, as in the wider modes.
+    else -> (availableWidth - HandleProtrusion).coerceAtLeast(0.dp)
+  }
+}
 
-private fun visibleSheetHeight(viewportHeightPx: Int, sheetOffsetPx: Float): Int =
-  (viewportHeightPx - sheetOffsetPx).toInt().coerceIn(0, viewportHeightPx)
+private fun MapViewportInsets.withLeadingPanel(
+  panelWidth: Dp,
+  visibleFraction: Float,
+  layoutDirection: LayoutDirection,
+): MapViewportInsets {
+  val panelOcclusion = (ShellSpacing + panelWidth + ShellSpacing) * visibleFraction
+  val panelEdge =
+    when (layoutDirection) {
+      LayoutDirection.Ltr -> MapViewportInsets(left = left + panelOcclusion)
+      LayoutDirection.Rtl -> MapViewportInsets(right = right + panelOcclusion)
+    }
+  return union(panelEdge)
+}
 
 @Composable
 private fun ShellMap(state: DemoAppState, viewportInsets: MapViewportInsets) {

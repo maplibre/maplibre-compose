@@ -65,6 +65,7 @@ internal suspend fun CameraState.flyTo(destination: DemoDestination) {
 @Composable
 fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scope = rememberCoroutineScope()
+  val appliedBase = state.appliedStyle.base
   val selectedDemo = state.selectedDemo
   val pointerPin = selectedDemo?.pointerPin
   val placementPadding =
@@ -76,7 +77,7 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
     )
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
-      baseStyle = state.appliedStyle.base,
+      baseStyle = appliedBase,
       cameraState = state.cameraState,
       cameraPadding = viewportInsets.asPaddingValues(),
       styleState = state.styleState,
@@ -87,6 +88,8 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
           tileLodOptions = state.settings.tileLodOptions,
         ),
       onFrame = { state.frameRateState.record() },
+      onMapLoadFailed = { state.noteStyleLoad(appliedBase) },
+      onMapLoadFinished = { state.noteStyleLoad(appliedBase) },
       contentWindowInsets = viewportInsets.asWindowInsets(),
       overlay =
         MapOverlay {

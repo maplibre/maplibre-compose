@@ -2,7 +2,6 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.CubicBezierEasing
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -24,16 +23,21 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.design.DropdownRow
@@ -50,15 +54,19 @@ import org.maplibre.compose.demoapp.generated.speed_24px
 fun DemoPanel(
   state: DemoAppState,
   modifier: Modifier = Modifier,
-  revealMap: suspend () -> Unit = {},
+  collapsePanel: suspend () -> Unit = {},
+  collapseOnSelection: Boolean = true,
 ) {
   val navController = rememberNavController()
   val scope = rememberCoroutineScope()
+  val appliedStyle = state.appliedStyle
+  var flightJob by remember { mutableStateOf<Job?>(null) }
   val route = navController.currentBackStackEntryAsState().value?.destination?.route
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {
     if (route == "demos") {
+      flightJob?.cancel()
       state.selectedDemo = null
       state.shell = DemoShell.Demos
       state.benchmark.abandonRun()
@@ -74,20 +82,24 @@ fun DemoPanel(
     exitTransition = { sharedAxisExit(-slideDistance) },
     popEnterTransition = { sharedAxisEnter(-slideDistance) },
     popExitTransition = { sharedAxisExit(slideDistance) },
-    // Report the incoming destination's size while the outgoing screen is still
-    // composed, so a wrap-content parent (the bottom sheet) shrinks in time
-    // with the shared axis instead of waiting for the exit to finish.
-    sizeTransform = { sharedAxisSizeTransform },
   ) {
     composable("demos") {
       DemosScreen(
         state,
         onOpenSettings = { navController.navigate("settings") },
         onOpenDemo = { demo ->
-          scope.launch {
-            revealMap()
+          flightJob?.cancel()
+          flightJob = scope.launch {
+            val newBase = demo.preferredStyle?.base?.takeIf { it != appliedStyle.base }
+            val styleLoadsSeen = state.lastStyleLoad.count
             state.selectedDemo = demo
             navController.navigate("demo")
+            if (collapseOnSelection) {
+              collapsePanel()
+              // One frame so the settled viewport insets reach the camera before the flight.
+              withFrameNanos {}
+            }
+            if (newBase != null) state.awaitStyleLoad(seen = styleLoadsSeen, base = newBase)
             state.cameraState.flyTo(demo.destination)
           }
         },
@@ -100,10 +112,7 @@ fun DemoPanel(
     }
     composable("demo") {
       val demo = state.selectedDemo ?: return@composable
-      SettingsSubScreen(
-        demo.name,
-        onBack = { navController.popBackStack() },
-      ) {
+      SettingsSubScreen(demo.name, onBack = { navController.popBackStack() }) {
         Text(
           text = demo.description,
           style = MaterialTheme.typography.bodyMedium,
@@ -117,18 +126,24 @@ fun DemoPanel(
       BenchmarksScreen(
         onBack = { navController.popBackStack() },
         onOpenScenario = { scenario ->
-          scope.launch {
-            revealMap()
-            state.selectedScenario = scenario
-            navController.navigate("benchmark")
-          }
+          state.selectedScenario = scenario
+          navController.navigate("benchmark")
         },
       )
     }
     composable("benchmark") {
       val scenario = state.selectedScenario
       SettingsSubScreen(scenario.title, onBack = { navController.popBackStack() }) {
-        BenchmarkScenarioPanel(state)
+        BenchmarkScenarioPanel(
+          state,
+          onRun = {
+            scope.launch {
+              // On compact windows the panel covers the map, so reveal the run.
+              if (collapseOnSelection) collapsePanel()
+              state.benchmark.requestRun()
+            }
+          },
+        )
       }
     }
     composable("settings") {
@@ -170,10 +185,6 @@ private fun sharedAxisExit(slideDistance: Int): ExitTransition =
   slideOutHorizontally(tween(AxisDurationMillis, easing = StandardEasing)) { slideDistance } +
     fadeOut(tween(AxisDurationMillis * 3 / 10, easing = AccelerateEasing))
 
-private val sharedAxisSizeSpec = tween<IntSize>(AxisDurationMillis, easing = StandardEasing)
-
-private val sharedAxisSizeTransform = SizeTransform(clip = false) { _, _ -> sharedAxisSizeSpec }
-
 @Composable
 private fun DemosScreen(
   state: DemoAppState,
@@ -183,7 +194,7 @@ private fun DemosScreen(
 ) {
   Column {
     TopAppBar(
-      title = { Text("MapLibre Compose") },
+      title = { Text("Demos") },
       actions = {
         IconButton(onClick = onOpenBenchmarks) {
           Icon(vectorResource(Res.drawable.speed_24px), contentDescription = "Benchmarks")
@@ -195,7 +206,6 @@ private fun DemosScreen(
       colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent),
     )
     Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 16.dp)) {
-      SectionHeader("Demos")
       allDemos.forEach { demo ->
         SubmenuRow(demo.name, demo.description) { onOpenDemo(demo) }
       }

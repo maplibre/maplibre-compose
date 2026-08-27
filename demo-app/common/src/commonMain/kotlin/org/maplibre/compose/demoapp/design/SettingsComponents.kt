@@ -135,7 +135,7 @@ fun <T> SegmentedRow(
 fun FpsCapRow(maximumFps: Int?, onSelect: (Int?) -> Unit) {
   SegmentedRow(
     label = "Frame rate cap",
-    options = listOf(null, 15, 30, 60, 120),
+    options = listOf(null, 30, 60, 120),
     selected = maximumFps,
     optionLabel = { it?.toString() ?: "Auto" },
     onSelect = onSelect,

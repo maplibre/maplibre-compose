@@ -25,7 +25,7 @@ internal fun BenchmarksScreen(
 }
 
 @Composable
-internal fun BenchmarkScenarioPanel(state: DemoAppState) {
+internal fun BenchmarkScenarioPanel(state: DemoAppState, onRun: () -> Unit) {
   val scenario = state.selectedScenario
   val ui = state.benchmark
   Text(
@@ -40,7 +40,7 @@ internal fun BenchmarkScenarioPanel(state: DemoAppState) {
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
   )
   Button(
-    onClick = { ui.requestRun() },
+    onClick = onRun,
     enabled = !ui.running,
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
   ) {
