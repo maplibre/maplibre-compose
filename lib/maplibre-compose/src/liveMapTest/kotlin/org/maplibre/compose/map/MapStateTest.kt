@@ -237,7 +237,10 @@ class MapStateTest {
 
     state.clearStyleContent()
     Snapshot.sendApplyNotifications()
-    testScheduler.advanceUntilIdle()
+    // A platform GlobalSnapshotManager started by an earlier test can deliver the write's apply
+    // notification from its own thread, after advanceUntilIdle has already drained the queue, so
+    // the wait must ride the recomposer's quiescence rather than the scheduler's.
+    state.host.awaitPendingWork()
     assertFalse(binding.layerExists("bg-cleared"), "clearing removes the content from the style")
 
     state.close()

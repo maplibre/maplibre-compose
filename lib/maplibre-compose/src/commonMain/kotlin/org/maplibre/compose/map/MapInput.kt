@@ -372,17 +372,17 @@ private class MapPointerGesture(
       deferredTwoFingerVelocity = null
       mode = Mode.QUICK_ZOOM
       singleMotion = SingleMotion.QUICK_ZOOM
-      val currentViewportSize = viewportSize()
       val targetDelta =
         GestureMath.quickZoomDelta(
           displacementPixels = (change.position.y - quickZoomOriginY).toDouble(),
-          viewportHeightPixels = currentViewportSize.height.toDouble(),
+          viewportHeightPixels = viewportSize().height.toDouble(),
           maximumZoomChange = options.quickZoomMaxZoomChange,
         )
       target.scaleBy(
         scale = zoomLevelsToScale(targetDelta - quickZoomAppliedDelta),
-        // Quick zoom is centred rather than finger-anchored.
-        anchor = viewportCenter(currentViewportSize),
+        // A null anchor zooms about the camera centre, which camera padding displaces from the
+        // geometric viewport centre, so the target holds still.
+        anchor = null,
         gestureToken = gestureToken,
       )
       lastQuickZoomSpanDeltaPixels = abs(delta.y) * 2.0
@@ -822,13 +822,6 @@ private class MapPointerGesture(
 
   private fun dragSlopPx(): Float = if (pressedType == PointerType.Mouse) clickSlopPx else panSlopPx
 
-  private fun viewportCenter(viewportSize: IntSize = this.viewportSize()): DpOffset? =
-    if (options.isDragPanEnabled) {
-      Offset(viewportSize.width / 2f, viewportSize.height / 2f).toLogicalDpOffset(density)
-    } else {
-      null
-    }
-
   private fun updateTwoFingerTap(event: PointerEvent, pressedCount: Int) {
     val candidate = twoFingerTap ?: return
     if (pressedCount > 2 || !candidate.update(event, twoFingerTapSlopPx)) twoFingerTap = null
@@ -860,7 +853,8 @@ private class MapPointerGesture(
             density.density.toDouble(),
             scalingOut = velocity.y < 0f,
           ) ?: return null
-        animateScaleVelocity(continuation, viewportCenter())
+        // The follow-through pivots where the quick zoom itself did: the camera centre.
+        animateScaleVelocity(continuation, anchor = null)
         continuation.duration
       }
       else -> null

@@ -5,6 +5,7 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -782,6 +783,36 @@ class MlnFfiMapInputTest {
     }
   }
 
+  /**
+   * Asymmetric window insets displace the camera target from the geometric viewport centre, the
+   * arrangement edge-to-edge Android enforces, so a quick zoom anchored at the wrong point drifts
+   * the target latitude.
+   */
+  @Test
+  fun quick_zoom_keeps_the_camera_target_under_asymmetric_padding() =
+    runInputTest(
+      gestures = GestureOptions(isPinchZoomVelocityEnabled = false),
+      focusWithMouse = false,
+      cameraPadding = PaddingValues(top = 24.dp, bottom = 48.dp),
+    ) { camera ->
+      val before = camera.camera
+      var displacement = 0f
+      onRoot().performTouchInput {
+        displacement = height / 4f
+        click(center)
+        advanceEventTime(SECOND_TAP_GAP_MILLIS)
+        down(0, center)
+        moveTo(0, center + Offset(0f, displacement), delayMillis = 100)
+        up(0)
+      }
+
+      waitUntil(timeoutMillis = TIMEOUT) { camera.camera.zoom > START_ZOOM + 0.5 }
+      mainClock.advanceTimeBy(500)
+      waitForIdle()
+      assertEquals(before.target.longitude, camera.camera.target.longitude, 1e-5, "longitude")
+      assertEquals(before.target.latitude, camera.camera.target.latitude, 1e-5, "latitude")
+    }
+
   @Test
   fun pitched_fling_up_and_down_travel_similar_ground_distance() =
     runInputTest(focusWithMouse = false) { camera ->
@@ -952,6 +983,7 @@ class MlnFfiMapInputTest {
     gestures: GestureOptions = GestureOptions.Standard,
     focusWithMouse: Boolean = true,
     mapModifier: @Composable () -> Modifier = { Modifier.fillMaxSize() },
+    cameraPadding: PaddingValues? = null,
     parentOnClick: (() -> Unit)? = null,
     parentOnLongClick: (() -> Unit)? = null,
     body: androidx.compose.ui.test.ComposeUiTest.(MapState) -> Unit,
@@ -968,6 +1000,7 @@ class MlnFfiMapInputTest {
         MaplibreMap(
           state = mapState,
           modifier = mapModifier(),
+          cameraPadding = cameraPadding,
           options = MapOptions(gestureOptions = gestures),
           onMapClick = { position, _ ->
             clicks.add(position)

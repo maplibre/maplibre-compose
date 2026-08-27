@@ -540,6 +540,11 @@ internal class MlnFfiMapCore(
         } else {
           val id = payload.transitionId
           if (currentTransitionId == id) currentTransitionId = null
+          // The padding deferred to keep this transition alive applies once no transition remains.
+          if (paddingApplyDeferred && currentTransitionId == null) {
+            paddingApplyDeferred = false
+            loop?.map?.let(::applyCameraPadding)
+          }
           val waiter = transitionWaiters.remove(id)
           if (waiter == null) {
             // Expected after a cancellation: the caller withdrew before native finished.
@@ -816,9 +821,22 @@ internal class MlnFfiMapCore(
     if (cameraPadding == insets) return
     cameraPadding = insets
     configureMap { map ->
-      map.jumpTo(CameraOptions().also { it.padding = insets })
-      snapshotViewport(map)
+      // The jump would cancel an in-flight transition, so the padding waits for its finish.
+      if (currentTransitionId != null) {
+        paddingApplyDeferred = true
+      } else {
+        applyCameraPadding(map)
+      }
     }
+  }
+
+  /** Owner-thread state: a padding change is waiting for the current transition to finish. */
+  private var paddingApplyDeferred = false
+
+  /** Owner thread only. Jumps to the latest recorded padding without touching the camera. */
+  private fun applyCameraPadding(map: MapHandle) {
+    map.jumpTo(CameraOptions().also { it.padding = cameraPadding })
+    snapshotViewport(map)
   }
 
   override fun setCameraPosition(
