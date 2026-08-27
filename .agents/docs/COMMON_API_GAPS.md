@@ -204,27 +204,22 @@ The result lists the packs the merge added, which also land in `offlinePacks`.
   `List<OfflineRegionInfo>`.
 - GL JS: web declines — GL JS has no offline API.
 
-## Deferred internal refactors
+## Executed internal refactors
 
-The redesign's close-out audits deferred these. Each is an internal cleanup with
-no public surface.
+Every refactor the redesign's close-out audits deferred is done: one
+`MapSessionHost` composable states the session attach and detach invariants for
+both platforms, `LayerNode` records properties and handlers unconditionally, one
+lazy `BaseStyleSnapshot` serves the base layer ids and sources, the shared
+adapter mechanics live in `commonMain` as `PendingActionQueue`,
+`RequestedStyleState`, and `CameraMoveReporter`, and both owner loops extend
+`MlnFfiOwnerLoop`. Three pieces stayed engine-side on purpose:
 
-- **Shared adapter mechanics.** `MlnFfiMapCore` and `GlJsMapSession` duplicate
-  the pending-action queue, the requested-style and requested-camera fallbacks,
-  and stranded-transition resume. Extract with a gate predicate; the native side
-  is lock-guarded and the JS side single-threaded, so the shared type must be
-  thread-agnostic.
-- **One owner-thread loop.** `MlnFfiRuntime` and `MlnFfiMapRuntimeLoop`
-  duplicate the task deque, accept gate, wake source, and teardown. A shared
-  base is the most delicate concurrency change in the module; take it only with
-  the existing loop tests as proof.
-- **A common session-host composable.** `MlnFfiMapView` and `JsMapView` share
-  the session remember and effect wiring; the native side adds the load
-  placeholder and pre-viewport gesture suppression.
-- **`LayerNode`'s `isLoaded` gate.** The binding drops writes after unload and
-  the descriptor buffers properties, so the gate only delays; removing it
-  changes when click handlers become visible. Test with `MlnFfiStyleSwitchTest`
-  and `LayerClickOrderTest`.
-- **One base-style snapshot.** `StyleNode` and `SourceManager` memoize the base
-  layer ids and base sources separately on the same binding identity. The
-  snapshot must stay lazy: `getBaseSource` runs before the first sync.
+- The requested-camera fallback: native answers pre-map reads from its mirrored
+  viewport's default and only replays the request at map creation, so only the
+  field is common.
+- Transition-waiter bookkeeping: native keys waiters by transition id with
+  drain-deferred resumes, JS registers by `isCameraEasing` on a list, so only
+  the stranded-resume loop is common.
+- The owner-task shapes: the map loop abandons with no reason, the runtime
+  rejects with a throwable and checks cancellation, so each loop keeps its own
+  task class behind the shared deque.

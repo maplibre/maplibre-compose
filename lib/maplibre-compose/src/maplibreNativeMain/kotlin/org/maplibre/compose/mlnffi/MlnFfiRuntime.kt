@@ -1,7 +1,6 @@
 package org.maplibre.compose.mlnffi
 
 import co.touchlab.kermit.Logger
-import kotlin.concurrent.Volatile
 import kotlin.coroutines.cancellation.CancellationException
 import org.maplibre.compose.resource.MlnFfiRuntimeOwner
 import org.maplibre.nativeffi.runtime.OfflineOperationHandle
@@ -9,7 +8,6 @@ import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
 import org.maplibre.nativeffi.runtime.RuntimeHandle
-import org.maplibre.nativeffi.runtime.WakeSource
 
 /**
  * Parks until a wake arrives, for the same reason the map loop does; see `MlnFfiMapRuntimeLoop`.
@@ -33,10 +31,13 @@ private const val OWNER_THREAD_NAME = "maplibre-compose-runtime"
 internal class MlnFfiRuntime(
   private val options: MlnFfiRuntimeOptions,
   private val logger: Logger,
-) {
+) : MlnFfiOwnerLoop<MlnFfiRuntime.OwnerTask>(OWNER_THREAD_NAME) {
+
+  override val loopLogger: Logger
+    get() = logger
 
   /** Work for the owner thread, with the failure path it must take if it never gets to run. */
-  private class OwnerTask(
+  class OwnerTask(
     val run: (RuntimeHandle) -> Unit,
     val reject: (Throwable) -> Unit,
     val isCancelled: () -> Boolean,
@@ -50,29 +51,9 @@ internal class MlnFfiRuntime(
   )
 
   /**
-   * The owner thread. A parked pump ignores interruption, and it must never keep a shutting-down
-   * application alive, so [shutdown] is the only way to stop it.
+   * Consumers of every runtime event that is not an operation completion. Guarded by acceptLock.
    */
-  private val thread = MlnFfiOwnerThread(OWNER_THREAD_NAME, ::runLoop)
-
-  /**
-   * Guards [tasks], [accepting], [listeners], and [wake] together: no task may be queued after the
-   * final drain, and no signal may race the wake source's close.
-   */
-  private val acceptLock = MlnFfiOwnerLock(thread)
-  private val tasks = ArrayDeque<OwnerTask>()
-  private var accepting = true
-
-  /** Consumers of every runtime event that is not an operation completion. */
   private val listeners = mutableListOf<(RuntimeEvent) -> Unit>()
-
-  /**
-   * Releases the owner thread from a parked pump. Acquired on that thread; signalled from any, but
-   * always under [acceptLock] because signalling a *closed* source throws.
-   */
-  private var wake: WakeSource? = null
-
-  @Volatile private var stopRequested = false
 
   /** Owner-thread state. Never read or written from anywhere else. */
   private val pending = mutableMapOf<Long, PendingOperation>()
@@ -80,23 +61,14 @@ internal class MlnFfiRuntime(
   /** The runtime and everything retired before it. Owner-thread state; see [MlnFfiRuntimeOwner]. */
   private var runtimeOwner: MlnFfiRuntimeOwner? = null
 
-  fun start() {
-    thread.start()
-  }
-
   /** Subscribes [listener] to every event this runtime raises, on the owner thread. */
   fun addEventListener(listener: (RuntimeEvent) -> Unit) {
     acceptLock.withLock { listeners.add(listener) }
   }
 
-  /** Waits for the owner thread to finish, reporting whether it did. For tests and diagnostics. */
-  fun awaitStopped(timeoutMillis: Long): Boolean = thread.join(timeoutMillis)
-
   /** Asks the owner thread to tear down. Returns immediately; nothing is awaited. */
   fun shutdown() {
-    stopRequested = true
-    // A signal, not a queued task: it still works after the accept gate closes; post would not.
-    acceptLock.withLock { wake?.signal() }
+    requestStop()
   }
 
   /**
@@ -111,14 +83,7 @@ internal class MlnFfiRuntime(
     task: (RuntimeHandle) -> Unit,
     reject: (Throwable) -> Unit,
     isCancelled: () -> Boolean = { false },
-  ): Boolean = acceptLock.withLock {
-    if (!accepting) return false
-    tasks.add(OwnerTask(task, reject, isCancelled))
-    // Signalled under the lock so it cannot race the source's close, which would throw. The
-    // owner thread never holds this lock across a pump.
-    wake?.signal()
-    true
-  }
+  ): Boolean = submit(OwnerTask(task, reject, isCancelled))
 
   /**
    * Records an operation to be completed when its `OFFLINE_OPERATION_COMPLETED` event names it.
@@ -155,7 +120,7 @@ internal class MlnFfiRuntime(
     }
   }
 
-  private fun runLoop() {
+  override fun runLoop() {
     val runtime =
       try {
         MlnFfiRuntimeOwner.open(
@@ -177,16 +142,14 @@ internal class MlnFfiRuntime(
         return
       }
 
-    val source =
-      try {
-        // Owner-thread affine (validated natively), so this cannot be hoisted into start().
-        runtime.acquireWakeSource()
-      } catch (error: Throwable) {
-        logger.e(error) { "Could not acquire a wake source for the MapLibre application runtime" }
-        teardown(runtime)
-        return
-      }
-    acceptLock.withLock { wake = source }
+    try {
+      // Owner-thread affine (validated natively), so this cannot be hoisted into start().
+      publishWakeSource(runtime.acquireWakeSource())
+    } catch (error: Throwable) {
+      logger.e(error) { "Could not acquire a wake source for the MapLibre application runtime" }
+      teardown(runtime)
+      return
+    }
 
     try {
       while (!stopRequested) {
@@ -256,7 +219,7 @@ internal class MlnFfiRuntime(
   private fun runTasks(runtime: RuntimeHandle) {
     while (true) {
       // Taken one at a time, and run outside the lock: a task posts, discards, and calls back.
-      runTask(runtime, acceptLock.withLock { tasks.removeFirstOrNull() } ?: break)
+      runTask(runtime, takeQueuedTask() ?: break)
     }
   }
 
@@ -301,21 +264,7 @@ internal class MlnFfiRuntime(
   }
 
   private fun rejectQueuedTasks(reason: Throwable) {
-    // Stop accepting first so the drain cannot race a task that would then never run, and take the
-    // wake source out in the same critical section so nothing can signal one that is closing.
-    val abandoned = mutableListOf<OwnerTask>()
-    val source = acceptLock.withLock {
-      accepting = false
-      abandoned.addAll(tasks)
-      tasks.clear()
-      wake.also { wake = null }
-    }
-    abandoned.forEach { runCatching { it.reject(reason) } }
-    // A wake source is its own native handle: closing the runtime does not release it.
-    source?.let { closing ->
-      runCatching { closing.close() }
-        .onFailure { logger.w(it) { "Failed to close the application runtime's wake source" } }
-    }
+    drainQueuedTasks { it.reject(reason) }
   }
 
   private fun closeQuietly(handle: OfflineOperationHandle<*>, what: String) {
@@ -323,7 +272,7 @@ internal class MlnFfiRuntime(
   }
 
   private fun assertOwnerThread(operation: String) {
-    check(thread.isCurrent()) {
+    check(isOwnerThread()) {
       "$operation must run on the application runtime's own thread ($OWNER_THREAD_NAME), but ran " +
         "on ${currentMlnFfiThreadName()}. MapLibre enforces this natively, so the failure would " +
         "otherwise surface as a WrongThreadException at the FFI boundary."

@@ -139,6 +139,12 @@ internal class MlnFfiMapCore(
   /** Guards loop startup and actions accepted before it. */
   private val stateLock = MlnFfiLock()
 
+  /** The queues' lock seam; both run their gate predicates under [stateLock]. */
+  private val stateLockStrategy =
+    object : SessionLock {
+      override fun <T> withLock(block: () -> T): T = stateLock.withLock(block)
+    }
+
   @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
 
   /** The loop while it runs, read by the render session on its own thread. */
@@ -147,13 +153,17 @@ internal class MlnFfiMapCore(
 
   @Volatile private var cameraPadding: EdgeInsets = EdgeInsets.ZERO
 
-  /** One-shot map actions accepted before this core starts. Guarded by [stateLock]. */
-  private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
+  /** One-shot map actions accepted before this core starts. */
+  private val pendingMapActions =
+    PendingActionQueue<MapHandle, MlnFfiMapRuntimeLoop>(stateLockStrategy) { loop, action ->
+      loop.post(action.run, action.abandon)
+    }
 
-  private val pendingMapActions = mutableListOf<PendingMapAction>()
-
-  /** Bounds fits accepted before the first real render target. Guarded by [stateLock]. */
-  private val pendingViewportActions = mutableListOf<PendingMapAction>()
+  /** Bounds fits accepted before the first real render target has supplied real dimensions. */
+  private val pendingViewportActions =
+    PendingActionQueue<MapHandle, MlnFfiMapRuntimeLoop?>(stateLockStrategy) { loop, action ->
+      loop?.post(action.run, action.abandon) ?: false
+    }
 
   /** Guarded by [stateLock]; once true, the map has dimensions suitable for fitting bounds. */
   private var hasAttachedViewport = false
@@ -176,20 +186,11 @@ internal class MlnFfiMapCore(
   internal val isClosed: Boolean
     get() = closed
 
-  /** The requested style paired with its generation, so the owner thread reads them together. */
-  private class RequestedStyle(val style: BaseStyle, val generation: Long)
-
-  @Volatile private var requestedStyle: RequestedStyle? = null
-  private var appliedStyle: BaseStyle? = null
-
-  private val styleGenerationCounter = AtomicLong(0L)
+  private val styleState = RequestedStyleState()
 
   /** The generation of the most recently requested base style; each [setBaseStyle] bumps it. */
   internal val requestedStyleGeneration: Long
-    get() = styleGenerationCounter.load()
-
-  /** Owner thread only; the generation of the style the owner thread last pushed to the map. */
-  private var appliedStyleGeneration = 0L
+    get() = styleState.requestedGeneration
 
   /**
    * The generation of the most recently loaded style. [hasLoadedFirstStyle] is sticky, so a waiter
@@ -205,7 +206,17 @@ internal class MlnFfiMapCore(
   private var activeGestureToken: GestureToken? = null
   private var pendingGestureEndToken: GestureToken? = null
 
-  private var reportedMoveReason: CameraMoveReason? = null
+  /**
+   * Called on the owner thread, and once from [close] after the join makes this the only reader.
+   */
+  private val moveReporter =
+    CameraMoveReporter(
+      moveReason = {
+        if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
+      },
+      onStarted = { callbacks.onCameraMoveStarted(this, it) },
+      onEnded = { callbacks.onCameraMoveEnded(this) },
+    )
 
   @Volatile private var styleBinding: SessionStyleBinding? = null
 
@@ -383,45 +394,52 @@ internal class MlnFfiMapCore(
   }
 
   fun start() {
-    val started = stateLock.withLock {
-      check(!closed) { "Cannot start a closed map core" }
-      loop?.let {
-        return
+    if (
+      stateLock.withLock {
+        check(!closed) { "Cannot start a closed map core" }
+        loop != null
       }
-      val created =
-        MlnFfiMapRuntimeLoop(
-          extent = initialExtent,
-          cacheFile = cacheFile,
-          getLogger = { logger },
-          resourceProviderFactory = resourceProviderFactory,
-          onMapCreated = ::onMapCreated,
-          onEvent = ::handleEvent,
-          onEventsDrained = ::onEventsDrained,
-          requestFrame = ::requestRender,
-          mapEventMask = HANDLED_MAP_EVENTS,
-        )
-      pendingMapActions.forEach { action ->
-        if (!created.post(action.run, action.abandon)) action.abandon()
-      }
-      pendingMapActions.clear()
-      loop = created
-      created
+    ) {
+      return
     }
-    started.start()
+    val created =
+      MlnFfiMapRuntimeLoop(
+        extent = initialExtent,
+        cacheFile = cacheFile,
+        getLogger = { logger },
+        resourceProviderFactory = resourceProviderFactory,
+        onMapCreated = ::onMapCreated,
+        onEvent = ::handleEvent,
+        onEventsDrained = ::onEventsDrained,
+        requestFrame = ::requestRender,
+        mapEventMask = HANDLED_MAP_EVENTS,
+      )
+    var published = false
+    // The flush publishes the loop and forwards the queue in one critical section, so a concurrent
+    // post cannot overtake an action queued before the loop existed.
+    pendingMapActions.flush {
+      check(!closed) { "Cannot start a closed map core" }
+      if (loop != null) {
+        PendingActionGate.Held
+      } else {
+        loop = created
+        published = true
+        PendingActionGate.Open(created)
+      }
+    }
+    if (published) created.start()
   }
 
   /** MapLibre refuses to destroy a map that still has a render session attached. */
   private fun stopLoop(endOutstandingMove: Boolean = false) {
-    val abandoned = mutableListOf<PendingMapAction>()
-    val stopping = stateLock.withLock {
-      val current = loop
+    var stopping: MlnFfiMapRuntimeLoop? = null
+    val abandoned = mutableListOf<PendingAction<MapHandle>>()
+    // Two lock holds rather than one is safe: [closed] is already true, so every gate refuses.
+    abandoned += pendingMapActions.drain {
+      stopping = loop
       loop = null
-      abandoned += pendingMapActions
-      pendingMapActions.clear()
-      abandoned += pendingViewportActions
-      pendingViewportActions.clear()
-      current
     }
+    abandoned += pendingViewportActions.drain()
     abandoned.forEach { it.abandon() }
     renderAccess?.closeRenderSession()
     try {
@@ -461,7 +479,7 @@ internal class MlnFfiMapCore(
         val binding = SessionStyleBinding().also { styleBinding = it }
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
-        loadedStyleGeneration = appliedStyleGeneration
+        loadedStyleGeneration = styleState.appliedGeneration
         callbacks.onStyleChanged(this, binding)
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
@@ -547,23 +565,9 @@ internal class MlnFfiMapCore(
     }
   }
 
-  /**
-   * The reason is re-reported when it changes: the gesture flag is set from the UI thread and can
-   * arrive after a drag's first camera change.
-   */
-  private fun beginCameraMove() {
-    val reason =
-      if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
-    if (reportedMoveReason == reason) return
-    reportedMoveReason = reason
-    callbacks.onCameraMoveStarted(this, reason)
-  }
+  private fun beginCameraMove() = moveReporter.begin()
 
-  private fun endCameraMove() {
-    if (reportedMoveReason == null) return
-    reportedMoveReason = null
-    callbacks.onCameraMoveEnded(this)
-  }
+  private fun endCameraMove() = moveReporter.end()
 
   private fun imageScale(): Float = (loop?.scaleFactor ?: 1.0).toFloat()
 
@@ -590,30 +594,27 @@ internal class MlnFfiMapCore(
     loop?.postEventDrainBarrierForTest(action) ?: false
 
   /** Queues [action] until a map exists, including before the core starts. */
-  private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
-    val current = stateLock.withLock {
-      if (closed) return false
-      loop.also { if (it == null) pendingMapActions += PendingMapAction(action, abandon) }
+  private fun postWhenMapExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean =
+    pendingMapActions.post(PendingAction(action, abandon)) {
+      when {
+        closed -> PendingActionGate.Refused
+        else -> loop?.let { PendingActionGate.Open(it) } ?: PendingActionGate.Held
+      }
     }
-    return current?.post(action, abandon) ?: true
-  }
 
   private fun configureMap(action: (MapHandle) -> Unit) {
     postWhenMapExists(action, abandon = {})
   }
 
   /** Queues [action] until the first render target has supplied the map's real dimensions. */
-  private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean {
-    val current = stateLock.withLock {
-      if (closed) return false
-      if (!hasAttachedViewport) {
-        pendingViewportActions += PendingMapAction(action, abandon)
-        return true
+  private fun postWhenViewportExists(action: (MapHandle) -> Unit, abandon: () -> Unit): Boolean =
+    pendingViewportActions.post(PendingAction(action, abandon)) {
+      when {
+        closed -> PendingActionGate.Refused
+        !hasAttachedViewport -> PendingActionGate.Held
+        else -> loop?.let { PendingActionGate.Open(it) } ?: PendingActionGate.Refused
       }
-      loop
     }
-    return current?.post(action, abandon) ?: false
-  }
 
   /** When a render target goes away its dimensions are stale, so bounds fits queue again. */
   internal fun resetAttachedViewport() {
@@ -630,14 +631,13 @@ internal class MlnFfiMapCore(
 
   /** Renderer thread, when the first real render target attaches its dimensions. */
   internal fun publishAttachedViewport() {
-    val (current, pending) =
-      stateLock.withLock {
-        if (closed || hasAttachedViewport) return
+    pendingViewportActions.flush {
+      if (closed || hasAttachedViewport) {
+        PendingActionGate.Refused
+      } else {
         hasAttachedViewport = true
-        loop to pendingViewportActions.toList().also { pendingViewportActions.clear() }
+        PendingActionGate.Open(loop)
       }
-    pending.forEach { action ->
-      if (current?.post(action.run, action.abandon) != true) action.abandon()
     }
   }
 
@@ -666,32 +666,28 @@ internal class MlnFfiMapCore(
   // region MapAdapter
 
   override fun setBaseStyle(style: BaseStyle) {
-    if (style == requestedStyle?.style) return
-    styleBinding?.unload()
-    requestedStyle = RequestedStyle(style, styleGenerationCounter.incrementAndFetch())
-    // Disposes the composition holding the old style's sources and layers, which would otherwise
-    // fail anchor validation against the base layers being replaced.
-    callbacks.onStyleChanged(this, null)
-    onMap(::applyRequestedStyle)
+    styleState.request(
+      style,
+      unloadBinding = { styleBinding?.unload() },
+      clearStyle = { callbacks.onStyleChanged(this, null) },
+      postApply = { onMap(::applyRequestedStyle) },
+    )
   }
 
   /** Owner thread only. */
   private fun applyRequestedStyle(map: MapHandle) {
-    val requested = requestedStyle ?: return
-    val style = requested.style
-    if (style == appliedStyle) return
+    val request = styleState.takeUnapplied() ?: return
     // setStyleJson parses inline, so a malformed style throws as well as queueing
     // MAP_LOADING_FAILED; the queued event is what reports it.
     try {
-      when (style) {
+      when (val style = request.style) {
         is BaseStyle.Uri -> map.setStyleUrl(style.uri)
         is BaseStyle.Json -> map.setStyleJson(style.json.encodeToByteArray())
       }
-      appliedStyle = style
-      appliedStyleGeneration = requested.generation
+      styleState.markApplied(request)
     } catch (error: MaplibreException) {
-      // appliedStyle stays unset so rebuilding the map retries.
-      logger?.e(error) { "Failed to apply style $style" }
+      // The applied style stays unset so rebuilding the map retries.
+      logger?.e(error) { "Failed to apply style ${request.style}" }
     }
   }
 
@@ -949,7 +945,7 @@ internal class MlnFfiMapCore(
     if (pendingResumes.isEmpty()) return
     val resuming = pendingResumes.toList()
     pendingResumes.clear()
-    resuming.forEach { waiter -> runCatching { waiter.resume(Unit) } }
+    resumeStranded(resuming)
   }
 
   private fun forgetTransition(id: Long) {
@@ -982,7 +978,7 @@ internal class MlnFfiMapCore(
     val waiters = transitionWaiters.values.toList()
     transitionWaiters.clear()
     currentTransitionId = null
-    waiters.forEach { waiter -> runCatching { waiter.resume(Unit) } }
+    resumeStranded(waiters)
   }
 
   override fun setCameraBoundingBox(boundingBox: BoundingBox?) = setBounds {

@@ -100,16 +100,17 @@ internal class GlJsMapSession(
   internal val isClosed: Boolean
     get() = closed
 
-  private class PendingMapAction(
-    val run: (MaplibreMap) -> Unit,
-    val abandon: () -> Unit,
-  )
+  /** Everything here runs on the one browser thread, so the queues take no lock. */
+  private val runOnMap: (MaplibreMap, PendingAction<MaplibreMap>) -> Boolean = { map, action ->
+    action.run(map)
+    true
+  }
 
   /** Actions accepted before Compose supplies the context used to construct the map. */
-  private val pendingMapActions = mutableListOf<PendingMapAction>()
+  private val pendingMapActions = PendingActionQueue(dispatch = runOnMap)
 
   /** Transitions MapLibre would cancel while applying the first style's camera. */
-  private val pendingInitialStyleActions = mutableListOf<PendingMapAction>()
+  private val pendingInitialStyleActions = PendingActionQueue(dispatch = runOnMap)
 
   /** Readiness belongs to a map instance, not to its current, replaceable style. */
   private var hasLoadedInitialStyle = false
@@ -121,8 +122,7 @@ internal class GlJsMapSession(
   internal var hasLoadedFirstStyle by mutableStateOf(false)
     private set
 
-  private var requestedStyle: BaseStyle? = null
-  private var appliedStyle: BaseStyle? = null
+  private val styleState = RequestedStyleState()
 
   /** Set while a style load is outstanding, so an `error` can be told from a tile failure. */
   private var styleLoadPending = false
@@ -277,7 +277,7 @@ internal class GlJsMapSession(
     hasLoadedInitialStyle = false
     appliedExtent = MapExtent.Empty
     applyRequestedStyle(created)
-    runPending(pendingMapActions, created)
+    pendingMapActions.flush { PendingActionGate.Open(created) }
     return created
   }
 
@@ -287,7 +287,7 @@ internal class GlJsMapSession(
     map = null
     styleBinding?.unload()
     styleBinding = null
-    appliedStyle = null
+    styleState.resetApplied()
     hasRenderedAFrame = false
     val borrowed = lentContext
     lentContext = null
@@ -355,7 +355,7 @@ internal class GlJsMapSession(
       applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true
-        runPending(pendingInitialStyleActions, map)
+        pendingInitialStyleActions.flush { PendingActionGate.Open(map) }
       }
       reportStyleLoaded = true
       reportLoadedOnceStyleIsReady(map)
@@ -400,59 +400,53 @@ internal class GlJsMapSession(
   }
 
   /** A move spans the gesture rather than the jump, as every other platform reports it. */
-  private fun beginCameraMove() {
-    val reason =
-      if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
-    if (reportedMoveReason == reason) return
-    reportedMoveReason = reason
-    callbacks.onCameraMoveStarted(this, reason)
-  }
+  private val moveReporter =
+    CameraMoveReporter(
+      moveReason = {
+        if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
+      },
+      onStarted = { callbacks.onCameraMoveStarted(this, it) },
+      onEnded = { callbacks.onCameraMoveEnded(this) },
+    )
 
-  private fun endCameraMove() {
-    if (reportedMoveReason == null) return
-    reportedMoveReason = null
-    callbacks.onCameraMoveEnded(this)
-  }
+  private fun beginCameraMove() = moveReporter.begin()
 
-  private var reportedMoveReason: CameraMoveReason? = null
+  private fun endCameraMove() = moveReporter.end()
 
   // endregion
 
   // region dispatch
 
   private fun onMap(action: (MaplibreMap) -> Unit) {
-    postWhenMapExists(PendingMapAction(action, abandon = {}))
+    postWhenMapExists(PendingAction(action))
   }
 
-  private fun postWhenMapExists(action: PendingMapAction) {
-    if (closed) {
-      action.abandon()
-      return
-    }
-    val current = map
-    if (current == null) pendingMapActions += action else action.run(current)
+  private fun postWhenMapExists(action: PendingAction<MaplibreMap>) {
+    val accepted =
+      pendingMapActions.post(action) {
+        when {
+          closed -> PendingActionGate.Refused
+          else -> map?.let { PendingActionGate.Open(it) } ?: PendingActionGate.Held
+        }
+      }
+    if (!accepted) action.abandon()
   }
 
-  private fun postWhenInitialStyleLoaded(action: PendingMapAction) {
-    if (closed) {
-      action.abandon()
-      return
-    }
-    val current = map
-    if (current == null || !hasLoadedInitialStyle) pendingInitialStyleActions += action
-    else action.run(current)
+  private fun postWhenInitialStyleLoaded(action: PendingAction<MaplibreMap>) {
+    val accepted =
+      pendingInitialStyleActions.post(action) {
+        val current = map
+        when {
+          closed -> PendingActionGate.Refused
+          current == null || !hasLoadedInitialStyle -> PendingActionGate.Held
+          else -> PendingActionGate.Open(current)
+        }
+      }
+    if (!accepted) action.abandon()
   }
 
-  private fun runPending(actions: MutableList<PendingMapAction>, map: MaplibreMap) {
-    val running = actions.toList()
-    actions.clear()
-    running.forEach { it.run(map) }
-  }
-
-  private fun abandonPending(actions: MutableList<PendingMapAction>) {
-    val abandoned = actions.toList()
-    actions.clear()
-    abandoned.forEach { it.abandon() }
+  private fun abandonPending(actions: PendingActionQueue<MaplibreMap, MaplibreMap>) {
+    actions.drain().forEach { it.abandon() }
   }
 
   private fun <T> withMap(fallback: T, action: (MaplibreMap) -> T): T = map?.let(action) ?: fallback
@@ -462,24 +456,23 @@ internal class GlJsMapSession(
   // region MapAdapter
 
   override fun setBaseStyle(style: BaseStyle) {
-    if (style == requestedStyle) return
-    // Must precede the new style: the old style's sources and layers would otherwise recompose
-    // against base layers being replaced.
-    styleBinding?.unload()
-    requestedStyle = style
-    callbacks.onStyleChanged(this, null)
-    onMap(::applyRequestedStyle)
+    styleState.request(
+      style,
+      unloadBinding = { styleBinding?.unload() },
+      clearStyle = { callbacks.onStyleChanged(this, null) },
+      postApply = { onMap(::applyRequestedStyle) },
+    )
   }
 
   private fun applyRequestedStyle(map: MaplibreMap) {
-    val style = requestedStyle ?: return
-    if (style == appliedStyle) return
-    appliedStyle = style
+    val request = styleState.takeUnapplied() ?: return
+    // Marked before the try so a throw below is not retried against the same map.
+    styleState.markApplied(request)
     styleLoadPending = true
     // MapLibre diffs by default, keeping the same Style object, so no `style.load` would fire.
     val options = unsafeJso<SetStyleOptions> { diff = false }
     try {
-      when (style) {
+      when (val style = request.style) {
         is BaseStyle.Uri -> map.setStyle(styleUrl(style.uri), options)
         is BaseStyle.Json -> map.setStyle(styleJson(style.json), options)
       }
@@ -726,7 +719,7 @@ internal class GlJsMapSession(
   private suspend fun awaitCameraRelease(start: (MaplibreMap) -> Unit) =
     suspendCancellableCoroutine { continuation ->
       val pending =
-        PendingMapAction(
+        PendingAction<MaplibreMap>(
           run = { current -> startTransitionOnMap(current, start, continuation) },
           abandon = { if (continuation.isActive) continuation.resume(Unit) },
         )
@@ -761,7 +754,7 @@ internal class GlJsMapSession(
     if (transitionWaiters.isEmpty()) return
     val resuming = transitionWaiters.toList()
     transitionWaiters.clear()
-    resuming.forEach { waiter -> if (waiter.isActive) runCatching { waiter.resume(Unit) } }
+    resumeStranded(resuming)
   }
 
   override fun cancelTransitions() {
