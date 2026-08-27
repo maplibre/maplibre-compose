@@ -26,13 +26,14 @@ duration. Both are suspend functions, so call them from a coroutine:
 
 ## Fit a bounding box
 
-An `animateCamera` overload accepts a `BoundingBox` and animates the camera to
-the position that fits it. Padding adds space between the box and the edges of
-the map:
+<Api of="MapState.animateCameraToFit" /> accepts a `BoundingBox` and animates
+the camera to the position that fits it. Padding adds space between the box and
+the edges of the map:
 
 <Code code={region(camera, "fit-bounds")} lang="kotlin" title="App.kt" />
 
-A `setCamera` overload fits the same bounding box without an animation.
+<Api of="MapState.fitCamera" /> fits the same bounding box without an
+animation.
 
 ## Read the visible area
 

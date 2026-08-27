@@ -6,7 +6,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.unit.Density
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.demoapp.DemoStyle
 import org.maplibre.compose.demoapp.OpenFreeMap
@@ -52,7 +51,6 @@ class BenchmarkSession(
   val map: MapState,
   val ui: BenchmarkUiState,
   val prefetcher: TilePrefetcher,
-  val density: Density,
   val frames: FrameTimeCollector = FrameTimeCollector(),
   val gestures: GestureLatencyTracker = GestureLatencyTracker(),
 ) {

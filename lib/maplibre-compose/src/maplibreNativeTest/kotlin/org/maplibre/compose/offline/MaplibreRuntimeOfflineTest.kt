@@ -30,18 +30,15 @@ class MaplibreRuntimeOfflineTest {
   }
 
   @Test
-  fun default_returns_one_runtime_over_the_process_offline_manager() {
-    val runtime = MaplibreRuntime.default()
-
-    assertSame(runtime, MaplibreRuntime.default())
-    assertSame(MlnFfiApplication.offlineManager, runtime.offline)
-    assertSame(runtime.offline, MaplibreRuntime.default().offline)
+  fun offline_returns_the_process_offline_manager() {
+    assertSame(MlnFfiApplication.offlineManager, MaplibreRuntime.offline)
+    assertSame(MaplibreRuntime.offline, MaplibreRuntime.offline)
   }
 
   /** A lost native completion would leave this suspending call hung. */
   @Test
-  fun the_default_runtime_offline_manager_completes_offline_work() = runBlocking {
-    val offline = MaplibreRuntime.default().offline
+  fun the_runtime_offline_manager_completes_offline_work() = runBlocking {
+    val offline = MaplibreRuntime.offline
 
     withTimeout(30_000) { offline.setMaximumAmbientCacheSize(16L * 1024 * 1024) }
   }

@@ -9,11 +9,7 @@ import org.maplibre.compose.overlay.MapOverlay
 import org.maplibre.compose.overlay.MaplibreLogo
 
 private val Material3Overlay = MapOverlay {
-  DisappearingScaleBar(
-    metersPerDp = map.viewport?.metersPerDpAtTarget ?: 0.0,
-    zoom = map.camera.zoom,
-    modifier = Modifier.align(Alignment.TopStart),
-  )
+  DisappearingScaleBar(modifier = Modifier.align(Alignment.TopStart))
 
   DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
 

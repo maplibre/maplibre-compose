@@ -112,26 +112,27 @@ public fun LocationPuck(
   val locationSource = rememberLocationSource(location, bearing, oldLocationThreshold)
   val isOldLocation = feature["isOldLocation"].asBoolean(const(false))
 
-  CircleLayer(
-    id = "$idPrefix-accuracy",
-    source = locationSource,
-    visible =
-      accuracyThreshold <= Float.POSITIVE_INFINITY &&
-        location?.position != null &&
-        positionAccuracy > accuracyThreshold,
-    radius =
-      switch(
-        condition(test = isOldLocation, output = const(0.dp)),
-        fallback =
-          (feature["accuracy"].asNumber() /
-              const((state.viewport?.metersPerDpAtTarget ?: 0.0).toFloat()))
-            .dp,
-      ),
-    color = const(colors.accuracyFillColor),
-    strokeColor = const(colors.accuracyStrokeColor),
-    strokeWidth = const(sizes.accuracyStrokeWidth),
-    pitchAlignment = const(CirclePitchAlignment.Map),
-  )
+  // The accuracy circle sizes in meters, so it needs the scale of a rendered viewport.
+  val metersPerDpAtTarget = state.viewport?.metersPerDpAtTarget
+  if (metersPerDpAtTarget != null) {
+    CircleLayer(
+      id = "$idPrefix-accuracy",
+      source = locationSource,
+      visible =
+        accuracyThreshold <= Float.POSITIVE_INFINITY &&
+          location?.position != null &&
+          positionAccuracy > accuracyThreshold,
+      radius =
+        switch(
+          condition(test = isOldLocation, output = const(0.dp)),
+          fallback = (feature["accuracy"].asNumber() / const(metersPerDpAtTarget.toFloat())).dp,
+        ),
+      color = const(colors.accuracyFillColor),
+      strokeColor = const(colors.accuracyStrokeColor),
+      strokeWidth = const(sizes.accuracyStrokeWidth),
+      pitchAlignment = const(CirclePitchAlignment.Map),
+    )
+  }
 
   CircleLayer(
     id = "$idPrefix-shadow",

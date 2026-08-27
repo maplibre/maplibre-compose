@@ -17,7 +17,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 @Composable
 fun Offline() {
   // #region manager
-  val offlineManager = remember { MaplibreRuntime.default().offline }
+  val offlineManager = remember { MaplibreRuntime.offline }
   // #endregion manager
   val density = LocalDensity.current.density
   val scope = rememberCoroutineScope()

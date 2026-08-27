@@ -60,6 +60,10 @@ private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
  * and pass it to [MaplibreMap]. Inside a composition, [rememberMapState] constructs one and closes
  * it when the composition leaves. The owner that constructed a state calls [close]; a closed state
  * cannot show a map again.
+ *
+ * A detached state rasterizes painters in the style content at a density of 1 and left-to-right
+ * layout; a [MaplibreMap] that later receives this state replaces both with the composition's
+ * values.
  */
 // Internally this also owns the style composition host, the root StyleNode over the loaded
 // StyleBinding, and the wiring into the camera records and StyleSources. A session (MapAdapter)
@@ -80,20 +84,10 @@ internal constructor(
    * Creates a state that owns its own camera and style wiring.
    *
    * The camera starts at [cameraPosition], and a session that attaches starts the map there.
-   *
-   * A detached state rasterizes painters in the style content at [density] and [layoutDirection]; a
-   * [MaplibreMap] that later receives this state replaces both with the composition's values.
    */
   public constructor(
-    cameraPosition: CameraPosition = CameraPosition(),
-    density: Density = Density(1f),
-    layoutDirection: LayoutDirection = LayoutDirection.Ltr,
-  ) : this(
-    cameraPosition = cameraPosition,
-    density = density,
-    layoutDirection = layoutDirection,
-    logger = null,
-  )
+    cameraPosition: CameraPosition = CameraPosition()
+  ) : this(cameraPosition = cameraPosition, logger = null)
 
   // The camera records; the session callbacks below write them and the public members read them.
   internal val adapterState = mutableStateOf<MapAdapter?>(null)
@@ -327,14 +321,16 @@ internal constructor(
   /**
    * Moves the camera to fit [boundingBox] with no animation.
    *
-   * A call before a session attaches suspends until a session attaches and applies the move.
+   * The fit needs a live viewport, so a call before a session attaches suspends until a session
+   * attaches and applies the move, and fails with [IllegalStateException] when the state closes
+   * first.
    *
    * @param boundingBox The bounds that the move fits into the viewport.
    * @param bearing The bearing that the move sets. Defaults to 0.0.
    * @param tilt The tilt that the move sets. Defaults to 0.0.
    * @param padding Insets added while fitting [boundingBox].
    */
-  public suspend fun setCamera(
+  public suspend fun fitCamera(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
@@ -358,7 +354,9 @@ internal constructor(
   /**
    * Animates the camera to fit [boundingBox] over [duration] and returns when the animation ends.
    *
-   * A call before a session attaches suspends until a session attaches and runs the animation.
+   * The fit needs a live viewport, so a call before a session attaches suspends until a session
+   * attaches and runs the animation, and fails with [IllegalStateException] when the state closes
+   * first.
    *
    * @param boundingBox The bounds that the animation fits into the viewport.
    * @param bearing The bearing that the animation sets. Defaults to 0.0.
@@ -366,7 +364,7 @@ internal constructor(
    * @param padding Insets added while fitting [boundingBox].
    * @param duration The duration of the animation. Defaults to 300 ms.
    */
-  public suspend fun animateCamera(
+  public suspend fun animateCameraToFit(
     boundingBox: BoundingBox,
     bearing: Double = 0.0,
     tilt: Double = 0.0,
@@ -385,6 +383,18 @@ internal constructor(
    */
   public fun screenLocationFromPosition(position: Position): DpOffset? =
     attachedAdapter?.screenLocationFromPosition(position)
+
+  /**
+   * Returns the offset in pixels from the top-left corner of the map composable that corresponds to
+   * the given [position], in the units that pointer events report, including a [position] outside
+   * the viewport. Returns null while no attached session has rendered a viewport.
+   *
+   * The answer describes the transform that the map has at the time of the call.
+   */
+  public fun screenOffsetFromPosition(position: Position): Offset? =
+    screenLocationFromPosition(position)?.let {
+      with(host.density) { Offset(it.x.toPx(), it.y.toPx()) }
+    }
 
   /**
    * Returns the position that corresponds to the given [offset] from the top-left corner of the map

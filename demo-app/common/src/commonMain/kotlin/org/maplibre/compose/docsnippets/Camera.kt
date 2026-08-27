@@ -37,7 +37,7 @@ fun Camera() {
 
   // #region fit-bounds
   LaunchedEffect(Unit) {
-    map.animateCamera(
+    map.animateCameraToFit(
       boundingBox = BoundingBox(west = -123.0, south = 47.0, east = -122.0, north = 48.0),
       padding = PaddingValues(32.dp),
     )

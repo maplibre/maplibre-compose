@@ -54,7 +54,7 @@ internal suspend fun MapState.flyTo(destination: DemoDestination) {
     is DemoDestination.ExactCamera ->
       animateCamera(position = destination.position, duration = DemoFlightDuration)
     is DemoDestination.FitBounds ->
-      animateCamera(
+      animateCameraToFit(
         boundingBox = destination.bounds,
         padding = DemoBoundsPadding,
         duration = DemoFlightDuration,
@@ -96,7 +96,6 @@ fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   Box(Modifier.fillMaxSize()) {
     MaplibreMap(
       state = state.mapState,
-      cameraPadding = viewportInsets.asPaddingValues(),
       options =
         MapOptions(
           renderOptions = state.settings.renderOptions,
@@ -162,7 +161,7 @@ private fun PointerPinDestinationOverlay(
     remember(destination, viewport) {
       when (destination) {
         is DemoDestination.ExactCamera ->
-          map.screenLocationFromPosition(destination.position.target)?.let(::listOf)
+          map.screenOffsetFromPosition(destination.position.target)?.let(::listOf)
         is DemoDestination.FitBounds -> {
           val bounds = destination.bounds
           listOf(
@@ -171,7 +170,7 @@ private fun PointerPinDestinationOverlay(
               Position(longitude = bounds.east, latitude = bounds.south),
               Position(longitude = bounds.west, latitude = bounds.south),
             )
-            .mapNotNull(map::screenLocationFromPosition)
+            .mapNotNull(map::screenOffsetFromPosition)
             .takeIf { it.size == 4 }
         }
         DemoDestination.None -> null
@@ -181,19 +180,18 @@ private fun PointerPinDestinationOverlay(
 
   if (projected != null) {
     Canvas(modifier) {
-      val points = projected.map { Offset(it.x.toPx(), it.y.toPx()) }
-      if (points.size == 1) {
+      if (projected.size == 1) {
         drawCircle(
           color = color,
           radius = 12.dp.toPx(),
-          center = points.single(),
+          center = projected.single(),
           style = Stroke(width = 3.dp.toPx()),
         )
       } else {
         val path =
           Path().apply {
-            moveTo(points.first().x, points.first().y)
-            points.drop(1).forEach { lineTo(it.x, it.y) }
+            moveTo(projected.first().x, projected.first().y)
+            projected.drop(1).forEach { lineTo(it.x, it.y) }
             close()
           }
         drawPath(path = path, color = color, style = Stroke(width = 3.dp.toPx()))
@@ -210,7 +208,7 @@ private fun PointerPinPlacementOverlay(
   modifier: Modifier = Modifier,
 ) {
   val viewport = map.viewport
-  val projected = remember(target, viewport) { map.screenLocationFromPosition(target) }
+  val projected = remember(target, viewport) { map.screenOffsetFromPosition(target) }
   val layoutDirection = LocalLayoutDirection.current
 
   Canvas(modifier) {
@@ -241,7 +239,7 @@ private fun PointerPinPlacementOverlay(
       style = Stroke(width = geometryWidth),
     )
 
-    val projectedTarget = projected?.let { Offset(it.x.toPx(), it.y.toPx()) } ?: return@Canvas
+    val projectedTarget = projected ?: return@Canvas
     val intersection = findEllipseIntersection(area, projectedTarget)
 
     if (intersection != null) {

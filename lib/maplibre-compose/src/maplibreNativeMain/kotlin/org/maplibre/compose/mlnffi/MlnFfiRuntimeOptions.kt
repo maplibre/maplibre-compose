@@ -79,7 +79,7 @@ internal object MlnFfiApplication {
 
   private fun requireState(): State =
     checkNotNull(state) {
-      "MapLibre is not configured. Compose a map, call MaplibreRuntime.default(), or call " +
+      "MapLibre is not configured. Compose a map, read MaplibreRuntime.offline, or call " +
         "MapLibre.configure(...) first."
     }
 

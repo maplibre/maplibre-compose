@@ -22,6 +22,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.toSize
 import kotlin.math.ceil
 import kotlin.math.roundToInt
+import org.maplibre.compose.map.LocalMapState
+import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.drawPathsWithHalo
 import org.maplibre.compose.util.drawTextWithHalo
 import org.maplibre.compose.util.rememberNumberFormatter
@@ -35,6 +37,55 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * This component draws with Compose Foundation alone. The
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
+ *
+ * The bar reads the scale from [state] and renders nothing until the map has rendered a viewport.
+ * An overload takes the scale as a number instead.
+ *
+ * @param state the map whose scale the bar shows. Defaults to the map that [LocalMapState]
+ *   provides.
+ * @param modifier the [Modifier] to be applied to this layout node
+ * @param measures which measures to show on the scale bar. The default follows the system settings,
+ *   or otherwise the user's locale.
+ * @param color scale bar and text color.
+ * @param haloColor halo for better visibility when displayed on top of the map
+ * @param haloWidth scale bar and text halo width
+ * @param barWidth scale bar width
+ * @param textStyle the text style. The text size is the deciding factor how large the scale bar is
+ *   is displayed.
+ * @param alignment horizontal alignment of the scale bar and text
+ */
+@Composable
+public fun ScaleBar(
+  state: MapState = LocalMapState.current,
+  modifier: Modifier = Modifier,
+  measures: ScaleBarMeasures = ScaleBarDefaults.measures(),
+  color: Color = ScaleBarDefaults.ContentColor,
+  haloColor: Color = ScaleBarDefaults.HaloColor,
+  haloWidth: Dp = ScaleBarDefaults.HaloWidth,
+  barWidth: Dp = ScaleBarDefaults.BarWidth,
+  textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
+  alignment: Alignment.Horizontal = Alignment.Start,
+) {
+  val metersPerDp = state.viewport?.metersPerDpAtTarget ?: return
+  ScaleBar(
+    metersPerDp = metersPerDp,
+    modifier = modifier,
+    measures = measures,
+    color = color,
+    haloColor = haloColor,
+    haloWidth = haloWidth,
+    barWidth = barWidth,
+    textStyle = textStyle,
+    alignment = alignment,
+  )
+}
+
+/**
+ * A scale bar composable that shows the current scale of the map in feet, meters or feet and meters
+ * when zoomed in to the map, changing to miles and kilometers, respectively, when zooming out.
+ *
+ * This overload takes the scale as a number, for a caller that computes its own. The overload that
+ * takes a [MapState] reads the scale from the map.
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
@@ -62,9 +113,6 @@ public fun ScaleBar(
   textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
   alignment: Alignment.Horizontal = Alignment.Start,
 ) {
-  // when map is not fully initialized yet
-  if (metersPerDp == 0.0) return
-
   val textMeasurer = rememberTextMeasurer()
 
   // longest possible text

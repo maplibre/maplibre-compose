@@ -23,8 +23,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import kotlin.time.TimeSource
@@ -57,7 +55,6 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
 @Composable
 private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scenario = state.selectedScenario
-  val density = LocalDensity.current
   val prefetcher = rememberTilePrefetcher()
   // The session needs the map state and the style content needs the session, so a holder breaks
   // the cycle: the content composes nothing until the session exists.
@@ -67,13 +64,8 @@ private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewpor
       sessionHolder.value?.let { session -> scenario.MapContent(session) }
     }
   val session =
-    remember(mapState, prefetcher, density) {
-      BenchmarkSession(
-        map = mapState,
-        ui = state.benchmark,
-        prefetcher = prefetcher,
-        density = density,
-      )
+    remember(mapState, prefetcher) {
+      BenchmarkSession(map = mapState, ui = state.benchmark, prefetcher = prefetcher)
     }
   sessionHolder.value = session
   val mapLoaded = remember { CompletableDeferred<Unit>() }
@@ -173,10 +165,7 @@ private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewpor
               session.pointerPx = Offset(change.position.x, change.position.y)
             }
             if (change.pressed && session.pin == null && scenario.usesGestures) {
-              session.pin =
-                mapState.positionFromScreenLocation(
-                  with(density) { DpOffset(change.position.x.toDp(), change.position.y.toDp()) }
-                )
+              session.pin = mapState.positionFromScreenLocation(change.position)
             }
             session.gestures.onPointer(x, y, change.pressed)
             if (!change.pressed && scenario.usesGestures) {
@@ -192,7 +181,6 @@ private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewpor
   ) {
     MaplibreMap(
       state = mapState,
-      cameraPadding = viewportInsets.asPaddingValues(),
       options =
         MapOptions(
           renderOptions = RenderOptions.Standard,
@@ -231,16 +219,14 @@ private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewpor
 
 private fun samplePin(session: BenchmarkSession) {
   val pin = session.pin ?: return
-  val projected = session.map.screenLocationFromPosition(pin) ?: return
-  val px = with(session.density) { Offset(projected.x.toPx(), projected.y.toPx()) }
+  val px = session.map.screenOffsetFromPosition(pin) ?: return
   session.gestures.onMapProjection(px.x.toDouble(), px.y.toDouble())
 }
 
 private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawTrail(session: BenchmarkSession) {
   val composePoint = session.pointerPx
   val pin = session.pin
-  val projected = pin?.let { session.map.screenLocationFromPosition(it) }
-  val mapPoint = projected?.let { with(session.density) { Offset(it.x.toPx(), it.y.toPx()) } }
+  val mapPoint = pin?.let { session.map.screenOffsetFromPosition(it) }
   if (composePoint != null) {
     val arm = 12.dp.toPx()
     val color = Color(0xFF1565C0)

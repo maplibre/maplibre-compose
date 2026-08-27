@@ -147,9 +147,12 @@ packs, HTTP header transforms, and resource URL rewrites belong here, because
 they outlive any one map.
 
 Step 4 shipped this as `MaplibreRuntime`, because `Runtime` collides with
-`java.lang.Runtime`. `OfflineManager` as a remembered type went away:
-`rememberOfflineManager` is deleted, and `OfflineManager` survives as the
-interface that `MaplibreRuntime.offline` returns. Offline work is runtime work.
+`java.lang.Runtime`. The final audit made it an `object`: the process has one
+runtime, so `MaplibreRuntime.offline` replaces `default().offline`, and the
+getter installs the platform default configuration when none is set.
+`OfflineManager` as a remembered type went away: `rememberOfflineManager` is
+deleted, and `OfflineManager` survives as the interface that
+`MaplibreRuntime.offline` returns. Offline work is runtime work.
 
 On FFI platforms this is a thin owner around `RuntimeHandle`. Publishing the
 handle as an escape hatch is step-5 work. On GL JS (A in [Web](#web), the
@@ -167,6 +170,8 @@ The shipped step-4 surface:
 
 ```kotlin
 class MapState : AutoCloseable {
+  constructor(cameraPosition: CameraPosition = CameraPosition())
+
   var baseStyle: BaseStyle
   val camera: CameraPosition
   val viewport: Viewport?
@@ -178,11 +183,12 @@ class MapState : AutoCloseable {
   val styleErrors: SharedFlow<StyleError>
 
   suspend fun setCamera(position: CameraPosition)
-  suspend fun setCamera(boundingBox: BoundingBox, bearing, tilt, padding)
+  suspend fun fitCamera(boundingBox: BoundingBox, bearing, tilt, padding)
   suspend fun animateCamera(position: CameraPosition, duration: Duration)
-  suspend fun animateCamera(boundingBox: BoundingBox, bearing, tilt, padding, duration)
+  suspend fun animateCameraToFit(boundingBox: BoundingBox, bearing, tilt, padding, duration)
 
   fun screenLocationFromPosition(position: Position): DpOffset?
+  fun screenOffsetFromPosition(position: Position): Offset?
   fun positionFromScreenLocation(offset: DpOffset): Position?    // and an Offset overload
 
   suspend fun queryRenderedFeatures(offset: DpOffset, layerIds, predicate): List<Feature<Geometry, JsonObject?>>
@@ -199,7 +205,12 @@ class MapState : AutoCloseable {
 
 Writes and queries are `suspend`, and unkeyed reads are properties. The
 projections stayed sync: they answer from the last rendered viewport and return
-null before one exists.
+null before one exists. The bounding-box camera forms carry their live-viewport
+requirement in the name (`fitCamera`, `animateCameraToFit`): both suspend until
+a session attaches and fail when the state closes first. The public constructor
+takes only a camera position; a detached state rasterizes painters at a density
+of 1 and left-to-right layout until a `MaplibreMap` supplies the composition's
+values.
 
 `PlatformMap` is a typealias to `MapHandle` on FFI platforms and to the GL JS
 `Map` on the browser. Common code does not touch `platform`. Platform code that

@@ -53,7 +53,7 @@ import org.maplibre.compose.runtime.MaplibreRuntime
 public fun OfflinePackListItem(
   pack: OfflinePack,
   modifier: Modifier = Modifier,
-  offlineManager: OfflineManager = remember { MaplibreRuntime.default().offline },
+  offlineManager: OfflineManager = remember { MaplibreRuntime.offline },
   leadingContent: @Composable () -> Unit = {
     OfflinePackListItemDefaults.LeadingContent(pack, offlineManager)
   },
@@ -84,7 +84,7 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun LeadingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = remember { MaplibreRuntime.default().offline },
+    offlineManager: OfflineManager = remember { MaplibreRuntime.offline },
     completedIcon: @Composable () -> Unit = {
       Icon(
         imageVector = vectorResource(Res.drawable.check_circle_filled),
@@ -140,7 +140,7 @@ public object OfflinePackListItemDefaults {
   @Composable
   public fun TrailingContent(
     pack: OfflinePack,
-    offlineManager: OfflineManager = remember { MaplibreRuntime.default().offline },
+    offlineManager: OfflineManager = remember { MaplibreRuntime.offline },
     coroutineScope: CoroutineScope = rememberCoroutineScope(),
   ): Unit = Row {
     PauseResumeUpdateButton(pack, offlineManager)

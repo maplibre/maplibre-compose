@@ -24,7 +24,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 
 @Composable
 actual fun OfflineRegionSection(region: BoundingBox, styleUrl: String, packName: String) {
-  val offlineManager = remember { MaplibreRuntime.default().offline }
+  val offlineManager = remember { MaplibreRuntime.offline }
   // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
   val pixelRatio = LocalDensity.current.density
   val scope = rememberCoroutineScope()

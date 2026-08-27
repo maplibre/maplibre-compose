@@ -13,14 +13,9 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
-import org.maplibre.compose.expressions.ast.Expression
-import org.maplibre.compose.expressions.dsl.const
-import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.BoundingBox
-import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
-import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /** The canonical XYZ coordinate of one Web Mercator tile. */
@@ -123,7 +118,7 @@ public class CustomVectorSource(
   id: String,
   private val options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
   private val provider: VectorTileProvider,
-) : Source(id) {
+) : Source(id), VectorFeatureSource {
 
   override fun addTo(binding: StyleBinding): Boolean =
     binding.addCustomVectorSource(id, options, provider)
@@ -143,36 +138,6 @@ public class CustomVectorSource(
    */
   public fun invalidateTile(tile: TileCoordinate) {
     binding.invalidateCustomVectorSourceTile(id, tile)
-  }
-
-  /** Returns features from the given source layers that match [predicate]. */
-  public fun querySourceFeatures(
-    sourceLayerIds: Set<String>,
-    predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature<Geometry, JsonObject?>> =
-    binding.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
-
-  /** Merges [state] into the runtime state of the identified feature. */
-  public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
-    binding.setFeatureState(id, sourceLayerId, featureId, state)
-  }
-
-  /** Returns the runtime state of the identified feature. */
-  public fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
-    binding.featureState(id, sourceLayerId, featureId)
-
-  /** Removes [stateKey], or every state key when [stateKey] is null. */
-  public fun removeFeatureState(
-    sourceLayerId: String,
-    featureId: String,
-    stateKey: String? = null,
-  ) {
-    binding.removeFeatureState(id, sourceLayerId, featureId, stateKey)
-  }
-
-  /** Removes runtime state from every feature in [sourceLayerId]. */
-  public fun resetFeatureStates(sourceLayerId: String) {
-    binding.resetFeatureStates(id, sourceLayerId)
   }
 }
 

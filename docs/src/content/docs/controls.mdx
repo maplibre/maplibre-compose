@@ -74,8 +74,9 @@ of your own:
 
 ## Inset overlays and the camera
 
-Use `contentWindowInsets` to inset overlay controls. Use `cameraPadding` to
-shift the camera center. They can use the same values or vary independently.
+Use `contentWindowInsets` to inset overlay controls. `cameraPadding` follows it
+by default, so the camera centers on the unobstructed region; pass an explicit
+`cameraPadding` to shift the camera center independently.
 
 <Code code={region(controls, "insets")} lang="kotlin" title="App.kt" />
 

@@ -70,9 +70,7 @@ object DragDropDemo : Demo {
   /**
    * Moves the overlay child with the pointer. The screen offset of [position] is captured on drag
    * start and pointer deltas are accumulated onto it, so the child never has to be read back while
-   * it moves under the pointer. Pointer events report pixels, so the anchor captured from
-   * [MapState.screenLocationFromPosition] is scaled up before the px-based
-   * [MapState.positionFromScreenLocation] receives the sum.
+   * it moves under the pointer.
    */
   private fun Modifier.draggablePosition(
     map: MapState,
@@ -84,10 +82,7 @@ object DragDropDemo : Demo {
       var accumulated = Offset.Zero
       detectDragGestures(
         onDragStart = {
-          start =
-            map.screenLocationFromPosition(position())?.let {
-              Offset(it.x.toPx(), it.y.toPx())
-            }
+          start = map.screenOffsetFromPosition(position())
           accumulated = Offset.Zero
         },
         onDrag = onDrag@{ change, dragAmount ->

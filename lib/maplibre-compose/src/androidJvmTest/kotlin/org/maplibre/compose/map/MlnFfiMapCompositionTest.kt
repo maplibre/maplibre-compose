@@ -112,7 +112,7 @@ class MlnFfiMapCompositionTest {
   fun the_offline_demo_layer_composes_without_error() = runBridgeMapTest { errors, onFrame ->
     val state =
       rememberMapState(baseStyle = BaseStyle.Empty) {
-        val offlineManager = remember { MaplibreRuntime.default().offline }
+        val offlineManager = remember { MaplibreRuntime.offline }
         FillLayer(
           id = "offline-packs",
           source = rememberOfflinePacksSource(offlineManager.packs),

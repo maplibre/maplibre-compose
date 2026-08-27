@@ -17,7 +17,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 actual fun rememberTilePrefetcher(): TilePrefetcher {
   // Packs record the density they were created at; a downloaded raster tile cannot be rescaled.
   val pixelRatio = LocalDensity.current.density
-  val manager = remember { MaplibreRuntime.default().offline }
+  val manager = remember { MaplibreRuntime.offline }
   return remember(manager, pixelRatio) { OfflinePackPrefetcher(manager, pixelRatio) }
 }
 

@@ -142,11 +142,7 @@ public class MapOverlay(
      * the caller replaces them.
      */
     public val Default: MapOverlay = MapOverlay {
-      DisappearingScaleBar(
-        metersPerDp = map.viewport?.metersPerDpAtTarget ?: 0.0,
-        zoom = map.camera.zoom,
-        modifier = Modifier.align(Alignment.TopStart),
-      )
+      DisappearingScaleBar(modifier = Modifier.align(Alignment.TopStart))
 
       DisappearingCompassButton(modifier = Modifier.align(Alignment.TopEnd))
 

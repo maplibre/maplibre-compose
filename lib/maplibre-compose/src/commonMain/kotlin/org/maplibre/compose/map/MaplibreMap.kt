@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
@@ -21,7 +22,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraPositionSaver
@@ -107,8 +107,9 @@ public fun rememberMapState(
  *
  * @param state The map to display: its base style, style content, and camera.
  * @param modifier The modifier to be applied to the layout.
- * @param cameraPadding Insets that shift the camera center. A bounds move adds its padding to these
- *   insets.
+ * @param cameraPadding Insets that shift the camera center. Null follows [contentWindowInsets],
+ *   resolved against the current layout direction, so the camera centers on the unobstructed
+ *   region. A bounds move adds its padding to these insets.
  * @param zoomRange The allowable camera zoom range.
  * @param pitchRange The allowable camera pitch range.
  * @param boundingBox The allowable bounds for the camera position. On iOS and Web, it prevents the
@@ -136,7 +137,7 @@ public fun rememberMapState(
 public fun MaplibreMap(
   state: MapState,
   modifier: Modifier = Modifier,
-  cameraPadding: PaddingValues = PaddingValues(0.dp),
+  cameraPadding: PaddingValues? = null,
   zoomRange: ClosedRange<Float> = 0f..20f,
   pitchRange: ClosedRange<Float> = 0f..60f,
   boundingBox: BoundingBox? = null,
@@ -161,6 +162,18 @@ public fun MaplibreMap(
   val locals = currentCompositionLocalContext
   val mapClickScope = rememberCoroutineScope()
 
+  // Reading each side during composition recomposes this map when the insets change, so the
+  // session receives the new padding.
+  val insetPadding = contentWindowInsets.asPaddingValues()
+  val resolvedCameraPadding =
+    cameraPadding
+      ?: PaddingValues.Absolute(
+        left = insetPadding.calculateLeftPadding(layoutDirection),
+        top = insetPadding.calculateTopPadding(),
+        right = insetPadding.calculateRightPadding(layoutDirection),
+        bottom = insetPadding.calculateBottomPadding(),
+      )
+
   // Written during composition: a session can attach in the same apply pass, before any SideEffect,
   // and the native core captures the logger when it is created.
   state.logger = logger
@@ -171,7 +184,7 @@ public fun MaplibreMap(
     state.layoutDirection = layoutDirection
     state.inheritedLocals = locals
     state.sessionOptions =
-      SessionOptions(cameraPadding, zoomRange, pitchRange, boundingBox, options)
+      SessionOptions(resolvedCameraPadding, zoomRange, pitchRange, boundingBox, options)
     state.callbacks.onMapClick = onMapClick
     state.callbacks.onMapLongClick = onMapLongClick
     state.callbacks.onFrame = onFrame
