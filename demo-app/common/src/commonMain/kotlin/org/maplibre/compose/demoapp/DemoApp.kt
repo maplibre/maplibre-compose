@@ -8,9 +8,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
@@ -31,9 +34,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.lerp
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.vectorResource
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
+import org.maplibre.compose.demoapp.generated.Res
+import org.maplibre.compose.demoapp.generated.chevron_left_24px
+import org.maplibre.compose.demoapp.generated.chevron_right_24px
 
 @Composable
 fun DemoApp() {
@@ -50,6 +58,12 @@ fun DemoApp() {
 private val MediumPanelWidth = 280.dp
 private val ExpandedPanelWidth = 360.dp
 private val ShellSpacing = 16.dp
+private val HandleWidth = 28.dp
+private val HandleHeight = 56.dp
+
+/** How far the handle tucks under the panel, so their shadows merge into one attached surface. */
+private val HandleOverlap = 6.dp
+private val HandleProtrusion = HandleWidth - HandleOverlap
 private const val PanelMotionDurationMillis = 220
 private val PanelMotionEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
@@ -93,19 +107,33 @@ private fun DemoShell(state: DemoAppState) {
       }
     val panelTranslation = hiddenTranslation * (1f - panelProgress.value)
 
+    // The handle rides tucked under the panel's trailing edge, and rests against the safe area's
+    // leading edge when the panel is collapsed.
+    val handleTranslation =
+      with(density) {
+        val trailingEdge =
+          lerp(0.dp, ShellSpacing + panelWidth - HandleOverlap, panelProgress.value)
+        when (layoutDirection) {
+          LayoutDirection.Ltr -> (safeInsets.left + trailingEdge).toPx()
+          LayoutDirection.Rtl -> -(safeInsets.right + trailingEdge).toPx()
+        }
+      }
+
     Box(Modifier.fillMaxSize()) {
       Box(
         Modifier.fillMaxSize().semantics {
           if (!isMediumOrWider && panelOpen) hideFromAccessibility()
         }
       ) {
-        ShellMap(
-          state = state,
-          viewportInsets = viewportInsets,
-          showOpenPanelButton = !panelOpen,
-          onOpenPanel = { scope.launch { setPanelOpen(true) } },
-        )
+        ShellMap(state = state, viewportInsets = viewportInsets)
       }
+      // Behind the panel, so the panel hides the tucked-under part and its shadow.
+      PanelToggleHandle(
+        panelOpen = panelOpen,
+        onClick = { scope.launch { setPanelOpen(!panelOpen) } },
+        modifier =
+          Modifier.align(Alignment.CenterStart).graphicsLayer { translationX = handleTranslation },
+      )
       Box(
         modifier =
           Modifier.align(Alignment.CenterStart)
@@ -133,6 +161,35 @@ private fun DemoShell(state: DemoAppState) {
   }
 }
 
+/** The tab on the panel's trailing edge that collapses it, left at the screen edge to reopen it. */
+@Composable
+private fun PanelToggleHandle(
+  panelOpen: Boolean,
+  onClick: () -> Unit,
+  modifier: Modifier = Modifier,
+) {
+  Surface(
+    onClick = onClick,
+    modifier = modifier.width(HandleWidth).height(HandleHeight),
+    shape = RoundedCornerShape(topEnd = HandleWidth / 2, bottomEnd = HandleWidth / 2),
+    tonalElevation = 2.dp,
+    shadowElevation = 8.dp,
+  ) {
+    // Center the icon in the part that protrudes past the panel.
+    Box(
+      Modifier.fillMaxSize().padding(start = HandleOverlap),
+      contentAlignment = Alignment.Center,
+    ) {
+      Icon(
+        vectorResource(
+          if (panelOpen) Res.drawable.chevron_left_24px else Res.drawable.chevron_right_24px
+        ),
+        contentDescription = if (panelOpen) "Collapse demo panel" else "Expand demo panel",
+      )
+    }
+  }
+}
+
 private fun resolvedPanelWidth(
   viewportWidth: Dp,
   safeInsets: MapViewportInsets,
@@ -144,7 +201,8 @@ private fun resolvedPanelWidth(
   return when {
     isExpandedOrWider -> minOf(ExpandedPanelWidth, availableWidth)
     isMediumOrWider -> minOf(MediumPanelWidth, availableWidth)
-    else -> availableWidth
+    // Leave room beside a full-width panel for the handle, as in the wider modes.
+    else -> (availableWidth - HandleProtrusion).coerceAtLeast(0.dp)
   }
 }
 
@@ -163,15 +221,10 @@ private fun MapViewportInsets.withLeadingPanel(
 }
 
 @Composable
-private fun ShellMap(
-  state: DemoAppState,
-  viewportInsets: MapViewportInsets,
-  showOpenPanelButton: Boolean,
-  onOpenPanel: () -> Unit,
-) {
+private fun ShellMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   if (state.shell == DemoShell.Benchmarks) {
-    BenchmarkMap(state, viewportInsets, showOpenPanelButton, onOpenPanel)
+    BenchmarkMap(state, viewportInsets)
   } else {
-    DemoMap(state, viewportInsets, showOpenPanelButton, onOpenPanel)
+    DemoMap(state, viewportInsets)
   }
 }

@@ -15,10 +15,9 @@ import org.maplibre.compose.demoapp.design.SectionHeader
 @Composable
 internal fun BenchmarksScreen(
   onBack: () -> Unit,
-  onCollapsePanel: () -> Unit,
   onOpenScenario: (BenchmarkScenario) -> Unit,
 ) {
-  SettingsSubScreen("Benchmarks", onBack, onCollapsePanel) {
+  SettingsSubScreen("Benchmarks", onBack) {
     allBenchmarkScenarios.forEach { scenario ->
       SubmenuRow(scenario.title, scenario.description) { onOpenScenario(scenario) }
     }
@@ -26,7 +25,7 @@ internal fun BenchmarksScreen(
 }
 
 @Composable
-internal fun BenchmarkScenarioPanel(state: DemoAppState) {
+internal fun BenchmarkScenarioPanel(state: DemoAppState, onRun: () -> Unit) {
   val scenario = state.selectedScenario
   val ui = state.benchmark
   Text(
@@ -41,7 +40,7 @@ internal fun BenchmarkScenarioPanel(state: DemoAppState) {
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
   )
   Button(
-    onClick = { ui.requestRun() },
+    onClick = onRun,
     enabled = !ui.running,
     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
   ) {

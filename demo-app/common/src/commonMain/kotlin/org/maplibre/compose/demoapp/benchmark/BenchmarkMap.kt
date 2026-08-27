@@ -34,7 +34,6 @@ import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.rememberCameraState
 import org.maplibre.compose.demoapp.DemoAppState
 import org.maplibre.compose.demoapp.MapViewportInsets
-import org.maplibre.compose.demoapp.OpenDemoPanelButton
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.MapOptions
 import org.maplibre.compose.map.MaplibreMap
@@ -50,12 +49,7 @@ private val benchLog = Logger.withTag(BenchmarkReport.LogPrefix)
  * settings do not compose here.
  */
 @Composable
-internal fun BenchmarkMap(
-  state: DemoAppState,
-  viewportInsets: MapViewportInsets,
-  showOpenPanelButton: Boolean,
-  onOpenPanel: () -> Unit,
-) {
+internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scenario = state.selectedScenario
   val density = LocalDensity.current
   val prefetcher = rememberTilePrefetcher()
@@ -207,14 +201,7 @@ internal fun BenchmarkMap(
           mapLoaded.completeExceptionally(IllegalStateException(reason ?: "Map failed to load"))
         },
         contentWindowInsets = viewportInsets.asWindowInsets(),
-        overlay =
-          if (showOpenPanelButton) {
-            MapOverlay {
-              OpenDemoPanelButton(onOpenPanel, Modifier.align(Alignment.BottomStart))
-            }
-          } else {
-            MapOverlay.None
-          },
+        overlay = MapOverlay.None,
       ) {
         scenario.MapContent(session)
       }

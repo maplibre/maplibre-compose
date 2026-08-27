@@ -6,8 +6,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import org.maplibre.compose.demoapp.design.DropdownRow
 import org.maplibre.compose.demoapp.design.SectionHeader
-import org.maplibre.compose.demoapp.design.SegmentedRow
 import org.maplibre.compose.map.GestureOptions
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.map.TileLodOptions
@@ -67,7 +67,7 @@ class DemoSettings {
 @Composable
 fun TileLodSettingsItems(settings: DemoSettings) {
   SectionHeader("Tile level of detail")
-  SegmentedRow(
+  DropdownRow(
     label = "When the camera is pitched",
     options =
       listOf(TileLodOptions.Standard, TileLodOptions.Performance, TileLodOptions.HighDetail),
@@ -75,8 +75,8 @@ fun TileLodSettingsItems(settings: DemoSettings) {
     optionLabel = {
       when (it) {
         TileLodOptions.Standard -> "Standard"
-        TileLodOptions.Performance -> "Fewer"
-        TileLodOptions.HighDetail -> "More"
+        TileLodOptions.Performance -> "Fewer tiles"
+        TileLodOptions.HighDetail -> "More detail"
         else -> "Custom"
       }
     },
