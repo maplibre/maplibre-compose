@@ -34,6 +34,55 @@ content's `Anchor` placement cannot serve.
   `StyleBinding` already wraps.
 - GL JS: `Map.addLayer` and `removeLayer` — likewise.
 
+## Unified event surface
+
+One stream of map events on `MapState`, shaped after the FFI's runtime event
+stream. Today each event the library consumes has a bespoke path — `styleErrors`
+is a flow, camera transitions resume waiters, the idle and load states are
+internal — and `MlnFfiMapCore.handleEvent` drops the events the library does not
+consume.
+
+```kotlin
+// on MapState
+public val events: SharedFlow<MapEvent>
+
+public sealed interface MapEvent {
+  public data object StyleLoaded : MapEvent
+  public data object MapIdle : MapEvent
+  public data class SourceLoaded(val sourceId: String) : MapEvent
+  // grown member by member as events prove useful, not transliterated at once
+}
+```
+
+Two design questions to settle first: whether `styleErrors` folds into the
+stream or stays a dedicated flow, and whether a detached state buffers or drops
+events. The FFI event enum is the candidate vocabulary; each member ships with a
+GL JS mapping.
+
+- FFI: the `RuntimeEventType` stream `MlnFfiMapCore.handleEvent` already
+  consumes — every branch the core drops today is a candidate member.
+- GL JS: `Map.on(type, listener)` per mapped event (`"load"`, `"idle"`,
+  `"sourcedata"`, …). GL JS event names and FFI event types do not align one to
+  one, so each `MapEvent` member declares its own mapping.
+
+## Attached still capture
+
+`MapState.captureStillImage` fails while a `MaplibreMap` is attached, because
+the capture pump owns the engine's render slot. An attached capture would
+instead read the pixels of a frame the live session presented.
+
+This is an investigation, not yet a proposal. The render session already exposes
+the readback the capture pump uses. The open questions are sequencing the
+readback against the session's frame loop without a stall, and whether the
+result is limited to the on-screen size. Render-to-completion for a continuous
+map, if the FFI grows it, supersedes this path.
+
+- FFI: the render session's `readPremultipliedRgba8`, called after a presented
+  frame.
+- GL JS: `Map.getCanvas()` read on the `"render"` event, or a map created with
+  `preserveDrawingBuffer` — MapLibre's default canvas discards the buffer after
+  present.
+
 ## Style light
 
 Position, color, intensity, and anchor of the style's light source, which fill
@@ -223,3 +272,12 @@ adapter mechanics live in `commonMain` as `PendingActionQueue`,
 - The owner-task shapes: the map loop abandons with no reason, the runtime
   rejects with a throwable and checks cancellation, so each loop keeps its own
   task class behind the shared deque.
+
+## Test consolidation
+
+The lifecycle suites grew adversarially: most review findings became one pinning
+test per interleaving, so the suites state one invariant per test with repeated
+setup. A follow-up pass consolidates them into fewer scenario-shaped tests: one
+test walks a realistic sequence — attach, style switch, mutate, detach,
+re-attach — and asserts each invariant at the step that establishes it. The
+invariants stay pinned; the setup duplication and the per-test map boots go.
