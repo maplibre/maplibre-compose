@@ -64,6 +64,20 @@ private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
  * A detached state rasterizes painters in the style content at a density of 1 and left-to-right
  * layout; a [MaplibreMap] that later receives this state replaces both with the composition's
  * values.
+ *
+ * # Imperative style mutation
+ *
+ * [layers], [sources], and [images] mutate the loaded style directly, outside the style content.
+ * Structure is declared in the style content; these collections mutate what exists. Sources and
+ * images are the two structural exceptions: [StyleSources.add], [StyleSources.remove],
+ * [StyleImages.add], and [StyleImages.remove] insert into and remove from the loaded style, while
+ * [layers] only reads and mutates the layers the style already has.
+ *
+ * One rule covers every imperative mutation: a [baseStyle] reload drops it. The reloaded style
+ * starts from its own definition, with no imperatively added source or image and no
+ * [LayerHandle][org.maplibre.compose.layers.LayerHandle] write. Reapply the mutations when the new
+ * style is ready: from the [MaplibreMap] `onMapLoadFinished` callback, and watch [styleErrors] for
+ * a reapplication the new style refuses.
  */
 // Internally this also owns the style composition host, the root StyleNode over the loaded
 // StyleBinding, and the wiring into the camera records and StyleSources. A session (MapAdapter)
@@ -234,10 +248,14 @@ internal constructor(
   public val layers: StyleLayers = StyleLayers(this)
 
   /**
-   * The loaded style's sources. See [StyleSources] for the composition-owned read path. The
-   * collection is empty while no style is loaded, and repopulates when a session loads [baseStyle].
+   * The loaded style's sources. See [StyleSources] for the composition-owned read path and for the
+   * imperative [add][StyleSources.add] and [remove][StyleSources.remove]. The collection is empty
+   * while no style is loaded, and repopulates when a session loads [baseStyle].
    */
   public val sources: StyleSources = StyleSources(this)
+
+  /** The style images that the application registered imperatively. See [StyleImages]. */
+  public val images: StyleImages = StyleImages(this)
 
   internal fun refreshStyleCollections() {
     styleNode.refreshLiveLayerIds()

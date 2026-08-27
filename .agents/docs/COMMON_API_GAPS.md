@@ -21,28 +21,18 @@ names against the maplibre-gl 6.2.0 type declarations.
 
 ## Imperative style mutation
 
-`MapState.layers` and `MapState.sources` mutate properties of existing entries
-and update source data. Three gaps remain.
+`LayerHandle.filter`, `StyleSources.add`/`remove`, and `MapState.images`
+shipped. One gap remains.
 
-**Layer filters.** `LayerHandle` has no filter member, and
-`StyleBinding.setLayerFilter` already exists on both engines. One `var` on the
-handle, with the null-clears contract the composable layers state.
+**Imperative layer add.** `MapState.layers` reads and mutates the layers the
+style already has; it inserts and removes nothing. A typed layer-insert API and
+a placement contract against the live draw order (options b and c) were refused.
+A future `addFromStyleJson` waits for an evidenced user with a need the style
+content's `Anchor` placement cannot serve.
 
-**Imperative add and remove.** Neither collection inserts or removes. The
-desired-state sync never touches ids outside its applied snapshot, so map-owned
-inserts cannot fight it; the open decision is placement. Proposal: an imperative
-insert places relative to live layer ids only, and the sync treats an
-imperatively added layer as it treats a base layer — an anchor may name it, and
-the composition may not claim its id.
-
-- FFI: `MapHandle.addStyleLayerJson`, `removeStyleLayer`, `addStyleSourceJson`,
-  `removeStyleSource` — the calls `StyleBinding` already wraps.
-- GL JS: `Map.addLayer`, `removeLayer`, `addSource`, `removeSource` — likewise.
-
-**Images.** No public imperative image registration exists; the style content's
-painter and bitmap parameters are the only route. Design this with the missing
-style images entry below: one `MapState.images` surface serves both the up-front
-registration and the on-demand resolver.
+- FFI: `MapHandle.addStyleLayerJson` and `removeStyleLayer` — the calls
+  `StyleBinding` already wraps.
+- GL JS: `Map.addLayer` and `removeLayer` — likewise.
 
 ## Style light
 

@@ -154,7 +154,8 @@ internal open class RecordingStyleBinding(
     sources.remove(sourceId)
   }
 
-  override fun sourceExists(sourceId: String): Boolean = sourceId in sources
+  override fun sourceExists(sourceId: String): Boolean =
+    sourceId in sources || sourceId in sourceMap
 
   override fun addImageSourceImage(
     sourceId: String,

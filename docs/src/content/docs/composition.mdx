@@ -9,7 +9,8 @@ import { region } from "../../snippets";
 
 import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/maplibre/compose/docsnippets/Composition.kt?raw";
 
-MapLibre Compose has no map view object. <Api of="MaplibreMap" /> is a
+MapLibre Compose has no map view object.
+<Api of="org.maplibre.compose.map.MaplibreMap" /> is a
 composable, and the map lives in one state object: <Api of="MapState" /> holds
 the base style, the style content, and the camera.
 <Api of="rememberMapState" /> creates a state that the composition owns. This
@@ -51,6 +52,26 @@ When `baseStyle` changes, the map loads the new style and the style content
 recomposes into it. Your sources and layers are declared again on the new
 style, so they persist across the switch without extra code. An `Anchor` that
 names a base layer applies only when that layer exists in the new style.
+
+## Imperative style mutation
+
+<Api of="MapState.layers" />, <Api of="MapState.sources" />, and
+<Api of="MapState.images" /> mutate the loaded style directly, outside the
+style content. Structure is declared in the style content; these collections
+mutate what exists. Sources and images are the two structural exceptions:
+their `add` and `remove` insert into and remove from the loaded style, while
+`layers` only reads and mutates the layers the style already has.
+
+One rule covers every imperative mutation: a `baseStyle` reload drops it, and
+the application reapplies it when the new style is ready — from the
+`onMapLoadFinished` callback, watching <Api of="MapState.styleErrors" /> for a
+reapplication the new style refuses.
+
+| Collection         | Reads                      | Mutates                             | Inserts and removes |
+| ------------------ | -------------------------- | ----------------------------------- | ------------------- |
+| `MapState.layers`  | Every live layer           | Map-owned layers, via `LayerHandle` | No                  |
+| `MapState.sources` | Every live source          | Source data, via the live `Source`  | Yes                 |
+| `MapState.images`  | This state's registrations | Re-adding an id replaces it         | Yes                 |
 
 ## Style errors
 

@@ -50,6 +50,9 @@ internal class SourceManager(private val node: StyleNode) {
     val base = baseSources()[source.id]
     if (base === source) return false
     require(base == null) { "Source id '${source.id}' conflicts with a base source" }
+    require(source.id !in node.appSourceSnapshot) {
+      "Source id '${source.id}' conflicts with a source added through MapState.sources"
+    }
     counter.increment(source) {
       desiredSources += source
       node.requestSync()

@@ -81,6 +81,48 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal var compositionSources: Map<String, Source> = emptyMap()
     private set
 
+  /**
+   * The sources added through [StyleSources.add][org.maplibre.compose.map.StyleSources.add], by id.
+   * Host-confined; the sync never touches them, and a binding change resets them.
+   */
+  internal val appSources = LinkedHashMap<String, Source>()
+
+  /** [appSources] published for reads off the host thread. */
+  @Volatile
+  internal var appSourceSnapshot: Map<String, Source> = emptyMap()
+    private set
+
+  internal fun publishAppSources() {
+    appSourceSnapshot = appSources.toMap()
+  }
+
+  /**
+   * The image ids registered through [MapState.images][org.maplibre.compose.map.MapState.images].
+   * Host-confined; a binding change resets them.
+   */
+  internal val appImages = LinkedHashSet<String>()
+
+  /** [appImages] published as snapshot state, backing the public observable id list. */
+  internal var appImageIds: List<String> by mutableStateOf(emptyList())
+    private set
+
+  internal fun publishAppImages() {
+    appImageIds = appImages.toList()
+  }
+
+  /** The binding [appSources] and [appImages] belong to; a mismatch empties both tables. */
+  private var appTablesFor: StyleBinding? = null
+
+  /** Empties the imperative tables when [binding] is not the style they were registered on. */
+  internal fun ensureAppTablesFor(binding: StyleBinding) {
+    if (appTablesFor === binding) return
+    appTablesFor = binding
+    appSources.clear()
+    publishAppSources()
+    appImages.clear()
+    publishAppImages()
+  }
+
   override fun allowsChild(node: MapNode) = node is LayerNode<*>
 
   override fun onChildInserted(index: Int, node: MapNode) {
@@ -119,6 +161,8 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       baseLayerIds()
       sourceManager.captureBaseSources()
       imageManager.ensureAttached()
+      // Imperative registrations drop on reload; the application reapplies them.
+      ensureAppTablesFor(binding)
       syncedBinding = binding
     }
     publishCompositionOwnership()

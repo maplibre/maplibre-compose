@@ -24,7 +24,7 @@ internal sealed class Layer(val id: String) {
   internal abstract val type: String
 
   /** The source this layer draws from, or null for layers that have none, such as background. */
-  protected open val sourceId: String? = null
+  internal open val sourceId: String? = null
 
   private val layout = mutableMapOf<String, JsonElement>()
   private val paint = mutableMapOf<String, JsonElement>()
@@ -93,7 +93,7 @@ internal sealed class Layer(val id: String) {
   }
 
   /** Sets this layer's filter from style JSON, for [UnknownLayerDescriptor]. Same null contract. */
-  protected fun setFilterJson(filter: JsonElement) {
+  internal fun setFilterJson(filter: JsonElement) {
     root["filter"] = filter
     binding.setLayerFilter(id, filter)
   }

@@ -23,8 +23,11 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -246,6 +249,26 @@ internal class StyleCompositionHost(
       scope.launch {}.join()
       if (recomposer.currentState.value != Recomposer.State.PendingWork) return
     }
+  }
+
+  /**
+   * Runs [block] on the host dispatcher and returns its result, rethrowing what it throws. The
+   * dispatcher is single-threaded, so [block] serializes with the composition's syncs and with
+   * every other imperative operation. Throws [IllegalStateException] when the host has closed.
+   */
+  internal suspend fun <T> runSerialized(block: () -> T): T {
+    check(!closed) { "MapState is closed; no loaded style to mutate" }
+    // runCatching keeps an ordinary failure out of the host's job, which one failed op must not
+    // cancel; fatal errors still propagate.
+    val deferred = scope.async { runCatching(block).onFailure { rethrowIfFatal(it) } }
+    val result =
+      try {
+        deferred.await()
+      } catch (error: CancellationException) {
+        currentCoroutineContext().ensureActive()
+        throw IllegalStateException("MapState is closed; no loaded style to mutate", error)
+      }
+    return result.getOrThrow()
   }
 
   private fun disposeComposition() {

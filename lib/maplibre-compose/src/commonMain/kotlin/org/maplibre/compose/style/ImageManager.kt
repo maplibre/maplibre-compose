@@ -57,32 +57,9 @@ internal class ImageManager(private val node: StyleNode) {
     }
   }
 
-  private fun PainterKey.drawToBitmap(): ImageBitmap {
-    val size =
-      with(density) {
-        size?.let { Size(it.width.toPx(), it.height.toPx()) }
-          ?: painter.intrinsicSize.takeOrElse { Size(16.dp.toPx(), 16.dp.toPx()) }
-      }
-    val bitmap = ImageBitmap(size.width.toInt(), size.height.toInt())
-    CanvasDrawScope().draw(density, layoutDirection, Canvas(bitmap), size) {
-      with(painter) { draw(size, alpha, colorFilter) }
-    }
-    return bitmap
-  }
-
-  private fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap {
-    val buffer = ceil(radius * (1.0 - cutoff)).toInt()
-    val w = width + 2 * buffer
-    val h = height + 2 * buffer
-    val pixels = IntArray(w * h)
-    readPixels(pixels, bufferOffset = w * buffer + buffer, stride = w)
-    convertToSdf(pixels, w, radius, cutoff)
-    return pixels.toImageBitmap(w, pixels.size / w)
-  }
-
   /** The pixels MapLibre receives: an SDF painter's rasterization converted to a distance field. */
   private fun PainterKey.renderToImage(): ImageBitmap =
-    drawToBitmap().let { if (drawAsSdf) it.toSdf() else it }
+    rasterizePainter(painter, density, layoutDirection, size, alpha, colorFilter, drawAsSdf)
 
   internal fun acquirePainter(key: PainterKey): String {
     ensureAttached()
@@ -118,4 +95,39 @@ internal class ImageManager(private val node: StyleNode) {
     val alpha: Float,
     val colorFilter: ColorFilter?,
   )
+}
+
+/**
+ * Rasterizes [painter] at [density] and [layoutDirection], at [size] or the painter's intrinsic
+ * size, converting the result to a signed distance field when [asSdf] is set.
+ */
+internal fun rasterizePainter(
+  painter: Painter,
+  density: Density,
+  layoutDirection: LayoutDirection,
+  size: DpSize?,
+  alpha: Float = 1f,
+  colorFilter: ColorFilter? = null,
+  asSdf: Boolean = false,
+): ImageBitmap {
+  val pxSize =
+    with(density) {
+      size?.let { Size(it.width.toPx(), it.height.toPx()) }
+        ?: painter.intrinsicSize.takeOrElse { Size(16.dp.toPx(), 16.dp.toPx()) }
+    }
+  val bitmap = ImageBitmap(pxSize.width.toInt(), pxSize.height.toInt())
+  CanvasDrawScope().draw(density, layoutDirection, Canvas(bitmap), pxSize) {
+    with(painter) { draw(pxSize, alpha, colorFilter) }
+  }
+  return if (asSdf) bitmap.toSdf() else bitmap
+}
+
+private fun ImageBitmap.toSdf(radius: Double = 8.0, cutoff: Double = 0.25): ImageBitmap {
+  val buffer = ceil(radius * (1.0 - cutoff)).toInt()
+  val w = width + 2 * buffer
+  val h = height + 2 * buffer
+  val pixels = IntArray(w * h)
+  readPixels(pixels, bufferOffset = w * buffer + buffer, stride = w)
+  convertToSdf(pixels, w, radius, cutoff)
+  return pixels.toImageBitmap(w, pixels.size / w)
 }

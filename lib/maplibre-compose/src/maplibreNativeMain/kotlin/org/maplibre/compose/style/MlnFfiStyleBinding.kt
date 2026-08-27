@@ -133,7 +133,13 @@ internal interface MlnFfiStyleBinding : StyleBinding {
 
   override fun removeSource(sourceId: String) {
     mutateMap { map ->
-      map.removeStyleSource(sourceId)
+      // MapLibre refuses the removal of a source a layer still uses; the refusal propagates
+      // synchronously through the owner-thread hop.
+      try {
+        map.removeStyleSource(sourceId)
+      } catch (error: MaplibreException) {
+        throw StyleMutationException(error.message, error)
+      }
       forgetFeatureStates(sourceId)
       reportSourceChanged(sourceId)
     }

@@ -124,8 +124,10 @@ internal class GlJsStyleBinding(
     return true
   }
 
+  /** Routed through [mutate]: GL JS reports an in-use removal as an `error` event. */
   override fun removeSource(sourceId: String) {
-    if (loaded) map.removeSource(sourceId)
+    // A refused removal keeps the source in the style, so its attachment must keep serving tiles.
+    if (loaded) mutate("remove source '$sourceId'") { map.removeSource(sourceId) }
     customVectorAttachments.remove(sourceId)?.close()
   }
 

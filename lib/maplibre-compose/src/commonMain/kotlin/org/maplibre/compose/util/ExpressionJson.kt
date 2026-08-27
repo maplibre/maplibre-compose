@@ -6,17 +6,22 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 import org.maplibre.compose.expressions.ast.BooleanLiteral
 import org.maplibre.compose.expressions.ast.ColorLiteral
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.CompiledFunctionCall
 import org.maplibre.compose.expressions.ast.CompiledListLiteral
+import org.maplibre.compose.expressions.ast.CompiledLiteral
 import org.maplibre.compose.expressions.ast.CompiledOptions
 import org.maplibre.compose.expressions.ast.DpPaddingLiteral
 import org.maplibre.compose.expressions.ast.FloatLiteral
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.expressions.ast.OffsetLiteral
 import org.maplibre.compose.expressions.ast.StringLiteral
+import org.maplibre.compose.expressions.value.ExpressionValue
 
 /**
  * Encodes a compiled expression as MapLibre style JSON. Must stay identical to the Android encoder,
@@ -79,3 +84,49 @@ private fun CompiledExpression<*>.normalizeJsonLike(inLiteral: Boolean): JsonEle
 private fun literalArray(inLiteral: Boolean, values: List<JsonElement>): JsonElement =
   if (inLiteral) JsonArray(values)
   else JsonArray(listOf(JsonPrimitive("literal"), JsonArray(values)))
+
+/**
+ * Decodes MapLibre style JSON into a compiled expression whose [toStyleJson] reproduces the input.
+ * The inverse of [toStyleJson] over the JSON that MapLibre reports back, such as a layer's filter.
+ */
+internal fun JsonElement.toCompiledExpression(): CompiledExpression<*> = decode(inLiteral = false)
+
+private fun JsonElement.decode(inLiteral: Boolean): CompiledExpression<*> =
+  when (this) {
+    is JsonNull -> NullLiteral
+    is JsonPrimitive ->
+      when {
+        isString -> StringLiteral.of(content)
+        else ->
+          booleanOrNull?.let { BooleanLiteral.of(it) }
+            ?: doubleOrNull?.let { FloatLiteral.of(it.toFloat()) }
+            ?: StringLiteral.of(content)
+      }
+    is JsonObject ->
+      CompiledOptions.of(
+        mapValues { (_, value) -> value.decode(inLiteral).cast<ExpressionValue>() }
+      )
+    is JsonArray -> decodeArray(inLiteral)
+  }
+
+private fun JsonArray.decodeArray(inLiteral: Boolean): CompiledExpression<*> {
+  val operator = (firstOrNull() as? JsonPrimitive)?.takeIf { it.isString }?.contentOrNull
+  if (!inLiteral && operator != null) {
+    // A "literal" wrapper's argument stays raw; other operators take expressions as arguments.
+    val argsInLiteral = operator == "literal"
+    return CompiledFunctionCall.of(
+      name = operator,
+      args = drop(1).map { it.decode(argsInLiteral) },
+      isLiteralArg = { argsInLiteral },
+    )
+  }
+  val elements = map { it.decode(inLiteral = true) }
+  if (elements.all { it is CompiledLiteral<*, *> }) {
+    return CompiledListLiteral.of(
+      elements.map { (it as CompiledLiteral<*, *>).cast<ExpressionValue>() }
+    )
+  }
+  // In a literal context a nested ["name", ...] array re-encodes byte-for-byte as a call.
+  require(operator != null) { "Cannot represent the style JSON $this as an expression" }
+  return CompiledFunctionCall.of(operator, drop(1).map { it.decode(inLiteral = true) }) { true }
+}

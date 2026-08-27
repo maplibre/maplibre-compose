@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.mutableStateOf
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.StyleMutationException
 
 /**
  * The loaded style's sources, exposed on [MapState.sources].
@@ -10,10 +11,14 @@ import org.maplibre.compose.sources.Source
  * [MapState.baseStyle] change, when a source is added to or removed from the live style, and when a
  * source's TileJSON metadata arrives. While no style is loaded, [ids] is empty.
  *
- * For a source that the style content composed, [get] returns the live [Source] instance the
- * content owns, so data updates such as
+ * For a source that the style content composed or that [add] added, [get] returns the live [Source]
+ * instance, so data updates such as
  * [GeoJsonSource.setData][org.maplibre.compose.sources.GeoJsonSource.setData] work on it. For a
  * base-style source, [get] returns a descriptor reconstructed from the live style.
+ *
+ * [add] and [remove] mutate the loaded style directly. Each source id has one owner — the base
+ * style, the style content composition, or the application through [add] — and only the owner may
+ * remove it. See [MapState] for the reload rule that applies to every imperative style mutation.
  */
 public class StyleSources internal constructor(private val state: MapState) {
 
@@ -49,7 +54,85 @@ public class StyleSources internal constructor(private val state: MapState) {
    * is legal on a detached state and applies when a style loads.
    */
   public operator fun get(id: String): Source? =
-    state.styleNode.compositionSources[id] ?: snapshotState.value[id]
+    state.styleNode.compositionSources[id]
+      ?: state.styleNode.appSourceSnapshot[id]
+      ?: snapshotState.value[id]
+
+  /**
+   * Adds [source] to the loaded style. The source is map-owned: the sync that applies the style
+   * content never removes or re-adds it, and [get] returns this instance.
+   *
+   * A [MapState.baseStyle] reload drops the source; reapply it after the load.
+   *
+   * @throws IllegalArgumentException when a source with the id already exists; the message names
+   *   the owner.
+   * @throws IllegalStateException when no style is loaded, when the state is closed, or when
+   *   MapLibre refuses the source.
+   */
+  public suspend fun add(source: Source) {
+    state.host.runSerialized {
+      val node = state.styleNode
+      val binding = node.binding
+      check(binding.isLoaded) { "No loaded style; a source can only be added to a loaded style" }
+      node.ensureAppTablesFor(binding)
+      val id = source.id
+      require(id !in node.compositionSources) {
+        "Source id '$id' is owned by the style content composition"
+      }
+      require(id !in node.appSources) { "Source id '$id' was already added through this state" }
+      require(binding.sourceExists(id) != true && binding.getSource(id) == null) {
+        "Source id '$id' already exists in the loaded style"
+      }
+      binding.addSource(source)
+      node.appSources[id] = source
+      node.publishAppSources()
+      refreshSource(id)
+    }
+  }
+
+  /**
+   * Removes the source with [id], which [add] added, from the loaded style.
+   *
+   * @throws IllegalArgumentException when the loaded style has no source with [id].
+   * @throws IllegalStateException when no style is loaded, when the state is closed, when the base
+   *   style or the style content composition owns [id], or when a live layer still draws from the
+   *   source.
+   */
+  public suspend fun remove(id: String) {
+    state.host.runSerialized {
+      val node = state.styleNode
+      val binding = node.binding
+      check(binding.isLoaded) {
+        "No loaded style; a source can only be removed from a loaded style"
+      }
+      node.ensureAppTablesFor(binding)
+      check(id !in node.compositionSources) {
+        "Source '$id' is owned by the style content composition; remove it by recomposing the " +
+          "content rather than through MapState.sources"
+      }
+      val source = node.appSources[id]
+      if (source == null) {
+        val existsInStyle = binding.sourceExists(id) == true || binding.getSource(id) != null
+        check(!existsInStyle) {
+          "Source '$id' belongs to the base style; select a different MapState.baseStyle to " +
+            "change it"
+        }
+        throw IllegalArgumentException("The loaded style has no source with id '$id'")
+      }
+      val usedBy = binding.getLayers().firstOrNull { it.sourceId == id }
+      check(usedBy == null) {
+        "Source '$id' cannot be removed while layer '${usedBy?.id}' draws from it"
+      }
+      try {
+        binding.removeSource(source)
+      } catch (error: StyleMutationException) {
+        throw IllegalStateException("Source '$id' cannot be removed: ${error.message}", error)
+      }
+      node.appSources.remove(id)
+      node.publishAppSources()
+      refreshSource(id)
+    }
+  }
 
   /**
    * The distinct attribution texts of every source in the style, in the order that the style
