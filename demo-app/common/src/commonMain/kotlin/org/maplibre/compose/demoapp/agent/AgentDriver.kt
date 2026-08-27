@@ -175,7 +175,7 @@ internal class AgentDriver(
     val preferred = demo.preferredStyle
     val newBase = preferred?.base?.takeIf { it != state.appliedStyleSnapshot?.base }
     val styleLoadsSeen = state.lastStyleLoad.count
-    state.shell = DemoShell.Demos
+    markDemoMapReload()
     state.selectedDemo = demo
     val styleTimedOut =
       if (preferred != null && newBase != null) {
@@ -203,7 +203,7 @@ internal class AgentDriver(
 
   fun jumpCamera(request: CameraUpdateRequest): CameraDto {
     request.validateRanges()
-    state.shell = DemoShell.Demos
+    markDemoMapReload()
     state.cameraState.position = state.cameraState.position.merged(request)
     return camera()
   }
@@ -212,12 +212,24 @@ internal class AgentDriver(
     request.validateRanges()
     val durationMs = request.durationMs ?: DEFAULT_ANIMATION_MS
     if (durationMs < 0) throw AgentException(400, "'durationMs' must be >= 0, got $durationMs")
-    state.shell = DemoShell.Demos
+    markDemoMapReload()
     state.cameraState.animateTo(
       finalPosition = state.cameraState.position.merged(request),
       duration = durationMs.milliseconds,
     )
     return camera()
+  }
+
+  /**
+   * Switches back to the Demos shell. The demo map loads its style from scratch when it recomposes,
+   * so mark that load in flight eagerly; a wait/idle that lands before recomposition must not
+   * report idle.
+   */
+  private fun markDemoMapReload() {
+    if (state.shell == DemoShell.Benchmarks) {
+      state.appliedStyleSnapshot?.let { state.pendingStyleLoad = it.base }
+    }
+    state.shell = DemoShell.Demos
   }
 
   fun style(): StyleDto {
@@ -242,14 +254,15 @@ internal class AgentDriver(
         )
       }
     }
-    state.shell = DemoShell.Demos
+    val wasBenchmarks = state.shell == DemoShell.Benchmarks
+    markDemoMapReload()
     val styleLoadsSeen = state.lastStyleLoad.count
     // Set both so the style applies regardless of how MapStyleMode resolves.
     state.chosenLightStyle = style
     state.chosenDarkStyle = style
-    // appliedStyleSnapshot goes stale while the Benchmarks shell is showing, so this can skip the
-    // await when the demo map still has to load the style on recomposition; /wait/idle covers it.
-    if (state.appliedStyleSnapshot != style) {
+    // appliedStyleSnapshot goes stale while the Benchmarks shell is showing, and the demo map
+    // loads from scratch on recomposition, so a snapshot match does not mean the load finished.
+    if (wasBenchmarks || state.appliedStyleSnapshot != style) {
       awaitStyleLoad(styleLoadsSeen, style.base, style.displayName, request.timeoutMs)
     }
     return style()
@@ -275,15 +288,18 @@ internal class AgentDriver(
     )
 
   /**
-   * Waits for a completed style load and a still camera. Only observes *completed* style loads; a
-   * style load currently in flight is invisible to it, and no signal exists for one yet.
+   * Waits for any in-flight style load to finish, at least one completed load, and a still camera.
    */
   suspend fun waitIdle(request: WaitIdleRequest): WaitIdleResponse {
     requireValidTimeout(request.timeoutMs)
     val start = TimeSource.Monotonic.markNow()
     try {
       withTimeout(request.timeoutMs) {
-        snapshotFlow { state.lastStyleLoad.count > 0 && !state.cameraState.isCameraMoving }
+        snapshotFlow {
+          state.lastStyleLoad.count > 0 &&
+            state.pendingStyleLoad == null &&
+            !state.cameraState.isCameraMoving
+        }
           .first { it }
       }
     } catch (e: TimeoutCancellationException) {
@@ -315,11 +331,13 @@ internal class AgentDriver(
     val atCenter = state.cameraState.positionFromScreenLocation(center) ?: return camera()
     val atMoved = state.cameraState.positionFromScreenLocation(moved) ?: return camera()
     val current = state.cameraState.position
+    // The projection wraps longitude to ±180; take the short way across the antimeridian.
+    val deltaLng = shortLongitudeDelta(from = atMoved.longitude, to = atCenter.longitude)
     state.cameraState.position =
       current.copy(
         target =
           Position(
-            longitude = current.target.longitude + (atCenter.longitude - atMoved.longitude),
+            longitude = current.target.longitude + deltaLng,
             latitude = current.target.latitude + (atCenter.latitude - atMoved.latitude),
           )
       )
@@ -350,9 +368,10 @@ internal class AgentDriver(
     val target =
       anchor?.let {
         val fraction = 1.0 - 1.0 / request.factor
+        // The projection wraps longitude to ±180; take the short way across the antimeridian.
+        val deltaLng = shortLongitudeDelta(from = current.target.longitude, to = it.longitude)
         Position(
-          longitude =
-            current.target.longitude + (it.longitude - current.target.longitude) * fraction,
+          longitude = current.target.longitude + deltaLng * fraction,
           latitude = current.target.latitude + (it.latitude - current.target.latitude) * fraction,
         )
       } ?: current.target
@@ -410,6 +429,11 @@ internal class AgentDriver(
   private fun requireValidTimeout(timeoutMs: Long) {
     if (timeoutMs <= 0) throw AgentException(400, "'timeoutMs' must be > 0, got $timeoutMs")
   }
+
+  /**
+   * The shortest signed longitude delta from [from] to [to], across the antimeridian if shorter.
+   */
+  private fun shortLongitudeDelta(from: Double, to: Double) = (to - from + 540.0) % 360.0 - 180.0
 
   private fun CameraPosition.merged(request: CameraUpdateRequest) =
     copy(
@@ -484,7 +508,7 @@ internal class AgentDriver(
             RouteDto(
               "POST",
               "/wait/idle",
-              "wait for a completed style load and a still camera",
+              "wait for style loads to finish and the camera to be still",
               body = "{timeoutMs?}",
             ),
             RouteDto("GET", "/screenshot", "PNG bytes of the app window"),

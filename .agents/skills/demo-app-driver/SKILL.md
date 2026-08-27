@@ -17,11 +17,13 @@ Nucleus, `/screenshot` returns 501. Drive the browser app with Playwright.
 
 ```sh
 mise run demo:desktop    # desktop; window may stay in the background
-mise run demo:android    # then: adb reverse tcp:8765 tcp:8765
+mise run demo:android    # then: adb -s <serial> reverse tcp:8765 tcp:8765
 ```
 
-On Android, `adb reverse` makes the device's port reachable on the host. Wait
-for startup, then confirm:
+On Android, `adb reverse` makes the device's port reachable on the host. When
+several devices are connected, `adb devices` lists their serials and
+`adb -s <serial>` targets the one that `demo:android` launched on. Wait for
+startup, then confirm:
 
 ```sh
 curl -s http://127.0.0.1:8765/health
@@ -51,7 +53,7 @@ curl -s localhost:8765/state                   # demo, camera, fps, style, setti
 
 - `POST /camera/animate` suspends until the animation ends or another camera
   command supersedes it. Await its response before calling `/wait/idle`.
-- `POST /wait/idle` waits for a completed style load and a still camera.
+- `POST /wait/idle` waits for style loads to finish and the camera to be still.
 - `PUT /style` takes a style name from the error message's valid list or the
   demo's `preferredStyle`. A demo that pins its style answers 409; select
   another demo first.

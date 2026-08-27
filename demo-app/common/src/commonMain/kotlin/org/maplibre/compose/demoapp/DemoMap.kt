@@ -12,6 +12,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
@@ -67,8 +68,15 @@ internal suspend fun CameraState.flyTo(destination: DemoDestination) {
 fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scope = rememberCoroutineScope()
   val appliedStyle = state.appliedStyle
-  SideEffect { state.appliedStyleSnapshot = appliedStyle }
   val appliedBase = appliedStyle.base
+  SideEffect { state.appliedStyleSnapshot = appliedStyle }
+  // Composing the map with a base means its load is in flight until noteStyleLoad clears it.
+  DisposableEffect(appliedBase) {
+    state.pendingStyleLoad = appliedBase
+    onDispose {
+      if (state.pendingStyleLoad == appliedBase) state.pendingStyleLoad = null
+    }
+  }
   val selectedDemo = state.selectedDemo
   val pointerPin = selectedDemo?.pointerPin
   val placementPadding =

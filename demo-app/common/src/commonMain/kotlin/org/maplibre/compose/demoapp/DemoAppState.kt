@@ -79,8 +79,15 @@ class DemoAppState(
   internal var lastStyleLoad by mutableStateOf(StyleLoad(count = 0, base = null))
     private set
 
+  /**
+   * The base style the map has applied but not yet finished or failed loading, if any. Set by the
+   * map composition and cleared by [noteStyleLoad].
+   */
+  internal var pendingStyleLoad by mutableStateOf<BaseStyle?>(null)
+
   internal fun noteStyleLoad(base: BaseStyle) {
     lastStyleLoad = StyleLoad(lastStyleLoad.count + 1, base)
+    if (pendingStyleLoad == base) pendingStyleLoad = null
   }
 
   /**
