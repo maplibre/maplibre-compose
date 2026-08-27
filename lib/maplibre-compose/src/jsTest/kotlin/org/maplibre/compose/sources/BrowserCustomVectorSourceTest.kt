@@ -6,8 +6,7 @@ import kotlin.test.assertNotEquals
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonPrimitive
+import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.MapTestResult
@@ -37,7 +36,7 @@ class BrowserCustomVectorSourceTest {
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
       fun isSourceLoaded(): Boolean =
-        source.binding?.withMap { map -> map.isSourceLoaded(source.id) } == true
+        source.glJsBinding?.withMap { map -> map.isSourceLoaded(source.id) } == true
 
       assertFalse(isSourceLoaded())
       release.complete(Unit)
@@ -58,11 +57,18 @@ class BrowserCustomVectorSourceTest {
       style.addSource(first)
       style.addSource(second)
 
-      val firstUrl = first.toJson()["tiles"]?.jsonArray?.single()?.jsonPrimitive?.content
-      val secondUrl = second.toJson()["tiles"]?.jsonArray?.single()?.jsonPrimitive?.content
+      val firstUrl = assertNotNull(first.liveTileUrlTemplate())
+      val secondUrl = assertNotNull(second.liveTileUrlTemplate())
       assertNotEquals(firstUrl, secondUrl)
     }
   }
+
+  /** The tile URL template MapLibre GL JS holds for this live source. */
+  private fun CustomVectorSource.liveTileUrlTemplate(): String? =
+    glJsBinding
+      ?.withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.serialize()?.tiles }
+      ?.unsafeCast<Array<String>>()
+      ?.single()
 
   @Test
   fun provider_failure_rejects_the_protocol_request(): MapTestResult = runMapTest {
@@ -81,11 +87,11 @@ class BrowserCustomVectorSourceTest {
       style.addLayer(layer)
 
       fixture.pumpUntil("the rejected protocol request to reach MapLibre GL JS") {
-        requested && source.binding?.lastReportedError != null
+        requested && source.glJsBinding?.lastReportedError != null
       }
 
       assertTrue(requested)
-      assertNotNull(source.binding?.lastReportedError)
+      assertNotNull(source.glJsBinding?.lastReportedError)
     }
   }
 }

@@ -132,6 +132,7 @@ class MlnFfiTileRequestCoordinatorTest {
 
   private class DroppingBinding : MlnFfiStyleBinding {
     override val featureStateStore: MlnFfiFeatureStateStore? = null
+    override val tileCoordinators: MlnFfiTileCoordinatorStore? = null
     override val isLoaded = true
     override val logger: Logger? = null
 

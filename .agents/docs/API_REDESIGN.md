@@ -9,11 +9,11 @@ them.
 
 ## Why this is the moment
 
-Desktop already talks to MapLibre Native through
-[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi).
-Android and iOS still wrap the classic Java and Objective-C SDKs. Those three
-native integrations, plus MapLibre GL JS on the web, are why every public type
-that touches the map is an `expect` with a fat `actual`.
+Every non-web platform now talks to MapLibre Native through
+[`maplibre-native-ffi`](https://github.com/maplibre/maplibre-native-ffi), and
+MapLibre GL JS serves the web. The four separate SDK integrations that preceded
+this are why every public type that touches the map was an `expect` with a fat
+`actual`.
 
 The FFI split that matters for the public API is already in the C API:
 
@@ -32,9 +32,11 @@ and it has to stay useful if that backend later goes away.
 
 ### Facades that exist only to hide four SDKs
 
-`Source` and `RenderOptions` are still `expect` types, because the backends
-disagree. `Layer` and `GestureOptions` are ordinary common types: a layer is an
-id plus style JSON, which both MapLibre Native and MapLibre GL JS accept.
+`RenderOptions` and `TileLodOptions` are still `expect` types, because the
+backends genuinely disagree on their fields. `Layer`, `Source`, and
+`GestureOptions` are ordinary common types: a layer or source is an id plus
+style JSON, which both MapLibre Native and MapLibre GL JS accept, and the
+engine-specific parts live on the internal `StyleBinding` contract since step 2.
 
 `conversions.kt` still copies FFI geometry and camera types into Compose and
 spatialk types. Some of those copies earn their keep: spatialk already owns
@@ -73,18 +75,19 @@ interrupts downloads, so the FFI integration caches runtimes for the process
 lifetime instead. That cache is a workaround for a missing application-scoped
 owner.
 
-### Style wiring that each platform rediscovers
+### Style wiring that leans on Compose effect ordering
 
-`rememberStyleComposition` hosts content in a subcomposition. `LayerManager`
-applies layer inserts in `onEndChanges`. `SourceReferenceEffect` runs later, as
-a `DisposableEffect`. A layer therefore names a source that does not exist yet.
-The mobile SDKs tolerate that; the C API rejects it. Desktop attaches the source
-from the layer first and makes `Source.attach` idempotent.
+`rememberStyleComposition` hosts content in a subcomposition that inherits the
+UI recomposer. Sources attach from `DisposableEffect`s; layer inserts apply from
+a generation-keyed `SideEffect`, which Compose runs after remembered observers
+in the same apply pass. That ordering is correct, and nothing states it: it
+holds because of Compose effect-ordering trivia, and `Source.attach` stays
+idempotent as defense.
 
 Switching a style has to mark the outgoing one unloaded before the content
 subcomposition applies inserts, or `LayerManager` validates anchors against the
-wrong style. Android gets that timing from `AndroidView`'s update block. The
-contract is unstated. `SafeStyle` exists to survive the window.
+wrong style. Both map views time the unload with a `SideEffect`. The contract is
+unstated. `SafeStyle` exists to survive the window.
 
 ### Snapshots need a style without a surface
 
@@ -288,6 +291,24 @@ content runs. `SafeStyle` and the unstated adapter contract go away.
 `StyleBinding` stays internal. It is the hop to the platform map, plus the
 unloaded state. It is not a public type.
 
+A prototype (2026-08) verified the detached style composition and settled four
+mechanics:
+
+- The host owns a `Recomposer`, a `BroadcastFrameClock` pumped on demand, and a
+  `Snapshot.registerGlobalWriteObserver` stand-in for the UI's global snapshot
+  manager, all on a dedicated single-threaded dispatcher.
+- The content reads `LocalDensity` and `LocalLayoutDirection`, so `MapState`
+  must supply a density and layout direction — it cannot inherit them from a UI
+  tree it may not have.
+- The generation-keyed `SideEffect` goes away: the host calls `applyChanges`
+  after `setContent` and after each frame, which preserves the source-to-layer
+  order explicitly and halves the frame cost of a structural change.
+- The blocking owner-thread hop is acceptable from the host thread.
+  `setStyleContent` marshals the initial composition onto the host dispatcher,
+  and an owner-thread callback never blocks on the composition.
+  [#631](https://github.com/maplibre/maplibre-native-ffi/pull/631) improves
+  this; nothing waits on it.
+
 ### Expressions
 
 No redesign. The DSL compiles to style JSON; both backends set properties from
@@ -382,12 +403,12 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
 
 ## Sequence
 
-1. Land FFI on Android and iOS
+1. ~~Land FFI on Android and iOS
    ([#572](https://github.com/maplibre/maplibre-compose/issues/572)). No public
-   API change. Desktop remains the proof.
-2. Make the JSON-shaped layer and source descriptors the only implementation.
-   Layer descriptors now live in `commonMain`. Source descriptors still have a
-   GL JS actual and a `maplibreNativeMain` actual.
+   API change. Desktop remains the proof.~~ Done in v0.14.
+2. ~~Make the JSON-shaped layer and source descriptors the only
+   implementation.~~ Done: layer and source descriptors are common classes over
+   the internal `StyleBinding` contract.
 3. Split `MapState` from the composable internally: the session attaches and
    detaches; the state survives recomposition. Still no public change.
 4. Publish `Runtime`, `MapState`, `rememberMapState`, and `MaplibreMap(state)`.

@@ -79,69 +79,22 @@ internal class MlnFfiFeatureStateStore {
   }
 }
 
-internal fun MlnFfiStyleBinding.setFeatureState(
-  sourceId: String,
-  featureId: String,
-  state: JsonObject,
-  sourceLayerId: String? = null,
-) {
-  val store = liveFeatureStateStore() ?: return
-  store.set(sourceId, sourceLayerId, featureId, state)
-  mutateLiveFeatureState { session ->
-    session.setFeatureState(
-      featureStateSelector(sourceId, sourceLayerId, featureId),
-      state.toJsonBytes(),
-    )
-  }
-}
-
-internal fun MlnFfiStyleBinding.getFeatureState(
-  sourceId: String,
-  featureId: String,
-  sourceLayerId: String? = null,
-): JsonObject =
-  liveFeatureStateStore()?.get(sourceId, sourceLayerId, featureId) ?: JsonObject(emptyMap())
-
-internal fun MlnFfiStyleBinding.removeFeatureState(
-  sourceId: String,
-  featureId: String,
-  stateKey: String? = null,
-  sourceLayerId: String? = null,
-) {
-  val store = liveFeatureStateStore() ?: return
-  store.remove(sourceId, sourceLayerId, featureId, stateKey)
-  mutateLiveFeatureState { session ->
-    session.removeFeatureState(featureStateSelector(sourceId, sourceLayerId, featureId, stateKey))
-  }
-}
-
-internal fun MlnFfiStyleBinding.resetFeatureStates(
-  sourceId: String,
-  sourceLayerId: String? = null,
-) {
-  val store = liveFeatureStateStore() ?: return
-  store.reset(sourceId, sourceLayerId)
-  mutateLiveFeatureState { session ->
-    session.removeFeatureState(featureStateSelector(sourceId, sourceLayerId))
-  }
-}
-
 internal fun MlnFfiStyleBinding.forgetFeatureStates(sourceId: String) {
   featureStateStore?.forgetSource(sourceId)
 }
 
-private fun MlnFfiStyleBinding.liveFeatureStateStore(): MlnFfiFeatureStateStore? =
+internal fun MlnFfiStyleBinding.liveFeatureStateStore(): MlnFfiFeatureStateStore? =
   featureStateStore?.takeIf {
     isLoaded
   }
 
 /** The retained copy is already updated; apply it to the renderer when one is ready. */
-private fun MlnFfiStyleBinding.mutateLiveFeatureState(action: (RenderSessionHandle) -> Unit) {
+internal fun MlnFfiStyleBinding.mutateLiveFeatureState(action: (RenderSessionHandle) -> Unit) {
   withRenderSession(action) ?: return
   mutateMap {}
 }
 
-private fun featureStateSelector(
+internal fun featureStateSelector(
   sourceId: String,
   sourceLayerId: String? = null,
   featureId: String? = null,

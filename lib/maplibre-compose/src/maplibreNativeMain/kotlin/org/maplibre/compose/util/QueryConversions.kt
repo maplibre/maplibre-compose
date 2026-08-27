@@ -9,6 +9,7 @@ import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.nativeffi.query.QueriedFeature
 import org.maplibre.nativeffi.query.RenderedFeatureQueryOptions
 import org.maplibre.spatialk.geojson.Feature
@@ -62,9 +63,6 @@ internal fun Feature<*, JsonObject?>.toFfiClusterFeature(): ByteArray? {
   }
   return feature.toJsonBytes()
 }
-
-/** The property MapLibre puts a cluster's id in, and the only one a cluster query reads. */
-internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 
 /**
  * Reads a non-negative integer, whatever shape it arrived in: a caller-built feature may carry the

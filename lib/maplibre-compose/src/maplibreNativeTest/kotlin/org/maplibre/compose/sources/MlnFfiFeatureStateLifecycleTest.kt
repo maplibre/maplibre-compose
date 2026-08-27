@@ -192,7 +192,7 @@ class MlnFfiFeatureStateLifecycleTest {
   ): JsonObject {
     val bytes =
       assertNotNull(
-        source.binding.withRenderSession { session ->
+        source.ffiBinding.withRenderSession { session ->
           session.getFeatureState(
             FeatureStateSelector(source.id).apply {
               this.sourceLayerId = sourceLayerId

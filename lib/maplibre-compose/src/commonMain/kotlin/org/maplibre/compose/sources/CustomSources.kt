@@ -10,9 +10,13 @@ import kotlin.math.atan
 import kotlin.math.pow
 import kotlin.math.sinh
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+import kotlinx.serialization.json.putJsonArray
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -77,21 +81,37 @@ public fun interface VectorTileProvider {
  * A source whose tiles contain geographic features that the application supplies.
  *
  * MapLibre clips, simplifies, and encodes the returned features for rendering. This source is not
- * available on the browser platform.
+ * available on the browser platform: adding it to a style there throws
+ * [UnsupportedOperationException].
  */
-public expect class CustomGeometrySource : Source {
+public class CustomGeometrySource(
+  id: String,
+  private val options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
+  private val provider: GeometryTileProvider,
+) : Source(id) {
 
-  public constructor(
-    id: String,
-    options: CustomGeometrySourceOptions = CustomGeometrySourceOptions(),
-    provider: GeometryTileProvider,
-  )
+  override fun addTo(binding: StyleBinding): Boolean =
+    binding.addCustomGeometrySource(id, options, provider)
+
+  override fun toJson(): JsonObject = buildJsonObject {
+    put("type", "custom-geometry")
+    put("minzoom", options.minZoom)
+    put("maxzoom", options.maxZoom)
+    put("buffer", options.buffer)
+    put("tolerance", options.tolerance)
+    put("clip", options.clip)
+    put("wrap", options.wrap)
+  }
 
   /** Requests new features for tiles that intersect [bounds]. */
-  public fun invalidateBounds(bounds: BoundingBox)
+  public fun invalidateBounds(bounds: BoundingBox) {
+    binding.invalidateCustomGeometrySourceBounds(id, bounds)
+  }
 
   /** Requests new features for [tile] when MapLibre needs it. */
-  public fun invalidateTile(tile: TileCoordinate)
+  public fun invalidateTile(tile: TileCoordinate) {
+    binding.invalidateCustomGeometrySourceTile(id, tile)
+  }
 }
 
 /**
@@ -99,13 +119,21 @@ public expect class CustomGeometrySource : Source {
  *
  * Layers that use this source specify a source layer that exists in the returned MVT document.
  */
-public expect class CustomVectorSource : Source {
+public class CustomVectorSource(
+  id: String,
+  private val options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
+  private val provider: VectorTileProvider,
+) : Source(id) {
 
-  public constructor(
-    id: String,
-    options: CustomVectorSourceOptions = CustomVectorSourceOptions(),
-    provider: VectorTileProvider,
-  )
+  override fun addTo(binding: StyleBinding): Boolean =
+    binding.addCustomVectorSource(id, options, provider)
+
+  override fun toJson(): JsonObject = buildJsonObject {
+    put("type", "vector")
+    putJsonArray("tiles") {}
+    put("minzoom", options.minZoom)
+    put("maxzoom", options.maxZoom)
+  }
 
   /**
    * Requests new data for [tile] when MapLibre needs it.
@@ -113,29 +141,39 @@ public expect class CustomVectorSource : Source {
    * @throws UnsupportedOperationException on the browser platform because MapLibre GL JS exposes no
    *   public per-tile invalidation operation.
    */
-  public fun invalidateTile(tile: TileCoordinate)
+  public fun invalidateTile(tile: TileCoordinate) {
+    binding.invalidateCustomVectorSourceTile(id, tile)
+  }
 
   /** Returns features from the given source layers that match [predicate]. */
   public fun querySourceFeatures(
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue> = const(true),
-  ): List<Feature<Geometry, JsonObject?>>
+  ): List<Feature<Geometry, JsonObject?>> =
+    binding.querySourceFeatures(id, sourceLayerIds, predicate.toFilterJson())
 
   /** Merges [state] into the runtime state of the identified feature. */
-  public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject)
+  public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
+    binding.setFeatureState(id, sourceLayerId, featureId, state)
+  }
 
   /** Returns the runtime state of the identified feature. */
-  public fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject
+  public fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
+    binding.featureState(id, sourceLayerId, featureId)
 
   /** Removes [stateKey], or every state key when [stateKey] is null. */
   public fun removeFeatureState(
     sourceLayerId: String,
     featureId: String,
     stateKey: String? = null,
-  )
+  ) {
+    binding.removeFeatureState(id, sourceLayerId, featureId, stateKey)
+  }
 
   /** Removes runtime state from every feature in [sourceLayerId]. */
-  public fun resetFeatureStates(sourceLayerId: String)
+  public fun resetFeatureStates(sourceLayerId: String) {
+    binding.resetFeatureStates(id, sourceLayerId)
+  }
 }
 
 /**

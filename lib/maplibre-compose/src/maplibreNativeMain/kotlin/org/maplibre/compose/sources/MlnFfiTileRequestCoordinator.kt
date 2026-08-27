@@ -119,6 +119,29 @@ internal class MlnFfiTileRequestCoordinator<T>(
     }
 }
 
+/** The live tile coordinators serving one loaded style's custom sources, keyed by source id. */
+internal class MlnFfiTileCoordinatorStore {
+  private class Entry(val coordinator: MlnFfiTileRequestCoordinator<*>, val unregister: () -> Unit)
+
+  private val lock = MlnFfiLock()
+  private val entries = mutableMapOf<String, Entry>()
+
+  /** Stores [coordinator] for [sourceId], detaching any coordinator the id already held. */
+  fun put(sourceId: String, coordinator: MlnFfiTileRequestCoordinator<*>, unregister: () -> Unit) {
+    lock.withLock { entries.put(sourceId, Entry(coordinator, unregister)) }?.close()
+  }
+
+  /** Detaches and forgets the coordinator of [sourceId], if it holds one. */
+  fun remove(sourceId: String) {
+    lock.withLock { entries.remove(sourceId) }?.close()
+  }
+
+  private fun Entry.close() {
+    unregister()
+    coordinator.detach()
+  }
+}
+
 internal fun CanonicalTileId.toTileCoordinate(): TileCoordinate =
   TileCoordinate(zoomLevel = z, x = x, y = y)
 
