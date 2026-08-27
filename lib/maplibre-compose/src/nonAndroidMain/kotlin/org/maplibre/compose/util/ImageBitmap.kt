@@ -15,13 +15,18 @@ internal actual fun IntArray.toImageBitmap(width: Int, height: Int): ImageBitmap
     info = info,
     pixels =
       this.foldIndexed(ByteArray(width * height * info.bytesPerPixel)) { index, acc, pixel ->
-        acc[index * 4] = (pixel shr 16).toByte() // Red
-        acc[index * 4 + 1] = (pixel shr 8).toByte() // Green
-        acc[index * 4 + 2] = pixel.toByte() // Blue
-        acc[index * 4 + 3] = (pixel shr 24).toByte() // Alpha
+        // The color ints carry straight alpha, so the bytes premultiply to match the alpha type.
+        val a = (pixel ushr 24) and 0xff
+        acc[index * 4] = premultiply((pixel shr 16) and 0xff, a) // Red
+        acc[index * 4 + 1] = premultiply((pixel shr 8) and 0xff, a) // Green
+        acc[index * 4 + 2] = premultiply(pixel and 0xff, a) // Blue
+        acc[index * 4 + 3] = a.toByte() // Alpha
         acc
       },
     rowBytes = info.minRowBytes,
   )
   return bmp.asComposeImageBitmap()
 }
+
+private fun premultiply(channel: Int, alpha: Int): Byte =
+  if (alpha == 255) channel.toByte() else ((channel * alpha + 127) / 255).toByte()

@@ -89,7 +89,8 @@ public fun ScaleBar(
  *
  * @param metersPerDp how many meters are displayed in one device independent pixel (dp), i.e. the
  *   scale. See
- *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]
+ *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget]. A
+ *   value of 0 renders nothing; it stands for a map that has not rendered a viewport yet.
  * @param modifier the [Modifier] to be applied to this layout node
  * @param measures which measures to show on the scale bar. The default follows the system settings,
  *   or otherwise the user's locale.
@@ -113,6 +114,9 @@ public fun ScaleBar(
   textStyle: TextStyle = ScaleBarDefaults.ContentTextStyle,
   alignment: Alignment.Horizontal = Alignment.Start,
 ) {
+  // A scale of 0 stands for a map with no viewport, and it would divide the bar length below.
+  if (metersPerDp == 0.0) return
+
   val textMeasurer = rememberTextMeasurer()
 
   // longest possible text

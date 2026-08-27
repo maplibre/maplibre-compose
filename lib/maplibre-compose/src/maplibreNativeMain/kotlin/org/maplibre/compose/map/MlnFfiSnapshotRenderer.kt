@@ -126,9 +126,10 @@ private suspend fun pumpStillImage(
       }
     } finally {
       runCatching { session.close() }
-      access.markReleased()
     }
   } finally {
+    // The gate opens on every exit path, or a close during the map wait blocks out the handshake.
+    access.markReleased()
     core.detachRenderSession(access)
   }
 }
@@ -177,12 +178,17 @@ private fun premultipliedRgba8ToImageBitmap(
     val row = y * stride
     for (x in 0 until width) {
       val i = row + x * 4
-      val r = bytes[i].toInt() and 0xff
-      val g = bytes[i + 1].toInt() and 0xff
-      val b = bytes[i + 2].toInt() and 0xff
       val a = bytes[i + 3].toInt() and 0xff
+      // toImageBitmap takes straight-alpha color ints, so the premultiplied channels divide out.
+      val r = unpremultiply(bytes[i].toInt() and 0xff, a)
+      val g = unpremultiply(bytes[i + 1].toInt() and 0xff, a)
+      val b = unpremultiply(bytes[i + 2].toInt() and 0xff, a)
       pixels[y * width + x] = (a shl 24) or (r shl 16) or (g shl 8) or b
     }
   }
   return pixels.toImageBitmap(width, height)
 }
+
+private fun unpremultiply(channel: Int, alpha: Int): Int =
+  if (alpha == 0 || alpha == 255) channel
+  else ((channel * 255 + alpha / 2) / alpha).coerceAtMost(255)

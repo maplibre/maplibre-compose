@@ -97,7 +97,10 @@ internal constructor(
   internal val viewportState = mutableStateOf<Viewport?>(null)
   internal val positionState = mutableStateOf(cameraPosition)
 
-  /** The most recent map load failure, surfaced by [snapshot]; cleared when a style loads. */
+  /**
+   * The most recent map load failure, surfaced by [snapshot]; cleared when a style loads or when
+   * [baseStyle] selects a new style.
+   */
   internal val lastLoadFailure = mutableStateOf<String?>(null)
   internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
   internal val isCameraMovingState = mutableStateOf(false)
@@ -271,6 +274,8 @@ internal constructor(
     set(value) {
       if (value == selectedBaseStyle) return
       selectedBaseStyle = value
+      // A new selection makes the previous style's load failure stale.
+      lastLoadFailure.value = null
       (attachedAdapter ?: engine.detachedAdapter)?.setBaseStyle(value)
     }
 

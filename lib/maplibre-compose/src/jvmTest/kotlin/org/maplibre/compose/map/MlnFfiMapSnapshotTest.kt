@@ -60,6 +60,20 @@ class MlnFfiMapSnapshotTest {
     assertColor(Color.Blue, pixels[100, 75], "the content's circle at the camera target")
   }
 
+  /** A premultiplied readback must divide out before packing, or translucent pixels darken. */
+  @Test
+  fun a_translucent_style_reads_back_straight_alpha() {
+    val state = bareState()
+    state.baseStyle = TRANSLUCENT_RED_STYLE
+
+    val image = runBlocking {
+      state.snapshot(width = 20.dp, height = 20.dp, timeout = 60.seconds)
+    }
+
+    val pixels = image.toPixelMap()
+    assertColor(Color.Red.copy(alpha = 0.5f), pixels[10, 10], "the half-opacity background")
+  }
+
   @Test
   fun a_snapshot_on_a_closed_state_throws() {
     val state = bareState()
@@ -95,6 +109,16 @@ class MlnFfiMapSnapshotTest {
         """
         {"version":8,"sources":{},
          "layers":[{"id":"bg","type":"background","paint":{"background-color":"#ff0000"}}]}
+        """
+          .trimIndent()
+      )
+
+    val TRANSLUCENT_RED_STYLE =
+      BaseStyle.Json(
+        """
+        {"version":8,"sources":{},
+         "layers":[{"id":"bg","type":"background",
+                    "paint":{"background-color":"#ff0000","background-opacity":0.5}}]}
         """
           .trimIndent()
       )
