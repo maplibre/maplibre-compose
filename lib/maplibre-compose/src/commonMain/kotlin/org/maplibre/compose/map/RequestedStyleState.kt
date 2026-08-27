@@ -59,6 +59,19 @@ internal class RequestedStyleState {
   /** Applying thread only: the request to push now, or null when it is already applied. */
   fun takeUnapplied(): Requested? = requested?.takeIf { it.style != applied }
 
+  /**
+   * Applying thread only: adopts the generation of a request whose style is already applied, so a
+   * coalesced switch back to the applied style (A to B to A with no apply between) leaves no
+   * generation that no load will ever publish. Returns the adopted generation, or null when there
+   * is nothing to acknowledge.
+   */
+  fun acknowledgeAlreadyApplied(): Long? {
+    val request = requested ?: return null
+    if (request.style != applied || request.generation <= appliedGeneration) return null
+    appliedGeneration = request.generation
+    return request.generation
+  }
+
   /** Applying thread only: records that [request]'s style reached the map. */
   fun markApplied(request: Requested) {
     applied = request.style

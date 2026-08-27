@@ -676,7 +676,28 @@ internal class MlnFfiMapCore(
 
   /** Owner thread only. */
   private fun applyRequestedStyle(map: MapHandle) {
-    val request = styleState.takeUnapplied() ?: return
+    val request =
+      styleState.takeUnapplied()
+        ?: run {
+          // A coalesced switch back to the applied style needs no push, but the request already
+          // unloaded the binding and no load event will come, so a loaded style republishes its
+          // binding here and the acknowledged generation reaches waiters; a pending load carries
+          // both itself.
+          val alreadyLoaded =
+            loadedStyleGeneration > 0L && loadedStyleGeneration >= styleState.appliedGeneration
+          styleState.acknowledgeAlreadyApplied()?.let { generation ->
+            if (alreadyLoaded) {
+              styleBinding?.unload()
+              val binding = SessionStyleBinding().also { styleBinding = it }
+              featureStateReplayPending.store(true)
+              loadedStyleGeneration = generation
+              callbacks.onStyleChanged(this, binding)
+              map.requestRepaint()
+              requestRender()
+            }
+          }
+          return
+        }
     // setStyleJson parses inline, so a malformed style throws as well as queueing
     // MAP_LOADING_FAILED; the queued event is what reports it.
     try {

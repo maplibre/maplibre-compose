@@ -152,8 +152,10 @@ internal class MlnFfiMapRuntimeLoop(
    * first: native refuses to destroy a map that still has one attached.
    */
   override fun close() {
-    stopSignal.open()
+    // The stop flag must be visible before the gate opens, or the owner thread can run one more
+    // task batch and pump after the close began.
     requestStop()
+    stopSignal.open()
     if (isOwnerThread()) return
     if (!awaitStopped(SHUTDOWN_WAIT_MILLIS)) {
       logger?.e { "The MapLibre map runtime thread did not stop within ${SHUTDOWN_WAIT_MILLIS}ms" }
