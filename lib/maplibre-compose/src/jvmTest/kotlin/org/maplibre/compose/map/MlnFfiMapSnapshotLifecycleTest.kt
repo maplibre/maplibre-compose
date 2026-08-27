@@ -12,6 +12,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
@@ -137,6 +138,9 @@ class MlnFfiMapSnapshotLifecycleTest {
             assertFailsWith<IllegalStateException> { image.await() }
           }
           assertTrue(elapsed < 10.seconds, "the snapshot failed only after $elapsed")
+          // The close and the snapshot's core allocation share one lock, so the core the
+          // snapshot created is the core the close destroyed, never an orphan.
+          assertNull(state.engine.core, "close left the snapshot's core published")
         }
       }
     }

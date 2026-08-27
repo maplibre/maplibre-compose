@@ -38,7 +38,10 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   private var coreBackend: MapRenderBackend? = null
   private var closed = false
 
-  /** Guards [activeSession] and [snapshotReserved], because a snapshot runs off the UI thread. */
+  /**
+   * Guards [activeSession], [snapshotReserved], [closed], and the core's allocation and
+   * publication, because a snapshot runs off the UI thread and a close may come from any.
+   */
   private val sessionLock = MlnFfiLock()
 
   /** The live render session; the shared core makes the adapter-level attach guard blind here. */
@@ -69,22 +72,33 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     scaleFactor: Double,
     layoutDirection: LayoutDirection,
     backend: MapRenderBackend,
+  ): MlnFfiMapCore = sessionLock.withLock {
+    check(!snapshotReserved) { SNAPSHOT_SESSION_ERROR }
+    acquireCoreLocked(scaleFactor, layoutDirection, backend)
+  }
+
+  /**
+   * The acquire body, under [sessionLock] so allocation and publication cannot race [close] or a
+   * snapshot's reservation; the snapshot path calls it directly as the reservation holder.
+   */
+  private fun acquireCoreLocked(
+    scaleFactor: Double,
+    layoutDirection: LayoutDirection,
+    backend: MapRenderBackend,
   ): MlnFfiMapCore {
     check(!closed) { "Cannot attach a render session to a closed map state" }
     core?.let { live ->
       if (coreScaleFactor == scaleFactor && coreBackend == backend) return live
-      sessionLock.withLock {
-        // An eviction under a live snapshot would destroy the core the snapshot is rendering.
-        check(!snapshotReserved) { SNAPSHOT_SESSION_ERROR }
-        // A live session must be evicted before its core closes, or it keeps rendering a destroyed
-        // map; the close is idempotent with the session composable's own later dispose.
-        activeSession?.let { session ->
-          session.close()
-          activeSession = null
-        }
-        // The loop's scale factor is fixed per map and a renderer is built for one backend.
-        live.close()
+      // An eviction under a live snapshot would destroy the core the snapshot is rendering.
+      check(!snapshotReserved) { SNAPSHOT_SESSION_ERROR }
+      // A live session must be evicted before its core closes, or it keeps rendering a destroyed
+      // map; the close is idempotent with the session composable's own later dispose.
+      activeSession?.let { session ->
+        session.close()
+        activeSession = null
       }
+      // The loop's scale factor is fixed per map and a renderer is built for one backend.
+      live.close()
     }
     val created =
       MlnFfiMapCore(
@@ -131,14 +145,16 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     state.ensureBaseStyleSelected()
     val target = createSnapshotTarget()
     try {
-      // A live core keeps its loaded style and scale; a detached bare state gets a fresh one.
-      val core =
+      // A live core keeps its loaded style and scale; a detached bare state gets a fresh one,
+      // allocated under the lock as the reservation holder so a close cannot orphan it.
+      val core = sessionLock.withLock {
         core
-          ?: acquireCore(
+          ?: acquireCoreLocked(
             scaleFactor = state.density.density.toDouble(),
             layoutDirection = state.layoutDirection,
             backend = target.backend,
           )
+      }
       // A session attach pushes the selected style; a snapshot has no session, so it pushes it
       // here. The core drops a style it already has.
       core.setBaseStyle(state.baseStyle)
@@ -179,13 +195,19 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   }
 
   actual override fun close() {
-    if (closed) return
-    closed = true
-    // The session closes before the core for the same reason acquireCore evicts before recreating.
-    activeSession?.close()
-    activeSession = null
-    core?.close()
-    core = null
+    // Under the lock so a concurrent acquire either fails the closed check or publishes a core
+    // this close then sees; the lock's critical sections are all brief, so close stays prompt and
+    // a snapshot mid-render fails through the core's own closed state.
+    sessionLock.withLock {
+      if (closed) return@withLock
+      closed = true
+      // The session closes before the core for the same reason acquireCore evicts before
+      // recreating.
+      activeSession?.close()
+      activeSession = null
+      core?.close()
+      core = null
+    }
   }
 }
 
