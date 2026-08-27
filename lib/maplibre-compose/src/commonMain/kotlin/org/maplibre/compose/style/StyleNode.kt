@@ -10,6 +10,12 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.util.FeaturesClickHandler
 
+/** The pristine base style's layer ids and sources, captured before any sync mutates a binding. */
+internal class BaseStyleSnapshot(internal val binding: StyleBinding) {
+  internal val layerIds: Set<String> = binding.getLayers().mapTo(mutableSetOf()) { it.id }
+  internal val sources: Map<String, Source> = binding.getSources().associateBy { it.id }
+}
+
 /** One layer's click handlers, captured on the host thread for the UI thread to read. */
 internal class ClickRoute(
   val layerId: String,
@@ -53,8 +59,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   /** The binding the applied snapshot below belongs to; a mismatch with [binding] resets it. */
   private var syncedBinding: StyleBinding? = null
 
-  private var baseLayersFor: StyleBinding? = null
-  private var baseLayerIds: Set<String> = emptySet()
+  private var baseStyleSnapshot: BaseStyleSnapshot? = null
 
   private val appliedSources = mutableSetOf<Source>()
   private val appliedLayers = LinkedHashMap<Anchor, MutableList<LayerNode<*>>>()
@@ -127,20 +132,17 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
 
   override fun onChildInserted(index: Int, node: MapNode) {
     node as LayerNode<*>
-    require(node.layer.id !in baseLayerIds()) {
+    require(node.layer.id !in baseStyle().layerIds) {
       "Layer ID '${node.layer.id}' already exists in base style"
     }
     logger?.i { "Recorded layer ${node.layer.id} at anchor ${node.anchor}, index $index" }
   }
 
-  /** Valid only while the style holds no user content; [applyChanges] captures it before adding. */
-  private fun baseLayerIds(): Set<String> {
+  /** Captured lazily because [SourceManager.getBaseSource] runs before the first sync. */
+  internal fun baseStyle(): BaseStyleSnapshot {
     val binding = binding
-    if (baseLayersFor !== binding) {
-      baseLayerIds = binding.getLayers().mapTo(mutableSetOf()) { it.id }
-      baseLayersFor = binding
-    }
-    return baseLayerIds
+    baseStyleSnapshot?.let { if (it.binding === binding) return it }
+    return BaseStyleSnapshot(binding).also { baseStyleSnapshot = it }
   }
 
   /**
@@ -156,10 +158,9 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       replacedLayers.clear()
       pendingReplaceRemovals.clear()
       reportedUnresolvableAnchors.clear()
-      // The base snapshots must capture the pristine style before this sync mutates it.
-      baseLayersFor = null
-      baseLayerIds()
-      sourceManager.captureBaseSources()
+      // The base snapshot must capture the pristine style before this sync mutates it.
+      baseStyleSnapshot = null
+      baseStyle()
       imageManager.ensureAttached()
       // Imperative registrations drop on reload; the application reapplies them.
       ensureAppTablesFor(binding)
@@ -380,6 +381,6 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   private fun Anchor.isResolvable(): Boolean {
     val layerId = anchorLayerId() ?: return true
     // Anchors name base-style layers only, per Anchor's contract.
-    return layerId in baseLayerIds()
+    return layerId in baseStyle().layerIds
   }
 }

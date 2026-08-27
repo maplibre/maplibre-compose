@@ -5,7 +5,6 @@ import androidx.compose.runtime.ComposeNode
 import androidx.compose.runtime.Updater
 import androidx.compose.runtime.key
 import org.maplibre.compose.style.LayerNode
-import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.MapNodeApplier
 import org.maplibre.compose.util.FeaturesClickHandler
 import org.maplibre.compose.util.MaplibreComposable
@@ -21,17 +20,16 @@ internal fun <T : Layer> LayerNode(
   recreateKey: Any? = Unit,
 ) {
   val anchor = LocalAnchor.current
-  val node = LocalStyleNode.current
 
   key(factory, anchor, recreateKey) {
     ComposeNode<LayerNode<T>, MapNodeApplier>(
       factory = { LayerNode(layer = factory(), anchor = anchor) },
+      // The descriptor buffers properties and the sync publishes handlers, so recording needs no
+      // loaded style.
       update = {
-        if (node.binding.isLoaded) {
-          update()
-          set(onClick) { this.onClick = it }
-          set(onLongClick) { this.onLongClick = it }
-        }
+        update()
+        set(onClick) { this.onClick = it }
+        set(onLongClick) { this.onLongClick = it }
       },
     )
   }

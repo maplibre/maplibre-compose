@@ -3,12 +3,8 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
@@ -90,48 +86,40 @@ internal fun MlnFfiMapView(
   core.logger = logger
   core.layoutDirection = layoutDirection
 
-  // Captured at session creation: a later composition may pass another state, and the session must
-  // attach and detach the state that owns it.
-  val sessionState = remember(session) { state }
+  MapSessionHost(
+    session = session,
+    state = state,
+    attach = { _, sessionState ->
+      // Attach deferred state before native events can report the map's default state to Compose.
+      sessionState.attachSession(core)
+      core.start()
+    },
+    release = {
+      it.close()
+      engine.releaseSession(it)
+    },
+  ) { focusRequester, continuation ->
+    // MapLibre renders black until a style loads.
+    val revealSurface = core.hasLoadedFirstStyle
 
-  LaunchedEffect(session) {
-    // Attach deferred state before native events can report the map's default state to Compose.
-    sessionState.attachSession(core)
-    core.start()
-  }
+    // Before the first render target attaches, gestures would project through the bootstrap 1x1
+    // viewport and jump the camera.
+    val inputModifier =
+      if (revealSurface) {
+        modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
+      } else {
+        modifier
+      }
 
-  DisposableEffect(session) {
-    onDispose {
-      session.close()
-      engine.releaseSession(session)
-      sessionState.detachSession()
-    }
-  }
-
-  val focusRequester = remember { FocusRequester() }
-  val inputScope = rememberCoroutineScope()
-  val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
-
-  // MapLibre renders black until a style loads.
-  val revealSurface = core.hasLoadedFirstStyle
-
-  // Before the first render target attaches, gestures would project through the bootstrap 1x1
-  // viewport and jump the camera.
-  val inputModifier =
-    if (revealSurface) {
-      modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation)
-    } else {
-      modifier
-    }
-
-  Box {
-    surface(session, inputModifier, logger, revealSurface)
-    if (!revealSurface) {
-      Box(
-        Modifier.matchParentSize()
-          .background(options.renderOptions.foregroundLoadColor)
-          .testTag(MAP_LOAD_PLACEHOLDER_TAG)
-      )
+    Box {
+      surface(session, inputModifier, logger, revealSurface)
+      if (!revealSurface) {
+        Box(
+          Modifier.matchParentSize()
+            .background(options.renderOptions.foregroundLoadColor)
+            .testTag(MAP_LOAD_PLACEHOLDER_TAG)
+        )
+      }
     }
   }
 }

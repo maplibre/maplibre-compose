@@ -1,13 +1,9 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import org.maplibre.compose.gljs.GlJsMapSurface
@@ -35,33 +31,27 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
   session.logger = logger
   session.layoutDirection = layoutDirection
 
-  // Captured at session creation: a later composition may pass another state, and the session must
-  // attach and detach the state that owns it.
-  val sessionState = remember(session) { state }
-
-  // A session the closed engine refused must not attach; the closed state would throw.
-  LaunchedEffect(session) { if (!session.isClosed) sessionState.attachSession(session) }
-
-  DisposableEffect(session) {
-    onDispose {
-      session.close()
-      engine.releaseSession(session)
-      sessionState.detachSession()
+  MapSessionHost(
+    session = session,
+    state = state,
+    attach = { s, sessionState ->
+      // A session the closed engine refused must not attach; the closed state would throw.
+      if (!s.isClosed) sessionState.attachSession(s)
+    },
+    release = {
+      it.close()
+      engine.releaseSession(it)
+    },
+  ) { focusRequester, continuation ->
+    // A new Canvas delays the first frame until the attach path wires the camera to the session.
+    key(session) {
+      GlJsMapSurface(
+        renderer = session,
+        modifier =
+          modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
+        logger = logger,
+        presentFrames = session.hasLoadedFirstStyle,
+      )
     }
-  }
-
-  val focusRequester = remember { FocusRequester() }
-  val inputScope = rememberCoroutineScope()
-  val continuation = remember(session, inputScope) { GestureContinuation(inputScope) }
-
-  // A new Canvas delays the first frame until the attach path wires the camera to the session.
-  key(session) {
-    GlJsMapSurface(
-      renderer = session,
-      modifier =
-        modifier.mapInput(session, options.gestureOptions, density, focusRequester, continuation),
-      logger = logger,
-      presentFrames = session.hasLoadedFirstStyle,
-    )
   }
 }
