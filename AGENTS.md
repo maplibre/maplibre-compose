@@ -162,8 +162,8 @@ rendering interactive maps across Android, iOS, Desktop, and Web platforms.
   - `ios`: An Xcode project that embeds the framework `common` produces
 
   The browser app has no module of its own. Its entry point and page live in
-  `common/src/jsMain`, because a Kotlin/JS module would have to be a second
-  Kotlin Multiplatform module.
+  `common/src/webMain`, which serves both browser targets in the Kotlin
+  Multiplatform source hierarchy.
 - **`buildSrc/`**: Custom Gradle build conventions
 
 ### Key packages
