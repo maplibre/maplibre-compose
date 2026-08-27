@@ -34,8 +34,18 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   /** Set by the host; asks it to run a sync when desired state changes outside a frame. */
   internal var requestSync: () -> Unit = {}
 
-  /** Set by the state; called after each sync so its layer-id snapshot follows the composition. */
-  internal var onLayersSynced: () -> Unit = {}
+  /**
+   * The live style's layer ids in draw order, backing
+   * [StyleLayers.ids][org.maplibre.compose.map.StyleLayers.ids]. Snapshot-backed so a composition
+   * that reads the ids recomposes when they change.
+   */
+  internal var liveLayerIds: List<String> by mutableStateOf(emptyList())
+    private set
+
+  /** Republishes [liveLayerIds] from the live style; the map's callbacks call it off this node. */
+  internal fun refreshLiveLayerIds() {
+    liveLayerIds = binding.layerIds().orEmpty()
+  }
 
   /** The binding the applied snapshot below belongs to; a mismatch with [binding] resets it. */
   private var syncedBinding: StyleBinding? = null
@@ -106,8 +116,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     }
     publishCompositionOwnership()
     if (!binding.isLoaded) {
-      publishClickRoutes()
-      onLayersSynced()
+      publishLiveLayers()
       return
     }
 
@@ -120,8 +129,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     desiredLayers.forEach { desiredByAnchor.getOrPut(it.anchor) { mutableListOf() }.add(it) }
     desiredByAnchor.forEach { (anchor, group) -> syncAnchorGroup(anchor, group) }
 
-    publishClickRoutes()
-    onLayersSynced()
+    publishLiveLayers()
   }
 
   /** Rebuilds the ownership snapshots from the desired state that this sync applies. */
@@ -131,10 +139,15 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     compositionSources = sourceManager.desiredSources.associateBy { it.id }
   }
 
-  /** Rebuilds [clickRoutes] from the live draw order and the composition's handlers. */
-  private fun publishClickRoutes() {
+  /**
+   * Rebuilds [liveLayerIds] and [clickRoutes] from the live draw order and the composition's
+   * handlers. The engine callbacks report only map-driven changes, so this reports composition
+   * ones.
+   */
+  private fun publishLiveLayers() {
     val layerNodes = children.filterIsInstance<LayerNode<*>>().associateBy { it.layer.id }
-    val ids = binding.layerIds().orEmpty()
+    refreshLiveLayerIds()
+    val ids = liveLayerIds
     clickRoutes =
       ids.asReversed().mapNotNull { id ->
         layerNodes[id]?.let { ClickRoute(id, it.onClick, it.onLongClick) }

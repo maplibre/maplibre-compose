@@ -27,10 +27,15 @@ class MapVisibleAreaTest {
       it.session.setCameraPosition(CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(CAMERA) }
 
-      val box = it.session.getVisibleBoundingBox()
+      val viewport = assertNotNull(it.session.getViewport())
+      val box = viewport.visibleBoundingBox
       assertContains(box, CAMERA.target, "the camera target")
       assertTrue(box.northeast.latitude > box.southwest.latitude, "the box should span latitude")
       assertTrue(box.northeast.longitude > box.southwest.longitude, "the box should span longitude")
+      assertTrue(
+        viewport.size.width.value > 0f && viewport.size.height.value > 0f,
+        "the viewport should carry the map's size, was ${viewport.size}",
+      )
     }
   }
 
@@ -42,7 +47,7 @@ class MapVisibleAreaTest {
       it.session.setCameraPosition(CAMERA)
 
       val camera = it.session.getCameraPosition()
-      val box = it.session.getVisibleBoundingBox()
+      val box = it.session.visibleBoundingBox()
       val cameraApplied =
         abs(camera.zoom - CAMERA.zoom) < 0.01 && abs(camera.bearing - CAMERA.bearing) < 0.01
       val latSpan = box.northeast.latitude - box.southwest.latitude
@@ -65,8 +70,9 @@ class MapVisibleAreaTest {
         it.session.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = it.session.getVisibleRegion()
-        val box = it.session.getVisibleBoundingBox()
+        val viewport = assertNotNull(it.session.getViewport())
+        val region = viewport.visibleRegion
+        val box = viewport.visibleBoundingBox
         assertContains(box, region.farLeft, "the far left corner")
         assertContains(box, region.farRight, "the far right corner")
         assertContains(box, region.nearLeft, "the near left corner")
@@ -83,7 +89,7 @@ class MapVisibleAreaTest {
         it.session.setCameraPosition(ROTATED_CAMERA)
         it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
 
-        val region = it.session.getVisibleRegion()
+        val region = assertNotNull(it.session.getViewport()).visibleRegion
         val corners = region.corners()
         assertTrue(
           corners.distinct().size == 4,
@@ -105,7 +111,7 @@ class MapVisibleAreaTest {
       it.session.setCameraPosition(ANTIMERIDIAN_CAMERA)
       it.pumpUntil("the camera to apply") { it.session.hasNativeCamera(ANTIMERIDIAN_CAMERA) }
 
-      val box = it.session.getVisibleBoundingBox()
+      val box = it.session.visibleBoundingBox()
       // A wrapped hull would span nearly the whole world instead of the short interval, which may
       // extend past ±180.
       assertTrue(
@@ -113,23 +119,6 @@ class MapVisibleAreaTest {
         "the box should span the short way around the antimeridian, was $box",
       )
       assertContains(box, Position(ANTIMERIDIAN_CAMERA.target.longitude, 47.0), "the target")
-    }
-  }
-
-  @Test
-  fun the_viewport_matches_the_session(): MapTestResult = runMapTest {
-    createMapFixture().use {
-      it.session.setBaseStyle(BaseStyle.Empty)
-      it.awaitMapReady()
-      it.session.setCameraPosition(ROTATED_CAMERA)
-      it.pumpUntil("the camera to rotate") { it.session.hasNativeCamera(ROTATED_CAMERA) }
-
-      val viewport = assertNotNull(it.session.getViewport())
-      assertNear(it.session.getVisibleBoundingBox(), viewport.visibleBoundingBox)
-      assertTrue(
-        viewport.size.width.value > 0f && viewport.size.height.value > 0f,
-        "the viewport should carry the map's size, was ${viewport.size}",
-      )
     }
   }
 
@@ -148,10 +137,14 @@ class MapVisibleAreaTest {
     fun MapAdapter.hasNativeCamera(camera: CameraPosition): Boolean {
       if (abs(getCameraPosition().zoom - camera.zoom) >= 0.01) return false
       if (abs(getCameraPosition().bearing - camera.bearing) >= 0.01) return false
-      val box = getVisibleBoundingBox()
+      val box = visibleBoundingBox()
       val latSpan = box.northeast.latitude - box.southwest.latitude
       return latSpan > 0.01 && latSpan < 40.0
     }
+
+    /** The bounding box of the viewport the map last adopted, which the fixture always has. */
+    fun MapAdapter.visibleBoundingBox(): BoundingBox =
+      assertNotNull(getViewport()).visibleBoundingBox
 
     fun VisibleRegion.corners() = listOf(farLeft, farRight, nearLeft, nearRight)
 
@@ -164,20 +157,6 @@ class MapVisibleAreaTest {
           position.latitude in
             (box.southwest.latitude - TOLERANCE)..(box.northeast.latitude + TOLERANCE),
         "the bounding box should contain $what: $position was outside $box",
-      )
-    }
-
-    fun assertNear(expected: BoundingBox, actual: BoundingBox) {
-      val corners =
-        listOf(
-          expected.southwest.longitude to actual.southwest.longitude,
-          expected.southwest.latitude to actual.southwest.latitude,
-          expected.northeast.longitude to actual.northeast.longitude,
-          expected.northeast.latitude to actual.northeast.latitude,
-        )
-      assertTrue(
-        corners.all { (e, a) -> abs(e - a) < TOLERANCE },
-        "the queried box should match the session's: $actual was not $expected",
       )
     }
   }

@@ -31,9 +31,9 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
+import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.withLock
-import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
 import org.maplibre.compose.sources.MlnFfiFeatureStateStore
 import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
@@ -128,8 +128,10 @@ internal class MlnFfiMapCore(
   @Volatile internal var logger: Logger?,
   scaleFactor: Double = 1.0,
   @Volatile internal var layoutDirection: LayoutDirection,
-  private val cacheFile: Path,
-  private val resourceProviderFactory: MlnFfiResourceProviderFactory = ::MlnFfiResourceProvider,
+  // Supplied only by the tests that build a core against their own cache and resources.
+  private val cacheFile: Path = MlnFfiApplication.options.cacheFile,
+  private val resourceProviderFactory: MlnFfiResourceProviderFactory =
+    MlnFfiApplication.options.resourceProviderFactory,
 ) : MapAdapter, GestureTarget, AutoCloseable {
 
   private val initialExtent = MapExtent.fromLogical(1, 1, scaleFactor)
@@ -960,9 +962,9 @@ internal class MlnFfiMapCore(
     configureMap { map -> map.bounds = map.bounds.also(update) }
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox = mirroredViewport.boundingBox
+  private fun getVisibleBoundingBox(): BoundingBox = mirroredViewport.boundingBox
 
-  override fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
+  private fun getVisibleRegion(): VisibleRegion = mirroredViewport.visibleRegion
 
   override fun getViewport(): Viewport? {
     // The map bootstraps at a 1x1 extent, so the mirror describes a real viewport only once a
@@ -1015,11 +1017,6 @@ internal class MlnFfiMapCore(
         if (value.isTileParseStatusEnabled) add(DebugOption.PARSE_STATUS)
       }
     }
-  }
-
-  override fun setGestureSettings(value: GestureOptions) {
-    // Gestures are implemented in Compose, so these options are read by the host's input
-    // handling rather than pushed into the map.
   }
 
   override fun setTileLodSettings(value: TileLodOptions) {
@@ -1111,9 +1108,6 @@ internal class MlnFfiMapCore(
     }
     if (!accepted && continuation.isActive) continuation.resume(emptyList())
   }
-
-  override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(mirroredViewport.camera.zoom, latitude)
 
   // endregion
 

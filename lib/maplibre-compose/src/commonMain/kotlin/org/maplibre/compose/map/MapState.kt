@@ -14,14 +14,11 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
-import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.camera.CameraMoveReason
@@ -34,22 +31,21 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.LayerPropertyCompiler
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.ClickRoute
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleCompositionHost
 import org.maplibre.compose.style.StyleError
 import org.maplibre.compose.style.StyleHostDispatcher
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.style.styleHostDispatcher
-import org.maplibre.compose.util.ClickResult
-import org.maplibre.compose.util.FeaturesClickHandler
-import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
+
+/** One instance, so repeated clears write the same value and the host does not recompose. */
+private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
 
 /**
  * The map's identity, held apart from the composable that shows it: the selected [baseStyle], the
@@ -69,9 +65,7 @@ import org.maplibre.spatialk.geojson.Position
 // StyleBinding, and the wiring into the camera records and StyleSources. A session (MapAdapter)
 // attaches through attachSession and detaches through detachSession; the style the session loads
 // arrives through callbacks and re-points the persistent node, which reapplies the whole desired
-// state to the new style. The content follows the style the application has *selected* while the
-// node targets the *loaded* style; during a switch those differ and nothing here reconciles them.
-// The binding dropping writes after unload is what makes that survivable.
+// state to the new style.
 public class MapState
 internal constructor(
   cameraPosition: CameraPosition,
@@ -131,7 +125,7 @@ internal constructor(
       layoutDirection = layoutDirection,
       logger = logger,
       mapState = this,
-      onClosed = hostDispatcher::close,
+      hostDispatcher = hostDispatcher,
     )
 
   internal var logger: Logger? = logger
@@ -159,23 +153,10 @@ internal constructor(
       host.inheritedLocals = value
     }
 
-  // A UI SideEffect writes these hooks and the map's owner and renderer threads read them, so
-  // Volatile supplies the only happens-before edge between the write and those reads.
-  @Volatile internal var onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass }
-  @Volatile internal var onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass }
-  @Volatile internal var onFrame: (framesPerSecond: Double) -> Unit = {}
-  @Volatile internal var onMapLoadFailed: (reason: String?) -> Unit = {}
-  @Volatile internal var onMapLoadFinished: () -> Unit = {}
-
-  /** The scope click queries launch on; null drops clicks, which only a missing UI would cause. */
-  @Volatile internal var clickScope: CoroutineScope? = null
-
-  private val contentState = mutableStateOf<(@Composable @MaplibreComposable () -> Unit)>({})
+  private val contentState = mutableStateOf(EMPTY_STYLE_CONTENT)
 
   init {
     host.inheritedLocals = inheritedLocals
-    // The engine callbacks report only map-driven changes, so the sync reports composition ones.
-    styleNode.onLayersSynced = { layerIdsState.value = styleNode.binding.layerIds().orEmpty() }
   }
 
   private var contentStarted = false
@@ -202,21 +183,17 @@ internal constructor(
 
   /** Replaces the style content; the host recomposes because it reads this state. */
   internal fun updateStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
-    hasStyleContent = true
     // A write with no read, so a UI composition calling this never subscribes to the state.
     contentState.value = content
   }
 
-  /** True after content was set, so clearing a state that never had content stays a no-op. */
-  private var hasStyleContent = false
-
   /**
-   * Composes empty content in place of the previous content; untouched without previous content.
+   * Composes empty content in place of the previous content. Writing the one [EMPTY_STYLE_CONTENT]
+   * instance again is dropped by snapshot equality, so a state that never had content stays
+   * untouched.
    */
   internal fun clearStyleContent() {
-    if (!hasStyleContent) return
-    hasStyleContent = false
-    contentState.value = {}
+    contentState.value = EMPTY_STYLE_CONTENT
   }
 
   /**
@@ -254,15 +231,15 @@ internal constructor(
    */
   public val sources: StyleSources = StyleSources(this)
 
-  /** Backs [StyleLayers.ids]; refreshed by [refreshStyleCollections]. */
-  internal val layerIdsState = mutableStateOf(emptyList<String>())
-
-  private fun refreshStyleCollections() {
-    layerIdsState.value = styleNode.binding.layerIds().orEmpty()
+  internal fun refreshStyleCollections() {
+    styleNode.refreshLiveLayerIds()
     sources.refreshSources()
   }
 
-  /** Refuses an imperative write on a layer id that the style content owns. */
+  /**
+   * Refuses an imperative write on a layer id that the style content owns. The read is off the host
+   * thread, so it takes the snapshot that the last sync published.
+   */
   internal fun checkLayerWritable(id: String) {
     check(id !in styleNode.compositionLayerIds) {
       "Layer '$id' is owned by the style content composition; change it by recomposing the " +
@@ -532,27 +509,12 @@ internal constructor(
     sources.clear()
   }
 
-  /** Applies the composable's per-composition options; attach-independent, safe to repeat. */
-  internal fun applyOptions(
-    map: MapAdapter,
-    cameraPadding: PaddingValues,
-    zoomRange: ClosedRange<Float>,
-    pitchRange: ClosedRange<Float>,
-    boundingBox: BoundingBox?,
-    options: MapOptions,
-  ) {
-    map.setCameraPadding(cameraPadding)
-    map.setMinZoom(zoomRange.start.toDouble())
-    map.setMaxZoom(zoomRange.endInclusive.toDouble())
-    map.setMinPitch(pitchRange.start.toDouble())
-    map.setMaxPitch(pitchRange.endInclusive.toDouble())
-    map.setRenderSettings(options.renderOptions)
-    map.setGestureSettings(options.gestureOptions)
-    map.setTileLodSettings(options.tileLodOptions)
-    map.setCameraBoundingBox(boundingBox)
-  }
-
-  private fun updateBinding(newBinding: StyleBinding?) {
+  /**
+   * Re-points the style node at [newBinding]. The content follows the style the application has
+   * selected while the node targets the loaded style; during a switch those differ and nothing here
+   * reconciles them. The binding dropping writes after unload is what makes that survivable.
+   */
+  internal fun updateBinding(newBinding: StyleBinding?) {
     styleNode.binding = newBinding ?: StyleBinding.UNLOADED
     refreshStyleCollections()
     host.requestApplyChanges()
@@ -573,88 +535,6 @@ internal constructor(
     host.close()
   }
 
-  internal val callbacks: MapAdapter.Callbacks =
-    object : MapAdapter.Callbacks {
-      override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-        if (style != null) lastLoadFailure.value = null
-        updateBinding(style)
-        if (attachedAdapter === map) viewportState.value = map.getViewport()
-      }
-
-      override fun onMapFailLoading(reason: String?) {
-        lastLoadFailure.value = reason ?: "MapLibre failed to load the map"
-        onMapLoadFailed(reason)
-      }
-
-      override fun onMapFinishedLoading(map: MapAdapter) {
-        refreshStyleCollections()
-        onMapLoadFinished()
-      }
-
-      override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-        if (sourceId == null) sources.refreshSources() else sources.refreshSource(sourceId)
-        layerIdsState.value = styleNode.binding.layerIds().orEmpty()
-      }
-
-      override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-        if (attachedAdapter !== map) return
-        moveReasonState.value = reason
-        isCameraMovingState.value = true
-      }
-
-      override fun onCameraMoved(map: MapAdapter) {
-        if (attachedAdapter !== map) return
-        positionState.value = map.getCameraPosition()
-        // A new instance so a composition that reads MapState.viewport redraws when the
-        // transform changes without the camera position changing, which is what a resize does.
-        viewportState.value = map.getViewport()
-      }
-
-      override fun onCameraMoveEnded(map: MapAdapter) {
-        if (attachedAdapter !== map) return
-        isCameraMovingState.value = false
-      }
-
-      /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */
-      private fun routeClick(
-        map: MapAdapter,
-        offset: DpOffset,
-        handlerOf: (ClickRoute) -> FeaturesClickHandler?,
-      ) {
-        // The host publishes the routing snapshot after each sync; reading only the snapshot
-        // keeps this off the mutable node tree the host owns.
-        clickScope?.launch {
-          for (route in styleNode.clickRoutes) {
-            if (handlerOf(route) == null) continue
-            val features =
-              map.queryRenderedFeatures(
-                offset = offset,
-                layerIds = setOf(route.layerId),
-                predicate = null,
-              )
-            // Recomposition may replace or remove the layer while the query is suspended. A
-            // removed layer never receives the click; a replaced one answers with the handler
-            // the latest snapshot has.
-            val currentHandle =
-              styleNode.clickRoutes.firstOrNull { it.layerId == route.layerId }?.let(handlerOf)
-                ?: continue
-            if (features.isNotEmpty() && currentHandle(features).consumed) break
-          }
-        }
-      }
-
-      override fun onClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-        if (onMapClick(latLng, offset).consumed) return
-        routeClick(map, offset) { it.onClick }
-      }
-
-      override fun onLongClick(map: MapAdapter, latLng: Position, offset: DpOffset) {
-        if (onMapLongClick(latLng, offset).consumed) return
-        routeClick(map, offset) { it.onLongClick }
-      }
-
-      override fun onFrame(fps: Double) {
-        this@MapState.onFrame(fps)
-      }
-    }
+  /** The session callbacks and the per-composition hooks they invoke. */
+  internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 }

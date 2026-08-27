@@ -161,8 +161,6 @@ public fun MaplibreMap(
   val locals = currentCompositionLocalContext
   val mapClickScope = rememberCoroutineScope()
 
-  LaunchedEffect(state) { state.startStyleComposition() }
-
   // Written during composition: a session can attach in the same apply pass, before any SideEffect,
   // and the native core captures the logger when it is created.
   state.logger = logger
@@ -172,12 +170,12 @@ public fun MaplibreMap(
     state.density = density
     state.layoutDirection = layoutDirection
     state.inheritedLocals = locals
-    state.onMapClick = onMapClick
-    state.onMapLongClick = onMapLongClick
-    state.onFrame = onFrame
-    state.onMapLoadFailed = onMapLoadFailed
-    state.onMapLoadFinished = onMapLoadFinished
-    state.clickScope = mapClickScope
+    state.callbacks.onMapClick = onMapClick
+    state.callbacks.onMapLongClick = onMapLongClick
+    state.callbacks.onFrame = onFrame
+    state.callbacks.onMapLoadFailed = onMapLoadFailed
+    state.callbacks.onMapLoadFinished = onMapLoadFinished
+    state.callbacks.clickScope = mapClickScope
   }
 
   val overlayHolder = remember(overlay) { MapOverlay(overlay) }
@@ -187,7 +185,7 @@ public fun MaplibreMap(
       modifier = Modifier.fillMaxSize(),
       engine = state.engine,
       update = { map ->
-        state.applyOptions(map, cameraPadding, zoomRange, pitchRange, boundingBox, options)
+        map.applyOptions(cameraPadding, zoomRange, pitchRange, boundingBox, options)
         state.attachSession(map)
       },
       onReset = { state.detachSession() },
@@ -203,4 +201,22 @@ public fun MaplibreMap(
       modifier = Modifier.matchParentSize(),
     )
   }
+}
+
+/** Applies the composable's per-composition options; attach-independent, safe to repeat. */
+private fun MapAdapter.applyOptions(
+  cameraPadding: PaddingValues,
+  zoomRange: ClosedRange<Float>,
+  pitchRange: ClosedRange<Float>,
+  boundingBox: BoundingBox?,
+  options: MapOptions,
+) {
+  setCameraPadding(cameraPadding)
+  setMinZoom(zoomRange.start.toDouble())
+  setMaxZoom(zoomRange.endInclusive.toDouble())
+  setMinPitch(pitchRange.start.toDouble())
+  setMaxPitch(pitchRange.endInclusive.toDouble())
+  setRenderSettings(options.renderOptions)
+  setTileLodSettings(options.tileLodOptions)
+  setCameraBoundingBox(boundingBox)
 }

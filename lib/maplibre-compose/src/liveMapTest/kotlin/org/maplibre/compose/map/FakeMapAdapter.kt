@@ -10,7 +10,6 @@ import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -80,10 +79,6 @@ internal class FakeMapAdapter : MapAdapter {
     calls += "setMaxPitch"
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox = error("unused in these tests")
-
-  override fun getVisibleRegion(): VisibleRegion = error("unused in these tests")
-
   override fun getViewport(): Viewport? {
     calls += "getViewport"
     return null
@@ -91,10 +86,6 @@ internal class FakeMapAdapter : MapAdapter {
 
   override fun setRenderSettings(value: RenderOptions) {
     calls += "setRenderSettings"
-  }
-
-  override fun setGestureSettings(value: GestureOptions) {
-    calls += "setGestureSettings"
   }
 
   override fun setTileLodSettings(value: TileLodOptions) {
@@ -116,6 +107,4 @@ internal class FakeMapAdapter : MapAdapter {
     layerIds: Set<String>?,
     predicate: CompiledExpression<BooleanValue>?,
   ): List<Feature<Geometry, JsonObject?>> = emptyList()
-
-  override fun metersPerDpAtLatitude(latitude: Double): Double = 1.0
 }

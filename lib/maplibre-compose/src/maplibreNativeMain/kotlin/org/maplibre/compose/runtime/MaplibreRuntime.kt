@@ -1,7 +1,7 @@
 package org.maplibre.compose.runtime
 
 import org.maplibre.compose.mlnffi.MlnFfiApplication
-import org.maplibre.compose.mlnffi.ensureMlnFfiDefaultConfigured
+import org.maplibre.compose.mlnffi.ensureMlnFfiConfigured
 import org.maplibre.compose.offline.OfflineManager
 
 /**
@@ -35,7 +35,7 @@ public class MaplibreRuntime private constructor() {
      * [IllegalStateException].
      */
     public fun default(): MaplibreRuntime {
-      ensureMlnFfiDefaultConfigured()
+      ensureMlnFfiConfigured()
       return instance
     }
   }

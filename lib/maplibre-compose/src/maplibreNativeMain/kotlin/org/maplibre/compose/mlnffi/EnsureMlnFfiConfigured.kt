@@ -3,7 +3,14 @@ package org.maplibre.compose.mlnffi
 import androidx.compose.runtime.Composable
 
 /** Applies the platform default configuration when [MlnFfiApplication] has none. */
-@Composable internal expect fun EnsureMlnFfiConfigured()
+internal expect fun ensureMlnFfiConfigured()
 
-/** The non-composable form, for acquisition outside a composition. */
-internal expect fun ensureMlnFfiDefaultConfigured()
+/** Records the platform context that [ensureMlnFfiConfigured] needs; only Android has one. */
+@Composable internal expect fun CaptureMlnFfiPlatformContext()
+
+/** The composable form, for a map that configures MapLibre as it enters the composition. */
+@Composable
+internal fun EnsureMlnFfiConfigured() {
+  CaptureMlnFfiPlatformContext()
+  ensureMlnFfiConfigured()
+}

@@ -76,6 +76,7 @@ import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
+import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
@@ -276,7 +277,9 @@ class LinuxVulkanOpenGlInteropTest {
         callbacks = callbacks,
         logger = null,
         layoutDirection = LayoutDirection.Ltr,
+        // Stated rather than defaulted: this test runs without a configured MlnFfiApplication.
         cacheFile = Path(cacheDirectory.resolve("cache.db").toString()),
+        resourceProviderFactory = ::MlnFfiResourceProvider,
       )
 
     private val renderer = MlnFfiMapSession(core = core, backend = host.backends.producer)

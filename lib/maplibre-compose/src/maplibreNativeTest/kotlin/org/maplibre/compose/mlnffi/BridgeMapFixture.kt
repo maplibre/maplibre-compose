@@ -14,6 +14,7 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapCore
 import org.maplibre.compose.map.MlnFfiMapSession
+import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapFixture
@@ -55,7 +56,9 @@ private constructor(
       logger = Logger.withTag("bridge-map"),
       scaleFactor = initialExtent.scaleFactor,
       layoutDirection = LayoutDirection.Ltr,
+      // Stated rather than defaulted: this fixture runs without a configured MlnFfiApplication.
       cacheFile = cacheFile,
+      resourceProviderFactory = ::MlnFfiResourceProvider,
     )
 
   val session: MlnFfiMapSession = MlnFfiMapSession(core = core, backend = driver.backends.producer)

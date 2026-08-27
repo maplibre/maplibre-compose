@@ -119,12 +119,6 @@ internal sealed class Layer(val id: String) {
   private val unsupportedProperties = mutableMapOf<String, String>()
 
   /**
-   * Records a property [binding] will not accept, and says so once when attached; writing it anyway
-   * would make MapLibre refuse the entire layer. A null value asks for nothing and is not reported.
-   *
-   * @return whether the property is unsupported and must not be written.
-   */
-  /**
    * Drops a value MapLibre will not accept for a property it otherwise supports, and says so once.
    * Properties an engine lacks outright belong in the binding's
    * [unsupportedLayerPropertyReason][StyleBinding.unsupportedLayerPropertyReason] table instead.

@@ -110,15 +110,17 @@ public sealed class Source(internal val id: String) {
 }
 
 /**
- * Get the source with the given [id] from the base style specified via the `baseStyle` parameter in
- * [MaplibreMap][org.maplibre.compose.map.MaplibreMap].
+ * Returns the source with the given [id] from the base style that
+ * [MapState.baseStyle][org.maplibre.compose.map.MapState.baseStyle] selects, or null when the
+ * loaded style has no such source.
  *
- * @throws IllegalStateException if the source does not exist
+ * This form keys on the loaded style binding, so a style swap returns the new base style's source;
+ * [MapState.sources][org.maplibre.compose.map.MapState.sources] reads the same sources outside the
+ * style content.
  */
 @Composable
 public fun getBaseSource(id: String): Source? {
   val node = LocalStyleNode.current
-  // Keyed on the binding so a style swap re-reads the new base style.
   return remember(node, node.binding, id) { node.sourceManager.getBaseSource(id) }
 }
 

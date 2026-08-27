@@ -605,10 +605,10 @@ internal class GlJsMapSession(
     onMap { it.setMaxPitch(maxPitch) }
   }
 
-  override fun getVisibleBoundingBox(): BoundingBox =
+  private fun getVisibleBoundingBox(): BoundingBox =
     withMap(BoundingBox(Position(0.0, 0.0), Position(0.0, 0.0))) { it.getBounds().toBoundingBox() }
 
-  override fun getVisibleRegion(): VisibleRegion =
+  private fun getVisibleRegion(): VisibleRegion =
     withMap(
       VisibleRegion(Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0), Position(0.0, 0.0))
     ) { map ->
@@ -645,10 +645,6 @@ internal class GlJsMapSession(
       map.showPadding = value.isPaddingEnabled
       map.showOverdrawInspector = value.isOverdrawInspectorEnabled
     }
-  }
-
-  override fun setGestureSettings(value: GestureOptions) {
-    // Gestures are implemented in Compose, so the host's input handling reads these.
   }
 
   override fun setTileLodSettings(value: TileLodOptions) {
@@ -712,9 +708,6 @@ internal class GlJsMapSession(
         }
       map.queryRenderedFeatures(geometry, options).map { it.toGeoJsonFeature() }
     }
-
-  override fun metersPerDpAtLatitude(latitude: Double): Double =
-    metersPerDpAtLatitude(getCameraPosition().zoom, latitude)
 
   // endregion
 

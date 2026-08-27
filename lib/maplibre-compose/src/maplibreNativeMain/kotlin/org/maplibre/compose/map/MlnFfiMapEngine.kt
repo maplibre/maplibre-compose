@@ -10,9 +10,8 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.mlnffi.MapRenderBackend
-import org.maplibre.compose.mlnffi.MlnFfiApplication
 import org.maplibre.compose.mlnffi.createSnapshotTarget
-import org.maplibre.compose.mlnffi.ensureMlnFfiDefaultConfigured
+import org.maplibre.compose.mlnffi.ensureMlnFfiConfigured
 import org.maplibre.compose.style.BaseStyle
 
 /** How long [MlnFfiMapEngine.snapshot] parks between style-loaded polls. */
@@ -28,8 +27,6 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
   /** The core keeps its loaded style across detach, so the state must keep its binding too. */
   override val retainsStyleAcrossDetach: Boolean
     get() = true
-
-  private var requestedStyle: BaseStyle? = null
 
   internal var core: MlnFfiMapCore? = null
     private set
@@ -73,25 +70,20 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
       // The loop's scale factor is fixed per map and a renderer is built for one backend.
       live.close()
     }
-    val applicationOptions = MlnFfiApplication.options
     val created =
       MlnFfiMapCore(
         callbacks = state.callbacks,
         logger = state.logger,
         scaleFactor = scaleFactor,
         layoutDirection = layoutDirection,
-        cacheFile = applicationOptions.cacheFile,
-        resourceProviderFactory = applicationOptions.resourceProviderFactory,
       )
     core = created
     coreScaleFactor = scaleFactor
     coreBackend = backend
-    requestedStyle?.let(created::setBaseStyle)
     return created
   }
 
   override fun setBaseStyle(style: BaseStyle) {
-    requestedStyle = style
     core?.setBaseStyle(style)
   }
 
@@ -104,7 +96,7 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
       check(activeSession == null && state.attachedAdapter == null) {
         "MapState has an attached MaplibreMap; detach it before rendering a snapshot"
       }
-      ensureMlnFfiDefaultConfigured()
+      ensureMlnFfiConfigured()
       state.ensureBaseStyleSelected()
       val target = createSnapshotTarget()
       try {
@@ -116,6 +108,9 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
               layoutDirection = state.layoutDirection,
               backend = target.backend,
             )
+        // A session attach pushes the selected style; a snapshot has no session, so it pushes it
+        // here. The core drops a style it already has.
+        core.setBaseStyle(state.baseStyle)
         core.start()
         core.setCameraPosition(state.camera)
         awaitStyleLoaded(core, deadline, timeout)

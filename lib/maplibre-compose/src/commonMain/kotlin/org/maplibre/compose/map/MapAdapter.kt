@@ -12,7 +12,6 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -54,10 +53,6 @@ internal interface MapAdapter {
 
   fun setMaxPitch(maxPitch: Double)
 
-  fun getVisibleBoundingBox(): BoundingBox
-
-  fun getVisibleRegion(): VisibleRegion
-
   /**
    * The viewport the map last adopted, with every property read from the same transform, or null
    * before the map has one. Implementations answer from where the map's size actually lands, so a
@@ -66,8 +61,6 @@ internal interface MapAdapter {
   fun getViewport(): Viewport?
 
   fun setRenderSettings(value: RenderOptions)
-
-  fun setGestureSettings(value: GestureOptions)
 
   fun setTileLodSettings(value: TileLodOptions)
 
@@ -88,8 +81,6 @@ internal interface MapAdapter {
     layerIds: Set<String>? = null,
     predicate: CompiledExpression<BooleanValue>? = null,
   ): List<Feature<Geometry, JsonObject?>>
-
-  fun metersPerDpAtLatitude(latitude: Double): Double
 
   interface Callbacks {
     /** A null [style] means the previous style unloaded and no replacement has loaded yet. */

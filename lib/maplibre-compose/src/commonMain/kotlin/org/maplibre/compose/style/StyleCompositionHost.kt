@@ -53,7 +53,8 @@ internal class StyleCompositionHost(
   var logger: Logger?,
   // Null only in tests that compose a style with no owning map.
   private val mapState: MapState? = null,
-  private val onClosed: () -> Unit = {},
+  // The thread behind [dispatcher], released once the teardown running on it has finished.
+  private val hostDispatcher: StyleHostDispatcher? = null,
 ) : AutoCloseable {
 
   /** The density the content reads through [LocalDensity]; snapshot-backed so writes recompose. */
@@ -190,7 +191,7 @@ internal class StyleCompositionHost(
       } finally {
         recomposer.cancel()
         job.cancel()
-        onClosed()
+        hostDispatcher?.close()
       }
     }
   }
