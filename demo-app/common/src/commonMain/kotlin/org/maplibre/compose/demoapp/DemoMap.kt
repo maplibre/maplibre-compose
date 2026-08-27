@@ -13,6 +13,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -65,7 +66,9 @@ internal suspend fun CameraState.flyTo(destination: DemoDestination) {
 @Composable
 fun DemoMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scope = rememberCoroutineScope()
-  val appliedBase = state.appliedStyle.base
+  val appliedStyle = state.appliedStyle
+  SideEffect { state.appliedStyleSnapshot = appliedStyle }
+  val appliedBase = appliedStyle.base
   val selectedDemo = state.selectedDemo
   val pointerPin = selectedDemo?.pointerPin
   val placementPadding =
@@ -301,9 +304,8 @@ private fun findEllipseIntersection(area: Rect, target: Offset): Offset? {
 
 @Composable
 private fun DiagnosticOverlays(state: DemoAppState, modifier: Modifier = Modifier) {
-  if (state.settings.showFpsOverlay) {
-    LaunchedEffect(state.frameRateState) { state.frameRateState.track() }
-  }
+  // Track frames whether or not the overlay shows; the agent driver reports fps in /state.
+  LaunchedEffect(state.frameRateState) { state.frameRateState.track() }
   Column(
     modifier =
       modifier

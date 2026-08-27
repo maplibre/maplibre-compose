@@ -64,6 +64,13 @@ class DemoAppState(
       }
     }
 
+  /**
+   * The style the map composition most recently applied. Kept as plain state because [appliedStyle]
+   * is composable, so non-composition readers like the agent driver cannot call it. Goes stale
+   * while the Benchmarks shell is showing, where the demo map is not composed.
+   */
+  internal var appliedStyleSnapshot by mutableStateOf<DemoStyle?>(null)
+
   var shell by mutableStateOf(DemoShell.Demos)
   var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
   val benchmark = BenchmarkUiState()
