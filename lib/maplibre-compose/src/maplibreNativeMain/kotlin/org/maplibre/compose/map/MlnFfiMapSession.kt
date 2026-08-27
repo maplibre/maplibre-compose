@@ -73,7 +73,6 @@ import org.maplibre.compose.util.toLatLngBounds
 import org.maplibre.compose.util.toPosition
 import org.maplibre.compose.util.toScreenPoint
 import org.maplibre.nativeffi.camera.AnimationOptions
-import org.maplibre.nativeffi.camera.BoundOptions
 import org.maplibre.nativeffi.camera.BoundsConstraint
 import org.maplibre.nativeffi.camera.CameraFitOptions
 import org.maplibre.nativeffi.camera.CameraOptions
@@ -331,6 +330,7 @@ internal class MlnFfiMapSession(
   }
 
   @Volatile private var maximumFps: Int? = null
+  private var cameraConstraints: CameraConstraints? = null
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
 
@@ -1233,25 +1233,23 @@ internal class MlnFfiMapSession(
     waiters.forEach { waiter -> runCatching { waiter.resume(Unit) } }
   }
 
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) = setBounds {
-    // Unbounded is not world bounds: world bounds clamp longitude to ±180 and stop the map
-    // panning across the antimeridian.
-    it.bounds =
-      boundingBox?.let { box -> BoundsConstraint.Bounded(box.toLatLngBounds()) }
-        ?: BoundsConstraint.Unbounded
-  }
-
-  override fun setMaxZoom(maxZoom: Double) = setBounds { it.maxZoom = maxZoom }
-
-  override fun setMinZoom(minZoom: Double) = setBounds { it.minZoom = minZoom }
-
-  override fun setMinPitch(minPitch: Double) = setBounds { it.minPitch = minPitch }
-
-  override fun setMaxPitch(maxPitch: Double) = setBounds { it.maxPitch = maxPitch }
-
-  /** `BoundOptions` is a field mask, so only the field [update] touches changes. */
-  private fun setBounds(update: (BoundOptions) -> Unit) {
-    configureMap { map -> map.bounds = map.bounds.also(update) }
+  override fun setCameraConstraints(value: CameraConstraints) {
+    if (value == cameraConstraints) return
+    cameraConstraints = value
+    configureMap { map ->
+      map.bounds =
+        map.bounds.copy {
+          // Unbounded is not world bounds: world bounds clamp longitude to ±180 and stop the map
+          // panning across the antimeridian.
+          bounds =
+            value.boundingBox?.let { box -> BoundsConstraint.Bounded(box.toLatLngBounds()) }
+              ?: BoundsConstraint.Unbounded
+          minZoom = value.minZoom
+          maxZoom = value.maxZoom
+          minPitch = value.minPitch
+          maxPitch = value.maxPitch
+        }
+    }
   }
 
   override fun getVisibleBoundingBox(): BoundingBox = mirroredViewport.boundingBox

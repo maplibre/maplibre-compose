@@ -131,6 +131,7 @@ internal class GlJsMapSession(
   private var lentContext: WebGL2RenderingContext? = null
 
   private var maximumFps: Int? = null
+  private var cameraConstraints: CameraConstraints? = null
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
   private var lastRenderTime = TimeSource.Monotonic.markNow()
   private var lastFrameTime = TimeSource.Monotonic.markNow()
@@ -270,6 +271,7 @@ internal class GlJsMapSession(
     hasLoadedInitialStyle = false
     appliedExtent = MapExtent.Empty
     applyRequestedStyle(created)
+    cameraConstraints?.let { applyCameraConstraints(created, it) }
     runPending(pendingMapActions, created)
     return created
   }
@@ -579,24 +581,30 @@ internal class GlJsMapSession(
     this.padding = padding.toPaddingOptions(layoutDirection)
   }
 
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
-    onMap { map -> map.setMaxBounds(boundingBox?.toLngLatBounds()) }
+  override fun setCameraConstraints(value: CameraConstraints) {
+    if (value == cameraConstraints) return
+    cameraConstraints = value
+    map?.let { applyCameraConstraints(it, value) }
   }
 
-  override fun setMaxZoom(maxZoom: Double) {
-    onMap { it.setMaxZoom(maxZoom) }
-  }
+  private fun applyCameraConstraints(map: MaplibreMap, value: CameraConstraints) {
+    if (map.getMaxBounds()?.toBoundingBox() != value.boundingBox) {
+      map.setMaxBounds(value.boundingBox?.toLngLatBounds())
+    }
 
-  override fun setMinZoom(minZoom: Double) {
-    onMap { it.setMinZoom(minZoom) }
-  }
+    val minZoom = map.getMinZoom()
+    val maxZoom = map.getMaxZoom()
+    if (value.minZoom < minZoom) map.setMinZoom(value.minZoom)
+    if (value.maxZoom > maxZoom) map.setMaxZoom(value.maxZoom)
+    if (value.minZoom > minZoom) map.setMinZoom(value.minZoom)
+    if (value.maxZoom < maxZoom) map.setMaxZoom(value.maxZoom)
 
-  override fun setMinPitch(minPitch: Double) {
-    onMap { it.setMinPitch(minPitch) }
-  }
-
-  override fun setMaxPitch(maxPitch: Double) {
-    onMap { it.setMaxPitch(maxPitch) }
+    val minPitch = map.getMinPitch()
+    val maxPitch = map.getMaxPitch()
+    if (value.minPitch < minPitch) map.setMinPitch(value.minPitch)
+    if (value.maxPitch > maxPitch) map.setMaxPitch(value.maxPitch)
+    if (value.minPitch > minPitch) map.setMinPitch(value.minPitch)
+    if (value.maxPitch < maxPitch) map.setMaxPitch(value.maxPitch)
   }
 
   override fun getVisibleBoundingBox(): BoundingBox =
