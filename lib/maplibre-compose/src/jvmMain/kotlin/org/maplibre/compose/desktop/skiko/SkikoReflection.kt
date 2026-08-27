@@ -20,15 +20,13 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 internal object SkikoReflection {
   const val SKIA_LAYER_CLASS = "org.jetbrains.skiko.SkiaLayer"
   const val COMPOSE_WINDOW_CLASS = "androidx.compose.ui.awt.ComposeWindow"
+  const val ON_SCREEN_REDRAWER_CLASS = "org.jetbrains.skiko.redrawer.OnScreenRedrawer"
   const val METAL_REDRAWER_CLASS = "org.jetbrains.skiko.redrawer.MetalRedrawer"
   const val DIRECT3D_REDRAWER_CLASS = "org.jetbrains.skiko.redrawer.Direct3DRedrawer"
   const val LINUX_OPENGL_REDRAWER_CLASS = "org.jetbrains.skiko.redrawer.LinuxOpenGLRedrawer"
   const val LINUX_OPENGL_REDRAWER_HELPERS_CLASS =
     "org.jetbrains.skiko.redrawer.LinuxOpenGLRedrawerKt"
   const val AWT_LINUX_DRAWING_SURFACE_HELPERS_CLASS = "org.jetbrains.skiko.AWTLinuxDrawingSurfaceKt"
-  const val DIRECT3D_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.Direct3DContextHandler"
-  const val METAL_CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.MetalContextHandler"
-  const val CONTEXT_HANDLER_CLASS = "org.jetbrains.skiko.context.ContextHandler"
 
   /**
    * Skiko's Objective-C wrapper around the Metal device, and the selector on it that answers with
@@ -52,9 +50,17 @@ internal object SkikoReflection {
   }
 
   fun requireRedrawer(layer: Any, expectedClass: String): Any {
-    val redrawer =
+    val onScreenRedrawer =
       layer.invokeNoArg("getRedrawer\$skiko")
         ?: throw MlnFfiHostException("$SKIA_LAYER_CLASS.getRedrawer\$skiko returned null")
+    if (!Class.forName(ON_SCREEN_REDRAWER_CLASS).isInstance(onScreenRedrawer)) {
+      throw MlnFfiHostException(
+        "Skiko redrawer was ${onScreenRedrawer.javaClass.name}, expected $ON_SCREEN_REDRAWER_CLASS"
+      )
+    }
+    val redrawer =
+      onScreenRedrawer.getField("renderer")
+        ?: throw MlnFfiHostException("$ON_SCREEN_REDRAWER_CLASS.renderer was null")
     if (!Class.forName(expectedClass).isAssignableFrom(redrawer.javaClass)) {
       throw MlnFfiHostException(
         "Skiko redrawer was ${redrawer.javaClass.name}, expected $expectedClass. " +
@@ -63,10 +69,6 @@ internal object SkikoReflection {
     }
     return redrawer
   }
-
-  fun requireContextHandler(redrawer: Any, redrawerClass: String): Any =
-    redrawer.getField("contextHandler")
-      ?: throw MlnFfiHostException("$redrawerClass.contextHandler was null")
 
   /** The monitor Skiko holds while Metal or Direct3D replays and submits a frame. */
   fun requireRenderLock(layer: Any, redrawerClass: String): Any =
@@ -83,9 +85,6 @@ internal object SkikoReflection {
     return SkikoDirect3DDevice(ptr)
   }
 
-  fun requireMetalContextHandler(layer: Any): Any =
-    requireContextHandler(requireRedrawer(layer, METAL_REDRAWER_CLASS), METAL_REDRAWER_CLASS)
-
   /**
    * The Metal device Compose renders with on macOS; MapLibre must allocate its texture on the same
    * device Skia samples from. Skiko's `MetalDevice` value class inlines to a `long`, but the boxed
@@ -94,8 +93,8 @@ internal object SkikoReflection {
    * Null before Skiko has created it, which the caller reports as a context that does not exist yet
    * rather than as a failure.
    */
-  fun findMetalDevice(contextHandler: Any): SkikoMetalDevice? {
-    val device = contextHandler.getField("device") ?: return null
+  fun findMetalDevice(redrawer: Any): SkikoMetalDevice? {
+    val device = redrawer.getField("_device") ?: return null
     val ptr =
       when (device) {
         is Long -> device
@@ -206,8 +205,9 @@ internal data class SkikoDirect3DDevice(val ptr: Long)
  *
  * Offsets were read off Skiko's `skiko/src/awtMain/cpp/windows/directXRedrawer.cc` and Skia's
  * `include/gpu/ganesh/d3d/GrD3DBackendContext.h` at [VERIFIED_SKIKO_VERSION]: `DirectXDevice` is
- * non-virtual, `HWND hWnd` at 0, `GrD3DBackendContext` at 8 (`fAdapter`, `fDevice`, `fQueue`,
- * `fMemoryAllocator`, `fProtectedContext`, one pointer each), `device` at 48.
+ * non-virtual, `HWND hWnd` at 0, and `GrD3DBackendContext` at 8. The context contains four
+ * pointer-sized holders followed by the one-byte `GrProtected` enum and tail padding, so its
+ * `fDevice` is at 16 in `DirectXDevice` and the following `device` field is at 48.
  *
  * Skiko assigns both copies of the device from the same local, so reading both and requiring
  * agreement detects a layout change. The first read also compares the classpath Skiko version to
@@ -216,7 +216,7 @@ internal data class SkikoDirect3DDevice(val ptr: Long)
  */
 internal object SkikoDirect3DDeviceLayout {
   /** The Skiko version whose sources these offsets were read from. */
-  const val VERIFIED_SKIKO_VERSION: String = "0.150.1"
+  const val VERIFIED_SKIKO_VERSION: String = "0.152.0-alpha02"
 
   /** `DirectXDevice::backendContext::fDevice`. */
   const val BACKEND_CONTEXT_DEVICE_OFFSET: Long = 16L
