@@ -62,6 +62,11 @@ fun DemoPanel(
   val appliedStyle = state.appliedStyle
   var flightJob by remember { mutableStateOf<Job?>(null) }
   val route = navController.currentBackStackEntryAsState().value?.destination?.route
+  // The agent driver selects demos without touching this NavController; a bump of the generation
+  // asks the panel to show the selected demo's controls.
+  LaunchedEffect(state.panelNavGeneration) {
+    if (state.panelNavGeneration > 0 && route != "demo") navController.navigate("demo")
+  }
   // selectedDemo drives the map overlay. Keep it aligned with this destination so
   // system and predictive back clear the overlay too.
   LaunchedEffect(route) {

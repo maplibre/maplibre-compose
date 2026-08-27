@@ -72,6 +72,12 @@ class DemoAppState(
   internal var appliedStyleSnapshot by mutableStateOf<DemoStyle?>(null)
 
   var shell by mutableStateOf(DemoShell.Demos)
+
+  /**
+   * Bumped by the agent driver when it selects a demo, so the demo panel navigates from the list to
+   * the demo's controls. The panel owns its NavController; this is the driver's only hook.
+   */
+  internal var panelNavGeneration by mutableStateOf(0)
   var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
   val benchmark = BenchmarkUiState()
 

@@ -5,6 +5,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.DpOffset
 import kotlin.math.log2
+import kotlin.math.pow
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.TimeoutCancellationException
@@ -172,15 +173,27 @@ internal class AgentDriver(
           400,
           "unknown demo '${request.name}'. Valid demos: ${allDemos.joinToString { it.name }}",
         )
+    val wasBenchmarks = state.shell == DemoShell.Benchmarks
     val preferred = demo.preferredStyle
     val newBase = preferred?.base?.takeIf { it != state.appliedStyleSnapshot?.base }
     val styleLoadsSeen = state.lastStyleLoad.count
     markDemoMapReload()
     state.selectedDemo = demo
+    state.panelNavGeneration++
+    // The demo map reloads from scratch when leaving the Benchmarks shell, so await its base even
+    // when this demo has no preferred style of its own.
+    val baseToAwait =
+      if (preferred != null && newBase != null) preferred.base
+      else if (wasBenchmarks) preferred?.base ?: state.appliedStyleSnapshot?.base else null
     val styleTimedOut =
-      if (preferred != null && newBase != null) {
+      if (baseToAwait != null) {
         try {
-          awaitStyleLoad(styleLoadsSeen, newBase, preferred.displayName, request.timeoutMs)
+          awaitStyleLoad(
+            styleLoadsSeen,
+            baseToAwait,
+            preferred?.displayName ?: "the applied style",
+            request.timeoutMs,
+          )
           false
         } catch (e: AgentException) {
           true
@@ -365,9 +378,11 @@ internal class AgentDriver(
       } else {
         null
       }
+    val newZoom = (current.zoom + log2(request.factor)).coerceIn(0.0, 25.5)
+    // Base the anchor shift on the zoom that survives clamping, not the requested factor.
+    val fraction = 1.0 - 2.0.pow(current.zoom - newZoom)
     val target =
       anchor?.let {
-        val fraction = 1.0 - 1.0 / request.factor
         // The projection wraps longitude to ±180; take the short way across the antimeridian.
         val deltaLng = shortLongitudeDelta(from = current.target.longitude, to = it.longitude)
         Position(
@@ -375,11 +390,7 @@ internal class AgentDriver(
           latitude = current.target.latitude + (it.latitude - current.target.latitude) * fraction,
         )
       } ?: current.target
-    state.cameraState.position =
-      current.copy(
-        target = target,
-        zoom = (current.zoom + log2(request.factor)).coerceIn(0.0, 25.5),
-      )
+    state.cameraState.position = current.copy(target = target, zoom = newZoom)
     return camera()
   }
 
@@ -406,7 +417,7 @@ internal class AgentDriver(
     longitude?.let { requireInRange("longitude", it, -180.0..180.0) }
     zoom?.let { requireInRange("zoom", it, 0.0..25.5) }
     bearing?.let { requireFinite("bearing", it) }
-    tilt?.let { requireFinite("tilt", it) }
+    tilt?.let { requireInRange("tilt", it, 0.0..60.0) }
   }
 
   private fun requireInRange(name: String, value: Double, range: ClosedFloatingPointRange<Double>) {
@@ -538,6 +549,8 @@ internal class AgentDriver(
               "command; await the animate response before calling /wait/idle.",
             "A 408 from /demos/select still applies the demo and flies the camera; only the " +
               "style wait timed out.",
+            "Camera reads report the Demos-shell camera while the Benchmarks shell is showing; " +
+              "camera, style, and demo mutations switch back to the Demos shell first.",
           ),
       )
   }

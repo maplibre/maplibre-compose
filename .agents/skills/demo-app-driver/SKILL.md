@@ -17,10 +17,10 @@ Nucleus, `/screenshot` returns 501. Drive the browser app with Playwright.
 
 ```sh
 mise run demo:desktop    # desktop; window may stay in the background
-mise run demo:android    # then: adb -s <serial> reverse tcp:8765 tcp:8765
+mise run demo:android    # then: adb -s <serial> forward tcp:8765 tcp:8765
 ```
 
-On Android, `adb reverse` makes the device's port reachable on the host. When
+On Android, `adb forward` makes the device's port reachable on the host. When
 several devices are connected, `adb devices` lists their serials and
 `adb -s <serial>` targets the one that `demo:android` launched on. Wait for
 startup, then confirm:
@@ -93,7 +93,7 @@ modes by hand when a check needs one.
 ## If the API does not answer
 
 - Check `/health`. Connection refused means the app is not running or, on
-  Android, `adb reverse` is missing.
+  Android, `adb forward` is missing.
 - A port conflict disables the driver; the app logs "agent driver disabled" and
   continues without it.
 - A 503 on `/screenshot` means the app's frame pipeline stalled; retry after a
