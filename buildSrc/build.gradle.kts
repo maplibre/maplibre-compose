@@ -2,6 +2,9 @@ plugins { `kotlin-dsl` }
 
 repositories {
   mavenCentral()
+  maven("https://packages.jetbrains.team/maven/p/cmp/dev") {
+    content { includeGroupAndSubgroups("org.jetbrains.compose") }
+  }
   gradlePluginPortal()
   google()
 }
