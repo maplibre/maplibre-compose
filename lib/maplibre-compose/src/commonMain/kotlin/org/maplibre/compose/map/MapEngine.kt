@@ -1,5 +1,8 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.Dp
+import kotlin.time.Duration
 import org.maplibre.compose.style.BaseStyle
 
 /**
@@ -12,6 +15,9 @@ internal interface MapEngine : AutoCloseable {
 
   /** Records the selected base style and carries it to a map the engine owns while detached. */
   fun setBaseStyle(style: BaseStyle)
+
+  /** Backs [MapState.snapshot]; the state validates size and closed state before this call. */
+  suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap
 }
 
 /** Creates the engine that gives [state] its platform lifetime. */

@@ -6,7 +6,9 @@ import androidx.compose.runtime.CompositionLocalContext
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
@@ -15,6 +17,7 @@ import co.touchlab.kermit.Logger
 import kotlin.concurrent.Volatile
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first
@@ -105,6 +108,9 @@ internal constructor(
   private val closedState = mutableStateOf(false)
   internal val viewportState = mutableStateOf<Viewport?>(null)
   internal val positionState = mutableStateOf(cameraPosition)
+
+  /** The most recent map load failure, surfaced by [snapshot]; cleared when a style loads. */
+  internal val lastLoadFailure = mutableStateOf<String?>(null)
   internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
   internal val isCameraMovingState = mutableStateOf(false)
 
@@ -462,6 +468,35 @@ internal constructor(
   ): List<Feature<Geometry, JsonObject?>> =
     attachedAdapter?.queryRenderedFeatures(rect, layerIds, predicate.compileOrNull()) ?: emptyList()
 
+  /**
+   * Renders a still image of this map and returns it.
+   *
+   * The image shows the selected [baseStyle], the applied style content, and the recorded [camera],
+   * fit to a viewport of [width] by [height]. The state does not need a [MaplibreMap]: a state
+   * constructed in a ViewModel with [setStyleContent] can render a snapshot with no UI. The
+   * returned bitmap is in physical pixels, [width] and [height] scaled by the state's density.
+   *
+   * The call waits for the base style and its sources to finish loading before it renders, so the
+   * image holds the fully loaded map. A style or map that fails to load fails the call with an
+   * [IllegalStateException] naming the failure, and a map that never finishes loading fails the
+   * same way when [timeout] passes.
+   *
+   * On Android, iOS, and Desktop a snapshot renders only while no [MaplibreMap] shows this state; a
+   * call with one attached throws [IllegalStateException]. On Web this function always throws
+   * [UnsupportedOperationException], because MapLibre GL JS has no still-image API.
+   */
+  public suspend fun snapshot(
+    width: Dp,
+    height: Dp,
+    timeout: Duration = 30.seconds,
+  ): ImageBitmap {
+    check(!closedState.value) { "MapState is closed; a closed state cannot render a snapshot" }
+    require(width > 0.dp && height > 0.dp) {
+      "Snapshot size must be positive, got $width x $height"
+    }
+    return engine.snapshot(width, height, timeout)
+  }
+
   private fun Expression<BooleanValue>.compileOrNull(): CompiledExpression<BooleanValue>? =
     takeUnless {
       it == const(true)
@@ -541,11 +576,13 @@ internal constructor(
   internal val callbacks: MapAdapter.Callbacks =
     object : MapAdapter.Callbacks {
       override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+        if (style != null) lastLoadFailure.value = null
         updateBinding(style)
         if (attachedAdapter === map) viewportState.value = map.getViewport()
       }
 
       override fun onMapFailLoading(reason: String?) {
+        lastLoadFailure.value = reason ?: "MapLibre failed to load the map"
         onMapLoadFailed(reason)
       }
 

@@ -1031,6 +1031,11 @@ internal class MlnFfiMapCore(
   /** Test seam: runs [action] on the owner thread and waits for it. */
   internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
 
+  /** Dirties the map so the next render update redraws, for a snapshot's final frame. */
+  internal fun postSnapshotRepaint() {
+    onMap { it.requestRepaint() }
+  }
+
   override fun positionFromScreenLocation(offset: DpOffset): Position? = withSnapshotProjection {
     it.latLngForPixel(offset.toScreenPoint()).toPosition()
   }

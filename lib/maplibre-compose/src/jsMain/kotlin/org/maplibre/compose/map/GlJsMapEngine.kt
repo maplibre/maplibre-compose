@@ -1,5 +1,8 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.Dp
+import kotlin.time.Duration
 import org.maplibre.compose.style.BaseStyle
 
 /**
@@ -38,6 +41,12 @@ internal class GlJsMapEngine : MapEngine {
 
   override fun setBaseStyle(style: BaseStyle) {
     // There is no map to receive it while detached; the state re-pushes the style at attach.
+  }
+
+  override suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
+    throw UnsupportedOperationException(
+      "MapLibre GL JS has no still-image API; MapState.snapshot is unavailable in the browser"
+    )
   }
 
   override fun close() {

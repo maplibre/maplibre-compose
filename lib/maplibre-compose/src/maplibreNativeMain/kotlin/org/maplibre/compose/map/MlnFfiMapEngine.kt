@@ -1,9 +1,22 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
+import kotlin.math.roundToInt
+import kotlin.time.Duration
+import kotlin.time.TimeSource
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
+import org.maplibre.compose.mlnffi.createSnapshotTarget
+import org.maplibre.compose.mlnffi.ensureMlnFfiDefaultConfigured
 import org.maplibre.compose.style.BaseStyle
+
+/** How long [MlnFfiMapEngine.snapshot] parks between style-loaded polls. */
+private const val STYLE_POLL_MILLIS = 8L
 
 /**
  * Owns the [MlnFfiMapCore] behind a [MapState]. The core is created at the first session attach,
@@ -80,6 +93,62 @@ internal class MlnFfiMapEngine(private val state: MapState) : MapEngine {
   override fun setBaseStyle(style: BaseStyle) {
     requestedStyle = style
     core?.setBaseStyle(style)
+  }
+
+  /** Serializes snapshots: the map has one live render session, so two cannot pump at once. */
+  private val snapshotMutex = Mutex()
+
+  override suspend fun snapshot(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
+    val deadline = TimeSource.Monotonic.markNow() + timeout
+    snapshotMutex.withLock {
+      check(activeSession == null && state.attachedAdapter == null) {
+        "MapState has an attached MaplibreMap; detach it before rendering a snapshot"
+      }
+      ensureMlnFfiDefaultConfigured()
+      state.ensureBaseStyleSelected()
+      val target = createSnapshotTarget()
+      try {
+        // A live core keeps its loaded style and scale; a detached bare state gets a fresh one.
+        val core =
+          core
+            ?: acquireCore(
+              scaleFactor = state.density.density.toDouble(),
+              layoutDirection = state.layoutDirection,
+              backend = target.backend,
+            )
+        core.start()
+        core.setCameraPosition(state.camera)
+        awaitStyleLoaded(core, deadline, timeout)
+        // One sync of the desired style content against the loaded style before rendering, so
+        // content set on a detached state reaches the image.
+        state.host.requestApplyChanges()
+        state.host.awaitPendingWork()
+        return renderStillImage(
+          core = core,
+          target = target,
+          width = width.value.roundToInt(),
+          height = height.value.roundToInt(),
+          deadline = deadline,
+          loadFailure = { state.lastLoadFailure.value },
+        )
+      } finally {
+        target.close()
+      }
+    }
+  }
+
+  private suspend fun awaitStyleLoaded(
+    core: MlnFfiMapCore,
+    deadline: TimeSource.Monotonic.ValueTimeMark,
+    timeout: Duration,
+  ) {
+    while (!core.hasLoadedFirstStyle) {
+      state.lastLoadFailure.value?.let { reason ->
+        throw IllegalStateException("The map failed to load: $reason")
+      }
+      check(deadline.hasNotPassedNow()) { "The style did not load within $timeout" }
+      delay(STYLE_POLL_MILLIS)
+    }
   }
 
   override fun close() {

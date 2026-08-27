@@ -145,15 +145,3 @@ them.
 
 One suspending function on the existing `OfflineManager` interface, so this is
 the smallest entry here.
-
-## Map snapshots
-
-- FFI: `requestStillImage`, `readPremultipliedRgba8`, and
-  [#282](https://github.com/maplibre/maplibre-native-ffi/pull/282), which adds a
-  synchronous render-to-completion so a consumer does not pump the loop frame by
-  frame across the language boundary
-
-Already on the roadmap as
-[#28](https://github.com/maplibre/maplibre-compose/issues/28), blocked on
-decoupling the style API from the `MaplibreMap` composable. Recorded here only
-so a future audit does not rediscover it as new.

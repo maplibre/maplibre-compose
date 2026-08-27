@@ -64,7 +64,8 @@ Fixed in step 4. `MapState` owns the map's platform lifetime through
 the composition and re-attaches to the next `MaplibreMap`, and on Web the state
 replays the selected style into the next session. A ViewModel can construct a
 `MapState` and call `close`; `rememberMapState` closes the states it creates.
-Snapshots of a map that is not composed remain step 6.
+Snapshots of a map that is not composed shipped in step 6 as
+`MapState.snapshot`.
 
 ### ~~Style wiring that leans on Compose effect ordering~~
 
@@ -74,12 +75,16 @@ stated order, sources before layers; `Source.attach` idempotency survives only
 as defense against a mid-switch unload, not as an ordering crutch; and one
 persistent composition per map replaces the per-style teardown.
 
-### Snapshots need a style without a surface
+### ~~Snapshots need a style without a surface~~
 
-`maplibre-native-ffi` can render a map to a CPU image. The style composition no
-longer needs a UI composition or a surface; the remaining work is the public
-`snapshot` operation itself
-([#28](https://github.com/maplibre/maplibre-compose/issues/28)).
+Fixed in step 6. `MapState.snapshot(width, height, timeout)` renders a detached
+state's loaded style, applied content, and recorded camera into a session-owned
+texture and reads it back as an `ImageBitmap`
+([#28](https://github.com/maplibre/maplibre-compose/issues/28)). The pinned FFI
+has no synchronous render-to-completion for a continuous map, so the snapshot
+pumps `renderUpdate` on a thread of its own until the map reports itself fully
+loaded. On Web the call throws `UnsupportedOperationException`, because MapLibre
+GL JS has no still-image API.
 
 ## What to keep
 
@@ -184,12 +189,11 @@ class MapState : AutoCloseable {
   suspend fun queryRenderedFeatures(rect: DpRect, layerIds, predicate): List<Feature<Geometry, JsonObject?>>
 
   fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit)
+  suspend fun snapshot(width: Dp, height: Dp, timeout: Duration = 30.seconds): ImageBitmap
   override fun close()
 
   // Step 5:
   // @DelicateMapApi val platform: PlatformMap
-  // Step 6:
-  // suspend fun snapshot(width: Int, height: Int): ImageBitmap
 }
 ```
 
@@ -412,7 +416,7 @@ fun RouteScreen(vm: RouteViewModel) {
 A still image of the same map does not need a composable:
 
 ```kotlin
-val image = vm.mapState.snapshot(width = 800, height = 600)
+val image = vm.mapState.snapshot(width = 800.dp, height = 600.dp)
 ```
 
 ## Sequence
@@ -441,10 +445,12 @@ val image = vm.mapState.snapshot(width = 800, height = 600)
 5. Publish `platform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
    at it.
-6. Implement still images
+6. ~~Implement still images
    ([#28](https://github.com/maplibre/maplibre-compose/issues/28)). The other
    half of this step — `setStyleContent` on a map that has no session — shipped
-   in step 4 with tests.
+   in step 4 with tests.~~ Done: `MapState.snapshot` renders a detached state
+   over a session-owned FFI texture; a state with an attached `MaplibreMap`
+   refuses the call, because the map has one live render session.
 7. Fill the capabilities in [COMMON_API_GAPS.md](./COMMON_API_GAPS.md). Each is
    one implementation, or two if the browser stays on GL JS.
 
@@ -503,8 +509,8 @@ Still deferred:
 ## Open questions
 
 **Which members are `suspend`?** Settled for the shipped surface: the sketch
-above is the list. The step 5-6 members (`platform`, `snapshot`) get their form
-when they ship.
+above is the list. `snapshot` shipped in step 6 as a `suspend` operation; the
+step-5 member (`platform`) gets its form when it ships.
 
 ~~**Which web `MapState`?** A, B, or C in [Web](#web). A or B before the mln-ffi
 Kotlin/Wasm build; C after.~~ Answered in step 4: A shipped, and C remains the

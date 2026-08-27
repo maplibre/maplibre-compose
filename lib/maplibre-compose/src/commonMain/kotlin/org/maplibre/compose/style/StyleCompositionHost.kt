@@ -213,6 +213,12 @@ internal class StyleCompositionHost(
     scope.launch { applyChanges() }
   }
 
+  /** Suspends until every task queued on the host dispatcher before this call has run. */
+  internal suspend fun awaitPendingWork() {
+    if (closed) return
+    scope.launch {}.join()
+  }
+
   private fun disposeComposition() {
     if (disposed) return
     try {
