@@ -86,6 +86,10 @@ internal class GlJsMapSession(
 
   private var map: MaplibreMap? = null
 
+  /** The live map once the first frame has built it; the public withPlatformMap reads this. */
+  internal val liveMap: MaplibreMap?
+    get() = map
+
   /** MapLibre sizes its viewport from a container even when it renders nowhere near one. */
   private var container: HTMLElement? = null
 

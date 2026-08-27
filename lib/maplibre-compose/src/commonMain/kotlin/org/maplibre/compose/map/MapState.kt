@@ -109,6 +109,10 @@ internal constructor(
   internal val attachedAdapter: MapAdapter?
     get() = adapterState.value
 
+  /** True after [close]; the platform withPlatformMap actuals refuse a closed state with this. */
+  internal val isClosed: Boolean
+    get() = closedState.value
+
   /**
    * Whether a [MaplibreMap] shows this state right now. A composition that reads this property
    * recomposes when a map attaches or detaches.

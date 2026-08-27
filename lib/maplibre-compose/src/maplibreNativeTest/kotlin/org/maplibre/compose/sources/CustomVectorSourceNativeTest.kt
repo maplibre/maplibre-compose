@@ -35,8 +35,7 @@ class CustomVectorSourceNativeTest {
       style.addLayer(layer)
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
-      fun isMapFullyLoaded(): Boolean =
-        fixture.bridge.core.readMap { map -> map.isFullyLoaded } == true
+      fun isMapFullyLoaded(): Boolean = fixture.bridge.core.isMapFullyLoaded()
 
       assertFalse(isMapFullyLoaded())
       release.complete(Unit)

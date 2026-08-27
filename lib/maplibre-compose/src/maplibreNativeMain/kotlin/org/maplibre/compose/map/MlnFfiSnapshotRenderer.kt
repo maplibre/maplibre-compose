@@ -111,7 +111,7 @@ private suspend fun pumpStillImage(
           core.replayPendingFeatureState(session)
           val settled = !update.needsRepaint && !access.renderRequested
           if (sealed && settled) break
-          if (!sealed && settled && core.readMap { it.isFullyLoaded } == true) {
+          if (!sealed && settled && core.isMapFullyLoaded()) {
             sealed = true
             // One more frame after the load report, so the image holds the fully loaded state.
             core.postSnapshotRepaint()

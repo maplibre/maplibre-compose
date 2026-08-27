@@ -81,7 +81,8 @@ kotlin {
         iosMain.get().dependsOn(this)
         dependencies {
           // Backend-independent binding only; the application selects the native runtime.
-          implementation(libs.maplibre.nativeFfi)
+          // api: PlatformMap is a typealias to the binding's MapHandle.
+          api(libs.maplibre.nativeFfi)
           // Multiplatform filesystem paths, so this source set stays free of java.io.File.
           implementation(libs.kotlinx.io.core)
         }

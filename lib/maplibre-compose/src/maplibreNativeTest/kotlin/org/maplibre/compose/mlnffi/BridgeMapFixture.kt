@@ -20,6 +20,7 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.RecordingMapCallbacks
 import org.maplibre.compose.testing.RgbaPixel
+import org.maplibre.nativeffi.map.MapHandle
 
 /**
  * Runs a real [MlnFfiMapCore] and the [MlnFfiMapSession] that renders it against the packaged
@@ -111,6 +112,9 @@ private constructor(
    */
   var hasRendered: Boolean = false
     internal set
+
+  /** Runs [block] with the live map on its owner thread, the same hop `withPlatformMap` takes. */
+  fun <T> withMap(block: (MapHandle) -> T): T = runBlocking { core.withMapHandle(block) }
 
   /** Renders one frame, exactly as [MlnFfiMapSurface] does inside its draw pass. */
   fun frame(extent: MapExtent = initialExtent): MlnFfiFrameResult {

@@ -8,48 +8,48 @@ import web.html.HTMLElement
 // The hand-written subset of MapLibre GL JS this platform binds against; GlJsDeclarationsTest
 // checks it against the MapLibre actually on the page.
 
-internal external interface Subscription {
-  fun unsubscribe()
+public external interface Subscription {
+  public fun unsubscribe()
 }
 
 /** Only the `error` event carries an [error]. */
-internal external interface MapEvent {
-  val error: JsError?
-  val sourceId: String?
-  val sourceDataType: String?
+public external interface MapEvent {
+  public val error: JsError?
+  public val sourceId: String?
+  public val sourceDataType: String?
 }
 
-internal external interface JsError {
-  val message: String?
+public external interface JsError {
+  public val message: String?
 }
 
-internal external interface MapOptions {
-  var container: HTMLElement
-  var interactive: Boolean?
-  var attributionControl: Boolean?
-  var maplibreLogo: Boolean?
-  var pixelRatio: Double?
+public external interface MapOptions {
+  public var container: HTMLElement
+  public var interactive: Boolean?
+  public var attributionControl: Boolean?
+  public var maplibreLogo: Boolean?
+  public var pixelRatio: Double?
   /** `[width, height]` in physical pixels, above which MapLibre lowers its own pixel ratio. */
-  var maxCanvasSize: Array<Double>?
+  public var maxCanvasSize: Array<Double>?
 }
 
-internal external interface SetStyleOptions {
-  var diff: Boolean?
+public external interface SetStyleOptions {
+  public var diff: Boolean?
 }
 
 /** What MapLibre loads a style from; see [styleUrl] and [styleJson]. */
-internal external interface StyleSource
+public external interface StyleSource
 
-internal external interface StyleSpecification {
-  val layers: Array<LayerSpecification>
-  val sources: JsRecord<SourceSpecification>
+public external interface StyleSpecification {
+  public val layers: Array<LayerSpecification>
+  public val sources: JsRecord<SourceSpecification>
 }
 
-internal external interface LayerSpecification {
-  val id: String
+public external interface LayerSpecification {
+  public val id: String
 }
 
-internal external interface SourceSpecification
+public external interface SourceSpecification
 
 internal external interface RequestParameters {
   val url: String
@@ -59,14 +59,14 @@ internal external interface ProtocolResponse {
   var data: ArrayBuffer
 }
 
-internal external interface FilterSpecification
+public external interface FilterSpecification
 
 /** MapLibre leaves both zoom bounds undefined on a layer whose stylesheet named neither. */
-internal external interface StyleLayer {
-  val id: String
-  val type: String
-  val minzoom: Double?
-  val maxzoom: Double?
+public external interface StyleLayer {
+  public val id: String
+  public val type: String
+  public val minzoom: Double?
+  public val maxzoom: Double?
 }
 
 internal external interface SourceHandle {
@@ -103,108 +103,108 @@ internal external interface UpdateImageOptions {
   var url: String
 }
 
-internal external interface PaddingOptions {
-  var top: Double
-  var bottom: Double
-  var left: Double
-  var right: Double
+public external interface PaddingOptions {
+  public var top: Double
+  public var bottom: Double
+  public var left: Double
+  public var right: Double
 }
 
 /** Geometry for [org.maplibre.compose.gljs.MaplibreMap.queryRenderedFeatures]. */
-internal external interface QueryGeometry
+public external interface QueryGeometry
 
-internal external interface Point {
-  var x: Double
-  var y: Double
+public external interface Point {
+  public var x: Double
+  public var y: Double
 }
 
-internal external interface QueryRenderedFeaturesOptions {
-  var layers: Array<String>?
-  var filter: FilterSpecification?
+public external interface QueryRenderedFeaturesOptions {
+  public var layers: Array<String>?
+  public var filter: FilterSpecification?
 }
 
-internal external interface QuerySourceFeatureOptions {
-  var sourceLayer: String?
-  var filter: FilterSpecification?
+public external interface QuerySourceFeatureOptions {
+  public var sourceLayer: String?
+  public var filter: FilterSpecification?
 }
 
 /** Identifies a feature for [org.maplibre.compose.gljs.MaplibreMap.setFeatureState]. */
-internal external interface FeatureIdentifier {
-  var source: String
-  var sourceLayer: String?
+public external interface FeatureIdentifier {
+  public var source: String
+  public var sourceLayer: String?
   /** A GeoJSON string id, or a number when the GeoJSON `id` was unquoted. */
-  var id: Any?
+  public var id: Any?
 }
 
-internal external interface GeoJsonFeature {
-  val type: String
-  val geometry: Any
-  val properties: Any?
+public external interface GeoJsonFeature {
+  public val type: String
+  public val geometry: Any
+  public val properties: Any?
 }
 
-internal external interface MapGeoJsonFeature : GeoJsonFeature {
-  val source: String
-  val sourceLayer: String?
+public external interface MapGeoJsonFeature : GeoJsonFeature {
+  public val source: String
+  public val sourceLayer: String?
 }
 
-internal external interface StyleImageData {
-  var width: Double
-  var height: Double
-  var data: Uint8Array<ArrayBuffer>
+public external interface StyleImageData {
+  public var width: Double
+  public var height: Double
+  public var data: Uint8Array<ArrayBuffer>
 }
 
-internal external interface StyleImageMetadata {
-  var pixelRatio: Double
-  var sdf: Boolean
-  var stretchX: Array<Array<Double>>?
-  var stretchY: Array<Array<Double>>?
-  var content: Array<Double>?
+public external interface StyleImageMetadata {
+  public var pixelRatio: Double
+  public var sdf: Boolean
+  public var stretchX: Array<Array<Double>>?
+  public var stretchY: Array<Array<Double>>?
+  public var content: Array<Double>?
 }
 
-internal external interface CameraOptions {
-  var center: LngLat?
-  var zoom: Double?
-  var bearing: Double?
-  var pitch: Double?
+public external interface CameraOptions {
+  public var center: LngLat?
+  public var zoom: Double?
+  public var bearing: Double?
+  public var pitch: Double?
 }
 
-internal external interface CenterZoomBearing {
-  var center: LngLat?
-  var zoom: Double?
-  var bearing: Double?
+public external interface CenterZoomBearing {
+  public var center: LngLat?
+  public var zoom: Double?
+  public var bearing: Double?
 }
 
-internal external interface AnimationOptions {
-  var duration: Double?
+public external interface AnimationOptions {
+  public var duration: Double?
 }
 
-internal external interface JumpToOptions : CameraOptions {
-  var padding: PaddingOptions?
+public external interface JumpToOptions : CameraOptions {
+  public var padding: PaddingOptions?
 }
 
-internal external interface EaseToOptions : CameraOptions, AnimationOptions {
-  var around: LngLat?
-  var padding: PaddingOptions?
+public external interface EaseToOptions : CameraOptions, AnimationOptions {
+  public var around: LngLat?
+  public var padding: PaddingOptions?
 }
 
-internal external interface FlyToOptions : CameraOptions, AnimationOptions {
-  var padding: PaddingOptions?
+public external interface FlyToOptions : CameraOptions, AnimationOptions {
+  public var padding: PaddingOptions?
 }
 
-internal external interface CameraForBoundsOptions : CameraOptions {
-  var padding: PaddingOptions?
+public external interface CameraForBoundsOptions : CameraOptions {
+  public var padding: PaddingOptions?
 }
 
-internal external interface Painter {
-  val context: Context
+public external interface Painter {
+  public val context: Context
 }
 
-internal external interface Context {
-  fun setDirty()
+public external interface Context {
+  public fun setDirty()
 }
 
 /** A plain JavaScript object keyed by string. */
-internal external interface JsRecord<out T>
+public external interface JsRecord<out T>
 
 /** MapLibre fetches a string style and reads an object one as the stylesheet itself. */
 internal fun styleUrl(url: String): StyleSource = url.unsafeCast<StyleSource>()

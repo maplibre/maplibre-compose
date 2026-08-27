@@ -162,15 +162,13 @@ class MlnFfiMapCompositionTest {
     lateinit var mapState: MapState
     runBridgeMapTest(
       body = {
-        val session =
-          requireNotNull(mapState.attachedAdapter as? MlnFfiMapCore) { "no desktop session" }
-        waitUntil { "toggled" in session.currentStyleLayerIds() }
+        waitUntil { "toggled" in mapState.liveStyleLayerIds() }
 
         visible = false
-        waitUntil { "toggled" !in session.currentStyleLayerIds() }
+        waitUntil { "toggled" !in mapState.liveStyleLayerIds() }
 
         visible = true
-        waitUntil { "toggled" in session.currentStyleLayerIds() }
+        waitUntil { "toggled" in mapState.liveStyleLayerIds() }
       }
     ) { errors, onFrame ->
       mapState =

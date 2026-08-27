@@ -198,8 +198,8 @@ class MapState : AutoCloseable {
   suspend fun snapshot(width: Dp, height: Dp, timeout: Duration = 30.seconds): ImageBitmap
   override fun close()
 
-  // Step 5:
-  // @DelicateMapApi val platform: PlatformMap
+  // Step 5, an extension in commonMain:
+  // @DelicateMapApi suspend fun <T> MapState.withPlatformMap(block: (PlatformMap) -> T): T
 }
 ```
 
@@ -212,12 +212,13 @@ takes only a camera position; a detached state rasterizes painters at a density
 of 1 and left-to-right layout until a `MaplibreMap` supplies the composition's
 values.
 
-`PlatformMap` is a typealias to `MapHandle` on FFI platforms and to the GL JS
-`Map` on the browser. Common code does not touch `platform`. Platform code that
-is blocked on a missing wrapper does. It is a property, not a lambda:
+`PlatformMap` is an `expect class` with an `actual typealias` to `MapHandle` on
+FFI platforms and to the GL JS `Map` on the browser (both dependencies became
+`api` / public for it). Common code does not touch it. Platform code that is
+blocked on a missing wrapper does. It shipped as a `suspend` lambda hop onto the
+map's owner thread, because the handle is confined there today; once
 [#631](https://github.com/maplibre/maplibre-native-ffi/pull/631) puts the
-runtime thread in native, so the handle is not confined to a hop this library
-owns.
+runtime thread in native, a property can replace the lambda.
 
 Camera lives on `MapState`. `rememberMapState` takes a first position and saves
 it across recreation. `CameraState` is gone entirely: the saveable rides
@@ -453,9 +454,14 @@ val image = vm.mapState.snapshot(width = 800.dp, height = 600.dp)
    `MaplibreRuntime`, because `Runtime` collides with `java.lang.Runtime`. The
    `OfflineManager` interface is deleted and its members live on
    `MaplibreRuntime`.
-5. Publish `platform` as a delicate API. Close
+5. ~~Publish `platform` as a delicate API. Close
    [#538](https://github.com/maplibre/maplibre-compose/issues/538) by pointing
-   at it.
+   at it.~~ Done, as `withPlatformMap` rather than a property: the native handle
+   is confined to the map's owner thread until
+   [#631](https://github.com/maplibre/maplibre-native-ffi/pull/631), so the
+   escape hatch is a scoped `suspend` hop. The test-pinned core passthroughs
+   (`readMap`, `styleImageInfo`, `currentStyleLayerIds`, `imageStretches`) are
+   deleted; tests go through the escape hatch or the fixture's `withMap`.
 6. ~~Implement still images
    ([#28](https://github.com/maplibre/maplibre-compose/issues/28)). The other
    half of this step — `setStyleContent` on a map that has no session — shipped
@@ -520,8 +526,8 @@ Still deferred:
 ## Open questions
 
 **Which members are `suspend`?** Settled for the shipped surface: the sketch
-above is the list. `snapshot` shipped in step 6 as a `suspend` operation; the
-step-5 member (`platform`) gets its form when it ships.
+above is the list. `snapshot` shipped in step 6 as a `suspend` operation, and
+step 5 shipped `withPlatformMap` as one.
 
 ~~**Which web `MapState`?** A, B, or C in [Web](#web). A or B before the mln-ffi
 Kotlin/Wasm build; C after.~~ Answered in step 4: A shipped, and C remains the

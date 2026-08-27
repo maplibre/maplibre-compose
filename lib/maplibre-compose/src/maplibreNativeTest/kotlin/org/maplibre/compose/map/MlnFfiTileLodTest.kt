@@ -17,11 +17,11 @@ class MlnFfiTileLodTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
 
-      fixture.core.readMap { map ->
+      fixture.withMap { map ->
         map.tileOptions = map.tileOptions.also { it.prefetchZoomDelta = PREFETCH }
       }
       fixture.core.setTileLodSettings(TileLodOptions.Performance)
-      val applied = assertNotNull(fixture.core.readMap { it.tileOptions })
+      val applied = fixture.withMap { it.tileOptions }
 
       assertEquals(FfiTileLodMode.DEFAULT, applied.lodMode)
       assertEquals(2.0, assertNotNull(applied.lodMinRadius))
@@ -46,14 +46,14 @@ class MlnFfiTileLodTest {
           zoomShift = 1.0,
         )
       )
-      val appliedDistance = assertNotNull(fixture.core.readMap { it.tileOptions })
+      val appliedDistance = fixture.withMap { it.tileOptions }
 
       assertEquals(FfiTileLodMode.DISTANCE, appliedDistance.lodMode)
       assertEquals(2.0, assertNotNull(appliedDistance.lodScale))
       assertAngleDegrees(30.0, appliedDistance.lodPitchThreshold)
 
       fixture.core.setTileLodSettings(TileLodOptions.Standard)
-      val appliedStandard = assertNotNull(fixture.core.readMap { it.tileOptions })
+      val appliedStandard = fixture.withMap { it.tileOptions }
 
       assertEquals(FfiTileLodMode.DEFAULT, appliedStandard.lodMode)
       assertEquals(3.0, assertNotNull(appliedStandard.lodMinRadius))

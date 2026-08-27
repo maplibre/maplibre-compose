@@ -90,7 +90,7 @@ class MlnFfiMapReattachTest {
     val engine = state.engine
     val core = requireNotNull(engine.core) { "no core after the first attach" }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
-      "user-fill" in core.currentStyleLayerIds()
+      "user-fill" in state.liveStyleLayerIds()
     }
 
     runOnUiThread { attached = false }
@@ -108,7 +108,7 @@ class MlnFfiMapReattachTest {
     assertSame(core, state.attachedAdapter, "the camera must rewire to the same core")
     assertEquals(loadsBeforeReattach, loadsFinished, "a re-attach must not reload the style")
     assertTrue(
-      "user-fill" in core.currentStyleLayerIds(),
+      "user-fill" in state.liveStyleLayerIds(),
       "the composed layer must still be in the loaded style",
     )
     val camera = core.getCameraPosition()

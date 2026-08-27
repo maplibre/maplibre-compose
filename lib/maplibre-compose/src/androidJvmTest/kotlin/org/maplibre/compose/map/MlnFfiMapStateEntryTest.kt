@@ -82,9 +82,8 @@ class MlnFfiMapStateEntryTest {
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) { frames.load() > 0 || errors.isNotEmpty() }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
 
-    val session = requireNotNull(state.attachedAdapter as? MlnFfiMapCore) { "no session" }
     waitUntil(timeoutMillis = RENDER_TIMEOUT_MILLIS) {
-      "state-entry-fill" in session.currentStyleLayerIds()
+      "state-entry-fill" in state.liveStyleLayerIds()
     }
     assertTrue(errors.isEmpty(), "The composition reported errors: $errors")
   }

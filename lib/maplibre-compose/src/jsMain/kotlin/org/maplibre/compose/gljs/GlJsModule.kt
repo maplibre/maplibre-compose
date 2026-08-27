@@ -17,132 +17,135 @@ internal external fun addProtocol(
 internal external fun removeProtocol(customProtocol: String)
 
 @JsName("Map")
-internal external class MaplibreMap(options: MapOptions) {
+public external class MaplibreMap(options: MapOptions) {
 
-  val painter: Painter
+  public val painter: Painter
 
-  var showTileBoundaries: Boolean
-  var showCollisionBoxes: Boolean
-  var showPadding: Boolean
-  var showOverdrawInspector: Boolean
+  public var showTileBoundaries: Boolean
+  public var showCollisionBoxes: Boolean
+  public var showPadding: Boolean
+  public var showOverdrawInspector: Boolean
 
-  fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
+  public fun on(type: String, listener: (event: MapEvent) -> Unit): Subscription
 
-  fun getCanvas(): HTMLCanvasElement
+  public fun getCanvas(): HTMLCanvasElement
 
-  fun setPixelRatio(pixelRatio: Double)
+  public fun setPixelRatio(pixelRatio: Double)
 
-  fun resize()
+  public fun resize()
 
-  fun redraw()
+  public fun redraw()
 
-  fun remove()
+  public fun remove()
 
-  fun setStyle(style: StyleSource, options: SetStyleOptions)
+  public fun setStyle(style: StyleSource, options: SetStyleOptions)
 
-  fun getStyle(): StyleSpecification
+  public fun getStyle(): StyleSpecification
 
-  fun isStyleLoaded(): Boolean
+  public fun isStyleLoaded(): Boolean
 
-  fun isSourceLoaded(id: String): Boolean
+  public fun isSourceLoaded(id: String): Boolean
 
-  fun getCenter(): LngLat
+  public fun getCenter(): LngLat
 
-  fun getZoom(): Double
+  public fun getZoom(): Double
 
-  fun getBearing(): Double
+  public fun getBearing(): Double
 
-  fun getPitch(): Double
+  public fun getPitch(): Double
 
-  fun getBounds(): LngLatBounds
+  public fun getBounds(): LngLatBounds
 
-  fun jumpTo(options: JumpToOptions)
+  public fun jumpTo(options: JumpToOptions)
 
-  fun easeTo(options: EaseToOptions)
+  public fun easeTo(options: EaseToOptions)
 
-  fun flyTo(options: FlyToOptions)
+  public fun flyTo(options: FlyToOptions)
 
-  fun cameraForBounds(bounds: LngLatBounds, options: CameraForBoundsOptions): CenterZoomBearing?
+  public fun cameraForBounds(
+    bounds: LngLatBounds,
+    options: CameraForBoundsOptions,
+  ): CenterZoomBearing?
 
-  fun panBy(offset: Point, options: EaseToOptions)
+  public fun panBy(offset: Point, options: EaseToOptions)
 
-  fun stop()
+  public fun stop()
 
-  fun setMaxBounds(bounds: LngLatBounds?)
+  public fun setMaxBounds(bounds: LngLatBounds?)
 
-  fun setMinZoom(minZoom: Double)
+  public fun setMinZoom(minZoom: Double)
 
-  fun setMaxZoom(maxZoom: Double)
+  public fun setMaxZoom(maxZoom: Double)
 
-  fun setMinPitch(minPitch: Double)
+  public fun setMinPitch(minPitch: Double)
 
-  fun setMaxPitch(maxPitch: Double)
+  public fun setMaxPitch(maxPitch: Double)
 
-  fun setSourceTileLodParams(maxZoomLevelsOnScreen: Double, tileCountMaxMinRatio: Double)
+  public fun setSourceTileLodParams(maxZoomLevelsOnScreen: Double, tileCountMaxMinRatio: Double)
 
-  fun project(lngLat: LngLat): Point
+  public fun project(lngLat: LngLat): Point
 
-  fun unproject(point: Point): LngLat
+  public fun unproject(point: Point): LngLat
 
-  fun queryRenderedFeatures(
+  public fun queryRenderedFeatures(
     geometry: QueryGeometry,
     options: QueryRenderedFeaturesOptions,
   ): Array<MapGeoJsonFeature>
 
-  fun querySourceFeatures(
+  public fun querySourceFeatures(
     sourceId: String,
     options: QuerySourceFeatureOptions,
   ): Array<GeoJsonFeature>
 
-  fun setFeatureState(feature: FeatureIdentifier, state: Any)
+  public fun setFeatureState(feature: FeatureIdentifier, state: Any)
 
-  fun getFeatureState(feature: FeatureIdentifier): Any?
+  public fun getFeatureState(feature: FeatureIdentifier): Any?
 
-  fun removeFeatureState(feature: FeatureIdentifier, key: String = definedExternally)
+  public fun removeFeatureState(feature: FeatureIdentifier, key: String = definedExternally)
 
-  fun addSource(id: String, source: SourceSpecification)
+  public fun addSource(id: String, source: SourceSpecification)
 
-  fun removeSource(id: String)
+  public fun removeSource(id: String)
 
   /** Unbounded: MapLibre bounds this by its own `Source`, which collides with this library's. */
-  fun <T : Any> getSource(id: String): T?
+  public fun <T : Any> getSource(id: String): T?
 
-  fun addLayer(layer: LayerSpecification, beforeId: String = definedExternally)
+  public fun addLayer(layer: LayerSpecification, beforeId: String = definedExternally)
 
-  fun moveLayer(id: String, beforeId: String = definedExternally)
+  public fun moveLayer(id: String, beforeId: String = definedExternally)
 
-  fun removeLayer(id: String)
+  public fun removeLayer(id: String)
 
-  fun getLayer(id: String): StyleLayer?
+  public fun getLayer(id: String): StyleLayer?
 
-  fun getLayersOrder(): Array<String>
+  public fun getLayersOrder(): Array<String>
 
-  fun setLayerZoomRange(layerId: String, minzoom: Double, maxzoom: Double)
+  public fun setLayerZoomRange(layerId: String, minzoom: Double, maxzoom: Double)
 
-  fun setFilter(layerId: String, filter: FilterSpecification?)
+  public fun setFilter(layerId: String, filter: FilterSpecification?)
 
-  fun setPaintProperty(layerId: String, name: String, value: Any?)
+  public fun setPaintProperty(layerId: String, name: String, value: Any?)
 
-  fun getPaintProperty(layerId: String, name: String): Any?
+  public fun getPaintProperty(layerId: String, name: String): Any?
 
-  fun setLayoutProperty(layerId: String, name: String, value: Any?)
+  public fun setLayoutProperty(layerId: String, name: String, value: Any?)
 
-  fun getLayoutProperty(layerId: String, name: String): Any?
+  public fun getLayoutProperty(layerId: String, name: String): Any?
 
-  fun addImage(id: String, image: StyleImageData, options: StyleImageMetadata)
+  public fun addImage(id: String, image: StyleImageData, options: StyleImageMetadata)
 
-  fun hasImage(id: String): Boolean
+  public fun hasImage(id: String): Boolean
 
-  fun removeImage(id: String)
+  public fun removeImage(id: String)
 }
 
-internal external class LngLat(lng: Double, lat: Double) {
-  val lng: Double
-  val lat: Double
+public external class LngLat(lng: Double, lat: Double) {
+  public val lng: Double
+  public val lat: Double
 }
 
-internal external class LngLatBounds(sw: LngLat, ne: LngLat) {
-  fun getSouthWest(): LngLat
+public external class LngLatBounds(sw: LngLat, ne: LngLat) {
+  public fun getSouthWest(): LngLat
 
-  fun getNorthEast(): LngLat
+  public fun getNorthEast(): LngLat
 }

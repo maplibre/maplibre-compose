@@ -31,11 +31,15 @@ class MlnFfiStyleImageStretchTest {
         stretch = ImageStretch.capInsets(left = 8.dp, top = 4.dp, right = 8.dp, bottom = 4.dp),
       )
 
-      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info =
+        assertNotNull(
+          it.withMap { map -> map.styleImageInfo(IMAGE_ID) },
+          "the image should be uploaded",
+        )
       assertEquals(ImageContent(8f, 4f, 24f, 28f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(8f, 24f)) to listOf(FfiImageStretch(4f, 28f)),
-        style.imageStretches(IMAGE_ID),
+        it.withMap { map -> map.styleImageStretches(IMAGE_ID) },
         "stretch intervals",
       )
     }
@@ -56,12 +60,16 @@ class MlnFfiStyleImageStretchTest {
         stretch = ImageStretch.capInsets(left = 8.dp, top = 4.dp, right = 8.dp, bottom = 4.dp),
       )
 
-      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info =
+        assertNotNull(
+          it.withMap { map -> map.styleImageInfo(IMAGE_ID) },
+          "the image should be uploaded",
+        )
       assertEquals(2f, info.pixelRatio, "pixel ratio")
       assertEquals(ImageContent(16f, 8f, 48f, 56f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(16f, 48f)) to listOf(FfiImageStretch(8f, 56f)),
-        style.imageStretches(IMAGE_ID),
+        it.withMap { map -> map.styleImageStretches(IMAGE_ID) },
         "stretch intervals",
       )
     }
@@ -83,13 +91,16 @@ class MlnFfiStyleImageStretchTest {
       )
 
       val info =
-        assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should still be uploaded")
+        assertNotNull(
+          it.withMap { map -> map.styleImageInfo(IMAGE_ID) },
+          "the image should still be uploaded",
+        )
       assertNull(info.content, "content box")
       assertEquals(0L, info.stretchXCount, "horizontal stretch count")
       assertEquals(0L, info.stretchYCount, "vertical stretch count")
       assertEquals(
         emptyList<FfiImageStretch>() to emptyList(),
-        style.imageStretches(IMAGE_ID),
+        it.withMap { map -> map.styleImageStretches(IMAGE_ID) },
         "stretch intervals",
       )
       assertEquals(emptyList(), it.errors, "the map should report nothing")
@@ -116,12 +127,16 @@ class MlnFfiStyleImageStretchTest {
           ),
       )
 
-      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info =
+        assertNotNull(
+          it.withMap { map -> map.styleImageInfo(IMAGE_ID) },
+          "the image should be uploaded",
+        )
       assertEquals(ImageContent(25f, 25f, 115f, 100f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(25f, 55f), FfiImageStretch(85f, 115f)) to
           listOf(FfiImageStretch(25f, 100f)),
-        style.imageStretches(IMAGE_ID),
+        it.withMap { map -> map.styleImageStretches(IMAGE_ID) },
         "stretch intervals",
       )
     }
@@ -147,13 +162,17 @@ class MlnFfiStyleImageStretchTest {
           ),
       )
 
-      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be uploaded")
+      val info =
+        assertNotNull(
+          it.withMap { map -> map.styleImageInfo(IMAGE_ID) },
+          "the image should be uploaded",
+        )
       assertEquals(2f, info.pixelRatio, "pixel ratio")
       assertEquals(ImageContent(25f, 25f, 115f, 100f), info.content, "content box")
       assertEquals(
         listOf(FfiImageStretch(25f, 55f), FfiImageStretch(85f, 115f)) to
           listOf(FfiImageStretch(25f, 100f)),
-        style.imageStretches(IMAGE_ID),
+        it.withMap { map -> map.styleImageStretches(IMAGE_ID) },
         "stretch intervals",
       )
     }

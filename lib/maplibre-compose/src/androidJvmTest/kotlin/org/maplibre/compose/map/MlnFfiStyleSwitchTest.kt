@@ -99,8 +99,7 @@ class MlnFfiStyleSwitchTest {
     // Each style finishes loading before the next is chosen; switching mid-load is a separate race
     // this test deliberately does not cover.
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 && frames.load() > 0 }
-    val session = requireNotNull(state.attachedAdapter as? MlnFfiMapCore) { "no desktop session" }
-    assertStyleLayers(session, style, extraLayer)
+    assertStyleLayers(state, style, extraLayer)
 
     repeat(ROTATIONS) { round ->
       val loadsBefore = loadsFinished
@@ -110,7 +109,7 @@ class MlnFfiStyleSwitchTest {
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         loadsFinished > loadsBefore && frames.load() > framesBefore
       }
-      assertStyleLayers(session, style, extraLayer)
+      assertStyleLayers(state, style, extraLayer)
     }
 
     assertTrue(errors.isEmpty(), "Rotating the style reported errors: $errors")
@@ -151,9 +150,8 @@ class MlnFfiStyleSwitchTest {
     }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { loadsFinished > 0 }
-    val session = requireNotNull(state.attachedAdapter as? MlnFfiMapCore) { "no desktop session" }
     fun replacementLayers(): List<String> =
-      session.currentStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
+      state.liveStyleLayerIds().filter { it in REPLACEMENT_LAYER_IDS }
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
       replacementLayers() == listOf("bg-a", "user-replacement")
     }
@@ -246,7 +244,7 @@ class MlnFfiStyleSwitchTest {
       resources.releaseStyleB.countDown()
 
       fun relevantLayers(): List<String> =
-        session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
+        state.liveStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
       waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) {
         resources.styleBCompletionFinished.count == 0L
       }
@@ -276,7 +274,7 @@ class MlnFfiStyleSwitchTest {
     }
 
   private fun androidx.compose.ui.test.ComposeUiTest.assertStyleLayers(
-    session: MlnFfiMapCore,
+    state: MapState,
     style: DemoStyle,
     extraLayer: Boolean,
   ) {
@@ -288,7 +286,7 @@ class MlnFfiStyleSwitchTest {
       add("user-circles")
     }
     fun relevantLayers(): List<String> =
-      session.currentStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
+      state.liveStyleLayerIds().filter { it in RELEVANT_LAYER_IDS }
 
     waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { relevantLayers() == expected }
     assertEquals(expected, relevantLayers(), "live style layer order")

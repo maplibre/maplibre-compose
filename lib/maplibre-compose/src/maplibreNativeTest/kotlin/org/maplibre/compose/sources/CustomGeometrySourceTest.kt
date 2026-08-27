@@ -157,12 +157,12 @@ class CustomGeometrySourceTest {
 
       fixture.pumpUntil("the source to request a tile") { requested.isCompleted }
       assertFalse(
-        fixture.core.readMap { map -> map.isFullyLoaded } ?: true,
+        fixture.core.isMapFullyLoaded(),
         "the pending provider must keep the map from finishing its load",
       )
       fail.complete(Unit)
       fixture.pumpUntil("the failed tile request to complete", 5.seconds) {
-        fixture.core.readMap { map -> map.isFullyLoaded } == true
+        fixture.core.isMapFullyLoaded()
       }
 
       assertTrue(runBlocking { fixture.queryCenter() }.isEmpty())

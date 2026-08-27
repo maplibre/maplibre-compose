@@ -561,12 +561,6 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     mutateMap { map -> map.removeStyleImage(id) }
   }
 
-  /** Exists for tests. */
-  fun imageStretches(id: String): Pair<List<FfiImageStretch>, List<FfiImageStretch>>? =
-    readMap { map ->
-      map.styleImageStretches(id)
-    }
-
   override fun layerIds(): List<String>? = readMap { map -> map.styleLayerIds() }
 
   override fun getLayer(id: String): Layer? = readMap { map ->

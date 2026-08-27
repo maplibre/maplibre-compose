@@ -28,7 +28,11 @@ class MlnFfiStyleImageScaleTest {
       val style = assertNotNull(it.style, "the style should have reached the callbacks")
       style.addImage(IMAGE_ID, ImageBitmap(SIZE, SIZE), sdf = false, stretch = null)
 
-      val info = assertNotNull(it.core.styleImageInfo(IMAGE_ID), "the image should be in the style")
+      val info =
+        assertNotNull(
+          it.withMap { map -> map.styleImageInfo(IMAGE_ID) },
+          "the image should be in the style",
+        )
       assertEquals(expected, info.pixelRatio, "pixel ratio")
       // The upload itself is unscaled; only the ratio it is tagged with changes.
       assertEquals(SIZE, info.width, "width")

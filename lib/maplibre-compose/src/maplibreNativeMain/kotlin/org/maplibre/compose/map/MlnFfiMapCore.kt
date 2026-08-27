@@ -71,7 +71,6 @@ import org.maplibre.nativeffi.runtime.RuntimeEvent
 import org.maplibre.nativeffi.runtime.RuntimeEventMask
 import org.maplibre.nativeffi.runtime.RuntimeEventPayload
 import org.maplibre.nativeffi.runtime.RuntimeEventType
-import org.maplibre.nativeffi.style.StyleImageInfo
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
@@ -538,14 +537,6 @@ internal class MlnFfiMapCore(
     reportedMoveReason = null
     callbacks.onCameraMoveEnded(this)
   }
-
-  /** Exists for tests. */
-  internal fun styleImageInfo(imageId: String): StyleImageInfo? = runOnMap {
-    it.styleImageInfo(imageId)
-  }
-
-  /** Exists for tests. */
-  internal fun currentStyleLayerIds(): List<String> = runOnMap { it.styleLayerIds() }.orEmpty()
 
   private fun imageScale(): Float = (loop?.scaleFactor ?: 1.0).toFloat()
 
@@ -1025,8 +1016,33 @@ internal class MlnFfiMapCore(
     configureMap { map -> map.tileOptions = value.toFfi() }
   }
 
-  /** Test seam: runs [action] on the owner thread and waits for it. */
-  internal fun <T> readMap(action: (MapHandle) -> T): T? = runOnMap(action)
+  /** Whether the loaded map reports itself fully loaded; false while no map exists. */
+  internal fun isMapFullyLoaded(): Boolean = runOnMap { it.isFullyLoaded } == true
+
+  /**
+   * Runs [action] on the map's owner thread and returns its result, waiting for the map when it
+   * does not exist yet. Fails with [IllegalStateException] when this core closes first. The public
+   * [withPlatformMap] hop.
+   */
+  internal suspend fun <T> withMapHandle(action: (MapHandle) -> T): T =
+    suspendCancellableCoroutine { continuation ->
+      val accepted =
+        postWhenMapExists(
+          action = { map -> continuation.resumeWith(runCatching { action(map) }) },
+          abandon = {
+            if (continuation.isActive) {
+              continuation.resumeWithException(
+                IllegalStateException("MapState was closed before the platform map call ran")
+              )
+            }
+          },
+        )
+      if (!accepted && continuation.isActive) {
+        continuation.resumeWithException(
+          IllegalStateException("MapState is closed; the platform map is destroyed")
+        )
+      }
+    }
 
   /** Dirties the map so the next render update redraws, for a snapshot's final frame. */
   internal fun postSnapshotRepaint() {
