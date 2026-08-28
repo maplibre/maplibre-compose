@@ -1195,11 +1195,15 @@ internal class MlnFfiMapCore(
    * Runs [block] on the snapshot's frozen projection. Holds [projectionLock] for the call so the
    * owner thread retires this handle only after [block] returns.
    */
-  private inline fun <T> withSnapshotProjection(block: (MapProjectionHandle) -> T): T? =
-    projectionLock.withLock {
+  private inline fun <T> withSnapshotProjection(block: (MapProjectionHandle) -> T): T? {
+    // A lost surface leaves a projection for a vanished target; the conversions answer null then,
+    // matching getViewport.
+    if (!stateLock.withLock { hasAttachedViewport }) return null
+    return projectionLock.withLock {
       val handle = mirroredViewport.projection ?: return@withLock null
       block(handle)
     }
+  }
 
   override suspend fun queryRenderedFeatures(
     offset: DpOffset,

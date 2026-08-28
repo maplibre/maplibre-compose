@@ -43,8 +43,10 @@ internal fun <S : Any> MapSessionHost(
 
   DisposableEffect(resource) {
     onDispose {
-      resource.release()
+      // The detach precedes the release, so a load that finishes mid-release buffers for the next
+      // session instead of reaching the departing composable's hooks.
       if (attached[0]) state.detachSession()
+      resource.release()
     }
   }
 

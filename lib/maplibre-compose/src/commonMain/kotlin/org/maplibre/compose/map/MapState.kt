@@ -302,19 +302,21 @@ internal constructor(
    */
   public var baseStyle: BaseStyle
     get() = selectedBaseStyle ?: BaseStyle.Demo
-    set(value) = transitionLock.withLock {
-      if (value == selectedBaseStyle) return@withLock
-      selectedBaseStyle = value
-      // A new selection makes the previous style's load failure and completion stale.
-      lastLoadFailure.value = null
-      loadFinishedWhileDetached = false
-      loadFailedWhileDetached = null
-      (attachedAdapter ?: engine.detachedAdapter)?.setBaseStyle(value)
-    }
+    set(value) = transitionLock.withLock { selectBaseStyleLocked(value) }
+
+  private fun selectBaseStyleLocked(value: BaseStyle) {
+    if (value == selectedBaseStyle) return
+    selectedBaseStyle = value
+    // A new selection makes the previous style's load failure and completion stale.
+    lastLoadFailure.value = null
+    loadFinishedWhileDetached = false
+    loadFailedWhileDetached = null
+    (attachedAdapter ?: engine.detachedAdapter)?.setBaseStyle(value)
+  }
 
   /** Selects [BaseStyle.Demo] on a state that never selected a style, so a session has one. */
-  internal fun ensureBaseStyleSelected() {
-    if (selectedBaseStyle == null) baseStyle = BaseStyle.Demo
+  internal fun ensureBaseStyleSelected(): Unit = transitionLock.withLock {
+    if (selectedBaseStyle == null) selectBaseStyleLocked(BaseStyle.Demo)
   }
 
   /**
