@@ -249,7 +249,7 @@ internal class StyleCompositionHost(
   }
 
   private fun applyChanges() {
-    if (disposed) return
+    if (closed || disposed) return
     try {
       rootNode.applyChanges()
     } catch (error: CancellationException) {

@@ -634,9 +634,9 @@ internal constructor(
    */
   internal fun updateBinding(newBinding: StyleBinding?) {
     styleNode.binding = newBinding ?: StyleBinding.UNLOADED
-    // A reload drops imperative registrations; the load callback can run before the host sync, so
-    // the published snapshots empty here.
-    if (newBinding != null) styleNode.clearPublishedAppOwnership()
+    // The binding this publication replaces owned the imperative registrations, and no host sync
+    // is guaranteed to follow an unload, so the published snapshots empty here.
+    styleNode.clearPublishedAppOwnership()
     refreshStyleCollections()
     host.requestApplyChanges()
   }

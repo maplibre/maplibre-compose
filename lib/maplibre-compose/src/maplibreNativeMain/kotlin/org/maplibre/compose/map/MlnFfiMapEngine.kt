@@ -272,7 +272,23 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
 
   actual suspend fun captureStillImage(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
     val deadline = TimeSource.Monotonic.markNow() + timeout
-    snapshotMutex.withLock {
+    // The wait for another capture is bounded by this call's own deadline.
+    withTimeoutOrNull(timeout) { snapshotMutex.lock() }
+      ?: throw IllegalStateException("Another still image held the renderer past $timeout")
+    try {
+      snapshotLocked(width, height, timeout, deadline)
+    } finally {
+      snapshotMutex.unlock()
+    }
+  }
+
+  private suspend fun snapshotLocked(
+    width: Dp,
+    height: Dp,
+    timeout: Duration,
+    deadline: TimeSource.Monotonic.ValueTimeMark,
+  ): ImageBitmap {
+    run {
       // The reservation holds the render slot until the finally below releases it, so a session
       // cannot attach or evict the core while the snapshot renders.
       reserveSnapshot()

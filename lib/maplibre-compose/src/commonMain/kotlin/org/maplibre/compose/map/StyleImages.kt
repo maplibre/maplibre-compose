@@ -91,6 +91,9 @@ public class StyleImages internal constructor(private val state: MapState) {
       check(binding.isLoaded) { "No loaded style; an image can only be added to a loaded style" }
       node.ensureAppTablesFor(binding)
       addTo(binding)
+      // A reload can unload the binding between the loaded check and the owner-thread upload; a
+      // dropped upload must not publish an id that was never installed.
+      check(binding.isLoaded) { "Image '$id' was not added: the style unloaded during the add" }
       if (node.appImages.add(id)) node.publishAppImages()
     }
   }

@@ -101,8 +101,8 @@ public sealed class Source(internal val id: String) {
   }
 
   /** Removes this source from its style; the descriptor survives for a later style. */
-  internal fun detach(expectedBinding: StyleBinding) {
-    if (binding === StyleBinding.UNLOADED && !expectedBinding.isLoaded) return
+  internal fun detach(expectedBinding: StyleBinding): Unit = attachLock.withLock {
+    if (binding === StyleBinding.UNLOADED && !expectedBinding.isLoaded) return@withLock
     require(binding === expectedBinding) {
       "Source '$id' does not belong to the style trying to remove it"
     }
