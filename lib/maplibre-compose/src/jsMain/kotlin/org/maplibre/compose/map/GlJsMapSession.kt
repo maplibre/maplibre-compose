@@ -98,7 +98,7 @@ internal class GlJsMapSession(
     }
     return suspendCancellableCoroutine { continuation ->
       val action =
-        PendingAction(
+        PendingAction<MaplibreMap>(
           run = { current ->
             if (continuation.isActive) continuation.resumeWith(runCatching { block(current) })
           },
