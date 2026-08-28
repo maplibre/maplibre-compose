@@ -326,9 +326,11 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         )
       )
       core.setCameraPadding(PaddingValues(0.dp))
-      core.replayCameraRecord { state.camera }
-      awaitStyleLoaded(core, deadline, timeout)
-      // One sync of the desired style composition against the loaded style before rendering.
+      val capture =
+        state.record.read { renderer as? RendererState.Capture }
+          ?: error("still capture lost its lease")
+      core.replayCameraRecord { capture.camera }
+      awaitStyleLoaded(core, capture.styleGeneration, deadline, timeout)
       state.host.requestApplyChanges()
       awaitQuiescentOrFail(deadline, timeout)
       return renderStillImage(
@@ -353,12 +355,12 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
 
   private suspend fun awaitStyleLoaded(
     core: MlnFfiMapCore,
+    styleGeneration: Long,
     deadline: TimeSource.Monotonic.ValueTimeMark,
     timeout: Duration,
   ) {
-    // hasLoadedFirstStyle is sticky across style changes, so the wait compares generations, and
-    // re-reads the requested one so a selection made during the wait is also waited for.
-    while (core.loadedStyleGeneration < core.requestedStyleGeneration) {
+    // Wait only for the generation frozen at capture. A later baseStyle write is not this image.
+    while (core.loadedStyleGeneration < styleGeneration) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
       check(!core.isClosed) { "MapState was closed while a still image was rendering" }
       state.lastLoadFailure?.let { reason ->

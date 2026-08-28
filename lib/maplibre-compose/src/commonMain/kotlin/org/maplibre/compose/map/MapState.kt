@@ -80,6 +80,9 @@ private val EMPTY_STYLE_COMPOSITION: @Composable @MaplibreComposable () -> Unit 
  * [LayerHandle][org.maplibre.compose.layers.LayerHandle] write. Reapply the mutations when
  * [loadState] becomes [MapLoadState.Ready] for the new generation, or from the [MaplibreMap]
  * `onMapLoadFinished` callback, and watch [styleErrors] for a reapplication the new style refuses.
+ *
+ * Logical writes run on the host dispatcher, [Dispatchers.Main] in an app. Platform callbacks post
+ * to that dispatcher and do not enter this state from the native owner thread.
  */
 public class MapState
 internal constructor(
@@ -577,10 +580,11 @@ internal constructor(
    * UI. The returned bitmap is in physical pixels, [width] and [height] scaled by the state's
    * density.
    *
-   * The call waits for the base style and its sources to finish loading before it renders, so the
-   * image holds the fully loaded map. A style or map that fails to load fails the call with an
-   * [IllegalStateException] naming the failure, and a map that never finishes loading fails the
-   * same way when [timeout] passes.
+   * The call freezes the selected [baseStyle] and the recorded [camera] at invocation. Later writes
+   * of those values update this state and do not change that image. The call waits for that frozen
+   * style and its sources to finish loading before it renders. A style or map that fails to load
+   * fails the call with an [IllegalStateException] naming the failure, and a map that never
+   * finishes loading fails the same way when [timeout] passes.
    *
    * On Android, iOS, and Desktop a still image renders only while no [MaplibreMap] shows this
    * state; a call with one attached throws [IllegalStateException]. On Web this function always
@@ -601,6 +605,7 @@ internal constructor(
       return engine.captureStillImage(width, height, timeout)
     } finally {
       commit { finishCapture(lease) }
+      host.requestApplyChanges()
     }
   }
 
@@ -683,19 +688,20 @@ internal constructor(
   internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 
   /**
-   * Applies [transform] under the record lock, publishes the Compose snapshot, then drains queued
-   * effects in commit order. Public callers wait until their platform work finishes. A reentrant
+   * Applies [transform], publishes the Compose snapshot, then flushes queued effects. A reentrant
    * commit from an effect only enqueues.
    */
-  internal fun <T> commit(transform: MapRecord.() -> T): T =
-    applyCommit(waitForIdle = true, transform)
+  internal fun <T> commit(transform: MapRecord.() -> T): T {
+    val value = record.mutate(transform)
+    publishRecord()
+    record.drain()
+    return value
+  }
 
-  /**
-   * Records a platform callback. If a drain is already running, new effects sit behind it and this
-   * call returns without waiting, so an owner-thread callback cannot deadlock with that drain.
-   */
-  internal fun <T> commitFromPlatform(transform: MapRecord.() -> T): T =
-    applyCommit(waitForIdle = false, transform)
+  /** Posts a platform event onto the host dispatcher. Native callbacks must use this. */
+  internal fun postLogical(transform: MapRecord.() -> Unit) {
+    host.postLogical { commit(transform) }
+  }
 
   /** Runs a style mutation on the host, then publishes ownership only if the binding is current. */
   internal suspend fun runStyleEffect(effect: (StyleBinding) -> Unit) {
@@ -707,13 +713,6 @@ internal constructor(
       }
       failure?.let { throw it }
     }
-  }
-
-  private fun <T> applyCommit(waitForIdle: Boolean, transform: MapRecord.() -> T): T {
-    val value = record.mutate(transform)
-    publishRecord()
-    record.drain(waitForIdle)
-    return value
   }
 
   private fun publishRecord() {

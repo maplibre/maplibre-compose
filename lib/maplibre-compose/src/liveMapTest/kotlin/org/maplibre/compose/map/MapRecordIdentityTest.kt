@@ -13,6 +13,7 @@ import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
@@ -217,6 +218,38 @@ class MapRecordIdentityTest {
     assertTrue(record.read { styleGeneration } > generation)
     assertIs<MapLoadState.Loading>(record.read { loadState })
     assertEquals(2, adapter.calls.count { it == "setBaseStyle" })
+  }
+
+  @Test
+  fun a_style_or_camera_write_during_capture_does_not_change_the_frozen_inputs() {
+    val record = MapRecord(start)
+    val adapter = FakeMapAdapter()
+    record.mutate { attach(adapter) }
+    record.mutate { detach(adapter) }
+    record.drain()
+    val stylesBefore = adapter.calls.count { it == "setBaseStyle" }
+    val lease = record.mutate { beginCapture() }
+    val frozen = record.read { renderer as RendererState.Capture }
+    record.mutate { setCamera(moved) }
+    record.mutate { selectStyle(BaseStyle.Empty) }
+    record.drain()
+    val after = record.read { renderer as RendererState.Capture }
+    assertEquals(frozen.camera, after.camera)
+    assertEquals(frozen.style, after.style)
+    assertEquals(frozen.styleGeneration, after.styleGeneration)
+    assertEquals(moved, record.read { camera })
+    assertEquals(BaseStyle.Empty, record.read { selectedStyle })
+    assertEquals(
+      stylesBefore + 1,
+      adapter.calls.count { it == "setBaseStyle" },
+      "capture must not push a later baseStyle to the renderer",
+    )
+    record.mutate { finishCapture(lease) }
+    record.drain()
+    assertTrue(
+      adapter.calls.count { it == "setBaseStyle" } > stylesBefore + 1,
+      "finishing capture must apply the style that arrived during it",
+    )
   }
 
   @Test

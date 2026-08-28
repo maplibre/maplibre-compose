@@ -10,10 +10,8 @@ import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.util.MaplibreComposable
 
 /**
- * The locked logical map. [mutate] is the only writer. Platform work is queued as lambdas onto one
- * FIFO drain, so two threads that commit A then B run A's platform calls before B's. A callback
- * from that work starts a new turn instead of deadlocking the non-reentrant native lock, and its
- * effects sit behind the drain that is already running.
+ * The logical map. [mutate] is the only writer. Platform work is queued as lambdas and flushed on
+ * the logical thread after the caller publishes, so a transform never calls into the adapter.
  *
  * Stale work is unauthorized by identity: a style event names a generation, a session event names
  * an adapter and a session generation, a composition publish names a binding. A superseded identity
@@ -22,86 +20,43 @@ import org.maplibre.compose.util.MaplibreComposable
 internal class MapRecord(initialCamera: CameraPosition) {
   private val lock = newSessionLock()
   private val work = mutableListOf<() -> Unit>()
-  private val effectLock = newSessionLock()
   private val effects = ArrayDeque<() -> Unit>()
-  private var drainOwner: Any? = null
-  private var idleGate: IdleGate? = null
+  private var flushing = false
 
   /**
-   * Applies [transform] under the serial token and appends this turn's work to the FIFO drain. Do
-   * not call platform code or user callbacks from [transform]; [enqueue] that work instead. The
-   * caller publishes the record, then calls [drain].
+   * Applies [transform] and appends this turn's work. Do not call platform code or user callbacks
+   * from [transform]; [enqueue] that work instead. The caller publishes the record, then calls
+   * [drain].
    */
   fun <T> mutate(transform: MapRecord.() -> T): T = lock.withLock {
     val value = transform()
-    effectLock.withLock {
-      for (task in work) effects.addLast(task)
-      work.clear()
-    }
+    for (task in work) effects.addLast(task)
+    work.clear()
     value
   }
 
   /** A consistent read of the record. The block must not mutate it. */
   fun <T> read(transform: MapRecord.() -> T): T = lock.withLock { transform() }
 
-  /** Queues [block] to run on the FIFO drain after this turn publishes and releases the lock. */
+  /** Queues [block] to run after this turn publishes. */
   fun enqueue(block: () -> Unit) {
     work += block
   }
 
   /**
-   * Runs queued effects in commit order. A reentrant call returns immediately so new work sits
-   * behind the current drain. A public caller waits until idle. A platform callback must pass
-   * [waitForIdle] false: it records and enqueues, and never waits on a drain that may be blocked on
-   * this owner thread.
+   * Runs queued effects in enqueue order. A reentrant call returns immediately so new work sits
+   * behind the flush that is already running.
    */
-  fun drain(waitForIdle: Boolean = true) {
-    val me = currentThreadToken()
-    while (true) {
-      when (val action = nextDrainAction(me, waitForIdle)) {
-        DrainAction.Idle,
-        DrainAction.Reentrant,
-        DrainAction.Park -> return
-        is DrainAction.Wait -> action.gate.await()
-        DrainAction.Run -> runDrain(me)
-      }
-    }
-  }
-
-  private fun nextDrainAction(me: Any, waitForIdle: Boolean): DrainAction = effectLock.withLock {
-    when {
-      drainOwner === me -> DrainAction.Reentrant
-      drainOwner != null && waitForIdle ->
-        DrainAction.Wait(idleGate ?: newIdleGate().also { idleGate = it })
-      drainOwner != null -> DrainAction.Park
-      effects.isEmpty() -> DrainAction.Idle
-      else -> {
-        drainOwner = me
-        DrainAction.Run
-      }
-    }
-  }
-
-  private fun runDrain(me: Any) {
-    while (true) {
-      val task = effectLock.withLock { effects.removeFirstOrNull() }
-      if (task != null) {
+  fun drain() {
+    if (flushing) return
+    flushing = true
+    try {
+      while (true) {
+        val task = effects.removeFirstOrNull() ?: break
         task()
-        continue
       }
-      // Empty-queue observation and owner release are one handoff. A callback that enqueues after
-      // the empty read keeps this drain running instead of parking until a later commit.
-      val done = effectLock.withLock {
-        if (effects.isNotEmpty()) {
-          false
-        } else {
-          if (drainOwner === me) drainOwner = null
-          idleGate?.open()
-          idleGate = null
-          true
-        }
-      }
-      if (done) return
+    } finally {
+      flushing = false
     }
   }
 
@@ -220,7 +175,8 @@ internal class MapRecord(initialCamera: CameraPosition) {
     styleGeneration += 1L
     loadState = MapLoadState.Loading(styleGeneration, style)
     lastLoadFailure = null
-    styleSource?.let { emitLoad(it, style) }
+    // A capture renders the style it snapshotted. Later selections update logical state only.
+    if (renderer !is RendererState.Capture) styleSource?.let { emitLoad(it, style) }
   }
 
   /**
@@ -292,7 +248,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
       lastLoadFailure = null
       if (selectedStyle != null) {
         loadState = MapLoadState.Loading(styleGeneration, currentStyle())
-        if (renderer is RendererState.Capture && adapter != null) emitLoad(adapter, currentStyle())
+        if (renderer is RendererState.Capture && adapter != null) {
+          emitLoad(adapter, (renderer as RendererState.Capture).style)
+        }
       }
     }
   }
@@ -367,7 +325,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
           cameraWorkGeneration = current.generation
           current.adapter
         }
-        is RendererState.Capture -> styleSource
+        is RendererState.Capture -> null
         // Detached: record only. Attach and capture apply the camera after they set up the
         // renderer, so leftover session constraints cannot clamp the recorded position.
         RendererState.None -> null
@@ -432,9 +390,15 @@ internal class MapRecord(initialCamera: CameraPosition) {
     selectDemoIfNeeded()
     check(renderer !is RendererState.Capture) { SNAPSHOT_SESSION_ERROR }
     val id = nextCaptureId++
-    renderer = RendererState.Capture(id)
-    // A matching retained core is not replaced, so capture must push the style itself when a
-    // core already exists and never loaded.
+    renderer =
+      RendererState.Capture(
+        id = id,
+        camera = camera,
+        style = currentStyle(),
+        styleGeneration = styleGeneration,
+      )
+    // A matching retained core is not replaced, so capture must push the snapshotted style
+    // itself when a core already exists and never loaded.
     styleSource?.let { emitLoad(it, currentStyle()) }
     return id
   }
@@ -444,6 +408,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
     if (current.id != id) return
     renderer = RendererState.None
     viewport = null
+    if (styleGeneration != current.styleGeneration) {
+      styleSource?.let { emitLoad(it, currentStyle()) }
+    }
   }
 
   fun beginOperation(): Long {
@@ -626,25 +593,20 @@ internal class PendingMapOperation(val id: Long) {
   var sessionGeneration: Long = 0L
 }
 
-/** The next step the effect drain takes. */
-private sealed interface DrainAction {
-  data object Idle : DrainAction
-
-  data object Reentrant : DrainAction
-
-  data object Run : DrainAction
-
-  /** Work is queued; the active drain will run it. */
-  data object Park : DrainAction
-
-  class Wait(val gate: IdleGate) : DrainAction
-}
-
 /** Who currently holds the render slot. */
 internal sealed interface RendererState {
   data object None : RendererState
 
   data class Session(val adapter: MapAdapter, val generation: Long) : RendererState
 
-  data class Capture(val id: Long) : RendererState
+  /**
+   * A still capture in progress. [camera], [style], and [styleGeneration] are the logical inputs
+   * frozen at [MapRecord.beginCapture]; later logical writes do not change this capture.
+   */
+  data class Capture(
+    val id: Long,
+    val camera: CameraPosition,
+    val style: BaseStyle,
+    val styleGeneration: Long,
+  ) : RendererState
 }

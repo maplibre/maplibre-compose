@@ -1,137 +1,22 @@
 package org.maplibre.compose.map
 
-import java.util.Collections
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
-import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 
 class MapRecordEffectOrderTest {
 
   @Test
-  fun concurrent_commits_run_effects_in_record_order() {
+  fun effects_run_in_enqueue_order_on_the_logical_thread() {
     val record = MapRecord(CameraPosition())
-    val log = Collections.synchronizedList(mutableListOf<String>())
-    val startedA = CountDownLatch(1)
-    val releaseA = CountDownLatch(1)
-    val committedB = CountDownLatch(1)
-
-    val first = Thread {
-      record.mutate {
-        enqueue {
-          log += "A-start"
-          startedA.countDown()
-          assertTrue(releaseA.await(5, TimeUnit.SECONDS))
-          log += "A-end"
-        }
-      }
-      record.drain()
+    val log = mutableListOf<String>()
+    record.mutate {
+      enqueue { log += "A" }
+      enqueue { log += "B" }
     }
-    first.start()
-    assertTrue(startedA.await(5, TimeUnit.SECONDS))
-
-    val second = Thread {
-      record.mutate { enqueue { log += "B" } }
-      committedB.countDown()
-      record.drain()
-    }
-    second.start()
-    assertTrue(committedB.await(5, TimeUnit.SECONDS))
-    Thread.sleep(50)
-    releaseA.countDown()
-    first.join(5_000)
-    second.join(5_000)
-
-    assertEquals(listOf("A-start", "A-end", "B"), log.toList())
-  }
-
-  @Test
-  fun a_callback_drain_does_not_wait_for_the_active_drainer() {
-    val record = MapRecord(CameraPosition())
-    val log = Collections.synchronizedList(mutableListOf<String>())
-    val startedA = CountDownLatch(1)
-    val releaseOwner = CountDownLatch(1)
-
-    val drainer = Thread {
-      record.mutate {
-        enqueue {
-          log += "A-start"
-          startedA.countDown()
-          assertTrue(releaseOwner.await(5, TimeUnit.SECONDS))
-          log += "A-end"
-        }
-      }
-      record.drain()
-    }
-    drainer.start()
-    assertTrue(startedA.await(5, TimeUnit.SECONDS))
-
-    val callback = Thread {
-      record.mutate { enqueue { log += "C" } }
-      record.drain(waitForIdle = false)
-      log += "callback-returned"
-    }
-    callback.start()
-    callback.join(5_000)
-    assertTrue(!callback.isAlive, "a platform callback must not wait for the active drain")
-
-    releaseOwner.countDown()
-    drainer.join(5_000)
-    assertTrue(!drainer.isAlive)
-    assertEquals(listOf("A-start", "callback-returned", "A-end", "C"), log.toList())
-  }
-
-  @Test
-  fun a_shared_thread_name_does_not_make_two_threads_reentrant() {
-    val record = MapRecord(CameraPosition())
-    val sharedName = "map-owner"
-    val log = Collections.synchronizedList(mutableListOf<String>())
-    val startedA = CountDownLatch(1)
-    val releaseA = CountDownLatch(1)
-    val bReturned = CountDownLatch(1)
-
-    val first =
-      Thread(
-        {
-          Thread.currentThread().name = sharedName
-          record.mutate {
-            enqueue {
-              log += "A-start"
-              startedA.countDown()
-              assertTrue(releaseA.await(5, TimeUnit.SECONDS))
-              log += "A-end"
-            }
-          }
-          record.drain()
-        },
-        sharedName,
-      )
-    first.start()
-    assertTrue(startedA.await(5, TimeUnit.SECONDS))
-
-    val second =
-      Thread(
-        {
-          Thread.currentThread().name = sharedName
-          record.mutate { enqueue { log += "B" } }
-          record.drain()
-          log += "B-returned"
-          bReturned.countDown()
-        },
-        sharedName,
-      )
-    second.start()
-    assertFalse(
-      bReturned.await(200, TimeUnit.MILLISECONDS),
-      "a public drain must wait; a shared thread name is not identity",
-    )
-    releaseA.countDown()
-    assertTrue(bReturned.await(5, TimeUnit.SECONDS))
-    first.join(5_000)
-    second.join(5_000)
-    assertEquals(listOf("A-start", "A-end", "B", "B-returned"), log.toList())
+    record.drain()
+    record.mutate { enqueue { log += "C" } }
+    record.drain()
+    assertEquals(listOf("A", "B", "C"), log)
   }
 }

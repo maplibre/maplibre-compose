@@ -2,7 +2,7 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertTrue
+import kotlin.test.assertFailsWith
 import org.maplibre.compose.camera.CameraPosition
 
 class MapRecordDrainTest {
@@ -13,7 +13,7 @@ class MapRecordDrainTest {
   }
 
   @Test
-  fun a_reentrant_commit_runs_its_effects_behind_the_current_drain() {
+  fun a_reentrant_commit_runs_its_effects_behind_the_current_flush() {
     val record = MapRecord(CameraPosition())
     val log = mutableListOf<String>()
     record.commit {
@@ -28,18 +28,20 @@ class MapRecordDrainTest {
   }
 
   @Test
-  fun current_thread_token_is_stable() {
-    val first = currentThreadToken()
-    val second = currentThreadToken()
-    assertTrue(first === second, "the drain compares tokens with identity")
-  }
-
-  @Test
   fun two_commits_run_platform_work_in_commit_order() {
     val record = MapRecord(CameraPosition())
     val log = mutableListOf<String>()
     record.commit { enqueue { log += "A" } }
     record.commit { enqueue { log += "B" } }
     assertEquals(listOf("A", "B"), log)
+  }
+
+  @Test
+  fun a_throwing_effect_releases_the_flush_so_later_commits_run() {
+    val record = MapRecord(CameraPosition())
+    assertFailsWith<IllegalStateException> { record.commit { enqueue { error("boom") } } }
+    val log = mutableListOf<String>()
+    record.commit { enqueue { log += "after" } }
+    assertEquals(listOf("after"), log)
   }
 }

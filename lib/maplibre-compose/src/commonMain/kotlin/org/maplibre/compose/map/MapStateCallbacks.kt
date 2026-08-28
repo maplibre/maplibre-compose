@@ -13,8 +13,8 @@ import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Forwards platform callbacks into [MapState] as generation-tagged events. The record decides
- * whether each event still belongs to current state.
+ * Forwards platform callbacks into [MapState] as generation-tagged events posted to the host
+ * dispatcher. The record decides whether each event still belongs to current state.
  */
 internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callbacks {
 
@@ -35,59 +35,65 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
 
   /** Test helper: deliver a style event for the state's current generation. */
   fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-    onStyleChanged(map, style, state.styleGeneration)
+    state.commit { styleChanged(map, style, state.styleGeneration) }
   }
 
   override fun onMapDestroyed(map: MapAdapter) {
-    state.commitFromPlatform { mapDestroyed(map) }
+    state.postLogical { mapDestroyed(map) }
   }
 
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
-    state.commitFromPlatform { styleChanged(map, style, styleGeneration) }
+    state.postLogical { styleChanged(map, style, styleGeneration) }
   }
 
   override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
     val source = state.attachedAdapter ?: state.engine.detachedAdapter
-    state.commitFromPlatform {
+    state.postLogical {
       styleLoadFailed(source, styleGeneration, reason ?: "MapLibre failed to load the map")
     }
   }
 
   override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
-    state.commitFromPlatform { styleLoadFinished(map, styleGeneration) }
+    state.postLogical { styleLoadFinished(map, styleGeneration) }
   }
 
   /** Test helper: finish the current generation. */
   fun onMapFinishedLoading(map: MapAdapter) {
-    onMapFinishedLoading(map, state.styleGeneration)
+    state.commit { styleLoadFinished(map, state.styleGeneration) }
   }
 
   /** Test helper: fail the current generation. */
   fun onMapFailLoading(reason: String?) {
-    onMapFailLoading(reason, state.styleGeneration)
+    val source = state.attachedAdapter ?: state.engine.detachedAdapter
+    state.commit {
+      styleLoadFailed(source, state.styleGeneration, reason ?: "MapLibre failed to load the map")
+    }
   }
 
   override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
-    if (sourceId == null) state.sources.refreshSources() else state.sources.refreshSource(sourceId)
-    state.styleNode.refreshLiveLayerIds()
+    state.postLogical {
+      if (sourceId == null) state.sources.refreshSources()
+      else state.sources.refreshSource(sourceId)
+      state.styleNode.refreshLiveLayerIds()
+    }
   }
 
   override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-    state.commitFromPlatform { cameraMoveStarted(map, reason) }
+    state.postLogical { cameraMoveStarted(map, reason) }
   }
 
   override fun onCameraMoved(map: MapAdapter) {
     val position = map.getCameraPosition()
     val viewport = map.getViewport()
-    state.commitFromPlatform { cameraMoved(map, position, viewport) }
+    state.postLogical { cameraMoved(map, position, viewport) }
   }
 
   override fun onCameraMoveEnded(map: MapAdapter) {
-    state.commitFromPlatform { cameraMoveEnded(map) }
+    state.postLogical { cameraMoveEnded(map) }
   }
 
   override fun onSurfaceLost(map: MapAdapter) {
-    state.commitFromPlatform { surfaceLost(map) }
+    state.postLogical { surfaceLost(map) }
   }
 
   /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */

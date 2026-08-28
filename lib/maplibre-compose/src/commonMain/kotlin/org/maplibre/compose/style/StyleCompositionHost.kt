@@ -246,6 +246,12 @@ internal class StyleCompositionHost(
     recomposer.currentState.first { it == Recomposer.State.ShutDown }
   }
 
+  /** Posts [block] onto the host dispatcher. Native callbacks use this to enter [MapState]. */
+  internal fun postLogical(block: () -> Unit) {
+    if (closed) return
+    scope.launch { block() }
+  }
+
   private fun applyChanges() {
     if (closed || disposed) return
     try {
