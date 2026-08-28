@@ -43,8 +43,9 @@ import org.maplibre.spatialk.geojson.BoundingBox
  *
  * @param initialCameraPosition Sets the camera once, when the state is created; a recreated
  *   composition restores the saved camera position instead.
- * @param baseStyle The URI or JSON of the map style to use. Assigned to [MapState.baseStyle] on
- *   every recomposition. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
+ * @param baseStyle The URI or JSON of the map style to use. [MapState.baseStyle] follows it while
+ *   it is non-null; null leaves the style to the state's owner, and a state that never selects one
+ *   loads [BaseStyle.Demo]. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
  * @param styleComposition The sources and layers composed over [baseStyle]; null composes nothing,
  *   and clears a composition that an earlier recomposition passed. Inside the composition,
  *   [LocalMapState] returns the returned state. See [MapState.setStyleComposition].
@@ -52,7 +53,7 @@ import org.maplibre.spatialk.geojson.BoundingBox
 @Composable
 public fun rememberMapState(
   initialCameraPosition: CameraPosition = CameraPosition(),
-  baseStyle: BaseStyle = BaseStyle.Demo,
+  baseStyle: BaseStyle? = null,
   styleComposition: (@Composable @MaplibreComposable () -> Unit)? = null,
 ): MapState {
   val density = LocalDensity.current
@@ -103,7 +104,7 @@ public fun rememberMapState(
   if (styleComposition != null) mapState.updateStyleComposition(styleComposition)
   else mapState.clearStyleComposition()
 
-  SideEffect { mapState.baseStyle = baseStyle }
+  if (baseStyle != null) SideEffect { mapState.baseStyle = baseStyle }
 
   return mapState
 }

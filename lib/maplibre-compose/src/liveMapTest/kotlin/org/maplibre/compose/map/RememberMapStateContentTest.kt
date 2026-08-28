@@ -50,4 +50,25 @@ class RememberMapStateContentTest {
     waitForIdle()
     awaitStyle { !binding.layerExists("bg-user") }
   }
+
+  /** A null baseStyle parameter leaves the style to the state's owner. */
+  @Test
+  fun an_imperative_base_style_survives_recomposition_when_no_base_style_is_passed() =
+    runComposeUiTest {
+      var tick by mutableStateOf(0)
+      lateinit var state: MapState
+      val owned = org.maplibre.compose.style.BaseStyle.Json("""{"version":8}""")
+
+      setContent {
+        tick
+        state = rememberMapState()
+      }
+      waitForIdle()
+
+      state.baseStyle = owned
+      tick++
+      waitForIdle()
+
+      kotlin.test.assertEquals(owned, state.baseStyle, "the remembered state stomped the owner")
+    }
 }
