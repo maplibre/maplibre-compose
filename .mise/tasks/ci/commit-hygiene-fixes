@@ -6,8 +6,6 @@ cd "${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
 committed=false
 git update-index -q --refresh
 if ! git diff --quiet || ! git diff --cached --quiet; then
-  # Tracked files only: `mise run fix` may write generated docs that stay
-  # untracked.
   git add --update
   git -c user.name="github-actions[bot]" \
     -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \

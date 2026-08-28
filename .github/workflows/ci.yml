@@ -17,14 +17,9 @@ jobs:
   # All static analysis, Android Lint included; every other job is a platform.
   # `fix` then a clean-tree assertion rather than `check`, because a push cannot
   # reach a fork's branch. It runs first, so formatting still fails in seconds.
-  # Same-repo Dependabot pull requests: commit that `fix` output, push, and
-  # dispatch a replacement CI run. A GITHUB_TOKEN push does not start one.
   hygiene:
     timeout-minutes: 25
     runs-on: ubuntu-24.04
-    # Dependabot events mint a read-only token unless the job asks for write.
-    # actions: write lets this job dispatch a replacement CI run; a push that
-    # uses GITHUB_TOKEN does not start one on its own.
     permissions:
       contents: write
       actions: write
@@ -38,7 +33,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.DEPENDABOT_PR == 'true'
         with:
-          # The default checkout is the merge commit, which cannot be pushed.
           ref: ${{ github.head_ref }}
       - uses: ./.github/actions/setup-ci-deps
         with:
@@ -58,7 +52,6 @@ jobs:
         run: |
           set -euo pipefail
           git push
-          # GITHUB_TOKEN pushes do not start workflows; workflow_dispatch does.
           gh workflow run CI --ref "${HEAD_REF}"
       - name: Check formatted files
         if: steps.apply-fix.outputs.committed != 'true'
