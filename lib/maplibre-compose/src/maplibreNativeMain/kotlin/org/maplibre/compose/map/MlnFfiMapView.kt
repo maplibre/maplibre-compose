@@ -75,29 +75,29 @@ internal fun MlnFfiMapView(
   val logger = state.logger
 
   // The engine reuses a live core whose density and backend match, so re-entering the composition
-  // re-attaches to the same map instead of recreating it.
+  // re-attaches to the same map instead of recreating it. The engine learns of the core and the
+  // session in the attach effect: an abandoned composition must evict nothing, and only
+  // onAbandoned can release what it constructed.
   val engine = state.engine
-  val core =
+  val holder =
     remember(renderBackend, scaleFactor) {
-      engine.acquireCore(scaleFactor, layoutDirection, renderBackend)
-    }
-  val session =
-    remember(core, renderBackend) {
-        // An abandoned composition runs no DisposableEffect; only onAbandoned can release this.
-        object : RememberObserver {
-          val session = engine.createSession(core, renderBackend)
+      object : RememberObserver {
+        val core = engine.obtainCore(scaleFactor, layoutDirection, renderBackend)
+        val session = MlnFfiMapSession(core, renderBackend)
 
-          override fun onRemembered() {}
+        override fun onRemembered() {}
 
-          override fun onForgotten() {}
+        override fun onForgotten() {}
 
-          override fun onAbandoned() {
-            session.close()
-            engine.releaseSession(session)
-          }
+        override fun onAbandoned() {
+          session.close()
+          engine.releaseSession(session)
+          engine.discardCore(core)
         }
       }
-      .session
+    }
+  val core = holder.core
+  val session = holder.session
 
   core.callbacks = state.callbacks
   core.logger = logger
@@ -107,6 +107,8 @@ internal fun MlnFfiMapView(
     session = session,
     state = state,
     attach = {
+      engine.publishCore(core, scaleFactor, renderBackend)
+      engine.registerSession(session)
       // Attach deferred state before native events can report the map's default state to Compose.
       state.attachSession(core)
       core.start()

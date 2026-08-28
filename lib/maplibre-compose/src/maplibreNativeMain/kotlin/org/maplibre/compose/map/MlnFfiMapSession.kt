@@ -103,9 +103,8 @@ internal class MlnFfiMapSession(
   private val frameTimer = TimeSource.Monotonic
   private var lastFrameTime = frameTimer.markNow()
 
-  init {
-    core.attachRenderSession(this)
-  }
+  // The engine wires this session into its core at registration, not at construction: an
+  // abandoned composition constructs sessions that must not displace the live one.
 
   // region MlnFfiRenderSessionAccess
 

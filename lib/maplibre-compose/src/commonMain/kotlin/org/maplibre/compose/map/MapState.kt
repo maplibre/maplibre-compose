@@ -326,9 +326,10 @@ internal constructor(
     get() = positionState.value
 
   /**
-   * The map's current view: the size of the map composable and the visible area. Null while no
-   * attached session has rendered a viewport. A composition that reads this property recomposes
-   * after a camera move or a resize of the map composable.
+   * The map's current view: the size of the rendering surface and the visible area. Null while
+   * nothing renders this state; an attached session supplies it, and a [captureStillImage] in
+   * progress supplies its own. A composition that reads this property recomposes after a camera
+   * move or a resize of the map composable.
    */
   public val viewport: Viewport?
     get() = viewportState.value
@@ -556,6 +557,8 @@ internal constructor(
     moveReasonState.value = CameraMoveReason.NONE
     // The hooks belong to the departed composable; the next attach's SideEffect rewires them.
     callbacks.resetSessionHooks()
+    // The departed UI's locals would retain its Activity; the next attach supplies its own.
+    inheritedLocals = null
     // An engine that keeps the map alive keeps its loaded binding, the applied snapshot, and the
     // source snapshot too; only an unloading binding empties the collections.
     if (engine.detachedAdapter == null) {

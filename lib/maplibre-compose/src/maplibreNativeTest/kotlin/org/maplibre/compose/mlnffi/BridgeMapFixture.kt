@@ -66,7 +66,11 @@ private constructor(
       resourceProviderFactory = ::MlnFfiResourceProvider,
     )
 
-  val session: MlnFfiMapSession = MlnFfiMapSession(core = core, backend = driver.backends.producer)
+  // The engine wires a composed session at registration; the fixture stands in for it here.
+  val session: MlnFfiMapSession =
+    MlnFfiMapSession(core = core, backend = driver.backends.producer).also {
+      core.attachRenderSession(it)
+    }
 
   private val hostSession =
     object : MlnFfiMapHostSession {

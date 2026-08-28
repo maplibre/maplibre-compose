@@ -283,7 +283,11 @@ class LinuxVulkanOpenGlInteropTest {
         resourceProviderFactory = ::MlnFfiResourceProvider,
       )
 
-    private val renderer = MlnFfiMapSession(core = core, backend = host.backends.producer)
+    // The engine wires a composed session at registration; the fixture stands in for it here.
+    private val renderer =
+      MlnFfiMapSession(core = core, backend = host.backends.producer).also {
+        core.attachRenderSession(it)
+      }
 
     private val hostSession =
       object : MlnFfiMapHostSession {

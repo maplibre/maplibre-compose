@@ -81,8 +81,27 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
           check(current.session.core !== core) { SINGLE_SESSION_ERROR }
         Lifecycle.Detached -> {}
       }
-      MlnFfiMapSession(core, backend).also { lifecycle = Lifecycle.SessionAttached(it) }
+      MlnFfiMapSession(core, backend).also { registerSessionLocked(it) }
     }
+
+  /** Takes the render slot for [session]; the transition refuses every other slot holder. */
+  internal fun registerSession(session: MlnFfiMapSession) {
+    sessionLock.withLock {
+      when (lifecycle) {
+        Lifecycle.SnapshotReserved -> throw IllegalStateException(SNAPSHOT_SESSION_ERROR)
+        Lifecycle.Closed ->
+          throw IllegalStateException("Cannot attach a render session to a closed map state")
+        is Lifecycle.SessionAttached -> throw IllegalStateException(SINGLE_SESSION_ERROR)
+        Lifecycle.Detached -> {}
+      }
+      registerSessionLocked(session)
+    }
+  }
+
+  private fun registerSessionLocked(session: MlnFfiMapSession) {
+    session.core.attachRenderSession(session)
+    lifecycle = Lifecycle.SessionAttached(session)
+  }
 
   /** Forgets [session] once its composable leaves, so the next composable may create one. */
   internal fun releaseSession(session: MlnFfiMapSession) {
@@ -107,6 +126,54 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     // snapshot path replaces its own core through acquireCoreLocked as the reservation holder.
     check(lifecycle != Lifecycle.SnapshotReserved) { SNAPSHOT_SESSION_ERROR }
     acquireCoreLocked(scaleFactor, layoutDirection, backend)
+  }
+
+  /**
+   * Returns the live core when [scaleFactor] and [backend] still match, or builds an unpublished
+   * replacement. A composition may be abandoned, so nothing here evicts: [publishCore] installs the
+   * replacement and [discardCore] closes an abandoned one.
+   */
+  internal fun obtainCore(
+    scaleFactor: Double,
+    layoutDirection: LayoutDirection,
+    backend: MapRenderBackend,
+  ): MlnFfiMapCore = sessionLock.withLock {
+    check(lifecycle != Lifecycle.Closed) { "Cannot attach a render session to a closed map state" }
+    core?.let { live ->
+      if (coreScaleFactor == scaleFactor && coreBackend == backend) return@withLock live
+    }
+    MlnFfiMapCore(
+      callbacks = state.callbacks,
+      logger = state.logger,
+      scaleFactor = scaleFactor,
+      layoutDirection = layoutDirection,
+    )
+  }
+
+  /** Installs an [obtainCore] replacement, evicting the previous session and core. */
+  internal fun publishCore(pending: MlnFfiMapCore, scaleFactor: Double, backend: MapRenderBackend) {
+    sessionLock.withLock {
+      if (core === pending) return
+      check(lifecycle != Lifecycle.SnapshotReserved) { SNAPSHOT_SESSION_ERROR }
+      check(lifecycle != Lifecycle.Closed) {
+        "Cannot attach a render session to a closed map state"
+      }
+      // The session closes before the core for the same reason acquireCoreLocked evicts before
+      // recreating.
+      (lifecycle as? Lifecycle.SessionAttached)?.let { attached ->
+        attached.session.close()
+        lifecycle = Lifecycle.Detached
+      }
+      core?.close()
+      core = pending
+      coreScaleFactor = scaleFactor
+      coreBackend = backend
+    }
+  }
+
+  /** Closes an [obtainCore] replacement that an abandoned composition never published. */
+  internal fun discardCore(pending: MlnFfiMapCore) {
+    sessionLock.withLock { if (core !== pending) pending.close() }
   }
 
   /**
