@@ -759,6 +759,9 @@ internal class MlnFfiMapCore(
 
   /** Owner thread only. Publishes the applied camera and viewport for any-thread getters. */
   private fun snapshotViewport(map: MapHandle) {
+    // A self-thread close returns while the owner finishes its batch; a publish after the close
+    // retired the projection would leak the fresh handle.
+    if (closed) return
     val size = map.size
     val corners = map.unprojectedCorners()
     val visibleRegion =

@@ -19,7 +19,7 @@ import org.maplibre.compose.style.BaseStyle
  * Thread-agnostic: [requested] may be read from any thread, and everything else belongs to the
  * thread that applies styles.
  */
-internal class RequestedStyleState {
+internal class RequestedStyleState(private val lock: SessionLock = newSessionLock()) {
 
   /** The requested style paired with its generation, so the applying thread reads them together. */
   class Requested(val style: BaseStyle, val generation: Long)
@@ -49,15 +49,11 @@ internal class RequestedStyleState {
     unloadBinding: () -> Unit,
     clearStyle: () -> Unit,
     postApply: () -> Unit,
-  ) {
-    // The request and its generation publish as one value, and a racing loser retries with a
-    // fresher generation, so the published generation never regresses.
-    while (true) {
-      val current = requestedRef.load()
-      if (style == current?.style) return
-      val next = Requested(style, generationCounter.incrementAndFetch())
-      if (requestedRef.compareAndSet(current, next)) break
-    }
+  ): Unit = lock.withLock {
+    // The lock serializes the callbacks with publication: a racing request could otherwise
+    // unload and clear the binding a newer, already-applied request published.
+    if (style == requestedRef.load()?.style) return@withLock
+    requestedRef.store(Requested(style, generationCounter.incrementAndFetch()))
     unloadBinding()
     clearStyle()
     postApply()
