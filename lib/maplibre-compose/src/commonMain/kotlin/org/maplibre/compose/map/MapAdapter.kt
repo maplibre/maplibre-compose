@@ -36,7 +36,8 @@ internal interface MapAdapter {
 
   fun setCameraPadding(padding: PaddingValues)
 
-  fun setCameraPosition(
+  /** Returns once the map has applied the fit; the fit waits for a real viewport first. */
+  suspend fun setCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

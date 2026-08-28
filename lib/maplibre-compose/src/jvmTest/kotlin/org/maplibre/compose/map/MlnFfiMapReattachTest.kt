@@ -126,9 +126,7 @@ class MlnFfiMapReattachTest {
       assertEquals(firstPosition.target.latitude, camera.target.latitude, 1e-4, "latitude")
       assertEquals(firstPosition.zoom, camera.zoom, 1e-4, "zoom")
 
-      // Step 4: an animation started from a scope that outlives the composable is running when
-      // the session detaches again; the animation belongs to that session, so the detach ends it
-      // and the suspended call returns at the position that it reached.
+      // Step 4: a running animation ends with its session; the call returns where it reached.
       val animationScope = CoroutineScope(Dispatchers.Default)
       try {
         val animation = animationScope.launch {

@@ -3,6 +3,7 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
@@ -80,7 +81,23 @@ internal fun MlnFfiMapView(
     remember(renderBackend, scaleFactor) {
       engine.acquireCore(scaleFactor, layoutDirection, renderBackend)
     }
-  val session = remember(core, renderBackend) { engine.createSession(core, renderBackend) }
+  val session =
+    remember(core, renderBackend) {
+        // An abandoned composition runs no DisposableEffect; only onAbandoned can release this.
+        object : RememberObserver {
+          val session = engine.createSession(core, renderBackend)
+
+          override fun onRemembered() {}
+
+          override fun onForgotten() {}
+
+          override fun onAbandoned() {
+            session.close()
+            engine.releaseSession(session)
+          }
+        }
+      }
+      .session
 
   core.callbacks = state.callbacks
   core.logger = logger

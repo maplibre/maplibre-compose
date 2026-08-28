@@ -25,8 +25,7 @@ internal class ImageManager(private val node: StyleNode) {
 
   private var attachedTo: StyleBinding = node.binding
 
-  // An imperative property write compiles on its caller's thread while the style composition
-  // acquires and releases on the host thread, so the bookkeeping above is guarded.
+  // Property writes compile on their caller's thread; the composition uses the host thread.
   private val lock = newSessionLock()
 
   /** Re-adds every held image when the node has been re-pointed at a new style. */

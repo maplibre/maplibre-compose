@@ -35,8 +35,7 @@ public class StyleSources internal constructor(private val state: MapState) {
 
   private val snapshotState = mutableStateOf(emptyMap<String, Source>())
 
-  // The binding the snapshot's descriptors came from. A reloaded style serves fresh descriptors:
-  // a retained one would route source operations into the unloaded binding, which drops them.
+  // A descriptor retained across a reload would route its operations into the unloaded binding.
   private var snapshotBinding: StyleBinding? = null
 
   init {

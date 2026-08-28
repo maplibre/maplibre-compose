@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -18,13 +19,27 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
   val engine = state.engine
   val session =
     remember(scaleFactor) {
-      GlJsMapSession(
-          callbacks = state.callbacks,
-          logger = logger,
-          layoutDirection = layoutDirection,
-        )
-        .also { engine.registerSession(it) }
-    }
+        // An abandoned composition runs no DisposableEffect; only onAbandoned can release this.
+        object : RememberObserver {
+          val session =
+            GlJsMapSession(
+                callbacks = state.callbacks,
+                logger = logger,
+                layoutDirection = layoutDirection,
+              )
+              .also { engine.registerSession(it) }
+
+          override fun onRemembered() {}
+
+          override fun onForgotten() {}
+
+          override fun onAbandoned() {
+            session.close()
+            engine.releaseSession(session)
+          }
+        }
+      }
+      .session
 
   session.callbacks = state.callbacks
   session.logger = logger

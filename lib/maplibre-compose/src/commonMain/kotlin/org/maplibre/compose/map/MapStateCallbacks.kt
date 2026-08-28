@@ -52,6 +52,11 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
 
   override fun onMapFinishedLoading(map: MapAdapter) {
     state.refreshStyleCollections()
+    // A retained map can finish a load between sessions; the next attach replays the report.
+    if (state.attachedAdapter == null) {
+      state.loadFinishedWhileDetached = true
+      return
+    }
     onMapLoadFinished()
   }
 

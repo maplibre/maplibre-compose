@@ -846,23 +846,41 @@ internal class MlnFfiMapCore(
     snapshotViewport(map)
   }
 
-  override fun setCameraPosition(
+  override suspend fun setCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
-  ) {
+  ): Unit = suspendCancellableCoroutine { continuation ->
     val fit: (MapHandle) -> Unit = { map ->
-      map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
-      snapshotViewport(map)
+      if (continuation.isActive) {
+        continuation.resumeWith(
+          runCatching {
+            map.jumpTo(cameraForBounds(map, boundingBox, bearing, tilt, padding))
+            snapshotViewport(map)
+          }
+        )
+      }
     }
     // The fit reads the live map's dimensions, so before a viewport exists it can only queue.
-    // After one exists it runs as one round-trip instead, so a camera or viewport read made right
-    // after this call observes the fitted camera rather than the previous mirrored snapshot —
-    // the ordering the blocking getters on main provided.
     val hasViewport = stateLock.withLock { hasAttachedViewport && !closed && loop != null }
-    if (hasViewport && runOnMap(fit) != null) return
-    postWhenViewportExists(fit, abandon = {})
+    if (hasViewport && runOnMap(fit) != null) return@suspendCancellableCoroutine
+    val accepted =
+      postWhenViewportExists(
+        fit,
+        abandon = {
+          if (continuation.isActive) {
+            continuation.resumeWithException(
+              IllegalStateException("MapState was closed before the camera fit ran")
+            )
+          }
+        },
+      )
+    if (!accepted && continuation.isActive) {
+      continuation.resumeWithException(
+        IllegalStateException("MapState is closed; the camera fit was dropped")
+      )
+    }
   }
 
   private fun cameraForBounds(
@@ -1008,11 +1026,7 @@ internal class MlnFfiMapCore(
     }
   }
 
-  /**
-   * A camera animation belongs to the session that renders it. The detach cancels an in-flight
-   * transition and resumes its waiter, so the suspended call returns at the position that the
-   * animation reached.
-   */
+  /** A detach cancels an in-flight transition and resumes its waiter at the current position. */
   internal fun endCameraTransitionsForDetach() {
     onMap { map ->
       if (transitionWaiters.isNotEmpty()) map.cancelTransitions()
@@ -1032,8 +1046,8 @@ internal class MlnFfiMapCore(
     resumeStranded(waiters)
   }
 
-  // Owner-thread state: a bounds write cancels an in-flight camera transition, so an unchanged
-  // value must not reach the map.
+  // A bounds write cancels an in-flight camera transition; an unchanged value must not reach
+  // the map. Owner-thread state.
   private var appliedCameraConstraints: CameraConstraints? = null
 
   override fun setCameraConstraints(value: CameraConstraints) = setBounds {
@@ -1134,7 +1148,10 @@ internal class MlnFfiMapCore(
     suspendCancellableCoroutine { continuation ->
       val accepted =
         postWhenMapExists(
-          action = { map -> continuation.resumeWith(runCatching { action(map) }) },
+          // The queue cannot withdraw a cancelled call, so the guard keeps its action from running.
+          action = { map ->
+            if (continuation.isActive) continuation.resumeWith(runCatching { action(map) })
+          },
           abandon = {
             if (continuation.isActive) {
               continuation.resumeWithException(

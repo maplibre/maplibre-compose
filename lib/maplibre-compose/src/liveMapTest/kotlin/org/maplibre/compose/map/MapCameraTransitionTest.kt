@@ -90,17 +90,21 @@ class MapCameraTransitionTest {
       createMapFixture().use {
         // A camera read makes mln-ffi's map creation deterministic without a render target.
         it.session.getCameraPosition()
-        it.session.setCameraPosition(
-          BOUNDS,
-          bearing = 0.0,
-          tilt = 0.0,
-          padding = PaddingValues(0.dp),
-        )
+        // The fit suspends until the map applies it, so it runs beside the frame pump.
+        val deferredFitCall =
+          CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
+            it.session.setCameraPosition(
+              BOUNDS,
+              bearing = 0.0,
+              tilt = 0.0,
+              padding = PaddingValues(0.dp),
+            )
+          }
         it.session.getCameraPosition()
 
         it.awaitMapReady()
         it.pumpUntil("the deferred bounds fit to be applied") {
-          it.session.getCameraPosition().zoom > 1.0
+          deferredFitCall.isCompleted && it.session.getCameraPosition().zoom > 1.0
         }
         val deferredFit = it.session.getCameraPosition()
 
@@ -108,14 +112,17 @@ class MapCameraTransitionTest {
         it.pumpUntil("the camera to reset") {
           abs(it.session.getCameraPosition().zoom - START.zoom) < 0.01
         }
-        it.session.setCameraPosition(
-          BOUNDS,
-          bearing = 0.0,
-          tilt = 0.0,
-          padding = PaddingValues(0.dp),
-        )
+        val attachedFitCall =
+          CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
+            it.session.setCameraPosition(
+              BOUNDS,
+              bearing = 0.0,
+              tilt = 0.0,
+              padding = PaddingValues(0.dp),
+            )
+          }
         it.pumpUntil("the attached bounds fit to be applied") {
-          abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
+          attachedFitCall.isCompleted && abs(it.session.getCameraPosition().zoom - START.zoom) > 0.1
         }
         val attachedFit = it.session.getCameraPosition()
 

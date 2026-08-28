@@ -92,7 +92,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         lifecycle = Lifecycle.Detached
         // The departed target's dimensions are stale, so the next bounds fit waits for a real one.
         core?.resetAttachedViewport()
-        // An animation belongs to the departed session; its suspended call returns here.
         core?.endCameraTransitionsForDetach()
       }
     }
@@ -220,8 +219,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       core.setCameraPadding(PaddingValues(0.dp))
       core.setCameraPosition(state.camera)
       awaitStyleLoaded(core, deadline, timeout)
-      // One sync of the desired style composition against the loaded style before rendering, so
-      // content set on a detached state reaches the image.
+      // One sync of the desired style composition against the loaded style before rendering.
       state.host.requestApplyChanges()
       state.host.awaitPendingWork()
       return renderStillImage(

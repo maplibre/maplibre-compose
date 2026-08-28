@@ -50,7 +50,7 @@ internal class FakeMapAdapter : MapAdapter {
     calls += "setCameraPadding"
   }
 
-  override fun setCameraPosition(
+  override suspend fun setCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,

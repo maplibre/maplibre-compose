@@ -246,8 +246,7 @@ class StyleSourcesImperativeTest {
     testScheduler.advanceUntilIdle()
     val stale = assertNotNull(state.sources["base-src"])
 
-    // The second style declares the same source id; its descriptor must not be the first style's,
-    // whose unloaded binding drops operations.
+    // The second style declares the same source id.
     first.unload()
     state.callbacks.onStyleChanged(adapter, binding())
     testScheduler.advanceUntilIdle()

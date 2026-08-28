@@ -491,7 +491,9 @@ internal constructor(
    *
    * On Android, iOS, and Desktop a still image renders only while no [MaplibreMap] shows this
    * state; a call with one attached throws [IllegalStateException]. On Web this function always
-   * throws [UnsupportedOperationException], because MapLibre GL JS has no still-image API.
+   * throws [UnsupportedOperationException], because MapLibre GL JS has no still-image API. An
+   * Android build that packages only the Vulkan runtime also throws
+   * [UnsupportedOperationException]: the still-image path needs the OpenGL runtime.
    */
   public suspend fun captureStillImage(
     width: Dp,
@@ -535,7 +537,14 @@ internal constructor(
       viewportState.value = adapter.getViewport()
     }
     sources.refreshSources()
+    if (loadFinishedWhileDetached) {
+      loadFinishedWhileDetached = false
+      callbacks.onMapLoadFinished()
+    }
   }
+
+  /** True when a retained map finished a style load while no session was attached. */
+  internal var loadFinishedWhileDetached: Boolean = false
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
   internal fun detachSession() {
@@ -577,8 +586,7 @@ internal constructor(
     if (closedState.value) return
     closedState.value = true
     detachSession()
-    // A retained engine kept the binding and the collection snapshots across detach; the close is
-    // where the map dies, so the collections stop reporting its style.
+    // The collections must not report the destroyed map's style.
     styleNode.binding = StyleBinding.UNLOADED
     styleNode.refreshLiveLayerIds()
     sources.clear()

@@ -516,17 +516,30 @@ internal class GlJsMapSession(
     onMap { map -> map.jumpTo(unsafeJso<JumpToOptions> { this.padding = resolved }) }
   }
 
-  override fun setCameraPosition(
+  override suspend fun setCameraPosition(
     boundingBox: BoundingBox,
     bearing: Double,
     tilt: Double,
     padding: PaddingValues,
-  ) {
-    onMap { map ->
-      map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
-        map.jumpTo(it.toJumpToOptions())
-      }
-    }
+  ): Unit = suspendCancellableCoroutine { continuation ->
+    postWhenMapExists(
+      PendingAction(
+        run = { map ->
+          if (continuation.isActive) {
+            continuation.resumeWith(
+              runCatching {
+                map.cameraPositionForBounds(boundingBox, bearing, tilt, padding)?.let {
+                  map.jumpTo(it.toJumpToOptions())
+                }
+                Unit
+              }
+            )
+          }
+        },
+        // The fit ends with the session that accepted it.
+        abandon = { if (continuation.isActive) continuation.resume(Unit) },
+      )
+    )
   }
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
