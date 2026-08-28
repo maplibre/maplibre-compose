@@ -131,6 +131,9 @@ does by changing the task rather than the YAML.
 Third-party actions are pinned to commit SHAs.
 `.github/workflows/action-pins.yml` declares every pin once, and
 `mise run ci:check-action-pins` fails when a reference disagrees with it.
+`mise run ci:fix-action-pins` copies the catalog SHA onto each consumer.
+`.github/workflows/sync-action-pins.yml` runs that fix on Dependabot GitHub
+Actions pull requests and commits the result.
 
 ## Writing
 

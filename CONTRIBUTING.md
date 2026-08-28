@@ -228,4 +228,7 @@ is declared once in
 file never runs. It exists so that Dependabot sees the actions that the
 composite actions under `.github/actions` use, which it would otherwise skip.
 `mise run ci:check-action-pins` fails when a reference anywhere disagrees with
-the catalog, so an update lands in one place and propagates from there.
+the catalog. `mise run ci:fix-action-pins` copies the catalog SHA onto each
+consumer. Dependabot updates the catalog.
+[`.github/workflows/sync-action-pins.yml`](.github/workflows/sync-action-pins.yml)
+runs that fix on those pull requests and commits.

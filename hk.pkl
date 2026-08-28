@@ -23,6 +23,7 @@ local lintSteps = new Mapping<String, Step> {
         ".github/actions/**/action.yaml",
       )
     check = "mise run ci:check-action-pins"
+    fix = "mise run ci:fix-action-pins"
   }
   ["ruff"] {
     glob = List("**/*.py")

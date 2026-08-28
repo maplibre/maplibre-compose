@@ -19,8 +19,9 @@ def main() -> int:
     for problem in problems:
         print(f"error: {problem}", file=sys.stderr)
     print(
-        f"\nUpdate {CATALOG.as_posix()} and the references above so every action "
-        "resolves to one commit.",
+        f"\nRun `mise run ci:fix-action-pins` to copy catalog pins onto consumers. "
+        f"Unpinned uses and unused catalog entries still require an edit of "
+        f"{CATALOG.as_posix()}.",
         file=sys.stderr,
     )
     return 1
