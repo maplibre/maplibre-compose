@@ -141,7 +141,13 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   ): MlnFfiMapCore = sessionLock.withLock {
     check(lifecycle != Lifecycle.Closed) { "Cannot attach a render session to a closed map state" }
     core?.let { live ->
-      if (coreScaleFactor == scaleFactor && coreBackend == backend) return@withLock live
+      // A core whose runtime loop died cannot recover; its replacement publishes over it.
+      if (
+        coreScaleFactor == scaleFactor &&
+          coreBackend == backend &&
+          live.runtimeLoop?.failure == null
+      )
+        return@withLock live
     }
     MlnFfiMapCore(
       callbacks = state.callbacks,
@@ -188,7 +194,13 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   ): MlnFfiMapCore {
     check(lifecycle != Lifecycle.Closed) { "Cannot attach a render session to a closed map state" }
     core?.let { live ->
-      if (coreScaleFactor == scaleFactor && coreBackend == backend) return live
+      // A core whose runtime loop died cannot recover, so a match on it still replaces it.
+      if (
+        coreScaleFactor == scaleFactor &&
+          coreBackend == backend &&
+          live.runtimeLoop?.failure == null
+      )
+        return live
       // A live session must be evicted before its core closes, or it keeps rendering a destroyed
       // map; the close is idempotent with the session composable's own later dispose.
       (lifecycle as? Lifecycle.SessionAttached)?.let { attached ->
@@ -291,8 +303,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         )
       }
       // A session attach pushes the selected style; a snapshot has no session, so it pushes it
-      // here. The core drops a style it already has.
-      core.setBaseStyle(state.baseStyle)
+      // here, serialized with the public setter. The core drops a style it already has.
+      state.replaySelectedStyle(core)
       core.start()
       // A retained session's camera constraints must not clamp the snapshot; the next session
       // attach restores them through its SessionOptions.
