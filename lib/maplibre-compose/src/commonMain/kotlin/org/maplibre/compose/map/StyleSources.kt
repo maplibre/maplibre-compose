@@ -60,11 +60,7 @@ public class StyleSources internal constructor(private val state: MapState) {
    */
   public operator fun get(id: String): Source? {
     if (state.isClosed) return null
-    val fromKernel = state.record.read { compositionSources[id] ?: appSources[id] }
-    return fromKernel
-      ?: state.styleNode.compositionSources[id]
-      ?: state.styleNode.appSourceSnapshot[id]
-      ?: snapshotState.value[id]
+    return state.record.read { compositionSources[id] ?: appSources[id] } ?: snapshotState.value[id]
   }
 
   /**
@@ -79,38 +75,13 @@ public class StyleSources internal constructor(private val state: MapState) {
    *   MapLibre refuses the source.
    */
   public suspend fun add(source: Source) {
-    // No pre-check outside the serialized block: the published snapshot can trail the host-confined
-    // truth in either direction, and a stale rejection would refuse a legal add.
     state.host.runSerialized {
-      val node = state.styleNode
-      val binding = node.binding
-      check(binding.isLoaded) { "No loaded style; a source can only be added to a loaded style" }
-      node.ensureAppTablesFor(binding)
-      val id = source.id
-      // The published snapshot can trail a reference recorded on the host, so ownership is decided
-      // on the host-confined desired set.
-      require(node.sourceManager.desiredSources.none { it.id == id }) {
-        "Source id '$id' is owned by the style composition"
+      var failure: Throwable? = null
+      state.commit {
+        enqueue { failure = addAccepted(source) }
       }
-      require(id !in node.appSources) { "Source id '$id' was already added through this state" }
-      require(binding.sourceExists(id) != true && binding.getSource(id) == null) {
-        "Source id '$id' is owned by the base style; select a different MapState.baseStyle to " +
-          "change it"
-      }
-      // Reserve in the record first so publication and authorization share one generation.
-      check(state.commitAppSource(binding, source)) {
-        "Source '$id' was not added: the style unloaded during the add"
-      }
-      try {
-        binding.addSource(source)
-        check(source.binding === binding) {
-          "Source '$id' was not added: the style unloaded during the add"
-        }
-      } catch (error: Throwable) {
-        state.commitAppSourceRemoval(binding, id)
-        throw error
-      }
-      refreshSource(id)
+      failure?.let { throw it }
+      refreshSource(source.id)
     }
   }
 
@@ -123,43 +94,107 @@ public class StyleSources internal constructor(private val state: MapState) {
    */
   public suspend fun remove(id: String) {
     state.host.runSerialized {
-      val node = state.styleNode
-      val binding = node.binding
-      check(binding.isLoaded) {
+      var failure: Throwable? = null
+      state.commit {
+        enqueue { failure = removeAccepted(id) }
+      }
+      failure?.let { throw it }
+      refreshSource(id)
+    }
+  }
+
+  private fun addAccepted(source: Source): Throwable? {
+    val id = source.id
+    val refusal =
+      state.record.read {
+        when {
+          closed ->
+            IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+          id in compositionSources ->
+            IllegalArgumentException("Source id '$id' is owned by the style composition")
+          id in appSources ->
+            IllegalArgumentException("Source id '$id' was already added through this state")
+          else -> null
+        }
+      }
+    if (refusal != null) return refusal
+    if (state.styleNode.sourceManager.desiredSources.any { it.id == id }) {
+      return IllegalArgumentException("Source id '$id' is owned by the style composition")
+    }
+    val binding = state.record.read { this.binding }
+    if (!binding.isLoaded) {
+      return IllegalStateException("No loaded style; a source can only be added to a loaded style")
+    }
+    if (binding.sourceExists(id) == true || binding.getSource(id) != null) {
+      return IllegalArgumentException(
+        "Source id '$id' is owned by the base style; select a different MapState.baseStyle to " +
+          "change it"
+      )
+    }
+    return try {
+      binding.addSource(source)
+      if (source.binding !== binding) {
+        IllegalStateException("Source '$id' was not added: the style unloaded during the add")
+      } else if (!state.commitAppSource(binding, source)) {
+        IllegalStateException("Source '$id' was not added: the style unloaded during the add")
+      } else {
+        null
+      }
+    } catch (error: Throwable) {
+      error
+    }
+  }
+
+  private fun removeAccepted(id: String): Throwable? {
+    val refusal =
+      state.record.read {
+        when {
+          closed ->
+            IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+          id in compositionSources ->
+            IllegalStateException(
+              "Source '$id' is owned by the style composition; remove it by recomposing the " +
+                "content rather than through MapState.sources"
+            )
+          else -> null
+        }
+      }
+    if (refusal != null) return refusal
+    val binding = state.record.read { this.binding }
+    val appSource = state.record.read { appSources[id] }
+    if (!binding.isLoaded) {
+      return IllegalStateException(
         "No loaded style; a source can only be removed from a loaded style"
-      }
-      node.ensureAppTablesFor(binding)
-      // The host-confined desired set, not the published snapshot, decides ownership here too.
-      check(node.sourceManager.desiredSources.none { it.id == id }) {
-        "Source '$id' is owned by the style composition; remove it by recomposing the " +
-          "content rather than through MapState.sources"
-      }
-      val source = node.appSources[id]
-      if (source == null) {
-        val existsInStyle = binding.sourceExists(id) == true || binding.getSource(id) != null
-        check(!existsInStyle) {
+      )
+    }
+    if (appSource == null) {
+      val existsInStyle = binding.sourceExists(id) == true || binding.getSource(id) != null
+      return if (existsInStyle) {
+        IllegalStateException(
           "Source '$id' belongs to the base style; select a different MapState.baseStyle to " +
             "change it"
-        }
-        throw IllegalArgumentException("The loaded style has no source with id '$id'")
+        )
+      } else {
+        IllegalArgumentException("The loaded style has no source with id '$id'")
       }
-      val usedBy = binding.getLayers().firstOrNull { it.sourceId == id }
-      check(usedBy == null) {
-        "Source '$id' cannot be removed while layer '${usedBy?.id}' draws from it"
+    }
+    val usedBy = binding.getLayers().firstOrNull { it.sourceId == id }
+    if (usedBy != null) {
+      return IllegalStateException(
+        "Source '$id' cannot be removed while layer '${usedBy.id}' draws from it"
+      )
+    }
+    return try {
+      binding.removeSource(appSource)
+      if (!state.commitAppSourceRemoval(binding, id)) {
+        IllegalStateException("Source '$id' was not removed: the style unloaded during the removal")
+      } else {
+        null
       }
-      check(state.commitAppSourceRemoval(binding, id)) {
-        "Source '$id' was not removed: the style unloaded during the removal"
-      }
-      try {
-        binding.removeSource(source)
-      } catch (error: StyleMutationException) {
-        state.commitAppSource(binding, source)
-        throw IllegalStateException("Source '$id' cannot be removed: ${error.message}", error)
-      } catch (error: Throwable) {
-        state.commitAppSource(binding, source)
-        throw error
-      }
-      refreshSource(id)
+    } catch (error: StyleMutationException) {
+      IllegalStateException("Source '$id' cannot be removed: ${error.message}", error)
+    } catch (error: Throwable) {
+      error
     }
   }
 
@@ -178,7 +213,7 @@ public class StyleSources internal constructor(private val state: MapState) {
   }
 
   internal fun refreshSource(id: String) {
-    val binding = state.styleNode.binding
+    val binding = state.record.read { this.binding }
     if (!binding.isLoaded) return
     if (binding !== snapshotBinding) return refreshSources()
 
@@ -195,7 +230,7 @@ public class StyleSources internal constructor(private val state: MapState) {
   internal fun refreshSources() {
     // An unloaded binding during a style switch keeps the old snapshot, so the attribution UI
     // never flickers empty between styles.
-    val binding = state.styleNode.binding
+    val binding = state.record.read { this.binding }
     if (!binding.isLoaded) return
 
     val current = if (binding === snapshotBinding) snapshotState.value else emptyMap()

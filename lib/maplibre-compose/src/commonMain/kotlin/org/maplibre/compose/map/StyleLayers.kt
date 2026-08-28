@@ -26,7 +26,15 @@ public class StyleLayers internal constructor(private val state: MapState) {
 
   /** Returns a handle over the live layer with [id], or null when the style has no such layer. */
   public operator fun get(id: String): LayerHandle? {
-    val descriptor = state.styleNode.binding.getLayer(id) ?: return null
-    return LayerHandle(state, descriptor)
+    val (styleGeneration, bindingGeneration, layer) =
+      state.record.read {
+        Triple(
+          this.styleGeneration,
+          this.bindingGeneration,
+          binding.takeIf { it.isLoaded }?.getLayer(id),
+        )
+      }
+    if (layer == null) return null
+    return LayerHandle(state, styleGeneration, bindingGeneration, id)
   }
 }

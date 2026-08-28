@@ -27,9 +27,7 @@ public class StyleImages internal constructor(private val state: MapState) {
    * composition that reads this property recomposes when the list changes.
    */
   public val ids: List<String>
-    get() =
-      if (state.isClosed) emptyList()
-      else state.record.read { appImages }.ifEmpty { state.styleNode.appImageIds }
+    get() = if (state.isClosed) emptyList() else state.record.read { appImages }
 
   /**
    * Registers [image] under [id] in the loaded style. An id this state already registered is
@@ -84,23 +82,13 @@ public class StyleImages internal constructor(private val state: MapState) {
   }
 
   private suspend fun add(id: String, addTo: (StyleBinding) -> Unit) {
+    require(!id.startsWith(GENERATED_ID_PREFIX)) {
+      "Image id '$id' uses the reserved prefix '$GENERATED_ID_PREFIX'"
+    }
     state.host.runSerialized {
-      require(!id.startsWith(GENERATED_ID_PREFIX)) {
-        "Image id '$id' uses the reserved prefix '$GENERATED_ID_PREFIX'"
-      }
-      val node = state.styleNode
-      val binding = node.binding
-      check(binding.isLoaded) { "No loaded style; an image can only be added to a loaded style" }
-      node.ensureAppTablesFor(binding)
-      check(state.commitAppImage(binding, id)) {
-        "Image '$id' was not added: the style unloaded during the add"
-      }
-      try {
-        addTo(binding)
-      } catch (error: Throwable) {
-        state.commitAppImageRemoval(binding, id)
-        throw error
-      }
+      var failure: Throwable? = null
+      state.commit { enqueue { failure = addAccepted(id, addTo) } }
+      failure?.let { throw it }
     }
   }
 
@@ -112,22 +100,60 @@ public class StyleImages internal constructor(private val state: MapState) {
    */
   public suspend fun remove(id: String) {
     state.host.runSerialized {
-      val node = state.styleNode
-      val binding = node.binding
-      check(binding.isLoaded) {
+      var failure: Throwable? = null
+      state.commit { enqueue { failure = removeAccepted(id) } }
+      failure?.let { throw it }
+    }
+  }
+
+  private fun addAccepted(id: String, addTo: (StyleBinding) -> Unit): Throwable? {
+    val closed = state.record.read { closed }
+    if (closed) {
+      return IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+    }
+    val binding = state.record.read { this.binding }
+    if (!binding.isLoaded) {
+      return IllegalStateException("No loaded style; an image can only be added to a loaded style")
+    }
+    return try {
+      addTo(binding)
+      if (!state.commitAppImage(binding, id)) {
+        IllegalStateException("Image '$id' was not added: the style unloaded during the add")
+      } else {
+        null
+      }
+    } catch (error: Throwable) {
+      error
+    }
+  }
+
+  private fun removeAccepted(id: String): Throwable? {
+    val refusal =
+      state.record.read {
+        when {
+          closed ->
+            IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+          id !in appImages ->
+            IllegalArgumentException("Image id '$id' was not added through this state")
+          else -> null
+        }
+      }
+    if (refusal != null) return refusal
+    val binding = state.record.read { this.binding }
+    if (!binding.isLoaded) {
+      return IllegalStateException(
         "No loaded style; an image can only be removed from a loaded style"
+      )
+    }
+    return try {
+      binding.removeImage(id)
+      if (!state.commitAppImageRemoval(binding, id)) {
+        IllegalStateException("Image '$id' was not removed: the style unloaded during the removal")
+      } else {
+        null
       }
-      node.ensureAppTablesFor(binding)
-      require(id in node.appImages) { "Image id '$id' was not added through this state" }
-      check(state.commitAppImageRemoval(binding, id)) {
-        "Image '$id' was not removed: the style unloaded during the removal"
-      }
-      try {
-        binding.removeImage(id)
-      } catch (error: Throwable) {
-        state.commitAppImage(binding, id)
-        throw error
-      }
+    } catch (error: Throwable) {
+      error
     }
   }
 }

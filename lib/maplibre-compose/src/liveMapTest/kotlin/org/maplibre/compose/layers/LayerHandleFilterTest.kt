@@ -83,6 +83,20 @@ class LayerHandleFilterTest {
   }
 
   @Test
+  fun a_handle_reads_the_live_layer_after_another_handle_writes() = runTest {
+    val state = mapState()
+    state.setStyleComposition {}
+    attach(state, OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg"))))
+    val first = assertNotNull(state.layers["bg"])
+    val second = assertNotNull(state.layers["bg"])
+    first.minZoom = 5f
+    assertEquals(5f, second.minZoom, "getters read the live layer, not a captured descriptor")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
   fun a_write_through_a_handle_from_a_replaced_style_throws() = runTest {
     val state = mapState()
     val adapter = FakeMapAdapter()

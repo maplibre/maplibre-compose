@@ -32,7 +32,7 @@ internal class SourceManager(private val node: StyleNode) {
     val base = node.baseStyle().sources[source.id]
     if (base === source) return false
     require(base == null) { "Source id '${source.id}' conflicts with a base source" }
-    require(source.id !in node.appSourceSnapshot) {
+    require(!node.appSourceOwned(source.id)) {
       "Source id '${source.id}' conflicts with a source added through MapState.sources"
     }
     counter.increment(source) {

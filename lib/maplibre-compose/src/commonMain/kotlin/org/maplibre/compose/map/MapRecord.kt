@@ -8,9 +8,10 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 
 /**
- * The locked logical map. [mutate] is the only writer. Platform work is queued as lambdas and runs
- * after the lock is released, so a callback from that work starts a new turn instead of deadlocking
- * the non-reentrant native lock.
+ * The locked logical map. [mutate] is the only writer. Platform work is queued as lambdas onto one
+ * FIFO drain, so two threads that commit A then B run A's platform calls before B's. A callback
+ * from that work starts a new turn instead of deadlocking the non-reentrant native lock, and its
+ * effects sit behind the drain that is already running.
  *
  * Stale work is unauthorized by identity: a style event names a generation, a session event names
  * an adapter, a composition publish names a binding. A superseded identity is a no-op.
@@ -18,26 +19,75 @@ import org.maplibre.compose.style.StyleBinding
 internal class MapRecord(initialCamera: CameraPosition) {
   private val lock = newSessionLock()
   private val work = mutableListOf<() -> Unit>()
+  private val effectLock = newSessionLock()
+  private val effects = ArrayDeque<() -> Unit>()
+  private var drainOwner: Any? = null
+  private var idleGate: IdleGate? = null
 
   /**
-   * Applies [transform] under the serial token and returns the work to run after the caller has
-   * published the record. Do not call platform code or user callbacks from [transform]; [enqueue]
-   * that work instead.
+   * Applies [transform] under the serial token and appends this turn's work to the FIFO drain. Do
+   * not call platform code or user callbacks from [transform]; [enqueue] that work instead. The
+   * caller publishes the record, then calls [drain].
    */
-  fun <T> mutate(transform: MapRecord.() -> T): Pair<T, List<() -> Unit>> = lock.withLock {
-    work.clear()
+  fun <T> mutate(transform: MapRecord.() -> T): T = lock.withLock {
     val value = transform()
-    val taken = work.toList()
-    work.clear()
-    value to taken
+    effectLock.withLock {
+      for (task in work) effects.addLast(task)
+      work.clear()
+    }
+    value
   }
 
   /** A consistent read of the record. The block must not mutate it. */
   fun <T> read(transform: MapRecord.() -> T): T = lock.withLock { transform() }
 
-  /** Queues [block] to run after this turn publishes and releases the lock. */
+  /** Queues [block] to run on the FIFO drain after this turn publishes and releases the lock. */
   fun enqueue(block: () -> Unit) {
     work += block
+  }
+
+  /**
+   * Runs queued effects in commit order. A reentrant call from an effect returns immediately so the
+   * new work sits behind the current drain. A caller that is not the drainer waits until the drain
+   * is idle, so a public mutation's platform call finishes before that call returns.
+   */
+  fun drain() {
+    val me = currentThreadToken()
+    while (true) {
+      when (val action = nextDrainAction(me)) {
+        DrainAction.Idle,
+        DrainAction.Reentrant -> return
+        is DrainAction.Wait -> action.gate.await()
+        DrainAction.Run -> runDrain(me)
+      }
+    }
+  }
+
+  private fun nextDrainAction(me: Any): DrainAction = effectLock.withLock {
+    when {
+      drainOwner === me -> DrainAction.Reentrant
+      drainOwner != null -> DrainAction.Wait(idleGate ?: newIdleGate().also { idleGate = it })
+      effects.isEmpty() -> DrainAction.Idle
+      else -> {
+        drainOwner = me
+        DrainAction.Run
+      }
+    }
+  }
+
+  private fun runDrain(me: Any) {
+    try {
+      while (true) {
+        val task = effectLock.withLock { effects.removeFirstOrNull() } ?: break
+        task()
+      }
+    } finally {
+      effectLock.withLock {
+        if (drainOwner === me) drainOwner = null
+        idleGate?.open()
+        idleGate = null
+      }
+    }
   }
 
   var applySessionOptions: (MapAdapter) -> Unit = {}
@@ -486,6 +536,17 @@ internal data class PublishedMapSnapshot(
 /** One in-flight camera or capture operation the record owns. */
 internal class PendingMapOperation(val id: Long) {
   var cancelled: Boolean = false
+}
+
+/** The next step the effect drain takes. */
+private sealed interface DrainAction {
+  data object Idle : DrainAction
+
+  data object Reentrant : DrainAction
+
+  data object Run : DrainAction
+
+  class Wait(val gate: IdleGate) : DrainAction
 }
 
 /** Who currently holds the render slot. */

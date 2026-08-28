@@ -32,6 +32,7 @@ import org.maplibre.compose.layers.BackgroundLayerDescriptor
 import org.maplibre.compose.layers.FillLayerDescriptor
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.OpRecordingStyleBinding
 import org.maplibre.compose.style.collectStyleErrors
@@ -164,7 +165,7 @@ class StyleSourcesImperativeTest {
     val error =
       assertFailsWith<IllegalArgumentException> { state.sources.add(testSource("base-src")) }
     assertTrue("base style" in error.message.orEmpty(), "names the owner: ${error.message}")
-    assertNull(state.styleNode.appSourceSnapshot["base-src"])
+    assertNull(state.sources["base-src"])
 
     state.close()
     testScheduler.advanceUntilIdle()
@@ -276,7 +277,7 @@ class StyleSourcesImperativeTest {
     testScheduler.advanceUntilIdle()
 
     assertFalse("app-src" in state.sources.ids)
-    assertNull(state.styleNode.appSourceSnapshot["app-src"])
+    assertNull(state.sources["app-src"])
     assertEquals(0, second.ops.count { it.startsWith("addSource:app-src") })
     assertEquals(0f, assertNotNull(state.layers["bg"]).minZoom, "the write dropped with the style")
 
@@ -314,7 +315,7 @@ class StyleSourcesImperativeTest {
     testScheduler.advanceUntilIdle()
 
     assertIs<IllegalStateException>(held.await().exceptionOrNull())
-    assertTrue(state.styleNode.appSourceSnapshot.isEmpty(), "the held op recorded nothing")
+    assertNull(state.sources["app-src"], "the held op recorded nothing")
     assertEquals(0, first.ops.count { it == "addSource:app-src" })
 
     // The state is not corrupted: the next loaded style takes the source.
@@ -342,7 +343,7 @@ class StyleSourcesImperativeTest {
     // usually runs first and hits the unloaded-binding check; a cancellation instead maps to the
     // closed message. Both are the contracted IllegalStateException.
     assertIs<IllegalStateException>(held.await().exceptionOrNull())
-    assertTrue(state.styleNode.appSourceSnapshot.isEmpty(), "the held op recorded nothing")
+    assertNull(state.sources["app-src"], "the held op recorded nothing")
     assertFailsWith<IllegalStateException> { state.sources.add(testSource("late")) }
   }
 
@@ -399,7 +400,7 @@ class StyleSourcesImperativeTest {
 
     assertFailsWith<IllegalStateException> { state.sources.add(testSource("app-src")) }
     assertFailsWith<IllegalStateException> { state.sources.remove("app-src") }
-    assertTrue(state.styleNode.appSourceSnapshot.isEmpty())
+    assertNull(state.sources["app-src"])
 
     // The state is not corrupted: a style that loads later takes the source.
     attach(state, OpRecordingStyleBinding())
@@ -410,5 +411,27 @@ class StyleSourcesImperativeTest {
     testScheduler.advanceUntilIdle()
     assertFailsWith<IllegalStateException> { state.sources.add(testSource("late")) }
     assertFailsWith<IllegalStateException> { state.sources.remove("app-src") }
+  }
+
+  @Test
+  fun a_refused_platform_add_does_not_publish_ownership() = runTest {
+    val state = mapState()
+    state.setStyleComposition {}
+    val binding =
+      object : OpRecordingStyleBinding() {
+        override fun addSource(source: Source) {
+          op("addSource:${source.id}")
+          error("engine refused ${source.id}")
+        }
+      }
+    attach(state, binding)
+
+    val error = assertFailsWith<IllegalStateException> { state.sources.add(testSource("app-src")) }
+    assertTrue("engine refused" in error.message.orEmpty(), error.message)
+    assertNull(state.sources["app-src"], "ownership publishes only after the engine accepts")
+    assertEquals(listOf("addSource:app-src"), binding.ops.filter { it.startsWith("addSource") })
+
+    state.close()
+    testScheduler.advanceUntilIdle()
   }
 }

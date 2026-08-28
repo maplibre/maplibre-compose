@@ -203,10 +203,10 @@ internal constructor(
     styleNode.commitOwnership = { binding, layerIds, sources ->
       commitComposition(binding, layerIds, sources)
     }
+    styleNode.appSourceOwned = { id -> record.read { id in appSources } }
     record.applySessionOptions = { adapter -> sessionOptions?.applyTo(adapter) }
     record.pointBinding = { binding ->
       styleNode.binding = binding
-      styleNode.clearPublishedAppOwnership()
       if (binding === StyleBinding.UNLOADED || !binding.isLoaded) {
         styleNode.clearPublishedOwnership()
         if (shouldClearUnloadedSources()) sources.clear()
@@ -318,35 +318,46 @@ internal constructor(
   internal val bindingGeneration: Long
     get() = record.read { bindingGeneration }
 
+  /** The live layer named [id] when [styleGeneration] and [bindingGeneration] are still current. */
+  internal fun liveLayer(styleGeneration: Long, bindingGeneration: Long, id: String): Layer? =
+    record.read {
+      if (this.styleGeneration != styleGeneration) return@read null
+      if (this.bindingGeneration != bindingGeneration) return@read null
+      binding.takeIf { it.isLoaded }?.getLayer(id)
+    }
+
   /**
-   * Runs [write] only when the handle's style and binding generations are still current. The record
-   * authorizes the write against one binding, the mutation runs after that turn, and a superseded
-   * generation fails the call instead of publishing a half-applied value.
+   * Applies [write] to the live layer only when the handle's generations are still current. The
+   * platform mutation is an effect on the FIFO drain, so a rejected or superseded write never
+   * publishes a half-applied value.
    */
-  internal fun writeAuthorizedLayer(
+  internal fun writeLayer(
     styleGeneration: Long,
     bindingGeneration: Long,
-    layer: Layer,
-    write: () -> Unit,
+    id: String,
+    write: (Layer) -> Unit,
   ) {
     commit {
-      authorizeLayerWrite(styleGeneration, bindingGeneration, layer.id)
+      authorizeLayerWrite(styleGeneration, bindingGeneration, id)
         ?: run {
           check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
           check(
             styleGeneration == this.styleGeneration && bindingGeneration == this.bindingGeneration
           ) {
-            "Layer '${layer.id}' was taken from a style that a base style load replaced; get a " +
+            "Layer '$id' was taken from a style that a base style load replaced; get a " +
               "fresh handle from MapState.layers"
           }
-          check(!layerIsCompositionOwned(layer.id)) {
-            "Layer '${layer.id}' is owned by the style composition; change it by recomposing " +
+          check(!layerIsCompositionOwned(id)) {
+            "Layer '$id' is owned by the style composition; change it by recomposing " +
               "the content rather than through MapState.layers"
           }
           error("No loaded style; a layer can only be mutated on a loaded style")
         }
+      enqueue {
+        val layer = liveLayer(styleGeneration, bindingGeneration, id) ?: return@enqueue
+        write(layer)
+      }
     }
-    write()
   }
 
   /** Compiles [expression] with this state's density and layout direction, as the content does. */
@@ -643,42 +654,18 @@ internal constructor(
   internal fun commitAppSource(binding: StyleBinding, source: Source): Boolean = commit {
     commitAppSource(binding, source)
   }
-    .also { accepted ->
-      if (accepted) {
-        styleNode.appSources[source.id] = source
-        styleNode.publishAppSources()
-      }
-    }
 
   internal fun commitAppSourceRemoval(binding: StyleBinding, id: String): Boolean = commit {
     removeAppSource(binding, id)
   }
-    .also { accepted ->
-      if (accepted) {
-        styleNode.appSources.remove(id)
-        styleNode.publishAppSources()
-      }
-    }
 
   internal fun commitAppImage(binding: StyleBinding, id: String): Boolean = commit {
     commitAppImage(binding, id)
   }
-    .also { accepted ->
-      if (accepted) {
-        styleNode.appImages.add(id)
-        styleNode.publishAppImages()
-      }
-    }
 
   internal fun commitAppImageRemoval(binding: StyleBinding, id: String): Boolean = commit {
     removeAppImage(binding, id)
   }
-    .also { accepted ->
-      if (accepted) {
-        styleNode.appImages.remove(id)
-        styleNode.publishAppImages()
-      }
-    }
 
   /**
    * Releases the map and the style composition, including a session that is still attached. The
@@ -697,14 +684,15 @@ internal constructor(
   internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 
   /**
-   * Applies [transform] under the record lock, publishes the Compose snapshot, then runs the queued
-   * work. The native lock is not reentrant, so snapshot writes and callbacks stay outside the
-   * token.
+   * Applies [transform] under the record lock, publishes the Compose snapshot, then drains queued
+   * effects in commit order. The native lock is not reentrant, so snapshot writes and callbacks
+   * stay outside the token. A reentrant commit from an effect only enqueues; the running drain
+   * executes that work after the effect that produced it.
    */
   internal fun <T> commit(transform: MapRecord.() -> T): T {
-    val (value, work) = record.mutate(transform)
+    val value = record.mutate(transform)
     publishRecord()
-    for (task in work) task()
+    record.drain()
     return value
   }
 

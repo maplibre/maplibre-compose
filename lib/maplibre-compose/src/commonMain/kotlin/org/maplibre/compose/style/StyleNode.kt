@@ -51,6 +51,12 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     null
 
   /**
+   * Set by [MapState][org.maplibre.compose.map.MapState]; the record is the authority for
+   * imperative source ids.
+   */
+  internal var appSourceOwned: (String) -> Boolean = { false }
+
+  /**
    * The live style's layer ids in draw order, backing
    * [StyleLayers.ids][org.maplibre.compose.map.StyleLayers.ids]. Snapshot-backed so a composition
    * that reads the ids recomposes when they change.
@@ -83,71 +89,15 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal var clickRoutes: List<ClickRoute> = emptyList()
     private set
 
-  /** The layer ids the composition owns, published each sync for reads off the host thread. */
+  /** The layer ids the composition owns, published each sync for click routing. */
   @Volatile
   internal var compositionLayerIds: Set<String> = emptySet()
     private set
 
-  /** The sources the composition owns by id, published each sync for reads off the host thread. */
-  @Volatile
-  internal var compositionSources: Map<String, Source> = emptyMap()
-    private set
-
-  /** Empties the published imperative snapshots; a reload publication calls it before the sync. */
-  internal fun clearPublishedAppOwnership() {
-    appSourceSnapshot = emptyMap()
-    appImageIds = emptyList()
-  }
-
-  /** Empties every published ownership snapshot; the close path calls it before teardown runs. */
+  /** Empties published composition snapshots; the close and unload paths call it. */
   internal fun clearPublishedOwnership() {
-    compositionSources = emptyMap()
-    appSourceSnapshot = emptyMap()
-    appImageIds = emptyList()
     compositionLayerIds = emptySet()
     liveLayerIds = emptyList()
-  }
-
-  /**
-   * The sources added through [StyleSources.add][org.maplibre.compose.map.StyleSources.add], by id.
-   * Host-confined; the sync never touches them, and a binding change resets them.
-   */
-  internal val appSources = LinkedHashMap<String, Source>()
-
-  /** [appSources] published for reads off the host thread. */
-  @Volatile
-  internal var appSourceSnapshot: Map<String, Source> = emptyMap()
-    private set
-
-  internal fun publishAppSources() {
-    appSourceSnapshot = appSources.toMap()
-  }
-
-  /**
-   * The image ids registered through [MapState.images][org.maplibre.compose.map.MapState.images].
-   * Host-confined; a binding change resets them.
-   */
-  internal val appImages = LinkedHashSet<String>()
-
-  /** [appImages] published as snapshot state, backing the public observable id list. */
-  internal var appImageIds: List<String> by mutableStateOf(emptyList())
-    private set
-
-  internal fun publishAppImages() {
-    appImageIds = appImages.toList()
-  }
-
-  /** The binding [appSources] and [appImages] belong to; a mismatch empties both tables. */
-  private var appTablesFor: StyleBinding? = null
-
-  /** Empties the imperative tables when [binding] is not the style they were registered on. */
-  internal fun ensureAppTablesFor(binding: StyleBinding) {
-    if (appTablesFor === binding) return
-    appTablesFor = binding
-    appSources.clear()
-    publishAppSources()
-    appImages.clear()
-    publishAppImages()
   }
 
   override fun allowsChild(node: MapNode) = node is LayerNode<*>
@@ -184,8 +134,6 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       baseStyleSnapshot = null
       baseStyle()
       imageManager.ensureAttached()
-      // Imperative registrations drop on reload; the application reapplies them.
-      ensureAppTablesFor(binding)
       syncedBinding = binding
     }
     if (!publishCompositionOwnership(binding)) return
@@ -213,7 +161,6 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     val accepted = commitOwnership?.invoke(binding, layerIds, sources) ?: true
     if (!accepted) return false
     compositionLayerIds = layerIds
-    compositionSources = sources
     return true
   }
 
