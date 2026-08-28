@@ -57,13 +57,11 @@ internal sealed class Layer(val id: String) {
     }
 
   internal fun setLayoutProperty(name: String, value: JsonElement) {
-    layout[name] = value
-    pushProperty(name, value, LayerPropertyKind.LAYOUT)
+    if (pushProperty(name, value, LayerPropertyKind.LAYOUT)) layout[name] = value
   }
 
   internal fun setPaintProperty(name: String, value: JsonElement) {
-    paint[name] = value
-    pushProperty(name, value, LayerPropertyKind.PAINT)
+    if (pushProperty(name, value, LayerPropertyKind.PAINT)) paint[name] = value
   }
 
   protected fun setLayoutProperty(name: String, value: CompiledExpression<*>) {
@@ -102,14 +100,17 @@ internal sealed class Layer(val id: String) {
    * Logs a value MapLibre rejects rather than throwing: this runs inside a Compose update block,
    * where an escaping exception would kill the composition. [attach] does throw.
    */
-  private fun pushProperty(name: String, value: JsonElement, kind: LayerPropertyKind) {
-    if (recordIfUnsupported(name, value)) return
-    try {
+  /** Returns whether the descriptor keeps [value]: a rejected write keeps the previous entry. */
+  private fun pushProperty(name: String, value: JsonElement, kind: LayerPropertyKind): Boolean {
+    if (recordIfUnsupported(name, value)) return true
+    return try {
       binding.setLayerProperty(id, name, value, kind)
+      true
     } catch (error: StyleMutationException) {
       binding.logger?.w(error) {
         "Layer '$id' of type '$type' kept its previous '$name': MapLibre rejected $value."
       }
+      false
     }
   }
 

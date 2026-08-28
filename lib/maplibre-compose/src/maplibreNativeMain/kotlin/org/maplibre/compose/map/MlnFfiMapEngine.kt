@@ -5,6 +5,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import kotlin.concurrent.Volatile
 import kotlin.math.roundToInt
 import kotlin.time.Duration
 import kotlin.time.TimeSource
@@ -59,6 +60,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   actual val detachedAdapter: MapAdapter?
     get() = core
 
+  // Volatile: replaced under sessionLock, read by unlocked detached writes and withPlatformMap.
+  @Volatile
   internal var core: MlnFfiMapCore? = null
     private set
 
@@ -352,10 +355,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     deadline: TimeSource.Monotonic.ValueTimeMark,
     timeout: Duration,
   ) {
-    // hasLoadedFirstStyle is sticky across style changes, so the wait compares generations: the
-    // selected style's request must have loaded, not merely some earlier one.
-    val requested = core.requestedStyleGeneration
-    while (core.loadedStyleGeneration < requested) {
+    // hasLoadedFirstStyle is sticky across style changes, so the wait compares generations, and
+    // re-reads the requested one so a selection made during the wait is also waited for.
+    while (core.loadedStyleGeneration < core.requestedStyleGeneration) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
       check(!core.isClosed) { "MapState was closed while a still image was rendering" }
       state.lastLoadFailure.value?.let { reason ->

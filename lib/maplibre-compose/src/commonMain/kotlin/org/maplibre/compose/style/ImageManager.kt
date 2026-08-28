@@ -49,10 +49,16 @@ internal class ImageManager(private val node: StyleNode) {
 
   internal fun acquireBitmap(key: BitmapKey): String = lock.withLock {
     ensureAttachedLocked()
-    bitmapCounter.increment(key) {
-      val id = bitmapIds.addId(key)
-      node.logger?.i { "Adding bitmap $id" }
-      node.binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
+    try {
+      bitmapCounter.increment(key) {
+        val id = bitmapIds.addId(key)
+        node.logger?.i { "Adding bitmap $id" }
+        node.binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
+      }
+    } catch (error: Throwable) {
+      // A failed first upload must not leave a count that makes the retry skip the upload.
+      bitmapCounter.decrement(key) { runCatching { bitmapIds.removeId(key) } }
+      throw error
     }
     bitmapIds.getId(key)
   }
@@ -71,10 +77,16 @@ internal class ImageManager(private val node: StyleNode) {
 
   internal fun acquirePainter(key: PainterKey): String = lock.withLock {
     ensureAttachedLocked()
-    painterCounter.increment(key) {
-      val id = painterIds.addId(key)
-      node.logger?.i { "Adding painter $id" }
-      node.binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
+    try {
+      painterCounter.increment(key) {
+        val id = painterIds.addId(key)
+        node.logger?.i { "Adding painter $id" }
+        node.binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
+      }
+    } catch (error: Throwable) {
+      // A failed first upload must not leave a count that makes the retry skip the upload.
+      painterCounter.decrement(key) { runCatching { painterIds.removeId(key) } }
+      throw error
     }
     painterIds.getId(key)
   }

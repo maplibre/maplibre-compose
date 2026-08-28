@@ -818,7 +818,7 @@ internal class MlnFfiMapCore(
     )
   }
 
-  private fun retireProjection() {
+  internal fun retireProjection() {
     val previous = projectionLock.withLock {
       val current = mirroredViewport
       mirroredViewport = current.copy(projection = null)

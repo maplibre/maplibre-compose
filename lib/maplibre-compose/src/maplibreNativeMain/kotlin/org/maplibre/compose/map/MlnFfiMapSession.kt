@@ -321,6 +321,9 @@ internal class MlnFfiMapSession(
     core.markFeatureStateReplayPending()
     attachedTarget = key
     attachCount++
+    // The previous target's frozen projection must not answer for the new one; conversions stay
+    // null until the queued snapshot publishes the replacement.
+    core.retireProjection()
     core.publishAttachedViewport()
     core.postViewportSnapshot()
     // The new texture holds nothing yet; this request buys the frame that fills it.
