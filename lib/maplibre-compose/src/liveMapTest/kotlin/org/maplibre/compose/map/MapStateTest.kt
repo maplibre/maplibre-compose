@@ -61,7 +61,7 @@ class MapStateTest {
     val firstBinding = OpRecordingStyleBinding()
     state.attachSession(first)
     state.callbacks.onStyleChanged(first, firstBinding)
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
 
     assertSame(first, state.attachedAdapter)
     assertTrue(
@@ -88,7 +88,7 @@ class MapStateTest {
     state.detachSession()
     // The engine session unloads its style when it goes away; the fake models that here.
     firstBinding.unload()
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
     val firstCallsAfterDetach = first.calls.toList()
     val firstOpsAfterDetach = firstBinding.ops.toList()
 
@@ -106,7 +106,7 @@ class MapStateTest {
     val secondBinding = OpRecordingStyleBinding()
     state.attachSession(second)
     state.callbacks.onStyleChanged(second, secondBinding)
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
 
     // The new session gets the deferred camera and a fresh apply of the same desired state.
     assertSame(second, state.attachedAdapter)
@@ -138,25 +138,22 @@ class MapStateTest {
     val binding = RecordingStyleBinding()
     state.attachSession(adapter)
     state.callbacks.onStyleChanged(adapter, binding)
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
     assertTrue("bg-user" in state.layers.ids, "the composed layer reaches layers.ids")
     assertTrue(binding.layerExists("bg-user"), "the content applies to the style")
 
+    // Each toggle waits on the host's quiescence rather than the scheduler's, because a platform
+    // GlobalSnapshotManager started by an earlier test can deliver the write's apply notification
+    // from its own thread, after advanceUntilIdle has already drained the queue.
     show = false
-    Snapshot.sendApplyNotifications()
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
     assertFalse("bg-user" in state.layers.ids, "the removed layer leaves layers.ids")
 
     show = true
-    Snapshot.sendApplyNotifications()
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
     assertTrue("bg-user" in state.layers.ids, "the re-added layer returns to layers.ids")
 
     state.clearStyleContent()
-    Snapshot.sendApplyNotifications()
-    // A platform GlobalSnapshotManager started by an earlier test can deliver the write's apply
-    // notification from its own thread, after advanceUntilIdle has already drained the queue, so
-    // the wait must ride the recomposer's quiescence rather than the scheduler's.
     state.host.awaitPendingWork()
     assertFalse(binding.layerExists("bg-user"), "clearing removes the content from the style")
 
@@ -177,7 +174,7 @@ class MapStateTest {
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
     state.callbacks.onStyleChanged(adapter, RecordingStyleBinding())
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
 
     state.detachSession()
     state.close()
