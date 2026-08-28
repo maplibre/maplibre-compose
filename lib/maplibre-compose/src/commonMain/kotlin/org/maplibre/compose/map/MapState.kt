@@ -218,7 +218,7 @@ internal constructor(
       else if (shouldClearUnloadedSources()) sources.clear()
     }
     record.resetSessionHooks = { callbacks.resetSessionHooks() }
-    record.clearInheritedLocals = { inheritedLocals = null }
+    record.clearInheritedLocals = { host.inheritedLocals = null }
   }
 
   private var contentStarted = false
@@ -627,7 +627,8 @@ internal constructor(
     commit { detach(adapter) }
     if (engine.detachedAdapter == null) {
       val generation = record.read { styleGeneration }
-      commit { styleChanged(adapter ?: Any(), null, generation) }
+      val source = adapter ?: record.read { styleSource }
+      if (source != null) commit { styleChanged(source, null, generation) }
     }
   }
 
