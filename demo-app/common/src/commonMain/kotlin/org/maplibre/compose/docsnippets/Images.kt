@@ -40,7 +40,7 @@ fun Images() {
     SymbolLayer(id = "station-markers", source = stations, iconImage = image("marker"))
     // #endregion icon-sprite
   }
-  MaplibreMap(iconMap)
+  MaplibreMap(state = iconMap)
 
   val imageMap = rememberMapState {
     // #region image-source
@@ -55,5 +55,5 @@ fun Images() {
     RasterLayer(id = "castello-plan", source = plan, opacity = const(0.8f))
     // #endregion image-source
   }
-  MaplibreMap(imageMap)
+  MaplibreMap(state = imageMap)
 }

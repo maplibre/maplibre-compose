@@ -23,7 +23,7 @@ fun Camera() {
       initialCameraPosition =
         CameraPosition(target = Position(latitude = 45.521, longitude = -122.675), zoom = 13.0)
     )
-  MaplibreMap(map)
+  MaplibreMap(state = map)
   // #endregion first-position
 
   // #region animate

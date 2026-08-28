@@ -15,20 +15,22 @@ import org.maplibre.compose.style.BaseStyle
 fun Styling() {
   // #region simple
   MaplibreMap(
-    rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"))
+    state =
+      rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty"))
   )
   // #endregion simple
 
   // #region dynamic
   val variant = if (isSystemInDarkTheme()) "dark" else "light"
   MaplibreMap(
-    rememberMapState(
-      baseStyle = BaseStyle.Uri("https://api.protomaps.com/styles/v4/$variant/en.json?key=MY_KEY")
-    )
+    state =
+      rememberMapState(
+        baseStyle = BaseStyle.Uri("https://api.protomaps.com/styles/v4/$variant/en.json?key=MY_KEY")
+      )
   )
   // #endregion dynamic
 
   // #region local
-  MaplibreMap(rememberMapState(baseStyle = BaseStyle.Uri(Res.getUri("files/style.json"))))
+  MaplibreMap(state = rememberMapState(baseStyle = BaseStyle.Uri(Res.getUri("files/style.json"))))
   // #endregion local
 }

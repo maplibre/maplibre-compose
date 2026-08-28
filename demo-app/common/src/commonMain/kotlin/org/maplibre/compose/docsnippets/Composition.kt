@@ -14,6 +14,6 @@ fun Composition() {
     rememberMapState(baseStyle = BaseStyle.Uri("https://tiles.openfreemap.org/styles/liberty")) {
       // Sources and layers declared here are added to the base style.
     }
-  MaplibreMap(map)
+  MaplibreMap(state = map)
   // #endregion base-plus-content
 }

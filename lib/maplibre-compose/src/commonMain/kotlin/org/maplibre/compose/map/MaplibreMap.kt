@@ -107,7 +107,8 @@ public fun rememberMapState(
  * scrollable container or other layout that doesn't provide constraints, you must specify an
  * explicit size using modifiers like [Modifier.size][androidx.compose.foundation.layout.size].
  *
- * @param state The map to display: its base style, style content, and camera.
+ * @param state The map to display: its base style, style content, and camera. The default remembers
+ *   a fresh state, for a map that needs no style content and no hoisted access.
  * @param cameraPadding Insets that shift the camera center. Null follows [contentWindowInsets],
  *   resolved against the current layout direction, so the camera centers on the unobstructed
  *   region. A bounds move adds its padding to these insets.
@@ -132,7 +133,7 @@ public fun rememberMapState(
  */
 @Composable
 public fun MaplibreMap(
-  state: MapState,
+  state: MapState = rememberMapState(),
   modifier: Modifier = Modifier,
   cameraPadding: PaddingValues? = null,
   zoomRange: ClosedRange<Float> = 0f..20f,

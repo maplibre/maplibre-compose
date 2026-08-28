@@ -44,6 +44,6 @@ fun Location() {
       mapState.animateCamera(CameraPosition(target = currentLocation.position.value, zoom = 15.0))
     }
   }
-  MaplibreMap(map)
+  MaplibreMap(state = map)
   // #endregion puck
 }

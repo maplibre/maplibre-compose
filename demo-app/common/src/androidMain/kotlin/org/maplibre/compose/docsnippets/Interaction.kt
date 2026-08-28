@@ -15,12 +15,11 @@ import org.maplibre.spatialk.geojson.toJson
 @Composable
 fun Interaction() {
   // #region common-gestures
-  MaplibreMap(rememberMapState(), options = MapOptions(gestureOptions = GestureOptions.Standard))
+  MaplibreMap(options = MapOptions(gestureOptions = GestureOptions.Standard))
   // #endregion common-gestures
 
   // #region gesture-settings
   MaplibreMap(
-    rememberMapState(),
     options =
       MapOptions(
         gestureOptions =
@@ -30,7 +29,7 @@ fun Interaction() {
             isTwoFingerRotateEnabled = true,
             isDragPanEnabled = true,
           )
-      ),
+      )
   )
   // #endregion gesture-settings
 
@@ -39,7 +38,7 @@ fun Interaction() {
   // #region click-listeners
   val scope = rememberCoroutineScope()
   MaplibreMap(
-    map,
+    state = map,
     onMapClick = { pos, offset ->
       scope.launch {
         val features = map.queryRenderedFeatures(offset)
