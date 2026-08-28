@@ -15,8 +15,10 @@ import org.maplibre.compose.desktop.ComposeMapHost
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
+import org.maplibre.compose.mlnffi.centeredDestination
 
 /**
  * Draws MapLibre's Metal texture into the Compose scene by wrapping it as a Skia surface. Every
@@ -37,14 +39,14 @@ internal class MetalPresenter(private val gpuHost: ComposeMapHost) : AutoCloseab
     releaseRetired(keepAlive = target.texture.address)
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
+      val destination = scope.centeredDestination(target.extent)
       val presenter =
         presenters.getOrPut(target.texture.address) { TexturePresenter(target.texture) }
       presenter.draw(
         composeCanvas.skiaCanvas,
         skiaContext,
         target,
-        scope.size.width,
-        scope.size.height,
+        destination,
       )
       completion.frameRecorded(presenter::preserveFrame)
       drew = true
@@ -106,8 +108,7 @@ internal class MetalPresenter(private val gpuHost: ComposeMapHost) : AutoCloseab
       canvas: org.jetbrains.skia.Canvas,
       context: DirectContext,
       target: MetalTextureTarget,
-      destinationWidth: Float,
-      destinationHeight: Float,
+      destination: MlnFfiMapDestination,
     ) {
       ensureSurface(context, target)
       val currentSurface =
@@ -118,7 +119,13 @@ internal class MetalPresenter(private val gpuHost: ComposeMapHost) : AutoCloseab
         canvas.drawImageRect(
           image = image,
           src = Rect.makeWH(image.width.toFloat(), image.height.toFloat()),
-          dst = Rect.makeWH(destinationWidth, destinationHeight),
+          dst =
+            Rect.makeLTRB(
+              destination.left.toFloat(),
+              destination.top.toFloat(),
+              destination.right.toFloat(),
+              destination.bottom.toFloat(),
+            ),
           samplingMode = SamplingMode.LINEAR,
           paint = null,
           strict = true,

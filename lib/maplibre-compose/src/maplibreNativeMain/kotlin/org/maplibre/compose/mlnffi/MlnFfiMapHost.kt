@@ -1,7 +1,34 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import kotlin.math.roundToInt
 import org.maplibre.compose.map.MapExtent
+
+/** Pixel-aligned destination for a completed render target in a Compose draw scope. */
+internal data class MlnFfiMapDestination(
+  val left: Int,
+  val top: Int,
+  val width: Int,
+  val height: Int,
+) {
+  val right: Int
+    get() = left + width
+
+  val bottom: Int
+    get() = top + height
+}
+
+/** Centers [extent] at its physical size, with at most one extra pixel on the bottom or right. */
+internal fun DrawScope.centeredDestination(extent: MapExtent): MlnFfiMapDestination {
+  val width = extent.physicalWidth
+  val height = extent.physicalHeight
+  return MlnFfiMapDestination(
+    left = (size.width.roundToInt() - width) / 2,
+    top = (size.height.roundToInt() - height) / 2,
+    width = width,
+    height = height,
+  )
+}
 
 /**
  * One renderable frame produced by a [MlnFfiMapHost].
@@ -108,7 +135,8 @@ internal interface MlnFfiMapHost : AutoCloseable {
   }
 
   /**
-   * Draws [target] into the Compose scene, returning whether anything was drawn.
+   * Draws [target] at its physical size, centered and clipped in the Compose scene, and returns
+   * whether anything was drawn.
    *
    * [target] is the most recently completed target, which may be from an earlier frame if the
    * renderer skipped this one.

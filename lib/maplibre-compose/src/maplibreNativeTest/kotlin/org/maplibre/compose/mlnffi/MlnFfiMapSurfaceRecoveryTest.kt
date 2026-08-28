@@ -73,10 +73,74 @@ class MlnFfiMapSurfaceRecoveryTest {
     val renderedTarget = renderer.renderTargets[0]
     val skippedTarget = renderer.renderTargets[1]
     assertNotEquals(renderedTarget, skippedTarget)
-    assertEquals(1, host.completedFrames)
+    assertEquals(renderer.renderedFrames - 1, host.completedFrames)
     assertTrue(host.drawnTargets.count { it == renderedTarget } >= 2)
     assertFalse(skippedTarget in host.drawnTargets)
     assertTrue(host.leakedFrames.isEmpty())
+  }
+
+  @Test
+  fun resizes_acquire_targets_for_the_current_draw_size() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory()
+    val size = mutableStateOf(64.dp)
+    val hostResult = factory.create(factory.bridges.single())
+
+    setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.isNotEmpty() }
+    for (nextSize in listOf(96.dp, 48.dp, 80.dp)) {
+      val drawsBeforeResize = host.drawRecords.size
+      renderer.skipNextRender = true
+      size.value = nextSize
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.size > drawsBeforeResize }
+      waitForIdle()
+
+      for (draw in host.drawRecords.drop(drawsBeforeResize)) {
+        assertEquals(draw.destinationWidth, draw.target.extent.physicalWidth)
+        assertEquals(draw.destinationHeight, draw.target.extent.physicalHeight)
+      }
+    }
+  }
+
+  @Test
+  fun resize_keeps_presenting_when_the_new_frame_is_skipped() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory()
+    val size = mutableStateOf(64.dp)
+    val hostResult = factory.create(factory.bridges.single())
+
+    setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.isNotEmpty() }
+    val lastRenderedTarget = host.drawRecords.last().target
+    val drawsBeforeResize = host.drawRecords.size
+
+    renderer.skipAllRenders = true
+    size.value = 257.dp
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.skippedFrames > 0 }
+    waitForIdle()
+
+    val resizeDraws = host.drawRecords.drop(drawsBeforeResize)
+    assertTrue(resizeDraws.isNotEmpty())
+    assertTrue(resizeDraws.all { it.target == lastRenderedTarget })
+    for (draw in resizeDraws) {
+      assertEquals(draw.target.extent.physicalWidth, draw.destinationWidth)
+      assertEquals(draw.target.extent.physicalHeight, draw.destinationHeight)
+      assertEquals((draw.scopeWidth - draw.destinationWidth) / 2, draw.destinationLeft)
+      assertEquals((draw.scopeHeight - draw.destinationHeight) / 2, draw.destinationTop)
+    }
+  }
+
+  @Test
+  fun render_uses_the_extent_configured_for_the_same_frame() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory()
+
+    setSurfaceContent(renderer, factory)
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.renderedFrames > 0 }
+
+    assertEquals(renderer.renderTargets.first().extent, renderer.surfaceExtentAtRenders.first())
   }
 
   @Test
@@ -247,6 +311,8 @@ class MlnFfiMapSurfaceRecoveryTest {
     override val backend: MapRenderBackend = MapRenderBackend.VULKAN
     val lifecycle: MutableList<String> = mutableListOf()
     val renderTargets: MutableList<MlnFfiRenderTarget> = mutableListOf()
+    val surfaceChanges: MutableList<MapExtent> = mutableListOf()
+    val surfaceExtentAtRenders: MutableList<MapExtent?> = mutableListOf()
     var renderedFrames = 0
       private set
 
@@ -257,6 +323,11 @@ class MlnFfiMapSurfaceRecoveryTest {
       private set
 
     var failingSurfaceChanges = 0
+    var skipNextRender = false
+    var skipAllRenders = false
+    var skippedFrames = 0
+      private set
+
     private var hostSession: MlnFfiMapHostSession? = null
 
     override fun onSurfaceChanged(extent: MapExtent) {
@@ -264,6 +335,7 @@ class MlnFfiMapSurfaceRecoveryTest {
         failingSurfaceChanges--
         throw IllegalStateException("cannot resize to ${extent.width}x${extent.height}")
       }
+      surfaceChanges += extent
     }
 
     override fun onSurfaceAvailable(session: MlnFfiMapHostSession) {
@@ -289,9 +361,15 @@ class MlnFfiMapSurfaceRecoveryTest {
       }
       renderedFrames++
       renderTargets += frame.target
+      surfaceExtentAtRenders += surfaceChanges.lastOrNull()
       if (requestAnotherFrame || additionalFrameRequests > 0) {
         if (additionalFrameRequests > 0) additionalFrameRequests--
         hostSession?.requestFrame()
+      }
+      if (skipNextRender || skipAllRenders) {
+        skipNextRender = false
+        skippedFrames++
+        return MlnFfiFrameResult.SKIPPED
       }
       return renderResults.removeFirstOrNull() ?: MlnFfiFrameResult.RENDERED
     }
