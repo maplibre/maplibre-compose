@@ -83,17 +83,23 @@ internal class MapRecord(initialCamera: CameraPosition) {
   }
 
   private fun runDrain(me: Any) {
-    try {
-      while (true) {
-        val task = effectLock.withLock { effects.removeFirstOrNull() } ?: break
+    while (true) {
+      val task = effectLock.withLock { effects.removeFirstOrNull() }
+      if (task != null) {
         task()
+        continue
       }
-    } finally {
-      effectLock.withLock {
-        if (drainOwner === me) drainOwner = null
-        idleGate?.open()
-        idleGate = null
+      val done = effectLock.withLock {
+        if (effects.isNotEmpty()) {
+          false
+        } else {
+          if (drainOwner === me) drainOwner = null
+          idleGate?.open()
+          idleGate = null
+          true
+        }
       }
+      if (done) return
     }
   }
 
@@ -376,8 +382,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
     }
     val current = currentSession() ?: return
     if (current.adapter !== source) return
-    if (!isCameraMoving && cameraWorkGeneration != current.generation) return
-    camera = position
+    // The current surface may publish its size after reattach before this generation arms camera
+    // work. Position still needs that generation, so leftover animation frames cannot move it.
+    val acceptPosition = isCameraMoving || cameraWorkGeneration == current.generation
+    if (acceptPosition) camera = position
     if (viewport != null) {
       hasAuthoritativeSurface = true
       this.viewport = viewport
@@ -455,8 +463,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   private fun cancelBoundOperations(adapter: MapAdapter?) {
     if (adapter == null) return
-    pendingOperations.values.forEach { op ->
-      if (op.adapter === adapter) op.cancelled = true
+    val stale = pendingOperations.entries.filter { it.value.adapter === adapter }
+    for (entry in stale) {
+      entry.value.cancelled = true
+      pendingOperations.remove(entry.key)
     }
   }
 

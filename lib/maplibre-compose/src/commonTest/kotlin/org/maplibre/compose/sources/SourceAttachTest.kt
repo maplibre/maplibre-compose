@@ -38,6 +38,26 @@ class SourceAttachTest {
   }
 
   @Test
+  fun a_stale_unload_does_not_clear_a_later_style() {
+    var staleUnload: (() -> Unit)? = null
+    val first =
+      object : RecordingStyleBinding() {
+        override fun onUnload(action: () -> Unit): () -> Unit {
+          staleUnload = action
+          return { staleUnload = null }
+        }
+      }
+    val second = RecordingStyleBinding()
+    val source = vectorSource("move")
+    source.attach(first)
+    first.unload()
+    source.attach(second)
+    staleUnload?.invoke()
+    assertTrue(source.isAttached)
+    assertTrue("move" in second.sources)
+  }
+
+  @Test
   fun a_different_descriptor_with_the_same_id_is_refused() {
     val binding = RecordingStyleBinding()
     vectorSource("shared").attach(binding)

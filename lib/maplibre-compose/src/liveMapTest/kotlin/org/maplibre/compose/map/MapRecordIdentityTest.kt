@@ -1,19 +1,40 @@
 package org.maplibre.compose.map
 
+import androidx.compose.ui.unit.DpSize
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.util.VisibleRegion
+import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
 class MapRecordIdentityTest {
 
   private val start = CameraPosition()
   private val moved = CameraPosition(target = Position(1.0, 2.0))
+  private val surface =
+    Viewport(
+      size = DpSize(100.dp, 80.dp),
+      visibleBoundingBox =
+        BoundingBox(southwest = Position(0.0, 0.0), northeast = Position(1.0, 1.0)),
+      visibleRegion =
+        VisibleRegion(
+          Position(0.0, 1.0),
+          Position(1.0, 1.0),
+          Position(0.0, 0.0),
+          Position(1.0, 0.0),
+        ),
+      metersPerDpAtTarget = 1.0,
+    )
 
   @Test
   fun a_bound_operation_publishes_into_the_session_that_accepted_it() {
@@ -112,9 +133,24 @@ class MapRecordIdentityTest {
     assertFalse(record.read { isCameraMoving })
     record.mutate { attach(adapter) }
     record.mutate { cameraMoveStarted(adapter, CameraMoveReason.PROGRAMMATIC) }
-    record.mutate { cameraMoved(adapter, moved, null) }
+    record.mutate { cameraMoved(adapter, moved, surface) }
     assertFalse(record.read { isCameraMoving })
     assertEquals(start, record.read { camera })
+    assertSame(surface, record.read { viewport })
+  }
+
+  @Test
+  fun detach_removes_bound_operations_from_the_registry() {
+    val record = MapRecord(start)
+    val adapter = FakeMapAdapter()
+    val op = record.mutate {
+      attach(adapter)
+      val id = beginOperation()
+      bindOperation(id, adapter)
+      id
+    }
+    record.mutate { detach(adapter) }
+    assertNull(record.read { pendingOperations[op] })
   }
 
   @Test

@@ -497,11 +497,12 @@ internal constructor(
       val viewport = adapter.getViewport()
       commit { completeCameraOperation(opId, position, viewport) }
     } catch (error: CancellationException) {
-      commit { cancelOperation(opId) }
       throw error
     } catch (error: Throwable) {
       commit { failOperation(opId) }
       throw error
+    } finally {
+      commit { cancelOperation(opId) }
     }
   }
 
