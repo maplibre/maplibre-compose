@@ -104,5 +104,5 @@ internal constructor(
    * a property the layer holds no value for, or when this handle's generation is no longer current.
    */
   public fun property(name: String): JsonElement? =
-    liveLayer()?.readProperty(name).takeIf { it !is JsonNull }
+    liveProperty(name).takeIf { it != null && it !is JsonNull }
 }
