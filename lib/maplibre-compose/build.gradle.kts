@@ -108,10 +108,6 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
 
-        // The style host runs on Dispatchers.Main, which bare JVM lacks. This supplies the Swing
-        // implementation; a non-AWT host's MainDispatcherFactory outranks it.
-        implementation(libs.kotlinx.coroutines.swing)
-
         // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
         // artifact the application picks.
         implementation(libs.lwjgl.core)
@@ -175,6 +171,9 @@ kotlin {
     jvmTest.dependencies {
       // Only the EGL interop tests bind EGL directly; nothing in the library does.
       implementation(libs.lwjgl.egl)
+      // Bare JVM has no Dispatchers.Main. Tests that construct MapState() need one; the library
+      // does not ship a host dispatcher.
+      implementation(libs.kotlinx.coroutines.swing)
     }
 
     androidHostTest.dependencies { implementation(compose.desktop.currentOs) }
