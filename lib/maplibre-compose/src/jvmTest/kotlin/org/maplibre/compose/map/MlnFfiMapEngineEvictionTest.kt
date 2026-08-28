@@ -68,13 +68,18 @@ class MlnFfiMapEngineEvictionTest {
     assertFalse(host.sawClosedCore, "the session must close before its core does")
   }
 
+  /**
+   * One engine walks both eviction triggers: a scale change evicts the first live session, and a
+   * backend change then evicts the session on the replacement core, each closing the session before
+   * its core.
+   */
   @Test
-  fun a_scale_change_evicts_the_live_session_before_the_core_closes() {
+  fun a_scale_change_and_then_a_backend_change_each_evict_the_live_session_before_the_core_closes() {
     val engine = engine()
     val core1 = engine.acquireCore(1.0, LayoutDirection.Ltr, VULKAN)
     val session1 = engine.createSession(core1, VULKAN)
-    val host = ObservingHostSession(core1)
-    session1.onSurfaceAvailable(host)
+    val host1 = ObservingHostSession(core1)
+    session1.onSurfaceAvailable(host1)
     assertFailsWith<IllegalStateException>("a second session on the same live core must refuse") {
       engine.createSession(core1, VULKAN)
     }
@@ -82,32 +87,24 @@ class MlnFfiMapEngineEvictionTest {
     val core2 = engine.acquireCore(2.0, LayoutDirection.Ltr, VULKAN)
 
     assertNotSame(core1, core2, "a scale change must recreate the core")
-    assertEvicted(session1, host, core1)
+    assertEvicted(session1, host1, core1)
 
     val session2 = engine.createSession(core2, VULKAN)
     assertFalse(session2.isClosed)
+    val host2 = ObservingHostSession(core2)
+    session2.onSurfaceAvailable(host2)
     // The view's own later dispose of the evicted session must stay a harmless no-op.
     session1.close()
     engine.releaseSession(session1)
     assertFailsWith<IllegalStateException>("the new core's session refusal must survive it") {
       engine.createSession(core2, VULKAN)
     }
-    assertTrue(log.messages.isEmpty(), "the eviction logged errors: ${log.messages}")
-  }
 
-  @Test
-  fun a_backend_change_evicts_the_live_session_before_the_core_closes() {
-    val engine = engine()
-    val core1 = engine.acquireCore(1.0, LayoutDirection.Ltr, VULKAN)
-    val session1 = engine.createSession(core1, VULKAN)
-    val host = ObservingHostSession(core1)
-    session1.onSurfaceAvailable(host)
+    val core3 = engine.acquireCore(2.0, LayoutDirection.Ltr, MapRenderBackend.OPENGL)
 
-    val core2 = engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.OPENGL)
-
-    assertNotSame(core1, core2, "a backend change must recreate the core")
-    assertEvicted(session1, host, core1)
-    assertTrue(log.messages.isEmpty(), "the eviction logged errors: ${log.messages}")
+    assertNotSame(core2, core3, "a backend change must recreate the core")
+    assertEvicted(session2, host2, core2)
+    assertTrue(log.messages.isEmpty(), "the evictions logged errors: ${log.messages}")
   }
 
   private companion object {

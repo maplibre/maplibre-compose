@@ -42,30 +42,23 @@ class MlnFfiMapSnapshotTest {
     return MapState().also { state = it }
   }
 
+  /**
+   * One bare state walks the snapshot lifecycle: a broken style fails the capture, a replacement
+   * style recovers and renders viewport-conditioned content, a style switch renders again, and an
+   * attached session and then a close each refuse further captures.
+   */
   @Test
-  fun a_detached_state_renders_a_still_image() {
+  fun a_bare_state_fails_recovers_captures_twice_and_refuses_after_attach_and_close() {
     val state = bareState()
-    state.baseStyle = RED_BACKGROUND_STYLE
-    state.setStyleContent {
-      val dot = rememberGeoJsonSource(GeoJsonData.Features(Point(Position(0.0, 0.0))))
-      CircleLayer(id = "dot", source = dot, color = const(Color.Blue), radius = const(30.dp))
+
+    // Step 1: a broken base style fails the capture instead of hanging.
+    state.baseStyle = BaseStyle.Json("this is not a style")
+    assertFailsWith<IllegalStateException>("the broken style must fail the snapshot") {
+      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 30.seconds) }
     }
 
-    val image = runBlocking {
-      state.captureStillImage(width = 200.dp, height = 150.dp, timeout = 60.seconds)
-    }
-
-    assertEquals(200, image.width)
-    assertEquals(150, image.height)
-    val pixels = image.toPixelMap()
-    assertColor(Color.Red, pixels[4, 4], "the base style's background at the corner")
-    assertColor(Color.Blue, pixels[100, 75], "the content's circle at the camera target")
-  }
-
-  /** The snapshot publishes its viewport to the state, so viewport-conditioned content renders. */
-  @Test
-  fun a_snapshot_composes_content_conditioned_on_the_viewport() {
-    val state = bareState()
+    // Step 2: a new base style clears the load failure, and the capture renders content that
+    // composes only once the snapshot has published its viewport to the state.
     state.baseStyle = RED_BACKGROUND_STYLE
     state.setStyleContent {
       if (LocalMapState.current.viewport != null) {
@@ -73,28 +66,41 @@ class MlnFfiMapSnapshotTest {
         CircleLayer(id = "dot", source = dot, color = const(Color.Blue), radius = const(30.dp))
       }
     }
-
-    val image = runBlocking {
+    val first = runBlocking {
       state.captureStillImage(width = 200.dp, height = 150.dp, timeout = 60.seconds)
     }
-
-    val pixels = image.toPixelMap()
-    assertColor(Color.Blue, pixels[100, 75], "the viewport-conditioned circle at the target")
+    assertEquals(200, first.width, "the capture must be the requested width")
+    assertEquals(150, first.height, "the capture must be the requested height")
+    val firstPixels = first.toPixelMap()
+    assertColor(Color.Red, firstPixels[4, 4], "the base style's background at the corner")
+    assertColor(Color.Blue, firstPixels[100, 75], "the viewport-conditioned circle at the target")
     assertNull(state.viewport, "the snapshot's viewport must not outlive it")
-  }
 
-  /** A premultiplied readback must divide out before packing, or translucent pixels darken. */
-  @Test
-  fun a_translucent_style_reads_back_straight_alpha() {
-    val state = bareState()
+    // Step 3: the same state captures again after a base-style switch, and a premultiplied
+    // readback divides out before packing, so translucent pixels come back straight-alpha.
+    state.clearStyleContent()
     state.baseStyle = TRANSLUCENT_RED_STYLE
-
-    val image = runBlocking {
+    val second = runBlocking {
       state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds)
     }
+    assertColor(
+      Color.Red.copy(alpha = 0.5f),
+      second.toPixelMap()[10, 10],
+      "the half-opacity background",
+    )
 
-    val pixels = image.toPixelMap()
-    assertColor(Color.Red.copy(alpha = 0.5f), pixels[10, 10], "the half-opacity background")
+    // Step 4: a capture with an attached session throws.
+    state.attachSession(FakeMapAdapter())
+    assertFailsWith<IllegalStateException>("a snapshot with an attached session must throw") {
+      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp) }
+    }
+    state.detachSession()
+
+    // Step 5: a capture on a closed state throws.
+    state.close()
+    assertFailsWith<IllegalStateException>("a snapshot on a closed state must throw") {
+      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp) }
+    }
   }
 
   @Test
@@ -110,24 +116,6 @@ class MlnFfiMapSnapshotTest {
 
     assertEquals(40, image.width, "a density of 2 doubles the pixel width of the dp size")
     assertEquals(60, image.height, "a density of 2 doubles the pixel height of the dp size")
-  }
-
-  @Test
-  fun a_snapshot_on_a_closed_state_throws() {
-    val state = bareState()
-    state.close()
-    assertFailsWith<IllegalStateException> {
-      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp) }
-    }
-  }
-
-  @Test
-  fun a_snapshot_with_an_attached_session_throws() {
-    val state = bareState()
-    state.attachSession(FakeMapAdapter())
-    assertFailsWith<IllegalStateException> {
-      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp) }
-    }
   }
 
   private fun assertColor(expected: Color, actual: Color, description: String) {

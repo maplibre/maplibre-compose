@@ -45,8 +45,13 @@ class MapStateTest {
       hostDispatcher = hostDispatcher,
     )
 
+  /**
+   * One state walks a session generation: a first session attaches (and refuses a concurrent
+   * second), detaches with its hooks reset and its style dead, and a new session rewires the
+   * recorded camera and desired style.
+   */
   @Test
-  fun survives_a_detach_attach_cycle_and_rewires_a_new_session() = runTest {
+  fun a_session_attaches_refuses_a_rival_detaches_dead_and_a_new_session_rewires() = runTest {
     val state = mapState()
     val source = testSource("tiles")
 
@@ -64,6 +69,22 @@ class MapStateTest {
       "the attaching session starts the map at the recorded camera",
     )
 
+    // A second concurrent session is refused while the first is attached.
+    val error = assertFailsWith<IllegalStateException> { state.attachSession(FakeMapAdapter()) }
+    assertTrue(
+      "one MapState shows one MaplibreMap" in error.message.orEmpty(),
+      "the error names the single-session contract: ${error.message}",
+    )
+    // The same session may re-attach, which the composable does when its options change.
+    state.attachSession(first)
+    assertSame(first, state.attachedAdapter)
+
+    // The composable's load hooks are set when the session departs.
+    var finished = 0
+    var failed = 0
+    state.callbacks.onMapLoadFinished = { finished++ }
+    state.callbacks.onMapLoadFailed = { failed++ }
+
     state.detachSession()
     // The engine session unloads its style when it goes away; the fake models that here.
     firstBinding.unload()
@@ -74,6 +95,12 @@ class MapStateTest {
     assertFalse(state.isAttached)
     assertFalse(state.styleNode.binding.isLoaded)
     assertTrue(state.sources.ids.isEmpty())
+
+    // A retained core can deliver load events after the composable is gone.
+    state.callbacks.onMapFinishedLoading(first)
+    state.callbacks.onMapFailLoading("late failure")
+    assertEquals(0, finished, "a disposed composable's load hook fired")
+    assertEquals(0, failed, "a disposed composable's failure hook fired")
 
     val second = FakeMapAdapter()
     val secondBinding = OpRecordingStyleBinding()
@@ -97,8 +124,52 @@ class MapStateTest {
     testScheduler.advanceUntilIdle()
   }
 
+  /**
+   * Composed style content changes against one live session: a toggle removes and re-adds its
+   * layer, and clearing the content removes it from the style.
+   */
   @Test
-  fun close_after_detach_shuts_down_the_recomposer_and_the_dispatcher() = runTest {
+  fun style_content_toggles_and_clears_against_a_live_session() = runTest {
+    val state = mapState()
+    var show by mutableStateOf(true)
+    state.setStyleContent { if (show) BackgroundLayer(id = "bg-user") }
+
+    val adapter = FakeMapAdapter()
+    val binding = RecordingStyleBinding()
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, binding)
+    testScheduler.advanceUntilIdle()
+    assertTrue("bg-user" in state.layers.ids, "the composed layer reaches layers.ids")
+    assertTrue(binding.layerExists("bg-user"), "the content applies to the style")
+
+    show = false
+    Snapshot.sendApplyNotifications()
+    testScheduler.advanceUntilIdle()
+    assertFalse("bg-user" in state.layers.ids, "the removed layer leaves layers.ids")
+
+    show = true
+    Snapshot.sendApplyNotifications()
+    testScheduler.advanceUntilIdle()
+    assertTrue("bg-user" in state.layers.ids, "the re-added layer returns to layers.ids")
+
+    state.clearStyleContent()
+    Snapshot.sendApplyNotifications()
+    // A platform GlobalSnapshotManager started by an earlier test can deliver the write's apply
+    // notification from its own thread, after advanceUntilIdle has already drained the queue, so
+    // the wait must ride the recomposer's quiescence rather than the scheduler's.
+    state.host.awaitPendingWork()
+    assertFalse(binding.layerExists("bg-user"), "clearing removes the content from the style")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  /**
+   * The close path after a session came and went: the host shuts the recomposer down and releases
+   * its dispatcher, a second close is a no-op, and the closed state refuses a new session.
+   */
+  @Test
+  fun close_after_detach_tears_down_the_host_idempotently_and_refuses_new_sessions() = runTest {
     val hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler))
     val state = mapState(hostDispatcher = hostDispatcher)
     state.setStyleContent { RasterLayer(id = "raster", source = testSource("tiles")) }
@@ -110,18 +181,11 @@ class MapStateTest {
 
     state.detachSession()
     state.close()
+    state.close()
     testScheduler.advanceUntilIdle()
 
     // The host releases its dispatcher last, after it has shut the recomposer down.
-    assertTrue(hostDispatcher.closed)
-  }
-
-  @Test
-  fun a_closed_state_refuses_a_new_session_and_close_is_idempotent() = runTest {
-    val state = mapState()
-    state.close()
-    state.close()
-    testScheduler.advanceUntilIdle()
+    assertTrue(hostDispatcher.closed, "the closed host must release its dispatcher")
 
     val error = assertFailsWith<IllegalStateException> { state.attachSession(FakeMapAdapter()) }
     assertTrue(
@@ -130,26 +194,8 @@ class MapStateTest {
     )
   }
 
-  @Test
-  fun a_second_concurrent_session_attach_throws() = runTest {
-    val state = mapState()
-    val first = FakeMapAdapter()
-    state.attachSession(first)
-
-    val error = assertFailsWith<IllegalStateException> { state.attachSession(FakeMapAdapter()) }
-    assertTrue(
-      "one MapState shows one MaplibreMap" in error.message.orEmpty(),
-      "the error names the single-session contract: ${error.message}",
-    )
-
-    // The same session may re-attach, which the composable does when its options change.
-    state.attachSession(first)
-    assertSame(first, state.attachedAdapter)
-
-    state.close()
-    testScheduler.advanceUntilIdle()
-  }
-
+  // A camera call suspended before any session ever attached is an interleaving the walks above
+  // cannot reach, because they attach before they close.
   @Test
   fun a_pre_attach_camera_call_fails_on_close_instead_of_hanging() = runTest {
     val state = mapState()
@@ -170,80 +216,5 @@ class MapStateTest {
 
     assertTrue(waiter.isCompleted, "the call fails promptly once the state closes")
     assertIs<IllegalStateException>(failure)
-  }
-
-  @Test
-  fun composition_layer_changes_refresh_the_layer_ids() = runTest {
-    val state = mapState()
-    var show by mutableStateOf(true)
-    state.setStyleContent { if (show) BackgroundLayer(id = "bg-toggled") }
-
-    val adapter = FakeMapAdapter()
-    state.attachSession(adapter)
-    state.callbacks.onStyleChanged(adapter, RecordingStyleBinding())
-    testScheduler.advanceUntilIdle()
-    assertTrue("bg-toggled" in state.layers.ids, "the composed layer reaches layers.ids")
-
-    show = false
-    Snapshot.sendApplyNotifications()
-    testScheduler.advanceUntilIdle()
-    assertFalse("bg-toggled" in state.layers.ids, "the removed layer leaves layers.ids")
-
-    show = true
-    Snapshot.sendApplyNotifications()
-    testScheduler.advanceUntilIdle()
-    assertTrue("bg-toggled" in state.layers.ids, "the re-added layer returns to layers.ids")
-
-    state.close()
-    testScheduler.advanceUntilIdle()
-  }
-
-  @Test
-  fun detach_resets_the_session_hooks_so_a_later_load_event_fires_nothing() = runTest {
-    val state = mapState()
-    state.setStyleContent {}
-    val adapter = FakeMapAdapter()
-    state.attachSession(adapter)
-    state.callbacks.onStyleChanged(adapter, OpRecordingStyleBinding())
-    testScheduler.advanceUntilIdle()
-
-    var finished = 0
-    var failed = 0
-    state.callbacks.onMapLoadFinished = { finished++ }
-    state.callbacks.onMapLoadFailed = { failed++ }
-    state.detachSession()
-
-    // A retained core can deliver load events after the composable is gone.
-    state.callbacks.onMapFinishedLoading(adapter)
-    state.callbacks.onMapFailLoading("late failure")
-    assertEquals(0, finished, "a disposed composable's load hook fired")
-    assertEquals(0, failed, "a disposed composable's failure hook fired")
-
-    state.close()
-    testScheduler.advanceUntilIdle()
-  }
-
-  @Test
-  fun clearing_the_style_content_removes_it_from_the_style() = runTest {
-    val state = mapState()
-    state.setStyleContent { BackgroundLayer(id = "bg-cleared") }
-
-    val adapter = FakeMapAdapter()
-    val binding = RecordingStyleBinding()
-    state.attachSession(adapter)
-    state.callbacks.onStyleChanged(adapter, binding)
-    testScheduler.advanceUntilIdle()
-    assertTrue(binding.layerExists("bg-cleared"), "the content applies to the style")
-
-    state.clearStyleContent()
-    Snapshot.sendApplyNotifications()
-    // A platform GlobalSnapshotManager started by an earlier test can deliver the write's apply
-    // notification from its own thread, after advanceUntilIdle has already drained the queue, so
-    // the wait must ride the recomposer's quiescence rather than the scheduler's.
-    state.host.awaitPendingWork()
-    assertFalse(binding.layerExists("bg-cleared"), "clearing removes the content from the style")
-
-    state.close()
-    testScheduler.advanceUntilIdle()
   }
 }

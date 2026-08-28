@@ -34,34 +34,13 @@ class BrowserMapStateCloseTest {
          "layers":[{"id":"bg","type":"background","paint":{"background-color":"#123456"}}]}"""
     )
 
+  /**
+   * One composed map walks the close contract: the close ends the live session, a session
+   * registered by hand afterwards is refused, and a session the still-composed view registers is
+   * refused and renders nothing.
+   */
   @Test
-  fun closing_the_state_closes_the_composed_session() = runBrowserMapTest {
-    val state = MapState()
-    state.baseStyle = style
-    var loads = 0
-
-    setBrowserMapContent {
-      MaplibreMap(
-        state = state,
-        modifier = Modifier.fillMaxSize(),
-        logger = null,
-        onMapLoadFinished = { loads++ },
-      )
-    }
-
-    waitUntilMap("the map to load") { loads >= 1 }
-    val session = assertIs<GlJsMapSession>(state.attachedAdapter)
-    val engine = state.engine
-
-    state.close()
-
-    assertTrue(session.isClosed, "closing the state closes the live session")
-    assertNull(engine.session, "the engine forgets the closed session")
-    assertFalse(state.isAttached, "the closed state is detached")
-  }
-
-  @Test
-  fun a_session_composed_after_close_is_refused_and_renders_nothing() = runBrowserMapTest {
+  fun closing_the_state_closes_the_live_session_and_refuses_every_later_one() = runBrowserMapTest {
     val state = MapState()
     state.baseStyle = style
     var loads = 0
@@ -87,6 +66,8 @@ class BrowserMapStateCloseTest {
 
     state.close()
     assertTrue(firstSession.isClosed, "closing the state closes the composed session")
+    assertNull(engine.session, "the engine forgets the closed session")
+    assertFalse(state.isAttached, "the closed state is detached")
 
     val refused =
       GlJsMapSession(

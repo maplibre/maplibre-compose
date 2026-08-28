@@ -22,19 +22,16 @@ import org.maplibre.compose.sources.TileSetOptions
 class BareMapStateTest {
 
   @Test
-  fun style_collections_are_empty_while_no_style_is_loaded() = runTest {
-    val state = MapState()
+  fun a_bare_state_reports_empty_collections_composes_content_and_closes() = runTest {
+    val hostDispatcher = recordingHostDispatcher()
+    val state = MapState(cameraPosition = CameraPosition(), hostDispatcher = hostDispatcher)
+
+    // With no style loaded, the style collections are empty rather than failing.
     assertTrue(state.layers.ids.isEmpty(), "no layer ids before a style loads")
     assertTrue(state.sources.ids.isEmpty(), "no source ids before a style loads")
     assertNull(state.layers["any"], "no layer handle before a style loads")
     assertNull(state.sources["any"], "no source before a style loads")
-    state.close()
-  }
 
-  @Test
-  fun a_bare_state_composes_content_and_closes_without_a_session() = runTest {
-    val hostDispatcher = recordingHostDispatcher()
-    val state = MapState(cameraPosition = CameraPosition(), hostDispatcher = hostDispatcher)
     val composed = CompletableDeferred<Unit>()
     val source =
       RasterSource("tiles", listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())

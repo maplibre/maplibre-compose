@@ -33,44 +33,42 @@ class MlnFfiPlatformMapTest {
     return MapState().also { state = it }
   }
 
+  /**
+   * One state walks [withPlatformMap]'s whole availability window: refused before any map exists,
+   * served after a snapshot created one, refused again after the close.
+   */
   @Test
-  fun a_state_that_never_created_a_map_throws() {
+  fun the_platform_map_is_refused_before_creation_served_after_a_snapshot_and_refused_after_close() {
     val state = bareState()
+
     val failure =
-      assertFailsWith<IllegalStateException> { runBlocking { state.withPlatformMap {} } }
+      assertFailsWith<IllegalStateException>("a state that never created a map must refuse") {
+        runBlocking { state.withPlatformMap {} }
+      }
     assertTrue(
       "attach or snapshot" in assertNotNull(failure.message),
       "the message must name the attach-or-snapshot creation moment, got: ${failure.message}",
     )
-  }
 
-  @Test
-  fun a_closed_state_throws() {
-    val state = bareState()
-    state.close()
-    assertFailsWith<IllegalStateException> { runBlocking { state.withPlatformMap {} } }
-  }
-
-  @Test
-  fun a_snapshotted_state_reads_the_live_map_while_detached() {
-    val state = bareState()
     state.baseStyle = BACKGROUND_STYLE
     runBlocking { state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
 
     val layerIds = runBlocking { state.withPlatformMap { it.styleLayerIds() } }
-
     assertTrue("bg" in layerIds, "the loaded style's layer must be readable, got: $layerIds")
-  }
 
-  @Test
-  fun a_state_closed_after_a_snapshot_throws() {
-    val state = bareState()
-    state.baseStyle = BACKGROUND_STYLE
-    runBlocking { state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
     state.close()
-    assertFailsWith<IllegalStateException> {
+    assertFailsWith<IllegalStateException>("a state closed after a snapshot must refuse") {
       runBlocking { state.withPlatformMap { it.styleLayerIds() } }
     }
+  }
+
+  // Closing before any map exists is an interleaving the walk above cannot reach, because its
+  // close happens after the snapshot created a map.
+  @Test
+  fun a_closed_state_that_never_created_a_map_throws() {
+    val state = bareState()
+    state.close()
+    assertFailsWith<IllegalStateException> { runBlocking { state.withPlatformMap {} } }
   }
 
   private companion object {

@@ -47,82 +47,71 @@ class BrowserStyleCollectionsTest {
     )
 
   @Test
-  fun collections_split_map_owned_and_composition_owned_ids(): Promise<*> = runBrowserMapTest {
-    val errors = mutableListOf<String>()
-    val contentColor = mutableStateOf(Color.Red)
-    lateinit var state: MapState
-    lateinit var contentSource: Source
+  fun collections_split_owned_ids_and_repopulate_after_a_base_style_swap(): Promise<*> =
+    runBrowserMapTest {
+      val errors = mutableListOf<String>()
+      val contentColor = mutableStateOf(Color.Red)
+      lateinit var state: MapState
+      lateinit var contentSource: Source
 
-    setBrowserMapContent {
-      state =
-        rememberMapState(baseStyle = baseStyle) {
-          val source = remember {
-            GeoJsonSource(
-              id = "content-src",
-              data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
-              options = GeoJsonOptions(),
-            )
+      setBrowserMapContent {
+        state =
+          rememberMapState(baseStyle = baseStyle) {
+            val source = remember {
+              GeoJsonSource(
+                id = "content-src",
+                data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
+                options = GeoJsonOptions(),
+              )
+            }
+            contentSource = source
+            FillLayer(id = "content-fill", source = source, color = const(contentColor.value))
           }
-          contentSource = source
-          FillLayer(id = "content-fill", source = source, color = const(contentColor.value))
-        }
-      MaplibreMap(state = state, modifier = Modifier, onMapLoadFailed = { errors += "$it" })
-    }
-
-    waitUntilMap("the base and content layers to be live") {
-      "base-bg" in state.layers.ids && state.layers["content-fill"] != null
-    }
-    assertTrue(errors.isEmpty(), "the map reported errors: $errors")
-
-    // (a) An imperative toggle on a base layer takes effect on the live style.
-    val baseLayer = assertNotNull(state.layers["base-bg"])
-    assertTrue(baseLayer.visible)
-    baseLayer.visible = false
-    waitUntilMap("the visibility write to land") { state.layers["base-bg"]?.visible == false }
-
-    // (a) The toggle survives a content recomposition, because the sync never touches the id.
-    val colorBefore = assertNotNull(state.layers["content-fill"]).property("fill-color")
-    contentColor.value = Color.Blue
-    waitUntilMap("the recomposed paint value to land") {
-      state.layers["content-fill"]?.property("fill-color") != colorBefore
-    }
-    assertFalse(assertNotNull(state.layers["base-bg"]).visible)
-
-    // (b) A composition-owned layer refuses imperative writes.
-    val error =
-      assertFailsWith<IllegalStateException> {
-        assertNotNull(state.layers["content-fill"]).visible = false
+        MaplibreMap(state = state, modifier = Modifier, onMapLoadFailed = { errors += "$it" })
       }
-    assertTrue(
-      "style content composition" in error.message.orEmpty(),
-      "the message names the owner: ${error.message}",
-    )
 
-    // (c) The composition's source comes back as the live instance it owns; base sources come
-    // back as reconstructed descriptors.
-    waitUntilMap("the content source to be live") { state.sources["content-src"] != null }
-    assertSame(contentSource, state.sources["content-src"])
-    assertNotNull(state.sources["base-src"])
-    assertTrue("base-src" in state.sources.ids)
-  }
+      waitUntilMap("the base and content layers to be live") {
+        "base-bg" in state.layers.ids && state.layers["content-fill"] != null
+      }
+      assertTrue(errors.isEmpty(), "the map reported errors: $errors")
 
-  @Test
-  fun collections_repopulate_after_a_base_style_swap(): Promise<*> = runBrowserMapTest {
-    val errors = mutableListOf<String>()
-    lateinit var state: MapState
+      // (a) An imperative toggle on a base layer takes effect on the live style.
+      val baseLayer = assertNotNull(state.layers["base-bg"])
+      assertTrue(baseLayer.visible)
+      baseLayer.visible = false
+      waitUntilMap("the visibility write to land") { state.layers["base-bg"]?.visible == false }
 
-    setBrowserMapContent {
-      state = rememberMapState(baseStyle = baseStyle)
-      MaplibreMap(state = state, modifier = Modifier, onMapLoadFailed = { errors += "$it" })
+      // (a) The toggle survives a content recomposition, because the sync never touches the id.
+      val colorBefore = assertNotNull(state.layers["content-fill"]).property("fill-color")
+      contentColor.value = Color.Blue
+      waitUntilMap("the recomposed paint value to land") {
+        state.layers["content-fill"]?.property("fill-color") != colorBefore
+      }
+      assertFalse(assertNotNull(state.layers["base-bg"]).visible)
+
+      // (b) A composition-owned layer refuses imperative writes.
+      val error =
+        assertFailsWith<IllegalStateException> {
+          assertNotNull(state.layers["content-fill"]).visible = false
+        }
+      assertTrue(
+        "style content composition" in error.message.orEmpty(),
+        "the message names the owner: ${error.message}",
+      )
+
+      // (c) The composition's source comes back as the live instance it owns; base sources come
+      // back as reconstructed descriptors.
+      waitUntilMap("the content source to be live") { state.sources["content-src"] != null }
+      assertSame(contentSource, state.sources["content-src"])
+      assertNotNull(state.sources["base-src"])
+      assertTrue("base-src" in state.sources.ids)
+
+      // (d) A base-style swap repopulates the collections with the new style's ids.
+      state.baseStyle = secondStyle
+      waitUntilMap("the second style's layers to replace the first's") {
+        "second-bg" in state.layers.ids && "base-bg" !in state.layers.ids
+      }
+      assertNotNull(state.layers["second-bg"])
+      assertTrue(errors.isEmpty(), "the map reported errors: $errors")
     }
-
-    waitUntilMap("the base style to load") { "base-bg" in state.layers.ids }
-    assertTrue(errors.isEmpty(), "the map reported errors: $errors")
-
-    state.baseStyle = secondStyle
-    waitUntilMap("the second style's layers to replace the first's") {
-      "second-bg" in state.layers.ids && "base-bg" !in state.layers.ids
-    }
-    assertNotNull(state.layers["second-bg"])
-  }
 }

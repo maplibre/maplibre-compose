@@ -190,30 +190,4 @@ class MlnFfiMapSnapshotLifecycleTest {
       assertTrue(elapsed < 5.seconds, "the close waited out the handshake: $elapsed")
     }
   }
-
-  @Test
-  fun a_new_base_style_clears_a_previous_load_failure() {
-    val state = bareState()
-    state.baseStyle = BaseStyle.Json("this is not a style")
-    assertFailsWith<IllegalStateException>("the broken style must fail the snapshot") {
-      runBlocking { state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 30.seconds) }
-    }
-
-    state.baseStyle = GOOD_STYLE
-    val image = runBlocking {
-      state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 60.seconds)
-    }
-    assertEquals(10, image.width)
-  }
-
-  private companion object {
-    val GOOD_STYLE =
-      BaseStyle.Json(
-        """
-        {"version":8,"sources":{},
-         "layers":[{"id":"bg","type":"background","paint":{"background-color":"#00ff00"}}]}
-        """
-          .trimIndent()
-      )
-  }
 }

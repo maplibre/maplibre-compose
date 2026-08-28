@@ -11,7 +11,6 @@ import androidx.compose.ui.unit.Density
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotSame
-import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.gljs.runBrowserMapTest
 import org.maplibre.compose.gljs.setBrowserMapContent
@@ -31,20 +30,30 @@ class BrowserMapLifecycleTest {
          "layers":[{"id":"bg","type":"background","paint":{"background-color":"#123456"}}]}"""
     )
 
+  /**
+   * One composed map walks the composition lifecycle: it loads, a base-style switch reports loading
+   * finished again, leaving the composition survives, and returning loads a replacement.
+   */
   @Test
-  fun a_map_can_be_taken_out_of_the_composition() = runBrowserMapTest {
+  fun a_map_switches_styles_leaves_the_composition_and_a_replacement_loads() = runBrowserMapTest {
     var visible by mutableStateOf(true)
-    var loaded = false
+    var current by mutableStateOf(style)
+    var loads = 0
     setBrowserMapContent {
       if (visible) {
         MaplibreMap(
-          state = rememberMapState(baseStyle = style),
+          state = rememberMapState(baseStyle = current),
           modifier = Modifier,
-          onMapLoadFinished = { loaded = true },
+          onMapLoadFinished = { loads += 1 },
         )
       }
     }
-    waitUntilMap("the map to load") { loaded }
+    waitUntilMap("the first style to load") { loads >= 1 }
+
+    current = otherStyle
+    waitUntilMap("the switched style to report that it finished loading, not only the first") {
+      loads >= 2
+    }
 
     visible = false
     waitForIdle()
@@ -52,30 +61,9 @@ class BrowserMapLifecycleTest {
       yieldToBrowser()
       waitForIdle()
     }
-  }
 
-  @Test
-  fun a_map_can_be_taken_out_and_put_back() = runBrowserMapTest {
-    var visible by mutableStateOf(true)
-    var loads = 0
-    setBrowserMapContent {
-      if (visible) {
-        MaplibreMap(
-          state = rememberMapState(baseStyle = style),
-          modifier = Modifier,
-          onMapLoadFinished = { loads += 1 },
-        )
-      }
-    }
-    waitUntilMap("the first map to load") { loads >= 1 }
-
-    visible = false
-    repeat(5) {
-      yieldToBrowser()
-      waitForIdle()
-    }
     visible = true
-    waitUntilMap("the replacement map to load") { loads >= 2 }
+    waitUntilMap("the replacement map to load after re-entering the composition") { loads >= 3 }
   }
 
   @Test
@@ -101,23 +89,5 @@ class BrowserMapLifecycleTest {
     assertNotSame(firstViewport, mapState.viewport, "the camera should attach to a new map")
     assertEquals(expectedCamera.target, mapState.camera.target, "camera target")
     assertEquals(expectedCamera.zoom, mapState.camera.zoom, 0.001, "camera zoom")
-  }
-
-  @Test
-  fun switching_the_base_style_reports_loading_finished_again() = runBrowserMapTest {
-    var current by mutableStateOf(style)
-    var loads = 0
-    setBrowserMapContent {
-      MaplibreMap(
-        state = rememberMapState(baseStyle = current),
-        modifier = Modifier,
-        onMapLoadFinished = { loads += 1 },
-      )
-    }
-    waitUntilMap("the first style to load") { loads >= 1 }
-
-    current = otherStyle
-    waitUntilMap("the second style to report that it finished loading") { loads >= 2 }
-    assertTrue(loads >= 2, "every style load should report finishing, not only the first")
   }
 }

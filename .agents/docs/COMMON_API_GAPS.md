@@ -272,12 +272,3 @@ adapter mechanics live in `commonMain` as `PendingActionQueue`,
 - The owner-task shapes: the map loop abandons with no reason, the runtime
   rejects with a throwable and checks cancellation, so each loop keeps its own
   task class behind the shared deque.
-
-## Test consolidation
-
-The lifecycle suites grew adversarially: most review findings became one pinning
-test per interleaving, so the suites state one invariant per test with repeated
-setup. A follow-up pass consolidates them into fewer scenario-shaped tests: one
-test walks a realistic sequence — attach, style switch, mutate, detach,
-re-attach — and asserts each invariant at the step that establishes it. The
-invariants stay pinned; the setup duplication and the per-test map boots go.

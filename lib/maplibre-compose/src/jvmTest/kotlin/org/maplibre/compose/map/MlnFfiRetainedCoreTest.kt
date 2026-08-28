@@ -6,6 +6,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -20,7 +21,6 @@ import org.maplibre.compose.layers.BackgroundLayerDescriptor
 import org.maplibre.compose.mlnffi.FfiTestCache
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
-import org.maplibre.compose.mlnffi.createSnapshotTarget
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
@@ -45,47 +45,67 @@ class MlnFfiRetainedCoreTest {
     return MapState().also { state = it }
   }
 
+  /**
+   * Two snapshots against retained cores: the first meets a core whose backend mismatches and
+   * evicts it, the second meets the matching core the first left behind and reuses it while
+   * neutralizing the constraints a departed session left on it.
+   */
   @Test
-  fun a_snapshot_recreates_a_retained_core_whose_backend_differs() {
+  fun a_snapshot_evicts_a_mismatched_retained_core_and_reuses_a_matching_one() {
     val state = bareState()
     state.baseStyle = RED_STYLE
     // No packaged snapshot target renders OpenGL, so the retained backend always mismatches.
     val stale = state.engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.OPENGL)
 
-    val image = runBlocking {
+    val first = runBlocking {
       state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 60.seconds)
     }
 
-    assertEquals(10, image.width)
+    assertEquals(10, first.width)
     assertTrue(stale.isClosed, "the mismatched core must be evicted, not rendered with")
     assertNotSame<MlnFfiMapCore?>(stale, state.engine.core)
-  }
 
-  @Test
-  fun a_snapshot_neutralizes_retained_session_constraints() {
-    val state = bareState()
-    state.baseStyle = RED_STYLE
-    val backend = createSnapshotTarget().use { it.backend }
-    val core = state.engine.acquireCore(1.0, LayoutDirection.Ltr, backend)
-    core.start()
-    // The constraint a departed session left behind, tighter than the recorded camera.
-    core.setMaxZoom(2.0)
+    // The first snapshot retained a core whose backend matches the snapshot target. Leave the
+    // constraint a departed session would leave behind, tighter than the recorded camera.
+    val retained = assertNotNull(state.engine.core, "the first snapshot must retain its core")
+    retained.setMaxZoom(2.0)
     runBlocking { state.setCamera(CameraPosition(zoom = 5.0)) }
 
     runBlocking { state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
 
-    assertSame(core, state.engine.core, "a matching backend keeps the retained core")
-    assertEquals(5.0, core.getCameraPosition().zoom, 0.01, "the snapshot must not clamp the zoom")
+    assertSame(retained, state.engine.core, "a matching backend keeps the retained core")
+    assertEquals(
+      5.0,
+      retained.getCameraPosition().zoom,
+      0.01,
+      "the snapshot must not clamp the zoom",
+    )
     assertFalse(
-      core.hasAttachedViewportForTest(),
+      retained.hasAttachedViewportForTest(),
       "the snapshot target's dimensions must not survive it",
     )
   }
 
+  /**
+   * A session departs while the engine retains the core: the attached viewport resets, and the
+   * state keeps the style collections a live style populated.
+   */
   @Test
-  fun detach_keeps_the_style_collections_while_the_engine_retains_the_core() {
+  fun a_departing_session_resets_the_viewport_and_keeps_the_style_collections() {
     val state = bareState()
-    state.engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.VULKAN)
+    val core = state.engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.VULKAN)
+    core.publishAttachedViewport()
+    assertTrue(core.hasAttachedViewportForTest())
+
+    val session = state.engine.createSession(core, MapRenderBackend.VULKAN)
+    state.engine.releaseSession(session)
+    session.close()
+
+    assertFalse(
+      core.hasAttachedViewportForTest(),
+      "a departed target's dimensions must not satisfy the next bounds fit",
+    )
+
     state.setStyleContent {}
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
@@ -134,23 +154,6 @@ class MlnFfiRetainedCoreTest {
       }
       assertTrue(elapsed < 10.seconds, "the close ended the animation only after $elapsed")
     }
-  }
-
-  @Test
-  fun releasing_a_session_resets_the_attached_viewport() {
-    val state = bareState()
-    val core = state.engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.VULKAN)
-    core.publishAttachedViewport()
-    assertTrue(core.hasAttachedViewportForTest())
-
-    val session = state.engine.createSession(core, MapRenderBackend.VULKAN)
-    state.engine.releaseSession(session)
-    session.close()
-
-    assertFalse(
-      core.hasAttachedViewportForTest(),
-      "a departed target's dimensions must not satisfy the next bounds fit",
-    )
   }
 
   private companion object {
