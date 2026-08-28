@@ -21,3 +21,12 @@ if [[ ${committed} == true ]]; then
 else
   echo "Tree already clean."
 fi
+
+if [[ -z ${GH_TOKEN:-} || -z ${HEAD_REF:-} ]]; then
+  exit 0
+fi
+if [[ ${committed} != true && $(git log -1 --pretty=%s) != "chore: apply hygiene fixes" ]]; then
+  exit 0
+fi
+git push
+gh workflow run CI --ref "${HEAD_REF}" -f secrets=false

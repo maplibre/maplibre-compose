@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      secrets:
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -12,6 +16,9 @@ concurrency:
 
 permissions:
   contents: read
+
+env:
+  CI_SECRETS: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && github.event.inputs.secrets != 'false') }}
 
 jobs:
   hygiene:
@@ -38,18 +45,11 @@ jobs:
           save-toolchains: "true"
       - run: mise run fix
       - id: apply-fix
-        name: Commit hygiene fixes
         if: env.DEPENDABOT_PR == 'true'
-        run: mise run ci:commit-hygiene-fixes
-      - name: Push hygiene fixes
-        if: env.DEPENDABOT_PR == 'true' && steps.apply-fix.outputs.committed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           HEAD_REF: ${{ github.head_ref }}
-        run: |
-          set -euo pipefail
-          git push
-          gh workflow run CI --ref "${HEAD_REF}"
+        run: mise run ci:commit-hygiene-fixes
       - name: Check formatted files
         if: steps.apply-fix.outputs.committed != 'true'
         run: |
@@ -83,7 +83,7 @@ jobs:
       - id: android-host-tests
         run: mise run test:android
       - name: Upload Android host test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -107,7 +107,7 @@ jobs:
       - id: android-device-tests
         run: mise run test:android:device ${{ matrix.api-level }}
       - name: Upload Android device test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -158,7 +158,7 @@ jobs:
       - id: ios-tests
         run: mise run test:ios
       - name: Upload iOS test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -203,7 +203,7 @@ jobs:
       - id: js-tests
         run: mise run test:js
       - name: Upload JS test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -273,7 +273,7 @@ jobs:
       - id: desktop-tests
         run: mise run test:desktop
       - name: Upload desktop test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -314,6 +314,8 @@ jobs:
           || (github.event_name == 'pull_request'
           && github.actor != 'dependabot[bot]'
           && github.event.pull_request.head.repo.full_name == github.repository)
+          || (github.event_name == 'workflow_dispatch'
+          && github.event.inputs.secrets != 'false')
         }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -339,11 +341,7 @@ jobs:
           path: docs/dist
       - name: Deploy the Cloudflare Pages preview
         id: deploy-cloudflare
-        if: >-
-          github.event_name == 'push'
-          || (github.event_name == 'pull_request'
-          && github.actor != 'dependabot[bot]'
-          && github.event.pull_request.head.repo.full_name == github.repository)
+        if: ${{ env.CI_SECRETS == 'true' }}
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         env:
           CLOUDFLARE_BRANCH: >-
