@@ -91,8 +91,13 @@ internal sealed class Layer(val id: String) {
 
   /** Sets this layer's filter from style JSON, for [UnknownLayerDescriptor]. Same null contract. */
   internal fun setFilterJson(filter: JsonElement) {
+    try {
+      binding.setLayerFilter(id, filter)
+    } catch (error: StyleMutationException) {
+      binding.logger?.w(error) { "Layer '$id' kept its previous filter: MapLibre rejected it." }
+      return
+    }
     root["filter"] = filter
-    binding.setLayerFilter(id, filter)
   }
 
   /**

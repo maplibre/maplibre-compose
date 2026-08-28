@@ -6,6 +6,7 @@ import androidx.compose.runtime.remember
 import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import org.maplibre.compose.map.newSessionLock
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleMutationException
@@ -29,6 +30,9 @@ public sealed class Source(internal val id: String) {
 
   private var removeUnloadAction: (() -> Unit)? = null
 
+  // Two style hosts run on separate threads; the lock makes each ownership claim atomic.
+  private val attachLock = newSessionLock()
+
   /** Whether this source currently belongs to a loaded style. */
   internal val isAttached: Boolean
     get() = binding.isLoaded
@@ -37,7 +41,7 @@ public sealed class Source(internal val id: String) {
     get() = (toJson()["attribution"] as? JsonPrimitive)?.content.orEmpty()
 
   /** Adds this source to a style and starts routing mutations to it. */
-  internal fun attach(binding: StyleBinding) {
+  internal fun attach(binding: StyleBinding): Unit = attachLock.withLock {
     check(this.binding === binding || !this.binding.isLoaded) {
       "Source '$id' already belongs to another loaded style; create a separate source instance " +
         "for each map"
@@ -45,7 +49,7 @@ public sealed class Source(internal val id: String) {
     // Defends against a re-entrant attach of the same source to the same style, not ordering.
     // Decided before the engine query so a concurrent unload cannot turn the re-entry into a
     // duplicate-id failure.
-    if (this.binding === binding) return
+    if (this.binding === binding) return@withLock
     val exists = binding.sourceExists(id)
     // Null means the check could not run; the add still refuses a duplicate.
     check(exists != true) {
@@ -65,14 +69,16 @@ public sealed class Source(internal val id: String) {
     // dropped write is the unload contract, not an error.
     if (!added) {
       binding.logger?.w { "Source '$id' was not added: its style unloaded first." }
-      return
+      return@withLock
     }
     this.binding = binding
     removeUnloadAction?.invoke()
     val unregister = binding.onUnload {
-      if (this.binding === binding) {
-        this.binding = StyleBinding.UNLOADED
-        removeUnloadAction = null
+      attachLock.withLock {
+        if (this.binding === binding) {
+          this.binding = StyleBinding.UNLOADED
+          removeUnloadAction = null
+        }
       }
     }
     if (this.binding === binding) removeUnloadAction = unregister else unregister()
@@ -87,7 +93,7 @@ public sealed class Source(internal val id: String) {
   internal open fun addTo(binding: StyleBinding): Boolean = binding.addSource(id, toJson())
 
   /** Binds this descriptor to a source already in the style, without adding it. */
-  internal fun bindExisting(binding: StyleBinding) {
+  internal fun bindExisting(binding: StyleBinding): Unit = attachLock.withLock {
     check(this.binding === binding || !this.binding.isLoaded) {
       "Source '$id' already belongs to another loaded style"
     }

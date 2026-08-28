@@ -86,6 +86,12 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal var compositionSources: Map<String, Source> = emptyMap()
     private set
 
+  /** Empties the published imperative snapshots; a reload publication calls it before the sync. */
+  internal fun clearPublishedAppOwnership() {
+    appSourceSnapshot = emptyMap()
+    appImageIds = emptyList()
+  }
+
   /** Empties every published ownership snapshot; the close path calls it before teardown runs. */
   internal fun clearPublishedOwnership() {
     compositionSources = emptyMap()

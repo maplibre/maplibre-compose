@@ -218,6 +218,8 @@ internal constructor(
 
   /** Replaces the style composition; the host recomposes because it reads this state. */
   internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
+    // A closed state must not retain what the lambda captures.
+    if (closedState.value) return
     // A write with no read, so a UI composition calling this never subscribes to the state.
     contentState.value = content
   }
@@ -365,11 +367,12 @@ internal constructor(
    * attaches.
    */
   public suspend fun setCamera(position: CameraPosition) {
-    // The record precedes the read: an attach publishes its adapter before it replays the record,
-    // so a null read here means the coming replay sends this position. A retained or capturing
-    // map takes the write directly, so a capture's own replay cannot win over it.
-    positionState.value = position
-    (attachedAdapter ?: engine.detachedAdapter)?.setCameraPosition(position)
+    // The lock serializes the record with its dispatch, so concurrent calls cannot leave the
+    // record and the map disagreeing. A retained or capturing map takes the write directly.
+    transitionLock.withLock {
+      positionState.value = position
+      (attachedAdapter ?: engine.detachedAdapter)?.setCameraPosition(position)
+    }
   }
 
   /**
@@ -547,20 +550,28 @@ internal constructor(
         loadFinishedWhileDetached = false
         val failure = loadFailedWhileDetached
         loadFailedWhileDetached = null
+        sessionOptions?.applyTo(adapter)
+        selectedBaseStyle?.let(adapter::setBaseStyle)
+        if (adapter !== previous) {
+          // The deferred camera replay stays in the critical section: these adapter calls post
+          // without waiting, and the lock orders them against concurrent camera and style writes.
+          adapter.setCameraPosition(positionState.value)
+
+          // usually null until the map reports its first viewport
+          viewportState.value = adapter.getViewport()
+        }
         Triple(previous, finished, failure)
       }
-    sessionOptions?.applyTo(adapter)
-    replaySelectedStyle(adapter)
-    if (adapter !== previous) {
-      // apply deferred state
-      adapter.setCameraPosition(positionState.value)
-
-      // usually null until the map reports its first viewport
-      viewportState.value = adapter.getViewport()
-    }
     sources.refreshSources()
-    if (replayFinished) callbacks.onMapLoadFinished()
-    replayFailure?.let { callbacks.onMapLoadFailed(it) }
+    // A throwing application hook must not leave the attach half-done.
+    if (replayFinished) {
+      runCatching { callbacks.onMapLoadFinished() }
+        .onFailure { logger?.e(it) { "The replayed load callback threw" } }
+    }
+    replayFailure?.let { reason ->
+      runCatching { callbacks.onMapLoadFailed(reason) }
+        .onFailure { logger?.e(it) { "The replayed failure callback threw" } }
+    }
   }
 
   /** Replays the selected style under the transition lock, serialized with the style setter. */
@@ -621,6 +632,9 @@ internal constructor(
    */
   internal fun updateBinding(newBinding: StyleBinding?) {
     styleNode.binding = newBinding ?: StyleBinding.UNLOADED
+    // A reload drops imperative registrations; the load callback can run before the host sync, so
+    // the published snapshots empty here.
+    if (newBinding != null) styleNode.clearPublishedAppOwnership()
     refreshStyleCollections()
     host.requestApplyChanges()
   }
@@ -647,6 +661,8 @@ internal constructor(
     sources.clear()
     engine.close()
     host.close()
+    // The stored lambda captures application objects that must not outlive the close.
+    contentState.value = EMPTY_STYLE_COMPOSITION
   }
 
   /** The session callbacks and the per-composition hooks they invoke. */
