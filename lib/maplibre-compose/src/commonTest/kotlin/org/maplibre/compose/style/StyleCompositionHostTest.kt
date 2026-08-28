@@ -419,7 +419,7 @@ class StyleCompositionHostTest {
         listOf("addSource:tiles", "addLayer:layer-1", "addLayerAbove:layer-2"),
         second.ops.toList(),
       )
-      assertTrue(source.isAttached, "the source should be attached to the new style")
+      assertTrue("tiles" in second.sources, "the source should be installed on the new style")
     } finally {
       host.close()
       testScheduler.advanceUntilIdle()

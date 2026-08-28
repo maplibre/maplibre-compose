@@ -3,6 +3,9 @@ package org.maplibre.compose.style
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonSource
+import org.maplibre.compose.sources.ImageSource
 import org.maplibre.compose.sources.Source
 
 /**
@@ -14,6 +17,7 @@ internal class StyleApplier {
 
   private var syncedBinding: StyleBinding? = null
   private var appliedSources = mutableSetOf<Source>()
+  private val appliedGeoJson = mutableMapOf<String, GeoJsonData>()
   private val appliedLayers = LinkedHashMap<Anchor, MutableList<LayerNode<*>>>()
   private val replacedLayers = mutableMapOf<Anchor.Replace, Layer>()
   private val pendingReplaceRemovals = mutableMapOf<Anchor.Replace, Layer>()
@@ -30,6 +34,7 @@ internal class StyleApplier {
   ) {
     if (syncedBinding !== binding) {
       appliedSources.clear()
+      appliedGeoJson.clear()
       appliedLayers.clear()
       replacedLayers.clear()
       pendingReplaceRemovals.clear()
@@ -49,6 +54,7 @@ internal class StyleApplier {
     desiredByAnchor.forEach { (anchor, group) ->
       syncAnchorGroup(binding, anchor, group, baseStyle, reportError, logger)
     }
+    desiredLayers.forEach { it.layer.applyProperties(binding) }
   }
 
   private fun retryPendingReplaceRemovals(
@@ -106,17 +112,40 @@ internal class StyleApplier {
       .filter { it !in desired }
       .forEach { source ->
         logger?.i { "Removing source ${source.id}" }
-        binding.removeSource(source)
+        binding.removeSource(source.id)
         appliedSources.remove(source)
+        appliedGeoJson.remove(source.id)
         refreshSource(source.id)
       }
     desired.forEach { source ->
       if (source !in appliedSources) {
         logger?.i { "Adding source ${source.id}" }
-        binding.addSource(source)
+        source.install(binding)
         appliedSources.add(source)
+        if (source is GeoJsonSource) appliedGeoJson[source.id] = source.data
         refreshSource(source.id)
+      } else {
+        applySourcePayload(binding, source)
       }
+    }
+  }
+
+  private fun applySourcePayload(binding: StyleBinding, source: Source) {
+    when (source) {
+      is GeoJsonSource -> {
+        val data = source.data
+        if (appliedGeoJson[source.id] == data) return
+        if (data is GeoJsonData.Uri) {
+          binding.setGeoJsonSourceUrl(source.id, data.uri)
+        } else {
+          binding.prepareGeoJson(data, source.options).use {
+            binding.setGeoJsonSourceData(source.id, it)
+          }
+        }
+        appliedGeoJson[source.id] = data
+      }
+      is ImageSource -> source.applyPayload(binding)
+      else -> Unit
     }
   }
 

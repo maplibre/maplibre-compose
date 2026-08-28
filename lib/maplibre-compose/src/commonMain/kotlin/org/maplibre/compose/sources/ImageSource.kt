@@ -53,24 +53,24 @@ public class ImageSource : Source {
   }
 
   /**
-   * The corners MapLibre holds for this source, or null when its style has unloaded. Exists so a
-   * test can assert the corner order, which MapLibre does not validate.
+   * The corners MapLibre holds for this source, or null when no map owns it. Exists so a test can
+   * assert the corner order, which MapLibre does not validate.
    */
-  internal fun attachedCorners(): List<Position>? = binding.imageSourceCoordinates(id)
+  internal fun attachedCorners(): List<Position>? = map?.imageSourceCoordinates(id)
 
   /** Updates the latitude and longitude of the four corners of the image. */
   public fun setBounds(bounds: PositionQuad) {
     this.bounds = bounds
-    binding.setImageSourceCoordinates(id, bounds.toCorners())
+    map?.setImageSourceCoordinates(id, bounds.toCorners())
   }
 
   /** Updates the source image to a bitmap. */
   public fun setImage(image: ImageBitmap) {
-    // MapLibre drops the URL when handed pixels, so the descriptor must too, or a re-add after a
+    // MapLibre drops the URL when handed pixels, so the definition must too, or a re-add after a
     // style change would resurrect the old image.
     url = ""
     this.image = image
-    binding.setImageSourceImage(id, image)
+    map?.setImageSourceImage(id, image)
   }
 
   /** Updates the source image URI. */
@@ -78,7 +78,14 @@ public class ImageSource : Source {
     url = uri
     // Mirror of setImage: a re-add must fetch the new URL, not re-upload the replaced pixels.
     image = null
-    binding.setImageSourceUrl(id, uri)
+    map?.setImageSourceUrl(id, uri)
+  }
+
+  internal fun applyPayload(binding: StyleBinding) {
+    binding.setImageSourceCoordinates(id, bounds.toCorners())
+    val pixels = image
+    if (pixels != null) binding.setImageSourceImage(id, pixels)
+    else if (url.isNotEmpty()) binding.setImageSourceUrl(id, url)
   }
 }
 

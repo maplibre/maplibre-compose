@@ -333,19 +333,13 @@ internal interface MlnFfiStyleBinding : StyleBinding {
    * [claim] runs on the owner thread, which serializes installs. mutateMap waits until the owner
    * thread has used the handle, so the caller may close it afterward.
    */
-  override fun setGeoJsonSourceData(
-    sourceId: String,
-    prepared: PreparedGeoJson,
-    claim: () -> Boolean,
-  ) {
+  override fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson) {
     val handle = (prepared as MlnFfiPreparedGeoJson).handle
-    mutateMap(abandon = { claim() }) { map ->
-      if (claim()) map.setGeoJsonSourceData(sourceId, handle)
-    }
+    mutateMap { map -> map.setGeoJsonSourceData(sourceId, handle) }
   }
 
-  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-    mutateMap(abandon = { claim() }) { map -> if (claim()) map.setGeoJsonSourceUrl(sourceId, url) }
+  override fun setGeoJsonSourceUrl(sourceId: String, url: String) {
+    mutateMap { map -> map.setGeoJsonSourceUrl(sourceId, url) }
   }
 
   override suspend fun clusterExpansionZoom(
@@ -608,14 +602,13 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     map: MapHandle,
     id: String,
     declaredSources: Lazy<JsonObject>,
-  ): Source =
-    UnknownSource(id, sourceDefinition(map, id, declaredSources)).also { it.bindExisting(this) }
+  ): Source = UnknownSource(id, sourceDefinition(map, id, declaredSources))
 
   private fun reconstructLayer(map: MapHandle, id: String): Layer {
     val definition =
       (map.styleLayerJson(id)?.toJsonElement() as? JsonObject)
         ?: buildJsonObject { map.styleLayerType(id)?.let { put("type", it) } }
-    return UnknownLayerDescriptor(id, definition).also { it.bindExisting(this) }
+    return UnknownLayerDescriptor(id, definition)
   }
 
   companion object {

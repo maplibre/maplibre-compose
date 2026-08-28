@@ -7,6 +7,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
@@ -46,7 +47,7 @@ class CustomGeometrySourceTest {
       assertEquals(setOf("name"), feature.properties?.keys)
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       assertEquals(TileCoordinate(0, 0, 0).bounds, requests.first { it.zoomLevel == 0 }.bounds)
-      assertTrue(source.isAttached)
+      assertNotNull(fixture.style?.getSource(source.id))
     }
   }
 

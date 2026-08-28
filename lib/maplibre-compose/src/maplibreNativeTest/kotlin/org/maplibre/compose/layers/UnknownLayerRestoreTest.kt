@@ -2,7 +2,6 @@ package org.maplibre.compose.layers
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import org.maplibre.compose.mlnffi.BridgeMapFixture
@@ -24,7 +23,7 @@ class UnknownLayerRestoreTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val original = assertNotNull(style.getLayer(ROADS))
-      val binding = assertIs<MlnFfiStyleBinding>(original.binding)
+      val binding = style
       val filterBefore =
         assertNotNull(binding.readMap { map -> map.layerFilter(ROADS)?.toJsonElement() })
       assertEquals("transportation", binding.readMap { map -> map.layerSourceLayer(ROADS) })
@@ -51,14 +50,13 @@ class UnknownLayerRestoreTest {
       val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val original = assertNotNull(style.getLayer(ROADS))
-      val binding = assertIs<MlnFfiStyleBinding>(original.binding)
       style.removeLayer(original)
       style.addLayer(original)
 
-      // A restored layer that kept a stale binding would take this write silently.
       original.minZoom = 7f
+      original.applyProperties(style)
 
-      assertEquals(7.0, binding.readMap { map -> map.layerMinZoom(ROADS) })
+      assertEquals(7.0, style.readMap { map -> map.layerMinZoom(ROADS) })
     }
   }
 

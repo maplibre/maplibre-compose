@@ -1,20 +1,8 @@
-@file:OptIn(ExperimentalAtomicApi::class)
-
 package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.key
-import kotlin.concurrent.atomics.AtomicLong
-import kotlin.concurrent.atomics.AtomicReference
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.concurrent.atomics.incrementAndFetch
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -33,127 +21,42 @@ internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 /** A map data source consisting of geojson data. */
 public class GeoJsonSource : Source {
 
-  private val options: GeoJsonOptions
+  internal val options: GeoJsonOptions
 
-  /** The newest data a claim has installed; [toJson] and a later attach read it. */
-  private val installed: AtomicReference<Installed>
-
-  /** Bumped at the start of every [setData] and [publishData]; orders data by call. */
-  private val dataGeneration = AtomicLong(0L)
-
-  /** The newest published data not yet claimed by a parse. */
-  private val pendingPublish = AtomicReference<PendingPublish?>(null)
-
-  /** Serializes parses, so a burst of publications conflates into parses of the newest data. */
-  private val publishMutex = Mutex()
-
-  private class Installed(val generation: Long, val data: GeoJsonData)
-
-  private class PendingPublish(val generation: Long, val data: GeoJsonData)
+  /** The data this definition currently names. [MapState] applies it to the style. */
+  internal var data: GeoJsonData
+    private set
 
   public constructor(id: String, data: GeoJsonData, options: GeoJsonOptions) : super(id) {
     this.options = options
-    this.installed = AtomicReference(Installed(0L, data))
+    this.data = data
   }
 
   override fun toJson(): JsonObject = buildJsonObject {
     put("type", "geojson")
-    put("data", installed.load().data.toDataJson())
+    put("data", data.toDataJson())
     putGeoJsonOptions(options)
   }
 
-  override fun addTo(binding: StyleBinding): Boolean =
-    binding.addGeoJsonSource(id, installed.load().data, options)
+  override fun addTo(binding: StyleBinding): Boolean = binding.addGeoJsonSource(id, data, options)
 
+  /** Installs the current [data] on [binding] by id. */
+  internal fun applyData(binding: StyleBinding) {
+    val data = data
+    if (data is GeoJsonData.Uri) {
+      binding.setGeoJsonSourceUrl(id, data.uri)
+    } else {
+      binding.prepareGeoJson(data, options).use { binding.setGeoJsonSourceData(id, it) }
+    }
+  }
+
+  /**
+   * Replaces the source's data. The definition updates immediately. When this source belongs to a
+   * [MapState][org.maplibre.compose.map.MapState], the state enqueues the install as a command.
+   */
   public fun setData(data: GeoJsonData) {
-    // A synchronous setData supersedes a publication that no parse has claimed yet.
-    pendingPublish.store(null)
-    applyData(data, dataGeneration.incrementAndFetch())
-  }
-
-  /**
-   * Replaces the source's data. Engines that parse and index inline GeoJSON on the caller do that
-   * work here, off the map's owner thread. Publications that outpace the parse conflate to the
-   * newest data, and when two publications overlap, the later call is the data the source keeps.
-   *
-   * A URI has no parse, so it installs without waiting for [publishMutex]. When an in-flight inline
-   * parse finishes, the claim keeps the URI.
-   */
-  internal suspend fun publishData(data: GeoJsonData) {
-    if (data is GeoJsonData.Uri) {
-      pendingPublish.store(null)
-      val generation = dataGeneration.incrementAndFetch()
-      withContext(NonCancellable) { applyData(data, generation) }
-      return
-    }
-    storePendingIfNewer(PendingPublish(dataGeneration.incrementAndFetch(), data))
-    publishMutex.withLock {
-      // Null when a sibling's parse already claimed this publication's data.
-      val pending = pendingPublish.exchange(null) ?: return
-      // The effect that published this data may already be cancelled by a newer publication, but
-      // this coroutine claimed the pending data; abandoning the parse here would lose it.
-      withContext(NonCancellable + Dispatchers.Default) {
-        applyData(pending.data, pending.generation)
-      }
-    }
-  }
-
-  /**
-   * Prepares [data] on the caller, then installs it when no newer data has installed. The binding
-   * returns after the install has run or been dropped, so closing the prepared form is safe.
-   */
-  private fun applyData(data: GeoJsonData, generation: Long) {
-    val binding = binding
-    var claimed = false
-    val claim = { claimInstall(generation, data).also { claimed = it } }
-    if (data is GeoJsonData.Uri) {
-      binding.setGeoJsonSourceUrl(id, data.uri, claim)
-    } else {
-      if (generation <= installed.load().generation) return
-      binding.prepareGeoJson(data, options).use { prepared ->
-        binding.setGeoJsonSourceData(id, prepared, claim)
-      }
-    }
-    // A style swap during the install lets the old binding's abandon path claim the generation
-    // without the new binding ever receiving the data; one replay hands the claimed data to the
-    // live binding, and the attach-time re-add covers a swap this misses.
-    if (claimed && this.binding !== binding) replayInstall(data, generation)
-  }
-
-  /** Installs [data] on the current binding while it is still the newest installed data. */
-  private fun replayInstall(data: GeoJsonData, generation: Long) {
-    val binding = binding
-    val claim = { installed.load().generation == generation }
-    if (data is GeoJsonData.Uri) {
-      binding.setGeoJsonSourceUrl(id, data.uri, claim)
-    } else {
-      binding.prepareGeoJson(data, options).use { prepared ->
-        binding.setGeoJsonSourceData(id, prepared, claim)
-      }
-    }
-  }
-
-  /**
-   * Claims the install of [generation]'s data unless newer data has already claimed. The engine
-   * runs it where it serializes installs, so the claimed order is the applied order. A newer
-   * publication that has not parsed yet does not block a claim: its own parse follows and
-   * overwrites this one.
-   */
-  private fun claimInstall(generation: Long, data: GeoJsonData): Boolean {
-    while (true) {
-      val current = installed.load()
-      if (generation <= current.generation) return false
-      if (installed.compareAndSet(current, Installed(generation, data))) return true
-    }
-  }
-
-  /** Keeps [pendingPublish] the newest publication when stores race. */
-  private fun storePendingIfNewer(next: PendingPublish) {
-    while (true) {
-      val current = pendingPublish.load()
-      if (current != null && current.generation >= next.generation) return
-      if (pendingPublish.compareAndSet(current, next)) return
-    }
+    this.data = data
+    map?.setGeoJsonData(id, data, options)
   }
 
   public fun isCluster(feature: Feature<*, JsonObject?>): Boolean =
@@ -161,13 +64,13 @@ public class GeoJsonSource : Source {
 
   /** The zoom at which [feature]'s cluster breaks apart. */
   public suspend fun getClusterExpansionZoom(feature: Feature<*, JsonObject?>): Double =
-    binding.clusterExpansionZoom(id, feature) ?: NO_EXPANSION_ZOOM
+    map?.clusterExpansionZoom(id, feature) ?: NO_EXPANSION_ZOOM
 
   /** The features one level down from [feature]'s cluster. See [getClusterExpansionZoom]. */
   public suspend fun getClusterChildren(
     feature: Feature<*, JsonObject?>
   ): FeatureCollection<*, JsonObject?> =
-    binding.clusterChildren(id, feature) ?: FeatureCollection<Geometry, JsonObject?>(emptyList())
+    map?.clusterChildren(id, feature) ?: FeatureCollection<Geometry, JsonObject?>(emptyList())
 
   /** The original points under [feature]'s cluster. See [getClusterExpansionZoom]. */
   public suspend fun getClusterLeaves(
@@ -175,7 +78,7 @@ public class GeoJsonSource : Source {
     limit: Long,
     offset: Long,
   ): FeatureCollection<*, JsonObject?> =
-    binding.clusterLeaves(id, feature, limit, offset)
+    map?.clusterLeaves(id, feature, limit, offset)
       ?: FeatureCollection<Geometry, JsonObject?>(emptyList())
 
   /**
@@ -187,7 +90,7 @@ public class GeoJsonSource : Source {
    * `id` of `7` is `"7"`.
    */
   public fun setFeatureState(featureId: String, state: JsonObject) {
-    binding.setFeatureState(id, sourceLayerId = null, featureId = featureId, state = state)
+    map?.setFeatureState(id, sourceLayerId = null, featureId = featureId, state = state)
   }
 
   /**
@@ -195,19 +98,19 @@ public class GeoJsonSource : Source {
    * on a live map.
    */
   public fun getFeatureState(featureId: String): JsonObject =
-    binding.featureState(id, sourceLayerId = null, featureId = featureId)
+    map?.featureState(id, sourceLayerId = null, featureId = featureId) ?: JsonObject(emptyMap())
 
   /**
    * Removes [stateKey] from the feature identified by [featureId], or every key when [stateKey] is
    * `null`.
    */
   public fun removeFeatureState(featureId: String, stateKey: String? = null) {
-    binding.removeFeatureState(id, sourceLayerId = null, featureId = featureId, stateKey = stateKey)
+    map?.removeFeatureState(id, sourceLayerId = null, featureId = featureId, stateKey = stateKey)
   }
 
   /** Removes runtime state from every feature in this source. */
   public fun resetFeatureStates() {
-    binding.resetFeatureStates(id, sourceLayerId = null)
+    map?.resetFeatureStates(id, sourceLayerId = null)
   }
 
   private companion object {
@@ -306,14 +209,9 @@ public fun rememberGeoJsonSource(
     val node = LocalStyleNode.current
     val source =
       rememberUserSource(
-        factory = { GeoJsonSource(id = it, data = EmptyInlineGeoJson, options = options) },
-        update = {},
+        factory = { GeoJsonSource(id = it, data = data, options = options) },
+        update = { setData(data) },
       )
-    LaunchedEffect(source, data, node.binding.isLoaded) {
-      if (node.binding.isLoaded) source.publishData(data)
-    }
+    node.requestSync()
     source
   }
-
-private val EmptyInlineGeoJson: GeoJsonData =
-  GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>(emptyList()))

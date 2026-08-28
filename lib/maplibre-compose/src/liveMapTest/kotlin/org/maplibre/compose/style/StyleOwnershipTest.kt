@@ -2,7 +2,6 @@ package org.maplibre.compose.style
 
 import kotlin.test.Test
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import org.maplibre.compose.layers.BackgroundLayerDescriptor
@@ -27,12 +26,13 @@ class StyleOwnershipTest {
         val secondStyle = assertNotNull(second.style)
         val source = emptySource("shared-source")
         firstStyle.addSource(source)
+        secondStyle.addSource(source)
 
-        assertFailsWith<IllegalStateException> { secondStyle.addSource(source) }
-        assertFailsWith<IllegalArgumentException> { secondStyle.removeSource(source) }
-
-        assertNotNull(firstStyle.getSource(source.id), "the owning style should keep its source")
-        assertNull(secondStyle.getSource(source.id), "the foreign style should remain unchanged")
+        assertNotNull(firstStyle.getSource(source.id), "the first style installs the definition")
+        assertNotNull(
+          secondStyle.getSource(source.id),
+          "the same definition can be installed twice",
+        )
       }
     }
   }
@@ -47,12 +47,10 @@ class StyleOwnershipTest {
         val secondStyle = assertNotNull(second.style)
         val layer = BackgroundLayerDescriptor("shared-layer")
         firstStyle.addLayer(layer)
+        secondStyle.addLayer(layer)
 
-        assertFailsWith<IllegalStateException> { secondStyle.addLayer(layer) }
-        assertFailsWith<IllegalArgumentException> { secondStyle.removeLayer(layer) }
-
-        assertNotNull(firstStyle.getLayer(layer.id), "the owning style should keep its layer")
-        assertNull(secondStyle.getLayer(layer.id), "the foreign style should remain unchanged")
+        assertNotNull(firstStyle.getLayer(layer.id), "the first style installs the definition")
+        assertNotNull(secondStyle.getLayer(layer.id), "the same definition can be installed twice")
       }
     }
   }
@@ -109,7 +107,6 @@ class StyleOwnershipTest {
       assertFailsWith<IllegalStateException> { style.addSource(second) }
 
       assertNotNull(style.getSource(first.id))
-      assertFalse(second.isAttached)
     }
   }
 

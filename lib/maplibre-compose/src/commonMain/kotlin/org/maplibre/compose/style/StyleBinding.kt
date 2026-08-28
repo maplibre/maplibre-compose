@@ -53,10 +53,10 @@ internal interface StyleBinding {
   /** Live layer ids in draw order, or null when the style has unloaded. */
   fun layerIds(): List<String>?
 
-  /** Adds [layer]'s descriptor on top of the style; dropped when the style has unloaded. */
+  /** Adds [layer]'s definition on top of the style; dropped when the style has unloaded. */
   fun addLayer(layer: Layer) {
     if (!isLoaded) return
-    layer.attach(this, beforeLayerId = "")
+    addLayer(layer.toJson(this), beforeLayerId = "")
   }
 
   /** Adds [layer] directly above the live layer named [layerId]. */
@@ -65,25 +65,25 @@ internal interface StyleBinding {
     val ids = layerIds() ?: return
     val index = ids.indexOf(layerId)
     require(index >= 0) { "Layer ID '$layerId' not found in base style" }
-    layer.attach(this, beforeLayerId = ids.getOrNull(index + 1).orEmpty())
+    addLayer(layer.toJson(this), beforeLayerId = ids.getOrNull(index + 1).orEmpty())
   }
 
   /** Adds [layer] directly below the live layer named [layerId]. */
   fun addLayerBelow(layerId: String, layer: Layer) {
     if (!isLoaded) return
-    layer.attach(this, beforeLayerId = layerId)
+    addLayer(layer.toJson(this), beforeLayerId = layerId)
   }
 
   /** Adds [layer] at [index] in the draw order, where 0 is the bottom. */
   fun addLayerAt(index: Int, layer: Layer) {
     val ids = layerIds() ?: return
     require(index in 0..ids.size) { "Layer index $index is outside the valid range 0..${ids.size}" }
-    layer.attach(this, beforeLayerId = ids.getOrNull(index).orEmpty())
+    addLayer(layer.toJson(this), beforeLayerId = ids.getOrNull(index).orEmpty())
   }
 
-  /** Removes [layer]'s descriptor from the style it belongs to. */
+  /** Removes the live layer that [layer] names. */
   fun removeLayer(layer: Layer) {
-    layer.detach(this)
+    removeLayer(layer.id)
   }
 
   /** A descriptor over the live layer with [id], or null if none exists or the style unloaded. */
@@ -158,15 +158,15 @@ internal interface StyleBinding {
    */
   fun sourceExists(sourceId: String): Boolean?
 
-  /** Adds [source]'s descriptor to this style; dropped when the style has unloaded. */
+  /** Adds [source]'s definition to this style; dropped when the style has unloaded. */
   fun addSource(source: Source) {
     if (!isLoaded) return
-    source.attach(this)
+    source.install(this)
   }
 
-  /** Removes [source]'s descriptor from the style it belongs to. */
+  /** Removes the live source that [source] names. */
   fun removeSource(source: Source) {
-    source.detach(this)
+    removeSource(source.id)
   }
 
   /** A descriptor over the live source with [id], or null if none exists or the style unloaded. */
@@ -230,17 +230,13 @@ internal interface StyleBinding {
   fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson
 
   /**
-   * Installs [prepared] on a live GeoJSON source when [claim] answers true.
-   *
-   * [claim] runs where this engine serializes installs, so overlapping installs resolve their order
-   * in one place. It runs even when the style has unloaded or the install is dropped, so the
-   * descriptor still records the data. Returns after the install has run or been dropped, so the
-   * caller may close [prepared].
+   * Installs [prepared] on a live GeoJSON source. Returns after the install has run or been
+   * dropped, so the caller may close [prepared].
    */
-  fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson, claim: () -> Boolean)
+  fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson)
 
-  /** Points a live GeoJSON source at [url]; [claim] follows the [setGeoJsonSourceData] contract. */
-  fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean)
+  /** Points a live GeoJSON source at [url]. */
+  fun setGeoJsonSourceUrl(sourceId: String, url: String)
 
   /**
    * Adds a custom geometry source whose feature tiles [provider] supplies. The engine owns the
@@ -425,17 +421,9 @@ internal interface StyleBinding {
         override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
           NoPreparedGeoJson
 
-        override fun setGeoJsonSourceData(
-          sourceId: String,
-          prepared: PreparedGeoJson,
-          claim: () -> Boolean,
-        ) {
-          claim()
-        }
+        override fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson) = Unit
 
-        override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-          claim()
-        }
+        override fun setGeoJsonSourceUrl(sourceId: String, url: String) = Unit
 
         override fun addCustomGeometrySource(
           sourceId: String,

@@ -46,7 +46,7 @@ class LocationIndicatorLayerTest {
       it.pumpUntilRendered()
       repeat(3) { _ -> it.frame() }
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertTrue(map.styleLayerExists("indicator"), "the layer should have been added")
         // A constant image reads back as an object naming it; an expression would read back as an
         // ["image", ...] array, which the renderer cannot take.
@@ -76,7 +76,7 @@ class LocationIndicatorLayerTest {
 
       // A property set on the live layer takes effect too.
       layer.setLocation(Position(longitude = -122.0, latitude = 37.0, altitude = 10.0))
-      layer.onMap { map ->
+      style.onMap { map ->
         assertEquals(
           JsonArray(listOf(JsonPrimitive(37.0), JsonPrimitive(-122.0), JsonPrimitive(10.0))),
           map.layerProperty("indicator", "location")?.toJsonElement(),

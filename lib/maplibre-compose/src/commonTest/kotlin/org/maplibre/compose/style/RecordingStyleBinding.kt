@@ -82,14 +82,13 @@ internal open class RecordingStyleBinding(
   override fun addSource(source: Source) {
     if (!loaded) return
     if (source.id in sourceMap) error("Source ID '${source.id}' already exists in style")
-    source.attach(this)
+    source.install(this)
     sourceMap[source.id] = source
   }
 
   override fun removeSource(source: Source) {
     if (source.id !in sourceMap) error("Source ID '${source.id}' not found in style")
-    // A base-style descriptor was never attached, so there is nothing to detach.
-    if (source.binding === this) source.detach(this)
+    removeSource(source.id)
     sourceMap.remove(source.id)
   }
 
@@ -181,18 +180,12 @@ internal open class RecordingStyleBinding(
   override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
     RecordedPreparedGeoJson(data)
 
-  override fun setGeoJsonSourceData(
-    sourceId: String,
-    prepared: PreparedGeoJson,
-    claim: () -> Boolean,
-  ) {
-    if (!claim()) return
+  override fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson) {
     installedGeoJson.getOrPut(sourceId) { mutableListOf() } +=
       (prepared as RecordedPreparedGeoJson).data
   }
 
-  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-    if (!claim()) return
+  override fun setGeoJsonSourceUrl(sourceId: String, url: String) {
     installedGeoJson.getOrPut(sourceId) { mutableListOf() } += url
   }
 

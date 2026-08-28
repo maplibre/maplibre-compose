@@ -3,9 +3,7 @@ package org.maplibre.compose.sources
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
-import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertTrue
 import kotlinx.serialization.json.JsonObject
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
@@ -34,11 +32,10 @@ class GeoJsonSourceStyleReloadTest {
       val style = assertIs<MlnFfiStyleBinding>(fixture.style, "Errors: ${fixture.errors}")
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(0.0)), GeoJsonOptions())
       style.addSource(source)
-      assertTrue(source.isAttached)
       source.setData(GeoJsonData.Features(pointAt(1.0)))
+      source.applyData(style)
 
       fixture.loadStyle(REPLACEMENT_STYLE)
-      assertFalse(source.isAttached, "the outgoing style should have unloaded the source")
       source.setData(GeoJsonData.Features(pointAt(2.0)))
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
     }
@@ -52,7 +49,7 @@ class GeoJsonSourceStyleReloadTest {
       val source = GeoJsonSource(SOURCE_ID, GeoJsonData.Features(pointAt(0.0)), GeoJsonOptions())
       style.addSource(source)
 
-      source.onMap { map ->
+      style.onMap { map ->
         map.setStyleJson(REPLACEMENT_STYLE_JSON.encodeToByteArray())
         // Native drops the source as soon as setStyleJson returns. MAP_STYLE_LOADED unloads the
         // Kotlin binding only after this owner-thread turn, so setData still reaches the map.

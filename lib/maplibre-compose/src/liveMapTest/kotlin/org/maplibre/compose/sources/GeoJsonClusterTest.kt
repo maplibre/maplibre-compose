@@ -58,11 +58,11 @@ class GeoJsonClusterTest {
       fixture.pumpUntil("a cluster to be rendered") { queryAll().any { source.isCluster(it) } }
       val cluster = queryAll().first { source.isCluster(it) }
 
-      val expansionZoom = source.getClusterExpansionZoom(cluster)
+      val expansionZoom = checkNotNull(style.clusterExpansionZoom(source.id, cluster))
       assertTrue(expansionZoom > ZOOM, "Expected an expansion zoom past $ZOOM, got $expansionZoom")
 
       assertTrue(
-        source.getClusterChildren(cluster).features.isNotEmpty(),
+        checkNotNull(style.clusterChildren(source.id, cluster)).features.isNotEmpty(),
         "Expected the cluster to report children",
       )
 
@@ -70,17 +70,17 @@ class GeoJsonClusterTest {
       // silently substitutes its own default of ten when the type is wrong.
       assertEquals(
         2,
-        source.getClusterLeaves(cluster, limit = 2, offset = 0).features.size,
+        checkNotNull(style.clusterLeaves(source.id, cluster, limit = 2, offset = 0)).features.size,
         "A limit of 2 should return 2 leaves, not a default of 10",
       )
       assertEquals(
         POINT_COUNT,
-        source.getClusterLeaves(cluster, limit = 10, offset = 0).features.size,
+        checkNotNull(style.clusterLeaves(source.id, cluster, limit = 10, offset = 0)).features.size,
         "A limit above the cluster size should return every leaf",
       )
       assertEquals(
         POINT_COUNT - 1,
-        source.getClusterLeaves(cluster, limit = 10, offset = 1).features.size,
+        checkNotNull(style.clusterLeaves(source.id, cluster, limit = 10, offset = 1)).features.size,
         "An offset should skip that many leaves",
       )
     }

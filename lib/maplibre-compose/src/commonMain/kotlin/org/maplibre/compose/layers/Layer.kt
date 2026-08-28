@@ -1,6 +1,5 @@
 package org.maplibre.compose.layers
 
-import kotlin.concurrent.Volatile
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -11,7 +10,6 @@ import org.maplibre.compose.expressions.ast.CompiledExpression
 import org.maplibre.compose.expressions.ast.NullLiteral
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.StyleBinding
-import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.util.toStyleJson
 
 /** Style JSON keys that live at the top level of a layer rather than in layout or paint. */
@@ -29,13 +27,6 @@ internal sealed class Layer(val id: String) {
   private val layout = mutableMapOf<String, JsonElement>()
   private val paint = mutableMapOf<String, JsonElement>()
   private val root = mutableMapOf<String, JsonElement>()
-
-  @Volatile
-  internal var binding: StyleBinding = StyleBinding.UNLOADED
-    private set
-
-  internal val isAttached: Boolean
-    get() = binding.isLoaded
 
   var minZoom: Float
     get() = (root["minzoom"] as? JsonPrimitive)?.content?.toFloatOrNull() ?: 0f
@@ -57,11 +48,11 @@ internal sealed class Layer(val id: String) {
     }
 
   internal fun setLayoutProperty(name: String, value: JsonElement) {
-    if (pushProperty(name, value, LayerPropertyKind.LAYOUT)) layout[name] = value
+    layout[name] = value
   }
 
   internal fun setPaintProperty(name: String, value: JsonElement) {
-    if (pushProperty(name, value, LayerPropertyKind.PAINT)) paint[name] = value
+    paint[name] = value
   }
 
   protected fun setLayoutProperty(name: String, value: CompiledExpression<*>) {
@@ -77,7 +68,7 @@ internal sealed class Layer(val id: String) {
    * creates the layer, not pushed afterwards.
    */
   protected fun setRootProperty(name: String, value: JsonElement) {
-    if (pushProperty(name, value, LayerPropertyKind.ROOT)) root[name] = value
+    root[name] = value
   }
 
   /**
@@ -91,47 +82,12 @@ internal sealed class Layer(val id: String) {
 
   /** Sets this layer's filter from style JSON, for [UnknownLayerDescriptor]. Same null contract. */
   internal fun setFilterJson(filter: JsonElement) {
-    val accepted =
-      try {
-        binding.setLayerFilter(id, filter)
-      } catch (error: StyleMutationException) {
-        binding.logger?.w(error) { "Layer '$id' kept its previous filter: MapLibre rejected it." }
-        return
-      }
-    if (!accepted) {
-      binding.logger?.w { "Layer '$id' kept its previous filter: its style unloaded first." }
-      return
-    }
     root["filter"] = filter
   }
 
   /**
-   * Returns whether the descriptor keeps [value]: a rejected write keeps the previous entry. A
-   * rejection logs rather than throws, because this runs inside a Compose update block, where an
-   * escaping exception would kill the composition. [attach] does throw.
-   */
-  private fun pushProperty(name: String, value: JsonElement, kind: LayerPropertyKind): Boolean {
-    if (recordIfUnsupported(name, value)) return true
-    val accepted =
-      try {
-        binding.setLayerProperty(id, name, value, kind)
-      } catch (error: StyleMutationException) {
-        binding.logger?.w(error) {
-          "Layer '$id' of type '$type' kept its previous '$name': MapLibre rejected $value."
-        }
-        return false
-      }
-    if (!accepted) {
-      binding.logger?.w {
-        "Layer '$id' of type '$type' kept its previous '$name': its style unloaded first."
-      }
-    }
-    return accepted
-  }
-
-  /**
-   * Property names requested and not written, each with the reason; [attach] drains this once it
-   * can log.
+   * Property names requested and not written, each with the reason; [applyProperties] reports them
+   * once it can log.
    */
   private val unsupportedProperties = mutableMapOf<String, String>()
 
@@ -148,31 +104,14 @@ internal sealed class Layer(val id: String) {
     reason: String,
   ) {
     if (value == NullLiteral) return
-    if (unsupportedProperties.put(name, reason) != null) return
-    if (isAttached) reportUnsupportedProperty(name, reason)
-  }
-
-  private fun recordIfUnsupported(
-    name: String,
-    value: JsonElement,
-    binding: StyleBinding = this.binding,
-  ): Boolean {
-    val reason = binding.unsupportedLayerPropertyReason(type, name) ?: return false
-    if (value is JsonNull) return true
-    if (unsupportedProperties.put(name, reason) != null) return true
-    if (isAttached) reportUnsupportedProperty(name, reason)
-    return true
-  }
-
-  private fun reportUnsupportedProperty(name: String, reason: String) {
-    binding.logger?.w { "Layer '$id' of type '$type' cannot set '$name': $reason" }
+    unsupportedProperties.put(name, reason)
   }
 
   /**
    * The complete layer object, as the style spec defines it. Null-valued properties are omitted;
    * the spec has no null, and MapLibre rejects the whole layer over one.
    */
-  internal fun toJson(binding: StyleBinding = this.binding): JsonObject = buildJsonObject {
+  internal fun toJson(binding: StyleBinding = StyleBinding.UNLOADED): JsonObject = buildJsonObject {
     fun accepted(name: String, value: JsonElement) =
       value !is JsonNull && binding.unsupportedLayerPropertyReason(type, name) == null
 
@@ -189,68 +128,51 @@ internal sealed class Layer(val id: String) {
       .let { if (it.isNotEmpty()) put("paint", JsonObject(it)) }
   }
 
-  /** Adds this layer directly below [beforeLayerId], or on top when that is empty. */
-  internal fun attach(binding: StyleBinding, beforeLayerId: String) {
-    check(this.binding === binding || !this.binding.isLoaded) {
-      "Layer '$id' already belongs to another loaded style; create a separate layer instance for " +
-        "each map"
+  /**
+   * Writes this definition's properties onto a live layer by id. The first add already includes
+   * them in JSON; later composition updates dump the maps as [MapState] commands' adapter work.
+   */
+  internal fun applyProperties(binding: StyleBinding) {
+    if (!binding.isLoaded) return
+    layout.forEach { (name, value) ->
+      writeProperty(binding, name, value, LayerPropertyKind.LAYOUT)
     }
-    // A duplicate ID fails here, on the caller, with the message that names the cause; the add
-    // itself would fail too, but with MapLibre's generic refusal. Null means the check could not
-    // run; the add still refuses a duplicate.
-    check(binding.layerExists(id) != true) {
-      "Layer ID '$id' is already owned by a different live layer descriptor; create a separate " +
-        "layer instance for each map"
+    paint.forEach { (name, value) -> writeProperty(binding, name, value, LayerPropertyKind.PAINT) }
+    root.forEach { (name, value) ->
+      if (name == "filter") {
+        binding.setLayerFilter(id, value)
+      } else if (name in ROOT_KEYS && name != "id" && name != "type" && name != "source") {
+        writeProperty(binding, name, value, LayerPropertyKind.ROOT)
+      }
     }
-    // Buffered properties this engine cannot take stay out of the JSON; the drain below says so.
-    layout.forEach { (name, value) -> recordIfUnsupported(name, value, binding) }
-    paint.forEach { (name, value) -> recordIfUnsupported(name, value, binding) }
-    val added =
-      try {
-        binding.addLayer(toJson(binding), beforeLayerId)
-      } catch (error: StyleMutationException) {
-        throw IllegalStateException(
-          "Could not add layer '$id' of type '$type'" +
-            (sourceId?.let { " over source '$it'" } ?: "") +
-            ": ${error.message}. Layer JSON: ${toJson(binding)}",
-          error,
-        )
-      }
-    // The style can unload on another thread between the caller's loaded check and the add; the
-    // dropped write is the unload contract, not an error.
-    if (!added) {
-      binding.logger?.w {
-        "Layer '$id' was not added: its style unloaded first. It will not appear until the " +
-          "style reloads and the composition re-adds it."
-      }
+    unsupportedProperties.forEach { (name, reason) ->
+      binding.logger?.w { "Layer '$id' of type '$type' cannot set '$name': $reason" }
+    }
+  }
+
+  private fun writeProperty(
+    binding: StyleBinding,
+    name: String,
+    value: JsonElement,
+    kind: LayerPropertyKind,
+  ) {
+    val reason = binding.unsupportedLayerPropertyReason(type, name)
+    if (reason != null) {
+      if (value !is JsonNull) unsupportedProperties.put(name, reason)
       return
     }
-    this.binding = binding
-    unsupportedProperties.forEach { (name, reason) -> reportUnsupportedProperty(name, reason) }
-  }
-
-  /**
-   * Binds this descriptor to a layer already in the style, without adding it. Used when reading
-   * back the base style.
-   */
-  internal fun bindExisting(binding: StyleBinding) {
-    check(this.binding === binding || !this.binding.isLoaded) {
-      "Layer '$id' already belongs to another loaded style"
+    try {
+      binding.setLayerProperty(id, name, value, kind)
+    } catch (_: org.maplibre.compose.style.StyleMutationException) {
+      binding.logger?.w {
+        "Layer '$id' of type '$type' kept its previous '$name': MapLibre rejected $value."
+      }
     }
-    this.binding = binding
   }
 
-  internal fun detach(expectedBinding: StyleBinding) {
-    require(binding === expectedBinding) {
-      "Layer '$id' does not belong to the style trying to remove it"
-    }
-    binding.removeLayer(id)
-    binding = StyleBinding.UNLOADED
-  }
-
-  /** Reads a property back from the live layer, falling back to the descriptor when detached. */
+  /** Reads a property from the definition. Live reads go through [MapState.liveLayerProperty]. */
   internal fun readProperty(name: String): JsonElement =
-    binding.layerProperty(id, name) ?: layout[name] ?: paint[name] ?: root[name] ?: JsonNull
+    layout[name] ?: paint[name] ?: root[name] ?: JsonNull
 
   override fun toString() = "${this::class.simpleName}(id=\"$id\")"
 }

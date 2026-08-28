@@ -47,8 +47,10 @@ class MlnFfiFeatureStateLifecycleTest {
       val source = attachPointSource(style)
       attachStateLayer(style, source, "selected")
 
-      source.setFeatureState("1", state("selected"))
-      assertTrue(source.getFeatureState("1")["selected"]?.jsonPrimitive?.boolean == true)
+      style.setFeatureState(source.id, null, "1", state("selected"))
+      assertTrue(
+        style.featureState(source.id, null, "1")["selected"]?.jsonPrimitive?.boolean == true
+      )
 
       fixture.pumpUntilPixel("the retained state to color the circle", RED)
       assertEquals(1, fixture.attachCount)
@@ -65,11 +67,11 @@ class MlnFfiFeatureStateLifecycleTest {
       attachStateLayer(style, source, "persistent", "detached")
       fixture.pumpUntilPixel("the default circle", BLUE)
 
-      source.setFeatureState("1", state("persistent", "discarded"))
+      style.setFeatureState(source.id, null, "1", state("persistent", "discarded"))
       fixture.loseSurface()
-      source.setFeatureState("1", state("detached"))
-      source.removeFeatureState("1", "discarded")
-      val retained = source.getFeatureState("1")
+      style.setFeatureState(source.id, null, "1", state("detached"))
+      style.removeFeatureState(source.id, null, "1", "discarded")
+      val retained = style.featureState(source.id, null, "1")
       assertTrue(retained["persistent"]?.jsonPrimitive?.boolean == true)
       assertTrue(retained["detached"]?.jsonPrimitive?.boolean == true)
       assertFalse("discarded" in retained)
@@ -78,8 +80,8 @@ class MlnFfiFeatureStateLifecycleTest {
       fixture.pumpUntilPixel("state from both renderer lifetimes to color the circle", RED)
 
       fixture.loseSurface()
-      source.resetFeatureStates()
-      assertEquals(JsonObject(emptyMap()), source.getFeatureState("1"))
+      style.resetFeatureStates(source.id, null)
+      assertEquals(JsonObject(emptyMap()), style.featureState(source.id, null, "1"))
       fixture.restoreSurface()
       fixture.pumpUntilPixel("the reset state to restore the default circle", BLUE)
     }
@@ -97,20 +99,24 @@ class MlnFfiFeatureStateLifecycleTest {
           options = TileSetOptions(),
         )
       style.addSource(source)
-      source.setFeatureState("kept", "1", state("selected"))
-      source.setFeatureState("reset", "1", state("selected"))
+      style.setFeatureState(source.id, "kept", "1", state("selected"))
+      style.setFeatureState(source.id, "reset", "1", state("selected"))
 
       fixture.loseSurface()
-      source.resetFeatureStates("reset")
-      assertTrue(source.getFeatureState("kept", "1")["selected"]?.jsonPrimitive?.boolean == true)
-      assertEquals(JsonObject(emptyMap()), source.getFeatureState("reset", "1"))
+      style.resetFeatureStates(source.id, "reset")
+      assertTrue(
+        style.featureState(source.id, "kept", "1")["selected"]?.jsonPrimitive?.boolean == true
+      )
+      assertEquals(JsonObject(emptyMap()), style.featureState(source.id, "reset", "1"))
 
       fixture.restoreSurface()
       fixture.pumpUntilRendered()
+      val native = assertIs<org.maplibre.compose.style.MlnFfiStyleBinding>(style)
       assertTrue(
-        nativeFeatureState(source, "kept", "1")["selected"]?.jsonPrimitive?.boolean == true
+        nativeFeatureState(native, source.id, "kept", "1")["selected"]?.jsonPrimitive?.boolean ==
+          true
       )
-      assertEquals(JsonObject(emptyMap()), nativeFeatureState(source, "reset", "1"))
+      assertEquals(JsonObject(emptyMap()), nativeFeatureState(native, source.id, "reset", "1"))
     }
   }
 
@@ -120,12 +126,12 @@ class MlnFfiFeatureStateLifecycleTest {
       fixture.loadStyle(BaseStyle.Empty)
       val style = assertNotNull(fixture.style)
       val source = attachPointSource(style)
-      source.setFeatureState("1", state("selected"))
+      style.setFeatureState(source.id, null, "1", state("selected"))
 
       style.removeSource(source)
       style.addSource(source)
 
-      assertEquals(JsonObject(emptyMap()), source.getFeatureState("1"))
+      assertEquals(JsonObject(emptyMap()), style.featureState(source.id, null, "1"))
     }
   }
 
@@ -134,13 +140,14 @@ class MlnFfiFeatureStateLifecycleTest {
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
       val first = attachPointSource(assertNotNull(fixture.style))
-      first.setFeatureState("1", state("selected"))
+      assertNotNull(fixture.style).setFeatureState(first.id, null, "1", state("selected"))
 
       fixture.loadStyle(BLACK_STYLE)
-      val replacement = attachPointSource(assertNotNull(fixture.style))
+      val nextStyle = assertNotNull(fixture.style)
+      val replacement = attachPointSource(nextStyle)
 
-      assertEquals(JsonObject(emptyMap()), first.getFeatureState("1"))
-      assertEquals(JsonObject(emptyMap()), replacement.getFeatureState("1"))
+      assertEquals(JsonObject(emptyMap()), nextStyle.featureState(first.id, null, "1"))
+      assertEquals(JsonObject(emptyMap()), nextStyle.featureState(replacement.id, null, "1"))
     }
   }
 
@@ -190,15 +197,16 @@ class MlnFfiFeatureStateLifecycleTest {
   }
 
   private fun nativeFeatureState(
-    source: VectorSource,
+    style: org.maplibre.compose.style.MlnFfiStyleBinding,
+    sourceId: String,
     sourceLayerId: String,
     featureId: String,
   ): JsonObject {
     val bytes =
       assertNotNull(
-        source.ffiBinding?.withRenderSession { session ->
+        style.withRenderSession { session ->
           session.getFeatureState(
-            FeatureStateSelector(source.id).apply {
+            FeatureStateSelector(sourceId).apply {
               this.sourceLayerId = sourceLayerId
               this.featureId = featureId
             }

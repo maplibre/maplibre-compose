@@ -12,7 +12,6 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.math.ceil
-import org.maplibre.compose.map.newSessionLock
 import org.maplibre.compose.util.ImageStretch
 import org.maplibre.compose.util.toImageBitmap
 
@@ -25,11 +24,10 @@ internal class ImageManager(private val node: StyleNode) {
 
   private var attachedTo: StyleBinding = node.binding
 
-  // Property writes compile on their caller's thread; the composition uses the host thread.
-  private val lock = newSessionLock()
-
   /** Re-adds every held image when the node has been re-pointed at a new style. */
-  internal fun ensureAttached(): Unit = lock.withLock { ensureAttachedLocked() }
+  internal fun ensureAttached() {
+    ensureAttachedLocked()
+  }
 
   private fun ensureAttachedLocked() {
     val binding = node.binding
@@ -47,7 +45,7 @@ internal class ImageManager(private val node: StyleNode) {
     attachedTo = binding
   }
 
-  internal fun acquireBitmap(key: BitmapKey): String = lock.withLock {
+  internal fun acquireBitmap(key: BitmapKey): String {
     ensureAttachedLocked()
     try {
       bitmapCounter.increment(key) {
@@ -60,10 +58,10 @@ internal class ImageManager(private val node: StyleNode) {
       bitmapCounter.decrement(key) { runCatching { bitmapIds.removeId(key) } }
       throw error
     }
-    bitmapIds.getId(key)
+    return bitmapIds.getId(key)
   }
 
-  internal fun releaseBitmap(key: BitmapKey): Unit = lock.withLock {
+  internal fun releaseBitmap(key: BitmapKey) {
     bitmapCounter.decrement(key) {
       val id = bitmapIds.removeId(key)
       node.logger?.i { "Removing bitmap $id" }
@@ -75,7 +73,7 @@ internal class ImageManager(private val node: StyleNode) {
   private fun PainterKey.renderToImage(): ImageBitmap =
     rasterizePainter(painter, density, layoutDirection, size, alpha, colorFilter, drawAsSdf)
 
-  internal fun acquirePainter(key: PainterKey): String = lock.withLock {
+  internal fun acquirePainter(key: PainterKey): String {
     ensureAttachedLocked()
     try {
       painterCounter.increment(key) {
@@ -88,10 +86,10 @@ internal class ImageManager(private val node: StyleNode) {
       painterCounter.decrement(key) { runCatching { painterIds.removeId(key) } }
       throw error
     }
-    painterIds.getId(key)
+    return painterIds.getId(key)
   }
 
-  internal fun releasePainter(key: PainterKey): Unit = lock.withLock {
+  internal fun releasePainter(key: PainterKey) {
     painterCounter.decrement(key) {
       val id = painterIds.removeId(key)
       node.logger?.i { "Removing painter $id" }

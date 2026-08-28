@@ -59,7 +59,7 @@ class MlnFfiLayerKeyRoundTripTest {
         (Feature["class"].cast<StringValue>() eq const("wood")).compile(ExpressionContext.None)
       )
 
-      beforeAttach.onMap { map ->
+      style.onMap { map ->
         assertEquals("places", map.layerSourceLayer("before"))
         assertEquals(SOURCE_ID, map.layerSourceId("before"))
         assertEquals(3.0, map.layerMinZoom("before"))

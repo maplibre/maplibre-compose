@@ -34,7 +34,6 @@ public class StyleSources internal constructor(private val state: MapState) {
     get() = snapshotState.value
 
   private val snapshotState = mutableStateOf(emptyMap<String, Source>())
-  private val snapshotLock = newSessionLock()
 
   // A descriptor retained across a reload would route its operations into the unloaded binding.
   private var snapshotBinding: StyleBinding? = null
@@ -122,8 +121,8 @@ public class StyleSources internal constructor(private val state: MapState) {
       )
     }
     return try {
-      binding.addSource(source)
-      if (source.binding !== binding || !state.commitAppSource(binding, source)) {
+      source.install(binding)
+      if (!state.commitAppSource(binding, source)) {
         IllegalStateException("Source '$id' was not added: the style unloaded during the add")
       } else {
         null
@@ -176,7 +175,7 @@ public class StyleSources internal constructor(private val state: MapState) {
       )
     }
     return try {
-      binding.removeSource(appSource)
+      binding.removeSource(id)
       if (!state.commitAppSourceRemoval(binding, id)) {
         IllegalStateException("Source '$id' was not removed: the style unloaded during the removal")
       } else {
@@ -200,10 +199,8 @@ public class StyleSources internal constructor(private val state: MapState) {
 
   /** Empties the snapshot; a detached state stops reporting a dead map's sources. */
   internal fun clear() {
-    snapshotLock.withLock {
-      snapshotBinding = null
-      if (snapshotState.value.isNotEmpty()) snapshotState.value = emptyMap()
-    }
+    snapshotBinding = null
+    if (snapshotState.value.isNotEmpty()) snapshotState.value = emptyMap()
   }
 
   internal fun refreshSource(id: String) {
@@ -212,15 +209,12 @@ public class StyleSources internal constructor(private val state: MapState) {
     if (binding !== snapshotBinding) return refreshSources()
 
     val refreshed = binding.getSource(id)
-    snapshotLock.withLock {
-      if (binding !== snapshotBinding) return@withLock
-      val latest = snapshotState.value
-      val previous = latest[id]
-      when {
-        refreshed == null && previous != null -> snapshotState.value = latest - id
-        refreshed != null && !refreshed.hasSameState(previous) ->
-          snapshotState.value = latest + (id to refreshed)
-      }
+    val latest = snapshotState.value
+    val previous = latest[id]
+    when {
+      refreshed == null && previous != null -> snapshotState.value = latest - id
+      refreshed != null && !refreshed.hasSameState(previous) ->
+        snapshotState.value = latest + (id to refreshed)
     }
   }
 
@@ -230,16 +224,14 @@ public class StyleSources internal constructor(private val state: MapState) {
     val binding = state.record.read { this.binding }
     if (!binding.isLoaded) return
     val refreshed = binding.getSources().associateBy { it.id }
-    snapshotLock.withLock {
-      val current = if (binding === snapshotBinding) snapshotState.value else emptyMap()
-      snapshotBinding = binding
-      var changed =
-        current.keys.toList() != refreshed.keys.toList() || current !== snapshotState.value
-      val reconciled = refreshed.mapValues { (id, source) ->
-        current[id]?.takeIf { source.hasSameState(it) } ?: source.also { changed = true }
-      }
-      if (changed) snapshotState.value = reconciled
+    val current = if (binding === snapshotBinding) snapshotState.value else emptyMap()
+    snapshotBinding = binding
+    var changed =
+      current.keys.toList() != refreshed.keys.toList() || current !== snapshotState.value
+    val reconciled = refreshed.mapValues { (id, source) ->
+      current[id]?.takeIf { source.hasSameState(it) } ?: source.also { changed = true }
     }
+    if (changed) snapshotState.value = reconciled
   }
 
   private fun Source.hasSameState(other: Source?): Boolean =

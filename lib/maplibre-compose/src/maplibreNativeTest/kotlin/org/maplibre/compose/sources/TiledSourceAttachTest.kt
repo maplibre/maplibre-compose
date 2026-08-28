@@ -45,7 +45,7 @@ class TiledSourceAttachTest {
       style.addSource(fromTiles)
       style.addLayer(layer)
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertEquals(SourceType.RASTER, map.styleSourceType("tiles"))
         assertEquals(SourceType.RASTER, map.styleSourceType("url"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
@@ -78,7 +78,7 @@ class TiledSourceAttachTest {
       style.addSource(fromTiles)
       style.addLayer(layer)
 
-      layer.onMap { map ->
+      style.onMap { map ->
         // A hillshade layer over a plain RASTER source draws nothing, with no error to explain it.
         assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem"))
         assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem-url"))
@@ -106,7 +106,7 @@ class TiledSourceAttachTest {
       style.addSource(fromTiles)
       style.addSource(fromUrl)
 
-      fromTiles.onMap { map ->
+      style.onMap { map ->
         assertEquals(SourceType.VECTOR, map.styleSourceType("tiles"))
         assertEquals(SourceType.VECTOR, map.styleSourceType("url"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
@@ -138,12 +138,12 @@ class TiledSourceAttachTest {
       // way.
       assertEquals(
         false,
-        witness.onMap { map -> map.styleSourceExists("tiles") },
+        style.onMap { map -> map.styleSourceExists("tiles") },
         "the source should be out of the style",
       )
 
       style.addSource(source)
-      source.onMap { map ->
+      style.onMap { map ->
         assertEquals(SourceType.RASTER, map.styleSourceType("tiles"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
       }
@@ -177,7 +177,7 @@ class TiledSourceAttachTest {
       style.addSource(source)
       style.addLayer(layer)
 
-      layer.onMap { map -> assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem")) }
+      style.onMap { map -> assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem")) }
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }

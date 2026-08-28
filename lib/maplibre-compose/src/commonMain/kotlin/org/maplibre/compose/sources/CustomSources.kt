@@ -100,12 +100,12 @@ public class CustomGeometrySource(
 
   /** Requests new features for tiles that intersect [bounds]. */
   public fun invalidateBounds(bounds: BoundingBox) {
-    binding.invalidateCustomGeometrySourceBounds(id, bounds)
+    map?.invalidateCustomGeometrySourceBounds(id, bounds)
   }
 
   /** Requests new features for [tile] when MapLibre needs it. */
   public fun invalidateTile(tile: TileCoordinate) {
-    binding.invalidateCustomGeometrySourceTile(id, tile)
+    map?.invalidateCustomGeometrySourceTile(id, tile)
   }
 }
 
@@ -137,7 +137,7 @@ public class CustomVectorSource(
    *   public per-tile invalidation operation.
    */
   public fun invalidateTile(tile: TileCoordinate) {
-    binding.invalidateCustomVectorSourceTile(id, tile)
+    map?.invalidateCustomVectorSourceTile(id, tile)
   }
 }
 

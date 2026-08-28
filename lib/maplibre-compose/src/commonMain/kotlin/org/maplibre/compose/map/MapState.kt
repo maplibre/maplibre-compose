@@ -34,7 +34,10 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LayerPropertyCompiler
+import org.maplibre.compose.sources.GeoJsonData
+import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.StyleBinding
@@ -45,6 +48,7 @@ import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
+import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
@@ -221,6 +225,7 @@ internal constructor(
     record.applySessionOptions = { adapter -> sessionOptions?.applyTo(adapter) }
     record.pointBinding = { binding ->
       styleNode.binding = binding
+      adoptOwnedSources()
       if (binding === StyleBinding.UNLOADED || !binding.isLoaded) {
         styleNode.clearPublishedOwnership()
         if (shouldClearUnloadedSources()) sources.clear()
@@ -384,6 +389,132 @@ internal constructor(
     writeAuthorizedLayer(styleGeneration, bindingGeneration, id) { binding ->
       if (binding.isLoaded) binding.setLayerFilter(id, filter)
     }
+  }
+
+  /**
+   * Enqueues adapter work against the current loaded style. Source and layer definitions call it.
+   */
+  internal fun writeSource(write: (StyleBinding) -> Unit) {
+    commit {
+      val captured = binding
+      if (closed || captured === StyleBinding.UNLOADED || !captured.isLoaded) return@commit
+      enqueue { if (captured.isLoaded) write(captured) }
+    }
+  }
+
+  internal fun setGeoJsonData(id: String, data: GeoJsonData, options: GeoJsonOptions) {
+    writeSource { binding ->
+      if (data is GeoJsonData.Uri) {
+        binding.setGeoJsonSourceUrl(id, data.uri)
+      } else {
+        binding.prepareGeoJson(data, options).use { binding.setGeoJsonSourceData(id, it) }
+      }
+    }
+  }
+
+  internal fun setImageSourceCoordinates(id: String, coordinates: List<Position>) {
+    writeSource { it.setImageSourceCoordinates(id, coordinates) }
+  }
+
+  internal fun setImageSourceImage(id: String, image: ImageBitmap) {
+    writeSource { it.setImageSourceImage(id, image) }
+  }
+
+  internal fun setImageSourceUrl(id: String, url: String) {
+    writeSource { it.setImageSourceUrl(id, url) }
+  }
+
+  internal fun imageSourceCoordinates(id: String): List<Position>? {
+    val binding = record.read { binding.takeIf { it.isLoaded } } ?: return null
+    return binding.imageSourceCoordinates(id)
+  }
+
+  internal fun invalidateCustomGeometrySourceBounds(id: String, bounds: BoundingBox) {
+    writeSource { it.invalidateCustomGeometrySourceBounds(id, bounds) }
+  }
+
+  internal fun invalidateCustomGeometrySourceTile(id: String, tile: TileCoordinate) {
+    writeSource { it.invalidateCustomGeometrySourceTile(id, tile) }
+  }
+
+  internal fun invalidateCustomVectorSourceTile(id: String, tile: TileCoordinate) {
+    writeSource { it.invalidateCustomVectorSourceTile(id, tile) }
+  }
+
+  internal fun setFeatureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+    state: JsonObject,
+  ) {
+    writeSource { it.setFeatureState(sourceId, sourceLayerId, featureId, state) }
+  }
+
+  internal fun featureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+  ): JsonObject {
+    val binding = record.read { binding.takeIf { it.isLoaded } } ?: return JsonObject(emptyMap())
+    return binding.featureState(sourceId, sourceLayerId, featureId)
+  }
+
+  internal fun removeFeatureState(
+    sourceId: String,
+    sourceLayerId: String?,
+    featureId: String,
+    stateKey: String?,
+  ) {
+    writeSource { it.removeFeatureState(sourceId, sourceLayerId, featureId, stateKey) }
+  }
+
+  internal fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
+    writeSource { it.resetFeatureStates(sourceId, sourceLayerId) }
+  }
+
+  internal fun querySourceFeatures(
+    sourceId: String,
+    sourceLayerIds: Set<String>,
+    filter: JsonElement?,
+  ): List<Feature<Geometry, JsonObject?>> {
+    val binding = record.read { binding.takeIf { it.isLoaded } } ?: return emptyList()
+    return binding.querySourceFeatures(sourceId, sourceLayerIds, filter)
+  }
+
+  internal suspend fun clusterExpansionZoom(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): Double? {
+    val binding = record.read { binding.takeIf { it.isLoaded } } ?: return null
+    return binding.clusterExpansionZoom(sourceId, feature)
+  }
+
+  internal suspend fun clusterChildren(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+  ): FeatureCollection<Geometry, JsonObject?>? {
+    val binding = record.read { binding.takeIf { it.isLoaded } } ?: return null
+    return binding.clusterChildren(sourceId, feature)
+  }
+
+  internal suspend fun clusterLeaves(
+    sourceId: String,
+    feature: Feature<*, JsonObject?>,
+    limit: Long,
+    offset: Long,
+  ): FeatureCollection<Geometry, JsonObject?>? {
+    val binding = record.read { binding.takeIf { it.isLoaded } } ?: return null
+    return binding.clusterLeaves(sourceId, feature, limit, offset)
+  }
+
+  private var ownedSources: Collection<Source> = emptyList()
+
+  private fun adoptOwnedSources() {
+    val next = record.read { (compositionSources.values + appSources.values).toList() }
+    val nextSet = next.toHashSet()
+    ownedSources.forEach { if (it !in nextSet && it.map === this) it.map = null }
+    next.forEach { it.map = this }
+    ownedSources = next
   }
 
   private fun writeAuthorizedLayer(
@@ -706,8 +837,17 @@ internal constructor(
   internal fun syncStyleComposition() {
     val binding = styleNode.binding
     val revision = styleNode.snapshotRevision()
-    if (!commit { commitComposition(binding, revision.layerIds, revision.sourcesById) }) return
-    styleNode.applyRevision(revision)
+    if (
+      !commit {
+        if (!commitComposition(binding, revision.layerIds, revision.sourcesById))
+          return@commit false
+        enqueue { styleNode.applyRevision(revision) }
+        true
+      }
+    ) {
+      return
+    }
+    adoptOwnedSources()
   }
 
   /** Commits composition ownership only when [binding] is still the current style. */
@@ -718,12 +858,16 @@ internal constructor(
   ): Boolean = commit { commitComposition(binding, layerIds, sources) }
 
   /** Commits an imperative source only when [binding] is still the current loaded style. */
-  internal fun commitAppSource(binding: StyleBinding, source: Source): Boolean = commit {
-    commitAppSource(binding, source)
+  internal fun commitAppSource(binding: StyleBinding, source: Source): Boolean {
+    val accepted = commit { commitAppSource(binding, source) }
+    if (accepted) adoptOwnedSources()
+    return accepted
   }
 
-  internal fun commitAppSourceRemoval(binding: StyleBinding, id: String): Boolean = commit {
-    removeAppSource(binding, id)
+  internal fun commitAppSourceRemoval(binding: StyleBinding, id: String): Boolean {
+    val accepted = commit { removeAppSource(binding, id) }
+    if (accepted) adoptOwnedSources()
+    return accepted
   }
 
   internal fun commitAppImage(binding: StyleBinding, id: String): Boolean = commit {
@@ -743,6 +887,7 @@ internal constructor(
    */
   override fun close() {
     if (commit { close() }) return
+    adoptOwnedSources()
     engine.close()
     host.close()
   }

@@ -237,17 +237,13 @@ internal class GlJsStyleBinding(
   override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
     GlJsPreparedGeoJson(data.toDataJson().toJsValue())
 
-  override fun setGeoJsonSourceData(
-    sourceId: String,
-    prepared: PreparedGeoJson,
-    claim: () -> Boolean,
-  ) {
-    if (!claim() || !loaded) return
+  override fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson) {
+    if (!loaded) return
     map.getSource<GlJsGeoJsonSource>(sourceId)?.setData((prepared as GlJsPreparedGeoJson).data)
   }
 
-  override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-    if (!claim() || !loaded) return
+  override fun setGeoJsonSourceUrl(sourceId: String, url: String) {
+    if (!loaded) return
     map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(url.unsafeCast<GeoJsonSourceData>())
   }
 
@@ -434,8 +430,7 @@ internal class GlJsStyleBinding(
    * `getStyle()`, which reports the stylesheet as written and so omits anything resolved from a
    * TileJSON URL.
    */
-  private fun reconstructSource(id: String): Source =
-    UnknownSource(id, sourceDefinition(id)).also { it.bindExisting(this) }
+  private fun reconstructSource(id: String): Source = UnknownSource(id, sourceDefinition(id))
 
   private fun sourceDefinition(id: String): JsonObject = buildJsonObject {
     val source = map.getSource<SourceHandle>(id) ?: return@buildJsonObject
@@ -454,7 +449,7 @@ internal class GlJsStyleBinding(
           put("id", id)
           map.getLayer(id)?.let { put("type", it.type) }
         }
-    return UnknownLayerDescriptor(id, definition).also { it.bindExisting(this) }
+    return UnknownLayerDescriptor(id, definition)
   }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {

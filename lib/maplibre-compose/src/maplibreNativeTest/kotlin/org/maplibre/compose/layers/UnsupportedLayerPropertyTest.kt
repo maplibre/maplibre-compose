@@ -60,7 +60,7 @@ class UnsupportedLayerPropertyTest {
       // refused wholesale, and attach turns that into a throw.
       style.addLayer(layer)
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
         // MapLibre holds no value for a property that was never written, and reports none.
         assertNull(
@@ -90,7 +90,7 @@ class UnsupportedLayerPropertyTest {
       )
 
       layer.setIconOverlap(const("never").compile(ExpressionContext.None))
-      layer.onMap { map ->
+      style.onMap { map ->
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
         assertNull(
           map.layerProperty("labels", "icon-overlap"),
@@ -140,7 +140,7 @@ class UnsupportedLayerPropertyTest {
         const(TextRotationAlignment.ViewportGlyph).compile(ExpressionContext.None)
       )
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertEquals(
           JsonPrimitive("map"),
           map.layerProperty("labels", "text-rotation-alignment")?.toJsonElement(),

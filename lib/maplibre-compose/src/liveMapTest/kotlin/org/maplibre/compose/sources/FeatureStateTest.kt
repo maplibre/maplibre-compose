@@ -65,23 +65,26 @@ class FeatureStateTest {
       attachCircleLayer(style, source)
       fixture.pumpUntilPixel("the circle to be drawn", CENTER, CENTER, BLUE)
 
-      source.setFeatureState("7", buildJsonObject { put("selected", true) })
-      assertEquals(true, source.getFeatureState("7")["selected"]?.jsonPrimitive?.boolean)
+      style.setFeatureState(source.id, null, "7", buildJsonObject { put("selected", true) })
+      assertEquals(
+        true,
+        style.featureState(source.id, null, "7")["selected"]?.jsonPrimitive?.boolean,
+      )
 
-      source.setFeatureState("7", buildJsonObject { put("hover", true) })
-      val merged = source.getFeatureState("7")
+      style.setFeatureState(source.id, null, "7", buildJsonObject { put("hover", true) })
+      val merged = style.featureState(source.id, null, "7")
       assertEquals(true, merged["selected"]?.jsonPrimitive?.boolean)
       assertEquals(true, merged["hover"]?.jsonPrimitive?.boolean)
 
-      source.removeFeatureState("7", "hover")
+      style.removeFeatureState(source.id, null, "7", "hover")
       fixture.pump(frames = 1)
-      val afterRemove = source.getFeatureState("7")
+      val afterRemove = style.featureState(source.id, null, "7")
       assertEquals(true, afterRemove["selected"]?.jsonPrimitive?.boolean)
       assertEquals(null, afterRemove["hover"])
 
-      source.resetFeatureStates()
+      style.resetFeatureStates(source.id, null)
       fixture.pump(frames = 1)
-      assertEquals(JsonObject(emptyMap()), source.getFeatureState("7"))
+      assertEquals(JsonObject(emptyMap()), style.featureState(source.id, null, "7"))
     }
   }
 
@@ -94,8 +97,11 @@ class FeatureStateTest {
       attachCircleLayer(style, source)
       fixture.pumpUntilPixel("the circle to be drawn", CENTER, CENTER, BLUE)
 
-      source.setFeatureState("7", buildJsonObject { put("selected", true) })
-      assertEquals(true, source.getFeatureState("7")["selected"]?.jsonPrimitive?.boolean)
+      style.setFeatureState(source.id, null, "7", buildJsonObject { put("selected", true) })
+      assertEquals(
+        true,
+        style.featureState(source.id, null, "7")["selected"]?.jsonPrimitive?.boolean,
+      )
     }
   }
 
@@ -109,9 +115,9 @@ class FeatureStateTest {
       attachCircleLayer(style, source)
 
       fixture.pumpUntilPixel("the unselected circle to be drawn", CENTER, CENTER, BLUE)
-      source.setFeatureState("1", buildJsonObject { put("selected", true) })
+      style.setFeatureState(source.id, null, "1", buildJsonObject { put("selected", true) })
       fixture.pumpUntilPixel("the selected circle to be drawn", CENTER, CENTER, RED)
-      source.removeFeatureState("1")
+      style.removeFeatureState(source.id, null, "1", null)
       fixture.pumpUntilPixel("the circle to return to its fallback color", CENTER, CENTER, BLUE)
     }
   }

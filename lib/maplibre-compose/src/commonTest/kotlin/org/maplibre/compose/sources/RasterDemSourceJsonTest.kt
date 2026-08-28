@@ -38,7 +38,7 @@ class RasterDemSourceJsonTest {
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
       )
 
-    source.attach(binding)
+    source.install(binding)
 
     val json = assertNotNull(binding.sources["dem"])
     assertEquals("mapbox", json["encoding"]?.jsonPrimitive?.content)
@@ -55,7 +55,7 @@ class RasterDemSourceJsonTest {
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f, baseShift = 3f),
       )
 
-    source.attach(binding)
+    source.install(binding)
 
     val json = assertNotNull(binding.sources["dem"])
     assertEquals("custom", json["encoding"]?.jsonPrimitive?.content)
@@ -73,7 +73,7 @@ class RasterDemSourceJsonTest {
         options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.XYZ),
       )
 
-    source.attach(binding)
+    source.install(binding)
 
     assertFalse("scheme" in assertNotNull(binding.sources["dem"]))
   }
@@ -88,7 +88,7 @@ class RasterDemSourceJsonTest {
         options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.TMS),
       )
 
-    val error = assertFailsWith<IllegalStateException> { source.attach(binding) }
+    val error = assertFailsWith<IllegalStateException> { source.install(binding) }
 
     assertContains(error.message.orEmpty(), "TileCoordinateSystem.XYZ")
     assertFalse("dem" in binding.sources)
@@ -99,7 +99,7 @@ class RasterDemSourceJsonTest {
     val binding = RecordingStyleBinding(supportsRasterDemScheme = false)
     val source = RasterDemSource(id = "dem", uri = "https://example.invalid/tiles.json")
 
-    source.attach(binding)
+    source.install(binding)
 
     val json = assertNotNull(binding.sources["dem"])
     assertFalse("scheme" in json)

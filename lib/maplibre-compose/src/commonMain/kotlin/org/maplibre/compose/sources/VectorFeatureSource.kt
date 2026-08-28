@@ -12,7 +12,8 @@ import org.maplibre.spatialk.geojson.Geometry
  *
  * Every operation names the source layer that holds the feature.
  * [GeoJsonSource][org.maplibre.compose.sources.GeoJsonSource] offers the same feature-state
- * operations without a source layer.
+ * operations without a source layer. Each write is a [MapState][org.maplibre.compose.map.MapState]
+ * command.
  */
 public sealed interface VectorFeatureSource {
 
@@ -26,7 +27,8 @@ public sealed interface VectorFeatureSource {
     sourceLayerIds: Set<String>,
     predicate: Expression<BooleanValue> = const(true),
   ): List<Feature<Geometry, JsonObject?>> =
-    source.binding.querySourceFeatures(source.id, sourceLayerIds, predicate.toFilterJson())
+    source.map?.querySourceFeatures(source.id, sourceLayerIds, predicate.toFilterJson())
+      ?: emptyList()
 
   /**
    * Merges [state] into the runtime state of the feature identified by [featureId] in
@@ -38,7 +40,7 @@ public sealed interface VectorFeatureSource {
    * `id` of `7` is `"7"`.
    */
   public fun setFeatureState(sourceLayerId: String, featureId: String, state: JsonObject) {
-    source.binding.setFeatureState(source.id, sourceLayerId, featureId, state)
+    source.map?.setFeatureState(source.id, sourceLayerId, featureId, state)
   }
 
   /**
@@ -46,7 +48,7 @@ public sealed interface VectorFeatureSource {
    * on a live map.
    */
   public fun getFeatureState(sourceLayerId: String, featureId: String): JsonObject =
-    source.binding.featureState(source.id, sourceLayerId, featureId)
+    source.map?.featureState(source.id, sourceLayerId, featureId) ?: JsonObject(emptyMap())
 
   /**
    * Removes [stateKey] from the feature identified by [featureId] in [sourceLayerId], or every key
@@ -57,15 +59,15 @@ public sealed interface VectorFeatureSource {
     featureId: String,
     stateKey: String? = null,
   ) {
-    source.binding.removeFeatureState(source.id, sourceLayerId, featureId, stateKey)
+    source.map?.removeFeatureState(source.id, sourceLayerId, featureId, stateKey)
   }
 
   /** Removes runtime state from every feature in [sourceLayerId]. */
   public fun resetFeatureStates(sourceLayerId: String) {
-    source.binding.resetFeatureStates(source.id, sourceLayerId)
+    source.map?.resetFeatureStates(source.id, sourceLayerId)
   }
 }
 
-/** Every implementer is a [Source]; the default bodies reach its binding through this cast. */
+/** Every implementer is a [Source]; the default bodies reach its map through this cast. */
 private val VectorFeatureSource.source: Source
   get() = this as Source

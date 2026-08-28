@@ -94,8 +94,6 @@ class LayerHandleImagePropertyTest {
     state.attachSession(adapter)
     state.callbacks.onStyleChanged(adapter, binding)
     testScheduler.advanceUntilIdle()
-    descriptor.bindExisting(binding)
-
     // A literal has no release path outside a composition, so the write is refused.
     val handle = assertNotNull(state.layers["bg-base"])
     val error =

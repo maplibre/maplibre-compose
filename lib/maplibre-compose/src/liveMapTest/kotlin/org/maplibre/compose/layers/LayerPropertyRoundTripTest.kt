@@ -214,7 +214,7 @@ class LayerPropertyRoundTripTest {
     } catch (error: Throwable) {
       return listOf("${case.property} $path: MapLibre refused it: ${error.message}")
     }
-    val actual = layer.binding.layerProperty(layer.id, case.property)
+    val actual = style.layerProperty(layer.id, case.property)
     val expected = Json.parseToJsonElement(case.expectedHere)
     return if (actual != null && actual.equivalentTo(expected)) emptyList()
     else listOf("${case.property} $path: expected $expected but MapLibre reports $actual")

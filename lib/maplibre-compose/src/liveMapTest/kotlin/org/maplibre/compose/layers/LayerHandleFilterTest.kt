@@ -81,8 +81,6 @@ class LayerHandleFilterTest {
     val descriptor = BackgroundLayerDescriptor("bg-base")
     val binding = FilterRecordingBinding(baseLayers = listOf(descriptor))
     attach(state, binding)
-    descriptor.bindExisting(binding)
-
     val handle = assertNotNull(state.layers["bg-base"])
     assertNull(handle.property("filter"), "an unset filter reads as null")
 
