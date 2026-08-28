@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# Pack the Compose jpackage application directory into a Linux AppImage.
+# Compose TargetFormat.AppImage is that directory, not a .AppImage file.
+# appimagetool is itself an AppImage; APPIMAGE_EXTRACT_AND_RUN avoids FUSE,
+# which CI runners and many containers do not mount.
+set -euo pipefail
+
+if [[ "$(uname -s)" != Linux ]]; then
+  echo "AppImage packaging runs on Linux only." >&2
+  exit 2
+fi
+
+if ! command -v appimagetool >/dev/null; then
+  echo "appimagetool is not on PATH. Run this through mise so it installs the pin." >&2
+  exit 1
+fi
+
+repository_root="${MISE_PROJECT_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
+app_root="$repository_root/demo-app/desktop/build/compose/binaries/main/app"
+out_dir="$repository_root/demo-app/desktop/build/compose/binaries/main/appimage"
+icon="$repository_root/demo-app/desktop/icon.svg"
+
+shopt -s nullglob
+apps=("$app_root"/*/)
+if ((${#apps[@]} != 1)); then
+  echo "Expected one application directory under $app_root from createDistributable." >&2
+  exit 1
+fi
+app_dir="${apps[0]%/}"
+package_name="${app_dir##*/}"
+launcher="$app_dir/bin/$package_name"
+if [[ ! -x "$launcher" ]]; then
+  echo "Missing jpackage launcher $launcher." >&2
+  exit 1
+fi
+
+case "$(uname -m)" in
+  x86_64 | amd64) arch=x86_64 ;;
+  aarch64 | arm64) arch=aarch64 ;;
+  *)
+    echo "No AppImage runtime for $(uname -m)." >&2
+    exit 1
+    ;;
+esac
+
+work="$(mktemp -d)"
+cleanup() {
+  rm -rf -- "$work"
+}
+trap cleanup EXIT
+
+appdir="$work/${package_name}.AppDir"
+mkdir -p "$appdir/opt"
+cp -a "$app_dir" "$appdir/opt/$package_name"
+cp "$icon" "$appdir/${package_name}.svg"
+
+cat >"$appdir/${package_name}.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=MapLibre Compose
+Exec=${package_name}
+Icon=${package_name}
+Categories=Education;Development;
+Terminal=false
+EOF
+
+cat >"$appdir/AppRun" <<EOF
+#!/bin/sh
+set -eu
+HERE="\$(dirname "\$(readlink -f "\$0")")"
+# The jpackage launcher resolves its runtime at ../lib next to bin/.
+exec "\$HERE/opt/${package_name}/bin/${package_name}" "\$@"
+EOF
+chmod +x "$appdir/AppRun"
+
+mkdir -p "$out_dir"
+output="$out_dir/maplibre-compose-${arch}.AppImage"
+rm -f -- "$output"
+
+export APPIMAGE_EXTRACT_AND_RUN=1
+export ARCH="$arch"
+appimagetool --no-appstream "$appdir" "$output"
+
+test -f "$output"
+printf '%s\n' "$output"

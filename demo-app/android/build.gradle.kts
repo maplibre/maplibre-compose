@@ -16,7 +16,14 @@ android {
     versionName = project.version.toString()
   }
   packaging { resources { excludes += "/META-INF/{AL2.0,LGPL2.1}" } }
-  buildTypes { getByName("release") { isMinifyEnabled = false } }
+  buildTypes {
+    getByName("release") {
+      isMinifyEnabled = false
+      // packageRelease needs a signing config. The debug key is enough for
+      // the CI artifact; this app is not uploaded to Play.
+      signingConfig = signingConfigs.getByName("debug")
+    }
+  }
   compileOptions {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11

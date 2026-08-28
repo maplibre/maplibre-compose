@@ -59,7 +59,9 @@ compose.desktop {
           .asFile
           .absolutePath
 
-      targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+      // Same installer formats as the AWT desktop app. Linux AppImage
+      // packaging stays on that module, which is the one CI ships.
+      targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
       packageName = "org.maplibre.compose.demoapp.glfw"
       // https://youtrack.jetbrains.com/issue/CMP-2360
       // packageVersion = providers.gradleProperty("maplibreReleaseVersion").get()
