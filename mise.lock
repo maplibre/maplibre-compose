@@ -228,7 +228,6 @@ backend = "github:AppImage/appimagetool"
 
 [tools."github:AppImage/appimagetool".options]
 version_prefix = ""
-bin = "appimagetool"
 
 [tools."github:AppImage/appimagetool"."platforms.linux-arm64"]
 checksum = "sha256:f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158"
