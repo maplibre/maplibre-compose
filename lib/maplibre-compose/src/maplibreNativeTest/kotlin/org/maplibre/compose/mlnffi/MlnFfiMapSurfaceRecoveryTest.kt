@@ -133,6 +133,38 @@ class MlnFfiMapSurfaceRecoveryTest {
   }
 
   @Test
+  fun resize_aligns_the_completed_frames_camera_anchor_with_the_current_anchor() =
+    runFfiComposeUiTest {
+      val renderer = RecordingRenderer()
+      val factory = FakeMlnFfiMapHostFactory()
+      val size = mutableStateOf(64.dp)
+      val hostResult = factory.create(factory.bridges.single())
+      renderer.presentationAnchorOffsetX = 12
+      renderer.presentationAnchorOffsetY = -4
+
+      setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
+      val host = factory.created.single()
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.isNotEmpty() }
+      val completedTarget = host.drawRecords.last().target
+      val drawsBeforeResize = host.drawRecords.size
+
+      renderer.presentationAnchorOffsetX = 24
+      renderer.presentationAnchorOffsetY = 8
+      renderer.skipAllRenders = true
+      size.value = 96.dp
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { renderer.skippedFrames > 0 }
+      waitForIdle()
+
+      val resizeDraws = host.drawRecords.drop(drawsBeforeResize)
+      assertTrue(resizeDraws.isNotEmpty())
+      assertTrue(resizeDraws.all { it.target == completedTarget })
+      for (draw in resizeDraws) {
+        assertEquals(28, draw.destinationLeft)
+        assertEquals(28, draw.destinationTop)
+      }
+    }
+
+  @Test
   fun render_uses_the_extent_configured_for_the_same_frame() = runFfiComposeUiTest {
     val renderer = RecordingRenderer()
     val factory = FakeMlnFfiMapHostFactory()
@@ -325,6 +357,8 @@ class MlnFfiMapSurfaceRecoveryTest {
     var failingSurfaceChanges = 0
     var skipNextRender = false
     var skipAllRenders = false
+    var presentationAnchorOffsetX = 0
+    var presentationAnchorOffsetY = 0
     var skippedFrames = 0
       private set
 
@@ -372,6 +406,14 @@ class MlnFfiMapSurfaceRecoveryTest {
         return MlnFfiFrameResult.SKIPPED
       }
       return renderResults.removeFirstOrNull() ?: MlnFfiFrameResult.RENDERED
+    }
+
+    override fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
+      val center = extent.centerPresentationAnchor()
+      return MlnFfiMapPresentationAnchor(
+        x = center.x + presentationAnchorOffsetX,
+        y = center.y + presentationAnchorOffsetY,
+      )
     }
 
     override fun close() {

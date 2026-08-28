@@ -99,7 +99,11 @@ private constructor(
 
   override fun present(target: MlnFfiRenderTarget): Boolean = environment.present(bridge, target)
 
-  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean = present(target)
+  override fun draw(
+    scope: DrawScope,
+    target: MlnFfiRenderTarget,
+    destination: MlnFfiMapDestination,
+  ): Boolean = present(target)
 
   override fun readPixel(x: Int, y: Int): RgbaPixel = environment.readPixel(x, y)
 
@@ -169,7 +173,7 @@ private abstract class DesktopTestGpuEnvironment : AutoCloseable {
         recording.asComposeCanvas(),
         Size(width.toFloat(), height.toFloat()),
       ) {
-        drew = bridge.draw(this, target)
+        drew = bridge.draw(this, target, MlnFfiMapDestination(0, 0, width, height))
       }
       recorder.finishRecordingAsPicture().use(surface.canvas::drawPicture)
     }

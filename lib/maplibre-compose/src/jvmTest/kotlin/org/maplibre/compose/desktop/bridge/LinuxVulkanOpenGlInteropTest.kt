@@ -72,6 +72,7 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
+import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
@@ -420,7 +421,12 @@ class LinuxVulkanOpenGlInteropTest {
         destination.canvas.asComposeCanvas(),
         Size(DRAW_WIDTH.toFloat(), DRAW_HEIGHT.toFloat()),
       ) {
-        drew = host.draw(this, target)
+        drew =
+          host.draw(
+            this,
+            target,
+            MlnFfiMapDestination(0, 0, target.extent.physicalWidth, target.extent.physicalHeight),
+          )
       }
       assertTrue(drew, "The OpenGL host did not draw generation ${target.generation}")
       return readDestination()

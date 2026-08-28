@@ -10,6 +10,13 @@ internal enum class MlnFfiFrameResult {
   SKIPPED,
 }
 
+/** The physical pixel in a render target that contains the padded camera center. */
+internal data class MlnFfiMapPresentationAnchor(val x: Int, val y: Int)
+
+/** Returns the unpadded center of this extent in physical pixels. */
+internal fun MapExtent.centerPresentationAnchor(): MlnFfiMapPresentationAnchor =
+  MlnFfiMapPresentationAnchor(x = physicalWidth / 2, y = physicalHeight / 2)
+
 /**
  * Receives surface lifecycle and frames from a [MlnFfiMapHost]. Every method is called with
  * renderer access held, on the host's renderer thread.
@@ -30,6 +37,13 @@ internal interface MlnFfiMapRenderer : AutoCloseable {
 
   /** Renders one frame into [frame]'s target. */
   fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult
+
+  /**
+   * Returns the camera anchor for the most recent [render] attempt at [extent]. The surface stores
+   * this value with a completed target so that a later resize can preserve its screen position.
+   */
+  fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor =
+    extent.centerPresentationAnchor()
 
   /**
    * Called when the surface went away and any target handles previously seen are now dangling.

@@ -1,9 +1,12 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
+import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
 import org.maplibre.compose.style.BaseStyle
 
 /**
@@ -53,6 +56,27 @@ class MlnFfiMapResizeTest {
         fixture.session.retargetCount >= 3,
         "each of the three sizes should have retargeted, got ${fixture.session.retargetCount}",
       )
+    }
+  }
+
+  @Test
+  fun camera_padding_defines_the_physical_presentation_anchor() {
+    BridgeMapFixture.create(BridgeMapFixture.RETINA_EXTENT).use { fixture ->
+      fixture.loadStyle(BaseStyle.Json(EMPTY_STYLE), extent = BridgeMapFixture.RETINA_EXTENT)
+      fixture.pumpUntilRendered(BridgeMapFixture.RETINA_EXTENT)
+
+      fixture.session.setCameraPadding(
+        PaddingValues(start = 120.dp, top = 40.dp, end = 20.dp, bottom = 8.dp)
+      )
+
+      val expected = MlnFfiMapPresentationAnchor(x = 612, y = 544)
+      fixture.pumpUntil(
+        "the padded camera anchor to reach the renderer",
+        extent = BridgeMapFixture.RETINA_EXTENT,
+      ) {
+        fixture.session.presentationAnchor(BridgeMapFixture.RETINA_EXTENT) == expected
+      }
+      assertEquals(expected, fixture.session.presentationAnchor(BridgeMapFixture.RETINA_EXTENT))
     }
   }
 
