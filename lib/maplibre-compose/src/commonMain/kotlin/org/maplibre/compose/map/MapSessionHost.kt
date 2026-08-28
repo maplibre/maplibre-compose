@@ -15,7 +15,7 @@ import androidx.compose.ui.focus.FocusRequester
 internal interface MapSessionResource<S : Any> {
   val session: S
 
-  /** The engine transition; [MapSessionHost] runs it after the composition applies. */
+  /** The engine transition; [MapSessionHost] runs it after the record accepts the session. */
   fun register()
 
   /** Releases the session and its engine claims; safe unregistered, and on abandonment. */
@@ -23,7 +23,7 @@ internal interface MapSessionResource<S : Any> {
 }
 
 /**
- * The session lifecycle every map view shares: register and attach on launch, release then detach
+ * The session lifecycle every map view shares: attach and register on launch, release then detach
  * on dispose, and the focus and gesture wiring handed to [content].
  */
 @Composable
@@ -36,8 +36,7 @@ internal fun <S : Any> MapSessionHost(
   // A rejected rival session must not detach the state that another session attached.
   val attached = remember(resource) { arrayOf(false) }
   LaunchedEffect(resource) {
-    resource.register()
-    attach(resource.session)
+    bindMapSession(resource, state, attach)
     attached[0] = true
   }
 
@@ -54,4 +53,25 @@ internal fun <S : Any> MapSessionHost(
   val inputScope = rememberCoroutineScope()
   val continuation = remember(resource, inputScope) { GestureContinuation(inputScope) }
   content(focusRequester, continuation)
+}
+
+/**
+ * The record accepts the session first. The engine is registered only after that, so a capture
+ * lease or a closed state cannot leave the engine holding a session the record refused. A failure
+ * after the record accepted detaches that session; [MapSessionResource.release] stays with dispose.
+ */
+internal fun <S : Any> bindMapSession(
+  resource: MapSessionResource<S>,
+  state: MapState,
+  attach: (S) -> Unit,
+) {
+  var bound = false
+  try {
+    attach(resource.session)
+    bound = true
+    resource.register()
+  } catch (error: Throwable) {
+    if (bound) state.detachSession()
+    throw error
+  }
 }

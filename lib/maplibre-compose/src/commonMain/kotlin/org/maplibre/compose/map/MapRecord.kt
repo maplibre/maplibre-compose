@@ -89,6 +89,8 @@ internal class MapRecord(initialCamera: CameraPosition) {
         task()
         continue
       }
+      // Empty-queue observation and owner release are one handoff. A callback that enqueues after
+      // the empty read keeps this drain running instead of parking until a later commit.
       val done = effectLock.withLock {
         if (effects.isNotEmpty()) {
           false

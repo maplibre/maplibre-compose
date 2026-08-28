@@ -1,12 +1,14 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.sources
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicReference
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
-import org.maplibre.compose.map.currentThreadToken
 import org.maplibre.compose.map.newSessionLock
 import org.maplibre.compose.style.LocalStyleNode
 import org.maplibre.compose.style.StyleBinding
@@ -25,16 +27,18 @@ public sealed class Source(internal val id: String) {
    */
   internal abstract fun toJson(): JsonObject
 
-  @Volatile
-  internal var binding: StyleBinding = StyleBinding.UNLOADED
-    private set
+  private val bindingRef = AtomicReference(StyleBinding.UNLOADED)
+
+  internal var binding: StyleBinding
+    get() = bindingRef.load()
+    private set(value) {
+      bindingRef.store(value)
+    }
 
   private var removeUnloadAction: (() -> Unit)? = null
 
   // Two style hosts run on separate threads; the lock makes each ownership claim atomic.
   private val attachLock = newSessionLock()
-
-  @Volatile private var attachThread: Any? = null
 
   /** Whether this source currently belongs to a loaded style. */
   internal val isAttached: Boolean
@@ -44,14 +48,7 @@ public sealed class Source(internal val id: String) {
     get() = (toJson()["attribution"] as? JsonPrimitive)?.content.orEmpty()
 
   /** Adds this source to a style and starts routing mutations to it. */
-  internal fun attach(binding: StyleBinding): Unit = attachLock.withLock {
-    attachThread = currentThreadToken()
-    try {
-      attachLocked(binding)
-    } finally {
-      attachThread = null
-    }
-  }
+  internal fun attach(binding: StyleBinding): Unit = attachLock.withLock { attachLocked(binding) }
 
   private fun attachLocked(binding: StyleBinding) {
     check(this.binding === binding || !this.binding.isLoaded) {
@@ -98,16 +95,7 @@ public sealed class Source(internal val id: String) {
   internal open fun addTo(binding: StyleBinding): Boolean = binding.addSource(id, toJson())
 
   private fun applyUnload(expected: StyleBinding) {
-    if (attachThread === currentThreadToken()) {
-      clearIfExpected(expected)
-      return
-    }
-    attachLock.withLock { clearIfExpected(expected) }
-  }
-
-  private fun clearIfExpected(expected: StyleBinding) {
-    if (binding === expected) {
-      binding = StyleBinding.UNLOADED
+    if (bindingRef.compareAndSet(expected, StyleBinding.UNLOADED)) {
       removeUnloadAction = null
     }
   }
