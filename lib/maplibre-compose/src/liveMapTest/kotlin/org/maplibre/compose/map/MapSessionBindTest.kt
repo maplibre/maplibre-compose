@@ -22,7 +22,7 @@ class MapSessionBindTest {
     assertTrue(error.message == SNAPSHOT_SESSION_ERROR)
     assertFalse(resource.registered)
     assertNull(state.attachedAdapter)
-    state.commit { finishCapture(lease) }
+    state.commit { finishCapture(lease.id) }
     state.close()
   }
 
@@ -53,6 +53,16 @@ class MapSessionBindTest {
     state.detachSession()
     first.release()
     state.close()
+  }
+
+  @Test
+  fun a_closed_state_registers_without_attaching() {
+    val state = MapState(CameraPosition())
+    state.close()
+    val resource = RecordingSessionResource()
+    bindMapSession(resource, state) { state.attachSession(it) }
+    assertTrue(resource.registered)
+    assertFalse(state.isAttached)
   }
 
   @Test

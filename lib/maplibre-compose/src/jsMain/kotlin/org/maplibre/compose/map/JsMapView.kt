@@ -42,8 +42,9 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
     resource = resource,
     state = state,
     attach = { s ->
-      // A session the closed engine refused must not attach; the closed state would throw.
-      if (!s.isClosed) state.attachSession(s)
+      // bindMapSession skips this when the state is closed; keep the session-closed guard for a
+      // session the engine refused before attach ran.
+      if (!state.isClosed && !s.isClosed) state.attachSession(s)
     },
   ) { focusRequester, continuation ->
     // A new Canvas delays the first frame until the attach path wires the camera to the session.

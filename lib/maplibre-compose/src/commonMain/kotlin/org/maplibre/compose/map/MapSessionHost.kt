@@ -67,6 +67,12 @@ internal fun <S : Any> bindMapSession(
   state: MapState,
   attach: (S) -> Unit,
 ) {
+  if (state.isClosed) {
+    // The record refuses every session. Register so the engine closes a still-composed view's
+    // fresh session and logs the refusal; attach would throw into the composition.
+    resource.register()
+    return
+  }
   val alreadyAttached = state.attachedAdapter
   var bound = false
   try {
