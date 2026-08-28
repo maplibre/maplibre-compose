@@ -17,14 +17,17 @@ jobs:
   # All static analysis, Android Lint included; every other job is a platform.
   # `fix` then a clean-tree assertion rather than `check`, because a push cannot
   # reach a fork's branch. It runs first, so formatting still fails in seconds.
-  # Same-repo Dependabot pull requests: commit that `fix` output and stop, so
-  # the next run sees a clean tree.
+  # Same-repo Dependabot pull requests: commit that `fix` output, push, and
+  # dispatch a replacement CI run. A GITHUB_TOKEN push does not start one.
   hygiene:
     timeout-minutes: 25
     runs-on: ubuntu-24.04
     # Dependabot events mint a read-only token unless the job asks for write.
+    # actions: write lets this job dispatch a replacement CI run; a push that
+    # uses GITHUB_TOKEN does not start one on its own.
     permissions:
       contents: write
+      actions: write
     env:
       DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
@@ -46,34 +49,29 @@ jobs:
       - id: apply-fix
         name: Commit hygiene fixes
         if: env.DEPENDABOT_PR == 'true'
+        run: mise run ci:commit-hygiene-fixes
+      - name: Push hygiene fixes
+        if: env.DEPENDABOT_PR == 'true' && steps.apply-fix.outputs.committed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
         run: |
           set -euo pipefail
-          git update-index -q --refresh
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "pushed=false" >> "$GITHUB_OUTPUT"
-            echo "Tree already clean."
-            exit 0
-          fi
-          # Tracked files only: `mise run fix` may write generated docs that
-          # stay untracked.
-          git add --update
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --message "chore: apply hygiene fixes"
           git push
-          echo "pushed=true" >> "$GITHUB_OUTPUT"
+          # GITHUB_TOKEN pushes do not start workflows; workflow_dispatch does.
+          gh workflow run CI --ref "${HEAD_REF}"
       - name: Check formatted files
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
         run: |
           git update-index -q --refresh
           git diff --exit-code
           git diff --cached --exit-code
       - run: mise run lint:android
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
       - run: mise run ci:test-scripts
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
       - run: mise run style-spec:parity -- --check
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
 
   android:
     strategy:
