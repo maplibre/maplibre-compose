@@ -92,7 +92,15 @@ internal fun MlnFfiMapSurface(
         }
 
         fun presentLastCompletedTarget() {
-          drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
+          val completed = drawState.lastCompletedPresentation ?: return
+          val destinationAnchor = drawState.presentationAnchor(frameExtent)
+          val destination =
+            presentationDestination(
+              extent = completed.target.extent,
+              sourceAnchor = completed.anchor,
+              destinationAnchor = destinationAnchor,
+            )
+          drew = host.draw(this, completed.target, destination)
         }
 
         when (val acquisition = host.acquireFrame(frameId, frameExtent, nowNanos)) {
@@ -104,10 +112,16 @@ internal fun MlnFfiMapSurface(
             val frame = acquisition.frame
             var rendered = false
             try {
-              when (host.withProducerAccess(frame) { renderer.render(frame) }) {
+              val (result, anchor) =
+                host.withProducerAccess(frame) {
+                  renderer.render(frame) to renderer.presentationAnchor(frame.extent)
+                }
+              drawState.recordPresentationAnchor(frame.extent, anchor)
+              when (result) {
                 MlnFfiFrameResult.RENDERED -> {
                   host.completeProducerAccess(frame)
-                  drawState.lastCompletedTarget = frame.target
+                  drawState.lastCompletedPresentation =
+                    MlnFfiMapCompletedPresentation(frame.target, anchor)
                   rendered = true
                 }
                 MlnFfiFrameResult.SKIPPED -> Unit
@@ -161,7 +175,7 @@ private fun recoverFromFrameFailure(
     "Map frame $frameId failed; rebuilding the render session " +
       "(attempt $attempt of $MAX_FRAME_RECOVERY_ATTEMPTS)"
   }
-  drawState.lastCompletedTarget = null
+  drawState.lastCompletedPresentation = null
   try {
     renderer.onSurfaceLost()
   } catch (releaseError: Throwable) {
@@ -185,8 +199,10 @@ private class MlnFfiMapDrawState {
   private var nextFrameId = 1L
   private var rendererClosed = false
 
-  var lastCompletedTarget: MlnFfiRenderTarget? = null
+  var lastCompletedPresentation: MlnFfiMapCompletedPresentation? = null
   var configuredExtent: MapExtent = MapExtent.Empty
+  private var presentationExtent: MapExtent = MapExtent.Empty
+  private var currentPresentationAnchor: MlnFfiMapPresentationAnchor? = null
 
   var frameFailures: Int = 0
     private set
@@ -206,12 +222,28 @@ private class MlnFfiMapDrawState {
   }
 
   fun reset() {
-    lastCompletedTarget = null
+    lastCompletedPresentation = null
     configuredExtent = MapExtent.Empty
+    presentationExtent = MapExtent.Empty
+    currentPresentationAnchor = null
     frameFailures = 0
     rendererClosed = false
   }
+
+  fun recordPresentationAnchor(extent: MapExtent, anchor: MlnFfiMapPresentationAnchor) {
+    presentationExtent = extent
+    currentPresentationAnchor = anchor
+  }
+
+  fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor =
+    currentPresentationAnchor?.takeIf { presentationExtent == extent }
+      ?: extent.centerPresentationAnchor()
 }
+
+private data class MlnFfiMapCompletedPresentation(
+  val target: MlnFfiRenderTarget,
+  val anchor: MlnFfiMapPresentationAnchor,
+)
 
 private class MlnFfiMapHostSessionImpl(
   private val host: MlnFfiMapHost,

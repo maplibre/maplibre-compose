@@ -74,7 +74,11 @@ internal class IosMetalTestRenderDriver private constructor(private val device: 
     action()
   }
 
-  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean = false
+  override fun draw(
+    scope: DrawScope,
+    target: MlnFfiRenderTarget,
+    destination: MlnFfiMapDestination,
+  ): Boolean = false
 
   /** The producer renders directly into the test texture, so there is nothing to present. */
   override fun present(target: MlnFfiRenderTarget): Boolean = true

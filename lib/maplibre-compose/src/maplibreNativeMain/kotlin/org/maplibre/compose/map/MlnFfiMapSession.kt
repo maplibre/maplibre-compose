@@ -14,6 +14,7 @@ import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
+import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
@@ -25,6 +26,7 @@ import org.maplibre.compose.mlnffi.VulkanImageTarget
 import org.maplibre.compose.mlnffi.VulkanSurfaceTarget
 import org.maplibre.compose.mlnffi.WglContextHandles
 import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
+import org.maplibre.nativeffi.camera.EdgeInsets
 import org.maplibre.nativeffi.error.InvalidArgumentException
 import org.maplibre.nativeffi.error.MaplibreException
 import org.maplibre.nativeffi.error.NativeErrorException
@@ -57,6 +59,11 @@ internal class MlnFfiMapSession(
   internal val core: MlnFfiMapCore,
   override val backend: MapRenderBackend,
 ) : MlnFfiMapRenderer, MlnFfiRenderSessionAccess, GestureTarget by core {
+
+  /**
+   * The padding of the last rendered frame; the surface anchors preserved resize frames with it.
+   */
+  @Volatile private var renderedCameraPadding: EdgeInsets = EdgeInsets.ZERO
 
   /** Renderer-thread state. */
   private var renderSession: RenderSessionHandle? = null
@@ -201,6 +208,7 @@ internal class MlnFfiMapSession(
     }
 
     val map = loop.map ?: return MlnFfiFrameResult.SKIPPED
+    renderedCameraPadding = core.appliedCameraPadding
 
     if (!ensureAttached(map, frame)) return MlnFfiFrameResult.SKIPPED
     // Consumed before rendering, so an update published during the render below is not discarded.
@@ -246,6 +254,18 @@ internal class MlnFfiMapSession(
     lastRenderTime = renderStart
     reportFrameRate()
     return MlnFfiFrameResult.RENDERED
+  }
+
+  override fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
+    val padding = renderedCameraPadding
+    return MlnFfiMapPresentationAnchor(
+      x =
+        ((extent.physicalWidth + (padding.left - padding.right) * extent.scaleFactor) / 2.0)
+          .toInt(),
+      y =
+        ((extent.physicalHeight + (padding.top - padding.bottom) * extent.scaleFactor) / 2.0)
+          .toInt(),
+    )
   }
 
   /** Closes only the render half and detaches from the core, which survives for a later session. */

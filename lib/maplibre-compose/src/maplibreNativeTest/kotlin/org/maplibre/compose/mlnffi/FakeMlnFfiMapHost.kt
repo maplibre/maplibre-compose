@@ -179,10 +179,13 @@ internal class FakeMlnFfiMapHost(
     return action()
   }
 
-  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
+  override fun draw(
+    scope: DrawScope,
+    target: MlnFfiRenderTarget,
+    destination: MlnFfiMapDestination,
+  ): Boolean {
     calls += "draw(gen=${target.generation})"
     drawnTargets += target
-    val destination = scope.centeredDestination(target.extent)
     drawRecords +=
       DrawRecord(
         target = target,

@@ -651,6 +651,7 @@ internal class MlnFfiMapCore(
     val padding = cameraPadding
     configureMap { map ->
       map.jumpTo(position.toCameraOptions(padding))
+      appliedCameraPadding = padding
       snapshotViewport(map)
     }
   }
@@ -834,8 +835,14 @@ internal class MlnFfiMapCore(
   private var paddingApplyDeferred = false
 
   /** Owner thread only. Jumps to the latest recorded padding without touching the camera. */
+  /** The padding the map last received; the session anchors preserved resize frames with it. */
+  @Volatile
+  internal var appliedCameraPadding: EdgeInsets = EdgeInsets.ZERO
+    private set
+
   private fun applyCameraPadding(map: MapHandle) {
     map.jumpTo(CameraOptions().also { it.padding = cameraPadding })
+    appliedCameraPadding = cameraPadding
     snapshotViewport(map)
   }
 
