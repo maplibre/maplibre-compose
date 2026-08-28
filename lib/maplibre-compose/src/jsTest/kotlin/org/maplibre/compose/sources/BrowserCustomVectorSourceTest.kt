@@ -9,6 +9,7 @@ import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.layers.CircleLayerDescriptor
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.createMapFixture
@@ -36,7 +37,7 @@ class BrowserCustomVectorSourceTest {
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
       fun isSourceLoaded(): Boolean =
-        source.glJsBinding?.withMap { map -> map.isSourceLoaded(source.id) } == true
+        style.glJs?.withMap { map -> map.isSourceLoaded(source.id) } == true
 
       assertFalse(isSourceLoaded())
       release.complete(Unit)
@@ -57,15 +58,15 @@ class BrowserCustomVectorSourceTest {
       style.addSource(first)
       style.addSource(second)
 
-      val firstUrl = assertNotNull(first.liveTileUrlTemplate())
-      val secondUrl = assertNotNull(second.liveTileUrlTemplate())
+      val firstUrl = assertNotNull(first.liveTileUrlTemplate(style))
+      val secondUrl = assertNotNull(second.liveTileUrlTemplate(style))
       assertNotEquals(firstUrl, secondUrl)
     }
   }
 
   /** The tile URL template MapLibre GL JS holds for this live source. */
-  private fun CustomVectorSource.liveTileUrlTemplate(): String? =
-    glJsBinding
+  private fun CustomVectorSource.liveTileUrlTemplate(style: StyleBinding): String? =
+    style.glJs
       ?.withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.serialize()?.tiles }
       ?.unsafeCast<Array<String>>()
       ?.single()
@@ -87,11 +88,11 @@ class BrowserCustomVectorSourceTest {
       style.addLayer(layer)
 
       fixture.pumpUntil("the rejected protocol request to reach MapLibre GL JS") {
-        requested && source.glJsBinding?.lastReportedError != null
+        requested && style.glJs?.lastReportedError != null
       }
 
       assertTrue(requested)
-      assertNotNull(source.glJsBinding?.lastReportedError)
+      assertNotNull(style.glJs?.lastReportedError)
     }
   }
 }

@@ -7,6 +7,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
 import org.maplibre.compose.testing.runMapTest
@@ -48,21 +49,21 @@ class BrowserRasterDemSourceTest {
       style.addSource(source)
 
       // MapLibre GL JS keeps the encoding on the live source, which is what the map renders with.
-      assertEquals("custom", source.liveEncoding())
-      assertEquals(2.0, source.liveRedFactor())
+      assertEquals("custom", source.liveEncoding(style))
+      assertEquals(2.0, source.liveRedFactor(style))
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
     }
   }
 
   /** The DEM encoding that MapLibre GL JS holds for this live source. */
-  private fun RasterDemSource.liveEncoding(): String? =
-    glJsBinding
+  private fun RasterDemSource.liveEncoding(style: StyleBinding): String? =
+    style.glJs
       ?.withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.encoding }
       ?.unsafeCast<String?>()
 
   /** The custom encoding's red factor that MapLibre GL JS holds for this live source. */
-  private fun RasterDemSource.liveRedFactor(): Double? =
-    glJsBinding
+  private fun RasterDemSource.liveRedFactor(style: StyleBinding): Double? =
+    style.glJs
       ?.withMap { map -> map.getSource<SourceHandle>(id)?.asDynamic()?.redFactor }
       ?.unsafeCast<Double?>()
 

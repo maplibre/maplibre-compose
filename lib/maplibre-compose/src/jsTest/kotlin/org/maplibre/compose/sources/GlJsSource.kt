@@ -1,7 +1,8 @@
 package org.maplibre.compose.sources
 
 import org.maplibre.compose.style.GlJsStyleBinding
+import org.maplibre.compose.style.StyleBinding
 
-/** This source's binding as MapLibre GL JS's own, or null when it has never attached to one. */
-internal val Source.glJsBinding: GlJsStyleBinding?
-  get() = binding as? GlJsStyleBinding
+/** This binding as MapLibre GL JS's own, or null when it is not a browser style. */
+internal val StyleBinding.glJs: GlJsStyleBinding?
+  get() = this as? GlJsStyleBinding
