@@ -292,6 +292,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       // One sync of the desired style composition against the loaded style before rendering.
       state.host.requestApplyChanges()
       state.host.awaitPendingWork()
+      // A setCamera that raced the replay above re-sends here, so the image holds the record.
+      core.setCameraPosition(state.camera)
       return renderStillImage(
         core = core,
         target = target,

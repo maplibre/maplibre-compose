@@ -366,9 +366,10 @@ internal constructor(
    */
   public suspend fun setCamera(position: CameraPosition) {
     // The record precedes the read: an attach publishes its adapter before it replays the record,
-    // so a null read here means the coming replay sends this position.
+    // so a null read here means the coming replay sends this position. A retained or capturing
+    // map takes the write directly, so a capture's own replay cannot win over it.
     positionState.value = position
-    attachedAdapter?.setCameraPosition(position)
+    (attachedAdapter ?: engine.detachedAdapter)?.setCameraPosition(position)
   }
 
   /**
