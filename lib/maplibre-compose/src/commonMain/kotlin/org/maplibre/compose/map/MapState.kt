@@ -305,6 +305,7 @@ internal constructor(
       // A new selection makes the previous style's load failure and completion stale.
       lastLoadFailure.value = null
       loadFinishedWhileDetached = false
+      loadFailedWhileDetached = null
       (attachedAdapter ?: engine.detachedAdapter)?.setBaseStyle(value)
     }
 
@@ -545,10 +546,17 @@ internal constructor(
       loadFinishedWhileDetached = false
       callbacks.onMapLoadFinished()
     }
+    loadFailedWhileDetached?.let { reason ->
+      loadFailedWhileDetached = null
+      callbacks.onMapLoadFailed(reason)
+    }
   }
 
   /** True when a retained map finished a style load while no session was attached. */
   internal var loadFinishedWhileDetached: Boolean = false
+
+  /** The failure a retained map reported while no session was attached, replayed at attach. */
+  internal var loadFailedWhileDetached: String? = null
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
   internal fun detachSession() {

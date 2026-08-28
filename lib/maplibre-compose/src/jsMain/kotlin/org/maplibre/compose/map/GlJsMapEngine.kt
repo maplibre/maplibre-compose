@@ -51,6 +51,7 @@ internal actual class MapEngine actual constructor(@Suppress("unused") state: Ma
 
   actual override fun close() {
     closed = true
+    session?.closingWithState = true
     session?.close()
     session = null
   }

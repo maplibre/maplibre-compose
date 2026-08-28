@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
 import js.objects.unsafeJso
 import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import kotlin.math.log2
 import kotlin.time.Duration
 import kotlin.time.DurationUnit
@@ -99,6 +100,9 @@ internal class GlJsMapSession(
   /** True after [close]; the engine and tests read it to observe a state-driven teardown. */
   internal val isClosed: Boolean
     get() = closed
+
+  /** Set by the engine before a MapState.close teardown; a plain detach leaves it false. */
+  internal var closingWithState = false
 
   /** Everything here runs on the one browser thread, so the queues take no lock. */
   private val runOnMap: (MaplibreMap, PendingAction<MaplibreMap>) -> Boolean = { map, action ->
@@ -279,6 +283,8 @@ internal class GlJsMapSession(
     appliedExtent = MapExtent.Empty
     applyRequestedStyle(created)
     cameraConstraints?.let { applyCameraConstraints(created, it) }
+    // The destroyed map took its padding with it; the saved value applies to the replacement.
+    created.jumpTo(unsafeJso<JumpToOptions> { this.padding = cameraPadding })
     pendingMapActions.flush { PendingActionGate.Open(created) }
     return created
   }
@@ -540,8 +546,18 @@ internal class GlJsMapSession(
             )
           }
         },
-        // The fit ends with the session that accepted it.
-        abandon = { if (continuation.isActive) continuation.resume(Unit) },
+        // The fit ends with the session that accepted it; a state close fails it instead.
+        abandon = {
+          if (continuation.isActive) {
+            if (closingWithState) {
+              continuation.resumeWithException(
+                IllegalStateException("MapState was closed before the camera fit ran")
+              )
+            } else {
+              continuation.resume(Unit)
+            }
+          }
+        },
       )
     )
   }

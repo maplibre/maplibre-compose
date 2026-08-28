@@ -5,6 +5,7 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -66,7 +67,7 @@ class LayerHandleImagePropertyTest {
   }
 
   @Test
-  fun a_paint_write_with_an_image_expression_registers_the_image() = runTest {
+  fun a_paint_write_with_an_image_literal_is_refused_and_a_registered_id_works() = runTest {
     val state = mapState()
     state.setStyleComposition {}
     val descriptor = BackgroundLayerDescriptor("bg-base")
@@ -77,18 +78,25 @@ class LayerHandleImagePropertyTest {
     testScheduler.advanceUntilIdle()
     descriptor.bindExisting(binding)
 
+    // A literal has no release path outside a composition, so the write is refused.
     val handle = assertNotNull(state.layers["bg-base"])
-    handle.setPaintProperty("background-pattern", image(ImageBitmap(4, 4)))
+    val error =
+      assertFailsWith<IllegalArgumentException> {
+        handle.setPaintProperty("background-pattern", image(ImageBitmap(4, 4)))
+      }
+    assertTrue(
+      "MapState.images" in error.message.orEmpty(),
+      "the error names the imperative image channel: ${error.message}",
+    )
+    assertEquals(0, binding.images.size, "the refused write must register nothing")
 
-    assertEquals(1, binding.images.size, "the image write must register the bitmap")
-    val imageId = binding.images.keys.single()
+    // The imperative image channel plus an id reference serves the same need.
+    state.images.add("pattern", ImageBitmap(4, 4))
+    handle.setPaintProperty("background-pattern", image("pattern"))
     val (layerId, name, value) = binding.properties.last()
     assertEquals("bg-base", layerId)
     assertEquals("background-pattern", name)
-    assertTrue(
-      imageId in value.toString(),
-      "the property JSON must reference the generated image id, got $value",
-    )
+    assertTrue("pattern" in value.toString(), "the property JSON references the id, got $value")
 
     state.close()
     testScheduler.advanceUntilIdle()

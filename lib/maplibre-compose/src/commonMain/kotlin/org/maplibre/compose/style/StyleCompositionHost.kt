@@ -119,6 +119,15 @@ internal class StyleCompositionHost(
 
   private val writeObserver = Snapshot.registerGlobalWriteObserver { snapshotSignal.trySend(Unit) }
 
+  // UI components' apply observers assume the main thread; every delivery this host makes rides it
+  // when the platform has one.
+  private val applyNotificationDispatcher: CoroutineDispatcher =
+    if (runCatching { Dispatchers.Main.isDispatchNeeded(EmptyCoroutineContext) }.isSuccess) {
+      Dispatchers.Main
+    } else {
+      dispatcher
+    }
+
   init {
     rootNode.requestSync = ::requestApplyChanges
     // Emits without touching contentError, because a reported sync condition is not a dead style.
@@ -136,14 +145,6 @@ internal class StyleCompositionHost(
         reportError("Style composition failed; the style stops updating", error)
       }
     }
-    // UI components' apply observers assume the main thread, so deliveries ride Main when the
-    // platform has one; a UI-less platform delivers on the host thread.
-    val applyNotificationDispatcher =
-      if (runCatching { Dispatchers.Main.isDispatchNeeded(EmptyCoroutineContext) }.isSuccess) {
-        Dispatchers.Main
-      } else {
-        dispatcher
-      }
     scope.launch {
       for (unused in snapshotSignal) {
         withContext(applyNotificationDispatcher) { Snapshot.sendApplyNotifications() }
@@ -258,7 +259,7 @@ internal class StyleCompositionHost(
     if (closed) return
     while (true) {
       // Delivers any written-but-unnotified snapshot state, so a caller's plain write is enough.
-      Snapshot.sendApplyNotifications()
+      withContext(applyNotificationDispatcher) { Snapshot.sendApplyNotifications() }
       recomposer.currentState.first { it != Recomposer.State.PendingWork }
       scope.launch {}.join()
       if (recomposer.currentState.value == Recomposer.State.PendingWork) continue
@@ -275,9 +276,14 @@ internal class StyleCompositionHost(
    */
   internal suspend fun <T> runSerialized(block: () -> T): T {
     check(!closed) { "MapState is closed; no loaded style to mutate" }
+    val caller = currentCoroutineContext()
     // runCatching keeps an ordinary failure out of the host's job, which one failed op must not
-    // cancel; fatal errors still propagate.
-    val deferred = scope.async { runCatching(block).onFailure { rethrowIfFatal(it) } }
+    // cancel; fatal errors still propagate. A caller cancelled while its block queued must not
+    // mutate the style it no longer awaits.
+    val deferred = scope.async {
+      caller.ensureActive()
+      runCatching(block).onFailure { rethrowIfFatal(it) }
+    }
     val result =
       try {
         deferred.await()
