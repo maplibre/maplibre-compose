@@ -47,7 +47,11 @@ compose.desktop {
           .asFile
           .absolutePath
 
-      targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
+      // jpackage ships DMG and MSI. Linux uses appimagetool via
+      // `mise run build:desktop-app`: Compose TargetFormat.AppImage is an
+      // unpacked directory, not a .AppImage file, and TargetFormat.Deb needs
+      // fakeroot.
+      targetFormats(TargetFormat.Dmg, TargetFormat.Msi)
       packageName = "org.maplibre.compose.demoapp"
       // https://youtrack.jetbrains.com/issue/CMP-2360
       // packageVersion = providers.gradleProperty("maplibreReleaseVersion").get()

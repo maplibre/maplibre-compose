@@ -222,6 +222,23 @@ url = "https://github.com/rhysd/actionlint/releases/download/v1.7.12/actionlint_
 url_api = "https://api.github.com/repos/rhysd/actionlint/releases/assets/384924919"
 provenance = "github-attestations"
 
+[[tools."github:AppImage/appimagetool"]]
+version = "1.9.1"
+backend = "github:AppImage/appimagetool"
+
+[tools."github:AppImage/appimagetool".options]
+version_prefix = ""
+
+[tools."github:AppImage/appimagetool"."platforms.linux-arm64"]
+checksum = "sha256:f0837e7448a0c1e4e650a93bb3e85802546e60654ef287576f46c71c126a9158"
+url = "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-aarch64.AppImage"
+url_api = "https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406707"
+
+[tools."github:AppImage/appimagetool"."platforms.linux-x64"]
+checksum = "sha256:ed4ce84f0d9caff66f50bcca6ff6f35aae54ce8135408b3fa33abfc3cb384eb0"
+url = "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-x86_64.AppImage"
+url_api = "https://api.github.com/repos/AppImage/appimagetool/releases/assets/324406736"
+
 [[tools."github:sargunv/jvl"]]
 version = "2026.05.03"
 backend = "github:sargunv/jvl"

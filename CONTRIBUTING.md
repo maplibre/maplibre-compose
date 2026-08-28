@@ -117,6 +117,11 @@ the test runtime supplies MoltenVK through LWJGL, and CI installs a software
 Vulkan driver on Linux and Windows. A host with no usable Vulkan implementation
 fails these tests rather than skipping them.
 
+`mise run build:desktop-app` packages a host installer: an AppImage on Linux, a
+DMG on macOS, and an MSI on Windows. Linux packaging uses the mise-pinned
+`appimagetool` and does not need fakeroot or dpkg. The Linux task also writes a
+`.tar` next to the AppImage so the CI artifact keeps the execute bit.
+
 ## Run the demo
 
 Use IntelliJ or Android Studio to launch the demo app on Android and XCode to

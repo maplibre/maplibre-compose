@@ -46,6 +46,7 @@ ruff_version = "0.16.2"
 shellcheck_version = "0.11.0"
 swiftformat_version = "0.62.1"
 xcodes_version = "2.0.3"
+appimagetool_version = "1.9.1"
 
 [tools]
 "aqua:jdx/hk" = "{{vars.hk_version}}" # Linter orchestration
@@ -72,6 +73,12 @@ swiftformat = { version = "{{vars.swiftformat_version}}", backend = "github:nick
 
 # The CLI only. Xcode itself comes from `mise run install-xcode`.
 "aqua:XcodesOrg/xcodes" = { version = "{{vars.xcodes_version}}", os = ["macos"] }
+
+# Linux-only. Packs the jpackage application directory into a .AppImage.
+# Upstream ships the tool as an AppImage; the packaging script sets
+# APPIMAGE_EXTRACT_AND_RUN so it does not need FUSE. The tag is `1.9.1`,
+# not `v1.9.1`.
+"github:AppImage/appimagetool" = { version = "{{vars.appimagetool_version}}", os = ["linux"], version_prefix = "", bin = "appimagetool" }
 
 [env]
 PLAYWRIGHT_BROWSERS_PATH = "{{ config_root }}/.cache/playwright"
@@ -304,12 +311,19 @@ NODE
 '''
 
 [tasks."build:android-app"]
-description = "Package the demo app as a debug APK."
-run = "./gradlew :demo-app:android:packageDebug"
+description = "Package the demo app as a release APK."
+run = "./gradlew :demo-app:android:packageRelease"
 
 [tasks."build:desktop-app"]
-description = "Package the demo app as a native installer for this host."
-run = "./gradlew :demo-app:desktop:packageDistributionForCurrentOS"
+description = "Package the demo app as an AppImage, DMG, or MSI for this host."
+run = '''
+if [ "$(uname -s)" = Linux ]; then
+  ./gradlew :demo-app:desktop:createDistributable
+  .mise/bin/package-desktop-appimage
+else
+  ./gradlew :demo-app:desktop:packageDistributionForCurrentOS
+fi
+'''
 
 [tasks."demo:android"]
 description = "Run the demo app on a connected Android device or emulator."
