@@ -77,8 +77,7 @@ internal sealed class Layer(val id: String) {
    * creates the layer, not pushed afterwards.
    */
   protected fun setRootProperty(name: String, value: JsonElement) {
-    root[name] = value
-    pushProperty(name, value, LayerPropertyKind.ROOT)
+    if (pushProperty(name, value, LayerPropertyKind.ROOT)) root[name] = value
   }
 
   /**
@@ -97,10 +96,10 @@ internal sealed class Layer(val id: String) {
   }
 
   /**
-   * Logs a value MapLibre rejects rather than throwing: this runs inside a Compose update block,
-   * where an escaping exception would kill the composition. [attach] does throw.
+   * Returns whether the descriptor keeps [value]: a rejected write keeps the previous entry. A
+   * rejection logs rather than throws, because this runs inside a Compose update block, where an
+   * escaping exception would kill the composition. [attach] does throw.
    */
-  /** Returns whether the descriptor keeps [value]: a rejected write keeps the previous entry. */
   private fun pushProperty(name: String, value: JsonElement, kind: LayerPropertyKind): Boolean {
     if (recordIfUnsupported(name, value)) return true
     return try {

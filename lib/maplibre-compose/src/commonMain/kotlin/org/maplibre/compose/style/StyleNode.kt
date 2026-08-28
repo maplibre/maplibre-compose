@@ -86,6 +86,14 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal var compositionSources: Map<String, Source> = emptyMap()
     private set
 
+  /** Empties every published ownership snapshot; the close path calls it before teardown runs. */
+  internal fun clearPublishedOwnership() {
+    compositionSources = emptyMap()
+    appSourceSnapshot = emptyMap()
+    appImageIds = emptyList()
+    compositionLayerIds = emptySet()
+  }
+
   /**
    * The sources added through [StyleSources.add][org.maplibre.compose.map.StyleSources.add], by id.
    * Host-confined; the sync never touches them, and a binding change resets them.

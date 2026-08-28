@@ -643,6 +643,7 @@ internal constructor(
     // The collections must not report the destroyed map's style.
     styleNode.binding = StyleBinding.UNLOADED
     styleNode.refreshLiveLayerIds()
+    styleNode.clearPublishedOwnership()
     sources.clear()
     engine.close()
     host.close()
