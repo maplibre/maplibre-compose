@@ -1,13 +1,15 @@
+@file:OptIn(ExperimentalForeignApi::class)
+
 package org.maplibre.compose.testing
 
 import kotlin.concurrent.AtomicReference
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import platform.Foundation.NSDate
-import platform.Foundation.NSDefaultRunLoopMode
-import platform.Foundation.NSRunLoop
-import platform.Foundation.dateWithTimeIntervalSinceNow
+import platform.CoreFoundation.CFRunLoopRunInMode
+import platform.CoreFoundation.kCFRunLoopDefaultMode
+import platform.CoreFoundation.kCFRunLoopRunFinished
 import platform.posix.usleep
 
 /**
@@ -19,9 +21,8 @@ internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult {
   val outcome = AtomicReference<Result<Unit>?>(null)
   CoroutineScope(Dispatchers.Default).launch { outcome.value = runCatching { block() } }
   while (outcome.value == null) {
-    val ranSource =
-      NSRunLoop.mainRunLoop.runMode(NSDefaultRunLoopMode, NSDate.dateWithTimeIntervalSinceNow(0.1))
-    if (!ranSource) usleep(10_000u)
+    val result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true)
+    if (result.toInt() == kCFRunLoopRunFinished.toInt()) usleep(10_000u)
   }
   outcome.value!!.getOrThrow()
 }
