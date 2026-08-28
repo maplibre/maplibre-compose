@@ -10,6 +10,7 @@ import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,9 +51,12 @@ import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
 
 @Composable
-fun DemoApp(state: DemoAppState = rememberDemoAppState()) {
+fun DemoApp(
+  state: DemoAppState = rememberDemoAppState(),
+  contentPadding: PaddingValues = PaddingValues(0.dp),
+) {
   StartAgentDriver(state)
-  DemoAppTheme(state) { DemoShell(state) }
+  DemoAppTheme(state) { DemoShell(state, contentPadding) }
 }
 
 @Composable
@@ -83,11 +87,14 @@ private enum class DemoShellLayout {
 }
 
 @Composable
-private fun DemoShell(state: DemoAppState) {
+private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
   BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
-    val safeInsets = WindowInsets.safeDrawing.toMapViewportInsets(density, layoutDirection)
+    val safeInsets =
+      WindowInsets.safeDrawing
+        .toMapViewportInsets(density, layoutDirection)
+        .union(contentPadding.toMapViewportInsets(layoutDirection))
     val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
     val windowSizeClass = windowAdaptiveInfo.windowSizeClass
     val layout = windowSizeClass.toDemoShellLayout()

@@ -43,3 +43,11 @@ fun WindowInsets.toMapViewportInsets(
       bottom = getBottom(density).toDp(),
     )
   }
+
+fun PaddingValues.toMapViewportInsets(layoutDirection: LayoutDirection): MapViewportInsets =
+  MapViewportInsets(
+    left = calculateLeftPadding(layoutDirection),
+    top = calculateTopPadding(),
+    right = calculateRightPadding(layoutDirection),
+    bottom = calculateBottomPadding(),
+  )
