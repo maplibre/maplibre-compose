@@ -217,12 +217,14 @@ internal constructor(
   }
 
   /** Replaces the style composition; the host recomposes because it reads this state. */
-  internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
-    // A closed state must not retain what the lambda captures.
-    if (closedState.value) return
-    // A write with no read, so a UI composition calling this never subscribes to the state.
-    contentState.value = content
-  }
+  internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit): Unit =
+    // The lock orders the closed check with close's flag flip, so a racing close cannot let a
+    // post-close store retain the lambda. The write has no read, so a UI composition calling this
+    // never subscribes to the state.
+    transitionLock.withLock {
+      if (closedState.value) return@withLock
+      contentState.value = content
+    }
 
   /**
    * Composes empty content in place of the previous content. Writing the one

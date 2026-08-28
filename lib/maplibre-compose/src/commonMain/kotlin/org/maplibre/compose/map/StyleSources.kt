@@ -94,6 +94,11 @@ public class StyleSources internal constructor(private val state: MapState) {
           "change it"
       }
       binding.addSource(source)
+      // A reload can unload the binding between the loaded check and the owner-thread add; the
+      // dropped add must not publish a descriptor that was never installed.
+      check(source.binding === binding) {
+        "Source '$id' was not added: the style unloaded during the add"
+      }
       node.appSources[id] = source
       node.publishAppSources()
       refreshSource(id)
