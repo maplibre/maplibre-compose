@@ -12,6 +12,7 @@ import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
+import kotlin.test.assertNotSame
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
@@ -225,6 +226,36 @@ class StyleSourcesImperativeTest {
 
     state.close()
     testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun a_reload_serves_fresh_descriptors_and_a_close_empties_the_collections() = runTest {
+    val state = mapState()
+    state.setStyleContent {}
+    fun binding() =
+      OpRecordingStyleBinding(
+        baseSources = listOf(testSource("base-src")),
+        baseLayers = listOf(BackgroundLayerDescriptor("bg")),
+      )
+    val first = binding()
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, first)
+    testScheduler.advanceUntilIdle()
+    val stale = assertNotNull(state.sources["base-src"])
+
+    // The second style declares the same source id; its descriptor must not be the first style's,
+    // whose unloaded binding drops operations.
+    first.unload()
+    state.callbacks.onStyleChanged(adapter, binding())
+    testScheduler.advanceUntilIdle()
+    val fresh = assertNotNull(state.sources["base-src"])
+    assertNotSame(stale, fresh, "a reloaded style serves a fresh source descriptor")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+    assertTrue(state.sources.ids.isEmpty(), "a closed state reports no sources")
+    assertTrue(state.layers.ids.isEmpty(), "a closed state reports no layers")
   }
 
   @Test

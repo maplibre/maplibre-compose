@@ -576,7 +576,10 @@ internal constructor(
     if (closedState.value) return
     closedState.value = true
     detachSession()
-    // A retained engine kept the snapshot across detach; the close is where the map dies.
+    // A retained engine kept the binding and the collection snapshots across detach; the close is
+    // where the map dies, so the collections stop reporting its style.
+    styleNode.binding = StyleBinding.UNLOADED
+    styleNode.refreshLiveLayerIds()
     sources.clear()
     engine.close()
     host.close()

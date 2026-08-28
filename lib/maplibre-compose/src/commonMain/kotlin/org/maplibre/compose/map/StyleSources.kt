@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.runtime.mutableStateOf
 import org.maplibre.compose.sources.Source
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleMutationException
 
 /**
@@ -33,6 +34,10 @@ public class StyleSources internal constructor(private val state: MapState) {
     get() = snapshotState.value
 
   private val snapshotState = mutableStateOf(emptyMap<String, Source>())
+
+  // The binding the snapshot's descriptors came from. A reloaded style serves fresh descriptors:
+  // a retained one would route source operations into the unloaded binding, which drops them.
+  private var snapshotBinding: StyleBinding? = null
 
   init {
     state.styleNode.sourceManager.sources = this
@@ -155,10 +160,12 @@ public class StyleSources internal constructor(private val state: MapState) {
   }
 
   internal fun refreshSource(id: String) {
-    if (!state.styleNode.binding.isLoaded) return
+    val binding = state.styleNode.binding
+    if (!binding.isLoaded) return
+    if (binding !== snapshotBinding) return refreshSources()
 
     val current = snapshotState.value
-    val refreshed = state.styleNode.binding.getSource(id)
+    val refreshed = binding.getSource(id)
     val previous = current[id]
     when {
       refreshed == null && previous != null -> snapshotState.value = current - id
@@ -170,11 +177,14 @@ public class StyleSources internal constructor(private val state: MapState) {
   internal fun refreshSources() {
     // An unloaded binding during a style switch keeps the old snapshot, so the attribution UI
     // never flickers empty between styles.
-    if (!state.styleNode.binding.isLoaded) return
+    val binding = state.styleNode.binding
+    if (!binding.isLoaded) return
 
-    val current = snapshotState.value
-    val refreshed = state.styleNode.binding.getSources().associateBy { it.id }
-    var changed = current.keys.toList() != refreshed.keys.toList()
+    val current = if (binding === snapshotBinding) snapshotState.value else emptyMap()
+    snapshotBinding = binding
+    val refreshed = binding.getSources().associateBy { it.id }
+    var changed =
+      current.keys.toList() != refreshed.keys.toList() || current !== snapshotState.value
     val reconciled = refreshed.mapValues { (id, source) ->
       current[id]?.takeIf { source.hasSameState(it) } ?: source.also { changed = true }
     }
