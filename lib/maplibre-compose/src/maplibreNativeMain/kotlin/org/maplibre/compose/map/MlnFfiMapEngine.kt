@@ -161,8 +161,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       // A rival composable must not evict the session that owns the slot; a legitimate density or
       // backend change disposes the old resource before its replacement publishes.
       check(lifecycle !is Lifecycle.SessionAttached) { SINGLE_SESSION_ERROR }
-      // The dying core produced any pending detached-load completion.
+      // The dying core produced any pending detached-load completion and load failure.
       state.loadFinishedWhileDetached = false
+      state.lastLoadFailure.value = null
       core?.close()
       core = pending
       coreScaleFactor = scaleFactor
@@ -193,8 +194,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         attached.session.close()
         lifecycle = Lifecycle.Detached
       }
-      // The dying core produced any pending detached-load completion.
+      // The dying core produced any pending detached-load completion and load failure.
       state.loadFinishedWhileDetached = false
+      state.lastLoadFailure.value = null
       // The loop's scale factor is fixed per map and a renderer is built for one backend.
       live.close()
     }
