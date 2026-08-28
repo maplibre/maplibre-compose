@@ -84,6 +84,39 @@ class LayerHandleFilterTest {
   }
 
   @Test
+  fun a_write_through_a_handle_from_a_replaced_style_throws() = runTest {
+    val state = mapState()
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(
+      adapter,
+      OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg-base"))),
+    )
+    testScheduler.advanceUntilIdle()
+    val stale = assertNotNull(state.layers["bg-base"])
+    stale.visible = false
+
+    // A base style load replaces the binding underneath the handle.
+    state.callbacks.onStyleChanged(
+      adapter,
+      OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg-base"))),
+    )
+    testScheduler.advanceUntilIdle()
+
+    val error = assertFailsWith<IllegalStateException> { stale.visible = true }
+    assertEquals(
+      true,
+      "fresh handle" in error.message.orEmpty(),
+      "the error must point at MapState.layers: ${error.message}",
+    )
+    assertNotNull(state.layers["bg-base"], "the reloaded style serves a fresh handle").visible =
+      true
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
   fun a_filter_write_on_a_composition_owned_layer_throws() = runTest {
     val state = mapState()
     state.setStyleContent { BackgroundLayer(id = "comp-layer") }

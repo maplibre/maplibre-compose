@@ -11,7 +11,9 @@ import org.maplibre.compose.map.MapState
  *
  * A write reaches the live style directly, without a declaration in the style content.
  * [MapState.baseStyle] reloads drop imperative writes: the reloaded style starts from its own
- * definition, so reapply the writes after the load.
+ * definition, so reapply the writes after the load. The handle belongs to the style it was taken
+ * from: after a reload, a write through it throws [IllegalStateException], so reapply through a
+ * fresh handle from [MapState.layers].
  *
  * Writes are allowed only on a map-owned layer: a layer from the base style. A layer that the style
  * content composed is composition-owned, and every write on its handle throws
@@ -23,6 +25,17 @@ import org.maplibre.compose.map.MapState
  */
 public class LayerHandle
 internal constructor(private val state: MapState, private val descriptor: Layer) {
+
+  // A base-style load supersedes the binding that the descriptor writes into.
+  private val binding = state.styleNode.binding
+
+  private fun checkWritable() {
+    state.checkLayerWritable(id)
+    check(state.styleNode.binding === binding) {
+      "Layer '$id' was taken from a style that a base style load replaced; get a fresh handle " +
+        "from MapState.layers"
+    }
+  }
 
   /** The layer's id in the style. */
   public val id: String
@@ -36,7 +49,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
   public var visible: Boolean
     get() = descriptor.visible
     set(value) {
-      state.checkLayerWritable(id)
+      checkWritable()
       descriptor.visible = value
     }
 
@@ -44,7 +57,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
   public var minZoom: Float
     get() = descriptor.minZoom
     set(value) {
-      state.checkLayerWritable(id)
+      checkWritable()
       descriptor.minZoom = value
     }
 
@@ -52,7 +65,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
   public var maxZoom: Float
     get() = descriptor.maxZoom
     set(value) {
-      state.checkLayerWritable(id)
+      checkWritable()
       descriptor.maxZoom = value
     }
 
@@ -61,7 +74,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    * [nil][org.maplibre.compose.expressions.dsl.nil] clears the filter, and every feature matches.
    */
   public fun setFilter(filter: Expression<BooleanValue>) {
-    state.checkLayerWritable(id)
+    checkWritable()
     descriptor.setFilterJson(state.compileLayerProperty(filter))
   }
 
@@ -70,7 +83,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    * rejects is logged, and the layer keeps its previous value.
    */
   public fun setLayoutProperty(name: String, value: Expression<*>) {
-    state.checkLayerWritable(id)
+    checkWritable()
     descriptor.setLayoutProperty(name, state.compileLayerProperty(value))
   }
 
@@ -79,7 +92,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    * rejects is logged, and the layer keeps its previous value.
    */
   public fun setPaintProperty(name: String, value: Expression<*>) {
-    state.checkLayerWritable(id)
+    checkWritable()
     descriptor.setPaintProperty(name, state.compileLayerProperty(value))
   }
 
