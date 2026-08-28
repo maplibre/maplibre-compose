@@ -276,17 +276,30 @@ internal class StyleCompositionHost(
    */
   internal suspend fun awaitPendingWork() {
     if (closed) return
+    // Quiescence must hold for two consecutive full rounds: an invalidation can be one
+    // asynchronous scheduling hop away from every check in a single round.
+    var cleanRounds = 0
     while (true) {
       // Delivers any written-but-unnotified snapshot state, so a caller's plain write is enough.
       withContext(applyNotificationDispatcher) { Snapshot.sendApplyNotifications() }
       recomposer.currentState.first { it != Recomposer.State.PendingWork }
       scope.launch {}.join()
-      if (recomposer.currentState.value == Recomposer.State.PendingWork) continue
+      if (recomposer.currentState.value == Recomposer.State.PendingWork) {
+        cleanRounds = 0
+        continue
+      }
       // A requested frame runs applyChanges after the pacing delay; that sync is pending work.
-      if (frameIsPending) continue
+      if (frameIsPending) {
+        cleanRounds = 0
+        continue
+      }
       // A notification queued during the last task must be delivered before deciding.
       scope.launch {}.join()
-      if (recomposer.currentState.value != Recomposer.State.PendingWork && !frameIsPending) return
+      if (recomposer.currentState.value != Recomposer.State.PendingWork && !frameIsPending) {
+        if (++cleanRounds >= 2) return
+      } else {
+        cleanRounds = 0
+      }
     }
   }
 
