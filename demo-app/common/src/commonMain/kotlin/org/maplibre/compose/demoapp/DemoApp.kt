@@ -50,16 +50,18 @@ import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
 
 @Composable
-fun DemoApp() {
-  val state = rememberDemoAppState()
+fun DemoApp(state: DemoAppState = rememberDemoAppState()) {
   StartAgentDriver(state)
+  DemoAppTheme(state) { DemoShell(state) }
+}
+
+@Composable
+fun DemoAppTheme(state: DemoAppState, content: @Composable () -> Unit) {
   val dark =
     if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
     else state.appliedStyle.isDark
   val colorScheme = rememberDemoColorScheme(dark, state.settings.paletteMode)
-  MaterialTheme(colorScheme = colorScheme) {
-    DemoShell(state)
-  }
+  MaterialTheme(colorScheme = colorScheme, content = content)
 }
 
 private val MediumPanelWidth = 280.dp

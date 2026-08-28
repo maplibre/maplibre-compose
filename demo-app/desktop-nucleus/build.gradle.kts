@@ -19,7 +19,9 @@ kotlin {
 dependencies {
   implementation(project(":demo-app:common"))
   implementation(project(":lib:maplibre-compose"))
+  implementation(libs.jetbrains.compose.material3)
   implementation(libs.nucleus.application)
+  implementation(libs.nucleus.decoratedWindowMaterial3)
   implementation(libs.nucleus.decoratedWindowTao)
 
   runtimeOnly(project(":lib:${desktopHostPlatform.runtimeArtifactId(desktopRenderBackend)}"))
