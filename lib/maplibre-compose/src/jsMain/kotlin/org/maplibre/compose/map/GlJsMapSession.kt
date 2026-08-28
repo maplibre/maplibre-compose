@@ -153,7 +153,11 @@ internal class GlJsMapSession(
   internal var hasLoadedFirstStyle by mutableStateOf(false)
     private set
 
-  private val styleState = RequestedStyleState()
+  private var requestedStyle: BaseStyle? = null
+  private var requestedGeneration: Long = 0L
+  private var appliedStyle: BaseStyle? = null
+  private var appliedGeneration: Long = 0L
+  private var mintedStyleGeneration: Long = 0L
 
   /** Set while a style load is outstanding, so an `error` can be told from a tile failure. */
   private var styleLoadPending = false
@@ -329,7 +333,8 @@ internal class GlJsMapSession(
     map = null
     styleBinding?.unload()
     styleBinding = null
-    styleState.resetApplied()
+    appliedStyle = null
+    appliedGeneration = 0L
     hasRenderedAFrame = false
     val borrowed = lentContext
     lentContext = null
@@ -395,7 +400,7 @@ internal class GlJsMapSession(
       val binding =
         GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
           .also { styleBinding = it }
-      callbacks.onStyleChanged(this, binding, styleState.appliedGeneration)
+      callbacks.onStyleChanged(this, binding, appliedGeneration)
       applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true
@@ -419,7 +424,7 @@ internal class GlJsMapSession(
       if (styleLoadPending) {
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
-        callbacks.onMapFailLoading(reason, styleState.requestedGeneration)
+        callbacks.onMapFailLoading(reason, requestedGeneration)
         if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
         // Tile and sprite failures land here too, and are not the map failing to load.
@@ -440,7 +445,7 @@ internal class GlJsMapSession(
   private fun reportLoadedOnceStyleIsReady(map: MaplibreMap) {
     if (!reportStyleLoaded || !map.isStyleLoaded()) return
     reportStyleLoaded = false
-    callbacks.onMapFinishedLoading(this, styleState.appliedGeneration)
+    callbacks.onMapFinishedLoading(this, appliedGeneration)
   }
 
   /** A move spans the gesture rather than the jump, as every other platform reports it. */
@@ -500,24 +505,42 @@ internal class GlJsMapSession(
   // region MapAdapter
 
   override fun setBaseStyle(style: BaseStyle, generation: Long) {
-    styleState.request(
-      style,
-      generation = generation,
-      unloadBinding = { styleBinding?.unload() },
-      clearStyle = { callbacks.onStyleChanged(this, null, styleState.requestedGeneration) },
-      postApply = { onMap(::applyRequestedStyle) },
-    )
+    val next = acceptStyleRequest(style, generation) ?: return
+    styleBinding?.unload()
+    callbacks.onStyleChanged(this, null, next)
+    onMap(::applyRequestedStyle)
+  }
+
+  /**
+   * Records [style] as the next apply, or returns null when [generation] is already the requested
+   * generation. A zero generation mints a local id for engine-only tests.
+   */
+  private fun acceptStyleRequest(style: BaseStyle, generation: Long): Long? {
+    if (generation > 0L) {
+      if (generation == requestedGeneration) return null
+      if (generation > mintedStyleGeneration) mintedStyleGeneration = generation
+      requestedStyle = style
+      requestedGeneration = generation
+      return generation
+    }
+    if (style == requestedStyle) return null
+    val next = ++mintedStyleGeneration
+    requestedStyle = style
+    requestedGeneration = next
+    return next
   }
 
   private fun applyRequestedStyle(map: MaplibreMap) {
-    val request = styleState.takeUnapplied() ?: return
+    val style = requestedStyle ?: return
+    if (requestedGeneration == appliedGeneration && appliedStyle != null) return
     // Marked before the try so a throw below is not retried against the same map.
-    styleState.markApplied(request)
+    appliedStyle = style
+    appliedGeneration = requestedGeneration
     styleLoadPending = true
     // MapLibre diffs by default, keeping the same Style object, so no `style.load` would fire.
     val options = unsafeJso<SetStyleOptions> { diff = false }
     try {
-      when (val style = request.style) {
+      when (style) {
         is BaseStyle.Uri -> map.setStyle(styleUrl(style.uri), options)
         is BaseStyle.Json -> map.setStyle(styleJson(style.json), options)
       }
@@ -527,7 +550,7 @@ internal class GlJsMapSession(
       styleLoadPending = false
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
-      callbacks.onMapFailLoading(reason, styleState.requestedGeneration)
+      callbacks.onMapFailLoading(reason, requestedGeneration)
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
   }

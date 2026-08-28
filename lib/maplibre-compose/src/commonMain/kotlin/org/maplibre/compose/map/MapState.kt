@@ -36,6 +36,7 @@ import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LayerPropertyCompiler
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleCompositionHost
 import org.maplibre.compose.style.StyleError
@@ -114,7 +115,7 @@ internal constructor(
     logger = null,
   )
 
-  /** The locked logical record for every transition this state makes. */
+  /** The logical record for every transition this state makes. */
   internal val record = MapRecord(cameraPosition)
 
   private val published =
@@ -202,9 +203,6 @@ internal constructor(
 
   init {
     host.inheritedLocals = inheritedLocals
-    styleNode.commitOwnership = { binding, layerIds, sources ->
-      commitComposition(binding, layerIds, sources)
-    }
     styleNode.appSourceOwned = { id -> record.read { id in appSources } }
     record.applySessionOptions = { adapter -> sessionOptions?.applyTo(adapter) }
     record.pointBinding = { binding ->
@@ -327,15 +325,40 @@ internal constructor(
   }
 
   /**
-   * Applies [write] to the live layer only when the handle's generations are still current. The
+   * Enqueues a layer property write only when the handle's generations are still current. The
    * platform mutation is an effect on the FIFO drain, so a rejected or superseded write never
    * publishes a half-applied value.
    */
-  internal fun writeLayer(
+  internal fun writeLayerProperty(
     styleGeneration: Long,
     bindingGeneration: Long,
     id: String,
-    write: (Layer) -> Unit,
+    name: String,
+    value: JsonElement,
+    kind: LayerPropertyKind,
+  ) {
+    writeAuthorizedLayer(styleGeneration, bindingGeneration, id) { binding ->
+      if (binding.isLoaded) binding.setLayerProperty(id, name, value, kind)
+    }
+  }
+
+  /** Enqueues a layer filter write only when the handle's generations are still current. */
+  internal fun writeLayerFilter(
+    styleGeneration: Long,
+    bindingGeneration: Long,
+    id: String,
+    filter: JsonElement,
+  ) {
+    writeAuthorizedLayer(styleGeneration, bindingGeneration, id) { binding ->
+      if (binding.isLoaded) binding.setLayerFilter(id, filter)
+    }
+  }
+
+  private fun writeAuthorizedLayer(
+    styleGeneration: Long,
+    bindingGeneration: Long,
+    id: String,
+    write: (StyleBinding) -> Unit,
   ) {
     commit {
       val binding =
@@ -354,10 +377,7 @@ internal constructor(
             }
             error("No loaded style; a layer can only be mutated on a loaded style")
           }
-      enqueue {
-        val layer = binding.takeIf { it.isLoaded }?.getLayer(id) ?: return@enqueue
-        write(layer)
-      }
+      enqueue { write(binding) }
     }
   }
 
@@ -600,11 +620,11 @@ internal constructor(
     require(width > 0.dp && height > 0.dp) {
       "Still image size must be positive, got $width x $height"
     }
-    val lease = commit { beginCapture() }
+    val capture = commit { beginCapture() }
     try {
-      return engine.captureStillImage(width, height, timeout)
+      return engine.captureStillImage(width, height, timeout, capture)
     } finally {
-      commit { finishCapture(lease) }
+      commit { finishCapture(capture.id) }
       host.requestApplyChanges()
     }
   }
@@ -645,6 +665,17 @@ internal constructor(
       val source = adapter ?: record.read { styleSource }
       if (source != null) commit { styleChanged(source, null, generation) }
     }
+  }
+
+  /**
+   * Commits the composition's desired revision, then applies it. A queued apply after close or a
+   * style reload is ignored.
+   */
+  internal fun syncStyleComposition() {
+    val binding = styleNode.binding
+    val revision = styleNode.snapshotRevision()
+    if (!commit { commitComposition(binding, revision.layerIds, revision.sourcesById) }) return
+    styleNode.applyRevision(revision)
   }
 
   /** Commits composition ownership only when [binding] is still the current style. */

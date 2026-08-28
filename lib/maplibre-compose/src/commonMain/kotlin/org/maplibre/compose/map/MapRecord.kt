@@ -382,25 +382,25 @@ internal class MapRecord(initialCamera: CameraPosition) {
     moveReason = CameraMoveReason.NONE
   }
 
-  fun beginCapture(): Long {
+  fun beginCapture(): RendererState.Capture {
     check(!closed) { "MapState is closed; a closed state cannot render a still image" }
     check(renderer !is RendererState.Session) {
       "MapState has an attached MaplibreMap; detach it before rendering a still image"
     }
     selectDemoIfNeeded()
     check(renderer !is RendererState.Capture) { SNAPSHOT_SESSION_ERROR }
-    val id = nextCaptureId++
-    renderer =
+    val capture =
       RendererState.Capture(
-        id = id,
+        id = nextCaptureId++,
         camera = camera,
         style = currentStyle(),
         styleGeneration = styleGeneration,
       )
+    renderer = capture
     // A matching retained core is not replaced, so capture must push the snapshotted style
     // itself when a core already exists and never loaded.
     styleSource?.let { emitLoad(it, currentStyle()) }
-    return id
+    return capture
   }
 
   fun finishCapture(id: Long) {

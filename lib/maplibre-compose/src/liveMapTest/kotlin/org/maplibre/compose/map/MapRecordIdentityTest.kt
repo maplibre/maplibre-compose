@@ -184,10 +184,10 @@ class MapRecordIdentityTest {
     val first = record.mutate { beginCapture() }
     assertFailsWith<IllegalStateException> { record.mutate { beginCapture() } }
     assertIs<RendererState.Capture>(record.read { renderer })
-    assertEquals(first, (record.read { renderer } as RendererState.Capture).id)
-    record.mutate { finishCapture(first) }
+    assertEquals(first.id, (record.read { renderer } as RendererState.Capture).id)
+    record.mutate { finishCapture(first.id) }
     val second = record.mutate { beginCapture() }
-    record.mutate { finishCapture(second) }
+    record.mutate { finishCapture(second.id) }
     assertIs<RendererState.None>(record.read { renderer })
   }
 
@@ -195,11 +195,11 @@ class MapRecordIdentityTest {
   fun a_stale_capture_finish_does_not_release_a_newer_lease() {
     val record = MapRecord(start)
     val first = record.mutate { beginCapture() }
-    record.mutate { finishCapture(first) }
+    record.mutate { finishCapture(first.id) }
     val second = record.mutate { beginCapture() }
-    record.mutate { finishCapture(first) }
+    record.mutate { finishCapture(first.id) }
     assertIs<RendererState.Capture>(record.read { renderer })
-    assertEquals(second, (record.read { renderer } as RendererState.Capture).id)
+    assertEquals(second.id, (record.read { renderer } as RendererState.Capture).id)
   }
 
   @Test
@@ -244,7 +244,7 @@ class MapRecordIdentityTest {
       adapter.calls.count { it == "setBaseStyle" },
       "capture must not push a later baseStyle to the renderer",
     )
-    record.mutate { finishCapture(lease) }
+    record.mutate { finishCapture(lease.id) }
     record.drain()
     assertTrue(
       adapter.calls.count { it == "setBaseStyle" } > stylesBefore + 1,

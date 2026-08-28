@@ -58,8 +58,8 @@ import org.maplibre.compose.util.rethrowIfFatal
  * The host runs on [dispatcher], the platform's UI dispatcher in production. UI components'
  * snapshot observers assume that thread, so composing and delivering apply notifications there
  * keeps every snapshot publication single-threaded. [setContent] marshals onto it, and the host
- * calls [StyleNode.applyChanges] after the initial composition and after each frame; sources still
- * attach before layers because effects run inside the frame and this flush runs after it.
+ * applies a [DesiredStyleRevision] after the initial composition and after each frame; sources
+ * still attach before layers because effects run inside the frame and this flush runs after it.
  */
 internal class StyleCompositionHost(
   private val rootNode: StyleNode,
@@ -210,7 +210,7 @@ internal class StyleCompositionHost(
             CompositionLocalProvider(*locals.toTypedArray()) { content() }
           }
         }
-        rootNode.applyChanges()
+        applyStyleRevision()
       } catch (error: CancellationException) {
         throw error
       } catch (error: Throwable) {
@@ -252,10 +252,15 @@ internal class StyleCompositionHost(
     scope.launch { block() }
   }
 
+  private fun applyStyleRevision() {
+    val map = mapState
+    if (map != null) map.syncStyleComposition() else rootNode.applyChanges()
+  }
+
   private fun applyChanges() {
     if (closed || disposed) return
     try {
-      rootNode.applyChanges()
+      applyStyleRevision()
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
@@ -342,7 +347,7 @@ internal class StyleCompositionHost(
     }
     // Disposal only empties the desired state; this sync removes the content from the engine.
     try {
-      rootNode.applyChanges()
+      applyStyleRevision()
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {

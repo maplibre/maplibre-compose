@@ -2,9 +2,11 @@ package org.maplibre.compose.layers
 
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonPrimitive
 import org.maplibre.compose.expressions.ast.Expression
 import org.maplibre.compose.expressions.value.BooleanValue
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.style.LayerPropertyKind
 
 /**
  * An imperative handle over one live layer, from [MapState.layers].
@@ -32,8 +34,8 @@ internal constructor(
 
   private fun liveLayer(): Layer? = state.liveLayer(styleGeneration, bindingGeneration, id)
 
-  private fun write(block: (Layer) -> Unit) {
-    state.writeLayer(styleGeneration, bindingGeneration, id, block)
+  private fun writeProperty(kind: LayerPropertyKind, name: String, value: JsonElement) {
+    state.writeLayerProperty(styleGeneration, bindingGeneration, id, name, value, kind)
   }
 
   /** The layer's `type` in the style spec, such as `fill`. */
@@ -44,21 +46,25 @@ internal constructor(
   public var visible: Boolean
     get() = liveLayer()?.visible ?: false
     set(value) {
-      write { it.visible = value }
+      writeProperty(
+        LayerPropertyKind.LAYOUT,
+        "visibility",
+        JsonPrimitive(if (value) "visible" else "none"),
+      )
     }
 
   /** The minimum zoom level at which the layer draws. */
   public var minZoom: Float
     get() = liveLayer()?.minZoom ?: 0f
     set(value) {
-      write { it.minZoom = value }
+      writeProperty(LayerPropertyKind.ROOT, "minzoom", JsonPrimitive(value))
     }
 
   /** The maximum zoom level at which the layer draws. */
   public var maxZoom: Float
     get() = liveLayer()?.maxZoom ?: 24f
     set(value) {
-      write { it.maxZoom = value }
+      writeProperty(LayerPropertyKind.ROOT, "maxzoom", JsonPrimitive(value))
     }
 
   /**
@@ -66,7 +72,12 @@ internal constructor(
    * [nil][org.maplibre.compose.expressions.dsl.nil] clears the filter, and every feature matches.
    */
   public fun setFilter(filter: Expression<BooleanValue>) {
-    write { it.setFilterJson(state.compileLayerProperty(filter)) }
+    state.writeLayerFilter(
+      styleGeneration,
+      bindingGeneration,
+      id,
+      state.compileLayerProperty(filter),
+    )
   }
 
   /**
@@ -74,7 +85,7 @@ internal constructor(
    * rejects is logged, and the layer keeps its previous value.
    */
   public fun setLayoutProperty(name: String, value: Expression<*>) {
-    write { it.setLayoutProperty(name, state.compileLayerProperty(value)) }
+    writeProperty(LayerPropertyKind.LAYOUT, name, state.compileLayerProperty(value))
   }
 
   /**
@@ -82,7 +93,7 @@ internal constructor(
    * rejects is logged, and the layer keeps its previous value.
    */
   public fun setPaintProperty(name: String, value: Expression<*>) {
-    write { it.setPaintProperty(name, state.compileLayerProperty(value)) }
+    writeProperty(LayerPropertyKind.PAINT, name, state.compileLayerProperty(value))
   }
 
   /**

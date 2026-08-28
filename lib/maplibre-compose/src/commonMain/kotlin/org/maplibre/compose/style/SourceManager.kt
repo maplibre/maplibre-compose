@@ -5,7 +5,7 @@ import org.maplibre.compose.sources.Source
 
 /**
  * The ref-counted desired source set. Reference changes record desired state only; the engine
- * mutations happen when [StyleNode.applyChanges] syncs.
+ * mutations happen when [StyleApplier] applies [DesiredStyleRevision].
  */
 internal class SourceManager(private val node: StyleNode) {
 

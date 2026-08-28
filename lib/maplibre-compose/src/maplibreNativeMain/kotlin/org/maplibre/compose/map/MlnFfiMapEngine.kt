@@ -36,25 +36,6 @@ private const val UNCONSTRAINED_MAX_PITCH = 60.0
 internal actual class MapEngine actual constructor(private val state: MapState) : AutoCloseable {
 
   /**
-   * The holder of the engine's one render slot. Every transition happens under [sessionLock], and
-   * each illegal interleaving is rejected by the transition that would enter it.
-   */
-  private sealed interface Lifecycle {
-    /** No session and no reservation; a retained core may still be live. */
-    data object Detached : Lifecycle
-
-    /** A composed session renders the core; the shared core makes the adapter guard blind here. */
-    data class SessionAttached(val session: MlnFfiMapSession) : Lifecycle
-
-    /** [captureStillImage] holds the render slot. */
-    data object SnapshotReserved : Lifecycle
-
-    data object Closed : Lifecycle
-  }
-
-  private var lifecycle: Lifecycle = Lifecycle.Detached
-
-  /**
    * The core keeps its loaded style across detach, so the state keeps its binding while it lives.
    */
   actual val detachedAdapter: MapAdapter?
@@ -68,51 +49,49 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   private var coreScaleFactor = 0.0
   private var coreBackend: MapRenderBackend? = null
 
+  /** The composed render session wired to [core], or null. */
+  private var attachedSession: MlnFfiMapSession? = null
+
+  private var closed = false
+
   /**
-   * Guards [lifecycle] and the core's allocation and publication, because a snapshot runs off the
-   * UI thread and a close may come from any.
+   * Guards core allocation and the attached session pointer, because a snapshot runs off the UI
+   * thread and a close may come from any. The render slot itself is [MapRecord.renderer].
    */
   private val sessionLock = MlnFfiLock()
 
-  /** Creates the render session over [core]; the transition refuses every other slot holder. */
+  private fun refuseUnlessOpen() {
+    check(!closed) { "Cannot attach a render session to a closed map state" }
+    check(state.record.read { renderer !is RendererState.Capture }) { SNAPSHOT_SESSION_ERROR }
+  }
+
+  /** Creates the render session over [core]; the record lease refuses every other slot holder. */
   internal fun createSession(core: MlnFfiMapCore, backend: MapRenderBackend): MlnFfiMapSession =
     sessionLock.withLock {
-      when (val current = lifecycle) {
-        Lifecycle.SnapshotReserved -> throw IllegalStateException(SNAPSHOT_SESSION_ERROR)
-        Lifecycle.Closed ->
-          throw IllegalStateException("Cannot attach a render session to a closed map state")
-        is Lifecycle.SessionAttached ->
-          check(current.session.core !== core) { SINGLE_SESSION_ERROR }
-        Lifecycle.Detached -> {}
-      }
+      refuseUnlessOpen()
+      attachedSession?.let { check(it.core !== core) { SINGLE_SESSION_ERROR } }
       MlnFfiMapSession(core, backend).also { registerSessionLocked(it) }
     }
 
-  /** Takes the render slot for [session]; the transition refuses every other slot holder. */
+  /** Takes the render slot for [session]; the record lease refuses every other slot holder. */
   internal fun registerSession(session: MlnFfiMapSession) {
     sessionLock.withLock {
-      when (lifecycle) {
-        Lifecycle.SnapshotReserved -> throw IllegalStateException(SNAPSHOT_SESSION_ERROR)
-        Lifecycle.Closed ->
-          throw IllegalStateException("Cannot attach a render session to a closed map state")
-        is Lifecycle.SessionAttached -> throw IllegalStateException(SINGLE_SESSION_ERROR)
-        Lifecycle.Detached -> {}
-      }
+      refuseUnlessOpen()
+      check(attachedSession == null) { SINGLE_SESSION_ERROR }
       registerSessionLocked(session)
     }
   }
 
   private fun registerSessionLocked(session: MlnFfiMapSession) {
     session.core.attachRenderSession(session)
-    lifecycle = Lifecycle.SessionAttached(session)
+    attachedSession = session
   }
 
   /** Forgets [session] once its composable leaves, so the next composable may create one. */
   internal fun releaseSession(session: MlnFfiMapSession) {
     sessionLock.withLock {
-      val current = lifecycle
-      if (current is Lifecycle.SessionAttached && current.session === session) {
-        lifecycle = Lifecycle.Detached
+      if (attachedSession === session) {
+        attachedSession = null
         // The departed target's dimensions are stale, so the next bounds fit waits for a real one.
         core?.resetAttachedViewport()
         core?.endCameraTransitionsForDetach()
@@ -127,8 +106,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     backend: MapRenderBackend,
   ): MlnFfiMapCore = sessionLock.withLock {
     // An eviction under a live snapshot would destroy the core the snapshot is rendering; the
-    // snapshot path replaces its own core through acquireCoreLocked as the reservation holder.
-    check(lifecycle != Lifecycle.SnapshotReserved) { SNAPSHOT_SESSION_ERROR }
+    // snapshot path replaces its own core through acquireCoreLocked as the lease holder.
+    check(state.record.read { renderer !is RendererState.Capture }) { SNAPSHOT_SESSION_ERROR }
     acquireCoreLocked(scaleFactor, layoutDirection, backend)
   }
 
@@ -142,7 +121,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     layoutDirection: LayoutDirection,
     backend: MapRenderBackend,
   ): MlnFfiMapCore = sessionLock.withLock {
-    check(lifecycle != Lifecycle.Closed) { "Cannot attach a render session to a closed map state" }
+    check(!closed) { "Cannot attach a render session to a closed map state" }
     core?.let { live ->
       // A core whose runtime loop died cannot recover; its replacement publishes over it.
       if (
@@ -164,13 +143,11 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   internal fun publishCore(pending: MlnFfiMapCore, scaleFactor: Double, backend: MapRenderBackend) {
     sessionLock.withLock {
       if (core === pending) return
-      check(lifecycle != Lifecycle.SnapshotReserved) { SNAPSHOT_SESSION_ERROR }
-      check(lifecycle != Lifecycle.Closed) {
-        "Cannot attach a render session to a closed map state"
-      }
+      check(state.record.read { renderer !is RendererState.Capture }) { SNAPSHOT_SESSION_ERROR }
+      check(!closed) { "Cannot attach a render session to a closed map state" }
       // A rival composable must not evict the session that owns the slot; a legitimate density or
       // backend change disposes the old resource before its replacement publishes.
-      check(lifecycle !is Lifecycle.SessionAttached) { SINGLE_SESSION_ERROR }
+      check(attachedSession == null) { SINGLE_SESSION_ERROR }
       core?.close()
       core = pending
       coreScaleFactor = scaleFactor
@@ -193,7 +170,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     layoutDirection: LayoutDirection,
     backend: MapRenderBackend,
   ): MlnFfiMapCore {
-    check(lifecycle != Lifecycle.Closed) { "Cannot attach a render session to a closed map state" }
+    check(!closed) { "Cannot attach a render session to a closed map state" }
     core?.let { live ->
       // A core whose runtime loop died cannot recover, so a match on it still replaces it.
       if (
@@ -204,9 +181,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         return live
       // A live session must be evicted before its core closes, or it keeps rendering a destroyed
       // map; the close is idempotent with the session composable's own later dispose.
-      (lifecycle as? Lifecycle.SessionAttached)?.let { attached ->
-        attached.session.close()
-        lifecycle = Lifecycle.Detached
+      attachedSession?.let { attached ->
+        attached.close()
+        attachedSession = null
       }
       live.close()
     }
@@ -222,26 +199,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     coreBackend = backend
     state.replaceCore(created)
     return created
-  }
-
-  /** Takes the render slot for a snapshot; the transition refuses every other slot holder. */
-  private fun reserveSnapshot() {
-    sessionLock.withLock {
-      check(lifecycle != Lifecycle.Closed) {
-        "MapState is closed; a closed state cannot render a still image"
-      }
-      check(lifecycle == Lifecycle.Detached && state.attachedAdapter == null) {
-        "MapState has an attached MaplibreMap; detach it before rendering a still image"
-      }
-      lifecycle = Lifecycle.SnapshotReserved
-    }
-  }
-
-  /** Returns the render slot after a snapshot; a close during the snapshot stays closed. */
-  private fun releaseSnapshot() {
-    sessionLock.withLock {
-      if (lifecycle == Lifecycle.SnapshotReserved) lifecycle = Lifecycle.Detached
-    }
   }
 
   /**
@@ -265,31 +222,20 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   /** Serializes snapshots: the map has one live render session, so two cannot pump at once. */
   private val snapshotMutex = Mutex()
 
-  actual suspend fun captureStillImage(width: Dp, height: Dp, timeout: Duration): ImageBitmap {
+  actual suspend fun captureStillImage(
+    width: Dp,
+    height: Dp,
+    timeout: Duration,
+    capture: RendererState.Capture,
+  ): ImageBitmap {
     val deadline = TimeSource.Monotonic.markNow() + timeout
     // The wait for another capture is bounded by this call's own deadline.
     withTimeoutOrNull(timeout) { snapshotMutex.lock() }
       ?: throw IllegalStateException("Another still image held the renderer past $timeout")
     return try {
-      snapshotLocked(width, height, timeout, deadline)
+      renderReservedSnapshot(width, height, deadline, timeout, capture)
     } finally {
       snapshotMutex.unlock()
-    }
-  }
-
-  private suspend fun snapshotLocked(
-    width: Dp,
-    height: Dp,
-    timeout: Duration,
-    deadline: TimeSource.Monotonic.ValueTimeMark,
-  ): ImageBitmap {
-    // The reservation holds the render slot until the finally below releases it, so a session
-    // cannot attach or evict the core while the snapshot renders.
-    reserveSnapshot()
-    try {
-      return renderReservedSnapshot(width, height, deadline, timeout)
-    } finally {
-      releaseSnapshot()
     }
   }
 
@@ -298,6 +244,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     height: Dp,
     deadline: TimeSource.Monotonic.ValueTimeMark,
     timeout: Duration,
+    capture: RendererState.Capture,
   ): ImageBitmap {
     ensureMlnFfiConfigured()
     val target = createSnapshotTarget()
@@ -326,9 +273,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         )
       )
       core.setCameraPadding(PaddingValues(0.dp))
-      val capture =
-        state.record.read { renderer as? RendererState.Capture }
-          ?: error("still capture lost its lease")
       core.replayCameraRecord { capture.camera }
       awaitStyleLoaded(core, capture.styleGeneration, deadline, timeout)
       state.host.requestApplyChanges()
@@ -339,7 +283,14 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         width = width.value.roundToInt(),
         height = height.value.roundToInt(),
         deadline = deadline,
-        loadFailure = { state.lastLoadFailure },
+        loadFailure = {
+          val load = state.loadState
+          if (load is MapLoadState.Failed && load.generation == capture.styleGeneration) {
+            load.reason
+          } else {
+            null
+          }
+        },
         onViewportReady = {
           state.onCaptureViewport(core.getViewport())
           state.host.requestApplyChanges()
@@ -363,8 +314,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     while (core.loadedStyleGeneration < styleGeneration) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
       check(!core.isClosed) { "MapState was closed while a still image was rendering" }
-      state.lastLoadFailure?.let { reason ->
-        throw IllegalStateException("The map failed to load: $reason")
+      val load = state.loadState
+      if (load is MapLoadState.Failed && load.generation == styleGeneration) {
+        throw IllegalStateException("The map failed to load: ${load.reason}")
       }
       check(deadline.hasNotPassedNow()) { "The style did not load within $timeout" }
       delay(STYLE_POLL_MILLIS)
@@ -376,11 +328,12 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     // this close then sees; the lock's critical sections are all brief, so close stays prompt and
     // a snapshot mid-render fails through the core's own closed state.
     sessionLock.withLock {
-      if (lifecycle == Lifecycle.Closed) return@withLock
+      if (closed) return@withLock
       // The session closes before the core for the same reason acquireCoreLocked evicts before
       // recreating.
-      (lifecycle as? Lifecycle.SessionAttached)?.session?.close()
-      lifecycle = Lifecycle.Closed
+      attachedSession?.close()
+      attachedSession = null
+      closed = true
       core?.close()
       core = null
     }
