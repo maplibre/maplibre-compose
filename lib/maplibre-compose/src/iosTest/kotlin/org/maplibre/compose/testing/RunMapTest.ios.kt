@@ -22,7 +22,7 @@ internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult {
   CoroutineScope(Dispatchers.Default).launch { outcome.value = runCatching { block() } }
   while (outcome.value == null) {
     val result = CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, true)
-    if (result.toInt() == kCFRunLoopRunFinished.toInt()) usleep(10_000u)
+    if (result == kCFRunLoopRunFinished) usleep(10_000u)
   }
   outcome.value!!.getOrThrow()
 }
