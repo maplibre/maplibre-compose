@@ -67,7 +67,8 @@ internal constructor(
       writeProperty(LayerPropertyKind.ROOT, "maxzoom", JsonPrimitive(value))
     }
 
-  private fun liveProperty(name: String): JsonElement? = liveLayer()?.readProperty(name)
+  private fun liveProperty(name: String): JsonElement? =
+    state.liveLayerProperty(styleGeneration, bindingGeneration, id, name)
 
   /**
    * Sets the layer's filter: the condition that source features must match to be drawn. Passing

@@ -314,14 +314,32 @@ internal constructor(
 
   /** The live layer named [id] when [styleGeneration] and [bindingGeneration] are still current. */
   internal fun liveLayer(styleGeneration: Long, bindingGeneration: Long, id: String): Layer? {
+    val binding = currentBinding(styleGeneration, bindingGeneration) ?: return null
+    return binding.getLayer(id)
+  }
+
+  /**
+   * The live property named [name] on [id] when [styleGeneration] and [bindingGeneration] are still
+   * current. Reads the record's binding, not a Layer descriptor that may never have attached.
+   */
+  internal fun liveLayerProperty(
+    styleGeneration: Long,
+    bindingGeneration: Long,
+    id: String,
+    name: String,
+  ): JsonElement? {
+    val binding = currentBinding(styleGeneration, bindingGeneration) ?: return null
+    return binding.layerProperty(id, name)
+  }
+
+  private fun currentBinding(styleGeneration: Long, bindingGeneration: Long): StyleBinding? {
     val binding =
       record.read {
         if (this.styleGeneration != styleGeneration) return@read null
         if (this.bindingGeneration != bindingGeneration) return@read null
         binding.takeUnless { it === StyleBinding.UNLOADED }
       } ?: return null
-    if (!binding.isLoaded) return null
-    return binding.getLayer(id)
+    return binding.takeIf { it.isLoaded }
   }
 
   /**
