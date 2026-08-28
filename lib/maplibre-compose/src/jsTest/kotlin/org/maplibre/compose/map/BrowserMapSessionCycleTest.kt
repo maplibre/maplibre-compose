@@ -3,6 +3,7 @@
 package org.maplibre.compose.map
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -117,6 +118,23 @@ class BrowserMapSessionCycleTest {
     assertEquals(FIRST_POSITION.target, state.camera.target, "camera target")
     assertEquals(FIRST_POSITION.zoom, state.camera.zoom, 0.001, "camera zoom")
     assertTrue(errors.isEmpty(), "the cycle reported errors: $errors")
+  }
+
+  @Test
+  fun withPlatformMap_waits_for_the_attached_session_to_build_its_map() = runBrowserMapTest {
+    lateinit var state: MapState
+    var result: Result<List<String>>? = null
+    setBrowserMapContent {
+      val mapState = rememberMapState(baseStyle = style)
+      state = mapState
+      MaplibreMap(state = mapState, modifier = Modifier.fillMaxSize(), logger = null)
+      LaunchedEffect(mapState) {
+        result = runCatching { mapState.withPlatformMap { it.getLayersOrder().toList() } }
+      }
+    }
+    waitUntilMap("the sibling effect to receive the live map") { result != null }
+    result!!.getOrThrow()
+    assertTrue(state.isAttached)
   }
 
   /**

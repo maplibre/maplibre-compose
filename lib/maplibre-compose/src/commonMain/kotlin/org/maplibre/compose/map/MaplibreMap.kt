@@ -12,9 +12,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.currentCompositionLocalContext
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshotFlow
@@ -205,17 +207,11 @@ public fun MaplibreMap(
       state.callbacks.clickScope = mapClickScope
     }
 
-    LaunchedEffect(state) {
-      snapshotFlow { state.loadState }
-        .drop(1)
-        .collect { load ->
-          when (load) {
-            is MapLoadState.Ready -> onMapLoadFinished()
-            is MapLoadState.Failed -> onMapLoadFailed(load.reason)
-            else -> {}
-          }
-        }
-    }
+    ObserveMapLoadState(
+      state = state,
+      onMapLoadFinished = onMapLoadFinished,
+      onMapLoadFailed = onMapLoadFailed,
+    )
 
     val overlayHolder = remember(overlay) { MapOverlay(overlay) }
 
@@ -262,5 +258,27 @@ internal data class SessionOptions(
     )
     map.setRenderSettings(options.renderOptions)
     map.setTileLodSettings(options.tileLodOptions)
+  }
+}
+
+/** Forwards [MapState.loadState] transitions after attach; keyed by [state] so a swap restarts. */
+@Composable
+internal fun ObserveMapLoadState(
+  state: MapState,
+  onMapLoadFinished: () -> Unit,
+  onMapLoadFailed: (reason: String?) -> Unit,
+) {
+  val currentFinished by rememberUpdatedState(onMapLoadFinished)
+  val currentFailed by rememberUpdatedState(onMapLoadFailed)
+  LaunchedEffect(state) {
+    snapshotFlow { state.loadState }
+      .drop(1)
+      .collect { load ->
+        when (load) {
+          is MapLoadState.Ready -> currentFinished()
+          is MapLoadState.Failed -> currentFailed(load.reason)
+          else -> {}
+        }
+      }
   }
 }

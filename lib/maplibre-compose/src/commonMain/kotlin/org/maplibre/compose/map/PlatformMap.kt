@@ -35,7 +35,8 @@ public expect class PlatformMap
  * is created at the first [MaplibreMap] attach or [MapState.captureStillImage].
  *
  * On Web, [block] runs on the calling thread. The live map exists only while a [MaplibreMap] is
- * composed, so a call on a detached or closed state fails with [IllegalStateException].
+ * composed. A call on an attached session waits until that session constructs its map, and a call
+ * on a detached or closed state fails with [IllegalStateException].
  *
  * Use the map only inside [block]: a reference kept past the call can outlive the map it points at.
  */

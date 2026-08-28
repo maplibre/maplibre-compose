@@ -287,6 +287,11 @@ internal class MapRecord(initialCamera: CameraPosition) {
     moveReason = CameraMoveReason.NONE
     enqueue { pointBinding(StyleBinding.UNLOADED) }
     enqueue { refreshCollections() }
+    // The session is still attached, so a replacement map will reload this generation. Ready would
+    // compare equal after that load and hide the transition that reapplies imperative mutations.
+    if (session != null && selectedStyle != null) {
+      loadState = MapLoadState.Loading(styleGeneration, currentStyle())
+    }
   }
 
   fun styleLoadFinished(source: MapAdapter, generation: Long) {

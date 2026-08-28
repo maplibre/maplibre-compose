@@ -7,11 +7,11 @@ public actual typealias PlatformMap = MaplibreMap
 @DelicateMapApi
 public actual suspend fun <T> MapState.withPlatformMap(block: (PlatformMap) -> T): T {
   check(!isClosed) { "MapState is closed; the platform map is destroyed" }
-  val map =
-    engine.session?.liveMap
+  val session =
+    engine.session
       ?: throw IllegalStateException(
         "MapState has no live map while detached; on Web the map exists only while a MaplibreMap " +
           "is composed"
       )
-  return block(map)
+  return session.withLiveMap(block)
 }

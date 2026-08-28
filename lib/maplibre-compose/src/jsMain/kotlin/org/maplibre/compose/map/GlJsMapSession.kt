@@ -91,6 +91,33 @@ internal class GlJsMapSession(
   internal val liveMap: MaplibreMap?
     get() = map
 
+  /** Runs [block] on the live map, waiting until the first frame constructs it. */
+  internal suspend fun <T> withLiveMap(block: (MaplibreMap) -> T): T {
+    map?.let {
+      return block(it)
+    }
+    return suspendCancellableCoroutine { continuation ->
+      val action =
+        PendingAction(
+          run = { current ->
+            if (continuation.isActive) continuation.resumeWith(runCatching { block(current) })
+          },
+          abandon = {
+            if (continuation.isActive) {
+              continuation.resumeWithException(
+                IllegalStateException(
+                  "MapState has no live map while detached; on Web the map exists only while a " +
+                    "MaplibreMap is composed"
+                )
+              )
+            }
+          },
+        )
+      postWhenMapExists(action)
+      continuation.invokeOnCancellation { pendingMapActions.remove(action) }
+    }
+  }
+
   /** MapLibre sizes its viewport from a container even when it renders nowhere near one. */
   private var container: HTMLElement? = null
 

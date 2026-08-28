@@ -299,6 +299,48 @@ class MapStateTest {
   }
 
   @Test
+  fun destroying_the_attached_map_marks_the_style_loading_again() = runTest {
+    val state = mapState()
+    val adapter = FakeMapAdapter()
+    state.baseStyle = STYLE_A
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, RecordingStyleBinding())
+    state.callbacks.onMapFinishedLoading(adapter)
+    assertIs<MapLoadState.Ready>(state.loadState)
+    val generation = state.styleGeneration
+
+    state.callbacks.onMapDestroyed(adapter)
+
+    val loading = assertIs<MapLoadState.Loading>(state.loadState)
+    assertEquals(generation, loading.generation)
+    assertEquals(STYLE_A, loading.style)
+
+    state.callbacks.onStyleChanged(adapter, RecordingStyleBinding())
+    state.callbacks.onMapFinishedLoading(adapter)
+    val ready = assertIs<MapLoadState.Ready>(state.loadState)
+    assertEquals(generation, ready.generation)
+
+    state.close()
+  }
+
+  @Test
+  fun destroying_a_detached_map_leaves_a_ready_style() = runTest {
+    val state = mapState()
+    val adapter = FakeMapAdapter()
+    state.baseStyle = STYLE_A
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, RecordingStyleBinding())
+    state.callbacks.onMapFinishedLoading(adapter)
+    state.detachSession()
+    assertIs<MapLoadState.Ready>(state.loadState)
+
+    state.callbacks.onMapDestroyed(adapter)
+
+    assertIs<MapLoadState.Ready>(state.loadState)
+    state.close()
+  }
+
+  @Test
   fun reattach_of_a_ready_adapter_does_not_reload() = runTest {
     val state = mapState()
     val adapter = FakeMapAdapter()
