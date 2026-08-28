@@ -5,12 +5,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.Snapshot
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
+import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import kotlinx.coroutines.CoroutineDispatcher
@@ -20,12 +24,15 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
+import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.OpRecordingStyleBinding
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Position
 
@@ -237,4 +244,84 @@ class MapStateTest {
     )
     state.close()
   }
+
+  @Test
+  fun a_stale_style_completion_does_not_finish_the_current_load() = runTest {
+    val state = mapState()
+    val adapter = FakeMapAdapter()
+    state.baseStyle = STYLE_A
+    state.attachSession(adapter)
+    state.baseStyle = STYLE_B
+    state.callbacks.onMapFinishedLoading(adapter, 1L)
+    assertIs<MapLoadState.Loading>(state.loadState)
+    state.callbacks.onMapFinishedLoading(adapter, 2L)
+    assertIs<MapLoadState.Ready>(state.loadState)
+    state.close()
+  }
+
+  @Test
+  fun a_foreign_session_cannot_move_the_camera_or_clear_the_viewport() = runTest {
+    val state = mapState()
+    val adapter = FakeMapAdapter()
+    adapter.camera = CameraPosition(zoom = 4.0)
+    adapter.viewport = testViewport()
+    state.attachSession(adapter)
+    state.callbacks.onCameraMoved(adapter)
+    assertEquals(4.0, state.camera.zoom)
+    assertNotNull(state.viewport)
+
+    val foreign = FakeMapAdapter()
+    foreign.camera = CameraPosition(zoom = 9.0)
+    foreign.viewport = testViewport()
+    state.callbacks.onCameraMoved(foreign)
+    state.callbacks.onSurfaceLost(foreign)
+    assertEquals(4.0, state.camera.zoom)
+    assertNotNull(state.viewport)
+
+    state.callbacks.onSurfaceLost(adapter)
+    assertNull(state.viewport)
+    state.close()
+  }
+
+  @Test
+  fun a_detached_camera_write_is_recorded_and_not_pushed() = runTest {
+    val state = mapState()
+    state.setCamera(CameraPosition(zoom = 5.0))
+    val adapter = FakeMapAdapter()
+    assertEquals(5.0, state.camera.zoom)
+    assertTrue(adapter.calls.none { it == "setCameraPosition" })
+    state.attachSession(adapter)
+    assertTrue(adapter.calls.any { it == "setCameraPosition" })
+    assertEquals(5.0, adapter.camera.zoom)
+    state.close()
+  }
+
+  @Test
+  fun reattach_of_a_ready_adapter_does_not_reload() = runTest {
+    val state = mapState()
+    val adapter = FakeMapAdapter()
+    state.baseStyle = STYLE_A
+    state.attachSession(adapter)
+    state.callbacks.onMapFinishedLoading(adapter)
+    val loads = adapter.calls.count { it == "setBaseStyle" }
+    assertIs<MapLoadState.Ready>(state.loadState)
+    state.detachSession()
+    state.attachSession(adapter)
+    assertEquals(loads, adapter.calls.count { it == "setBaseStyle" })
+    assertIs<MapLoadState.Ready>(state.loadState)
+    state.close()
+  }
 }
+
+private val STYLE_A = BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}""")
+private val STYLE_B = BaseStyle.Uri("https://example.invalid/b.json")
+
+private fun testViewport(): Viewport =
+  Viewport(
+    size = DpSize(100.dp, 80.dp),
+    visibleBoundingBox =
+      BoundingBox(southwest = Position(0.0, 0.0), northeast = Position(1.0, 1.0)),
+    visibleRegion =
+      VisibleRegion(Position(0.0, 1.0), Position(1.0, 1.0), Position(0.0, 0.0), Position(1.0, 0.0)),
+    metersPerDpAtTarget = 1.0,
+  )

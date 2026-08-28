@@ -8,11 +8,44 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 
 /**
- * The logical map record. [MapKernel] is the only writer. Platform work reports back as events on
- * this record; a superseded identity is ignored here, so a stale callback cannot change current
- * state.
+ * The locked logical map. [mutate] is the only writer. Platform work is queued as lambdas and runs
+ * after the lock is released, so a callback from that work starts a new turn instead of deadlocking
+ * the non-reentrant native lock.
+ *
+ * Stale work is unauthorized by identity: a style event names a generation, a session event names
+ * an adapter, a composition publish names a binding. A superseded identity is a no-op.
  */
 internal class MapRecord(initialCamera: CameraPosition) {
+  private val lock = newSessionLock()
+  private val work = mutableListOf<() -> Unit>()
+
+  /**
+   * Applies [transform] under the serial token and returns the work to run after the caller has
+   * published the record. Do not call platform code or user callbacks from [transform]; [enqueue]
+   * that work instead.
+   */
+  fun <T> mutate(transform: MapRecord.() -> T): Pair<T, List<() -> Unit>> = lock.withLock {
+    work.clear()
+    val value = transform()
+    val taken = work.toList()
+    work.clear()
+    value to taken
+  }
+
+  /** A consistent read of the record. The block must not mutate it. */
+  fun <T> read(transform: MapRecord.() -> T): T = lock.withLock { transform() }
+
+  /** Queues [block] to run after this turn publishes and releases the lock. */
+  fun enqueue(block: () -> Unit) {
+    work += block
+  }
+
+  var applySessionOptions: (MapAdapter) -> Unit = {}
+  var pointBinding: (StyleBinding) -> Unit = {}
+  var refreshCollections: () -> Unit = {}
+  var resetSessionHooks: () -> Unit = {}
+  var clearInheritedLocals: () -> Unit = {}
+
   var closed: Boolean = false
     private set
 
@@ -41,11 +74,11 @@ internal class MapRecord(initialCamera: CameraPosition) {
     private set
 
   /** The adapter that currently owns the composed session, or null. */
-  var session: Any? = null
+  var session: MapAdapter? = null
     private set
 
   /** The adapter that may report style events: the session, or a retained core. */
-  var styleSource: Any? = null
+  var styleSource: MapAdapter? = null
     private set
 
   var hasAuthoritativeSurface: Boolean = false
@@ -77,28 +110,21 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   val pendingOperations: MutableMap<Long, PendingMapOperation> = mutableMapOf()
 
-  val effects: MutableList<MapEffect> = mutableListOf()
-
-  fun takeEffects(): List<MapEffect> {
-    val taken = effects.toList()
-    effects.clear()
-    return taken
-  }
-
-  private fun emit(effect: MapEffect) {
-    effects += effect
-  }
-
   private fun currentStyle(): BaseStyle = selectedStyle ?: BaseStyle.Demo
 
-  private fun isStyleSource(source: Any?): Boolean = source != null && source === styleSource
+  private fun isStyleSource(source: MapAdapter?): Boolean = source != null && source === styleSource
 
-  private fun isSession(source: Any?): Boolean = source != null && source === session
+  private fun isSession(source: MapAdapter?): Boolean = source != null && source === session
 
   private fun acceptsStyleGeneration(generation: Long): Boolean = generation == styleGeneration
 
-  private fun emitLoad(adapter: Any, style: BaseStyle) {
-    emit(MapEffect.LoadStyle(adapter, style, styleGeneration))
+  private fun emitLoad(adapter: MapAdapter, style: BaseStyle) {
+    val generation = styleGeneration
+    enqueue { adapter.setBaseStyle(style, generation) }
+  }
+
+  private fun sendCamera(adapter: MapAdapter, position: CameraPosition) {
+    enqueue { adapter.setCameraPosition(position) }
   }
 
   private fun selectDemoIfNeeded() {
@@ -122,7 +148,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
    * Grants the single session slot to [adapter], or throws. The same adapter may re-attach. A
    * retained core that already holds the current ready style is not asked to load it again.
    */
-  fun attach(adapter: Any) {
+  fun attach(adapter: MapAdapter) {
     check(!closed) { "MapState is closed; a closed state cannot show a map again" }
     when (val current = renderer) {
       is RendererState.Capture -> throw IllegalStateException(SNAPSHOT_SESSION_ERROR)
@@ -137,13 +163,13 @@ internal class MapRecord(initialCamera: CameraPosition) {
     styleSource = adapter
     renderer = RendererState.Session(adapter)
     if (previous !== adapter) {
-      emit(MapEffect.ApplySessionOptions(adapter))
+      enqueue { applySessionOptions(adapter) }
       if (!reuseLoadedStyle) selectedStyle?.let { emitLoad(adapter, it) }
-      emit(MapEffect.SendCamera(adapter, camera))
+      sendCamera(adapter, camera)
     }
   }
 
-  fun detach(adapter: Any?) {
+  fun detach(adapter: MapAdapter?) {
     if (adapter != null && session != null && adapter !== session) return
     if (session == null && renderer !is RendererState.Session) return
     session = null
@@ -152,12 +178,12 @@ internal class MapRecord(initialCamera: CameraPosition) {
     isCameraMoving = false
     moveReason = CameraMoveReason.NONE
     renderer = RendererState.None
-    emit(MapEffect.ResetSessionHooks)
-    emit(MapEffect.ClearInheritedLocals)
+    enqueue { resetSessionHooks() }
+    enqueue { clearInheritedLocals() }
   }
 
   /** The engine published or replaced the retained core that reports style while detached. */
-  fun replaceCore(adapter: Any?) {
+  fun replaceCore(adapter: MapAdapter?) {
     if (closed) return
     if (adapter === styleSource && adapter === session) return
     if (session == null) {
@@ -170,7 +196,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     }
   }
 
-  fun styleChanged(source: Any, binding: StyleBinding?, generation: Long) {
+  fun styleChanged(source: MapAdapter, binding: StyleBinding?, generation: Long) {
     if (closed) return
     if (!isStyleSource(source)) return
     if (!acceptsStyleGeneration(generation)) return
@@ -185,11 +211,11 @@ internal class MapRecord(initialCamera: CameraPosition) {
       compositionSources = emptyMap()
     }
     if (binding != null) lastLoadFailure = null
-    emit(MapEffect.PointBinding(next))
-    emit(MapEffect.RefreshCollections)
+    enqueue { pointBinding(next) }
+    enqueue { refreshCollections() }
   }
 
-  fun mapDestroyed(source: Any) {
+  fun mapDestroyed(source: MapAdapter) {
     if (closed) return
     if (!isStyleSource(source) && !isSession(source)) return
     bindingGeneration += 1L
@@ -202,20 +228,20 @@ internal class MapRecord(initialCamera: CameraPosition) {
     viewport = null
     isCameraMoving = false
     moveReason = CameraMoveReason.NONE
-    emit(MapEffect.PointBinding(StyleBinding.UNLOADED))
-    emit(MapEffect.RefreshCollections)
+    enqueue { pointBinding(StyleBinding.UNLOADED) }
+    enqueue { refreshCollections() }
   }
 
-  fun styleLoadFinished(source: Any, generation: Long) {
+  fun styleLoadFinished(source: MapAdapter, generation: Long) {
     if (closed) return
     if (!isStyleSource(source)) return
     if (!acceptsStyleGeneration(generation)) return
     loadState = MapLoadState.Ready(styleGeneration, currentStyle())
     lastLoadFailure = null
-    emit(MapEffect.RefreshCollections)
+    enqueue { refreshCollections() }
   }
 
-  fun styleLoadFailed(source: Any?, generation: Long, reason: String) {
+  fun styleLoadFailed(source: MapAdapter?, generation: Long, reason: String) {
     if (closed) return
     if (!isStyleSource(source)) return
     if (!acceptsStyleGeneration(generation)) return
@@ -223,7 +249,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     loadState = MapLoadState.Failed(styleGeneration, currentStyle(), reason)
     appSources = emptyMap()
     compositionSources = emptyMap()
-    emit(MapEffect.RefreshCollections)
+    enqueue { refreshCollections() }
   }
 
   fun setCamera(position: CameraPosition) {
@@ -237,10 +263,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
         // renderer, so leftover session constraints cannot clamp the recorded position.
         RendererState.None -> null
       }
-    target?.let { emit(MapEffect.SendCamera(it, position)) }
+    target?.let { sendCamera(it, position) }
   }
 
-  fun cameraMoved(source: Any, position: CameraPosition, viewport: Viewport?) {
+  fun cameraMoved(source: MapAdapter, position: CameraPosition, viewport: Viewport?) {
     if (closed) return
     if (renderer is RendererState.Capture) {
       camera = position
@@ -259,20 +285,20 @@ internal class MapRecord(initialCamera: CameraPosition) {
     if (renderer is RendererState.Capture) this.viewport = viewport
   }
 
-  fun cameraMoveStarted(source: Any, reason: CameraMoveReason) {
+  fun cameraMoveStarted(source: MapAdapter, reason: CameraMoveReason) {
     if (closed) return
     if (!isSession(source)) return
     moveReason = reason
     isCameraMoving = true
   }
 
-  fun cameraMoveEnded(source: Any) {
+  fun cameraMoveEnded(source: MapAdapter) {
     if (closed) return
     if (!isSession(source)) return
     isCameraMoving = false
   }
 
-  fun surfaceLost(source: Any) {
+  fun surfaceLost(source: MapAdapter) {
     if (closed) return
     if (!isSession(source)) return
     hasAuthoritativeSurface = false
@@ -414,10 +440,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
     compositionSources = emptyMap()
     pendingOperations.values.forEach { it.cancelled = true }
     pendingOperations.clear()
-    emit(MapEffect.ResetSessionHooks)
-    emit(MapEffect.ClearInheritedLocals)
-    emit(MapEffect.PointBinding(StyleBinding.UNLOADED))
-    emit(MapEffect.RefreshCollections)
+    enqueue { resetSessionHooks() }
+    enqueue { clearInheritedLocals() }
+    enqueue { pointBinding(StyleBinding.UNLOADED) }
+    enqueue { refreshCollections() }
     return false
   }
 
@@ -435,10 +461,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
     )
 }
 
-/** Compose-visible fields copied under the kernel lock, then written after the lock is released. */
+/** Compose-visible fields copied under the record lock, then written after the lock is released. */
 internal data class PublishedMapSnapshot(
   val closed: Boolean,
-  val session: Any?,
+  val session: MapAdapter?,
   val camera: CameraPosition,
   val viewport: Viewport?,
   val lastLoadFailure: String?,
@@ -447,7 +473,7 @@ internal data class PublishedMapSnapshot(
   val loadState: MapLoadState,
 )
 
-/** One in-flight camera or capture operation the kernel owns. */
+/** One in-flight camera or capture operation the record owns. */
 internal class PendingMapOperation(val id: Long) {
   var cancelled: Boolean = false
 }
@@ -456,7 +482,7 @@ internal class PendingMapOperation(val id: Long) {
 internal sealed interface RendererState {
   data object None : RendererState
 
-  data class Session(val adapter: Any) : RendererState
+  data class Session(val adapter: MapAdapter) : RendererState
 
   data class Capture(val id: Long) : RendererState
 }

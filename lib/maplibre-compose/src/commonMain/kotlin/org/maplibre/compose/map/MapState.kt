@@ -111,8 +111,8 @@ internal constructor(
     logger = null,
   )
 
-  /** The serialized authority for every logical transition this state makes. */
-  internal val kernel = MapKernel(cameraPosition)
+  /** The locked logical record for every transition this state makes. */
+  internal val record = MapRecord(cameraPosition)
 
   private val published =
     mutableStateOf(
@@ -138,7 +138,7 @@ internal constructor(
 
   /** The attached session's adapter, or null while no session is attached. */
   internal val attachedAdapter: MapAdapter?
-    get() = published.value.session as MapAdapter?
+    get() = published.value.session
 
   /** True after [close]; the platform withPlatformMap actuals refuse a closed state with this. */
   internal val isClosed: Boolean
@@ -203,6 +203,22 @@ internal constructor(
     styleNode.commitOwnership = { binding, layerIds, sources ->
       commitComposition(binding, layerIds, sources)
     }
+    record.applySessionOptions = { adapter -> sessionOptions?.applyTo(adapter) }
+    record.pointBinding = { binding ->
+      styleNode.binding = binding
+      styleNode.clearPublishedAppOwnership()
+      if (binding === StyleBinding.UNLOADED || !binding.isLoaded) {
+        styleNode.clearPublishedOwnership()
+        if (shouldClearUnloadedSources()) sources.clear()
+      }
+      host.requestApplyChanges()
+    }
+    record.refreshCollections = {
+      if (styleNode.binding.isLoaded) refreshStyleCollections()
+      else if (shouldClearUnloadedSources()) sources.clear()
+    }
+    record.resetSessionHooks = { callbacks.resetSessionHooks() }
+    record.clearInheritedLocals = { inheritedLocals = null }
   }
 
   private var contentStarted = false
@@ -229,10 +245,10 @@ internal constructor(
 
   /** Replaces the style composition; the host recomposes because it reads this state. */
   internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
-    // Read closed from the kernel, not the published snapshot: this runs during composition, and
+    // Read closed from the record, not the published snapshot: this runs during composition, and
     // a snapshot read would recompose rememberMapState on every load or camera change and reset
     // the baseStyle parameter over an imperative assignment.
-    if (kernel.read { closed }) return
+    if (record.read { closed }) return
     pendingContent = content
     // Written here, not through a full record publish: rememberMapState calls this during
     // composition, and publishing camera or load snapshots in that turn races the composer.
@@ -297,13 +313,13 @@ internal constructor(
   }
 
   internal val styleGeneration: Long
-    get() = kernel.read { styleGeneration }
+    get() = record.read { styleGeneration }
 
   internal val bindingGeneration: Long
-    get() = kernel.read { bindingGeneration }
+    get() = record.read { bindingGeneration }
 
   /**
-   * Runs [write] only when the handle's style and binding generations are still current. The kernel
+   * Runs [write] only when the handle's style and binding generations are still current. The record
    * authorizes the write against one binding, the mutation runs after that turn, and a superseded
    * generation fails the call instead of publishing a half-applied value.
    */
@@ -345,7 +361,7 @@ internal constructor(
    * new value reloads the style on the live map; the map re-adds the composed content over it.
    */
   public var baseStyle: BaseStyle
-    get() = kernel.read { selectedStyle } ?: BaseStyle.Demo
+    get() = record.read { selectedStyle } ?: BaseStyle.Demo
     set(value) {
       commit { selectStyle(value) }
     }
@@ -371,13 +387,6 @@ internal constructor(
    */
   public val viewport: Viewport?
     get() = published.value.viewport
-
-  /** Writes [viewport] for tests that render overlays without attaching a session. */
-  internal var viewportState: Viewport?
-    get() = published.value.viewport
-    set(value) {
-      published.value = published.value.copy(viewport = value)
-    }
 
   /** Whether the camera is currently moving. */
   public val isCameraMoving: Boolean
@@ -465,16 +474,16 @@ internal constructor(
   }
 
   /**
-   * Runs [block] as a first-class camera operation. The kernel publishes the adapter's resulting
+   * Runs [block] as a first-class camera operation. The record publishes the adapter's resulting
    * camera before this call returns, and a cancel before [block] runs issues no later mutation.
    */
   private suspend fun runCameraOperation(block: suspend (MapAdapter) -> Unit) {
     val opId = commit { beginOperation() }
     try {
       val adapter = awaitAdapter()
-      if (!kernel.read { isOperationActive(opId) }) return
+      if (!record.read { isOperationActive(opId) }) return
       block(adapter)
-      if (!kernel.read { isOperationActive(opId) }) return
+      if (!record.read { isOperationActive(opId) }) return
       val position = adapter.getCameraPosition()
       val viewport = adapter.getViewport()
       commit { completeCameraOperation(opId, position, viewport) }
@@ -617,7 +626,7 @@ internal constructor(
   internal fun detachSession(adapter: MapAdapter? = attachedAdapter) {
     commit { detach(adapter) }
     if (engine.detachedAdapter == null) {
-      val generation = kernel.read { styleGeneration }
+      val generation = record.read { styleGeneration }
       commit { styleChanged(adapter ?: Any(), null, generation) }
     }
   }
@@ -687,18 +696,19 @@ internal constructor(
   internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 
   /**
-   * Applies [transform] under the kernel, publishes the Compose snapshot, then runs effects. The
-   * native lock is not reentrant, so snapshot writes and callbacks stay outside the token.
+   * Applies [transform] under the record lock, publishes the Compose snapshot, then runs the queued
+   * work. The native lock is not reentrant, so snapshot writes and callbacks stay outside the
+   * token.
    */
   internal fun <T> commit(transform: MapRecord.() -> T): T {
-    val (value, effects) = kernel.reduceValue(transform)
+    val (value, work) = record.mutate(transform)
     publishRecord()
-    executeEffects(effects)
+    for (task in work) task()
     return value
   }
 
   private fun publishRecord() {
-    val snapshot = kernel.read { publishedSnapshot() }
+    val snapshot = record.read { publishedSnapshot() }
     published.value = snapshot
     pendingContent?.let { content ->
       if (!snapshot.closed) contentState.value = content
@@ -716,33 +726,6 @@ internal constructor(
     return snapshot.closed ||
       snapshot.session == null ||
       snapshot.loadState !is MapLoadState.Loading
-  }
-
-  private fun executeEffects(effects: List<MapEffect>) {
-    for (effect in effects) {
-      when (effect) {
-        is MapEffect.LoadStyle ->
-          (effect.adapter as? MapAdapter)?.setBaseStyle(effect.style, effect.generation)
-        is MapEffect.SendCamera -> (effect.adapter as? MapAdapter)?.setCameraPosition(effect.camera)
-        is MapEffect.ApplySessionOptions ->
-          sessionOptions?.let { options -> (effect.adapter as? MapAdapter)?.let(options::applyTo) }
-        is MapEffect.PointBinding -> {
-          styleNode.binding = effect.binding
-          styleNode.clearPublishedAppOwnership()
-          if (effect.binding === StyleBinding.UNLOADED || !effect.binding.isLoaded) {
-            styleNode.clearPublishedOwnership()
-            if (shouldClearUnloadedSources()) sources.clear()
-          }
-          host.requestApplyChanges()
-        }
-        MapEffect.RefreshCollections -> {
-          if (styleNode.binding.isLoaded) refreshStyleCollections()
-          else if (shouldClearUnloadedSources()) sources.clear()
-        }
-        MapEffect.ResetSessionHooks -> callbacks.resetSessionHooks()
-        MapEffect.ClearInheritedLocals -> inheritedLocals = null
-      }
-    }
   }
 }
 

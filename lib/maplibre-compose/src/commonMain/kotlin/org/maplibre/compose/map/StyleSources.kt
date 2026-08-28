@@ -60,7 +60,7 @@ public class StyleSources internal constructor(private val state: MapState) {
    */
   public operator fun get(id: String): Source? {
     if (state.isClosed) return null
-    val fromKernel = state.kernel.read { compositionSources[id] ?: appSources[id] }
+    val fromKernel = state.record.read { compositionSources[id] ?: appSources[id] }
     return fromKernel
       ?: state.styleNode.compositionSources[id]
       ?: state.styleNode.appSourceSnapshot[id]
@@ -97,7 +97,7 @@ public class StyleSources internal constructor(private val state: MapState) {
         "Source id '$id' is owned by the base style; select a different MapState.baseStyle to " +
           "change it"
       }
-      // Reserve in the kernel first so publication and authorization share one generation.
+      // Reserve in the record first so publication and authorization share one generation.
       check(state.commitAppSource(binding, source)) {
         "Source '$id' was not added: the style unloaded during the add"
       }

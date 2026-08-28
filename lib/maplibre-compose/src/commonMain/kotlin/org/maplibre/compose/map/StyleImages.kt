@@ -29,7 +29,7 @@ public class StyleImages internal constructor(private val state: MapState) {
   public val ids: List<String>
     get() =
       if (state.isClosed) emptyList()
-      else state.kernel.read { appImages }.ifEmpty { state.styleNode.appImageIds }
+      else state.record.read { appImages }.ifEmpty { state.styleNode.appImageIds }
 
   /**
    * Registers [image] under [id] in the loaded style. An id this state already registered is

@@ -33,7 +33,8 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
 
   /**
    * The generation of the current [requested] style. Engine callbacks report this value, so it is
-   * the kernel generation when [request] received one, or the locally minted generation otherwise.
+   * the record's style generation when [request] received one, or the locally minted generation
+   * otherwise.
    */
   val requestedGeneration: Long
     get() = requestedRef.load()?.generation ?: 0L
@@ -49,8 +50,8 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
   /**
    * Runs the switch sequence above, or nothing when [style] is already the requested style.
    *
-   * [generation] is the kernel's style generation. Pass 0 only from engine tests that call
-   * [org.maplibre.compose.map.MapAdapter.setBaseStyle] without a kernel; those mint a local
+   * [generation] is the record's style generation. Pass 0 only from engine tests that call
+   * [org.maplibre.compose.map.MapAdapter.setBaseStyle] without a [MapState]; those mint a local
    * generation so the request/applied pair still moves.
    */
   fun request(
@@ -98,8 +99,8 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
   }
 
   /**
-   * Uses [generation] when the kernel supplied one, otherwise mints a local id. The minting counter
-   * stays at or ahead of every accepted kernel generation so a later engine-only request cannot
+   * Uses [generation] when the record supplied one, otherwise mints a local id. The minting counter
+   * stays at or ahead of every accepted record generation so a later engine-only request cannot
    * reuse an earlier id.
    */
   private fun nextGeneration(generation: Long): Long {

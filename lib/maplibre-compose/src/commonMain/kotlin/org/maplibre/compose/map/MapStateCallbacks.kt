@@ -13,8 +13,8 @@ import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * Forwards platform callbacks into [MapState]'s kernel as generation-tagged events. The kernel
- * decides whether each event still belongs to current state.
+ * Forwards platform callbacks into [MapState] as generation-tagged events. The record decides
+ * whether each event still belongs to current state.
  */
 internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callbacks {
 

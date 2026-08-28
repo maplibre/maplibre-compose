@@ -10,7 +10,7 @@ class RequestedStyleStateTest {
   private val styleB = BaseStyle.Uri("https://example.invalid/b.json")
 
   @Test
-  fun a_kernel_generation_is_the_generation_callbacks_read() {
+  fun a_supplied_generation_is_the_generation_callbacks_read() {
     val state = RequestedStyleState()
     var clearedGeneration = 0L
     state.request(
@@ -26,7 +26,7 @@ class RequestedStyleStateTest {
   }
 
   @Test
-  fun an_engine_only_request_mints_after_the_kernel_generation() {
+  fun an_engine_only_request_mints_after_a_supplied_generation() {
     val state = RequestedStyleState()
     state.request(styleA, generation = 3L, unloadBinding = {}, clearStyle = {}, postApply = {})
     state.request(styleB, generation = 0L, unloadBinding = {}, clearStyle = {}, postApply = {})

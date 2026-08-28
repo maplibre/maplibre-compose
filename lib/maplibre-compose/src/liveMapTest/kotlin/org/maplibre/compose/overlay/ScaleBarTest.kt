@@ -9,6 +9,7 @@ import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import kotlin.test.Test
 import org.maplibre.compose.camera.Viewport
+import org.maplibre.compose.map.FakeMapAdapter
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -31,7 +32,8 @@ class ScaleBarTest {
   @Test
   fun a_state_with_a_viewport_renders_the_bar() {
     val state = MapState()
-    state.viewportState =
+    val adapter = FakeMapAdapter()
+    adapter.viewport =
       Viewport(
         size = DpSize(300.dp, 300.dp),
         visibleBoundingBox =
@@ -45,6 +47,8 @@ class ScaleBarTest {
           ),
         metersPerDpAtTarget = 10.0,
       )
+    state.attachSession(adapter)
+    state.callbacks.onCameraMoved(adapter)
     runComposeUiTest {
       setContent { ScaleBar(state = state, modifier = Modifier.testTag("scale-bar")) }
       waitForIdle()

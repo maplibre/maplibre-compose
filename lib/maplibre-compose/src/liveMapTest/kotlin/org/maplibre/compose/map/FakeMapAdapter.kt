@@ -19,6 +19,7 @@ import org.maplibre.spatialk.geojson.Position
 internal class FakeMapAdapter : MapAdapter {
   val calls: MutableList<String> = mutableListOf()
   var camera: CameraPosition = CameraPosition()
+  var viewport: Viewport? = null
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
     calls += "animateCameraPosition"
@@ -69,7 +70,7 @@ internal class FakeMapAdapter : MapAdapter {
 
   override fun getViewport(): Viewport? {
     calls += "getViewport"
-    return null
+    return viewport
   }
 
   override fun setRenderSettings(value: RenderOptions) {

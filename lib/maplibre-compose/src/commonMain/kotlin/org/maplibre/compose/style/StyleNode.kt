@@ -44,7 +44,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal var reportError: (StyleError) -> Unit = {}
 
   /**
-   * Set by [MapState][org.maplibre.compose.map.MapState]; commits ownership through the map kernel
+   * Set by [MapState][org.maplibre.compose.map.MapState]; commits ownership through the map record
    * so a queued apply after close or a style reload cannot republish.
    */
   internal var commitOwnership: ((StyleBinding, Set<String>, Map<String, Source>) -> Boolean)? =
