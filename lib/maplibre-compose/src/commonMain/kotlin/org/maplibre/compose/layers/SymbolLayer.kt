@@ -29,6 +29,7 @@ import org.maplibre.compose.expressions.value.ImageValue
 import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.StringValue
 import org.maplibre.compose.expressions.value.SymbolAnchor
+import org.maplibre.compose.expressions.value.SymbolHeightAnchor
 import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.SymbolPlacement
 import org.maplibre.compose.expressions.value.SymbolZOrder
@@ -96,6 +97,20 @@ private fun rememberEmCompiler(textSize: Expression<TextUnitValue>): LayerProper
  * @param zOrder Determines whether overlapping symbols in the same layer are rendered in the order
  *   that they appear in the data source or by their y-position relative to the viewport. To control
  *   the order and prioritization of symbols otherwise, use [sortKey].
+ * @param heightOffset Height in meters above [heightAnchor] at which the symbol is placed. Only
+ *   applicable when [placement] is [SymbolPlacement.Point]. The expression may use feature
+ *   properties.
+ *
+ *   Not yet supported on native
+ *   ([maplibre-native#1929](https://github.com/maplibre/maplibre-native/issues/1929)).
+ *
+ * @param heightAnchor What [heightOffset] is measured from. [SymbolHeightAnchor.Ground] measures
+ *   from the terrain surface below the symbol, or from zero when terrain is off.
+ *   [SymbolHeightAnchor.Absolute] measures from sea level and ignores terrain.
+ *
+ *   Not yet supported on native
+ *   ([maplibre-native#1929](https://github.com/maplibre/maplibre-native/issues/1929)).
+ *
  * @param iconImage Image to use for drawing an image background. The expression may use feature
  *   properties.
  * @param iconOpacity The opacity at which the icon will be drawn. A value in the range `[0..1]`.
@@ -428,6 +443,8 @@ public fun SymbolLayer(
   spacing: Expression<DpValue> = const(250.dp),
   avoidEdges: Expression<BooleanValue> = const(false),
   zOrder: Expression<SymbolZOrder> = const(SymbolZOrder.Auto),
+  heightOffset: Expression<FloatValue> = nil(),
+  heightAnchor: Expression<SymbolHeightAnchor> = nil(),
 
   // icon image
   iconImage: Expression<ImageValue> = nil(),
@@ -520,6 +537,8 @@ public fun SymbolLayer(
   val compiledSpacing = compile(spacing)
   val compiledAvoidEdges = compile(avoidEdges)
   val compiledZOrder = compile(zOrder)
+  val compiledHeightOffset = compile(heightOffset)
+  val compiledHeightAnchor = compile(heightAnchor)
   val compiledPlacement = compile(placement)
 
   val compiledIconImage = compile(iconImage)
@@ -592,6 +611,8 @@ public fun SymbolLayer(
       set(compiledAvoidEdges) { layer.setSymbolAvoidEdges(it) }
       set(compiledSortKey) { layer.setSymbolSortKey(it) }
       set(compiledZOrder) { layer.setSymbolZOrder(it) }
+      set(compiledHeightOffset) { layer.setSymbolHeightOffset(it) }
+      set(compiledHeightAnchor) { layer.setSymbolHeightAnchor(it) }
 
       set(compiledIconAllowOverlap) { layer.setIconAllowOverlap(it) }
       set(compiledIconOverlap) { layer.setIconOverlap(it) }
@@ -687,6 +708,14 @@ internal class SymbolLayer(id: String, source: Source) : FeatureLayer(id, source
 
   fun setSymbolZOrder(zOrder: CompiledExpression<SymbolZOrder>) {
     setLayoutProperty("symbol-z-order", zOrder)
+  }
+
+  fun setSymbolHeightOffset(offset: CompiledExpression<FloatValue>) {
+    setLayoutProperty("symbol-height-offset", offset)
+  }
+
+  fun setSymbolHeightAnchor(anchor: CompiledExpression<SymbolHeightAnchor>) {
+    setLayoutProperty("symbol-height-anchor", anchor)
   }
 
   fun setIconAllowOverlap(allowOverlap: CompiledExpression<BooleanValue>) {

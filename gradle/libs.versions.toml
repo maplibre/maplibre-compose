@@ -44,12 +44,12 @@ lifecycleRuntimeCompose = "2.11.0"
 # compose-glfw generates callbacks against this version's internal ABI.
 lwjgl = "3.4.2"
 materialKolor = "5.0.0"
-maplibre-js = "6.2.0"
+maplibre-js = "6.6.0"
 maplibre-nativeFfi = "0.202608.3"
 # The style-spec release the parity catalog reads; ci/style_spec_parity.py
 # fetches v8.json at this tag. Follow the maplibre-gl release's own
 # @maplibre/maplibre-gl-style-spec dependency when bumping maplibre-js.
-maplibre-styleSpec = "26.2.1"
+maplibre-styleSpec = "26.3.0"
 mobilityData = "0.4.0"
 playServices-location = "21.4.0"
 spatialk = "0.7.0"
