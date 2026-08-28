@@ -242,6 +242,8 @@ internal class StyleCompositionHost(
   internal suspend fun awaitPendingWork() {
     if (closed) return
     while (true) {
+      // Delivers any written-but-unnotified snapshot state, so a caller's plain write is enough.
+      Snapshot.sendApplyNotifications()
       recomposer.currentState.first { it != Recomposer.State.PendingWork }
       scope.launch {}.join()
       if (recomposer.currentState.value == Recomposer.State.PendingWork) continue
