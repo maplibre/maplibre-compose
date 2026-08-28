@@ -530,36 +530,55 @@ internal constructor(
     }
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
-  internal fun attachSession(adapter: MapAdapter): Unit = transitionLock.withLock {
-    check(!closedState.value) { "MapState is closed; a closed state cannot show a map again" }
-    val previous = adapterState.value
-    check(previous == null || previous === adapter) { SINGLE_SESSION_ERROR }
-    sessionOptions?.applyTo(adapter)
-    adapterState.value = adapter
-    selectedBaseStyle?.let(adapter::setBaseStyle)
-    if (adapter !== previous) {
-      // apply deferred state
-      adapter.setCameraPosition(positionState.value)
+  internal fun attachSession(adapter: MapAdapter) {
+    val (replayFinished, replayFailure) =
+      transitionLock.withLock {
+        check(!closedState.value) { "MapState is closed; a closed state cannot show a map again" }
+        val previous = adapterState.value
+        check(previous == null || previous === adapter) { SINGLE_SESSION_ERROR }
+        sessionOptions?.applyTo(adapter)
+        adapterState.value = adapter
+        selectedBaseStyle?.let(adapter::setBaseStyle)
+        if (adapter !== previous) {
+          // apply deferred state
+          adapter.setCameraPosition(positionState.value)
 
-      // usually null until the map reports its first viewport
-      viewportState.value = adapter.getViewport()
-    }
-    sources.refreshSources()
-    if (loadFinishedWhileDetached) {
-      loadFinishedWhileDetached = false
-      callbacks.onMapLoadFinished()
-    }
-    loadFailedWhileDetached?.let { reason ->
-      loadFailedWhileDetached = null
-      callbacks.onMapLoadFailed(reason)
-    }
+          // usually null until the map reports its first viewport
+          viewportState.value = adapter.getViewport()
+        }
+        sources.refreshSources()
+        // Captured under the lock, invoked after it: a replay callback may take a transition of its
+        // own, such as selecting a style or closing the state.
+        val finished = loadFinishedWhileDetached
+        loadFinishedWhileDetached = false
+        val failure = loadFailedWhileDetached
+        loadFailedWhileDetached = null
+        Pair(finished, failure)
+      }
+    if (replayFinished) callbacks.onMapLoadFinished()
+    replayFailure?.let { callbacks.onMapLoadFailed(it) }
   }
 
   /** True when a retained map finished a style load while no session was attached. */
-  internal var loadFinishedWhileDetached: Boolean = false
+  private var loadFinishedWhileDetached: Boolean = false
 
   /** The failure a retained map reported while no session was attached, replayed at attach. */
-  internal var loadFailedWhileDetached: String? = null
+  private var loadFailedWhileDetached: String? = null
+
+  /** Buffers a load report that arrived between sessions; the lock publishes it to the attacher. */
+  internal fun bufferDetachedLoadFinished(): Unit = transitionLock.withLock {
+    loadFinishedWhileDetached = true
+  }
+
+  internal fun bufferDetachedLoadFailure(reason: String): Unit = transitionLock.withLock {
+    loadFailedWhileDetached = reason
+  }
+
+  /** Clears both buffered reports when the core that produced them dies. */
+  internal fun clearDetachedLoadReplay(): Unit = transitionLock.withLock {
+    loadFinishedWhileDetached = false
+    loadFailedWhileDetached = null
+  }
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
   internal fun detachSession(): Unit = transitionLock.withLock {

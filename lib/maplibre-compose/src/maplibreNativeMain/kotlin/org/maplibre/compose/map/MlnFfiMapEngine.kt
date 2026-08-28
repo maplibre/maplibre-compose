@@ -162,8 +162,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       // backend change disposes the old resource before its replacement publishes.
       check(lifecycle !is Lifecycle.SessionAttached) { SINGLE_SESSION_ERROR }
       // The dying core produced any pending detached-load completion and load failure.
-      state.loadFinishedWhileDetached = false
-      state.loadFailedWhileDetached = null
+      state.clearDetachedLoadReplay()
       state.lastLoadFailure.value = null
       core?.close()
       core = pending
@@ -196,8 +195,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         lifecycle = Lifecycle.Detached
       }
       // The dying core produced any pending detached-load completion and load failure.
-      state.loadFinishedWhileDetached = false
-      state.loadFailedWhileDetached = null
+      state.clearDetachedLoadReplay()
       state.lastLoadFailure.value = null
       // The loop's scale factor is fixed per map and a renderer is built for one backend.
       live.close()

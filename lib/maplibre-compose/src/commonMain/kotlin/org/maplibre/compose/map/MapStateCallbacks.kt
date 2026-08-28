@@ -56,7 +56,7 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     state.lastLoadFailure.value = reason ?: "MapLibre failed to load the map"
     // A retained map can fail a load between sessions; the next attach replays the report.
     if (state.attachedAdapter == null) {
-      state.loadFailedWhileDetached = reason ?: "MapLibre failed to load the map"
+      state.bufferDetachedLoadFailure(reason ?: "MapLibre failed to load the map")
       return
     }
     onMapLoadFailed(reason)
@@ -66,7 +66,7 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     state.refreshStyleCollections()
     // A retained map can finish a load between sessions; the next attach replays the report.
     if (state.attachedAdapter == null) {
-      state.loadFinishedWhileDetached = true
+      state.bufferDetachedLoadFinished()
       return
     }
     onMapLoadFinished()
