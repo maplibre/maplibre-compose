@@ -16,7 +16,6 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.compose.mlnffi.centeredDestination
 
 internal const val DXGI_FORMAT_B8G8R8A8_UNORM: Int = 87
 
@@ -46,11 +45,11 @@ internal class Direct3D12Presenter(private val gpuHost: ComposeMapHost) : AutoCl
     scope: DrawScope,
     skiaContext: DirectContext,
     target: Direct3DTextureTarget,
+    destination: MlnFfiMapDestination,
     completion: ComposeFrameCompletion,
   ): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
-      val destination = scope.centeredDestination(target.extent)
       val presenter =
         presenters.getOrPut(target.texture.address) { TexturePresenter(target.texture) }
       presenter.draw(

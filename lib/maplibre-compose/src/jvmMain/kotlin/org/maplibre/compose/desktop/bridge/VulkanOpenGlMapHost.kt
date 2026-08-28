@@ -105,6 +105,7 @@ import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.EglContextHandles
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
@@ -171,7 +172,11 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
 
   override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
 
-  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
+  override fun draw(
+    scope: DrawScope,
+    target: MlnFfiRenderTarget,
+    destination: MlnFfiMapDestination,
+  ): Boolean {
     if (target !is VulkanImageTarget) return false
     return gpuHost.withOpenGlContextOrNull { context ->
       frameCompletion.prepare(context.skiaContext, ::abandonContext)
@@ -189,6 +194,7 @@ internal class VulkanOpenGlMapHost(private val gpuHost: ComposeMapHost) : MlnFfi
           scope,
           context.skiaContext,
           imported.target(target.generation),
+          destination,
           frameCompletion,
         )
       if (drew) disposeRetiredTextures(exceptGeneration = target.generation)

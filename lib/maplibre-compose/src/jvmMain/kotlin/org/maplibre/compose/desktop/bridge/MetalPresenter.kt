@@ -18,7 +18,6 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.NativeHandle
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.compose.mlnffi.centeredDestination
 
 /**
  * Draws MapLibre's Metal texture into the Compose scene by wrapping it as a Skia surface. Every
@@ -34,12 +33,12 @@ internal class MetalPresenter(private val gpuHost: ComposeMapHost) : AutoCloseab
     scope: DrawScope,
     skiaContext: DirectContext,
     target: MetalTextureTarget,
+    destination: MlnFfiMapDestination,
     completion: ComposeFrameCompletion,
   ): Boolean {
     releaseRetired(keepAlive = target.texture.address)
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
-      val destination = scope.centeredDestination(target.extent)
       val presenter =
         presenters.getOrPut(target.texture.address) { TexturePresenter(target.texture) }
       presenter.draw(

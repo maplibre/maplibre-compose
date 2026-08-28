@@ -41,6 +41,7 @@ import org.maplibre.compose.mlnffi.MlnFfiFrameResult
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
+import org.maplibre.compose.mlnffi.MlnFfiMapPresentationAnchor
 import org.maplibre.compose.mlnffi.MlnFfiMapRenderer
 import org.maplibre.compose.mlnffi.MlnFfiRecoverableFrameException
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
@@ -158,6 +159,8 @@ internal class MlnFfiMapSession(
   @Volatile private var loop: MlnFfiMapRuntimeLoop? = null
 
   @Volatile private var cameraPadding: EdgeInsets = EdgeInsets.ZERO
+  @Volatile private var appliedCameraPadding: EdgeInsets = EdgeInsets.ZERO
+  @Volatile private var renderedCameraPadding: EdgeInsets = EdgeInsets.ZERO
 
   /** One-shot map actions accepted before this session starts. Guarded by [stateLock]. */
   private class PendingMapAction(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
@@ -378,6 +381,7 @@ internal class MlnFfiMapSession(
     }
 
     val map = loop.map ?: return MlnFfiFrameResult.SKIPPED
+    renderedCameraPadding = appliedCameraPadding
 
     if (!ensureAttached(map, frame)) return MlnFfiFrameResult.SKIPPED
     // Consumed before rendering, so an update published during the render below is not discarded.
@@ -425,6 +429,18 @@ internal class MlnFfiMapSession(
     lastRenderTime = renderStart
     reportFrameRate()
     return MlnFfiFrameResult.RENDERED
+  }
+
+  override fun presentationAnchor(extent: MapExtent): MlnFfiMapPresentationAnchor {
+    val padding = renderedCameraPadding
+    return MlnFfiMapPresentationAnchor(
+      x =
+        ((extent.physicalWidth + (padding.left - padding.right) * extent.scaleFactor) / 2.0)
+          .toInt(),
+      y =
+        ((extent.physicalHeight + (padding.top - padding.bottom) * extent.scaleFactor) / 2.0)
+          .toInt(),
+    )
   }
 
   override fun close() {
@@ -1059,6 +1075,7 @@ internal class MlnFfiMapSession(
     cameraPadding = insets
     configureMap { map ->
       map.jumpTo(CameraOptions().also { it.padding = insets })
+      appliedCameraPadding = insets
       snapshotViewport(map)
     }
   }

@@ -61,7 +61,11 @@ private constructor(private val display: EGLDisplay, private val config: EGLConf
     )
   }
 
-  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean = false
+  override fun draw(
+    scope: DrawScope,
+    target: MlnFfiRenderTarget,
+    destination: MlnFfiMapDestination,
+  ): Boolean = false
 
   /** The producer renders directly into this EGL pbuffer, so there is no consumer-side bridge. */
   override fun present(target: MlnFfiRenderTarget): Boolean = true

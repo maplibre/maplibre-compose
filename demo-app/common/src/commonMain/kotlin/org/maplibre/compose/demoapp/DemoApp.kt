@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateDp
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.core.updateTransition
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
@@ -81,7 +82,7 @@ private enum class DemoShellLayout {
 
 @Composable
 private fun DemoShell(state: DemoAppState) {
-  BoxWithConstraints(Modifier.fillMaxSize()) {
+  BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
     val safeInsets = WindowInsets.safeDrawing.toMapViewportInsets(density, layoutDirection)

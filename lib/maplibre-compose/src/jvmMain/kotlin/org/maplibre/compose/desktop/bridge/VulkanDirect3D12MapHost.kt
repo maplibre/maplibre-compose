@@ -80,6 +80,7 @@ import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
@@ -183,7 +184,11 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeMapHost) : Ml
 
   override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
 
-  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
+  override fun draw(
+    scope: DrawScope,
+    target: MlnFfiRenderTarget,
+    destination: MlnFfiMapDestination,
+  ): Boolean {
     if (target !is VulkanImageTarget) return false
     val direct3DTarget =
       if (target.generation == generation) presentationTarget()
@@ -191,7 +196,7 @@ internal class VulkanDirect3D12MapHost(private val gpuHost: ComposeMapHost) : Ml
     if (direct3DTarget == null) return false
     val drew =
       withPreparedContext { context ->
-        presenter.draw(scope, context.skiaContext, direct3DTarget, frameCompletion)
+        presenter.draw(scope, context.skiaContext, direct3DTarget, destination, frameCompletion)
       } ?: false
     if (drew) disposeRetiredTextures(exceptGeneration = target.generation)
     return drew

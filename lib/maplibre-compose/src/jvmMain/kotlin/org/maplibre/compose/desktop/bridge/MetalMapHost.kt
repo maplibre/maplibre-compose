@@ -9,6 +9,7 @@ import org.maplibre.compose.mlnffi.ComposeRenderBackend
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MetalTextureTarget
 import org.maplibre.compose.mlnffi.MlnFfiHostException
+import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.MlnFfiMapFrame
 import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHost
@@ -75,10 +76,14 @@ internal class MetalMapHost(private val gpuHost: ComposeMapHost) : MlnFfiMapHost
 
   override fun enqueueRenderer(action: () -> Unit): Boolean = rendererThread.post(action)
 
-  override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
+  override fun draw(
+    scope: DrawScope,
+    target: MlnFfiRenderTarget,
+    destination: MlnFfiMapDestination,
+  ): Boolean {
     if (target !is MetalTextureTarget || target.texture.isNull) return false
     return withPreparedContext { context ->
-      presenter.draw(scope, context.skiaContext, target, frameCompletion)
+      presenter.draw(scope, context.skiaContext, target, destination, frameCompletion)
     } ?: false
   }
 

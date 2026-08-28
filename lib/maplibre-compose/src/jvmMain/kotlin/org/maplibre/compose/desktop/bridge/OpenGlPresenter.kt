@@ -29,7 +29,6 @@ import org.maplibre.compose.mlnffi.MlnFfiHostException
 import org.maplibre.compose.mlnffi.MlnFfiMapDestination
 import org.maplibre.compose.mlnffi.OpenGlTextureTarget
 import org.maplibre.compose.mlnffi.TextureOrigin
-import org.maplibre.compose.mlnffi.centeredDestination
 
 /**
  * Draws MapLibre's OpenGL texture into a Compose Skia canvas.
@@ -45,12 +44,12 @@ internal class OpenGlPresenter private constructor(private val backend: OpenGlPr
     scope: DrawScope,
     skiaContext: DirectContext,
     target: OpenGlTextureTarget,
+    destination: MlnFfiMapDestination,
     completion: ComposeFrameCompletion,
   ): Boolean {
     var drew = false
     scope.drawIntoCanvas { composeCanvas ->
       backend.ensureUsable()
-      val destination = scope.centeredDestination(target.extent)
       val presenter =
         presenters.getOrPut(target.textureName) {
           TexturePresenter(target.textureName, backend)
