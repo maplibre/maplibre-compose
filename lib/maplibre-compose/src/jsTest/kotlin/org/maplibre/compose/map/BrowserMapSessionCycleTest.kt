@@ -12,10 +12,16 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import kotlin.math.abs
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNotSame
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.gljs.runBrowserMapTest
@@ -111,6 +117,63 @@ class BrowserMapSessionCycleTest {
     assertEquals(FIRST_POSITION.target, state.camera.target, "camera target")
     assertEquals(FIRST_POSITION.zoom, state.camera.zoom, 0.001, "camera zoom")
     assertTrue(errors.isEmpty(), "the cycle reported errors: $errors")
+  }
+
+  /**
+   * The browser map cannot outlive its session, so a detach completes a suspended
+   * [MapState.animateCamera] at the position that the animation reached, as its KDoc states.
+   */
+  @Test
+  fun a_detach_completes_a_running_camera_animation_at_the_reached_position() = runBrowserMapTest {
+    var attached by mutableStateOf(true)
+    var loads = 0
+    lateinit var state: MapState
+
+    setBrowserMapContent {
+      val mapState = rememberMapState(initialCameraPosition = FIRST_POSITION, baseStyle = style)
+      state = mapState
+      if (attached) {
+        MaplibreMap(
+          state = mapState,
+          modifier = Modifier.fillMaxSize(),
+          logger = null,
+          onMapLoadFinished = { loads++ },
+        )
+      }
+    }
+
+    waitUntilMap("the map to load") { loads >= 1 }
+    waitUntilMap("the pre-attach camera position to apply at attach") {
+      state.attachedAdapter?.getCameraPosition()?.isNear(FIRST_POSITION) ?: false
+    }
+
+    val destination =
+      CameraPosition(target = Position(longitude = 30.0, latitude = 30.0), zoom = 9.0)
+    val animation =
+      CoroutineScope(Dispatchers.Default).launch(start = CoroutineStart.UNDISPATCHED) {
+        state.animateCamera(destination, duration = 60.seconds)
+      }
+    // Real browser turns only: pumping the composition while the animation invalidates it every
+    // frame starves the test's idle wait.
+    var turnsLeft = 1000
+    while (!state.isCameraMoving && turnsLeft-- > 0) yieldToBrowser()
+    assertTrue(state.isCameraMoving, "the animation must start moving the camera")
+
+    attached = false
+    waitUntilMap("the detach to complete the suspended call") { animation.isCompleted }
+    assertFalse(animation.isCancelled, "the detach must resume the call normally")
+    assertTrue(
+      abs(state.camera.zoom - destination.zoom) > 0.5,
+      "the call must return at the position that the animation reached, got ${state.camera}",
+    )
+
+    // The next session starts at the recorded camera, not at the animation's destination.
+    val recorded = state.camera
+    attached = true
+    waitUntilMap("the replacement map to load") { loads >= 2 }
+    waitUntilMap("the recorded camera to replay into the new map") {
+      state.attachedAdapter?.getCameraPosition()?.isNear(recorded) ?: false
+    }
   }
 
   private fun CameraPosition.isNear(other: CameraPosition): Boolean =

@@ -384,7 +384,8 @@ internal constructor(
    *
    * A call before a session attaches suspends until a session attaches and runs the animation. A
    * detach during the animation pauses it and keeps the call suspended until a session re-attaches;
-   * [close] ends the call.
+   * [close] ends the call. On Web a detach destroys the map, so the call returns at the position
+   * that the animation reached.
    */
   public suspend fun animateCamera(
     position: CameraPosition,
@@ -399,7 +400,8 @@ internal constructor(
    * The fit needs a live viewport, so a call before a session attaches suspends until a session
    * attaches and runs the animation, and fails with [IllegalStateException] when the state closes
    * first. A detach during the animation pauses it and keeps the call suspended until a session
-   * re-attaches; [close] ends the call.
+   * re-attaches; [close] ends the call. On Web a detach destroys the map, so the call returns at
+   * the position that the animation reached.
    *
    * @param padding Insets between the viewport edges and the fitted bounds.
    */
