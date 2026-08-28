@@ -294,18 +294,28 @@ internal constructor(
   internal val styleGeneration: Long
     get() = kernel.read { styleGeneration }
 
+  internal val bindingGeneration: Long
+    get() = kernel.read { bindingGeneration }
+
   /**
-   * Runs [write] only when [generation] is still the current style generation. The kernel
+   * Runs [write] only when the handle's style and binding generations are still current. The kernel
    * authorizes the write against one binding, the mutation runs after that turn, and a superseded
    * generation fails the call instead of publishing a half-applied value.
    */
-  internal fun writeAuthorizedLayer(generation: Long, layer: Layer, write: () -> Unit) {
+  internal fun writeAuthorizedLayer(
+    styleGeneration: Long,
+    bindingGeneration: Long,
+    layer: Layer,
+    write: () -> Unit,
+  ) {
     val (authorizedBinding, effects) =
       kernel.reduceValue {
-        authorizeLayerWrite(generation, layer.id)
+        authorizeLayerWrite(styleGeneration, bindingGeneration, layer.id)
           ?: run {
             check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
-            check(generation == styleGeneration) {
+            check(
+              styleGeneration == this.styleGeneration && bindingGeneration == this.bindingGeneration
+            ) {
               "Layer '${layer.id}' was taken from a style that a base style load replaced; get a " +
                 "fresh handle from MapState.layers"
             }
@@ -319,7 +329,12 @@ internal constructor(
     publishRecord()
     executeEffects(effects)
     write()
-    val committed = kernel.reduceValue { confirmLayerWrite(generation, authorizedBinding) }.first
+    val committed =
+      kernel
+        .reduceValue {
+          confirmLayerWrite(styleGeneration, bindingGeneration, authorizedBinding)
+        }
+        .first
     check(committed) {
       "Layer '${layer.id}' was taken from a style that a base style load replaced; get a fresh " +
         "handle from MapState.layers"

@@ -105,6 +105,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     appSourceSnapshot = emptyMap()
     appImageIds = emptyList()
     compositionLayerIds = emptySet()
+    liveLayerIds = emptyList()
   }
 
   /**

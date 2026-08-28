@@ -22,7 +22,7 @@ public class StyleLayers internal constructor(private val state: MapState) {
    * layer that the style composition adds appears at the next refresh rather than at the add.
    */
   public val ids: List<String>
-    get() = state.styleNode.liveLayerIds
+    get() = if (state.isClosed) emptyList() else state.styleNode.liveLayerIds
 
   /** Returns a handle over the live layer with [id], or null when the style has no such layer. */
   public operator fun get(id: String): LayerHandle? {

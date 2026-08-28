@@ -256,12 +256,15 @@ class MapKernelTest {
       styleChanged(source, StyleBinding.UNLOADED, 0L)
     }
     val generation = kernel.record.styleGeneration
-    assertNull(kernel.record.authorizeLayerWrite(generation, "roads"))
+    val bindingGeneration = kernel.record.bindingGeneration
+    assertNull(kernel.record.authorizeLayerWrite(generation, bindingGeneration, "roads"))
     kernel.reduce { selectStyle(styleA) }
     val next = kernel.record.styleGeneration
     kernel.reduce { styleChanged(source, StyleBinding.UNLOADED, next) }
-    assertNull(kernel.record.authorizeLayerWrite(generation, "roads"))
-    assertFalse(kernel.record.confirmLayerWrite(generation, StyleBinding.UNLOADED))
+    assertNull(kernel.record.authorizeLayerWrite(generation, bindingGeneration, "roads"))
+    assertFalse(
+      kernel.record.confirmLayerWrite(generation, bindingGeneration, StyleBinding.UNLOADED)
+    )
   }
 
   @Test

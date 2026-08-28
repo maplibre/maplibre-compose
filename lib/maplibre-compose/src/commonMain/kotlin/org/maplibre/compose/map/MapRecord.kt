@@ -420,20 +420,34 @@ internal class MapRecord(initialCamera: CameraPosition) {
   }
 
   /**
-   * Authorizes an imperative layer write against [generation]. Returns the current binding when the
-   * write may proceed, or null when it must not.
+   * Authorizes an imperative layer write against the style and binding generations the handle
+   * captured. Returns the current binding when the write may proceed, or null when it must not.
    */
-  fun authorizeLayerWrite(generation: Long, layerId: String): StyleBinding? {
+  fun authorizeLayerWrite(
+    styleGeneration: Long,
+    bindingGeneration: Long,
+    layerId: String,
+  ): StyleBinding? {
     if (closed) return null
-    if (generation != styleGeneration) return null
+    if (styleGeneration != this.styleGeneration) return null
+    if (bindingGeneration != this.bindingGeneration) return null
     if (layerIsCompositionOwned(layerId)) return null
     if (!binding.isLoaded) return null
     return binding
   }
 
-  /** True when [generation] and [binding] are still the live style the write was authorized on. */
-  fun confirmLayerWrite(generation: Long, binding: StyleBinding): Boolean =
-    !closed && generation == styleGeneration && this.binding === binding
+  /**
+   * True when both generations and [binding] are still the live style the write was authorized on.
+   */
+  fun confirmLayerWrite(
+    styleGeneration: Long,
+    bindingGeneration: Long,
+    binding: StyleBinding,
+  ): Boolean =
+    !closed &&
+      styleGeneration == this.styleGeneration &&
+      bindingGeneration == this.bindingGeneration &&
+      this.binding === binding
 
   fun failOperation(id: Long, error: Throwable) {
     pendingOperations.remove(id) ?: return

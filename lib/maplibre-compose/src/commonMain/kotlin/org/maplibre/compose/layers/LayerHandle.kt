@@ -27,9 +27,10 @@ public class LayerHandle
 internal constructor(private val state: MapState, private val descriptor: Layer) {
 
   private val styleGeneration = state.styleGeneration
+  private val bindingGeneration = state.bindingGeneration
 
   private fun write(block: () -> Unit) {
-    state.writeAuthorizedLayer(styleGeneration, descriptor, block)
+    state.writeAuthorizedLayer(styleGeneration, bindingGeneration, descriptor, block)
   }
 
   /** The layer's id in the style. */
