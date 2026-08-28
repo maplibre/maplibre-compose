@@ -114,6 +114,19 @@ class MapKernelTest {
   }
 
   @Test
+  fun detached_camera_write_is_recorded_and_not_sent() {
+    val kernel = kernel()
+    val core = Any()
+    kernel.reduce { adoptCore(core) }
+    val effects = kernel.reduce { setCamera(CameraPosition(zoom = 5.0)) }
+    assertEquals(5.0, kernel.record.camera.zoom)
+    assertTrue(effects.none { it is MapEffect.SendCamera })
+    kernel.reduce { attach(core) }
+    val attachEffects = kernel.reduce { setCamera(CameraPosition(zoom = 6.0)) }
+    assertTrue(attachEffects.any { it is MapEffect.SendCamera })
+  }
+
+  @Test
   fun camera_writes_are_linearly_ordered() {
     val kernel = kernel()
     val adapter = Any()

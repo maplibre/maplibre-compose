@@ -292,7 +292,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
       when (val current = renderer) {
         is RendererState.Session -> current.adapter
         is RendererState.Capture -> styleSource
-        RendererState.None -> styleSource
+        // Detached: record only. Attach and capture apply the camera after they set up the
+        // renderer, so leftover session constraints cannot clamp the recorded position.
+        RendererState.None -> null
       }
     target?.let { emit(MapEffect.SendCamera(it, position)) }
   }
