@@ -38,6 +38,7 @@ internal open class RecordingStyleBinding(
   private val sourceMap = baseSources.associateBy { it.id }.toMutableMap()
   private val layerList = baseLayers.toMutableList()
   private val layerMap = baseLayers.associateBy { it.id }.toMutableMap()
+  private val layerProperties = mutableMapOf<String, MutableMap<String, JsonElement>>()
 
   private var loaded = true
   private val unloadActions = mutableSetOf<() -> Unit>()
@@ -267,11 +268,20 @@ internal open class RecordingStyleBinding(
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
-  ): Boolean = true
+  ): Boolean {
+    if (!loaded) return false
+    layerProperties.getOrPut(layerId) { mutableMapOf() }[name] = value
+    return true
+  }
 
-  override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean = true
+  override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean {
+    if (!loaded) return false
+    layerProperties.getOrPut(layerId) { mutableMapOf() }["filter"] = filter
+    return true
+  }
 
-  override fun layerProperty(layerId: String, name: String): JsonElement? = null
+  override fun layerProperty(layerId: String, name: String): JsonElement? =
+    layerProperties[layerId]?.get(name)
 
   override fun layerExists(layerId: String): Boolean = layerId in layerMap
 

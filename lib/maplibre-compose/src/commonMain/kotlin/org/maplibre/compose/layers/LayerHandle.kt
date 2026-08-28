@@ -44,7 +44,7 @@ internal constructor(
 
   /** Whether the layer draws, from the `visibility` layout property. */
   public var visible: Boolean
-    get() = liveLayer()?.visible ?: false
+    get() = (liveProperty("visibility") as? JsonPrimitive)?.content != "none"
     set(value) {
       writeProperty(
         LayerPropertyKind.LAYOUT,
@@ -55,17 +55,19 @@ internal constructor(
 
   /** The minimum zoom level at which the layer draws. */
   public var minZoom: Float
-    get() = liveLayer()?.minZoom ?: 0f
+    get() = (liveProperty("minzoom") as? JsonPrimitive)?.content?.toFloatOrNull() ?: 0f
     set(value) {
       writeProperty(LayerPropertyKind.ROOT, "minzoom", JsonPrimitive(value))
     }
 
   /** The maximum zoom level at which the layer draws. */
   public var maxZoom: Float
-    get() = liveLayer()?.maxZoom ?: 24f
+    get() = (liveProperty("maxzoom") as? JsonPrimitive)?.content?.toFloatOrNull() ?: 24f
     set(value) {
       writeProperty(LayerPropertyKind.ROOT, "maxzoom", JsonPrimitive(value))
     }
+
+  private fun liveProperty(name: String): JsonElement? = liveLayer()?.readProperty(name)
 
   /**
    * Sets the layer's filter: the condition that source features must match to be drawn. Passing
