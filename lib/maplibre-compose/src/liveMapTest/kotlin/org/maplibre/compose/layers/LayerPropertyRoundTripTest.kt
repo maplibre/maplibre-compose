@@ -42,6 +42,7 @@ import org.maplibre.compose.expressions.value.LineJoin
 import org.maplibre.compose.expressions.value.ListValue
 import org.maplibre.compose.expressions.value.RasterResampling
 import org.maplibre.compose.expressions.value.SymbolAnchor
+import org.maplibre.compose.expressions.value.SymbolHeightAnchor
 import org.maplibre.compose.expressions.value.SymbolOverlap
 import org.maplibre.compose.expressions.value.SymbolPlacement
 import org.maplibre.compose.expressions.value.SymbolZOrder
@@ -700,6 +701,10 @@ class LayerPropertyRoundTripTest {
           Case("icon-overlap", "\"cooperative\"") { it.setIconOverlap(const("cooperative").c()) },
           Case("text-overlap", "\"cooperative\"") {
             it.setTextOverlap(const(SymbolOverlap.Cooperative).c())
+          },
+          Case("symbol-height-offset", "15.0") { it.setSymbolHeightOffset(const(15f).c()) },
+          Case("symbol-height-anchor", "\"absolute\"") {
+            it.setSymbolHeightAnchor(const(SymbolHeightAnchor.Absolute).c())
           },
         )
   }

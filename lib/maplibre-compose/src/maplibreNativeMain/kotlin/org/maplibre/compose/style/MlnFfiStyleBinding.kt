@@ -530,6 +530,8 @@ internal interface MlnFfiStyleBinding : StyleBinding {
         ("symbol" to "text-overlap") to
           "MapLibre Native does not implement it. Use textAllowOverlap instead; note that it " +
             "cannot express the 'cooperative' value.",
+        ("symbol" to "symbol-height-offset") to "MapLibre Native does not implement it.",
+        ("symbol" to "symbol-height-anchor") to "MapLibre Native does not implement it.",
         ("fill" to "fill-layer-opacity") to "MapLibre Native does not implement it.",
         ("line" to "line-layer-opacity") to "MapLibre Native does not implement it.",
         ("hillshade" to "resampling") to "MapLibre Native does not implement it.",
