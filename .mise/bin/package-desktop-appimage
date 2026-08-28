@@ -75,11 +75,23 @@ chmod +x "$appdir/AppRun"
 
 mkdir -p "$out_dir"
 output="$out_dir/maplibre-compose-${arch}.AppImage"
-rm -f -- "$output"
+archive="${output}.tar"
+rm -f -- "$output" "$archive"
 
 export APPIMAGE_EXTRACT_AND_RUN=1
 export ARCH="$arch"
 appimagetool --no-appstream "$appdir" "$output"
 
+# GitHub Actions ZIP upload stores files as 0644. A tar keeps the execute bit.
+chmod +x "$output"
+tar --create \
+  --file="$archive" \
+  --directory="$out_dir" \
+  --owner=0 \
+  --group=0 \
+  --numeric-owner \
+  "$(basename "$output")"
+
 test -f "$output"
-printf '%s\n' "$output"
+test -f "$archive"
+printf '%s\n' "$output" "$archive"
