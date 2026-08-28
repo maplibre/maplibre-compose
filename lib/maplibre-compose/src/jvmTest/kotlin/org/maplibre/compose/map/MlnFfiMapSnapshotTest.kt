@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toPixelMap
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import kotlin.math.abs
 import kotlin.test.AfterTest
@@ -94,6 +95,21 @@ class MlnFfiMapSnapshotTest {
 
     val pixels = image.toPixelMap()
     assertColor(Color.Red.copy(alpha = 0.5f), pixels[10, 10], "the half-opacity background")
+  }
+
+  @Test
+  fun the_constructor_density_scales_the_still_image_pixels() {
+    cache.configure()
+    val dense = MapState(density = Density(2f))
+    state = dense
+    dense.baseStyle = RED_BACKGROUND_STYLE
+
+    val image = runBlocking {
+      dense.captureStillImage(width = 20.dp, height = 30.dp, timeout = 60.seconds)
+    }
+
+    assertEquals(40, image.width, "a density of 2 doubles the pixel width of the dp size")
+    assertEquals(60, image.height, "a density of 2 doubles the pixel height of the dp size")
   }
 
   @Test

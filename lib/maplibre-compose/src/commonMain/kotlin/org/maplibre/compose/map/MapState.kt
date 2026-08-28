@@ -61,9 +61,9 @@ private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
  * it when the composition leaves. The owner that constructed a state calls [close]; a closed state
  * cannot show a map again.
  *
- * A detached state rasterizes painters in the style content at a density of 1 and left-to-right
- * layout; a [MaplibreMap] that later receives this state replaces both with the composition's
- * values.
+ * A detached state rasterizes painters in the style content with the constructor's density and
+ * layout direction; a [MaplibreMap] that later receives this state replaces both with the
+ * composition's values.
  *
  * # Imperative style mutation
  *
@@ -97,10 +97,21 @@ internal constructor(
    * Creates a state that owns its own camera and style wiring.
    *
    * The camera starts at [cameraPosition], and a session that attaches starts the map there.
+   *
+   * @param density Scales dp-sized values, such as the [captureStillImage] output and rasterized
+   *   painter images.
+   * @param layoutDirection Resolves direction-aware painters.
    */
   public constructor(
-    cameraPosition: CameraPosition = CameraPosition()
-  ) : this(cameraPosition = cameraPosition, logger = null)
+    cameraPosition: CameraPosition = CameraPosition(),
+    density: Density = Density(1f),
+    layoutDirection: LayoutDirection = LayoutDirection.Ltr,
+  ) : this(
+    cameraPosition = cameraPosition,
+    density = density,
+    layoutDirection = layoutDirection,
+    logger = null,
+  )
 
   // The camera records; the session callbacks below write them and the public members read them.
   internal val adapterState = mutableStateOf<MapAdapter?>(null)
