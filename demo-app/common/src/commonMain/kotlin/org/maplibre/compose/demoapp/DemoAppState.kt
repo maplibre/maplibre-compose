@@ -38,7 +38,20 @@ class DemoAppState(
   val settings: DemoSettings,
   val frameRateState: FrameRateState,
 ) {
+  /**
+   * The demo shown on the map. Select demos through [selectDemo] so the panel can align its
+   * destination.
+   */
   var selectedDemo by mutableStateOf<Demo?>(null)
+
+  /**
+   * Selects [demo] in the Demos shell. The one selection path for both the panel's demo list and
+   * the agent driver; the panel observes [selectedDemo] and navigates to the demo's controls.
+   */
+  fun selectDemo(demo: Demo) {
+    selectedDemo = demo
+    shell = DemoShell.Demos
+  }
 
   /** The style applied when [MapStyleMode] resolves to light. */
   var chosenLightStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
@@ -64,7 +77,15 @@ class DemoAppState(
       }
     }
 
+  /**
+   * The style the map composition most recently applied. Kept as plain state because [appliedStyle]
+   * is composable, so non-composition readers like the agent driver cannot call it. Goes stale
+   * while the Benchmarks shell is showing, where the demo map is not composed.
+   */
+  internal var appliedStyleSnapshot by mutableStateOf<DemoStyle?>(null)
+
   var shell by mutableStateOf(DemoShell.Demos)
+
   var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
   val benchmark = BenchmarkUiState()
 
@@ -72,8 +93,15 @@ class DemoAppState(
   internal var lastStyleLoad by mutableStateOf(StyleLoad(count = 0, base = null))
     private set
 
+  /**
+   * The base style the map has applied but not yet finished or failed loading, if any. Set by the
+   * map composition and cleared by [noteStyleLoad].
+   */
+  internal var pendingStyleLoad by mutableStateOf<BaseStyle?>(null)
+
   internal fun noteStyleLoad(base: BaseStyle) {
     lastStyleLoad = StyleLoad(lastStyleLoad.count + 1, base)
+    if (pendingStyleLoad == base) pendingStyleLoad = null
   }
 
   /**

@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.lerp
 import androidx.window.core.layout.WindowSizeClass
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.vectorResource
+import org.maplibre.compose.demoapp.agent.StartAgentDriver
 import org.maplibre.compose.demoapp.benchmark.BenchmarkMap
 import org.maplibre.compose.demoapp.generated.Res
 import org.maplibre.compose.demoapp.generated.chevron_left_24px
@@ -46,6 +47,7 @@ import org.maplibre.compose.demoapp.generated.chevron_right_24px
 @Composable
 fun DemoApp() {
   val state = rememberDemoAppState()
+  StartAgentDriver(state)
   val dark =
     if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
     else state.appliedStyle.isDark
