@@ -21,6 +21,7 @@ import org.maplibre.compose.layers.BackgroundLayerDescriptor
 import org.maplibre.compose.mlnffi.FfiTestCache
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiApplication
+import org.maplibre.compose.mlnffi.createSnapshotTarget
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
@@ -84,6 +85,26 @@ class MlnFfiRetainedCoreTest {
       retained.hasAttachedViewportForTest(),
       "the snapshot target's dimensions must not survive it",
     )
+  }
+
+  /**
+   * A snapshot that meets a matching retained core that never loaded a style must push the style
+   * itself; the capture times out otherwise.
+   */
+  @Test
+  fun a_snapshot_reuses_a_blank_matching_retained_core_and_loads_its_style() {
+    val state = bareState()
+    state.baseStyle = RED_STYLE
+    val backend = createSnapshotTarget().use { it.backend }
+    val core = state.engine.acquireCore(1.0, LayoutDirection.Ltr, backend)
+    core.start()
+
+    val image = runBlocking {
+      state.captureStillImage(width = 10.dp, height = 10.dp, timeout = 60.seconds)
+    }
+
+    assertEquals(10, image.width)
+    assertSame(core, state.engine.core, "a matching backend keeps the retained core")
   }
 
   /**
