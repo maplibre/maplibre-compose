@@ -81,6 +81,13 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var lastLoadFailure: String? = null
     private set
 
+  /**
+   * The failure of the style generation frozen at [beginCapture], or null. A later [selectStyle]
+   * does not clear this; the capture wait reads it.
+   */
+  var captureLoadFailure: String? = null
+    private set
+
   var camera: CameraPosition = initialCamera
     private set
 
@@ -308,6 +315,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
   fun styleLoadFailed(source: MapAdapter?, generation: Long, reason: String) {
     if (closed) return
     if (!isStyleSource(source)) return
+    val capturing = renderer as? RendererState.Capture
+    if (capturing != null && generation == capturing.styleGeneration) {
+      captureLoadFailure = reason
+    }
     if (!acceptsStyleGeneration(generation)) return
     lastLoadFailure = reason
     loadState = MapLoadState.Failed(styleGeneration, currentStyle(), reason)
@@ -336,7 +347,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
   fun cameraMoved(source: MapAdapter, position: CameraPosition, viewport: Viewport?) {
     if (closed) return
     if (renderer is RendererState.Capture) {
-      camera = position
       if (viewport != null) this.viewport = viewport
       return
     }
@@ -397,6 +407,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
         styleGeneration = styleGeneration,
       )
     renderer = capture
+    captureLoadFailure = null
     // A matching retained core is not replaced, so capture must push the snapshotted style
     // itself when a core already exists and never loaded.
     styleSource?.let { emitLoad(it, currentStyle()) }
@@ -571,6 +582,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
       moveReason = moveReason,
       isCameraMoving = isCameraMoving,
       loadState = loadState,
+      appImages = appImages,
     )
 }
 
@@ -584,6 +596,7 @@ internal data class PublishedMapSnapshot(
   val moveReason: CameraMoveReason,
   val isCameraMoving: Boolean,
   val loadState: MapLoadState,
+  val appImages: List<String>,
 )
 
 /** One in-flight camera operation bound to the session generation that accepted it. */

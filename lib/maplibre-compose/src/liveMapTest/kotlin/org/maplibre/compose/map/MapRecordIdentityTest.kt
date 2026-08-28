@@ -253,6 +253,34 @@ class MapRecordIdentityTest {
   }
 
   @Test
+  fun a_camera_callback_during_capture_does_not_overwrite_a_later_logical_write() {
+    val record = MapRecord(start)
+    val adapter = FakeMapAdapter()
+    record.mutate {
+      attach(adapter)
+      detach(adapter)
+    }
+    record.mutate { beginCapture() }
+    record.mutate { setCamera(moved) }
+    record.mutate { cameraMoved(adapter, start, null) }
+    assertEquals(moved, record.read { camera })
+  }
+
+  @Test
+  fun a_frozen_style_failure_is_kept_after_a_later_selection() {
+    val record = MapRecord(start)
+    val adapter = FakeMapAdapter()
+    record.mutate { attach(adapter) }
+    val frozenGeneration = record.read { styleGeneration }
+    record.mutate { detach(adapter) }
+    record.mutate { beginCapture() }
+    record.mutate { selectStyle(BaseStyle.Empty) }
+    record.mutate { styleLoadFailed(adapter, frozenGeneration, "frozen failed") }
+    assertEquals("frozen failed", record.read { captureLoadFailure })
+    assertIs<MapLoadState.Loading>(record.read { loadState })
+  }
+
+  @Test
   fun close_rejects_a_racing_style_composition() {
     val record = MapRecord(start)
     val accepted = record.mutate { replaceStyleComposition {} }

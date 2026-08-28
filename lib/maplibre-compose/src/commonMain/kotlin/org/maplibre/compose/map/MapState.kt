@@ -129,6 +129,7 @@ internal constructor(
         moveReason = CameraMoveReason.NONE,
         isCameraMoving = false,
         loadState = MapLoadState.Idle,
+        appImages = emptyList(),
       )
     )
 
@@ -151,6 +152,19 @@ internal constructor(
   /** The last load failure reason, or null when the current generation has not failed. */
   internal val lastLoadFailure: String?
     get() = published.value.lastLoadFailure
+
+  /**
+   * The ids [StyleImages.ids] publishes. Reading this property recomposes when an image is added or
+   * removed.
+   */
+  internal val publishedAppImages: List<String>
+    get() = published.value.let { if (it.closed) emptyList() else it.appImages }
+
+  /** The failure of the style generation [generation] frozen at capture, or null. */
+  internal fun captureLoadFailure(generation: Long): String? = record.read {
+    val capturing = renderer as? RendererState.Capture ?: return@read null
+    if (capturing.styleGeneration == generation) captureLoadFailure else null
+  }
 
   /**
    * Whether a [MaplibreMap] shows this state right now. A composition that reads this property
@@ -662,7 +676,7 @@ internal constructor(
     }
 
   internal fun onCaptureViewport(viewport: Viewport?) {
-    commit { publishCaptureViewport(viewport) }
+    postLogical { publishCaptureViewport(viewport) }
   }
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */

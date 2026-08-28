@@ -27,7 +27,7 @@ public class StyleImages internal constructor(private val state: MapState) {
    * composition that reads this property recomposes when the list changes.
    */
   public val ids: List<String>
-    get() = if (state.isClosed) emptyList() else state.record.read { appImages }
+    get() = state.publishedAppImages
 
   /**
    * Registers [image] under [id] in the loaded style. An id this state already registered is

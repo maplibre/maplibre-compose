@@ -314,6 +314,9 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     while (core.loadedStyleGeneration < styleGeneration) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
       check(!core.isClosed) { "MapState was closed while a still image was rendering" }
+      state.captureLoadFailure(styleGeneration)?.let { reason ->
+        throw IllegalStateException("The map failed to load: $reason")
+      }
       val load = state.loadState
       if (load is MapLoadState.Failed && load.generation == styleGeneration) {
         throw IllegalStateException("The map failed to load: ${load.reason}")
