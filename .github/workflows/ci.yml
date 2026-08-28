@@ -17,27 +17,63 @@ jobs:
   # All static analysis, Android Lint included; every other job is a platform.
   # `fix` then a clean-tree assertion rather than `check`, because a push cannot
   # reach a fork's branch. It runs first, so formatting still fails in seconds.
+  # Same-repo Dependabot pull requests: commit that `fix` output and stop, so
+  # the next run sees a clean tree.
   hygiene:
     timeout-minutes: 25
     runs-on: ubuntu-24.04
+    # Dependabot events mint a read-only token unless the job asks for write.
+    permissions:
+      contents: write
+    env:
+      DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.DEPENDABOT_PR != 'true'
         with:
           persist-credentials: false
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: env.DEPENDABOT_PR == 'true'
+        with:
+          # The default checkout is the merge commit, which cannot be pushed.
+          ref: ${{ github.head_ref }}
       - uses: ./.github/actions/setup-ci-deps
         with:
           dprint-cache: "true"
           pnpm-cache: "true"
           save-toolchains: "true"
       - run: mise run fix
+      - id: apply-fix
+        name: Commit hygiene fixes
+        if: env.DEPENDABOT_PR == 'true'
+        run: |
+          set -euo pipefail
+          git update-index -q --refresh
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "pushed=false" >> "$GITHUB_OUTPUT"
+            echo "Tree already clean."
+            exit 0
+          fi
+          # Tracked files only: `mise run fix` may write generated docs that
+          # stay untracked.
+          git add --update
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --message "chore: apply hygiene fixes"
+          git push
+          echo "pushed=true" >> "$GITHUB_OUTPUT"
       - name: Check formatted files
+        if: steps.apply-fix.outputs.pushed != 'true'
         run: |
           git update-index -q --refresh
           git diff --exit-code
           git diff --cached --exit-code
       - run: mise run lint:android
+        if: steps.apply-fix.outputs.pushed != 'true'
       - run: mise run ci:test-scripts
+        if: steps.apply-fix.outputs.pushed != 'true'
       - run: mise run style-spec:parity -- --check
+        if: steps.apply-fix.outputs.pushed != 'true'
 
   android:
     strategy:
