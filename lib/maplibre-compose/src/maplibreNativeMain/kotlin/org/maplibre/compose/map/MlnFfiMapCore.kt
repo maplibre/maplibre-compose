@@ -704,6 +704,8 @@ internal class MlnFfiMapCore(
               featureStateReplayPending.store(true)
               loadedStyleGeneration = generation
               callbacks.onStyleChanged(this, binding)
+              // No load event follows an already-loaded style; the completion reports here.
+              callbacks.onMapFinishedLoading(this)
               map.requestRepaint()
               requestRender()
             }

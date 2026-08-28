@@ -2,8 +2,8 @@
 
 package org.maplibre.compose.map
 
-import kotlin.concurrent.Volatile
 import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import org.maplibre.compose.style.BaseStyle
@@ -24,9 +24,10 @@ internal class RequestedStyleState {
   /** The requested style paired with its generation, so the applying thread reads them together. */
   class Requested(val style: BaseStyle, val generation: Long)
 
-  @Volatile
-  var requested: Requested? = null
-    private set
+  private val requestedRef = AtomicReference<Requested?>(null)
+
+  val requested: Requested?
+    get() = requestedRef.load()
 
   private val generationCounter = AtomicLong(0L)
 
@@ -49,9 +50,15 @@ internal class RequestedStyleState {
     clearStyle: () -> Unit,
     postApply: () -> Unit,
   ) {
-    if (style == requested?.style) return
+    // The request and its generation publish as one value, and a racing loser retries with a
+    // fresher generation, so the published generation never regresses.
+    while (true) {
+      val current = requestedRef.load()
+      if (style == current?.style) return
+      val next = Requested(style, generationCounter.incrementAndFetch())
+      if (requestedRef.compareAndSet(current, next)) break
+    }
     unloadBinding()
-    requested = Requested(style, generationCounter.incrementAndFetch())
     clearStyle()
     postApply()
   }

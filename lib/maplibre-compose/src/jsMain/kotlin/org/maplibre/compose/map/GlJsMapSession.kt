@@ -283,8 +283,9 @@ internal class GlJsMapSession(
     appliedExtent = MapExtent.Empty
     applyRequestedStyle(created)
     cameraConstraints?.let { applyCameraConstraints(created, it) }
-    // The destroyed map took its padding with it; the saved value applies to the replacement.
+    // The destroyed map took its padding and camera with it; the saved values apply here.
     created.jumpTo(unsafeJso<JumpToOptions> { this.padding = cameraPadding })
+    requestedCamera?.let { created.jumpTo(it.toJumpToOptions()) }
     pendingMapActions.flush { PendingActionGate.Open(created) }
     return created
   }
