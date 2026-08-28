@@ -87,4 +87,7 @@ internal class PendingActionQueue<M, T>(
 
   /** Withdraws a queued action, reporting whether it was still queued. */
   fun remove(action: PendingAction<M>): Boolean = lock.withLock { pending.remove(action) }
+
+  /** Test seam counting actions still waiting for a later flush. */
+  internal fun pendingCountForTest(): Int = lock.withLock { pending.size }
 }

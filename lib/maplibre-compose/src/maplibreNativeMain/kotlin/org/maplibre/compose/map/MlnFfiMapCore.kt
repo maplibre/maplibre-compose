@@ -1076,8 +1076,12 @@ internal class MlnFfiMapCore(
     }
   }
 
-  /** A detach cancels an in-flight transition and resumes its waiter at the current position. */
+  /**
+   * A detach cancels an in-flight transition and abandons fits still waiting for a viewport, so a
+   * later session cannot start them.
+   */
   internal fun endCameraTransitionsForDetach() {
+    pendingViewportActions.drain().forEach { it.abandon() }
     onMap { map ->
       if (transitionWaiters.isNotEmpty()) map.cancelTransitions()
       resumeStrandedTransitions()
@@ -1087,6 +1091,10 @@ internal class MlnFfiMapCore(
 
   /** Test seam counting the transitions that await a finish event. */
   internal fun transitionWaiterCountForTest(): Int = runOnMap { transitionWaiters.size } ?: 0
+
+  /** Test seam counting fits still waiting for the first real render target. */
+  internal fun pendingViewportActionCountForTest(): Int =
+    pendingViewportActions.pendingCountForTest()
 
   /** No finish event will resume these waiters: close discards them, and a detach cancels them. */
   private fun resumeStrandedTransitions() {

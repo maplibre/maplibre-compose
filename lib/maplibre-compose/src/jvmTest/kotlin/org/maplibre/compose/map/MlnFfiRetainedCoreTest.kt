@@ -1,5 +1,6 @@
 package org.maplibre.compose.map
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlin.test.AfterTest
@@ -26,6 +27,8 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.OpRecordingStyleBinding
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 /** The engine's retained core across snapshots and session detach. */
 class MlnFfiRetainedCoreTest {
@@ -159,6 +162,44 @@ class MlnFfiRetainedCoreTest {
 
     assertTrue("base-src" in state.sources.ids, "a retained core keeps the source snapshot")
     assertTrue("base-layer" in state.layers.ids, "sources and layers persist together")
+  }
+
+  @Test
+  fun a_departing_session_abandons_queued_viewport_fits() {
+    val state = bareState()
+    val core = state.engine.acquireCore(1.0, LayoutDirection.Ltr, MapRenderBackend.VULKAN)
+    core.start()
+    runBlocking {
+      val fit =
+        async(Dispatchers.Default) {
+          core.animateCameraPosition(
+            boundingBox =
+              BoundingBox(southwest = Position(0.0, 0.0), northeast = Position(1.0, 1.0)),
+            bearing = 0.0,
+            tilt = 0.0,
+            padding = PaddingValues(0.dp),
+            duration = 1.seconds,
+          )
+        }
+      while (core.pendingViewportActionCountForTest() == 0) {
+        check(!fit.isCompleted) { "the fit must stay queued until a viewport exists" }
+        delay(10)
+      }
+      core.endCameraTransitionsForDetach()
+      assertEquals(
+        0,
+        core.pendingViewportActionCountForTest(),
+        "detach must drain fits that have not started",
+      )
+      fit.await()
+      core.publishAttachedViewport()
+      delay(50)
+      assertEquals(
+        0,
+        core.transitionWaiterCountForTest(),
+        "a later viewport must not start the detached fit",
+      )
+    }
   }
 
   @Test
