@@ -35,10 +35,4 @@ internal sealed interface MapEffect {
 
   /** Drop the departed UI's composition locals. */
   data object ClearInheritedLocals : MapEffect
-
-  /** Resume a camera operation after the record already holds its result. */
-  data class ResumeOperation(val operationId: Long, val result: Result<Unit>) : MapEffect
-
-  /** Fail every unfinished operation because the state closed. */
-  data object FailPendingOperations : MapEffect
 }

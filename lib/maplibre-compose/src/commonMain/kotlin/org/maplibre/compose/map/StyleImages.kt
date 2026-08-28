@@ -96,8 +96,6 @@ public class StyleImages internal constructor(private val state: MapState) {
         "Image '$id' was not added: the style unloaded during the add"
       }
       try {
-        val stillCurrent = state.kernel.read { this.binding === binding && !closed }
-        check(stillCurrent) { "Image '$id' was not added: the style unloaded during the add" }
         addTo(binding)
       } catch (error: Throwable) {
         state.commitAppImageRemoval(binding, id)

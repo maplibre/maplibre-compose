@@ -102,8 +102,6 @@ public class StyleSources internal constructor(private val state: MapState) {
         "Source '$id' was not added: the style unloaded during the add"
       }
       try {
-        val stillCurrent = state.kernel.read { this.binding === binding && !closed }
-        check(stillCurrent) { "Source '$id' was not added: the style unloaded during the add" }
         binding.addSource(source)
         check(source.binding === binding) {
           "Source '$id' was not added: the style unloaded during the add"

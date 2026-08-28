@@ -31,7 +31,7 @@ class ScaleBarTest {
   @Test
   fun a_state_with_a_viewport_renders_the_bar() {
     val state = MapState()
-    state.viewportState.value =
+    state.viewportState =
       Viewport(
         size = DpSize(300.dp, 300.dp),
         visibleBoundingBox =

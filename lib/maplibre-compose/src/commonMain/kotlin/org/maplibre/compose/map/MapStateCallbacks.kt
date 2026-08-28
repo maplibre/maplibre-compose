@@ -38,7 +38,7 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onMapDestroyed(map: MapAdapter) {
-    state.onMapDestroyed(map)
+    state.commit { mapDestroyed(map) }
   }
 
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
@@ -46,7 +46,7 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
-    state.onStyleChanged(map, style, styleGeneration)
+    state.commit { styleChanged(map, style, styleGeneration) }
   }
 
   override fun onMapFailLoading(reason: String?) {
@@ -55,7 +55,9 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
 
   override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
     val source = state.attachedAdapter ?: state.engine.detachedAdapter
-    state.onMapFailLoading(source, reason ?: "MapLibre failed to load the map", styleGeneration)
+    state.commit {
+      styleLoadFailed(source, styleGeneration, reason ?: "MapLibre failed to load the map")
+    }
   }
 
   override fun onMapFinishedLoading(map: MapAdapter) {
@@ -63,7 +65,7 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
-    state.onMapFinishedLoading(map, styleGeneration)
+    state.commit { styleLoadFinished(map, styleGeneration) }
   }
 
   override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
@@ -72,19 +74,21 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-    state.onCameraMoveStarted(map, reason)
+    state.commit { cameraMoveStarted(map, reason) }
   }
 
   override fun onCameraMoved(map: MapAdapter) {
-    state.onCameraMoved(map)
+    val position = map.getCameraPosition()
+    val viewport = map.getViewport()
+    state.commit { cameraMoved(map, position, viewport) }
   }
 
   override fun onCameraMoveEnded(map: MapAdapter) {
-    state.onCameraMoveEnded(map)
+    state.commit { cameraMoveEnded(map) }
   }
 
   override fun onSurfaceLost(map: MapAdapter) {
-    state.onSurfaceLost(map)
+    state.commit { surfaceLost(map, 0L) }
   }
 
   /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */

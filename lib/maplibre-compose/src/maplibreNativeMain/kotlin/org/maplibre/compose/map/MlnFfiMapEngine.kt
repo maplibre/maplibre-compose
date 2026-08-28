@@ -341,7 +341,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         width = width.value.roundToInt(),
         height = height.value.roundToInt(),
         deadline = deadline,
-        loadFailure = { state.lastLoadFailure.value },
+        loadFailure = { state.lastLoadFailure },
         onViewportReady = {
           state.onCaptureViewport(core.getViewport())
           state.host.requestApplyChanges()
@@ -365,7 +365,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     while (core.loadedStyleGeneration < core.requestedStyleGeneration) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
       check(!core.isClosed) { "MapState was closed while a still image was rendering" }
-      state.lastLoadFailure.value?.let { reason ->
+      state.lastLoadFailure?.let { reason ->
         throw IllegalStateException("The map failed to load: $reason")
       }
       check(deadline.hasNotPassedNow()) { "The style did not load within $timeout" }

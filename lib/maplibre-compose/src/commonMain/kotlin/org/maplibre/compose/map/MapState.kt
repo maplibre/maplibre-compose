@@ -114,14 +114,19 @@ internal constructor(
   /** The serialized authority for every logical transition this state makes. */
   internal val kernel = MapKernel(cameraPosition)
 
-  internal val adapterState = mutableStateOf<MapAdapter?>(null)
-  private val closedState = mutableStateOf(false)
-  internal val viewportState = mutableStateOf<Viewport?>(null)
-  internal val positionState = mutableStateOf(cameraPosition)
-  internal val lastLoadFailure = mutableStateOf<String?>(null)
-  internal val moveReasonState = mutableStateOf(CameraMoveReason.NONE)
-  internal val isCameraMovingState = mutableStateOf(false)
-  private val loadStateHolder = mutableStateOf<MapLoadState>(MapLoadState.Idle)
+  private val published =
+    mutableStateOf(
+      PublishedMapSnapshot(
+        closed = false,
+        session = null,
+        camera = cameraPosition,
+        viewport = null,
+        lastLoadFailure = null,
+        moveReason = CameraMoveReason.NONE,
+        isCameraMoving = false,
+        loadState = MapLoadState.Idle,
+      )
+    )
 
   /**
    * The load progress of the current [baseStyle] selection. A composition that reads this property
@@ -129,22 +134,26 @@ internal constructor(
    * generation never changes this value.
    */
   public val loadState: MapLoadState
-    get() = loadStateHolder.value
+    get() = published.value.loadState
 
   /** The attached session's adapter, or null while no session is attached. */
   internal val attachedAdapter: MapAdapter?
-    get() = adapterState.value
+    get() = published.value.session as MapAdapter?
 
   /** True after [close]; the platform withPlatformMap actuals refuse a closed state with this. */
   internal val isClosed: Boolean
-    get() = closedState.value
+    get() = published.value.closed
+
+  /** The last load failure reason, or null when the current generation has not failed. */
+  internal val lastLoadFailure: String?
+    get() = published.value.lastLoadFailure
 
   /**
    * Whether a [MaplibreMap] shows this state right now. A composition that reads this property
    * recomposes when a map attaches or detaches.
    */
   public val isAttached: Boolean
-    get() = adapterState.value != null
+    get() = published.value.session != null
 
   internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
 
@@ -220,7 +229,7 @@ internal constructor(
 
   /** Replaces the style composition; the host recomposes because it reads this state. */
   internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
-    if (closedState.value) return
+    if (published.value.closed) return
     pendingContent = content
     // Written here, not through a full record publish: rememberMapState calls this during
     // composition, and publishing camera or load snapshots in that turn races the composer.
@@ -245,7 +254,7 @@ internal constructor(
     if (contentStarted) return
     contentStarted = true
     pendingContent?.let { content ->
-      if (!closedState.value) contentState.value = content
+      if (!published.value.closed) contentState.value = content
       pendingContent = null
     }
     host.setContent { contentState.value.invoke() }
@@ -313,33 +322,27 @@ internal constructor(
     layer: Layer,
     write: () -> Unit,
   ) {
-    val (authorizedBinding, effects) =
-      kernel.reduceValue {
-        authorizeLayerWrite(styleGeneration, bindingGeneration, layer.id)
-          ?: run {
-            check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
-            check(
-              styleGeneration == this.styleGeneration && bindingGeneration == this.bindingGeneration
-            ) {
-              "Layer '${layer.id}' was taken from a style that a base style load replaced; get a " +
-                "fresh handle from MapState.layers"
-            }
-            check(!layerIsCompositionOwned(layer.id)) {
-              "Layer '${layer.id}' is owned by the style composition; change it by recomposing " +
-                "the content rather than through MapState.layers"
-            }
-            error("No loaded style; a layer can only be mutated on a loaded style")
+    val authorizedBinding = commit {
+      authorizeLayerWrite(styleGeneration, bindingGeneration, layer.id)
+        ?: run {
+          check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
+          check(
+            styleGeneration == this.styleGeneration && bindingGeneration == this.bindingGeneration
+          ) {
+            "Layer '${layer.id}' was taken from a style that a base style load replaced; get a " +
+              "fresh handle from MapState.layers"
           }
-      }
-    publishRecord()
-    executeEffects(effects)
-    write()
-    val committed =
-      kernel
-        .reduceValue {
-          confirmLayerWrite(styleGeneration, bindingGeneration, authorizedBinding)
+          check(!layerIsCompositionOwned(layer.id)) {
+            "Layer '${layer.id}' is owned by the style composition; change it by recomposing " +
+              "the content rather than through MapState.layers"
+          }
+          error("No loaded style; a layer can only be mutated on a loaded style")
         }
-        .first
+    }
+    write()
+    val committed = commit {
+      confirmLayerWrite(styleGeneration, bindingGeneration, authorizedBinding)
+    }
     check(committed) {
       "Layer '${layer.id}' was taken from a style that a base style load replaced; get a fresh " +
         "handle from MapState.layers"
@@ -360,12 +363,12 @@ internal constructor(
   public var baseStyle: BaseStyle
     get() = kernel.read { selectedStyle } ?: BaseStyle.Demo
     set(value) {
-      apply { selectStyle(value) }
+      commit { selectStyle(value) }
     }
 
   /** Selects [BaseStyle.Demo] on a state that never selected a style, so a session has one. */
   internal fun ensureBaseStyleSelected() {
-    apply { ensureStyleSelected() }
+    commit { ensureStyleSelected() }
   }
 
   /**
@@ -379,7 +382,7 @@ internal constructor(
    * [setCamera] and [animateCamera] write the camera.
    */
   public val camera: CameraPosition
-    get() = positionState.value
+    get() = published.value.camera
 
   /**
    * The map's current view: the size of the rendering surface and the visible area. Null while
@@ -388,20 +391,27 @@ internal constructor(
    * move or a resize of the map composable.
    */
   public val viewport: Viewport?
-    get() = viewportState.value
+    get() = published.value.viewport
+
+  /** Writes [viewport] for tests that render overlays without attaching a session. */
+  internal var viewportState: Viewport?
+    get() = published.value.viewport
+    set(value) {
+      published.value = published.value.copy(viewport = value)
+    }
 
   /** Whether the camera is currently moving. */
   public val isCameraMoving: Boolean
-    get() = isCameraMovingState.value
+    get() = published.value.isCameraMoving
 
   /** The reason for the most recent camera move. */
   public val cameraMoveReason: CameraMoveReason
-    get() = moveReasonState.value
+    get() = published.value.moveReason
 
   /** Suspends until a session attaches, for the camera calls that need a live map. */
   private suspend fun awaitAdapter(): MapAdapter {
     val (adapter, closed) =
-      snapshotFlow { attachedAdapter to closedState.value }
+      snapshotFlow { attachedAdapter to published.value.closed }
         .first { (adapter, closed) -> adapter != null || closed }
     check(!closed) { "MapState is closed; no MaplibreMap can attach to run this camera call" }
     return checkNotNull(adapter)
@@ -414,7 +424,7 @@ internal constructor(
    * attaches.
    */
   public suspend fun setCamera(position: CameraPosition) {
-    apply { setCamera(position) }
+    commit { setCamera(position) }
   }
 
   /**
@@ -480,9 +490,7 @@ internal constructor(
    * camera before this call returns, and a cancel before [block] runs issues no later mutation.
    */
   private suspend fun runCameraOperation(block: suspend (MapAdapter) -> Unit) {
-    val (opId, beginEffects) = kernel.reduceValue { beginOperation() }
-    publishRecord()
-    executeEffects(beginEffects)
+    val opId = commit { beginOperation() }
     try {
       val adapter = awaitAdapter()
       if (!kernel.read { isOperationActive(opId) }) return
@@ -490,12 +498,12 @@ internal constructor(
       if (!kernel.read { isOperationActive(opId) }) return
       val position = adapter.getCameraPosition()
       val viewport = adapter.getViewport()
-      apply { completeCameraOperation(opId, position, viewport) }
+      commit { completeCameraOperation(opId, position, viewport) }
     } catch (error: CancellationException) {
-      apply { cancelOperation(opId) }
+      commit { cancelOperation(opId) }
       throw error
     } catch (error: Throwable) {
-      apply { failOperation(opId, error) }
+      commit { failOperation(opId) }
       throw error
     }
   }
@@ -590,13 +598,11 @@ internal constructor(
     require(width > 0.dp && height > 0.dp) {
       "Still image size must be positive, got $width x $height"
     }
-    val (lease, effects) = kernel.reduceValue { beginCapture() }
-    publishRecord()
-    executeEffects(effects)
+    val lease = commit { beginCapture() }
     try {
       return engine.captureStillImage(width, height, timeout)
     } finally {
-      apply { finishCapture(lease, null) }
+      commit { finishCapture(lease) }
     }
   }
 
@@ -618,86 +624,43 @@ internal constructor(
    * Grants [owner] the right to write this state's session hooks and options. A rival [MaplibreMap]
    * that loses this claim must not overwrite the winner.
    */
-  internal fun claimSessionConfig(owner: Any): Boolean {
-    val (accepted, effects) = kernel.reduceValue { claimConfig(owner) }
-    publishRecord()
-    executeEffects(effects)
-    return accepted
-  }
+  internal fun claimSessionConfig(owner: Any): Boolean = commit { claimConfig(owner) }
 
   /** Drops [owner]'s claim so a later [MaplibreMap] can take the session config slot. */
   internal fun releaseSessionConfig(owner: Any) {
-    apply { releaseConfig(owner) }
-  }
-
-  internal fun onStyleChanged(map: MapAdapter, style: StyleBinding?, generation: Long) {
-    apply { styleChanged(map, style, generation) }
-  }
-
-  internal fun onMapDestroyed(map: MapAdapter) {
-    apply { mapDestroyed(map) }
-  }
-
-  internal fun onMapFinishedLoading(map: MapAdapter, generation: Long) {
-    apply { styleLoadFinished(map, generation) }
-  }
-
-  internal fun onMapFailLoading(map: MapAdapter?, reason: String, generation: Long) {
-    apply { styleLoadFailed(map, generation, reason) }
-  }
-
-  internal fun onCameraMoved(map: MapAdapter) {
-    val position = map.getCameraPosition()
-    val viewport = map.getViewport()
-    apply { cameraMoved(map, position, viewport) }
-  }
-
-  internal fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-    apply { cameraMoveStarted(map, reason) }
-  }
-
-  internal fun onCameraMoveEnded(map: MapAdapter) {
-    apply { cameraMoveEnded(map) }
-  }
-
-  internal fun onSurfaceLost(map: MapAdapter, generation: Long = 0L) {
-    apply { surfaceLost(map, generation) }
-  }
-
-  internal fun onSurfaceReady(map: MapAdapter, viewport: Viewport?, generation: Long = 0L) {
-    apply { surfaceReady(map, generation, viewport) }
+    commit { releaseConfig(owner) }
   }
 
   internal fun onCaptureViewport(viewport: Viewport?) {
-    apply { publishCaptureViewport(viewport) }
+    commit { publishCaptureViewport(viewport) }
   }
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
   internal fun attachSession(adapter: MapAdapter) {
-    apply { attach(adapter) }
+    commit { attach(adapter) }
   }
 
   /** The engine published a retained core that may report style while no session is attached. */
   internal fun adoptCore(adapter: MapAdapter?) {
-    apply { adoptCore(adapter) }
+    commit { adoptCore(adapter) }
   }
 
   /** The engine replaced the retained core; events from the previous core are unauthorized. */
   internal fun replaceCore(adapter: MapAdapter?) {
-    apply { replaceCore(adapter) }
+    commit { replaceCore(adapter) }
   }
 
   /** Replays the selected style onto [adapter], serialized with later style selections. */
   internal fun replaySelectedStyle(adapter: MapAdapter) {
-    apply { replayStyle(adapter) }
+    commit { replayStyle(adapter) }
   }
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
   internal fun detachSession(adapter: MapAdapter? = attachedAdapter) {
-    apply { detach(adapter) }
+    commit { detach(adapter) }
     if (engine.detachedAdapter == null) {
       val generation = kernel.read { styleGeneration }
-      apply { styleChanged(adapter ?: Any(), null, generation) }
+      commit { styleChanged(adapter ?: Any(), null, generation) }
     }
   }
 
@@ -707,7 +670,7 @@ internal constructor(
    */
   internal fun updateBinding(newBinding: StyleBinding?) {
     val source = attachedAdapter ?: engine.detachedAdapter ?: Any()
-    apply { styleChanged(source, newBinding, styleGeneration) }
+    commit { styleChanged(source, newBinding, styleGeneration) }
   }
 
   /** Commits composition ownership only when [binding] is still the current style. */
@@ -715,57 +678,48 @@ internal constructor(
     binding: StyleBinding,
     layerIds: Set<String>,
     sources: Map<String, Source>,
-  ): Boolean {
-    val (accepted, effects) = kernel.reduceValue { commitComposition(binding, layerIds, sources) }
-    publishRecord()
-    executeEffects(effects)
-    return accepted
-  }
+  ): Boolean = commit { commitComposition(binding, layerIds, sources) }
 
   /** Commits an imperative source only when [binding] is still the current loaded style. */
-  internal fun commitAppSource(binding: StyleBinding, source: Source): Boolean {
-    val (accepted, effects) = kernel.reduceValue { commitAppSource(binding, source) }
-    publishRecord()
-    executeEffects(effects)
-    if (accepted) {
-      styleNode.appSources[source.id] = source
-      styleNode.publishAppSources()
-    }
-    return accepted
+  internal fun commitAppSource(binding: StyleBinding, source: Source): Boolean = commit {
+    commitAppSource(binding, source)
   }
+    .also { accepted ->
+      if (accepted) {
+        styleNode.appSources[source.id] = source
+        styleNode.publishAppSources()
+      }
+    }
 
-  internal fun commitAppSourceRemoval(binding: StyleBinding, id: String): Boolean {
-    val (accepted, effects) = kernel.reduceValue { removeAppSource(binding, id) }
-    publishRecord()
-    executeEffects(effects)
-    if (accepted) {
-      styleNode.appSources.remove(id)
-      styleNode.publishAppSources()
-    }
-    return accepted
+  internal fun commitAppSourceRemoval(binding: StyleBinding, id: String): Boolean = commit {
+    removeAppSource(binding, id)
   }
+    .also { accepted ->
+      if (accepted) {
+        styleNode.appSources.remove(id)
+        styleNode.publishAppSources()
+      }
+    }
 
-  internal fun commitAppImage(binding: StyleBinding, id: String): Boolean {
-    val (accepted, effects) = kernel.reduceValue { commitAppImage(binding, id) }
-    publishRecord()
-    executeEffects(effects)
-    if (accepted) {
-      styleNode.appImages.add(id)
-      styleNode.publishAppImages()
-    }
-    return accepted
+  internal fun commitAppImage(binding: StyleBinding, id: String): Boolean = commit {
+    commitAppImage(binding, id)
   }
+    .also { accepted ->
+      if (accepted) {
+        styleNode.appImages.add(id)
+        styleNode.publishAppImages()
+      }
+    }
 
-  internal fun commitAppImageRemoval(binding: StyleBinding, id: String): Boolean {
-    val (accepted, effects) = kernel.reduceValue { removeAppImage(binding, id) }
-    publishRecord()
-    executeEffects(effects)
-    if (accepted) {
-      styleNode.appImages.remove(id)
-      styleNode.publishAppImages()
-    }
-    return accepted
+  internal fun commitAppImageRemoval(binding: StyleBinding, id: String): Boolean = commit {
+    removeAppImage(binding, id)
   }
+    .also { accepted ->
+      if (accepted) {
+        styleNode.appImages.remove(id)
+        styleNode.publishAppImages()
+      }
+    }
 
   /**
    * Releases the map and the style composition, including a session that is still attached. The
@@ -775,10 +729,7 @@ internal constructor(
    * the same way instead of suspending forever.
    */
   override fun close() {
-    val (alreadyClosed, effects) = kernel.reduceValue { close() }
-    publishRecord()
-    executeEffects(effects)
-    if (alreadyClosed) return
+    if (commit { close() }) return
     engine.close()
     host.close()
   }
@@ -786,24 +737,20 @@ internal constructor(
   /** The session callbacks and the per-composition hooks they invoke. */
   internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 
-  private fun apply(transform: MapRecord.() -> Unit) {
-    val effects = kernel.reduce(transform)
-    // Snapshot writes stay outside the serial token: the native lock is not reentrant, and a
-    // Compose observer that re-enters the kernel must not deadlock.
+  /**
+   * Applies [transform] under the kernel, publishes the Compose snapshot, then runs effects. The
+   * native lock is not reentrant, so snapshot writes and callbacks stay outside the token.
+   */
+  internal fun <T> commit(transform: MapRecord.() -> T): T {
+    val (value, effects) = kernel.reduceValue(transform)
     publishRecord()
     executeEffects(effects)
+    return value
   }
 
   private fun publishRecord() {
     val snapshot = kernel.read { publishedSnapshot() }
-    closedState.value = snapshot.closed
-    adapterState.value = snapshot.session as MapAdapter?
-    positionState.value = snapshot.camera
-    viewportState.value = snapshot.viewport
-    lastLoadFailure.value = snapshot.lastLoadFailure
-    moveReasonState.value = snapshot.moveReason
-    isCameraMovingState.value = snapshot.isCameraMoving
-    loadStateHolder.value = snapshot.loadState
+    published.value = snapshot
     pendingContent?.let { content ->
       if (!snapshot.closed) contentState.value = content
       pendingContent = null
@@ -812,7 +759,7 @@ internal constructor(
   }
 
   private fun shouldClearUnloadedSources(): Boolean =
-    closedState.value || loadStateHolder.value !is MapLoadState.Loading
+    published.value.closed || published.value.loadState !is MapLoadState.Loading
 
   private fun executeEffects(effects: List<MapEffect>) {
     for (effect in effects) {
@@ -844,8 +791,6 @@ internal constructor(
             .onFailure { logger?.e(it) { "The failure callback threw" } }
         MapEffect.ResetSessionHooks -> callbacks.resetSessionHooks()
         MapEffect.ClearInheritedLocals -> inheritedLocals = null
-        is MapEffect.ResumeOperation -> {}
-        MapEffect.FailPendingOperations -> {}
       }
     }
   }

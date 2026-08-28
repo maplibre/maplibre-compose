@@ -31,9 +31,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var camera: CameraPosition = initialCamera
     private set
 
-  var cameraWriteSeq: Long = 0L
-    private set
-
   var viewport: Viewport? = null
     private set
 
@@ -84,9 +81,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var appImages: List<String> = emptyList()
     private set
 
-  var compositionRevision: Long = 0L
-    private set
-
   /**
    * The composable that may write session hooks and options. Independent of the adapter so a rival
    * [MaplibreMap] cannot overwrite the winner before attach.
@@ -99,7 +93,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
   private var nextSurfaceGeneration = 1L
   private var nextOperationId = 1L
   private var nextCaptureId = 1L
-  private var nextRevision = 1L
 
   val pendingOperations: MutableMap<Long, PendingMapOperation> = mutableMapOf()
 
@@ -287,7 +280,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
   fun setCamera(position: CameraPosition) {
     if (closed) return
     camera = position
-    cameraWriteSeq += 1L
     val target =
       when (val current = renderer) {
         is RendererState.Session -> current.adapter
@@ -297,14 +289,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
         RendererState.None -> null
       }
     target?.let { emit(MapEffect.SendCamera(it, position)) }
-  }
-
-  /** Publishes a completed camera operation before the caller resumes. */
-  fun publishFittedCamera(position: CameraPosition, viewport: Viewport?) {
-    if (closed) return
-    camera = position
-    cameraWriteSeq += 1L
-    if (viewport != null) this.viewport = viewport
   }
 
   /** Replays the current selection onto [adapter] without starting a new generation. */
@@ -355,22 +339,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     moveReason = CameraMoveReason.NONE
   }
 
-  fun surfaceReady(source: Any, generation: Long, viewport: Viewport?) {
-    if (closed) return
-    if (!isSession(source)) return
-    if (generation != 0L && generation != surfaceGeneration) return
-    hasAuthoritativeSurface = true
-    this.viewport = viewport
-  }
-
-  fun retargetSurface(source: Any) {
-    if (closed) return
-    if (!isSession(source)) return
-    surfaceGeneration = nextSurfaceGeneration++
-    hasAuthoritativeSurface = false
-    viewport = null
-  }
-
   fun beginCapture(): Long {
     check(!closed) { "MapState is closed; a closed state cannot render a still image" }
     check(renderer !is RendererState.Session) {
@@ -381,12 +349,11 @@ internal class MapRecord(initialCamera: CameraPosition) {
     return id
   }
 
-  fun finishCapture(id: Long, viewport: Viewport?) {
-    if (renderer is RendererState.Capture && (renderer as RendererState.Capture).id == id) {
-      renderer = RendererState.None
-      this.viewport = null
-    }
-    if (viewport != null && renderer is RendererState.Capture) this.viewport = viewport
+  fun finishCapture(id: Long) {
+    val current = renderer as? RendererState.Capture ?: return
+    if (current.id != id) return
+    renderer = RendererState.None
+    viewport = null
   }
 
   fun beginOperation(): Long {
@@ -412,9 +379,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     val op = pendingOperations.remove(id) ?: return
     if (op.cancelled) return
     camera = position
-    cameraWriteSeq += 1L
     if (viewport != null) this.viewport = viewport
-    emit(MapEffect.ResumeOperation(id, Result.success(Unit)))
   }
 
   /**
@@ -447,9 +412,8 @@ internal class MapRecord(initialCamera: CameraPosition) {
       bindingGeneration == this.bindingGeneration &&
       this.binding === binding
 
-  fun failOperation(id: Long, error: Throwable) {
-    pendingOperations.remove(id) ?: return
-    emit(MapEffect.ResumeOperation(id, Result.failure(error)))
+  fun failOperation(id: Long) {
+    pendingOperations.remove(id)
   }
 
   /**
@@ -460,21 +424,12 @@ internal class MapRecord(initialCamera: CameraPosition) {
     binding: StyleBinding,
     layerIds: Set<String>,
     sources: Map<String, Source>,
-    revision: Long = 0L,
   ): Boolean {
     if (closed) return false
     if (this.binding !== binding) return false
-    if (revision != 0L && revision < compositionRevision) return false
-    if (revision != 0L) compositionRevision = revision
     compositionLayerIds = layerIds
     compositionSources = sources
     return true
-  }
-
-  fun nextCompositionRevision(): Long {
-    val revision = nextRevision++
-    compositionRevision = revision
-    return revision
   }
 
   fun commitAppSource(binding: StyleBinding, source: Source): Boolean {
@@ -534,7 +489,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     emit(MapEffect.ClearInheritedLocals)
     emit(MapEffect.PointBinding(StyleBinding.UNLOADED))
     emit(MapEffect.RefreshCollections)
-    emit(MapEffect.FailPendingOperations)
     return false
   }
 
