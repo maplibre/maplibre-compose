@@ -91,10 +91,15 @@ internal sealed class Layer(val id: String) {
 
   /** Sets this layer's filter from style JSON, for [UnknownLayerDescriptor]. Same null contract. */
   internal fun setFilterJson(filter: JsonElement) {
-    try {
-      binding.setLayerFilter(id, filter)
-    } catch (error: StyleMutationException) {
-      binding.logger?.w(error) { "Layer '$id' kept its previous filter: MapLibre rejected it." }
+    val accepted =
+      try {
+        binding.setLayerFilter(id, filter)
+      } catch (error: StyleMutationException) {
+        binding.logger?.w(error) { "Layer '$id' kept its previous filter: MapLibre rejected it." }
+        return
+      }
+    if (!accepted) {
+      binding.logger?.w { "Layer '$id' kept its previous filter: its style unloaded first." }
       return
     }
     root["filter"] = filter
@@ -107,15 +112,21 @@ internal sealed class Layer(val id: String) {
    */
   private fun pushProperty(name: String, value: JsonElement, kind: LayerPropertyKind): Boolean {
     if (recordIfUnsupported(name, value)) return true
-    return try {
-      binding.setLayerProperty(id, name, value, kind)
-      true
-    } catch (error: StyleMutationException) {
-      binding.logger?.w(error) {
-        "Layer '$id' of type '$type' kept its previous '$name': MapLibre rejected $value."
+    val accepted =
+      try {
+        binding.setLayerProperty(id, name, value, kind)
+      } catch (error: StyleMutationException) {
+        binding.logger?.w(error) {
+          "Layer '$id' of type '$type' kept its previous '$name': MapLibre rejected $value."
+        }
+        return false
       }
-      false
+    if (!accepted) {
+      binding.logger?.w {
+        "Layer '$id' of type '$type' kept its previous '$name': its style unloaded first."
+      }
     }
+    return accepted
   }
 
   /**

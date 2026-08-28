@@ -509,19 +509,17 @@ internal interface MlnFfiStyleBinding : StyleBinding {
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
-  ) {
+  ): Boolean =
     mutateMap { map ->
       try {
         map.setLayerProperty(layerId, name, value.toJsonBytes())
       } catch (error: MaplibreException) {
         throw StyleMutationException(error.message, error)
       }
-    }
-  }
+    } != null
 
-  override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    mutateMap { map -> map.setLayerFilter(layerId, filter.toJsonBytes()) }
-  }
+  override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean =
+    mutateMap { map -> map.setLayerFilter(layerId, filter.toJsonBytes()) } != null
 
   override fun layerProperty(layerId: String, name: String): JsonElement? = readMap { map ->
     map.layerProperty(layerId, name)?.toJsonElement()

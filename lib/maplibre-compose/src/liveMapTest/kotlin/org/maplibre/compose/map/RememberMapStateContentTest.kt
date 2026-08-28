@@ -4,14 +4,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.v2.runComposeUiTest
 import kotlin.test.Test
-import kotlin.time.Duration.Companion.seconds
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.util.MaplibreComposable
@@ -20,13 +16,9 @@ import org.maplibre.compose.util.MaplibreComposable
 @OptIn(ExperimentalTestApi::class)
 class RememberMapStateContentTest {
 
-  /** The style host owns its dispatcher, so the wait leaves the test thread and polls. */
-  private suspend fun awaitStyle(condition: () -> Boolean) {
-    withContext(Dispatchers.Default) {
-      withTimeout(30.seconds) {
-        while (!condition()) delay(10)
-      }
-    }
+  /** The style host rides the UI dispatcher, which waitUntil keeps pumping between polls. */
+  private fun ComposeUiTest.awaitStyle(condition: () -> Boolean) {
+    waitUntil(timeoutMillis = 30_000) { condition() }
   }
 
   @Test

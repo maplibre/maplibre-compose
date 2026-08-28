@@ -97,11 +97,18 @@ internal interface StyleBinding {
    *
    * @param kind which of a layer object's three parts [name] belongs to; a name offered to the
    *   wrong one is rejected.
+   * @return whether the write reached the style; false when the style unloaded first.
    * @throws StyleMutationException if MapLibre refuses [value]; the layer keeps its previous one.
    */
-  fun setLayerProperty(layerId: String, name: String, value: JsonElement, kind: LayerPropertyKind)
+  fun setLayerProperty(
+    layerId: String,
+    name: String,
+    value: JsonElement,
+    kind: LayerPropertyKind,
+  ): Boolean
 
-  fun setLayerFilter(layerId: String, filter: JsonElement)
+  /** Same acceptance contract as [setLayerProperty]. */
+  fun setLayerFilter(layerId: String, filter: JsonElement): Boolean
 
   /** @return null if the style has unloaded, or the layer holds no value for [name]. */
   fun layerProperty(layerId: String, name: String): JsonElement?
@@ -357,14 +364,15 @@ internal interface StyleBinding {
 
         override fun moveLayer(layerId: String, beforeLayerId: String) = Unit
 
+        // UNLOADED accepts writes: a detached descriptor buffers them for the next attach.
         override fun setLayerProperty(
           layerId: String,
           name: String,
           value: JsonElement,
           kind: LayerPropertyKind,
-        ) = Unit
+        ): Boolean = true
 
-        override fun setLayerFilter(layerId: String, filter: JsonElement) = Unit
+        override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean = true
 
         override fun layerProperty(layerId: String, name: String): JsonElement? = null
 

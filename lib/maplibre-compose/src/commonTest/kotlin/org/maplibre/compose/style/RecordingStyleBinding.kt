@@ -267,9 +267,9 @@ internal open class RecordingStyleBinding(
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
-  ) = Unit
+  ): Boolean = true
 
-  override fun setLayerFilter(layerId: String, filter: JsonElement) = Unit
+  override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean = true
 
   override fun layerProperty(layerId: String, name: String): JsonElement? = null
 

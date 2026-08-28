@@ -59,9 +59,9 @@ class LayerHandleImagePropertyTest {
       name: String,
       value: JsonElement,
       kind: LayerPropertyKind,
-    ) {
+    ): Boolean {
       properties.add(Triple(layerId, name, value))
-      super.setLayerProperty(layerId, name, value, kind)
+      return super.setLayerProperty(layerId, name, value, kind)
     }
   }
 

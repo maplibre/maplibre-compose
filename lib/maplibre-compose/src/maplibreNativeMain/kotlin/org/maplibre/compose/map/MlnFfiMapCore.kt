@@ -225,7 +225,8 @@ internal class MlnFfiMapCore(
 
   @Volatile private var styleBinding: SessionStyleBinding? = null
 
-  private var styleLoadUnreported = false
+  /** The generation whose load completion is not yet reported, or 0 when none is pending. */
+  private var styleLoadUnreportedGeneration = 0L
 
   @Volatile internal var maximumFps: Int? = null
   private var tileLodOptions: TileLodOptions = TileLodOptions.Standard
@@ -498,7 +499,7 @@ internal class MlnFfiMapCore(
         hasLoadedFirstStyle = true
         loadedStyleGeneration = styleState.appliedGeneration
         callbacks.onStyleChanged(this, binding)
-        styleLoadUnreported = true
+        styleLoadUnreportedGeneration = styleState.appliedGeneration
         reportedUrlAttribution.clear()
         // A producer frame that started before this callback can still hold the previous style.
         // requestRepaint dirties mbgl so the next renderUpdate draws instead of returning
@@ -511,19 +512,11 @@ internal class MlnFfiMapCore(
       // loaded, so a style that parses between two frames is never reported. Idle carries the same
       // guarantee and does arrive, so whichever comes first reports the load.
       RuntimeEventType.MAP_LOADING_FINISHED -> {
-        if (styleLoadUnreported) {
-          styleLoadUnreported = false
-          callbacks.onMapFinishedLoading(this)
-        }
+        reportStyleLoadCompletion()
       }
 
       RuntimeEventType.MAP_IDLE -> {
-        if (styleLoadUnreported) {
-          styleLoadUnreported = false
-          callbacks.onMapFinishedLoading(this)
-        } else {
-          reportNewlyArrivedAttribution()
-        }
+        if (!reportStyleLoadCompletion()) reportNewlyArrivedAttribution()
       }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
@@ -755,6 +748,19 @@ internal class MlnFfiMapCore(
       // The applied style stays unset so rebuilding the map retries.
       logger?.e(error) { "Failed to apply style ${request.style}" }
     }
+  }
+
+  /**
+   * Returns whether a pending load completion was consumed. A completion for a superseded style is
+   * consumed without reporting: the next style's load reports its own completion, and reporting
+   * against its not-yet-loaded binding would run the caller's reapplication into nothing.
+   */
+  private fun reportStyleLoadCompletion(): Boolean {
+    val unreported = styleLoadUnreportedGeneration
+    if (unreported == 0L) return false
+    styleLoadUnreportedGeneration = 0L
+    if (unreported == styleState.requestedGeneration) callbacks.onMapFinishedLoading(this)
+    return true
   }
 
   /** Applied when a map is created. Getters read [mirroredViewport] after native applies it. */

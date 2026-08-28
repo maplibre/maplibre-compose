@@ -483,8 +483,8 @@ internal class GlJsStyleBinding(
     name: String,
     value: JsonElement,
     kind: LayerPropertyKind,
-  ) {
-    if (!loaded) return
+  ): Boolean {
+    if (!loaded) return false
     val js = value.toJsValue<Any?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
@@ -493,6 +493,7 @@ internal class GlJsStyleBinding(
         LayerPropertyKind.ROOT -> setRootProperty(layerId, name, value)
       }
     }
+    return true
   }
 
   /**
@@ -514,11 +515,12 @@ internal class GlJsStyleBinding(
     map.setLayerZoomRange(layerId, minZoom, maxZoom)
   }
 
-  override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    if (!loaded) return
+  override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean {
+    if (!loaded) return false
     // The style spec has no null filter; absent means "match every feature".
     val js = if (filter is JsonNull) null else filter.toJsValue<FilterSpecification>()
     mutate("set the filter on layer '$layerId'") { map.setFilter(layerId, js) }
+    return true
   }
 
   /**

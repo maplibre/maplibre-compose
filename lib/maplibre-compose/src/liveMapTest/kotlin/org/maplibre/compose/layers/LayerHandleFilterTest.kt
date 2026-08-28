@@ -48,9 +48,9 @@ class LayerHandleFilterTest {
     OpRecordingStyleBinding(baseLayers = baseLayers) {
     val filters = mutableListOf<Pair<String, JsonElement>>()
 
-    override fun setLayerFilter(layerId: String, filter: JsonElement) {
+    override fun setLayerFilter(layerId: String, filter: JsonElement): Boolean {
       filters.add(layerId to filter)
-      super.setLayerFilter(layerId, filter)
+      return super.setLayerFilter(layerId, filter)
     }
   }
 
