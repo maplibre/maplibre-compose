@@ -20,14 +20,14 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
   val session =
     remember(scaleFactor) {
         // An abandoned composition runs no DisposableEffect; only onAbandoned can release this.
+        // The engine learns of the session in the attach effect, after the composition applies.
         object : RememberObserver {
           val session =
             GlJsMapSession(
-                callbacks = state.callbacks,
-                logger = logger,
-                layoutDirection = layoutDirection,
-              )
-              .also { engine.registerSession(it) }
+              callbacks = state.callbacks,
+              logger = logger,
+              layoutDirection = layoutDirection,
+            )
 
           override fun onRemembered() {}
 
@@ -35,7 +35,6 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
 
           override fun onAbandoned() {
             session.close()
-            engine.releaseSession(session)
           }
         }
       }
@@ -49,6 +48,7 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
     session = session,
     state = state,
     attach = { s ->
+      engine.registerSession(s)
       // A session the closed engine refused must not attach; the closed state would throw.
       if (!s.isClosed) state.attachSession(s)
     },

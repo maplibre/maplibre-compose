@@ -32,6 +32,8 @@ internal actual class MapEngine actual constructor(@Suppress("unused") state: Ma
       session.close()
       return
     }
+    val current = this.session
+    check(current == null || current === session) { SINGLE_SESSION_ERROR }
     this.session = session
   }
 
