@@ -1,11 +1,13 @@
 package org.maplibre.compose.map
 
+import androidx.compose.runtime.Composable
 import org.maplibre.compose.camera.CameraMoveReason
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.Viewport
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.util.MaplibreComposable
 
 /**
  * The locked logical map. [mutate] is the only writer. Platform work is queued as lambdas onto one
@@ -14,7 +16,8 @@ import org.maplibre.compose.style.StyleBinding
  * effects sit behind the drain that is already running.
  *
  * Stale work is unauthorized by identity: a style event names a generation, a session event names
- * an adapter, a composition publish names a binding. A superseded identity is a no-op.
+ * an adapter and a session generation, a composition publish names a binding. A superseded identity
+ * is a no-op.
  */
 internal class MapRecord(initialCamera: CameraPosition) {
   private val lock = newSessionLock()
@@ -159,8 +162,19 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var appImages: List<String> = emptyList()
     private set
 
+  var styleComposition: (@Composable @MaplibreComposable () -> Unit)? = null
+    private set
+
   private var nextOperationId = 1L
   private var nextCaptureId = 1L
+  private var nextSessionGeneration = 0L
+
+  /**
+   * The session generation that may publish programmatic camera-move events. A same-adapter
+   * reattach leaves this on the previous generation until [setCamera] or [bindOperation] arms the
+   * new one, so leftover native animation callbacks cannot mark the new session moving.
+   */
+  private var cameraWorkGeneration = 0L
 
   val pendingOperations: MutableMap<Long, PendingMapOperation> = mutableMapOf()
 
@@ -168,7 +182,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   private fun isStyleSource(source: MapAdapter?): Boolean = source != null && source === styleSource
 
-  private fun isSession(source: MapAdapter?): Boolean = source != null && source === session
+  private fun currentSession(): RendererState.Session? = renderer as? RendererState.Session
+
+  private fun isSession(source: MapAdapter?): Boolean =
+    source != null && currentSession()?.adapter === source
 
   private fun acceptsStyleGeneration(generation: Long): Boolean = generation == styleGeneration
 
@@ -211,28 +228,40 @@ internal class MapRecord(initialCamera: CameraPosition) {
     }
     selectDemoIfNeeded()
     val previous = session
-    if (previous !== adapter) hasAuthoritativeSurface = false
     val reuseLoadedStyle = adapter === styleSource && loadState is MapLoadState.Ready
+    if (previous !== adapter) {
+      hasAuthoritativeSurface = false
+      nextSessionGeneration += 1L
+    }
+    val generation = nextSessionGeneration
     session = adapter
     styleSource = adapter
-    renderer = RendererState.Session(adapter)
+    renderer = RendererState.Session(adapter, generation)
     if (previous !== adapter) {
+      cameraWorkGeneration = generation
       enqueue { applySessionOptions(adapter) }
-      if (!reuseLoadedStyle) {
-        selectedStyle?.let { style ->
-          // A new adapter must load even when the previous session already finished this
-          // generation, so waiters and load hooks see a Loading-to-Ready transition.
-          loadState = MapLoadState.Loading(styleGeneration, style)
-          emitLoad(adapter, style)
-        }
-      }
+      replayStyle(adapter, reuseLoadedStyle)
       sendCamera(adapter, camera)
+    } else {
+      replayStyle(adapter, reuseLoadedStyle)
     }
+  }
+
+  private fun replayStyle(adapter: MapAdapter, reuseLoadedStyle: Boolean) {
+    if (reuseLoadedStyle) return
+    val style = selectedStyle ?: return
+    if (loadState is MapLoadState.Failed) {
+      styleGeneration += 1L
+      lastLoadFailure = null
+    }
+    loadState = MapLoadState.Loading(styleGeneration, style)
+    emitLoad(adapter, style)
   }
 
   fun detach(adapter: MapAdapter?) {
     if (adapter != null && session != null && adapter !== session) return
     if (session == null && renderer !is RendererState.Session) return
+    cancelBoundOperations(adapter ?: session)
     session = null
     hasAuthoritativeSurface = false
     viewport = null
@@ -323,7 +352,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
     camera = position
     val target =
       when (val current = renderer) {
-        is RendererState.Session -> current.adapter
+        is RendererState.Session -> {
+          cameraWorkGeneration = current.generation
+          current.adapter
+        }
         is RendererState.Capture -> styleSource
         // Detached: record only. Attach and capture apply the camera after they set up the
         // renderer, so leftover session constraints cannot clamp the recorded position.
@@ -339,7 +371,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
       if (viewport != null) this.viewport = viewport
       return
     }
-    if (!isSession(source)) return
+    val current = currentSession() ?: return
+    if (current.adapter !== source) return
+    if (!isCameraMoving && cameraWorkGeneration != current.generation) return
     camera = position
     if (viewport != null) {
       hasAuthoritativeSurface = true
@@ -353,7 +387,11 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   fun cameraMoveStarted(source: MapAdapter, reason: CameraMoveReason) {
     if (closed) return
-    if (!isSession(source)) return
+    val current = currentSession() ?: return
+    if (current.adapter !== source) return
+    if (reason == CameraMoveReason.PROGRAMMATIC && cameraWorkGeneration != current.generation) {
+      return
+    }
     moveReason = reason
     isCameraMoving = true
   }
@@ -379,6 +417,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
       "MapState has an attached MaplibreMap; detach it before rendering a still image"
     }
     selectDemoIfNeeded()
+    check(renderer !is RendererState.Capture) { SNAPSHOT_SESSION_ERROR }
     val id = nextCaptureId++
     renderer = RendererState.Capture(id)
     // A matching retained core is not replaced, so capture must push the style itself when a
@@ -400,6 +439,24 @@ internal class MapRecord(initialCamera: CameraPosition) {
     return id
   }
 
+  fun bindOperation(id: Long, adapter: MapAdapter): Boolean {
+    val op = pendingOperations[id] ?: return false
+    if (op.cancelled) return false
+    val current = currentSession() ?: return false
+    if (current.adapter !== adapter) return false
+    op.adapter = adapter
+    op.sessionGeneration = current.generation
+    cameraWorkGeneration = current.generation
+    return true
+  }
+
+  private fun cancelBoundOperations(adapter: MapAdapter?) {
+    if (adapter == null) return
+    pendingOperations.values.forEach { op ->
+      if (op.adapter === adapter) op.cancelled = true
+    }
+  }
+
   fun cancelOperation(id: Long) {
     pendingOperations.remove(id)?.let { it.cancelled = true }
   }
@@ -416,8 +473,19 @@ internal class MapRecord(initialCamera: CameraPosition) {
     }
     val op = pendingOperations.remove(id) ?: return
     if (op.cancelled) return
+    val current = currentSession() ?: return
+    if (op.adapter !== current.adapter) return
+    if (op.sessionGeneration != current.generation) return
     camera = position
     if (viewport != null) this.viewport = viewport
+  }
+
+  fun replaceStyleComposition(
+    content: (@Composable @MaplibreComposable () -> Unit)? = null
+  ): Boolean {
+    if (closed) return false
+    if (content != null) styleComposition = content
+    return true
   }
 
   /**
@@ -487,6 +555,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
   fun close(): Boolean {
     if (closed) return true
     closed = true
+    styleComposition = null
     session = null
     styleSource = null
     renderer = RendererState.None
@@ -535,9 +604,11 @@ internal data class PublishedMapSnapshot(
   val loadState: MapLoadState,
 )
 
-/** One in-flight camera or capture operation the record owns. */
+/** One in-flight camera operation bound to the session generation that accepted it. */
 internal class PendingMapOperation(val id: Long) {
   var cancelled: Boolean = false
+  var adapter: MapAdapter? = null
+  var sessionGeneration: Long = 0L
 }
 
 /** The next step the effect drain takes. */
@@ -558,7 +629,7 @@ private sealed interface DrainAction {
 internal sealed interface RendererState {
   data object None : RendererState
 
-  data class Session(val adapter: MapAdapter) : RendererState
+  data class Session(val adapter: MapAdapter, val generation: Long) : RendererState
 
   data class Capture(val id: Long) : RendererState
 }

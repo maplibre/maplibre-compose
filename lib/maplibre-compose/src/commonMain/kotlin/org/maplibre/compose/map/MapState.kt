@@ -196,7 +196,6 @@ internal constructor(
     }
 
   private val contentState = mutableStateOf(EMPTY_STYLE_COMPOSITION)
-  private var pendingContent: (@Composable @MaplibreComposable () -> Unit)? = null
 
   init {
     host.inheritedLocals = inheritedLocals
@@ -248,11 +247,8 @@ internal constructor(
     // Read closed from the record, not the published snapshot: this runs during composition, and
     // a snapshot read would recompose rememberMapState on every load or camera change and reset
     // the baseStyle parameter over an imperative assignment.
-    if (record.read { closed }) return
-    pendingContent = content
-    // Written here, not through a full record publish: rememberMapState calls this during
-    // composition, and publishing camera or load snapshots in that turn races the composer.
-    if (contentStarted) contentState.value = content
+    if (!record.mutate { replaceStyleComposition(content) }) return
+    publishStyleComposition()
   }
 
   /**
@@ -272,10 +268,7 @@ internal constructor(
   internal fun startStyleComposition() {
     if (contentStarted) return
     contentStarted = true
-    pendingContent?.let { content ->
-      if (!published.value.closed) contentState.value = content
-      pendingContent = null
-    }
+    publishStyleComposition()
     host.setContent { contentState.value.invoke() }
   }
 
@@ -497,7 +490,7 @@ internal constructor(
     val opId = commit { beginOperation() }
     try {
       val adapter = awaitAdapter()
-      if (!record.read { isOperationActive(opId) }) return
+      if (!commit { isOperationActive(opId) && bindOperation(opId, adapter) }) return
       block(adapter)
       if (!record.read { isOperationActive(opId) }) return
       val position = adapter.getCameraPosition()
@@ -725,11 +718,14 @@ internal constructor(
   private fun publishRecord() {
     val snapshot = record.read { publishedSnapshot() }
     published.value = snapshot
-    pendingContent?.let { content ->
-      if (!snapshot.closed) contentState.value = content
-      pendingContent = null
-    }
-    if (snapshot.closed) contentState.value = EMPTY_STYLE_COMPOSITION
+    publishStyleComposition()
+  }
+
+  private fun publishStyleComposition() {
+    val (closed, content) = record.read { closed to styleComposition }
+    contentState.value =
+      if (closed || content == null) EMPTY_STYLE_COMPOSITION
+      else if (contentStarted) content else contentState.value
   }
 
   /**

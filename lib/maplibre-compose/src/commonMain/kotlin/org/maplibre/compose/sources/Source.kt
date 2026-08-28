@@ -73,14 +73,7 @@ public sealed class Source(internal val id: String) {
     }
     this.binding = binding
     removeUnloadAction?.invoke()
-    val unregister = binding.onUnload {
-      attachLock.withLock {
-        if (this.binding === binding) {
-          this.binding = StyleBinding.UNLOADED
-          removeUnloadAction = null
-        }
-      }
-    }
+    val unregister = binding.onUnload { applyUnload(binding) }
     if (this.binding === binding) removeUnloadAction = unregister else unregister()
   }
 
@@ -91,6 +84,13 @@ public sealed class Source(internal val id: String) {
    * @return false if the style has unloaded, in which case nothing was added.
    */
   internal open fun addTo(binding: StyleBinding): Boolean = binding.addSource(id, toJson())
+
+  private fun applyUnload(expected: StyleBinding) {
+    if (binding === expected) {
+      binding = StyleBinding.UNLOADED
+      removeUnloadAction = null
+    }
+  }
 
   /** Binds this descriptor to a source already in the style, without adding it. */
   internal fun bindExisting(binding: StyleBinding): Unit = attachLock.withLock {
