@@ -144,9 +144,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
   }
 
   /**
-   * Grants the single session slot to [adapter], or throws. The same adapter may re-attach. Effects
-   * replay camera and style after this turn; load hooks fire only when the current generation is
-   * already terminal.
+   * Grants the single session slot to [adapter], or throws. The same adapter may re-attach. A
+   * retained core that already holds the current ready style is not asked to load it again. Load
+   * progress is [loadState]; attach does not replay load hooks.
    */
   fun attach(adapter: Any): Long {
     check(!closed) { "MapState is closed; a closed state cannot show a map again" }
@@ -161,18 +161,14 @@ internal class MapRecord(initialCamera: CameraPosition) {
       surfaceGeneration = nextSurfaceGeneration++
       hasAuthoritativeSurface = false
     }
+    val reuseLoadedStyle = adapter === styleSource && loadState is MapLoadState.Ready
     session = adapter
     styleSource = adapter
     renderer = RendererState.Session(sessionToken, adapter)
     if (previous !== adapter) {
       emit(MapEffect.ApplySessionOptions(adapter))
-      selectedStyle?.let { emit(MapEffect.LoadStyle(adapter, it)) }
+      if (!reuseLoadedStyle) selectedStyle?.let { emit(MapEffect.LoadStyle(adapter, it)) }
       emit(MapEffect.SendCamera(adapter, camera))
-      when (val load = loadState) {
-        is MapLoadState.Ready -> emit(MapEffect.InvokeLoadFinished)
-        is MapLoadState.Failed -> emit(MapEffect.InvokeLoadFailed(load.reason))
-        else -> {}
-      }
     }
     return sessionToken
   }

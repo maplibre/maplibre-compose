@@ -108,8 +108,9 @@ class MapStateTest {
     val secondBinding = OpRecordingStyleBinding()
     state.callbacks.onMapLoadFinished = { finished++ }
     state.attachSession(second)
-    // The load that finished between the sessions replays into the new session's hooks.
-    assertEquals(1, finished, "the between-sessions load must replay at attach")
+    // Load progress is loadState. Attach does not replay hooks for a load that already finished.
+    assertIs<MapLoadState.Ready>(state.loadState)
+    assertEquals(0, finished, "attach must not replay a load hook that already ran")
     state.callbacks.onStyleChanged(second, secondBinding)
     state.host.awaitPendingWork()
 

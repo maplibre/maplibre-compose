@@ -175,6 +175,23 @@ class MapKernelTest {
   }
 
   @Test
+  fun reattach_of_a_ready_style_source_does_not_reload() {
+    val kernel = kernel()
+    val core = Any()
+    kernel.reduce {
+      attach(core)
+      selectStyle(styleA)
+    }
+    val gen = kernel.record.styleGeneration
+    kernel.reduce { styleLoadFinished(core, gen) }
+    kernel.reduce { detach(core) }
+    val effects = kernel.reduce { attach(core) }
+    assertTrue(effects.none { it is MapEffect.LoadStyle })
+    assertTrue(effects.none { it is MapEffect.InvokeLoadFinished })
+    assertIs<MapLoadState.Ready>(kernel.record.loadState)
+  }
+
+  @Test
   fun rejected_session_cannot_take_the_slot() {
     val kernel = kernel()
     val winner = Any()

@@ -220,10 +220,11 @@ internal constructor(
 
   /** Replaces the style composition; the host recomposes because it reads this state. */
   internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
-    apply {
-      if (closed) return@apply
-      pendingContent = content
-    }
+    if (closedState.value) return
+    pendingContent = content
+    // Written here, not through a full record publish: rememberMapState calls this during
+    // composition, and publishing camera or load snapshots in that turn races the composer.
+    if (contentStarted) contentState.value = content
   }
 
   /**
@@ -243,6 +244,10 @@ internal constructor(
   internal fun startStyleComposition() {
     if (contentStarted) return
     contentStarted = true
+    pendingContent?.let { content ->
+      if (!closedState.value) contentState.value = content
+      pendingContent = null
+    }
     host.setContent { contentState.value.invoke() }
   }
 
