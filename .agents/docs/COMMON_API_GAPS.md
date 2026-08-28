@@ -7,13 +7,11 @@ down while they are fresh, to be converted into issues rather than lived in.
 The API redesign shipped: `MapState` and `MaplibreMap(state)` are the public
 surface, `MaplibreRuntime` owns the process-scoped work, and every non-web
 platform runs on maplibre-native-ffi while the browser runs on MapLibre GL JS.
-This document is the remaining capability work, plus the internal refactors that
-the redesign deferred.
+This document is the remaining capability work.
 
-**What the FFI can do is the target surface.** Whether the Android or iOS SDK
-exposed a capability does not decide whether it belongs here; those SDKs are
-gone. Each capability is one implementation on the FFI engine and one on the GL
-JS engine, and where GL JS has no equivalent, the web declines the call the way
+**What the FFI can do is the target surface.** Each capability is one
+implementation on the FFI engine and one on the GL JS engine, and where GL JS
+has no equivalent, the web declines the call the way
 `MapState.captureStillImage` does.
 
 FFI names below are verified against maplibre-native-ffi 0.202608.3, and GL JS
@@ -54,10 +52,15 @@ public sealed interface MapEvent {
 }
 ```
 
-Two design questions to settle first: whether `styleErrors` folds into the
-stream or stays a dedicated flow, and whether a detached state buffers or drops
-events. The FFI event enum is the candidate vocabulary; each member ships with a
-GL JS mapping.
+`styleErrors` folds into the stream as `MapEvent.StyleError`; a second error
+channel has no reason to exist. A detached state buffers events with a bounded
+replay rather than dropping them, because a ViewModel-owned state's collector
+usually subscribes after the events it needs. The FFI event enum is the
+candidate vocabulary; each member ships with a GL JS mapping.
+
+The missing-image case folds in here too, with no bespoke resolver: the stream
+carries `MapEvent.StyleImageMissing(imageId)`, and the response channel is the
+existing `MapState.images` upsert, which both engines accept during the event.
 
 - FFI: the `RuntimeEventType` stream `MlnFfiMapCore.handleEvent` already
   consumes — every branch the core drops today is a candidate member.
@@ -88,24 +91,25 @@ map, if the FFI grows it, supersedes this path.
 Position, color, intensity, and anchor of the style's light source, which fill
 extrusions shade against.
 
-A `Light` composable in the style content, set the same way layers are. The
-composition owns it, the properties are expression DSL values, and the node
-compiles them to light JSON in `commonMain`:
+The style has one light, so it is declared state on `MapState` — like
+`baseStyle` and the camera, it reapplies on every style load — rather than a
+composable whose singleton rule would need enforcing:
 
 ```kotlin
-@Composable
-@MaplibreComposable
-public fun Light(
-  anchor: Expression<EnumValue<IlluminationAnchor>> = nil(),
-  position: Expression<VectorValue<Number>> = nil(),
-  color: Expression<ColorValue> = nil(),
-  intensity: Expression<FloatValue> = nil(),
+public data class Light(
+  val anchor: Expression<EnumValue<IlluminationAnchor>> = nil(),
+  val position: Expression<VectorValue<Number>> = nil(),
+  val color: Expression<ColorValue> = nil(),
+  val intensity: Expression<FloatValue> = nil(),
 )
+
+// on MapState; null keeps the style's own light
+public var light: Light?
 ```
 
+The properties are expression DSL values compiled to light JSON in `commonMain`;
 `IlluminationAnchor` already exists in the expression values for
-`HillshadeLayer`. A second `Light` in the content is an error: the style has one
-light.
+`HillshadeLayer`.
 
 - FFI: `MapHandle.setStyleLightJson(json)` applies the compiled object;
   `MapHandle.setStyleLightProperty(name, json)` and
@@ -184,31 +188,6 @@ to tolerate a platform declining it.
   `RequestParameters` with `headers` and `credentials`. The hook is per map, so
   the web engine installs the runtime's transform on each map it creates.
 
-## Missing style images
-
-The event MapLibre raises when a style references a sprite that is not in the
-loaded image set, so an application can supply icons on demand instead of
-shipping every icon up front. The FFI engine logs the event today and can do
-nothing else, because there is no common callback to route it to.
-
-Map-owned on `MapState`, because the resolver answers for whatever style the map
-has loaded:
-
-```kotlin
-// on MapState
-public fun setMissingImageResolver(resolver: (suspend (id: String) -> ImageBitmap?)?)
-```
-
-A non-null return registers the image under the requested id; null leaves the
-reference unresolved. The registration path is the one `ImageManager` already
-uses.
-
-- FFI: the `RuntimeEventType.MAP_STYLE_IMAGE_MISSING` event (see the branch in
-  `MlnFfiMapCore.handleEvent`), answered with
-  `MapHandle.setStyleImage(id, image, options)`.
-- GL JS: `Map.setMissingStyleImageResolver(resolver)`, answered with
-  `Map.addImage`; the `styleimagemissing` event is the lower-level form.
-
 ## Resource transform
 
 A hook to rewrite every resource URL before it is requested — how applications
@@ -252,23 +231,3 @@ The result lists the packs the merge added, which also land in `offlinePacks`.
   `RuntimeHandle.takeMergeOfflineRegionsDatabaseResult(handle)` returns the
   `List<OfflineRegionInfo>`.
 - GL JS: web declines — GL JS has no offline API.
-
-## Executed internal refactors
-
-Every refactor the redesign's close-out audits deferred is done: one
-`MapSessionHost` composable states the session attach and detach invariants for
-both platforms, `LayerNode` records properties and handlers unconditionally, one
-lazy `BaseStyleSnapshot` serves the base layer ids and sources, the shared
-adapter mechanics live in `commonMain` as `PendingActionQueue`,
-`RequestedStyleState`, and `CameraMoveReporter`, and both owner loops extend
-`MlnFfiOwnerLoop`. Three pieces stayed engine-side on purpose:
-
-- The requested-camera fallback: native answers pre-map reads from its mirrored
-  viewport's default and only replays the request at map creation, so only the
-  field is common.
-- Transition-waiter bookkeeping: native keys waiters by transition id with
-  drain-deferred resumes, JS registers by `isCameraEasing` on a list, so only
-  the stranded-resume loop is common.
-- The owner-task shapes: the map loop abandons with no reason, the runtime
-  rejects with a throwable and checks cancellation, so each loop keeps its own
-  task class behind the shared deque.
