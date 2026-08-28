@@ -14,9 +14,6 @@ permissions:
   contents: read
 
 jobs:
-  # All static analysis, Android Lint included; every other job is a platform.
-  # `fix` then a clean-tree assertion rather than `check`, because a push cannot
-  # reach a fork's branch. It runs first, so formatting still fails in seconds.
   hygiene:
     timeout-minutes: 25
     runs-on: ubuntu-24.04
@@ -71,11 +68,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # the latest, Android 16 (Baklava); also the leg that ships
-          # the demo APK, which does not vary by API level
           - api-level: 36
             artifact_name: demo-app-android
-          # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
           - api-level: 24
     timeout-minutes: 45
     runs-on: ubuntu-24.04
@@ -195,7 +189,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
         with:
-          save-toolchains: "false" # ios owns this label
+          save-toolchains: "false"
       - run: mise run build:ios:device
 
   js:
@@ -237,13 +231,13 @@ jobs:
       matrix:
         include:
           - runner: macos-26
-            save_toolchains: "false" # ios owns this label
+            save_toolchains: "false"
             artifact_type: dmg
             artifact_glob: "*"
             artifact_name: demo-app-desktop-macos-arm64
             test_variant: desktop-macos-arm64
           - runner: ubuntu-24.04
-            save_toolchains: "false" # hygiene owns this label
+            save_toolchains: "false"
             artifact_type: appimage
             artifact_glob: "*.tar"
             artifact_name: demo-app-desktop-linux-x64
@@ -324,7 +318,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # version-args reads the release tag.
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
@@ -332,7 +325,6 @@ jobs:
           pnpm-cache: "true"
       - run: mise run test:pages
         env:
-          # Marks the Cloudflare Pages preview; release builds set no banner.
           DOCS_BANNER: >-
             ${{ github.event_name == 'pull_request'
             && format(
@@ -376,8 +368,6 @@ jobs:
           url="${PREVIEW_URL:-$DEPLOYMENT_URL}"
           echo "Cloudflare Pages: ${url}/maplibre-compose/" >> "$GITHUB_STEP_SUMMARY"
 
-  # Branch protection requires this job. always() still runs it after a needed
-  # job fails; GitHub otherwise skips it and treats that skip as a passing check.
   all-good:
     if: ${{ always() }}
     needs:
