@@ -3,12 +3,12 @@ package org.maplibre.compose.map
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
 import org.maplibre.compose.mlnffi.EnsureMlnFfiConfigured
 import org.maplibre.compose.mlnffi.MapRenderBackend
@@ -19,6 +19,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapSurface
 import org.maplibre.compose.mlnffi.RenderBackendPair
 import org.maplibre.compose.mlnffi.backendDiagnostic
 import org.maplibre.compose.mlnffi.selectBridge
+import org.maplibre.compose.util.rememberAbandonable
 import org.maplibre.compose.util.rethrowIfFatal
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -40,7 +41,13 @@ internal fun MlnFfiMapView(
   val runtimeBackends = remember { loadRuntimeBackends(state.logger) }
   val scaleFactor = density.density.toDouble()
   val hostSelection =
-    remember(hostFactory, runtimeBackends, scaleFactor) { selectHost(runtimeBackends, hostFactory) }
+    rememberAbandonable(
+      hostFactory,
+      runtimeBackends,
+      scaleFactor,
+      onAbandoned = { (it.result as? MlnFfiMapHostResult.Created)?.host?.close() },
+      create = { selectHost(runtimeBackends, hostFactory) },
+    )
 
   MlnFfiMapView(
     renderBackend = hostSelection.backends.producer,
@@ -75,47 +82,29 @@ internal fun MlnFfiMapView(
   val logger = state.logger
 
   // The engine reuses a live core whose density and backend match, so re-entering the composition
-  // re-attaches to the same map instead of recreating it. The engine learns of the core and the
-  // session in the attach effect: an abandoned composition must evict nothing, and only
-  // onAbandoned can release what it constructed.
+  // re-attaches to the same map instead of recreating it.
   val engine = state.engine
-  val holder =
-    remember(renderBackend, scaleFactor) {
-      object : RememberObserver {
-        val core = engine.obtainCore(scaleFactor, layoutDirection, renderBackend)
-        val session = MlnFfiMapSession(core, renderBackend)
-
-        override fun onRemembered() {}
-
-        override fun onForgotten() {}
-
-        override fun onAbandoned() {
-          session.close()
-          engine.releaseSession(session)
-          engine.discardCore(core)
-        }
-      }
-    }
-  val core = holder.core
-  val session = holder.session
+  val resource =
+    rememberAbandonable(
+      renderBackend,
+      scaleFactor,
+      onAbandoned = { it.release() },
+      create = { MlnFfiSessionResource(engine, scaleFactor, layoutDirection, renderBackend) },
+    )
+  val core = resource.core
+  val session = resource.session
 
   core.callbacks = state.callbacks
   core.logger = logger
   core.layoutDirection = layoutDirection
 
   MapSessionHost(
-    session = session,
+    resource = resource,
     state = state,
     attach = {
-      engine.publishCore(core, scaleFactor, renderBackend)
-      engine.registerSession(session)
       // Attach deferred state before native events can report the map's default state to Compose.
       state.attachSession(core)
       core.start()
-    },
-    release = {
-      it.close()
-      engine.releaseSession(it)
     },
   ) { focusRequester, continuation ->
     // MapLibre renders black until a style loads.
@@ -140,6 +129,30 @@ internal fun MlnFfiMapView(
         )
       }
     }
+  }
+}
+
+/** The composable's claim on the engine: a core obtained and a session constructed eagerly. */
+private class MlnFfiSessionResource(
+  private val engine: MapEngine,
+  private val scaleFactor: Double,
+  layoutDirection: LayoutDirection,
+  private val backend: MapRenderBackend,
+) : MapSessionResource<MlnFfiMapSession> {
+  val core: MlnFfiMapCore = engine.obtainCore(scaleFactor, layoutDirection, backend)
+
+  override val session: MlnFfiMapSession = MlnFfiMapSession(core, backend)
+
+  override fun register() {
+    engine.publishCore(core, scaleFactor, backend)
+    engine.registerSession(session)
+  }
+
+  override fun release() {
+    session.close()
+    engine.releaseSession(session)
+    // A published core is retained; only an abandoned, unpublished replacement closes here.
+    engine.discardCore(core)
   }
 }
 

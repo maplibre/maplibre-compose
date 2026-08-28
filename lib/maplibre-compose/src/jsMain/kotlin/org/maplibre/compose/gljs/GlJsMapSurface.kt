@@ -23,6 +23,7 @@ import kotlin.math.roundToInt
 import org.jetbrains.skia.Rect
 import org.jetbrains.skia.SamplingMode
 import org.maplibre.compose.map.MapExtent
+import org.maplibre.compose.util.rememberAbandonable
 
 /** Hosts [renderer] on a Compose drawing surface. Compose owns the frame loop. */
 @Composable
@@ -41,7 +42,10 @@ internal fun GlJsMapSurface(
   var frameRequest by remember { mutableLongStateOf(0L) }
   var failed by remember(renderer) { mutableStateOf(false) }
   val createCompositor = LocalGlJsCompositor.current
-  val compositor = remember(renderer, createCompositor) { createCompositor(logger) }
+  val compositor =
+    rememberAbandonable(renderer, createCompositor, onAbandoned = { it.close() }) {
+      createCompositor(logger)
+    }
   val surface =
     remember(compositor) {
       object : GlJsSurfaceSession {
