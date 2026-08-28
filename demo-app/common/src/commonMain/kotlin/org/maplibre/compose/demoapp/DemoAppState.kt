@@ -38,7 +38,20 @@ class DemoAppState(
   val settings: DemoSettings,
   val frameRateState: FrameRateState,
 ) {
+  /**
+   * The demo shown on the map. Select demos through [selectDemo] so the panel can align its
+   * destination.
+   */
   var selectedDemo by mutableStateOf<Demo?>(null)
+
+  /**
+   * Selects [demo] in the Demos shell. The one selection path for both the panel's demo list and
+   * the agent driver; the panel observes [selectedDemo] and navigates to the demo's controls.
+   */
+  fun selectDemo(demo: Demo) {
+    selectedDemo = demo
+    shell = DemoShell.Demos
+  }
 
   /** The style applied when [MapStyleMode] resolves to light. */
   var chosenLightStyle by mutableStateOf<DemoStyle>(Protomaps.Light)
@@ -73,11 +86,6 @@ class DemoAppState(
 
   var shell by mutableStateOf(DemoShell.Demos)
 
-  /**
-   * Bumped by the agent driver when it selects a demo, so the demo panel navigates from the list to
-   * the demo's controls. The panel owns its NavController; this is the driver's only hook.
-   */
-  internal var panelNavGeneration by mutableStateOf(0)
   var selectedScenario by mutableStateOf<BenchmarkScenario>(allBenchmarkScenarios.first())
   val benchmark = BenchmarkUiState()
 

@@ -178,8 +178,7 @@ internal class AgentDriver(
     val newBase = preferred?.base?.takeIf { it != state.appliedStyleSnapshot?.base }
     val styleLoadsSeen = state.lastStyleLoad.count
     markDemoMapReload()
-    state.selectedDemo = demo
-    state.panelNavGeneration++
+    state.selectDemo(demo)
     // The demo map reloads from scratch when leaving the Benchmarks shell, so await its base even
     // when this demo has no preferred style of its own.
     val baseToAwait =
