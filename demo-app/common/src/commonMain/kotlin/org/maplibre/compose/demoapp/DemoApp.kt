@@ -2,7 +2,11 @@ package org.maplibre.compose.demoapp
 
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.CubicBezierEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateDp
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
@@ -69,6 +73,12 @@ private val HandleProtrusion = HandleWidth - HandleOverlap
 private const val PanelMotionDurationMillis = 220
 private val PanelMotionEasing = CubicBezierEasing(0.2f, 0f, 0f, 1f)
 
+private enum class DemoShellLayout {
+  Compact,
+  Medium,
+  Expanded,
+}
+
 @Composable
 private fun DemoShell(state: DemoAppState) {
   BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -77,11 +87,20 @@ private fun DemoShell(state: DemoAppState) {
     val safeInsets = WindowInsets.safeDrawing.toMapViewportInsets(density, layoutDirection)
     val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
     val windowSizeClass = windowAdaptiveInfo.windowSizeClass
-    val isMediumOrWider =
-      windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND)
-    val isExpandedOrWider =
-      windowSizeClass.isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND)
-    val panelWidth = resolvedPanelWidth(maxWidth, safeInsets, isMediumOrWider, isExpandedOrWider)
+    val layout = windowSizeClass.toDemoShellLayout()
+    val layoutTransition = updateTransition(layout, label = "demo shell layout")
+    val panelWidth by
+      layoutTransition.animateDp(
+        transitionSpec = {
+          spring(
+            dampingRatio = Spring.DampingRatioNoBouncy,
+            stiffness = Spring.StiffnessMediumLow,
+          )
+        },
+        label = "demo panel width",
+      ) { targetLayout ->
+        resolvedPanelWidth(maxWidth, safeInsets, targetLayout)
+      }
     var panelOpen by rememberSaveable { mutableStateOf(true) }
     val panelProgress = remember { Animatable(if (panelOpen) 1f else 0f) }
     val scope = rememberCoroutineScope()
@@ -124,7 +143,7 @@ private fun DemoShell(state: DemoAppState) {
     Box(Modifier.fillMaxSize()) {
       Box(
         Modifier.fillMaxSize().semantics {
-          if (!isMediumOrWider && panelOpen) hideFromAccessibility()
+          if (layout == DemoShellLayout.Compact && panelOpen) hideFromAccessibility()
         }
       ) {
         ShellMap(state = state, viewportInsets = viewportInsets)
@@ -155,7 +174,7 @@ private fun DemoShell(state: DemoAppState) {
             state = state,
             modifier = Modifier.fillMaxSize().padding(vertical = 8.dp),
             collapsePanel = { setPanelOpen(false) },
-            collapseOnSelection = !isMediumOrWider,
+            collapseOnSelection = layout == DemoShellLayout.Compact,
           )
         }
       }
@@ -195,18 +214,25 @@ private fun PanelToggleHandle(
 private fun resolvedPanelWidth(
   viewportWidth: Dp,
   safeInsets: MapViewportInsets,
-  isMediumOrWider: Boolean,
-  isExpandedOrWider: Boolean,
+  layout: DemoShellLayout,
 ): Dp {
   val availableWidth =
     (viewportWidth - safeInsets.left - safeInsets.right - ShellSpacing * 2).coerceAtLeast(0.dp)
-  return when {
-    isExpandedOrWider -> minOf(ExpandedPanelWidth, availableWidth)
-    isMediumOrWider -> minOf(MediumPanelWidth, availableWidth)
+  return when (layout) {
+    DemoShellLayout.Expanded -> minOf(ExpandedPanelWidth, availableWidth)
+    DemoShellLayout.Medium -> minOf(MediumPanelWidth, availableWidth)
     // Leave room beside a full-width panel for the handle, as in the wider modes.
-    else -> (availableWidth - HandleProtrusion).coerceAtLeast(0.dp)
+    DemoShellLayout.Compact -> (availableWidth - HandleProtrusion).coerceAtLeast(0.dp)
   }
 }
+
+private fun WindowSizeClass.toDemoShellLayout(): DemoShellLayout =
+  when {
+    isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) ->
+      DemoShellLayout.Expanded
+    isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> DemoShellLayout.Medium
+    else -> DemoShellLayout.Compact
+  }
 
 private fun MapViewportInsets.withLeadingPanel(
   panelWidth: Dp,
