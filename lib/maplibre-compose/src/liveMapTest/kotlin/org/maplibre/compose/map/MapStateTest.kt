@@ -255,8 +255,10 @@ class MapStateTest {
     state.attachSession(adapter)
     state.baseStyle = STYLE_B
     state.callbacks.onMapFinishedLoading(adapter, 1L)
+    testScheduler.advanceUntilIdle()
     assertIs<MapLoadState.Loading>(state.loadState)
     state.callbacks.onMapFinishedLoading(adapter, 2L)
+    testScheduler.advanceUntilIdle()
     assertIs<MapLoadState.Ready>(state.loadState)
     state.close()
   }
@@ -269,6 +271,7 @@ class MapStateTest {
     adapter.camera = CameraPosition(zoom = 4.0)
     adapter.reportedViewport = testViewport()
     state.callbacks.onCameraMoved(adapter)
+    testScheduler.advanceUntilIdle()
     assertEquals(4.0, state.camera.zoom)
     assertNotNull(state.viewport)
 
@@ -277,10 +280,12 @@ class MapStateTest {
     foreign.reportedViewport = testViewport()
     state.callbacks.onCameraMoved(foreign)
     state.callbacks.onSurfaceLost(foreign)
+    testScheduler.advanceUntilIdle()
     assertEquals(4.0, state.camera.zoom)
     assertNotNull(state.viewport)
 
     state.callbacks.onSurfaceLost(adapter)
+    testScheduler.advanceUntilIdle()
     assertNull(state.viewport)
     state.close()
   }
@@ -310,6 +315,7 @@ class MapStateTest {
     val generation = state.styleGeneration
 
     state.callbacks.onMapDestroyed(adapter)
+    testScheduler.advanceUntilIdle()
 
     val loading = assertIs<MapLoadState.Loading>(state.loadState)
     assertEquals(generation, loading.generation)
@@ -335,6 +341,7 @@ class MapStateTest {
     assertIs<MapLoadState.Ready>(state.loadState)
 
     state.callbacks.onMapDestroyed(adapter)
+    testScheduler.advanceUntilIdle()
 
     assertIs<MapLoadState.Ready>(state.loadState)
     state.close()
