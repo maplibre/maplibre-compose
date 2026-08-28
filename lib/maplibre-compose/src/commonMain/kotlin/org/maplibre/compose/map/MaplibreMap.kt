@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
@@ -63,12 +62,13 @@ public fun rememberMapState(
 
   val newMapState = { position: CameraPosition ->
     MapState(
-      cameraPosition = position,
-      density = density,
-      layoutDirection = layoutDirection,
-      logger = Logger.withTag("maplibre-compose"),
-      inheritedLocals = locals,
-    )
+        cameraPosition = position,
+        density = density,
+        layoutDirection = layoutDirection,
+        logger = Logger.withTag("maplibre-compose"),
+        inheritedLocals = locals,
+      )
+      .also { state -> if (baseStyle != null) state.baseStyle = baseStyle }
   }
 
   // The camera is the saveable piece: the saver reads the state's current position, and a
@@ -189,11 +189,7 @@ public fun MaplibreMap(
     // SideEffect, and the native core captures the logger when it is created.
     state.logger = logger
 
-    val hostToken = remember { Any() }
-    DisposableEffect(hostToken) { onDispose { state.releaseSessionConfig(hostToken) } }
-
     SideEffect {
-      if (!state.claimSessionConfig(hostToken)) return@SideEffect
       state.density = density
       state.layoutDirection = layoutDirection
       state.inheritedLocals = locals

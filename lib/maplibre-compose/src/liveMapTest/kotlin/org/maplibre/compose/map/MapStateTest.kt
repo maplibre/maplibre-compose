@@ -63,6 +63,7 @@ class MapStateTest {
     val firstBinding = OpRecordingStyleBinding()
     state.attachSession(first)
     state.callbacks.onStyleChanged(first, firstBinding)
+    state.callbacks.onMapFinishedLoading(first)
     state.host.awaitPendingWork()
 
     assertSame(first, state.attachedAdapter)
@@ -95,7 +96,7 @@ class MapStateTest {
     val second = FakeMapAdapter()
     val secondBinding = OpRecordingStyleBinding()
     state.attachSession(second)
-    // Load progress is loadState. Attach does not reload a style the same source already holds.
+    // The first session finished the load; a new adapter does not reset that Ready.
     assertIs<MapLoadState.Ready>(state.loadState)
     state.callbacks.onStyleChanged(second, secondBinding)
     state.host.awaitPendingWork()
@@ -234,18 +235,6 @@ class MapStateTest {
       adapter.calls.none { it == "fitCameraPosition" },
       "a cancelled queued fit must not run after a later attach: ${adapter.calls}",
     )
-    state.close()
-  }
-
-  @Test
-  fun claimSessionConfig_rejects_a_rival_owner() = runTest {
-    val state = mapState()
-    val winner = Any()
-    val rival = Any()
-    assertTrue(state.claimSessionConfig(winner))
-    assertFalse(state.claimSessionConfig(rival))
-    state.releaseSessionConfig(winner)
-    assertTrue(state.claimSessionConfig(rival))
     state.close()
   }
 }

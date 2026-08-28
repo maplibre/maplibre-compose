@@ -167,18 +167,6 @@ class MapKernelTest {
     assertTrue(effects.none { it is MapEffect.LoadStyle })
     assertIs<MapLoadState.Ready>(kernel.record.loadState)
   }
-
-  @Test
-  fun the_first_config_owner_wins() {
-    val kernel = kernel()
-    val winner = Any()
-    val rival = Any()
-    assertTrue(kernel.reduceValue { claimConfig(winner) }.first)
-    assertFalse(kernel.reduceValue { claimConfig(rival) }.first)
-    assertSame(winner, kernel.record.configOwner)
-    kernel.reduce { releaseConfig(winner) }
-    assertTrue(kernel.reduceValue { claimConfig(rival) }.first)
-  }
 }
 
 private fun testViewport(): Viewport =

@@ -72,13 +72,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var appImages: List<String> = emptyList()
     private set
 
-  /**
-   * The composable that may write session hooks and options. Independent of the adapter so a rival
-   * [MaplibreMap] cannot overwrite the winner before attach.
-   */
-  var configOwner: Any? = null
-    private set
-
   private var nextOperationId = 1L
   private var nextCaptureId = 1L
 
@@ -161,21 +154,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     renderer = RendererState.None
     emit(MapEffect.ResetSessionHooks)
     emit(MapEffect.ClearInheritedLocals)
-  }
-
-  /**
-   * Grants [owner] the right to write session hooks and options. The first claimant wins until it
-   * releases, so a rival [MaplibreMap] cannot overwrite the winner.
-   */
-  fun claimConfig(owner: Any): Boolean {
-    if (closed) return false
-    if (configOwner != null && configOwner !== owner) return false
-    configOwner = owner
-    return true
-  }
-
-  fun releaseConfig(owner: Any) {
-    if (configOwner === owner) configOwner = null
   }
 
   /** The engine published or replaced the retained core that reports style while detached. */
@@ -423,7 +401,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     closed = true
     session = null
     styleSource = null
-    configOwner = null
     renderer = RendererState.None
     hasAuthoritativeSurface = false
     viewport = null

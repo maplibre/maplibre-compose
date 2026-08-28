@@ -31,9 +31,12 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
 
   private val generationCounter = AtomicLong(0L)
 
-  /** The generation of the most recently requested style; each [request] bumps it. */
+  /**
+   * The generation of the current [requested] style. Engine callbacks report this value, so it is
+   * the kernel generation when [request] received one, or the locally minted generation otherwise.
+   */
   val requestedGeneration: Long
-    get() = generationCounter.load()
+    get() = requestedRef.load()?.generation ?: 0L
 
   /** Applying thread only; the style last pushed to the map. */
   var applied: BaseStyle? = null
@@ -60,7 +63,7 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
     // The lock serializes the callbacks with publication: a racing request could otherwise
     // unload and clear the binding a newer, already-applied request published.
     if (style == requestedRef.load()?.style) return@withLock
-    val nextGeneration = if (generation > 0L) generation else generationCounter.incrementAndFetch()
+    val nextGeneration = nextGeneration(generation)
     requestedRef.store(Requested(style, nextGeneration))
     unloadBinding()
     clearStyle()
@@ -92,5 +95,19 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
   /** The map was destroyed, so the next map must be given the requested style again. */
   fun resetApplied() {
     applied = null
+  }
+
+  /**
+   * Uses [generation] when the kernel supplied one, otherwise mints a local id. The minting counter
+   * stays at or ahead of every accepted kernel generation so a later engine-only request cannot
+   * reuse an earlier id.
+   */
+  private fun nextGeneration(generation: Long): Long {
+    if (generation > 0L) {
+      val current = generationCounter.load()
+      if (generation > current) generationCounter.store(generation)
+      return generation
+    }
+    return generationCounter.incrementAndFetch()
   }
 }

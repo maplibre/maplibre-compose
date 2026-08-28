@@ -599,17 +599,6 @@ internal constructor(
       if (value != null) attachedAdapter?.let(value::applyTo)
     }
 
-  /**
-   * Grants [owner] the right to write this state's session hooks and options. A rival [MaplibreMap]
-   * that loses this claim must not overwrite the winner.
-   */
-  internal fun claimSessionConfig(owner: Any): Boolean = commit { claimConfig(owner) }
-
-  /** Drops [owner]'s claim so a later [MaplibreMap] can take the session config slot. */
-  internal fun releaseSessionConfig(owner: Any) {
-    commit { releaseConfig(owner) }
-  }
-
   internal fun onCaptureViewport(viewport: Viewport?) {
     commit { publishCaptureViewport(viewport) }
   }
@@ -718,8 +707,16 @@ internal constructor(
     if (snapshot.closed) contentState.value = EMPTY_STYLE_COMPOSITION
   }
 
-  private fun shouldClearUnloadedSources(): Boolean =
-    published.value.closed || published.value.loadState !is MapLoadState.Loading
+  /**
+   * Keep the last loaded snapshot only while a live session is mid-reload, so attribution does not
+   * flicker empty. A dead session, a close, or any load state other than Loading clears it.
+   */
+  private fun shouldClearUnloadedSources(): Boolean {
+    val snapshot = published.value
+    return snapshot.closed ||
+      snapshot.session == null ||
+      snapshot.loadState !is MapLoadState.Loading
+  }
 
   private fun executeEffects(effects: List<MapEffect>) {
     for (effect in effects) {
@@ -734,8 +731,6 @@ internal constructor(
           styleNode.clearPublishedAppOwnership()
           if (effect.binding === StyleBinding.UNLOADED || !effect.binding.isLoaded) {
             styleNode.clearPublishedOwnership()
-            // Keep the last loaded snapshot while a replacement style is loading, so attribution
-            // does not flicker empty. Close and a dead detach still clear it.
             if (shouldClearUnloadedSources()) sources.clear()
           }
           host.requestApplyChanges()
