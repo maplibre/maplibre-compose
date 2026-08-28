@@ -1,6 +1,7 @@
 package org.maplibre.compose.mlnffi
 
 import androidx.compose.ui.graphics.drawscope.DrawScope
+import kotlin.math.roundToInt
 import org.maplibre.compose.map.MapExtent
 
 /**
@@ -11,6 +12,12 @@ internal class FakeMlnFfiMapHost(
   override val backends: RenderBackendPair =
     RenderBackendPair(MapRenderBackend.VULKAN, ComposeRenderBackend.OPENGL)
 ) : MlnFfiMapHost {
+
+  data class DrawRecord(
+    val target: MlnFfiRenderTarget,
+    val destinationWidth: Int,
+    val destinationHeight: Int,
+  )
 
   enum class AcquireOutcome {
     ACQUIRED,
@@ -39,6 +46,9 @@ internal class FakeMlnFfiMapHost(
 
   /** Every target passed to [draw], in order. */
   val drawnTargets: MutableList<MlnFfiRenderTarget> = mutableListOf()
+
+  /** Every target and destination size passed to [draw], in order. */
+  val drawRecords: MutableList<DrawRecord> = mutableListOf()
 
   var closed: Boolean = false
     private set
@@ -168,6 +178,12 @@ internal class FakeMlnFfiMapHost(
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     calls += "draw(gen=${target.generation})"
     drawnTargets += target
+    drawRecords +=
+      DrawRecord(
+        target = target,
+        destinationWidth = scope.size.width.roundToInt(),
+        destinationHeight = scope.size.height.roundToInt(),
+      )
     return true
   }
 

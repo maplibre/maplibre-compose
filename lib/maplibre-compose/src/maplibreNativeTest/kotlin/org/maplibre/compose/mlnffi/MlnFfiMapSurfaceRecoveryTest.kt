@@ -73,10 +73,34 @@ class MlnFfiMapSurfaceRecoveryTest {
     val renderedTarget = renderer.renderTargets[0]
     val skippedTarget = renderer.renderTargets[1]
     assertNotEquals(renderedTarget, skippedTarget)
-    assertEquals(1, host.completedFrames)
+    assertEquals(renderer.renderedFrames - 1, host.completedFrames)
     assertTrue(host.drawnTargets.count { it == renderedTarget } >= 2)
     assertFalse(skippedTarget in host.drawnTargets)
     assertTrue(host.leakedFrames.isEmpty())
+  }
+
+  @Test
+  fun resizes_acquire_targets_for_the_current_draw_size() = runFfiComposeUiTest {
+    val renderer = RecordingRenderer()
+    val factory = FakeMlnFfiMapHostFactory()
+    val size = mutableStateOf(64.dp)
+    val hostResult = factory.create(factory.bridges.single())
+
+    setContent { MlnFfiMapSurface(renderer, hostResult, Modifier.size(size.value)) }
+    val host = factory.created.single()
+    waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.isNotEmpty() }
+    for (nextSize in listOf(96.dp, 48.dp, 80.dp)) {
+      val drawsBeforeResize = host.drawRecords.size
+      renderer.skipNextRender = true
+      size.value = nextSize
+      waitUntil(timeoutMillis = TIMEOUT_MILLIS) { host.drawRecords.size > drawsBeforeResize }
+      waitForIdle()
+
+      for (draw in host.drawRecords.drop(drawsBeforeResize)) {
+        assertEquals(draw.destinationWidth, draw.target.extent.physicalWidth)
+        assertEquals(draw.destinationHeight, draw.target.extent.physicalHeight)
+      }
+    }
   }
 
   @Test
@@ -257,6 +281,7 @@ class MlnFfiMapSurfaceRecoveryTest {
       private set
 
     var failingSurfaceChanges = 0
+    var skipNextRender = false
     private var hostSession: MlnFfiMapHostSession? = null
 
     override fun onSurfaceChanged(extent: MapExtent) {
@@ -292,6 +317,10 @@ class MlnFfiMapSurfaceRecoveryTest {
       if (requestAnotherFrame || additionalFrameRequests > 0) {
         if (additionalFrameRequests > 0) additionalFrameRequests--
         hostSession?.requestFrame()
+      }
+      if (skipNextRender) {
+        skipNextRender = false
+        return MlnFfiFrameResult.SKIPPED
       }
       return renderResults.removeFirstOrNull() ?: MlnFfiFrameResult.RENDERED
     }

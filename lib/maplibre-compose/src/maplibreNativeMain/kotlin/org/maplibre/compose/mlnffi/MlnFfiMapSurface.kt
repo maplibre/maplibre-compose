@@ -16,6 +16,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntSize
 import co.touchlab.kermit.Logger
+import kotlin.math.roundToInt
 import kotlin.time.TimeSource
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.util.rethrowIfFatal
@@ -95,13 +96,21 @@ internal fun MlnFfiMapSurface(
   Canvas(modifier = modifier.onSizeChanged { physicalSize = it }) {
     // Load-bearing read: it is what makes requestFrame() reschedule this Canvas.
     frameRequest
+    // onSizeChanged updates the next composition, while this draw scope already has the current
+    // physical size and density. Use one draw-local extent for rendering and presentation.
+    val frameExtent =
+      MapExtent.fromPhysical(
+        physicalWidth = size.width.roundToInt(),
+        physicalHeight = size.height.roundToInt(),
+        scaleFactor = this.density.toDouble(),
+      )
 
     var drew = false
-    if (presentFrames && host != null && session != null && !extent.isEmpty && !failed) {
+    if (presentFrames && host != null && session != null && !frameExtent.isEmpty && !failed) {
       val frameId = drawState.nextFrameId()
       val nowNanos = frameClockOrigin.elapsedNow().inWholeNanoseconds
       try {
-        when (val acquisition = host.acquireFrame(frameId, extent, nowNanos)) {
+        when (val acquisition = host.acquireFrame(frameId, frameExtent, nowNanos)) {
           MlnFfiMapFrameAcquisition.NotReady -> session.requestFrame()
           is MlnFfiMapFrameAcquisition.Acquired -> {
             val frame = acquisition.frame
@@ -115,7 +124,11 @@ internal fun MlnFfiMapSurface(
                 }
                 MlnFfiFrameResult.SKIPPED -> Unit
               }
-              drawState.lastCompletedTarget?.let { drew = host.draw(this, it) }
+              // A skipped render can leave a completed target from the previous size. Present only
+              // matching pixels because scaling that target would change the map's apparent zoom.
+              drawState.lastCompletedTarget
+                ?.takeIf { it.extent == frameExtent }
+                ?.let { drew = host.draw(this, it) }
             } finally {
               runCatching { host.releaseFrame(frame) }
                 .onFailure { logger?.e(it) { "Map host failed to release frame $frameId" } }
