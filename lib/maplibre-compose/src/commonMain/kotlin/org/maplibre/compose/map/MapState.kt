@@ -229,7 +229,10 @@ internal constructor(
 
   /** Replaces the style composition; the host recomposes because it reads this state. */
   internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
-    if (published.value.closed) return
+    // Read closed from the kernel, not the published snapshot: this runs during composition, and
+    // a snapshot read would recompose rememberMapState on every load or camera change and reset
+    // the baseStyle parameter over an imperative assignment.
+    if (kernel.read { closed }) return
     pendingContent = content
     // Written here, not through a full record publish: rememberMapState calls this during
     // composition, and publishing camera or load snapshots in that turn races the composer.

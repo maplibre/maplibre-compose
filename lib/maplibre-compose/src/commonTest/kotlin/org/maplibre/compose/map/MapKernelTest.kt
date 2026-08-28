@@ -119,7 +119,8 @@ class MapKernelTest {
     kernel.reduce { attach(session) }
     kernel.reduce { cameraMoved(session, CameraPosition(zoom = 3.0), testViewport()) }
     val surface = kernel.record.surfaceGeneration
-    kernel.reduce { surfaceLost(session, surface - 1) }
+    // 0 means "unknown generation, accept"; a different nonzero id is the stale one.
+    kernel.reduce { surfaceLost(session, surface + 1) }
     assertTrue(kernel.record.hasAuthoritativeSurface)
     kernel.reduce { surfaceLost(session, surface) }
     assertFalse(kernel.record.hasAuthoritativeSurface)
