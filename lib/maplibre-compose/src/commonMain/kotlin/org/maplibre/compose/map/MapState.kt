@@ -14,6 +14,7 @@ import androidx.compose.ui.unit.DpRect
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import co.touchlab.kermit.Logger
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -283,40 +284,43 @@ internal constructor(
    * kernel's last committed ownership snapshot.
    */
   internal fun checkLayerWritable(id: String) {
-    check(!kernel.record.layerIsCompositionOwned(id) && id !in styleNode.compositionLayerIds) {
+    val owned = kernel.read { layerIsCompositionOwned(id) } || id in styleNode.compositionLayerIds
+    check(!owned) {
       "Layer '$id' is owned by the style composition; change it by recomposing the " +
         "content rather than through MapState.layers"
     }
   }
 
   internal val styleGeneration: Long
-    get() = kernel.record.styleGeneration
+    get() = kernel.read { styleGeneration }
 
   /**
    * Runs [write] only when [generation] is still the current style generation. The kernel
-   * authorizes the write, the binding mutation runs after that turn, and a superseded generation
-   * fails the call instead of publishing a half-applied value.
+   * authorizes the write against one binding, the mutation runs after that turn, and a superseded
+   * generation fails the call instead of publishing a half-applied value.
    */
   internal fun writeAuthorizedLayer(generation: Long, layer: Layer, write: () -> Unit) {
-    val (authorized, effects) =
+    val (authorizedBinding, effects) =
       kernel.reduceValue {
-        check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
-        check(generation == styleGeneration) {
-          "Layer '${layer.id}' was taken from a style that a base style load replaced; get a " +
-            "fresh handle from MapState.layers"
-        }
-        check(!layerIsCompositionOwned(layer.id)) {
-          "Layer '${layer.id}' is owned by the style composition; change it by recomposing the " +
-            "content rather than through MapState.layers"
-        }
-        true
+        authorizeLayerWrite(generation, layer.id)
+          ?: run {
+            check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
+            check(generation == styleGeneration) {
+              "Layer '${layer.id}' was taken from a style that a base style load replaced; get a " +
+                "fresh handle from MapState.layers"
+            }
+            check(!layerIsCompositionOwned(layer.id)) {
+              "Layer '${layer.id}' is owned by the style composition; change it by recomposing " +
+                "the content rather than through MapState.layers"
+            }
+            error("No loaded style; a layer can only be mutated on a loaded style")
+          }
       }
     publishRecord()
     executeEffects(effects)
-    if (!authorized) return
     write()
-    val stillCurrent = kernel.read { !closed && generation == styleGeneration }
-    check(stillCurrent) {
+    val committed = kernel.reduceValue { confirmLayerWrite(generation, authorizedBinding) }.first
+    check(committed) {
       "Layer '${layer.id}' was taken from a style that a base style load replaced; get a fresh " +
         "handle from MapState.layers"
     }
@@ -334,7 +338,7 @@ internal constructor(
    * new value reloads the style on the live map; the map re-adds the composed content over it.
    */
   public var baseStyle: BaseStyle
-    get() = kernel.record.selectedStyle ?: BaseStyle.Demo
+    get() = kernel.read { selectedStyle } ?: BaseStyle.Demo
     set(value) {
       apply { selectStyle(value) }
     }
@@ -410,9 +414,9 @@ internal constructor(
     tilt: Double = 0.0,
     padding: PaddingValues = PaddingValues(0.dp),
   ) {
-    val adapter = awaitAdapter()
-    adapter.setCameraPosition(boundingBox, bearing, tilt, padding)
-    apply { publishFittedCamera(adapter.getCameraPosition(), adapter.getViewport()) }
+    runCameraOperation { adapter ->
+      adapter.setCameraPosition(boundingBox, bearing, tilt, padding)
+    }
   }
 
   /**
@@ -426,9 +430,7 @@ internal constructor(
     position: CameraPosition,
     duration: Duration = 300.milliseconds,
   ) {
-    val adapter = awaitAdapter()
-    adapter.animateCameraPosition(position, duration)
-    apply { publishFittedCamera(adapter.getCameraPosition(), adapter.getViewport()) }
+    runCameraOperation { adapter -> adapter.animateCameraPosition(position, duration) }
   }
 
   /**
@@ -448,9 +450,34 @@ internal constructor(
     padding: PaddingValues = PaddingValues(0.dp),
     duration: Duration = 300.milliseconds,
   ) {
-    val adapter = awaitAdapter()
-    adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
-    apply { publishFittedCamera(adapter.getCameraPosition(), adapter.getViewport()) }
+    runCameraOperation { adapter ->
+      adapter.animateCameraPosition(boundingBox, bearing, tilt, padding, duration)
+    }
+  }
+
+  /**
+   * Runs [block] as a first-class camera operation. The kernel publishes the adapter's resulting
+   * camera before this call returns, and a cancel before [block] runs issues no later mutation.
+   */
+  private suspend fun runCameraOperation(block: suspend (MapAdapter) -> Unit) {
+    val (opId, beginEffects) = kernel.reduceValue { beginOperation() }
+    publishRecord()
+    executeEffects(beginEffects)
+    try {
+      val adapter = awaitAdapter()
+      if (!kernel.read { isOperationActive(opId) }) return
+      block(adapter)
+      if (!kernel.read { isOperationActive(opId) }) return
+      val position = adapter.getCameraPosition()
+      val viewport = adapter.getViewport()
+      apply { completeCameraOperation(opId, position, viewport) }
+    } catch (error: CancellationException) {
+      apply { cancelOperation(opId) }
+      throw error
+    } catch (error: Throwable) {
+      apply { failOperation(opId, error) }
+      throw error
+    }
   }
 
   /**
@@ -567,6 +594,22 @@ internal constructor(
       if (value != null) attachedAdapter?.let(value::applyTo)
     }
 
+  /**
+   * Grants [owner] the right to write this state's session hooks and options. A rival [MaplibreMap]
+   * that loses this claim must not overwrite the winner.
+   */
+  internal fun claimSessionConfig(owner: Any): Boolean {
+    val (accepted, effects) = kernel.reduceValue { claimConfig(owner) }
+    publishRecord()
+    executeEffects(effects)
+    return accepted
+  }
+
+  /** Drops [owner]'s claim so a later [MaplibreMap] can take the session config slot. */
+  internal fun releaseSessionConfig(owner: Any) {
+    apply { releaseConfig(owner) }
+  }
+
   internal fun onStyleChanged(map: MapAdapter, style: StyleBinding?, generation: Long) {
     apply { styleChanged(map, style, generation) }
   }
@@ -633,7 +676,8 @@ internal constructor(
   internal fun detachSession(adapter: MapAdapter? = attachedAdapter) {
     apply { detach(adapter) }
     if (engine.detachedAdapter == null) {
-      apply { styleChanged(adapter ?: Any(), null, kernel.record.styleGeneration) }
+      val generation = kernel.read { styleGeneration }
+      apply { styleChanged(adapter ?: Any(), null, generation) }
     }
   }
 
@@ -723,28 +767,28 @@ internal constructor(
   internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 
   private fun apply(transform: MapRecord.() -> Unit) {
-    val effects = kernel.reduce {
-      transform()
-      publishRecord()
-    }
+    val effects = kernel.reduce(transform)
+    // Snapshot writes stay outside the serial token: the native lock is not reentrant, and a
+    // Compose observer that re-enters the kernel must not deadlock.
+    publishRecord()
     executeEffects(effects)
   }
 
   private fun publishRecord() {
-    val record = kernel.record
-    closedState.value = record.closed
-    adapterState.value = record.session as MapAdapter?
-    positionState.value = record.camera
-    viewportState.value = record.viewport
-    lastLoadFailure.value = record.lastLoadFailure
-    moveReasonState.value = record.moveReason
-    isCameraMovingState.value = record.isCameraMoving
-    loadStateHolder.value = record.loadState
+    val snapshot = kernel.read { publishedSnapshot() }
+    closedState.value = snapshot.closed
+    adapterState.value = snapshot.session as MapAdapter?
+    positionState.value = snapshot.camera
+    viewportState.value = snapshot.viewport
+    lastLoadFailure.value = snapshot.lastLoadFailure
+    moveReasonState.value = snapshot.moveReason
+    isCameraMovingState.value = snapshot.isCameraMoving
+    loadStateHolder.value = snapshot.loadState
     pendingContent?.let { content ->
-      if (!record.closed) contentState.value = content
+      if (!snapshot.closed) contentState.value = content
       pendingContent = null
     }
-    if (record.closed) contentState.value = EMPTY_STYLE_COMPOSITION
+    if (snapshot.closed) contentState.value = EMPTY_STYLE_COMPOSITION
   }
 
   private fun executeEffects(effects: List<MapEffect>) {

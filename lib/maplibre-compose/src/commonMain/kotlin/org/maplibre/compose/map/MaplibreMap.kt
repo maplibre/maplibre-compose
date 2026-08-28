@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
@@ -185,7 +186,11 @@ public fun MaplibreMap(
     // SideEffect, and the native core captures the logger when it is created.
     state.logger = logger
 
+    val hostToken = remember { Any() }
+    DisposableEffect(hostToken) { onDispose { state.releaseSessionConfig(hostToken) } }
+
     SideEffect {
+      if (!state.claimSessionConfig(hostToken)) return@SideEffect
       state.ensureBaseStyleSelected()
       state.density = density
       state.layoutDirection = layoutDirection

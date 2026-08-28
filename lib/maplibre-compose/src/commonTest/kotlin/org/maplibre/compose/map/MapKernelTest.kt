@@ -217,6 +217,61 @@ class MapKernelTest {
   }
 
   @Test
+  fun first_config_owner_wins_and_a_rival_cannot_claim() {
+    val kernel = kernel()
+    val winner = Any()
+    val rival = Any()
+    val (accepted, _) = kernel.reduceValue { claimConfig(winner) }
+    assertTrue(accepted)
+    val (rejected, _) = kernel.reduceValue { claimConfig(rival) }
+    assertFalse(rejected)
+    assertSame(winner, kernel.record.configOwner)
+    kernel.reduce { releaseConfig(winner) }
+    val (second, _) = kernel.reduceValue { claimConfig(rival) }
+    assertTrue(second)
+    assertSame(rival, kernel.record.configOwner)
+  }
+
+  @Test
+  fun layer_write_authorization_is_atomic_with_the_current_generation() {
+    val kernel = kernel()
+    val source = Any()
+    kernel.reduce {
+      adoptCore(source)
+      styleChanged(source, StyleBinding.UNLOADED, 0L)
+    }
+    val generation = kernel.record.styleGeneration
+    assertNull(kernel.record.authorizeLayerWrite(generation, "roads"))
+    kernel.reduce { selectStyle(styleA) }
+    val next = kernel.record.styleGeneration
+    kernel.reduce { styleChanged(source, StyleBinding.UNLOADED, next) }
+    assertNull(kernel.record.authorizeLayerWrite(generation, "roads"))
+    assertFalse(kernel.record.confirmLayerWrite(generation, StyleBinding.UNLOADED))
+  }
+
+  @Test
+  fun camera_operation_publishes_before_it_completes() {
+    val kernel = kernel()
+    val (id, _) = kernel.reduceValue { beginOperation() }
+    val effects = kernel.reduce {
+      completeCameraOperation(id, CameraPosition(zoom = 11.0), testViewport())
+    }
+    assertEquals(11.0, kernel.record.camera.zoom)
+    assertEquals(DpSize(100.dp, 80.dp), kernel.record.viewport?.size)
+    assertTrue(effects.any { it is MapEffect.ResumeOperation && it.operationId == id })
+  }
+
+  @Test
+  fun close_cancels_pending_operations() {
+    val kernel = kernel()
+    val (id, _) = kernel.reduceValue { beginOperation() }
+    kernel.reduce { close() }
+    assertFalse(kernel.record.isOperationActive(id))
+    kernel.reduce { completeCameraOperation(id, CameraPosition(zoom = 8.0), testViewport()) }
+    assertEquals(2.0, kernel.record.camera.zoom)
+  }
+
+  @Test
   fun reentrant_reduce_from_an_effect_does_not_deadlock() {
     val kernel = kernel()
     val session = Any()

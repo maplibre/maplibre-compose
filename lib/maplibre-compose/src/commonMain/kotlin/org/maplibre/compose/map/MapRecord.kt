@@ -87,6 +87,13 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var compositionRevision: Long = 0L
     private set
 
+  /**
+   * The composable that may write session hooks and options. Independent of the adapter so a rival
+   * [MaplibreMap] cannot overwrite the winner before attach.
+   */
+  var configOwner: Any? = null
+    private set
+
   private var nextSessionToken = 1L
   private var nextCoreGeneration = 1L
   private var nextSurfaceGeneration = 1L
@@ -174,7 +181,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     if (adapter != null && session != null && adapter !== session) return
     if (session == null && renderer !is RendererState.Session) return
     session = null
-    sessionToken += 0 // keep the old token unusable by bumping on next attach
     hasAuthoritativeSurface = false
     viewport = null
     isCameraMoving = false
@@ -182,6 +188,21 @@ internal class MapRecord(initialCamera: CameraPosition) {
     renderer = RendererState.None
     emit(MapEffect.ResetSessionHooks)
     emit(MapEffect.ClearInheritedLocals)
+  }
+
+  /**
+   * Grants [owner] the right to write session hooks and options. The first claimant wins until it
+   * releases, so a rival [MaplibreMap] cannot overwrite the winner.
+   */
+  fun claimConfig(owner: Any): Boolean {
+    if (closed) return false
+    if (configOwner != null && configOwner !== owner) return false
+    configOwner = owner
+    return true
+  }
+
+  fun releaseConfig(owner: Any) {
+    if (configOwner === owner) configOwner = null
   }
 
   /** The engine published or replaced the retained core that reports style while detached. */
@@ -386,6 +407,10 @@ internal class MapRecord(initialCamera: CameraPosition) {
   }
 
   fun completeCameraOperation(id: Long, position: CameraPosition, viewport: Viewport?) {
+    if (closed) {
+      pendingOperations.remove(id)
+      return
+    }
     val op = pendingOperations.remove(id) ?: return
     if (op.cancelled) return
     camera = position
@@ -393,6 +418,22 @@ internal class MapRecord(initialCamera: CameraPosition) {
     if (viewport != null) this.viewport = viewport
     emit(MapEffect.ResumeOperation(id, Result.success(Unit)))
   }
+
+  /**
+   * Authorizes an imperative layer write against [generation]. Returns the current binding when the
+   * write may proceed, or null when it must not.
+   */
+  fun authorizeLayerWrite(generation: Long, layerId: String): StyleBinding? {
+    if (closed) return null
+    if (generation != styleGeneration) return null
+    if (layerIsCompositionOwned(layerId)) return null
+    if (!binding.isLoaded) return null
+    return binding
+  }
+
+  /** True when [generation] and [binding] are still the live style the write was authorized on. */
+  fun confirmLayerWrite(generation: Long, binding: StyleBinding): Boolean =
+    !closed && generation == styleGeneration && this.binding === binding
 
   fun failOperation(id: Long, error: Throwable) {
     pendingOperations.remove(id) ?: return
@@ -463,6 +504,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     closed = true
     session = null
     styleSource = null
+    configOwner = null
     renderer = RendererState.None
     hasAuthoritativeSurface = false
     viewport = null
@@ -474,6 +516,8 @@ internal class MapRecord(initialCamera: CameraPosition) {
     appImages = emptyList()
     compositionLayerIds = emptySet()
     compositionSources = emptyMap()
+    pendingOperations.values.forEach { it.cancelled = true }
+    pendingOperations.clear()
     emit(MapEffect.ResetSessionHooks)
     emit(MapEffect.ClearInheritedLocals)
     emit(MapEffect.PointBinding(StyleBinding.UNLOADED))
@@ -481,7 +525,32 @@ internal class MapRecord(initialCamera: CameraPosition) {
     emit(MapEffect.FailPendingOperations)
     return false
   }
+
+  /** A consistent copy of the fields [MapState] publishes to Compose. */
+  fun publishedSnapshot(): PublishedMapSnapshot =
+    PublishedMapSnapshot(
+      closed = closed,
+      session = session,
+      camera = camera,
+      viewport = viewport,
+      lastLoadFailure = lastLoadFailure,
+      moveReason = moveReason,
+      isCameraMoving = isCameraMoving,
+      loadState = loadState,
+    )
 }
+
+/** Compose-visible fields copied under the kernel lock, then written after the lock is released. */
+internal data class PublishedMapSnapshot(
+  val closed: Boolean,
+  val session: Any?,
+  val camera: CameraPosition,
+  val viewport: Viewport?,
+  val lastLoadFailure: String?,
+  val moveReason: CameraMoveReason,
+  val isCameraMoving: Boolean,
+  val loadState: MapLoadState,
+)
 
 /** One in-flight camera or capture operation the kernel owns. */
 internal class PendingMapOperation(val id: Long) {

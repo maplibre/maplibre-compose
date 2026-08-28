@@ -26,6 +26,8 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.OpRecordingStyleBinding
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.spatialk.geojson.BoundingBox
+import org.maplibre.spatialk.geojson.Position
 
 private fun testSource(id: String) =
   RasterSource(id, listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())
@@ -215,5 +217,48 @@ class MapStateTest {
 
     assertTrue(waiter.isCompleted, "the call fails promptly once the state closes")
     assertIs<IllegalStateException>(failure)
+  }
+
+  @Test
+  fun fitCamera_publishes_the_resulting_camera_before_returning() = runTest {
+    val state = mapState()
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    val box = BoundingBox(southwest = Position(0.0, 0.0), northeast = Position(1.0, 2.0))
+    state.fitCamera(box, bearing = 15.0, tilt = 10.0)
+    assertEquals(15.0, state.camera.bearing)
+    assertEquals(10.0, state.camera.tilt)
+    assertEquals(box.northeast, state.camera.target)
+    assertTrue("fitCameraPosition" in adapter.calls)
+  }
+
+  @Test
+  fun cancelled_fit_before_attach_does_not_mutate_the_adapter() = runTest {
+    val state = mapState()
+    val box = BoundingBox(southwest = Position(0.0, 0.0), northeast = Position(1.0, 1.0))
+    val job = launch { state.fitCamera(box) }
+    testScheduler.advanceUntilIdle()
+    job.cancel()
+    testScheduler.advanceUntilIdle()
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    testScheduler.advanceUntilIdle()
+    assertTrue(
+      adapter.calls.none { it == "fitCameraPosition" },
+      "a cancelled queued fit must not run after a later attach: ${adapter.calls}",
+    )
+    state.close()
+  }
+
+  @Test
+  fun claimSessionConfig_rejects_a_rival_owner() = runTest {
+    val state = mapState()
+    val winner = Any()
+    val rival = Any()
+    assertTrue(state.claimSessionConfig(winner))
+    assertFalse(state.claimSessionConfig(rival))
+    state.releaseSessionConfig(winner)
+    assertTrue(state.claimSessionConfig(rival))
+    state.close()
   }
 }

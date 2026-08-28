@@ -22,6 +22,7 @@ internal class FakeMapAdapter : MapAdapter {
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
     calls += "animateCameraPosition"
+    camera = finalPosition
   }
 
   override suspend fun animateCameraPosition(
@@ -58,7 +59,8 @@ internal class FakeMapAdapter : MapAdapter {
     tilt: Double,
     padding: PaddingValues,
   ) {
-    calls += "setCameraPosition"
+    calls += "fitCameraPosition"
+    camera = CameraPosition(target = boundingBox.northeast, bearing = bearing, tilt = tilt)
   }
 
   override fun setCameraConstraints(value: CameraConstraints) {

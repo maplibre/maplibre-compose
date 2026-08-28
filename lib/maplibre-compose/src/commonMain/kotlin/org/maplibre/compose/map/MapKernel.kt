@@ -5,9 +5,9 @@ import org.maplibre.compose.camera.CameraPosition
 /**
  * The single serialized authority for a [MapState]'s logical transitions.
  *
- * Every public request and every platform callback becomes a reduce against [record]. The kernel
- * publishes the new record, then the caller runs [MapEffect]s after the serial token is released,
- * so user callbacks and owner-thread hops never hold the kernel lock.
+ * Every public request and every platform callback becomes a reduce against [record]. The lock
+ * exists only to serialize those turns. The caller publishes Compose snapshots and runs
+ * [MapEffect]s after the token is released, so user callbacks and owner-thread hops never hold it.
  *
  * Stale work is unauthorized by identity: a style event names a generation, a session event names
  * an adapter, a composition publish names a binding. A superseded identity is a no-op.

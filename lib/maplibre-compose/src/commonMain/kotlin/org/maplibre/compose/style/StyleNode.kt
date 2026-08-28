@@ -187,7 +187,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       ensureAppTablesFor(binding)
       syncedBinding = binding
     }
-    if (!publishCompositionOwnership()) return
+    if (!publishCompositionOwnership(binding)) return
     if (!binding.isLoaded) {
       publishLiveLayers()
       return
@@ -206,7 +206,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   }
 
   /** Rebuilds the ownership snapshots from the desired state that this sync applies. */
-  private fun publishCompositionOwnership(): Boolean {
+  private fun publishCompositionOwnership(binding: StyleBinding): Boolean {
     val layerIds = children.filterIsInstance<LayerNode<*>>().mapTo(hashSetOf()) { it.layer.id }
     val sources = sourceManager.desiredSources.associateBy { it.id }
     val accepted = commitOwnership?.invoke(binding, layerIds, sources) ?: true

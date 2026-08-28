@@ -60,9 +60,8 @@ public class StyleSources internal constructor(private val state: MapState) {
    */
   public operator fun get(id: String): Source? {
     if (state.isClosed) return null
-    val record = state.kernel.record
-    return record.compositionSources[id]
-      ?: record.appSources[id]
+    val fromKernel = state.kernel.read { compositionSources[id] ?: appSources[id] }
+    return fromKernel
       ?: state.styleNode.compositionSources[id]
       ?: state.styleNode.appSourceSnapshot[id]
       ?: snapshotState.value[id]
@@ -98,12 +97,20 @@ public class StyleSources internal constructor(private val state: MapState) {
         "Source id '$id' is owned by the base style; select a different MapState.baseStyle to " +
           "change it"
       }
-      binding.addSource(source)
-      check(source.binding === binding) {
-        "Source '$id' was not added: the style unloaded during the add"
-      }
+      // Reserve in the kernel first so publication and authorization share one generation.
       check(state.commitAppSource(binding, source)) {
         "Source '$id' was not added: the style unloaded during the add"
+      }
+      try {
+        val stillCurrent = state.kernel.read { this.binding === binding && !closed }
+        check(stillCurrent) { "Source '$id' was not added: the style unloaded during the add" }
+        binding.addSource(source)
+        check(source.binding === binding) {
+          "Source '$id' was not added: the style unloaded during the add"
+        }
+      } catch (error: Throwable) {
+        state.commitAppSourceRemoval(binding, id)
+        throw error
       }
       refreshSource(id)
     }
@@ -142,13 +149,17 @@ public class StyleSources internal constructor(private val state: MapState) {
       check(usedBy == null) {
         "Source '$id' cannot be removed while layer '${usedBy?.id}' draws from it"
       }
+      check(state.commitAppSourceRemoval(binding, id)) {
+        "Source '$id' was not removed: the style unloaded during the removal"
+      }
       try {
         binding.removeSource(source)
       } catch (error: StyleMutationException) {
+        state.commitAppSource(binding, source)
         throw IllegalStateException("Source '$id' cannot be removed: ${error.message}", error)
-      }
-      check(state.commitAppSourceRemoval(binding, id)) {
-        "Source '$id' was not removed: the style unloaded during the removal"
+      } catch (error: Throwable) {
+        state.commitAppSource(binding, source)
+        throw error
       }
       refreshSource(id)
     }
