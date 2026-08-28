@@ -118,7 +118,7 @@ internal enum class MapLibreFlavor {
 
 internal expect val mapLibreFlavor: MapLibreFlavor
 
-/** What a suspending test body hands back: `Unit` on the JVM, and a `Promise` in the browser. */
+/** The value a suspending test body returns: `Unit` on the JVM, and a `Promise` in the browser. */
 expect class MapTestResult
 
 internal expect fun runMapTest(block: suspend () -> Unit): MapTestResult

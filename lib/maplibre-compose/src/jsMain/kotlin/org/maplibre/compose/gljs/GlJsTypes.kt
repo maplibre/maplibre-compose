@@ -227,7 +227,7 @@ internal fun MaplibreMap.isCameraEasing(): Boolean {
 internal fun queryPoint(x: Double, y: Double): QueryGeometry =
   arrayOf(x, y).unsafeCast<QueryGeometry>()
 
-/** MapLibre tells a box from a point by shape, a box being a two-element array. */
+/** MapLibre distinguishes a box from a point by shape: a box is a two-element array. */
 internal fun queryBox(first: Point, second: Point): QueryGeometry =
   arrayOf(first, second).unsafeCast<QueryGeometry>()
 

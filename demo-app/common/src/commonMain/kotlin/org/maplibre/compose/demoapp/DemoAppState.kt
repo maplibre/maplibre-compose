@@ -19,7 +19,7 @@ import org.maplibre.compose.map.rememberMapState
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
-/** New York City at a metro-area zoom, so every demo's fly-in has somewhere to go. */
+/** New York City at a metro-area zoom, the camera position every demo's fly-in starts from. */
 private val StartPosition =
   CameraPosition(target = Position(longitude = -74.006, latitude = 40.7128), zoom = 9.5)
 

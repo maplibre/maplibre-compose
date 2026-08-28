@@ -45,7 +45,7 @@ private val DragColor = Color(0xFF00695C)
 /**
  * Drags overlay children placed on the map: a location-picker pin, or the two corner handles of a
  * bounding box. The drag accumulates pointer deltas on the screen offset captured when the drag
- * started, which keeps the child from jittering under the pointer as it follows the position.
+ * started, so the child does not jitter under the pointer while it follows the position.
  */
 object DragDropDemo : Demo {
   override val name = "Drag & drop"

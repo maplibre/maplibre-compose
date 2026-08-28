@@ -34,8 +34,8 @@ private const val UNCONSTRAINED_MAX_PITCH = 60.0
 internal actual class MapEngine actual constructor(private val state: MapState) : AutoCloseable {
 
   /**
-   * Who holds the engine's one render slot. Every transition happens under [sessionLock], and each
-   * illegal interleaving is rejected by the transition that would enter it.
+   * The holder of the engine's one render slot. Every transition happens under [sessionLock], and
+   * each illegal interleaving is rejected by the transition that would enter it.
    */
   private sealed interface Lifecycle {
     /** No session and no reservation; a retained core may still be live. */

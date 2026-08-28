@@ -10,8 +10,8 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * What a map keeps when its surface goes away and comes back: only the render session belongs to
- * the host, so the map, its style and its camera must survive. Uses a real GPU because the half
+ * The state a map keeps when its surface goes away and comes back: only the render session belongs
+ * to the host, so the map, its style and its camera must survive. Uses a real GPU because the half
  * under test is native.
  */
 class MlnFfiSurfaceLossTest {

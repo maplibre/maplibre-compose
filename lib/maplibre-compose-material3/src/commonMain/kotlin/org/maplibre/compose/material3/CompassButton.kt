@@ -31,8 +31,7 @@ import org.maplibre.compose.overlay.DisappearingCompassButton as BaseDisappearin
  * This is [org.maplibre.compose.overlay.CompassButton] with the colors, shape, and elevation of an
  * [ElevatedButton].
  *
- * @param state The map whose camera the needle follows and that a click resets. Defaults to the map
- *   that [LocalMapState] provides.
+ * @param state The map whose camera the needle follows and that a click resets.
  * @param onClick Called after the camera animation starts.
  * @param colors Container and content colors, defaulting to those of an [ElevatedButton].
  * @param contentDescription Accessibility label for the needle.

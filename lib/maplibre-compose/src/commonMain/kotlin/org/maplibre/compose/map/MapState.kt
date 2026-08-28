@@ -48,7 +48,7 @@ import org.maplibre.spatialk.geojson.Position
 private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
 
 /**
- * The map's identity, held apart from the composable that shows it: the selected [baseStyle], the
+ * The state of one map, held outside the composable that shows it: the selected [baseStyle], the
  * style content that [setStyleContent] composes over it, and the [camera].
  *
  * A state outlives any one [MaplibreMap] composable. On Android, iOS, and Desktop the loaded map
@@ -326,8 +326,8 @@ internal constructor(
     get() = positionState.value
 
   /**
-   * What the map shows right now: the size of the map composable and the visible area. Null while
-   * no attached session has rendered a viewport. A composition that reads this property recomposes
+   * The map's current view: the size of the map composable and the visible area. Null while no
+   * attached session has rendered a viewport. A composition that reads this property recomposes
    * after a camera move or a resize of the map composable.
    */
   public val viewport: Viewport?
@@ -557,7 +557,7 @@ internal constructor(
   /**
    * Re-points the style node at [newBinding]. The content follows the style the application has
    * selected while the node targets the loaded style; during a switch those differ and nothing here
-   * reconciles them. The binding dropping writes after unload is what makes that survivable.
+   * reconciles them. That mismatch is safe because the binding drops writes after unload.
    */
   internal fun updateBinding(newBinding: StyleBinding?) {
     styleNode.binding = newBinding ?: StyleBinding.UNLOADED
@@ -586,6 +586,6 @@ internal constructor(
   internal val callbacks: MapStateCallbacks = MapStateCallbacks(this)
 }
 
-/** The one statement of the single-session rule; the engine's session guard raises it too. */
+/** The single-session rule's one error message; the engine's session guard raises it too. */
 internal const val SINGLE_SESSION_ERROR: String =
   "MapState already has an attached MaplibreMap; one MapState shows one MaplibreMap at a time"

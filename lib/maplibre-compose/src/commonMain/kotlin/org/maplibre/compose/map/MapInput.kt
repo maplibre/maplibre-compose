@@ -43,8 +43,8 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 
 /**
- * Neither backend owns platform gestures: MapLibre Native declines to, and GL JS is composited
- * under Compose where its own DOM handlers never fire.
+ * Neither backend supplies platform gestures: MapLibre Native implements none, and GL JS is
+ * composited under Compose, where its own DOM handlers never fire.
  */
 internal fun Modifier.mapInput(
   target: GestureTarget,
@@ -226,7 +226,7 @@ private class MapPointerGesture(
    * second down moves to [TapWait.Claimed] and cancels that job.
    */
   private var tapWait: TapWait = TapWait.None
-  /** What this press is relative to [tapWait]. */
+  /** This press's role relative to [tapWait]. */
   private var pressRole = PressRole.First
 
   fun onPointerEvent(event: PointerEvent) {
@@ -244,7 +244,7 @@ private class MapPointerGesture(
     }
   }
 
-  /** A lift closes the pointer we are tracking. A hover does not. */
+  /** A lift closes the tracked pointer. A hover does not. */
   private fun isAwaitingPointerRelease(): Boolean =
     mode != Mode.NONE ||
       gestureInProgress ||
@@ -724,11 +724,11 @@ private class MapPointerGesture(
     rememberFirstTap(where, origin, pressedType, timeMillis)
   }
 
-  /** Whether a second tap still has a gesture to become. */
+  /** Whether any enabled gesture can start from a second tap. */
   private fun awaitsSecondTap(): Boolean =
     options.isDoubleClickZoomEnabled || options.isQuickZoomEnabled
 
-  /** What this down is relative to a [TapWait.Open] first tap. */
+  /** This down's role relative to a [TapWait.Open] first tap. */
   private fun classifyPress(origin: Offset, timeMillis: Long, type: PointerType): PressRole {
     val open = tapWait as? TapWait.Open ?: return PressRole.First
     if (!awaitsSecondTap()) return PressRole.First
@@ -1349,8 +1349,8 @@ internal fun isPairedSecondTap(
 private fun zoomLevelsToScale(levelDelta: Double): Double = 2.0.pow(levelDelta)
 
 /**
- * Where a pointer-driven zoom should pivot: the pointer, or the viewport centre. Anchoring at the
- * pointer moves the camera target, so when panning is disabled zoom pivots on the centre instead.
+ * The pivot of a pointer-driven zoom: the pointer, or the viewport centre. Anchoring at the pointer
+ * moves the camera target, so when panning is disabled zoom pivots on the centre instead.
  */
 private fun GestureOptions.zoomAnchor(pointer: DpOffset): DpOffset? =
   if (isDragPanEnabled) pointer else null

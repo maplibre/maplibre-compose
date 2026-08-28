@@ -75,8 +75,8 @@ import web.html.HTMLElement
 private const val FRAME_INTERVAL_SLACK = 0.1
 
 /**
- * The map can only be built once Compose has a WebGL context to lend it and a size to take, so
- * calls before then are queued and reads answer from what was last asked for.
+ * The map can only be built once Compose supplies a WebGL context and a size. Calls before then are
+ * queued, and reads answer with the most recently requested values.
  */
 internal class GlJsMapSession(
   internal var callbacks: MapAdapter.Callbacks,

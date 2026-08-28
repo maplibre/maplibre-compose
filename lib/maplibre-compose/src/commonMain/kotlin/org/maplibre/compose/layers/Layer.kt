@@ -114,7 +114,8 @@ internal sealed class Layer(val id: String) {
   }
 
   /**
-   * Property names asked for and not written, with why not; [attach] drains this once it can log.
+   * Property names requested and not written, each with the reason; [attach] drains this once it
+   * can log.
    */
   private val unsupportedProperties = mutableMapOf<String, String>()
 

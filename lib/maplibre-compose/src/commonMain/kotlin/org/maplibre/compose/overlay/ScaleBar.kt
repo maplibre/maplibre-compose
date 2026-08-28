@@ -40,8 +40,7 @@ import org.maplibre.spatialk.units.extensions.meters
  *
  * The bar reads the scale from [state] and renders nothing until the map has rendered a viewport.
  *
- * @param state the map whose scale the bar shows. Defaults to the map that [LocalMapState]
- *   provides.
+ * @param state the map whose scale the bar shows.
  * @param measures The measures to show. The default follows the system settings, or otherwise the
  *   user's locale.
  * @param haloColor A halo color that keeps the bar readable over the map.
@@ -189,10 +188,10 @@ public fun ScaleBar(
 }
 
 public object ScaleBarDefaults {
-  /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */
+  /** A color that stays readable over both light and dark basemaps; no theme supplies one here. */
   public val ContentColor: Color = Color.Black.copy(alpha = 0.75f)
 
-  /** The halo stands in for a background, so it contrasts with [ContentColor]. */
+  /** The halo serves as the background, so it contrasts with [ContentColor]. */
   public val HaloColor: Color = Color.White.copy(alpha = 0.75f)
 
   public val ContentTextStyle: TextStyle = TextStyle(fontSize = 11.sp, color = ContentColor)

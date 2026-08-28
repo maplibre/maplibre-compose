@@ -26,7 +26,7 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   @Volatile var onMapLoadFailed: (reason: String?) -> Unit = {}
   @Volatile var onMapLoadFinished: () -> Unit = {}
 
-  /** The scope click queries launch on; null drops clicks, which only a missing UI would cause. */
+  /** The scope click queries launch on. Null drops clicks; only a missing UI leaves it null. */
   @Volatile var clickScope: CoroutineScope? = null
 
   /** Detach resets the hooks so a retained core's later events reach no disposed composable. */

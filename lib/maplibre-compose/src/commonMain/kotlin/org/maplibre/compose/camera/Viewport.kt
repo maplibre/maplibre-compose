@@ -6,7 +6,7 @@ import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.spatialk.geojson.BoundingBox
 
 /**
- * What the map shows right now: the size of the map composable and the visible area.
+ * The map's current view: the size of the map composable and the visible area.
  *
  * Read a current instance from [MapState.viewport][org.maplibre.compose.map.MapState.viewport]. The
  * instance is immutable; a new one replaces it when the map has adopted a new camera or a new size,

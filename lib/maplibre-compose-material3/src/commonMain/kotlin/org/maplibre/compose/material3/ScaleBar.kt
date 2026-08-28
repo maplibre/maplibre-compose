@@ -32,8 +32,7 @@ import org.maplibre.compose.overlay.ScaleBarMeasures
  *
  * The bar reads the scale from [state] and renders nothing until the map has rendered a viewport.
  *
- * @param state the map whose scale the bar shows. Defaults to the map that
- *   [LocalMapState][org.maplibre.compose.map.LocalMapState] provides.
+ * @param state the map whose scale the bar shows.
  * @param measures The measures to show. The default follows the system settings, or otherwise the
  *   user's locale.
  * @param haloColor A halo color that keeps the bar readable over the map.
@@ -74,8 +73,7 @@ public fun ScaleBar(
  * The bar reads the scale and the zoom from [state] and renders nothing until the map has rendered
  * a viewport.
  *
- * @param state the map whose scale the bar shows. Defaults to the map that
- *   [LocalMapState][org.maplibre.compose.map.LocalMapState] provides.
+ * @param state the map whose scale the bar shows.
  * @param measures The measures to show. The default follows the system settings, or otherwise the
  *   user's locale.
  * @param haloColor A halo color that keeps the bar readable over the map.

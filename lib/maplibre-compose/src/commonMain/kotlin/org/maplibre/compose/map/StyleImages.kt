@@ -12,7 +12,7 @@ import org.maplibre.compose.util.ImageStretch
  * The style images that the application registered, exposed on [MapState.images].
  *
  * [add] and [remove] mutate the loaded style directly, beside the images that the style content's
- * painter and bitmap parameters register. An image registered here answers `iconImage` and every
+ * painter and bitmap parameters register. An image registered here resolves `iconImage` and every
  * other style-spec image reference by its id.
  *
  * An id that a base style's sprite also defines is replaced: the last writer wins, in either

@@ -77,7 +77,6 @@ import org.maplibre.compose.util.vertical
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
  *
  * @param state The map whose attributions are displayed; a gesture on it dismisses the popup.
- *   Defaults to the map that [LocalMapState] provides.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -136,8 +135,7 @@ public fun ExpandingAttributionButton(
  *
  * @param expanded Whether the attribution text is expanded.
  * @param onClick Called when the button is pressed. Should toggle the expanded state.
- * @param state The map whose attributions are displayed. Defaults to the map that [LocalMapState]
- *   provides.
+ * @param state The map whose attributions are displayed.
  * @param contentAlignment Will be used to determine layout of the attribution icon and text.
  * @param toggleButton Composable that defines the button used to toggle the attribution display.
  *   Takes an onClick function parameter that should be called to switch states.
@@ -222,7 +220,7 @@ public fun ExpandingAttributionButton(
  * @param attributions A list of HTML strings representing the attributions that need to be
  *   displayed as links. See: [org.maplibre.compose.sources.Source.attributionHtml].
  * @param textStyle Style of the attribution text.
- * @param linkStyles Optional style for hyperlinks. Default is underlined.
+ * @param linkStyles Optional style for hyperlinks. The default underlines links.
  * @param spacing The horizontal spacing between items in the flow layout.
  * @param breakWithinAttribution Whether the text within an individual attribution should break
  *   lines or scroll horizontally. Line breaks may still be inserted between attributions even when
@@ -262,7 +260,7 @@ public fun AttributionLinks(
 }
 
 public object AttributionDefaults {
-  /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */
+  /** Colors that stay readable over both light and dark basemaps; no theme supplies them here. */
   public val ContainerColor: Color = Color.White.copy(alpha = 0.75f)
 
   public val ContentColor: Color = Color.Black.copy(alpha = 0.75f)

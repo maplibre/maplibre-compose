@@ -97,8 +97,8 @@ private val HANDLED_MAP_EVENTS: RuntimeEventMask =
     RuntimeEventMask.MAP_STYLE_IMAGE_MISSING
 
 /**
- * What [MlnFfiMapCore] asks of an attached [MlnFfiMapSession]. Every member tolerates a session
- * whose renderer is not ready yet.
+ * The operations [MlnFfiMapCore] requires of an attached [MlnFfiMapSession]. Every member tolerates
+ * a session whose renderer is not ready yet.
  */
 internal interface MlnFfiRenderSessionAccess {
   /** Schedules a frame; safe from any thread. */

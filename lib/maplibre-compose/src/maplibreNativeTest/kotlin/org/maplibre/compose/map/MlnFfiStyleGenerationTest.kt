@@ -10,7 +10,7 @@ import org.maplibre.compose.style.BaseStyle
 /**
  * The generation pair behind [MapEngine]'s style wait: `hasLoadedFirstStyle` is sticky, so a
  * snapshot taken right after a base-style change must compare generations to wait for the NEW style
- * instead of sailing past on the old one's load.
+ * instead of returning early on the old one's load.
  */
 class MlnFfiStyleGenerationTest {
 

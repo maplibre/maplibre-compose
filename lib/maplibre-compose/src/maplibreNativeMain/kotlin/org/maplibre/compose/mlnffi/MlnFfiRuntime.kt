@@ -24,8 +24,8 @@ private const val OWNER_THREAD_NAME = "maplibre-compose-runtime"
  * A runtime belongs to the thread that created it, there may be only one per thread, and that
  * thread may not be the AWT event thread or any other pooled thread that something else might also
  * put a runtime on. Hence a dedicated thread rather than a borrowed one: this runtime outlives any
- * particular map, so a map's owner thread will not do. Each map still runs its own runtime on its
- * own thread; two runtimes sharing one cache database is safe, measured by
+ * particular map, so a map's owner thread cannot host it. Each map still runs its own runtime on
+ * its own thread; two runtimes sharing one cache database is safe, measured by
  * `MlnFfiSharedCacheDatabaseTest`.
  */
 internal class MlnFfiRuntime(
@@ -36,7 +36,7 @@ internal class MlnFfiRuntime(
   override val loopLogger: Logger
     get() = logger
 
-  /** Work for the owner thread, with the failure path it must take if it never gets to run. */
+  /** Work for the owner thread, with the failure path that runs when the work never does. */
   class OwnerTask(
     val run: (RuntimeHandle) -> Unit,
     val reject: (Throwable) -> Unit,

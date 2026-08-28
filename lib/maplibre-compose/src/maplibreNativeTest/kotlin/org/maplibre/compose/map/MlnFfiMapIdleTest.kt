@@ -8,7 +8,7 @@ import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
 
 /**
- * Proves a map that has finished its work stops asking to be drawn. FFI frames are requested rather
+ * Proves a map that has finished its work stops requesting frames. FFI frames are requested rather
  * than continuous, so a map nobody is touching should draw nothing at all. The measurement only
  * holds under [BridgeMapFixture.renderOnDemand], which draws only when the session asks.
  */

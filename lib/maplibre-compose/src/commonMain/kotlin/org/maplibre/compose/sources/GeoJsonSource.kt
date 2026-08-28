@@ -27,7 +27,7 @@ import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.GeoJsonObject
 import org.maplibre.spatialk.geojson.Geometry
 
-/** The style-spec property MapLibre stamps on a feature that stands in for a cluster. */
+/** The style-spec property MapLibre sets on a feature that represents a cluster. */
 internal const val CLUSTER_ID_PROPERTY = "cluster_id"
 
 /** A map data source consisting of geojson data. */

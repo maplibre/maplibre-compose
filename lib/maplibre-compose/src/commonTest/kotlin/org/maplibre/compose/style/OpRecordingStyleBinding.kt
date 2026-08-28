@@ -3,7 +3,7 @@ package org.maplibre.compose.style
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.Source
 
-/** Records the order of structural style mutations, standing in for an engine. */
+/** Records the order of structural style mutations, in place of an engine. */
 internal open class OpRecordingStyleBinding(
   baseSources: List<Source> = emptyList(),
   baseLayers: List<Layer> = emptyList(),

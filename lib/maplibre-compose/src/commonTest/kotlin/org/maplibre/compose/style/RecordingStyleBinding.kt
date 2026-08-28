@@ -22,8 +22,8 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * A loaded [StyleBinding] that keeps the JSON and descriptors it is handed, standing in for an
- * engine. [baseSources] and [baseLayers] play the part of a loaded base style.
+ * A loaded [StyleBinding] that keeps the JSON and descriptors it receives, in place of an engine.
+ * [baseSources] and [baseLayers] model a loaded base style.
  */
 internal open class RecordingStyleBinding(
   override val supportsCustomDemEncoding: Boolean = false,

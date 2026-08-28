@@ -13,10 +13,10 @@ internal interface SessionLock {
   }
 }
 
-/** A one-shot action of type [M], with the path it takes if it never gets to run. */
+/** A one-shot action of type [M], with the abandon path that runs when the action never does. */
 internal class PendingAction<M>(val run: (M) -> Unit, val abandon: () -> Unit = {})
 
-/** What a gate predicate answers about an offered or flushed action. */
+/** A gate predicate's answer for an offered or flushed action. */
 internal sealed interface PendingActionGate<out T> {
   /** Neither queued nor dispatched; the caller decides what refusal means. */
   data object Refused : PendingActionGate<Nothing>

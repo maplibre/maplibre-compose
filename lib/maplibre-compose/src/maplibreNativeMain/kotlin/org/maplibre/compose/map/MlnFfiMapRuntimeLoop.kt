@@ -64,7 +64,7 @@ internal class MlnFfiMapRuntimeLoop(
   override val loopLogger: Logger?
     get() = getLogger()
 
-  /** Work for the owner thread; [OwnerTask.abandon] runs instead if it never gets to run. */
+  /** Work for the owner thread; [OwnerTask.abandon] runs instead when the work never does. */
   class OwnerTask(val run: (MapHandle) -> Unit, val abandon: () -> Unit)
 
   /** Test callbacks that run after the next native pump and event drain. Owner thread only. */

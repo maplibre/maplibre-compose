@@ -44,8 +44,8 @@ import org.maplibre.compose.util.rethrowIfFatal
  * The host pumps its own frames: [BroadcastFrameClock.onNewAwaiters] fires when the recomposer
  * needs a frame, and the frame-pump coroutine answers it on [dispatcher], pacing back-to-back
  * requests to a display frame interval so time-based animations play in real time. A global
- * snapshot write observer stands in for the platform's GlobalSnapshotManager so plain snapshot
- * writes reach the recomposer even when no UI composition is running.
+ * snapshot write observer replaces the platform's GlobalSnapshotManager so plain snapshot writes
+ * reach the recomposer even when no UI composition is running.
  *
  * [setContent] marshals onto [dispatcher], so a caller on the UI thread never runs a style
  * mutation. The host calls [StyleNode.applyChanges] after the initial composition and after each
@@ -236,7 +236,7 @@ internal class StyleCompositionHost(
    * recomposer reports no pending work. A recomposition can queue further host tasks — a snapshot
    * notification, a pumped frame, the sync after it — so one queued marker is not enough; the loop
    * re-joins until a marker runs with the recomposer still idle across two consecutive checks.
-   * Waiting out pending work rides the recomposer's state flow, which queues no dispatcher task, so
+   * Waiting out pending work uses the recomposer's state flow, which queues no dispatcher task, so
    * a virtual-time test clock is free to advance the frame pacing delay meanwhile.
    */
   internal suspend fun awaitPendingWork() {

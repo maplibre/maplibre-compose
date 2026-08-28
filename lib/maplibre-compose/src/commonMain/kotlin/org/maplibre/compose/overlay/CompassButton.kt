@@ -60,8 +60,7 @@ import org.maplibre.compose.util.AngleMath
  * This component draws with Compose Foundation alone. The
  * [Material 3 module][org.maplibre.compose.material3] provides a themed version of it.
  *
- * @param state The map whose camera the needle follows and that a click resets. Defaults to the map
- *   that [LocalMapState] provides.
+ * @param state The map whose camera the needle follows and that a click resets.
  * @param onClick Called after the camera animation starts.
  * @param style Colors, shape, and elevation of the button behind the needle.
  * @param contentDescription Accessibility label for the needle.
@@ -192,7 +191,7 @@ public fun DisappearingCompassButton(
 }
 
 public object CompassDefaults {
-  /** Reads over both light and dark basemaps, in the absence of a theme to draw colors from. */
+  /** Colors that stay readable over both light and dark basemaps; no theme supplies them here. */
   public val ContainerColor: Color = Color.White.copy(alpha = 0.9f)
 
   public val ShadowElevation: Dp = 0.dp

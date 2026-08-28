@@ -15,7 +15,7 @@ import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
-/** Records every adapter call by name, standing in for a render session. */
+/** Records every adapter call by name, in place of a render session. */
 internal class FakeMapAdapter : MapAdapter {
   val calls: MutableList<String> = mutableListOf()
 

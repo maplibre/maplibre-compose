@@ -107,11 +107,9 @@ public fun rememberMapState(
  * scrollable container or other layout that doesn't provide constraints, you must specify an
  * explicit size using modifiers like [Modifier.size][androidx.compose.foundation.layout.size].
  *
- * @param state The map to display: its base style, style content, and camera. The default remembers
- *   a fresh state, for a map that needs no style content and no hoisted access.
+ * @param state The map to display: its base style, style content, and camera.
  * @param cameraPadding Insets that shift the camera center. Null follows [contentWindowInsets],
- *   resolved against the current layout direction, so the camera centers on the unobstructed
- *   region. A bounds move adds its padding to these insets.
+ *   resolved against the current layout direction. A bounds move adds its padding to these insets.
  * @param zoomRange The camera zoom range that gestures and camera calls stay within.
  * @param pitchRange The camera pitch range that gestures and camera calls stay within.
  * @param boundingBox The allowable bounds for the camera position. On iOS and Web, it prevents the
@@ -124,9 +122,8 @@ public fun rememberMapState(
  * @param onMapLongClick Invoked when the map is long-clicked. See [onMapClick].
  * @param onFrame Invoked on every rendered frame with the current frame rate.
  * @param options Gesture, render, and tile level-of-detail options for this session.
- * @param contentWindowInsets Insets applied to [overlay]. Defaults to safe drawing insets.
- * @param overlay Controls drawn on top of the map; the default draws
- *   [MapOverlay.Default][org.maplibre.compose.overlay.MapOverlay.Companion.Default].
+ * @param contentWindowInsets Insets applied to [overlay].
+ * @param overlay Controls drawn on top of the map.
  *   [Modifier.placedAt][org.maplibre.compose.overlay.MapOverlayScope.placedAt] in the overlay pins
  *   Compose UI to a geographic position. Style content does not go here; it goes to [state] through
  *   [rememberMapState] or [MapState.setStyleContent].

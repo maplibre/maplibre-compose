@@ -71,13 +71,11 @@ import org.maplibre.spatialk.units.extensions.inMeters
  * @param location The [Location] providing the current or last known location. Its
  *   [timestamp][Location.timestamp] determines whether it is styled as old.
  * @param bearing The bearing of the location puck, which determines the rotation of the bearing
- *   indicator. Defaults to `location.course`, which is the direction of travel.
+ *   indicator.
  * @param state The [MapState] of the map, used only for
  *   [Viewport.metersPerDpAtTarget][org.maplibre.compose.camera.Viewport.metersPerDpAtTarget] to
- *   correctly draw the accuracy circle. Defaults to the map that
- *   [LocalMapState][org.maplibre.compose.map.LocalMapState] provides. The camera is not modified by
- *   this composable; if you want the camera to track the current location, use
- *   [LocationTrackingEffect].
+ *   correctly draw the accuracy circle. The camera is not modified by this composable; use
+ *   [LocationTrackingEffect] to track the current location with the camera.
  * @param oldLocationThreshold Locations with a [timestamp][Location.timestamp] older than this will
  *   be considered old and will be styled differently.
  * @param accuracyThreshold A circle showing the accuracy range will be drawn when

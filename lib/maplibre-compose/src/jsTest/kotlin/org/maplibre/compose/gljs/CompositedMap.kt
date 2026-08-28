@@ -57,7 +57,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
   }
 
   /**
-   * Whether [layerId] is in the render tree, not merely the stylesheet. Never asked before the
+   * Whether [layerId] is in the render tree, not merely the stylesheet. Never queried before the
    * style loads: MapLibre raises an `error` for a query naming a layer it lacks.
    */
   suspend fun rendersFeature(layerId: String, x: Int, y: Int): Boolean =

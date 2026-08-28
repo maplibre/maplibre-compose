@@ -292,7 +292,9 @@ class MlnFfiStyleSwitchTest {
     assertEquals(expected, relevantLayers(), "live style layer order")
   }
 
-  /** A style and the base-style layer content anchors itself below, as the demo pairs them. */
+  /**
+   * A style paired with the base-style layer that content anchors below, as the demo pairs them.
+   */
   private data class DemoStyle(
     val base: BaseStyle,
     val anchor: Anchor,

@@ -22,7 +22,7 @@ private const val PUMP_POLL_MILLIS = 8L
 private const val CLOSE_HANDSHAKE_TIMEOUT_MILLIS = 10_000L
 
 /**
- * The still-image session's stand-in for a composed session's render access. Live render-session
+ * The still-image session's replacement for a composed session's render access. Live render-session
  * hops answer as they do before a composed session's first frame; feature state reaches the image
  * through the pump's replay instead.
  */

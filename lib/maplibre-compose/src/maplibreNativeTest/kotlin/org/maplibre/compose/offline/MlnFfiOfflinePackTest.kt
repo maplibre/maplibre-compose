@@ -380,7 +380,7 @@ class MlnFfiOfflinePackTest {
 
     const val POLL_MILLIS = 20L
 
-    /** Long enough that "it never arrived" is a conclusion rather than a guess. */
+    /** Long enough to conclude that an awaited event never arrived. */
     const val SETTLE_MILLIS = 2_000L
   }
   // endregion

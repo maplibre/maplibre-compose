@@ -55,8 +55,8 @@ internal interface MapAdapter {
 
   /**
    * The viewport the map last adopted, with every property read from the same transform, or null
-   * before the map has one. Implementations answer from where the map's size actually lands, so a
-   * read made from [Callbacks.onCameraMoved] already describes a finished resize.
+   * before the map has one. Implementations answer from the map's applied size, so a read made from
+   * [Callbacks.onCameraMoved] already describes a finished resize.
    */
   fun getViewport(): Viewport?
 
