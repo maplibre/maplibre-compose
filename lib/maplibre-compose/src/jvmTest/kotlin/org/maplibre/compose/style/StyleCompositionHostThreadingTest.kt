@@ -55,7 +55,7 @@ class StyleCompositionHostThreadingTest {
     val host =
       StyleCompositionHost(
         rootNode = rootNode,
-        dispatcher = dispatcher,
+        uiDispatcher = dispatcher,
         density = Density(1f),
         layoutDirection = LayoutDirection.Ltr,
         logger = null,

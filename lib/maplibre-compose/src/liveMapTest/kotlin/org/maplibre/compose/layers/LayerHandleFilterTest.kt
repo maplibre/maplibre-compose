@@ -22,7 +22,6 @@ import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.EquatableValue
 import org.maplibre.compose.map.FakeMapAdapter
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.RecordingHostDispatcher
 import org.maplibre.compose.style.OpRecordingStyleBinding
 import org.maplibre.compose.util.toStyleJson
 
@@ -35,7 +34,7 @@ class LayerHandleFilterTest {
       density = Density(1f),
       layoutDirection = LayoutDirection.Ltr,
       logger = null,
-      hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler)),
+      hostDispatcher = StandardTestDispatcher(testScheduler),
     )
 
   private fun TestScope.attach(state: MapState, binding: OpRecordingStyleBinding) {

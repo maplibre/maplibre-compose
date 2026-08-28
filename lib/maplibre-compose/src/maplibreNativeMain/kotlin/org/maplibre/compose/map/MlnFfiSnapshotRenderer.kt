@@ -3,11 +3,13 @@ package org.maplibre.compose.map
 import androidx.compose.ui.graphics.ImageBitmap
 import kotlin.concurrent.Volatile
 import kotlin.time.TimeSource
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.newSingleThreadContext
 import kotlinx.coroutines.withContext
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiSnapshotTarget
-import org.maplibre.compose.style.styleHostDispatcher
 import org.maplibre.compose.util.toImageBitmap
 import org.maplibre.nativeffi.map.MapHandle
 import org.maplibre.nativeffi.render.NativeBuffer
@@ -58,6 +60,7 @@ private class SnapshotRenderAccess : MlnFfiRenderSessionAccess {
  * state. [width] and [height] are the map's logical viewport size; the returned image is in
  * physical pixels at the core's scale factor.
  */
+@OptIn(DelicateCoroutinesApi::class, ExperimentalCoroutinesApi::class)
 internal suspend fun renderStillImage(
   core: MlnFfiMapCore,
   target: MlnFfiSnapshotTarget,
@@ -69,9 +72,9 @@ internal suspend fun renderStillImage(
 ): ImageBitmap {
   // A fresh single-threaded dispatcher, because every render-session call must come from the
   // thread that attached it.
-  val snapshotDispatcher = styleHostDispatcher()
+  val snapshotDispatcher = newSingleThreadContext("maplibre-snapshot")
   try {
-    return withContext(snapshotDispatcher.dispatcher) {
+    return withContext(snapshotDispatcher) {
       pumpStillImage(core, target, width, height, deadline, loadFailure, onViewportReady)
     }
   } finally {

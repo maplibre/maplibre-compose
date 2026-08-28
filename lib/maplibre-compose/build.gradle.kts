@@ -108,6 +108,10 @@ kotlin {
       dependencies {
         implementation(compose.desktop.currentOs)
 
+        // The style host runs on Dispatchers.Main, which bare JVM lacks. This supplies the Swing
+        // implementation; a non-AWT host's MainDispatcherFactory outranks it.
+        implementation(libs.kotlinx.coroutines.swing)
+
         // The Compose host needs direct Vulkan/OpenGL access; the natives come from the runtime
         // artifact the application picks.
         implementation(libs.lwjgl.core)

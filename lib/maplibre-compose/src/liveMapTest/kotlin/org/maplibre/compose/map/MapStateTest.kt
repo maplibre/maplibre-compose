@@ -13,6 +13,7 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -34,8 +35,7 @@ class MapStateTest {
 
   private fun TestScope.mapState(
     cameraPosition: CameraPosition = CameraPosition(),
-    hostDispatcher: RecordingHostDispatcher =
-      RecordingHostDispatcher(StandardTestDispatcher(testScheduler)),
+    hostDispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
   ) =
     MapState(
       cameraPosition = cameraPosition,
@@ -165,13 +165,12 @@ class MapStateTest {
   }
 
   /**
-   * The close path after a session came and went: the host shuts the recomposer down and releases
-   * its dispatcher, a second close is a no-op, and the closed state refuses a new session.
+   * The close path after a session came and went: the host shuts the recomposer down, a second
+   * close is a no-op, and the closed state refuses a new session.
    */
   @Test
   fun close_after_detach_tears_down_the_host_idempotently_and_refuses_new_sessions() = runTest {
-    val hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler))
-    val state = mapState(hostDispatcher = hostDispatcher)
+    val state = mapState()
     state.setStyleComposition { RasterLayer(id = "raster", source = testSource("tiles")) }
 
     val adapter = FakeMapAdapter()
@@ -184,8 +183,8 @@ class MapStateTest {
     state.close()
     testScheduler.advanceUntilIdle()
 
-    // The host releases its dispatcher last, after it has shut the recomposer down.
-    assertTrue(hostDispatcher.closed, "the closed host must release its dispatcher")
+    // The teardown has finished once the recomposer reports shut down.
+    state.host.awaitShutdown()
 
     val error = assertFailsWith<IllegalStateException> { state.attachSession(FakeMapAdapter()) }
     assertTrue(

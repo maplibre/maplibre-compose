@@ -6,25 +6,23 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.TileSetOptions
+import org.maplibre.compose.testing.runMapTest
 
 /**
  * A ViewModel-style [MapState]: constructed, composed, and closed with no session ever attached.
+ * Runs through [runMapTest], because the state's default dispatcher is the platform's UI dispatcher
+ * and the harness keeps that thread live.
  */
 class BareMapStateTest {
 
   @Test
-  fun a_bare_state_reports_empty_collections_composes_content_and_closes() = runTest {
-    val hostDispatcher = recordingHostDispatcher()
-    val state = MapState(cameraPosition = CameraPosition(), hostDispatcher = hostDispatcher)
+  fun a_bare_state_reports_empty_collections_composes_content_and_closes() = runMapTest {
+    val state = MapState(cameraPosition = CameraPosition())
 
     // With no style loaded, the style collections are empty rather than failing.
     assertTrue(state.layers.ids.isEmpty(), "no layer ids before a style loads")
@@ -41,14 +39,10 @@ class BareMapStateTest {
       composed.complete(Unit)
     }
 
-    // The composition runs on the state's own dispatcher, so the wait leaves the test dispatcher.
-    withContext(Dispatchers.Default) { withTimeout(30.seconds) { composed.await() } }
+    withTimeout(30.seconds) { composed.await() }
     assertFalse(state.isAttached, "no session ever attached")
 
     state.close()
-    // The host releases its dispatcher last, after it has disposed the content.
-    withContext(Dispatchers.Default) {
-      withTimeout(30.seconds) { hostDispatcher.closedState.first { it } }
-    }
+    withTimeout(30.seconds) { state.host.awaitShutdown() }
   }
 }

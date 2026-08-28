@@ -41,7 +41,7 @@ class StyleImagesTest {
       density = Density(1f),
       layoutDirection = LayoutDirection.Ltr,
       logger = null,
-      hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler)),
+      hostDispatcher = StandardTestDispatcher(testScheduler),
     )
 
   private fun TestScope.attach(state: MapState, binding: UpsertingImageBinding) {

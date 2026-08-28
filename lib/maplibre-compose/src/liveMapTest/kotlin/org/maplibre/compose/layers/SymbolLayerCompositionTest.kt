@@ -39,7 +39,7 @@ class SymbolLayerCompositionTest {
     val host =
       StyleCompositionHost(
         rootNode = rootNode,
-        dispatcher = StandardTestDispatcher(testScheduler),
+        uiDispatcher = StandardTestDispatcher(testScheduler),
         density = Density(1f),
         layoutDirection = LayoutDirection.Ltr,
         logger = null,

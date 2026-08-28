@@ -21,7 +21,11 @@ tasks
 tasks.withType<AbstractTestTask>().configureEach {
   failOnNoDiscoveredTests = false
   // SHORT prints "Type at File:line" and drops the message. CI needs the message.
-  testLogging { exceptionFormat = TestExceptionFormat.FULL }
+  testLogging {
+    exceptionFormat = TestExceptionFormat.FULL
+    // A hung test binary logs nothing by default; the started event names the test it died in.
+    events("started", "failed")
+  }
 }
 
 // Desktop tests may load the MapLibre Native FFI runtime, which needs native access.

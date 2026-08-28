@@ -17,6 +17,8 @@ import co.touchlab.kermit.Logger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.JsonElement
@@ -34,9 +36,7 @@ import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleCompositionHost
 import org.maplibre.compose.style.StyleError
-import org.maplibre.compose.style.StyleHostDispatcher
 import org.maplibre.compose.style.StyleNode
-import org.maplibre.compose.style.styleHostDispatcher
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toStyleJson
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -90,7 +90,7 @@ internal constructor(
   layoutDirection: LayoutDirection = LayoutDirection.Ltr,
   logger: Logger? = null,
   inheritedLocals: CompositionLocalContext? = null,
-  hostDispatcher: StyleHostDispatcher = styleHostDispatcher(),
+  hostDispatcher: CoroutineDispatcher = Dispatchers.Main,
 ) : AutoCloseable {
 
   /**
@@ -155,12 +155,11 @@ internal constructor(
   internal val host: StyleCompositionHost =
     StyleCompositionHost(
       rootNode = styleNode,
-      dispatcher = hostDispatcher.dispatcher,
+      uiDispatcher = hostDispatcher,
       density = density,
       layoutDirection = layoutDirection,
       logger = logger,
       mapState = this,
-      hostDispatcher = hostDispatcher,
     )
 
   internal var logger: Logger? = logger

@@ -21,15 +21,15 @@ import co.touchlab.kermit.Logger
 import kotlin.concurrent.atomics.AtomicLong
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
-import kotlin.coroutines.EmptyCoroutineContext
+import kotlin.coroutines.CoroutineContext
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.currentCoroutineContext
@@ -55,22 +55,21 @@ import org.maplibre.compose.util.rethrowIfFatal
  * snapshot write observer replaces the platform's GlobalSnapshotManager so plain snapshot writes
  * reach the recomposer even when no UI composition is running.
  *
- * [setContent] marshals onto [dispatcher], so a caller on the UI thread never runs a style
- * mutation. The host calls [StyleNode.applyChanges] after the initial composition and after each
- * frame; sources still attach before layers because effects run inside the frame and this flush
- * runs after it.
+ * The host runs on [dispatcher], the platform's UI dispatcher in production. UI components'
+ * snapshot observers assume that thread, so composing and delivering apply notifications there
+ * keeps every snapshot publication single-threaded. [setContent] marshals onto it, and the host
+ * calls [StyleNode.applyChanges] after the initial composition and after each frame; sources still
+ * attach before layers because effects run inside the frame and this flush runs after it.
  */
 internal class StyleCompositionHost(
   private val rootNode: StyleNode,
-  private val dispatcher: CoroutineDispatcher,
+  uiDispatcher: CoroutineDispatcher,
   density: Density,
   layoutDirection: LayoutDirection,
   // Mutable so a host constructed before the composable's logger is known picks it up.
   var logger: Logger?,
   // Null only in tests that compose a style with no owning map.
   private val mapState: MapState? = null,
-  // The thread behind [dispatcher], released once the teardown running on it has finished.
-  private val hostDispatcher: StyleHostDispatcher? = null,
 ) : AutoCloseable {
 
   /** The density the content reads through [LocalDensity]; snapshot-backed so writes recompose. */
@@ -96,6 +95,14 @@ internal class StyleCompositionHost(
 
   private val frameIsPending: Boolean
     get() = requestedFrames.load() > completedFrames.load()
+
+  /**
+   * The constructor's dispatcher behind a mandatory queue hop. The write observer fires while the
+   * global snapshot lock is held, and a UI dispatcher that runs on-thread resumes inline would run
+   * the apply — and its blocking owner-thread round-trips — under that lock, deadlocking against
+   * the owner thread's own snapshot writes.
+   */
+  private val dispatcher: CoroutineDispatcher = QueueingDispatcher(uiDispatcher)
 
   private val clock = BroadcastFrameClock {
     requestedFrames.incrementAndFetch()
@@ -136,15 +143,6 @@ internal class StyleCompositionHost(
 
   private val writeObserver = Snapshot.registerGlobalWriteObserver { snapshotSignal.trySend(Unit) }
 
-  // UI components' apply observers assume the main thread; every delivery this host makes rides it
-  // when the platform has one.
-  private val applyNotificationDispatcher: CoroutineDispatcher =
-    if (runCatching { Dispatchers.Main.isDispatchNeeded(EmptyCoroutineContext) }.isSuccess) {
-      Dispatchers.Main
-    } else {
-      dispatcher
-    }
-
   init {
     rootNode.requestSync = ::requestApplyChanges
     // Emits without touching contentError, because a reported sync condition is not a dead style.
@@ -162,11 +160,7 @@ internal class StyleCompositionHost(
         reportError("Style composition failed; the style stops updating", error)
       }
     }
-    scope.launch {
-      for (unused in snapshotSignal) {
-        withContext(applyNotificationDispatcher) { Snapshot.sendApplyNotifications() }
-      }
-    }
+    scope.launch { for (unused in snapshotSignal) Snapshot.sendApplyNotifications() }
     scope.launch {
       val clockStart = TimeSource.Monotonic.markNow()
       var lastFrameNanos = Long.MIN_VALUE
@@ -243,9 +237,13 @@ internal class StyleCompositionHost(
       } finally {
         recomposer.cancel()
         job.cancel()
-        hostDispatcher?.close()
       }
     }
+  }
+
+  /** Suspends until the recomposer has shut down, marking the close teardown finished. */
+  internal suspend fun awaitShutdown() {
+    recomposer.currentState.first { it == Recomposer.State.ShutDown }
   }
 
   private fun applyChanges() {
@@ -281,7 +279,7 @@ internal class StyleCompositionHost(
     var cleanRounds = 0
     while (true) {
       // Delivers any written-but-unnotified snapshot state, so a caller's plain write is enough.
-      withContext(applyNotificationDispatcher) { Snapshot.sendApplyNotifications() }
+      withContext(dispatcher) { Snapshot.sendApplyNotifications() }
       recomposer.currentState.first { it != Recomposer.State.PendingWork }
       scope.launch {}.join()
       if (recomposer.currentState.value == Recomposer.State.PendingWork) {
@@ -352,3 +350,14 @@ internal val LocalStyleNode = staticCompositionLocalOf<StyleNode> { throw Illega
 
 /** The pacing floor between pumped frames, matching a 60 Hz display. */
 private const val FRAME_INTERVAL_NANOS = 16_000_000L
+
+/**
+ * Answers every dispatch check with true, so a resume always enqueues instead of running inline.
+ */
+private class QueueingDispatcher(private val delegate: CoroutineDispatcher) :
+  CoroutineDispatcher() {
+  override fun isDispatchNeeded(context: CoroutineContext): Boolean = true
+
+  override fun dispatch(context: CoroutineContext, block: Runnable) =
+    delegate.dispatch(context, block)
+}

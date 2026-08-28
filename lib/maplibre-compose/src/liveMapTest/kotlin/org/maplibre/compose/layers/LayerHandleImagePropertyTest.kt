@@ -17,7 +17,6 @@ import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.map.FakeMapAdapter
 import org.maplibre.compose.map.MapState
-import org.maplibre.compose.map.RecordingHostDispatcher
 import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.OpRecordingStyleBinding
 import org.maplibre.compose.util.ImageStretch
@@ -37,7 +36,7 @@ class LayerHandleImagePropertyTest {
       density = Density(1f),
       layoutDirection = LayoutDirection.Ltr,
       logger = null,
-      hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler)),
+      hostDispatcher = StandardTestDispatcher(testScheduler),
     )
 
   private class ImageRecordingBinding(baseLayers: List<Layer> = emptyList()) :

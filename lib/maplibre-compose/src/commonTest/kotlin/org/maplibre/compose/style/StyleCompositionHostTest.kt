@@ -41,7 +41,7 @@ class StyleCompositionHostTest {
   private fun TestScope.testHost(rootNode: StyleNode) =
     StyleCompositionHost(
       rootNode = rootNode,
-      dispatcher = StandardTestDispatcher(testScheduler),
+      uiDispatcher = StandardTestDispatcher(testScheduler),
       density = Density(1f),
       layoutDirection = LayoutDirection.Ltr,
       logger = null,
