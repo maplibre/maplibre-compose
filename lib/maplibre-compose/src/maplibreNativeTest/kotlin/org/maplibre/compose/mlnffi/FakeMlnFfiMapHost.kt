@@ -15,8 +15,12 @@ internal class FakeMlnFfiMapHost(
 
   data class DrawRecord(
     val target: MlnFfiRenderTarget,
+    val destinationLeft: Int,
+    val destinationTop: Int,
     val destinationWidth: Int,
     val destinationHeight: Int,
+    val scopeWidth: Int,
+    val scopeHeight: Int,
   )
 
   enum class AcquireOutcome {
@@ -178,11 +182,16 @@ internal class FakeMlnFfiMapHost(
   override fun draw(scope: DrawScope, target: MlnFfiRenderTarget): Boolean {
     calls += "draw(gen=${target.generation})"
     drawnTargets += target
+    val destination = scope.centeredDestination(target.extent)
     drawRecords +=
       DrawRecord(
         target = target,
-        destinationWidth = scope.size.width.roundToInt(),
-        destinationHeight = scope.size.height.roundToInt(),
+        destinationLeft = destination.left,
+        destinationTop = destination.top,
+        destinationWidth = destination.width,
+        destinationHeight = destination.height,
+        scopeWidth = scope.size.width.roundToInt(),
+        scopeHeight = scope.size.height.roundToInt(),
       )
     return true
   }
