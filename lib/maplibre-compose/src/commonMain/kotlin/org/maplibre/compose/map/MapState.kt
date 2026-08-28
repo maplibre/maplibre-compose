@@ -811,6 +811,9 @@ internal constructor(
     if (snapshot.closed) contentState.value = EMPTY_STYLE_COMPOSITION
   }
 
+  private fun shouldClearUnloadedSources(): Boolean =
+    closedState.value || loadStateHolder.value !is MapLoadState.Loading
+
   private fun executeEffects(effects: List<MapEffect>) {
     for (effect in effects) {
       when (effect) {
@@ -823,12 +826,15 @@ internal constructor(
           styleNode.clearPublishedAppOwnership()
           if (effect.binding === StyleBinding.UNLOADED || !effect.binding.isLoaded) {
             styleNode.clearPublishedOwnership()
-            sources.clear()
+            // Keep the last loaded snapshot while a replacement style is loading, so attribution
+            // does not flicker empty. Close and a dead detach still clear it.
+            if (shouldClearUnloadedSources()) sources.clear()
           }
           host.requestApplyChanges()
         }
         MapEffect.RefreshCollections -> {
-          if (!styleNode.binding.isLoaded) sources.clear() else refreshStyleCollections()
+          if (styleNode.binding.isLoaded) refreshStyleCollections()
+          else if (shouldClearUnloadedSources()) sources.clear()
         }
         MapEffect.InvokeLoadFinished ->
           runCatching { callbacks.onMapLoadFinished() }
