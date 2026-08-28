@@ -34,6 +34,7 @@ public class StyleSources internal constructor(private val state: MapState) {
     get() = snapshotState.value
 
   private val snapshotState = mutableStateOf(emptyMap<String, Source>())
+  private val snapshotLock = newSessionLock()
 
   // A descriptor retained across a reload would route its operations into the unloaded binding.
   private var snapshotBinding: StyleBinding? = null
@@ -199,7 +200,10 @@ public class StyleSources internal constructor(private val state: MapState) {
 
   /** Empties the snapshot; a detached state stops reporting a dead map's sources. */
   internal fun clear() {
-    if (snapshotState.value.isNotEmpty()) snapshotState.value = emptyMap()
+    snapshotLock.withLock {
+      snapshotBinding = null
+      if (snapshotState.value.isNotEmpty()) snapshotState.value = emptyMap()
+    }
   }
 
   internal fun refreshSource(id: String) {
@@ -207,13 +211,16 @@ public class StyleSources internal constructor(private val state: MapState) {
     if (!binding.isLoaded) return
     if (binding !== snapshotBinding) return refreshSources()
 
-    val current = snapshotState.value
     val refreshed = binding.getSource(id)
-    val previous = current[id]
-    when {
-      refreshed == null && previous != null -> snapshotState.value = current - id
-      refreshed != null && !refreshed.hasSameState(previous) ->
-        snapshotState.value = current + (id to refreshed)
+    snapshotLock.withLock {
+      if (binding !== snapshotBinding) return@withLock
+      val latest = snapshotState.value
+      val previous = latest[id]
+      when {
+        refreshed == null && previous != null -> snapshotState.value = latest - id
+        refreshed != null && !refreshed.hasSameState(previous) ->
+          snapshotState.value = latest + (id to refreshed)
+      }
     }
   }
 
@@ -222,16 +229,17 @@ public class StyleSources internal constructor(private val state: MapState) {
     // never flickers empty between styles.
     val binding = state.record.read { this.binding }
     if (!binding.isLoaded) return
-
-    val current = if (binding === snapshotBinding) snapshotState.value else emptyMap()
-    snapshotBinding = binding
     val refreshed = binding.getSources().associateBy { it.id }
-    var changed =
-      current.keys.toList() != refreshed.keys.toList() || current !== snapshotState.value
-    val reconciled = refreshed.mapValues { (id, source) ->
-      current[id]?.takeIf { source.hasSameState(it) } ?: source.also { changed = true }
+    snapshotLock.withLock {
+      val current = if (binding === snapshotBinding) snapshotState.value else emptyMap()
+      snapshotBinding = binding
+      var changed =
+        current.keys.toList() != refreshed.keys.toList() || current !== snapshotState.value
+      val reconciled = refreshed.mapValues { (id, source) ->
+        current[id]?.takeIf { source.hasSameState(it) } ?: source.also { changed = true }
+      }
+      if (changed) snapshotState.value = reconciled
     }
-    if (changed) snapshotState.value = reconciled
   }
 
   private fun Source.hasSameState(other: Source?): Boolean =
