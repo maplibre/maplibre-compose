@@ -264,7 +264,7 @@ class MapStateTest {
     val state = mapState()
     val adapter = FakeMapAdapter()
     adapter.camera = CameraPosition(zoom = 4.0)
-    adapter.viewport = testViewport()
+    adapter.reportedViewport = testViewport()
     state.attachSession(adapter)
     state.callbacks.onCameraMoved(adapter)
     assertEquals(4.0, state.camera.zoom)
@@ -272,7 +272,7 @@ class MapStateTest {
 
     val foreign = FakeMapAdapter()
     foreign.camera = CameraPosition(zoom = 9.0)
-    foreign.viewport = testViewport()
+    foreign.reportedViewport = testViewport()
     state.callbacks.onCameraMoved(foreign)
     state.callbacks.onSurfaceLost(foreign)
     assertEquals(4.0, state.camera.zoom)

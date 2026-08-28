@@ -33,7 +33,7 @@ class ScaleBarTest {
   fun a_state_with_a_viewport_renders_the_bar() {
     val state = MapState()
     val adapter = FakeMapAdapter()
-    adapter.viewport =
+    adapter.reportedViewport =
       Viewport(
         size = DpSize(300.dp, 300.dp),
         visibleBoundingBox =
