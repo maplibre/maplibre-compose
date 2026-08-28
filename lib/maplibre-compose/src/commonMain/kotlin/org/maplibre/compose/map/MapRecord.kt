@@ -278,7 +278,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   fun styleLoadFailed(source: Any?, generation: Long, reason: String) {
     if (closed) return
-    if (source != null && !isStyleSource(source)) return
+    if (!isStyleSource(source)) return
     if (!acceptsStyleGeneration(generation)) return
     lastLoadFailure = reason
     loadState = MapLoadState.Failed(styleGeneration, currentStyle(), reason)

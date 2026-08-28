@@ -217,6 +217,21 @@ class MapKernelTest {
   }
 
   @Test
+  fun null_source_failure_cannot_overwrite_a_finished_load() {
+    val kernel = kernel()
+    val source = Any()
+    kernel.reduce {
+      adoptCore(source)
+      selectStyle(styleA)
+    }
+    val gen = kernel.record.styleGeneration
+    kernel.reduce { styleLoadFinished(source, gen) }
+    assertIs<MapLoadState.Ready>(kernel.record.loadState)
+    kernel.reduce { styleLoadFailed(null, gen, "orphaned") }
+    assertIs<MapLoadState.Ready>(kernel.record.loadState)
+  }
+
+  @Test
   fun first_config_owner_wins_and_a_rival_cannot_claim() {
     val kernel = kernel()
     val winner = Any()
