@@ -12,12 +12,11 @@ class SourceInstallTest {
   private fun vectorSource(id: String) = VectorSource(id, "https://example.invalid/{z}/{x}/{y}.pbf")
 
   @Test
-  fun a_repeat_install_of_the_same_id_is_refused() {
+  fun a_repeat_add_of_the_same_id_is_refused() {
     val binding = RecordingStyleBinding()
-    val source = vectorSource("shared")
-    source.install(binding)
+    binding.addSource(vectorSource("shared"))
     assertTrue("shared" in binding.sources)
-    assertFailsWith<IllegalStateException> { vectorSource("shared").install(binding) }
+    assertFailsWith<IllegalStateException> { binding.addSource(vectorSource("shared")) }
   }
 
   @Test

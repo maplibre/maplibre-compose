@@ -121,7 +121,7 @@ public class StyleSources internal constructor(private val state: MapState) {
       )
     }
     return try {
-      source.install(binding)
+      binding.addSource(source)
       if (!state.commitAppSource(binding, source)) {
         IllegalStateException("Source '$id' was not added: the style unloaded during the add")
       } else {

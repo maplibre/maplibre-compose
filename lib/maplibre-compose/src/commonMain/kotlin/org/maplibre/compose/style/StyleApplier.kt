@@ -112,7 +112,7 @@ internal class StyleApplier {
       .filter { it !in desired }
       .forEach { source ->
         logger?.i { "Removing source ${source.id}" }
-        binding.removeSource(source.id)
+        binding.removeSource(source)
         appliedSources.remove(source)
         appliedGeoJson.remove(source.id)
         refreshSource(source.id)
@@ -120,7 +120,7 @@ internal class StyleApplier {
     desired.forEach { source ->
       if (source !in appliedSources) {
         logger?.i { "Adding source ${source.id}" }
-        source.install(binding)
+        binding.addSource(source)
         appliedSources.add(source)
         if (source is GeoJsonSource) appliedGeoJson[source.id] = source.data
         refreshSource(source.id)
