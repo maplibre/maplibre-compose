@@ -59,24 +59,8 @@ internal class FakeMapAdapter : MapAdapter {
     calls += "setCameraPosition"
   }
 
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) {
-    calls += "setCameraBoundingBox"
-  }
-
-  override fun setMaxZoom(maxZoom: Double) {
-    calls += "setMaxZoom"
-  }
-
-  override fun setMinZoom(minZoom: Double) {
-    calls += "setMinZoom"
-  }
-
-  override fun setMinPitch(minPitch: Double) {
-    calls += "setMinPitch"
-  }
-
-  override fun setMaxPitch(maxPitch: Double) {
-    calls += "setMaxPitch"
+  override fun setCameraConstraints(value: CameraConstraints) {
+    calls += "setCameraConstraints"
   }
 
   override fun getViewport(): Viewport? {

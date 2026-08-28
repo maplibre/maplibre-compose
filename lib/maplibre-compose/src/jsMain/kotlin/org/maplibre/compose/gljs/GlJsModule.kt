@@ -56,6 +56,16 @@ public external class MaplibreMap(options: MapOptions) {
 
   public fun getBounds(): LngLatBounds
 
+  public fun getMaxBounds(): LngLatBounds?
+
+  public fun getMinZoom(): Double
+
+  public fun getMaxZoom(): Double
+
+  public fun getMinPitch(): Double
+
+  public fun getMaxPitch(): Double
+
   public fun jumpTo(options: JumpToOptions)
 
   public fun easeTo(options: EaseToOptions)

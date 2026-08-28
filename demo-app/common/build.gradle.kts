@@ -2,6 +2,7 @@ plugins {
   id("module-conventions")
   id("android-library-conventions")
   id(libs.plugins.kotlin.multiplatform.get().pluginId)
+  id(libs.plugins.kotlin.serialization.get().pluginId)
   id(libs.plugins.android.library.get().pluginId)
   id(libs.plugins.kotlin.composeCompiler.get().pluginId)
   id(libs.plugins.compose.get().pluginId)
@@ -73,12 +74,20 @@ kotlin {
       implementation(libs.materialKolor)
       implementation(libs.androidx.navigation.compose)
       implementation(libs.kotlin.dsv)
+      implementation(libs.kotlinx.serialization.json)
       implementation(libs.ktor.client.core)
       implementation(libs.mobilityData.gtfsSchedule)
       implementation(libs.spatialk.geojson)
 
       api(project(":lib:maplibre-compose"))
       implementation(project(":lib:maplibre-compose-material3"))
+    }
+
+    // ktor-server only ships JVM and Android artifacts, so the agent driver server lives in this
+    // source set; iOS and the browser get no-op actuals.
+    androidJvmMain.dependencies {
+      implementation(libs.ktor.server.cio)
+      implementation(libs.ktor.server.statusPages)
     }
 
     androidMain {

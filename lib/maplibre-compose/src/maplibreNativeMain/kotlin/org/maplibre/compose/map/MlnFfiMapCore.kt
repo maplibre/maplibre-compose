@@ -1025,25 +1025,31 @@ internal class MlnFfiMapCore(
     resumeStranded(waiters)
   }
 
-  override fun setCameraBoundingBox(boundingBox: BoundingBox?) = setBounds {
+  // Owner-thread state: a bounds write cancels an in-flight camera transition, so an unchanged
+  // value must not reach the map.
+  private var appliedCameraConstraints: CameraConstraints? = null
+
+  override fun setCameraConstraints(value: CameraConstraints) = setBounds {
+    if (value == appliedCameraConstraints) return@setBounds false
+    appliedCameraConstraints = value
     // Unbounded is not world bounds: world bounds clamp longitude to ±180 and stop the map
     // panning across the antimeridian.
     it.bounds =
-      boundingBox?.let { box -> BoundsConstraint.Bounded(box.toLatLngBounds()) }
+      value.boundingBox?.let { box -> BoundsConstraint.Bounded(box.toLatLngBounds()) }
         ?: BoundsConstraint.Unbounded
+    it.minZoom = value.minZoom
+    it.maxZoom = value.maxZoom
+    it.minPitch = value.minPitch
+    it.maxPitch = value.maxPitch
+    true
   }
 
-  override fun setMaxZoom(maxZoom: Double) = setBounds { it.maxZoom = maxZoom }
-
-  override fun setMinZoom(minZoom: Double) = setBounds { it.minZoom = minZoom }
-
-  override fun setMinPitch(minPitch: Double) = setBounds { it.minPitch = minPitch }
-
-  override fun setMaxPitch(maxPitch: Double) = setBounds { it.maxPitch = maxPitch }
-
-  /** `BoundOptions` is a field mask, so only the field [update] touches changes. */
-  private fun setBounds(update: (BoundOptions) -> Unit) {
-    configureMap { map -> map.bounds = map.bounds.also(update) }
+  /** `BoundOptions` is a field mask; [update] returns false to skip the write entirely. */
+  private fun setBounds(update: (BoundOptions) -> Boolean) {
+    configureMap { map ->
+      val options = map.bounds
+      if (update(options)) map.bounds = options
+    }
   }
 
   private fun getVisibleBoundingBox(): BoundingBox = mirroredViewport.boundingBox

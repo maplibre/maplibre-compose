@@ -208,11 +208,15 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       core.start()
       // A retained session's camera constraints must not clamp the snapshot; the next session
       // attach restores them through its SessionOptions.
-      core.setCameraBoundingBox(null)
-      core.setMinZoom(0.0)
-      core.setMaxZoom(UNCONSTRAINED_MAX_ZOOM)
-      core.setMinPitch(0.0)
-      core.setMaxPitch(UNCONSTRAINED_MAX_PITCH)
+      core.setCameraConstraints(
+        CameraConstraints(
+          minZoom = 0.0,
+          maxZoom = UNCONSTRAINED_MAX_ZOOM,
+          minPitch = 0.0,
+          maxPitch = UNCONSTRAINED_MAX_PITCH,
+          boundingBox = null,
+        )
+      )
       core.setCameraPadding(PaddingValues(0.dp))
       core.setCameraPosition(state.camera)
       awaitStyleLoaded(core, deadline, timeout)

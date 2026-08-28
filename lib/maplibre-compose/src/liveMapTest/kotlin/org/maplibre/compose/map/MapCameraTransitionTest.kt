@@ -225,6 +225,47 @@ class MapCameraTransitionTest {
     }
   }
 
+  @Test
+  fun reapplying_identical_camera_constraints_does_not_cancel_an_animation(): MapTestResult =
+    runMapTest {
+      createMapFixture().use {
+        it.startAtOrigin()
+        it.session.applyTestConstraints()
+        it.pump(frames = 2)
+
+        val animation =
+          CoroutineScope(Dispatchers.Default).launch {
+            it.session.animateCameraPosition(TARGET, 2.seconds)
+          }
+        it.awaitCameraMoving()
+        it.session.applyTestConstraints()
+        it.pumpUntil("the animation to complete after the constraints repeat") {
+          animation.isCompleted
+        }
+
+        assertNear(
+          TARGET.zoom,
+          it.session.getCameraPosition().zoom,
+          "repeating identical constraints should not stop the animation",
+        )
+      }
+    }
+
+  @Test
+  fun replacing_a_camera_range_with_a_disjoint_range_applies_it_atomically(): MapTestResult =
+    runMapTest {
+      createMapFixture().use {
+        it.startAtOrigin()
+        it.session.setCameraConstraints(TEST_CONSTRAINTS)
+        it.pump(frames = 2)
+
+        it.session.setCameraConstraints(DISJOINT_ZOOM_CONSTRAINTS)
+        it.pumpUntil("the camera to adopt the disjoint zoom range") {
+          abs(it.session.getCameraPosition().zoom - DISJOINT_ZOOM_CONSTRAINTS.minZoom) < 0.01
+        }
+      }
+    }
+
   /** A zero-duration animation emits its event during the call, so it must not deadlock. */
   @Test
   fun a_zero_duration_animation_completes(): MapTestResult = runMapTest {
@@ -365,6 +406,10 @@ class MapCameraTransitionTest {
     }
   }
 
+  private fun MapAdapter.applyTestConstraints() {
+    setCameraConstraints(TEST_CONSTRAINTS)
+  }
+
   private companion object {
     val START = CameraPosition(target = Position(0.0, 0.0), zoom = 2.0)
     val TARGET = CameraPosition(target = Position(11.0, 47.0), zoom = 8.0)
@@ -374,6 +419,15 @@ class MapCameraTransitionTest {
         southwest = Position(longitude = -5.0, latitude = -5.0),
         northeast = Position(longitude = 5.0, latitude = 5.0),
       )
+    val TEST_CONSTRAINTS =
+      CameraConstraints(
+        minZoom = 0.0,
+        maxZoom = 20.0,
+        minPitch = 0.0,
+        maxPitch = 60.0,
+        boundingBox = null,
+      )
+    val DISJOINT_ZOOM_CONSTRAINTS = TEST_CONSTRAINTS.copy(minZoom = 21.0, maxZoom = 22.0)
     val ANTIMERIDIAN_BOUNDS =
       BoundingBox(
         southwest = Position(longitude = 170.0, latitude = -10.0),

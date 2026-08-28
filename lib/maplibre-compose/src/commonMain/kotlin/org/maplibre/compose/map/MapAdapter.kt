@@ -43,15 +43,7 @@ internal interface MapAdapter {
     padding: PaddingValues,
   )
 
-  fun setCameraBoundingBox(boundingBox: BoundingBox?)
-
-  fun setMaxZoom(maxZoom: Double)
-
-  fun setMinZoom(minZoom: Double)
-
-  fun setMinPitch(minPitch: Double)
-
-  fun setMaxPitch(maxPitch: Double)
+  fun setCameraConstraints(value: CameraConstraints)
 
   /**
    * The viewport the map last adopted, with every property read from the same transform, or null

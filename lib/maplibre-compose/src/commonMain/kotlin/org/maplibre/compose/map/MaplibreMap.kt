@@ -219,12 +219,16 @@ internal data class SessionOptions(
 ) {
   fun applyTo(map: MapAdapter) {
     map.setCameraPadding(cameraPadding)
-    map.setMinZoom(zoomRange.start.toDouble())
-    map.setMaxZoom(zoomRange.endInclusive.toDouble())
-    map.setMinPitch(pitchRange.start.toDouble())
-    map.setMaxPitch(pitchRange.endInclusive.toDouble())
+    map.setCameraConstraints(
+      CameraConstraints(
+        minZoom = zoomRange.start.toDouble(),
+        maxZoom = zoomRange.endInclusive.toDouble(),
+        minPitch = pitchRange.start.toDouble(),
+        maxPitch = pitchRange.endInclusive.toDouble(),
+        boundingBox = boundingBox,
+      )
+    )
     map.setRenderSettings(options.renderOptions)
     map.setTileLodSettings(options.tileLodOptions)
-    map.setCameraBoundingBox(boundingBox)
   }
 }

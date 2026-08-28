@@ -69,7 +69,15 @@ class MlnFfiRetainedCoreTest {
     // The first snapshot retained a core whose backend matches the snapshot target. Leave the
     // constraint a departed session would leave behind, tighter than the recorded camera.
     val retained = assertNotNull(state.engine.core, "the first snapshot must retain its core")
-    retained.setMaxZoom(2.0)
+    retained.setCameraConstraints(
+      CameraConstraints(
+        minZoom = 0.0,
+        maxZoom = 2.0,
+        minPitch = 0.0,
+        maxPitch = 60.0,
+        boundingBox = null,
+      )
+    )
     runBlocking { state.setCamera(CameraPosition(zoom = 5.0)) }
 
     runBlocking { state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds) }
