@@ -16,12 +16,14 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.TimeSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -33,6 +35,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.maplibre.compose.map.LocalMapState
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.util.rethrowIfFatal
@@ -133,7 +136,19 @@ internal class StyleCompositionHost(
         reportError("Style composition failed; the style stops updating", error)
       }
     }
-    scope.launch { for (unused in snapshotSignal) Snapshot.sendApplyNotifications() }
+    // UI components' apply observers assume the main thread, so deliveries ride Main when the
+    // platform has one; a UI-less platform delivers on the host thread.
+    val applyNotificationDispatcher =
+      if (runCatching { Dispatchers.Main.isDispatchNeeded(EmptyCoroutineContext) }.isSuccess) {
+        Dispatchers.Main
+      } else {
+        dispatcher
+      }
+    scope.launch {
+      for (unused in snapshotSignal) {
+        withContext(applyNotificationDispatcher) { Snapshot.sendApplyNotifications() }
+      }
+    }
     scope.launch {
       val clockStart = TimeSource.Monotonic.markNow()
       var lastFrameNanos = Long.MIN_VALUE

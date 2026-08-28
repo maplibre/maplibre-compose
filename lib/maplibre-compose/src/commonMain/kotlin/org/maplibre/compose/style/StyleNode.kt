@@ -173,13 +173,13 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     }
 
     val desiredLayers = children.filterIsInstance<LayerNode<*>>()
-    retryPendingReplaceRemovals(desiredLayers.mapTo(hashSetOf()) { it.anchor })
-    removeUndesiredLayers(desiredLayers)
-    syncSources()
+    retryPendingReplaceRemovals(binding, desiredLayers.mapTo(hashSetOf()) { it.anchor })
+    removeUndesiredLayers(binding, desiredLayers)
+    syncSources(binding)
 
     val desiredByAnchor = LinkedHashMap<Anchor, MutableList<LayerNode<*>>>()
     desiredLayers.forEach { desiredByAnchor.getOrPut(it.anchor) { mutableListOf() }.add(it) }
-    desiredByAnchor.forEach { (anchor, group) -> syncAnchorGroup(anchor, group) }
+    desiredByAnchor.forEach { (anchor, group) -> syncAnchorGroup(binding, anchor, group) }
 
     publishLiveLayers()
   }
@@ -207,7 +207,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   }
 
   /** Finishes a Replace whose original survived a thrown removal after its replacement landed. */
-  private fun retryPendingReplaceRemovals(desiredAnchors: Set<Anchor>) {
+  private fun retryPendingReplaceRemovals(binding: StyleBinding, desiredAnchors: Set<Anchor>) {
     pendingReplaceRemovals.entries.toList().forEach { (anchor, original) ->
       // Nothing wants the replacement any more, so the never-removed original simply stays.
       if (anchor !in desiredAnchors) {
@@ -221,7 +221,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     }
   }
 
-  private fun removeUndesiredLayers(desiredLayers: List<LayerNode<*>>) {
+  private fun removeUndesiredLayers(binding: StyleBinding, desiredLayers: List<LayerNode<*>>) {
     val desired = desiredLayers.toHashSet()
     val anchors = appliedLayers.entries.iterator()
     while (anchors.hasNext()) {
@@ -247,7 +247,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     }
   }
 
-  private fun syncSources() {
+  private fun syncSources(binding: StyleBinding) {
     val desired = sourceManager.desiredSources
     // Obsolete sources leave first so a replacement instance may reuse a freed id.
     appliedSources
@@ -268,7 +268,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     }
   }
 
-  private fun syncAnchorGroup(anchor: Anchor, desired: List<LayerNode<*>>) {
+  private fun syncAnchorGroup(binding: StyleBinding, anchor: Anchor, desired: List<LayerNode<*>>) {
     val applied = appliedLayers[anchor]
     if (applied.isNullOrEmpty()) {
       // A style switch can recompose content whose anchors name layers of the incoming base style
@@ -284,7 +284,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
         }
         return
       }
-      initializeAnchor(anchor, desired)
+      initializeAnchor(binding, anchor, desired)
       return
     }
 
@@ -308,7 +308,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
         node in stable -> Unit
         node in appliedIndex -> {
           logger?.i { "Moving layer ${layer.id} above $previousId" }
-          moveLayerAbove(checkNotNull(previousId), layer)
+          moveLayerAbove(binding, checkNotNull(previousId), layer)
           applied.remove(node)
           applied.add(applied.indexOfFirst { it.layer.id == previousId } + 1, node)
         }
@@ -330,7 +330,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
     appliedLayers[anchor] = desired.toMutableList()
   }
 
-  private fun initializeAnchor(anchor: Anchor, desired: List<LayerNode<*>>) {
+  private fun initializeAnchor(binding: StyleBinding, anchor: Anchor, desired: List<LayerNode<*>>) {
     val applied = appliedLayers.getOrPut(anchor) { mutableListOf() }
     val first = desired.first()
     logger?.i { "Initializing anchor $anchor with layer ${first.layer.id}" }
@@ -362,7 +362,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   }
 
   /** Moves an applied layer to sit directly above the applied layer named [targetId]. */
-  private fun moveLayerAbove(targetId: String, layer: Layer) {
+  private fun moveLayerAbove(binding: StyleBinding, targetId: String, layer: Layer) {
     val ids = binding.layerIds() ?: return
     val above = ids.getOrNull(ids.indexOf(targetId) + 1).orEmpty()
     if (above == layer.id) return
