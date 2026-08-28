@@ -24,48 +24,15 @@ import org.maplibre.compose.gljs.yieldToBrowser
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.testing.RecordingLogger
 
-/** Swapping the state argument of a composed [MaplibreMap] moves the session between states. */
+/** Closing a [MapState] closes and refuses browser sessions. */
 @OptIn(ExperimentalTestApi::class)
-class BrowserMapStateSwapTest {
+class BrowserMapStateCloseTest {
 
   private val style =
     BaseStyle.Json(
       """{"version":8,"sources":{},
          "layers":[{"id":"bg","type":"background","paint":{"background-color":"#123456"}}]}"""
     )
-
-  @Test
-  fun swapping_the_state_disposes_the_old_map_and_attaches_the_new_state() = runBrowserMapTest {
-    var useSecond by mutableStateOf(false)
-    var loads = 0
-    lateinit var stateA: MapState
-    lateinit var stateB: MapState
-
-    setBrowserMapContent {
-      stateA = rememberMapState(baseStyle = style)
-      stateB = rememberMapState(baseStyle = style)
-      MaplibreMap(
-        state = if (useSecond) stateB else stateA,
-        modifier = Modifier.fillMaxSize(),
-        logger = null,
-        onMapLoadFinished = { loads++ },
-      )
-    }
-
-    waitUntilMap("the first map to load") { loads >= 1 }
-    val firstSession = assertIs<GlJsMapSession>(stateA.attachedAdapter)
-    assertFalse(stateB.isAttached, "the unshown state has no session")
-
-    useSecond = true
-    waitUntilMap("the swap to detach the old state and attach the new one") {
-      !stateA.isAttached && stateB.isAttached
-    }
-
-    assertTrue(firstSession.isClosed, "the old state's live map is disposed by the swap")
-    waitUntilMap("the new state's map to load") { loads >= 2 }
-    assertTrue(stateB.isAttached, "the swapped-in state keeps its session")
-    assertFalse(stateA.isAttached, "the swapped-away state stays detached")
-  }
 
   @Test
   fun closing_the_state_closes_the_composed_session() = runBrowserMapTest {

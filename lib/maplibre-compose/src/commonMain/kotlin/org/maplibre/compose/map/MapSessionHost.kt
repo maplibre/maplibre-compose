@@ -16,20 +16,16 @@ import androidx.compose.ui.focus.FocusRequester
 internal fun <S : Any> MapSessionHost(
   session: S,
   state: MapState,
-  attach: (S, MapState) -> Unit,
+  attach: (S) -> Unit,
   release: (S) -> Unit,
   content: @Composable (FocusRequester, GestureContinuation) -> Unit,
 ) {
-  // Captured at session creation: a later composition may pass another state, and the session must
-  // attach and detach the state that owns it.
-  val sessionState = remember(session) { state }
-
-  LaunchedEffect(session) { attach(session, sessionState) }
+  LaunchedEffect(session) { attach(session) }
 
   DisposableEffect(session) {
     onDispose {
       release(session)
-      sessionState.detachSession()
+      state.detachSession()
     }
   }
 

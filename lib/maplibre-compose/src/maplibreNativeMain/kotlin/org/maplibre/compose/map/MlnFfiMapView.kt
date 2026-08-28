@@ -77,7 +77,7 @@ internal fun MlnFfiMapView(
   // re-attaches to the same map instead of recreating it.
   val engine = state.engine
   val core =
-    remember(engine, renderBackend, scaleFactor) {
+    remember(renderBackend, scaleFactor) {
       engine.acquireCore(scaleFactor, layoutDirection, renderBackend)
     }
   val session = remember(core, renderBackend) { engine.createSession(core, renderBackend) }
@@ -89,9 +89,9 @@ internal fun MlnFfiMapView(
   MapSessionHost(
     session = session,
     state = state,
-    attach = { _, sessionState ->
+    attach = {
       // Attach deferred state before native events can report the map's default state to Compose.
-      sessionState.attachSession(core)
+      state.attachSession(core)
       core.start()
     },
     release = {

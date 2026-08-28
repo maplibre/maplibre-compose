@@ -12,6 +12,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.currentCompositionLocalContext
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
@@ -99,7 +100,8 @@ public fun rememberMapState(
  * The composable is a render session on the state: it draws the map, feeds gestures into it, and
  * draws [overlay] on top. The style and its content belong to [state], which survives this
  * composable leaving the composition; get one from [rememberMapState], or construct a [MapState]
- * outside the composition and own its lifetime.
+ * outside the composition and own its lifetime. The session is keyed on [state], so a recomposition
+ * that passes a different state disposes this session and composes a new one for that state.
  *
  * The map has no intrinsic size and will expand to fill its container by default. If placed in a
  * scrollable container or other layout that doesn't provide constraints, you must specify an
@@ -152,47 +154,51 @@ public fun MaplibreMap(
     return
   }
 
-  val density = LocalDensity.current
-  val layoutDirection = LocalLayoutDirection.current
-  val locals = currentCompositionLocalContext
-  val mapClickScope = rememberCoroutineScope()
+  // A different state is a different map: the old state's session subtree is disposed, and a new
+  // one composes for the new state.
+  key(state) {
+    val density = LocalDensity.current
+    val layoutDirection = LocalLayoutDirection.current
+    val locals = currentCompositionLocalContext
+    val mapClickScope = rememberCoroutineScope()
 
-  // Reading each side during composition recomposes this map when the insets change, so the
-  // session receives the new padding. Resolving against the current layout direction here makes a
-  // direction flip change the captured SessionOptions, so directional padding reapplies.
-  val insetPadding = contentWindowInsets.asPaddingValues()
-  val resolvedCameraPadding = (cameraPadding ?: insetPadding).resolveAbsolute(layoutDirection)
+    // Reading each side during composition recomposes this map when the insets change, so the
+    // session receives the new padding. Resolving against the current layout direction here makes a
+    // direction flip change the captured SessionOptions, so directional padding reapplies.
+    val insetPadding = contentWindowInsets.asPaddingValues()
+    val resolvedCameraPadding = (cameraPadding ?: insetPadding).resolveAbsolute(layoutDirection)
 
-  // Written during composition: a session can attach in the same apply pass, before any SideEffect,
-  // and the native core captures the logger when it is created.
-  state.logger = logger
+    // Written during composition: a session can attach in the same apply pass, before any
+    // SideEffect, and the native core captures the logger when it is created.
+    state.logger = logger
 
-  SideEffect {
-    state.ensureBaseStyleSelected()
-    state.density = density
-    state.layoutDirection = layoutDirection
-    state.inheritedLocals = locals
-    state.sessionOptions =
-      SessionOptions(resolvedCameraPadding, zoomRange, pitchRange, boundingBox, options)
-    state.callbacks.onMapClick = onMapClick
-    state.callbacks.onMapLongClick = onMapLongClick
-    state.callbacks.onFrame = onFrame
-    state.callbacks.onMapLoadFailed = onMapLoadFailed
-    state.callbacks.onMapLoadFinished = onMapLoadFinished
-    state.callbacks.clickScope = mapClickScope
-  }
+    SideEffect {
+      state.ensureBaseStyleSelected()
+      state.density = density
+      state.layoutDirection = layoutDirection
+      state.inheritedLocals = locals
+      state.sessionOptions =
+        SessionOptions(resolvedCameraPadding, zoomRange, pitchRange, boundingBox, options)
+      state.callbacks.onMapClick = onMapClick
+      state.callbacks.onMapLongClick = onMapLongClick
+      state.callbacks.onFrame = onFrame
+      state.callbacks.onMapLoadFailed = onMapLoadFailed
+      state.callbacks.onMapLoadFinished = onMapLoadFinished
+      state.callbacks.clickScope = mapClickScope
+    }
 
-  val overlayHolder = remember(overlay) { MapOverlay(overlay) }
+    val overlayHolder = remember(overlay) { MapOverlay(overlay) }
 
-  Box(modifier.fillMaxSize()) {
-    ComposableMapView(state = state, modifier = Modifier.fillMaxSize(), options = options)
+    Box(modifier.fillMaxSize()) {
+      ComposableMapView(state = state, modifier = Modifier.fillMaxSize(), options = options)
 
-    MapOverlayHost(
-      overlay = overlayHolder,
-      state = state,
-      contentWindowInsets = contentWindowInsets,
-      modifier = Modifier.matchParentSize(),
-    )
+      MapOverlayHost(
+        overlay = overlayHolder,
+        state = state,
+        contentWindowInsets = contentWindowInsets,
+        modifier = Modifier.matchParentSize(),
+      )
+    }
   }
 }
 

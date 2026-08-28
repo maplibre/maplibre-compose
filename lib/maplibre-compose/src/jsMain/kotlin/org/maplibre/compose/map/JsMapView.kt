@@ -15,10 +15,9 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
   val scaleFactor = density.density.toDouble()
   val logger = state.logger
 
-  // Keyed on the engine so swapping the composable's state tears the session down with its map.
   val engine = state.engine
   val session =
-    remember(engine, scaleFactor) {
+    remember(scaleFactor) {
       GlJsMapSession(
           callbacks = state.callbacks,
           logger = logger,
@@ -34,9 +33,9 @@ internal actual fun ComposableMapView(state: MapState, modifier: Modifier, optio
   MapSessionHost(
     session = session,
     state = state,
-    attach = { s, sessionState ->
+    attach = { s ->
       // A session the closed engine refused must not attach; the closed state would throw.
-      if (!s.isClosed) sessionState.attachSession(s)
+      if (!s.isClosed) state.attachSession(s)
     },
     release = {
       it.close()
