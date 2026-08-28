@@ -192,7 +192,6 @@ on; Gradle on its own uses the `0.0.0` placeholders from `gradle.properties`.
 Between them they cover dprint, actionlint, ruff, shellcheck, the GitHub Actions
 pins catalog, JSON schema validation, and the documentation site's type check.
 `mise run lint:android` runs Android Lint, which CI runs in the same job.
-Hygiene commits the `mise run fix` output on same-repo Dependabot pull requests.
 
 A Git pre-commit hook runs the same steps against your staged files. `mise`
 installs it for you. Remove it with:
@@ -229,5 +228,4 @@ is declared once in
 file never runs. It exists so that Dependabot sees the actions that the
 composite actions under `.github/actions` use, which it would otherwise skip.
 `mise run ci:check-action-pins` fails when a reference anywhere disagrees with
-the catalog. `mise run ci:fix-action-pins` copies the catalog SHA onto each
-consumer.
+the catalog, so an update lands in one place and propagates from there.
