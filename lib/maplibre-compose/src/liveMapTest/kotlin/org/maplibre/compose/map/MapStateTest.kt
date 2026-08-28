@@ -263,9 +263,9 @@ class MapStateTest {
   fun a_foreign_session_cannot_move_the_camera_or_clear_the_viewport() = runTest {
     val state = mapState()
     val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
     adapter.camera = CameraPosition(zoom = 4.0)
     adapter.reportedViewport = testViewport()
-    state.attachSession(adapter)
     state.callbacks.onCameraMoved(adapter)
     assertEquals(4.0, state.camera.zoom)
     assertNotNull(state.viewport)

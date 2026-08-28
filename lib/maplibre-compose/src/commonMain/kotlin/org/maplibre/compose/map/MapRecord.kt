@@ -315,6 +315,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
     selectDemoIfNeeded()
     val id = nextCaptureId++
     renderer = RendererState.Capture(id)
+    // A matching retained core is not replaced, so capture must push the style itself when a
+    // core already exists and never loaded.
+    styleSource?.let { emitLoad(it, currentStyle()) }
     return id
   }
 

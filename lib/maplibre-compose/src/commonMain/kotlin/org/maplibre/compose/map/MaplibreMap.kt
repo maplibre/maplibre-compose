@@ -17,6 +17,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.UiComposable
 import androidx.compose.ui.graphics.Color
@@ -25,6 +26,7 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import kotlinx.coroutines.flow.drop
 import org.maplibre.compose.camera.CameraPosition
 import org.maplibre.compose.camera.CameraPositionSaver
 import org.maplibre.compose.overlay.MapOverlay
@@ -137,9 +139,11 @@ public fun rememberMapState(
  *   the per-layer callbacks.
  * @param onMapLongClick Invoked when the map is long-clicked. See [onMapClick].
  * @param onFrame Invoked on every rendered frame with the current frame rate.
- * @param onMapLoadFailed Invoked when [MapState.loadState] becomes [MapLoadState.Failed].
- * @param onMapLoadFinished Invoked when [MapState.loadState] becomes [MapLoadState.Ready],
- *   including when this composable attaches to a state whose style is already ready.
+ * @param onMapLoadFailed Invoked when [MapState.loadState] becomes [MapLoadState.Failed] after this
+ *   composable attaches.
+ * @param onMapLoadFinished Invoked when [MapState.loadState] becomes [MapLoadState.Ready] after
+ *   this composable attaches. A session that attaches to a style that is already ready does not
+ *   invoke it.
  * @param options Gesture, render, and tile level-of-detail options for this session.
  * @param contentWindowInsets Insets applied to [overlay].
  * @param overlay Controls drawn on top of the map.
@@ -201,13 +205,16 @@ public fun MaplibreMap(
       state.callbacks.clickScope = mapClickScope
     }
 
-    val loadState = state.loadState
-    LaunchedEffect(loadState) {
-      when (val load = loadState) {
-        is MapLoadState.Ready -> onMapLoadFinished()
-        is MapLoadState.Failed -> onMapLoadFailed(load.reason)
-        else -> {}
-      }
+    LaunchedEffect(state) {
+      snapshotFlow { state.loadState }
+        .drop(1)
+        .collect { load ->
+          when (load) {
+            is MapLoadState.Ready -> onMapLoadFinished()
+            is MapLoadState.Failed -> onMapLoadFailed(load.reason)
+            else -> {}
+          }
+        }
     }
 
     val overlayHolder = remember(overlay) { MapOverlay(overlay) }
