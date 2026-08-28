@@ -10,6 +10,7 @@ import androidx.compose.animation.core.updateTransition
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,16 +51,21 @@ import org.maplibre.compose.demoapp.generated.chevron_left_24px
 import org.maplibre.compose.demoapp.generated.chevron_right_24px
 
 @Composable
-fun DemoApp() {
-  val state = rememberDemoAppState()
+fun DemoApp(
+  state: DemoAppState = rememberDemoAppState(),
+  contentPadding: PaddingValues = PaddingValues(0.dp),
+) {
   StartAgentDriver(state)
+  DemoAppTheme(state) { DemoShell(state, contentPadding) }
+}
+
+@Composable
+fun DemoAppTheme(state: DemoAppState, content: @Composable () -> Unit) {
   val dark =
     if (state.shell == DemoShell.Benchmarks) state.selectedScenario.style.isDark
     else state.appliedStyle.isDark
   val colorScheme = rememberDemoColorScheme(dark, state.settings.paletteMode)
-  MaterialTheme(colorScheme = colorScheme) {
-    DemoShell(state)
-  }
+  MaterialTheme(colorScheme = colorScheme, content = content)
 }
 
 private val MediumPanelWidth = 280.dp
@@ -81,11 +87,14 @@ private enum class DemoShellLayout {
 }
 
 @Composable
-private fun DemoShell(state: DemoAppState) {
+private fun DemoShell(state: DemoAppState, contentPadding: PaddingValues) {
   BoxWithConstraints(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
     val density = LocalDensity.current
     val layoutDirection = LocalLayoutDirection.current
-    val safeInsets = WindowInsets.safeDrawing.toMapViewportInsets(density, layoutDirection)
+    val safeInsets =
+      WindowInsets.safeDrawing
+        .toMapViewportInsets(density, layoutDirection)
+        .union(contentPadding.toMapViewportInsets(layoutDirection))
     val windowAdaptiveInfo = currentWindowAdaptiveInfoV2()
     val windowSizeClass = windowAdaptiveInfo.windowSizeClass
     val layout = windowSizeClass.toDemoShellLayout()
