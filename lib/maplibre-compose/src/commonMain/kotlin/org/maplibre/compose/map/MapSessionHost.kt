@@ -58,20 +58,25 @@ internal fun <S : Any> MapSessionHost(
 /**
  * The record accepts the session first. The engine is registered only after that, so a capture
  * lease or a closed state cannot leave the engine holding a session the record refused. A failure
- * after the record accepted detaches that session; [MapSessionResource.release] stays with dispose.
+ * after this call attached a previously empty record detaches that session. A rival that fails
+ * register against a core the record already held leaves that attachment in place.
+ * [MapSessionResource.release] stays with dispose.
  */
 internal fun <S : Any> bindMapSession(
   resource: MapSessionResource<S>,
   state: MapState,
   attach: (S) -> Unit,
 ) {
+  val alreadyAttached = state.attachedAdapter
   var bound = false
   try {
     attach(resource.session)
     bound = true
     resource.register()
   } catch (error: Throwable) {
-    if (bound) state.detachSession()
+    // Native attach uses the shared core as the adapter. A rival that fails register must not
+    // detach the session that already held that core.
+    if (bound && alreadyAttached == null) state.detachSession()
     throw error
   }
 }

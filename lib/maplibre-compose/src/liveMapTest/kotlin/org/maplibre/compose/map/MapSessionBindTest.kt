@@ -4,6 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 
@@ -34,6 +35,23 @@ class MapSessionBindTest {
     }
     assertFalse(resource.registered)
     assertNull(state.attachedAdapter)
+    state.close()
+  }
+
+  @Test
+  fun a_failed_register_does_not_detach_an_already_attached_core() {
+    val state = MapState(CameraPosition())
+    val core = FakeMapAdapter()
+    val first = RecordingSessionResource(session = core)
+    bindMapSession(first, state) { state.attachSession(core) }
+    val rival = RecordingSessionResource(registerAction = { error("engine refused") })
+    assertFailsWith<IllegalStateException> {
+      bindMapSession(rival, state) { state.attachSession(core) }
+    }
+    assertTrue(state.isAttached)
+    assertSame(core, state.attachedAdapter)
+    state.detachSession()
+    first.release()
     state.close()
   }
 
