@@ -1,0 +1,23 @@
+#!/usr/bin/env python3
+# [MISE] description="Copy catalog action pins onto every consumer."
+# [MISE] shell="python"
+
+import pathlib
+import sys
+
+
+ROOT = pathlib.Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT))
+
+from ci.action_pins import fix_pins  # noqa: E402
+
+
+def main() -> int:
+    changed = fix_pins(ROOT)
+    for path in changed:
+        print(f"updated {path.relative_to(ROOT).as_posix()}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
