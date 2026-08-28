@@ -193,15 +193,6 @@ internal class MlnFfiOfflineManager(
     return runtime.awaitStopped(timeoutMillis)
   }
 
-  fun setTileCountLimit(limit: Long) {
-    // maplibre-native-ffi does not expose mbgl's setOfflineMapboxTileCountLimit; it applies only to
-    // canonical Mapbox tile URLs. MapLibre's own limit still reports as TileLimitExceeded.
-    logger.i {
-      "Ignoring setTileCountLimit($limit) on this platform; MapLibre's own offline tile count limit " +
-        "applies, and it counts only Mapbox-hosted tiles"
-    }
-  }
-
   /** Backs [OfflinePack.setMetadata]; the pack itself holds no native state. */
   internal suspend fun updateMetadata(pack: OfflinePack, metadata: ByteArray) {
     val ffiMetadata = metadata.copyOf()

@@ -105,12 +105,4 @@ public object MaplibreRuntime {
   public suspend fun setMaximumAmbientCacheSize(size: Long) {
     offline.setMaximumAmbientCacheSize(size)
   }
-
-  /**
-   * Sets the maximum number of offline tiles that this device may download and store. The default
-   * limit is 6000.
-   */
-  public fun setTileCountLimit(limit: Long) {
-    offline.setTileCountLimit(limit)
-  }
 }

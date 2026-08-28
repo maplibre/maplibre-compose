@@ -35,7 +35,6 @@ private class OfflinePackPrefetcher(private val pixelRatio: Float) : TilePrefetc
     map: MapState,
     onStatus: (String) -> Unit,
   ) {
-    MaplibreRuntime.setTileCountLimit(50_000)
     val metadata = "bench:v1:$scenarioId".encodeToByteArray()
     val existing =
       MaplibreRuntime.offlinePacks.firstOrNull { it.metadata?.contentEquals(metadata) == true }

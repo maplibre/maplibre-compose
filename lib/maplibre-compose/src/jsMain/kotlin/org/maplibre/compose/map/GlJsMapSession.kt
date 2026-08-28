@@ -311,8 +311,8 @@ internal class GlJsMapSession(
     container = null
     // No `moveend` follows a map that is going away.
     resumeTransitions()
-    // The state must not keep describing the destroyed map's style and viewport.
-    callbacks.onStyleChanged(this, null)
+    // The state must not keep describing the destroyed map's style, sources, and viewport.
+    callbacks.onMapDestroyed(this)
   }
 
   private fun applyExtent(map: MaplibreMap, extent: MapExtent) {

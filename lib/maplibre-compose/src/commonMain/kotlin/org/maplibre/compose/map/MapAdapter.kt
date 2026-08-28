@@ -79,6 +79,9 @@ internal interface MapAdapter {
     /** A null [style] means the previous style unloaded and no replacement has loaded yet. */
     fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
 
+    /** The live map died under its session, so nothing may keep describing it. */
+    fun onMapDestroyed(map: MapAdapter) {}
+
     fun onMapFinishedLoading(map: MapAdapter)
 
     /** A null [sourceId] means that the adapter cannot identify the changed source. */

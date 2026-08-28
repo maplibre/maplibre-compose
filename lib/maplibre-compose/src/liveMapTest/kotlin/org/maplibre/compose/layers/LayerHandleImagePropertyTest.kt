@@ -40,7 +40,7 @@ class LayerHandleImagePropertyTest {
       hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler)),
     )
 
-  private class ImageRecordingBinding(baseLayers: List<Layer>) :
+  private class ImageRecordingBinding(baseLayers: List<Layer> = emptyList()) :
     OpRecordingStyleBinding(baseLayers = baseLayers) {
     val images = mutableMapOf<String, ImageBitmap>()
     val properties = mutableListOf<Triple<String, String, JsonElement>>()
@@ -64,6 +64,25 @@ class LayerHandleImagePropertyTest {
       properties.add(Triple(layerId, name, value))
       super.setLayerProperty(layerId, name, value, kind)
     }
+  }
+
+  /** The refusal below is imperative-only; the composition's image path stays. */
+  @Test
+  fun a_composed_layer_with_an_image_literal_registers_the_image() = runTest {
+    val state = mapState()
+    state.setStyleComposition {
+      BackgroundLayer(id = "bg-user", pattern = image(ImageBitmap(4, 4)))
+    }
+    val binding = ImageRecordingBinding()
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    state.callbacks.onStyleChanged(adapter, binding)
+    state.host.awaitPendingWork()
+
+    assertEquals(1, binding.images.size, "the composed image literal must register")
+
+    state.close()
+    testScheduler.advanceUntilIdle()
   }
 
   @Test

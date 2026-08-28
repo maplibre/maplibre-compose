@@ -41,9 +41,6 @@ public sealed interface DownloadProgress {
   /** The download has failed. */
   public data class Error(val reason: String, val message: String) : DownloadProgress
 
-  /**
-   * The download has exceeded the maximum number of allowed offline tiles. See
-   * [org.maplibre.compose.runtime.MaplibreRuntime.setTileCountLimit].
-   */
+  /** The download has exceeded MapLibre's maximum number of offline tiles. */
   public data class TileLimitExceeded(val limit: Long) : DownloadProgress
 }

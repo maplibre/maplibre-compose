@@ -144,6 +144,9 @@ internal constructor(
   public val isAttached: Boolean
     get() = adapterState.value != null
 
+  /** Serializes the style-selection, attach, detach, and close transitions across threads. */
+  private val transitionLock = newSessionLock()
+
   internal val styleNode: StyleNode = StyleNode(StyleBinding.UNLOADED, logger)
 
   /** Owns the map's platform lifetime; on some platforms the map outlives the composition. */
@@ -286,7 +289,7 @@ internal constructor(
   /** Compiles [expression] with this state's density and layout direction, as the content does. */
   internal fun compileLayerProperty(expression: Expression<*>): JsonElement =
     LayerPropertyCompiler(styleNode, host.density, host.layoutDirection)
-      .compile(expression)
+      .compileImperative(expression)
       .toStyleJson()
 
   /** The style the application selected; null until the first [baseStyle] assignment. */
@@ -299,8 +302,8 @@ internal constructor(
    */
   public var baseStyle: BaseStyle
     get() = selectedBaseStyle ?: BaseStyle.Demo
-    set(value) {
-      if (value == selectedBaseStyle) return
+    set(value) = transitionLock.withLock {
+      if (value == selectedBaseStyle) return@withLock
       selectedBaseStyle = value
       // A new selection makes the previous style's load failure and completion stale.
       lastLoadFailure.value = null
@@ -527,7 +530,7 @@ internal constructor(
     }
 
   /** Wires [adapter] into the camera; the style arrives later through [callbacks]. */
-  internal fun attachSession(adapter: MapAdapter) {
+  internal fun attachSession(adapter: MapAdapter): Unit = transitionLock.withLock {
     check(!closedState.value) { "MapState is closed; a closed state cannot show a map again" }
     val previous = adapterState.value
     check(previous == null || previous === adapter) { SINGLE_SESSION_ERROR }
@@ -559,7 +562,7 @@ internal constructor(
   internal var loadFailedWhileDetached: String? = null
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
-  internal fun detachSession() {
+  internal fun detachSession(): Unit = transitionLock.withLock {
     adapterState.value = null
     // a snapshot kept past detachment would report a viewport no map is showing
     viewportState.value = null
@@ -597,8 +600,12 @@ internal constructor(
    * the same way instead of suspending forever.
    */
   override fun close() {
-    if (closedState.value) return
-    closedState.value = true
+    val alreadyClosed = transitionLock.withLock {
+      val closed = closedState.value
+      closedState.value = true
+      closed
+    }
+    if (alreadyClosed) return
     detachSession()
     // The collections must not report the destroyed map's style.
     styleNode.binding = StyleBinding.UNLOADED

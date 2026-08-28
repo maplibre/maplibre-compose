@@ -90,20 +90,27 @@ internal class LayerPropertyCompiler(
     return remember(this, expression) { compile(expression) }
   }
 
-  /**
-   * Compiles [expression] outside a composition, for imperative writes. An expression that carries
-   * a bitmap or painter is refused: nothing here releases an acquired image, so imperative writes
-   * reference images registered through `MapState.images` by id.
-   */
+  /** Compiles [expression] for the composition, whose disposal releases any acquired image. */
   internal fun <T : ExpressionValue> compile(expression: Expression<T>): CompiledExpression<T> {
+    context.reset()
+    return expression.compile(context)
+  }
+
+  /**
+   * Compiles [expression] for an imperative write. An expression that carries a bitmap or painter
+   * is refused: nothing here releases an acquired image, so imperative writes reference images
+   * registered through `MapState.images` by id.
+   */
+  internal fun <T : ExpressionValue> compileImperative(
+    expression: Expression<T>
+  ): CompiledExpression<T> {
     expression.visit {
       require(it !is BitmapLiteral && it !is PainterLiteral) {
         "An imperative write cannot carry a bitmap or painter; register the image through " +
           "MapState.images and reference it by id"
       }
     }
-    context.reset()
-    return expression.compile(context)
+    return compile(expression)
   }
 
   private fun BitmapLiteral.key() = ImageManager.BitmapKey(value, sdf, stretch)

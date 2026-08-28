@@ -39,6 +39,13 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     clickScope = null
   }
 
+  override fun onMapDestroyed(map: MapAdapter) {
+    if (state.attachedAdapter !== map) return
+    state.updateBinding(null)
+    state.sources.clear()
+    state.viewportState.value = map.getViewport()
+  }
+
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
     if (style != null) state.lastLoadFailure.value = null
     state.updateBinding(style)
