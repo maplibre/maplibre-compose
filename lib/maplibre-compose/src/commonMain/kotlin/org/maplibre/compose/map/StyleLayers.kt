@@ -1,6 +1,7 @@
 package org.maplibre.compose.map
 
 import org.maplibre.compose.layers.LayerHandle
+import org.maplibre.compose.style.StyleBinding
 
 /**
  * The loaded style's layers, exposed on [MapState.layers].
@@ -26,15 +27,15 @@ public class StyleLayers internal constructor(private val state: MapState) {
 
   /** Returns a handle over the live layer with [id], or null when the style has no such layer. */
   public operator fun get(id: String): LayerHandle? {
-    val (styleGeneration, bindingGeneration, layer) =
+    val (styleGeneration, bindingGeneration, binding) =
       state.record.read {
         Triple(
           this.styleGeneration,
           this.bindingGeneration,
-          binding.takeIf { it.isLoaded }?.getLayer(id),
+          binding.takeUnless { it === StyleBinding.UNLOADED },
         )
       }
-    if (layer == null) return null
+    if (binding == null || !binding.isLoaded || binding.getLayer(id) == null) return null
     return LayerHandle(state, styleGeneration, bindingGeneration, id)
   }
 }

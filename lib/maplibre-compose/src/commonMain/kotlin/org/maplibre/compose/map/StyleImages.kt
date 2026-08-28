@@ -85,11 +85,7 @@ public class StyleImages internal constructor(private val state: MapState) {
     require(!id.startsWith(GENERATED_ID_PREFIX)) {
       "Image id '$id' uses the reserved prefix '$GENERATED_ID_PREFIX'"
     }
-    state.host.runSerialized {
-      var failure: Throwable? = null
-      state.commit { enqueue { failure = addAccepted(id, addTo) } }
-      failure?.let { throw it }
-    }
+    state.runStyleEffect { binding -> addAccepted(binding, id, addTo)?.let { throw it } }
   }
 
   /**
@@ -99,19 +95,25 @@ public class StyleImages internal constructor(private val state: MapState) {
    * @throws IllegalStateException when no style is loaded or the state is closed.
    */
   public suspend fun remove(id: String) {
-    state.host.runSerialized {
-      var failure: Throwable? = null
-      state.commit { enqueue { failure = removeAccepted(id) } }
-      failure?.let { throw it }
-    }
+    state.runStyleEffect { binding -> removeAccepted(binding, id)?.let { throw it } }
   }
 
-  private fun addAccepted(id: String, addTo: (StyleBinding) -> Unit): Throwable? {
-    val closed = state.record.read { closed }
-    if (closed) {
-      return IllegalStateException("MapState is closed; a closed state cannot mutate the style")
-    }
-    val binding = state.record.read { this.binding }
+  private fun addAccepted(
+    binding: StyleBinding,
+    id: String,
+    addTo: (StyleBinding) -> Unit,
+  ): Throwable? {
+    val refusal =
+      state.record.read {
+        when {
+          closed ->
+            IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+          this.binding !== binding ->
+            IllegalStateException("Image '$id' was not added: the style unloaded during the add")
+          else -> null
+        }
+      }
+    if (refusal != null) return refusal
     if (!binding.isLoaded) {
       return IllegalStateException("No loaded style; an image can only be added to a loaded style")
     }
@@ -127,23 +129,28 @@ public class StyleImages internal constructor(private val state: MapState) {
     }
   }
 
-  private fun removeAccepted(id: String): Throwable? {
+  private fun removeAccepted(binding: StyleBinding, id: String): Throwable? {
     val refusal =
       state.record.read {
         when {
           closed ->
             IllegalStateException("MapState is closed; a closed state cannot mutate the style")
-          !binding.isLoaded ->
+          this.binding !== binding ->
             IllegalStateException(
-              "No loaded style; an image can only be removed from a loaded style"
+              "Image '$id' was not removed: the style unloaded during the removal"
             )
-          id !in appImages ->
-            IllegalArgumentException("Image id '$id' was not added through this state")
           else -> null
         }
       }
     if (refusal != null) return refusal
-    val binding = state.record.read { this.binding }
+    if (!binding.isLoaded) {
+      return IllegalStateException(
+        "No loaded style; an image can only be removed from a loaded style"
+      )
+    }
+    if (state.record.read { id !in appImages }) {
+      return IllegalArgumentException("Image id '$id' was not added through this state")
+    }
     return try {
       binding.removeImage(id)
       if (!state.commitAppImageRemoval(binding, id)) {

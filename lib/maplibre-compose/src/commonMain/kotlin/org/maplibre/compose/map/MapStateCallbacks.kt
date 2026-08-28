@@ -39,22 +39,22 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onMapDestroyed(map: MapAdapter) {
-    state.commit { mapDestroyed(map) }
+    state.commitFromPlatform { mapDestroyed(map) }
   }
 
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
-    state.commit { styleChanged(map, style, styleGeneration) }
+    state.commitFromPlatform { styleChanged(map, style, styleGeneration) }
   }
 
   override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
     val source = state.attachedAdapter ?: state.engine.detachedAdapter
-    state.commit {
+    state.commitFromPlatform {
       styleLoadFailed(source, styleGeneration, reason ?: "MapLibre failed to load the map")
     }
   }
 
   override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
-    state.commit { styleLoadFinished(map, styleGeneration) }
+    state.commitFromPlatform { styleLoadFinished(map, styleGeneration) }
   }
 
   /** Test helper: finish the current generation. */
@@ -73,21 +73,21 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-    state.commit { cameraMoveStarted(map, reason) }
+    state.commitFromPlatform { cameraMoveStarted(map, reason) }
   }
 
   override fun onCameraMoved(map: MapAdapter) {
     val position = map.getCameraPosition()
     val viewport = map.getViewport()
-    state.commit { cameraMoved(map, position, viewport) }
+    state.commitFromPlatform { cameraMoved(map, position, viewport) }
   }
 
   override fun onCameraMoveEnded(map: MapAdapter) {
-    state.commit { cameraMoveEnded(map) }
+    state.commitFromPlatform { cameraMoveEnded(map) }
   }
 
   override fun onSurfaceLost(map: MapAdapter) {
-    state.commit { surfaceLost(map) }
+    state.commitFromPlatform { surfaceLost(map) }
   }
 
   /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */

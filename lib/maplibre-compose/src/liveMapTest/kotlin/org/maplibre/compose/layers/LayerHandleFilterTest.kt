@@ -37,6 +37,26 @@ class LayerHandleFilterTest {
       hostDispatcher = StandardTestDispatcher(testScheduler),
     )
 
+  @Test
+  fun a_layer_read_does_not_hold_the_record_lock_across_the_binding() = runTest {
+    val state = mapState()
+    val binding =
+      object : OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg"))) {
+        override fun getLayer(id: String): Layer? {
+          state.record.read { camera }
+          return super.getLayer(id)
+        }
+      }
+    attach(state, binding)
+
+    val handle = assertNotNull(state.layers["bg"])
+    assertEquals("background", handle.type)
+    handle.minZoom = 4f
+    assertEquals(4f, handle.minZoom)
+
+    state.close()
+  }
+
   private fun TestScope.attach(state: MapState, binding: OpRecordingStyleBinding) {
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)

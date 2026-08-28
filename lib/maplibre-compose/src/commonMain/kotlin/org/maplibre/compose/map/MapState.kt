@@ -319,12 +319,16 @@ internal constructor(
     get() = record.read { bindingGeneration }
 
   /** The live layer named [id] when [styleGeneration] and [bindingGeneration] are still current. */
-  internal fun liveLayer(styleGeneration: Long, bindingGeneration: Long, id: String): Layer? =
-    record.read {
-      if (this.styleGeneration != styleGeneration) return@read null
-      if (this.bindingGeneration != bindingGeneration) return@read null
-      binding.takeIf { it.isLoaded }?.getLayer(id)
-    }
+  internal fun liveLayer(styleGeneration: Long, bindingGeneration: Long, id: String): Layer? {
+    val binding =
+      record.read {
+        if (this.styleGeneration != styleGeneration) return@read null
+        if (this.bindingGeneration != bindingGeneration) return@read null
+        binding.takeUnless { it === StyleBinding.UNLOADED }
+      } ?: return null
+    if (!binding.isLoaded) return null
+    return binding.getLayer(id)
+  }
 
   /**
    * Applies [write] to the live layer only when the handle's generations are still current. The
@@ -338,23 +342,24 @@ internal constructor(
     write: (Layer) -> Unit,
   ) {
     commit {
-      authorizeLayerWrite(styleGeneration, bindingGeneration, id)
-        ?: run {
-          check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
-          check(
-            styleGeneration == this.styleGeneration && bindingGeneration == this.bindingGeneration
-          ) {
-            "Layer '$id' was taken from a style that a base style load replaced; get a " +
-              "fresh handle from MapState.layers"
+      val binding =
+        authorizeLayerWrite(styleGeneration, bindingGeneration, id)
+          ?: run {
+            check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
+            check(
+              styleGeneration == this.styleGeneration && bindingGeneration == this.bindingGeneration
+            ) {
+              "Layer '$id' was taken from a style that a base style load replaced; get a " +
+                "fresh handle from MapState.layers"
+            }
+            check(!layerIsCompositionOwned(id)) {
+              "Layer '$id' is owned by the style composition; change it by recomposing " +
+                "the content rather than through MapState.layers"
+            }
+            error("No loaded style; a layer can only be mutated on a loaded style")
           }
-          check(!layerIsCompositionOwned(id)) {
-            "Layer '$id' is owned by the style composition; change it by recomposing " +
-              "the content rather than through MapState.layers"
-          }
-          error("No loaded style; a layer can only be mutated on a loaded style")
-        }
       enqueue {
-        val layer = liveLayer(styleGeneration, bindingGeneration, id) ?: return@enqueue
+        val layer = binding.takeIf { it.isLoaded }?.getLayer(id) ?: return@enqueue
         write(layer)
       }
     }
@@ -685,14 +690,35 @@ internal constructor(
 
   /**
    * Applies [transform] under the record lock, publishes the Compose snapshot, then drains queued
-   * effects in commit order. The native lock is not reentrant, so snapshot writes and callbacks
-   * stay outside the token. A reentrant commit from an effect only enqueues; the running drain
-   * executes that work after the effect that produced it.
+   * effects in commit order. Public callers wait until their platform work finishes. A reentrant
+   * commit from an effect only enqueues.
    */
-  internal fun <T> commit(transform: MapRecord.() -> T): T {
+  internal fun <T> commit(transform: MapRecord.() -> T): T =
+    applyCommit(waitForIdle = true, transform)
+
+  /**
+   * Records a platform callback. If a drain is already running, new effects sit behind it and this
+   * call returns without waiting, so an owner-thread callback cannot deadlock with that drain.
+   */
+  internal fun <T> commitFromPlatform(transform: MapRecord.() -> T): T =
+    applyCommit(waitForIdle = false, transform)
+
+  /** Runs a style mutation on the host, then publishes ownership only if the binding is current. */
+  internal suspend fun runStyleEffect(effect: (StyleBinding) -> Unit) {
+    host.runSerialized {
+      var failure: Throwable? = null
+      commit {
+        val captured = binding
+        enqueue { failure = runCatching { effect(captured) }.exceptionOrNull() }
+      }
+      failure?.let { throw it }
+    }
+  }
+
+  private fun <T> applyCommit(waitForIdle: Boolean, transform: MapRecord.() -> T): T {
     val value = record.mutate(transform)
     publishRecord()
-    record.drain()
+    record.drain(waitForIdle)
     return value
   }
 

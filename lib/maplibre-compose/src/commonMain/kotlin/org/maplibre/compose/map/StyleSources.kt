@@ -75,14 +75,8 @@ public class StyleSources internal constructor(private val state: MapState) {
    *   MapLibre refuses the source.
    */
   public suspend fun add(source: Source) {
-    state.host.runSerialized {
-      var failure: Throwable? = null
-      state.commit {
-        enqueue { failure = addAccepted(source) }
-      }
-      failure?.let { throw it }
-      refreshSource(source.id)
-    }
+    state.runStyleEffect { binding -> addAccepted(binding, source)?.let { throw it } }
+    refreshSource(source.id)
   }
 
   /**
@@ -93,23 +87,19 @@ public class StyleSources internal constructor(private val state: MapState) {
    *   style or the style composition owns [id], or when a live layer still draws from the source.
    */
   public suspend fun remove(id: String) {
-    state.host.runSerialized {
-      var failure: Throwable? = null
-      state.commit {
-        enqueue { failure = removeAccepted(id) }
-      }
-      failure?.let { throw it }
-      refreshSource(id)
-    }
+    state.runStyleEffect { binding -> removeAccepted(binding, id)?.let { throw it } }
+    refreshSource(id)
   }
 
-  private fun addAccepted(source: Source): Throwable? {
+  private fun addAccepted(binding: StyleBinding, source: Source): Throwable? {
     val id = source.id
     val refusal =
       state.record.read {
         when {
           closed ->
             IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+          this.binding !== binding ->
+            IllegalStateException("Source '$id' was not added: the style unloaded during the add")
           id in compositionSources ->
             IllegalArgumentException("Source id '$id' is owned by the style composition")
           id in appSources ->
@@ -121,7 +111,6 @@ public class StyleSources internal constructor(private val state: MapState) {
     if (state.styleNode.sourceManager.desiredSources.any { it.id == id }) {
       return IllegalArgumentException("Source id '$id' is owned by the style composition")
     }
-    val binding = state.record.read { this.binding }
     if (!binding.isLoaded) {
       return IllegalStateException("No loaded style; a source can only be added to a loaded style")
     }
@@ -133,9 +122,7 @@ public class StyleSources internal constructor(private val state: MapState) {
     }
     return try {
       binding.addSource(source)
-      if (source.binding !== binding) {
-        IllegalStateException("Source '$id' was not added: the style unloaded during the add")
-      } else if (!state.commitAppSource(binding, source)) {
+      if (source.binding !== binding || !state.commitAppSource(binding, source)) {
         IllegalStateException("Source '$id' was not added: the style unloaded during the add")
       } else {
         null
@@ -145,23 +132,26 @@ public class StyleSources internal constructor(private val state: MapState) {
     }
   }
 
-  private fun removeAccepted(id: String): Throwable? {
-    val refusal =
+  private fun removeAccepted(binding: StyleBinding, id: String): Throwable? {
+    val (refusal, appSource) =
       state.record.read {
         when {
           closed ->
-            IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+            IllegalStateException("MapState is closed; a closed state cannot mutate the style") to
+              null
+          this.binding !== binding ->
+            IllegalStateException(
+              "Source '$id' was not removed: the style unloaded during the removal"
+            ) to null
           id in compositionSources ->
             IllegalStateException(
               "Source '$id' is owned by the style composition; remove it by recomposing the " +
                 "content rather than through MapState.sources"
-            )
-          else -> null
+            ) to null
+          else -> null to appSources[id]
         }
       }
     if (refusal != null) return refusal
-    val binding = state.record.read { this.binding }
-    val appSource = state.record.read { appSources[id] }
     if (!binding.isLoaded) {
       return IllegalStateException(
         "No loaded style; a source can only be removed from a loaded style"

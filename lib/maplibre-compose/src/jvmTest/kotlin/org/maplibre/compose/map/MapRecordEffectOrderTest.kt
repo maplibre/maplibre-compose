@@ -46,4 +46,40 @@ class MapRecordEffectOrderTest {
 
     assertEquals(listOf("A-start", "A-end", "B"), log.toList())
   }
+
+  @Test
+  fun a_callback_drain_does_not_wait_for_the_active_drainer() {
+    val record = MapRecord(CameraPosition())
+    val log = Collections.synchronizedList(mutableListOf<String>())
+    val startedA = CountDownLatch(1)
+    val releaseOwner = CountDownLatch(1)
+
+    val drainer = Thread {
+      record.mutate {
+        enqueue {
+          log += "A-start"
+          startedA.countDown()
+          assertTrue(releaseOwner.await(5, TimeUnit.SECONDS))
+          log += "A-end"
+        }
+      }
+      record.drain()
+    }
+    drainer.start()
+    assertTrue(startedA.await(5, TimeUnit.SECONDS))
+
+    val callback = Thread {
+      record.mutate { enqueue { log += "C" } }
+      record.drain(waitForIdle = false)
+      log += "callback-returned"
+    }
+    callback.start()
+    callback.join(5_000)
+    assertTrue(!callback.isAlive, "a platform callback must not wait for the active drain")
+
+    releaseOwner.countDown()
+    drainer.join(5_000)
+    assertTrue(!drainer.isAlive)
+    assertEquals(listOf("A-start", "callback-returned", "A-end", "C"), log.toList())
+  }
 }

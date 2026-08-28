@@ -47,26 +47,30 @@ internal class MapRecord(initialCamera: CameraPosition) {
   }
 
   /**
-   * Runs queued effects in commit order. A reentrant call from an effect returns immediately so the
-   * new work sits behind the current drain. A caller that is not the drainer waits until the drain
-   * is idle, so a public mutation's platform call finishes before that call returns.
+   * Runs queued effects in commit order. A reentrant call returns immediately so new work sits
+   * behind the current drain. A public caller waits until idle. A platform callback must pass
+   * [waitForIdle] false: it records and enqueues, and never waits on a drain that may be blocked on
+   * this owner thread.
    */
-  fun drain() {
+  fun drain(waitForIdle: Boolean = true) {
     val me = currentThreadToken()
     while (true) {
-      when (val action = nextDrainAction(me)) {
+      when (val action = nextDrainAction(me, waitForIdle)) {
         DrainAction.Idle,
-        DrainAction.Reentrant -> return
+        DrainAction.Reentrant,
+        DrainAction.Park -> return
         is DrainAction.Wait -> action.gate.await()
         DrainAction.Run -> runDrain(me)
       }
     }
   }
 
-  private fun nextDrainAction(me: Any): DrainAction = effectLock.withLock {
+  private fun nextDrainAction(me: Any, waitForIdle: Boolean): DrainAction = effectLock.withLock {
     when {
       drainOwner === me -> DrainAction.Reentrant
-      drainOwner != null -> DrainAction.Wait(idleGate ?: newIdleGate().also { idleGate = it })
+      drainOwner != null && waitForIdle ->
+        DrainAction.Wait(idleGate ?: newIdleGate().also { idleGate = it })
+      drainOwner != null -> DrainAction.Park
       effects.isEmpty() -> DrainAction.Idle
       else -> {
         drainOwner = me
@@ -429,7 +433,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     if (styleGeneration != this.styleGeneration) return null
     if (bindingGeneration != this.bindingGeneration) return null
     if (layerIsCompositionOwned(layerId)) return null
-    if (!binding.isLoaded) return null
+    if (binding === StyleBinding.UNLOADED) return null
     return binding
   }
 
@@ -446,44 +450,37 @@ internal class MapRecord(initialCamera: CameraPosition) {
     layerIds: Set<String>,
     sources: Map<String, Source>,
   ): Boolean {
-    if (closed) return false
-    if (this.binding !== binding) return false
+    if (!accepts(binding)) return false
     compositionLayerIds = layerIds
     compositionSources = sources
     return true
   }
 
   fun commitAppSource(binding: StyleBinding, source: Source): Boolean {
-    if (closed) return false
-    if (this.binding !== binding || !binding.isLoaded) return false
-    if (source.id in compositionSources) return false
+    if (!accepts(binding) || source.id in compositionSources) return false
     appSources = appSources + (source.id to source)
     return true
   }
 
   fun removeAppSource(binding: StyleBinding, id: String): Boolean {
-    if (closed) return false
-    if (this.binding !== binding) return false
-    if (id !in appSources) return false
+    if (!accepts(binding) || id !in appSources) return false
     appSources = appSources - id
     return true
   }
 
   fun commitAppImage(binding: StyleBinding, id: String): Boolean {
-    if (closed) return false
-    if (this.binding !== binding || !binding.isLoaded) return false
-    if (id in appImages) return true
-    appImages = appImages + id
+    if (!accepts(binding)) return false
+    if (id !in appImages) appImages = appImages + id
     return true
   }
 
   fun removeAppImage(binding: StyleBinding, id: String): Boolean {
-    if (closed) return false
-    if (this.binding !== binding) return false
-    if (id !in appImages) return false
+    if (!accepts(binding) || id !in appImages) return false
     appImages = appImages - id
     return true
   }
+
+  private fun accepts(binding: StyleBinding): Boolean = !closed && this.binding === binding
 
   fun layerIsCompositionOwned(id: String): Boolean = id in compositionLayerIds
 
@@ -550,6 +547,9 @@ private sealed interface DrainAction {
   data object Reentrant : DrainAction
 
   data object Run : DrainAction
+
+  /** Work is queued; the active drain will run it. */
+  data object Park : DrainAction
 
   class Wait(val gate: IdleGate) : DrainAction
 }
