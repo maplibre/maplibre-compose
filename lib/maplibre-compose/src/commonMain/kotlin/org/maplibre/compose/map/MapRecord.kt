@@ -164,7 +164,14 @@ internal class MapRecord(initialCamera: CameraPosition) {
     renderer = RendererState.Session(adapter)
     if (previous !== adapter) {
       enqueue { applySessionOptions(adapter) }
-      if (!reuseLoadedStyle) selectedStyle?.let { emitLoad(adapter, it) }
+      if (!reuseLoadedStyle) {
+        selectedStyle?.let { style ->
+          // A new adapter must load even when the previous session already finished this
+          // generation, so waiters and load hooks see a Loading-to-Ready transition.
+          loadState = MapLoadState.Loading(styleGeneration, style)
+          emitLoad(adapter, style)
+        }
+      }
       sendCamera(adapter, camera)
     }
   }
