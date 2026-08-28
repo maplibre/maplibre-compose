@@ -5,6 +5,7 @@ import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 
@@ -81,5 +82,56 @@ class MapRecordEffectOrderTest {
     drainer.join(5_000)
     assertTrue(!drainer.isAlive)
     assertEquals(listOf("A-start", "callback-returned", "A-end", "C"), log.toList())
+  }
+
+  @Test
+  fun a_shared_thread_name_does_not_make_two_threads_reentrant() {
+    val record = MapRecord(CameraPosition())
+    val sharedName = "map-owner"
+    val log = Collections.synchronizedList(mutableListOf<String>())
+    val startedA = CountDownLatch(1)
+    val releaseA = CountDownLatch(1)
+    val bReturned = CountDownLatch(1)
+
+    val first =
+      Thread(
+        {
+          Thread.currentThread().name = sharedName
+          record.mutate {
+            enqueue {
+              log += "A-start"
+              startedA.countDown()
+              assertTrue(releaseA.await(5, TimeUnit.SECONDS))
+              log += "A-end"
+            }
+          }
+          record.drain()
+        },
+        sharedName,
+      )
+    first.start()
+    assertTrue(startedA.await(5, TimeUnit.SECONDS))
+
+    val second =
+      Thread(
+        {
+          Thread.currentThread().name = sharedName
+          record.mutate { enqueue { log += "B" } }
+          record.drain()
+          log += "B-returned"
+          bReturned.countDown()
+        },
+        sharedName,
+      )
+    second.start()
+    assertFalse(
+      bReturned.await(200, TimeUnit.MILLISECONDS),
+      "a public drain must wait; a shared thread name is not identity",
+    )
+    releaseA.countDown()
+    assertTrue(bReturned.await(5, TimeUnit.SECONDS))
+    first.join(5_000)
+    second.join(5_000)
+    assertEquals(listOf("A-start", "A-end", "B", "B-returned"), log.toList())
   }
 }

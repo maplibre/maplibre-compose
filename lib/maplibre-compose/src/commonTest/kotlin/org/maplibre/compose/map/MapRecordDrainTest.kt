@@ -2,6 +2,7 @@ package org.maplibre.compose.map
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
 
 class MapRecordDrainTest {
@@ -24,6 +25,13 @@ class MapRecordDrainTest {
       enqueue { log += "B" }
     }
     assertEquals(listOf("A-start", "A-end", "B", "C"), log)
+  }
+
+  @Test
+  fun current_thread_token_is_stable() {
+    val first = currentThreadToken()
+    val second = currentThreadToken()
+    assertTrue(first === second, "the drain compares tokens with identity")
   }
 
   @Test

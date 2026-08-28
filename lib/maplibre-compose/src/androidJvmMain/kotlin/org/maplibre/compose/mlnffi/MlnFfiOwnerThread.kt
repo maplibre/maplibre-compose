@@ -25,3 +25,5 @@ internal actual class MlnFfiOwnerThread actual constructor(name: String, body: (
 }
 
 internal actual fun currentMlnFfiThreadName(): String = Thread.currentThread().name
+
+internal actual fun currentMlnFfiThreadToken(): Any = Thread.currentThread()

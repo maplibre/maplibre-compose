@@ -2,7 +2,7 @@ package org.maplibre.compose.map
 
 import org.maplibre.compose.mlnffi.MlnFfiGate
 import org.maplibre.compose.mlnffi.MlnFfiLock
-import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
+import org.maplibre.compose.mlnffi.currentMlnFfiThreadToken
 import org.maplibre.compose.mlnffi.withLock
 
 internal actual fun newSessionLock(): SessionLock {
@@ -12,7 +12,7 @@ internal actual fun newSessionLock(): SessionLock {
   }
 }
 
-internal actual fun currentThreadToken(): Any = currentMlnFfiThreadName()
+internal actual fun currentThreadToken(): Any = currentMlnFfiThreadToken()
 
 internal actual fun newIdleGate(): IdleGate {
   val gate = MlnFfiGate()

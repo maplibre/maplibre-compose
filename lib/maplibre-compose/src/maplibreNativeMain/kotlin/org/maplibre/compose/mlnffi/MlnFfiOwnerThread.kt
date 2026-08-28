@@ -44,3 +44,6 @@ internal expect class MlnFfiOwnerThread(name: String, body: () -> Unit) {
 
 /** The name of the calling thread, for diagnostics. */
 internal expect fun currentMlnFfiThreadName(): String
+
+/** A stable identity for the calling thread. The effect drain compares these with `===`. */
+internal expect fun currentMlnFfiThreadToken(): Any

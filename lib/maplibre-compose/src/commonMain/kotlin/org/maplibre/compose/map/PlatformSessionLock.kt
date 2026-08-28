@@ -5,7 +5,10 @@ package org.maplibre.compose.map
  */
 internal expect fun newSessionLock(): SessionLock
 
-/** Identifies the calling thread so the effect drain can tell a reentrant call from a rival. */
+/**
+ * A stable identity for the calling thread. The effect drain compares these with referential
+ * identity so a reentrant call parks instead of waiting on itself.
+ */
 internal expect fun currentThreadToken(): Any
 
 /**

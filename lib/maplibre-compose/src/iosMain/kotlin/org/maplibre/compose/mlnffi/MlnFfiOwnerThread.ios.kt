@@ -124,3 +124,7 @@ internal actual fun currentMlnFfiThreadName(): String = memScoped {
   }
   name.toKString()
 }
+
+@kotlin.native.concurrent.ThreadLocal private var threadToken: Any? = null
+
+internal actual fun currentMlnFfiThreadToken(): Any = threadToken ?: Any().also { threadToken = it }
