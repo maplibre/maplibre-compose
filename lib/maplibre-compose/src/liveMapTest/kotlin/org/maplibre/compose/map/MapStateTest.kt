@@ -103,10 +103,12 @@ class MapStateTest {
     val second = FakeMapAdapter()
     val secondBinding = OpRecordingStyleBinding()
     state.attachSession(second)
-    // The first session finished the load; a new adapter does not reset that Ready.
-    assertIs<MapLoadState.Ready>(state.loadState)
+    // A new adapter loads the selected style even when the previous session already finished it.
+    assertIs<MapLoadState.Loading>(state.loadState)
     state.callbacks.onStyleChanged(second, secondBinding)
+    state.callbacks.onMapFinishedLoading(second)
     state.host.awaitPendingWork()
+    assertIs<MapLoadState.Ready>(state.loadState)
 
     // The new session gets the deferred camera and a fresh apply of the same desired state.
     assertSame(second, state.attachedAdapter)
