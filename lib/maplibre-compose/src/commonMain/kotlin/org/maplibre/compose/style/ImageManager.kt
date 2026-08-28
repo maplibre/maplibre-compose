@@ -34,7 +34,6 @@ internal class ImageManager(private val node: StyleNode) {
   private fun ensureAttachedLocked() {
     val binding = node.binding
     if (attachedTo === binding) return
-    attachedTo = binding
     bitmapIds.entries.forEach { (key, id) ->
       node.logger?.i { "Re-adding bitmap $id" }
       binding.addImage(id, key.bitmap, key.isSdf, key.stretch)
@@ -43,6 +42,9 @@ internal class ImageManager(private val node: StyleNode) {
       node.logger?.i { "Re-adding painter $id" }
       binding.addImage(id, key.renderToImage(), key.drawAsSdf, key.stretch)
     }
+    // Published last: a throw above leaves the attachment incomplete, and the next sync retries
+    // the whole replay.
+    attachedTo = binding
   }
 
   internal fun acquireBitmap(key: BitmapKey): String = lock.withLock {

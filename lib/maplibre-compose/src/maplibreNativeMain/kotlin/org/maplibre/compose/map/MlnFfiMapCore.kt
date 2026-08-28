@@ -652,6 +652,20 @@ internal class MlnFfiMapCore(
     }
   }
 
+  /**
+   * Replays the camera that [read] returns, evaluated on the owner thread as the send runs, so the
+   * freshest record wins over any racing write.
+   */
+  internal fun replayCameraRecord(read: () -> CameraPosition) {
+    configureMap { map ->
+      val position = read()
+      requestedCamera = position
+      map.jumpTo(position.toCameraOptions(cameraPadding))
+      appliedCameraPadding = cameraPadding
+      snapshotViewport(map)
+    }
+  }
+
   private fun recordCamera(position: CameraPosition) {
     requestedCamera = position
     val padding = cameraPadding

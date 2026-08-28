@@ -11,6 +11,7 @@ import kotlin.time.TimeSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.createSnapshotTarget
@@ -233,6 +234,24 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     }
   }
 
+  /**
+   * A composition that never quiesces, such as one animating on the frame clock, fails the capture
+   * at [timeout] instead of holding the reservation forever.
+   */
+  private suspend fun awaitQuiescentOrFail(
+    deadline: TimeSource.Monotonic.ValueTimeMark,
+    timeout: Duration,
+  ) {
+    val remaining = -deadline.elapsedNow()
+    check(remaining.isPositive()) {
+      "The style composition did not settle within $timeout; is the content animating?"
+    }
+    withTimeoutOrNull(remaining) { state.host.awaitPendingWork() }
+      ?: throw IllegalStateException(
+        "The style composition did not settle within $timeout; is the content animating?"
+      )
+  }
+
   /** Serializes snapshots: the map has one live render session, so two cannot pump at once. */
   private val snapshotMutex = Mutex()
 
@@ -287,13 +306,11 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         )
       )
       core.setCameraPadding(PaddingValues(0.dp))
-      core.setCameraPosition(state.camera)
+      core.replayCameraRecord { state.camera }
       awaitStyleLoaded(core, deadline, timeout)
       // One sync of the desired style composition against the loaded style before rendering.
       state.host.requestApplyChanges()
-      state.host.awaitPendingWork()
-      // A setCamera that raced the replay above re-sends here, so the image holds the record.
-      core.setCameraPosition(state.camera)
+      awaitQuiescentOrFail(deadline, timeout)
       return renderStillImage(
         core = core,
         target = target,
@@ -306,7 +323,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
           state.viewportState.value = core.getViewport()
           // One more sync so that content reaches the loaded style before the final frame.
           state.host.requestApplyChanges()
-          state.host.awaitPendingWork()
+          awaitQuiescentOrFail(deadline, timeout)
         },
       )
     } finally {

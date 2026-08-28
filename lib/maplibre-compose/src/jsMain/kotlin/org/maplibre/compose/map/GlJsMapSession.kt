@@ -292,6 +292,10 @@ internal class GlJsMapSession(
 
   private fun destroyMap() {
     hasLoadedInitialStyle = false
+    // The replacement map loads its first style from scratch; presenting before then shows blank
+    // frames instead of the load placeholder.
+    hasLoadedFirstStyle = false
+    endCameraMove()
     val current = map ?: return
     // The replacement map starts where this one left off, not at the last requested position.
     runCatching { requestedCamera = current.cameraPosition() }

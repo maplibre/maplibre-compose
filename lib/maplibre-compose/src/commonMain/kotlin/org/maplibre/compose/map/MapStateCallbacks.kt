@@ -54,6 +54,9 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
 
   override fun onMapFailLoading(reason: String?) {
     state.lastLoadFailure.value = reason ?: "MapLibre failed to load the map"
+    // The switch's flicker guard preserved the old style's sources; a terminal failure means no
+    // load will replace them.
+    state.sources.clear()
     // A retained map can fail a load between sessions; the next attach replays the report.
     if (state.attachedAdapter == null) {
       state.bufferDetachedLoadFailure(reason ?: "MapLibre failed to load the map")
