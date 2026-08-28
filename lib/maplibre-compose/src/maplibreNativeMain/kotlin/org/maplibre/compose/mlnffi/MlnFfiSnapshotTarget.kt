@@ -24,3 +24,9 @@ internal interface MlnFfiSnapshotTarget : AutoCloseable {
  * packaged runtime has no backend this platform can drive without a UI.
  */
 internal expect fun createSnapshotTarget(): MlnFfiSnapshotTarget
+
+/**
+ * Throws [UnsupportedOperationException] when [createSnapshotTarget] would. Does not allocate a
+ * graphics context.
+ */
+internal expect fun requireSnapshotSupported()

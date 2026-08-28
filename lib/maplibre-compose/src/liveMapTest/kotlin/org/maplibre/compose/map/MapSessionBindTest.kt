@@ -1,12 +1,14 @@
 package org.maplibre.compose.map
 
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertSame
 import kotlin.test.assertTrue
 import org.maplibre.compose.camera.CameraPosition
+import org.maplibre.compose.style.BaseStyle
 
 class MapSessionBindTest {
 
@@ -74,6 +76,22 @@ class MapSessionBindTest {
     assertTrue(state.isAttached)
     state.detachSession()
     resource.release()
+    state.close()
+  }
+
+  @Test
+  fun the_still_image_pump_sees_a_frozen_generation_failure() {
+    val state = MapState(CameraPosition())
+    val adapter = FakeMapAdapter()
+    state.attachSession(adapter)
+    val frozen = state.record.read { styleGeneration }
+    state.detachSession()
+    state.commit { beginCapture() }
+    state.baseStyle = BaseStyle.Empty
+    state.commit { styleLoadFailed(adapter, frozen, "frozen failed") }
+    assertEquals("frozen failed", state.captureRenderFailure(frozen))
+    assertNull(state.captureRenderFailure(frozen + 1))
+    state.commit { finishCapture(state.record.read { (renderer as RendererState.Capture).id }) }
     state.close()
   }
 }

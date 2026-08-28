@@ -42,16 +42,21 @@ internal actual class MapEngine actual constructor(@Suppress("unused") state: Ma
     if (this.session === session) this.session = null
   }
 
+  actual fun requireStillImageSupported() {
+    throw UnsupportedOperationException(
+      "MapLibre GL JS has no still-image API; MapState.captureStillImage is unavailable in the " +
+        "browser"
+    )
+  }
+
   actual suspend fun captureStillImage(
     width: Dp,
     height: Dp,
     timeout: Duration,
     @Suppress("UNUSED_PARAMETER") capture: RendererState.Capture,
   ): ImageBitmap {
-    throw UnsupportedOperationException(
-      "MapLibre GL JS has no still-image API; MapState.captureStillImage is unavailable in the " +
-        "browser"
-    )
+    requireStillImageSupported()
+    throw AssertionError("MapLibre GL JS has no still-image API")
   }
 
   actual override fun close() {

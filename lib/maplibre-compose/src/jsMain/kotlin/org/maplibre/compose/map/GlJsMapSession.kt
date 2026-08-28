@@ -44,6 +44,7 @@ import org.maplibre.compose.gljs.QueryGeometry
 import org.maplibre.compose.gljs.QueryRenderedFeaturesOptions
 import org.maplibre.compose.gljs.SetStyleOptions
 import org.maplibre.compose.gljs.isCameraEasing
+import org.maplibre.compose.gljs.isStyleDocumentError
 import org.maplibre.compose.gljs.queryBox
 import org.maplibre.compose.gljs.queryPoint
 import org.maplibre.compose.gljs.styleJson
@@ -421,13 +422,13 @@ internal class GlJsMapSession(
     }
     map.subscribe("error") { event ->
       val reason = event.error?.message ?: "MapLibre failed to load the map"
-      if (styleLoadPending) {
+      if (styleLoadPending && event.isStyleDocumentError()) {
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
         callbacks.onMapFailLoading(reason, requestedGeneration)
         if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
-        // Tile and sprite failures land here too, and are not the map failing to load.
+        // Source, tile, and sprite failures land here too, and are not the map failing to load.
         logger?.w { "MapLibre reported an error: $reason" }
       }
     }

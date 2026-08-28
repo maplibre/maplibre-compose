@@ -17,6 +17,7 @@ import org.maplibre.compose.mlnffi.MapRenderBackend
 import org.maplibre.compose.mlnffi.MlnFfiLock
 import org.maplibre.compose.mlnffi.createSnapshotTarget
 import org.maplibre.compose.mlnffi.ensureMlnFfiConfigured
+import org.maplibre.compose.mlnffi.requireSnapshotSupported
 import org.maplibre.compose.mlnffi.withLock
 
 /** How long [MapEngine.captureStillImage] parks between style-loaded polls. */
@@ -222,6 +223,10 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
   /** Serializes snapshots: the map has one live render session, so two cannot pump at once. */
   private val snapshotMutex = Mutex()
 
+  actual fun requireStillImageSupported() {
+    requireSnapshotSupported()
+  }
+
   actual suspend fun captureStillImage(
     width: Dp,
     height: Dp,
@@ -283,14 +288,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         width = width.value.roundToInt(),
         height = height.value.roundToInt(),
         deadline = deadline,
-        loadFailure = {
-          val load = state.loadState
-          if (load is MapLoadState.Failed && load.generation == capture.styleGeneration) {
-            load.reason
-          } else {
-            null
-          }
-        },
+        loadFailure = { state.captureRenderFailure(capture.styleGeneration) },
         onViewportReady = {
           state.onCaptureViewport(core.getViewport())
           state.host.requestApplyChanges()
@@ -314,12 +312,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     while (core.loadedStyleGeneration < styleGeneration) {
       // The render loop fails a closed core the same way, so a close never waits out the timeout.
       check(!core.isClosed) { "MapState was closed while a still image was rendering" }
-      state.captureLoadFailure(styleGeneration)?.let { reason ->
+      state.captureRenderFailure(styleGeneration)?.let { reason ->
         throw IllegalStateException("The map failed to load: $reason")
-      }
-      val load = state.loadState
-      if (load is MapLoadState.Failed && load.generation == styleGeneration) {
-        throw IllegalStateException("The map failed to load: ${load.reason}")
       }
       check(deadline.hasNotPassedNow()) { "The style did not load within $timeout" }
       delay(STYLE_POLL_MILLIS)

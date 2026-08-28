@@ -11,6 +11,8 @@ import org.maplibre.nativeffi.render.RenderTargetExtent
 import platform.Metal.MTLCreateSystemDefaultDevice
 import platform.Metal.MTLDeviceProtocol
 
+internal actual fun requireSnapshotSupported() = Unit
+
 internal actual fun createSnapshotTarget(): MlnFfiSnapshotTarget = IosMetalSnapshotTarget()
 
 /** The system Metal device, since a texture session requires a non-null device. */

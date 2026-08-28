@@ -22,7 +22,9 @@ import org.maplibre.compose.expressions.dsl.nil
 import org.maplibre.compose.expressions.value.EquatableValue
 import org.maplibre.compose.map.FakeMapAdapter
 import org.maplibre.compose.map.MapState
+import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.OpRecordingStyleBinding
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.util.toStyleJson
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -155,6 +157,31 @@ class LayerHandleFilterTest {
 
     val handle = assertNotNull(state.layers["comp-layer"])
     assertFailsWith<IllegalStateException> { handle.setFilter(const(true)) }
+
+    state.close()
+    testScheduler.advanceUntilIdle()
+  }
+
+  @Test
+  fun a_rejected_property_keeps_the_previous_value() = runTest {
+    val state = mapState()
+    val binding =
+      object : OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg"))) {
+        override fun setLayerProperty(
+          layerId: String,
+          name: String,
+          value: JsonElement,
+          kind: LayerPropertyKind,
+        ): Boolean {
+          if (name == "visibility") throw StyleMutationException("engine refused", null)
+          return super.setLayerProperty(layerId, name, value, kind)
+        }
+      }
+    attach(state, binding)
+
+    val handle = assertNotNull(state.layers["bg"])
+    handle.visible = false
+    assertEquals(true, handle.visible, "a refused write must keep the previous value")
 
     state.close()
     testScheduler.advanceUntilIdle()

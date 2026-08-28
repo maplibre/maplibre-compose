@@ -63,7 +63,7 @@ import org.maplibre.compose.util.rethrowIfFatal
  */
 internal class StyleCompositionHost(
   private val rootNode: StyleNode,
-  uiDispatcher: CoroutineDispatcher,
+  private val uiDispatcher: CoroutineDispatcher,
   density: Density,
   layoutDirection: LayoutDirection,
   // Mutable so a host constructed before the composable's logger is known picks it up.
@@ -311,6 +311,13 @@ internal class StyleCompositionHost(
       }
     }
   }
+
+  /**
+   * Runs [block] on the UI dispatcher the host uses. A caller already on that dispatcher continues
+   * inline, so `runBlocking` on Main does not deadlock. Off-host suspend APIs hop here so their
+   * commits serialize with [postLogical] and with style sync.
+   */
+  internal suspend fun <T> runOnHost(block: () -> T): T = withContext(uiDispatcher) { block() }
 
   /**
    * Runs [block] on the host dispatcher and returns its result, rethrowing what it throws. The

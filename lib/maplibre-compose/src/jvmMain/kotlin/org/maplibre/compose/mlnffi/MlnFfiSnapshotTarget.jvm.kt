@@ -50,16 +50,23 @@ import org.maplibre.nativeffi.render.RenderTargetExtent
 import org.maplibre.nativeffi.render.VulkanContextDescriptor
 import org.maplibre.nativeffi.render.VulkanOwnedTextureDescriptor
 
+internal actual fun requireSnapshotSupported() {
+  val backends = Maplibre.supportedRenderBackends()
+  if (RenderBackend.VULKAN !in backends && RenderBackend.METAL !in backends) {
+    throw UnsupportedOperationException(
+      "MapState.captureStillImage has no still-image path for the packaged desktop runtime " +
+        "(${backends.joinToString().ifEmpty { "none" }}); package the Vulkan or Metal runtime"
+    )
+  }
+}
+
 internal actual fun createSnapshotTarget(): MlnFfiSnapshotTarget {
+  requireSnapshotSupported()
   val backends = Maplibre.supportedRenderBackends()
   return when {
     RenderBackend.VULKAN in backends -> JvmVulkanSnapshotTarget()
     RenderBackend.METAL in backends -> JvmMetalSnapshotTarget()
-    else ->
-      throw UnsupportedOperationException(
-        "MapState.captureStillImage has no still-image path for the packaged desktop runtime " +
-          "(${backends.joinToString().ifEmpty { "none" }}); package the Vulkan or Metal runtime"
-      )
+    else -> error("requireSnapshotSupported accepted a runtime with no snapshot backend")
   }
 }
 

@@ -43,6 +43,7 @@ import org.maplibre.compose.style.LayerPropertyKind
 import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.style.StyleCompositionHost
 import org.maplibre.compose.style.StyleError
+import org.maplibre.compose.style.StyleMutationException
 import org.maplibre.compose.style.StyleNode
 import org.maplibre.compose.util.MaplibreComposable
 import org.maplibre.compose.util.toStyleJson
@@ -168,6 +169,18 @@ internal constructor(
   internal fun captureLoadFailure(generation: Long): String? = record.read {
     val capturing = renderer as? RendererState.Capture ?: return@read null
     if (capturing.styleGeneration == generation) captureLoadFailure else null
+  }
+
+  /**
+   * The failure the still-image pump must observe: a frozen-generation error stored on the lease,
+   * or a current [MapLoadState.Failed] for that same generation.
+   */
+  internal fun captureRenderFailure(generation: Long): String? {
+    captureLoadFailure(generation)?.let {
+      return it
+    }
+    val load = loadState
+    return if (load is MapLoadState.Failed && load.generation == generation) load.reason else null
   }
 
   /**
@@ -375,7 +388,14 @@ internal constructor(
     kind: LayerPropertyKind,
   ) {
     writeAuthorizedLayer(styleGeneration, bindingGeneration, id) { binding ->
-      if (binding.isLoaded) binding.setLayerProperty(id, name, value, kind)
+      if (!binding.isLoaded) return@writeAuthorizedLayer
+      try {
+        binding.setLayerProperty(id, name, value, kind)
+      } catch (error: StyleMutationException) {
+        logger?.w {
+          "Layer '$id' kept its previous '$name': MapLibre rejected $value (${error.message})."
+        }
+      }
     }
   }
 
@@ -607,7 +627,7 @@ internal constructor(
    * attaches.
    */
   public suspend fun setCamera(position: CameraPosition) {
-    commit { setCamera(position) }
+    commitOnHost { setCamera(position) }
   }
 
   /**
@@ -673,22 +693,22 @@ internal constructor(
    * camera before this call returns, and a cancel before [block] runs issues no later mutation.
    */
   private suspend fun runCameraOperation(block: suspend (MapAdapter) -> Unit) {
-    val opId = commit { beginOperation() }
+    val opId = commitOnHost { beginOperation() }
     try {
       val adapter = awaitAdapter()
-      if (!commit { isOperationActive(opId) && bindOperation(opId, adapter) }) return
+      if (!commitOnHost { isOperationActive(opId) && bindOperation(opId, adapter) }) return
       block(adapter)
       if (!record.read { isOperationActive(opId) }) return
       val position = adapter.getCameraPosition()
       val viewport = adapter.getViewport()
-      commit { completeCameraOperation(opId, position, viewport) }
+      commitOnHost { completeCameraOperation(opId, position, viewport) }
     } catch (error: CancellationException) {
       throw error
     } catch (error: Throwable) {
-      commit { failOperation(opId) }
+      commitOnHost { failOperation(opId) }
       throw error
     } finally {
-      commit { cancelOperation(opId) }
+      commitOnHost { cancelOperation(opId) }
     }
   }
 
@@ -783,11 +803,12 @@ internal constructor(
     require(width > 0.dp && height > 0.dp) {
       "Still image size must be positive, got $width x $height"
     }
-    val capture = commit { beginCapture() }
+    engine.requireStillImageSupported()
+    val capture = commitOnHost { beginCapture() }
     try {
       return engine.captureStillImage(width, height, timeout, capture)
     } finally {
-      commit { finishCapture(capture.id) }
+      commitOnHost { finishCapture(capture.id) }
       host.requestApplyChanges()
     }
   }
@@ -904,6 +925,14 @@ internal constructor(
     publishRecord()
     record.drain()
     return value
+  }
+
+  /**
+   * Commits on the host dispatcher. Suspend camera and capture APIs use this so a caller on
+   * [Dispatchers.Default] cannot drain against a Main-posted platform event.
+   */
+  private suspend fun <T> commitOnHost(transform: MapRecord.() -> T): T = host.runOnHost {
+    commit(transform)
   }
 
   /** Posts a platform event onto the host dispatcher. Native callbacks must use this. */

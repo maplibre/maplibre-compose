@@ -17,7 +17,15 @@ public external interface MapEvent {
   public val error: JsError?
   public val sourceId: String?
   public val sourceDataType: String?
+  /** Present on tile failures; a style-document failure has none. */
+  public val tile: Any?
 }
+
+/**
+ * True when this error is the style document failing to load, not a later source, tile, or sprite
+ * fetch. MapLibre fires every one of those as `error`.
+ */
+internal fun MapEvent.isStyleDocumentError(): Boolean = sourceId == null && tile == null
 
 public external interface JsError {
   public val message: String?

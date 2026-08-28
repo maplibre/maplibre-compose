@@ -14,7 +14,7 @@ import org.maplibre.nativeffi.render.RenderBackend
 import org.maplibre.nativeffi.render.RenderSessionHandle
 import org.maplibre.nativeffi.render.RenderTargetExtent
 
-internal actual fun createSnapshotTarget(): MlnFfiSnapshotTarget {
+internal actual fun requireSnapshotSupported() {
   val backends = Maplibre.supportedRenderBackends()
   if (RenderBackend.OPENGL !in backends) {
     throw UnsupportedOperationException(
@@ -22,6 +22,10 @@ internal actual fun createSnapshotTarget(): MlnFfiSnapshotTarget {
         "(${backends.joinToString().ifEmpty { "none" }}); package the OpenGL runtime"
     )
   }
+}
+
+internal actual fun createSnapshotTarget(): MlnFfiSnapshotTarget {
+  requireSnapshotSupported()
   return AndroidEglSnapshotTarget()
 }
 

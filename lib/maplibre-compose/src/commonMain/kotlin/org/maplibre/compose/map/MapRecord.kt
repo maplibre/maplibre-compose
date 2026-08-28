@@ -45,18 +45,34 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   /**
    * Runs queued effects in enqueue order. A reentrant call returns immediately so new work sits
-   * behind the flush that is already running.
+   * behind the flush that is already running. The queue steal and the idle transition both run
+   * under [lock], so a commit that arrives mid-flush is not left queued after this returns.
    */
   fun drain() {
-    if (flushing) return
-    flushing = true
+    lock.withLock {
+      if (flushing) return
+      flushing = true
+    }
     try {
       while (true) {
-        val task = effects.removeFirstOrNull() ?: break
-        task()
+        val task = lock.withLock { effects.removeFirstOrNull() }
+        if (task != null) {
+          task()
+          continue
+        }
+        val more = lock.withLock {
+          if (effects.isEmpty()) {
+            flushing = false
+            false
+          } else {
+            true
+          }
+        }
+        if (!more) return
       }
-    } finally {
-      flushing = false
+    } catch (error: Throwable) {
+      lock.withLock { flushing = false }
+      throw error
     }
   }
 
