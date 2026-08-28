@@ -92,9 +92,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         lifecycle = Lifecycle.Detached
         // The departed target's dimensions are stale, so the next bounds fit waits for a real one.
         core?.resetAttachedViewport()
-        // Frames stop with the session, so a mid-flight transition must not report the camera as
-        // moving until a session re-attaches.
-        core?.pauseCameraMoveForDetach()
+        // An animation belongs to the departed session; its suspended call returns here.
+        core?.endCameraTransitionsForDetach()
       }
     }
   }

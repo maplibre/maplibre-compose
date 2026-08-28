@@ -1002,17 +1002,22 @@ internal class MlnFfiMapCore(
   }
 
   /**
-   * A detached session stops the frames that step a transition, so the frozen map must not report
-   * itself moving; the transition waiters stay for the session that re-attaches.
+   * A camera animation belongs to the session that renders it. The detach cancels an in-flight
+   * transition and resumes its waiter, so the suspended call returns at the position that the
+   * animation reached.
    */
-  internal fun pauseCameraMoveForDetach() {
-    onMap { endCameraMove() }
+  internal fun endCameraTransitionsForDetach() {
+    onMap { map ->
+      if (transitionWaiters.isNotEmpty()) map.cancelTransitions()
+      resumeStrandedTransitions()
+      endCameraMove()
+    }
   }
 
   /** Test seam counting the transitions that await a finish event. */
   internal fun transitionWaiterCountForTest(): Int = runOnMap { transitionWaiters.size } ?: 0
 
-  /** Closing a map discards its queued events, so no finish event will follow. */
+  /** No finish event will resume these waiters: close discards them, and a detach cancels them. */
   private fun resumeStrandedTransitions() {
     val waiters = transitionWaiters.values.toList()
     transitionWaiters.clear()

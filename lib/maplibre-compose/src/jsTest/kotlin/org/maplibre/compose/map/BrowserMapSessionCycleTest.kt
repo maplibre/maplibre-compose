@@ -120,8 +120,8 @@ class BrowserMapSessionCycleTest {
   }
 
   /**
-   * The browser map cannot outlive its session, so a detach completes a suspended
-   * [MapState.animateCamera] at the position that the animation reached, as its KDoc states.
+   * A camera animation belongs to its session, so a detach completes a suspended
+   * [MapState.animateCamera] at the position that the animation reached.
    */
   @Test
   fun a_detach_completes_a_running_camera_animation_at_the_reached_position() = runBrowserMapTest {

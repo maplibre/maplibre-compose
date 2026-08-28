@@ -44,7 +44,7 @@ import org.maplibre.spatialk.geojson.Position
 /**
  * The session leaves and re-enters the composition against the same [MapState], twice: the first
  * cycle shows the core, its loaded style, and the camera surviving the detach; the second shows a
- * camera animation pausing across the detach and completing after the re-attach.
+ * detach ending a running camera animation at the position that it reached.
  */
 @OptIn(ExperimentalTestApi::class)
 class MlnFfiMapReattachTest {
@@ -57,7 +57,7 @@ class MlnFfiMapReattachTest {
   }
 
   @Test
-  fun a_detach_reattach_cycle_keeps_the_core_style_and_camera_then_pauses_and_resumes_an_animation() =
+  fun a_detach_reattach_cycle_keeps_the_core_style_and_camera_and_ends_a_running_animation() =
     runFfiComposeUiTest {
       cache.configure()
       val frames = AtomicInt(0)
@@ -127,7 +127,8 @@ class MlnFfiMapReattachTest {
       assertEquals(firstPosition.zoom, camera.zoom, 1e-4, "zoom")
 
       // Step 4: an animation started from a scope that outlives the composable is running when
-      // the session detaches again; the detach pauses it rather than completing or failing it.
+      // the session detaches again; the animation belongs to that session, so the detach ends it
+      // and the suspended call returns at the position that it reached.
       val animationScope = CoroutineScope(Dispatchers.Default)
       try {
         val animation = animationScope.launch {
@@ -140,15 +141,25 @@ class MlnFfiMapReattachTest {
 
         runOnUiThread { attached = false }
         waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { !state.isAttached }
+        waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { animation.isCompleted }
         assertFalse(state.isCameraMoving, "a detached map must not report itself moving")
         assertEquals(CameraMoveReason.NONE, state.cameraMoveReason, "the move reason must reset")
-        assertFalse(animation.isCompleted, "the detach must keep the animation call suspended")
+        val ended = core.getCameraPosition()
+        assertTrue(
+          ended.target.longitude < 30.0 - 1e-4,
+          "the ended animation must stop short of its destination, was ${ended.target.longitude}",
+        )
 
-        // Step 5: the next re-attach resumes the paused animation and completes it.
+        // Step 5: the next re-attach keeps the ended animation's camera; nothing resumes.
+        val framesBeforeFinalAttach = frames.load()
         runOnUiThread { attached = true }
         waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { state.isAttached }
-        waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { animation.isCompleted }
-        waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { !state.isCameraMoving }
+        waitUntil(timeoutMillis = SETTLE_TIMEOUT_MILLIS) { frames.load() > framesBeforeFinalAttach }
+        assertFalse(state.isCameraMoving, "no animation may resume with the new session")
+        val settled = core.getCameraPosition()
+        assertEquals(ended.target.longitude, settled.target.longitude, 1e-4, "frozen longitude")
+        assertEquals(ended.target.latitude, settled.target.latitude, 1e-4, "frozen latitude")
+        assertEquals(0, core.transitionWaiterCountForTest(), "no waiter may survive the detach")
       } finally {
         animationScope.cancel()
       }
