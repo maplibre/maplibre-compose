@@ -12,9 +12,7 @@ internal expect class MapEngine(state: MapState) : AutoCloseable {
   /** The live map that outlives the composition, or null where the platform keeps none. */
   val detachedAdapter: MapAdapter?
 
-  /**
-   * Backs [MapState.captureStillImage]; the state validates size and closed state before this call.
-   */
+  /** Backs [MapState.captureStillImage]. */
   suspend fun captureStillImage(width: Dp, height: Dp, timeout: Duration): ImageBitmap
 
   override fun close()
