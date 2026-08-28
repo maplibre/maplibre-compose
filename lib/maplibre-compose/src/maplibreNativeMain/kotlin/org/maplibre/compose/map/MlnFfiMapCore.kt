@@ -23,6 +23,11 @@ import kotlin.math.PI
 import kotlin.math.round
 import kotlin.time.Duration
 import kotlinx.coroutines.CancellableContinuation
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.IO
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.io.files.Path
 import kotlinx.serialization.json.JsonObject
@@ -386,10 +391,8 @@ internal class MlnFfiMapCore(
       // The onUnload actions must run before the map they clean up after is destroyed.
       styleBinding?.unload()
       styleBinding = null
-      stopLoop(endOutstandingMove = true)
     } finally {
-      // The owner thread is gone, so this is the last published handle. Destruction is any-thread.
-      retireProjection()
+      stopLoop(endOutstandingMove = true)
     }
   }
 
@@ -441,18 +444,32 @@ internal class MlnFfiMapCore(
     }
     abandoned += pendingViewportActions.drain()
     abandoned.forEach { it.abandon() }
-    renderAccess?.closeRenderSession()
-    try {
-      stopping?.close()
-    } finally {
-      // After the join, so the owner thread is gone and this is the only reader of that state.
-      if (endOutstandingMove) {
-        isGestureInProgress = false
-        activeGestureToken = null
-        pendingGestureEndToken = null
-        endCameraMove()
+    val access = renderAccess
+    val finish = {
+      access?.closeRenderSession()
+      try {
+        stopping?.close()
+      } finally {
+        // After the join, so the owner thread is gone and this is the only reader of that state.
+        if (endOutstandingMove) {
+          isGestureInProgress = false
+          activeGestureToken = null
+          pendingGestureEndToken = null
+          endCameraMove()
+        }
+        resumeStrandedTransitions()
+        // The owner thread is gone, so this is the last published handle. Destruction is
+        // any-thread.
+        retireProjection()
       }
-      resumeStrandedTransitions()
+    }
+    if (access == null) {
+      finish()
+    } else {
+      // The capture's pump may be waiting on style work queued to the closing thread's own
+      // dispatcher, so the release handshake must leave this thread. The host close fails that
+      // queued work, the pump releases the session, and this tail finishes off-thread.
+      @OptIn(DelicateCoroutinesApi::class) GlobalScope.launch(Dispatchers.IO) { finish() }
     }
   }
 
