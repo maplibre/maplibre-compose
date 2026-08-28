@@ -58,7 +58,7 @@ class LayerHandleFilterTest {
   @Test
   fun a_filter_write_reaches_the_binding() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val descriptor = BackgroundLayerDescriptor("bg-base")
     val binding = FilterRecordingBinding(baseLayers = listOf(descriptor))
     attach(state, binding)
@@ -119,7 +119,7 @@ class LayerHandleFilterTest {
   @Test
   fun a_filter_write_on_a_composition_owned_layer_throws() = runTest {
     val state = mapState()
-    state.setStyleContent { BackgroundLayer(id = "comp-layer") }
+    state.setStyleComposition { BackgroundLayer(id = "comp-layer") }
     attach(state, OpRecordingStyleBinding())
 
     val handle = assertNotNull(state.layers["comp-layer"])

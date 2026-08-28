@@ -55,7 +55,7 @@ class MapStateTest {
     val state = mapState()
     val source = testSource("tiles")
 
-    state.setStyleContent { RasterLayer(id = "raster", source = source) }
+    state.setStyleComposition { RasterLayer(id = "raster", source = source) }
 
     val first = FakeMapAdapter()
     val firstBinding = OpRecordingStyleBinding()
@@ -125,14 +125,14 @@ class MapStateTest {
   }
 
   /**
-   * Composed style content changes against one live session: a toggle removes and re-adds its
+   * Composed style composition changes against one live session: a toggle removes and re-adds its
    * layer, and clearing the content removes it from the style.
    */
   @Test
   fun style_content_toggles_and_clears_against_a_live_session() = runTest {
     val state = mapState()
     var show by mutableStateOf(true)
-    state.setStyleContent { if (show) BackgroundLayer(id = "bg-user") }
+    state.setStyleComposition { if (show) BackgroundLayer(id = "bg-user") }
 
     val adapter = FakeMapAdapter()
     val binding = RecordingStyleBinding()
@@ -153,7 +153,7 @@ class MapStateTest {
     state.host.awaitPendingWork()
     assertTrue("bg-user" in state.layers.ids, "the re-added layer returns to layers.ids")
 
-    state.clearStyleContent()
+    state.clearStyleComposition()
     state.host.awaitPendingWork()
     assertFalse(binding.layerExists("bg-user"), "clearing removes the content from the style")
 
@@ -169,7 +169,7 @@ class MapStateTest {
   fun close_after_detach_tears_down_the_host_idempotently_and_refuses_new_sessions() = runTest {
     val hostDispatcher = RecordingHostDispatcher(StandardTestDispatcher(testScheduler))
     val state = mapState(hostDispatcher = hostDispatcher)
-    state.setStyleContent { RasterLayer(id = "raster", source = testSource("tiles")) }
+    state.setStyleComposition { RasterLayer(id = "raster", source = testSource("tiles")) }
 
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)

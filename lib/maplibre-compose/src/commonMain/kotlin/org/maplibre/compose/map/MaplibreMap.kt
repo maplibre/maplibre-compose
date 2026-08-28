@@ -45,15 +45,15 @@ import org.maplibre.spatialk.geojson.BoundingBox
  *   composition restores the saved camera position instead.
  * @param baseStyle The URI or JSON of the map style to use. Assigned to [MapState.baseStyle] on
  *   every recomposition. See [MapLibre Style](https://maplibre.org/maplibre-style-spec/).
- * @param styleContent The sources and layers composed over [baseStyle]; null composes no content,
- *   so a recomposition that passes null after content clears that content from the map. Inside the
- *   content, [LocalMapState] returns the returned state. See [MapState.setStyleContent].
+ * @param styleComposition The sources and layers composed over [baseStyle]; null composes nothing,
+ *   and clears a composition that an earlier recomposition passed. Inside the composition,
+ *   [LocalMapState] returns the returned state. See [MapState.setStyleComposition].
  */
 @Composable
 public fun rememberMapState(
   initialCameraPosition: CameraPosition = CameraPosition(),
   baseStyle: BaseStyle = BaseStyle.Demo,
-  styleContent: (@Composable @MaplibreComposable () -> Unit)? = null,
+  styleComposition: (@Composable @MaplibreComposable () -> Unit)? = null,
 ): MapState {
   val density = LocalDensity.current
   val layoutDirection = LocalLayoutDirection.current
@@ -86,8 +86,8 @@ public fun rememberMapState(
   // Deferred past this snapshot's apply: the host would otherwise read records it cannot yet see.
   LaunchedEffect(mapState) { mapState.startStyleComposition() }
 
-  if (styleContent != null) mapState.updateStyleContent(styleContent)
-  else mapState.clearStyleContent()
+  if (styleComposition != null) mapState.updateStyleComposition(styleComposition)
+  else mapState.clearStyleComposition()
 
   SideEffect { mapState.baseStyle = baseStyle }
 
@@ -98,7 +98,7 @@ public fun rememberMapState(
  * Displays the map that [state] holds.
  *
  * The composable is a render session on the state: it draws the map, feeds gestures into it, and
- * draws [overlay] on top. The style and its content belong to [state], which survives this
+ * draws [overlay] on top. The style and its composition belong to [state], which survives this
  * composable leaving the composition; get one from [rememberMapState], or construct a [MapState]
  * outside the composition and own its lifetime. The session is keyed on [state], so a recomposition
  * that passes a different state disposes this session and composes a new one for that state.
@@ -107,7 +107,7 @@ public fun rememberMapState(
  * scrollable container or other layout that doesn't provide constraints, you must specify an
  * explicit size using modifiers like [Modifier.size][androidx.compose.foundation.layout.size].
  *
- * @param state The map to display: its base style, style content, and camera.
+ * @param state The map to display: its base style, style composition, and camera.
  * @param cameraPadding Insets that shift the camera center. Null follows [contentWindowInsets],
  *   resolved against the current layout direction. A bounds move adds its padding to these insets.
  * @param zoomRange The camera zoom range that gestures and camera calls stay within.
@@ -125,8 +125,8 @@ public fun rememberMapState(
  * @param contentWindowInsets Insets applied to [overlay].
  * @param overlay Controls drawn on top of the map.
  *   [Modifier.placedAt][org.maplibre.compose.overlay.MapOverlayScope.placedAt] in the overlay pins
- *   Compose UI to a geographic position. Style content does not go here; it goes to [state] through
- *   [rememberMapState] or [MapState.setStyleContent].
+ *   Compose UI to a geographic position. Style composition does not go here; it goes to [state]
+ *   through [rememberMapState] or [MapState.setStyleComposition].
  */
 @Composable
 public fun MaplibreMap(

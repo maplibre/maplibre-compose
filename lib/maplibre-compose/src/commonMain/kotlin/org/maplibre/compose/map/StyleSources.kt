@@ -12,14 +12,14 @@ import org.maplibre.compose.style.StyleMutationException
  * [MapState.baseStyle] change, when a source is added to or removed from the live style, and when a
  * source's TileJSON metadata arrives. While no style is loaded, [ids] is empty.
  *
- * For a source that the style content composed or that [add] added, [get] returns the live [Source]
- * instance, so data updates such as
+ * For a source that the style composition composed or that [add] added, [get] returns the live
+ * [Source] instance, so data updates such as
  * [GeoJsonSource.setData][org.maplibre.compose.sources.GeoJsonSource.setData] work on it. For a
  * base-style source, [get] returns a descriptor reconstructed from the live style.
  *
  * [add] and [remove] mutate the loaded style directly. Each source id has one owner — the base
- * style, the style content composition, or the application through [add] — and only the owner may
- * remove it. See [MapState] for the reload rule that applies to every imperative style mutation.
+ * style, the style composition, or the application through [add] — and only the owner may remove
+ * it. See [MapState] for the reload rule that applies to every imperative style mutation.
  */
 public class StyleSources internal constructor(private val state: MapState) {
 
@@ -54,9 +54,10 @@ public class StyleSources internal constructor(private val state: MapState) {
 
   /**
    * Returns the source with [id], or null when the style has no such source. A source that the
-   * style content owns resolves regardless of load state — before its id appears in [ids] — so a
-   * data update such as [GeoJsonSource.setData][org.maplibre.compose.sources.GeoJsonSource.setData]
-   * is legal on a detached state and applies when a style loads.
+   * style composition owns resolves regardless of load state — before its id appears in [ids] — so
+   * a data update such as
+   * [GeoJsonSource.setData][org.maplibre.compose.sources.GeoJsonSource.setData] is legal on a
+   * detached state and applies when a style loads.
    */
   public operator fun get(id: String): Source? =
     state.styleNode.compositionSources[id]
@@ -86,7 +87,7 @@ public class StyleSources internal constructor(private val state: MapState) {
       // The published snapshot can trail a reference recorded on the host, so ownership is decided
       // on the host-confined desired set.
       require(node.sourceManager.desiredSources.none { it.id == id }) {
-        "Source id '$id' is owned by the style content composition"
+        "Source id '$id' is owned by the style composition"
       }
       require(id !in node.appSources) { "Source id '$id' was already added through this state" }
       require(binding.sourceExists(id) != true && binding.getSource(id) == null) {
@@ -105,8 +106,7 @@ public class StyleSources internal constructor(private val state: MapState) {
    *
    * @throws IllegalArgumentException when the loaded style has no source with [id].
    * @throws IllegalStateException when no style is loaded, when the state is closed, when the base
-   *   style or the style content composition owns [id], or when a live layer still draws from the
-   *   source.
+   *   style or the style composition owns [id], or when a live layer still draws from the source.
    */
   public suspend fun remove(id: String) {
     state.host.runSerialized {
@@ -118,7 +118,7 @@ public class StyleSources internal constructor(private val state: MapState) {
       node.ensureAppTablesFor(binding)
       // The host-confined desired set, not the published snapshot, decides ownership here too.
       check(node.sourceManager.desiredSources.none { it.id == id }) {
-        "Source '$id' is owned by the style content composition; remove it by recomposing the " +
+        "Source '$id' is owned by the style composition; remove it by recomposing the " +
           "content rather than through MapState.sources"
       }
       val source = node.appSources[id]

@@ -56,7 +56,7 @@ internal fun BenchmarkMap(state: DemoAppState, viewportInsets: MapViewportInsets
 private fun BenchmarkScenarioMap(state: DemoAppState, viewportInsets: MapViewportInsets) {
   val scenario = state.selectedScenario
   val prefetcher = rememberTilePrefetcher()
-  // The session needs the map state and the style content needs the session, so a holder breaks
+  // The session needs the map state and the style composition needs the session, so a holder breaks
   // the cycle: the content composes nothing until the session exists.
   val sessionHolder = remember { mutableStateOf<BenchmarkSession?>(null) }
   val mapState =

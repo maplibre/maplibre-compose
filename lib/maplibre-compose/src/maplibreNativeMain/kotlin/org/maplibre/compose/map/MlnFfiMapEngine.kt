@@ -220,7 +220,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       core.setCameraPadding(PaddingValues(0.dp))
       core.setCameraPosition(state.camera)
       awaitStyleLoaded(core, deadline, timeout)
-      // One sync of the desired style content against the loaded style before rendering, so
+      // One sync of the desired style composition against the loaded style before rendering, so
       // content set on a detached state reaches the image.
       state.host.requestApplyChanges()
       state.host.awaitPendingWork()

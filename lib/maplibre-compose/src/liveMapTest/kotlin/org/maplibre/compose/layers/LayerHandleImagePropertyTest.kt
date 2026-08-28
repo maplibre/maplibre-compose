@@ -68,7 +68,7 @@ class LayerHandleImagePropertyTest {
   @Test
   fun a_paint_write_with_an_image_expression_registers_the_image() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val descriptor = BackgroundLayerDescriptor("bg-base")
     val binding = ImageRecordingBinding(baseLayers = listOf(descriptor))
     val adapter = FakeMapAdapter()

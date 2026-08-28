@@ -135,7 +135,7 @@ class MlnFfiRetainedCoreTest {
       "a departed target's dimensions must not satisfy the next bounds fit",
     )
 
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
     state.callbacks.onStyleChanged(

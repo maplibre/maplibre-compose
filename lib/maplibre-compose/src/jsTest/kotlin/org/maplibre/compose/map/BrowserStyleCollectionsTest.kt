@@ -95,7 +95,7 @@ class BrowserStyleCollectionsTest {
           assertNotNull(state.layers["content-fill"]).visible = false
         }
       assertTrue(
-        "style content composition" in error.message.orEmpty(),
+        "style composition" in error.message.orEmpty(),
         "the message names the owner: ${error.message}",
       )
 

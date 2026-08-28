@@ -60,7 +60,7 @@ class MlnFfiMapSnapshotTest {
     // Step 2: a new base style clears the load failure, and the capture renders content that
     // composes only once the snapshot has published its viewport to the state.
     state.baseStyle = RED_BACKGROUND_STYLE
-    state.setStyleContent {
+    state.setStyleComposition {
       if (LocalMapState.current.viewport != null) {
         val dot = rememberGeoJsonSource(GeoJsonData.Features(Point(Position(0.0, 0.0))))
         CircleLayer(id = "dot", source = dot, color = const(Color.Blue), radius = const(30.dp))
@@ -78,7 +78,7 @@ class MlnFfiMapSnapshotTest {
 
     // Step 3: the same state captures again after a base-style switch, and a premultiplied
     // readback divides out before packing, so translucent pixels come back straight-alpha.
-    state.clearStyleContent()
+    state.clearStyleComposition()
     state.baseStyle = TRANSLUCENT_RED_STYLE
     val second = runBlocking {
       state.captureStillImage(width = 20.dp, height = 20.dp, timeout = 60.seconds)

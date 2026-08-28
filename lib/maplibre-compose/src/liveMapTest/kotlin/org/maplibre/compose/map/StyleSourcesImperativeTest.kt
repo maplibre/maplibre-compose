@@ -63,7 +63,9 @@ class StyleSourcesImperativeTest {
     val state = mapState()
     var show by mutableStateOf(true)
     val compositionSource = testSource("comp-src")
-    state.setStyleContent { if (show) RasterLayer(id = "comp-layer", source = compositionSource) }
+    state.setStyleComposition {
+      if (show) RasterLayer(id = "comp-layer", source = compositionSource)
+    }
     val binding = OpRecordingStyleBinding()
     attach(state, binding)
 
@@ -74,7 +76,7 @@ class StyleSourcesImperativeTest {
       Snapshot.sendApplyNotifications()
       testScheduler.advanceUntilIdle()
     }
-    state.clearStyleContent()
+    state.clearStyleComposition()
     Snapshot.sendApplyNotifications()
     testScheduler.advanceUntilIdle()
 
@@ -91,7 +93,7 @@ class StyleSourcesImperativeTest {
     val state = mapState()
     val errors = collectStyleErrors(state.host)
     var reversed by mutableStateOf(false)
-    state.setStyleContent {
+    state.setStyleComposition {
       val order = if (reversed) listOf("b", "a") else listOf("a", "b")
       order.forEach { BackgroundLayer(id = it) }
     }
@@ -130,7 +132,7 @@ class StyleSourcesImperativeTest {
     val errors = collectStyleErrors(state.host)
     val compositionSource = testSource("comp-src")
     var claimAppId by mutableStateOf(false)
-    state.setStyleContent {
+    state.setStyleComposition {
       RasterLayer(id = "comp-layer", source = compositionSource)
       if (claimAppId) RasterLayer(id = "clash-layer", source = testSource("app-src"))
     }
@@ -158,7 +160,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun an_add_colliding_with_a_base_source_names_the_base_style() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val binding = OpRecordingStyleBinding(baseSources = listOf(testSource("base-src")))
     attach(state, binding)
 
@@ -174,7 +176,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun ids_and_ownership_reflect_each_op_without_recomposition() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     attach(state, OpRecordingStyleBinding())
 
     state.sources.add(testSource("app-src"))
@@ -193,7 +195,7 @@ class StyleSourcesImperativeTest {
   fun removing_a_missing_or_foreign_id_throws_the_contracted_exceptions() = runTest {
     val state = mapState()
     val compositionSource = testSource("comp-src")
-    state.setStyleContent { RasterLayer(id = "comp-layer", source = compositionSource) }
+    state.setStyleComposition { RasterLayer(id = "comp-layer", source = compositionSource) }
     val binding = OpRecordingStyleBinding(baseSources = listOf(testSource("base-src")))
     attach(state, binding)
 
@@ -208,7 +210,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun removing_a_source_a_live_layer_draws_from_throws() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val binding = OpRecordingStyleBinding()
     attach(state, binding)
 
@@ -231,7 +233,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun a_reload_serves_fresh_descriptors_and_a_close_empties_the_collections() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     fun binding() =
       OpRecordingStyleBinding(
         baseSources = listOf(testSource("base-src")),
@@ -261,7 +263,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun a_base_style_reload_drops_every_imperative_mutation() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val first = OpRecordingStyleBinding(baseLayers = listOf(BackgroundLayerDescriptor("bg")))
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
@@ -303,7 +305,7 @@ class StyleSourcesImperativeTest {
   fun an_add_racing_a_recorded_but_unpublished_composition_reference_throws() = runTest {
     val state = mapState()
     val errors = collectStyleErrors(state.host)
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val binding = OpRecordingStyleBinding()
     attach(state, binding)
 
@@ -337,7 +339,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun an_op_held_across_a_binding_swap_throws_and_corrupts_nothing() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
     val first = OpRecordingStyleBinding()
@@ -367,7 +369,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun close_racing_an_in_flight_op_throws_and_corrupts_nothing() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     attach(state, OpRecordingStyleBinding())
 
     // The op suspends on its host await, then close lands before the host runs it.
@@ -387,7 +389,7 @@ class StyleSourcesImperativeTest {
   fun a_removal_serialized_behind_the_layer_installing_sync_throws() = runTest {
     val state = mapState()
     val compositionSource = testSource("comp-src")
-    state.setStyleContent { RasterLayer(id = "comp-layer", source = compositionSource) }
+    state.setStyleComposition { RasterLayer(id = "comp-layer", source = compositionSource) }
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
     val binding = OpRecordingStyleBinding()
@@ -409,7 +411,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun a_removal_racing_a_live_layer_install_hits_the_in_use_guard() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val binding = OpRecordingStyleBinding()
     attach(state, binding)
     state.sources.add(testSource("app-src"))
@@ -431,7 +433,7 @@ class StyleSourcesImperativeTest {
   @Test
   fun ops_on_a_detached_or_closed_state_throw_and_corrupt_nothing() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     testScheduler.advanceUntilIdle()
 
     assertFailsWith<IllegalStateException> { state.sources.add(testSource("app-src")) }

@@ -9,8 +9,8 @@ import org.maplibre.compose.layers.LayerHandle
  * [get] returns null for every id.
  *
  * A layer id is mutable through one owner. A layer from the base style is map-owned, and its
- * [LayerHandle] accepts writes. A layer that the style content composed is composition-owned: [get]
- * returns a handle whose reads work, and whose writes throw [IllegalStateException].
+ * [LayerHandle] accepts writes. A layer that the style composition composed is composition-owned:
+ * [get] returns a handle whose reads work, and whose writes throw [IllegalStateException].
  */
 public class StyleLayers internal constructor(private val state: MapState) {
 
@@ -19,7 +19,7 @@ public class StyleLayers internal constructor(private val state: MapState) {
    * recomposes when the list refreshes.
    *
    * The list refreshes on style load, on a [MapState.baseStyle] change, and on source changes. A
-   * layer that the style content adds appears at the next refresh rather than at the add.
+   * layer that the style composition adds appears at the next refresh rather than at the add.
    */
   public val ids: List<String>
     get() = state.styleNode.liveLayerIds

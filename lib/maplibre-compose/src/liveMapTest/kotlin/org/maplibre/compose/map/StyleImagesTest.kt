@@ -54,7 +54,7 @@ class StyleImagesTest {
   @Test
   fun a_re_add_of_an_own_id_replaces_the_pixels() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val binding = UpsertingImageBinding()
     attach(state, binding)
 
@@ -73,7 +73,7 @@ class StyleImagesTest {
   @Test
   fun the_reserved_prefix_is_refused() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     attach(state, UpsertingImageBinding())
 
     assertFailsWith<IllegalArgumentException> {
@@ -88,7 +88,7 @@ class StyleImagesTest {
   @Test
   fun ids_reflect_each_op_without_recomposition() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     attach(state, UpsertingImageBinding())
 
     state.images.add("star", ImageBitmap(2, 2))
@@ -107,7 +107,7 @@ class StyleImagesTest {
   @Test
   fun ops_on_a_detached_or_closed_state_throw() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     testScheduler.advanceUntilIdle()
 
     assertFailsWith<IllegalStateException> { state.images.add("star", ImageBitmap(2, 2)) }
@@ -121,7 +121,7 @@ class StyleImagesTest {
   @Test
   fun a_base_style_reload_drops_the_registered_images() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val first = UpsertingImageBinding()
     val adapter = FakeMapAdapter()
     state.attachSession(adapter)
@@ -149,7 +149,7 @@ class StyleImagesTest {
   @Test
   fun a_composition_release_of_equal_content_never_frees_an_app_image() = runTest {
     val state = mapState()
-    state.setStyleContent {}
+    state.setStyleComposition {}
     val binding = UpsertingImageBinding()
     attach(state, binding)
 

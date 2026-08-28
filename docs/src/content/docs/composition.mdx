@@ -11,44 +11,40 @@ import composition from "../../../../demo-app/common/src/commonMain/kotlin/org/m
 
 MapLibre Compose has no map view object.
 <Api of="org.maplibre.compose.map.MaplibreMap" /> is a
-composable, and the map lives in one state object: <Api of="MapState" /> holds
-the base style, the style content, and the camera.
+composable, and <Api of="MapState" /> holds the map style and camera.
 <Api of="rememberMapState" /> creates a state that the composition owns. This
 page explains how the library applies your composition to the underlying
 MapLibre style.
 
-## The style is base plus content
+## The style is the base plus your composition
 
 A MapLibre style is a document with sources and layers. The `baseStyle`
-parameter loads that document without modification. The style content, passed
-to `rememberMapState` or set with <Api of="MapState.setStyleContent" />,
+parameter loads that document without modification. The style composition, passed
+to `rememberMapState` or set with <Api of="MapState.setStyleComposition" />,
 declares additions to it: your sources, your layers, and the positions of your
 layers in the layer stack.
 
 <Code code={region(composition, "base-plus-content")} lang="kotlin" title="App.kt" />
 
 The library manages the sources and layers that you declare in the style
-content, and does not modify the rest of the base style. To change a base
+composition, and does not modify the rest of the base style. To change a base
 style layer, replace it with <Api of="Anchor.Replace" /> and declare its
 replacement yourself.
 
 ## Recomposition updates the style
 
-The style content is a Compose composition. When the state that it reads
-changes, it recomposes, and the library applies the difference to the style: a
-layer that is no longer in the composition is removed from the style, a new
-layer is added, and a changed property is updated in place. You do not call
-add or remove functions yourself.
-
-The content composes on a dispatcher that the state owns, so an effect inside
-the content runs outside the UI context.
+When the state that the style composition reads changes, it recomposes, and
+the library applies the difference to the style: a layer that is no longer in
+the composition is removed from the style, a new layer is added, and a changed
+property is updated in place. You do not call add or remove functions
+yourself.
 
 This is the same contract as Compose UI: describe the map content for the
 current state, and let the runtime reconcile it.
 
-## Style switches re-apply your content
+## Style switches re-apply your composition
 
-When `baseStyle` changes, the map loads the new style and the style content
+When `baseStyle` changes, the map loads the new style and the style composition
 recomposes into it. Your sources and layers are declared again on the new
 style, so they persist across the switch without extra code. An `Anchor` that
 names a base layer applies only when that layer exists in the new style.
@@ -57,27 +53,12 @@ names a base layer applies only when that layer exists in the new style.
 
 <Api of="MapState.layers" />, <Api of="MapState.sources" />, and
 <Api of="MapState.images" /> mutate the loaded style directly, outside the
-style content. The `add` and `remove` members of `sources` and `images` insert
-into and remove from the loaded style, and `layers` reads and mutates the
-layers the style already has.
+style composition.
 
 A `baseStyle` reload drops every imperative mutation. Reapply the mutations
-when the new style is ready — from the `onMapLoadFinished` callback, watching
-<Api of="MapState.styleErrors" /> for a reapplication the new style refuses.
-
-| Collection         | Reads                      | Mutates                             | Inserts and removes |
-| ------------------ | -------------------------- | ----------------------------------- | ------------------- |
-| `MapState.layers`  | Every live layer           | Map-owned layers, via `LayerHandle` | No                  |
-| `MapState.sources` | Every live source          | Source data, via the live `Source`  | Yes                 |
-| `MapState.images`  | This state's registrations | Re-adding an id replaces it         | Yes                 |
-
-## Style errors
-
-Invalid GeoJSON data and an `Anchor` that names a missing layer surface as
-errors when the content applies to a loaded style, not when the declaring
-composable runs. The map and the state survive each error, and the log records
-every one. <Api of="MapState.styleErrors" /> is a flow of these errors for a
-composition or a test to observe.
+when the new style is ready—from the `onMapLoadFinished` callback, watching
+<Api of="MapState.styleErrors" /> for a reapplication that fails on the new
+style.
 
 ## Layer and source IDs
 

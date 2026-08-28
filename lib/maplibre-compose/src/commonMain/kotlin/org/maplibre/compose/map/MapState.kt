@@ -45,11 +45,11 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /** One instance, so repeated clears write the same value and the host does not recompose. */
-private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
+private val EMPTY_STYLE_COMPOSITION: @Composable @MaplibreComposable () -> Unit = {}
 
 /**
  * The state of one map, held outside the composable that shows it: the selected [baseStyle], the
- * style content that [setStyleContent] composes over it, and the [camera].
+ * style composition that [setStyleComposition] composes over it, and the [camera].
  *
  * A state outlives any one [MaplibreMap] composable. On Android, iOS, and Desktop the loaded map
  * survives the composable leaving the composition, with its style and camera intact, and
@@ -61,16 +61,16 @@ private val EMPTY_STYLE_CONTENT: @Composable @MaplibreComposable () -> Unit = {}
  * it when the composition leaves. The owner that constructed a state calls [close]; a closed state
  * cannot show a map again.
  *
- * A detached state rasterizes painters in the style content with the constructor's density and
+ * A detached state rasterizes painters in the style composition with the constructor's density and
  * layout direction; a [MaplibreMap] that later receives this state replaces both with the
  * composition's values.
  *
  * # Imperative style mutation
  *
- * [layers], [sources], and [images] mutate the loaded style directly, outside the style content.
- * [StyleSources.add], [StyleSources.remove], [StyleImages.add], and [StyleImages.remove] insert
- * into and remove from the loaded style. [layers] reads and mutates the layers the style already
- * has; the style content adds and removes layers.
+ * [layers], [sources], and [images] mutate the loaded style directly, outside the style
+ * composition. [StyleSources.add], [StyleSources.remove], [StyleImages.add], and
+ * [StyleImages.remove] insert into and remove from the loaded style. [layers] reads and mutates the
+ * layers the style already has; the style composition adds and removes layers.
  *
  * A [baseStyle] reload drops every imperative mutation. The reloaded style starts from its own
  * definition, with no imperatively added source or image and no
@@ -185,7 +185,7 @@ internal constructor(
       host.inheritedLocals = value
     }
 
-  private val contentState = mutableStateOf(EMPTY_STYLE_CONTENT)
+  private val contentState = mutableStateOf(EMPTY_STYLE_COMPOSITION)
 
   init {
     host.inheritedLocals = inheritedLocals
@@ -194,7 +194,7 @@ internal constructor(
   private var contentStarted = false
 
   /**
-   * Replaces the style content of this map with [content].
+   * Replaces the style composition of this map with [content].
    *
    * The content composes into the map's style the way `setContent` composes a window's UI tree: one
    * composition per map, and a second call replaces the whole content. Snapshot state that the
@@ -208,24 +208,24 @@ internal constructor(
    * Call this on a state that lives outside the composition, such as one a ViewModel owns. Inside a
    * composition, pass the content to [rememberMapState] instead.
    */
-  public fun setStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
-    updateStyleContent(content)
+  public fun setStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
+    updateStyleComposition(content)
     startStyleComposition()
   }
 
-  /** Replaces the style content; the host recomposes because it reads this state. */
-  internal fun updateStyleContent(content: @Composable @MaplibreComposable () -> Unit) {
+  /** Replaces the style composition; the host recomposes because it reads this state. */
+  internal fun updateStyleComposition(content: @Composable @MaplibreComposable () -> Unit) {
     // A write with no read, so a UI composition calling this never subscribes to the state.
     contentState.value = content
   }
 
   /**
-   * Composes empty content in place of the previous content. Writing the one [EMPTY_STYLE_CONTENT]
-   * instance again is dropped by snapshot equality, so a state that never had content stays
-   * untouched.
+   * Composes empty content in place of the previous content. Writing the one
+   * [EMPTY_STYLE_COMPOSITION] instance again is dropped by snapshot equality, so a state that never
+   * had content stays untouched.
    */
-  internal fun clearStyleContent() {
-    contentState.value = EMPTY_STYLE_CONTENT
+  internal fun clearStyleComposition() {
+    contentState.value = EMPTY_STYLE_COMPOSITION
   }
 
   /**
@@ -240,9 +240,9 @@ internal constructor(
   }
 
   /**
-   * Failures in the style content composition or in applying its changes to the loaded style. The
-   * map and this state survive each failure and keep working; fatal errors propagate instead of
-   * arriving here.
+   * Failures in the style composition or in applying its changes to the loaded style. The map and
+   * this state survive each failure and keep working; fatal errors propagate instead of arriving
+   * here.
    *
    * An error emitted while nothing collects the flow is dropped, and a slow collector loses errors
    * beyond a small buffer. The log records every failure.
@@ -273,12 +273,12 @@ internal constructor(
   }
 
   /**
-   * Refuses an imperative write on a layer id that the style content owns. The read is off the host
-   * thread, so it takes the snapshot that the last sync published.
+   * Refuses an imperative write on a layer id that the style composition owns. The read is off the
+   * host thread, so it takes the snapshot that the last sync published.
    */
   internal fun checkLayerWritable(id: String) {
     check(id !in styleNode.compositionLayerIds) {
-      "Layer '$id' is owned by the style content composition; change it by recomposing the " +
+      "Layer '$id' is owned by the style composition; change it by recomposing the " +
         "content rather than through MapState.layers"
     }
   }
@@ -478,10 +478,11 @@ internal constructor(
   /**
    * Renders a still image of this map and returns it.
    *
-   * The image shows the selected [baseStyle], the applied style content, and the recorded [camera],
-   * fit to a viewport of [width] by [height]. The state does not need a [MaplibreMap]: a state
-   * constructed in a ViewModel with [setStyleContent] can render a still image with no UI. The
-   * returned bitmap is in physical pixels, [width] and [height] scaled by the state's density.
+   * The image shows the selected [baseStyle], the applied style composition, and the recorded
+   * [camera], fit to a viewport of [width] by [height]. The state does not need a [MaplibreMap]: a
+   * state constructed in a ViewModel with [setStyleComposition] can render a still image with no
+   * UI. The returned bitmap is in physical pixels, [width] and [height] scaled by the state's
+   * density.
    *
    * The call waits for the base style and its sources to finish loading before it renders, so the
    * image holds the fully loaded map. A style or map that fails to load fails the call with an

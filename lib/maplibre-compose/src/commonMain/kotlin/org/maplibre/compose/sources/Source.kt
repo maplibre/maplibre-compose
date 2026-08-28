@@ -116,7 +116,7 @@ public sealed class Source(internal val id: String) {
  *
  * After a style swap, this returns the new base style's source.
  * [MapState.sources][org.maplibre.compose.map.MapState.sources] reads the same sources outside the
- * style content.
+ * style composition.
  */
 @Composable
 public fun getBaseSource(id: String): Source? {

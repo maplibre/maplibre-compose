@@ -16,7 +16,7 @@ import org.maplibre.compose.layers.BackgroundLayer
 import org.maplibre.compose.style.RecordingStyleBinding
 import org.maplibre.compose.util.MaplibreComposable
 
-/** [rememberMapState] receives `styleContent = null` after content: the content clears. */
+/** [rememberMapState] receives `styleComposition = null` after content: the content clears. */
 @OptIn(ExperimentalTestApi::class)
 class RememberMapStateContentTest {
 
@@ -37,7 +37,7 @@ class RememberMapStateContentTest {
       })
     lateinit var state: MapState
 
-    setContent { state = rememberMapState(styleContent = content) }
+    setContent { state = rememberMapState(styleComposition = content) }
     waitForIdle()
 
     val adapter = FakeMapAdapter()

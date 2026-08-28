@@ -36,7 +36,7 @@ class BareMapStateTest {
     val source =
       RasterSource("tiles", listOf("https://example.invalid/{z}/{x}/{y}.png"), TileSetOptions())
 
-    state.setStyleContent {
+    state.setStyleComposition {
       RasterLayer(id = "raster", source = source)
       composed.complete(Unit)
     }

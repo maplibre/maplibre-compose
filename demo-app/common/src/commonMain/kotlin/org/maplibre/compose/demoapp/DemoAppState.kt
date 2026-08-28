@@ -117,7 +117,7 @@ internal data class StyleLoad(val count: Int, val base: BaseStyle?)
 fun rememberDemoAppState(): DemoAppState {
   val settings = rememberDemoSettings()
   val frameRateState = remember { FrameRateState() }
-  // The app state needs the map state and the style content needs the app state, so a holder
+  // The app state needs the map state and the style composition needs the app state, so a holder
   // breaks the cycle: the content composes nothing until the app state exists.
   val stateRef = remember { mutableStateOf<DemoAppState?>(null) }
   val mapState =

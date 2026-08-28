@@ -9,7 +9,7 @@ import org.maplibre.compose.map.MapState
 /**
  * An imperative handle over one live layer, from [MapState.layers].
  *
- * A write reaches the live style directly, without a declaration in the style content.
+ * A write reaches the live style directly, without a declaration in the style composition.
  * [MapState.baseStyle] reloads drop imperative writes: the reloaded style starts from its own
  * definition, so reapply the writes after the load. The handle belongs to the style it was taken
  * from: after a reload, a write through it throws [IllegalStateException], so reapply through a

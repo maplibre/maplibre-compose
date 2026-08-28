@@ -11,9 +11,9 @@ import org.maplibre.compose.util.ImageStretch
 /**
  * The style images that the application registered, exposed on [MapState.images].
  *
- * [add] and [remove] mutate the loaded style directly, beside the images that the style content's
- * painter and bitmap parameters register. An image registered here resolves `iconImage` and every
- * other style-spec image reference by its id.
+ * [add] and [remove] mutate the loaded style directly, beside the images that the style
+ * composition's painter and bitmap parameters register. An image registered here resolves
+ * `iconImage` and every other style-spec image reference by its id.
  *
  * An id that a base style's sprite also defines is replaced: the last writer wins, in either
  * direction, because sprites load asynchronously. See [MapState] for the reload rule that applies
@@ -23,7 +23,7 @@ public class StyleImages internal constructor(private val state: MapState) {
 
   /**
    * The ids registered through this state, in registration order. The loaded style's full image
-   * list, including sprite images and the style content's registrations, is not enumerable. A
+   * list, including sprite images and the style composition's registrations, is not enumerable. A
    * composition that reads this property recomposes when the list changes.
    */
   public val ids: List<String>
