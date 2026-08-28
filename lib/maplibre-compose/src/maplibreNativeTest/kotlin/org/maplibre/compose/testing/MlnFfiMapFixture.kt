@@ -88,5 +88,3 @@ internal actual fun createMapFixture(extent: MapExtent): MapFixture =
 internal actual val mapLibreFlavor: MapLibreFlavor = MapLibreFlavor.NATIVE
 
 actual typealias MapTestResult = Unit
-
-internal actual fun runMapTest(block: suspend () -> Unit): MapTestResult = runBlocking { block() }
