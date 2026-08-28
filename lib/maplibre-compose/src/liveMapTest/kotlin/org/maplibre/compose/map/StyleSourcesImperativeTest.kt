@@ -73,12 +73,10 @@ class StyleSourcesImperativeTest {
 
     repeat(3) {
       show = !show
-      Snapshot.sendApplyNotifications()
-      testScheduler.advanceUntilIdle()
+      state.host.awaitPendingWork()
     }
     state.clearStyleComposition()
-    Snapshot.sendApplyNotifications()
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
 
     assertEquals(1, binding.ops.count { it == "addSource:app-src" })
     assertEquals(0, binding.ops.count { it == "removeSource:app-src" })
@@ -148,8 +146,7 @@ class StyleSourcesImperativeTest {
     val appSource = testSource("app-src")
     state.sources.add(appSource)
     claimAppId = true
-    Snapshot.sendApplyNotifications()
-    testScheduler.advanceUntilIdle()
+    state.host.awaitPendingWork()
     assertTrue(errors.isNotEmpty(), "the composition's claim of an app-owned id is reported")
     assertSame(appSource, state.sources["app-src"])
 
