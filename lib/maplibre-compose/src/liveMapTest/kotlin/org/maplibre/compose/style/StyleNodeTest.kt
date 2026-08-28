@@ -12,6 +12,7 @@ import kotlin.test.assertSame
 import org.maplibre.compose.layers.Anchor
 import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.layers.LineLayerDescriptor
+import org.maplibre.compose.map.FakeMapAdapter
 import org.maplibre.compose.map.MapState
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
@@ -46,11 +47,15 @@ class StyleNodeTest {
     )
   }
 
-  /** A state whose style node points at [style], so [MapState.sources] snapshots it. */
+  /**
+   * A state whose record points at [style], so [MapState.sources] snapshots the live binding the
+   * record owns.
+   */
   private fun mapStateOver(style: StyleBinding): MapState {
     val mapState = MapState()
-    mapState.styleNode.binding = style
-    mapState.sources.refreshSources()
+    val adapter = FakeMapAdapter()
+    mapState.attachSession(adapter)
+    mapState.callbacks.onStyleChanged(adapter, style)
     return mapState
   }
 

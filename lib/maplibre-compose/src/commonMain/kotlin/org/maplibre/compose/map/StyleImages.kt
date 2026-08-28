@@ -133,6 +133,10 @@ public class StyleImages internal constructor(private val state: MapState) {
         when {
           closed ->
             IllegalStateException("MapState is closed; a closed state cannot mutate the style")
+          !binding.isLoaded ->
+            IllegalStateException(
+              "No loaded style; an image can only be removed from a loaded style"
+            )
           id !in appImages ->
             IllegalArgumentException("Image id '$id' was not added through this state")
           else -> null
@@ -140,11 +144,6 @@ public class StyleImages internal constructor(private val state: MapState) {
       }
     if (refusal != null) return refusal
     val binding = state.record.read { this.binding }
-    if (!binding.isLoaded) {
-      return IllegalStateException(
-        "No loaded style; an image can only be removed from a loaded style"
-      )
-    }
     return try {
       binding.removeImage(id)
       if (!state.commitAppImageRemoval(binding, id)) {

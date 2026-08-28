@@ -162,10 +162,11 @@ class StyleSourcesImperativeTest {
     val binding = OpRecordingStyleBinding(baseSources = listOf(testSource("base-src")))
     attach(state, binding)
 
-    val error =
-      assertFailsWith<IllegalArgumentException> { state.sources.add(testSource("base-src")) }
+    val attempted = testSource("base-src")
+    val error = assertFailsWith<IllegalArgumentException> { state.sources.add(attempted) }
     assertTrue("base style" in error.message.orEmpty(), "names the owner: ${error.message}")
-    assertNull(state.sources["base-src"])
+    assertNotSame(attempted, state.sources["base-src"], "a refused add does not claim the id")
+    assertNotNull(state.sources["base-src"], "the base source remains readable")
 
     state.close()
     testScheduler.advanceUntilIdle()
