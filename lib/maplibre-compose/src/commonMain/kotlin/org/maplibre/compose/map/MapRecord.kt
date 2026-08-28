@@ -228,7 +228,8 @@ internal class MapRecord(initialCamera: CameraPosition) {
     }
     selectDemoIfNeeded()
     val previous = session
-    val reuseLoadedStyle = adapter === styleSource && loadState is MapLoadState.Ready
+    val retainedSame = adapter === styleSource
+    val reuseLoadedStyle = retainedSame && loadState is MapLoadState.Ready
     if (previous !== adapter) {
       hasAuthoritativeSurface = false
       nextSessionGeneration += 1L
@@ -238,7 +239,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
     styleSource = adapter
     renderer = RendererState.Session(adapter, generation)
     if (previous !== adapter) {
-      cameraWorkGeneration = generation
+      // A retained core already holds this adapter. Arming here would authorize leftover
+      // programmatic move callbacks from the previous generation of the same adapter.
+      if (!retainedSame) cameraWorkGeneration = generation
       enqueue { applySessionOptions(adapter) }
       replayStyle(adapter, reuseLoadedStyle)
       sendCamera(adapter, camera)
