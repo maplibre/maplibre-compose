@@ -49,10 +49,15 @@ internal class MapRecord(initialCamera: CameraPosition) {
    * under [lock], so a commit that arrives mid-flush is not left queued after this returns.
    */
   fun drain() {
-    lock.withLock {
-      if (flushing) return
-      flushing = true
+    val claimed = lock.withLock {
+      if (flushing) {
+        false
+      } else {
+        flushing = true
+        true
+      }
     }
+    if (!claimed) return
     try {
       while (true) {
         val task = lock.withLock { effects.removeFirstOrNull() }
