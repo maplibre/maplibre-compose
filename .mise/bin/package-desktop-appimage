@@ -60,7 +60,7 @@ Type=Application
 Name=MapLibre Compose
 Exec=${package_name}
 Icon=${package_name}
-Categories=Education;Development;
+Categories=Development;
 Terminal=false
 EOF
 
