@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalAtomicApi::class)
+
 package org.maplibre.compose.style
 
 import androidx.compose.runtime.BroadcastFrameClock
@@ -16,6 +18,9 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import co.touchlab.kermit.Logger
+import kotlin.concurrent.atomics.AtomicLong
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.coroutines.EmptyCoroutineContext
 import kotlin.time.Duration.Companion.nanoseconds
 import kotlin.time.TimeSource
@@ -83,7 +88,19 @@ internal class StyleCompositionHost(
   private val frameSignal = Channel<Unit>(Channel.CONFLATED)
   private val snapshotSignal = Channel<Unit>(Channel.CONFLATED)
 
-  private val clock = BroadcastFrameClock { frameSignal.trySend(Unit) }
+  // A frame is pending from its request until the pump's sync after it; awaitPendingWork counts
+  // it as pending work. Counters instead of a flag: the conflated signal coalesces requests, and
+  // a request arriving mid-frame must stay pending past that frame's completion.
+  private val requestedFrames = AtomicLong(0L)
+  private val completedFrames = AtomicLong(0L)
+
+  private val frameIsPending: Boolean
+    get() = requestedFrames.load() > completedFrames.load()
+
+  private val clock = BroadcastFrameClock {
+    requestedFrames.incrementAndFetch()
+    frameSignal.trySend(Unit)
+  }
   private val job = Job()
   private val exceptionHandler = CoroutineExceptionHandler { _, error ->
     logger?.e(error) { "Uncaught error on the style composition host" }
@@ -154,6 +171,7 @@ internal class StyleCompositionHost(
       val clockStart = TimeSource.Monotonic.markNow()
       var lastFrameNanos = Long.MIN_VALUE
       for (unused in frameSignal) {
+        val epoch = requestedFrames.load()
         // A request arriving within a frame interval of the previous frame waits out the rest.
         if (lastFrameNanos != Long.MIN_VALUE) {
           val sinceLast = clockStart.elapsedNow().inWholeNanoseconds - lastFrameNanos
@@ -165,6 +183,7 @@ internal class StyleCompositionHost(
         clock.sendFrame(frameNanos)
         lastFrameNanos = frameNanos
         applyChanges()
+        completedFrames.store(epoch)
       }
     }
   }
@@ -263,9 +282,11 @@ internal class StyleCompositionHost(
       recomposer.currentState.first { it != Recomposer.State.PendingWork }
       scope.launch {}.join()
       if (recomposer.currentState.value == Recomposer.State.PendingWork) continue
+      // A requested frame runs applyChanges after the pacing delay; that sync is pending work.
+      if (frameIsPending) continue
       // A notification queued during the last task must be delivered before deciding.
       scope.launch {}.join()
-      if (recomposer.currentState.value != Recomposer.State.PendingWork) return
+      if (recomposer.currentState.value != Recomposer.State.PendingWork && !frameIsPending) return
     }
   }
 
