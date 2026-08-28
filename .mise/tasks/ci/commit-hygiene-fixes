@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+# [MISE] description="Commit tracked files left dirty by mise run fix."
+set -euo pipefail
+cd "${MISE_PROJECT_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+
+committed=false
+git update-index -q --refresh
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  git add --update
+  git -c user.name="github-actions[bot]" \
+    -c user.email="41898282+github-actions[bot]@users.noreply.github.com" \
+    commit --message "chore: apply hygiene fixes"
+  committed=true
+fi
+
+if [[ -n ${GITHUB_OUTPUT:-} ]]; then
+  echo "committed=${committed}" >> "${GITHUB_OUTPUT}"
+fi
+if [[ ${committed} == true ]]; then
+  echo "committed=true"
+else
+  echo "Tree already clean."
+fi
+
+if [[ -z ${GH_TOKEN:-} || -z ${HEAD_REF:-} ]]; then
+  exit 0
+fi
+if [[ ${committed} != true && $(git log -1 --pretty=%s) != "chore: apply hygiene fixes" ]]; then
+  exit 0
+fi
+git push
+gh workflow run CI --ref "${HEAD_REF}" -f secrets=false

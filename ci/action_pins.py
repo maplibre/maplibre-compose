@@ -133,6 +133,6 @@ def fix_pins(root: pathlib.Path) -> list[pathlib.Path]:
                     dirty = True
             rewritten.append(line)
         if dirty:
-            path.write_text("".join(rewritten))
+            path.write_text("".join(rewritten), newline="\n")
             changed.append(path)
     return changed

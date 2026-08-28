@@ -207,3 +207,17 @@ class FixPinsTest(unittest.TestCase):
             self.assertTrue(fix_pins(root))
             self.assertEqual(fix_pins(root), [])
             self.assertEqual(check_pins(root), [])
+
+    def test_writes_lf_newlines(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = _repo(
+                pathlib.Path(tmp),
+                catalog_pins=[NEW],
+                consumer=_consumer(OLD),
+            )
+            consumer = root / ".github/actions/setup-ci-deps/action.yml"
+            consumer.write_bytes(consumer.read_bytes().replace(b"\n", b"\r\n"))
+            fix_pins(root)
+            data = consumer.read_bytes()
+            self.assertNotIn(b"\r\n", data)
+            self.assertIn(NEW.reference.encode(), data)

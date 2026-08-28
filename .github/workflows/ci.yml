@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
   workflow_dispatch:
+    inputs:
+      secrets:
+        type: boolean
+        default: true
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
@@ -13,18 +17,16 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  CI_SECRETS: ${{ github.event_name == 'push' || (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository) || (github.event_name == 'workflow_dispatch' && github.event.inputs.secrets != 'false') }}
+
 jobs:
-  # All static analysis, Android Lint included; every other job is a platform.
-  # `fix` then a clean-tree assertion rather than `check`, because a push cannot
-  # reach a fork's branch. It runs first, so formatting still fails in seconds.
-  # Same-repo Dependabot pull requests: commit that `fix` output and stop, so
-  # the next run sees a clean tree.
   hygiene:
     timeout-minutes: 25
     runs-on: ubuntu-24.04
-    # Dependabot events mint a read-only token unless the job asks for write.
     permissions:
       contents: write
+      actions: write
     env:
       DEPENDABOT_PR: ${{ github.event_name == 'pull_request' && github.actor == 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository }}
     steps:
@@ -35,7 +37,6 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         if: env.DEPENDABOT_PR == 'true'
         with:
-          # The default checkout is the merge commit, which cannot be pushed.
           ref: ${{ github.head_ref }}
       - uses: ./.github/actions/setup-ci-deps
         with:
@@ -44,47 +45,31 @@ jobs:
           save-toolchains: "true"
       - run: mise run fix
       - id: apply-fix
-        name: Commit hygiene fixes
         if: env.DEPENDABOT_PR == 'true'
-        run: |
-          set -euo pipefail
-          git update-index -q --refresh
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "pushed=false" >> "$GITHUB_OUTPUT"
-            echo "Tree already clean."
-            exit 0
-          fi
-          # Tracked files only: `mise run fix` may write generated docs that
-          # stay untracked.
-          git add --update
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git commit --message "chore: apply hygiene fixes"
-          git push
-          echo "pushed=true" >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: mise run ci:commit-hygiene-fixes
       - name: Check formatted files
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
         run: |
           git update-index -q --refresh
           git diff --exit-code
           git diff --cached --exit-code
       - run: mise run lint:android
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
       - run: mise run ci:test-scripts
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
       - run: mise run style-spec:parity -- --check
-        if: steps.apply-fix.outputs.pushed != 'true'
+        if: steps.apply-fix.outputs.committed != 'true'
 
   android:
     strategy:
       fail-fast: false
       matrix:
         include:
-          # the latest, Android 16 (Baklava); also the leg that ships
-          # the demo APK, which does not vary by API level
           - api-level: 36
             artifact_name: demo-app-android
-          # the oldest we support, Android 7 (Nougat) (supports back to ~Galaxy S6 from 2015)
           - api-level: 24
     timeout-minutes: 45
     runs-on: ubuntu-24.04
@@ -98,7 +83,7 @@ jobs:
       - id: android-host-tests
         run: mise run test:android
       - name: Upload Android host test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -122,7 +107,7 @@ jobs:
       - id: android-device-tests
         run: mise run test:android:device ${{ matrix.api-level }}
       - name: Upload Android device test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -173,7 +158,7 @@ jobs:
       - id: ios-tests
         run: mise run test:ios
       - name: Upload iOS test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -204,7 +189,7 @@ jobs:
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
         with:
-          save-toolchains: "false" # ios owns this label
+          save-toolchains: "false"
       - run: mise run build:ios:device
 
   js:
@@ -218,7 +203,7 @@ jobs:
       - id: js-tests
         run: mise run test:js
       - name: Upload JS test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -246,13 +231,13 @@ jobs:
       matrix:
         include:
           - runner: macos-26
-            save_toolchains: "false" # ios owns this label
+            save_toolchains: "false"
             artifact_type: dmg
             artifact_glob: "*"
             artifact_name: demo-app-desktop-macos-arm64
             test_variant: desktop-macos-arm64
           - runner: ubuntu-24.04
-            save_toolchains: "false" # hygiene owns this label
+            save_toolchains: "false"
             artifact_type: appimage
             artifact_glob: "*.tar"
             artifact_name: demo-app-desktop-linux-x64
@@ -288,7 +273,7 @@ jobs:
       - id: desktop-tests
         run: mise run test:desktop
       - name: Upload desktop test results to Trunk
-        if: ${{ !cancelled() && (github.event_name != 'pull_request' || (github.actor != 'dependabot[bot]' && github.event.pull_request.head.repo.full_name == github.repository)) }}
+        if: ${{ !cancelled() && env.CI_SECRETS == 'true' }}
         continue-on-error: true
         uses: trunk-io/analytics-uploader@385f1ccdf345b4532dc4b6c665dd432b702b8e28 # v2.1.2
         with:
@@ -329,11 +314,12 @@ jobs:
           || (github.event_name == 'pull_request'
           && github.actor != 'dependabot[bot]'
           && github.event.pull_request.head.repo.full_name == github.repository)
+          || (github.event_name == 'workflow_dispatch'
+          && github.event.inputs.secrets != 'false')
         }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # version-args reads the release tag.
           fetch-depth: 0
           persist-credentials: false
       - uses: ./.github/actions/setup-ci-deps
@@ -341,7 +327,6 @@ jobs:
           pnpm-cache: "true"
       - run: mise run test:pages
         env:
-          # Marks the Cloudflare Pages preview; release builds set no banner.
           DOCS_BANNER: >-
             ${{ github.event_name == 'pull_request'
             && format(
@@ -356,11 +341,7 @@ jobs:
           path: docs/dist
       - name: Deploy the Cloudflare Pages preview
         id: deploy-cloudflare
-        if: >-
-          github.event_name == 'push'
-          || (github.event_name == 'pull_request'
-          && github.actor != 'dependabot[bot]'
-          && github.event.pull_request.head.repo.full_name == github.repository)
+        if: ${{ env.CI_SECRETS == 'true' }}
         uses: cloudflare/wrangler-action@ebbaa1584979971c8614a24965b4405ff95890e0 # v4.0.0
         env:
           CLOUDFLARE_BRANCH: >-
@@ -385,8 +366,6 @@ jobs:
           url="${PREVIEW_URL:-$DEPLOYMENT_URL}"
           echo "Cloudflare Pages: ${url}/maplibre-compose/" >> "$GITHUB_STEP_SUMMARY"
 
-  # Branch protection requires this job. always() still runs it after a needed
-  # job fails; GitHub otherwise skips it and treats that skip as a passing check.
   all-good:
     if: ${{ always() }}
     needs:
