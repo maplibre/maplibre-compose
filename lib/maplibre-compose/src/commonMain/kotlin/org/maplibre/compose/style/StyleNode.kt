@@ -44,6 +44,13 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   internal var reportError: (StyleError) -> Unit = {}
 
   /**
+   * Set by [MapState][org.maplibre.compose.map.MapState]; commits ownership through the map kernel
+   * so a queued apply after close or a style reload cannot republish.
+   */
+  internal var commitOwnership: ((StyleBinding, Set<String>, Map<String, Source>) -> Boolean)? =
+    null
+
+  /**
    * The live style's layer ids in draw order, backing
    * [StyleLayers.ids][org.maplibre.compose.map.StyleLayers.ids]. Snapshot-backed so a composition
    * that reads the ids recomposes when they change.
@@ -180,7 +187,7 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
       ensureAppTablesFor(binding)
       syncedBinding = binding
     }
-    publishCompositionOwnership()
+    if (!publishCompositionOwnership()) return
     if (!binding.isLoaded) {
       publishLiveLayers()
       return
@@ -199,10 +206,14 @@ internal class StyleNode(binding: StyleBinding, internal var logger: Logger?) : 
   }
 
   /** Rebuilds the ownership snapshots from the desired state that this sync applies. */
-  private fun publishCompositionOwnership() {
-    compositionLayerIds =
-      children.filterIsInstance<LayerNode<*>>().mapTo(hashSetOf()) { it.layer.id }
-    compositionSources = sourceManager.desiredSources.associateBy { it.id }
+  private fun publishCompositionOwnership(): Boolean {
+    val layerIds = children.filterIsInstance<LayerNode<*>>().mapTo(hashSetOf()) { it.layer.id }
+    val sources = sourceManager.desiredSources.associateBy { it.id }
+    val accepted = commitOwnership?.invoke(binding, layerIds, sources) ?: true
+    if (!accepted) return false
+    compositionLayerIds = layerIds
+    compositionSources = sources
+    return true
   }
 
   /**

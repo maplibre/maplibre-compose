@@ -13,13 +13,11 @@ import org.maplibre.compose.util.MapClickHandler
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * The session callbacks of one [MapState]: they write the state's records and invoke the hooks that
- * the [MaplibreMap] showing the state supplies.
+ * Forwards platform callbacks into [MapState]'s kernel as generation-tagged events. The kernel
+ * decides whether each event still belongs to current state.
  */
 internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callbacks {
 
-  // A UI SideEffect writes these hooks and the map's owner and renderer threads read them, so
-  // Volatile supplies the only happens-before edge between the write and those reads.
   @Volatile var onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass }
   @Volatile var onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass }
   @Volatile var onFrame: (framesPerSecond: Double) -> Unit = {}
@@ -40,35 +38,32 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onMapDestroyed(map: MapAdapter) {
-    if (state.attachedAdapter !== map) return
-    state.updateBinding(null)
-    state.sources.clear()
-    state.viewportState.value = map.getViewport()
+    state.onMapDestroyed(map)
   }
 
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-    if (style != null) state.lastLoadFailure.value = null
-    state.updateBinding(style)
-    if (state.attachedAdapter === map) state.viewportState.value = map.getViewport()
+    onStyleChanged(map, style, 0L)
+  }
+
+  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
+    state.onStyleChanged(map, style, styleGeneration)
   }
 
   override fun onMapFailLoading(reason: String?) {
-    state.lastLoadFailure.value = reason ?: "MapLibre failed to load the map"
-    // The switch's flicker guard preserved the old style's sources; a terminal failure means no
-    // load will replace them.
-    state.sources.clear()
-    // A retained map can fail a load between sessions; the buffer decision and the attach share
-    // one lock, so a racing attach cannot strand the report.
-    if (state.bufferIfDetachedLoadFailure(reason ?: "MapLibre failed to load the map")) return
-    onMapLoadFailed(reason)
+    onMapFailLoading(reason, 0L)
+  }
+
+  override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
+    val source = state.attachedAdapter ?: state.engine.detachedAdapter
+    state.onMapFailLoading(source, reason ?: "MapLibre failed to load the map", styleGeneration)
   }
 
   override fun onMapFinishedLoading(map: MapAdapter) {
-    state.refreshStyleCollections()
-    // A retained map can finish a load between sessions; the buffer decision and the attach share
-    // one lock, so a racing attach cannot strand the report.
-    if (state.bufferIfDetachedLoadFinished()) return
-    onMapLoadFinished()
+    onMapFinishedLoading(map, 0L)
+  }
+
+  override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
+    state.onMapFinishedLoading(map, styleGeneration)
   }
 
   override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
@@ -77,22 +72,19 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason) {
-    if (state.attachedAdapter !== map) return
-    state.moveReasonState.value = reason
-    state.isCameraMovingState.value = true
+    state.onCameraMoveStarted(map, reason)
   }
 
   override fun onCameraMoved(map: MapAdapter) {
-    if (state.attachedAdapter !== map) return
-    state.positionState.value = map.getCameraPosition()
-    // A new instance so a composition that reads MapState.viewport redraws when the transform
-    // changes without the camera position changing, which is what a resize does.
-    state.viewportState.value = map.getViewport()
+    state.onCameraMoved(map)
   }
 
   override fun onCameraMoveEnded(map: MapAdapter) {
-    if (state.attachedAdapter !== map) return
-    state.isCameraMovingState.value = false
+    state.onCameraMoveEnded(map)
+  }
+
+  override fun onSurfaceLost(map: MapAdapter) {
+    state.onSurfaceLost(map)
   }
 
   /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */
@@ -101,8 +93,6 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     offset: DpOffset,
     handlerOf: (ClickRoute) -> FeaturesClickHandler?,
   ) {
-    // The host publishes the routing snapshot after each sync; reading only the snapshot keeps this
-    // off the mutable node tree the host owns.
     clickScope?.launch {
       for (route in state.styleNode.clickRoutes) {
         if (handlerOf(route) == null) continue
@@ -112,9 +102,6 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
             layerIds = setOf(route.layerId),
             predicate = null,
           )
-        // Recomposition may replace or remove the layer while the query is suspended. A removed
-        // layer never receives the click; a replaced one answers with the handler the latest
-        // snapshot has.
         val currentHandle =
           state.styleNode.clickRoutes.firstOrNull { it.layerId == route.layerId }?.let(handlerOf)
             ?: continue
@@ -133,7 +120,6 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     routeClick(map, offset) { it.onLongClick }
   }
 
-  // invoke, because the property and this override share a name.
   override fun onFrame(fps: Double) {
     onFrame.invoke(fps)
   }

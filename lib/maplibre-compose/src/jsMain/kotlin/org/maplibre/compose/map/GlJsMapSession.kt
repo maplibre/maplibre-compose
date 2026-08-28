@@ -368,7 +368,7 @@ internal class GlJsMapSession(
       val binding =
         GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
           .also { styleBinding = it }
-      callbacks.onStyleChanged(this, binding)
+      callbacks.onStyleChanged(this, binding, styleState.appliedGeneration)
       applyTileLod(map)
       if (!hasLoadedInitialStyle) {
         hasLoadedInitialStyle = true
@@ -392,7 +392,7 @@ internal class GlJsMapSession(
       if (styleLoadPending) {
         styleLoadPending = false
         logger?.e { "Map loading failed: $reason" }
-        callbacks.onMapFailLoading(reason)
+        callbacks.onMapFailLoading(reason, styleState.requestedGeneration)
         if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
       } else {
         // Tile and sprite failures land here too, and are not the map failing to load.
@@ -413,7 +413,7 @@ internal class GlJsMapSession(
   private fun reportLoadedOnceStyleIsReady(map: MaplibreMap) {
     if (!reportStyleLoaded || !map.isStyleLoaded()) return
     reportStyleLoaded = false
-    callbacks.onMapFinishedLoading(this)
+    callbacks.onMapFinishedLoading(this, styleState.appliedGeneration)
   }
 
   /** A move spans the gesture rather than the jump, as every other platform reports it. */
@@ -476,7 +476,7 @@ internal class GlJsMapSession(
     styleState.request(
       style,
       unloadBinding = { styleBinding?.unload() },
-      clearStyle = { callbacks.onStyleChanged(this, null) },
+      clearStyle = { callbacks.onStyleChanged(this, null, styleState.requestedGeneration) },
       postApply = { onMap(::applyRequestedStyle) },
     )
   }
@@ -499,7 +499,7 @@ internal class GlJsMapSession(
       styleLoadPending = false
       val reason = error.message ?: "MapLibre failed to load the map"
       logger?.e(error) { "Map loading failed: $reason" }
-      callbacks.onMapFailLoading(reason)
+      callbacks.onMapFailLoading(reason, styleState.requestedGeneration)
       if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
     }
   }

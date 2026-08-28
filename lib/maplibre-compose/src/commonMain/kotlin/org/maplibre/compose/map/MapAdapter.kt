@@ -79,15 +79,32 @@ internal interface MapAdapter {
     /** A null [style] means the previous style unloaded and no replacement has loaded yet. */
     fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
 
+    fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
+      onStyleChanged(map, style)
+    }
+
     /** The live map died under its session, so nothing may keep describing it. */
     fun onMapDestroyed(map: MapAdapter) {}
 
     fun onMapFinishedLoading(map: MapAdapter)
 
+    fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
+      onMapFinishedLoading(map)
+    }
+
     /** A null [sourceId] means that the adapter cannot identify the changed source. */
     fun onSourceChanged(map: MapAdapter, sourceId: String?)
 
     fun onMapFailLoading(reason: String?)
+
+    fun onMapFailLoading(reason: String?, styleGeneration: Long) {
+      onMapFailLoading(reason)
+    }
+
+    /**
+     * The render surface went away; projection and viewport stay unavailable until a replacement.
+     */
+    fun onSurfaceLost(map: MapAdapter) {}
 
     fun onCameraMoveStarted(map: MapAdapter, reason: CameraMoveReason)
 

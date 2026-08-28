@@ -498,7 +498,7 @@ internal class MlnFfiMapCore(
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
         loadedStyleGeneration = styleState.appliedGeneration
-        callbacks.onStyleChanged(this, binding)
+        callbacks.onStyleChanged(this, binding, styleState.appliedGeneration)
         styleLoadUnreportedGeneration = styleState.appliedGeneration
         reportedUrlAttribution.clear()
         // A producer frame that started before this callback can still hold the previous style.
@@ -524,7 +524,7 @@ internal class MlnFfiMapCore(
         // setter.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
         logger?.e { "Map loading failed (code ${event.code}): $reason" }
-        callbacks.onMapFailLoading(reason)
+        callbacks.onMapFailLoading(reason, styleState.requestedGeneration)
       }
 
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
@@ -634,7 +634,7 @@ internal class MlnFfiMapCore(
   /** A lost surface invalidates the attached dimensions and the published viewport. */
   internal fun reportSurfaceLost() {
     resetAttachedViewport()
-    callbacks.onCameraMoved(this)
+    callbacks.onSurfaceLost(this)
   }
 
   /** When a render target goes away its dimensions are stale, so bounds fits queue again. */
@@ -705,7 +705,7 @@ internal class MlnFfiMapCore(
     styleState.request(
       style,
       unloadBinding = { styleBinding?.unload() },
-      clearStyle = { callbacks.onStyleChanged(this, null) },
+      clearStyle = { callbacks.onStyleChanged(this, null, styleState.requestedGeneration) },
       postApply = { onMap(::applyRequestedStyle) },
     )
   }
@@ -727,9 +727,8 @@ internal class MlnFfiMapCore(
               val binding = SessionStyleBinding().also { styleBinding = it }
               featureStateReplayPending.store(true)
               loadedStyleGeneration = generation
-              callbacks.onStyleChanged(this, binding)
-              // No load event follows an already-loaded style; the completion reports here.
-              callbacks.onMapFinishedLoading(this)
+              callbacks.onStyleChanged(this, binding, generation)
+              callbacks.onMapFinishedLoading(this, generation)
               map.requestRepaint()
               requestRender()
             }
@@ -759,7 +758,9 @@ internal class MlnFfiMapCore(
     val unreported = styleLoadUnreportedGeneration
     if (unreported == 0L) return false
     styleLoadUnreportedGeneration = 0L
-    if (unreported == styleState.requestedGeneration) callbacks.onMapFinishedLoading(this)
+    if (unreported == styleState.requestedGeneration) {
+      callbacks.onMapFinishedLoading(this, unreported)
+    }
     return true
   }
 

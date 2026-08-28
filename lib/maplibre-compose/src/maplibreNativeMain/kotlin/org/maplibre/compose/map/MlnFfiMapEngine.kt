@@ -171,13 +171,11 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       // A rival composable must not evict the session that owns the slot; a legitimate density or
       // backend change disposes the old resource before its replacement publishes.
       check(lifecycle !is Lifecycle.SessionAttached) { SINGLE_SESSION_ERROR }
-      // The dying core produced any pending detached-load completion and load failure.
-      state.clearDetachedLoadReplay()
-      state.lastLoadFailure.value = null
       core?.close()
       core = pending
       coreScaleFactor = scaleFactor
       coreBackend = backend
+      state.replaceCore(pending)
     }
   }
 
@@ -210,10 +208,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         attached.session.close()
         lifecycle = Lifecycle.Detached
       }
-      // The dying core produced any pending detached-load completion and load failure.
-      state.clearDetachedLoadReplay()
-      state.lastLoadFailure.value = null
-      // The loop's scale factor is fixed per map and a renderer is built for one backend.
       live.close()
     }
     val created =
@@ -226,6 +220,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     core = created
     coreScaleFactor = scaleFactor
     coreBackend = backend
+    state.replaceCore(created)
     return created
   }
 
@@ -348,9 +343,7 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         deadline = deadline,
         loadFailure = { state.lastLoadFailure.value },
         onViewportReady = {
-          // The target's dimensions are published, so viewport-conditioned content can compose.
-          state.viewportState.value = core.getViewport()
-          // One more sync so that content reaches the loaded style before the final frame.
+          state.onCaptureViewport(core.getViewport())
           state.host.requestApplyChanges()
           awaitQuiescentOrFail(deadline, timeout)
         },
@@ -359,8 +352,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       target.close()
       // The snapshot's target stamped its own dimensions on the retained map.
       sessionLock.withLock { core?.resetAttachedViewport() }
-      // The published viewport died with the target; the next attach publishes its own.
-      state.viewportState.value = null
     }
   }
 
@@ -397,7 +388,3 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     }
   }
 }
-
-/** The snapshot flavor of the single-session rule, naming the conflict the caller can end. */
-internal const val SNAPSHOT_SESSION_ERROR: String =
-  "MapState is rendering a still image; one MapState renders one session at a time"

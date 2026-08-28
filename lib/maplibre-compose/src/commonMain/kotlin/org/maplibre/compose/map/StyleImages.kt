@@ -27,7 +27,9 @@ public class StyleImages internal constructor(private val state: MapState) {
    * composition that reads this property recomposes when the list changes.
    */
   public val ids: List<String>
-    get() = state.styleNode.appImageIds
+    get() =
+      if (state.isClosed) emptyList()
+      else state.kernel.record.appImages.ifEmpty { state.styleNode.appImageIds }
 
   /**
    * Registers [image] under [id] in the loaded style. An id this state already registered is
@@ -91,10 +93,10 @@ public class StyleImages internal constructor(private val state: MapState) {
       check(binding.isLoaded) { "No loaded style; an image can only be added to a loaded style" }
       node.ensureAppTablesFor(binding)
       addTo(binding)
-      // A reload can unload the binding between the loaded check and the owner-thread upload; a
-      // dropped upload must not publish an id that was never installed.
       check(binding.isLoaded) { "Image '$id' was not added: the style unloaded during the add" }
-      if (node.appImages.add(id)) node.publishAppImages()
+      check(state.commitAppImage(binding, id)) {
+        "Image '$id' was not added: the style unloaded during the add"
+      }
     }
   }
 
@@ -114,8 +116,9 @@ public class StyleImages internal constructor(private val state: MapState) {
       node.ensureAppTablesFor(binding)
       require(id in node.appImages) { "Image id '$id' was not added through this state" }
       binding.removeImage(id)
-      node.appImages.remove(id)
-      node.publishAppImages()
+      check(state.commitAppImageRemoval(binding, id)) {
+        "Image '$id' was not removed: the style unloaded during the removal"
+      }
     }
   }
 }

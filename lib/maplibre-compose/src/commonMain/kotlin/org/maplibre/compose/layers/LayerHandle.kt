@@ -26,15 +26,10 @@ import org.maplibre.compose.map.MapState
 public class LayerHandle
 internal constructor(private val state: MapState, private val descriptor: Layer) {
 
-  // A base-style load supersedes the binding that the descriptor writes into.
-  private val binding = state.styleNode.binding
+  private val styleGeneration = state.styleGeneration
 
-  private fun checkWritable() {
-    state.checkLayerWritable(id)
-    check(state.styleNode.binding === binding) {
-      "Layer '$id' was taken from a style that a base style load replaced; get a fresh handle " +
-        "from MapState.layers"
-    }
+  private fun write(block: () -> Unit) {
+    state.writeAuthorizedLayer(styleGeneration, descriptor, block)
   }
 
   /** The layer's id in the style. */
@@ -49,24 +44,21 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
   public var visible: Boolean
     get() = descriptor.visible
     set(value) {
-      checkWritable()
-      descriptor.visible = value
+      write { descriptor.visible = value }
     }
 
   /** The minimum zoom level at which the layer draws. */
   public var minZoom: Float
     get() = descriptor.minZoom
     set(value) {
-      checkWritable()
-      descriptor.minZoom = value
+      write { descriptor.minZoom = value }
     }
 
   /** The maximum zoom level at which the layer draws. */
   public var maxZoom: Float
     get() = descriptor.maxZoom
     set(value) {
-      checkWritable()
-      descriptor.maxZoom = value
+      write { descriptor.maxZoom = value }
     }
 
   /**
@@ -74,8 +66,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    * [nil][org.maplibre.compose.expressions.dsl.nil] clears the filter, and every feature matches.
    */
   public fun setFilter(filter: Expression<BooleanValue>) {
-    checkWritable()
-    descriptor.setFilterJson(state.compileLayerProperty(filter))
+    write { descriptor.setFilterJson(state.compileLayerProperty(filter)) }
   }
 
   /**
@@ -83,8 +74,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    * rejects is logged, and the layer keeps its previous value.
    */
   public fun setLayoutProperty(name: String, value: Expression<*>) {
-    checkWritable()
-    descriptor.setLayoutProperty(name, state.compileLayerProperty(value))
+    write { descriptor.setLayoutProperty(name, state.compileLayerProperty(value)) }
   }
 
   /**
@@ -92,8 +82,7 @@ internal constructor(private val state: MapState, private val descriptor: Layer)
    * rejects is logged, and the layer keeps its previous value.
    */
   public fun setPaintProperty(name: String, value: Expression<*>) {
-    checkWritable()
-    descriptor.setPaintProperty(name, state.compileLayerProperty(value))
+    write { descriptor.setPaintProperty(name, state.compileLayerProperty(value)) }
   }
 
   /**

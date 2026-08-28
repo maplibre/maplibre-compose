@@ -58,10 +58,15 @@ public class StyleSources internal constructor(private val state: MapState) {
    * [GeoJsonSource.setData][org.maplibre.compose.sources.GeoJsonSource.setData] is legal on a
    * detached state and applies when a style loads.
    */
-  public operator fun get(id: String): Source? =
-    state.styleNode.compositionSources[id]
+  public operator fun get(id: String): Source? {
+    if (state.isClosed) return null
+    val record = state.kernel.record
+    return record.compositionSources[id]
+      ?: record.appSources[id]
+      ?: state.styleNode.compositionSources[id]
       ?: state.styleNode.appSourceSnapshot[id]
       ?: snapshotState.value[id]
+  }
 
   /**
    * Adds [source] to the loaded style. The source is map-owned: the sync that applies the style
@@ -94,13 +99,12 @@ public class StyleSources internal constructor(private val state: MapState) {
           "change it"
       }
       binding.addSource(source)
-      // A reload can unload the binding between the loaded check and the owner-thread add; the
-      // dropped add must not publish a descriptor that was never installed.
       check(source.binding === binding) {
         "Source '$id' was not added: the style unloaded during the add"
       }
-      node.appSources[id] = source
-      node.publishAppSources()
+      check(state.commitAppSource(binding, source)) {
+        "Source '$id' was not added: the style unloaded during the add"
+      }
       refreshSource(id)
     }
   }
@@ -143,8 +147,9 @@ public class StyleSources internal constructor(private val state: MapState) {
       } catch (error: StyleMutationException) {
         throw IllegalStateException("Source '$id' cannot be removed: ${error.message}", error)
       }
-      node.appSources.remove(id)
-      node.publishAppSources()
+      check(state.commitAppSourceRemoval(binding, id)) {
+        "Source '$id' was not removed: the style unloaded during the removal"
+      }
       refreshSource(id)
     }
   }

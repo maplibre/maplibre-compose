@@ -18,6 +18,7 @@ import org.maplibre.spatialk.geojson.Position
 /** Records every adapter call by name, in place of a render session. */
 internal class FakeMapAdapter : MapAdapter {
   val calls: MutableList<String> = mutableListOf()
+  var camera: CameraPosition = CameraPosition()
 
   override suspend fun animateCameraPosition(finalPosition: CameraPosition, duration: Duration) {
     calls += "animateCameraPosition"
@@ -39,11 +40,12 @@ internal class FakeMapAdapter : MapAdapter {
 
   override fun getCameraPosition(): CameraPosition {
     calls += "getCameraPosition"
-    return CameraPosition()
+    return camera
   }
 
   override fun setCameraPosition(cameraPosition: CameraPosition) {
     calls += "setCameraPosition"
+    camera = cameraPosition
   }
 
   override fun setCameraPadding(padding: PaddingValues) {
