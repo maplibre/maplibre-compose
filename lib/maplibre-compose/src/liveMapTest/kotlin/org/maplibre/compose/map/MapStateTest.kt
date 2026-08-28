@@ -81,12 +81,6 @@ class MapStateTest {
     state.attachSession(first)
     assertSame(first, state.attachedAdapter)
 
-    // The composable's load hooks are set when the session departs.
-    var finished = 0
-    var failed = 0
-    state.callbacks.onMapLoadFinished = { finished++ }
-    state.callbacks.onMapLoadFailed = { failed++ }
-
     state.detachSession()
     // The engine session unloads its style when it goes away; the fake models that here.
     firstBinding.unload()
@@ -98,19 +92,11 @@ class MapStateTest {
     assertFalse(state.styleNode.binding.isLoaded)
     assertTrue(state.sources.ids.isEmpty())
 
-    // A retained core can deliver load events after the composable is gone.
-    state.callbacks.onMapFinishedLoading(first)
-    state.callbacks.onMapFailLoading("late failure")
-    assertEquals(0, finished, "a disposed composable's load hook fired")
-    assertEquals(0, failed, "a disposed composable's failure hook fired")
-
     val second = FakeMapAdapter()
     val secondBinding = OpRecordingStyleBinding()
-    state.callbacks.onMapLoadFinished = { finished++ }
     state.attachSession(second)
-    // Load progress is loadState. Attach does not replay hooks for a load that already finished.
+    // Load progress is loadState. Attach does not reload a style the same source already holds.
     assertIs<MapLoadState.Ready>(state.loadState)
-    assertEquals(0, finished, "attach must not replay a load hook that already ran")
     state.callbacks.onStyleChanged(second, secondBinding)
     state.host.awaitPendingWork()
 

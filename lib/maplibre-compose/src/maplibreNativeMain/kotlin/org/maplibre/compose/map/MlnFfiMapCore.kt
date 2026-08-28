@@ -701,9 +701,10 @@ internal class MlnFfiMapCore(
 
   // region MapAdapter
 
-  override fun setBaseStyle(style: BaseStyle) {
+  override fun setBaseStyle(style: BaseStyle, generation: Long) {
     styleState.request(
       style,
+      generation = generation,
       unloadBinding = { styleBinding?.unload() },
       clearStyle = { callbacks.onStyleChanged(this, null, styleState.requestedGeneration) },
       postApply = { onMap(::applyRequestedStyle) },

@@ -28,7 +28,8 @@ internal interface MapAdapter {
     duration: Duration,
   )
 
-  fun setBaseStyle(style: BaseStyle)
+  /** Loads [style]. [generation] is the kernel's style generation, or 0 from engine-only tests. */
+  fun setBaseStyle(style: BaseStyle, generation: Long = 0L)
 
   fun getCameraPosition(): CameraPosition
 
@@ -77,29 +78,17 @@ internal interface MapAdapter {
 
   interface Callbacks {
     /** A null [style] means the previous style unloaded and no replacement has loaded yet. */
-    fun onStyleChanged(map: MapAdapter, style: StyleBinding?)
-
-    fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
-      onStyleChanged(map, style)
-    }
+    fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long)
 
     /** The live map died under its session, so nothing may keep describing it. */
     fun onMapDestroyed(map: MapAdapter) {}
 
-    fun onMapFinishedLoading(map: MapAdapter)
-
-    fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
-      onMapFinishedLoading(map)
-    }
+    fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long)
 
     /** A null [sourceId] means that the adapter cannot identify the changed source. */
     fun onSourceChanged(map: MapAdapter, sourceId: String?)
 
-    fun onMapFailLoading(reason: String?)
-
-    fun onMapFailLoading(reason: String?, styleGeneration: Long) {
-      onMapFailLoading(reason)
-    }
+    fun onMapFailLoading(reason: String?, styleGeneration: Long)
 
     /**
      * The render surface went away; projection and viewport stay unavailable until a replacement.

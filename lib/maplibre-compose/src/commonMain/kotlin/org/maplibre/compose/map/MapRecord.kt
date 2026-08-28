@@ -44,17 +44,8 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var session: Any? = null
     private set
 
-  var sessionToken: Long = 0L
-    private set
-
   /** The adapter that may report style events: the session, or a retained core. */
   var styleSource: Any? = null
-    private set
-
-  var coreGeneration: Long = 0L
-    private set
-
-  var surfaceGeneration: Long = 0L
     private set
 
   var hasAuthoritativeSurface: Boolean = false
@@ -88,9 +79,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
   var configOwner: Any? = null
     private set
 
-  private var nextSessionToken = 1L
-  private var nextCoreGeneration = 1L
-  private var nextSurfaceGeneration = 1L
   private var nextOperationId = 1L
   private var nextCaptureId = 1L
 
@@ -114,8 +102,18 @@ internal class MapRecord(initialCamera: CameraPosition) {
 
   private fun isSession(source: Any?): Boolean = source != null && source === session
 
-  private fun acceptsStyleGeneration(generation: Long): Boolean =
-    generation == 0L || generation == styleGeneration
+  private fun acceptsStyleGeneration(generation: Long): Boolean = generation == styleGeneration
+
+  private fun emitLoad(adapter: Any, style: BaseStyle) {
+    emit(MapEffect.LoadStyle(adapter, style, styleGeneration))
+  }
+
+  private fun selectDemoIfNeeded() {
+    if (selectedStyle != null) return
+    selectedStyle = BaseStyle.Demo
+    styleGeneration += 1L
+    loadState = MapLoadState.Loading(styleGeneration, BaseStyle.Demo)
+  }
 
   fun selectStyle(style: BaseStyle) {
     if (closed) return
@@ -124,46 +122,32 @@ internal class MapRecord(initialCamera: CameraPosition) {
     styleGeneration += 1L
     loadState = MapLoadState.Loading(styleGeneration, style)
     lastLoadFailure = null
-    styleSource?.let { emit(MapEffect.LoadStyle(it, style)) }
-  }
-
-  fun ensureStyleSelected() {
-    if (closed) return
-    if (selectedStyle != null) return
-    selectedStyle = BaseStyle.Demo
-    styleGeneration += 1L
-    loadState = MapLoadState.Loading(styleGeneration, BaseStyle.Demo)
-    styleSource?.let { emit(MapEffect.LoadStyle(it, BaseStyle.Demo)) }
+    styleSource?.let { emitLoad(it, style) }
   }
 
   /**
    * Grants the single session slot to [adapter], or throws. The same adapter may re-attach. A
-   * retained core that already holds the current ready style is not asked to load it again. Load
-   * progress is [loadState]; attach does not replay load hooks.
+   * retained core that already holds the current ready style is not asked to load it again.
    */
-  fun attach(adapter: Any): Long {
+  fun attach(adapter: Any) {
     check(!closed) { "MapState is closed; a closed state cannot show a map again" }
     when (val current = renderer) {
       is RendererState.Capture -> throw IllegalStateException(SNAPSHOT_SESSION_ERROR)
       is RendererState.Session -> check(current.adapter === adapter) { SINGLE_SESSION_ERROR }
       RendererState.None -> {}
     }
+    selectDemoIfNeeded()
     val previous = session
-    if (previous !== adapter) {
-      sessionToken = nextSessionToken++
-      surfaceGeneration = nextSurfaceGeneration++
-      hasAuthoritativeSurface = false
-    }
+    if (previous !== adapter) hasAuthoritativeSurface = false
     val reuseLoadedStyle = adapter === styleSource && loadState is MapLoadState.Ready
     session = adapter
     styleSource = adapter
-    renderer = RendererState.Session(sessionToken, adapter)
+    renderer = RendererState.Session(adapter)
     if (previous !== adapter) {
       emit(MapEffect.ApplySessionOptions(adapter))
-      if (!reuseLoadedStyle) selectedStyle?.let { emit(MapEffect.LoadStyle(adapter, it)) }
+      if (!reuseLoadedStyle) selectedStyle?.let { emitLoad(adapter, it) }
       emit(MapEffect.SendCamera(adapter, camera))
     }
-    return sessionToken
   }
 
   fun detach(adapter: Any?) {
@@ -195,26 +179,15 @@ internal class MapRecord(initialCamera: CameraPosition) {
   }
 
   /** The engine published or replaced the retained core that reports style while detached. */
-  fun adoptCore(adapter: Any?) {
-    if (closed) return
-    if (adapter === styleSource && adapter === session) return
-    coreGeneration = nextCoreGeneration++
-    if (session == null) {
-      styleSource = adapter
-      if (adapter != null && loadState is MapLoadState.Ready) {
-        loadState = MapLoadState.Loading(styleGeneration, currentStyle())
-      }
-    }
-  }
-
   fun replaceCore(adapter: Any?) {
     if (closed) return
-    coreGeneration = nextCoreGeneration++
+    if (adapter === styleSource && adapter === session) return
     if (session == null) {
       styleSource = adapter
       lastLoadFailure = null
       if (selectedStyle != null) {
         loadState = MapLoadState.Loading(styleGeneration, currentStyle())
+        if (renderer is RendererState.Capture && adapter != null) emitLoad(adapter, currentStyle())
       }
     }
   }
@@ -262,7 +235,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     loadState = MapLoadState.Ready(styleGeneration, currentStyle())
     lastLoadFailure = null
     emit(MapEffect.RefreshCollections)
-    if (session != null) emit(MapEffect.InvokeLoadFinished)
   }
 
   fun styleLoadFailed(source: Any?, generation: Long, reason: String) {
@@ -274,7 +246,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     appSources = emptyMap()
     compositionSources = emptyMap()
     emit(MapEffect.RefreshCollections)
-    if (session != null) emit(MapEffect.InvokeLoadFailed(reason))
   }
 
   fun setCamera(position: CameraPosition) {
@@ -289,12 +260,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
         RendererState.None -> null
       }
     target?.let { emit(MapEffect.SendCamera(it, position)) }
-  }
-
-  /** Replays the current selection onto [adapter] without starting a new generation. */
-  fun replayStyle(adapter: Any) {
-    if (closed) return
-    selectedStyle?.let { emit(MapEffect.LoadStyle(adapter, it)) }
   }
 
   fun cameraMoved(source: Any, position: CameraPosition, viewport: Viewport?) {
@@ -329,10 +294,9 @@ internal class MapRecord(initialCamera: CameraPosition) {
     isCameraMoving = false
   }
 
-  fun surfaceLost(source: Any, generation: Long) {
+  fun surfaceLost(source: Any) {
     if (closed) return
     if (!isSession(source)) return
-    if (generation != 0L && generation != surfaceGeneration) return
     hasAuthoritativeSurface = false
     viewport = null
     isCameraMoving = false
@@ -344,6 +308,7 @@ internal class MapRecord(initialCamera: CameraPosition) {
     check(renderer !is RendererState.Session) {
       "MapState has an attached MaplibreMap; detach it before rendering a still image"
     }
+    selectDemoIfNeeded()
     val id = nextCaptureId++
     renderer = RendererState.Capture(id)
     return id
@@ -398,19 +363,6 @@ internal class MapRecord(initialCamera: CameraPosition) {
     if (!binding.isLoaded) return null
     return binding
   }
-
-  /**
-   * True when both generations and [binding] are still the live style the write was authorized on.
-   */
-  fun confirmLayerWrite(
-    styleGeneration: Long,
-    bindingGeneration: Long,
-    binding: StyleBinding,
-  ): Boolean =
-    !closed &&
-      styleGeneration == this.styleGeneration &&
-      bindingGeneration == this.bindingGeneration &&
-      this.binding === binding
 
   fun failOperation(id: Long) {
     pendingOperations.remove(id)
@@ -527,7 +479,7 @@ internal class PendingMapOperation(val id: Long) {
 internal sealed interface RendererState {
   data object None : RendererState
 
-  data class Session(val token: Long, val adapter: Any) : RendererState
+  data class Session(val adapter: Any) : RendererState
 
   data class Capture(val id: Long) : RendererState
 }

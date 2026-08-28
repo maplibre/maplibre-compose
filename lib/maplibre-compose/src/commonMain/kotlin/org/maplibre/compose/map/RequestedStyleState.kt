@@ -43,9 +43,16 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
   var appliedGeneration: Long = 0L
     private set
 
-  /** Runs the switch sequence above, or nothing when [style] is already the requested style. */
+  /**
+   * Runs the switch sequence above, or nothing when [style] is already the requested style.
+   *
+   * [generation] is the kernel's style generation. Pass 0 only from engine tests that call
+   * [org.maplibre.compose.map.MapAdapter.setBaseStyle] without a kernel; those mint a local
+   * generation so the request/applied pair still moves.
+   */
   fun request(
     style: BaseStyle,
+    generation: Long = 0L,
     unloadBinding: () -> Unit,
     clearStyle: () -> Unit,
     postApply: () -> Unit,
@@ -53,7 +60,8 @@ internal class RequestedStyleState(private val lock: SessionLock = newSessionLoc
     // The lock serializes the callbacks with publication: a racing request could otherwise
     // unload and clear the binding a newer, already-applied request published.
     if (style == requestedRef.load()?.style) return@withLock
-    requestedRef.store(Requested(style, generationCounter.incrementAndFetch()))
+    val nextGeneration = if (generation > 0L) generation else generationCounter.incrementAndFetch()
+    requestedRef.store(Requested(style, nextGeneration))
     unloadBinding()
     clearStyle()
     postApply()

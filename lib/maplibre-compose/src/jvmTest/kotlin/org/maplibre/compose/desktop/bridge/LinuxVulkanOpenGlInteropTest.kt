@@ -248,15 +248,15 @@ class LinuxVulkanOpenGlInteropTest {
 
     private val callbacks =
       object : MapAdapter.Callbacks {
-        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
           if (style != null) styleLoads++
         }
 
-        override fun onMapFailLoading(reason: String?) {
+        override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
           failure = reason ?: "unknown map load failure"
         }
 
-        override fun onMapFinishedLoading(map: MapAdapter) {}
+        override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {}
 
         override fun onSourceChanged(map: MapAdapter, sourceId: String?) {}
 

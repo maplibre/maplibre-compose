@@ -137,6 +137,9 @@ public fun rememberMapState(
  *   the per-layer callbacks.
  * @param onMapLongClick Invoked when the map is long-clicked. See [onMapClick].
  * @param onFrame Invoked on every rendered frame with the current frame rate.
+ * @param onMapLoadFailed Invoked when [MapState.loadState] becomes [MapLoadState.Failed].
+ * @param onMapLoadFinished Invoked when [MapState.loadState] becomes [MapLoadState.Ready],
+ *   including when this composable attaches to a state whose style is already ready.
  * @param options Gesture, render, and tile level-of-detail options for this session.
  * @param contentWindowInsets Insets applied to [overlay].
  * @param overlay Controls drawn on top of the map.
@@ -191,7 +194,6 @@ public fun MaplibreMap(
 
     SideEffect {
       if (!state.claimSessionConfig(hostToken)) return@SideEffect
-      state.ensureBaseStyleSelected()
       state.density = density
       state.layoutDirection = layoutDirection
       state.inheritedLocals = locals
@@ -200,9 +202,16 @@ public fun MaplibreMap(
       state.callbacks.onMapClick = onMapClick
       state.callbacks.onMapLongClick = onMapLongClick
       state.callbacks.onFrame = onFrame
-      state.callbacks.onMapLoadFailed = onMapLoadFailed
-      state.callbacks.onMapLoadFinished = onMapLoadFinished
       state.callbacks.clickScope = mapClickScope
+    }
+
+    val loadState = state.loadState
+    LaunchedEffect(loadState) {
+      when (val load = loadState) {
+        is MapLoadState.Ready -> onMapLoadFinished()
+        is MapLoadState.Failed -> onMapLoadFailed(load.reason)
+        else -> {}
+      }
     }
 
     val overlayHolder = remember(overlay) { MapOverlay(overlay) }

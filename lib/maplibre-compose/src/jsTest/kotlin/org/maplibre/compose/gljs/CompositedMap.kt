@@ -69,15 +69,15 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     MapExtent.fromPhysical(target.widthPx, target.heightPx, scaleFactor)
 
   private inner class Callbacks : MapAdapter.Callbacks {
-    override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
+    override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) = Unit
 
-    override fun onMapFinishedLoading(map: MapAdapter) {
+    override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
       styleLoaded = true
     }
 
     override fun onSourceChanged(map: MapAdapter, sourceId: String?) = Unit
 
-    override fun onMapFailLoading(reason: String?) {
+    override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
       loadFailure = reason ?: "unknown"
     }
 

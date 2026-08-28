@@ -21,8 +21,6 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   @Volatile var onMapClick: MapClickHandler = { _, _ -> ClickResult.Pass }
   @Volatile var onMapLongClick: MapClickHandler = { _, _ -> ClickResult.Pass }
   @Volatile var onFrame: (framesPerSecond: Double) -> Unit = {}
-  @Volatile var onMapLoadFailed: (reason: String?) -> Unit = {}
-  @Volatile var onMapLoadFinished: () -> Unit = {}
 
   /** The scope click queries launch on. Null drops clicks; only a missing UI leaves it null. */
   @Volatile var clickScope: CoroutineScope? = null
@@ -32,25 +30,20 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     onMapClick = { _, _ -> ClickResult.Pass }
     onMapLongClick = { _, _ -> ClickResult.Pass }
     onFrame = {}
-    onMapLoadFailed = {}
-    onMapLoadFinished = {}
     clickScope = null
+  }
+
+  /** Test helper: deliver a style event for the state's current generation. */
+  fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+    onStyleChanged(map, style, state.styleGeneration)
   }
 
   override fun onMapDestroyed(map: MapAdapter) {
     state.commit { mapDestroyed(map) }
   }
 
-  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
-    onStyleChanged(map, style, 0L)
-  }
-
   override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
     state.commit { styleChanged(map, style, styleGeneration) }
-  }
-
-  override fun onMapFailLoading(reason: String?) {
-    onMapFailLoading(reason, 0L)
   }
 
   override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
@@ -60,12 +53,18 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
     }
   }
 
-  override fun onMapFinishedLoading(map: MapAdapter) {
-    onMapFinishedLoading(map, 0L)
-  }
-
   override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
     state.commit { styleLoadFinished(map, styleGeneration) }
+  }
+
+  /** Test helper: finish the current generation. */
+  fun onMapFinishedLoading(map: MapAdapter) {
+    onMapFinishedLoading(map, state.styleGeneration)
+  }
+
+  /** Test helper: fail the current generation. */
+  fun onMapFailLoading(reason: String?) {
+    onMapFailLoading(reason, state.styleGeneration)
   }
 
   override fun onSourceChanged(map: MapAdapter, sourceId: String?) {
@@ -88,7 +87,7 @@ internal class MapStateCallbacks(private val state: MapState) : MapAdapter.Callb
   }
 
   override fun onSurfaceLost(map: MapAdapter) {
-    state.commit { surfaceLost(map, 0L) }
+    state.commit { surfaceLost(map) }
   }
 
   /** Offers the click to each layer that has a [handlerOf] handler, topmost first. */

@@ -300,7 +300,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
     timeout: Duration,
   ): ImageBitmap {
     ensureMlnFfiConfigured()
-    state.ensureBaseStyleSelected()
     val target = createSnapshotTarget()
     try {
       // A live core keeps its loaded style and scale only while its backend matches the snapshot
@@ -314,9 +313,6 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
           backend = target.backend,
         )
       }
-      // A session attach pushes the selected style; a snapshot has no session, so it pushes it
-      // here, serialized with the public setter. The core drops a style it already has.
-      state.replaySelectedStyle(core)
       core.start()
       // A retained session's camera constraints must not clamp the snapshot; the next session
       // attach restores them through its SessionOptions.

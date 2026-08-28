@@ -134,12 +134,12 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
   var style: StyleBinding? = null
     private set
 
-  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
+  override fun onStyleChanged(map: MapAdapter, style: StyleBinding?, styleGeneration: Long) {
     this.style = style
     events += if (style == null) "styleChanged(null)" else MapFixture.STYLE_LOADED
   }
 
-  override fun onMapFinishedLoading(map: MapAdapter) {
+  override fun onMapFinishedLoading(map: MapAdapter, styleGeneration: Long) {
     events += MapFixture.LOAD_FINISHED
   }
 
@@ -147,7 +147,7 @@ internal class RecordingMapCallbacks : MapAdapter.Callbacks {
     sourceChanges += sourceId
   }
 
-  override fun onMapFailLoading(reason: String?) {
+  override fun onMapFailLoading(reason: String?, styleGeneration: Long) {
     errors += "mapFailLoading: $reason"
   }
 

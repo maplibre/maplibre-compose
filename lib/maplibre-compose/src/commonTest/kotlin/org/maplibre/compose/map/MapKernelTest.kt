@@ -30,10 +30,8 @@ class MapKernelTest {
   fun a_newer_style_generation_ignores_stale_completions() {
     val kernel = kernel()
     val source = Any()
-    kernel.reduce {
-      adoptCore(source)
-      selectStyle(styleA)
-    }
+    kernel.reduce { replaceCore(source) }
+    kernel.reduce { selectStyle(styleA) }
     val genA = kernel.record.styleGeneration
     kernel.reduce { selectStyle(styleB) }
     val genB = kernel.record.styleGeneration
@@ -54,10 +52,8 @@ class MapKernelTest {
     val kernel = kernel()
     val oldCore = Any()
     val newCore = Any()
-    kernel.reduce {
-      adoptCore(oldCore)
-      selectStyle(styleA)
-    }
+    kernel.reduce { replaceCore(oldCore) }
+    kernel.reduce { selectStyle(styleA) }
     val gen = kernel.record.styleGeneration
     kernel.reduce { replaceCore(newCore) }
     kernel.reduce { styleLoadFinished(oldCore, gen) }
@@ -103,7 +99,7 @@ class MapKernelTest {
   fun a_detached_camera_write_is_recorded_and_not_sent() {
     val kernel = kernel()
     val core = Any()
-    kernel.reduce { adoptCore(core) }
+    kernel.reduce { replaceCore(core) }
     val effects = kernel.reduce { setCamera(CameraPosition(zoom = 5.0)) }
     assertEquals(5.0, kernel.record.camera.zoom)
     assertTrue(effects.none { it is MapEffect.SendCamera })
@@ -113,16 +109,15 @@ class MapKernelTest {
   }
 
   @Test
-  fun a_stale_surface_loss_does_not_clear_a_newer_viewport() {
+  fun a_foreign_session_cannot_clear_the_viewport() {
     val kernel = kernel()
     val session = Any()
     kernel.reduce { attach(session) }
     kernel.reduce { cameraMoved(session, CameraPosition(zoom = 3.0), testViewport()) }
-    val surface = kernel.record.surfaceGeneration
-    // 0 means "unknown generation, accept"; a different nonzero id is the stale one.
-    kernel.reduce { surfaceLost(session, surface + 1) }
     assertTrue(kernel.record.hasAuthoritativeSurface)
-    kernel.reduce { surfaceLost(session, surface) }
+    kernel.reduce { surfaceLost(Any()) }
+    assertTrue(kernel.record.hasAuthoritativeSurface)
+    kernel.reduce { surfaceLost(session) }
     assertFalse(kernel.record.hasAuthoritativeSurface)
     assertNull(kernel.record.viewport)
   }
@@ -144,10 +139,8 @@ class MapKernelTest {
   fun close_or_a_new_binding_refuses_stale_composition_and_layer_writes() {
     val kernel = kernel()
     val source = Any()
-    kernel.reduce {
-      adoptCore(source)
-      styleChanged(source, StyleBinding.UNLOADED, 0L)
-    }
+    kernel.reduce { replaceCore(source) }
+    kernel.reduce { styleChanged(source, StyleBinding.UNLOADED, 0L) }
     val styleGeneration = kernel.record.styleGeneration
     val bindingGeneration = kernel.record.bindingGeneration
     assertNull(kernel.record.authorizeLayerWrite(styleGeneration, bindingGeneration, "roads"))
@@ -171,7 +164,7 @@ class MapKernelTest {
     kernel.reduce { styleLoadFinished(core, kernel.record.styleGeneration) }
     kernel.reduce { detach(core) }
     val effects = kernel.reduce { attach(core) }
-    assertTrue(effects.none { it is MapEffect.LoadStyle || it is MapEffect.InvokeLoadFinished })
+    assertTrue(effects.none { it is MapEffect.LoadStyle })
     assertIs<MapLoadState.Ready>(kernel.record.loadState)
   }
 

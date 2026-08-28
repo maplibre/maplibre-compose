@@ -35,7 +35,7 @@ internal class FakeMapAdapter : MapAdapter {
     calls += "animateCameraPosition"
   }
 
-  override fun setBaseStyle(style: BaseStyle) {
+  override fun setBaseStyle(style: BaseStyle, generation: Long) {
     calls += "setBaseStyle"
   }
 

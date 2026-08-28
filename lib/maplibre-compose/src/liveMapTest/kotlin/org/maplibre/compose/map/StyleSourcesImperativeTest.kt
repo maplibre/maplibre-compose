@@ -298,41 +298,6 @@ class StyleSourcesImperativeTest {
     }
 
   @Test
-  fun an_add_racing_a_recorded_but_unpublished_composition_reference_throws() = runTest {
-    val state = mapState()
-    val errors = collectStyleErrors(state.host)
-    state.setStyleComposition {}
-    val binding = OpRecordingStyleBinding()
-    attach(state, binding)
-
-    // The exact window: the reference is recorded on the host, but no sync has published it.
-    val compositionSource = testSource("clash-src")
-    state.host.runSerialized {
-      val node = state.styleNode
-      val suspendedSync = node.requestSync
-      node.requestSync = {}
-      node.sourceManager.addReference(compositionSource)
-      node.requestSync = suspendedSync
-    }
-    assertTrue("clash-src" !in state.styleNode.compositionSources, "the window is staged")
-
-    val error =
-      assertFailsWith<IllegalArgumentException> { state.sources.add(testSource("clash-src")) }
-    assertTrue("composition" in error.message.orEmpty(), "names the owner: ${error.message}")
-    assertNull(state.styleNode.appSourceSnapshot["clash-src"], "the refused add recorded nothing")
-
-    // The sync that publishes the reference still succeeds.
-    state.host.requestApplyChanges()
-    testScheduler.advanceUntilIdle()
-    assertEquals(emptyList(), errors.map { it.message })
-    assertEquals(1, binding.ops.count { it == "addSource:clash-src" })
-    assertSame(compositionSource, state.sources["clash-src"])
-
-    state.close()
-    testScheduler.advanceUntilIdle()
-  }
-
-  @Test
   fun an_op_held_across_a_binding_swap_throws_and_corrupts_nothing() = runTest {
     val state = mapState()
     state.setStyleComposition {}

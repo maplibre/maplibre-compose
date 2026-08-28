@@ -296,18 +296,6 @@ internal constructor(
     sources.refreshSources()
   }
 
-  /**
-   * Refuses an imperative write on a layer id that the style composition owns. The read is the
-   * kernel's last committed ownership snapshot.
-   */
-  internal fun checkLayerWritable(id: String) {
-    val owned = kernel.read { layerIsCompositionOwned(id) } || id in styleNode.compositionLayerIds
-    check(!owned) {
-      "Layer '$id' is owned by the style composition; change it by recomposing the " +
-        "content rather than through MapState.layers"
-    }
-  }
-
   internal val styleGeneration: Long
     get() = kernel.read { styleGeneration }
 
@@ -325,7 +313,7 @@ internal constructor(
     layer: Layer,
     write: () -> Unit,
   ) {
-    val authorizedBinding = commit {
+    commit {
       authorizeLayerWrite(styleGeneration, bindingGeneration, layer.id)
         ?: run {
           check(!closed) { "MapState is closed; a closed state cannot mutate the style" }
@@ -343,13 +331,6 @@ internal constructor(
         }
     }
     write()
-    val committed = commit {
-      confirmLayerWrite(styleGeneration, bindingGeneration, authorizedBinding)
-    }
-    check(committed) {
-      "Layer '${layer.id}' was taken from a style that a base style load replaced; get a fresh " +
-        "handle from MapState.layers"
-    }
   }
 
   /** Compiles [expression] with this state's density and layout direction, as the content does. */
@@ -368,11 +349,6 @@ internal constructor(
     set(value) {
       commit { selectStyle(value) }
     }
-
-  /** Selects [BaseStyle.Demo] on a state that never selected a style, so a session has one. */
-  internal fun ensureBaseStyleSelected() {
-    commit { ensureStyleSelected() }
-  }
 
   /**
    * The camera position of the map. A composition that reads this property recomposes after each
@@ -643,19 +619,9 @@ internal constructor(
     commit { attach(adapter) }
   }
 
-  /** The engine published a retained core that may report style while no session is attached. */
-  internal fun adoptCore(adapter: MapAdapter?) {
-    commit { adoptCore(adapter) }
-  }
-
   /** The engine replaced the retained core; events from the previous core are unauthorized. */
   internal fun replaceCore(adapter: MapAdapter?) {
     commit { replaceCore(adapter) }
-  }
-
-  /** Replays the selected style onto [adapter], serialized with later style selections. */
-  internal fun replaySelectedStyle(adapter: MapAdapter) {
-    commit { replayStyle(adapter) }
   }
 
   /** Unwires the session; the state, its content, and its desired style survive for the next. */
@@ -665,15 +631,6 @@ internal constructor(
       val generation = kernel.read { styleGeneration }
       commit { styleChanged(adapter ?: Any(), null, generation) }
     }
-  }
-
-  /**
-   * Re-points the style node at [newBinding]. Platform callbacks should use [MapStateCallbacks]
-   * instead; this remains for tests that drive a binding directly.
-   */
-  internal fun updateBinding(newBinding: StyleBinding?) {
-    val source = attachedAdapter ?: engine.detachedAdapter ?: Any()
-    commit { styleChanged(source, newBinding, styleGeneration) }
   }
 
   /** Commits composition ownership only when [binding] is still the current style. */
@@ -767,7 +724,8 @@ internal constructor(
   private fun executeEffects(effects: List<MapEffect>) {
     for (effect in effects) {
       when (effect) {
-        is MapEffect.LoadStyle -> (effect.adapter as? MapAdapter)?.setBaseStyle(effect.style)
+        is MapEffect.LoadStyle ->
+          (effect.adapter as? MapAdapter)?.setBaseStyle(effect.style, effect.generation)
         is MapEffect.SendCamera -> (effect.adapter as? MapAdapter)?.setCameraPosition(effect.camera)
         is MapEffect.ApplySessionOptions ->
           sessionOptions?.let { options -> (effect.adapter as? MapAdapter)?.let(options::applyTo) }
@@ -786,12 +744,6 @@ internal constructor(
           if (styleNode.binding.isLoaded) refreshStyleCollections()
           else if (shouldClearUnloadedSources()) sources.clear()
         }
-        MapEffect.InvokeLoadFinished ->
-          runCatching { callbacks.onMapLoadFinished() }
-            .onFailure { logger?.e(it) { "The load callback threw" } }
-        is MapEffect.InvokeLoadFailed ->
-          runCatching { callbacks.onMapLoadFailed(effect.reason) }
-            .onFailure { logger?.e(it) { "The failure callback threw" } }
         MapEffect.ResetSessionHooks -> callbacks.resetSessionHooks()
         MapEffect.ClearInheritedLocals -> inheritedLocals = null
       }
