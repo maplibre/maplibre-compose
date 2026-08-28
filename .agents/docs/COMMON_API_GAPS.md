@@ -232,13 +232,15 @@ The result lists the packs the merge added, which also land in `offlinePacks`.
   `List<OfflineRegionInfo>`.
 - GL JS: web declines — GL JS has no offline API.
 
-## Still capture on the Android Vulkan runtime
+## Still capture on every packaged runtime
 
-`MapState.captureStillImage` on Android renders through an EGL snapshot target,
-so a build that packages only the Vulkan runtime throws
-`UnsupportedOperationException`. A Vulkan snapshot target closes the gap; the
-desktop Vulkan targets in `MlnFfiSnapshotTarget` are the model.
+`MapState.captureStillImage` needs a snapshot target for the packaged runtime's
+render backend, and two supported configurations have none: the Vulkan runtime
+on Android and the OpenGL runtime on Desktop. Both throw
+`UnsupportedOperationException`. An Android Vulkan target and a Desktop OpenGL
+target close the gap; the desktop Vulkan targets in `MlnFfiSnapshotTarget` are
+the model.
 
-- FFI: the render session over a Vulkan image target, as the desktop
+- FFI: the render session over an offscreen target per backend, as the desktop
   `VulkanImageTarget` builds it.
 - GL JS: not applicable — the web declines still capture entirely.

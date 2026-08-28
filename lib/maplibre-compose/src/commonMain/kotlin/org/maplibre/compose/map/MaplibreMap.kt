@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.RememberObserver
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.currentCompositionLocalContext
 import androidx.compose.runtime.key
@@ -82,7 +82,21 @@ public fun rememberMapState(
     ) {
       newMapState(initialCameraPosition)
     }
-  DisposableEffect(mapState) { onDispose { mapState.close() } }
+  // Owns the close. The state allocates a thread and a global snapshot observer at construction,
+  // and an abandoned composition runs no DisposableEffect, so only onAbandoned can release them.
+  remember(mapState) {
+    object : RememberObserver {
+      override fun onRemembered() {}
+
+      override fun onForgotten() {
+        mapState.close()
+      }
+
+      override fun onAbandoned() {
+        mapState.close()
+      }
+    }
+  }
   // Deferred past this snapshot's apply: the host would otherwise read records it cannot yet see.
   LaunchedEffect(mapState) { mapState.startStyleComposition() }
 

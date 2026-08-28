@@ -302,8 +302,9 @@ internal constructor(
     set(value) {
       if (value == selectedBaseStyle) return
       selectedBaseStyle = value
-      // A new selection makes the previous style's load failure stale.
+      // A new selection makes the previous style's load failure and completion stale.
       lastLoadFailure.value = null
+      loadFinishedWhileDetached = false
       (attachedAdapter ?: engine.detachedAdapter)?.setBaseStyle(value)
     }
 
@@ -492,9 +493,9 @@ internal constructor(
    *
    * On Android, iOS, and Desktop a still image renders only while no [MaplibreMap] shows this
    * state; a call with one attached throws [IllegalStateException]. On Web this function always
-   * throws [UnsupportedOperationException], because MapLibre GL JS has no still-image API. An
-   * Android build that packages only the Vulkan runtime also throws
-   * [UnsupportedOperationException]: the still-image path needs the OpenGL runtime.
+   * throws [UnsupportedOperationException], because MapLibre GL JS has no still-image API. A build
+   * whose packaged runtime has no still-image path — the Vulkan runtime on Android, the OpenGL
+   * runtime on Desktop — also throws [UnsupportedOperationException].
    */
   public suspend fun captureStillImage(
     width: Dp,

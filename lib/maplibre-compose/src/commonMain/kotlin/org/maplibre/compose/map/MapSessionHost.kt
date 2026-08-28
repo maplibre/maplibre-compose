@@ -20,12 +20,17 @@ internal fun <S : Any> MapSessionHost(
   release: (S) -> Unit,
   content: @Composable (FocusRequester, GestureContinuation) -> Unit,
 ) {
-  LaunchedEffect(session) { attach(session) }
+  // A rejected rival session must not detach the state that another session attached.
+  val attached = remember(session) { arrayOf(false) }
+  LaunchedEffect(session) {
+    attach(session)
+    attached[0] = true
+  }
 
   DisposableEffect(session) {
     onDispose {
       release(session)
-      state.detachSession()
+      if (attached[0]) state.detachSession()
     }
   }
 
