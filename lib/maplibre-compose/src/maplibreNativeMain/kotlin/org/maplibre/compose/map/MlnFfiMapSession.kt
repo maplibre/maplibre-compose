@@ -190,6 +190,7 @@ internal class MlnFfiMapSession(
     core.logger?.i { "Host surface lost; closing the render session and waiting for a new one" }
     closeRenderSession()
     hostSession = null
+    core.reportSurfaceLost()
   }
 
   override fun render(frame: MlnFfiMapFrame): MlnFfiFrameResult {

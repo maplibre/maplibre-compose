@@ -621,6 +621,12 @@ internal class MlnFfiMapCore(
       }
     }
 
+  /** A lost surface invalidates the attached dimensions and the published viewport. */
+  internal fun reportSurfaceLost() {
+    resetAttachedViewport()
+    callbacks.onCameraMoved(this)
+  }
+
   /** When a render target goes away its dimensions are stale, so bounds fits queue again. */
   internal fun resetAttachedViewport() {
     stateLock.withLock { hasAttachedViewport = false }

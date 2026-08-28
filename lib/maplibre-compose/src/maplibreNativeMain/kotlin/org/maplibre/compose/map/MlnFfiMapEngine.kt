@@ -158,12 +158,11 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
       check(lifecycle != Lifecycle.Closed) {
         "Cannot attach a render session to a closed map state"
       }
-      // The session closes before the core for the same reason acquireCoreLocked evicts before
-      // recreating.
-      (lifecycle as? Lifecycle.SessionAttached)?.let { attached ->
-        attached.session.close()
-        lifecycle = Lifecycle.Detached
-      }
+      // A rival composable must not evict the session that owns the slot; a legitimate density or
+      // backend change disposes the old resource before its replacement publishes.
+      check(lifecycle !is Lifecycle.SessionAttached) { SINGLE_SESSION_ERROR }
+      // The dying core produced any pending detached-load completion.
+      state.loadFinishedWhileDetached = false
       core?.close()
       core = pending
       coreScaleFactor = scaleFactor
@@ -194,6 +193,8 @@ internal actual class MapEngine actual constructor(private val state: MapState) 
         attached.session.close()
         lifecycle = Lifecycle.Detached
       }
+      // The dying core produced any pending detached-load completion.
+      state.loadFinishedWhileDetached = false
       // The loop's scale factor is fixed per map and a renderer is built for one backend.
       live.close()
     }
