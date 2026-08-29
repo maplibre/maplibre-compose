@@ -156,6 +156,7 @@ internal class MlnFfiMapSession(
   @Volatile private var lifecycleEngineIdentity: EngineMapIdentity? = null
   @Volatile private var lifecycleRenderLease: RenderLease? = null
   @Volatile private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
+  @Volatile private var appliedStyleRequestIdentity: StyleRequestIdentity? = null
   @Volatile private var lifecycleStyleIdentity: StyleIdentity? = null
 
   override val engineRetention: EngineRetention = EngineRetention.RETAIN
@@ -414,6 +415,7 @@ internal class MlnFfiMapSession(
   }
 
   override fun close() {
+    endCameraMove()
     lifecycle.close()
   }
 
@@ -435,6 +437,7 @@ internal class MlnFfiMapSession(
     if (lifecycleEngineIdentity == identity) {
       lifecycleEngineIdentity = null
       lifecycleStyleRequestIdentity = null
+      appliedStyleRequestIdentity = null
       lifecycleStyleIdentity = null
     }
     closePlatform()
@@ -444,7 +447,7 @@ internal class MlnFfiMapSession(
 
   private fun closePlatform() {
     try {
-      stopLoop(endOutstandingMove = true)
+      stopLoop()
     } finally {
       hostSession = null
       // The owner thread is gone, so this is the last published handle. Destruction is any-thread.
@@ -489,7 +492,7 @@ internal class MlnFfiMapSession(
   }
 
   /** MapLibre refuses to destroy a map that still has a render session attached. */
-  private fun stopLoop(endOutstandingMove: Boolean = false) {
+  private fun stopLoop() {
     val abandoned = mutableListOf<PendingMapAction>()
     val stopping = stateLock.withLock {
       val current = loop
@@ -514,12 +517,9 @@ internal class MlnFfiMapSession(
       stopping?.close()
     } finally {
       // After the join, so the owner thread is gone and this is the only reader of that state.
-      if (endOutstandingMove) {
-        isGestureInProgress = false
-        activeGestureToken = null
-        pendingGestureEndToken = null
-        endCameraMove(duringCleanup = true)
-      }
+      isGestureInProgress = false
+      activeGestureToken = null
+      pendingGestureEndToken = null
       resumeStrandedTransitions()
     }
   }
@@ -730,6 +730,7 @@ internal class MlnFfiMapSession(
 
   /** Runs on the map's owner thread, as do the callbacks it makes. */
   private fun handleEvent(engine: EngineMapIdentity, event: RuntimeEvent) {
+    val lease = lifecycleRenderLease
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
@@ -746,7 +747,7 @@ internal class MlnFfiMapSession(
         }
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
-        val lifecycleRequest = lifecycleStyleRequestIdentity ?: return binding.invalidate()
+        val lifecycleRequest = appliedStyleRequestIdentity ?: return binding.invalidate()
         lifecycleStyleIdentity =
           lifecycleCallbacks.onStyleChanged(engine, lifecycleRequest, this, binding)
         styleLoadUnreported = true
@@ -788,7 +789,7 @@ internal class MlnFfiMapSession(
               reason,
             ) == true
         if (accepted) {
-          lifecycleStyleRequestIdentity?.let {
+          appliedStyleRequestIdentity?.let {
             lifecycleCallbacks.onMapFailLoading(engine, it, reason)
           }
         } else {
@@ -796,18 +797,18 @@ internal class MlnFfiMapSession(
         }
       }
 
-      RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
+      RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove(engine, lease)
 
       RuntimeEventType.MAP_CAMERA_IS_CHANGING -> {
         loop?.map?.let(::snapshotViewport)
-        lifecycleRenderLease?.let { lifecycleCallbacks.onCameraMoved(engine, it, this) }
+        lease?.let { lifecycleCallbacks.onCameraMoved(engine, it, this) }
       }
 
       RuntimeEventType.MAP_CAMERA_DID_CHANGE -> {
         loop?.map?.let(::snapshotViewport)
-        lifecycleRenderLease?.let { lifecycleCallbacks.onCameraMoved(engine, it, this) }
+        lease?.let { lifecycleCallbacks.onCameraMoved(engine, it, this) }
         // A drag is a stream of jumps, each with its own did-change.
-        if (!isGestureInProgress) endCameraMove()
+        if (!isGestureInProgress) endCameraMove(engine, lease)
       }
 
       RuntimeEventType.MAP_CAMERA_TRANSITION_FINISHED -> {
@@ -846,24 +847,26 @@ internal class MlnFfiMapSession(
    * The reason is re-reported when it changes: the gesture flag is set from the UI thread and can
    * arrive after a drag's first camera change.
    */
-  private fun beginCameraMove() {
+  private fun beginCameraMove(
+    engine: EngineMapIdentity? = lifecycleEngineIdentity,
+    lease: RenderLease? = lifecycleRenderLease,
+  ) {
     val reason =
       if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
     if (reportedMoveReason == reason) return
     reportedMoveReason = reason
-    withLifecyclePresentation { engine, lease ->
+    if (engine != null && lease != null) {
       lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)
     }
   }
 
-  private fun endCameraMove(duringCleanup: Boolean = false) {
+  private fun endCameraMove(
+    engine: EngineMapIdentity? = lifecycleEngineIdentity,
+    lease: RenderLease? = lifecycleRenderLease,
+  ) {
     if (reportedMoveReason == null) return
     reportedMoveReason = null
-    if (duringCleanup) callbacks.onCameraMoveEnded(this)
-    else
-      withLifecyclePresentation { engine, lease ->
-        lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)
-      }
+    if (engine != null && lease != null) lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)
   }
 
   /** Exists for tests. */
@@ -1017,6 +1020,7 @@ internal class MlnFfiMapSession(
     val request = styleLoadTracker?.beginLoading() ?: return
     appliedStyleRequest = request
     styleLoadPending = true
+    appliedStyleRequestIdentity = lifecycleStyleRequestIdentity
     // setStyleJson parses inline, so a malformed style throws as well as queueing
     // MAP_LOADING_FAILED; the queued event is what reports it.
     try {

@@ -179,7 +179,8 @@ class MapLifecycleAuthorityTest {
 
   @Test
   fun durable_engine_and_current_style_events_are_accepted_while_native_is_detached() = runTest {
-    val lifecycle = MapLifecycleAuthority(FakeMapLifecycleAdapter(), backgroundScope)
+    val adapter = FakeMapLifecycleAdapter()
+    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
     val lease = lifecycle.attach()
     val engine = checkNotNull(lifecycle.engineIdentity)
     val firstStyle = lifecycle.claimStyle(engine)
@@ -187,12 +188,31 @@ class MapLifecycleAuthorityTest {
     lifecycle.detach(lease)
     val accepted = mutableListOf<String>()
 
-    assertTrue(lifecycle.acceptEngineEvent(engine) { accepted += "engine" })
-    assertTrue(!lifecycle.acceptStyleEvent(engine, firstStyle) { accepted += "stale style" })
-    assertTrue(lifecycle.acceptStyleEvent(engine, currentStyle) { accepted += "style" })
-    assertTrue(!lifecycle.acceptPresentationEvent(engine, lease) { accepted += "presentation" })
+    assertTrue(adapter.emitEngineEvent(lifecycle, engine) { accepted += "engine" })
+    assertTrue(!adapter.emitStyleEvent(lifecycle, engine, firstStyle) { accepted += "stale style" })
+    assertTrue(adapter.emitStyleEvent(lifecycle, engine, currentStyle) { accepted += "style" })
+    assertTrue(
+      !adapter.emitPresentationEvent(lifecycle, engine, lease) { accepted += "presentation" }
+    )
 
     assertEquals(listOf("engine", "style"), accepted)
+  }
+
+  @Test
+  fun the_fake_rejects_a_superseded_style_request_identity() = runTest {
+    val adapter = FakeMapLifecycleAdapter()
+    val lifecycle = MapLifecycleAuthority(adapter, backgroundScope)
+    lifecycle.attach()
+    val engine = checkNotNull(lifecycle.engineIdentity)
+    val superseded = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
+    val current = checkNotNull(lifecycle.claimStyleRequestIdentity(engine))
+    val accepted = mutableListOf<String>()
+
+    assertTrue(
+      !adapter.emitStyleRequestEvent(lifecycle, engine, superseded) { accepted += "superseded" }
+    )
+    assertTrue(adapter.emitStyleRequestEvent(lifecycle, engine, current) { accepted += "current" })
+    assertEquals(listOf("current"), accepted)
   }
 
   @Test
@@ -381,6 +401,33 @@ private class FakeMapLifecycleAdapter : MapLifecyclePlatformAdapter {
     allowResources.await()
     resourcesFailure?.let { throw it }
   }
+
+  fun emitEngineEvent(
+    lifecycle: MapLifecycleAuthority,
+    engine: EngineMapIdentity,
+    event: () -> Unit,
+  ): Boolean = lifecycle.acceptEngineEvent(engine, event)
+
+  fun emitStyleEvent(
+    lifecycle: MapLifecycleAuthority,
+    engine: EngineMapIdentity,
+    style: StyleIdentity,
+    event: () -> Unit,
+  ): Boolean = lifecycle.acceptStyleEvent(engine, style, event)
+
+  fun emitStyleRequestEvent(
+    lifecycle: MapLifecycleAuthority,
+    engine: EngineMapIdentity,
+    request: StyleRequestIdentity,
+    event: () -> Unit,
+  ): Boolean = lifecycle.acceptStyleRequestEvent(engine, request, event)
+
+  fun emitPresentationEvent(
+    lifecycle: MapLifecycleAuthority,
+    engine: EngineMapIdentity,
+    lease: RenderLease,
+    event: () -> Unit,
+  ): Boolean = lifecycle.acceptPresentationEvent(engine, lease, event)
 }
 
 private class TestFailure(message: String) : RuntimeException(message)

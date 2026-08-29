@@ -8,6 +8,8 @@ import kotlin.concurrent.atomics.AtomicReference
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.jvm.JvmInline
+import kotlinx.atomicfu.locks.reentrantLock
+import kotlinx.atomicfu.locks.withLock
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -96,7 +98,7 @@ internal class MapLifecycleAuthority(
   private val current = AtomicReference<InternalState>(InternalState.OpenDetached(null))
   private val currentStyle = AtomicReference<StyleClaim?>(null)
   private val currentStyleRequest = AtomicReference<StyleRequestClaim?>(null)
-  private val lifecycleGate = AtomicBoolean(false)
+  private val lifecycleLock = reentrantLock()
   private val closure = CompletableDeferred<Result<Unit>>()
 
   val state: MapLifecycleState
@@ -508,16 +510,7 @@ internal class MapLifecycleAuthority(
   }
 
   /** Serializes non-suspending lifecycle commits with callback validation and delivery. */
-  private inline fun <T> serialized(action: () -> T): T {
-    while (!lifecycleGate.compareAndSet(expectedValue = false, newValue = true)) {
-      // Platform callbacks are non-suspending, so the owner releases this gate promptly.
-    }
-    return try {
-      action()
-    } finally {
-      lifecycleGate.store(false)
-    }
-  }
+  private inline fun <T> serialized(action: () -> T): T = lifecycleLock.withLock(action)
 
   private data class StyleClaim(val engine: EngineMapIdentity, val style: StyleIdentity)
 

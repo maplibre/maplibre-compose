@@ -93,6 +93,7 @@ internal class GlJsMapSession(
   private var lifecycleEngineIdentity: EngineMapIdentity? = null
   private var lifecycleRenderLease: RenderLease? = null
   private var lifecycleStyleRequestIdentity: StyleRequestIdentity? = null
+  private var appliedStyleRequestIdentity: StyleRequestIdentity? = null
   private var lifecycleStyleIdentity: StyleIdentity? = null
 
   override val engineRetention: EngineRetention = EngineRetention.DESTROY
@@ -162,7 +163,10 @@ internal class GlJsMapSession(
     // The map's context belongs to the surface, so it cannot outlive it.
     val engine = lifecycleEngineIdentity
     val lease = lifecycleRenderLease
-    if (engine != null && lease != null) lifecycle.beginEngineReplacement(engine, lease)
+    if (engine != null && lease != null) {
+      endCameraMove(engine, lease)
+      lifecycle.beginEngineReplacement(engine, lease)
+    }
     surface = null
   }
 
@@ -222,6 +226,7 @@ internal class GlJsMapSession(
     if (lentContext != null) null else map?.getCanvas()
 
   override fun close() {
+    endCameraMove()
     lifecycle.close()
   }
 
@@ -250,6 +255,7 @@ internal class GlJsMapSession(
     if (lifecycleEngineIdentity == identity) {
       lifecycleEngineIdentity = null
       lifecycleStyleRequestIdentity = null
+      appliedStyleRequestIdentity = null
       lifecycleStyleIdentity = null
     }
     destroyMap()
@@ -257,7 +263,6 @@ internal class GlJsMapSession(
 
   override suspend fun closeResources() {
     isGestureInProgress = false
-    endCameraMove(duringCleanup = true)
     abandonPending(pendingMapActions)
     abandonPending(pendingInitialStyleActions)
     surface = null
@@ -399,7 +404,7 @@ internal class GlJsMapSession(
   private fun wireEvents(map: MaplibreMap, engine: EngineMapIdentity, lease: RenderLease) {
     var styleIdentity: StyleIdentity? = null
     map.subscribe("style.load") {
-      val lifecycleRequest = lifecycleStyleRequestIdentity ?: return@subscribe
+      val lifecycleRequest = appliedStyleRequestIdentity ?: return@subscribe
       styleLoadPending = false
       styleBinding?.invalidate()
       val binding =
@@ -455,7 +460,7 @@ internal class GlJsMapSession(
               reason,
             ) == true
         if (accepted) {
-          lifecycleStyleRequestIdentity?.let {
+          appliedStyleRequestIdentity?.let {
             lifecycleCallbacks.onMapFailLoading(engine, it, reason)
           }
         } else {
@@ -468,12 +473,12 @@ internal class GlJsMapSession(
       }
     }
 
-    map.subscribe("movestart") { beginCameraMove() }
+    map.subscribe("movestart") { beginCameraMove(engine, lease) }
     map.subscribe("move") { lifecycleCallbacks.onCameraMoved(engine, lease, this) }
     map.subscribe("moveend") {
       lifecycleCallbacks.onCameraMoved(engine, lease, this)
       // A drag is a stream of jumps, each with its own moveend.
-      if (!isGestureInProgress) endCameraMove()
+      if (!isGestureInProgress) endCameraMove(engine, lease)
       resumeTransitions()
     }
   }
@@ -494,24 +499,26 @@ internal class GlJsMapSession(
   }
 
   /** A move spans the gesture rather than the jump, as every other platform reports it. */
-  private fun beginCameraMove() {
+  private fun beginCameraMove(
+    engine: EngineMapIdentity? = lifecycleEngineIdentity,
+    lease: RenderLease? = lifecycleRenderLease,
+  ) {
     val reason =
       if (isGestureInProgress) CameraMoveReason.GESTURE else CameraMoveReason.PROGRAMMATIC
     if (reportedMoveReason == reason) return
     reportedMoveReason = reason
-    withLifecyclePresentation { engine, lease ->
+    if (engine != null && lease != null) {
       lifecycleCallbacks.onCameraMoveStarted(engine, lease, this, reason)
     }
   }
 
-  private fun endCameraMove(duringCleanup: Boolean = false) {
+  private fun endCameraMove(
+    engine: EngineMapIdentity? = lifecycleEngineIdentity,
+    lease: RenderLease? = lifecycleRenderLease,
+  ) {
     if (reportedMoveReason == null) return
     reportedMoveReason = null
-    if (duringCleanup) callbacks.onCameraMoveEnded(this)
-    else
-      withLifecyclePresentation { engine, lease ->
-        lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)
-      }
+    if (engine != null && lease != null) lifecycleCallbacks.onCameraMoveEnded(engine, lease, this)
   }
 
   private var reportedMoveReason: CameraMoveReason? = null
@@ -588,6 +595,7 @@ internal class GlJsMapSession(
     val request = styleLoadTracker?.beginLoading() ?: return
     appliedStyleRequest = request
     styleLoadPending = true
+    appliedStyleRequestIdentity = lifecycleStyleRequestIdentity
     // MapLibre diffs by default, keeping the same Style object, so no `style.load` would fire.
     val options = unsafeJso<SetStyleOptions> { diff = false }
     try {
@@ -609,7 +617,7 @@ internal class GlJsMapSession(
         ) == true
       ) {
         val engine = lifecycleEngineIdentity
-        val lifecycleRequest = lifecycleStyleRequestIdentity
+        val lifecycleRequest = appliedStyleRequestIdentity
         if (engine != null && lifecycleRequest != null) {
           lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)
         }

@@ -60,6 +60,7 @@ kotlin {
       api(libs.lifecycle.runtime.compose)
       api(libs.kermit)
       implementation(libs.kotlinx.coroutines.core)
+      implementation(libs.kotlinx.atomicfu)
       api(libs.spatialk.geojson)
       api(libs.spatialk.units)
     }
