@@ -33,6 +33,7 @@ import org.maplibre.compose.gljs.GlJsFrameTarget
 import org.maplibre.compose.gljs.GlJsMapRenderer
 import org.maplibre.compose.gljs.GlJsRenderTarget
 import org.maplibre.compose.gljs.GlJsRuntime
+import org.maplibre.compose.gljs.GlJsSubscription
 import org.maplibre.compose.gljs.GlJsSurfaceSession
 import org.maplibre.compose.gljs.JumpToOptions
 import org.maplibre.compose.gljs.MapEvent
@@ -568,6 +569,7 @@ internal class GlJsMapSession(
         errorSubscription.cancel()
         if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
         if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
+        styleLoadPending = false
         val binding = GlJsStyleBinding(map, logger) { appliedExtent.scaleFactor.toFloat() }
         if (styleLoadTracker?.loaded(trackerRequest, binding.identity) != true) {
           binding.invalidate()
@@ -615,16 +617,20 @@ internal class GlJsMapSession(
         if (styleLoadSubscription === loadSubscription) styleLoadSubscription = null
         if (styleErrorSubscription === errorSubscription) styleErrorSubscription = null
         val reason = event.error?.message ?: "MapLibre failed to load the map"
-        if (
+        styleLoadPending = false
+        val accepted =
           styleLoadTracker?.failed(
             trackerRequest,
             TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
             reason,
-          ) == true && lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)
-        ) {
-          styleLoadPending = false
-          logger?.e { "Map loading failed: $reason" }
-          if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
+          ) == true
+        if (accepted) {
+          if (lifecycleCallbacks.onMapFailLoading(engine, lifecycleRequest, reason)) {
+            logger?.e { "Map loading failed: $reason" }
+            if (!hasLoadedInitialStyle) abandonPending(pendingInitialStyleActions)
+          }
+        } else {
+          applyRequestedStyle(map)
         }
       }
     styleLoadSubscription = loadSubscription
