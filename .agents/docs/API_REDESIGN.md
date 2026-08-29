@@ -1,34 +1,32 @@
-# Map API redesign rebuild
+# Map API redesign
 
 ## Problem Statement
 
-The map API redesign combined map retention, style composition, imperative style
-mutation, snapshots, runtime ownership, platform access, and a full public
-migration in one change. Review found repeated failures in session identity,
-event ordering, style ownership, cancellation, and cross-thread state
-publication. Narrow fixes increased the implementation size without producing a
-stable lifecycle model.
+The map API must support durable map state, temporary UI presentation, style
+composition, imperative style mutation, snapshots, runtime resources, and
+controlled platform access. These concerns have different lifetimes. Treating
+them as one state object creates ambiguous ownership and invalid intermediate
+states.
 
-The implementation represented one render slot in multiple modules. Logical
-state, physical render-session state, and native owner-thread work could
-disagree during attachment, detachment, capture, and closure. A local ordering
-fix often exposed a different invalid interval in the next review round.
+One logical map can have at most one UI presentation. Native platforms can
+retain the engine map without a presentation. Web must recreate its GL JS map
+and replay the desired state. Attachment, detachment, closure, and platform
+events therefore need one atomic lifecycle model despite the different platform
+implementations.
 
-The redesign also converted exploratory issues into strict public contracts
-during implementation. The combined change selected snapshot concurrency,
-detached camera behavior, style replay, cross-platform lifetime parity, and
-cancellation behavior before those decisions had an independent design.
+Declarative style content must work with both interactive maps and snapshots.
+Snapshot capture must not retarget or interrupt an interactive map. Imperative
+style handles must identify one loaded style generation, because a base-style
+reload invalidates the resources that those handles address.
 
-The rebuild needs one lifecycle authority, a smaller public interface, and a
-sequence of complete changes that can merge independently. Public compatibility
-with the current API is not a constraint. The rebuild favors a small and
-coherent interface over migration compatibility.
+The public API must express these ownership and lifetime boundaries directly.
+Backward compatibility is not a constraint. The design favors a small and
+coherent interface over compatibility shims.
 
 ## Solution
 
-Build the complete redesign as a sequence of independently correct changes. Keep
-the final runtime, map, presentation, style-composition, snapshot, and
-platform-access model visible throughout the sequence.
+Use separate runtime, map, presentation, style-composition, snapshotter, and
+platform-access modules. Each module has one lifetime and a narrow interface.
 
 An explicit `MaplibreRuntime` owns shared cache, resource, HTTP, and offline
 configuration. It creates and tracks `MapState` and `MapSnapshotter` children. A
@@ -160,13 +158,13 @@ retargets the map inside a `MapState`.
     that a transition change has one implementation and one test surface.
 41. As a library maintainer, I want platform callbacks tagged with opaque
     identity, so that stale events are rejected uniformly.
-42. As a library maintainer, I want each merge step to be complete and useful,
-    so that no merged scaffolding depends on a later repair.
+42. As a library maintainer, I want each implementation stage to be complete and
+    useful, so that no temporary scaffolding depends on a later repair.
 
 ## Implementation Decisions
 
-- Public compatibility is not a design constraint. Remove old interfaces when a
-  smaller replacement serves the domain.
+- Public compatibility is not a design constraint. Use the smallest interface
+  that serves the domain.
 - `MaplibreRuntime` is an application-scoped module. Runtime options contain
   cache, resource, HTTP, and offline configuration.
 - The shared default runtime is process-owned. A child created through the
@@ -253,7 +251,7 @@ retargets the map inside a `MapState`.
 - Delicate platform access uses a suspending lambda. The platform handle does
   not escape the call. Native access is available after lazy map creation,
   including while detached. Web access requires an attached presentation.
-- The rebuild lands in this order:
+- Implement the design in this order:
   1. Isolate the `StyleBinding` collapse.
   2. Add explicit runtime ownership, runtime configuration, and one internal
      lifecycle authority.
@@ -264,8 +262,8 @@ retargets the map inside a `MapState`.
   5. Add `MapSnapshotter`.
   6. Add generation-bound imperative handles, runtime capabilities, and delicate
      platform access in focused changes.
-- Every stage implements a complete invariant. A stage does not merge as
-  scaffolding that requires a later stage for correctness.
+- Every stage implements a complete invariant. A stage does not depend on a
+  later stage for correctness.
 
 ## Testing Decisions
 
@@ -326,7 +324,7 @@ retargets the map inside a `MapState`.
 
 ## Out of Scope
 
-- Public compatibility with the API on `main` or the closed redesign branch.
+- Compatibility shims for superseded APIs.
 - Two simultaneous UI presentations for one `MapState`.
 - Waiting or queueing presentation operations until a future attachment.
 - Continuous detached style evaluation in the initial implementation.
@@ -340,22 +338,18 @@ retargets the map inside a `MapState`.
 - Persistent imperative mutations across a base-style reload.
 - Raw platform handles that remain valid after the delicate access call returns.
 - A combined application-runtime and desktop-presentation-host object.
-- A single pull request that implements the complete redesign.
+- Delivery of the complete redesign as one change.
 
 ## Further Notes
 
-The rebuild keeps the complete target design visible while limiting each merge
-to one coherent module or contract. Smaller pull requests are a verification
-strategy, not a compatibility strategy.
+The implementation sequence keeps the complete target design visible while
+limiting each delivery stage to one coherent module or contract. Small stages
+make each invariant easier to verify.
 
-The style-composition evaluator remains a necessary complex module. The rebuild
-concentrates its recomposer, frame clock, snapshot observation, environment,
-error reporting, and shutdown behavior behind one interface.
+The style-composition evaluator is a necessary complex module. Its interface
+contains its recomposer, frame clock, snapshot observation, environment, error
+reporting, and shutdown behavior.
 
 The design treats native retention as the primary behavior. Web replay is an
 explicit adapter for a platform that cannot detach a GL JS map from its
 rendering context.
-
-The previous redesign remains useful as a collection of adversarial scenarios
-and tests. Reuse a test only when it describes the new public behavior and
-survives an implementation rewrite.
