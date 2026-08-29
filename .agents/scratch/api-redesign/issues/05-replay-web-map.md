@@ -8,6 +8,8 @@ next presentation.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] Web destroys the GL JS map after detachment.
 - [ ] MapState retains the desired camera position and base style.
 - [ ] Reattachment creates a new GL JS map identity.

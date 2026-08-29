@@ -8,6 +8,8 @@ superseded map APIs
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] MapRuntime exposes stable capability values for platform-dependent
       operations.
 - [ ] Native runtimes report the cache and offline operations that they support.

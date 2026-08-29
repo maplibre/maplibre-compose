@@ -10,10 +10,16 @@ hosts from runtimes
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] Core map components use the new ownership model.
 - [ ] Material, location, overlay, and other library integrations use the new
       state and presentation boundaries where applicable.
-- [ ] Shared tests create maps through MapRuntime and MapState.
+- [ ] Shared tests for supported behavior use MapRuntime and MapState.
+- [ ] Tests for states that the new ownership model cannot represent are deleted
+      rather than translated.
+- [ ] Duplicate internal tests are consolidated at the lifecycle authority or
+      public API seam.
 - [ ] Library code no longer depends on superseded camera or style state types.
 - [ ] The new API requires no compatibility behavior from migrated library
       callers.

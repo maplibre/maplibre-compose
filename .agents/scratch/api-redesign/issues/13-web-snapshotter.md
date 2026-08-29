@@ -8,6 +8,8 @@ MapState.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] Web capture uses a dedicated GL JS map and private rendering target.
 - [ ] The snapshotter never attaches to MaplibreMap.
 - [ ] Capture does not attach, detach, pause, or retarget an interactive map.

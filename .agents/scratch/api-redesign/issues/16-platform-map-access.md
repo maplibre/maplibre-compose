@@ -10,6 +10,8 @@ MapPresentation
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] A caller can invoke platform access from any coroutine dispatcher.
 - [ ] The lambda executes on the engine map's owner context.
 - [ ] The API shape prevents the platform handle from remaining usable after the

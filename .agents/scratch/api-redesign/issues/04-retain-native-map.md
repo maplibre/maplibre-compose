@@ -8,6 +8,8 @@ reloading its durable state.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] Android, iOS, and Desktop create the engine map lazily.
 - [ ] Detachment makes MapState.presentation null and invalidates the departed
       presentation.

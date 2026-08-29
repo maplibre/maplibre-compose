@@ -10,6 +10,8 @@ a replacement style or another map.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] The same immutable definition can be evaluated for two maps without shared
       mutable binding state.
 - [ ] Native and Web implement one loaded-style port contract without another
@@ -20,4 +22,6 @@ a replacement style or another map.
 - [ ] A stale internal style operation fails clearly and cannot mutate the next
       style or another map.
 - [ ] Existing declarative style behavior remains unchanged.
+- [ ] Tests that exist only for the three binding layers are deleted or replaced
+      with loaded-style port behavior tests.
 - [ ] Style-spec parity and focused style tests pass.

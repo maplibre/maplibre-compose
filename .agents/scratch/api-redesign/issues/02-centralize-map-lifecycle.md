@@ -9,6 +9,8 @@ seam.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] One authority decides every engine-map and presentation transition.
 - [ ] Platform adapters perform commands without maintaining a second
       authoritative attachment state.
@@ -18,4 +20,7 @@ seam.
 - [ ] Physical cleanup continues after caller cancellation.
 - [ ] Common tests cover every valid and refused lifecycle transition through a
       fake platform adapter.
+- [ ] Tests that assert obsolete locks, queues, callback storage, or duplicated
+      session state are deleted rather than preserved beside the authority
+      tests.
 - [ ] Existing live-map behavior remains green on native and Web.

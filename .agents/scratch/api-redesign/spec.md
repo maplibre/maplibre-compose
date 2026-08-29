@@ -541,6 +541,29 @@ Acceptance criteria:
 
 ## Test strategy
 
+Tests are executable contracts, not a historical archive. Every ticket reviews
+the tests for the behavior that it changes and classifies each test:
+
+- Retain a test that covers a distinct supported public behavior or platform
+  boundary.
+- Rewrite a test when its behavior remains valid but its API or test seam
+  changes.
+- Consolidate tests that cover the same contract at several internal or platform
+  layers.
+- Delete a test that covers a superseded compatibility path, an implementation
+  shape that no longer exists, or a state that the new model cannot represent.
+
+An explicitly refused operation remains part of the public contract. Keep tests
+for rival attachment, stale presentation use, stale events, and operations after
+closure. These scenarios are reachable attempts with defined failures, not
+unrepresentable internal states.
+
+Prefer one common test for shared lifecycle semantics. Add a native or browser
+test only when it verifies a distinct engine boundary. When a new test replaces
+an old test's contract, remove or rewrite the old test in the same change. Each
+pull request reports the tests that it added, rewrote, consolidated, and
+deleted. Test count is not a completion metric.
+
 Common tests use a fake platform adapter that records commands and emits events
 with render leases. Test behavior through the lifecycle authority or public API,
 not through locks, queues, callback fields, or generation counters.

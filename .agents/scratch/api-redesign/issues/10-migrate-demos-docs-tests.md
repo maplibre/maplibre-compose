@@ -10,10 +10,14 @@ hosts from runtimes
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] Every demo creates or remembers MapState through MapRuntime.
 - [ ] Demo style content uses reusable StyleComposition values.
 - [ ] Viewport-dependent demo behavior uses the current MapPresentation.
 - [ ] Documentation and compiled snippets show only the new public API.
 - [ ] Native platform tests cover retained presentations through the new API.
 - [ ] Browser tests cover recreation and replay through the new API.
+- [ ] Platform tests that duplicate common behavior without testing an engine
+      boundary are deleted.
 - [ ] Android, iOS, Desktop, and Web demos build successfully.

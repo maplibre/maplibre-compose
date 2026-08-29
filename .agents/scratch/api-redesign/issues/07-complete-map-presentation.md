@@ -9,6 +9,8 @@ Web maps between presentations
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] MapState exposes its durable camera position as read-only state.
 - [ ] Camera set, fit, and animation operations belong to MapPresentation.
 - [ ] Viewport, visible-region, projection, and rendered-feature queries belong

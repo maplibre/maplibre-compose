@@ -9,6 +9,8 @@ temporarily so later migrations remain green.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] MapRuntime creates and tracks MapState children.
 - [ ] rememberMapRuntime returns one process-owned default runtime.
 - [ ] rememberMapState accepts an explicit runtime and defaults to the shared

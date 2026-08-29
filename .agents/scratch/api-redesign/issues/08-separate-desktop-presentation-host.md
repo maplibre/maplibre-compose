@@ -8,6 +8,8 @@ logical-map ownership, and offline services outside that host.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] The desktop host API uses ComposeMapPresentationHost terminology.
 - [ ] The presentation host contains only window and GPU presentation resources.
 - [ ] Cache, resource, HTTP, and offline configuration belongs to MapRuntime.

@@ -9,6 +9,8 @@ Remove the superseded map APIs
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] Each live handle combines a resource ID with one opaque style identity.
 - [ ] A handle can mutate only the loaded style that created it.
 - [ ] Starting a base-style reload invalidates every outgoing handle.

@@ -8,6 +8,8 @@ map.
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] MapRuntime creates and tracks MapSnapshotter children.
 - [ ] A snapshotter has no UI presentation attachment API.
 - [ ] Each capture receives immutable size, camera, density, layout-direction,

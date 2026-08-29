@@ -11,6 +11,8 @@ presentations
 
 **Status:** ready-for-agent
 
+- [ ] The changed test area contains no redundant, impossible,
+      compatibility-only, or implementation-shape scenarios.
 - [ ] One StyleComposition definition can be supplied to two maps.
 - [ ] Each consumer receives independent remember state and effects.
 - [ ] Shared application state enters each evaluator through hoisted inputs.
