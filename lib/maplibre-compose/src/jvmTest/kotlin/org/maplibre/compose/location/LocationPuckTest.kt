@@ -29,7 +29,15 @@ class LocationPuckTest {
       )
 
     val feature =
-      locationFeatures(location, bearing = null, bearingAccuracy = null, isOldLocation = true)
+      locationFeatures(
+          LocationPuckMeasurement(
+            location = location,
+            measurementMark = null,
+            bearing = null,
+            bearingAccuracy = null,
+          ),
+          isOldLocation = true,
+        )
         .features
         .single()
 

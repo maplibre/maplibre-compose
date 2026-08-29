@@ -329,6 +329,7 @@ class LocationStateTest {
       val expected =
         Heading(
           bearing = Bearing.North + 90.0.degrees,
+          reference = HeadingReference.TrueNorth,
           accuracy = null,
           measuredAt = Clock.System.now(),
         )
@@ -472,6 +473,7 @@ private class RetryableHeadingProvider(private val heading: Heading) : HeadingPr
 private fun heading(degrees: Double): Heading =
   Heading(
     bearing = Bearing.North + degrees.degrees,
+    reference = HeadingReference.TrueNorth,
     accuracy = null,
     measuredAt = Clock.System.now(),
   )

@@ -26,11 +26,11 @@ import platform.darwin.NSObject
  *
  * A nonnegative
  * [`CLHeading.trueHeading`](https://developer.apple.com/documentation/corelocation/clheading/trueheading)
- * maps to [Heading.bearing]; otherwise the provider uses
- * [`CLHeading.magneticHeading`](https://developer.apple.com/documentation/corelocation/clheading/magneticheading).
- * A negative
+ * maps to [Heading.bearing] with [HeadingReference.TrueNorth]. Otherwise,
+ * [`CLHeading.magneticHeading`](https://developer.apple.com/documentation/corelocation/clheading/magneticheading)
+ * maps to [Heading.bearing] with [HeadingReference.MagneticNorth]. A negative
  * [`CLHeading.headingAccuracy`](https://developer.apple.com/documentation/corelocation/clheading/headingaccuracy)
- * marks the heading as invalid, so that callback is ignored. Otherwise it maps to
+ * marks the heading as invalid. The provider ignores that callback. A valid accuracy maps to
  * [Heading.accuracy].
  */
 @OptIn(FlowPreview::class)
@@ -65,12 +65,14 @@ internal class IosHeadingDelegate(private val channel: SendChannel<Heading>) :
   NSObject(), CLLocationManagerDelegateProtocol {
   override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
     if (didUpdateHeading.headingAccuracy < 0.0) return
+    val hasTrueHeading = didUpdateHeading.trueHeading >= 0.0
     val heading =
-      if (didUpdateHeading.trueHeading >= 0.0) didUpdateHeading.trueHeading
-      else didUpdateHeading.magneticHeading
+      if (hasTrueHeading) didUpdateHeading.trueHeading else didUpdateHeading.magneticHeading
     channel.trySend(
       Heading(
         bearing = Bearing.North + heading.degrees,
+        reference =
+          if (hasTrueHeading) HeadingReference.TrueNorth else HeadingReference.MagneticNorth,
         accuracy = didUpdateHeading.headingAccuracy.degrees,
         measuredAt =
           Instant.fromEpochMilliseconds(

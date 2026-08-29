@@ -4,8 +4,6 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import org.maplibre.compose.camera.CameraState
 import org.maplibre.spatialk.units.Bearing
-import org.maplibre.spatialk.units.Rotation
-import org.maplibre.spatialk.units.extensions.degrees
 import org.maplibre.spatialk.units.extensions.inDegrees
 
 /**
@@ -66,11 +64,8 @@ public enum class BearingUpdate {
 }
 
 private fun LocationChangeScope.mostAccurateBearing(): Bearing? =
-  listOfNotNull(
-      currentReading.course?.let { CameraBearingMeasurement(it, currentReading.courseAccuracy) },
-      currentHeading?.let { CameraBearingMeasurement(it.bearing, it.accuracy) },
+  selectMostAccurateBearing(
+      currentReading.course?.let { BearingMeasurement(it, currentReading.courseAccuracy) },
+      currentHeading?.let { BearingMeasurement(it.bearing, it.accuracy) },
     )
-    .minByOrNull { it.accuracy ?: Double.POSITIVE_INFINITY.degrees }
     ?.bearing
-
-private data class CameraBearingMeasurement(val bearing: Bearing, val accuracy: Rotation?)

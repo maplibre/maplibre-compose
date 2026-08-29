@@ -23,6 +23,7 @@ class HeadingProviderTest {
     val expected =
       Heading(
         bearing = Bearing.East,
+        reference = HeadingReference.TrueNorth,
         accuracy = 3.0.degrees,
         measuredAt = Instant.parse("2026-08-28T12:34:56Z"),
       )
@@ -50,6 +51,7 @@ class HeadingProviderTest {
     val expected =
       Heading(
         bearing = Bearing.East,
+        reference = HeadingReference.MagneticNorth,
         accuracy = null,
         measuredAt = Instant.parse("2026-08-28T12:34:56Z"),
       )
