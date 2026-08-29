@@ -11,17 +11,17 @@ review.
 
 Agent-facing implementation specs and issues use local Markdown under
 `.agents/scratch/<feature>/`. GitHub Issues remains the human-facing project
-tracker. See `docs/agents/issue-tracker.md`.
+tracker. See `.agents/docs/issue-tracker.md`.
 
 ### Triage labels
 
 Local agent-facing issues use the canonical triage status vocabulary. See
-`docs/agents/triage-labels.md`.
+`.agents/docs/triage-labels.md`.
 
 ### Domain docs
 
 This repository uses the single-context domain-document layout. See
-`docs/agents/domain.md`.
+`.agents/docs/domain.md`.
 
 ## Development commands
 
