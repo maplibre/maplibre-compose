@@ -19,7 +19,8 @@ import org.maplibre.compose.layers.FillLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.mlnffi.FfiTestPlatform
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
@@ -46,43 +47,6 @@ class CustomGeometrySourceTest {
       assertEquals(setOf("name"), feature.properties?.keys)
       assertEquals(emptyList(), fixture.errors, "the map should report nothing")
       assertEquals(TileCoordinate(0, 0, 0).bounds, requests.first { it.zoomLevel == 0 }.bounds)
-      assertTrue(source.isAttached)
-    }
-  }
-
-  @Test
-  fun invalidating_a_tile_loads_provider_owned_data_again() {
-    requireCustomGeometrySourceCallbacks()
-    BridgeMapFixture.create().use { fixture ->
-      val source = fixture.attachCustomGeometrySource()
-      fixture.awaitCustomFeatures()
-      val answered = requests.size
-      featureName = SECOND_NAME
-
-      source.invalidateTile(TileCoordinate(zoomLevel = 0, x = 0, y = 0))
-
-      fixture.pumpUntil("the invalidated tile to be asked for again") { requests.size > answered }
-      fixture.pumpUntil("the provider's new features to render") {
-        fixture.queryCenter().any { feature ->
-          feature.properties?.get("name")?.jsonPrimitive?.content == SECOND_NAME
-        }
-      }
-    }
-  }
-
-  @Test
-  fun invalidating_bounds_loads_intersecting_tiles_again() {
-    requireCustomGeometrySourceCallbacks()
-    BridgeMapFixture.create().use { fixture ->
-      val source = fixture.attachCustomGeometrySource()
-      fixture.awaitCustomFeatures()
-      val answered = requests.size
-
-      source.invalidateBounds(
-        BoundingBox(southwest = Position(-10.0, -10.0), northeast = Position(10.0, 10.0))
-      )
-
-      fixture.pumpUntil("the invalidated bounds to be asked for again") { requests.size > answered }
     }
   }
 
@@ -92,7 +56,7 @@ class CustomGeometrySourceTest {
     val state = CancellationState()
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Json("""{"version":8,"sources":{},"layers":[]}"""))
-      val style = assertIs<MlnFfiStyle>(fixture.style)
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style)
       val source =
         CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions()) {
           state.started = true
@@ -102,8 +66,8 @@ class CustomGeometrySourceTest {
             state.cancelled = true
           }
         }
-      style.addSource(source)
-      style.addLayer(FillLayer(id = "custom-fill", source = source))
+      style.install(source)
+      style.install(FillLayer(id = "custom-fill", source = source))
       fixture.pumpUntil("the provider to start") { state.started }
 
       fixture.loadStyle(BaseStyle.Empty)
@@ -119,15 +83,15 @@ class CustomGeometrySourceTest {
     val fail = CompletableDeferred<Unit>()
     BridgeMapFixture.create().use { fixture ->
       fixture.loadStyle(BaseStyle.Empty)
-      val style = assertIs<MlnFfiStyle>(fixture.style)
+      val style = assertIs<MlnFfiStyleBinding>(fixture.style)
       val source =
         CustomGeometrySource(SOURCE_ID, CustomGeometrySourceOptions()) {
           requested.complete(Unit)
           fail.await()
           error("fixture provider failure")
         }
-      style.addSource(source)
-      style.addLayer(FillLayer(id = "custom-fill", source = source))
+      style.install(source)
+      style.install(FillLayer(id = "custom-fill", source = source))
 
       fixture.pumpUntil("the source to request a tile") { requested.isCompleted }
       assertFalse(
@@ -145,14 +109,14 @@ class CustomGeometrySourceTest {
 
   private fun BridgeMapFixture.attachCustomGeometrySource(): CustomGeometrySource {
     loadStyle(BaseStyle.Empty)
-    val style = assertIs<MlnFfiStyle>(this.style)
+    val style = assertIs<MlnFfiStyleBinding>(this.style)
     val source =
       CustomGeometrySource(id = SOURCE_ID, options = CustomGeometrySourceOptions()) { tile ->
         requests += tile
         cover(tile.bounds, featureName)
       }
-    style.addSource(source)
-    style.addLayer(FillLayer(id = "custom-fill", source = source))
+    style.install(source)
+    style.install(FillLayer(id = "custom-fill", source = source))
     return source
   }
 

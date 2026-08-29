@@ -61,7 +61,9 @@ import org.maplibre.compose.sources.RasterSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileSetOptions
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.LayerHandle
+import org.maplibre.compose.style.StyleBinding
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -136,7 +138,7 @@ class LayerPropertyRoundTripTest {
           options = TileSetOptions(),
           tileSize = 256,
         )
-      style.addSource(source)
+      style.install(source)
       ({ id -> RasterLayer(id, source) })
     }
   }
@@ -152,7 +154,7 @@ class LayerPropertyRoundTripTest {
           tileSize = 256,
           demEncoding = RasterDemEncoding.Terrarium,
         )
-      style.addSource(source)
+      style.install(source)
       ({ id -> HillshadeLayer(id, source) })
     }
   }
@@ -168,7 +170,7 @@ class LayerPropertyRoundTripTest {
           tileSize = 256,
           demEncoding = RasterDemEncoding.Terrarium,
         )
-      style.addSource(source)
+      style.install(source)
       ({ id -> ColorReliefLayer(id, source) })
     }
   }
@@ -178,7 +180,7 @@ class LayerPropertyRoundTripTest {
    */
   private suspend fun <L : Layer> assertPropertiesRoundTrip(
     cases: List<Case<L>>,
-    prepare: (Style) -> (String) -> L,
+    prepare: (StyleBinding) -> (String) -> L,
   ) {
     createMapFixture().use {
       it.loadStyle(BaseStyle.Empty)
@@ -198,7 +200,7 @@ class LayerPropertyRoundTripTest {
   }
 
   private fun <L : Layer> check(
-    style: Style,
+    style: StyleBinding,
     layer: L,
     case: Case<L>,
     attachFirst: Boolean,
@@ -206,16 +208,17 @@ class LayerPropertyRoundTripTest {
     val path = if (attachFirst) "after attach" else "before attach"
     try {
       if (attachFirst) {
-        style.addLayer(layer)
+        val handle = LayerHandle(style, layer.definition(), beforeLayerId = "")
         case.apply(layer)
+        handle.update(layer.definition())
       } else {
         case.apply(layer)
-        style.addLayer(layer)
+        LayerHandle(style, layer.definition(), beforeLayerId = "")
       }
     } catch (error: Throwable) {
       return listOf("${case.property} $path: MapLibre refused it: ${error.message}")
     }
-    val actual = layer.binding.layerProperty(layer.id, case.property)
+    val actual = style.layerProperty(layer.id, case.property)
     val expected = Json.parseToJsonElement(case.expectedHere)
     return if (actual != null && actual.equivalentTo(expected)) emptyList()
     else listOf("${case.property} $path: expected $expected but MapLibre reports $actual")
@@ -263,13 +266,13 @@ class LayerPropertyRoundTripTest {
 
     fun <T : ExpressionValue> Expression<T>.c() = compile(ExpressionContext.None)
 
-    fun addFeatureSource(style: Style): Source =
+    fun addFeatureSource(style: StyleBinding): Source =
       GeoJsonSource(
           id = SOURCE_ID,
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
           options = GeoJsonOptions(lineMetrics = true),
         )
-        .also { style.addSource(it) }
+        .also { style.install(it) }
 
     val BACKGROUND_CASES =
       listOf<Case<BackgroundLayer>>(
@@ -555,7 +558,7 @@ class LayerPropertyRoundTripTest {
         },
         Case("icon-size", "1.5") { it.setIconSize(const(1.5f).c()) },
         Case("icon-text-fit", "\"both\"") { it.setIconTextFit(const(IconTextFit.Both).c()) },
-        // Style order is top, right, bottom, left, which is not the order DpPadding stores.
+        // Style-spec order is top, right, bottom, left, which is not the order DpPadding stores.
         Case("icon-text-fit-padding", "[2.0,3.0,4.0,1.0]", """["literal",[2.0,3.0,4.0,1.0]]""") {
           it.setIconTextFitPadding(const(DpPadding(1.dp, 2.dp, 3.dp, 4.dp)).c())
         },

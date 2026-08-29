@@ -31,7 +31,7 @@ public class StyleState internal constructor() {
 
   internal fun refreshSource(id: String) {
     val node = styleNode ?: return
-    if (node.style.isUnloaded) return
+    if (!node.style.isLoaded) return
 
     val current = sourcesState.value
     val refreshed = node.style.getSource(id)
@@ -49,7 +49,7 @@ public class StyleState internal constructor() {
       if (sourcesState.value.isNotEmpty()) sourcesState.value = emptyMap()
       return
     }
-    if (node.style.isUnloaded) return
+    if (!node.style.isLoaded) return
 
     val current = sourcesState.value
     val refreshed = node.style.getSources().associateBy { it.id }

@@ -18,14 +18,13 @@ import org.maplibre.compose.util.MaplibreComposable
 /**
  * Hosts the map's content in a subcomposition tied to the style it draws into.
  *
- * The subcomposition follows the *loaded* style while [content] follows the style the application
- * has *selected*; during a switch those differ and nothing here reconciles them, so the content
- * recomposes into whichever node is current. `SafeStyle.unload` is what makes that survivable.
+ * The subcomposition follows the loaded style. The engine invalidates the binding before a style
+ * switch, so effects from the outgoing composition cannot mutate the replacement style.
  */
 @Composable
 internal fun rememberStyleComposition(
   styleState: StyleState,
-  maybeStyle: SafeStyle?,
+  maybeStyle: StyleBinding?,
   logger: Logger?,
   content: @Composable @MaplibreComposable () -> Unit,
 ): State<StyleNode?> {

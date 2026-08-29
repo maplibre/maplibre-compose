@@ -14,7 +14,9 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
+import org.maplibre.compose.style.uninstall
 import org.maplibre.spatialk.geojson.dsl.featureCollectionOf
 
 /**
@@ -42,7 +44,7 @@ class MlnFfiMapRepaintTest {
     BridgeMapFixture.create().use { fixture ->
       val style = fixture.loadEmptyStyle()
       val layer = BackgroundLayer("toggled")
-      fixture.assertRedrawsAfter("adding a layer") { style.addLayer(layer) }
+      fixture.assertRedrawsAfter("adding a layer") { style.install(layer) }
     }
   }
 
@@ -51,8 +53,8 @@ class MlnFfiMapRepaintTest {
     BridgeMapFixture.create().use { fixture ->
       val style = fixture.loadEmptyStyle()
       val layer = BackgroundLayer("toggled")
-      style.addLayer(layer)
-      fixture.assertRedrawsAfter("removing a layer") { style.removeLayer(layer) }
+      style.install(layer)
+      fixture.assertRedrawsAfter("removing a layer") { style.uninstall(layer) }
     }
   }
 
@@ -61,7 +63,7 @@ class MlnFfiMapRepaintTest {
     BridgeMapFixture.create().use { fixture ->
       val style = fixture.loadEmptyStyle()
       val source = emptySource()
-      fixture.assertRedrawsAfter("adding a source") { style.addSource(source) }
+      fixture.assertRedrawsAfter("adding a source") { style.install(source) }
     }
   }
 
@@ -70,8 +72,8 @@ class MlnFfiMapRepaintTest {
     BridgeMapFixture.create().use { fixture ->
       val style = fixture.loadEmptyStyle()
       val source = emptySource()
-      style.addSource(source)
-      fixture.assertRedrawsAfter("removing a source") { style.removeSource(source) }
+      style.install(source)
+      fixture.assertRedrawsAfter("removing a source") { style.uninstall(source) }
     }
   }
 
@@ -84,10 +86,10 @@ class MlnFfiMapRepaintTest {
     }
   }
 
-  private fun BridgeMapFixture.loadEmptyStyle(): MlnFfiStyle {
+  private fun BridgeMapFixture.loadEmptyStyle(): MlnFfiStyleBinding {
     loadStyle(BaseStyle.Empty)
     pumpUntilRendered()
-    return assertIs<MlnFfiStyle>(style, "Errors: $errors")
+    return assertIs<MlnFfiStyleBinding>(style, "Errors: $errors")
   }
 
   /**

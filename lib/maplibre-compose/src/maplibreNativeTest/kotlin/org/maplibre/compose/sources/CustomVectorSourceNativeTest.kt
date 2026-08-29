@@ -3,10 +3,10 @@ package org.maplibre.compose.sources
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
-import kotlin.test.assertTrue
 import kotlinx.coroutines.CompletableDeferred
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.MlnFfiMapFixture
 import org.maplibre.compose.testing.RecordingList
@@ -31,8 +31,8 @@ class CustomVectorSourceNativeTest {
         }
       val layer = CircleLayer("empty-points", source)
       layer.sourceLayer = "points"
-      style.addSource(source)
-      style.addLayer(layer)
+      style.install(source)
+      style.install(layer)
 
       fixture.pumpUntil("the empty custom MVT tile to be requested") { requests.isNotEmpty() }
       fun isMapFullyLoaded(): Boolean =
@@ -41,8 +41,6 @@ class CustomVectorSourceNativeTest {
       assertFalse(isMapFullyLoaded())
       release.complete(Unit)
       fixture.pumpUntil("the empty custom MVT tile to finish loading") { isMapFullyLoaded() }
-
-      assertTrue(source.querySourceFeatures(setOf("points")).isEmpty())
     }
   }
 }

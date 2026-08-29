@@ -41,11 +41,8 @@ public object Feature {
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
    * property is not present on the feature's state.
    *
-   * A feature's state is not part of the GeoJSON or vector tile data. Set it with
-   * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
-   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState]. A
-   * [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource] has the same operations
-   * as `VectorSource`.
+   * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
+   * tile data.
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is
@@ -60,11 +57,8 @@ public object Feature {
    * Retrieves a property value from the current feature's state. Returns `null` if the requested
    * property is not present on the feature's state.
    *
-   * A feature's state is not part of the GeoJSON or vector tile data. Set it with
-   * [GeoJsonSource.setFeatureState][org.maplibre.compose.sources.GeoJsonSource.setFeatureState] or
-   * [VectorSource.setFeatureState][org.maplibre.compose.sources.VectorSource.setFeatureState]. A
-   * [CustomVectorSource][org.maplibre.compose.sources.CustomVectorSource] has the same operations
-   * as `VectorSource`.
+   * A feature's state is runtime data for one loaded style. It is separate from GeoJSON and vector
+   * tile data.
    *
    * When `source.promoteId` is not provided, features are identified by their `id` attribute, which
    * must be an integer or a string that can be cast to an integer. When `source.promoteId` is

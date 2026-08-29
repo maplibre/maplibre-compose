@@ -1,6 +1,5 @@
 package org.maplibre.compose.sources
 
-import co.touchlab.kermit.Logger
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
@@ -130,13 +129,7 @@ class MlnFfiTileRequestCoordinatorTest {
       fail = { _, _, error -> throw error },
     )
 
-  private class DroppingBinding : MlnFfiStyleBinding {
-    override val featureStateStore: MlnFfiFeatureStateStore? = null
-    override val tileCoordinators: MlnFfiTileCoordinatorStore? = null
-    override val isLoaded = true
-    override val logger: Logger? = null
-
-    override fun onUnload(action: () -> Unit): () -> Unit = {}
+  private class DroppingBinding : MlnFfiStyleBinding(sessionOpen = { true }) {
 
     override fun <T> readMap(action: (MapHandle) -> T): T? = null
 

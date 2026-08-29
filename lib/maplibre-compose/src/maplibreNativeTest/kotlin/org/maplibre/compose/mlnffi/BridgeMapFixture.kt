@@ -14,7 +14,7 @@ import kotlinx.io.files.Path
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.MlnFfiMapSession
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.MapFixture
 import org.maplibre.compose.testing.RecordingMapCallbacks
 import org.maplibre.compose.testing.RgbaPixel
@@ -42,7 +42,7 @@ private constructor(
     get() = recorder.errors
 
   /** The live style, once one has loaded. */
-  val style: Style?
+  val style: StyleBinding?
     get() = recorder.style
 
   private var frameId = 0L

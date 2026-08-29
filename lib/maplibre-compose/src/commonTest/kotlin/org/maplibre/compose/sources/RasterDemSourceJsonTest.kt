@@ -6,14 +6,16 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertNotNull
+import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import org.maplibre.compose.style.RecordingStyleBinding
+import org.maplibre.compose.style.SourceHandle
 
-/** What a raster-dem source sends depends on what the engine it attaches to implements. */
+/** A raster DEM definition resolves against the capabilities of each loaded engine. */
 class RasterDemSourceJsonTest {
 
   @Test
-  fun the_descriptor_keeps_the_scheme_and_encoding_it_was_given() {
+  fun the_definition_keeps_the_scheme_and_encoding_it_was_given() {
     val json =
       RasterDemSource(
           id = "dem",
@@ -38,7 +40,7 @@ class RasterDemSourceJsonTest {
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f),
       )
 
-    source.attach(binding)
+    SourceHandle(binding, source.definition())
 
     val json = assertNotNull(binding.sources["dem"])
     assertEquals("mapbox", json["encoding"]?.jsonPrimitive?.content)
@@ -55,12 +57,26 @@ class RasterDemSourceJsonTest {
         demEncoding = RasterDemEncoding.Custom(redFactor = 2f, baseShift = 3f),
       )
 
-    source.attach(binding)
+    SourceHandle(binding, source.definition())
 
     val json = assertNotNull(binding.sources["dem"])
     assertEquals("custom", json["encoding"]?.jsonPrimitive?.content)
     assertEquals(2f, json["redFactor"]?.jsonPrimitive?.content?.toFloat())
     assertEquals(3f, json["baseShift"]?.jsonPrimitive?.content?.toFloat())
+  }
+
+  @Test
+  fun a_definition_keeps_the_tiles_present_when_it_was_created() {
+    val tiles = mutableListOf(TILE_TEMPLATE)
+    val definition = RasterDemSource(id = "dem", tiles = tiles).definition()
+    tiles[0] = "https://changed.invalid/{z}/{x}/{y}.png"
+    val binding = RecordingStyleBinding()
+
+    binding.addSource(definition)
+
+    val installedTile =
+      assertNotNull(binding.sources["dem"])["tiles"]?.jsonArray?.single()?.jsonPrimitive?.content
+    assertEquals(TILE_TEMPLATE, installedTile)
   }
 
   @Test
@@ -73,7 +89,7 @@ class RasterDemSourceJsonTest {
         options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.XYZ),
       )
 
-    source.attach(binding)
+    SourceHandle(binding, source.definition())
 
     assertFalse("scheme" in assertNotNull(binding.sources["dem"]))
   }
@@ -88,7 +104,8 @@ class RasterDemSourceJsonTest {
         options = TileSetOptions(tileCoordinateSystem = TileCoordinateSystem.TMS),
       )
 
-    val error = assertFailsWith<IllegalStateException> { source.attach(binding) }
+    val error =
+      assertFailsWith<IllegalStateException> { SourceHandle(binding, source.definition()) }
 
     assertContains(error.message.orEmpty(), "TileCoordinateSystem.XYZ")
     assertFalse("dem" in binding.sources)
@@ -99,7 +116,7 @@ class RasterDemSourceJsonTest {
     val binding = RecordingStyleBinding(supportsRasterDemScheme = false)
     val source = RasterDemSource(id = "dem", uri = "https://example.invalid/tiles.json")
 
-    source.attach(binding)
+    SourceHandle(binding, source.definition())
 
     val json = assertNotNull(binding.sources["dem"])
     assertFalse("scheme" in json)

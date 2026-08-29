@@ -15,7 +15,8 @@ import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.nativeffi.style.StyleLayerVisibility
@@ -30,14 +31,14 @@ class MlnFfiLayerKeyRoundTripTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source =
         GeoJsonSource(
             id = SOURCE_ID,
             data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
             options = GeoJsonOptions(),
           )
-          .also { source -> style.addSource(source) }
+          .also { source -> style.install(source) }
 
       val beforeAttach = SymbolLayer("before", source)
       beforeAttach.sourceLayer = "places"
@@ -47,10 +48,10 @@ class MlnFfiLayerKeyRoundTripTest {
       beforeAttach.setFilter(
         (Feature["class"].cast<StringValue>() eq const("park")).compile(ExpressionContext.None)
       )
-      style.addLayer(beforeAttach)
+      style.install(beforeAttach)
 
       val afterAttach = SymbolLayer("after", source)
-      style.addLayer(afterAttach)
+      val afterHandle = style.install(afterAttach)
       afterAttach.sourceLayer = "roads"
       afterAttach.minZoom = 4f
       afterAttach.maxZoom = 16f
@@ -58,8 +59,9 @@ class MlnFfiLayerKeyRoundTripTest {
       afterAttach.setFilter(
         (Feature["class"].cast<StringValue>() eq const("wood")).compile(ExpressionContext.None)
       )
+      afterHandle.update(afterAttach.definition())
 
-      beforeAttach.onMap { map ->
+      style.onMap { map ->
         assertEquals("places", map.layerSourceLayer("before"))
         assertEquals(SOURCE_ID, map.layerSourceId("before"))
         assertEquals(3.0, map.layerMinZoom("before"))

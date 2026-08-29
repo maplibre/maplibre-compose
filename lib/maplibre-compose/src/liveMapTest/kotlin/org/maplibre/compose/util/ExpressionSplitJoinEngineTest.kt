@@ -17,6 +17,7 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.style.BaseStyle
 import org.maplibre.compose.style.StyleMutationException
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.MapLibreFlavor
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.createMapFixture
@@ -39,7 +40,7 @@ class ExpressionSplitJoinEngineTest {
           data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
           options = GeoJsonOptions(),
         )
-      style.addSource(source)
+      style.install(source)
 
       val layer = SymbolLayer("labels", source)
       layer.setFilter(
@@ -53,7 +54,7 @@ class ExpressionSplitJoinEngineTest {
         const(listOf("latitude", "longitude")).join(", ").compile(ExpressionContext.None)
       )
       try {
-        style.addLayer(layer)
+        style.install(layer)
       } catch (error: IllegalStateException) {
         // The current native-ffi pin predates maplibre-native#4463. A later pin will accept these
         // operators and take the assertions below.

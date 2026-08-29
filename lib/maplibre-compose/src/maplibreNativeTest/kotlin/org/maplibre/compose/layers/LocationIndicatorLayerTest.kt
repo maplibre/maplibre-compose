@@ -13,7 +13,8 @@ import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.expressions.dsl.image
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.Position
@@ -25,7 +26,7 @@ class LocationIndicatorLayerTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val layer = LocationIndicatorLayer("indicator")
       layer.setTopImage(image("top-icon").compile(ExpressionContext.None))
@@ -39,14 +40,14 @@ class LocationIndicatorLayerTest {
       layer.setShadowImageSize(const(0.75f).compile(ExpressionContext.None))
       layer.setImageTiltDisplacement(const(4f).compile(ExpressionContext.None))
       layer.setPerspectiveCompensation(const(0.9f).compile(ExpressionContext.None))
-      style.addLayer(layer)
+      val handle = style.install(layer)
 
       // The renderer evaluates the layer only when a frame is drawn, and image properties that
       // arrive as expressions abort it there rather than at addLayer.
       it.pumpUntilRendered()
       repeat(3) { _ -> it.frame() }
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertTrue(map.styleLayerExists("indicator"), "the layer should have been added")
         // A constant image reads back as an object naming it; an expression would read back as an
         // ["image", ...] array, which the renderer cannot take.
@@ -76,7 +77,8 @@ class LocationIndicatorLayerTest {
 
       // A property set on the live layer takes effect too.
       layer.setLocation(Position(longitude = -122.0, latitude = 37.0, altitude = 10.0))
-      layer.onMap { map ->
+      handle.update(layer.definition())
+      style.onMap { map ->
         assertEquals(
           JsonArray(listOf(JsonPrimitive(37.0), JsonPrimitive(-122.0), JsonPrimitive(10.0))),
           map.layerProperty("indicator", "location")?.toJsonElement(),

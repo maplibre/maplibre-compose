@@ -6,6 +6,7 @@ internal class SourceManager(private val node: StyleNode) {
 
   private val baseSources = node.style.getSources().associateBy { it.id }
   private val counter = ReferenceCounter<Source>()
+  private val handles = mutableMapOf<Source, SourceHandle>()
   private val sourceIds = IncrementingId("source")
 
   /** Receives updates on changes to the style */
@@ -20,8 +21,9 @@ internal class SourceManager(private val node: StyleNode) {
   internal fun addReference(source: Source) {
     require(source.id !in baseSources) { "Source ID '${source.id}' already exists in base style" }
     counter.increment(source) {
+      if (!node.style.isLoaded) return@increment
       node.logger?.i { "Adding source ${source.id}" }
-      node.style.addSource(source)
+      handles[source] = SourceHandle(node.style, source.definition())
       state?.refreshSource(source.id)
     }
   }
@@ -31,9 +33,15 @@ internal class SourceManager(private val node: StyleNode) {
       "Source ID '${source.id}' is part of the base style and can't be removed here"
     }
     counter.decrement(source) {
+      if (!node.style.isLoaded) return@decrement
       node.logger?.i { "Removing source ${source.id}" }
-      node.style.removeSource(source)
+      handles.remove(source)?.remove()
       state?.refreshSource(source.id)
     }
+  }
+
+  internal suspend fun updateReference(source: Source) {
+    if (!node.style.isLoaded) return
+    handles[source]?.update(source.definition())
   }
 }

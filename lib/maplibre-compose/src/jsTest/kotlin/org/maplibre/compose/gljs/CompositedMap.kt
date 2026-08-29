@@ -10,7 +10,7 @@ import org.maplibre.compose.map.MapAdapter
 import org.maplibre.compose.map.MapExtent
 import org.maplibre.compose.map.RenderOptions
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.spatialk.geojson.Position
 
 private const val RENDER_TIMEOUT_MS = 30_000
@@ -69,7 +69,7 @@ internal class CompositedMap(style: BaseStyle, private val scaleFactor: Double =
     MapExtent.fromPhysical(target.widthPx, target.heightPx, scaleFactor)
 
   private inner class Callbacks : MapAdapter.Callbacks {
-    override fun onStyleChanged(map: MapAdapter, style: Style?) = Unit
+    override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) = Unit
 
     override fun onMapFinishedLoading(map: MapAdapter) {
       styleLoaded = true

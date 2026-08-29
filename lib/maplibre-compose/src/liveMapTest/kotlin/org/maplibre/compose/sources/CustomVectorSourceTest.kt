@@ -5,31 +5,26 @@ import androidx.compose.ui.unit.dp
 import kotlin.concurrent.Volatile
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.serialization.json.boolean
-import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.put
 import org.maplibre.compose.expressions.ast.ExpressionContext
 import org.maplibre.compose.expressions.dsl.const
 import org.maplibre.compose.layers.CircleLayer
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.testing.MapLibreFlavor
+import org.maplibre.compose.style.install
+import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.testing.MapTestResult
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.compose.testing.createMapFixture
-import org.maplibre.compose.testing.mapLibreFlavor
 import org.maplibre.compose.testing.pumpUntilPixel
 import org.maplibre.compose.testing.runMapTest
 
 class CustomVectorSourceTest {
 
   @Test
-  fun an_mvt_provider_renders_queries_and_retains_feature_state(): MapTestResult = runMapTest {
+  fun an_mvt_provider_renders_its_tile(): MapTestResult = runMapTest {
     val requests = RecordingList<TileCoordinate>()
     createMapFixture().use { fixture ->
       fixture.loadStyle(BLACK_STYLE)
@@ -39,43 +34,17 @@ class CustomVectorSourceTest {
           requests += tile
           POINT_TILE
         }
-      style.addSource(source)
+      style.install(source)
       val layer = CircleLayer("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
       layer.setCircleRadius(const(48.dp).compile(ExpressionContext.None))
       layer.setCircleColor(const(Color.Blue).compile(ExpressionContext.None))
-      style.addLayer(layer)
+      style.install(layer)
 
       fixture.pumpUntilPixel("the custom MVT point to render", CENTER, CENTER, BLUE)
 
       assertTrue(requests.isNotEmpty())
       assertEquals(TileCoordinate(zoomLevel = 0, x = 0, y = 0), requests.first())
-      val features = source.querySourceFeatures(setOf(SOURCE_LAYER))
-      assertEquals("center", features.single().properties?.get("name")?.jsonPrimitive?.content)
-
-      source.setFeatureState(SOURCE_LAYER, FEATURE_ID, buildJsonObject { put("selected", true) })
-      assertEquals(
-        true,
-        source.getFeatureState(SOURCE_LAYER, FEATURE_ID)["selected"]?.jsonPrimitive?.boolean,
-      )
-      source.removeFeatureState(SOURCE_LAYER, FEATURE_ID, "selected")
-      assertEquals(null, source.getFeatureState(SOURCE_LAYER, FEATURE_ID)["selected"])
-      source.setFeatureState(SOURCE_LAYER, FEATURE_ID, buildJsonObject { put("selected", true) })
-      source.resetFeatureStates(SOURCE_LAYER)
-      assertEquals(emptySet(), source.getFeatureState(SOURCE_LAYER, FEATURE_ID).keys)
-
-      val answered = requests.size
-      if (mapLibreFlavor == MapLibreFlavor.NATIVE) {
-        source.invalidateTile(TileCoordinate(zoomLevel = 0, x = 0, y = 0))
-        fixture.pumpUntil("the invalidated custom MVT tile to be requested again") {
-          requests.size > answered
-        }
-      } else {
-        assertFailsWith<UnsupportedOperationException> {
-          source.invalidateTile(TileCoordinate(zoomLevel = 0, x = 0, y = 0))
-        }
-        assertEquals(answered, requests.size, "browser invalidation must not reload the source")
-      }
     }
   }
 
@@ -94,10 +63,10 @@ class CustomVectorSourceTest {
             state.cancelled = true
           }
         }
-      style.addSource(source)
+      style.install(source)
       val layer = CircleLayer("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
-      style.addLayer(layer)
+      style.install(layer)
       fixture.pumpUntil("the custom MVT provider to start") { state.started }
 
       fixture.loadStyle(REPLACEMENT_STYLE)
@@ -123,12 +92,12 @@ class CustomVectorSourceTest {
         }
       val layer = CircleLayer("custom-vector-points", source)
       layer.sourceLayer = SOURCE_LAYER
-      style.addSource(source)
-      style.addLayer(layer)
+      style.install(source)
+      style.install(layer)
       fixture.pumpUntil("the custom MVT provider to start") { state.started }
 
-      style.removeLayer(layer)
-      style.removeSource(source)
+      style.uninstall(layer)
+      style.uninstall(source)
 
       fixture.pumpUntil("the removed custom MVT provider to be cancelled") { state.cancelled }
     }
@@ -142,7 +111,6 @@ class CustomVectorSourceTest {
   private companion object {
     const val SOURCE_ID = "custom-vector"
     const val SOURCE_LAYER = "points"
-    const val FEATURE_ID = "1"
     const val CENTER = 256
     val BLUE = RgbaPixel(red = 0, green = 0, blue = 255, alpha = 255)
 

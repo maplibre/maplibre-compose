@@ -77,7 +77,7 @@ import org.maplibre.compose.mlnffi.MlnFfiMapFrameAcquisition
 import org.maplibre.compose.mlnffi.MlnFfiMapHostSession
 import org.maplibre.compose.mlnffi.MlnFfiRenderTarget
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.Style
+import org.maplibre.compose.style.StyleBinding
 import org.maplibre.compose.testing.RgbaPixel
 import org.maplibre.nativeffi.Maplibre
 import org.maplibre.nativeffi.render.RenderBackend
@@ -246,7 +246,7 @@ class LinuxVulkanOpenGlInteropTest {
 
     private val callbacks =
       object : MapAdapter.Callbacks {
-        override fun onStyleChanged(map: MapAdapter, style: Style?) {
+        override fun onStyleChanged(map: MapAdapter, style: StyleBinding?) {
           if (style != null) styleLoads++
         }
 
@@ -301,7 +301,8 @@ class LinuxVulkanOpenGlInteropTest {
       var rendered: MlnFfiRenderTarget? = null
       var renderedFrames = 0
       var lastResult: MlnFfiFrameResult? = null
-      // Style application and rendering run on different threads. A frame that started before
+      // Style application and rendering run on different threads. A frame that started
+      // before
       // the new style was observed is the previous style, even if the callback arrives before
       // this loop looks again. Sample the load count first, then keep only a later frame.
       while (styleLoads < expectedStyleLoads || rendered == null) {

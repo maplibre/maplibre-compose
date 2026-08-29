@@ -8,7 +8,9 @@ import org.maplibre.compose.layers.HillshadeLayer
 import org.maplibre.compose.layers.RasterLayer
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
+import org.maplibre.compose.style.uninstall
 import org.maplibre.compose.util.onMap
 import org.maplibre.nativeffi.style.SourceType
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -22,7 +24,7 @@ class TiledSourceAttachTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val fromTiles =
         RasterSource(
@@ -39,13 +41,13 @@ class TiledSourceAttachTest {
           tileSize = 512,
         )
       val fromUrl = RasterSource(id = "url", uri = TILEJSON_URL, tileSize = 256)
-      style.addSource(fromUrl)
+      style.install(fromUrl)
 
       val layer = RasterLayer("raster", fromTiles)
-      style.addSource(fromTiles)
-      style.addLayer(layer)
+      style.install(fromTiles)
+      style.install(layer)
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertEquals(SourceType.RASTER, map.styleSourceType("tiles"))
         assertEquals(SourceType.RASTER, map.styleSourceType("url"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
@@ -61,7 +63,7 @@ class TiledSourceAttachTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val fromTiles =
         RasterDemSource(
@@ -72,13 +74,13 @@ class TiledSourceAttachTest {
           demEncoding = RasterDemEncoding.Terrarium,
         )
       val fromUrl = RasterDemSource(id = "dem-url", uri = TILEJSON_URL, tileSize = 256)
-      style.addSource(fromUrl)
+      style.install(fromUrl)
 
       val layer = HillshadeLayer("hillshade", fromTiles)
-      style.addSource(fromTiles)
-      style.addLayer(layer)
+      style.install(fromTiles)
+      style.install(layer)
 
-      layer.onMap { map ->
+      style.onMap { map ->
         // A hillshade layer over a plain RASTER source draws nothing, with no error to explain it.
         assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem"))
         assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem-url"))
@@ -94,7 +96,7 @@ class TiledSourceAttachTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val fromTiles =
         VectorSource(
@@ -103,10 +105,10 @@ class TiledSourceAttachTest {
           options = TileSetOptions(minZoom = 4, maxZoom = 14, attributionHtml = ATTRIBUTION),
         )
       val fromUrl = VectorSource(id = "url", uri = TILEJSON_URL)
-      style.addSource(fromTiles)
-      style.addSource(fromUrl)
+      style.install(fromTiles)
+      style.install(fromUrl)
 
-      fromTiles.onMap { map ->
+      style.onMap { map ->
         assertEquals(SourceType.VECTOR, map.styleSourceType("tiles"))
         assertEquals(SourceType.VECTOR, map.styleSourceType("url"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
@@ -120,10 +122,10 @@ class TiledSourceAttachTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val witness = RasterSource(id = "witness", tiles = listOf(TILE_TEMPLATE), tileSize = 256)
-      style.addSource(witness)
+      style.install(witness)
 
       val source =
         RasterSource(
@@ -132,18 +134,18 @@ class TiledSourceAttachTest {
           options = TileSetOptions(attributionHtml = ATTRIBUTION),
           tileSize = 256,
         )
-      style.addSource(source)
-      style.removeSource(source)
+      style.install(source)
+      style.uninstall(source)
       // Read through the witness: a detached descriptor has no binding, so it answers null either
       // way.
       assertEquals(
         false,
-        witness.onMap { map -> map.styleSourceExists("tiles") },
+        style.onMap { map -> map.styleSourceExists("tiles") },
         "the source should be out of the style",
       )
 
-      style.addSource(source)
-      source.onMap { map ->
+      style.install(source)
+      style.onMap { map ->
         assertEquals(SourceType.RASTER, map.styleSourceType("tiles"))
         assertEquals(ATTRIBUTION, map.styleSourceInfo("tiles")?.attribution)
       }
@@ -160,7 +162,7 @@ class TiledSourceAttachTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
 
       val source =
         RasterDemSource(
@@ -174,10 +176,10 @@ class TiledSourceAttachTest {
       assertEquals(Json.parseToJsonElement("\"custom\""), source.toJson()["encoding"])
 
       val layer = HillshadeLayer("hillshade", source)
-      style.addSource(source)
-      style.addLayer(layer)
+      style.install(source)
+      style.install(layer)
 
-      layer.onMap { map -> assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem")) }
+      style.onMap { map -> assertEquals(SourceType.RASTER_DEM, map.styleSourceType("dem")) }
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }
   }

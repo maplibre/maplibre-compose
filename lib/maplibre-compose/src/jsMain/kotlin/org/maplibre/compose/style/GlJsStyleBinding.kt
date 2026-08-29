@@ -24,15 +24,21 @@ import org.maplibre.compose.gljs.MaplibreMap
 import org.maplibre.compose.gljs.QuerySourceFeatureOptions
 import org.maplibre.compose.gljs.SourceHandle
 import org.maplibre.compose.gljs.SourceSpecification
+import org.maplibre.compose.gljs.StyleImageMetadata
 import org.maplibre.compose.gljs.UpdateImageOptions
+import org.maplibre.compose.gljs.keys
 import org.maplibre.compose.gljs.subscribe
+import org.maplibre.compose.layers.Layer
+import org.maplibre.compose.layers.UnknownLayer
 import org.maplibre.compose.sources.CLUSTER_ID_PROPERTY
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
+import org.maplibre.compose.sources.UnknownSource
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.featureIdentifiers
 import org.maplibre.compose.sources.toDataJson
@@ -40,6 +46,7 @@ import org.maplibre.compose.sources.toJsonObjectOrEmpty
 import org.maplibre.compose.util.toDataUrl
 import org.maplibre.compose.util.toFeatureCollection
 import org.maplibre.compose.util.toGeoJsonFeature
+import org.maplibre.compose.util.toGlJsImage
 import org.maplibre.compose.util.toJsValue
 import org.maplibre.compose.util.toJsonElement
 import org.maplibre.spatialk.geojson.BoundingBox
@@ -48,12 +55,16 @@ import org.maplibre.spatialk.geojson.FeatureCollection
 import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
-/** [StyleBinding] over a MapLibre GL JS map. One binding belongs to one loaded style. */
-internal class GlJsStyleBinding(private val map: MaplibreMap, override val logger: Logger?) :
-  StyleBinding {
+/** [StyleBinding] for one loaded style in a MapLibre GL JS map. */
+internal class GlJsStyleBinding(
+  private val map: MaplibreMap,
+  override val logger: Logger?,
+  private val getScale: () -> Float,
+) : StyleBinding {
+
+  override val identity: StyleIdentity = StyleIdentity.create()
 
   private var loaded = true
-  private val unloadActions = mutableSetOf<() -> Unit>()
   private val customVectorAttachments = mutableMapOf<String, GlJsCustomVectorAttachment>()
 
   /**
@@ -75,25 +86,17 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   override val isLoaded: Boolean
     get() = loaded
 
-  fun unload() {
+  override fun invalidate() {
     if (!loaded) return
     loaded = false
     errors.cancel()
     val attachments = customVectorAttachments.values.toList()
     customVectorAttachments.clear()
     attachments.forEach { it.close() }
-    val actions = unloadActions.toList()
-    unloadActions.clear()
-    actions.forEach { it() }
   }
 
-  override fun onUnload(action: () -> Unit): () -> Unit {
-    if (!loaded) {
-      action()
-      return {}
-    }
-    unloadActions += action
-    return { unloadActions -= action }
+  private fun requireLoaded() {
+    check(loaded) { "Style operation belongs to a stale loaded-style identity" }
   }
 
   override val supportsCustomDemEncoding: Boolean = true
@@ -101,8 +104,85 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   /** GL JS rejects a raster-dem source that carries a `scheme`, and reads only XYZ tiles. */
   override val supportsRasterDemScheme: Boolean = false
 
+  override fun addImage(definition: StyleImageDefinition) {
+    requireLoaded()
+    val (id, snapshot, sdf, stretch) = definition
+    val image = snapshot.toImageBitmap()
+    val scale = getScale()
+    val pixels = image.toGlJsImage()
+    val stretchPx = stretch?.resolve(image.width, image.height, scale)
+    val metadata =
+      unsafeJso<StyleImageMetadata> {
+        pixelRatio = scale.toDouble()
+        this.sdf = sdf
+        stretchPx?.let { px ->
+          if (px.stretchX.isNotEmpty()) stretchX = px.stretchX.toGlJsStretch()
+          if (px.stretchY.isNotEmpty()) stretchY = px.stretchY.toGlJsStretch()
+          px.content?.let { box ->
+            content =
+              arrayOf(
+                box.left.toDouble(),
+                box.top.toDouble(),
+                box.right.toDouble(),
+                box.bottom.toDouble(),
+              )
+          }
+        }
+      }
+    if (map.hasImage(id)) map.removeImage(id)
+    map.addImage(id, pixels, metadata)
+  }
+
+  override fun removeImage(id: String) {
+    requireLoaded()
+    if (map.hasImage(id)) map.removeImage(id)
+  }
+
+  override fun getSource(id: String): Source? {
+    requireLoaded()
+    return if (map.getSource<SourceHandle>(id) == null) null else reconstructSource(id)
+  }
+
+  override fun getSources(): List<Source> {
+    requireLoaded()
+    return map.getStyle().sources.keys().map(::reconstructSource)
+  }
+
+  override fun getLayer(id: String): Layer? {
+    requireLoaded()
+    return map.getLayer(id)?.let { reconstructLayer(id) }
+  }
+
+  override fun getLayers(): List<Layer> = layerIds().map(::reconstructLayer)
+
+  override fun layerIds(): List<String> {
+    requireLoaded()
+    return map.getLayersOrder().toList()
+  }
+
+  private fun reconstructSource(id: String): Source =
+    UnknownSource(
+      id,
+      buildJsonObject {
+        map.getSource<SourceHandle>(id)?.let { source ->
+          put("type", source.type)
+          source.attribution?.let { put("attribution", it) }
+        }
+      },
+    )
+
+  private fun reconstructLayer(id: String): Layer {
+    val definition =
+      map.getStyle().layers.firstOrNull { it.id == id }?.toJsonElement() as? JsonObject
+        ?: buildJsonObject {
+          put("id", id)
+          map.getLayer(id)?.let { put("type", it.type) }
+        }
+    return UnknownLayer(id, definition)
+  }
+
   override fun addSource(sourceId: String, source: JsonObject): Boolean {
-    if (!loaded) return false
+    requireLoaded()
     mutate("add source '$sourceId'") {
       map.addSource(sourceId, source.toJsValue<SourceSpecification>())
     }
@@ -110,7 +190,8 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   }
 
   override fun removeSource(sourceId: String) {
-    if (loaded) map.removeSource(sourceId)
+    requireLoaded()
+    map.removeSource(sourceId)
     customVectorAttachments.remove(sourceId)?.close()
   }
 
@@ -140,7 +221,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     options: CustomVectorSourceOptions,
     provider: VectorTileProvider,
   ): Boolean {
-    if (!loaded) return false
+    requireLoaded()
     customVectorAttachments.remove(sourceId)?.close()
     val attachment = GlJsCustomVectorAttachment(sourceId, provider)
     customVectorAttachments[sourceId] = attachment
@@ -165,12 +246,14 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
 
   override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate): Unit =
     throw UnsupportedOperationException(
-      "CustomVectorSource.invalidateTile is not available in the browser because MapLibre GL JS " +
+      "Custom vector tile invalidation is not available in the browser because MapLibre GL JS " +
         "has no public per-tile invalidation operation."
     )
 
-  override fun sourceExists(sourceId: String): Boolean? =
-    if (!loaded) null else map.getSource<SourceHandle>(sourceId) != null
+  override fun sourceExists(sourceId: String): Boolean? {
+    requireLoaded()
+    return map.getSource<SourceHandle>(sourceId) != null
+  }
 
   /** MapLibre GL JS names images by URL, so the bitmap is encoded to a `data:` URL. */
   override fun addImageSourceImage(
@@ -199,19 +282,19 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   }
 
   override fun setImageSourceUrl(sourceId: String, url: String) {
-    if (!loaded) return
+    requireLoaded()
     val options = unsafeJso<UpdateImageOptions> { this.url = url }
     map.getSource<GlJsImageSource>(sourceId)?.updateImage(options)
   }
 
   override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) {
-    if (!loaded) return
+    requireLoaded()
     val corners = coordinates.map { arrayOf(it.longitude, it.latitude) }.toTypedArray()
     map.getSource<GlJsImageSource>(sourceId)?.setCoordinates(corners)
   }
 
   override fun imageSourceCoordinates(sourceId: String): List<Position>? {
-    if (!loaded) return null
+    requireLoaded()
     return map.getSource<GlJsImageSource>(sourceId)?.coordinates?.map {
       Position(longitude = it[0], latitude = it[1])
     }
@@ -225,12 +308,14 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     prepared: PreparedGeoJson,
     claim: () -> Boolean,
   ) {
-    if (!claim() || !loaded) return
+    if (!claim()) return
+    requireLoaded()
     map.getSource<GlJsGeoJsonSource>(sourceId)?.setData((prepared as GlJsPreparedGeoJson).data)
   }
 
   override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-    if (!claim() || !loaded) return
+    if (!claim()) return
+    requireLoaded()
     map.getSource<GlJsGeoJsonSource>(sourceId)?.setData(url.unsafeCast<GeoJsonSourceData>())
   }
 
@@ -279,7 +364,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
           }
           return null
         }
-    if (!loaded) return null
+    requireLoaded()
     val source = map.getSource<GlJsGeoJsonSource>(sourceId) ?: return null
     return ClusterQuery(source, clusterId)
   }
@@ -290,7 +375,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     featureId: String,
     state: JsonObject,
   ) {
-    if (!loaded) return
+    requireLoaded()
     val js = state.toJsValue<Any>()
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
       map.setFeatureState(ident, js)
@@ -306,7 +391,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     sourceLayerId: String?,
     featureId: String,
   ): JsonObject {
-    if (!loaded) return JsonObject(emptyMap())
+    requireLoaded()
     var merged = JsonObject(emptyMap())
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
       val next = map.getFeatureState(ident).toJsonObjectOrEmpty()
@@ -321,7 +406,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     featureId: String,
     stateKey: String?,
   ) {
-    if (!loaded) return
+    requireLoaded()
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId)) {
       if (stateKey == null) map.removeFeatureState(ident)
       else map.removeFeatureState(ident, stateKey)
@@ -329,7 +414,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   }
 
   override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) {
-    if (!loaded) return
+    requireLoaded()
     for (ident in featureIdentifiers(sourceId, sourceLayerId, featureId = null)) {
       map.removeFeatureState(ident)
     }
@@ -341,7 +426,8 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     sourceLayerIds: Set<String>,
     filter: JsonElement?,
   ): List<Feature<Geometry, JsonObject?>> {
-    if (!loaded || sourceLayerIds.isEmpty()) return emptyList()
+    if (sourceLayerIds.isEmpty()) return emptyList()
+    requireLoaded()
     val js = filter?.toJsValue<FilterSpecification>()
     return sourceLayerIds.flatMap { layer ->
       val options =
@@ -354,10 +440,13 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   }
 
   /** Null once the style has unloaded. */
-  fun <T> withMap(action: (MaplibreMap) -> T): T? = if (loaded) action(map) else null
+  fun <T> withMap(action: (MaplibreMap) -> T): T? {
+    requireLoaded()
+    return action(map)
+  }
 
   override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean {
-    if (!loaded) return false
+    requireLoaded()
     mutate("add layer") {
       val spec = layer.toJsValue<LayerSpecification>()
       // MapLibre reads an absent `beforeId` as "on top"; an empty string is a layer id it will not
@@ -368,12 +457,12 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   }
 
   override fun removeLayer(layerId: String) {
-    if (!loaded) return
+    requireLoaded()
     map.removeLayer(layerId)
   }
 
   override fun moveLayer(layerId: String, beforeLayerId: String) {
-    if (!loaded) return
+    requireLoaded()
     if (beforeLayerId.isEmpty()) map.moveLayer(layerId) else map.moveLayer(layerId, beforeLayerId)
   }
 
@@ -383,7 +472,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     value: JsonElement,
     kind: LayerPropertyKind,
   ) {
-    if (!loaded) return
+    requireLoaded()
     val js = value.toJsValue<Any?>()
     mutate("set '$name' on layer '$layerId'") {
       when (kind) {
@@ -414,7 +503,7 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
   }
 
   override fun setLayerFilter(layerId: String, filter: JsonElement) {
-    if (!loaded) return
+    requireLoaded()
     // The style spec has no null filter; absent means "match every feature".
     val js = if (filter is JsonNull) null else filter.toJsValue<FilterSpecification>()
     mutate("set the filter on layer '$layerId'") { map.setFilter(layerId, js) }
@@ -425,15 +514,18 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
    * throws rather than answering for a name it does not have.
    */
   override fun layerProperty(layerId: String, name: String): JsonElement? {
-    if (!loaded || map.getLayer(layerId) == null) return null
+    requireLoaded()
+    if (map.getLayer(layerId) == null) return null
     val value =
       runCatching { map.getPaintProperty(layerId, name) }.getOrNull()
         ?: runCatching { map.getLayoutProperty(layerId, name) }.getOrNull()
     return value?.toJsonElement()
   }
 
-  override fun layerExists(layerId: String): Boolean? =
-    if (!loaded) null else map.getLayer(layerId) != null
+  override fun layerExists(layerId: String): Boolean? {
+    requireLoaded()
+    return map.getLayer(layerId) != null
+  }
 
   /** The engine parses in a web worker of its own, so there is nothing to prepare here. */
   private class GlJsPreparedGeoJson(val data: GeoJsonSourceData) : PreparedGeoJson {
@@ -452,3 +544,8 @@ internal class GlJsStyleBinding(private val map: MaplibreMap, override val logge
     }
   }
 }
+
+private fun List<Pair<Float, Float>>.toGlJsStretch(): Array<Array<Double>> = map { (start, end) ->
+  arrayOf(start.toDouble(), end.toDouble())
+}
+  .toTypedArray()

@@ -6,15 +6,18 @@ import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import org.maplibre.compose.layers.Layer
 import org.maplibre.compose.sources.CustomGeometrySourceOptions
 import org.maplibre.compose.sources.CustomVectorSourceOptions
 import org.maplibre.compose.sources.GeoJsonData
 import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeometryTileProvider
+import org.maplibre.compose.sources.Source
 import org.maplibre.compose.sources.TileCoordinate
 import org.maplibre.compose.sources.VectorTileProvider
 import org.maplibre.compose.sources.putGeoJsonOptions
 import org.maplibre.compose.sources.toDataJson
+import org.maplibre.compose.util.ImageStretch
 import org.maplibre.spatialk.geojson.BoundingBox
 import org.maplibre.spatialk.geojson.Feature
 import org.maplibre.spatialk.geojson.FeatureCollection
@@ -22,17 +25,44 @@ import org.maplibre.spatialk.geojson.Geometry
 import org.maplibre.spatialk.geojson.Position
 
 /**
- * A source or layer's connection to its live style, as an ID and style-spec JSON. A binding stops
- * working when its style unloads, after which mutations are dropped and reads answer null rather
- * than throwing.
+ * The engine binding for one loaded style, identified by one opaque generation. The binding stops
+ * working when its style unloads. Operations on an invalidated binding fail with a stale-style
+ * error.
  */
 internal interface StyleBinding {
+  /** The loaded base-style generation associated with every operation on this binding. */
+  val identity: StyleIdentity
+
   val isLoaded: Boolean
+
+  /** Invalidates this loaded style before its base style starts changing. */
+  fun invalidate()
+
+  fun requireCurrent() {
+    check(isLoaded) {
+      "Style operation belongs to a stale loaded-style identity"
+    }
+  }
 
   val logger: Logger?
 
-  /** Runs [action] when this style unloads and returns a function that removes the action. */
-  fun onUnload(action: () -> Unit): () -> Unit
+  fun addImage(definition: StyleImageDefinition)
+
+  fun addImage(id: String, image: ImageBitmap, sdf: Boolean, stretch: ImageStretch?) {
+    addImage(StyleImageDefinition(id, ImageSnapshot.capture(image), sdf, stretch))
+  }
+
+  fun removeImage(id: String)
+
+  fun getSource(id: String): Source?
+
+  fun getSources(): List<Source>
+
+  fun getLayer(id: String): Layer?
+
+  fun getLayers(): List<Layer>
+
+  fun layerIds(): List<String>
 
   /**
    * Adds a complete layer object directly below [beforeLayerId], or on top when that is empty.
@@ -41,6 +71,11 @@ internal interface StyleBinding {
    * @throws StyleMutationException if MapLibre refuses the layer.
    */
   fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean
+
+  fun addLayer(definition: LayerDefinition, beforeLayerId: String): Boolean {
+    requireCurrent()
+    return addLayer(definition.value, beforeLayerId)
+  }
 
   fun removeLayer(layerId: String)
 
@@ -93,6 +128,31 @@ internal interface StyleBinding {
    * @throws StyleMutationException if MapLibre refuses the source.
    */
   fun addSource(sourceId: String, source: JsonObject): Boolean
+
+  /** Installs one immutable source definition in this loaded style. */
+  fun addSource(definition: SourceDefinition): Boolean {
+    requireCurrent()
+    return when (definition) {
+      is SourceDefinition.Json -> addSource(definition.id, definition.value)
+      is SourceDefinition.GeoJson ->
+        addGeoJsonSource(definition.id, definition.data, definition.options)
+      is SourceDefinition.Image ->
+        definition.image?.let {
+          addImageSourceImage(definition.id, definition.coordinates, it.toImageBitmap())
+        } ?: addSource(definition.id, definition.value)
+      is SourceDefinition.CustomGeometry ->
+        addCustomGeometrySource(definition.id, definition.options, definition.provider)
+      is SourceDefinition.CustomVector ->
+        addCustomVectorSource(definition.id, definition.options, definition.provider)
+      is SourceDefinition.RasterDem ->
+        addSource(
+          definition.id,
+          definition.createJson(
+            RasterDemCapabilities(supportsCustomDemEncoding, supportsRasterDemScheme)
+          ),
+        )
+    }
+  }
 
   /** Removes a source and forgets the feature state that belonged to it. */
   fun removeSource(sourceId: String)
@@ -159,8 +219,8 @@ internal interface StyleBinding {
    * Installs [prepared] on a live GeoJSON source when [claim] answers true.
    *
    * [claim] runs where this engine serializes installs, so overlapping installs resolve their order
-   * in one place. It runs even when the style has unloaded or the install is dropped, so the
-   * descriptor still records the data. Returns after the install has run or been dropped, so the
+   * in one place. It runs even when the style has unloaded or the install is dropped, so the live
+   * handle records the applied data. Returns after the install has run or been dropped, so the
    * caller may close [prepared].
    */
   fun setGeoJsonSourceData(sourceId: String, prepared: PreparedGeoJson, claim: () -> Boolean)
@@ -270,145 +330,6 @@ internal interface StyleBinding {
     sourceLayerIds: Set<String>,
     filter: JsonElement?,
   ): List<Feature<Geometry, JsonObject?>>
-
-  companion object {
-    /** A binding for a descriptor that has never been added to a style. */
-    val UNLOADED: StyleBinding =
-      object : StyleBinding {
-        override val isLoaded: Boolean = false
-
-        override val logger: Logger? = null
-
-        override fun onUnload(action: () -> Unit): () -> Unit {
-          action()
-          return {}
-        }
-
-        override fun addLayer(layer: JsonObject, beforeLayerId: String): Boolean = false
-
-        override fun removeLayer(layerId: String) = Unit
-
-        override fun moveLayer(layerId: String, beforeLayerId: String) = Unit
-
-        override fun setLayerProperty(
-          layerId: String,
-          name: String,
-          value: JsonElement,
-          kind: LayerPropertyKind,
-        ) = Unit
-
-        override fun setLayerFilter(layerId: String, filter: JsonElement) = Unit
-
-        override fun layerProperty(layerId: String, name: String): JsonElement? = null
-
-        override fun layerExists(layerId: String): Boolean? = null
-
-        // Nothing reads these before a descriptor attaches; they carry the native answers.
-        override val supportsCustomDemEncoding: Boolean = false
-
-        override val supportsRasterDemScheme: Boolean = true
-
-        override fun addSource(sourceId: String, source: JsonObject): Boolean = false
-
-        override fun removeSource(sourceId: String) = Unit
-
-        override fun sourceExists(sourceId: String): Boolean? = null
-
-        override fun addImageSourceImage(
-          sourceId: String,
-          coordinates: List<Position>,
-          image: ImageBitmap,
-        ): Boolean = false
-
-        override fun setImageSourceImage(sourceId: String, image: ImageBitmap) = Unit
-
-        override fun setImageSourceUrl(sourceId: String, url: String) = Unit
-
-        override fun setImageSourceCoordinates(sourceId: String, coordinates: List<Position>) = Unit
-
-        override fun imageSourceCoordinates(sourceId: String): List<Position>? = null
-
-        override fun prepareGeoJson(data: GeoJsonData, options: GeoJsonOptions): PreparedGeoJson =
-          NoPreparedGeoJson
-
-        override fun setGeoJsonSourceData(
-          sourceId: String,
-          prepared: PreparedGeoJson,
-          claim: () -> Boolean,
-        ) {
-          claim()
-        }
-
-        override fun setGeoJsonSourceUrl(sourceId: String, url: String, claim: () -> Boolean) {
-          claim()
-        }
-
-        override fun addCustomGeometrySource(
-          sourceId: String,
-          options: CustomGeometrySourceOptions,
-          provider: GeometryTileProvider,
-        ): Boolean = false
-
-        override fun invalidateCustomGeometrySourceBounds(sourceId: String, bounds: BoundingBox) =
-          Unit
-
-        override fun invalidateCustomGeometrySourceTile(sourceId: String, tile: TileCoordinate) =
-          Unit
-
-        override fun addCustomVectorSource(
-          sourceId: String,
-          options: CustomVectorSourceOptions,
-          provider: VectorTileProvider,
-        ): Boolean = false
-
-        override fun invalidateCustomVectorSourceTile(sourceId: String, tile: TileCoordinate) = Unit
-
-        override suspend fun clusterExpansionZoom(
-          sourceId: String,
-          feature: Feature<*, JsonObject?>,
-        ): Double? = null
-
-        override suspend fun clusterChildren(
-          sourceId: String,
-          feature: Feature<*, JsonObject?>,
-        ): FeatureCollection<Geometry, JsonObject?>? = null
-
-        override suspend fun clusterLeaves(
-          sourceId: String,
-          feature: Feature<*, JsonObject?>,
-          limit: Long,
-          offset: Long,
-        ): FeatureCollection<Geometry, JsonObject?>? = null
-
-        override fun setFeatureState(
-          sourceId: String,
-          sourceLayerId: String?,
-          featureId: String,
-          state: JsonObject,
-        ) = Unit
-
-        override fun featureState(
-          sourceId: String,
-          sourceLayerId: String?,
-          featureId: String,
-        ): JsonObject = JsonObject(emptyMap())
-
-        override fun removeFeatureState(
-          sourceId: String,
-          sourceLayerId: String?,
-          featureId: String,
-          stateKey: String?,
-        ) = Unit
-
-        override fun resetFeatureStates(sourceId: String, sourceLayerId: String?) = Unit
-
-        override fun querySourceFeatures(
-          sourceId: String,
-          sourceLayerIds: Set<String>,
-          filter: JsonElement?,
-        ): List<Feature<Geometry, JsonObject?>> = emptyList()
-      }
-  }
 }
 
 /** An engine's install form of one GeoJSON payload. [close] releases what the engine holds. */

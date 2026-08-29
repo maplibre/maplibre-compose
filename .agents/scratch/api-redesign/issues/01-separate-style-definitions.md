@@ -8,27 +8,27 @@ a replacement style or another map.
 
 **Blocked by:** None (can start immediately)
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The changed test area contains no redundant, impossible,
+- [x] The changed test area contains no redundant, impossible,
       compatibility-only, or implementation-shape scenarios.
-- [ ] The same immutable definition can be evaluated for two maps without shared
+- [x] The same immutable definition can be evaluated for two maps without shared
       mutable binding state.
-- [ ] Native and Web implement one loaded-style port contract without another
+- [x] Native and Web implement one loaded-style port contract without another
       platform or session interface layer.
-- [ ] One opaque identity represents each loaded base-style generation.
-- [ ] Base-style requests have independent monotonic identities, and callbacks
+- [x] One opaque identity represents each loaded base-style generation.
+- [x] Base-style requests have independent monotonic identities, and callbacks
       from superseded requests cannot publish state.
-- [ ] Starting a base-style reload invalidates operations from the outgoing
+- [x] Starting a base-style reload invalidates operations from the outgoing
       identity.
-- [ ] A stale internal style operation fails clearly and cannot mutate the next
+- [x] A stale internal style operation fails clearly and cannot mutate the next
       style or another map.
-- [ ] Pending, Loading, Ready, and Failed distinguish desired configuration from
+- [x] Pending, Loading, Ready, and Failed distinguish desired configuration from
       the current applied style without rolling back after failure.
-- [ ] Existing declarative style behavior remains unchanged.
-- [ ] Tests that exist only for the three binding layers are deleted or replaced
+- [x] Existing declarative style behavior remains unchanged.
+- [x] Tests that exist only for the three binding layers are deleted or replaced
       with loaded-style port behavior tests.
-- [ ] Style-spec parity and focused style tests pass.
+- [x] Style-spec parity and focused style tests pass.
 
 ## Test ledger
 
@@ -39,3 +39,20 @@ a replacement style or another map.
   identities; delete cases that only distinguish the three old binding layers.
 - Run `mise run style-spec:parity --check`, `mise run test:android`,
   `mise run test:desktop`, and `mise run test:js`.
+
+## Answer
+
+`Source`, `Layer`, and image definitions are reusable values without loaded-map
+state. `StyleBinding` is the single loaded-style port implemented directly by
+the native and Web engines, and internal `SourceHandle` and `LayerHandle`
+instances bind mutations to one opaque style generation.
+
+Definitions snapshot mutable GeoJSON collections and image pixels. Custom-source
+provider changes publish new definitions, while the installed handle stores the
+only live forwarding reference for its style generation.
+
+Tests for the removed descriptor attachment, proxy, feature-state, cluster, and
+invalidation machinery were deleted. The remaining tests cover immutable
+definitions, style identities, stale-handle rejection, and declarative behavior
+through the single port. Focused native coverage retains the observable GeoJSON
+recomposition, repaint, and rendered-update behavior.

@@ -56,11 +56,11 @@ import org.maplibre.compose.mlnffi.currentMlnFfiThreadName
 import org.maplibre.compose.mlnffi.withLock
 import org.maplibre.compose.resource.MlnFfiResourceProvider
 import org.maplibre.compose.resource.MlnFfiResourceProviderFactory
-import org.maplibre.compose.sources.MlnFfiFeatureStateStore
-import org.maplibre.compose.sources.MlnFfiTileCoordinatorStore
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
 import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.StyleLoadTracker
+import org.maplibre.compose.style.StyleRequestId
+import org.maplibre.compose.style.TrackedStyleLoadState
 import org.maplibre.compose.util.VisibleRegion
 import org.maplibre.compose.util.metersPerDpAtLatitude
 import org.maplibre.compose.util.renderedQueryOptions
@@ -213,6 +213,8 @@ internal class MlnFfiMapSession(
 
   @Volatile private var requestedStyle: BaseStyle? = null
   private var appliedStyle: BaseStyle? = null
+  private var styleLoadTracker: StyleLoadTracker? = null
+  private var appliedStyleRequest: StyleRequestId? = null
 
   /** Gesture attribution is owner-thread state; input threads communicate only through tokens. */
   private var isGestureInProgress = false
@@ -222,8 +224,12 @@ internal class MlnFfiMapSession(
 
   private var reportedMoveReason: CameraMoveReason? = null
 
-  @Volatile private var styleBinding: SessionStyleBinding? = null
+  @Volatile private var styleBinding: MlnFfiStyleBinding? = null
 
+  internal val loadedStyleIdentity
+    get() = styleBinding?.identity
+
+  private var styleLoadPending = false
   private var styleLoadUnreported = false
 
   /**
@@ -252,85 +258,36 @@ internal class MlnFfiMapSession(
     }
   }
 
-  /** Once [unload] runs, writes are dropped rather than reaching a map whose style was replaced. */
-  private inner class SessionStyleBinding : MlnFfiStyleBinding {
-    @Volatile private var loaded = true
-    private val unloadActions = mutableSetOf<() -> Unit>()
-    private val unloadActionsLock = MlnFfiLock()
-
-    override val featureStateStore = MlnFfiFeatureStateStore()
-
-    override val tileCoordinators = MlnFfiTileCoordinatorStore()
-
-    override val isLoaded: Boolean
-      get() = loaded && !closed
-
-    override val logger: Logger?
-      get() = this@MlnFfiMapSession.logger
-
-    fun unload() {
-      loaded = false
-      val actions = unloadActionsLock.withLock {
-        unloadActions.toList().also { unloadActions.clear() }
-      }
-      actions.forEach { it() }
-    }
-
-    override fun onUnload(action: () -> Unit): () -> Unit {
-      if (!isLoaded) {
-        action()
-        return {}
-      }
-      var runImmediately = false
-      unloadActionsLock.withLock {
-        if (!isLoaded) {
-          runImmediately = true
+  private fun createStyleBinding(): MlnFfiStyleBinding =
+    MlnFfiStyleBinding(
+      loggerProvider = { logger },
+      sessionOpen = { !closed },
+      accessMap = { action ->
+        if (closed) false else runOnMap(action).let { true }
+      },
+      accessRenderSession = { action ->
+        if (closed || !renderSessionReady) {
+          false
         } else {
-          unloadActions += action
+          withRendererAccess {
+            val session = renderSession
+            if (session == null) {
+              logger?.d { "Ignoring a render session call: no session is attached yet" }
+              false
+            } else {
+              action(session)
+              true
+            }
+          } ?: false
         }
-      }
-      if (runImmediately) {
-        action()
-        return {}
-      }
-      return { unloadActionsLock.withLock { unloadActions -= action } }
-    }
-
-    override fun reportSourceChanged(sourceId: String) {
-      featureStateReplayPending.store(true)
-      reportedUrlAttribution.remove(sourceId)
-      callbacks.onSourceChanged(this@MlnFfiMapSession, sourceId)
-    }
-
-    override fun <T> readMap(action: (MapHandle) -> T): T? {
-      if (!isLoaded) return null
-      return runOnMap(action)
-    }
-
-    /**
-     * `addSource`, `removeSource` and `removeImage` notify mbgl of nothing, so they render stale.
-     */
-    override fun <T> mutateMap(abandon: () -> Unit, action: (MapHandle) -> T): T? {
-      if (!isLoaded) {
-        abandon()
-        return null
-      }
-      return runOnMap(abandon) { map -> action(map).also { map.requestRepaint() } }
-    }
-
-    override fun <T> withRenderSession(action: (RenderSessionHandle) -> T): T? {
-      if (!isLoaded) return null
-      return withRendererAccess {
-        if (!renderSessionReady) return@withRendererAccess null
-        val session = renderSession
-        if (session == null) {
-          logger?.d { "Ignoring a render session call: no session is attached yet" }
-          return@withRendererAccess null
-        }
-        action(session)
-      }
-    }
-  }
+      },
+      sourceChanged = { sourceId ->
+        featureStateReplayPending.store(true)
+        reportedUrlAttribution.remove(sourceId)
+        callbacks.onSourceChanged(this, sourceId)
+      },
+      getScale = ::imageScale,
+    )
 
   @Volatile private var maximumFps: Int? = null
   private var cameraConstraints: CameraConstraints? = null
@@ -496,6 +453,14 @@ internal class MlnFfiMapSession(
       current
     }
     abandoned.forEach { it.abandon() }
+    if (styleBinding != null) callbacks.onStyleChanged(this, null)
+    styleBinding?.invalidate()
+    styleBinding = null
+    appliedStyle = null
+    appliedStyleRequest = null
+    styleLoadPending = false
+    styleLoadUnreported = false
+    styleLoadTracker?.engineBecameUnavailable()
     closeRenderSession()
     try {
       stopping?.close()
@@ -705,18 +670,35 @@ internal class MlnFfiMapSession(
 
   // region events, on the map's owner thread
 
+  private fun reportLoadedStyle() {
+    if (!styleLoadUnreported) return
+    styleLoadUnreported = false
+    val request = appliedStyleRequest ?: return
+    val identity = styleBinding?.identity ?: return
+    if (styleLoadTracker?.reconciled(request, identity) == true) {
+      callbacks.onMapFinishedLoading(this)
+    }
+  }
+
   /** Runs on the map's owner thread, as do the callbacks it makes. */
   private fun handleEvent(event: RuntimeEvent) {
     when (event.type) {
       RuntimeEventType.MAP_RENDER_UPDATE_AVAILABLE -> requestRender()
 
       RuntimeEventType.MAP_STYLE_LOADED -> {
+        styleLoadPending = false
         // Descriptors holding the previous binding must not write into a style that is gone.
-        styleBinding?.unload()
-        val binding = SessionStyleBinding().also { styleBinding = it }
+        styleBinding?.invalidate()
+        val binding = createStyleBinding().also { styleBinding = it }
+        val request = appliedStyleRequest ?: return binding.invalidate()
+        if (styleLoadTracker?.loaded(request, binding.identity) != true) {
+          binding.invalidate()
+          loop?.map?.let(::applyRequestedStyle)
+          return
+        }
         featureStateReplayPending.store(true)
         hasLoadedFirstStyle = true
-        callbacks.onStyleChanged(this, MlnFfiStyle(binding, ::imageScale))
+        callbacks.onStyleChanged(this, binding)
         styleLoadUnreported = true
         reportedUrlAttribution.clear()
         // A producer frame that started before this callback can still hold the previous style.
@@ -730,27 +712,36 @@ internal class MlnFfiMapSession(
       // loaded, so a style that parses between two frames is never reported. Idle carries the same
       // guarantee and does arrive, so whichever comes first reports the load.
       RuntimeEventType.MAP_LOADING_FINISHED -> {
-        if (styleLoadUnreported) {
-          styleLoadUnreported = false
-          callbacks.onMapFinishedLoading(this)
-        }
+        reportLoadedStyle()
       }
 
       RuntimeEventType.MAP_IDLE -> {
         if (styleLoadUnreported) {
-          styleLoadUnreported = false
-          callbacks.onMapFinishedLoading(this)
+          reportLoadedStyle()
         } else {
           reportNewlyArrivedAttribution()
         }
       }
 
       RuntimeEventType.MAP_LOADING_FAILED -> {
+        styleLoadPending = false
         // The only channel for a URL style's failure; a malformed inline style also throws from the
         // setter.
         val reason = event.message.ifBlank { "MapLibre failed to load the map" }
         logger?.e { "Map loading failed (code ${event.code}): $reason" }
-        callbacks.onMapFailLoading(reason)
+        val request = appliedStyleRequest
+        val accepted =
+          request != null &&
+            styleLoadTracker?.failed(
+              request,
+              TrackedStyleLoadState.Failed.Stage.BASE_STYLE,
+              reason,
+            ) == true
+        if (accepted) {
+          callbacks.onMapFailLoading(reason)
+        } else {
+          loop?.map?.let(::applyRequestedStyle)
+        }
       }
 
       RuntimeEventType.MAP_CAMERA_WILL_CHANGE -> beginCameraMove()
@@ -939,8 +930,14 @@ internal class MlnFfiMapSession(
 
   override fun setBaseStyle(style: BaseStyle) {
     if (style == requestedStyle) return
-    styleBinding?.unload()
+    styleBinding?.invalidate()
     requestedStyle = style
+    val tracker = styleLoadTracker
+    if (tracker == null) {
+      styleLoadTracker = StyleLoadTracker(style, engineAvailable = loop != null)
+    } else {
+      tracker.request(style, engineAvailable = loop != null)
+    }
     // Disposes the composition holding the old style's sources and layers, which would otherwise
     // fail anchor validation against the base layers being replaced.
     callbacks.onStyleChanged(this, null)
@@ -951,6 +948,10 @@ internal class MlnFfiMapSession(
   private fun applyRequestedStyle(map: MapHandle) {
     val style = requestedStyle ?: return
     if (style == appliedStyle) return
+    if (styleLoadPending) return
+    val request = styleLoadTracker?.beginLoading() ?: return
+    appliedStyleRequest = request
+    styleLoadPending = true
     // setStyleJson parses inline, so a malformed style throws as well as queueing
     // MAP_LOADING_FAILED; the queued event is what reports it.
     try {

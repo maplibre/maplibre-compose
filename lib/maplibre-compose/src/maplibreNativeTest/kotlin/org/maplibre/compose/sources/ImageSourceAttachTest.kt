@@ -8,7 +8,8 @@ import kotlin.test.assertIs
 import kotlin.test.assertTrue
 import org.maplibre.compose.mlnffi.BridgeMapFixture
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.PositionQuad
 import org.maplibre.nativeffi.Maplibre
@@ -48,12 +49,13 @@ class ImageSourceAttachTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertIs<MlnFfiStyle>(it.style, "the style should have reached the callbacks")
+      val style =
+        assertIs<MlnFfiStyleBinding>(it.style, "the style should have reached the callbacks")
 
       val fromBitmap = ImageSource(BITMAP_SOURCE_ID, WORLD, ImageBitmap(4, 4))
       val fromUrl = ImageSource(URL_SOURCE_ID, WORLD, uri = "")
-      style.addSource(fromBitmap)
-      style.addSource(fromUrl)
+      style.install(fromBitmap)
+      style.install(fromUrl)
 
       it.pumpUntil("MapLibre to reject the empty placeholder URL") { failedToLoad(URL_SOURCE_ID) }
       // A few more frames, so a late complaint about the bitmap source is not simply outrun.
@@ -68,7 +70,7 @@ class ImageSourceAttachTest {
       // reading them back.
       assertEquals(
         listOf(WORLD.topLeft, WORLD.topRight, WORLD.bottomRight, WORLD.bottomLeft),
-        fromBitmap.attachedCorners(),
+        style.imageSourceCoordinates(fromBitmap.id),
       )
       assertEquals(emptyList(), it.errors, "the map should report nothing")
     }

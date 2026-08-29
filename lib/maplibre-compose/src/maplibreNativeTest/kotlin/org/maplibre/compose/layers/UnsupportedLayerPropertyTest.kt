@@ -23,7 +23,8 @@ import org.maplibre.compose.sources.GeoJsonOptions
 import org.maplibre.compose.sources.GeoJsonSource
 import org.maplibre.compose.sources.Source
 import org.maplibre.compose.style.BaseStyle
-import org.maplibre.compose.style.MlnFfiStyle
+import org.maplibre.compose.style.MlnFfiStyleBinding
+import org.maplibre.compose.style.install
 import org.maplibre.compose.testing.RecordingList
 import org.maplibre.compose.util.onMap
 import org.maplibre.compose.util.toJsonElement
@@ -48,7 +49,7 @@ class UnsupportedLayerPropertyTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
       val layer = SymbolLayer("labels", source)
@@ -58,9 +59,9 @@ class UnsupportedLayerPropertyTest {
       layer.setTextOverlap(const(SymbolOverlap.Always).compile(ExpressionContext.None))
       // The assertion is that this returns at all: a layer object carrying `icon-overlap` is
       // refused wholesale, and attach turns that into a throw.
-      style.addLayer(layer)
+      val handle = style.install(layer)
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertTrue(map.styleLayerExists("labels"), "the layer should have been added")
         // MapLibre holds no value for a property that was never written, and reports none.
         assertNull(
@@ -90,7 +91,8 @@ class UnsupportedLayerPropertyTest {
       )
 
       layer.setIconOverlap(const("never").compile(ExpressionContext.None))
-      layer.onMap { map ->
+      handle.update(layer.definition())
+      style.onMap { map ->
         // The read stays inside the block: onMap rejects a null *result* as an unbound layer.
         assertNull(
           map.layerProperty("labels", "icon-overlap"),
@@ -106,7 +108,7 @@ class UnsupportedLayerPropertyTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
       // What every SymbolLayer composable does: an optional property nobody set compiles to a null
@@ -114,7 +116,7 @@ class UnsupportedLayerPropertyTest {
       val layer = SymbolLayer("labels", source)
       layer.setIconOverlap(nil().cast<StringValue>().compile(ExpressionContext.None))
       layer.setTextOverlap(nil().cast<SymbolOverlap>().compile(ExpressionContext.None))
-      style.addLayer(layer)
+      style.install(layer)
 
       assertEquals(emptyList(), warnings(), "an unset property should not be reported")
     }
@@ -125,22 +127,23 @@ class UnsupportedLayerPropertyTest {
     val fixture = BridgeMapFixture.create()
     fixture.use {
       it.loadStyle(BaseStyle.Empty)
-      val style = assertNotNull(it.style as? MlnFfiStyle, "Errors: ${it.errors}")
+      val style = assertNotNull(it.style as? MlnFfiStyleBinding, "Errors: ${it.errors}")
       val source = addSource(style)
 
       val layer = SymbolLayer("labels", source)
       layer.setTextRotationAlignment(
         const(TextRotationAlignment.Map).compile(ExpressionContext.None)
       )
-      style.addLayer(layer)
+      val handle = style.install(layer)
 
       // `viewport-glyph` is in the style spec but not in MapLibre Native, which knows only map,
       // viewport, and auto, yet it arrives through the public API as an ordinary enum member.
       layer.setTextRotationAlignment(
         const(TextRotationAlignment.ViewportGlyph).compile(ExpressionContext.None)
       )
+      handle.update(layer.definition())
 
-      layer.onMap { map ->
+      style.onMap { map ->
         assertEquals(
           JsonPrimitive("map"),
           map.layerProperty("labels", "text-rotation-alignment")?.toJsonElement(),
@@ -160,13 +163,13 @@ class UnsupportedLayerPropertyTest {
 
   private fun warnings(): List<String> = CAPTURED.filter { it.startsWith("Layer ") }
 
-  private fun addSource(style: MlnFfiStyle): Source =
+  private fun addSource(style: MlnFfiStyleBinding): Source =
     GeoJsonSource(
         id = "features",
         data = GeoJsonData.Features(FeatureCollection<Geometry, JsonObject?>()),
         options = GeoJsonOptions(),
       )
-      .also { style.addSource(it) }
+      .also { style.install(it) }
 
   private companion object {
     /**
