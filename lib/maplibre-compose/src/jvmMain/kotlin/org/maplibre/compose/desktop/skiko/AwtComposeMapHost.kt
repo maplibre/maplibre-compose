@@ -9,7 +9,6 @@ import org.maplibre.compose.desktop.MetalComposeGpuContext
 import org.maplibre.compose.desktop.OpenGlComposeGpuContext
 import org.maplibre.compose.desktop.bridge.ObjectiveC
 import org.maplibre.compose.desktop.skiko.SkikoReflection.getField
-import org.maplibre.compose.desktop.skiko.SkikoReflection.invokeDeclaredNoArg
 import org.maplibre.compose.desktop.skiko.SkikoReflection.staticInvoke
 import org.maplibre.compose.location.XdgPortalWindow
 import org.maplibre.compose.mlnffi.ComposeRenderBackend
@@ -117,9 +116,9 @@ internal class AwtComposeMapHost(private val window: Window) : ComposeMapHost {
   }
 
   private fun metalContext(layer: Any): MetalComposeGpuContext? {
-    val handler = SkikoReflection.requireMetalContextHandler(layer)
-    val skiaContext = handler.directContext() ?: return null
-    val device = SkikoReflection.findMetalDevice(handler) ?: return null
+    val redrawer = SkikoReflection.requireRedrawer(layer, SkikoReflection.METAL_REDRAWER_CLASS)
+    val skiaContext = redrawer.getField("context") as? DirectContext ?: return null
+    val device = SkikoReflection.findMetalDevice(redrawer) ?: return null
     // Skiko's device object is its own wrapper; `adapter` holds the real `id<MTLDevice>`, which is
     // what MapLibre's texture has to be allocated on.
     val adapter =
@@ -131,9 +130,7 @@ internal class AwtComposeMapHost(private val window: Window) : ComposeMapHost {
 
   private fun direct3D12Context(layer: Any): Direct3D12ComposeGpuContext? {
     val redrawer = SkikoReflection.requireRedrawer(layer, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
-    val handler =
-      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.DIRECT3D_REDRAWER_CLASS)
-    val skiaContext = handler.directContext(makeContext = "makeContext") ?: return null
+    val skiaContext = redrawer.getField("context") as? DirectContext ?: return null
     val device = SkikoReflection.findDirect3DDevice(redrawer) ?: return null
     val rawDevice = SkikoDirect3DDeviceLayout.rawDevice(device).takeIf { it != 0L } ?: return null
     return Direct3D12ComposeGpuContext(skiaContext = skiaContext, device = NativeHandle(rawDevice))
@@ -142,9 +139,7 @@ internal class AwtComposeMapHost(private val window: Window) : ComposeMapHost {
   private fun openGlContext(layer: Any): OpenGlComposeGpuContext? {
     val redrawer =
       SkikoReflection.requireRedrawer(layer, SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
-    val handler =
-      SkikoReflection.requireContextHandler(redrawer, SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
-    val skiaContext = handler.directContext() ?: return null
+    val skiaContext = redrawer.getField("glContext") as? DirectContext ?: return null
     return OpenGlComposeGpuContext(
       skiaContext = skiaContext,
       withContextCurrent = { action -> withOpenGlContextCurrent(layer, redrawer, action) },
@@ -174,16 +169,4 @@ internal class AwtComposeMapHost(private val window: Window) : ComposeMapHost {
       surfaceHelpers.staticInvoke("unlockLinuxDrawingSurface", drawingSurface)
     }
   }
-
-  /**
-   * Skiko's context handlers create their [DirectContext] lazily, on the first frame. Null here
-   * means "not yet", which the map reports as a skipped frame rather than a failure.
-   */
-  private fun Any.directContext(makeContext: String = "getContext"): DirectContext? =
-    (getField("context") as? DirectContext)
-      ?: run {
-        invokeDeclaredNoArg("initContext")
-        (getField("context") as? DirectContext)
-          ?: invokeDeclaredNoArg(makeContext) as? DirectContext
-      }
 }

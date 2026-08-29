@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.ComposeUiTest
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -43,7 +44,9 @@ internal fun runBrowserMapTest(block: suspend ComposeUiTest.() -> Unit): Promise
 @OptIn(ExperimentalTestApi::class)
 internal fun ComposeUiTest.setBrowserMapContent(size: Int = 256, content: @Composable () -> Unit) {
   setContent {
-    CompositionLocalProvider(LocalGlJsCompositor provides { DetachedGlJsCompositor() }) {
+    CompositionLocalProvider(
+      LocalGlJsCompositor provides { remember { DetachedGlJsCompositor() } }
+    ) {
       Box(Modifier.size(size.dp)) { content() }
     }
   }

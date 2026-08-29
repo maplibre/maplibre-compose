@@ -27,42 +27,36 @@ class SkikoReflectionContractTest {
   }
 
   @Test
+  fun `the on-screen redrawer exposes its backend renderer`() {
+    assertField(Class.forName(SkikoReflection.ON_SCREEN_REDRAWER_CLASS), "renderer")
+  }
+
+  @Test
   fun `ComposeWindow exposes the panel the host walks to find the layer`() {
     assertField(Class.forName(SkikoReflection.COMPOSE_WINDOW_CLASS), "composePanel")
   }
 
   @Test
-  fun `each redrawer exposes its context handler`() {
-    for (redrawer in
-      listOf(
-        SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS,
-        SkikoReflection.METAL_REDRAWER_CLASS,
-        SkikoReflection.DIRECT3D_REDRAWER_CLASS,
-      )) {
-      assertField(Class.forName(redrawer), "contextHandler")
-    }
+  fun `the Linux OpenGL redrawer exposes its native and Skia contexts`() {
+    val redrawer = Class.forName(SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS)
+    assertField(redrawer, "context")
+    assertField(redrawer, "glContext")
   }
 
   @Test
-  fun `the Linux OpenGL redrawer exposes its native context`() {
-    assertField(Class.forName(SkikoReflection.LINUX_OPENGL_REDRAWER_CLASS), "context")
+  fun `the Direct3D redrawer exposes its device context and render lock`() {
+    val redrawer = Class.forName(SkikoReflection.DIRECT3D_REDRAWER_CLASS)
+    assertField(redrawer, "device")
+    assertField(redrawer, "context")
+    assertField(redrawer, "drawLock")
   }
 
   @Test
-  fun `the Direct3D redrawer exposes its device and context factory`() {
-    assertField(Class.forName(SkikoReflection.DIRECT3D_REDRAWER_CLASS), "device")
-    assertMethod(Class.forName(SkikoReflection.DIRECT3D_CONTEXT_HANDLER_CLASS), "makeContext")
-  }
-
-  @Test
-  fun `the Metal context handler exposes the device and context the host reads`() {
-    // No test drives the Metal host: the suite runs on Vulkan even on macOS.
-    assertField(Class.forName(SkikoReflection.METAL_CONTEXT_HANDLER_CLASS), "device")
-    assertField(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "context")
-    assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "getContext")
-    // Declared abstract on ContextHandler and implemented on ContextBasedContextHandler; the
-    // lookup walks superclasses, so asserting on the base is enough.
-    assertMethod(Class.forName(SkikoReflection.CONTEXT_HANDLER_CLASS), "initContext")
+  fun `the Metal redrawer exposes its device context and render lock`() {
+    val redrawer = Class.forName(SkikoReflection.METAL_REDRAWER_CLASS)
+    assertField(redrawer, "_device")
+    assertField(redrawer, "context")
+    assertField(redrawer, "drawLock")
   }
 
   @Test
