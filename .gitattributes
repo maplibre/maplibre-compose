@@ -10,6 +10,7 @@ gradle/wrapper/**                                         linguist-vendored=true
 
 # Generated: dependency lockfiles.
 kotlin-js-store/yarn.lock                                 linguist-generated=true
+kotlin-js-store/wasm/yarn.lock                            linguist-generated=true
 pnpm-lock.yaml                                            linguist-generated=true
 mise.lock                                                 linguist-generated=true
 mise.android.lock                                         linguist-generated=true
